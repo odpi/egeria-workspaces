@@ -49,7 +49,7 @@ description = 'New code for Egeria'
 
 // TODO: Specify Dependency versions as variables
 ext {
-    egeriaVersion = '4.0-SNAPSHOT'
+    egeriaVersion = '5.1-SNAPSHOT'
 }
 
 // For a single module, add here. For multiple modules, refactor and use constraints (see main egeria build.gradle for an example)
