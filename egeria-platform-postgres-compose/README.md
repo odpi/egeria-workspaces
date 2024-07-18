@@ -12,9 +12,16 @@ Please feel free to engage with the community on our slack channel - we'd love y
 For a quick and simple environment to explore some of Egeria's base capabilities, the **egeria-platform.yml**  Docker Compose
 deployment may be a good starting point. Once this script executes successfully, you will have two docker containers running. One for the Egeria platform and one for Kafka. With this running configuration, you can work with any of Egeria's standard interfaces - java APIs, python APIs, or just plain RESTful http calls - and of course, to make use of tools and interfaces that have been built using these APIs.
 
-The set of **Docker Compose** configurations will grow and evolve over time to cover additional scenarios. 
+The set of **Docker Compose** configurations will grow and evolve over time to cover additional scenarios. For example,
+the folder `egeria-platform-postgres-compose` contains a docker compose configuration that adds a Postgres 
+database along with the Egeria OMAG platform and Kafka servers. This sets the stage emerging scenarios that
+utilize a relational database to collect Egeria derived information such as Audit logs for additional analysis and dashboarding.
+Please see the embedded README.md files for more details.
 
 # Contents
+
+* egeria-platform-compose - a basic Egeria OMAG platform standalone deployment that includes Kafka as well as Egeria.
+* egeria-platform-postgres-compose - deploys and configures a Postgres relational database as well as Kafka and Egeria.
 
 Our first docker compose script is called **egeria-platform.yml**. After running this script, you will have a running environment 
 that consists of a single Egeria runtime platform and the Apache Kafka event system. Information about configuring 
@@ -28,15 +35,14 @@ We use the Egeria platform docker image - [egeria-platform](https://hub.docker.c
 can be made to platform URL **https://localhost:9443** or, if your environment is configured to support it, it can use 
 the domain name of your host machine. 
 * SSL - By default strict SSL is set to false 
-* Auto-Started Servers - by default a useful set of Egeria Open Metadata and Governance (OMAG) servers are pre-installed
-and started when the Egeria platform is started. A description of these servers can be found at [sample configs](https://github.com/odpi/egeria/tree/main/open-metadata-resources/open-metadata-deployment/sample-configs):
-
+* Auto-Started Servers - by default a useful set of Egeria Operational Metadata and Governance (OMAG) servers are pre-installed
+and started when the Egeria platform is started. The pre-configured and started servers are:
   * simple-metadata-store
   * active-metadata-store
   * engine-host
   * integration-daemon
   * view-server
-
+A description of these servers can be found at [sample configs](open-metadata-resources/open-metadata-deployment/sample-configs/README.md)
 * Content Packs - pre-constructed information sets that can be used to configure Egeria and pre-load metadata, reference data and glossary data. See [Content Packs](https://egeria-project.org/content-packs/).
 * Out-of-the-box Connectors - descriptions of the integration connectors can be found at [Integration Connectors](https://egeria-project.org/connectors/).
 
