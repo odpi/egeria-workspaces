@@ -12,7 +12,10 @@ Please feel free to engage with the community on our slack channel - we'd love y
 For a quick and simple environment to explore some of Egeria's base capabilities, the **egeria-platform.yml**  Docker Compose
 deployment may be a good starting point. Once this script executes successfully, you will have two docker containers running. One for the Egeria platform and one for Kafka. With this running configuration, you can work with any of Egeria's standard interfaces - java APIs, python APIs, or just plain RESTful http calls - and of course, to make use of tools and interfaces that have been built using these APIs.
 
-The set of **Docker Compose** configurations will grow and evolve over time to cover additional scenarios. 
+If you are a data scientist or just want to work within a Jupyter Notebook environment, the `egeria-platform-jupyter-compose` script
+adds a Jupyter server pre-configured with the Egeria Python client, **pyegeria** for you to use.
+The set of **Docker Compose** configurations will continue to grow and evolve over time to cover additional scenarios based on
+community feedback. 
 
 # Contents
 

@@ -15,4 +15,4 @@
 #python3 /home/jovyan/egeria-labs/common/config_coco_development.py
 #echo "Launching Jupyter notebook server.."
 
-
+/opt/conda/bin/activate python312
