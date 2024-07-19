@@ -52,6 +52,8 @@ services:
              - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
              - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
              - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+
+
     
     egeria-main:
         depends_on:
@@ -75,10 +77,8 @@ services:
             start_interval: 5s
 
         volumes:
-            - ../landing-area:/deployments/landing-area
-            - ../distribution-hub:/deployments/distribution-hub
-            - ../distribution-hub/surveys:/deployments/surveys
-            - ../distribution-hub/logs:/deployments/logs
+            - ../landing_area:/deployments/landing-area
+            - ../logs:/deployments/logs
     #            - "YOUR EXTRA LIBRARY DIRECTORY"/extra:/deployments/extra
     #            - "ANOTHER DIRECTOR TO MOUNT"/:/deployments/user_mount
 
