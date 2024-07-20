@@ -1,66 +1,91 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 <!-- Copyright Contributors to the ODPi Egeria project. -->
 
-# Open Metadata Labs - Using Docker Compose
+# Overview
+This directory contains sample Docker Compose scripts to support the deployment of Egeria for experimentation,
+development, and learning. Rather than having to install Egeria, prerequisites and tools separately, these scripts make 
+it easy to get a stack running quickly. This deployment extends the **egeria-platform-compose** deployment by adding a Jupyter 
+container[Project Jupyter](https://jupyter.org/) where users can use the **pyegeria** python client to work with Egeria.
 
-The open metadata labs contain an interactive environment that allow you to
-experiment with different capabilities of Egeria.  More information about the labs can be found at:
-[Overview of the Labs](https://egeria-project.org/education/open-metadata-labs/overview/).
-The labs are written using Python Jupyter notebooks that
-run in a Jupyter Server. The interactive exercises in the notebooks call python functions
-that communicate with Egeria. An Apache Kafka server is used by Egeria for communications.
-
-One way to easily deploy a running
-Open Metadata Labs environment is by using the Docker Compose scripts contained in this directory.
-
-A docker compose script, coco-lab-setup.yaml uses docker compose to deploy, configure and run a complete working 
-environment that includes:
-
-* Three Egeria OMAG Server Platforms 
-  * egeria-core (on port 7443)
-  * egeria-datalake (on port 7444)
-  * egeria-dev (on port 7445)
-* Kafka (on port 9192)
-* Jupyter Server that is used to run the lab exercises (on port 9888)
-
-Note that the port numbers are different from tho commonly used defaults to simplify
-the coexistence of this environment in a host that may already be running Egeria, Kafka or Jupyter.
-Configurations can be changed in the docker compose script `coco-lab-setup.yaml`.
-
-# Getting Started
-
-To get started, you need a computer with Docker installed and configured. Our experience is with running Docker on Mac and 
-Linux machines, Windows machines should also work (reach out if you run into issues). Docker can be installed from 
-[Docker](https://docker.com). Docker compose is installed automatically if you install Dockker Desktop.
-Compatible alternatives to Docker Compose exist but have not yet been validated.
-
-This deployment has been testing on older machines as well as current ones. Given the number of 
-servers we are running, allocating at 10gb of memory for Docker is recommended. 
-
-The startup procedure is as follows:
-
-1. Start docker or docker desktop
-2. Download or clone the git repository containing the Egeria Open Metadata Labs
-   * Download - a zip file of the repository can be downloaded by pressing the green `Code` button on  [](https://github.com/odpi/egeria-jupyter-notebooks)
-     * unzip the file in your directory of choice
-   * Clone - If you want to fork the repo first then change the URL to your fork.
-     * Ensure you have the git command line installed.
-     * Change to a directory you want to use as the parent of the files
-     * From a terminal window, issue: `git clone https://github.com/dwolfson/egeria-jupyter-notebooks.git`
-3. In a terminal window, from the `egeria-jupyter-notebooks` folder, issue the commmand:
-    `docker compose -f coco-lab-docker-compose/coco-lab-setup.yaml up --build`
-    * This should produce a large amount of output as images are downloaded and started and configured. Expect the process to take a few minutes the first time and less on subsequent starts.
-    * You should only need the `--build` option the first time you run this command. Subsequent startup calls would just be:
-    `docker compose -f coco-lab-docker-compose/coco-lab-setup.yaml up`
-4. Once everything is started and configured you can run the labs from the jupyter server by:
-   * opening a web browser to:
-     `http://localhost:9888/lab/tree/egeria-labs/read-me-first.ipynb`
-   * Type in `egeria` into the box for token or password. This will launch Jupyter in the browser.
-   * The `read-me-first` jupyter notebook should now be displayed. You are ready to start!
+These are not meant for production use. Please see the [Planning Guide](https://egeria-project.org/guides/planning/)
+for more information about designing Egeria deployments. The Egeria community has also created samples for other 
+deployment styles, such as Cloud Native approaches and the use of Helm charts to configure Kubernetes clusters. These
+options may be better starting points for production deployments - depending upon your requirements.
+Please feel free to engage with the community on our slack channel - we'd love your feedback and participation.
 
 
-5. Questions, observations and other feedback are always welcome - we welcome your participation in our community:
-   * https://egeria-project.org/guides/community/
+For a quick and simple environment to explore some of Egeria's base capabilities, the **egeria-platform-jupyter.yaml**  Docker Compose
+deployment may be a good starting point. Once this script executes successfully, you will have three docker containers running. 
+One for the Egeria platform, one for Kafkaand one for Jupyter. With this running configuration, you can work with any of Egeria's standard interfaces 
+- java APIs, python APIs, or just plain RESTful http calls - and of course, to make use of tools and interfaces that have been built using these APIs.
+
+The set of **Docker Compose** configurations will grow and evolve over time to cover additional scenarios. For example,
+the folder `egeria-platform-postgres-compose` contains a docker compose configuration that adds a Postgres 
+database along with the Egeria OMAG platform and Kafka servers. This sets the stage emerging scenarios that
+utilize a relational database to collect Egeria derived information such as Audit logs for additional analysis and dashboarding.
+Please see the embedded README.md files for more details.
+
+The docker compose script is called **egeria-platform-jupyter-compose.yaml**. After running this script, you will have a running environment 
+that consists of a single Egeria runtime platform,the Apache Kafka event system and a Jupyter server. Information about configuring 
+Egeria can be found at [Configuring Egeria](https://egeria-project.org/guides/admin/configuring-the-omag-server-platform/). 
+We use standard, out-of-the-box configurations for both - a minimal amount of configuration for:
+
+## Egeria Platform - Default Configuration
+We use the Egeria platform docker image - [egeria-platform](https://hub.docker.com/r/odpi/egeria-platform).
+
+* Port - By default the platform uses port 9443 and exposes this port to the host environment, This means that Egeria requests
+can be made to platform URL **https://localhost:9443** or, if your environment is configured to support it, it can use 
+the domain name of your host machine. 
+* SSL - By default strict SSL is set to false 
+* Auto-Started Servers - by default a useful set of Egeria Operational Metadata and Governance (OMAG) servers are pre-installed
+and started when the Egeria platform is started. The pre-configured and started servers are:
+  * simple-metadata-store
+  * active-metadata-store
+  * engine-host
+  * integration-daemon
+  * view-server
+A description of these servers can be found at [sample configs](open-metadata-resources/open-metadata-deployment/sample-configs/README.md)
+* Content Packs - pre-constructed information sets that can be used to configure Egeria and pre-load metadata, reference data and glossary data. See [Content Packs](https://egeria-project.org/content-packs/).
+* Out-of-the-box Connectors - descriptions of the integration connectors can be found at [Integration Connectors](https://egeria-project.org/connectors/).
+
+## Kafka - configured for Egeria
+We use the bitnami/kafka image described at [kafka](https://hub.docker.com/r/bitnami/kafka)
+* Port - We use the default port of 9092 for Kafka. This port is also exposed in the host environment. Changing this port also requires corresponding changes to the Egeria configuration.
+* Other configuration can be seen in the *egeria-platform.yaml* file. 
+
+## Jupyter - configured for Egeria
+A standard Jupyter data science docker image is extended to pre-install **pyegeria** and simplify using Egeria from Jupyter notebooks.
+
+# Usage
+Follow these steps to use Docker Compose.
+
+1. Install and Configure Docker and Docker Compose. 
+   * Docker and Docker compose must be installed and running - see https://docs.docker.com/install/
+   * Configure docker with at least 8GB memory
+2. Download the [**egeria-platform.yaml**](https://raw.githubusercontent.com/odpi/egeria/main/open-metadata-resources/open-metadata-deployment/docker-compose/egeria-platform-compose/egeria-platform.yaml)
+3. Run the docker compose script from a terminal window in the directory where you downloaded `egeria-platform.yaml`. At the command line issue:
+
+  `docker compose -f egeria-platform.yaml up`
+
+This will download the docker images for Kafka and Egeria, then create and start the two containers. Both kafka and Egeria will then automatically configure themselves. For Egeria, this means not only starting up the initial set of servers, but then loading the **CoreContentPack.omarchive** into the metadata repository, and then configuring all the servers. This can take several minutes the first time the containers are created. Subsequent startups will be much faster.
+
+4. Using either the **docker desktop** application or the docker command line you can see the two new containers running. To do this with the docker command line, you can issue:
+
+`docker ps`
+
+5. The environment is ready to be used. 
+
+6. You can control the containers with docker compose commands - see [docker compose](https://docs.docker.com/reference/cli/docker/compose/). These commands can be used to administer and use the docker containers.
+
+## Next Steps
+
+Now that your Egeria environment is running and configured it is waiting for you to make requests. 
+Some tutorials for working with Egeria can be found at [Tutorials](https://egeria-project.org/education/tutorials/). For those that want to try the new python client, you can find a quick introduction at [pyegeria](https://getting-started-with-egeria.pdr-associates.com/recipe-6-charming-python.html). 
+
+As always, your feedback and participation are welcome. 
+
+
+License: CC BY 4.0, Copyright Contributors to the ODPi Egeria project.
    
 
 

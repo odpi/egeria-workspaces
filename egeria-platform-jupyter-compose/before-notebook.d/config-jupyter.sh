@@ -8,11 +8,9 @@
 # This shell script is automatically invoked when the Jupyter Container is initiated as part of the Docker Compose
 # configuration.The script configures and activates the Egeria OMAG servers on each of the three Egeria OMAG Server
 # Platforms that are part of the sample Coco Pharmaceuticals deployment environment.
-
-#export PYTHONDONTWRITEBYTECODE=1
-#python3 /home/jovyan/egeria-labs/common/config_coco_core.py
-#python3 /home/jovyan/egeria-labs/common/config_coco_datalake.py
-#python3 /home/jovyan/egeria-labs/common/config_coco_development.py
-#echo "Launching Jupyter notebook server.."
-
-/opt/conda/bin/activate python312
+#
+#
+# The following line is useful if you want to configure an alternate version of python - note that you need to make
+# corresponding changes in the Dockerfile-jupyter file.
+#
+#/opt/conda/bin/activate python312

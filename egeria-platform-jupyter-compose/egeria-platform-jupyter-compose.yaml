@@ -12,7 +12,7 @@
 #
 # Assumptions:
 #   * Ports 7443, 7444, 7445 and 9192 are available on the host system - these are the default ports for Kafka and Egeria.
-#   * by default, the jupyter notebooks in the 'coco-jupyter-labs' folder are mounted and available for use by the jupyter noteboos
+#   * by default, the jupyter notebooks in the 'coco-jupyter-labs' folder are mounted and available for use by the jupyter notebooks
 #   * by default, strict SSL validation is turned off
 #
 #
