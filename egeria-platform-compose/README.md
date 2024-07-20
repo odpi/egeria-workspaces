@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+<!-- Copyright Contributors to the ODPi Egeria project. -->
+
 # Overview
 This directory contains sample Docker Compose scripts to support the deployment of Egeria for experimentation,
 development, and learning. Rather than having to install Egeria, prerequisites and tools separately, these scripts make 
@@ -9,7 +12,7 @@ options may be better starting points for production deployments - depending upo
 Please feel free to engage with the community on our slack channel - we'd love your feedback and participation.
 
 
-For a quick and simple environment to explore some of Egeria's base capabilities, the **egeria-platform.yml**  Docker Compose
+For a quick and simple environment to explore some of Egeria's base capabilities, the **egeria-platform.yaml**  Docker Compose
 deployment may be a good starting point. Once this script executes successfully, you will have two docker containers running. One for the Egeria platform and one for Kafka. With this running configuration, you can work with any of Egeria's standard interfaces - java APIs, python APIs, or just plain RESTful http calls - and of course, to make use of tools and interfaces that have been built using these APIs.
 
 The set of **Docker Compose** configurations will grow and evolve over time to cover additional scenarios. For example,
