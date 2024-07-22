@@ -25,7 +25,7 @@ from unitycatalog.types import (catalog_info, catalog_list_response,
                                 )
 
 
-def display_catalog(url:str = "http://egeria.pdr-associates.com:8070"):
+def display_catalog(url:str):
     base_url = url + "/api/2.1/unity-catalog"
     uc_client = Unitycatalog(base_url=base_url)
 

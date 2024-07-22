@@ -37,6 +37,9 @@ services:
             - ./before-notebook.d:/usr/local/bin/before-notebook.d
             - ../work:/home/jovyan/work
             - ../workspaces:/home/jovyan/workspaces
+            - ../distribution-hub:/home/jovyan/distribution-hub
+            - ../loading-bay:/home/jovyan/loading-bay
+            - ../landing-area:/home/jovyan/landing-area
 
 
     kafka:
@@ -56,8 +59,8 @@ services:
     egeria-main:
         depends_on:
             - kafka
-        image: 'egeria-platform:uc1'
-#        image: 'docker.io/odpi/egeria-platform:stable'
+        image: 'egeria-platform:7-22'
+#        image: 'docker.io/odpi/egeria-platform:latest'
         ports:
             - '9443:9443'
         environment:
@@ -79,6 +82,8 @@ services:
             - ../distribution-hub:/deployments/distribution-hub
             - ../distribution-hub/surveys:/deployments/surveys
             - ../distribution-hub/logs:/deployments/logs
+            - ../egeria-platform-data:/deployments/data
+            - ../loading-bay:/deployments/landing-bay
     #            - "YOUR EXTRA LIBRARY DIRECTORY"/extra:/deployments/extra
     #            - "ANOTHER DIRECTOR TO MOUNT"/:/deployments/user_mount
 

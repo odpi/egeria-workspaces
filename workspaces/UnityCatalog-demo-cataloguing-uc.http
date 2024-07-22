@@ -102,11 +102,11 @@ Content-Type: application/json
   "templateGUID" : "1077a346-7a50-4cb0-a795-b219bafaabf6",
   "isOwnAnchor" : true,
   "placeholderPropertyValues" : {
-    "hostURL" : "http://localhost",
+    "hostURL" : "http://wolfsonnet.me",
     "portNumber" : "8080",
-    "serverName" : "Unity Catalog 1",
+    "serverName" : "Unity Catalog - wolfsonnet.me",
     "versionIdentifier" : "V1.0",
-    "description" : "First instance of the OSS Unity Catalog (UC) Server.",
+    "description" : "Wolfsonnet OSS Unity Catalog (UC) Server.",
     "serverUserId" : "uc1",
     "versionIdentifier" : "V1.0"
   }
@@ -116,7 +116,7 @@ Content-Type: application/json
 
 ###
 
-@serverGUID=47132e90-108e-442b-8edb-c8c86f091692
+@serverGUID=b1f5e7c7-dd84-4f63-96d3-a81ed6c9830b
 
 ###
 # @name getTechnologyTypeElements (UC Server)
@@ -214,7 +214,7 @@ Content-Type: application/json
 #
 
 @integrationConnectorGUID=06d068d9-9e08-4e67-8c59-073bbf1013af
-@friendshipGUID=74dde22f-2249-4ea3-af2b-b39e73f79b81
+@friendshipGUID=156315b3-62d4-4106-87ba-d958db44f3bf
 
 ###
 # @name addCatalogTarget
@@ -228,7 +228,7 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-  "catalogTargetName" : "uc1",
+  "catalogTargetName" : "uc-wolfsonnet",
   "templateProperties" : {
     "OSS Unity Catalog (UC) Catalog"  : "{{ucCatalogTemplateGUID}}",
     "OSS Unity Catalog (UC) Schema"   : "{{ucSchemaTemplateGUID}}",
