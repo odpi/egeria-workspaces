@@ -45,7 +45,7 @@ ARG py_ver=3.12
 #     echo conda activate "${env_name}" >> "/home/${NB_USER}/.bashrc"
 #
 #USER ${NB_UID}
-RUN pip install --no-cache-dir 'pyegeria>=0.5.5.22'
+RUN pip install --no-cache-dir 'pyegeria>=0.5.6'
 RUN pip install --no-cache-dir 'rich'
 RUN pip install --no-cache-dir 'unitycatalog'
 RUN pip install --no-cache-dir 'pipx'
@@ -56,6 +56,7 @@ RUN pipx ensurepath
 RUN mkdir -p /home/jovyan/workspaces
 RUN chmod +xrw /home/jovyan/workspaces
 COPY ../Start-Here.md /home/jovyan
+COPY ../custom.css /home/.jupyter
 
 
 #RUN echo "export EGERIA_PLATFORM_URL= \'https://host.docker.internal:9443\'" >> "/home/$(NB_USER}/.bashrc"
