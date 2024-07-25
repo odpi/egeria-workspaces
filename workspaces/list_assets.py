@@ -53,8 +53,8 @@ def display_assets(search_string: str, server: str, url: str, username: str, use
             row_styles=["bold white on black"],
             title_style="bold white on black",
             caption_style="white on black",
-            width = 300,
             show_lines=True,
+            width = 300,
             box=box.ROUNDED,
             caption=f"View Server '{server}' @ Platform - {url}",
             expand=True
@@ -87,7 +87,7 @@ def display_assets(search_string: str, server: str, url: str, username: str, use
             matches = element['matchingElements']
             match_md = ""
 
-            match_tab = Table()
+            match_tab = Table(expand=True)
             match_tab.add_column("Type Name")
             match_tab.add_column("GUID", no_wrap=True)
             match_tab.add_column("Properties")
