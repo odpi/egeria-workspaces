@@ -104,3 +104,8 @@ jitdump*dmp
 !gradle/**
 .gradle/
 build/
+
+# egeria-workspaces
+distribution-hub
+work
+egeria-platform-data
