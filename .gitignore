@@ -104,3 +104,10 @@ jitdump*dmp
 !gradle/**
 .gradle/
 build/
+
+# Open metadata repositories
+egeria-platform-data/servers/*/repository
+egeria-platform-data/servers/*/repository/**
+distribution-hub/log/**
+distribution-hub/surveys/**
+work/**
