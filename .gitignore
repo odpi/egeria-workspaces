@@ -108,4 +108,5 @@ build/
 # egeria-workspaces
 distribution-hub
 work
-egeria-platform-data
+egeria-platform-data/servers/*/repository/**
+egeria-platform-data/servers/*/repository
