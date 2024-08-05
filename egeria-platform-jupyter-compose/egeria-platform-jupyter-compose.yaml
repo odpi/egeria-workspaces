@@ -84,6 +84,7 @@ services:
             - ../distribution-hub/logs:/deployments/logs
             - ../egeria-platform-data:/deployments/data
             - ../loading-bay:/deployments/landing-bay
+
     #            - "YOUR EXTRA LIBRARY DIRECTORY"/extra:/deployments/extra
     #            - "ANOTHER DIRECTOR TO MOUNT"/:/deployments/user_mount
 

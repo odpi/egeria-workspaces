@@ -22,9 +22,14 @@ export EGERIA_VIEW_SERVER='view-server'
 export EGERIA_VIEW_SERVER_URL='https://host.docker.internal:9443'
 export EGERIA_INTEGRATION_DAEMON='integration-daemon'
 export EGERIA_INTEGRATION_DAEMON_URL='https://host.docker.internal:9443'
+export EGERIA_ENGINE_HOST='engine-host'
+export EGERIA_ENGINE_HOST_URL='https://host.docker.internal:9443'
 export EGERIA_ADMIN_USER='garygeeke'
 export EGERIA_ADMIN_PASSWORD='secret'
 export EGERIA_USER='erinoverview'
 export EGERIA_USER_PASSWORD='secret'
+export EGERIA_JUPYTER='True'
+export EGERIA_WIDTH='200'
+
 
 
