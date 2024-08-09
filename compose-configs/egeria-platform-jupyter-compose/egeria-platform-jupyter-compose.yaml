@@ -35,11 +35,12 @@ services:
 
         volumes:
             - ./before-notebook.d:/usr/local/bin/before-notebook.d
-            - ../work:/home/jovyan/work
-            - ../workspaces:/home/jovyan/workspaces
-            - ../distribution-hub:/home/jovyan/distribution-hub
-            - ../loading-bay:/home/jovyan/loading-bay
-            - ../landing-area:/home/jovyan/landing-area
+            - ../../work:/home/jovyan/work
+            - ../../workspaces:/home/jovyan/workspaces
+            - ../../exchange/distribution-hub:/home/jovyan/distribution-hub
+            - ../../exchange/loading-bay:/home/jovyan/loading-bay
+            - ../../exchange/landing-area:/home/jovyan/landing-area
+            - ../../egeria-platform-data/content-packs:/home/jovyan/workspaces/content-packs
 
 
     kafka:
@@ -78,12 +79,13 @@ services:
             start_interval: 5s
 
         volumes:
-            - ../landing-area:/deployments/landing-area
-            - ../distribution-hub:/deployments/distribution-hub
-            - ../distribution-hub/surveys:/deployments/surveys
-            - ../distribution-hub/logs:/deployments/logs
-            - ../egeria-platform-data:/deployments/data
-            - ../loading-bay:/deployments/landing-bay
+            - ../../exchange/landing-area:/deployments/landing-area
+            - ../../exchange/distribution-hub:/deployments/distribution-hub
+            - ../../exchange/distribution-hub/surveys:/deployments/surveys
+            - ../../exchange/distribution-hub/logs:/deployments/logs
+            - ../../egeria-platform-data/data:/deployments/data
+            - ../../exchange/loading-bay:/deployments/landing-bay
+
 
     #            - "YOUR EXTRA LIBRARY DIRECTORY"/extra:/deployments/extra
     #            - "ANOTHER DIRECTOR TO MOUNT"/:/deployments/user_mount

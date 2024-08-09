@@ -106,11 +106,11 @@ jitdump*dmp
 build/
 
 # egeria-workspaces
-distribution-hub/*/**
+exchange/distribution-hub/*/**
 work
-egeria-platform-data/servers/*/repository/**
-egeria-platform-data/servers/*/repository
+egeria-platform-data/data/servers/*/repository/**
+egeria-platform-data/data/servers/*/repository
 
-landing-area/**
+exchange/landing-area/**
 
 
