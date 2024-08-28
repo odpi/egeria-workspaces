@@ -24,7 +24,7 @@ services:
                 condition: service_healthy
 
         image: quay.io/jupyter/scipy-notebook
-        container_name: jupyter-work
+        container_name: jupyter-work-air
         ports:
             - 8888:8888
         environment:
@@ -59,7 +59,6 @@ services:
     egeria-main:
         depends_on:
             - kafka
-#        image: 'egeria-platform:7-22'
         image: 'docker.io/odpi/egeria-platform:latest'
         ports:
             - '9443:9443'
@@ -87,6 +86,65 @@ services:
             - ../../work:/deployments/work
 
 
+    postgres:
+       image: postgres:16
+       volumes:
+         - ../../runtime-volumes/pg_data:/var/lib/postgresql/data
+#         - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+       environment:
+         POSTGRES_USER: airflow
+         POSTGRES_PASSWORD: airflow
+         POSTGRES_DB: airflow
+
+       logging:
+         options:
+           max-size: 10m
+           max-file: "3"
+       ports:
+           - '5422:5432'
+
+    webserver:
+       image: apache/airflow:2.10.0
+       depends_on:
+         - postgres
+       environment:
+         AIRFLOW__CORE__EXECUTOR: LocalExecutor
+         AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+       volumes:
+         - ../../runtime-volumes/airflow-volumes/dags:/opt/airflow/dags
+         - ../../runtime-volumes/airflow-volumes/logs:/opt/airflow/logs
+         - ../../runtime-volumes/airflow-volumes/plugins:/opt/airflow/plugins
+       ports:
+         - "8090:8080"
+       entrypoint: bash -c "airflow db init && exec airflow webserver"
+       restart: always
+       logging:
+         options:
+           max-size: 10m
+           max-file: "3"
+
+    scheduler:
+       image: apache/airflow:2.7.0
+       depends_on:
+         - webserver
+       environment:
+         AIRFLOW__CORE__EXECUTOR: LocalExecutor
+         AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+       volumes:
+         - ../../runtime-volumes/airflow-volumes/dags:/opt/airflow/dags
+         - ../../runtime-volumes/airflow-volumes/logs:/opt/airflow/logs
+         - ../../runtime-volumes/airflow-volumes/plugins:/opt/airflow/plugins
+       entrypoint: bash -c "exec airflow scheduler"
+       restart: always
+       logging:
+         options:
+           max-size: 10m
+           max-file: "3"
+
+
+
+
+
     #            - "YOUR EXTRA LIBRARY DIRECTORY"/extra:/deployments/extra
     #            - "ANOTHER DIRECTOR TO MOUNT"/:/deployments/user_mount
 
@@ -101,3 +159,8 @@ volumes:
         external: false
     db_home:
         external: false
+    postgres-db-volume:
+        driver: local
+    redis_data:
+        driver: local
+

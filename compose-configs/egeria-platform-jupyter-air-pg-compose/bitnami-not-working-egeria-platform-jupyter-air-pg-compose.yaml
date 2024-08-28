@@ -24,7 +24,7 @@ services:
                 condition: service_healthy
 
         image: quay.io/jupyter/scipy-notebook
-        container_name: jupyter-work
+        container_name: jupyter-work-air
         ports:
             - 8888:8888
         environment:
@@ -82,9 +82,61 @@ services:
             - ../../exchange/distribution-hub:/deployments/distribution-hub
             - ../../exchange/distribution-hub/surveys:/deployments/surveys
             - ../../exchange/distribution-hub/logs:/deployments/logs
-            - ../../runtime-volumes/egeria-platform-data/data:/deployments/data
+            - ../../egeria-platform-data/data:/deployments/data
             - ../../exchange/loading-bay:/deployments/loading-bay
             - ../../work:/deployments/work
+
+    postgresql:
+        image: docker.io/bitnami/postgresql:16
+        volumes:
+            - ../data-volumes/pg_data:/bitnami/postgresql
+        environment:
+            - POSTGRESQL_DATABASE=egeria-airflow
+            - POSTGRESQL_USERNAME=pdr-egeria
+            - POSTGRESQL_PASSWORD=fluffy
+            - POSTGRESQL_PORT_NUMBER=5422
+            # ALLOW_EMPTY_PASSWORD is recommended only for development.
+            - ALLOW_EMPTY_PASSWORD=yes
+        ports:
+            - '5422:5422'
+
+    redis:
+        image: docker.io/bitnami/redis:7.4
+        volumes:
+            - ../data-volumes/redis_data:/bitnami
+        environment:
+            # ALLOW_EMPTY_PASSWORD is recommended only for development.
+            - ALLOW_EMPTY_PASSWORD=yes
+    airflow-scheduler:
+        image: docker.io/bitnami/airflow-scheduler:2.7.0
+        environment:
+            - AIRFLOW_DATABASE_NAME=egeria-airflow
+            - AIRFLOW_DATABASE_USERNAME=pdr-egeria
+            - AIRFLOW_DATABASE_PASSWORD=fluffy
+            - AIRFLOW_EXECUTOR=CeleryExecutor
+            - AIRFLOW_WEBSERVER_HOST=airflow
+#    airflow-worker:
+#        image: docker.io/bitnami/airflow-worker:2
+#        environment:
+#            - AIRFLOW_DATABASE_NAME=egeria-airflow
+#            - AIRFLOW_DATABASE_USERNAME=pdr-egeria
+#            - AIRFLOW_DATABASE_PASSWORD=fluffy
+#            - AIRFLOW_EXECUTOR=CeleryExecutor
+#            - AIRFLOW_WEBSERVER_HOST=airflow
+    airflow:
+        image: docker.io/bitnami/airflow:2
+        environment:
+            - AIRFLOW_DATABASE_NAME=egeria-airflow
+            - AIRFLOW_DATABASE_USERNAME=pdr-egeria
+            - AIRFLOW_DATABASE_PASSWORD=fluffy
+            - AIRFLOW_EXECUTOR=CeleryExecutor
+            - AIRFLOW_WEBSERVER_PORT_NUMBER=8090
+            - AIRFLOW_DATABASE_PORT_NUMBER=5422
+            - auth.username=peterprofile
+            - auth.password=secret
+
+        ports:
+            - '8090:8090'
 
 
     #            - "YOUR EXTRA LIBRARY DIRECTORY"/extra:/deployments/extra
@@ -101,3 +153,8 @@ volumes:
         external: false
     db_home:
         external: false
+    postgresql_data:
+        driver: local
+    redis_data:
+        driver: local
+

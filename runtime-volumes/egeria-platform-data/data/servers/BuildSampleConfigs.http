@@ -21,7 +21,7 @@ Content-Type: text/plain
 A metadata store that supports Open Metadata Access Services (OMASs) without event notifications.
 
 ###
-# Set up the local repository to use the in-memory implementation.
+# Set up the local repository-old to use the in-memory implementation.
 POST {{baseURL}}/open-metadata/admin-services/users/{{adminUserId}}/servers/simple-metadata-store/local-repository/mode/in-memory-repository
 
 ###
@@ -51,7 +51,7 @@ Content-Type: text/plain
 A metadata store that supports Open Metadata Access Services (OMASs) with event notifications.  It provides metadata to view-server, engine-host and integration-daemon.
 
 ###
-# Set up the local repository to use the XTDB KV implementation.
+# Set up the local repository-old to use the XTDB KV implementation.
 POST {{baseURL}}/open-metadata/admin-services/users/{{adminUserId}}/servers/active-metadata-store/local-repository/mode/xtdb-local-kv-repository
 
 ###
