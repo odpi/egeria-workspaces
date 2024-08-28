@@ -109,15 +109,15 @@ jitdump*dmp
 build/
 
 # egeria-workspaces
-distribution-hub/*/**
+exchange/distribution-hub/*/**
 work
-egeria-platform-data/servers/*/repository/**
-egeria-platform-data/servers/*/repository
-egeria-platform-data/coco-data-lake
-egeria-platform-data/coco-data-lake/**
+runtime-volumes/egeria-platform-data/data/servers/*/repository/**
+runtime-volumes/egeria-platform-data/data/servers/*/repository
+runtime-volumes/egeria-platform-data/data/coco-data-lake
+runtime-volumes/egeria-platform-data/data/coco-data-lake/**
 loading-bay/open-metadata-archives/*.omarchive
 
 
-landing-area/**
+exchange/landing-area/**
 
 

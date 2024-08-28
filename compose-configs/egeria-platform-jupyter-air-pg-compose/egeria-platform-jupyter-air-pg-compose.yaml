@@ -1,0 +1,166 @@
+---
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Contributors to the Egeria project
+
+
+# To run
+#   * Ensure Docker is installed and running
+#   * Start Egeria Platform stack from the 'coco-lab-docker-compose' folder using:
+#     'docker compose -f ./egeria-platform-jupyter-uc-compose.yaml up --build'
+#   * Subsequent startups can be performed without the '--build' at the end
+#   * Uninstall the containers by issuing 'docker compose -f ./egeria-platform-jupyter-uc-compose.yaml down'
+#
+# Assumptions:
+#   * Ports 7443, 7444, 7445 and 9192 are available on the host system - these are the default ports for Kafka and Egeria.
+#   * by default, the jupyter notebooks in the 'coco-jupyter-labs' folder are mounted and available for use by the jupyter notebooks
+#   * by default, strict SSL validation is turned off
+#
+#
+
+services:
+    jupyter-hub:
+        depends_on:
+            egeria-main:
+                condition: service_healthy
+
+        image: quay.io/jupyter/scipy-notebook
+        container_name: jupyter-work-air
+        ports:
+            - 8888:8888
+        environment:
+            JUPYTER_ENABLE_LAB: "yes"
+            JUPYTER_TOKEN: "egeria"
+        build:
+            dockerfile: Dockerfile-jupyter
+
+        volumes:
+            - ./before-notebook.d:/usr/local/bin/before-notebook.d
+            - ../../work:/home/jovyan/work
+            - ../../workspaces:/home/jovyan/workspaces
+            - ../../exchange/distribution-hub:/home/jovyan/distribution-hub
+            - ../../exchange/loading-bay:/home/jovyan/loading-bay
+            - ../../exchange/landing-area:/home/jovyan/landing-area
+
+
+    kafka:
+         image: 'bitnami/kafka:latest'
+         ports:
+             - '9192:9192'
+
+         environment:
+             - KAFKA_CFG_NODE_ID=0
+             - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+             - KAFKA_CFG_PROCESS_ROLES=controller,broker
+             - KAFKA_CFG_LISTENERS=PLAINTEXT://:9192,CONTROLLER://:9193
+             - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+             - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9193
+             - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+    
+    egeria-main:
+        depends_on:
+            - kafka
+        image: 'docker.io/odpi/egeria-platform:latest'
+        ports:
+            - '9443:9443'
+        environment:
+            - XTDB_ENABLE_BYTEUTILS_SHA1=True
+            - XTDB_DISABLE_LIBCRYPTO=True
+            - startup.server.list=active-metadata-store,engine-host,integration-daemon,view-server,simple-metadata-store
+            - server.port=9443
+
+        healthcheck:
+            test: curl -k -X GET "https://localhost:9443/open-metadata/platform-services/users/garygeeke/server-platform/origin" || exit 1
+            interval: 20s
+            timeout: 10s
+            retries: 3
+            start_period: 10s
+
+
+        volumes:
+            - ../../exchange/landing-area:/deployments/landing-area
+            - ../../exchange/distribution-hub:/deployments/distribution-hub
+            - ../../exchange/distribution-hub/surveys:/deployments/surveys
+            - ../../exchange/distribution-hub/logs:/deployments/logs
+            - ../../runtime-volumes/egeria-platform-data/data:/deployments/data
+            - ../../exchange/loading-bay:/deployments/loading-bay
+            - ../../work:/deployments/work
+
+
+    postgres:
+       image: postgres:16
+       volumes:
+         - ../../runtime-volumes/pg_data:/var/lib/postgresql/data
+#         - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+       environment:
+         POSTGRES_USER: airflow
+         POSTGRES_PASSWORD: airflow
+         POSTGRES_DB: airflow
+
+       logging:
+         options:
+           max-size: 10m
+           max-file: "3"
+       ports:
+           - '5422:5432'
+
+    webserver:
+       image: apache/airflow:2.10.0
+       depends_on:
+         - postgres
+       environment:
+         AIRFLOW__CORE__EXECUTOR: LocalExecutor
+         AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+       volumes:
+         - ../../runtime-volumes/airflow-volumes/dags:/opt/airflow/dags
+         - ../../runtime-volumes/airflow-volumes/logs:/opt/airflow/logs
+         - ../../runtime-volumes/airflow-volumes/plugins:/opt/airflow/plugins
+       ports:
+         - "8090:8080"
+       entrypoint: bash -c "airflow db init && exec airflow webserver"
+       restart: always
+       logging:
+         options:
+           max-size: 10m
+           max-file: "3"
+
+    scheduler:
+       image: apache/airflow:2.7.0
+       depends_on:
+         - webserver
+       environment:
+         AIRFLOW__CORE__EXECUTOR: LocalExecutor
+         AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+       volumes:
+         - ../../runtime-volumes/airflow-volumes/dags:/opt/airflow/dags
+         - ../../runtime-volumes/airflow-volumes/logs:/opt/airflow/logs
+         - ../../runtime-volumes/airflow-volumes/plugins:/opt/airflow/plugins
+       entrypoint: bash -c "exec airflow scheduler"
+       restart: always
+       logging:
+         options:
+           max-size: 10m
+           max-file: "3"
+
+
+
+
+
+    #            - "YOUR EXTRA LIBRARY DIRECTORY"/extra:/deployments/extra
+    #            - "ANOTHER DIRECTOR TO MOUNT"/:/deployments/user_mount
+
+
+#
+# Change external to true and create volumes manually if you wish to persist between runs
+#
+volumes:
+    zookeeper-data:
+        external: false
+    kafka-data:
+        external: false
+    db_home:
+        external: false
+    postgres-db-volume:
+        driver: local
+    redis_data:
+        driver: local
+
