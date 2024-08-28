@@ -95,6 +95,9 @@ Gemfile
 # Jupyter notebook temp/update files
 **/.ipynb_checkpoints
 
+# DrawIO
+**drawio.bkp
+
 # Java core files
 Snap*.trc
 javacore*.txt
@@ -110,6 +113,10 @@ distribution-hub/*/**
 work
 egeria-platform-data/servers/*/repository/**
 egeria-platform-data/servers/*/repository
+egeria-platform-data/coco-data-lake
+egeria-platform-data/coco-data-lake/**
+loading-bay/open-metadata-archives/*.omarchive
+
 
 landing-area/**
 
