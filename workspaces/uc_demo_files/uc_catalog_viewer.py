@@ -133,6 +133,8 @@ def display_catalog(url:str):
                                    )
 
                         tables_m = f"{tables_m}\n{table_m}"
+                else:
+                    col_tab = " "
             table.add_row(cat_name, cat_comment, schema_name, schema_comment, Text(tables_m), col_tab)
         return table
 
