@@ -56,8 +56,8 @@ RUN pipx ensurepath
 RUN pipx install pyegeria
 RUN pipx ensurepath
 
-RUN mkdir -p /home/jovyan/workspaces
-RUN chmod +xrw /home/jovyan/workspaces
+RUN mkdir -p /home/jovyan/workbooks
+RUN chmod +xrw /home/jovyan/workbooks
 COPY ../Start-Here.md /home/jovyan
 COPY ../custom.css /home/.jupyter
 

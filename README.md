@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+<!-- Copyright Contributors to the ODPi Egeria project 2024. -->
+
 # Overview
 This directory contains sample Docker Compose scripts to support the deployment of Egeria for experimentation,
 development, and learning. Rather than having to install Egeria, prerequisites and tools separately, these scripts make 

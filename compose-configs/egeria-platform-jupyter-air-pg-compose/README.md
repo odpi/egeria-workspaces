@@ -74,7 +74,7 @@ A standard Jupyter data science docker image is extended to pre-install **pyeger
     * **landing-area**: a convenient drop off point for files and folders you want to survey, analyze and perhaps catalog with Egeria.
     * **distribution-hub**: an area where information created by Egeria (such as logs and survey information) can be easily exposed.
     * **work**: a place for you to put your code and other artifacts.
-    * **workspaces**: an area where we have put some samples and demos 
+    * **workbooks**: an area where we have put some Jupyter notebooks and related information to help you complete common tasks with Egeria. 
 
 # Usage
 Follow these steps to use Docker Compose.
