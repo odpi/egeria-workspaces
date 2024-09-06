@@ -38,12 +38,12 @@ def display_catalog(url:str):
             caption=f"Running on {url}",
             expand=True
         )
-        table.add_column("Catalog Name")
-        table.add_column("Catalog Comment", max_width=20)
-        table.add_column("Schema Name", max_width=20)
-        table.add_column("Schema Comment", max_width=20)
-        table.add_column("Vol/Tab", max_width=50)
-        table.add_column("Details")
+        table.add_column("Catalog Name", max_width=10)
+        table.add_column("Catalog Comment", max_width=10)
+        table.add_column("Schema Name", max_width=15)
+        table.add_column("Schema Comment", max_width=15)
+        table.add_column("Vol/Tab", max_width=30)
+        table.add_column("Details", max_width=10)
 
         c_list = uc_client.catalogs.list()
         catalogs= c_list.catalogs
@@ -133,11 +133,13 @@ def display_catalog(url:str):
                                    )
 
                         tables_m = f"{tables_m}\n{table_m}"
+                else:
+                    col_tab = " "
             table.add_row(cat_name, cat_comment, schema_name, schema_comment, Text(tables_m), col_tab)
         return table
 
     try:
-        console = Console(width = 300)
+        console = Console(width = 200)
         with console.pager():
             console.print(generate_table())
 

@@ -45,7 +45,7 @@ ARG py_ver=3.12
 #     echo conda activate "${env_name}" >> "/home/${NB_USER}/.bashrc"
 #
 #USER ${NB_UID}
-RUN pip install --no-cache-dir 'pyegeria>=0.7.30'
+RUN pip install --no-cache-dir 'pyegeria>=0.8.1'
 RUN pip install --no-cache-dir 'rich'
 RUN pip install --no-cache-dir 'unitycatalog'
 RUN pip install --no-cache-dir 'pipx'
@@ -56,8 +56,8 @@ RUN pipx ensurepath
 RUN pipx install pyegeria
 RUN pipx ensurepath
 
-RUN mkdir -p /home/jovyan/workspaces
-RUN chmod +xrw /home/jovyan/workspaces
+RUN mkdir -p /home/jovyan/workbooks
+RUN chmod +xrw /home/jovyan/workbooks
 COPY ../Start-Here.md /home/jovyan
 COPY ../custom.css /home/.jupyter
 
