@@ -11,7 +11,7 @@ ARG env_name=python312
 ARG py_ver=3.12
 
 
-RUN pip install --no-cache-dir 'pyegeria>=0.7.30'
+RUN pip install --no-cache-dir 'pyegeria>=0.8.1'
 RUN pip install --no-cache-dir 'unitycatalog'
 RUN pip install --no-cache-dir 'pipx'
 RUN pip install --no-cache-dir 'apache-airflow-providers-openlineage'
