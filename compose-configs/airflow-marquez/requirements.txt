@@ -1,0 +1,7 @@
+apache-airflow-providers-openlineage
+apache-airflow-providers-postgres
+confluent-kafka>=2.3.0
+openlineage-python[kafka]
+pyegeria
+apache-airflow-providers-apache-kafka
+asgiref

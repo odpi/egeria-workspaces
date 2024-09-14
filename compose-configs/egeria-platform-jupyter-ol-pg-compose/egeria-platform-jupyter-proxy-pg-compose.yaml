@@ -24,7 +24,7 @@ services:
                 condition: service_healthy
 
         image: quay.io/jupyter/scipy-notebook
-        container_name: jupyter-work
+        container_name: jupyter-work-c
         ports:
             - 8888:8888
         environment:
@@ -47,29 +47,42 @@ services:
          ports:
              - '9192:9192'
              - '9194:9194'
-         networks:
-             - egeria_network
          environment:
              - KAFKA_CFG_NODE_ID=0
-             - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
              - KAFKA_CFG_PROCESS_ROLES=controller,broker
-             - KAFKA_CFG_LISTENERS=PLAINTEXT://:9192,CONTROLLER://:9193
-             - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://:9192
-             - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-             - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9193
-
+             - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@<your_host>:9193
+             - KAFKA_CFG_LISTENERS=PLAINTEXT://:9192,CONTROLLER://:9193,EXTERNAL://:9194
+             - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9192,EXTERNAL://localhost:9194
+             - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
              - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
 
-    
+
+    # Proxy service for OpenLineage
+    proxy:
+         build:
+             dockerfile: Dockerfile-proxy
+         container_name: openlineage-proxy-backend
+         depends_on:
+             - kafka
+         ports:
+             - "6000:6000"
+             - "6001:6001"
+         environment:
+#             - MARQUEZ_HTTP_ENDPOINT=http://marquez-api:5050/api/v1/lineage
+             - OPENLINEAGE_PROXY_CONFIG=/usr/src/app/proxy.yml
+#             - OPENLINEAGE_PROXY_SOURCE=/usr/src/app/proxy.yml
+         volumes:
+             - ./usr/src/app/build/libs:/usr/src/app/build/libs
+             - ./proxy.yml:/usr/src/app/proxy.yml
+
+
+
     egeria-main:
         depends_on:
             - kafka
-#        image: 'egeria-platform:7-22'
         image: 'docker.io/odpi/egeria-platform:latest'
         ports:
             - '9443:9443'
-        networks:
-            - egeria_network
         environment:
             - XTDB_ENABLE_BYTEUTILS_SHA1=True
             - XTDB_DISABLE_LIBCRYPTO=True
@@ -92,13 +105,20 @@ services:
             - ../../runtime-volumes/egeria-platform-data/data:/deployments/data
             - ../../exchange/loading-bay:/deployments/loading-bay
             - ../../work:/deployments/work
-
-
-
-
-    #            - "YOUR EXTRA LIBRARY DIRECTORY"/extra:/deployments/extra
-    #            - "ANOTHER DIRECTOR TO MOUNT"/:/deployments/user_mount
-
+    postgres:
+        image: postgres:16.4
+        container_name: postgres_for_egeria
+        restart: always
+        ports:
+            - "127.0.0.1:5442:5442"
+        shm_size: 128mb
+        environment:
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: egeria
+            PGDATA: /var/lib/postgresql/data/pgdata
+        volumes:
+            - ../../runtime-volumes/egeria-pg:/var/lib/postgresql/data/pgdata
+            - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
 
 #
 # Change external to true and create volumes manually if you wish to persist between runs
@@ -111,7 +131,8 @@ volumes:
     db_home:
         external: false
 
-networks:
-    egeria_network:
-#        driver: bridge
-        external: true
+#networks:
+#    egeria_network:
+##        driver: bridge
+#        name: egeria_network
+#        external: true

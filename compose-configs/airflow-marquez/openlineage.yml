@@ -1,0 +1,15 @@
+transport:
+#  type: kafka
+#  topic: open-lineage-events
+#  config:
+#    bootstrap.servers: kafka:9192
+#    acks: all
+#    retries: 3
+#  flush: true
+  type: http
+  url: http://host.docker.internal:6000
+  endpoint: api/v1/lineage
+
+
+#transport:
+#  type: console
