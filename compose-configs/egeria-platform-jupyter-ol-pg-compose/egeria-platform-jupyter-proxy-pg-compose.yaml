@@ -83,6 +83,7 @@ services:
         image: 'docker.io/odpi/egeria-platform:latest'
         ports:
             - '9443:9443'
+            - '5005:5005'
         environment:
             - XTDB_ENABLE_BYTEUTILS_SHA1=True
             - XTDB_DISABLE_LIBCRYPTO=True
@@ -100,8 +101,8 @@ services:
         volumes:
             - ../../exchange/landing-area:/deployments/landing-area
             - ../../exchange/distribution-hub:/deployments/distribution-hub
-#            - ../../exchange/distribution-hub/surveys:/deployments/surveys
-#            - ../../exchange/distribution-hub/logs:/deployments/logs
+            - ../../exchange/distribution-hub/surveys:/deployments/surveys
+            - ../../exchange/distribution-hub/logs:/deployments/logs
             - ../../runtime-volumes/egeria-platform-data/data:/deployments/data
             - ../../exchange/loading-bay:/deployments/loading-bay
             - ../../work:/deployments/work
