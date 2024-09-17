@@ -17,7 +17,7 @@
 .mtj.tmp/
 
 # Package Files #
-*.jar
+#*.jar
 *.war
 *.nar
 *.ear
@@ -104,7 +104,6 @@ javacore*.txt
 jitdump*dmp
 
 # gradle
-!gradle/**
 .gradle/
 build/
 
