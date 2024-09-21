@@ -50,8 +50,8 @@ services:
          environment:
              - KAFKA_CFG_NODE_ID=0
              - KAFKA_CFG_PROCESS_ROLES=controller,broker
-             - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@<your_host>:9193
-             - KAFKA_CFG_LISTENERS=PLAINTEXT://:9192,CONTROLLER://:9193,EXTERNAL://:9194
+             - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9193
+             - KAFKA_CFG_LISTENERS=PLAINTEXT://kafka:9192,CONTROLLER://:9193,EXTERNAL://:9194
              - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9192,EXTERNAL://localhost:9194
              - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
              - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
@@ -103,7 +103,7 @@ services:
             - ../../exchange/distribution-hub:/deployments/distribution-hub
             - ../../exchange/distribution-hub/surveys:/deployments/surveys
             - ../../exchange/distribution-hub/logs:/deployments/logs
-            - ../../runtime-volumes/egeria-platform-data/data:/deployments/data
+            - ./data:/deployments/data
             - ../../exchange/loading-bay:/deployments/loading-bay
             - ../../work:/deployments/work
     postgres:

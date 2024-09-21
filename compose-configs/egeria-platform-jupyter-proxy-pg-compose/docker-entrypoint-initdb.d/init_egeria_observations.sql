@@ -1,5 +1,6 @@
 create user egeria_admin with superuser login password 'admin4egeria';
 create user egeria_user with login password 'user4egeria';
+create database xtdb;
 create database egeria_observations;
 
 grant all privileges on database egeria_observations to egeria_admin, egeria_user;

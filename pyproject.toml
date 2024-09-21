@@ -9,7 +9,7 @@ readme = "README.md"
 python = "^3.12"
 jupyter = "^1.0.0"
 rich = "^13.7.1"
-pyegeria = "^0.5.5.9"
+pyegeria = "^0.8.4.30"
 unitycatalog = "^0.1.1"
 
 
