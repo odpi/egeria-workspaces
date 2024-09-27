@@ -103,7 +103,7 @@ services:
             - ../../exchange/distribution-hub:/deployments/distribution-hub
             - ../../exchange/distribution-hub/surveys:/deployments/surveys
             - ../../exchange/distribution-hub/logs:/deployments/logs
-            - ./data:/deployments/data
+            - ../../runtime-volumes/egeria-platform-data/data:/deployments/data
             - ../../exchange/loading-bay:/deployments/loading-bay
             - ../../work:/deployments/work
     postgres:
