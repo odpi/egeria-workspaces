@@ -121,6 +121,10 @@ runtime-volumes/airflow-volumes/**
 loading-bay/open-metadata-archives/*.omarchive
 
 compose-configs/egeria-platform-jupyter-proxy-pg-compose/data/servers/active-metadata-store/repository/**
+exchange/loading-bay/secrets/*omsecrets
+exchange/loading-bay/secrets/*yml
+exchange/loading-bay/secrets/*yaml
+exchange/loading-bay/open-metadata-archives/*omarchive
 exchange/landing-area/**
 
 

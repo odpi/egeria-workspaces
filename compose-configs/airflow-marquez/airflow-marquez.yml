@@ -127,7 +127,7 @@ services:
   postgres:
     image: bitnami/postgresql:12.1.0
     ports:
-      - "5434:5432"
+      - "5432:5432"
 #    command: postgres -p 5436 --config-file=/var/lib/postgresql/data/pgdata/postgresql.conf
     environment:
       - POSTGRES_USER=postgres
