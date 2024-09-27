@@ -118,6 +118,9 @@ runtime-volumes/egeria-pg
 runtime-volumes/egeria-pg/**
 runtime-volumes/airflow-volumes
 runtime-volumes/airflow-volumes/**
+loading-bay/open-metadata-archives/*.omarchive
+
+compose-configs/egeria-platform-jupyter-proxy-pg-compose/data/servers/active-metadata-store/repository/**
 exchange/loading-bay/secrets/*omsecrets
 exchange/loading-bay/secrets/*yml
 exchange/loading-bay/secrets/*yaml

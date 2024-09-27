@@ -1,11 +1,13 @@
 import json
 from datetime import datetime, timedelta
-
+import logging
 from json5 import host
 from pyegeria import EgeriaTech, Platform
 from airflow import DAG
 from airflow.decorators import task
 from airflow.operators.bash import BashOperator
+from airflow.operators.empty import EmptyOperator
+
 from unitycatalog import Unitycatalog
 from unitycatalog.types import (catalog_info, catalog_list_response,
                                 schema_info, schema_list_response,
@@ -35,9 +37,10 @@ with DAG(
     hello = BashOperator(task_id="hello", bash_command="echo hello")
 
     @task()
-    def origin():
+    def get_server_info():
         # p = Platform("active-metadata-store","https://host.docker.internal:9443","garygeeke")
         # print(p.get_platform_origin())
+        logger = logging.getLogger("egeria-demo-task")
         r_client = EgeriaTech(
             'view-server',
             'https://host.docker.internal:9443',
@@ -47,7 +50,7 @@ with DAG(
         token = r_client.create_egeria_bearer_token()
         filter = "simple-metadata-store"
         response = r_client.get_servers_by_name(filter)
-        print(f"Servers:\n{json.dumps(response, indent=4)}")
+        logger.info(f"Servers:\n{json.dumps(response, indent=4)}")
 
 
     @task()
@@ -61,4 +64,4 @@ with DAG(
         for catalog in catalogs:
             print(catalog.name)
     # Set dependencies between tasks
-    hello >> origin() >> list_catalogs()
+    hello >> get_server_info() >> list_catalogs()
