@@ -4,13 +4,8 @@
 # Overview
 This directory contains sample Docker Compose scripts to support the deployment of Egeria for experimentation,
 development, and learning. Rather than having to install Egeria, prerequisites and tools separately, these scripts make 
-it easy to get a stack running quickly. This deployment extends the **egeria-platform-compose** deployment by adding a Jupyter 
-container[Project Jupyter](https://jupyter.org/) where users can use the **pyegeria** python client to work with Egeria.
-
-The git repo is called **egeria-workspaces** because in addition to the core configuration, it contains sample and demonstration content and a place for you
-to do your own experimentation. We've found it convenient to define a number of external mount points for your
-docker volumes to simplify loading sample data, viewing sample results and sharing code. It is easy to tailor the 
-configuration for your own needs.
+it easy to get a stack running quickly. This deployment extends the **egeria-platform-jupyter-compose** deployment by adding a PostgreSQL
+database container and an Open Lineage Proxy that routes HTTP requests to Kafka Open Lineage messages.
 
 These are not meant for production use. Please see the [Planning Guide](https://egeria-project.org/guides/planning/)
 for more information about designing Egeria deployments. The Egeria community has also created samples for other 
@@ -18,21 +13,9 @@ deployment styles, such as Cloud Native approaches and the use of Helm charts to
 options may be better starting points for production deployments - depending upon your requirements.
 Please feel free to engage with the community on our slack channel - we'd love your feedback and participation.
 
-For a quick and simple environment to explore some of Egeria's base capabilities, the **egeria-platform-jupyter.yaml**  Docker Compose
-deployment may be a good starting point. Once this script executes successfully, you will have three docker containers running. 
-One for the Egeria platform, one for Kafkaand one for Jupyter. With this running configuration, you can work with any of Egeria's standard interfaces 
-- java APIs, python APIs, or just plain RESTful http calls - and of course, to make use of tools and interfaces that have been built using these APIs.
-
-The set of **Docker Compose** configurations will grow and evolve over time to cover additional scenarios. For example,
-the folder `egeria-platform-postgres-compose` contains a docker compose configuration that adds a Postgres 
-database along with the Egeria OMAG platform and Kafka servers. This sets the stage emerging scenarios that
-utilize a relational database to collect Egeria derived information such as Audit logs for additional analysis and dashboarding.
-Please see the embedded README.md files for more details.
-
-The docker compose script is called **egeria-platform-jupyter-compose.yaml**. After running this script, you will have a running environment 
-that consists of a single Egeria runtime platform,the Apache Kafka event system and a Jupyter server. Information about configuring 
-Egeria can be found at [Configuring Egeria](https://egeria-project.org/guides/admin/configuring-the-omag-server-platform/). 
-We use standard, out-of-the-box configurations for both - a minimal amount of configuration for:
+The docker compose script is called **egeria-platform-jupyter-proxy-pg-compose.yaml**. After running this script, you will have a running environment 
+that consists of a single Egeria runtime platform,the Apache Kafka event system, Jupyter server, PostgreSQL server, 
+and an Open Lineage proxy. 
 
 ## Egeria Platform - Default Configuration
 We use the Egeria platform docker image - [egeria-platform](https://hub.docker.com/r/odpi/egeria-platform).
@@ -76,6 +59,19 @@ A standard Jupyter data science docker image is extended to pre-install **pyeger
     * **work**: a place for you to put your code and other artifacts.
     * **workbooks**: an area where we have put some Jupyter notebooks and related information to help you complete common tasks with Egeria. 
 
+## Postgresql - configured for Egeria
+This is a standard PostgreSQL database server. The port for postgres is set to 5442. On initialization, two user roles are created:
+    * egeria_admin with password 'admin4egeria'
+    * egeria_user with password 'user4egeria'
+
+In addition, a default database, **egeria_observations** is created along with a default database schema to support 
+Egeria surveys, monitoring and analysis. This will be described further in accompanying jupyter notebooks.
+
+## Open Lineage Proxy 
+This is a standard Open Lineage Proxy running on ports 6000 and 6001. Details of the proxy's configuration are in
+the file `proxy.yml`. 
+
+
 # Usage
 Follow these steps to use Docker Compose.
 
@@ -83,15 +79,16 @@ Follow these steps to use Docker Compose.
    * Docker and Docker compose must be installed and running - see https://docs.docker.com/install/
    * Configure docker with at least 8GB memory
 2. Download or clone the egeria-workspaces repo at [**egeria-workspaces**](https://github.com/odpi/egeria-workspaces.git)
-3. In a terminal window, change directory to `<your path to here>/egeria-workspaces/egeria-platform-jupyter-compose`
+3. In a terminal window, change directory to `<your path to here>/egeria-workspaces/egeria-platform-jupyter-proxy-pg-compose`
 4. At the command line issue:
 
-  `docker compose -f egeria-platform-jupyter-compose.yaml up --build`
+  `docker compose -f egeria-platform-jupyter-proxy-pg-compose.yaml up --build`
 
 This will:
     a. build a jupyter image that is pre-configured to work with Egeria
-    b. download the docker images for Kafka and Egeria, and then create and start the two containers. Both kafka and Egeria will then automatically configure themselves. 
-For Egeria, this means not only starting up the initial set of servers, but then loading the **CoreContentPack.omarchive** into the metadata repository, and then configuring all the servers. This can take several minutes the first time the containers are created. Subsequent startups will be much faster.
+    b. download the docker images for Kafka, Egeria, and Postgres, and then create and start the containers. Both kafka and Egeria will then automatically configure themselves. 
+For Egeria, this means not only starting up the initial set of servers, but then loading the **CoreContentPack.omarchive** into the metadata repository, and then configuring all the servers. 
+This can take several minutes the first time the containers are created. Subsequent startups will be much faster.
     c. start the jupyter container
 4. Using either the **docker desktop** application or the docker command line you can see the two new containers running. To do this with the docker command line, you can issue:
 

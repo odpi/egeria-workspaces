@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
-
+#
+# This compose script is a modified version of the Marquez Airflow example that can be found on the Marquez github at
+#
 services:
   airflow:
     image: bitnami/airflow:2
