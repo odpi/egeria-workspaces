@@ -15,18 +15,11 @@ Please feel free to engage with the community on our slack channel - we'd love y
 For a quick and simple environment to explore some of Egeria's base capabilities, the **egeria-platform.yaml**  Docker Compose
 deployment may be a good starting point. Once this script executes successfully, you will have two docker containers running. One for the Egeria platform and one for Kafka. With this running configuration, you can work with any of Egeria's standard interfaces - java APIs, python APIs, or just plain RESTful http calls - and of course, to make use of tools and interfaces that have been built using these APIs.
 
-The set of **Docker Compose** configurations will grow and evolve over time to cover additional scenarios. For example,
-the folder `egeria-platform-postgres-compose` contains a docker compose configuration that adds a Postgres 
-database along with the Egeria OMAG platform and Kafka servers. This sets the stage emerging scenarios that
-utilize a relational database to collect Egeria derived information such as Audit logs for additional analysis and dashboarding.
-Please see the embedded README.md files for more details.
-
 # Contents
 
-* egeria-platform-compose - a basic Egeria OMAG platform standalone deployment that includes Kafka as well as Egeria.
-* egeria-platform-postgres-compose - deploys and configures a Postgres relational database as well as Kafka and Egeria.
+* egeria-platform-compose - a minimalist Egeria OMAG platform standalone deployment that includes Kafka as well as Egeria.
 
-Our first docker compose script is called **egeria-platform.yml**. After running this script, you will have a running environment 
+This egeria docker compose script is called **egeria-platform.yml**. After running this script, you will have a running environment 
 that consists of a single Egeria runtime platform and the Apache Kafka event system. Information about configuring 
 Egeria can be found at [Configuring Egeria](https://egeria-project.org/guides/admin/configuring-the-omag-server-platform/). 
 We use standard, out-of-the-box configurations for both - a minimal amount of configuration for:
@@ -51,7 +44,7 @@ A description of these servers can be found at [sample configs](open-metadata-re
 
 ## Kafka - configured for Egeria
 We use the bitnami/kafka image described at [kafka](https://hub.docker.com/r/bitnami/kafka)
-* Port - We use the default port of 9092 for Kafka. This port is also exposed in the host environment. Changing this port also requires corresponding changes to the Egeria configuration.
+* Port - We use the default port of 9192 for Kafka. This port is also exposed in the host environment. Changing this port also requires corresponding changes to the Egeria configuration.
 * Other configuration can be seen in the *egeria-platform.yaml* file. 
 
 # Usage
@@ -80,7 +73,12 @@ This will download the docker images for Kafka and Egeria, then create and start
 Now that your Egeria environment is running and configured it is waiting for you to make requests. 
 Some tutorials for working with Egeria can be found at [Tutorials](https://egeria-project.org/education/tutorials/). For those that want to try the new python client, you can find a quick introduction at [pyegeria](https://getting-started-with-egeria.pdr-associates.com/recipe-6-charming-python.html). 
 
-As always, your feedback and participation are welcome. 
+# Please Note
+Please note that this very basic docker compose script does not externalize Egeria's repositories - so if you delete the container,
+you will lose your Egeria data. This also means that you can't easily share files between Egeria and your host environment.
 
+The more extensive `egeria-platform-jupyter-compose` and `egeria-platform-jupyter-proxy-pg-compose` do externalize the Egeria repository
+and do explicitly support convenient sharing of files between the docker containers and the host environment - these may be more convenient starting
+points for development environments using python.
 
 License: CC BY 4.0, Copyright Contributors to the ODPi Egeria project.

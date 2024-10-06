@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
-# This compose script is a modified version of the Marquez Airflow example that can be found on the Marquez github at
+# This docker compose script is a modified version of the Marquez Airflow example that can be found on the Marquez
+# github at https://github.com/MarquezProject/marquez/examples/airflow. The few changes were made to simplify working
+# in the Egeria Workspaces environmnent.
 #
 services:
   airflow:
