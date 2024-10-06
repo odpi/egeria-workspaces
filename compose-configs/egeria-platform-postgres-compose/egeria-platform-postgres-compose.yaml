@@ -6,7 +6,7 @@
 # To run
 #   * Ensure Docker is installed and running
 #   * Start Egeria Platform stack using
-#     'docker-compose -f ./egeria-platform-postgres.yaml up'
+#     'docker-compose -f ./egeria-platform-postgres-compose.yaml up'
 #
 # Assumptions:
 #   * Ports 9443 and 9092 are available on the host system - these are the default ports for Kafka and Egeria.

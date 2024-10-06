@@ -6,10 +6,10 @@
 # To run
 #   * Ensure Docker is installed and running
 #   * Start Egeria Platform stack using
-#     'docker-compose -f ./egeria-platform.yaml up'
+#     'docker-compose -f ./egeria-platform-compose.yaml up'
 #
 # Assumptions:
-#   * Ports 9443 and 9092 are available on the host system - these are the default ports for Kafka and Egeria.
+#   * Ports 9443 and 9192 are available on the host system - these are the default ports for Kafka and Egeria.
 #   * by default, no external volumes are used - comments below give examples of using external volumes
 #   * by default, Egeria will start with its set of default servers (active-metadata-store,view-server,
 #     integration-daemon,engine-host,simple-metadata-store) - you can change this.
