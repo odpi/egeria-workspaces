@@ -31,7 +31,7 @@ We use the Egeria platform docker image - [egeria-platform](https://hub.docker.c
 can be made to platform URL **https://localhost:9443** or, if your environment is configured to support it, it can use 
 the domain name of your host machine. 
 * SSL - By default strict SSL is set to false 
-* Auto-Started Servers - by default a useful set of Egeria Operational Metadata and Governance (OMAG) servers are pre-installed
+* Auto-Started Servers - by default a useful set of Egeria Open Metadata and Governance (OMAG) servers are pre-installed
 and started when the Egeria platform is started. The pre-configured and started servers are:
   * simple-metadata-store
   * active-metadata-store
