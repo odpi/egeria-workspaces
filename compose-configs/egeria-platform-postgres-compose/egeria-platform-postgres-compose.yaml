@@ -49,7 +49,7 @@ services:
         container_name: observations
         restart: always
         ports:
-            - "127.0.0.1:5432:5432"
+            - "127.0.0.1:5442:5442"
 
         shm_size: 128mb
         environment:
@@ -57,7 +57,7 @@ services:
         volumes:
             - db_home:/var/lib/postgresql/data
             - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
-
+        command: -p 5442
 
 #
 # Change external to true and create volumes manually if you wish to persist between runs
