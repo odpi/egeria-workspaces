@@ -27,7 +27,7 @@ the domain name of your host machine.
 * Content Packs - pre-constructed information sets that can be used to configure Egeria and pre-load metadata, reference data and glossary data. See [Content Packs](https://egeria-project.org/content-packs/).
 * Out-of-the-box Connectors - descriptions of the integration connectors can be found at [Integration Connectors](https://egeria-project.org/connectors/).
 
-* Auto-Started Servers - by default a useful set of Egeria Operational Metadata and Governance (OMAG) servers are pre-installed
+* Auto-Started Servers - by default a useful set of Egeria Open Metadata and Governance (OMAG) servers are pre-installed
 and started when the Egeria platform is started.  A description of these servers can be found at [sample configs](open-metadata-resources/open-metadata-deployment/sample-configs/README.md).
 The pre-configured and started servers are:
 
