@@ -18,7 +18,8 @@ that consists of a single Egeria runtime platform,the Apache Kafka event system,
 and an Open Lineage proxy. 
 
 ## Egeria Platform - Default Configuration
-We use the Egeria platform docker image - [egeria-platform](https://hub.docker.com/r/odpi/egeria-platform).
+We use the Egeria platform docker image - [egeria-platform](https://hub.docker.com/r/odpi/egeria-platform). We are now using an internal docker network called
+`egeria_network` to allow postgres database to be shared with other deployments such as Superset. 
 
 * Port - By default the platform uses port 9443 and exposes this port to the host environment, This means that Egeria requests
 can be made to platform URL **https://localhost:9443** or, if your environment is configured to support it, it can use 
@@ -78,6 +79,7 @@ Follow these steps to use Docker Compose.
 1. Install and Configure Docker and Docker Compose. 
    * Docker and Docker compose must be installed and running - see https://docs.docker.com/install/
    * Configure docker with at least 8GB memory
+   * Create the egeria_network from a terminal window by issuing: `docker network create egeria_network`
 2. Download or clone the egeria-workspaces repo at [**egeria-workspaces**](https://github.com/odpi/egeria-workspaces.git)
 3. In a terminal window, change directory to `<your path to here>/egeria-workspaces/egeria-platform-jupyter-proxy-pg-compose`
 4. At the command line issue:
