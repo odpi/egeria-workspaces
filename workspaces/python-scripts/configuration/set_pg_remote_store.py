@@ -12,7 +12,7 @@ import os
 import sys
 
 from click import password_option
-from pyegeria import EgeriaConfig
+from pyegeria import EgeriaConfig, CoreServerConfig
 from rich.prompt import Prompt
 
 
@@ -44,7 +44,7 @@ def update_server_repository(server_name: str = EGERIA_METADATA_STORE,
                              password: str = EGERIA_ADMIN_PASSWORD):
 
     schema_name = server_name.replace("-", "_")
-    o_client:EgeriaConfig = EgeriaConfig(
+    o_client = EgeriaConfig(
         server_name, platform_url, user_id, password
         )
     config_body = {
@@ -56,7 +56,7 @@ def update_server_repository(server_name: str = EGERIA_METADATA_STORE,
     o_client.set_postgres_local_repository(config_body)
 
     o_client.activate_server_stored_config(server_name)
-
+    print(f"Changed the repository store for {server_name} to postgres")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -67,7 +67,7 @@ def main():
 
     args = parser.parse_args()
 
-    server = args.server if args.server is not None else EGERIA_VIEW_SERVER
+    server = args.server if args.server is not None else EGERIA_METADATA_STORE
     url = args.url if args.url is not None else EGERIA_VIEW_SERVER_URL
     userid = args.userid if args.userid is not None else EGERIA_USER
     user_pass = args.password if args.password is not None else EGERIA_USER_PASSWORD

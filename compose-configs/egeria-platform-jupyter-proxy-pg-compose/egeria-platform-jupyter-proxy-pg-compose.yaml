@@ -25,6 +25,8 @@ services:
 
         image: quay.io/jupyter/scipy-notebook
         container_name: jupyter-work-c
+        networks:
+            - egeria_network
         ports:
             - 8888:8888
         environment:
@@ -44,6 +46,8 @@ services:
 
     kafka:
          image: 'bitnami/kafka:latest'
+         networks:
+             - egeria_network
          ports:
              - '9192:9192'
              - '9194:9194'
@@ -64,6 +68,8 @@ services:
          container_name: openlineage-proxy-backend
          depends_on:
              - kafka
+         networks:
+             - egeria_network
          ports:
              - "6000:6000"
              - "6001:6001"
@@ -80,8 +86,10 @@ services:
     egeria-main:
         depends_on:
             - kafka
-        image: 'docker.io/odpi/egeria-platform:latest'
-
+#        image: 'docker.io/odpi/egeria-platform:latest'
+        image: 'dwolfson/pg-test-version'
+        networks:
+            - egeria_network
         ports:
             - '9443:9443'
             - '5005:5005'
@@ -111,6 +119,8 @@ services:
         image: postgres:16.4
         container_name: postgres_for_egeria
         restart: always
+        networks:
+            - egeria_network
         ports:
             - "127.0.0.1:5442:5442"
         shm_size: 128mb
@@ -133,8 +143,8 @@ volumes:
     db_home:
         external: false
 
-#networks:
-#    egeria_network:
-##        driver: bridge
-#        name: egeria_network
-#        external: true
+networks:
+    egeria_network:
+#        driver: bridge
+        name: egeria_network
+        external: true

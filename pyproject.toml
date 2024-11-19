@@ -1,16 +1,17 @@
 [tool.poetry]
 name = "egeria-workspaces"
-version = "0.1.0"
+version = "0.5.1"
 description = ""
 authors = ["Dan Wolfson <dwolfson@users.noreply.github.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-jupyter = "^1.0.0"
-rich = "^13.7.1"
-pyegeria = "^0.8.4.30"
-unitycatalog = "^0.1.1"
+jupyter = "^1.1.1"
+rich = "^13.9.4"
+pyegeria = "*"
+unitycatalog = "*"
+textual = "*"
 
 
 [build-system]

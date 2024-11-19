@@ -9,6 +9,7 @@
 FROM quay.io/jupyter/scipy-notebook
 ARG env_name=python312
 ARG py_ver=3.12
+ENV JUPYTER_ENABLE_LAB=yes
 
 # Much of the following is commented out as it is a bit unstable - but it does allow you to install the latest
 # python in the jupyter container - which can then be selected as an alternate kernel within Jupyter.
@@ -45,13 +46,15 @@ ARG py_ver=3.12
 #     echo conda activate "${env_name}" >> "/home/${NB_USER}/.bashrc"
 #
 #USER ${NB_UID}
-RUN pip install --no-cache-dir 'pyegeria>=1.5.1.1.57'
+RUN pip install --no-cache-dir 'pyegeria>=1.5.1.1.60'
 RUN pip install --no-cache-dir 'rich'
 RUN pip install --no-cache-dir 'unitycatalog'
 RUN pip install --no-cache-dir 'pipx'
 RUN pip install --no-cache-dir 'textual'
 RUN pip install --no-cache-dir 'textual-dev'
 RUN pip install --no-cache-dir 'apache-airflow-client'
+RUN pip install --no-cache-dir 'jupyterlab_execute_time'
+
 
 RUN pipx ensurepath
 RUN pipx install pyegeria
