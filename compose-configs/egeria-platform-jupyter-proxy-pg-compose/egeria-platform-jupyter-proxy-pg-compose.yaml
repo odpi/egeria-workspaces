@@ -86,8 +86,7 @@ services:
     egeria-main:
         depends_on:
             - kafka
-#        image: 'docker.io/odpi/egeria-platform:latest'
-        image: 'dwolfson/pg-test-version'
+        image: 'docker.io/odpi/egeria-platform:latest'
         networks:
             - egeria_network
         ports:
