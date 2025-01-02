@@ -46,7 +46,7 @@ ENV JUPYTER_ENABLE_LAB=yes
 #     echo conda activate "${env_name}" >> "/home/${NB_USER}/.bashrc"
 #
 #USER ${NB_UID}
-RUN pip install --no-cache-dir 'pyegeria>=5.2.0.5'
+RUN pip install --no-cache-dir 'pyegeria'
 RUN pip install --no-cache-dir 'rich'
 RUN pip install --no-cache-dir 'unitycatalog'
 RUN pip install --no-cache-dir 'pipx'
