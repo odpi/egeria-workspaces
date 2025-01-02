@@ -11,7 +11,7 @@
 #   * Uninstall the containers by issuing 'docker compose -f ./egeria-platform-jupyter-uc-compose.yaml down'
 #
 # Assumptions:
-#   * Ports 7443, 7444, 7445 and 9192 are available on the host system - these are the default ports for Kafka and Egeria.
+#   * Ports 9443 and 9192 are available on the host system - these are the default ports for Kafka and Egeria.
 #   * by default, the jupyter notebooks in the 'coco-jupyter-labs' folder are mounted and available for use by the jupyter notebooks
 #   * by default, strict SSL validation is turned off
 #
@@ -25,6 +25,8 @@ services:
 
         image: quay.io/jupyter/scipy-notebook
         container_name: jupyter-work
+        networks:
+            - egeria_network
         ports:
             - 8888:8888
         environment:
@@ -44,11 +46,11 @@ services:
 
     kafka:
          image: 'bitnami/kafka:latest'
+         networks:
+             - egeria_network
          ports:
              - '9192:9192'
              - '9194:9194'
-         networks:
-             - egeria_network
          environment:
              - KAFKA_CFG_NODE_ID=0
              - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
@@ -64,10 +66,12 @@ services:
         depends_on:
             - kafka
         image: 'docker.io/odpi/egeria-platform:latest'
-        ports:
-            - '9443:9443'
+
         networks:
             - egeria_network
+        ports:
+            - '9443:9443'
+            - '5005:5005'
         environment:
             - XTDB_ENABLE_BYTEUTILS_SHA1=True
             - XTDB_DISABLE_LIBCRYPTO=True
