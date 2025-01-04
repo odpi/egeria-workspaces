@@ -61,6 +61,8 @@ services:
             - ../../runtime-volumes/egeria-platform-data/data:/deployments/data
             - ../../exchange/loading-bay:/deployments/loading-bay
             - ../../work:/deployments/work
+            - ../../runtime-volumes/egeria-platform-data/application.properties:/deployments/application.properties
+
     postgres:
         image: postgres:16.4
         restart: always

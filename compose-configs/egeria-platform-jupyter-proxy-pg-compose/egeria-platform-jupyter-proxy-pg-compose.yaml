@@ -87,7 +87,10 @@ services:
     egeria-main:
         depends_on:
             - kafka
+
         image: 'docker.io/odpi/egeria-platform:latest'
+#        image: 'docker.io/odpi/egeria-platform:stable'
+
         networks:
             - egeria_network
         ports:
@@ -113,6 +116,7 @@ services:
             - ../../runtime-volumes/egeria-platform-data/data:/deployments/data
             - ../../exchange/loading-bay:/deployments/loading-bay
             - ../../work:/deployments/work
+            - ../../runtime-volumes/egeria-platform-data/application.properties:/deployments/application.properties
 
     postgres:
         image: postgres:16.4
@@ -144,6 +148,6 @@ volumes:
 
 networks:
     egeria_network:
-#        driver: bridge
+        driver: bridge
         name: egeria_network
-        external: true
+#        external: true
