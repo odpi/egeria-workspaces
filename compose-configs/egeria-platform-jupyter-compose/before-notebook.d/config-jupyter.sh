@@ -31,7 +31,7 @@ export EGERIA_USER_PASSWORD='secret'
 export EGERIA_JUPYTER='True'
 export EGERIA_WIDTH='200'
 export EGERIA_HOME_GLOSSARY_GUID='30bfe79e-adf2-4fda-b9c5-9c86ad6b0d6c'
-export EGERIA_GLOSSARY_HOME='/home/jovyan/loading-bay/glossary'
+export EGERIA_GLOSSARY_PATH='/home/jovyan/loading-bay/glossary'
 
 
 
