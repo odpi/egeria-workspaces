@@ -12,7 +12,7 @@ options may be better starting points for production deployments - depending upo
 Please feel free to engage with the community on our slack channel - we'd love your feedback and participation.
 
 
-For a quick and simple environment to explore some of Egeria's base capabilities, the **egeria-platform.yaml**  Docker Compose
+For a quick and simple environment to explore some of Egeria's base capabilities, the **egeria-platform-compose**  Docker Compose
 deployment may be a good starting point. Once this script executes successfully, you will have two docker containers running. One for the Egeria platform and one for Kafka. With this running configuration, you can work with any of Egeria's standard interfaces - java APIs, python APIs, or just plain RESTful http calls - and of course, to make use of tools and interfaces that have been built using these APIs.
 
 # Contents
@@ -64,7 +64,8 @@ This will download the docker images for Kafka and Egeria, then create and start
 
 `docker ps`
 
-5. The environment is ready to be used. 
+5. The environment is ready to be used. You can connect to the Egeria platform at `https://localhost:9443` and issue commands
+using HTTP requests (e.g. curl), java applications, or python (once you've installed [pyegeria](https://egeria-project.org/concepts/pyegeria/). 
 
 6. You can control the containers with docker compose commands - see [docker compose](https://docs.docker.com/reference/cli/docker/compose/). These commands can be used to administer and use the docker containers.
 
@@ -72,13 +73,12 @@ This will download the docker images for Kafka and Egeria, then create and start
 
 Now that your Egeria environment is running and configured it is waiting for you to make requests. 
 Some tutorials for working with Egeria can be found at [Tutorials](https://egeria-project.org/education/tutorials/). For those that want to try the new python client, you can find a quick introduction at [pyegeria](https://getting-started-with-egeria.pdr-associates.com/recipe-6-charming-python.html). 
+Installing pyegeria also installs the `hey_egeria` command line interface - a tutorial video can be found at [hey-egeria](https://youtu.be/eVFnDMh18e8)
 
 # Please Note
-Please note that this very basic docker compose script does not externalize Egeria's repositories - so if you delete the container,
-you will lose your Egeria data. This also means that you can't easily share files between Egeria and your host environment.
-
-The more extensive `egeria-platform-jupyter-compose` and `egeria-platform-jupyter-proxy-pg-compose` do externalize the Egeria repository
-and do explicitly support convenient sharing of files between the docker containers and the host environment - these may be more convenient starting
-points for development environments using python.
+Please note that, by default, this compose script will store repository data outside the docker container at **\<workspaces root\>/runtime-volumes/egeria-platform-data** using an 
+[XTDB](https://xtdb.com) key-value-store configuration. This configuration can be changed to suite your requirements.
+As the repository contents are stored outside of the docker container, it means that you can alter your Egeria deployment and 
+still retain your repository. Please see [Configuring Egeria](https://egeria-project.org/guides/admin/configuring-the-omag-server-platform/) or reach out to us on slack for further information.
 
 License: CC BY 4.0, Copyright Contributors to the ODPi Egeria project.

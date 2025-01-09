@@ -66,7 +66,7 @@ services:
         depends_on:
             - kafka
         image: 'docker.io/odpi/egeria-platform:latest'
-#        image: 'egeria-test-5-3-docker'
+#        image: 'docker.io/odpi/egeria-platform:stable'
 
 
         networks:
@@ -119,5 +119,6 @@ volumes:
 
 networks:
     egeria_network:
-#        driver: bridge
-        external: true
+        driver: bridge
+        name: egeria_network
+#        external: true

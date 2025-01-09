@@ -9,11 +9,13 @@ These are not meant for production use. Please see the [Planning Guide](https://
 for more information about designing Egeria deployments. The Egeria community has also created samples for other 
 deployment styles, such as Cloud Native approaches and the use of Helm charts to configure Kubernetes clusters. These
 options may be better starting points for production deployments - depending upon your requirements.
-Please feel free to engage with the community on our slack channel - we'd love your feedback and participation.
+Please feel free to engage with the community on our [slack channel](https://lfaifoundation.slack.com/join/shared_invite/zt-o65errpw-gMTbwNr7FnNbVXNVFkmyNA%E2%80%8B#/shared-invite/email) - we'd love your feedback and participation.
 
 
-For a quick and simple environment to explore some of Egeria's base capabilities, the **egeria-platform.yml**  Docker Compose
-deployment may be a good starting point. Once this script executes successfully, you will have two docker containers running. One for the Egeria platform and one for Kafka. With this running configuration, you can work with any of Egeria's standard interfaces - java APIs, python APIs, or just plain RESTful http calls - and of course, to make use of tools and interfaces that have been built using these APIs.
+For a quick and simple environment to explore some of Egeria's base capabilities in a jupyter notebook environment, the **egeria-platform-jupyter-compose**  Docker Compose
+deployment may be a good starting point. Once this script executes successfully, you will have three docker containers running. One for the Egeria platform, one for Kafka, and one for jupyter. 
+With this running configuration, you can work with any of Egeria's standard interfaces - java APIs, python APIs, or just plain RESTful http calls - 
+and of course, to make use of tools and interfaces that have been built using these APIs.
 
 If you are a data scientist or just want to work within a Jupyter Notebook environment, the `egeria-platform-jupyter-compose` script
 adds a Jupyter server pre-configured with the Egeria Python client, **pyegeria** for you to use.

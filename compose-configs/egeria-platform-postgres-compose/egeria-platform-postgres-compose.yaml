@@ -36,6 +36,8 @@ services:
         depends_on:
             - kafka
         image: 'docker.io/odpi/egeria-platform:latest'
+#        image: 'docker.io/odpi/egeria-platform:stable'
+
         ports:
             - '9443:9443'
             - '5005:5005'
