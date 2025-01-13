@@ -87,10 +87,8 @@ services:
     egeria-main:
         depends_on:
             - kafka
-
         image: 'docker.io/odpi/egeria-platform:latest'
 #        image: 'docker.io/odpi/egeria-platform:stable'
-
         networks:
             - egeria_network
         ports:
@@ -99,7 +97,7 @@ services:
         environment:
             - XTDB_ENABLE_BYTEUTILS_SHA1=True
             - XTDB_DISABLE_LIBCRYPTO=True
-            - startup.server.list=active-metadata-store,engine-host,integration-daemon,view-server,simple-metadata-store
+            - startup.server.list=qs-metadata-store,qs-engine-host,qs-integration-daemon,qs-view-server
             - server.port=9443
 
         healthcheck:
