@@ -33,19 +33,37 @@ services:
              - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9193
              - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
 
-    egeria-platform:
-        depends_on:
-            - kafka
-        image: 'docker.io/odpi/egeria-platform:latest'
-        ports:
-            - '9443:9443'
+    egeria-platform-basic:
+            depends_on:
+                - kafka
+            image: 'docker.io/odpi/egeria-platform:latest'
+#            image: 'docker.io/odpi/egeria-platform:stable'
+            ports:
+                - '9443:9443'
+                - '5005:5005'
+            environment:
+                - XTDB_ENABLE_BYTEUTILS_SHA1=True
+                - XTDB_DISABLE_LIBCRYPTO=True
+                - startup.server.list=active-metadata-store,engine-host,integration-daemon,view-server,simple-metadata-store
+                - server.port=9443
+
+            healthcheck:
+                test: curl -k -X GET "https://localhost:9443/open-metadata/platform-services/users/garygeeke/server-platform/origin" || exit 1
+                interval: 20s
+                timeout: 10s
+                retries: 3
+                start_period: 10s
 
 
-        # Persistence
-#        volumes:
-#            - "YOUR DATA DIRECTORY"/data:/deployments/data
-#            - "YOUR EXTRA LIBRARY DIRECTORY"/extra:/deployments/extra
-#            - "ANOTHER DIRECTOR TO MOUNT"/:/deployments/user_mount
+            volumes:
+                - ../../exchange/landing-area:/deployments/landing-area
+                - ../../exchange/distribution-hub:/deployments/distribution-hub
+                - ../../exchange/distribution-hub/surveys:/deployments/surveys
+                - ../../exchange/distribution-hub/logs:/deployments/logs
+                - ../../runtime-volumes/egeria-platform-data/data:/deployments/data
+                - ../../exchange/loading-bay:/deployments/loading-bay
+                - ../../work:/deployments/work
+                - ../../runtime-volumes/egeria-platform-data/application.properties:/deployments/application.properties
 
 
 #
