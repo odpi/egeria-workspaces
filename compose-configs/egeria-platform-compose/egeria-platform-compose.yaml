@@ -60,10 +60,10 @@ services:
                 - ../../exchange/distribution-hub:/deployments/distribution-hub
                 - ../../exchange/distribution-hub/surveys:/deployments/surveys
                 - ../../exchange/distribution-hub/logs:/deployments/logs
-                - ../../runtime-volumes/egeria-platform-data/data:/deployments/data
+#                - ../../runtime-volumes/egeria-platform-data/data:/deployments/data
                 - ../../exchange/loading-bay:/deployments/loading-bay
                 - ../../work:/deployments/work
-                - ../../runtime-volumes/egeria-platform-data/application.properties:/deployments/application.properties
+#                - ../../runtime-volumes/egeria-platform-data/application.properties:/deployments/application.properties
 
 
 #
