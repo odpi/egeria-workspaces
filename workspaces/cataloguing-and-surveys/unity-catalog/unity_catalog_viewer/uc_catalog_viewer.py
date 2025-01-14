@@ -158,7 +158,7 @@ if __name__ == "__main__":
     parser.add_argument("--userid", help="User Id")
     args = parser.parse_args()
 
-    server = args.server if args.server is not None else "engine-host"
+    server = args.server if args.server is not None else "qs-engine-host"
     url = args.url if args.url is not None else "http://egeria.pdr-associates.com:8070"
     userid = args.userid if args.userid is not None else 'garygeeke'
     display_catalog(url)
