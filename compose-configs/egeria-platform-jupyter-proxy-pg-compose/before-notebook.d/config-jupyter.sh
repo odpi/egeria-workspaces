@@ -15,14 +15,14 @@
 #
 #/opt/conda/bin/activate python312
 
-export EGERIA_METADATA_STORE="active-metadata-store"
+export EGERIA_METADATA_STORE="qs-metadata-store"
 export EGERIA_KAFKA_ENDPOINT='host.docker.internal:9192'
 export EGERIA_PLATFORM_URL='https://host.docker.internal:9443'
-export EGERIA_VIEW_SERVER='view-server'
+export EGERIA_VIEW_SERVER='qs-view-server'
 export EGERIA_VIEW_SERVER_URL='https://host.docker.internal:9443'
-export EGERIA_INTEGRATION_DAEMON='integration-daemon'
+export EGERIA_INTEGRATION_DAEMON='qs-integration-daemon'
 export EGERIA_INTEGRATION_DAEMON_URL='https://host.docker.internal:9443'
-export EGERIA_ENGINE_HOST='engine-host'
+export EGERIA_ENGINE_HOST='qs-engine-host'
 export EGERIA_ENGINE_HOST_URL='https://host.docker.internal:9443'
 export EGERIA_ADMIN_USER='garygeeke'
 export EGERIA_ADMIN_PASSWORD='secret'
