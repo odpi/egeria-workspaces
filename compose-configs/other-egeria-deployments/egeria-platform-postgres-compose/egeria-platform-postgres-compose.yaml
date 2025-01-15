@@ -1,0 +1,89 @@
+---
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Contributors to the Egeria project
+
+
+# To run
+#   * Ensure Docker is installed and running
+#   * Start Egeria Platform stack using
+#     'docker-compose -f ./egeria-platform-postgres-compose.yaml up'
+#
+# Assumptions:
+#   * Ports 9443 and 9192 are available on the host system - these are the default ports for Kafka and Egeria.
+#   * by default, strict SSL validation is turned off
+#
+# See the following link for more info on volumes & why we need to use root:
+#   https://docs.bitnami.com/containers/how-to/work-with-non-root-containers
+
+
+services:
+    kafka:
+         image: 'bitnami/kafka:latest'
+         ports:
+             - '9192:9192'
+             - '9194:9194'
+         environment:
+             - KAFKA_CFG_NODE_ID=0
+             - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+             - KAFKA_CFG_PROCESS_ROLES=controller,broker
+             - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9193
+             - KAFKA_CFG_LISTENERS=PLAINTEXT://kafka:9192,CONTROLLER://:9193,EXTERNAL://:9194
+             - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9192,EXTERNAL://localhost:9194
+             - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+             - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+
+    egeria-platform:
+        depends_on:
+            - kafka
+#        image: 'docker.io/odpi/egeria-platform:latest'
+        image: 'docker.io/odpi/egeria-platform:stable'
+
+        ports:
+            - '9443:9443'
+            - '5005:5005'
+        environment:
+            - XTDB_ENABLE_BYTEUTILS_SHA1=True
+            - XTDB_DISABLE_LIBCRYPTO=True
+            - startup.server.list=active-metadata-store,engine-host,integration-daemon,view-server,simple-metadata-store
+            - server.port=9443
+
+        healthcheck:
+            test: curl -k -X GET "https://localhost:9443/open-metadata/platform-services/users/garygeeke/server-platform/origin" || exit 1
+            interval: 20s
+            timeout: 10s
+            retries: 3
+            start_period: 10s
+
+
+        volumes:
+            - ../../../exchange/landing-area:/deployments/landing-area
+            - ../../../exchange/distribution-hub:/deployments/distribution-hub
+            - ../../../exchange/distribution-hub/surveys:/deployments/surveys
+            - ../../../exchange/distribution-hub/logs:/deployments/logs
+            - ../../../exchange/loading-bay:/deployments/loading-bay
+            - ../../../work:/deployments/work
+
+    postgres:
+        image: postgres:16.4
+        restart: always
+        ports:
+            - "127.0.0.1:5442:5442"
+        shm_size: 128mb
+        environment:
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: egeria
+            PGDATA: /var/lib/postgresql/data/pgdata
+        volumes:
+            - ../../runtime-volumes/egeria-pg:/var/lib/postgresql/data/pgdata
+            - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+        command: -p 5442
+#
+# Change external to true and create volumes manually if you wish to persist between runs
+#
+volumes:
+    zookeeper-data:
+        external: false
+    kafka-data:
+        external: false
+    db_home:
+        external: false
