@@ -6,7 +6,7 @@ This directory contains sample Docker Compose script to support the deployment o
 Apache Superset to use with Egeria. 
 
 The current script is designed to work with the 
-egeria-platform-jupyter-proxy-pg-compose script. It assumes that 
+egeria-quickstart script. It assumes that 
 a docker network `egeria-network` is configured and that postgres is running
 on port 5442. You can, of course, modify this script to meet your needs.
 
