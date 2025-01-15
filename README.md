@@ -2,84 +2,99 @@
 <!-- Copyright Contributors to the ODPi Egeria project 2024. -->
 
 # Overview
-This directory contains sample Docker Compose scripts to support the deployment of Egeria for experimentation,
-development, and learning. Rather than having to install Egeria, prerequisites and tools separately, these scripts make 
-it easy to get a stack running quickly. 
-These are not meant for production use. Please see the [Planning Guide](https://egeria-project.org/guides/planning/)
-for more information about designing Egeria deployments. The Egeria community has also created samples for other 
-deployment styles, such as Cloud Native approaches and the use of Helm charts to configure Kubernetes clusters. These
-options may be better starting points for production deployments - depending upon your requirements.
-Please feel free to engage with the community on our [slack channel](https://lfaifoundation.slack.com/join/shared_invite/zt-o65errpw-gMTbwNr7FnNbVXNVFkmyNA%E2%80%8B#/shared-invite/email) - we'd love your feedback and participation.
 
+**egeria-workspaces** provides a runtime environment for learning, experimenting and using Egeria. 
+The default configuration sets up a full Egeria system and provides pre-built content to help you get started. 
 
-For a quick and simple environment to explore some of Egeria's base capabilities in a jupyter notebook environment, the **egeria-platform-jupyter-compose**  Docker Compose
-deployment may be a good starting point. Once this script executes successfully, you will have three docker containers running. One for the Egeria platform, one for Kafka, and one for jupyter. 
-With this running configuration, you can work with any of Egeria's standard interfaces - java APIs, python APIs, or just plain RESTful http calls - 
-and of course, to make use of tools and interfaces that have been built using these APIs.
+This environment is not designed for enterprise-wide use. Please see the [Planning Guide](https://egeria-project.org/guides/planning/)
+for more information about designing bespoke Egeria deployments, such as Cloud Native approaches and the use of
+Helm charts to configure Kubernetes clusters. 
+For further help and advice, please feel free to engage with the community on our [slack channel](https://lfaifoundation.slack.com/join/shared_invite/zt-o65errpw-gMTbwNr7FnNbVXNVFkmyNA%E2%80%8B#/shared-invite/email) - we'd love your feedback and participation.
 
-If you are a data scientist or just want to work within a Jupyter Notebook environment, the `egeria-platform-jupyter-compose` script
-adds a Jupyter server pre-configured with the Egeria Python client, **pyegeria** for you to use.
-The set of **Docker Compose** configurations will continue to grow and evolve over time to cover additional scenarios based on
-community feedback. 
 
 # Contents
+**egeria-workspaces** consists of a number of artifacts reflected by the folder structure itself. Here is a quick tour:
+## compose-configs
+Subfolders contain artifacts for different deployments of Egeria along with optional runtimes often used with Egeria.
+The deployments provide **docker compose** scripts to orchestrate the building, configuration and startup of the components needed.
+Here is the break-down of the configurations:
 
-Our first docker compose script is called **egeria-platform.yml**. After running this script, you will have a running environment 
-that consists of a single Egeria runtime platform and the Apache Kafka event system. Information about configuring 
-Egeria can be found at [Configuring Egeria](https://egeria-project.org/guides/admin/configuring-the-omag-server-platform/). 
-We use standard, out-of-the-box configurations for both - a minimal amount of configuration for:
+### egeria-quickstart
+This provides the standard Egeria deployment, suitable for most use cases.
+It contains the `egeria-quickstart.yaml` docker compose script and supporting files. The result of running this compose script sets up:
+* Egeria running on port 9444
+* Apache Kafka running on port 9192
+* Postgres running on port 5442
+* Jupyter running on port 8888
+* Open Lineage Proxy running on port 6000
 
-## Egeria Platform - Default Configuration
-We use the Egeria platform docker image - [egeria-platform](https://hub.docker.com/r/odpi/egeria-platform).
+There are several additional features of this environment - including sharing of select folders between Jupyter and Egeria,
+and externalization of the configuration and runtime information to make it available outside of the docker containers.
+More details can be found in the [README.md](./compose-configs/egeria-quickstart/README.md) file within this directory.
 
-* Port - By default the platform uses port 9443 and exposes this port to the host environment, This means that Egeria requests
-can be made to platform URL **https://localhost:9443** or, if your environment is configured to support it, it can use 
-the domain name of your host machine. 
-* SSL - By default strict SSL is set to false 
-* Auto-Started Servers - by default a useful set of Egeria Open Metadata and Governance (OMAG) servers are pre-installed
-and started when the Egeria platform is started. A description of these servers can be found at [sample configs](https://github.com/odpi/egeria/tree/main/open-metadata-resources/open-metadata-deployment/sample-configs):
+### optional-associated-runtimes
+This folder contains some sample docker compose scripts to start some other runtimes
+that we often use with Egeria. Currently this includes:
+* airflow & marquez - Apache Airflow is a popular open source workflow runtime and marquez offers
+some very nice visualization of open lineage graphs.
+* superset - Apache Superset is an open source reporting and dashboarding tool.
 
-  * simple-metadata-store
-  * active-metadata-store
-  * engine-host
-  * integration-daemon
-  * view-server
+### other-egeria-deployments
+While the egeria-quickstart environment is a good starting point for most folk, we've also included
+some other docker scripts to support some simpler deployments. The available deployments are:
 
-* Content Packs - pre-constructed information sets that can be used to configure Egeria and pre-load metadata, reference data and glossary data. See [Content Packs](https://egeria-project.org/content-packs/).
-* Out-of-the-box Connectors - descriptions of the integration connectors can be found at [Integration Connectors](https://egeria-project.org/connectors/).
+* egeria-platform-compose - deploys Egeria with an XTDB file based repository along with Kafka.
+* egeria-platform-jupyter-compose - additionally adds a Jupyter server
+* egeria-platform-postgres-compose - deploys the postgres database for use with Egeria, and Kafka.
 
-## Kafka - configured for Egeria
-We use the bitnami/kafka image described at [kafka](https://hub.docker.com/r/bitnami/kafka)
-* Port - We use the default port of 9092 for Kafka. This port is also exposed in the host environment. Changing this port also requires corresponding changes to the Egeria configuration.
-* Other configuration can be seen in the *egeria-platform.yaml* file. 
+These simpler configurations do not externalize 
+their configurations and only share a subset of the folders. They provide configurations for these servers:
+* active-metadata-store
+* simple-metadata-store
+* integration-daemon
+* engine-host
+* view-server
 
-# Usage
-Follow these steps to use Docker Compose.
+More details can be found in the README.md files within this folder.
+## exchange
+The exchange folder is to support exchange of file-based information between the Egeria running in a docker container,
+the Jupyter environment, and the host file-system. 
+### distribution-hub
+The distribution hub is where Egeria can place information and results that it generates so that they are
+easily visible to the users and Jupyter, This information currently includes:
+- logs - Egeria audit logs (if file based event logging has been configured)
+- surveys - Survey reports generated by Egeria based on user request or automation.
+### landing-area
+The *landing-area* directory (or any of its subdirectories) are monitored by the *qs-integration-daemon* server.
+If you add files under this directory, they will be automatically classified using their file name and file extension,
+and then catalogued into the *qs-metadata-store* metadata repository as [assets](https://egeria-project.org/concepts/asset/).
 
-1. Install and Configure Docker and Docker Compose. 
-   * Docker and Docker compose must be installed and running - see https://docs.docker.com/install/
-   * Configure docker with at least 6GB memory
-2. Download the [**egeria-platform.yaml**](https://raw.githubusercontent.com/odpi/egeria/main/open-metadata-resources/open-metadata-deployment/docker-compose/egeria-platform-compose/egeria-platform.yaml)
-3. Run the docker compose script from a terminal window in the directory where you downloaded `egeria-platform.yaml`. At the command line issue:
+### loading-bay
+The *landing-bay* directory is where users place information to be ingested by Egeria.
+There are sub-directories for different kinds of information:
 
-  `docker compose -f egeria-platform.yaml up`
+- glossary - for importing and exporting glossary terms
+- open-metadata-archives - for importing open-metadata-archives
+- secrets - to configure local secrets; default secrets are provided, yet will often be
+replaced with local information.
 
-This will download the docker images for Kafka and Egeria, then create and start the two containers. Both kafka and Egeria will then automatically configure themselves. For Egeria, this means not only starting up the initial set of servers, but then loading the **CoreContentPack.omarchive** into the metadata repository, and then configuring all the servers. This can take several minutes the first time the containers are created. Subsequent startups will be much faster.
+## runtime-volumes
+The information in these folders are used by the Runtimes. They are not for the general
+user to use. Externalizing runtime information here, rather than embedded within the containers,
+means that if containers are upgraded or destroyed, the environment can still be recovered.
+Currently there are sub-directories here for:
+* airflow-volumes
+* egeria-pg
+* egeria-platform-data
 
-4. Using either the **docker desktop** application or the docker command line you can see the two new containers running. To do this with the docker command line, you can issue:
+## work
+This folder is meant for you to put your own private working files for use with Egeria and
+Jupyter. The directory is mounted and visible within both Egeria and Jupyter runtimes.
 
-`docker ps`
-
-5. The environment is ready to be used. 
-
-6. You can control the containers with docker compose commands - see [docker compose](https://docs.docker.com/reference/cli/docker/compose/). These commands can be used to administer and use the docker containers.
-
-## Next Steps
-
-Now that your Egeria environment is running and configured it is waiting for you to make requests. 
-Some tutorials for working with Egeria can be found at [Tutorials](https://egeria-project.org/education/tutorials/). For those that want to try the new python client, you can find a quick introduction at [pyegeria](https://getting-started-with-egeria.pdr-associates.com/recipe-6-charming-python.html). 
-
-As always, your feedback and participation are welcome. 
+## workspaces
+This set of folders contains examples, samples, utilities and other artifacts useful to 
+getting started with Egeria. Please explore. Extend if desired, and if you want to contribute
+your own content to the community feel free to contact us via Slack or email.
 
 
 License: CC BY 4.0, Copyright Contributors to the ODPi Egeria project.
