@@ -1,0 +1,8 @@
+apache-airflow-providers-openlineage
+apache-airflow-providers-postgres
+confluent-kafka
+openlineage-python[kafka]
+pyegeria
+apache-airflow-providers-apache-kafka
+asgiref
+unitycatalog
