@@ -55,7 +55,7 @@ POST {{baseURL}}/open-metadata/admin-services/users/{{adminUserId}}/servers/qs-m
 Content-Type: application/json
 
 {
-  "supportedSeverities" : ["Error", "Exception", "Activity", "Action", "Decision"],
+  "supportedSeverities" : ["Error", "Exception", "Activity", "Action", "Decision", "Security"],
   "databaseURL": "~{postgreSQLDatabaseURL}~?currentSchema=audit_logs",
   "databaseSchema": "audit_logs",
   "secretsStore": "~{secretsStore}~",
@@ -169,7 +169,7 @@ POST {{baseURL}}/open-metadata/admin-services/users/{{adminUserId}}/servers/qs-v
 Content-Type: application/json
 
 {
-  "supportedSeverities" : ["Error", "Exception", "Activity", "Action", "Decision"],
+  "supportedSeverities" : ["Error", "Exception", "Activity", "Action", "Decision", "Security"],
   "databaseURL": "~{postgreSQLDatabaseURL}~?currentSchema=audit_logs",
   "databaseSchema": "audit_logs",
   "secretsStore": "~{secretsStore}~",
@@ -340,7 +340,7 @@ POST {{baseURL}}/open-metadata/admin-services/users/{{adminUserId}}/servers/qs-e
 Content-Type: application/json
 
 {
-  "supportedSeverities" : ["Error", "Exception", "Activity", "Action", "Decision"],
+  "supportedSeverities" : ["Error", "Exception", "Activity", "Action", "Decision", "Security"],
   "databaseURL": "~{postgreSQLDatabaseURL}~?currentSchema=audit_logs",
   "databaseSchema": "audit_logs",
   "secretsStore": "~{secretsStore}~",
@@ -493,7 +493,7 @@ POST {{baseURL}}/open-metadata/admin-services/users/{{adminUserId}}/servers/qs-i
 Content-Type: application/json
 
 {
-  "supportedSeverities" : ["Error", "Exception", "Activity", "Action", "Decision"],
+  "supportedSeverities" : ["Error", "Exception", "Activity", "Action", "Decision", "Security"],
   "databaseURL": "~{postgreSQLDatabaseURL}~?currentSchema=audit_logs",
   "databaseSchema": "audit_logs",
   "secretsStore": "~{secretsStore}~",
