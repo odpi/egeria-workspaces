@@ -56,7 +56,7 @@ with DAG(
     @task()
     def list_catalogs():
         # url = "http://egeria.pdr-associates.com:8070"
-        url = "http://host.docker.internal:8081"
+        url = "http://egeria.pdr-associates.com:8070"
         base_url = url + "/api/2.1/unity-catalog"
         uc_client = Unitycatalog(base_url=base_url, )
         c_list = uc_client.catalogs.list()
