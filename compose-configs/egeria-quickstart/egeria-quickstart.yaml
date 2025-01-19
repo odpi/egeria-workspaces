@@ -132,6 +132,7 @@ services:
         volumes:
             - ../../runtime-volumes/egeria-pg:/var/lib/postgresql/data/pgdata
             - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+            - ../../exchange/landing-area:/var/data/landing-area
         command: -p 5442
 #
 # Change external to true and create volumes manually if you wish to persist between runs
