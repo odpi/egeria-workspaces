@@ -14,7 +14,7 @@ create database examples;
 
 grant all privileges on database egeria to egeria_admin, egeria_user;
 grant all privileges on database superset to egeria_admin, egeria_user;
-grant all privileges on database coco_pharma to egeria_admin, egeria_user;
+grant all privileges on database coco_pharma to egeria_admin, egeria_user, airflow_user;
 grant all privileges on database airflow to airflow_user;
 grant all privileges on database marquez to marquez_user;
 grant all privileges on database examples to example_user;

@@ -47,6 +47,7 @@ directory, type type `./airflow.sh <command>`, where **command** might be an air
 ### Airflow 
 * WebUI is port 8070, user: *airflow*, password: *airflow*
 * Publishes Openlineage events to port 6000
+* Postgres database for 
 
 ### Marquez
 * Marquez UI is port 3000
