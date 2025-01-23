@@ -123,11 +123,11 @@ runtime-volumes/airflow-volumes/dags/**
 runtime-volumes/airflow-volumes/logs/**
 runtime-volumes/airflow-volumes/plugins/**
 
-runtime-volumes/unitycatalog1/etc/db/
-runtime-volumes/unitycatalog1/etc/logs/
-runtime-volumes/unitycatalog2/etc/db/
-runtime-volumes/unitycatalog2/etc/logs/
-
+#runtime-volumes/unitycatalog1/etc/db/
+#runtime-volumes/unitycatalog1/etc/logs/
+#runtime-volumes/unitycatalog2/etc/db/
+#runtime-volumes/unitycatalog2/etc/logs/
+#runtime-volumes/unitycatalog
 loading-bay/open-metadata-archives/*.omarchive
 
 compose-configs/egeria-platform-jupyter-proxy-pg-compose/data/servers/active-metadata-store/repository/**
