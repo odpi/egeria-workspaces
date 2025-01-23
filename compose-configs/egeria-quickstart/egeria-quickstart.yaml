@@ -110,7 +110,7 @@ services:
             - ../../exchange/landing-area:/deployments/landing-area
             - ../../exchange/distribution-hub:/deployments/distribution-hub
             - ../../exchange/distribution-hub/surveys:/deployments/surveys
-            - ../../exchange/distribution-hub/logs:/deployments/logs
+            - ../../runtime-volumes/egeria-platform-data/logs:/deployments/logs
             - ../../runtime-volumes/egeria-platform-data/data:/deployments/data
             - ../../exchange/loading-bay:/deployments/loading-bay
             - ../../exchange/coco-data-lake:/deployments/coco-data-lake
