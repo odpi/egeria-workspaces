@@ -1,22 +1,10 @@
-# Licensed to the Apache Software Foundation (ASF) under one
-# or more contributor license agreements.  See the NOTICE file
-# distributed with this work for additional information
-# regarding copyright ownership.  The ASF licenses this file
-# to you under the Apache License, Version 2.0 (the
-# "License"); you may not use this file except in compliance
-# with the License.  You may obtain a copy of the License at
+---
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Contributors to the Egeria project
 #
-#   http://www.apache.org/licenses/LICENSE-2.0
 #
-# Unless required by applicable law or agreed to in writing,
-# software distributed under the License is distributed on an
-# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-# KIND, either express or implied.  See the License for the
-# specific language governing permissions and limitations
-# under the License.
-#
-
 # Basic Airflow cluster configuration for CeleryExecutor with Redis and PostgreSQL.
+# Includes configuration for OpenLineage and Marquez
 #
 # WARNING: This configuration is for local development. Do not use it in a production deployment.
 #
@@ -62,11 +50,13 @@ x-airflow-common:
     &airflow-common-env
     AIRFLOW_UID: "50000"
     SEARCH_ENABLED: True
+    AIRFLOW__WEBSERVER__ACCESS_LOGFORMAT: 'true'
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
     AIRFLOW_PROJ_DIR: '/Users/dwolfson/localGit/egeria-v5-3/egeria-workspaces/runtime-volumes/airflow-volumes'
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
     AIRFLOW__WEBSERVER__WEB_SERVER_PORT: "8070"
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:  postgresql+psycopg2://airflow_user:user4airflow@postgres_for_egeria:5442/airflow
-    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow_user:user4airflow@postgres_for_egeria:5442/airflow
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:  postgresql+psycopg2://airflow_user:user4airflow@host.docker.internal:5442/airflow
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow_user:user4airflow@host.docker.internal:5442/airflow
     AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
     AIRFLOW__CORE__FERNET_KEY: ''
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
@@ -89,7 +79,7 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-./runtime-data}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-./runtime-data}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-./runtime-data}/plugins:/opt/airflow/plugins
-    - ../../../exchange/landing-area:/opt/airflow/data/landing-area
+    - ../../../exchange/coco-data-lake:/opt/airflow/data/coco-data-lake
     - ./requirements.txt:/opt/airflow/requirements.txt
     - ./openlineage.yml:/opt/airflow/openlineage.yml
     - ./openlineage.env:/opt/airflow/openlineage.env
