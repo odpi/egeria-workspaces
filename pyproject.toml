@@ -8,7 +8,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "3.12.8"
 jupyter = "*"
-rich = "*"
+rich = "^13.9.4"
 pyegeria = "*"
 unitycatalog = "*"
 textual = "*"
