@@ -3,6 +3,7 @@ create user egeria_user with login password 'user4egeria';
 create user airflow_user with superuser login password 'user4airflow';
 create user marquez_user with superuser login password 'user4marquez';
 create user example_user with login password 'user4example';
+create user uc_user with superuser login password 'user4uc';
 
 
 create database egeria;
@@ -11,6 +12,7 @@ create database coco_pharma;
 create database airflow;
 create database marquez;
 create database examples;
+create database ucdb;
 
 grant all privileges on database egeria to egeria_admin, egeria_user;
 grant all privileges on database superset to egeria_admin, egeria_user;

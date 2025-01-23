@@ -26,7 +26,7 @@ from unitycatalog.types import (catalog_info, catalog_list_response,
 
 def display_catalog(url:str):
     base_url = url + "/api/2.1/unity-catalog"
-    uc_client = Unitycatalog(base_url=base_url, )
+    uc_client = Unitycatalog(base_url=base_url )
 
     def generate_table() -> Table:
         """Make a new table."""
@@ -151,14 +151,16 @@ def display_catalog(url:str):
         uc_client.close()
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--server", help="Name of the server to display status for")
     parser.add_argument("--url", help="URL Platform to connect to")
     parser.add_argument("--userid", help="User Id")
     args = parser.parse_args()
 
-    server = args.server if args.server is not None else "qs-engine-host"
     url = args.url if args.url is not None else "http://egeria.pdr-associates.com:8070"
     userid = args.userid if args.userid is not None else 'garygeeke'
     display_catalog(url)
+
+
+if __name__ == "__main__":
+    main()

@@ -42,6 +42,7 @@ services:
             - ../../exchange/distribution-hub:/home/jovyan/distribution-hub
             - ../../exchange/loading-bay:/home/jovyan/loading-bay
             - ../../exchange/landing-area:/home/jovyan/landing-area
+            - ../../exchange/coco-data-lake:/home/jovyan/coco-data-lake
 
 
     kafka:
@@ -99,7 +100,6 @@ services:
             - XTDB_DISABLE_LIBCRYPTO=True
             - startup.server.list=qs-metadata-store,qs-engine-host,qs-integration-daemon,qs-view-server
             - server.port=9443
-
         healthcheck:
             test: curl -k -X GET "https://localhost:9443/open-metadata/platform-services/users/garygeeke/server-platform/origin" || exit 1
             interval: 20s
@@ -110,9 +110,10 @@ services:
             - ../../exchange/landing-area:/deployments/landing-area
             - ../../exchange/distribution-hub:/deployments/distribution-hub
             - ../../exchange/distribution-hub/surveys:/deployments/surveys
-            - ../../exchange/distribution-hub/logs:/deployments/logs
+            - ../../runtime-volumes/egeria-platform-data/logs:/deployments/logs
             - ../../runtime-volumes/egeria-platform-data/data:/deployments/data
             - ../../exchange/loading-bay:/deployments/loading-bay
+            - ../../exchange/coco-data-lake:/deployments/coco-data-lake
             - ../../work:/deployments/work
             - ../../runtime-volumes/egeria-platform-data/application.properties:/deployments/application.properties
 
@@ -130,9 +131,9 @@ services:
             POSTGRES_PASSWORD: egeria
             PGDATA: /var/lib/postgresql/data/pgdata
         volumes:
-            - ../../runtime-volumes/egeria-pg:/var/lib/postgresql/data/pgdata
+            - egeria_postgres_data:/var/lib/postgresql/data/pgdata
             - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
-            - ../../exchange/landing-area:/var/data/landing-area
+            - ../../exchange/coco-data-lake:/var/data/coco-data-lake
         command: -p 5442
 #
 # Change external to true and create volumes manually if you wish to persist between runs
@@ -142,8 +143,12 @@ volumes:
         external: false
     kafka-data:
         external: false
-    db_home:
-        external: false
+    egeria_postgres_data: # Define the reusable volume
+        driver: local
+        driver_opts:
+            type: none
+            device: ../../runtime-volumes/egeria-pg # Path to bind
+            o: bind
 
 networks:
     egeria_network:
