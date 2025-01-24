@@ -118,8 +118,6 @@ runtime-volumes/egeria-pg
 runtime-volumes/egeria-pg/**
 runtime-volumes/airflow-volumes
 runtime-volumes/airflow-volumes/**
-runtime-volumes/airflow-volumes/config/**
-runtime-volumes/airflow-volumes/dags/**
 runtime-volumes/airflow-volumes/logs/**
 runtime-volumes/airflow-volumes/plugins/**
 
@@ -136,6 +134,6 @@ exchange/loading-bay/secrets/*yml
 exchange/loading-bay/secrets/*yaml
 exchange/loading-bay/open-metadata-archives/*omarchive
 exchange/landing-area/**
-
+exchange/coco-data-lake/
 compose-configs/optional-associated-runtimes/airflow-marquez/runtime-data/**
 
