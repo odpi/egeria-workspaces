@@ -134,7 +134,7 @@ services:
             - egeria_postgres_data:/var/lib/postgresql/data/pgdata
             - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
             - ../../exchange/coco-data-lake:/var/data/coco-data-lake
-        command: -p 5442
+        command: -p 5442 -c max_connections=1000
 #
 # Change external to true and create volumes manually if you wish to persist between runs
 #
