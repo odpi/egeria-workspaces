@@ -112,20 +112,18 @@ exchange/distribution-hub/*/**
 work
 runtime-volumes/egeria-platform-data/data/servers/*/repository/**
 runtime-volumes/egeria-platform-data/data/servers/*/repository
-runtime-volumes/egeria-platform-data/data/coco-data-lake
 runtime-volumes/egeria-platform-data/data/coco-data-lake/**
-runtime-volumes/egeria-pg
 runtime-volumes/egeria-pg/**
 runtime-volumes/airflow-volumes
 runtime-volumes/airflow-volumes/**
 runtime-volumes/airflow-volumes/logs/**
 runtime-volumes/airflow-volumes/plugins/**
 
-#runtime-volumes/unitycatalog1/etc/db/
-#runtime-volumes/unitycatalog1/etc/logs/
-#runtime-volumes/unitycatalog2/etc/db/
-#runtime-volumes/unitycatalog2/etc/logs/
-#runtime-volumes/unitycatalog
+runtime-volumes/unitycatalog1/etc/db/
+runtime-volumes/unitycatalog1/etc/logs/
+runtime-volumes/unitycatalog2/etc/db/
+runtime-volumes/unitycatalog2/etc/logs/
+
 loading-bay/open-metadata-archives/*.omarchive
 
 compose-configs/egeria-platform-jupyter-proxy-pg-compose/data/servers/active-metadata-store/repository/**
