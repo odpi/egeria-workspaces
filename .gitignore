@@ -138,4 +138,6 @@ compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-da
 compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-data/*/servers/*/repository/
 compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-data/*/servers/*/repository/*
 compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-data/coco-pg/**
+compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-data/coco-pg/
+
 
