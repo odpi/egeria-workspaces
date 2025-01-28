@@ -45,10 +45,10 @@ services:
     volumes:
       - ./before-notebook.d:/usr/local/bin/before-notebook.d
       - ./coco-labs-notebooks/:/home/jovyan/labs
-      - ../../exchange/distribution-hub:/home/jovyan/distribution-hub
-      - ../../exchange/loading-bay:/home/jovyan/loading-bay
-      - ../../exchange/landing-area:/home/jovyan/landing-area
-      - ../../exchange/coco-data-lake:/home/jovyan/coco-data-lake
+      - ../../../exchange/distribution-hub:/home/jovyan/distribution-hub
+      - ../../../exchange/loading-bay:/home/jovyan/loading-bay
+      - ../../../exchange/landing-area:/home/jovyan/landing-area
+      - ../../../exchange/coco-data-lake:/home/jovyan/coco-data-lake
 
   kafka-coco:
     image: 'bitnami/kafka:latest'
