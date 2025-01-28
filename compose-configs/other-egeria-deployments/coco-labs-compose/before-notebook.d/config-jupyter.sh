@@ -33,5 +33,9 @@ export EGERIA_WIDTH='200'
 export EGERIA_HOME_GLOSSARY_GUID=
 export EGERIA_GLOSSARY_PATH='/home/jovyan/loading-bay/glossary'
 
-
-
+#rm -rf ./__pychache__
+export PYTHONDONTWRITEBYTECODE=1
+python3 /home/jovyan/labs/common/config_coco_core.py
+#python3 /home/jovyan/labs/common/config_coco_datalake.py
+#python3 /home/jovyan/labs/common/config_coco_development.py
+echo "Launching Jupyter notebook server.."

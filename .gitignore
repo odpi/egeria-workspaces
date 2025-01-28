@@ -136,6 +136,6 @@ compose-configs/optional-associated-runtimes/airflow-marquez/runtime-data/**
 
 compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-data/*/logs/**
 compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-data/*/servers/*/repository/
-compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-data/*/servers/*/repository/**
-
+compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-data/*/servers/*/repository/*
+compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-data/coco-pg/**
 

@@ -18,140 +18,134 @@
 #
 
 services:
-    jupyter-hub:
-        depends_on:
-            egeria-main:
-                condition: service_healthy
+  jupyter-hub:
+    depends_on:
+      egeria-main:
+        condition: service_healthy
 
-        image: quay.io/jupyter/scipy-notebook
-        container_name: jupyter-work-full
-        networks:
-            - egeria_network
-        ports:
-            - 8888:8888
-        environment:
-            JUPYTER_ENABLE_LAB: "yes"
-            JUPYTER_TOKEN: "egeria"
-        build:
-            dockerfile: Dockerfile-jupyter
+    image: quay.io/jupyter/scipy-notebook
+    container_name: jupyter-work-full
+    networks:
+      - egeria_network
+    ports:
+      - 8888:8888
+    environment:
+      JUPYTER_ENABLE_LAB: "yes"
+      JUPYTER_TOKEN: "egeria"
+    build:
+      dockerfile: Dockerfile-jupyter
+    volumes:
+      - ./before-notebook.d:/usr/local/bin/before-notebook.d
+      - ../../work:/home/jovyan/work
+      - ../../workspaces:/home/jovyan/workbooks
+      - ../../exchange/distribution-hub:/home/jovyan/distribution-hub
+      - ../../exchange/loading-bay:/home/jovyan/loading-bay
+      - ../../exchange/landing-area:/home/jovyan/landing-area
+      - ../../exchange/coco-data-lake:/home/jovyan/coco-data-lake
 
-        volumes:
-            - ./before-notebook.d:/usr/local/bin/before-notebook.d
-            - ../../work:/home/jovyan/work
-            - ../../workspaces:/home/jovyan/workbooks
-            - ../../exchange/distribution-hub:/home/jovyan/distribution-hub
-            - ../../exchange/loading-bay:/home/jovyan/loading-bay
-            - ../../exchange/landing-area:/home/jovyan/landing-area
-            - ../../exchange/coco-data-lake:/home/jovyan/coco-data-lake
+  kafka:
+    image: 'bitnami/kafka:latest'
+    networks:
+      - egeria_network
+    ports:
+      - '9192:9192'
+      - '9194:9194'
+    environment:
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9193
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://kafka:9192,CONTROLLER://:9193,EXTERNAL://:9194
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9192,EXTERNAL://localhost:9194
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
 
+  # Proxy service for OpenLineage
+  proxy:
+    build:
+      dockerfile: Dockerfile-proxy
+    container_name: openlineage-proxy-backend
+    depends_on:
+      - kafka
+    networks:
+      - egeria_network
+    ports:
+      - "6000:6000"
+      - "6001:6001"
+    environment: #             - MARQUEZ_HTTP_ENDPOINT=http://marquez-api:5050/api/v1/lineage
+      - OPENLINEAGE_PROXY_CONFIG=/usr/src/app/proxy.yml
+    #             - OPENLINEAGE_PROXY_SOURCE=/usr/src/app/proxy.yml
+    volumes:
+      - ./usr/src/app/build/libs:/usr/src/app/build/libs
+      - ./proxy.yml:/usr/src/app/proxy.yml
 
-    kafka:
-         image: 'bitnami/kafka:latest'
-         networks:
-             - egeria_network
-         ports:
-             - '9192:9192'
-             - '9194:9194'
-         environment:
-             - KAFKA_CFG_NODE_ID=0
-             - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
-             - KAFKA_CFG_PROCESS_ROLES=controller,broker
-             - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9193
-             - KAFKA_CFG_LISTENERS=PLAINTEXT://kafka:9192,CONTROLLER://:9193,EXTERNAL://:9194
-             - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9192,EXTERNAL://localhost:9194
-             - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
-             - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+  egeria-main:
+    depends_on:
+      - kafka
+    image: 'docker.io/odpi/egeria-platform:latest'
+    #        image: 'docker.io/odpi/egeria-platform:stable'
+    networks:
+      - egeria_network
+    ports:
+      - '9443:9443'
+      - '5005:5005'
+    environment:
+      - XTDB_ENABLE_BYTEUTILS_SHA1=True
+      - XTDB_DISABLE_LIBCRYPTO=True
+      - startup.server.list=qs-metadata-store,qs-engine-host,qs-integration-daemon,qs-view-server
+      - server.port=9443
+    healthcheck:
+      test: curl -k -X GET "https://localhost:9443/open-metadata/platform-services/users/garygeeke/server-platform/origin" || exit 1
+      interval: 20s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    volumes:
+      - ../../exchange/landing-area:/deployments/landing-area
+      - ../../exchange/distribution-hub:/deployments/distribution-hub
+      - ../../exchange/distribution-hub/surveys:/deployments/surveys
+      - ../../runtime-volumes/egeria-platform-data/logs:/deployments/logs
+      - ../../runtime-volumes/egeria-platform-data/data:/deployments/data
+      - ../../exchange/loading-bay:/deployments/loading-bay
+      - ../../exchange/coco-data-lake:/deployments/coco-data-lake
+      - ../../work:/deployments/work
+      - ../../runtime-volumes/egeria-platform-data/application.properties:/deployments/application.properties
 
-
-    # Proxy service for OpenLineage
-    proxy:
-         build:
-             dockerfile: Dockerfile-proxy
-         container_name: openlineage-proxy-backend
-         depends_on:
-             - kafka
-         networks:
-             - egeria_network
-         ports:
-             - "6000:6000"
-             - "6001:6001"
-         environment:
-#             - MARQUEZ_HTTP_ENDPOINT=http://marquez-api:5050/api/v1/lineage
-             - OPENLINEAGE_PROXY_CONFIG=/usr/src/app/proxy.yml
-#             - OPENLINEAGE_PROXY_SOURCE=/usr/src/app/proxy.yml
-         volumes:
-             - ./usr/src/app/build/libs:/usr/src/app/build/libs
-             - ./proxy.yml:/usr/src/app/proxy.yml
-
-
-
-    egeria-main:
-        depends_on:
-            - kafka
-        image: 'docker.io/odpi/egeria-platform:latest'
-#        image: 'docker.io/odpi/egeria-platform:stable'
-        networks:
-            - egeria_network
-        ports:
-            - '9443:9443'
-            - '5005:5005'
-        environment:
-            - XTDB_ENABLE_BYTEUTILS_SHA1=True
-            - XTDB_DISABLE_LIBCRYPTO=True
-            - startup.server.list=qs-metadata-store,qs-engine-host,qs-integration-daemon,qs-view-server
-            - server.port=9443
-        healthcheck:
-            test: curl -k -X GET "https://localhost:9443/open-metadata/platform-services/users/garygeeke/server-platform/origin" || exit 1
-            interval: 20s
-            timeout: 10s
-            retries: 3
-            start_period: 10s
-        volumes:
-            - ../../exchange/landing-area:/deployments/landing-area
-            - ../../exchange/distribution-hub:/deployments/distribution-hub
-            - ../../exchange/distribution-hub/surveys:/deployments/surveys
-            - ../../runtime-volumes/egeria-platform-data/logs:/deployments/logs
-            - ../../runtime-volumes/egeria-platform-data/data:/deployments/data
-            - ../../exchange/loading-bay:/deployments/loading-bay
-            - ../../exchange/coco-data-lake:/deployments/coco-data-lake
-            - ../../work:/deployments/work
-            - ../../runtime-volumes/egeria-platform-data/application.properties:/deployments/application.properties
-
-    postgres:
-        image: postgres:16.4
-        container_name: postgres_for_egeria
-        restart: always
-        networks:
-            - egeria_network
-        ports:
-            - "127.0.0.1:5442:5442"
-        shm_size: 128mb
-        environment:
-            POSTGRES_USER: postgres
-            POSTGRES_PASSWORD: egeria
-            PGDATA: /var/lib/postgresql/data/pgdata
-        volumes:
-            - egeria_postgres_data:/var/lib/postgresql/data/pgdata
-            - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
-            - ../../exchange/coco-data-lake:/var/data/coco-data-lake
-        command: -p 5442 -c max_connections=1000
+  postgres:
+    image: postgres:16.4
+    container_name: postgres_for_egeria
+    restart: always
+    networks:
+      - egeria_network
+    ports:
+      - "127.0.0.1:5442:5442"
+    shm_size: 128mb
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: egeria
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - egeria_postgres_data:/var/lib/postgresql/data/pgdata
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+      - ../../exchange/coco-data-lake:/var/data/coco-data-lake
+    command: -p 5442 -c max_connections=1000
 #
 # Change external to true and create volumes manually if you wish to persist between runs
 #
 volumes:
-    zookeeper-data:
-        external: false
-    kafka-data:
-        external: false
-    egeria_postgres_data: # Define the reusable volume
-        driver: local
-        driver_opts:
-            type: none
-            device: ../../runtime-volumes/egeria-pg # Path to bind
-            o: bind
+  zookeeper-data:
+    external: false
+  kafka-data:
+    external: false
+  egeria_postgres_data: # Define the reusable volume
+    driver: local
+    driver_opts:
+      type: none
+      device: ../../runtime-volumes/egeria-pg # Path to bind
+      o: bind
 
 networks:
-    egeria_network:
-        driver: bridge
-        name: egeria_network
-#        external: true
+  egeria_network:
+    driver: bridge
+    name: egeria_network
+#        external: tru

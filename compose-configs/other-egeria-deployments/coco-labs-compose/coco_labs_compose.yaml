@@ -1,18 +1,20 @@
 ---
 # SPDX-License-Identifier: Apache-2.0
 # Copyright Contributors to the Egeria project
-
-
+#
+# This script configures and starts the Coco Labs Demonstration environment for Egeria.
+#
 # To run
 #   * Ensure Docker is installed and running
-#   * Start Egeria Platform stack from the 'coco-lab-docker-compose' folder using:
-#     'docker compose -f ./egeria-platform-jupyter-uc-compose.yaml up --build'
+#   * Start Egeria Platform stack from the 'coco-labs-compose' folder using:
+#     'docker compose -f ./coco_labs_compose.yaml up --build'
 #   * Subsequent startups can be performed without the '--build' at the end
-#   * Uninstall the containers by issuing 'docker compose -f ./egeria-platform-jupyter-uc-compose.yaml down'
+#   * Uninstall the containers by issuing `docker compose -f ./coco_labs_compose.yaml down`
 #
 # Assumptions:
 #   * Ports 9443 and 9192 are available on the host system - these are the default ports for Kafka and Egeria.
-#   * by default, the jupyter notebooks in the 'coco-jupyter-labs' folder are mounted and available for use by the jupyter notebooks
+#   * by default, the jupyter notebooks in the 'coco-jupyter-labs' folder are mounted and
+#     available for use by the jupyter notebooks
 #   * by default, strict SSL validation is turned off
 #
 #
@@ -32,7 +34,7 @@ services:
     networks:
       - egeria_coco_network
     ports:
-      - 7888:7888
+      - '7888:7888'
     environment:
       JUPYTER_ENABLE_LAB: "yes"
       JUPYTER_TOKEN: "egeria"
@@ -42,7 +44,7 @@ services:
 
     volumes:
       - ./before-notebook.d:/usr/local/bin/before-notebook.d
-      - ./coco-lab-notebooks/:/home/jupyter
+      - ./coco-labs-notebooks/:/home/jovyan/labs
       - ../../exchange/distribution-hub:/home/jovyan/distribution-hub
       - ../../exchange/loading-bay:/home/jovyan/loading-bay
       - ../../exchange/landing-area:/home/jovyan/landing-area
@@ -64,6 +66,25 @@ services:
       - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-coco:8192,EXTERNAL://localhost:8194
       - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
       - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+
+  postgres-coco:
+    image: postgres:16.4
+    container_name: postgres_for_coco_labs
+    restart: always
+    networks:
+      - egeria_coco_network
+    ports:
+      - "127.0.0.1:5446:5446"
+    shm_size: 128mb
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: egeria
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - ./coco-labs-runtimes-data/coco-pg:/var/lib/postgresql/data/pgdata
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+      - ../../../exchange/coco-data-lake:/var/data/coco-data-lake
+    command: -p 5446 -c max_connections=1000
 
   # Proxy service for OpenLineage
   proxy-coco:
@@ -95,7 +116,7 @@ services:
     environment:
       - XTDB_ENABLE_BYTEUTILS_SHA1=True
       - XTDB_DISABLE_LIBCRYPTO=True
-      - startup.server.list=active-metadata-store,engine-host,integration-daemon,view-server
+#      - startup.server.list=active-metadata-store,engine-host,integration-daemon,view-server
       - server.port=8443
     healthcheck:
       test: curl -k -X GET "https://localhost:8443/open-metadata/platform-services/users/garygeeke/server-platform/origin" || exit 1
@@ -107,11 +128,13 @@ services:
       - ../../../exchange/landing-area:/deployments/landing-area
       - ../../../exchange/distribution-hub:/deployments/distribution-hub
       - ../../../exchange/distribution-hub/surveys:/deployments/surveys
-      - ./coco-labs-runtimes-data/coco-data-core/logs:/deployments/logs
-      - ./coco-labs-runtimes-data/coco-data-core/servers:/deployments/data/servers
       - ../../../exchange/loading-bay:/deployments/loading-bay
       - ../../../exchange/coco-data-lake:/deployments/coco-data-lake
-      - ./coco-application.properties:/deployments/application.properties
+
+      - ./coco-labs-runtimes-data/coco-data-core/logs:/deployments/logs
+      - ./coco-labs-runtimes-data/coco-data-core/servers:/deployments/data/servers
+      - ./coco-labs-runtimes-data/coco-data-core/coco-core-application.properties:/deployments/application.properties
+
 
   egeria-coco-datalake:
     depends_on:
@@ -125,7 +148,7 @@ services:
     environment:
       - XTDB_ENABLE_BYTEUTILS_SHA1=True
       - XTDB_DISABLE_LIBCRYPTO=True
-      - startup.server.list=active-metadata-store,engine-host,integration-daemon,view-server
+#      - startup.server.list=active-metadata-store,engine-host,integration-daemon,view-server
       - server.port=8444
     healthcheck:
       test: curl -k -X GET "https://localhost:8444/open-metadata/platform-services/users/garygeeke/server-platform/origin" || exit 1
@@ -137,11 +160,13 @@ services:
       - ../../../exchange/landing-area:/deployments/landing-area
       - ../../../exchange/distribution-hub:/deployments/distribution-hub
       - ../../../exchange/distribution-hub/surveys:/deployments/surveys
-      - ./coco-labs-runtimes-data/coco-data-datalake/logs:/deployments/logs
-      - ./coco-labs-runtimes-data/coco-data-datalake/servers:/deployments/data/servers
       - ../../../exchange/loading-bay:/deployments/loading-bay
       - ../../../exchange/coco-data-lake:/deployments/coco-data-lake
-      - ./coco-application.properties:/deployments/application.properties
+
+      - ./coco-labs-runtimes-data/coco-data-datalake/logs:/deployments/logs
+      - ./coco-labs-runtimes-data/coco-data-datalake/servers:/deployments/data/servers
+      - ./coco-labs-runtimes-data/coco-data-datalake/coco-datalake-application.properties:/deployments/application.properties
+
 
   egeria-coco-development:
     depends_on:
@@ -155,7 +180,7 @@ services:
     environment:
       - XTDB_ENABLE_BYTEUTILS_SHA1=True
       - XTDB_DISABLE_LIBCRYPTO=True
-      - startup.server.list=active-metadata-store,engine-host,integration-daemon,view-server
+#      - startup.server.list=active-metadata-store,engine-host,integration-daemon,view-server
       - server.port=8445
     healthcheck:
       test: curl -k -X GET "https://localhost:8445/open-metadata/platform-services/users/garygeeke/server-platform/origin" || exit 1
@@ -167,39 +192,13 @@ services:
       - ../../../exchange/landing-area:/deployments/landing-area
       - ../../../exchange/distribution-hub:/deployments/distribution-hub
       - ../../../exchange/distribution-hub/surveys:/deployments/surveys
-      - ./coco-labs-runtimes-data/coco-data-development/logs:/deployments/logs
-      - ./coco-labs-runtimes-data/coco-data-development/servers:/deployments/data/servers
       - ../../../exchange/loading-bay:/deployments/loading-bay
       - ../../../exchange/coco-data-lake:/deployments/coco-data-lake
-      - ./coco-application.properties:/deployments/application.properties
 
+      - ./coco-labs-runtimes-data/coco-data-development/logs:/deployments/logs
+      - ./coco-labs-runtimes-data/coco-data-development/servers:/deployments/data/servers
+      - ./coco-labs-runtimes-data/coco-data-development/coco-dev-application.properties:/deployments/application.properties
 
-
-
-
-
-
-#  postgres:
-#    image: postgres:16.4
-#    container_name: postgres_for_egeria
-#    restart: always
-#    networks:
-#      - egeria_coco_network
-#    ports:
-#      - "127.0.0.1:5442:5442"
-#    shm_size: 128mb
-#    environment:
-#      POSTGRES_USER: postgres
-#      POSTGRES_PASSWORD: egeria
-#      PGDATA: /var/lib/postgresql/data/pgdata
-#    volumes:
-#      - egeria_postgres_data:/var/lib/postgresql/data/pgdata
-#      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
-#      - ../../exchange/coco-data-lake:/var/data/coco-data-lake
-#    command: -p 5442
-#
-# Change external to true and create volumes manually if you wish to persist between runs
-#
 #volumes:
 #  zookeeper-data:
 #    external: false
@@ -216,4 +215,3 @@ networks:
   egeria_coco_network:
     driver: bridge
     name: egeria_coco_network
-#        external: true

@@ -7,18 +7,18 @@ create user uc_user with superuser login password 'user4uc';
 
 
 create database egeria;
-create database superset;
-create database coco_pharma;
-create database airflow;
-create database marquez;
-create database examples;
-create database ucdb;
+-- create database superset;
+-- create database coco_pharma;
+-- create database airflow;
+-- create database marquez;
+-- create database examples;
+-- create database ucdb;
 
 grant all privileges on database egeria to egeria_admin, egeria_user;
-grant all privileges on database superset to egeria_admin, egeria_user;
-grant all privileges on database coco_pharma to egeria_admin, egeria_user, airflow_user;
-grant all privileges on database airflow to airflow_user;
-grant all privileges on database marquez to marquez_user;
-grant all privileges on database examples to example_user;
+-- grant all privileges on database superset to egeria_admin, egeria_user;
+-- grant all privileges on database coco_pharma to egeria_admin, egeria_user, airflow_user;
+-- grant all privileges on database airflow to airflow_user;
+-- grant all privileges on database marquez to marquez_user;
+-- grant all privileges on database examples to example_user;
 
 

@@ -32,8 +32,7 @@
 #
 # Feel free to modify this file to suit your needs.
 #---
-x-airflow-common:
-  &airflow-common
+x-airflow-common: &airflow-common
   # In order to add custom dependencies or upgrade provider packages you can use your extended image.
   # Comment the image line, place your Dockerfile in the directory where you placed the docker-compose.yaml
   # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
@@ -46,8 +45,7 @@ x-airflow-common:
 
   env_file:
     - openlineage.env
-  environment:
-    &airflow-common-env
+  environment: &airflow-common-env
     AIRFLOW_UID: "50000"
     SEARCH_ENABLED: True
     AIRFLOW__WEBSERVER__ACCESS_LOGFORMAT: 'true'
@@ -55,7 +53,7 @@ x-airflow-common:
     AIRFLOW_PROJ_DIR: '/Users/dwolfson/localGit/egeria-v5-3/egeria-workspaces/runtime-volumes/airflow-volumes'
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
     AIRFLOW__WEBSERVER__WEB_SERVER_PORT: "8070"
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:  postgresql+psycopg2://airflow_user:user4airflow@host.docker.internal:5442/airflow
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow_user:user4airflow@host.docker.internal:5442/airflow
     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow_user:user4airflow@host.docker.internal:5442/airflow
     AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
     AIRFLOW__CORE__FERNET_KEY: ''
@@ -86,8 +84,7 @@ x-airflow-common:
     - ./airflow.cfg:/opt/airflow/airflow.cfg
 
   user: "${AIRFLOW_UID:-50000}:0"
-  depends_on:
-    &airflow-common-depends-on
+  depends_on: &airflow-common-depends-on
     redis:
       condition: service_healthy
 #    postgres:
@@ -96,8 +93,7 @@ x-airflow-common:
 services:
 
 
-  redis:
-    # Redis is limited to 7.2-bookworm due to licencing change
+  redis: # Redis is limited to 7.2-bookworm due to licencing change
     # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
     image: redis:7.2-bookworm
     expose:
@@ -163,8 +159,7 @@ services:
     networks:
       - egeria_network
 
-    healthcheck:
-      # yamllint disable rule:line-length
+    healthcheck: # yamllint disable rule:line-length
       test:
         - "CMD-SHELL"
         - 'celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}" || celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"'
@@ -318,67 +313,67 @@ services:
         condition: service_completed_successfully
 
   marquez:
-      image: marquezproject/marquez:latest
-      networks:
-        - egeria_network
-      environment:
-        - MARQUEZ_HOST=marquez
-        - MARQUEZ_PORT=5050
-        - MARQUEZ_ADMIN_PORT=5051
-        - POSTGRES_HOST=host.docker.internal
-        - POSTGRES_PORT-5442
-        - POSTGRES_USER=marquez_user
-        - POSTGRES_PASSWORD=user4marquez
-        - POSTGRES_DB=marquez
-        - MARQUEZ_USER=marquez_user
-        - MARQUEZ_PASSWORD=user4marquez
-        - MARQUEZ_CONFIG=marquez.yml
-      ports:
-        - "5050:5050"
-        - "5051:5051"
-      volumes:
-        - ./docker/wait-for-it.sh:/usr/src/app/wait-for-it.sh
-        - ./marquez.yml:/usr/src/app/marquez.yml
-        - ./.env:/usr/src/app/.env
-#              depends_on:
-#                - postgres
-      entrypoint: ["./wait-for-it.sh", "host.docker.internal:5442", "--", "./entrypoint.sh"]
-      # Enables SQL statement logging (see: https://www.postgresql.org/docs/12/runtime-config-logging.html#GUC-LOG-STATEMENT)
-      # command: ["postgres", "-c", "log_statement=all"]
+    image: marquezproject/marquez:latest
+    networks:
+      - egeria_network
+    environment:
+      - MARQUEZ_HOST=marquez
+      - MARQUEZ_PORT=5050
+      - MARQUEZ_ADMIN_PORT=5051
+      - POSTGRES_HOST=host.docker.internal
+      - POSTGRES_PORT-5442
+      - POSTGRES_USER=marquez_user
+      - POSTGRES_PASSWORD=user4marquez
+      - POSTGRES_DB=marquez
+      - MARQUEZ_USER=marquez_user
+      - MARQUEZ_PASSWORD=user4marquez
+      - MARQUEZ_CONFIG=marquez.yml
+    ports:
+      - "5050:5050"
+      - "5051:5051"
+    volumes:
+      - ./docker/wait-for-it.sh:/usr/src/app/wait-for-it.sh
+      - ./marquez.yml:/usr/src/app/marquez.yml
+      - ./.env:/usr/src/app/.env
+    #              depends_on:
+    #                - postgres
+    entrypoint: ["./wait-for-it.sh", "host.docker.internal:5442", "--", "./entrypoint.sh"]
+    # Enables SQL statement logging (see: https://www.postgresql.org/docs/12/runtime-config-logging.html#GUC-LOG-STATEMENT)
+    # command: ["postgres", "-c", "log_statement=all"]
 
   marquez_web:
-      image: marquezproject/marquez-web:latest
-      networks:
-        - egeria_network
-      build:
-        context: .
-        args:
-          REACT_APP_ADVANCED_SEARCH: ${SEARCH_ENABLED}
-      environment:
-        - WEB_PORT=3000
-        - MARQUEZ_HOST=marquez
-        - MARQUEZ_PORT=5050
-        - MARQUEZ_ADMIN_PORT=5051
-        - POSTGRES_HOST=host.docker.internal
-        - POSTGRES_PORT-5442
-        - POSTGRES_USER=marquez_user
-        - POSTGRES_PASSWORD=user4marquez
-        - MARQUEZ_DB=marquez
-        - MARQUEZ_USER=marquez
-        - MARQUEZ_PASSWORD=marquez
-        - REACT_APP_ADVANCED_SEARCH=true
-      ports:
-        - "3000:3000"
-      stdin_open: true
-      tty: true
-      depends_on:
-        - marquez
+    image: marquezproject/marquez-web:latest
+    networks:
+      - egeria_network
+    build:
+      context: .
+      args:
+        REACT_APP_ADVANCED_SEARCH: ${SEARCH_ENABLED}
+    environment:
+      - WEB_PORT=3000
+      - MARQUEZ_HOST=marquez
+      - MARQUEZ_PORT=5050
+      - MARQUEZ_ADMIN_PORT=5051
+      - POSTGRES_HOST=host.docker.internal
+      - POSTGRES_PORT-5442
+      - POSTGRES_USER=marquez_user
+      - POSTGRES_PASSWORD=user4marquez
+      - MARQUEZ_DB=marquez
+      - MARQUEZ_USER=marquez
+      - MARQUEZ_PASSWORD=marquez
+      - REACT_APP_ADVANCED_SEARCH=true
+    ports:
+      - "3000:3000"
+    stdin_open: true
+    tty: true
+    depends_on:
+      - marquez
 
 
 volumes:
   postgres-db-volume:
 
 networks:
-    egeria_network:
-        name: egeria_network
-        external: true
+  egeria_network:
+    name: egeria_network
+    external: true

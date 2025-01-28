@@ -28,7 +28,6 @@ proxy:
   streams:
     - type: Kafka
       topicName: openlineage-coco.events
-#      bootstrapServerUrl: broker:29092
       bootstrapServerUrl: host.docker.internal:8192
       # Kafka properties (see: http://kafka.apache.org/0100/documentation.html#producerconfigs)
       properties:

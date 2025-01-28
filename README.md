@@ -38,6 +38,7 @@ that we often use with Egeria. Currently this includes:
 * airflow & marquez - Apache Airflow is a popular open source workflow runtime and marquez offers
 some very nice visualization of open lineage graphs.
 * superset - Apache Superset is an open source reporting and dashboarding tool.
+* unity-catalog - Open source catalog for mannaging physical artifacts in a lakehouse environment.
 
 ### other-egeria-deployments
 While the egeria-quickstart environment is a good starting point for most folk, we've also included
@@ -46,6 +47,7 @@ some other docker scripts to support some simpler deployments. The available dep
 * egeria-platform-compose - deploys Egeria with an XTDB file based repository along with Kafka.
 * egeria-platform-jupyter-compose - additionally adds a Jupyter server
 * egeria-platform-postgres-compose - deploys the postgres database for use with Egeria, and Kafka.
+* coco-labs-compose - an environment for working with the Egeria Coco Pharmaceuticals training scenarios (under construction)
 
 These simpler configurations do not externalize 
 their configurations and only share a subset of the folders. They provide configurations for these servers:
@@ -59,6 +61,8 @@ More details can be found in the README.md files within this folder.
 ## exchange
 The exchange folder is to support exchange of file-based information between the Egeria running in a docker container,
 the Jupyter environment, and the host file-system. 
+### coco-data-lake
+A file location supporting Coco Pharmaceuticals scenarios.
 ### distribution-hub
 The distribution hub is where Egeria can place information and results that it generates so that they are
 easily visible to the users and Jupyter, This information currently includes:
@@ -86,10 +90,13 @@ Currently there are sub-directories here for:
 * airflow-volumes
 * egeria-pg
 * egeria-platform-data
+* unitycatalog1 
+* unitycatalog2
 
 ## work
 This folder is meant for you to put your own private working files for use with Egeria and
-Jupyter. The directory is mounted and visible within both Egeria and Jupyter runtimes.
+Jupyter. The directory is mounted and visible within both Egeria and Jupyter runtimes. 
+It is ignored by Git.
 
 ## workspaces
 This set of folders contains examples, samples, utilities and other artifacts useful to 
