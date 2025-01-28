@@ -16,7 +16,7 @@ services:
 #      context: .
 #      dockerfile: Dockerfile
     image: dwolfson/egeria-uc:latest
-    container_name: server1
+    container_name: uc-server1
     ports:
       - "8087:8087"
     volumes:
@@ -30,15 +30,15 @@ services:
       #    build:
       #      context: .
       #      dockerfile: Dockerfile
-      image: dwolfson/uc-egeria:latest
-      container_name: server2
-      ports:
-        - "8187:8187"
-      volumes:
-        - ./../../../runtime-volumes/unitycatalog2/etc:/home/unitycatalog/etc
-        - ./../../../exchange/coco-data-lake:/mnt/coco-data-lake
+    image: dwolfson/uc-egeria:latest
+    container_name: uc-server2
+    ports:
+      - "8187:8187"
+    volumes:
+      - ./../../../runtime-volumes/unitycatalog2/etc:/home/unitycatalog/etc
+      - ./../../../exchange/coco-data-lake:/mnt/coco-data-lake
 
-      command: ./bin/start-uc-server -p 8187
+    command: ./bin/start-uc-server -p 8187
 
   ui1:
 #    build:
