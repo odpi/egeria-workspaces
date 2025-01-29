@@ -124,7 +124,7 @@ runtime-volumes/unitycatalog1/etc/db/**
 runtime-volumes/unitycatalog1/etc/logs/
 runtime-volumes/unitycatalog2/etc/db/
 runtime-volumes/unitycatalog2/etc/logs/
-runtime-volumes/unitycatalog*/conf/token.txt
+runtime-volumes/unitycatalog*/etc/conf/token.txt
 
 loading-bay/open-metadata-archives/*.omarchive
 
