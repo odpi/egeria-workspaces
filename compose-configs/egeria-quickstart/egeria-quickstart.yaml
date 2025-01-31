@@ -125,7 +125,8 @@ services:
       POSTGRES_PASSWORD: egeria
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - ../../runtime-volumes/egeria-pg:/var/lib/postgresql/data/pgdata
+#      - ../../runtime-volumes/egeria-pg:/var/lib/postgresql/data/pgdata
+      - egeria_postgres_data:/var/lib/postgresql/data/pgdata
       - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
       - ../../exchange/coco-data-lake:/var/data/coco-data-lake
     command: -p 5442 -c max_connections=1000
@@ -137,12 +138,8 @@ volumes:
     external: false
   kafka-data:
     external: false
-#  egeria_postgres_data: # Define the reusable volume
-#    driver: local
-#    driver_opts:
-#      type: none
-#      device: ../../runtime-volumes/egeria-pg # Path to bind
-#      o: bind
+  egeria_postgres_data: # Define the reusable volume
+
 
 networks:
   egeria_network:
