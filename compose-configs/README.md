@@ -7,6 +7,7 @@ development, and learning. In most cases, we recommend starting with the **egeri
 [README.md](./egeria-quickstart/README.md) file.
 
 We provide additional docker scripts for related runtimes, and to show some alternative egeria deployments.
+More details can be found in each sub-folder.
 
 
 As always, your feedback and participation are welcome. 
