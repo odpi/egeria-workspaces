@@ -36,7 +36,7 @@ ENV JUPYTER_ENABLE_LAB=yes
 #RUN "${CONDA_DIR}/envs/${env_name}/bin/pipx" install pyegeria
 #RUN "${CONDA_DIR}/envs/${env_name}/bin/pipx" ensurepath
 #
-#USER root
+USER root
 #RUN \
 #     # This changes a startup hook, which will activate the custom environment for the process
 #     echo conda activate "${env_name}" >> /usr/local/bin/before-notebook.d/10activate-conda-env.sh && \
@@ -45,7 +45,20 @@ ENV JUPYTER_ENABLE_LAB=yes
 #     # This makes the custom environment default in Jupyter Terminals for already existing NB_USER
 #     echo conda activate "${env_name}" >> "/home/${NB_USER}/.bashrc"
 #
-#USER ${NB_UID}
+# Install Node.js and npm
+RUN apt-get update && apt-get install -y \
+    curl && \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y nodejs && \
+    npm install -g npm@latest && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+## Install Mermaid.js globally - The pyegeria functions seeme to be working sufficiently well so that we don't need to explicitly install mermaid.js
+#RUN npm install -g mermaid
+#RUN npm install -g mermaid.cli
+#sudo chown -R 1000:100 "/home/jovyan/.npm"
+
+USER ${NB_UID}
 RUN pip install --no-cache-dir 'pyegeria'
 RUN pip install --no-cache-dir 'rich'
 RUN pip install --no-cache-dir 'unitycatalog'
@@ -54,6 +67,7 @@ RUN pip install --no-cache-dir 'textual'
 RUN pip install --no-cache-dir 'textual-dev'
 RUN pip install --no-cache-dir 'apache-airflow-client'
 RUN pip install --no-cache-dir 'jupyterlab_execute_time'
+RUN pip install --no-cache-dir 'mermaid.py'
 
 
 RUN pipx ensurepath
