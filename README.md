@@ -11,6 +11,14 @@ for more information about designing bespoke Egeria deployments, such as Cloud N
 Helm charts to configure Kubernetes clusters. 
 For further help and advice, please feel free to engage with the community on our [slack channel](https://lfaifoundation.slack.com/join/shared_invite/zt-o65errpw-gMTbwNr7FnNbVXNVFkmyNA%E2%80%8B#/shared-invite/email) - we'd love your feedback and participation.
 
+# Requirements
+
+**Egeria Workspaces** uses Docker compose to deploy docker containers, creating a useable environment. So, at a minimum,
+you need to have docker and docker compose compatible software installed. We test **Egeria Workspaces** using
+[Docker Desktop](https://www.docker.com/get-started/) but **podmand** and **podman-compose** should also work 
+[Podman](https://podman.io/). 
+
+
 
 # Contents
 **egeria-workspaces** consists of a number of artifacts reflected by the folder structure itself. Here is a quick tour:
