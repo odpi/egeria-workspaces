@@ -18,6 +18,8 @@ you need to have docker and docker compose compatible software installed. We tes
 [Docker Desktop](https://www.docker.com/get-started/) but **podmand** and **podman-compose** should also work 
 [Podman](https://podman.io/). 
 
+>Note: The minimum level of Egeria (egeria-platform) required is 5.2. If you have older images you should either remove these old images or modify 
+ the docker compose yaml scripts to use the image tag 'stable' (referring to 5.2 production release) or a specific post 5.2 release.
 
 
 # Contents
