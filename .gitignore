@@ -113,8 +113,8 @@ work
 runtime-volumes/egeria-platform-data/data/servers/*/repository/**
 runtime-volumes/egeria-platform-data/data/servers/*/repository
 runtime-volumes/egeria-platform-data/data/coco-data-lake/**
-runtime-volumes/egeria-pg/**
-!runtime-volumes/egeria-pg/.gitignore
+runtime-volumes/egeria-pg/*
+#!runtime-volumes/egeria-pg/.gitignore
 
 runtime-volumes/airflow-volumes
 runtime-volumes/airflow-volumes/**
