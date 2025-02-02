@@ -44,7 +44,7 @@ services:
 #    build:
 #      context: ui/
 #      dockerfile: Dockerfile
-    image: dwolfson/egeria-uc-ui
+    image: dwolfson/egeria-uc-ui:latest-1
     ports:
       - "3010:3010"
     depends_on:
@@ -54,7 +54,7 @@ services:
 #    build:
 #      context: ui/
 #      dockerfile: Dockerfile
-    image: dwolfson/egeria-uc-ui:second
+    image: dwolfson/egeria-uc-ui:latest-2
     ports:
       - "3020:3020"
     depends_on:
