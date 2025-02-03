@@ -44,17 +44,17 @@ services:
 #    build:
 #      context: ui/
 #      dockerfile: Dockerfile
-    image: dwolfson/egeria-uc-ui:latest-1
+    image: dwolfson/egeria-uc-ui-8087:latest
     ports:
       - "3010:3010"
     depends_on:
       - server1
 
-  uc2:
+  ui2:
 #    build:
 #      context: ui/
 #      dockerfile: Dockerfile
-    image: dwolfson/egeria-uc-ui:latest-2
+    image: dwolfson/egeria-uc-ui-8187:latest
     ports:
       - "3020:3020"
     depends_on:
