@@ -30,7 +30,7 @@ services:
       #    build:
       #      context: .
       #      dockerfile: Dockerfile
-    image: dwolfson/uc-egeria:latest
+    image: dwolfson/egeria-uc:latest
     container_name: uc-server2
     ports:
       - "8187:8187"
