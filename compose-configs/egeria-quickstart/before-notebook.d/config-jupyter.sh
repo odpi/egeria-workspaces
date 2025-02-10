@@ -32,6 +32,6 @@ export EGERIA_JUPYTER='True'
 export EGERIA_WIDTH='200'
 export EGERIA_HOME_GLOSSARY_GUID=
 export EGERIA_GLOSSARY_PATH='/home/jovyan/loading-bay/glossary'
-
+export EGERIA_MERMAID_FOLDER='/home/jovyan/work/mermaid_graphs'
 
 
