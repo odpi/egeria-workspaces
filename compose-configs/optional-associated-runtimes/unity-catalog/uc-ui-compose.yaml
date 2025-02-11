@@ -1,0 +1,61 @@
+---
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Contributors to the Egeria project
+#
+# Configures two Unity Catalog servers and a UI for each.
+# The Unity Catalog Servers share the same image and are configured through this script
+# The UC UIs each have their own image, built outside this script that bakes a different port number into the UI.
+#
+
+name: unitycatalog-egeria
+
+services:
+
+  server1:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+    image: dwolfson/egeria-uc:latest
+    container_name: uc-server1
+    ports:
+      - "8087:8087"
+    volumes:
+      - ./../../../runtime-volumes/unitycatalog1/etc:/home/unitycatalog/etc
+      - ./../../../exchange/coco-data-lake:/mnt/coco-data-lake
+
+    command: ./bin/start-uc-server -p 8087
+
+
+  server2:
+      #    build:
+      #      context: .
+      #      dockerfile: Dockerfile
+    image: dwolfson/egeria-uc:latest
+    container_name: uc-server2
+    ports:
+      - "8187:8187"
+    volumes:
+      - ./../../../runtime-volumes/unitycatalog2/etc:/home/unitycatalog/etc
+      - ./../../../exchange/coco-data-lake:/mnt/coco-data-lake
+
+    command: ./bin/start-uc-server -p 8187
+
+  ui1:
+#    build:
+#      context: ui/
+#      dockerfile: Dockerfile
+    image: dwolfson/egeria-uc-ui-8087:latest
+    ports:
+      - "3010:3010"
+    depends_on:
+      - server1
+
+  ui2:
+#    build:
+#      context: ui/
+#      dockerfile: Dockerfile
+    image: dwolfson/egeria-uc-ui-8187:latest
+    ports:
+      - "3020:3020"
+    depends_on:
+      - server2

@@ -112,19 +112,34 @@ exchange/distribution-hub/*/**
 work
 runtime-volumes/egeria-platform-data/data/servers/*/repository/**
 runtime-volumes/egeria-platform-data/data/servers/*/repository
-runtime-volumes/egeria-platform-data/data/coco-data-lake
 runtime-volumes/egeria-platform-data/data/coco-data-lake/**
-runtime-volumes/egeria-pg
-runtime-volumes/egeria-pg/**
+
 runtime-volumes/airflow-volumes
 runtime-volumes/airflow-volumes/**
+runtime-volumes/airflow-volumes/logs/**
+runtime-volumes/airflow-volumes/plugins/**
+
+runtime-volumes/unitycatalog1/etc/db/
+runtime-volumes/unitycatalog1/etc/db/**
+runtime-volumes/unitycatalog1/etc/logs/
+runtime-volumes/unitycatalog2/etc/db/
+runtime-volumes/unitycatalog2/etc/logs/
+runtime-volumes/unitycatalog*/etc/conf/token.txt
+
 loading-bay/open-metadata-archives/*.omarchive
 
-compose-configs/egeria-platform-jupyter-proxy-pg-compose/data/servers/active-metadata-store/repository/**
 exchange/loading-bay/secrets/*omsecrets
 exchange/loading-bay/secrets/*yml
 exchange/loading-bay/secrets/*yaml
 exchange/loading-bay/open-metadata-archives/*omarchive
 exchange/landing-area/**
+exchange/coco-data-lake/
+compose-configs/optional-associated-runtimes/airflow-marquez/runtime-data/**
+
+compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-data/*/logs/**
+compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-data/*/servers/*/repository/
+compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-data/*/servers/*/repository/*
+compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-data/coco-pg/**
+
 
 

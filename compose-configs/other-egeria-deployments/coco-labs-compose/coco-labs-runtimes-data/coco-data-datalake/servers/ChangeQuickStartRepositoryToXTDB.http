@@ -1,0 +1,20 @@
+#
+# This command updates the sample configuration document for qs-metadata-store.  It uses IntelliJ's HTTP Client.
+#
+@baseURL=https://localhost:9443
+@adminUserId=garygeeke
+
+###
+# ---------------------------------------------
+# Metadata Access Store: qs-metadata-store
+#
+
+###
+# @name Enable the XTDB Repository
+# Set up the local repository to use the XTDB KV Repository implementation.
+POST {{baseURL}}/open-metadata/admin-services/users/{{adminUserId}}/servers/qs-metadata-store/local-repository/mode/xtdb-local-kv-repository
+Content-Type: application/json
+
+
+
+###

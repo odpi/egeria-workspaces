@@ -1,22 +1,10 @@
-# Licensed to the Apache Software Foundation (ASF) under one
-# or more contributor license agreements.  See the NOTICE file
-# distributed with this work for additional information
-# regarding copyright ownership.  The ASF licenses this file
-# to you under the Apache License, Version 2.0 (the
-# "License"); you may not use this file except in compliance
-# with the License.  You may obtain a copy of the License at
+---
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Contributors to the Egeria project
 #
-#   http://www.apache.org/licenses/LICENSE-2.0
 #
-# Unless required by applicable law or agreed to in writing,
-# software distributed under the License is distributed on an
-# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-# KIND, either express or implied.  See the License for the
-# specific language governing permissions and limitations
-# under the License.
-#
-
 # Basic Airflow cluster configuration for CeleryExecutor with Redis and PostgreSQL.
+# Includes configuration for OpenLineage and Marquez
 #
 # WARNING: This configuration is for local development. Do not use it in a production deployment.
 #
@@ -43,23 +31,30 @@
 #                                Default: ''
 #
 # Feel free to modify this file to suit your needs.
----
-x-airflow-common:
-  &airflow-common
+#---
+x-airflow-common: &airflow-common
   # In order to add custom dependencies or upgrade provider packages you can use your extended image.
   # Comment the image line, place your Dockerfile in the directory where you placed the docker-compose.yaml
   # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
-#  image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.10.4}
+  #image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.10.4}
+
+  build:
+    context: .
+
   image: airflow-egeria:latest
-  # build: .
-  environment:
-    &airflow-common-env
-#    AIRFLOW_PROJ_DIR: ../../../runtime-volumes/airflow-volumes/
+
+  env_file:
+    - openlineage.env
+  environment: &airflow-common-env
+    AIRFLOW_UID: "50000"
+    SEARCH_ENABLED: True
+    AIRFLOW__WEBSERVER__ACCESS_LOGFORMAT: 'true'
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
     AIRFLOW_PROJ_DIR: '/Users/dwolfson/localGit/egeria-v5-3/egeria-workspaces/runtime-volumes/airflow-volumes'
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
     AIRFLOW__WEBSERVER__WEB_SERVER_PORT: "8070"
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:  postgresql+psycopg2://airflow_user:user4airflow@postgres_for_egeria:5442/airflow
-    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow_user:user4airflow@postgres_for_egeria:5442/airflow
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow_user:user4airflow@host.docker.internal:5442/airflow
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow_user:user4airflow@host.docker.internal:5442/airflow
     AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
     AIRFLOW__CORE__FERNET_KEY: ''
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
@@ -82,14 +77,14 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-./runtime-data}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-./runtime-data}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-./runtime-data}/plugins:/opt/airflow/plugins
-    - ../../../exchange/distribution-hub:/mnt/distribution-hub
+    - ../../../exchange/coco-data-lake:/opt/airflow/data/coco-data-lake
     - ./requirements.txt:/opt/airflow/requirements.txt
     - ./openlineage.yml:/opt/airflow/openlineage.yml
     - ./openlineage.env:/opt/airflow/openlineage.env
+    - ./airflow.cfg:/opt/airflow/airflow.cfg
 
   user: "${AIRFLOW_UID:-50000}:0"
-  depends_on:
-    &airflow-common-depends-on
+  depends_on: &airflow-common-depends-on
     redis:
       condition: service_healthy
 #    postgres:
@@ -98,8 +93,7 @@ x-airflow-common:
 services:
 
 
-  redis:
-    # Redis is limited to 7.2-bookworm due to licencing change
+  redis: # Redis is limited to 7.2-bookworm due to licencing change
     # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
     image: redis:7.2-bookworm
     expose:
@@ -117,6 +111,8 @@ services:
 
   airflow-webserver:
     <<: *airflow-common
+    env_file:
+      - openlineage.env
     command: webserver
     ports:
       - "8070:8070"
@@ -138,6 +134,8 @@ services:
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler
+    env_file:
+      - openlineage.env
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
       interval: 30s
@@ -156,11 +154,12 @@ services:
   airflow-worker:
     <<: *airflow-common
     command: celery worker
+    env_file:
+      - openlineage.env
     networks:
       - egeria_network
 
-    healthcheck:
-      # yamllint disable rule:line-length
+    healthcheck: # yamllint disable rule:line-length
       test:
         - "CMD-SHELL"
         - 'celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}" || celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"'
@@ -182,6 +181,8 @@ services:
   airflow-triggerer:
     <<: *airflow-common
     command: triggerer
+    env_file:
+      - openlineage.env
     healthcheck:
       test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
       interval: 30s
@@ -200,6 +201,8 @@ services:
   airflow-init:
     <<: *airflow-common
     entrypoint: /bin/bash
+    env_file:
+      - openlineage.env
     # yamllint disable rule:line-length
     networks:
       - egeria_network
@@ -268,6 +271,8 @@ services:
     <<: *airflow-common
     profiles:
       - debug
+    env_file:
+      - openlineage.env
     networks:
       - egeria_network
 
@@ -286,6 +291,8 @@ services:
   flower:
     <<: *airflow-common
     command: celery flower
+    env_file:
+      - openlineage.env
     networks:
       - egeria_network
 
@@ -306,67 +313,67 @@ services:
         condition: service_completed_successfully
 
   marquez:
-      image: marquezproject/marquez:latest
-      networks:
-        - egeria_network
-      environment:
-        - MARQUEZ_HOST=marquez
-        - MARQUEZ_PORT=5050
-        - MARQUEZ_ADMIN_PORT=5051
-        - POSTGRES_HOST=host.docker.internal
-        - POSTGRES_PORT-5442
-        - POSTGRES_USER=marquez_user
-        - POSTGRES_PASSWORD=user4marquez
-        - POSTGRES_DB=marquez
-        - MARQUEZ_USER=marquez_user
-        - MARQUEZ_PASSWORD=user4marquez
-        - MARQUEZ_CONFIG=marquez.yml
-      ports:
-        - "5050:5050"
-        - "5051:5051"
-      volumes:
-        - ./docker/wait-for-it.sh:/usr/src/app/wait-for-it.sh
-        - ./marquez.yml:/usr/src/app/marquez.yml
-        - ./.env:/usr/src/app/.env
-#              depends_on:
-#                - postgres
-      entrypoint: ["./wait-for-it.sh", "host.docker.internal:5442", "--", "./entrypoint.sh"]
-      # Enables SQL statement logging (see: https://www.postgresql.org/docs/12/runtime-config-logging.html#GUC-LOG-STATEMENT)
-      # command: ["postgres", "-c", "log_statement=all"]
+    image: marquezproject/marquez:latest
+    networks:
+      - egeria_network
+    environment:
+      - MARQUEZ_HOST=marquez
+      - MARQUEZ_PORT=5050
+      - MARQUEZ_ADMIN_PORT=5051
+      - POSTGRES_HOST=host.docker.internal
+      - POSTGRES_PORT-5442
+      - POSTGRES_USER=marquez_user
+      - POSTGRES_PASSWORD=user4marquez
+      - POSTGRES_DB=marquez
+      - MARQUEZ_USER=marquez_user
+      - MARQUEZ_PASSWORD=user4marquez
+      - MARQUEZ_CONFIG=marquez.yml
+    ports:
+      - "5050:5050"
+      - "5051:5051"
+    volumes:
+      - ./docker/wait-for-it.sh:/usr/src/app/wait-for-it.sh
+      - ./marquez.yml:/usr/src/app/marquez.yml
+      - ./.env:/usr/src/app/.env
+    #              depends_on:
+    #                - postgres
+    entrypoint: ["./wait-for-it.sh", "host.docker.internal:5442", "--", "./entrypoint.sh"]
+    # Enables SQL statement logging (see: https://www.postgresql.org/docs/12/runtime-config-logging.html#GUC-LOG-STATEMENT)
+    # command: ["postgres", "-c", "log_statement=all"]
 
   marquez_web:
-      image: marquezproject/marquez-web:latest
-      networks:
-        - egeria_network
-      build:
-        context: .
-        args:
-          REACT_APP_ADVANCED_SEARCH: ${SEARCH_ENABLED}
-      environment:
-        - WEB_PORT=3000
-        - MARQUEZ_HOST=marquez
-        - MARQUEZ_PORT=5050
-        - MARQUEZ_ADMIN_PORT=5051
-        - POSTGRES_HOST=host.docker.internal
-        - POSTGRES_PORT-5442
-        - POSTGRES_USER=marquez_user
-        - POSTGRES_PASSWORD=user4marquez
-        - MARQUEZ_DB=marquez
-        - MARQUEZ_USER=marquez
-        - MARQUEZ_PASSWORD=marquez
-        - REACT_APP_ADVANCED_SEARCH=true
-      ports:
-        - "3000:3000"
-      stdin_open: true
-      tty: true
-      depends_on:
-        - marquez
+    image: marquezproject/marquez-web:latest
+    networks:
+      - egeria_network
+    build:
+      context: .
+      args:
+        REACT_APP_ADVANCED_SEARCH: ${SEARCH_ENABLED}
+    environment:
+      - WEB_PORT=3000
+      - MARQUEZ_HOST=marquez
+      - MARQUEZ_PORT=5050
+      - MARQUEZ_ADMIN_PORT=5051
+      - POSTGRES_HOST=host.docker.internal
+      - POSTGRES_PORT-5442
+      - POSTGRES_USER=marquez_user
+      - POSTGRES_PASSWORD=user4marquez
+      - MARQUEZ_DB=marquez
+      - MARQUEZ_USER=marquez
+      - MARQUEZ_PASSWORD=marquez
+      - REACT_APP_ADVANCED_SEARCH=true
+    ports:
+      - "3000:3000"
+    stdin_open: true
+    tty: true
+    depends_on:
+      - marquez
 
 
 volumes:
   postgres-db-volume:
 
 networks:
-    egeria_network:
-        name: egeria_network
-        external: true
+  egeria_network:
+    name: egeria_network
+    external: true

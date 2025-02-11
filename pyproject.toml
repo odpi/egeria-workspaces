@@ -1,17 +1,20 @@
 [tool.poetry]
 name = "egeria-workspaces"
-version = "0.5.1"
+version = "5.3"
 description = ""
 authors = ["Dan Wolfson <dwolfson@users.noreply.github.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
-jupyter = "^1.1.1"
-rich = "^13.9.4"
+python = ">=3.12.3,<4.0"
+jupyter = "*"
+rich = "*"
 pyegeria = "*"
 unitycatalog = "*"
 textual = "*"
+apache-airflow = "*"
+apache-airflow-providers-postgres = "*"
+
 
 
 [build-system]
