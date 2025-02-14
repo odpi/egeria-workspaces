@@ -68,6 +68,8 @@ RUN pip install --no-cache-dir 'textual-dev'
 RUN pip install --no-cache-dir 'apache-airflow-client'
 RUN pip install --no-cache-dir 'jupyterlab_execute_time'
 RUN pip install --no-cache-dir 'mermaid.py'
+RUN pip install --no-cache-dir 'plotly'
+RUN pip install --no-cache-dir 'dash'
 
 
 RUN pipx ensurepath

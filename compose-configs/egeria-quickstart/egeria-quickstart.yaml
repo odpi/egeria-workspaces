@@ -12,7 +12,8 @@
 #
 # Assumptions:
 #   * Ports 9443 and 9192 are available on the host system - these are the default ports for Kafka and Egeria.
-#   * by default, the jupyter notebooks in the 'coco-jupyter-labs' folder are mounted and available for use by the jupyter notebooks
+#   * Port 7888 is used by jupyter server
+#   * by default, the jupyter notebooks in the 'workspaces' folder are mounted and available for use by the jupyter notebooks
 #   * by default, strict SSL validation is turned off
 #
 #
@@ -28,10 +29,12 @@ services:
     networks:
       - egeria_network
     ports:
-      - 8888:8888
+      - 7888:7888
     environment:
       JUPYTER_ENABLE_LAB: "yes"
       JUPYTER_TOKEN: "egeria"
+      JUPYTER_PORT: "7888"
+
     build:
       dockerfile: Dockerfile-jupyter
     volumes:

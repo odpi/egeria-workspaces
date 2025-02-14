@@ -14,6 +14,7 @@ unitycatalog = "*"
 textual = "*"
 apache-airflow = "*"
 apache-airflow-providers-postgres = "*"
+dash = "==2.18.2"
 
 
 
