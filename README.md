@@ -3,7 +3,7 @@
 
 # Overview
 
-**egeria-workspaces** provides a runtime environment for learning, experimenting and using Egeria. 
+This **egeria-workspaces** repository provides a runtime environment for learning, experimenting and using Egeria. 
 The default configuration sets up a full Egeria system and provides pre-built content to help you get started. 
 
 This environment is not designed for enterprise-wide use. Please see the [Planning Guide](https://egeria-project.org/guides/planning/)
@@ -13,7 +13,7 @@ For further help and advice, please feel free to engage with the community on ou
 
 # Requirements
 
-**Egeria Workspaces** uses Docker compose to deploy docker containers, creating a useable environment. So, at a minimum,
+**Egeria Workspaces** uses Docker compose to deploy docker containers, creating a usable environment. So, at a minimum,
 you need to have docker and docker compose compatible software installed. We test **Egeria Workspaces** using
 [Docker Desktop](https://www.docker.com/get-started/) but **podmand** and **podman-compose** should also work 
 [Podman](https://podman.io/). 
@@ -25,7 +25,7 @@ you need to have docker and docker compose compatible software installed. We tes
 # Contents
 **egeria-workspaces** consists of a number of artifacts reflected by the folder structure itself. Here is a quick tour:
 ## compose-configs
-Subfolders contain artifacts for different deployments of Egeria along with optional runtimes often used with Egeria.
+Subdirectories contain artifacts for different deployments of Egeria along with optional runtimes often used with Egeria.
 The deployments provide **docker compose** scripts to orchestrate the building, configuration and startup of the components needed.
 Here is the break-down of the configurations:
 
@@ -39,7 +39,7 @@ It contains the `egeria-quickstart.yaml` docker compose script and supporting fi
 * Open Lineage Proxy running on port 6000
 
 There are several additional features of this environment - including sharing of select folders between Jupyter and Egeria,
-and externalization of the configuration and runtime information to make it available outside of the docker containers.
+and externalization of the configuration and runtime information to make it available outside the docker containers.
 More details can be found in the [README.md](./compose-configs/egeria-quickstart/README.md) file within this directory.
 
 ### optional-associated-runtimes
@@ -47,8 +47,8 @@ This folder contains some sample docker compose scripts to start some other runt
 that we often use with Egeria. Currently this includes:
 * airflow & marquez - Apache Airflow is a popular open source workflow runtime and marquez offers
 some very nice visualization of open lineage graphs.
-* superset - Apache Superset is an open source reporting and dashboarding tool.
-* unity-catalog - Open source catalog for mannaging physical artifacts in a lakehouse environment.
+* superset - Apache Superset is an open source reporting and dashboard tool.
+* unity-catalog - Open source catalog for managing physical artifacts in a lakehouse environment.
 
 ### other-egeria-deployments
 While the egeria-quickstart environment is a good starting point for most folk, we've also included
@@ -113,5 +113,5 @@ This set of folders contains examples, samples, utilities and other artifacts us
 getting started with Egeria. Please explore. Extend if desired, and if you want to contribute
 your own content to the community feel free to contact us via Slack or email.
 
-
+----
 License: CC BY 4.0, Copyright Contributors to the ODPi Egeria project.
