@@ -6,15 +6,15 @@ This directory contains a sample Docker Compose setup to support the deployment 
 to simplify experimentation with Airflow, OpenLineage and Egeria. This is a somewhat more advanced setup that requires
 a few manual steps.
 
-A local volume is mounted from the egeria-workspaces directory to externalize Airflow files that are useeful to access. 
-One of the sub-directories is a **dags** folder containing flows to be executed in Airflow. 
+A local volume is mounted from the egeria-workspaces directory to externalize Airflow files that are useful to access. 
+One of the subdirectories is a **dags** folder containing flows to be executed in Airflow. 
 There are a few sample dags provided and more will be added over time. Workflows in Airflow are a natural extension
 to Egeria's governance capabilities. 
 
 
-The pyegeria and openlineage python packages are installed into the Airflow Docker image for your use. 
-Airflow is pre-configured to produce openlineage http messages that are picked up
-by the OpenLineage Proxy (part of egeria-quickstart) and forwarded to Egeria as Kafka messages as shown below. 
+The pyegeria and OpenLineage python packages are installed into the Airflow Docker image for your use. 
+Airflow is pre-configured to produce OpenLineage http messages that are picked up
+by the OpenLineage Proxy (part of egeria-quickstart).  Using the workbooks, it is possible to configure Egeria to listen for these open lineage events via kafka. Egeria will mine useful metadata from these events.  It can also be configured to publish open lineage events to Marquez as shown in the diagram below
 
 ```mermaid
 flowchart LR
@@ -39,19 +39,19 @@ going:
 2. Start up all the containers:
 `docker compose -f airflow-marquez.yaml up`
 3. Check the status of the containers using either your IDE, docker-desktop, or `docker ps`
-4. You can experiment with the Egeria Workspaces Openlineage demo notebook at http://localhost:8888/lab/tree/workbooks/cataloguing-and-surveys/marquez/publish-to-marquez.ipynb 
-5. You can also run some airflow dags and see the Openlineage results in Marquez.
+4. You can experiment with the Egeria Workspaces OpenLineage demo notebook at http://localhost:8888/lab/tree/workbooks/cataloguing-and-surveys/marquez/publish-to-marquez.ipynb 
+5. You can also run some airflow dags and see the OpenLineage results in Marquez.
 6. You can directly run airflow commands from a command line - from the `airflow-marquez`
-directory, type type `./airflow.sh <command>`, where **command** might be an airflow command such as *info*, e.g: `./airflow.sh info`
+directory, type `./airflow.sh <command>`, where **command** might be an airflow command such as *info*, e.g: `./airflow.sh info`
 
 ### Airflow 
 * WebUI is port 8070, user: *airflow*, password: *airflow*
-* Publishes Openlineage events to port 6000
+* Publishes OpenLineage events to port 6000
 * Postgres database for 
 
 ### Marquez
 * Marquez UI is port 3000
-* Listens to Openlineage events on port 5050
+* Listens to OpenLineage events on port 5050
 
-
+----
 License: CC BY 4.0, Copyright Contributors to the ODPi Egeria project.

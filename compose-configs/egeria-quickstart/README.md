@@ -52,21 +52,26 @@ The pre-configured and started servers are:
 
 ## Kafka - configured for Egeria
 We use the bitnami/kafka image described at [kafka](https://hub.docker.com/r/bitnami/kafka)
+
 * Port - We use the default port of 9192 for Kafka. This port is also exposed in the host environment. Changing this port also requires corresponding changes to the Egeria configuration.
 * Other configuration can be seen in the *egeria-platform.yaml* file. 
 
 ## Jupyter - configured for Egeria
 A standard Jupyter data science docker image is extended to pre-install **pyegeria** and simplify using Egeria from Jupyter notebooks.
-* Mounted volumes for:
+
+File system volumes are mounted for:
     * **landing-area**: a convenient drop off point for files and folders you want to survey, analyze and perhaps catalog with Egeria.
     * **distribution-hub**: an area where information created by Egeria (such as logs and survey information) can be easily exposed.
     * **work**: a place for you to put your code and other artifacts.
     * **workbooks**: an area where we have put some Jupyter notebooks and related information to help you complete common tasks with Egeria. 
 
 ## Postgresql - configured for Egeria
+
 This is a standard PostgreSQL database server with a database named *egeria*. The port for postgres is set to 5442. On initialization, two user roles are created:
-    * egeria_admin with password 'admin4egeria'
-    * egeria_user with password 'user4egeria'
+
+* egeria_admin with password 'admin4egeria'
+* egeria_user with password 'user4egeria'
+
 Egeria will automatically create database schemas in this database to support the different kinds of activities you configure and run.
 
 ## Open Lineage Proxy 
@@ -75,6 +80,7 @@ the file `proxy.yml`.
 
 ----
 # Usage
+
 Follow these steps to use Docker Compose.
 
 1. Install and Configure Docker and Docker Compose. 
@@ -85,24 +91,31 @@ Follow these steps to use Docker Compose.
 3. In a terminal window, change directory to `<your path to here>/egeria-workspaces/compose-configs/egeria-quickstart`
 4. At the command line issue:
 
-  `docker compose -f egeria-quickstart.yaml up --build`
+   `docker compose -f egeria-quickstart.yaml up --build`
 
-This will:
-    a. build a jupyter image that is pre-configured to work with Egeria 
-    b. download the docker images for Kafka, Egeria, and Postgres, and then create and start the containers. Both kafka and Egeria will then automatically configure themselves. 
-For Egeria, this means not only starting up the initial set of servers, but then loading the **CoreContentPack.omarchive** into the metadata repository, and then configuring all the servers. 
-This can take several minutes the first time the containers are created. Subsequent startups will be much faster.
-    c. start the jupyter container
-4. Using either the **docker desktop** application or the docker command line you can see the two new containers running. To do this with the docker command line, you can issue:
+   This will:
+
+   * build a jupyter image that is pre-configured to work with Egeria 
+    
+   * download the docker images for Kafka, Egeria, and Postgres, and then create and start the containers. Both kafka and Egeria will then automatically configure themselves. 
+
+   * start the jupyter container
+
+   For Egeria, this means not only starting up the initial set of servers, but then loading the **CoreContentPack.omarchive** into the metadata repository, and then configuring all the servers. 
+   This can take several minutes the first time the containers are created. Subsequent startups will be much faster.
+
+Using either the **docker desktop** application or the docker command line you can see the two new containers running. To do this with the docker command line, you can issue:
 
 `docker ps`
 
-5. The environment is ready to be used. 
+The environment is ready to be used. 
 
-6. You can control the containers with docker compose commands - see [docker compose](https://docs.docker.com/reference/cli/docker/compose/). These commands can be used to manage and use the docker containers.
-7. To access jupyter, open a browser to `http://localhost:7888`. At the password prompt, enter `egeria`. This should open up your notebook environment.
+You can control the containers with docker compose commands - see [docker compose](https://docs.docker.com/reference/cli/docker/compose/). These commands can be used to manage and use the docker containers.
+
+To access jupyter, open a browser to `http://localhost:7888`. At the password prompt, enter `egeria`. This should open up your notebook environment.
 
 >Note: You only need to use the --build option if you want to rebuild the jupyter image.
+
 ## Next Steps
 
 Now that your Egeria environment is running and configured it is waiting for you to make requests. 
