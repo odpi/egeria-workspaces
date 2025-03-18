@@ -33,5 +33,10 @@ export EGERIA_WIDTH='200'
 export EGERIA_HOME_GLOSSARY_GUID=
 export EGERIA_GLOSSARY_PATH='/home/jovyan/loading-bay/glossary'
 export EGERIA_MERMAID_FOLDER='/home/jovyan/work/mermaid_graphs'
+export EGERIA_ROOT_PATH='/home/jovyan'
+export EGERIA_INBOX_PATH='exchange/loading-bay/dr-egeria-inbox'
+export EGERIA_OUTBOX_PATH='distribution-hub/dr-egeria-outbox'
+export EGERIA_LOCAL_QUALIFIER='PDR'
+
 
 

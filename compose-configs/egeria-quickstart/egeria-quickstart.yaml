@@ -45,6 +45,7 @@ services:
       - ../../exchange/loading-bay:/home/jovyan/loading-bay
       - ../../exchange/landing-area:/home/jovyan/landing-area
       - ../../exchange/coco-data-lake:/home/jovyan/coco-data-lake
+      - ../../exchange/sample-data:/home/jovyan/loading-bay/sample-data
 
   kafka:
     image: 'bitnami/kafka:latest'
@@ -113,6 +114,7 @@ services:
       - ../../exchange/coco-data-lake:/deployments/coco-data-lake
       - ../../work:/deployments/work
       - ../../runtime-volumes/egeria-platform-data/application.properties:/deployments/application.properties
+      - ../../exchange/sample-data:/deployments/sample-data
 
   postgres:
     image: postgres:16.4
@@ -132,6 +134,7 @@ services:
       - egeria_postgres_data:/var/lib/postgresql/data/pgdata
       - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
       - ../../exchange/coco-data-lake:/var/data/coco-data-lake
+      - ../../exchange/treasury-dts-history:/var/data/treasury-dts-history
     command: -p 5442 -c max_connections=1000
 #
 # Change external to true and create volumes manually if you wish to persist between runs

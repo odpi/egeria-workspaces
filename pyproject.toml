@@ -9,12 +9,17 @@ readme = "README.md"
 python = ">=3.12.3,<4.0"
 jupyter = "*"
 rich = "*"
-pyegeria = "*"
+pyegeria = "==5.3.5.1"
 unitycatalog = "*"
 textual = "*"
 apache-airflow = "*"
 apache-airflow-providers-postgres = "*"
 dash = "==2.18.2"
+matplotlib = "==3.10.0"
+requests = "^2.32.3"
+pandas = "^2.2.3"
+jupyter-notebook-parser = "^0.1.4"
+marko = "^2.1.2"
 
 
 
