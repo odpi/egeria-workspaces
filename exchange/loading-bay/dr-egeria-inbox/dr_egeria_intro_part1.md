@@ -57,11 +57,8 @@ commands, validates the Egeria content and allows the requests to be sent to Ege
       
 ## <GUID>  
       
----  
-      
-      
-      
-      
+---
+
 # First Walk-Through  
 The block of markdown above is a request to create a new Egeria Glossary called `Egeria-Markdown`. Let's briefly walk  
 through. The command starts when we see `# Create Glossary`. This is a known phrase in Dr.Egeria. When we see this   
