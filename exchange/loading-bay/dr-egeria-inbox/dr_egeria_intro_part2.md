@@ -1,50 +1,48 @@
-
-
 # Demonstrating updates and additions  
       
-This document was derived from the processing of the file dr_egeria_intro.md; All of the Dr.Egeria statements have been preserved (including the generated attributes such as the unique GUIDs) and the explanatory text has been replaced. For tracing purposes, the Title line, showing starting with `# Results` has been kept.
+This document was derived from the processing of the file dr_egeria_intro.md; All of the Dr.Egeria statements have been 
+preserved (including the generated attributes such as the unique GUIDs) and the explanatory text has been replaced.
 
-In this document we will add glossary categories, update existing terms to categorize them, and add some new terms that further explain dr.egeria.  This document is being written off-line (actually on a plane) - demonstrating one of the intriguing features of dr.egeria - because its just text, it can be edited anywhere and anytime that there is a text editor. Dr.Egeria files can be emailed, sent via text message, slack or maintained in a `git` repository. It's just text with markdown annotations.
+In this document we will add glossary categories, update existing terms to categorize them, and add some new terms that
+further explain dr.egeria.  This document is being written off-line (actually on a plane) - demonstrating one of the 
+intriguing features of dr.egeria - because its just text, it can be edited anywhere and anytime that there is a text 
+editor. Dr.Egeria files can be emailed, sent via text message, slack or maintained in a `git` repository. 
+It's just text with markdown annotations.
 
-Ok, let's get started. First, we have the `Update Glossary` command below. There is nothing new we need to add at this point so we can just leave it as-is. When this document is processed it will apply updates but if there are none, It doesn't matter.
+Ok, let's get started. First, we have the `Update Glossary` command below. There is nothing new we need to add at this
+point so we can just leave it as-is. When this document is processed it will apply updates but if there are none, 
+It doesn't matter.
+
       
-      
-      
-    --- 
+___ 
  
-# Update Glossary  
-      
-## Glossary Name  
-  
-Egeria-Markdown  
-  
-## Language  
-  
-English  
-  
-## Description  
-  
-Glossary to describe the vocabulary of Dr.Egeria - an Egeria Markdown language to support the exchange of metadata in a  
-Markdown form.  
-Dr.Egeria allows users to input metadata using any text entry system that supports the entry of standard Markdown  
-notation and through post-processing  
-commands, validates the Egeria content and allows the requests to be sent to Egeria.  
-  
-## Usage  
-  
-1. (optional) load an example or template for the type of object from Egeria.  
-2. Create a new document (perhaps from a template) and edit it, adding in the content with the Dr.Egeria controlled Markdown language.  
-3. Process the document to validate and display it before you submit it, Validation may annotate your document with recommendations and potential issues.  
-4. Submit the document to Egeria using the Dr.Egeria commands.  
-  
-## Qualified Name  
-Glossary:Egeria-Markdown  
-  
-## GUID  
-  
---- 
+# Update Glossary
 
- Ok, now let's create a couple of glossary categories. They will be:
+## Glossary Name 
+
+Egeria-Markdown
+
+## Description
+Glossary to describe the vocabulary of Dr.Egeria - an Egeria Markdown language to support the exchange of metadata in a Markdown form.
+Dr.Egeria allows users to input metadata using any text entry system that supports the entry of standard Markdown
+notation and through post-processing
+commands, validates the Egeria content and allows the requests to be sent to Egeria.
+
+## Language
+English
+
+## Usage
+1. (optional) load an example or template for the type of object from Egeria.
+2. Create a new document (perhaps from a template) and edit it, adding in the content with the Dr.Egeria controlled Markdown language.
+3. Process the document to validate and display it before you submit it, Validation may annotate your document with recommendations and potential issues.
+4. Submit the document to Egeria using the Dr.Egeria commands.
+
+## Qualified Name
+Glossary::Egeria-Markdown
+
+___ 
+
+Ok, now let's create a couple of glossary categories. They will be:
 
 * **Writing Dr.Egeria Markdown** - where we describe elements of the Dr.Egeria language as terms within the category.
 * **Processing Dr.Egeria Markdown** - where we describe the commands for processing Dr.Egeria.
@@ -52,24 +50,22 @@ Glossary:Egeria-Markdown
 
 Glossary categories have the following attributes:
 
- 
 
-
-| Attribute Name | Input Required? | Generated/Default? | Unique? | Notes |
-|:-|:-|:-|:-|:-|
-| Category Name | Yes | No | No | A display name (informal name). |
-| Owning Glossary | Yes | No | Yes | This is the qualified name of the glossary that owns this category. |
-| Description | No | No  | No | A textual description of this category |
-| Qualified Name | No | Yes | Yes | The qualified name can either be provided by the user or generated. If generated, a pattern is followed. |
-| GUID | No | Yes | Yes | GUIDs are always generated by Egeria. They are meant for automation, not people. |
-
+| Attribute Name  | Input Required? | Read Only | Generated/Default? | Unique? | Notes                                                                                                    |
+|:----------------|:----------------|-----------|:-------------------|:--------|:---------------------------------------------------------------------------------------------------------|
+| Category Name   | Yes             | No        | No                 | No      | A display name (informal name).                                                                          |
+| Owning Glossary | Yes             | No        | No                 | Yes     | This is the qualified name of the glossary that owns this category.                                      |
+| Description     | No              | No        | No                 | No      | A textual description of this category                                                                   |
+| Qualified Name  | No              | No        | Yes                | Yes     | The qualified name can either be provided by the user or generated. If generated, a pattern is followed. |
+| GUID            | No              | Yes       | Yes                | Yes     | GUIDs are always generated by Egeria. They are meant for automation, not people.                         |
+| Table           | No              | Yes       | Yes                | No      | Under development                                                                                        |
+| Graph           | No              | Yes       | Yes                | No      | Under Development                                                                                        |
 Qualified Names can either be user specified or generated. If generated the following the form:
-`{local-qualifier}:{type}:{display name}`
+`{local-qualifier}::{type}::{display name}::{version}`
 
 * Local-Qualifier is an optional string that can be useful to both disambiguate similar names and to add some local context. Local qualifiers could be set to organization names, functions, business context, etc. The settings for a local qualifier is set either by setting the environment variable `EGERIA_LOCAL_QUALIFIER` or by passing in a parameter when executing one of the Dr.Egeria enabled commands. This could also be set for a team by an Egeria administrator.
 
----
-
+___
 
 # Create Category  
   
@@ -79,7 +75,7 @@ Writing Dr.Egeria Markdown
   
 ## Owning Glossary  
   
-Glossary:Egeria-Markdown  
+Glossary::Egeria-Markdown  
   
 ## Description  
   
@@ -89,10 +85,9 @@ These terms describe the elements of the Dr.Egeria Markdown language and how to 
 ## <Qualified Name>  
   
 ## <GUID>  
-  
----  
 
-  
+___
+
 # Create Category  
   
 ## Category Name  
@@ -101,7 +96,7 @@ Processing Dr.Egeria Markdown
   
 ## Owning Glossary  
   
-Glossary:Egeria-Markdown  
+Glossary::Egeria-Markdown  
   
 ## Description  
   
@@ -111,139 +106,110 @@ These terms describe commands to process Dr.Egeria Markdown.
   
 ## <GUID>  
   
----  
+___  
   
 Ok now, let's add categories to some of the terms.  Let's review the attributes of a term:
 
-| Attribute Name | Input Required? | Generated/Default? | Unique? | Notes |
-| :- | :- | :- | :- | :-|
-| Term Name | Yes | No | No | A display name (informal name). |
-| Owning Glossary | Yes | No | Yes | This is the qualified name of the glossary that owns this term. |
-| Category Name | No | No | Yes | This is the qualified (unique) name of the category. Multiple categories can be assigned, separated by a `,` or line. | 
-| Description | No | No  | No | A textual description of this term |
-| Qualified Name | No | Yes | Yes | The qualified name can either be provided by the user or generated. If generated, a pattern is followed. |
-| GUID | No | Yes | Yes | GUIDs are always generated by Egeria. They are meant for automation, not people. |
+
+| Attribute Name  | Input Required? | Read Only | Generated/Default? | Unique? | Notes                                                                                                                 |
+|:----------------|:----------------|:----------|:-------------------|:--------|:----------------------------------------------------------------------------------------------------------------------|
+| Term Name       | Yes             | No        | No                 | No      | A display name (informal name).                                                                                       |
+| Owning Glossary | Yes             | No        | No                 | Yes     | This is the qualified name of the glossary that owns this term.                                                       |
+| Categories      | No              | No        | No                 | Yes     | This is the qualified (unique) name of the category. Multiple categories can be assigned, separated by a `,` or line. | 
+| Description     | No              | No        | No                 | No      | A textual description of this term                                                                                    |
+| Qualified Name  | No              | Yes       | No                 | Yes     | The qualified name can either be provided by the user or generated. If generated, a pattern is followed.              |
+| GUID            | No              | Yes       | Yes                | Yes     | GUIDs are always generated by Egeria. They are meant for automation, not people.                                      |
+| Table           | No              | Yes       | Yes                | No      | Under development                                                                                                     |
+| Graph           | No              | Yes       | Yes                | No      | Under Development                                                                                                     |
+___  
+
+# Update Term
+
+## Term Name 
+
+Command
+
+## Summary
+Commands are how a user of the Freddie markdown language requests an action.
+
+## In Glossary
+Glossary::Egeria-Markdown
+
+## Categories
+
+Category::Writing Dr.Egeria Markdown, Category::Processing Dr.Egeria Markdown
+
+## Status
+DRAFT
+
+## Description
+Commands are how a user can request Egeria to take an action such as Create or Update an Egeria element. Freddie
+provides
+a limited (but growing) set of commands. Freddie commands align with the pyegeria 'hey-egeria' command line interface.
+
+## Examples
+Create Glossary or
+Update Glossary or
+Create Term or
+Update Term
+
+## Usage
+Commands are used in the Freddie Egeria markdown language.
+
+## Published Version
+
+0.2
+
+## Qualified Name
 
 
- 
----  
-# Update Term  
-  
-  
-## Term Name  
-  
-Command  
-  
-## Owning Glossary  
-  
-Glossary:Egeria-Markdown  
-  
-## Category Name  
-  
-Processing Markdown  
-  
-## Summary  
-  
-Commands are how a user of the Freddie markdown language requests an action.  
-  
-## Description  
-  
-Commands are how a user can request Egeria to take an action such as Create or Update an Egeria element. Freddie  
-provides  
-a limited (but growing) set of commands. Freddie commands align with the pyegeria 'hey-egeria' command line interface.  
-  
-## Abbreviation  
-  
-## Examples  
-  
-Create Glossary or  
-Update Glossary or  
-Update Term  
- or  
-Update Term  
-  
-## Usage  
-  
-Commands are used in the Freddie Egeria markdown language.  
-  
-## Version  
-  
-  
-  
-## Status  
-DRAFT  
-  
-  
-## Qualified Name  
-PDR:Term:Command  
-  
-## GUID  
-   
-00e44dea-73ed-4159-9878-435514dfe777   
-  
----  
+# Update Term
 
-# Update Term  
-  
+## Term Name 
+
+Source
+
+## Summary
+Source of the markdown content.
+
+## In Glossary
+Glossary::Egeria-Markdown
+
+## Categories
+
+Processing Dr.Egeria Markdown 
+
+## Status
+DRAFT
+
+## Description
+Source of the markdown content - could be jupyter or plain markdown file.
+
+## Examples
+
+## Usage
+
+
+## Published Version
+
+0.2
+
+## Qualified Name
+Term::Source::0.1
+
+# Update Term
   
 ## In Glossary  
   
-Glossary:Egeria-Markdown  
-  
-## Term Name  
-  
-Source  
-  
-## Category Name  
-  
-Writing Markdown  
-  
-## Summary  
-  
-Source of the markdown content.  
-  
-## Description  
-  
-Source of the markdown content - could be jupter or plain markdown file.   
-  
-## Abbreviation  
-SRC  
-## Examples  
-  
-## Usage  
-  
-## Version  
-  
-0.1  
-  
-## Status  
-  
-DRAFT  
-  
-  
-## Qualified Name  
-PDR:Term:Source  
-  
-## GUID  
-   
-
-  
-  
----  
-# Update Term  
-  
-  
-## In Glossary  
-  
-Glossary:Egeria-Markdown  
+Glossary::Egeria-Markdown  
   
 ## Term Name  
   
 Directive  
   
-## Category Name  
+## Categories  
   
-Writing Markdown, Processing Markdown  
+Processing Dr.Egeria Markdown  
   
 ## Summary  
   
@@ -261,18 +227,15 @@ Directives are one of:
   
 ## Version  
   
-0.1  
+0.2 
   
 ## Status  
   
 DRAFT  
   
 ## Qualified Name  
-PDR:Term:Directive  
-  
-   
-  
----  
+Term::Directive::0.1  
+
   
   
   

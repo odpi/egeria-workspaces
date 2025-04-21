@@ -25,9 +25,9 @@ In the example below we will create a new Egeria glossary to hold definitions re
 We will then show how we can process this file which will record the information into Egeria and create a new  
 output file that acts as both a receipt showing what was processed as well as a starting point for making updates.  
       
-So here we go! First lets define a new glossary:  
+So here we go! First lets define a new Glossary::  
       
----  
+___  
       
 # Create Glossary  
       
@@ -52,18 +52,18 @@ commands, validates the Egeria content and allows the requests to be sent to Ege
 2. Create a new document (perhaps from a template) and edit it, adding in the content with the Dr.Egeria controlled Markdown language.  
 3. Process the document to validate and display it before you submit it, Validation may annotate your document with recommendations and potential issues.  
 4. Submit the document to Egeria using the Dr.Egeria commands.  
-      
-## <Qualified Name>  
-      
-## <GUID>  
-      
----
 
+      
+___  
+      
+      
+      
+      
 # First Walk-Through  
 The block of markdown above is a request to create a new Egeria Glossary called `Egeria-Markdown`. Let's briefly walk  
 through. The command starts when we see `# Create Glossary`. This is a known phrase in Dr.Egeria. When we see this   
 phrase we recognize that this is an Egeria markdown request block. The request block ends if we encounter another `#` or  
-`---`, or run out of text. Within this request block we note some **attributes** that begin with a `## `. The first that  we encounter is `## Glossary Name`. Not all attributes need to be filled in. Later, we'll process this file and demonstrate  how to tell - but first, lets look at the attributes shown:  
+`___`, or run out of text. Within this request block we note some **attributes** that begin with a `## `. The first that  we encounter is `## Glossary Name`. Not all attributes need to be filled in. Later, we'll process this file and demonstrate  how to tell - but first, lets look at the attributes shown:  
       
 * `## Glossary Name` - this is the display name of the glossary. In this case the name is `Egeria-Markdown` As you can see, the value of the attribute is the plain text that follows it.  
 * `## Language` - what language will the terms of the glossary be in (yes there are ways to have mixed language but  Dr.Egeria strives to be as simple as possible).  
@@ -80,7 +80,7 @@ more details a bit later).
       
 We now have a nice, clean, new...and empty...glossary - guess we better start filling it. Lets create a couple of terms.  
       
- ---  
+___  
       
 # Create Term  
       
@@ -90,7 +90,7 @@ Command
       
 ## In Glossary  
       
-Glossary:Egeria-Markdown  
+Glossary::Egeria-Markdown  
       
       
 ## Summary  
@@ -99,9 +99,9 @@ Commands are how a user of the Freddie markdown language requests an action.
       
 ## Description  
       
-    Commands are how a user can request Egeria to take an action such as Create or Update an Egeria element. Freddie  
-    provides  
-    a limited (but growing) set of commands. Freddie commands align with the pyegeria 'hey-egeria' command line interface.  
+Commands are how a user can request Egeria to take an action such as Create or Update an Egeria element. Freddie  
+provides a limited (but growing) set of commands. Freddie commands align with the pyegeria 'hey-egeria' 
+command line interface.  
       
 ## Abbreviation  
       
@@ -118,7 +118,7 @@ Commands are how a user of the Freddie markdown language requests an action.
       
 ## Version  
       
-      
+   0.1   
       
 ## Status  
       
@@ -127,13 +127,13 @@ Commands are how a user of the Freddie markdown language requests an action.
       
 ## <GUID>  
       
- ---  
+___  
       
 # Create Term  
       
 ## In Glossary  
       
-    Glossary:Egeria-Markdown  
+    Glossary::Egeria-Markdown  
       
 ## Term Name  
       
@@ -154,21 +154,20 @@ Commands are how a user of the Freddie markdown language requests an action.
 ## Usage  
       
 ## Version  
-      
-    0.1  
+       
       
 ## Status  
       
     DRAFT  
       
       
----  
+___  
       
 # Create Term  
       
 ## In Glossary  
       
-    Glossary:Egeria-Markdown  
+    Glossary::Egeria-Markdown  
       
 ## Term Name  
       
@@ -195,7 +194,7 @@ Commands are how a user of the Freddie markdown language requests an action.
       
     DRAFT  
       
----  
+___  
       
 # Some terms specified - Now what?  
       
@@ -212,7 +211,7 @@ Here is what we'll do next.
       
 ## Next  
       
- >Note: This is changing - so will be somewhat abstrct  
+ >Note: This is changing - so will be somewhat abstract  
       
 We will run a small program called `dr.egeria.py` to operate on this markdown file. When we run this program we tell it not just the name of the file to process but also provide a directive on what to do. Currently we have the   
 choice of:  
@@ -233,6 +232,19 @@ attributes such as **Qualified **Name** and **GUID** now contain the known value
 This means that if we want to make changes to the definitions that we have   
 created, all we need to do is to make changes to the updatable attributes in this  
 new document and resubmit it - pretty simple.  
+
+Here is a diagram of this process from the user perspective:
+
+```mermaid
+flowchart TD
+    A[Text Editor or Jupyter Notebook] --> B(dr.egeria content)
+    B --> C{dr.egeria command}
+    C -->|display| D[console output]
+    C -->|validate| E[console validation output and file]
+    C -->|process| F[console output and processed output file]
+    F-->|Additional Updates|A
+    E-->|Additional Updates|A
+ ``` 
       
 In the next section we'll see how we can update and extend what we have done by creating  
 some glossary categories and then assigning categories to the terms.  
