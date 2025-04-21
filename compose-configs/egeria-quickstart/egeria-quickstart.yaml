@@ -136,6 +136,18 @@ services:
       - ../../exchange/coco-data-lake:/var/data/coco-data-lake
       - ../../exchange/treasury-dts-history:/var/data/treasury-dts-history
     command: -p 5442 -c max_connections=1000
+
+  apache-web:
+    image: httpd:latest  # Use the latest official Apache image from Docker Hub
+    container_name: web-server
+    user: "daemon:daemon"  # Explicitly set the user and group to match httpd.conf
+    ports:
+      - "8080:8080"  # Map host port 8080 to container port 8080
+    volumes:
+      - ../../exchange:/usr/local/apache2/htdocs  # Mount the exchange directory as the document root
+      - ./httpd.conf:/usr/local/apache2/conf/httpd.conf  # Use the fixed configuration file
+      - ./markdown-header.html:/usr/local/apache2/conf/markdown-header.html  # Mount the markdown viewer
+      - ../../runtime-volumes/apache-web/ErrorLogs:/usr/local/apache2/logs  # Mount the logs directory
 #
 # Change external to true and create volumes manually if you wish to persist between runs
 #
