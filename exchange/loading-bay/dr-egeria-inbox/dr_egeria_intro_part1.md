@@ -1,5 +1,5 @@
-# Introduction to Dr.Egeria - an Egeria Markdown Processor  
-      
+# Introduction to Dr.Egeria - an Egeria Markdown Processor
+
       
 A constant challenge in managing information is gathering enough metadata about the information to  
 allow us to manage it. A common approach is to build fancy graphical user interfaces hoping that they  
@@ -42,21 +42,33 @@ English
 ## Description  
       
 Glossary to describe the vocabulary of Dr.Egeria - an Egeria Markdown language to support the exchange of metadata in a Markdown form.  
-Dr.Egeria allows users to input metadata using any text entry system that supports the entry of standard Markdown  
-notation and through post-processing  
-commands, validates the Egeria content and allows the requests to be sent to Egeria.   
+Dr.Egeria allows users to create metadata annotations using any text entry system that supports the entry of standard Markdown  
+notation and, through post-processing  
+commands, validates the Egeria content and sends the requests to be sent to Egeria.   
       
 ## Usage  
       
-1. (optional) load an example or template for the type of object from Egeria.  
+1. (optional) load an example or template for the type of object from Egeria.
+> Hint: Many of the hey_egeria commands have the option to save their output as Dr.Egeria markdown form.
 2. Create a new document (perhaps from a template) and edit it, adding in the content with the Dr.Egeria controlled Markdown language.  
 3. Process the document to validate and display it before you submit it, Validation may annotate your document with recommendations and potential issues.  
-4. Submit the document to Egeria using the Dr.Egeria commands.  
+4. Submit the document to Egeria using the Dr.Egeria commands. 
+5. Review the resulting output document to see what was created and give you a starting point for making updates. 
+      
+## Version  
+      
+0.2  
+      
+## Status  
+      
+ACTIVE 
 
+## Qualified Name
       
-___  
+## GUID  
+       
       
-      
+___
       
       
 # First Walk-Through  
@@ -68,19 +80,18 @@ phrase we recognize that this is an Egeria markdown request block. The request b
 * `## Glossary Name` - this is the display name of the glossary. In this case the name is `Egeria-Markdown` As you can see, the value of the attribute is the plain text that follows it.  
 * `## Language` - what language will the terms of the glossary be in (yes there are ways to have mixed language but  Dr.Egeria strives to be as simple as possible).  
 * `## Description` - a description of the glossary and its purpose.  
-* `## Usage` - how the glossary is meant to be used and by whom.  
-* `## <Qualified Name>` - every element in Egeria must have a unique qualified name that we use to distinguish it from all other elements. The qualified name is meant to be understandable by humans, although it may follow formatting conventions. This attributes is in angle brackets because at this point we can't fill it in - 
-we are just in the midst of creating the glossary. A qualified name will be created for us as part of the glossary creation. We'll see a little later how we get that.  
- * `## <GUID>` - same story as qualified name except that this is meant for automation and not people.  
-      
+* `## Usage` - how the glossary is meant to be used, and by whom.  
+* `## Qualified Name` - every element in Egeria must have a unique qualified name that we use to distinguish it from all other elements. The qualified name is meant to be understandable by humans, although it may follow formatting conventions. This attribute can be left blank for now - it will be automatically generated if empty.  
+* `## GUID` - same story as qualified name except that this is meant for automation and not people.  It is always created for us.
+
 And that's it. That's all we need to do to specify the creation of a new glossary (well - mostly - we'll reveal a few   
 more details a bit later).  
       
 ## Great! That was easy!  
       
-We now have a nice, clean, new...and empty...glossary - guess we better start filling it. Lets create a couple of terms.  
+We now have a nice, clean, new...and empty...glossary - guess we better start filling it. Lets start filling it with terms.    
       
-___  
+___ 
       
 # Create Term  
       
@@ -95,13 +106,20 @@ Glossary::Egeria-Markdown
       
 ## Summary  
       
-Commands are how a user of the Freddie markdown language requests an action.  
+Commands are how a user of the Dr.Egeria markdown language request an action.  
       
 ## Description  
       
-Commands are how a user can request Egeria to take an action such as Create or Update an Egeria element. Freddie  
-provides a limited (but growing) set of commands. Freddie commands align with the pyegeria 'hey-egeria' 
-command line interface.  
+Commands are how a user can request Egeria to take an action such as Create or Update an Egeria element. Dr.Egeria  
+provides a limited (but growing) set of commands. Dr.Egeria commands align with the pyegeria 'hey-egeria' 
+command line interface and, of course, the underlying Egeria REST API.  
+      
+The commands currently use the following verbs to act on Egeria elements: 
+      
+* Create  
+* Update  
+* List  
+* Provenance  
       
 ## Abbreviation  
       
@@ -114,19 +132,20 @@ command line interface.
       
 ## Usage  
       
-    Commands are used in the Freddie Egeria markdown language.  
+    Commands are used in the Dr.Egeria markdown language.  
       
 ## Version  
       
-   0.1   
+   0.2   
       
 ## Status  
       
+ACTIVE
+
+## Qualified Name
       
-## <Qualified Name>  
-      
-## <GUID>  
-      
+## GUID  
+       
 ___  
       
 # Create Term  
@@ -154,12 +173,17 @@ ___
 ## Usage  
       
 ## Version  
-       
+      
+    0.2 
       
 ## Status  
       
-    DRAFT  
+    ACTIVE
+
+## Qualified Name
       
+## GUID  
+             
       
 ___  
       
@@ -192,8 +216,12 @@ ___
       
 ## Status  
       
-    DRAFT  
+ACTIVE
+
+## Qualified Name
       
+## GUID  
+       
 ___  
       
 # Some terms specified - Now what?  
@@ -201,7 +229,7 @@ ___
 Ok - we've now defined a glossary and three terms to go into the glossary. A few observations.  
       
 * There is a degree of freedom in writing the definitions. The attributes aren't always in the same  
-order and optional attributes don't need to be specified at all. We try to make things as easy as possible to use.  
+order and optional attributes don't need to be specified at all. We try to make things as easy as possible.  
 * We can run a definition file through a validation process to check our proposed definition and provide feedback.  
 * When we process a definition we will use the same validation process before trying to update Egeria   
 with the requested definitions - requests may get rejected or altered - this will be consistent with the feedback we   
@@ -210,11 +238,12 @@ provide during validation.
 Here is what we'll do next.  
       
 ## Next  
-      
- >Note: This is changing - so will be somewhat abstract  
-      
-We will run a small program called `dr.egeria.py` to operate on this markdown file. When we run this program we tell it not just the name of the file to process but also provide a directive on what to do. Currently we have the   
-choice of:  
+> Tip: An easy way to get started is by installing [Egeria Workspaces](https://github.com/odpi/egeria-workspaces) and 
+> using the hey_egeria command line interface.  Tutorials are available at [Egeria-Workspaces](https://youtu.be/Dc5i5EpRusE).  
+
+We will run a small program called `dr_egeria_md.py` to operate on this markdown file.
+When we run this program we tell it not just the name of the file to process but also provide a directive on what to do. 
+Currently we have the choice of:  
       
 1. Display - just parse the file, breaking it down into request blocks, and display what we find  
 2. Validate - parse the file and validate if the commands can be processed - showing information about what we observe.  
@@ -227,7 +256,7 @@ Ok - its processed the file and generated output to the console that shows us wh
 We also now have a new file in the designated outbox (specified by an Environment Variable).  
 If we review that file, we see that it has similar content to this original file except that  
 the **Create** statements have been replaced with **Update** statements and  
-attributes such as **Qualified **Name** and **GUID** now contain the known values.  
+attributes such as **Qualified Name** and **GUID** now contain the known values.  
       
 This means that if we want to make changes to the definitions that we have   
 created, all we need to do is to make changes to the updatable attributes in this  

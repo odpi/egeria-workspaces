@@ -1,16 +1,59 @@
 <!DOCTYPE html>
+<html>
+<head>
+    <title>Dr.Egeria Samplesd</title>
+    <link rel="stylesheet" href="styles.css"> # Your CSS
+</head>
+<body>
+    <div id="content">Loading...</div>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+        async function loadAndRenderMarkdown(markdownFilePath) {
+            try {
+                // 1. Fetch the Markdown content
+                const response = await fetch(markdownFilePath);
+                const markdownText = await response.text();
+                // 2. Convert Markdown to HTML
+                const htmlContent = marked.parse(markdownText);
+                // 3. Insert HTML into the page
+                const contentDiv = document.getElementById('content');
+                contentDiv.innerHTML = htmlContent;
+                // 4. Initialize Mermaid (finds elements with class 'mermaid' and renders them)
+                //    Make sure your Markdown parser output wraps mermaid blocks correctly!
+                //    Marked.js often does this automatically for fenced blocks like ```mermaid
+                mermaid.initialize({ startOnLoad: false }); // Don't start automatically on page load
+                mermaid.run({
+                     querySelector: '.mermaid', // Tell mermaid to look for divs with class 'mermaid'
+                 });
+            } catch (error) {
+                console.error("Error loading or rendering markdown:", error);
+                document.getElementById('content').innerHTML = "<p>Error loading document.</p>";
+            }
+        }
+        // Call the function to load a specific markdown file
+        loadAndRenderMarkdown('path/to/your/document.md'); // Change the path
+    </script>
+</body>
+</html>
+
+
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Egeria Distribution Hub</title>
+    <title>Dr.Egeria Sample Files</title>
 </head>
 <body>
-    <h1>Welcome to Egeria Distribution Hub!</h1>
-    <p>This is the main distribution hub for Egeria content.</p>
+    <h1>Dr. Egeria Sample Files</h1>
+    <p>Dr.Egeria is an Egeria markdown language and commands that allow users to write text based markdown to exchange information with Egeria. Dr.Egeria supports business and technical users, making it simple to both collaborate and share information as well as exchange information with Egeria. Dr. Egeria markdown can be embedded in both plain text files as well as Jupyter Notebooks.
+Dr.Egeria markdown commands can be interspersed with other text, meaning that Dr.Egeria markdown can be part of a broader narrative flow for a wide range of documents such as Policy documents, Design Documents or even experiments and analysis performed in Jupyter notebooks.
+
+
+Dr.Egeria is a work-in-progress. We are quickly extending its capabilities and features - and learning along the way. We very much welcome thoughts and feedback.</p>
     <ul>
-        <li><a href="reports/">Reports</a></li>
-        <li><a href="surveys/">Surveys</a></li>
-        <li><a href="dr-egeria-outbox/">DR Egeria Outbox</a></li>
+        <li><a href="dr_egeria_inbox/">Dr.Egeria Inbox</a></li>
+        <li><a href="dr_egeria_outbox/">Dr.Egeria Outbox</a></li>
     </ul>
 </body>
 </html>

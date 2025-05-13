@@ -24,7 +24,7 @@ services:
       egeria-main:
         condition: service_healthy
 
-    image: quay.io/jupyter/scipy-notebook
+    image: quay.io/jupyter/scipy-notebook:latest
     container_name: jupyter-work-full
     networks:
       - egeria_network
@@ -117,7 +117,7 @@ services:
       - ../../exchange/sample-data:/deployments/sample-data
 
   postgres:
-    image: postgres:16.4
+    image: postgres:16.8-bullseye
     container_name: postgres_for_egeria
     restart: always
     networks:
