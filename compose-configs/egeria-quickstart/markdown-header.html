@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Viewer</title>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.8.0/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+        }
+        .mermaid {
+            text-align: center;
+        }
+        .mermaid-error-container {
+            border: 2px solid #f44336;
+            padding: 10px;
+            margin: 10px 0;
+            background-color: #ffebee;
+            border-radius: 5px;
+        }
+        .mermaid-error {
+            color: #f44336;
+            font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+            white-space: pre-wrap;
+        }
+        h1, h2, h3, h4, h5, h6 {
+            margin-top: 24px;
+            margin-bottom: 16px;
+            font-weight: 600;
+            line-height: 1.25;
+        }
+        h1 { font-size: 2em; }
+        h2 { font-size: 1.5em; }
+        h3 { font-size: 1.25em; }
+        a { color: #0366d6; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        img { max-width: 100%; }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 16px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <div id="content"></div>
+    <script>
+        // Initialize mermaid with enhanced configuration
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'default',
+            securityLevel: 'loose',
+            logLevel: 'error',
+            fontFamily: 'monospace',
+            flowchart: {
+                htmlLabels: true,
+                curve: 'basis'
+            },
+            sequence: {
+                diagramMarginX: 50,
+                diagramMarginY: 10,
+                actorMargin: 50,
+                width: 150,
+                height: 65
+            },
+            gantt: {
+                titleTopMargin: 25,
+                barHeight: 20,
+                barGap: 4,
+                topPadding: 50,
+                leftPadding: 75
+            }
+        });
+
+        // Get the original markdown file URL from the referrer or query parameter
+        function getMarkdownUrl() {
+            // Try to get the URL from the referrer
+            const referrer = document.referrer;
+            if (referrer && referrer.endsWith('.md')) {
+                return referrer;
+            }
+
+            // If no referrer, try to get from URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            let mdUrl = urlParams.get('url');
+            if (mdUrl) {
+                try {
+                    // Handle both encoded and non-encoded URLs
+                    mdUrl = decodeURIComponent(mdUrl);
+
+                    // Ensure the URL is properly formatted
+                    if (!mdUrl.startsWith('/') && !mdUrl.startsWith('http')) {
+                        mdUrl = '/' + mdUrl;
+                    }
+
+                    // If the URL doesn't end with .md, add it
+                    if (!mdUrl.endsWith('.md')) {
+                        mdUrl = mdUrl + '.md';
+                    }
+
+                    return mdUrl;
+                } catch (e) {
+                    console.error("Error decoding URL:", e);
+                    // If decoding fails, try to use the raw URL
+                    return mdUrl;
+                }
+            }
+
+            // If all else fails, use the document.URL but replace /markdown-viewer with the original path
+            const currentUrl = document.URL;
+            if (currentUrl.includes('/markdown-viewer')) {
+                // This is a fallback and might not work in all cases
+                return currentUrl.replace('/markdown-viewer', '');
+            }
+
+            // Last resort: just use the current URL (original behavior)
+            return window.location.href;
+        }
+
+        // Fetch the markdown content
+        const mdUrl = getMarkdownUrl();
+        console.log("Fetching markdown from URL:", mdUrl);
+
+        // Add a special header to bypass the rewrite rule
+        fetch(mdUrl, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.text();
+            })
+            .then(text => {
+                // Process markdown with mermaid diagrams
+                const renderer = new marked.Renderer();
+                const originalCodeRenderer = renderer.code;
+
+                renderer.code = function(code, language) {
+                    if (language === 'mermaid') {
+                        try {
+                            // Add a unique ID to each mermaid diagram
+                            const diagramId = 'mermaid-diagram-' + Math.random().toString(36).substring(2, 15);
+                            return `<div class="mermaid" id="${diagramId}">${code}</div>`;
+                        } catch (error) {
+                            console.error("Error rendering mermaid diagram:", error);
+                            return `<div class="mermaid-error">
+                                <p>Error rendering mermaid diagram:</p>
+                                <pre>${error.message}</pre>
+                                <pre>${code}</pre>
+                            </div>`;
+                        }
+                    }
+                    return originalCodeRenderer.call(this, code, language);
+                };
+
+                // Set options for marked
+                marked.setOptions({
+                    renderer: renderer,
+                    highlight: function(code, lang) {
+                        return code;
+                    },
+                    pedantic: false,
+                    gfm: true,
+                    breaks: false,
+                    sanitize: false,
+                    smartLists: true,
+                    smartypants: false,
+                    xhtml: false
+                });
+
+                // Render markdown
+                document.getElementById('content').innerHTML = marked.parse(text);
+
+                // Render mermaid diagrams with error handling
+                try {
+                    // Use the newer run method if available, otherwise fall back to init
+                    if (typeof mermaid.run === 'function') {
+                        mermaid.run({
+                            nodes: document.querySelectorAll('.mermaid')
+                        }).catch(error => {
+                            console.error("Error initializing mermaid diagrams:", error);
+                            throw error; // Re-throw to trigger the catch block below
+                        });
+                    } else {
+                        mermaid.init(undefined, document.querySelectorAll('.mermaid'));
+                    }
+                } catch (error) {
+                    console.error("Error initializing mermaid diagrams:", error);
+                    // Try to render each diagram individually to isolate problematic ones
+                    document.querySelectorAll('.mermaid').forEach((element, index) => {
+                        try {
+                            if (typeof mermaid.run === 'function') {
+                                mermaid.run({
+                                    nodes: [element]
+                                }).catch(diagramError => {
+                                    throw diagramError; // Re-throw to trigger the catch block below
+                                });
+                            } else {
+                                mermaid.init(undefined, [element]);
+                            }
+                        } catch (diagramError) {
+                            console.error(`Error initializing mermaid diagram ${index}:`, diagramError);
+                            element.innerHTML = `
+                                <div class="mermaid-error">
+                                    <p>Error rendering mermaid diagram:</p>
+                                    <pre>${diagramError.message}</pre>
+                                    <pre>${element.textContent}</pre>
+                                </div>
+                            `;
+                            element.classList.remove('mermaid');
+                            element.classList.add('mermaid-error-container');
+                        }
+                    });
+                }
+            })
+            .catch(error => {
+                console.error("Error fetching or rendering markdown:", error);
+                document.getElementById('content').innerHTML = `
+                    <h1>Error Loading Markdown</h1>
+                    <p>There was an error loading or rendering the markdown file:</p>
+                    <pre>${error.message}</pre>
+                    <p>URL attempted: ${mdUrl}</p>
+                `;
+            });
+    </script>
+</body>
+</html>

@@ -78,6 +78,8 @@ x-airflow-common: &airflow-common
     - ${AIRFLOW_PROJ_DIR:-./runtime-data}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-./runtime-data}/plugins:/opt/airflow/plugins
     - ../../../exchange/coco-data-lake:/opt/airflow/data/coco-data-lake
+    - ../../../exchange/treasury-dts-history:/opt/airflow/data/treasury-dts-history
+    - ../../exchange/sample-data:/opt/airflow/data/sample-data
     - ./requirements.txt:/opt/airflow/requirements.txt
     - ./openlineage.yml:/opt/airflow/openlineage.yml
     - ./openlineage.env:/opt/airflow/openlineage.env

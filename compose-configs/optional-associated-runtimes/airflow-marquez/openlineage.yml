@@ -9,6 +9,7 @@ transport:
   type: http
   topic: open-lineage-events
   url: http://host.docker.internal:6000
+#   url: http://host.docker.internal:5050
   endpoint: api/v1/lineage
 
 

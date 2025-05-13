@@ -1,5 +1,5 @@
 Term Name,Qualified Name,Abbreviation,Summary,Description,Examples,Usage,Version Identifier,Status
-soft-purr,,,pleasntly happy,,,,0.1,draft
-loud-purr,,,there must be shrimp,,,,0.1,DRAFT
-rumble,,,happy,,,,0.1,
-hiss,,,unhappy,,,,0.1,
+soft-purr,,,pleasntly happy,desc 1,,,0.1,draft
+loud-purr,,,there must be shrimp,desc 2,,,0.1,DRAFT
+rumble,,,happy,desc 3,,,0.1,ACTIVE
+hiss,,,unhappy,desc v,,,0.1,

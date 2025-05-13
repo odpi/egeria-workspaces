@@ -7,6 +7,7 @@ development, and learning. Rather than having to install Egeria, prerequisites a
 it easy to get a stack running quickly. This deployment configures and starts:
 
 * Egeria on port 9443 and will automatically start the default servers.
+* Jupyter is deployed using port 7888 so as not to interfere with other jupyter servers
 * Kafka on port 9192 to support communications between Egeria servers and other sources.
 * Postgres on port 5442 is configured with the *egeria* database and is dynamically configured with the needed schemas.
 * Open Lineage Proxy running on ports 6000 and 6001. Details of the proxy's configuration are in the file `proxy.yml`. 
@@ -111,7 +112,7 @@ The environment is ready to be used.
 
 You can control the containers with docker compose commands - see [docker compose](https://docs.docker.com/reference/cli/docker/compose/). These commands can be used to manage and use the docker containers.
 
-To access jupyter, open a browser to `http://localhost:8888`. At the password prompt, enter `egeria`. This should open up your notebook environment.
+To access jupyter, open a browser to `http://localhost:7888`. At the password prompt, enter `egeria`. This should open up your notebook environment.
 
 >Note: You only need to use the --build option if you want to rebuild the jupyter image.
 
