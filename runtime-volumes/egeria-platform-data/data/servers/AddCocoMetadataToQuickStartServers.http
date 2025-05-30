@@ -118,6 +118,11 @@ Content-Type: application/json
   "comment": "Clinical trials data for personalized medicine research."
 }
 
+###
+# @name List catalogs
+GET {{ucURL}}/api/2.1/unity-catalog/catalogs
+Content-Type: application/json
+
 
 ###
 # @name delete volume
