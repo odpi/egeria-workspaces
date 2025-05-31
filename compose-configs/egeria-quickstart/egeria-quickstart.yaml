@@ -12,6 +12,7 @@
 #
 # Assumptions:
 #   * Ports 9443 and 9192 are available on the host system - these are the default ports for Kafka and Egeria.
+#   * Port 8085 is used for the external web server
 #   * Port 7888 is used by jupyter server
 #   * by default, the jupyter notebooks in the 'workspaces' folder are mounted and available for use by the jupyter notebooks
 #   * by default, strict SSL validation is turned off
@@ -140,7 +141,7 @@ services:
     container_name: web-server
     user: "daemon:daemon"  # Explicitly set the user and group to match httpd.conf
     ports:
-      - "8080:8080"  # Map host port 8080 to container port 8080
+      - "8085:8085"  # Map host port 8080 to container port 8080
     volumes:
       - ../../exchange:/usr/local/apache2/htdocs  # Mount the exchange directory as the document root
       - ./httpd.conf:/usr/local/apache2/conf/httpd.conf  # Use the fixed configuration file

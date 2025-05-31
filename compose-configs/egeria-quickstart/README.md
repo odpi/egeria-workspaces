@@ -11,6 +11,7 @@ it easy to get a stack running quickly. This deployment configures and starts:
 * Kafka on port 9192 to support communications between Egeria servers and other sources.
 * Postgres on port 5442 is configured with the *egeria* database and is dynamically configured with the needed schemas.
 * Open Lineage Proxy running on ports 6000 and 6001. Details of the proxy's configuration are in the file `proxy.yml`. 
+* Apache Web Server on port 8085 and configured with `httpd.conf`.
 
 
 This environment is not designed for enterprise-wide use. Please see the [Planning Guide](https://egeria-project.org/guides/planning/)
