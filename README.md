@@ -35,7 +35,7 @@ It contains the `egeria-quickstart.yaml` docker compose script and supporting fi
 * Egeria running on port 9444
 * Apache Kafka running on port 9192
 * Postgres running on port 5442
-* Jupyter running on port 8888
+* Jupyter running on port 7888
 * Open Lineage Proxy running on port 6000
 
 There are several additional features of this environment - including sharing of select folders between Jupyter and Egeria,
