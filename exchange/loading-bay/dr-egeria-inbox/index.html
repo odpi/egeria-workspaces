@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Distribution Hub</title>
+    <title>Dr.Egeria Inbox</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
@@ -81,29 +81,32 @@
         </ul>
         <h3>Exchange Areas</h3>
         <ul>
-            <li><a href="/loading-bay/">Loading Bay</a></li>
-            <li><a href="/loading-bay/dr-egeria-inbox/">Dr.Egeria Inbox</a></li>
-            <li><a href="/distribution-hub/">Distribution Hub</a></li>
-            <li><a href="/distribution-hub/dr-egeria-outbox/">Dr.Egeria Outbox</a></li>
+            <li><a href="/dr-egeria-inbox/index.html">Dr.Egeria Inbox</a></li>
+            <li><a href="/dr-egeria-outbox/index.html">Dr.Egeria Outbox</a></li>
+            <li><a href="/dr-egeria-samples/">Dr.Egeria Samples</a></li>
         </ul>
         <h3>Sample Files</h3>
         <ul>
-            <li><a href="/dr-egeria-samples/Dr.Egeria Templates.md">Dr.Egeria Templates</a></li>
+            <li><a href="/dr-egeria-samples/dr.egeria templates.md">Dr.Egeria Templates</a></li>
             <li><a href="/dr-egeria-samples/generated_help_terms.md">Generated Help Terms</a></li>
         </ul>
     </div>
 
     <div class="content">
-        <h1>Distribution Hub</h1>
-        <p>The Distribution Hub is where output files from Egeria are distributed. This includes Dr.Egeria outputs, reports, and survey results.</p>
+        <h1>Dr.Egeria Inbox</h1>
+        <p>The Dr.Egeria Inbox is the default location where place markdown files containing Dr.Egeria commands for processing. When you process a Dr.Egeria markdown file it will, by default, place the results in the Dr.Egeria Outbox.</p>
 
         <h2>Directory Contents</h2>
-        <iframe src="/directory-listing?path=/distribution-hub/" class="directory-listing"></iframe>
-
-        <h2>About Dr.Egeria</h2>
-        <p>Dr.Egeria is an Egeria markdown language and commands that allow users to write text based markdown to exchange information with Egeria. Dr.Egeria supports business and technical users, making it simple to both collaborate and share information as well as exchange information with Egeria. Dr. Egeria markdown can be embedded in both plain text files as well as Jupyter Notebooks.</p>
-        <p>Dr.Egeria markdown commands can be interspersed with other text, meaning that Dr.Egeria markdown can be part of a broader narrative flow for a wide range of documents such as Policy documents, Design Documents or even experiments and analysis performed in Jupyter notebooks.</p>
-        <p>Dr.Egeria is a work-in-progress. We are quickly extending its capabilities and features - and learning along the way. We very much welcome thoughts and feedback.</p>
+<!--        <iframe src="/directory-listing?path=/dr-egeria-inbox/" class="directory-listing"></iframe>-->
+        <iframe src="/dr-egeria-inbox/" class="directory-listing"></iframe>
+        <h2>How to Use</h2>
+        <p>To use Dr.Egeria:</p>
+        <ol>
+            <li>Create a markdown file with Dr.Egeria commands</li>
+            <li>Place the file in this directory</li>
+            <li>Process the file by calling `dr_egeria_md` command either from a command line or using the `hey_egeria tui` command line interface./li>
+            <li>Check the <a href="/dr-egeria-outbox/index.html">Dr.Egeria Outbox</a> for results</li>
+        </ol>
     </div>
 </body>
 </html>

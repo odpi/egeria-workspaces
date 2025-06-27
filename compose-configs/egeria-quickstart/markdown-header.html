@@ -7,11 +7,57 @@
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10.8.0/dist/mermaid.min.js"></script>
+    <!-- Add additional script to help with mermaid rendering -->
+    <script>
+        // This function will be called after the page loads to ensure mermaid is properly initialized
+        window.addEventListener('load', function() {
+            console.log("Window loaded, checking for mermaid diagrams");
+            setTimeout(function() {
+                const diagrams = document.querySelectorAll('.mermaid');
+                console.log(`Found ${diagrams.length} mermaid diagrams on page load`);
+                if (diagrams.length > 0) {
+                    console.log("Attempting to re-render mermaid diagrams");
+                    try {
+                        mermaid.initialize({ startOnLoad: true });
+                        mermaid.init(undefined, diagrams);
+                    } catch (e) {
+                        console.error("Error re-initializing mermaid:", e);
+                    }
+                }
+            }, 1000); // Wait 1 second to ensure everything is loaded
+        });
+    </script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
             line-height: 1.6;
             color: #333;
+            margin: 0;
+            padding: 0;
+        }
+
+        .banner {
+            background-color: #f8f9fa;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid #e1e4e8;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .banner img {
+            height: 40px;
+            margin-right: 15px;
+        }
+
+        .banner h1 {
+            margin: 0;
+            font-size: 1.5em;
+            color: #24292e;
+        }
+
+        #content {
             max-width: 900px;
             margin: 0 auto;
             padding: 20px;
@@ -70,14 +116,18 @@
     </style>
 </head>
 <body>
+    <div class="banner">
+        <img src="data:image/png;base64,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" alt="Egeria Logo">
+        <h1>The Egeria Project</h1>
+    </div>
     <div id="content"></div>
     <script>
         // Initialize mermaid with enhanced configuration
         mermaid.initialize({
-            startOnLoad: false,
+            startOnLoad: false, // Changed to false to manually control initialization
             theme: 'default',
             securityLevel: 'loose',
-            logLevel: 'error',
+            logLevel: 'info', // Changed to info for more detailed logging
             fontFamily: 'monospace',
             flowchart: {
                 htmlLabels: true,
@@ -166,17 +216,30 @@
                 const originalCodeRenderer = renderer.code;
 
                 renderer.code = function(code, language) {
-                    if (language === 'mermaid') {
+                    console.log("Renderer.code called with language:", language);
+
+                    // Handle both 'mermaid' and undefined language with mermaid content
+                    if (language === 'mermaid' || 
+                        (code && typeof code === 'string' && code.trim().match(/^(graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie|gitGraph)/))) {
                         try {
                             // Add a unique ID to each mermaid diagram
                             const diagramId = 'mermaid-diagram-' + Math.random().toString(36).substring(2, 15);
-                            return `<div class="mermaid" id="${diagramId}">${code}</div>`;
+                            console.log("Found mermaid diagram with ID:", diagramId);
+                            console.log("Mermaid code:", code);
+
+                            // Clean up the code - remove any leading/trailing whitespace
+                            // Ensure code is a string before calling trim()
+                            const cleanCode = typeof code === 'string' ? code.trim() : String(code);
+
+                            return `<div class="mermaid" id="${diagramId}">${cleanCode}</div>`;
                         } catch (error) {
                             console.error("Error rendering mermaid diagram:", error);
-                            return `<div class="mermaid-error">
-                                <p>Error rendering mermaid diagram:</p>
-                                <pre>${error.message}</pre>
-                                <pre>${code}</pre>
+                            return `<div class="mermaid-error-container">
+                                <div class="mermaid-error">
+                                    <p>Error rendering mermaid diagram:</p>
+                                    <pre>${error.message}</pre>
+                                    <pre>${code}</pre>
+                                </div>
                             </div>`;
                         }
                     }
@@ -187,6 +250,11 @@
                 marked.setOptions({
                     renderer: renderer,
                     highlight: function(code, lang) {
+                        // Log the language of code blocks to help with debugging
+                        console.log("Code block with language:", lang);
+                        if (lang === 'mermaid') {
+                            console.log("Found mermaid code block in highlight function");
+                        }
                         return code;
                     },
                     pedantic: false,
@@ -195,52 +263,60 @@
                     sanitize: false,
                     smartLists: true,
                     smartypants: false,
-                    xhtml: false
+                    xhtml: false,
+                    langPrefix: 'language-'  // Added to ensure proper language class is added
                 });
 
                 // Render markdown
                 document.getElementById('content').innerHTML = marked.parse(text);
 
-                // Render mermaid diagrams with error handling
-                try {
-                    // Use the newer run method if available, otherwise fall back to init
-                    if (typeof mermaid.run === 'function') {
-                        mermaid.run({
-                            nodes: document.querySelectorAll('.mermaid')
-                        }).catch(error => {
-                            console.error("Error initializing mermaid diagrams:", error);
-                            throw error; // Re-throw to trigger the catch block below
-                        });
-                    } else {
-                        mermaid.init(undefined, document.querySelectorAll('.mermaid'));
-                    }
-                } catch (error) {
-                    console.error("Error initializing mermaid diagrams:", error);
-                    // Try to render each diagram individually to isolate problematic ones
-                    document.querySelectorAll('.mermaid').forEach((element, index) => {
-                        try {
-                            if (typeof mermaid.run === 'function') {
-                                mermaid.run({
-                                    nodes: [element]
-                                }).catch(diagramError => {
-                                    throw diagramError; // Re-throw to trigger the catch block below
-                                });
-                            } else {
-                                mermaid.init(undefined, [element]);
-                            }
-                        } catch (diagramError) {
-                            console.error(`Error initializing mermaid diagram ${index}:`, diagramError);
-                            element.innerHTML = `
-                                <div class="mermaid-error">
-                                    <p>Error rendering mermaid diagram:</p>
-                                    <pre>${diagramError.message}</pre>
-                                    <pre>${element.textContent}</pre>
-                                </div>
-                            `;
-                            element.classList.remove('mermaid');
-                            element.classList.add('mermaid-error-container');
+                // Render mermaid diagrams with enhanced error handling
+                console.log("Starting mermaid diagram rendering");
+
+                // First, log all found mermaid diagrams
+                const mermaidDiagrams = document.querySelectorAll('.mermaid');
+                console.log(`Found ${mermaidDiagrams.length} mermaid diagrams`);
+
+                // Process each diagram individually for better error isolation
+                mermaidDiagrams.forEach((element, index) => {
+                    console.log(`Processing mermaid diagram ${index}:`, element.id);
+                    console.log(`Diagram content: ${element.textContent.substring(0, 100)}...`);
+
+                    try {
+                        // Force a re-parse of the diagram
+                        const content = element.textContent;
+                        element.textContent = content;
+
+                        // Use the newer run method if available, otherwise fall back to init
+                        if (typeof mermaid.run === 'function') {
+                            mermaid.run({
+                                nodes: [element]
+                            }).catch(diagramError => {
+                                console.error(`Error running mermaid diagram ${index}:`, diagramError);
+                                handleMermaidError(element, diagramError, index);
+                            });
+                        } else {
+                            mermaid.init(undefined, [element]);
                         }
-                    });
+                    } catch (diagramError) {
+                        console.error(`Error initializing mermaid diagram ${index}:`, diagramError);
+                        handleMermaidError(element, diagramError, index);
+                    }
+                });
+
+                // Helper function to handle mermaid errors consistently
+                function handleMermaidError(element, error, index) {
+                    console.error(`Error rendering mermaid diagram ${index}:`, error);
+                    const originalContent = element.textContent;
+                    element.innerHTML = `
+                        <div class="mermaid-error">
+                            <p>Error rendering mermaid diagram:</p>
+                            <pre>${error.message}</pre>
+                            <pre>${originalContent}</pre>
+                        </div>
+                    `;
+                    element.classList.remove('mermaid');
+                    element.classList.add('mermaid-error-container');
                 }
             })
             .catch(error => {

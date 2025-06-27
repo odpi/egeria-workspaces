@@ -143,10 +143,13 @@ services:
     ports:
       - "8085:8085"  # Map host port 8080 to container port 8080
     volumes:
-      - ../../exchange:/usr/local/apache2/htdocs  # Mount the exchange directory as the document root
+      - ../../exchange/distribution-hub/dr-egeria-outbox:/usr/local/apache2/htdocs/dr-egeria-outbox  # Mount the dr-egeria-outbox directory
+      - ../../exchange/loading-bay/dr-egeria-inbox:/usr/local/apache2/htdocs/dr-egeria-inbox  # Mount the dr-egeria-inbox directory
       - ./httpd.conf:/usr/local/apache2/conf/httpd.conf  # Use the fixed configuration file
+      - ../../runtime-volumes/apache-web/site:/usr/local/apache2/htdocs # mount site
       - ./markdown-header.html:/usr/local/apache2/conf/markdown-header.html  # Mount the markdown viewer
       - ../../runtime-volumes/apache-web/ErrorLogs:/usr/local/apache2/logs  # Mount the logs directory
+      - ../../workspaces/Dr-Egeria-Samples:/usr/local/apache2/htdocs/Dr-Egeria-Samples  # Mount the Dr-Egeria-Samples directory
 #
 # Change external to true and create volumes manually if you wish to persist between runs
 #
