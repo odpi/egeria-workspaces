@@ -38,7 +38,7 @@ Dr.Egeria can be used for a wide range of documents and purposes:
 To start using Dr.Egeria:
 
 1. Explore the templates in the dr-egeria-outbox directory
-2. Check out the [Dr.Egeria Templates](/Dr-Egeria-Samples/Dr.Egeria%20Templates.md) and the `dr_egeria_help` command for help in writing Dr.Egeria files.
+2. Check out the [Dr.Egeria Templates](/Dr-Egeria-Templates) and the `dr_egeria_help` command for help in writing Dr.Egeria files.
 3. Create your own markdown documents with Dr.Egeria commands
 4. Place your documents in the dr-egeria-inbox directory
 5. Run the `dr_egeria_md` command to process your markdown files. 
