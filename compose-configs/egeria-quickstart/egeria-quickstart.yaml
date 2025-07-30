@@ -137,7 +137,9 @@ services:
     command: -p 5442 -c max_connections=1000
 
   apache-web:
-    image: httpd:latest  # Use the latest official Apache image from Docker Hub
+    build:
+      context: .
+      dockerfile: Dockerfile-apache-web
     container_name: web-server
     user: "daemon:daemon"  # Explicitly set the user and group to match httpd.conf
     ports:

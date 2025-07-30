@@ -9,7 +9,7 @@
 # Create Term
 ## Term Name
 
-Create Business Imperative
+Create Create Business Imperative
 
 ## Description
 
@@ -49,7 +49,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Regulation Article
+Create Create Regulation Article
 
 ## Description
 
@@ -89,7 +89,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Threat Definition
+Create Create Threat Definition
 
 ## Description
 
@@ -129,7 +129,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Governance Principle
+Create Create Governance Principle
 
 ## Description
 
@@ -170,7 +170,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Governance Obligation
+Create Create Governance Obligation
 
 ## Description
 
@@ -211,7 +211,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Governance Approach
+Create Create Governance Approach
 
 ## Description
 
@@ -252,7 +252,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Governance Processing Purpose
+Create Create Governance Processing Purpose
 
 ## Description
 
@@ -292,7 +292,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Governance Strategy
+Create Create Governance Strategy
 
 ## Description
 
@@ -332,7 +332,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Regulation Definition
+Create Create Regulation Definition
 
 ## Description
 
@@ -374,7 +374,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Governance Rule
+Create Create Governance Rule
 
 ## Description
 
@@ -416,7 +416,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Service Level Objectives
+Create Create Service Level Objectives
 
 ## Description
 
@@ -458,7 +458,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Governance Process
+Create Create Governance Process
 
 ## Description
 
@@ -500,7 +500,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Governance Responsibility
+Create Create Governance Responsibility
 
 ## Description
 
@@ -542,7 +542,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Governance Procedure
+Create Create Governance Procedure
 
 ## Description
 
@@ -585,7 +585,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Security Access Control
+Create Create Security Access Control
 
 ## Description
 
@@ -626,7 +626,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Security Group
+Create Create Security Group
 
 ## Description
 
@@ -668,7 +668,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Naming Standard Rule
+Create Create Naming Standard Rule
 
 ## Description
 
@@ -710,7 +710,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Certification Type
+Create Create Certification Type
 
 ## Description
 
@@ -751,7 +751,7 @@ ___
 # Create Term
 ## Term Name
 
-Create License Type
+Create Create License Type
 
 ## Description
 
@@ -792,7 +792,7 @@ ___
 # Create Term
 ## Term Name
 
-Link Governance Drivers
+Link Link Governance Drivers
 
 ## Description
 
@@ -821,7 +821,7 @@ ___
 # Create Term
 ## Term Name
 
-Link Governance Policies
+Link Link Governance Policies
 
 ## Description
 
@@ -850,7 +850,7 @@ ___
 # Create Term
 ## Term Name
 
-Link Governance Controls
+Link Link Governance Controls
 
 ## Description
 
@@ -879,7 +879,7 @@ ___
 # Create Term
 ## Term Name
 
-View Governance Definitions
+View View Governance Definitions
 
 ## Description
 
@@ -914,7 +914,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Digital Product
+Create Create Digital Product
 
 ## Description
 
@@ -959,7 +959,7 @@ ___
 # Create Term
 ## Term Name
 
-Link Digital Product - Digital Product
+Link Link Digital Product - Digital Product
 
 ## Description
 
@@ -988,7 +988,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Agreement
+Create Create Agreement
 
 ## Description
 
@@ -1027,7 +1027,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Data Sharing Agreement
+Create Create Data Sharing Agreement
 
 ## Description
 
@@ -1062,7 +1062,7 @@ ___
 # Create Term
 ## Term Name
 
-Create DigitalSubscription
+Create Create DigitalSubscription
 
 ## Description
 
@@ -1102,7 +1102,7 @@ ___
 # Create Term
 ## Term Name
 
-Link Agreement Items
+Link Link Agreement Items
 
 ## Description
 
@@ -1136,7 +1136,7 @@ ___
 # Create Term
 ## Term Name
 
-Link Contracts
+Link Link Contracts
 
 ## Description
 
@@ -1165,7 +1165,7 @@ ___
 # Create Term
 ## Term Name
 
-Link Subscribers
+Link Link Subscribers
 
 ## Description
 
@@ -1197,7 +1197,7 @@ ___
 # Create Term
 ## Term Name
 
-Attach Collection->Resource
+Attach Attach Collection->Resource
 
 ## Description
 
@@ -1227,7 +1227,7 @@ ___
 # Create Term
 ## Term Name
 
-Add Member->Collection
+Add Add Member->Collection
 
 ## Description
 
@@ -1257,7 +1257,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Data Dictionary
+Create Create Data Dictionary
 
 ## Description
 
@@ -1286,7 +1286,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Data Specification
+Create Create Data Specification
 
 ## Description
 
@@ -1316,7 +1316,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Data Structure
+Create Create Data Structure
 
 ## Description
 
@@ -1346,7 +1346,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Data Field
+Create Create Data Field
 
 ## Description
 
@@ -1392,7 +1392,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Data Class
+Create Create Data Class
 
 ## Description
 
@@ -1439,7 +1439,7 @@ ___
 # Create Term
 ## Term Name
 
-View Data Fields
+View View Data Fields
 
 ## Description
 
@@ -1473,7 +1473,7 @@ ___
 # Create Term
 ## Term Name
 
-View Data Classes
+View View Data Classes
 
 ## Description
 
@@ -1507,7 +1507,7 @@ ___
 # Create Term
 ## Term Name
 
-View Data Structures
+View View Data Structures
 
 ## Description
 
@@ -1541,7 +1541,7 @@ ___
 # Create Term
 ## Term Name
 
-View Data Specifications
+View View Data Specifications
 
 ## Description
 
@@ -1575,7 +1575,7 @@ ___
 # Create Term
 ## Term Name
 
-View Data Dictionaries
+View View Data Dictionaries
 
 ## Description
 
@@ -1609,7 +1609,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Information Supply Chain
+Create Create Information Supply Chain
 
 ## Description
 
@@ -1643,7 +1643,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Solution Blueprint
+Create Create Solution Blueprint
 
 ## Description
 
@@ -1674,7 +1674,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Solution Component
+Create Create Solution Component
 
 ## Description
 
@@ -1711,7 +1711,7 @@ ___
 # Create Term
 ## Term Name
 
-Link Solution Component Peers
+Link Link Solution Component Peers
 
 ## Description
 
@@ -1740,7 +1740,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Solution Role
+Create Create Solution Role
 
 ## Description
 
@@ -1774,7 +1774,7 @@ ___
 # Create Term
 ## Term Name
 
-Link Information Supply Chain Peers
+Link Link Information Supply Chain Peers
 
 ## Description
 
@@ -1803,7 +1803,7 @@ ___
 # Create Term
 ## Term Name
 
-View Information Supply Chains
+View View Information Supply Chains
 
 ## Description
 
@@ -1831,7 +1831,7 @@ ___
 # Create Term
 ## Term Name
 
-View Solution Components
+View View Solution Components
 
 ## Description
 
@@ -1859,7 +1859,7 @@ ___
 # Create Term
 ## Term Name
 
-View Solution Blueprints
+View View Solution Blueprints
 
 ## Description
 
@@ -1887,7 +1887,7 @@ ___
 # Create Term
 ## Term Name
 
-View Solution Roles
+View View Solution Roles
 
 ## Description
 
@@ -1915,7 +1915,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Glossary
+Create Create Glossary
 
 ## Description
 
@@ -1946,7 +1946,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Category
+Create Create Category
 
 ## Description
 
@@ -1976,7 +1976,7 @@ ___
 # Create Term
 ## Term Name
 
-Create Term
+Create Create Term
 
 ## Description
 
@@ -2011,7 +2011,7 @@ ___
 # Create Term
 ## Term Name
 
-Attach Category Parent
+Attach Attach Category Parent
 
 ## Description
 
@@ -2038,7 +2038,7 @@ ___
 # Create Term
 ## Term Name
 
-Attach Term-Term Relationship
+Attach Attach Term-Term Relationship
 
 ## Description
 

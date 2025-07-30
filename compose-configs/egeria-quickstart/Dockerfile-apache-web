@@ -1,0 +1,49 @@
+FROM httpd:latest
+
+# Install Python 3.12 and required packages
+RUN apt-get update && apt-get install -y \
+    wget \
+    build-essential \
+    libssl-dev \
+    zlib1g-dev \
+    libbz2-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    libncursesw5-dev \
+    xz-utils \
+    tk-dev \
+    libxml2-dev \
+    libxmlsec1-dev \
+    libffi-dev \
+    liblzma-dev \
+    && wget https://www.python.org/ftp/python/3.12.3/Python-3.12.3.tgz \
+    && tar -xf Python-3.12.3.tgz \
+    && cd Python-3.12.3 \
+    && ./configure --enable-optimizations \
+    && make -j$(nproc) \
+    && make altinstall \
+    && cd .. \
+    && rm -rf Python-3.12.3 Python-3.12.3.tgz \
+    && apt-get install -y python3-pip python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /usr/local/apache2
+
+# Create a Python virtual environment using Python 3.12
+RUN python3.12 -m venv /usr/local/apache2/venv
+
+# Install pyegeria and other required Python packages in the virtual environment
+RUN /usr/local/apache2/venv/bin/pip install --upgrade pip && \
+    /usr/local/apache2/venv/bin/pip install pyegeria>=5.4.0.1
+
+
+# Make sure the CGI scripts directory exists
+RUN mkdir -p /usr/local/apache2/htdocs/cgi-bin
+
+# Create a wrapper script to activate the virtual environment for CGI scripts
+RUN echo '#!/bin/bash\nsource /usr/local/apache2/venv/bin/activate\nexec "$@"' > /usr/local/apache2/venv_wrapper.sh && \
+    chmod +x /usr/local/apache2/venv_wrapper.sh
+
+# Set permissions for CGI scripts
+RUN chmod -R 755 /usr/local/apache2/htdocs/cgi-bin
