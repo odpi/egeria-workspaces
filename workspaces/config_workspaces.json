@@ -1,6 +1,6 @@
 {
         "Environment": {
-                "Pyegeria Root": "~/localGit/egeria-v5-3/egeria-python",
+                "Pyegeria Root": "/home/jovyan",
                 "Egeria Kafka Endpoint": "host.docker.internal:9192",
                 "Egeria Jupyter": true,
                 "Dr.Egeria Outbox": "distribution-hub/dr-egeria-outbox",
@@ -15,25 +15,22 @@
                 "Egeria Engine Host URL": "https://host.docker.internal:9443",
                 "Egeria Glossary Path": "/home/jovyan/loading-bay/glossary",
                 "Egeria Mermaid Folder": "/home/jovyan/work/mermaid_graphs",
-                "console_width": 150
+                "console_width": 201
         },
-        "Logging": {
-                "enable_logging": true,
-                "log_directory": "./logs",
-                "console_logging_level": "INFO",
+       
+          "Logging": {
                 "console_filter_levels": [
-                        "ERROR"
+                  "ERROR",  "WARNING", "INFO"
                 ],
                 "console_logging_enabled": [
-                        "tests",
-                        "_client_new",
-                        "_exceptions_new",
-                        "collections_manager_omvs"
                 ],
-                "logging_console_format": " <green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | <cyan>{name}</cyan>:<cyan>{line}</cyan> - <level>{message}</level> -{extra}",
+                "console_logging_level": "INFO",
+                "enable_logging": true,
                 "file_logging_level": "INFO",
-                "logging_file_format": " {time:YYYY-MM-DD HH:mm:ss} | {level} | {function}:{line} - {message }-{extra}"
-        },
+                "log_directory": "/home/jovyan/work/logs",
+                "logging_console_format": "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | <cyan>{name}</cyan>:<cyan>{line}</cyan> - <level>{message}</level> -{extra}",
+                "logging_file_format": " {time:YYYY-MM-DD HH:mm:ss} | {level} | {module}-{function}:{line} - {message}-{extra}"
+              },
         "Debug": {
                 "timeout_seconds": 30,
                 "debug_mode": false,
