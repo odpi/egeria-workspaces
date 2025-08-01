@@ -31,6 +31,8 @@ services:
       - egeria_network
     ports:
       - 7888:7888
+      - 5678:5678
+
     environment:
       JUPYTER_ENABLE_LAB: "yes"
       JUPYTER_TOKEN: "egeria"
