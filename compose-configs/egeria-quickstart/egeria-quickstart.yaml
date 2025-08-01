@@ -31,6 +31,8 @@ services:
       - egeria_network
     ports:
       - 7888:7888
+      - 5678:5678
+
     environment:
       JUPYTER_ENABLE_LAB: "yes"
       JUPYTER_TOKEN: "egeria"
@@ -41,7 +43,7 @@ services:
     volumes:
       - ./before-notebook.d:/usr/local/bin/before-notebook.d
       - ../../work:/home/jovyan/work
-      - ../../workspaces:/home/jovyan/workbooks
+      - ../../workspaces:/home/jovyan/workspaces
       - ../../exchange/distribution-hub:/home/jovyan/distribution-hub
       - ../../exchange/loading-bay:/home/jovyan/loading-bay
       - ../../exchange/landing-area:/home/jovyan/landing-area
