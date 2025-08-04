@@ -151,3 +151,11 @@ compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-da
 /exchange/exploring obsidian/
 /exchange/.obsidian/workspace.json
 /exchange/config/debug_log/**
+/exchange/.obsidian/**
+/exchange/Data Products & Data Mesh/**
+/exchange/Obsidian/**
+/exchange/Sustainability Samples/**
+/exchange/loading-bay/dr-egeria-inbox/Inbox-DataDrivenLDN
+/exchange/loading-bay/dr-egeria-inbox/Automated Delivery of Internal Products
+/exchange/loading-bay/dr-egeria-inbox/GeoSpatial Data/**
+/exchange/loading-bay/dr-egeria-inbox/Reference Data Products/**
