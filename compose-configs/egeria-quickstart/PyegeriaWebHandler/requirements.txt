@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard] # uvicorn[standard] includes httptools and websockets for better performance
+pydantic
+requests
+httpx
+pyegeria
+email-validator
+loguru

@@ -8,7 +8,9 @@ import sys
 import json
 import shutil
 import datetime
-from pyegeria import process_markdown_file
+from loguru import logger
+
+from commands.cat.dr_egeria_md import process_markdown_file
 from pyegeria import EgeriaTech
 
 # Enable detailed error reporting
@@ -57,9 +59,14 @@ def process_dr_egeria_file(file_name):
         # Copy the file to the outbox directory
         # In a real implementation, this would process the file using dr_egeria_md
         # shutil.copy2(input_file_path, output_file_path)
+        logger.info(f"Processing file: {input_file_path}")
+        logger.info(f"Output folder: {output_file_path}")
+        logger.info(f"URL: {VIEW_SERVER}/{URL}")
 
-        process_markdown_file(input_file_path, output_file_path, "process", VIEW_SERVER, URL, USER, PWD)
-
+        process_markdown_file(input_file_path, output_file_path,
+                              "process", VIEW_SERVER, URL,
+                              USER, PWD)
+        logger.info("Completed processing file")
 
         return {
             "status": "success",

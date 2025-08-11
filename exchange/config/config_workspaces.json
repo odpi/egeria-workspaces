@@ -1,6 +1,5 @@
 {
         "Environment": {
-                "Pyegeria Root": "/home/jovyan",
                 "Egeria Kafka Endpoint": "host.docker.internal:9192",
                 "Egeria Jupyter": true,
                 "Dr.Egeria Outbox": "distribution-hub/dr-egeria-outbox",
@@ -15,7 +14,12 @@
                 "Egeria Engine Host URL": "https://host.docker.internal:9443",
                 "Egeria Glossary Path": "/home/jovyan/loading-bay/glossary",
                 "Egeria Mermaid Folder": "/home/jovyan/work/mermaid_graphs",
-                "console_width": 201
+                "Pyegeria Root": "/home/jovyan",
+                "Pyegeria Config Directory": "/home/jovyan/config",
+                "Pyegeria User Format Sets Dir": "/home/jovyan/config/format-sets",
+                "Pyegeria Publishing Root": "http://localhost:8085/dr-egeria-outbox",
+
+                "console_width": 250
         },
        
           "Logging": {
@@ -28,8 +32,8 @@
                 "enable_logging": true,
                 "file_logging_level": "INFO",
                 "log_directory": "/home/jovyan/work/logs",
-                "logging_console_format": "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | <cyan>{name}</cyan>:<cyan>{line}</cyan> - <level>{message}</level> -{extra}",
-                "logging_file_format": " {time:YYYY-MM-DD HH:mm:ss} | {level} | {module}-{function}:{line} - {message}-{extra}"
+                "logging_console_format": "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+                "logging_file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level} | {module}-{function}:{line}-{message}-{extra}"
               },
         "Debug": {
                 "timeout_seconds": 30,
