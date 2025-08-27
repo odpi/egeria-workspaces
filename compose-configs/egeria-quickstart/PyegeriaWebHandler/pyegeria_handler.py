@@ -1,110 +1,103 @@
-# main.py
-from fastapi import FastAPI, HTTPException, status
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+# FastAPI app for Dr. Egeria Markdown processing
 
-# import pyegeria
+
 import asyncio
-import concurrent.futures # For running sync code in a thread pool
+import concurrent.futures
+import io
+import os
+from contextlib import redirect_stdout, redirect_stderr
+from typing import Callable
+
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import PlainTextResponse
+from pydantic import BaseModel, Field
+
+os.environ.setdefault("EGERIA_USER", "erinoverview")
+os.environ.setdefault("EGERIA_USER_PASSWORD", "secret")
+# Important: ensure root path is empty so container joins to /dr-egeria-inbox/<file>
+os.environ.setdefault("EGERIA_ROOT_PATH", "/")
+os.environ.setdefault("EGERIA_INBOX_PATH", "dr-egeria-inbox")
+os.environ.setdefault("EGERIA_OUTBOX_PATH", "dr-egeria-outbox")
+
+EGERIA_USER = os.environ.get("EGERIA_USER", "erinoverview")
+EGERIA_USER_PASSWORD = os.environ.get("EGERIA_USER_PASSWORD", "secret")
+
+import dr_egeria_md
 
 
-
-# from commands.cat.dr_egeria_md import process_markdown_file
-# from pyegeria import EgeriaTech, load_app_config
-
-# config = load_app_config(".env")
-
-# Initialize FastAPI app
 app = FastAPI(
-    title="Local Library Wrapper API",
-    description="A simple API to demonstrate wrapping a local library that calls a remote server.",
+    title="Dr. Egeria Markdown Processor API",
+    description="POST an instruction to process a Markdown file via dr_egeria_md.process_markdown_file and get the console output back.",
     version="1.0.0",
 )
 
-# --- Pydantic Models for Request/Response ---
-class UserRequest(BaseModel):
-    user_id: int
+# Thread pool for blocking work
+executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
 
-class PostRequest(BaseModel):
-    post_id: int
 
-class RemoteDataResponse(BaseModel):
-    status: str
-    data: dict
+class ProcessRequest(BaseModel):
+    input_file: str = Field(..., description="Name of the markdown file in the inbox to process")
+    output_folder: str = Field("", description="Output folder (if used by the processor)")
+    directive: str = Field("process", description="Processing directive: display | validate | process")
+    url: str = Field(..., description="Egeria platform URL (e.g., https://host.docker.internal:9443)")
+    server: str = Field(..., description="Egeria view server name (e.g., qs-view-server)")
+    user_id: str = Field(..., description="Egeria user id")
+    user_pass: str = Field(..., description="Egeria user password")
 
-# --- Thread Pool for Synchronous Operations ---
-# It's crucial to run synchronous (blocking) code in a separate thread pool
-# when using an ASGI framework like FastAPI to avoid blocking the event loop.
-# This pool will be used for my_local_library.get_user_data_sync
-executor = concurrent.futures.ThreadPoolExecutor(max_workers=5) # Adjust max_workers as needed
-
-# --- API Endpoints ---
 
 @app.get("/")
-async def read_root():
-    # Define paths for input and output directories
-    INBOX_DIR = "./dr-egeria-inbox"
-    OUTBOX_DIR = "./dr-egeria-outbox"
-    VIEW_SERVER = "qs-view-server"
-    URL = "https://localhost:9443"
-    USER = "erinoverview"
-    PWD = "secret"
+async def health():
+    return {"status": "ok", "service": "dr-egeria-md"}
 
 
-    return {"message": "Welcome to the Local Library Wrapper API!"}
+def _run_and_capture(func: Callable, *args, **kwargs) -> str:
+    """Run a callable capturing both stdout and stderr and return the combined text."""
+    stdout_buf = io.StringIO()
+    stderr_buf = io.StringIO()
+    # Ensure environment variables expected by dr_egeria_md are available
+    # (these provide defaults but we allow explicit args to override)
+    # Not strictly required, but harmless if present.
+    with redirect_stdout(stdout_buf), redirect_stderr(stderr_buf):
+        try:
+            func(*args, **kwargs)
+        except SystemExit:
+            # In case click decorators try to exit, ignore for direct call
+            pass
+    out = stdout_buf.getvalue()
+    err = stderr_buf.getvalue()
+    return (out + ("\n" if out and err else "") + err).strip()
 
-@app.post("/users/data_sync", response_model=RemoteDataResponse)
-async def get_user_data_endpoint(request: UserRequest):
-    """
-    Fetches user data using a synchronous call to the local library.
-    This call is run in a thread pool to avoid blocking FastAPI's event loop.
-    """
+
+def _invoke_processor(req: ProcessRequest) -> str:
+    # Click wraps the function; use the callback when present and pass kwargs
+    cmd = dr_egeria_md.process_markdown_file
+    func = getattr(cmd, "callback", cmd)
+
+    return _run_and_capture(
+        func,
+        input_file=req.input_file,
+        output_folder=req.output_folder or "",
+        directive=req.directive,
+        server=req.server,
+        url=req.url,
+        userid=req.user_id,
+        user_pass=req.user_pass,
+    )
+
+
+@app.post("/dr-egeria/process", response_class=PlainTextResponse)
+async def process_markdown(request: ProcessRequest):
     try:
-        # Run the synchronous function in the thread pool
-        # This makes the synchronous call non-blocking for FastAPI's event loop
-        user_data = await asyncio.get_event_loop().run_in_executor(
-            executor,
-            simulated_pyegeria.get_user_data_sync,
-            request.user_id
-        )
-        return RemoteDataResponse(status="success", data=user_data)
-    except ConnectionError as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Failed to retrieve user data: {e}"
-        )
+        # Run the blocking processor off the event loop
+        loop = asyncio.get_event_loop()
+        text: str = await loop.run_in_executor(executor, _invoke_processor, request)
+        if not text:
+            text = "(no output)"
+        return PlainTextResponse(content=text)
     except Exception as e:
-        # Catch any other unexpected errors
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An unexpected error occurred: {e}"
-        )
+        raise HTTPException(status_code=500, detail=f"Processing failed: {e}")
 
-@app.post("/posts/data_async", response_model=RemoteDataResponse)
-async def get_post_data_endpoint(request: PostRequest):
-    """
-    Fetches post data using an asynchronous call to the local library.
-    This call is naturally non-blocking.
-    """
-    try:
-        # Directly await the asynchronous function
-        post_data = await simulated_pyegeria.get_post_data_async(request.post_id)
-        return RemoteDataResponse(status="success", data=post_data)
-    except ConnectionError as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Failed to retrieve post data: {e}"
-        )
-    except Exception as e:
-        # Catch any other unexpected errors
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An unexpected error occurred: {e}"
-        )
 
-# --- Shutdown Hook (Optional but good practice for thread pools) ---
 @app.on_event("shutdown")
-async def shutdown_event():
-    """Shuts down the thread pool when the application stops."""
+async def on_shutdown():
     executor.shutdown(wait=True)
-    print("Thread pool shut down.")

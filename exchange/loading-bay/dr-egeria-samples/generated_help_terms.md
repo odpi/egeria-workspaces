@@ -2,7 +2,1258 @@
 
 
             This file contains generated Dr.Egeria commands to generate glossary term entries describing
-            each command represented in the `commands.json` file.
+            each Dr.Egeria command. 
+
+> Usage: Before executing this file, make sure you have a glossary named `Egeria-Markdown`
+> already created. If you Need to create one, you can use the 
+# Create Term
+## Term Name
+
+Create Business Imperative
+
+## Description
+
+The BusinessImperative entity defines a business goal that is critical to the success of the organization.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Display Name | True | True | False | None | Name of the  definition. | False |  | 
+| Summary | False | True | False | None | Summary of the definition. | False |  | 
+| Description | False | True | False | None | Description of the contents of the definition. | False |  | 
+| Domain Identifier | False | True | False | None | Integer representing the governance domain. All domains is 0. | False |  | 
+| Document Identifier | False | True | False | None | A user supplied identifier for the governance document. | False |  | 
+| Version Identifier | False | True | False | None | Published  version identifier. | False |  | 
+| Scope | False | True | False | None | Scope of the definition. | False |  | 
+| Importance | False | True | False | None | Importance of the definition. | False |  | 
+| Implications | False | True | False | None | List of implications. | False |  | 
+| Outcomes | False | True | False | None | List of desired outcomes. | False |  | 
+| Results | False | True | False | None | A list of expected results. | False |  | 
+| Status | False | True | False | None | The status of the agreement. There is a list of valid values that this conforms to. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE'; DEPRECATED; OTHER | 
+| User Defined Status | False | True | False | None | Only valid if Product Status is set to OTHER. User defined & managed status values. | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
+| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Create Regulation Article
+
+## Description
+
+A RegulationArticle entity is an article in a regulation. Dividing a regulation  simplifies planning and execution.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Display Name | True | True | False | None | Name of the  definition. | False |  | 
+| Summary | False | True | False | None | Summary of the definition. | False |  | 
+| Description | False | True | False | None | Description of the contents of the definition. | False |  | 
+| Domain Identifier | False | True | False | None | Integer representing the governance domain. All domains is 0. | False |  | 
+| Document Identifier | False | True | False | None | A user supplied identifier for the governance document. | False |  | 
+| Version Identifier | False | True | False | None | Published  version identifier. | False |  | 
+| Scope | False | True | False | None | Scope of the definition. | False |  | 
+| Importance | False | True | False | None | Importance of the definition. | False |  | 
+| Implications | False | True | False | None | List of implications. | False |  | 
+| Outcomes | False | True | False | None | List of desired outcomes. | False |  | 
+| Results | False | True | False | None | A list of expected results. | False |  | 
+| Status | False | True | False | None | The status of the agreement. There is a list of valid values that this conforms to. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE'; DEPRECATED; OTHER | 
+| User Defined Status | False | True | False | None | Only valid if Product Status is set to OTHER. User defined & managed status values. | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
+| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Create Threat Definition
+
+## Description
+
+The Threat entity describes a particular threat to the organization's operations that must either be guarded against or accommodated to reduce its impact.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Display Name | True | True | False | None | Name of the  definition. | False |  | 
+| Summary | False | True | False | None | Summary of the definition. | False |  | 
+| Description | False | True | False | None | Description of the contents of the definition. | False |  | 
+| Domain Identifier | False | True | False | None | Integer representing the governance domain. All domains is 0. | False |  | 
+| Document Identifier | False | True | False | None | A user supplied identifier for the governance document. | False |  | 
+| Version Identifier | False | True | False | None | Published  version identifier. | False |  | 
+| Scope | False | True | False | None | Scope of the definition. | False |  | 
+| Importance | False | True | False | None | Importance of the definition. | False |  | 
+| Implications | False | True | False | None | List of implications. | False |  | 
+| Outcomes | False | True | False | None | List of desired outcomes. | False |  | 
+| Results | False | True | False | None | A list of expected results. | False |  | 
+| Status | False | True | False | None | The status of the agreement. There is a list of valid values that this conforms to. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE'; DEPRECATED; OTHER | 
+| User Defined Status | False | True | False | None | Only valid if Product Status is set to OTHER. User defined & managed status values. | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
+| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Create Governance Principle
+
+## Description
+
+The GovernancePrinciple entity defines a policy that describes an end state that the organization aims to achieve. 
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Display Name | True | True | False | None | Name of the  definition. | False |  | 
+| Summary | False | True | False | None | Summary of the definition. | False |  | 
+| Description | False | True | False | None | Description of the contents of the definition. | False |  | 
+| Domain Identifier | False | True | False | None | Integer representing the governance domain. All domains is 0. | False |  | 
+| Document Identifier | False | True | False | None | A user supplied identifier for the governance document. | False |  | 
+| Version Identifier | False | True | False | None | Published  version identifier. | False |  | 
+| Scope | False | True | False | None | Scope of the definition. | False |  | 
+| Importance | False | True | False | None | Importance of the definition. | False |  | 
+| Governance Drivers | False | True | False | None | The drivers this policy is in response to. Drivers may be Business Imperatives, Regulations, Governance Strategy or Threats. | False |  | 
+| Implications | False | True | False | None | List of implications. | False |  | 
+| Outcomes | False | True | False | None | List of desired outcomes. | False |  | 
+| Results | False | True | False | None | A list of expected results. | False |  | 
+| Status | False | True | False | None | The status of the agreement. There is a list of valid values that this conforms to. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE'; DEPRECATED; OTHER | 
+| User Defined Status | False | True | False | None | Only valid if Product Status is set to OTHER. User defined & managed status values. | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
+| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Create Governance Obligation
+
+## Description
+
+The GovernanceObligation entity defines a policy that describes a requirement that must be met.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Display Name | True | True | False | None | Name of the  definition. | False |  | 
+| Summary | False | True | False | None | Summary of the definition. | False |  | 
+| Description | False | True | False | None | Description of the contents of the definition. | False |  | 
+| Domain Identifier | False | True | False | None | Integer representing the governance domain. All domains is 0. | False |  | 
+| Document Identifier | False | True | False | None | A user supplied identifier for the governance document. | False |  | 
+| Version Identifier | False | True | False | None | Published  version identifier. | False |  | 
+| Scope | False | True | False | None | Scope of the definition. | False |  | 
+| Importance | False | True | False | None | Importance of the definition. | False |  | 
+| Governance Drivers | False | True | False | None | The drivers this policy is in response to. Drivers may be Business Imperatives, Regulations, Governance Strategy or Threats. | False |  | 
+| Implications | False | True | False | None | List of implications. | False |  | 
+| Outcomes | False | True | False | None | List of desired outcomes. | False |  | 
+| Results | False | True | False | None | A list of expected results. | False |  | 
+| Status | False | True | False | None | The status of the agreement. There is a list of valid values that this conforms to. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE'; DEPRECATED; OTHER | 
+| User Defined Status | False | True | False | None | Only valid if Product Status is set to OTHER. User defined & managed status values. | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
+| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Create Governance Approach
+
+## Description
+
+The GovernanceApproach entity defines a policy that describes a method that should be used for a particular activity.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Display Name | True | True | False | None | Name of the  definition. | False |  | 
+| Summary | False | True | False | None | Summary of the definition. | False |  | 
+| Description | False | True | False | None | Description of the contents of the definition. | False |  | 
+| Domain Identifier | False | True | False | None | Integer representing the governance domain. All domains is 0. | False |  | 
+| Document Identifier | False | True | False | None | A user supplied identifier for the governance document. | False |  | 
+| Version Identifier | False | True | False | None | Published  version identifier. | False |  | 
+| Scope | False | True | False | None | Scope of the definition. | False |  | 
+| Importance | False | True | False | None | Importance of the definition. | False |  | 
+| Governance Drivers | False | True | False | None | The drivers this policy is in response to. Drivers may be Business Imperatives, Regulations, Governance Strategy or Threats. | False |  | 
+| Implications | False | True | False | None | List of implications. | False |  | 
+| Outcomes | False | True | False | None | List of desired outcomes. | False |  | 
+| Results | False | True | False | None | A list of expected results. | False |  | 
+| Status | False | True | False | None | The status of the agreement. There is a list of valid values that this conforms to. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE'; DEPRECATED; OTHER | 
+| User Defined Status | False | True | False | None | Only valid if Product Status is set to OTHER. User defined & managed status values. | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
+| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Create Governance Processing Purpose
+
+## Description
+
+Privacy regulations such as  (GDPR) require data subjects to agree the processing that is permitted on their data. 
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Display Name | True | True | False | None | Name of the  definition. | False |  | 
+| Summary | False | True | False | None | Summary of the definition. | False |  | 
+| Description | False | True | False | None | Description of the contents of the definition. | False |  | 
+| Domain Identifier | False | True | False | None | Integer representing the governance domain. All domains is 0. | False |  | 
+| Document Identifier | False | True | False | None | A user supplied identifier for the governance document. | False |  | 
+| Version Identifier | False | True | False | None | Published  version identifier. | False |  | 
+| Scope | False | True | False | None | Scope of the definition. | False |  | 
+| Importance | False | True | False | None | Importance of the definition. | False |  | 
+| Implications | False | True | False | None | List of implications. | False |  | 
+| Outcomes | False | True | False | None | List of desired outcomes. | False |  | 
+| Results | False | True | False | None | A list of expected results. | False |  | 
+| Status | False | True | False | None | The status of the agreement. There is a list of valid values that this conforms to. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE'; DEPRECATED; OTHER | 
+| User Defined Status | False | True | False | None | Only valid if Product Status is set to OTHER. User defined & managed status values. | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
+| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Create Governance Strategy
+
+## Description
+
+The strategy used in the development of the governance domains activities. How the governance domain supports the business strategy.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Display Name | True | True | False | None | Name of the  definition. | False |  | 
+| Summary | False | True | False | None | Summary of the definition. | False |  | 
+| Description | False | True | False | None | Description of the contents of the definition. | False |  | 
+| Domain Identifier | False | True | False | None | Integer representing the governance domain. All domains is 0. | False |  | 
+| Document Identifier | False | True | False | None | A user supplied identifier for the governance document. | False |  | 
+| Version Identifier | False | True | False | None | Published  version identifier. | False |  | 
+| Scope | False | True | False | None | Scope of the definition. | False |  | 
+| Importance | False | True | False | None | Importance of the definition. | False |  | 
+| Business Imperatives | False | True | False | None | List of imperitives. | False |  | 
+| Outcomes | False | True | False | None | List of desired outcomes. | False |  | 
+| Results | False | True | False | None | A list of expected results. | False |  | 
+| Status | False | True | False | None | The status of the agreement. There is a list of valid values that this conforms to. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE'; DEPRECATED; OTHER | 
+| User Defined Status | False | True | False | None | Only valid if Product Status is set to OTHER. User defined & managed status values. | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
+| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Create Regulation Definition
+
+## Description
+
+Defines a relevant legal regulation that the business operation must comply with. Often regulations are divided into regulation articles.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Display Name | True | True | False | None | Name of the  definition. | False |  | 
+| Summary | False | True | False | None | Summary of the definition. | False |  | 
+| Description | False | True | False | None | Description of the contents of the definition. | False |  | 
+| Domain Identifier | False | True | False | None | Integer representing the governance domain. All domains is 0. | False |  | 
+| Document Identifier | False | True | False | None | A user supplied identifier for the governance document. | False |  | 
+| Version Identifier | False | True | False | None | Published  version identifier. | False |  | 
+| Scope | False | True | False | None | Scope of the definition. | False |  | 
+| Importance | False | True | False | None | Importance of the definition. | False |  | 
+| Source | False | True | False | None | The source of the regulator. | False |  | 
+| Regulators | False | True | False | None | The regulatory authorities responsible for monitoring compliance to regulations. | False |  | 
+| Implications | False | True | False | None | List of implications. | False |  | 
+| Outcomes | False | True | False | None | List of desired outcomes. | False |  | 
+| Results | False | True | False | None | A list of expected results. | False |  | 
+| Status | False | True | False | None | The status of the agreement. There is a list of valid values that this conforms to. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE'; DEPRECATED; OTHER | 
+| User Defined Status | False | True | False | None | Only valid if Product Status is set to OTHER. User defined & managed status values. | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
+| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Create Governance Rule
+
+## Description
+
+An executable rule that can be deployed at particular points in the operations.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Display Name | True | True | False | None | Name of the  definition. | False |  | 
+| Summary | False | True | False | None | Summary of the definition. | False |  | 
+| Description | False | True | False | None | Description of the contents of the definition. | False |  | 
+| Domain Identifier | False | True | False | None | Integer representing the governance domain. All domains is 0. | False |  | 
+| Document Identifier | False | True | False | None | A user supplied identifier for the governance document. | False |  | 
+| Version Identifier | False | True | False | None | Published  version identifier. | False |  | 
+| Scope | False | True | False | None | Scope of the definition. | False |  | 
+| Importance | False | True | False | None | Importance of the definition. | False |  | 
+| Implementation Description | False | True | False | None | Describes how this governance control is implemented. | False |  | 
+| Supports Policies | False | True | False | None | The policies that this governance control supports. | False |  | 
+| Implications | False | True | False | None | List of implications. | False |  | 
+| Outcomes | False | True | False | None | List of desired outcomes. | False |  | 
+| Results | False | True | False | None | A list of expected results. | False |  | 
+| Status | False | True | False | None | The status of the agreement. There is a list of valid values that this conforms to. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE'; DEPRECATED; OTHER | 
+| User Defined Status | False | True | False | None | Only valid if Product Status is set to OTHER. User defined & managed status values. | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
+| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Create Service Level Objectives
+
+## Description
+
+Defines the performance, availability and qualitiy levels expected by the element attached.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Display Name | True | True | False | None | Name of the  definition. | False |  | 
+| Summary | False | True | False | None | Summary of the definition. | False |  | 
+| Description | False | True | False | None | Description of the contents of the definition. | False |  | 
+| Domain Identifier | False | True | False | None | Integer representing the governance domain. All domains is 0. | False |  | 
+| Document Identifier | False | True | False | None | A user supplied identifier for the governance document. | False |  | 
+| Version Identifier | False | True | False | None | Published  version identifier. | False |  | 
+| Scope | False | True | False | None | Scope of the definition. | False |  | 
+| Importance | False | True | False | None | Importance of the definition. | False |  | 
+| Implementation Description | False | True | False | None | Describes how this governance control is implemnted. | False |  | 
+| Supports Policies | False | True | False | None | The policies that this governance control supports. | False |  | 
+| Implications | False | True | False | None | List of implications. | False |  | 
+| Outcomes | False | True | False | None | List of desired outcomes. | False |  | 
+| Results | False | True | False | None | A list of expected results. | False |  | 
+| Status | False | True | False | None | The status of the agreement. There is a list of valid values that this conforms to. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE'; DEPRECATED; OTHER | 
+| User Defined Status | False | True | False | None | Only valid if Product Status is set to OTHER. User defined & managed status values. | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
+| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Create Governance Process
+
+## Description
+
+An executable process that choreographs different actions.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Display Name | True | True | False | None | Name of the  definition. | False |  | 
+| Summary | False | True | False | None | Summary of the definition. | False |  | 
+| Description | False | True | False | None | Description of the contents of the definition. | False |  | 
+| Domain Identifier | False | True | False | None | Integer representing the governance domain. All domains is 0. | False |  | 
+| Document Identifier | False | True | False | None | A user supplied identifier for the governance document. | False |  | 
+| Version Identifier | False | True | False | None | Published  version identifier. | False |  | 
+| Scope | False | True | False | None | Scope of the definition. | False |  | 
+| Importance | False | True | False | None | Importance of the definition. | False |  | 
+| Implementation Description | False | True | False | None | Describes how this governance control is implemnted. | False |  | 
+| Supports Policies | False | True | False | None | The policies that this governance control supports. | False |  | 
+| Implications | False | True | False | None | List of implications. | False |  | 
+| Outcomes | False | True | False | None | List of desired outcomes. | False |  | 
+| Results | False | True | False | None | A list of expected results. | False |  | 
+| Status | False | True | False | None | The status of the agreement. There is a list of valid values that this conforms to. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE'; DEPRECATED; OTHER | 
+| User Defined Status | False | True | False | None | Only valid if Product Status is set to OTHER. User defined & managed status values. | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
+| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Create Governance Responsibility
+
+## Description
+
+A responsiblity assigned to an actor or team. It could be a requirement to take a certain action in specific circumstances or to make decisions or give approvals for actions.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Display Name | True | True | False | None | Name of the  definition. | False |  | 
+| Summary | False | True | False | None | Summary of the definition. | False |  | 
+| Description | False | True | False | None | Description of the contents of the definition. | False |  | 
+| Domain Identifier | False | True | False | None | Integer representing the governance domain. All domains is 0. | False |  | 
+| Document Identifier | False | True | False | None | A user supplied identifier for the governance document. | False |  | 
+| Version Identifier | False | True | False | None | Published  version identifier. | False |  | 
+| Scope | False | True | False | None | Scope of the definition. | False |  | 
+| Importance | False | True | False | None | Importance of the definition. | False |  | 
+| Implementation Description | False | True | False | None | Describes how this governance control is implemnted. | False |  | 
+| Supports Policies | False | True | False | None | The policies that this governance control supports. | False |  | 
+| Implications | False | True | False | None | List of implications. | False |  | 
+| Outcomes | False | True | False | None | List of desired outcomes. | False |  | 
+| Results | False | True | False | None | A list of expected results. | False |  | 
+| Status | False | True | False | None | The status of the agreement. There is a list of valid values that this conforms to. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE'; DEPRECATED; OTHER | 
+| User Defined Status | False | True | False | None | Only valid if Product Status is set to OTHER. User defined & managed status values. | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
+| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Create Governance Procedure
+
+## Description
+
+A manual procedure that is performed under certain circumstances.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Display Name | True | True | False | None | Name of the  definition. | False |  | 
+| Summary | False | True | False | None | Summary of the definition. | False |  | 
+| Summary | False | True | False | None | Summary of the definition. | False |  | 
+| Description | False | True | False | None | Description of the contents of the definition. | False |  | 
+| Domain Identifier | False | True | False | None | Integer representing the governance domain. All domains is 0. | False |  | 
+| Document Identifier | False | True | False | None | A user supplied identifier for the governance document. | False |  | 
+| Version Identifier | False | True | False | None | Published  version identifier. | False |  | 
+| Scope | False | True | False | None | Scope of the definition. | False |  | 
+| Importance | False | True | False | None | Importance of the definition. | False |  | 
+| Implementation Description | False | True | False | None | Describes how this governance control is implemnted. | False |  | 
+| Supports Policies | False | True | False | None | The policies that this governance control supports. | False |  | 
+| Implications | False | True | False | None | List of implications. | False |  | 
+| Outcomes | False | True | False | None | List of desired outcomes. | False |  | 
+| Results | False | True | False | None | A list of expected results. | False |  | 
+| Status | False | True | False | None | The status of the agreement. There is a list of valid values that this conforms to. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE'; DEPRECATED; OTHER | 
+| User Defined Status | False | True | False | None | Only valid if Product Status is set to OTHER. User defined & managed status values. | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
+| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Create Security Access Control
+
+## Description
+
+A technical control that defines the access control lists that an actor must belong to be entitled to perform a specific action.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Display Name | True | True | False | None | Name of the  definition. | False |  | 
+| Summary | False | True | False | None | Summary of the definition. | False |  | 
+| Description | False | True | False | None | Description of the contents of the definition. | False |  | 
+| Domain Identifier | False | True | False | None | Integer representing the governance domain. All domains is 0. | False |  | 
+| Document Identifier | False | True | False | None | A user supplied identifier for the governance document. | False |  | 
+| Version Identifier | False | True | False | None | Published  version identifier. | False |  | 
+| Scope | False | True | False | None | Scope of the definition. | False |  | 
+| Importance | False | True | False | None | Importance of the definition. | False |  | 
+| Implementation Description | False | True | False | None | Describes how this governance control is implemnted. | False |  | 
+| Implications | False | True | False | None | List of implications. | False |  | 
+| Outcomes | False | True | False | None | List of desired outcomes. | False |  | 
+| Results | False | True | False | None | A list of expected results. | False |  | 
+| Status | False | True | False | None | The status of the agreement. There is a list of valid values that this conforms to. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE'; DEPRECATED; OTHER | 
+| User Defined Status | False | True | False | None | Only valid if Product Status is set to OTHER. User defined & managed status values. | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
+| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Create Security Group
+
+## Description
+
+A group of actors that need to be given the same access to a specific set of resources.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Display Name | True | True | False | None | Name of the  definition. | False |  | 
+| Summary | False | True | False | None | Summary of the definition. | False |  | 
+| Description | False | True | False | None | Description of the contents of the definition. | False |  | 
+| Domain Identifier | False | True | False | None | Integer representing the governance domain. All domains is 0. | False |  | 
+| Distinguished Name | False | True | False | None | Unique identity of an actor. | False |  | 
+| Document Identifier | False | True | False | None | A user supplied identifier for the governance document. | False |  | 
+| Version Identifier | False | True | False | None | Published  version identifier. | False |  | 
+| Scope | False | True | False | None | Scope of the definition. | False |  | 
+| Importance | False | True | False | None | Importance of the definition. | False |  | 
+| Implementation Description | False | True | False | None | Describes how this governance control is implemnted. | False |  | 
+| Implications | False | True | False | None | List of implications. | False |  | 
+| Outcomes | False | True | False | None | List of desired outcomes. | False |  | 
+| Results | False | True | False | None | A list of expected results. | False |  | 
+| Status | False | True | False | None | The status of the agreement. There is a list of valid values that this conforms to. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE'; DEPRECATED; OTHER | 
+| User Defined Status | False | True | False | None | Only valid if Product Status is set to OTHER. User defined & managed status values. | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
+| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Create Naming Standard Rule
+
+## Description
+
+A standard for naming specific kinds of resources.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Display Name | True | True | False | None | Name of the  definition. | False |  | 
+| Summary | False | True | False | None | Summary of the definition. | False |  | 
+| Description | False | True | False | None | Description of the contents of the definition. | False |  | 
+| Domain Identifier | False | True | False | None | Integer representing the governance domain. All domains is 0. | False |  | 
+| Document Identifier | False | True | False | None | A user supplied identifier for the governance document. | False |  | 
+| Version Identifier | False | True | False | None | Published  version identifier. | False |  | 
+| Scope | False | True | False | None | Scope of the definition. | False |  | 
+| Importance | False | True | False | None | Importance of the definition. | False |  | 
+| Implementation Description | False | True | False | None | Describes how this governance control is implemnted. | False |  | 
+| Supports Policies | False | True | False | None | The policies that this governance control supports. | False |  | 
+| Name Patterns | False | True | False | None | List of implications. | False |  | 
+| Outcomes | False | True | False | None | List of desired outcomes. | False |  | 
+| Results | False | True | False | None | A list of expected results. | False |  | 
+| Status | False | True | False | None | The status of the agreement. There is a list of valid values that this conforms to. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE'; DEPRECATED; OTHER | 
+| User Defined Status | False | True | False | None | Only valid if Product Status is set to OTHER. User defined & managed status values. | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
+| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Create Certification Type
+
+## Description
+
+A type of certification.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Display Name | True | True | False | None | Name of the  definition. | False |  | 
+| Summary | False | True | False | None | Summary of the definition. | False |  | 
+| Description | False | True | False | None | Description of the contents of the definition. | False |  | 
+| Domain Identifier | False | True | False | None | Integer representing the governance domain. All domains is 0. | False |  | 
+| Document Identifier | False | True | False | None | A user supplied identifier for the governance document. | False |  | 
+| Version Identifier | False | True | False | None | Published  version identifier. | False |  | 
+| Scope | False | True | False | None | Scope of the definition. | False |  | 
+| Importance | False | True | False | None | Importance of the definition. | False |  | 
+| Details | False | True | False | None | Details of the certification. | False |  | 
+| Implications | False | True | False | None | List of implications. | False |  | 
+| Outcomes | False | True | False | None | List of desired outcomes. | False |  | 
+| Results | False | True | False | None | A list of expected results. | False |  | 
+| Status | False | True | False | None | The status of the agreement. There is a list of valid values that this conforms to. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE'; DEPRECATED; OTHER | 
+| User Defined Status | False | True | False | None | Only valid if Product Status is set to OTHER. User defined & managed status values. | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
+| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Create License Type
+
+## Description
+
+A type of license.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Display Name | True | True | False | None | Name of the  definition. | False |  | 
+| Summary | False | True | False | None | Summary of the definition. | False |  | 
+| Description | False | True | False | None | Description of the contents of the definition. | False |  | 
+| Domain Identifier | False | True | False | None | Integer representing the governance domain. All domains is 0. | False |  | 
+| Document Identifier | False | True | False | None | A user supplied identifier for the governance document. | False |  | 
+| Version Identifier | False | True | False | None | Published  version identifier. | False |  | 
+| Scope | False | True | False | None | Scope of the definition. | False |  | 
+| Importance | False | True | False | None | Importance of the definition. | False |  | 
+| Details | False | True | False | None | Details of the license. | False |  | 
+| Implications | False | True | False | None | List of implications. | False |  | 
+| Outcomes | False | True | False | None | List of desired outcomes. | False |  | 
+| Results | False | True | False | None | A list of expected results. | False |  | 
+| Status | False | True | False | None | The status of the agreement. There is a list of valid values that this conforms to. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE'; DEPRECATED; OTHER | 
+| User Defined Status | False | True | False | None | Only valid if Product Status is set to OTHER. User defined & managed status values. | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
+| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Link Governance Drivers
+
+## Description
+
+Link peer governance drivers with the GovernanceDriverLink relationship. Drivers are: GovernanceStrategy, BusinessImperitive, Regulation, RegulationArticle, Threat.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Definition 1 | True | True | False | None | The  first governance driver to link. | False |  | 
+| Definition 2 | True | True | False | None | The  second governance driver to link. | False |  | 
+| Link Label | False | True | False | None | Labels the link between two governance defninitions. | False |  | 
+| Description | False | True | False | None | A description of the relationship. | False |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Link Governance Policies
+
+## Description
+
+Link peer governance policies with the GovernancePolicyLink relationship. Policies types are: GovernancePrinciple, GovernanceObligation, GovernanceApproach.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Definition 1 | True | True | False | None | The  first governance policy to link. | False |  | 
+| Definition 2 | True | True | False | None | The  second governance policy to link. | False |  | 
+| Link Label | False | True | False | None | Labels the link between two governance defninitions. | False |  | 
+| Description | False | True | False | None | A description of the relationship. | False |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Link Governance Controls
+
+## Description
+
+Link peer governance controls with the GovernanceControlLink relationship. Controls types are: GovernanceRule, GovernanceProcess, GovernanceResponsibility, GovernanceProcedure, SecurityAccessControl, SecurityGroup.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Control Definition 1 | True | True | False | None | The  first governance control to link. | False |  | 
+| Control Definition 2 | True | True | False | None | The  fsecond governance control to link. | False |  | 
+| Link Label | False | True | False | None | Labels the link between two governance defninitions. | False |  | 
+| Description | False | True | False | None | A description of the relationship. | False |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+View Governance Definitions
+
+## Description
+
+This can be used to list any kind of governance definitions.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Search String | False | True | False | None | An optional search string to filter results by. | False |  | 
+| Output Format | False | True | False | None | Optional specification of output format for the query. | False | LIST; FORM; REPORT; MERMAID; DICT | 
+| Starts With | False | True | False | None | If true, look for matches with the search string starting from the beginning of  a field. | False |  | 
+| Ends With | False | True | False | None | If true, look for matches with the search string starting from the end of  a field. | False |  | 
+| Ignore Case | False | True | False | None | If true, ignore the difference between upper and lower characters when matching the search string. | False |  | 
+| AsOfTime | False | True | False | None | An ISO-8601 string representing the time to view the state of the repository. | False |  | 
+| Sort Order | False | True | False | None | How to order the results. The sort order can be selected from a list of valid value. | False | ANY; CREATION_DATE_RECENT; CREATION_DATA_OLDEST; LAST_UPDATE_RECENT; LAST_UPDATE_OLDEST; PROPERTY_ASCENDING; PROPERTY_DESCENDING | 
+| Order Property Name | False | True | False | None | The property to use for sorting if the sort_order_property is PROPERTY_ASCENDING or PROPERTY_DESCENDING | False |  | 
+| Page Size | False | True | False | None | The number of elements returned per page. | False |  | 
+| Start From | False | True | False | None | When paging through results, the starting point of the results to return. | False |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Create Digital Product
+
+## Description
+
+A Data Dictionary is an organized and curated collection of data definitions that can serve as a reference for data professionals
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Display Name | True | True | False | None | Name of the digital product | False |  | 
+| Description | False | True | False | None | Description of the contents of a product. | False |  | 
+| Product Name | False | True | False | None | The external name of the digital product. | False |  | 
+| Product Status | False | True | False | None | The status of the digital product. There is a list of valid values that this conforms to. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; APPROVED_CONCEPT; UNDER_DEVELOPMENT; DEVELOPMENT_COMPLETE; APPROVED_FOR_DEPLOYMENT; ACTIVE; DISABLED; DEPRECATED; OTHER | 
+| User Defined Status | False | True | False | None | Only valid if Product Status is set to OTHER. User defined & managed status values. | False |  | 
+| Product Type | False | True | False | None | Type of product - periodic, delta, snapshot, etc | False |  | 
+| Product Identifier | False | True | False | None | User specified product identifier. | False |  | 
+| Product Description | False | True | False | None | Externally facing description of the product and its intended usage. | False |  | 
+| Maturity | False | True | False | None | Product maturity - user defined. | False |  | 
+| Service Life | False | True | False | None | Estimated service lifetime of the product. | False |  | 
+| Introduction Date | False | True | False | None | Date of product introduction in ISO 8601 format. Either all of the dates (introduction, next version, withdrawal) dates need to be supplied or none of them. Otherwise an error will occur. | False |  | 
+| Next Version Date | False | True | False | None | Date of  the next version,  in ISO 8601 format. Either all of the dates (introduction, next version, withdrawal) dates need to be supplied or none of them. Otherwise an error will occur. | False |  | 
+| Withdrawal Date | False | True | False | None | Date of planned product withdrawal in ISO 8601 format. Either all of the dates (introduction, next version, withdrawal) dates need to be supplied or none of them. Otherwise an error will occur. | False |  | 
+| Collection Type | False | True | False | None | A user supplied collection type. Defaults to Digital Product. | False |  | 
+| Current Version | False | True | False | None | Published product version identifier. | False |  | 
+| Product Manager | False | True | False | None | Actors responsible for managing this product. Actors may be individuals, automations, etc. | False |  | 
+| Agreements | False | True | False | None | A list of agreements associated with this product.  The agreements must already exist. | False |  | 
+| Digital Subscriptions | False | True | False | None |  | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
+| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Link Digital Product - Digital Product
+
+## Description
+
+Link digital product dependency between two digital products.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| DigitalProduct1 | True | True | False | None | The  first product to link. | False |  | 
+| DigitalProduct2 | True | True | False | None | The  second product to link. | False |  | 
+| Label | False | True | False | None | Labels the link between two digital products. | False |  | 
+| Description | False | True | False | None | A description of the link. | False |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Create Agreement
+
+## Description
+
+A kind of collection that represents an Agreement. This is for generic agreements. Specific kinds of agreements have their own commands.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Display Name | True | True | False | None | Name of the  agreement. | False |  | 
+| Description | False | True | False | None | Description of the contents of the agreement. | False |  | 
+| Agreement Identifier | False | True | False | None | A user specified agreement identifier. | False |  | 
+| Agreement Status | False | True | False | None | The status of the agreement. There is a list of valid values that this conforms to. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE'; DEPRECATED; OTHER | 
+| User Defined Status | False | True | False | None | Only valid if Product Status is set to OTHER. User defined & managed status values. | False |  | 
+| Version Identifier | False | True | False | None | Published agreement version identifier. | False |  | 
+| Agreement Actors | False | True | False | None | A list of actors with responsibilities for the agreement. | False |  | 
+| Restrictions | False | True | False | None | A dictionary of property:value pairs describing restrictions. | False |  | 
+| Obligations | False | True | False | None | A dictionary of property:value pairs describing obligations. | False |  | 
+| Entitlements | False | True | False | None | A dictionary of property:value pairs describing entitlements. | False |  | 
+| Usage Measurements | False | True | False | None | A dictionary of property:value pairs describing usage measurements. | False |  | 
+| Product Metrics | False | True | False | None | A dictionary of property:value pairs describing metrics for the product/. | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
+| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Create Data Sharing Agreement
+
+## Description
+
+Create a new collection with the DataSharingAgreement classification. 
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Display Name | True | True | False | None | Name of the  agreement. | False |  | 
+| Description | False | True | False | None | Description of the contents of the agreement. | False |  | 
+| Identifier | False | True | False | None | A user specified agreement identifier. | False |  | 
+| Agreement Status | False | True | False | None | The status of the digital product. There is a list of valid values that this conforms to. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE'; DEPRECATED; OTHER | 
+| User_Defined_Status | False | True | False | None | Only valid if Product Status is set to OTHER. User defined & managed status values. | False |  | 
+| Version Identifier | False | True | False | None | Published agreement version identifier. | False |  | 
+| Product Manager | False | True | False | None | An actor responsible for managing this product. Actors may be individuals, automations, etc. | False |  | 
+| Digital Subscriptions | False | True | False | None |  | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
+| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Create DigitalSubscription
+
+## Description
+
+A type of agreement for a digital subscription.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Display Name | True | True | False | None | Name of the  agreement. | False |  | 
+| Description | False | True | False | None | Description of the contents of the agreement. | False |  | 
+| Identifier | False | True | False | None | A user specified agreement identifier. | False |  | 
+| Product Status | False | True | False | None | The status of the digital product. There is a list of valid values that this conforms to. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE'; DEPRECATED; OTHER | 
+| User_Defined_Status | False | True | False | None | Only valid if Product Status is set to OTHER. User defined & managed status values. | False |  | 
+| Support Level | False | True | False | None | Level of support agreed or requested. | False |  | 
+| Service Levels | False | True | False | None | A dictionary of name:value pairs describing the service levels. | False |  | 
+| Restrictions | False | True | False | None | A dictionary of property:value pairs describing restrictions. | False |  | 
+| Obligations | False | True | False | None | A dictionary of property:value pairs describing obligations. | False |  | 
+| Entitlements | False | True | False | None | A dictionary of property:value pairs describing entitlements. | False |  | 
+| Usage Measurements | False | True | False | None | A dictionary of property:value pairs describing usage measurements. | False |  | 
+| Product Metrics | False | True | False | None | A dictionary of property:value pairs describing metrics for the product/. | False |  | 
+| Version Identifier | False | True | False | None | Published agreement version identifier. | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
+| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Link Agreement Items
+
+## Description
+
+Attach or detach an agreement to an element referenced in its definition. Agreement item can be an referenced element.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Description | False | True | False | None | Description of the contents of the agreement item. | False |  | 
+| Agreement Item Id | False | True | False | None | A user specified agreement item identifier. | False |  | 
+| Agreement Start | False | True | False | None | The start date of the agreement as an ISO 8601 string. | False |  | 
+| Agreement End | False | True | False | None | The end date of the agreement as an ISO 8601 string. | False |  | 
+| Restrictions | False | True | False | None | A dictionary of property:value pairs describing restrictions. | False |  | 
+| Obligations | False | True | False | None | A dictionary of property:value pairs describing obligations. | False |  | 
+| Entitlements | False | True | False | None | A dictionary of property:value pairs describing entitlements. | False |  | 
+| Usage Measurements | False | True | False | None | A dictionary of property:value pairs describing usage measurements. | False |  | 
+| Usage Metrics | False | True | False | None | A dictionary of property:value pairs describing usage metrics for the agreements. | False |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Link Contracts
+
+## Description
+
+Attach or detach an agreement to an element describing the location of the contract documents.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Contract Id | False | True | False | None | Contract identifier. | False |  | 
+| Contract Liaison | False | True | False | None | Name of the liaison for the contract. | False |  | 
+| Contract Liaison Type | False | True | False | None | type of liaison. | False |  | 
+| Contract Liaison Property Name | False | True | False | None |  | False |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Link Subscribers
+
+## Description
+
+Attach or detach a subscriber to a subscription. Subscriber can be any type of element.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Subscriber Id | False | True | False | None |  identifier of a subscriber. Initially, will let this be an arbitrary string - could harden this to a qualified name later if needed. | False |  | 
+| Agreement Start | False | True | False | None | The start date of the agreement as an ISO 8601 string. | False |  | 
+| Agreement End | False | True | False | None | The end date of the agreement as an ISO 8601 string. | False |  | 
+| Restrictions | False | True | False | None | A dictionary of property:value pairs describing restrictions. | False |  | 
+| Obligations | False | True | False | None | A dictionary of property:value pairs describing obligations. | False |  | 
+| Entitlements | False | True | False | None | A dictionary of property:value pairs describing entitlements. | False |  | 
+| Usage Measurements | False | True | False | None | A dictionary of property:value pairs describing usage measurements. | False |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Attach Collection->Resource
+
+## Description
+
+Connect an existing collection to an element using the ResourceList relationship.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Collection | True | True | False | None | An element of base type collection (e.g. collection, agreement; subscription, ...) | False |  | 
+| Resource | True | True | False | None | The name of the resource to attach to. | False |  | 
+| Resource Use | False | True | False | None | Describes the relationship between the resource and the collection. | False |  | 
+| Resource Description | False | True | False | None | A description of the resource being attached. | False |  | 
+| Resource Use Properties | False | True | False | None | A dictionary of name:value pairs describing properties of the resource use. | False |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Add Member->Collection
+
+## Description
+
+Add a member to a collection.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Element_Id | True | True | False | None | The name of the element to add to the collection. | False |  | 
+| Collection Id | True | True | False | None | The name of the collection to link to. There are many collection types, including Digital Products, Agreements and Subscriptions. | False |  | 
+| Membership Rationale | False | True | False | None | Rationale for membership. | False |  | 
+| Created By | False | True | False | None | Who added the member. (currently informal string) | False |  | 
+| Membership Status | False | True | False | None | The status of adding a member to a collection. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE'; DEPRECATED; OTHER | 
+
+
+___
+
 # Create Term
 ## Term Name
 
@@ -380,42 +1631,11 @@ Writing Dr.Egeria Markdown
 | Description | False | True | False | None | A description of the data structure. | False |  | 
 | Scope | False | True | False | None | Scope of the supply chain. | False |  | 
 | Purposes | False | True | False | None | A list of purposes. | False |  | 
-| Information Supply Chain Segments | False | True | False | None | A list of supply chain segments that make up the supply chain. | False |  | 
+| Nested Information Supply Chains | False | True | False | None | A list of supply chains that compose this supply chain. | False |  | 
+| In Information Supply Chain | False | True | False | None | Supply chains that this supply chain is in. | False |  | 
 | Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
 | GUID | False | False | True | None | A system generated unique identifier. | True |  | 
-
-
-___
-
-# Create Term
-## Term Name
-
-Create Information Supply Chain Segment
-
-## Description
-
-A collection of data fields that for a data specification for a data source.
-
-## Owning Glossary
-
-Egeria-Markdown
-
-## Categories
-
-Writing Dr.Egeria Markdown
-
-## Usage
-
-| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
-|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
-| Display Name | True | True | False | None | Name of the Information Supply Chain | False |  | 
-| Description | False | True | False | None | A description of the data structure. | False |  | 
-| Scope | False | True | False | None | Scope of the supply chain. | False |  | 
-| Integration Style | False | True | False | None | Style of integration connecting this segment. | False |  | 
-| Estimated Volumetrics | False | True | False | None | Estimated volumetrics for rough analysis and planning. | False |  | 
-| Information Supply Chain | False | True | False | None | The owning information supply chain for this segment. | False |  | 
-| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
-| GUID | False | False | True | None | A system generated unique identifier. | True |  | 
+| Merge Update | False | True | False | None | If true, only those attributes specified in the update will be updated; If false, any attributes not provided during the update will be set to None. | False |  | 
 
 
 ___
@@ -473,15 +1693,46 @@ Writing Dr.Egeria Markdown
 | Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
 |-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
 | Display Name | True | True | False | None | Name of the solution component. | False |  | 
+| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
 | Description | False | True | False | None | A description of the data structure. | False |  | 
 | Solution Component Type | False | True | False | None | Type of solution component. | False |  | 
 | Planned Deployed Implementation Type | False | True | False | None | The planned implementation type for deployment. | False |  | 
-| Solution SubComponents | False | True | False | None | Solution components that include this one. | False |  | 
-| Solution Blueprints | False | True | False | None | Solution Blueprints that contain this component. | False |  | 
+| Initial Status | False | True | False | None | Optional lifecycle status. If not specified, set to ACTIVE. If set to Other then the value in User Defined Status will be used. | False | DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE; DISABLED; DEPRECATED; OTHER | 
+| In Solution Components | False | True | False | None | Solution components that include this one. | False |  | 
+| In Solution Blueprints | False | True | False | None | Solution Blueprints that contain this component. | False |  | 
+| In Information Supply Chains | False | True | False | None | The Information Supply Chains that this component is a member of. | False |  | 
 | Actors | False | True | False | None | Actors associated with this component. | False |  | 
-| Qualified Name | False | True | True | None | A unique qualified name for the element. Generated using the qualified name pattern  if not user specified. | True |  | 
 | GUID | False | False | True | None | A system generated unique identifier. | True |  | 
 | Merge Update | False | True | False | None | If true, only those attributes specified in the update will be updated; If false, any attributes not provided during the update will be set to None. | False |  | 
+
+
+___
+
+# Create Term
+## Term Name
+
+Link Solution Component Peers
+
+## Description
+
+This command can be used to link or unlink wires between components.
+
+## Owning Glossary
+
+Egeria-Markdown
+
+## Categories
+
+Writing Dr.Egeria Markdown
+
+## Usage
+
+| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Component1 | True | True | False | None | The  first component to link. | False |  | 
+| Component2 | True | True | False | None | The  second component to link. | False |  | 
+| Wire Label | False | True | False | None | Labels the link between two components. | False |  | 
+| Description | False | True | False | None | A description of the wire. | False |  | 
 
 
 ___
@@ -523,11 +1774,11 @@ ___
 # Create Term
 ## Term Name
 
-Attach Information Supply Chain Segments
+Link Information Supply Chain Peers
 
 ## Description
 
-
+This command can be used to link or unlink information supply chain segments.
 
 ## Owning Glossary
 
@@ -571,35 +1822,7 @@ Writing Dr.Egeria Markdown
 | Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
 |-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
 | Search String | False | True | False | None | An optional search string to filter results by. | False |  | 
-| Output Format | False | True | False | None | Optional specification of output format for the query. | False | List; Form; Report; Dict | 
-| Detailed | False | True | False | None | If true a more detailed set of attributes will be returned. | False |  | 
-
-
-___
-
-# Create Term
-## Term Name
-
-View Supply Chain Segments
-
-## Description
-
-Return the data structure details, optionally filtered by the search string.
-
-## Owning Glossary
-
-Egeria-Markdown
-
-## Categories
-
-Writing Dr.Egeria Markdown
-
-## Usage
-
-| Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
-|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
-| Search String | False | True | False | None | An optional search string to filter results by. | False |  | 
-| Output Format | False | True | False | None | Optional specification of output format for the query. | False | List; Form; Report; Dict | 
+| Output Format | False | True | False | None | Optional specification of output format for the query. | False | LIST; FORM; MD; REPORT; MERMAID; LIST; DICT; HTML | 
 | Detailed | False | True | False | None | If true a more detailed set of attributes will be returned. | False |  | 
 
 
@@ -753,7 +1976,7 @@ ___
 # Create Term
 ## Term Name
 
- Term
+Create Term
 
 ## Description
 
@@ -834,7 +2057,7 @@ Writing Dr.Egeria Markdown
 | Attribute Name | Input Required | Read Only | Generated | Default Value | Notes | Unique Values | Valid Values | 
 |-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
 | Term  1 | True | True | False | None | The name of the first term term to connect. | False |  | 
-| Term  2 | No | No | No | None |  | No | [] | 
+| Term  2 | True | True | False | None | The name of the second term term to connect. | False |  | 
 | Relationship | True | True | False | None | The type of relationship to connecting the two terms. | False | Synonym;  Translation;  PreferredTerm; TermISATYPEOFRelationship;  TermTYPEDBYRelationship;  Antonym; ReplacementTerm;  ValidValue; TermHASARelationship; RelatedTerm;   ISARelationship | 
 
 
