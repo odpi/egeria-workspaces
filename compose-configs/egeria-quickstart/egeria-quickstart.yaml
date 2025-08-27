@@ -48,6 +48,7 @@ services:
       - ../../exchange/loading-bay:/home/jovyan/loading-bay
       - ../../exchange/landing-area:/home/jovyan/landing-area
       - ../../exchange/coco-data-lake:/home/jovyan/coco-data-lake
+      - ../../exchange/config:/home/jovyan/config
 
   kafka:
     image: 'bitnami/kafka:latest'
@@ -118,7 +119,8 @@ services:
       - ../../runtime-volumes/egeria-platform-data/application.properties:/deployments/application.properties
 
   postgres:
-    image: postgres:16.8-bullseye
+    image: postgres:17.5-bookworm
+#    image: postgres:latest
     container_name: postgres_for_egeria
     restart: always
     networks:
@@ -138,6 +140,32 @@ services:
       - ../../exchange/treasury-dts-history:/var/data/treasury-dts-history
     command: -p 5442 -c max_connections=1000
 
+  # Define your FastAPI application service
+  pyegeria-web:
+    build:
+      context: ./PyegeriaWebHandler
+      dockerfile: ./Dockerfile-fast-api
+    ports:
+      - "8000:8000" # Map host port 8000 to container port 8000
+    networks:
+      - egeria_network
+    volumes:
+      - ./PyegeriaWebHandler:/app
+      - ../../exchange/distribution-hub/dr-egeria-outbox:/dr-egeria-outbox  # Mount the dr-egeria-outbox directory
+      - ../../exchange/loading-bay/dr-egeria-inbox:/dr-egeria-inbox
+      - ../../exchange/config:/config
+# Mount the dr-egeria-inbox directory
+#    environment:
+      # Pass environment variables to the container
+#      - REMOTE_SERVER_BASE_URL=https://host.docker.internal:9443
+#      - API_KEY=your_secret_api_key # Example for sensitive data
+    depends_on:
+      # If your FastAPI app depends on a database, specify it here
+      - egeria-main
+    # Optional: for development, you might want hot-reloading
+#     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn pyegeria_handler:app --host 0.0.0.0 --port 8000 --reload --loop asyncio
+
   apache-web:
     build:
       context: .
@@ -146,14 +174,19 @@ services:
     user: "daemon:daemon"  # Explicitly set the user and group to match httpd.conf
     ports:
       - "8085:8085"  # Map host port 8080 to container port 8080
+    networks:
+      - egeria_network
     volumes:
       - ../../exchange/distribution-hub/dr-egeria-outbox:/usr/local/apache2/htdocs/dr-egeria-outbox  # Mount the dr-egeria-outbox directory
       - ../../exchange/loading-bay/dr-egeria-inbox:/usr/local/apache2/htdocs/dr-egeria-inbox  # Mount the dr-egeria-inbox directory
       - ./httpd.conf:/usr/local/apache2/conf/httpd.conf  # Use the fixed configuration file
+      - ./sites-available/fastapi-proxy.conf:/usr/local/apache2/conf/extra/fastapi-proxy.conf  # Mount the FastAPI proxy vhost file
       - ../../runtime-volumes/apache-web/site:/usr/local/apache2/htdocs # mount site
       - ./markdown-header.html:/usr/local/apache2/conf/markdown-header.html  # Mount the markdown viewer
       - ../../runtime-volumes/apache-web/ErrorLogs:/usr/local/apache2/logs  # Mount the logs directory
       - ../../workspaces/Dr-Egeria-Samples:/usr/local/apache2/htdocs/Dr-Egeria-Samples  # Mount the Dr-Egeria-Samples directory
+    depends_on:
+      - pyegeria-web
 #
 # Change external to true and create volumes manually if you wish to persist between runs
 #
