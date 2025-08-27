@@ -149,3 +149,5 @@ compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-da
 /runtime-volumes/egeria-platform-data/logs/
 /exchange/distribution-hub/dr-egeria-outbox/
 /exchange/exploring obsidian/
+/exchange/.obsidian/workspace.json
+/exchange/config/debug_log/**
