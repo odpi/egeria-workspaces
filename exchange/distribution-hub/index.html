@@ -69,7 +69,17 @@
             border: none;
             margin-top: 20px;
         }
+        .viewer { margin-top: 20px; }
+        .file-list { padding: 0; list-style: none; }
+        .file-list li { padding: 4px 0; }
+        .path { color: #666; font-size: 0.9em; }
+        pre { background: #f6f8fa; padding: 12px; overflow: auto; }
+        .hidden { display:none; }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/common.min.js"></script>
 </head>
 <body>
     <div class="side-menu">
@@ -98,12 +108,139 @@
         <p>The Distribution Hub is where output files from Egeria are distributed. This includes Dr.Egeria outputs, reports, and survey results.</p>
 
         <h2>Directory Contents</h2>
-        <iframe src="/directory-listing?path=/distribution-hub/" class="directory-listing"></iframe>
+        <div>
+            <div class="path" id="current-path"></div>
+            <ul id="listing" class="file-list"></ul>
+        </div>
+        <div class="viewer">
+            <div id="viewer"></div>
+        </div>
 
         <h2>About Dr.Egeria</h2>
         <p>Dr.Egeria is an Egeria markdown language and commands that allow users to write text based markdown to exchange information with Egeria. Dr.Egeria supports business and technical users, making it simple to both collaborate and share information as well as exchange information with Egeria. Dr. Egeria markdown can be embedded in both plain text files as well as Jupyter Notebooks.</p>
         <p>Dr.Egeria markdown commands can be interspersed with other text, meaning that Dr.Egeria markdown can be part of a broader narrative flow for a wide range of documents such as Policy documents, Design Documents or even experiments and analysis performed in Jupyter notebooks.</p>
         <p>Dr.Egeria is a work-in-progress. We are quickly extending its capabilities and features - and learning along the way. We very much welcome thoughts and feedback.</p>
     </div>
+    <script>
+        mermaid.initialize({ startOnLoad: false });
+        const rootPath = '/distribution-hub/';
+        const listingEl = document.getElementById('listing');
+        const viewerEl = document.getElementById('viewer');
+        const currentPathEl = document.getElementById('current-path');
+        let currentPath = new URL(window.location.href).pathname.replace(/\/index\.html?$/, '');
+        if (!currentPath.endsWith('/')) currentPath += '/';
+        const basePath = rootPath || currentPath;
+
+        async function fetchAutoIndex(path) {
+            const res = await fetch(path, { method: 'GET' });
+            if (!res.ok) throw new Error('Failed to fetch listing: ' + res.status);
+            const html = await res.text();
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const anchors = Array.from(doc.querySelectorAll('a'));
+            const items = [];
+            for (const a of anchors) {
+                const href = a.getAttribute('href');
+                if (!href || href.startsWith('?') || href.startsWith('#')) continue;
+                const url = new URL(href, window.location.origin + path);
+                if (!url.pathname.startsWith(path)) continue;
+                if (url.pathname === path) continue;
+                const name = decodeURIComponent(url.pathname.substring(path.length));
+                if (name.split('/').filter(Boolean).length > 1) continue;
+                const isDir = name.endsWith('/');
+                items.push({ name: isDir ? name.slice(0,-1) : name, href: url.pathname, isDir });
+            }
+            const seen = new Set();
+            return items.filter(it => { const k = it.href; if (seen.has(k)) return false; seen.add(k); return true; });
+        }
+
+        function renderListing(path, items) {
+            listingEl.innerHTML = '';
+            currentPathEl.textContent = 'Path: ' + path;
+            if (path !== basePath) {
+                const up = path.replace(/[^/]+\/?$/, '');
+                const li = document.createElement('li');
+                const a = document.createElement('a');
+                a.href = '#'; a.textContent = '⬆️ ..';
+                a.onclick = (e)=>{ e.preventDefault(); loadPath(up); };
+                li.appendChild(a); listingEl.appendChild(li);
+            }
+            items.sort((a,b)=> (a.isDir===b.isDir) ? a.name.localeCompare(b.name) : (a.isDir ? -1 : 1));
+            for (const it of items) {
+                const li = document.createElement('li');
+                const a = document.createElement('a');
+                a.href = '#'; a.textContent = it.isDir ? '📁 ' + it.name : '📄 ' + it.name;
+                a.onclick = (e)=>{ e.preventDefault(); it.isDir ? loadPath(it.href) : openFile(it.href); };
+                li.appendChild(a);
+                listingEl.appendChild(li);
+            }
+        }
+
+        async function loadPath(path) {
+            try {
+                const items = await fetchAutoIndex(path);
+                renderListing(path, items);
+            } catch (e) {
+                listingEl.innerHTML = '<li>Failed to load listing. ' + (e?.message||e) + '</li>';
+            }
+        }
+
+        async function openFile(href) {
+            viewerEl.innerHTML = '<em>Loading...</em>';
+            try {
+                const res = await fetch(href);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const url = new URL(href, window.location.origin);
+                const name = url.pathname.split('/').pop() || '';
+                const ext = name.toLowerCase().split('.').pop();
+                if (['md','markdown'].includes(ext)) {
+                    const text = await res.text();
+                    const html = marked.parse(text, { mangle:false, headerIds:true });
+                    viewerEl.innerHTML = html;
+                    await renderMermaidBlocks(viewerEl);
+                    document.querySelectorAll('pre code').forEach((el)=>{ try{ hljs.highlightElement(el); }catch{} });
+                } else if (['mmd','mermaid'].includes(ext)) {
+                    const text = await res.text();
+                    viewerEl.innerHTML = '<pre class="mermaid">'+text.replace(/</g,'&lt;')+'</pre>';
+                    await renderMermaidBlocks(viewerEl);
+                } else if (['png','jpg','jpeg','gif','svg','webp'].includes(ext)) {
+                    viewerEl.innerHTML = '<img style="max-width:100%" alt="'+name+'" src="'+href+'" />';
+                } else if (['json'].includes(ext)) {
+                    const text = await res.text();
+                    try { viewerEl.innerHTML = '<pre><code class="language-json">'+JSON.stringify(JSON.parse(text), null, 2)+'</code></pre>'; }
+                    catch { viewerEl.innerHTML = '<pre><code>'+text.replace(/</g,'&lt;')+'</code></pre>'; }
+                    document.querySelectorAll('pre code').forEach((el)=>{ try{ hljs.highlightElement(el); }catch{} });
+                } else if (['txt','log','csv'].includes(ext)) {
+                    const text = await res.text();
+                    if (ext === 'csv') {
+                        viewerEl.innerHTML = '<pre><code class="language-csv">'+text.replace(/</g,'&lt;')+'</code></pre>';
+                    } else {
+                        viewerEl.innerHTML = '<pre><code>'+text.replace(/</g,'&lt;')+'</code></pre>';
+                    }
+                    document.querySelectorAll('pre code').forEach((el)=>{ try{ hljs.highlightElement(el); }catch{} });
+                } else if (['html','htm'].includes(ext)) {
+                    viewerEl.innerHTML = '<iframe src="'+href+'" style="width:100%;height:70vh;border:1px solid #ddd"></iframe>';
+                } else {
+                    viewerEl.innerHTML = '<p>Cannot preview this file. <a href="'+href+'" target="_blank">Open / download</a>.</p>';
+                }
+            } catch (e) {
+                viewerEl.innerHTML = '<p>Failed to open file: ' + (e?.message||e) + '</p>';
+            }
+        }
+
+        async function renderMermaidBlocks(container){
+            const blocks = container.querySelectorAll('pre code.language-mermaid, pre.mermaid, .mermaid');
+            if (blocks.length === 0) return;
+            for (const el of blocks) {
+                const code = el.textContent;
+                const div = document.createElement('div');
+                div.className = 'mermaid';
+                div.textContent = code;
+                el.parentElement.replaceWith(div);
+            }
+            try { await mermaid.run({ querySelector: '.mermaid' }); } catch {}
+        }
+
+        loadPath(basePath);
+    </script>
 </body>
 </html>

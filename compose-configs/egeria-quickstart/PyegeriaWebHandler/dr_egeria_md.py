@@ -8,7 +8,6 @@ from datetime import datetime
 from loguru import logger
 from pydantic import ValidationError
 
-from .md_commands.project_commands import process_link_project_dependency_command
 
 log_format = "{time} | {level} | {function} | {line} | {message} | {extra}"
 logger.remove()
@@ -23,8 +22,7 @@ from md_processing import (extract_command, process_glossary_upsert_command, pro
                            process_provenance_command, get_current_datetime_string,
                            process_project_upsert_command, command_list, process_blueprint_upsert_command,
                            process_solution_component_upsert_command, process_component_link_unlink_command,
-
-                           process_link_term_term_relationship_command,
+                            process_link_project_dependency_command, process_link_term_term_relationship_command,
                            process_information_supply_chain_upsert_command,
                            process_information_supply_chain_link_unlink_command, process_sol_arch_list_command,
                            process_digital_product_upsert_command, process_agreement_upsert_command,
@@ -70,7 +68,7 @@ EGERIA_OUTBOX_PATH = os.environ.get("EGERIA_OUTBOX_PATH", "md_processing/dr_eger
 
 
 @logger.catch
-def process_md_file(input_file: str, output_folder:str, directive: str, server: str, url: str, userid: str,
+def process_markdown_file(input_file: str, output_folder:str, directive: str, server: str, url: str, userid: str,
                           user_pass: str ) -> None:
     """
     Process a markdown file by parsing and executing Dr. Egeria md_commands. Write output to a new file.
@@ -124,8 +122,7 @@ def process_md_file(input_file: str, output_folder:str, directive: str, server: 
                 result = process_link_to_cited_document_command(client, current_block, directive)
             elif potential_command in ["Create Glossary", "Update Glossary"]:
                 result = process_glossary_upsert_command(client, current_block, directive)
-            # elif potential_command in ["Create Category", "Update Category"]:
-            #     result = process_category_upsert_command(client, current_block, directive)
+
             elif potential_command in ["Create Term", "Update Term"]:
                 result = process_term_upsert_command(client, current_block, directive)
             elif potential_command in ["Create Term-Term Relationship", "Update Term-Term Relationship"]:
