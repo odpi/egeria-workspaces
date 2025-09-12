@@ -10,7 +10,8 @@ from typing import Callable
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
+from pyegeria import print_basic_exception
 
 os.environ.setdefault("EGERIA_USER", "erinoverview")
 os.environ.setdefault("EGERIA_USER_PASSWORD", "secret")
@@ -95,6 +96,7 @@ async def process_markdown(request: ProcessRequest):
             text = "(no output)"
         return PlainTextResponse(content=text)
     except Exception as e:
+        print_basic_exception(e)
         raise HTTPException(status_code=500, detail=f"Processing failed: {e}")
 
 

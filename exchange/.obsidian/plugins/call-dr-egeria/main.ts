@@ -5,13 +5,15 @@ interface SendNoteSettings {
     userId: string;
     userPass: string;
     outputFolder: string;
+    inputFolder?: string; // optional folder to prepend to input_file
 }
 
 const DEFAULT_SETTINGS: SendNoteSettings = {
     apiUrl: "http://localhost:8085/dr-egeria/process",
     userId: "erinoverview",
     userPass: "secret",
-    outputFolder: "Monday"
+    outputFolder: "Monday",
+    inputFolder: "" // default empty (not used)
 };
 
 export default class SendNotePlugin extends Plugin {
@@ -47,8 +49,14 @@ export default class SendNotePlugin extends Plugin {
 
         const content = await this.app.vault.read(file);
 
+        // Determine input_file optionally prepending inputFolder
+        const baseName = file.basename + ".md";
+        const inputFile = (this.settings.inputFolder && this.settings.inputFolder.trim().length > 0)
+            ? `${this.settings.inputFolder.replace(/\\+$/,'').replace(/\/+$/,'')}/${baseName}`
+            : baseName;
+
         const payload = {
-            input_file: file.basename+".md",
+            input_file: inputFile,
             output_folder: this.settings.outputFolder,
             directive: "process",
             url: "https://host.docker.internal:9443",
@@ -177,6 +185,17 @@ class SendNoteSettingTab extends PluginSettingTab {
                 .setValue(this.plugin.settings.outputFolder)
                 .onChange(async (value) => {
                     this.plugin.settings.outputFolder = value;
+                    await this.plugin.saveSettings();
+                }));
+
+        new Setting(containerEl)
+            .setName("Input Folder (optional)")
+            .setDesc("If set, will be prepended to input_file as 'input_folder/filename.md'")
+            .addText(text => text
+                .setPlaceholder("inbox")
+                .setValue(this.plugin.settings.inputFolder || "")
+                .onChange(async (value) => {
+                    this.plugin.settings.inputFolder = value;
                     await this.plugin.saveSettings();
                 }));
     }

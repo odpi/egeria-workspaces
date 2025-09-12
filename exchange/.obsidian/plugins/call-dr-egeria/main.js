@@ -28,7 +28,8 @@ var DEFAULT_SETTINGS = {
   apiUrl: "http://localhost:8085/dr-egeria/process",
   userId: "erinoverview",
   userPass: "secret",
-  outputFolder: "Monday"
+  outputFolder: "Monday",
+  inputFolder: ""
 };
 var SendNotePlugin = class extends import_obsidian.Plugin {
   constructor() {
@@ -56,8 +57,10 @@ var SendNotePlugin = class extends import_obsidian.Plugin {
       return;
     }
     const content = await this.app.vault.read(file);
+    const baseName = file.basename + ".md";
+    const inputFile = this.settings.inputFolder && this.settings.inputFolder.trim().length > 0 ? `${this.settings.inputFolder.replace(/\\+$/,'').replace(/\/+$/,'')}/${baseName}` : baseName;
     const payload = {
-      input_file: file.basename + ".md",
+      input_file: inputFile,
       output_folder: this.settings.outputFolder,
       directive: "process",
       url: "https://host.docker.internal:9443",
@@ -142,6 +145,10 @@ var SendNoteSettingTab = class extends import_obsidian.PluginSettingTab {
     }));
     new import_obsidian.Setting(containerEl).setName("Output Folder").setDesc("Name of the output folder").addText((text) => text.setPlaceholder("Monday").setValue(this.plugin.settings.outputFolder).onChange(async (value) => {
       this.plugin.settings.outputFolder = value;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian.Setting(containerEl).setName("Input Folder (optional)").setDesc("If set, will be prepended to input_file as 'input_folder/filename.md'").addText((text) => text.setPlaceholder("inbox").setValue(this.plugin.settings.inputFolder || "").onChange(async (value) => {
+      this.plugin.settings.inputFolder = value;
       await this.plugin.saveSettings();
     }));
   }
