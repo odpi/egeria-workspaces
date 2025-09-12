@@ -110,9 +110,9 @@ build/
 # egeria-workspaces
 exchange/distribution-hub/*/**
 work
-runtime-volumes/egeria-platform-data/data/servers/*/repository/**
-runtime-volumes/egeria-platform-data/data/servers/*/repository
-runtime-volumes/egeria-platform-data/data/coco-data-lake/**
+runtime-volumes/egeria-platform-data/data-old/servers/*/repository/**
+runtime-volumes/egeria-platform-data/data-old/servers/*/repository
+runtime-volumes/egeria-platform-data/data-old/coco-data-lake/**
 
 runtime-volumes/apache-web/ErrorLogs/**
 
@@ -150,3 +150,17 @@ compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-da
 /runtime-volumes/unitycatalog1/etc/db/
 /runtime-volumes/egeria-platform-data/logs/
 /exchange/distribution-hub/dr-egeria-outbox/
+/exchange/exploring obsidian/
+/exchange/.obsidian/workspace.json
+/exchange/config/debug_log/**
+/exchange/.obsidian/**
+/exchange/Data Products & Data Mesh/**
+/exchange/Obsidian/**
+/exchange/Sustainability Samples/**
+/exchange/treasury-dts-history/**
+
+/exchange/distribution-hub/dr-egeria-outbox/DataDrivenLDN/**
+/exchange/loading-bay/dr-egeria-inbox/Automated Delivery of Internal Products/**
+/exchange/loading-bay/dr-egeria-inbox/GeoSpatial Data/**
+/exchange/loading-bay/dr-egeria-inbox/Inbox-DataDrivenLDN/**
+/exchange/loading-bay/dr-egeria-inbox/Reference Data Products/**
