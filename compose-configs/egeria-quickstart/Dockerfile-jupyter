@@ -70,7 +70,6 @@ RUN pip install --no-cache-dir 'jupyterlab_execute_time'
 RUN pip install --no-cache-dir 'mermaid.py'
 RUN pip install --no-cache-dir 'plotly'
 RUN pip install --no-cache-dir 'dash'
-RUN pip install --no-cache-dir 'pydevd-pycharm'
 
 
 
