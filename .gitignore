@@ -114,6 +114,8 @@ runtime-volumes/egeria-platform-data/data/servers/*/repository/**
 runtime-volumes/egeria-platform-data/data/servers/*/repository
 runtime-volumes/egeria-platform-data/data/coco-data-lake/**
 
+runtime-volumes/apache-web/ErrorLogs/**
+
 
 runtime-volumes/airflow-volumes/**
 #runtime-volumes/airflow-volumes/logs
