@@ -24,7 +24,7 @@
        
           "Logging": {
                 "console_filter_levels": [
-                  "ERROR",  "WARNING", "INFO"
+                  "ERROR"
                 ],
                 "console_logging_enabled": [
                 ],
