@@ -4,90 +4,280 @@
     "type": "split",
     "children": [
       {
-        "id": "61a55a9fc2f57e10",
+        "id": "a57b67283574a109",
         "type": "tabs",
         "children": [
           {
-            "id": "77603d519ec48b8b",
+            "id": "ffc22b4086bc5845",
+            "type": "leaf",
+            "state": {
+              "type": "canvas",
+              "state": {
+                "file": "Obsidian/Data-Driven-LDN/1. Recap.canvas",
+                "viewState": {
+                  "x": -55,
+                  "y": -90,
+                  "zoom": 0
+                }
+              },
+              "icon": "lucide-layout-dashboard",
+              "title": "1. Recap"
+            }
+          },
+          {
+            "id": "41ea07f16c302862",
+            "type": "leaf",
+            "state": {
+              "type": "canvas",
+              "state": {
+                "file": "Obsidian/Data-Driven-LDN/2. Users Journey.canvas",
+                "viewState": {
+                  "x": -1360.7203748910545,
+                  "y": 7.2889973852950645,
+                  "zoom": 0.5
+                }
+              },
+              "icon": "lucide-layout-dashboard",
+              "title": "2. Users Journey"
+            }
+          },
+          {
+            "id": "a770485de978885b",
+            "type": "leaf",
+            "state": {
+              "type": "canvas",
+              "state": {
+                "file": "Obsidian/Data-Driven-LDN/3. Egeria.canvas",
+                "viewState": {
+                  "x": 143.5,
+                  "y": -160,
+                  "zoom": -0.4539176259647919
+                }
+              },
+              "icon": "lucide-layout-dashboard",
+              "title": "3. Egeria"
+            }
+          },
+          {
+            "id": "fbc3fa5496422923",
+            "type": "leaf",
+            "state": {
+              "type": "canvas",
+              "state": {
+                "file": "Obsidian/Data-Driven-LDN/4. Valid Value Set Product Solution Blueprint.canvas",
+                "viewState": {
+                  "x": -233.29694247103552,
+                  "y": -111.04526956044933,
+                  "zoom": 0
+                }
+              },
+              "icon": "lucide-layout-dashboard",
+              "title": "4. Valid Value Set Product Solution Blueprint"
+            }
+          },
+          {
+            "id": "a2217ce784b14191",
+            "type": "leaf",
+            "state": {
+              "type": "canvas",
+              "state": {
+                "file": "Obsidian/Data-Driven-LDN/5. Compoents for Self-Service.canvas",
+                "viewState": {
+                  "x": 124.5,
+                  "y": -128,
+                  "zoom": -0.017892788820745645
+                }
+              },
+              "icon": "lucide-layout-dashboard",
+              "title": "5. Compoents for Self-Service"
+            }
+          },
+          {
+            "id": "a70a7a805bb9b09e",
+            "type": "leaf",
+            "state": {
+              "type": "canvas",
+              "state": {
+                "file": "Obsidian/Data-Driven-LDN/6. Consuming Digital Products.canvas",
+                "viewState": {
+                  "x": 255.27618898084816,
+                  "y": 16.489129102289375,
+                  "zoom": -0.06081076675545057
+                }
+              },
+              "icon": "lucide-layout-dashboard",
+              "title": "6. Consuming Digital Products"
+            }
+          },
+          {
+            "id": "d30aa31b4bf8c50f",
+            "type": "leaf",
+            "state": {
+              "type": "canvas",
+              "state": {
+                "file": "Obsidian/Data-Driven-LDN/7. Master Digital Product Root.canvas",
+                "viewState": {
+                  "x": 2302.241697379086,
+                  "y": -694.9902942033501,
+                  "zoom": -0.16401532307128025
+                }
+              },
+              "icon": "lucide-layout-dashboard",
+              "title": "7. Master Digital Product Root"
+            }
+          },
+          {
+            "id": "44a887b114909ae5",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Obsidian/Data-Driven-LDN/Sustainability Reference Data/Emissions Factors.md",
+                "file": "distribution-hub/reports/Sustainability Digital-Product-Catalog-2025-09-22-20-07-15.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Emissions Factors"
+              "title": "Sustainability Digital-Product-Catalog-2025-09-22-20-07-15"
             }
           },
           {
-            "id": "f846d93e2578008c",
+            "id": "d89e7c9c24650d44",
             "type": "leaf",
             "state": {
-              "type": "markdown",
+              "type": "canvas",
               "state": {
-                "file": "ExtRef - EPA  eGRID.md",
-                "mode": "source",
-                "source": false
+                "file": "Obsidian/Data-Driven-LDN/8. Emissions Factors.canvas",
+                "viewState": {
+                  "x": -385.2564237122838,
+                  "y": 68.69083538907037,
+                  "zoom": -0.06081076675545057
+                }
               },
-              "icon": "lucide-file",
-              "title": "ExtRef - EPA  eGRID"
+              "icon": "lucide-layout-dashboard",
+              "title": "8. Emissions Factors"
             }
           },
           {
-            "id": "23c1a82108a49909",
+            "id": "361cecdc60386d7e",
             "type": "leaf",
             "state": {
-              "type": "markdown",
+              "type": "canvas",
               "state": {
-                "file": "ExtRef - EPA GHG Emissions Factors Hub.md",
-                "mode": "source",
-                "source": false
+                "file": "Obsidian/Data-Driven-LDN/9. ExploringWeatherData.canvas",
+                "viewState": {
+                  "x": -2350.6474179511947,
+                  "y": -2317.044597531408,
+                  "zoom": -0.19579070603492918
+                }
               },
-              "icon": "lucide-file",
-              "title": "ExtRef - EPA GHG Emissions Factors Hub"
+              "icon": "lucide-layout-dashboard",
+              "title": "9. ExploringWeatherData"
             }
           },
           {
-            "id": "3b9c2713c3c09ea6",
+            "id": "c98343d0a56af100",
             "type": "leaf",
             "state": {
-              "type": "markdown",
+              "type": "canvas",
               "state": {
-                "file": "ExtRef - EMEP-EEA air pollutant emission inventory guidebook 2023.md",
-                "mode": "source",
-                "source": false
+                "file": "Obsidian/Data-Driven-LDN/10. ERA 5 Example.canvas",
+                "viewState": {
+                  "x": -500,
+                  "y": 40,
+                  "zoom": -0.7263917276848915
+                }
               },
-              "icon": "lucide-file",
-              "title": "ExtRef - EMEP-EEA air pollutant emission inventory guidebook 2023"
+              "icon": "lucide-layout-dashboard",
+              "title": "10. ERA 5 Example"
             }
           },
           {
-            "id": "a5afe33b49b8b6a8",
+            "id": "28cff175d66ee2bf",
             "type": "leaf",
             "state": {
-              "type": "markdown",
+              "type": "canvas",
               "state": {
-                "file": "ExtRef - EFDB - emission factor database.md",
-                "mode": "source",
-                "source": false
+                "file": "Obsidian/Data-Driven-LDN/11. Setting Up a Marketplace.canvas",
+                "viewState": {
+                  "x": 250,
+                  "y": -190,
+                  "zoom": 0
+                }
               },
-              "icon": "lucide-file",
-              "title": "ExtRef - EFDB - emission factor database"
+              "icon": "lucide-layout-dashboard",
+              "title": "11. Setting Up a Marketplace"
             }
           },
           {
-            "id": "a133f8c1f8506a42",
+            "id": "f5edc3d3a767988d",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {},
-              "icon": "lucide-file",
-              "title": "New tab"
+              "type": "canvas",
+              "state": {
+                "file": "Obsidian/Data-Driven-LDN/12. Enterprise View.canvas",
+                "viewState": {
+                  "x": -386.6349690261873,
+                  "y": 406.0217183063829,
+                  "zoom": 1
+                }
+              },
+              "icon": "lucide-layout-dashboard",
+              "title": "12. Enterprise View"
+            }
+          },
+          {
+            "id": "d312bd26f830b72a",
+            "type": "leaf",
+            "state": {
+              "type": "canvas",
+              "state": {
+                "file": "Obsidian/Data-Driven-LDN/13. Exploring Future Work.canvas",
+                "viewState": {
+                  "x": -250,
+                  "y": -74.5,
+                  "zoom": 0
+                }
+              },
+              "icon": "lucide-layout-dashboard",
+              "title": "13. Exploring Future Work"
+            }
+          },
+          {
+            "id": "1288fd6710f7fe6c",
+            "type": "leaf",
+            "state": {
+              "type": "canvas",
+              "state": {
+                "file": "Obsidian/Data-Driven-LDN/14. Open Source Community.canvas",
+                "viewState": {
+                  "x": 0.5,
+                  "y": -26,
+                  "zoom": -0.2909996430520791
+                }
+              },
+              "icon": "lucide-layout-dashboard",
+              "title": "14. Open Source Community"
+            }
+          },
+          {
+            "id": "085363f2477b7742",
+            "type": "leaf",
+            "state": {
+              "type": "canvas",
+              "state": {
+                "file": "Obsidian/Data-Driven-LDN/15...and finally....canvas",
+                "viewState": {
+                  "x": -86,
+                  "y": 53,
+                  "zoom": -0.2817811130227004
+                }
+              },
+              "icon": "lucide-layout-dashboard",
+              "title": "15...and finally..."
             }
           }
-        ]
+        ],
+        "currentTab": 7
       }
     ],
     "direction": "vertical"
@@ -119,7 +309,7 @@
             "state": {
               "type": "search",
               "state": {
-                "query": "subscription",
+                "query": "",
                 "matchingCase": false,
                 "explainSearch": false,
                 "collapseAll": false,
@@ -144,7 +334,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 527.5
+    "width": 373.5
   },
   "right": {
     "id": "080fb47234a684ea",
@@ -238,63 +428,62 @@
       "obsidian-advanced-slides:Show Slide Preview": false
     }
   },
-  "active": "77603d519ec48b8b",
+  "active": "44a887b114909ae5",
   "lastOpenFiles": [
-    "loading-bay/Sustainability Files.zip",
-    "loading-bay/Sustainability Files/EPA GHG emission_Factors_for_Cross_Sector_Tools_V2.0_0(1).xlsx",
-    "loading-bay/Sustainability Files/EPA ghg-emission-factors-hub-2024.xlsx",
-    "loading-bay/Sustainability Files/UK ghg-conversion-factors-2023-condensed-set-update.xlsx",
-    "loading-bay/Sustainability Files/~$ghg-conversion-factors-2023-condensed-set-update.xlsx",
-    "loading-bay/Sustainability Files/GHG emission_Factors_for_Cross_Sector_Tools_V2.0_0(1).xlsx",
-    "loading-bay/Sustainability Files/~$Emission_Factors_for_Cross_Sector_Tools_V2.0_0(1).xlsx",
-    "loading-bay/Sustainability Files/raw emission factor data.csv",
-    "loading-bay/Sustainability Files/Conversion_Factors_2020_-_Condensed_set__for_most_users_.xlsx",
-    "loading-bay/Sustainability Files/UK Conversion_Factors_2020_-_Condensed_set__for_most_users_.xlsx",
-    "loading-bay/Sustainability Files/~$Conversion_Factors_2020_-_Condensed_set__for_most_users_.xlsx",
-    "ExtRef - EFDB - emission factor database.md",
-    "ExtRef - EMEP-EEA air pollutant emission inventory guidebook 2023.md",
-    "Obsidian/Data-Driven-LDN/Sustainability Reference Data/Emissions Factors.md",
-    "ExtRef - EPA GHG Emissions Factors Hub.md",
-    "loading-bay/dr-egeria-inbox/GeoSpatial Data/Ext. Data Source - ERA5 - Land on Google Earth Engine Data Catalog.md",
-    "ExtRef - EPA  eGRID.md",
-    "Obsidian/Data-Driven-LDN/Sustainability Reference Data/Coco Sustainability Initiative.md",
-    "Obsidian/Data-Driven-LDN/Working.canvas",
-    "Obsidian/Data-Driven-LDN/Untitled.canvas",
-    "Obsidian/Data-Driven-LDN/Quick Review & Thoughts on LF AI & Data Overview Presentation.md",
-    "distribution-hub/dr-egeria-outbox/DataDrivenLDN/processed-2025-09-15 02:04-Ext. Data Source - ERA5 - Land on Google Earth Engine Data Catalog.md",
-    "Obsidian/Data-Driven-LDN/GeoSpatial Demo/Setting Up a Marketplace.canvas",
-    "loading-bay/dr-egeria-inbox/Inbox-DataDrivenLDN/Coco Digital Product Catalog.md",
-    "Obsidian/Data-Driven-LDN/Digital Products/Snowflake.md",
-    "Snowflake.md",
-    "Obsidian/Data-Driven-LDN/Digital Products/Scenarios.md",
-    "Obsidian/Data-Driven-LDN/Digital Products/Mckinsey.md",
-    "Obsidian/Data-Driven-LDN/Digital Products/Digital Products.svg",
-    "Obsidian/Data-Driven-LDN/Digital Products/Digital Products.md",
-    "Obsidian/Data-Driven-LDN/Digital Products/Bitol.md",
-    "Obsidian/Data-Driven-LDN/Snowflake/Scenarios.md",
-    "Obsidian/Data-Driven-LDN/Snowflake/Mckinsey.md",
-    "Obsidian/Data-Driven-LDN/Snowflake/Digital Products.svg",
-    "Obsidian/Data-Driven-LDN/Snowflake/Digital Products.md",
-    "Obsidian/Data-Driven-LDN/Snowflake/Bitol.md",
-    "loading-bay/dr-egeria-inbox/GeoSpatial Data/Digital Product - ERA5 - Land.md",
-    "loading-bay/dr-egeria-inbox/GeoSpatial Data/CC-BY-licence.md",
-    "Obsidian/Data-Driven-LDN/GeoSpatial Demo/ERA 5 on Google Earth Engine Data Catalog.png",
-    "Attach CC License to ERA artifacts.md",
-    "Obsidian/Data-Driven-LDN/GeoSpatial Demo/Managing External Data.canvas",
-    "Obsidian/Data-Driven-LDN/product-catalog-end-to-end.drawio.svg",
-    "Obsidian/Data-Driven-LDN/GeoSpatial Demo/ECMWF - Climate Data Store - ERA5.png",
-    "distribution-hub/dr-egeria-outbox/DataDrivenLDN/processed-2025-09-15 02:00-Subscription-ERA 5-Land Google Research.md",
-    "loading-bay/dr-egeria-inbox/GeoSpatial Data/ERA5 hourly data from ECMWF - Official Site.md",
-    "Obsidian/Data-Driven-LDN/GeoSpatial Demo/ExploringWeatherData.canvas",
-    "Obsidian/Data-Driven-LDN/Managing a Marketplace.canvas",
-    "Obsidian/Data-Driven-LDN/Digital Products.canvas",
-    "Obsidian/Data-Driven-LDN/GeoSpatial Demo/ERA 5 on Microsoft Planetary Computer.png",
-    "Obsidian/Data-Driven-LDN/GeoSpatial Demo/ERA 5 on AWS Registry of Open Data.png",
-    "Sustainability Samples/Managed External Reference Data.canvas",
-    "Sustainability Samples/Coco Scenarios - Governance Definitions.canvas",
-    "Sustainability Samples/Sustainability Demo.canvas",
-    "Data Products & Data Mesh/blog--data-product-lifecycle.webp",
-    "Data Driven London/Digital Products/Digital Products.svg",
-    "exploring obsidian/Digital Products/Digital Products.svg"
+    "Obsidian/Data-Driven-LDN/7. Master Digital Product Root.canvas",
+    "Obsidian/Data-Driven-LDN/Report on a Digital Product Catalog.md",
+    "distribution-hub/reports/Sustainability Digital-Product-Catalog-2025-09-22-20-07-15.md",
+    "distribution-hub/reports/Digital-Product-Catalog-2025-09-22-20-07-15.md",
+    "Obsidian/Data-Driven-LDN/6. Consuming Digital Products.canvas",
+    "Obsidian/Data-Driven-LDN/5. Compoents for Self-Service.canvas",
+    "Obsidian/Data-Driven-LDN/4. Valid Value Set Product Solution Blueprint.canvas",
+    "Obsidian/Data-Driven-LDN/3. Egeria.canvas",
+    "Obsidian/Data-Driven-LDN/2. Users Journey.canvas",
+    "Obsidian/Data-Driven-LDN/1. Recap.canvas",
+    "Obsidian/Data-Driven-LDN/15...and finally....canvas",
+    "Obsidian/Data-Driven-LDN/14. Open Source Community.canvas",
+    "Obsidian/Data-Driven-LDN/13. Exploring Future Work.canvas",
+    "Obsidian/Data-Driven-LDN/1. Recap.md",
+    "Obsidian/Images/open-forum.png",
+    "Obsidian/Images/open-source-communities.png",
+    "Obsidian/Data-Driven-LDN/Untitled.md",
+    "Obsidian/Data-Driven-LDN/Why.md",
+    "Obsidian/Images/three-challenges-expanded.png",
+    "Obsidian/Images/three-challenges.png",
+    "Obsidian/Images/open-metadata-types.png",
+    "Obsidian/Images/ERA 5 on AWS Registry of Open Data.png",
+    "Obsidian/Images/dr-egeria-solution-blueprint.png",
+    "Obsidian/Images/very-large-data-sets.png",
+    "Obsidian/Images",
+    "Obsidian/Data-Driven-LDN/interesting points.md",
+    "Untitled",
+    "Obsidian/Images/valid-values-solution-blueprint.png",
+    "Obsidian/Images/user-journey.png",
+    "Obsidian/Available Format Sets.md",
+    "loading-bay/open-metadata-archives/README.md",
+    "Obsidian/Data-Driven-LDN/Digital Products & Data Mesh/Snowflake.md",
+    "Obsidian/Data-Driven-LDN/Digital Products & Data Mesh/Snowflake 1.md",
+    "loading-bay/dr-egeria-inbox/Sustainability Commands/Attach CC License to ERA artifacts.md",
+    "loading-bay/dr-egeria-inbox/Sustainability Commands/ExtRef - EFDB - emission factor database.md",
+    "2025-09-21.md",
+    "loading-bay/dr-egeria-inbox/dr_egeria_data_designer_1 1.md",
+    "distribution-hub/dr-egeria-outbox/DataDrivenLDN/processed-2025-09-22 15:32-ExtRef - EFDB - emission factor database.md",
+    "loading-bay/dr-egeria-inbox/Sustainability Commands/Governance Strategy.md",
+    "Obsidian/Data-Driven-LDN/GeoSpatial Demo/ERA 5 Data on Google.md",
+    "Obsidian/Data-Driven-LDN/GeoSpatial Demo/ERA 5 Data on AWS.md",
+    "Obsidian/Data-Driven-LDN/Sustainability Project/Background Research/Emissions Factors.md",
+    "Obsidian/Data-Driven-LDN/Digital Products & Data Mesh/Scenarios.md",
+    "Obsidian/Data-Driven-LDN/remote data.md",
+    "loading-bay/dr-egeria-inbox/Sustainability Commands/Regulation-Sustainability-EU Corporate Sustainability Reporting.md",
+    "Obsidian/Data-Driven-LDN/Approach.md",
+    "Obsidian/Data-Driven-LDN/Sustainability Project/Background Research/Industry Classification.md",
+    "loading-bay/Sustainability Files/debug_log.log",
+    "loading-bay/Sustainability Files/6-digit_2017_Codes.csv",
+    "loading-bay/Sustainability Files/~$2017_NAICS_Structure.xlsx",
+    "loading-bay/Sustainability Files/2022_NAICS_Manual.pdf",
+    "loading-bay/Sustainability Files/ICD-10_2023_5th_Ed_NCCS.pdf",
+    "loading-bay/Sustainability Files/2022_NAICS_Structure.xlsx",
+    "loading-bay/Sustainability Files/2022_NAICS_Descriptions.xlsx",
+    "loading-bay/Sustainability Files/2017_NAICS_Structure.csv"
   ]
 }
