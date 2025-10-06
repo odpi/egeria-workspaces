@@ -11,8 +11,8 @@ from pydantic import ValidationError
 
 log_format = "{time} | {level} | {function} | {line} | {message} | {extra}"
 logger.remove()
-logger.add(sys.stderr, level="ERROR", format=log_format, colorize=True)
-logger.add("debug_log.log", rotation="1 day", retention="1 week", compression="zip", level="INFO", format=log_format,
+logger.add(sys.stderr, level="INFO", format=log_format, colorize=True)
+logger.add("debug_log.log", rotation="1 day", retention="1 week", compression="zip", level="TRACE", format=log_format,
            colorize=True)
 
 from rich import print
@@ -22,14 +22,12 @@ from md_processing import (extract_command, process_glossary_upsert_command, pro
                            process_provenance_command, get_current_datetime_string,
                            process_project_upsert_command, command_list, process_blueprint_upsert_command,
                            process_solution_component_upsert_command, process_component_link_unlink_command,
-                           process_csv_element_upsert_command, process_link_project_dependency_command,
-                           process_link_term_term_relationship_command,
+                            process_link_project_dependency_command, process_link_term_term_relationship_command,
                            process_information_supply_chain_upsert_command,
                            process_information_supply_chain_link_unlink_command, process_sol_arch_list_command,
                            process_digital_product_upsert_command, process_agreement_upsert_command,
                            process_collection_upsert_command, process_link_agreement_item_command,
                            process_gov_definition_upsert_command, GOV_COM_LIST, GOV_LINK_LIST,
-                           process_governed_by_link_detach_command,
                            process_gov_def_link_detach_command, process_product_dependency_command,
                            process_add_to_collection_command, process_attach_collection_command,
     # process_collection_list_command, process_gov_definition_list_command,
@@ -70,9 +68,9 @@ EGERIA_OUTBOX_PATH = os.environ.get("EGERIA_OUTBOX_PATH", "md_processing/dr_eger
 
 
 @logger.catch
-def process_md_file(input_file: str, output_folder:str, directive: str, server: str, url: str, userid: str,
+def process_markdown_file(input_file: str, output_folder:str, directive: str, server: str, url: str, userid: str,
                           user_pass: str ) -> None:
-    """
+    """dr_egeria.py
     Process a markdown file by parsing and executing Dr. Egeria md_commands. Write output to a new file.
     """
 
@@ -108,7 +106,7 @@ def process_md_file(input_file: str, output_folder:str, directive: str, server: 
             return  # No block to process
 
         potential_command = extract_command(current_block)  # Extract object_action
-        if potential_command in cmd_list:
+        if (potential_command in cmd_list):
             # Process the block based on the object_action
             if potential_command == "Provenance":
                 result = process_provenance_command(input_file, current_block)
@@ -124,6 +122,7 @@ def process_md_file(input_file: str, output_folder:str, directive: str, server: 
                 result = process_link_to_cited_document_command(client, current_block, directive)
             elif potential_command in ["Create Glossary", "Update Glossary"]:
                 result = process_glossary_upsert_command(client, current_block, directive)
+
             elif potential_command in ["Create Term", "Update Term"]:
                 result = process_term_upsert_command(client, current_block, directive)
             elif potential_command in ["Create Term-Term Relationship", "Update Term-Term Relationship"]:
@@ -192,18 +191,12 @@ def process_md_file(input_file: str, output_folder:str, directive: str, server: 
                 result = process_output_command(client, current_block, directive)
             elif potential_command in ["View Data Classes", "View Data Class"]:
                 result = process_output_command(client, current_block, directive)
-            elif potential_command in ["Create Digital Product Catalog", "Create Collection","Create Folder", "Create Root Collection",
-                                       "Update Digital Product Catalog", "Update Collection","Update Folder", "Update Root Collection"]:
-                result = process_collection_upsert_command(client, current_block, directive)
             elif potential_command in ["Create Digital Product", "Create Data Product","Update Digital Product", "Update Data Product"]:
                 result = process_digital_product_upsert_command(client, current_block, directive)
             elif potential_command in ["Create Agreement", "Create Data Sharing Agreement", "Create Digital Subscription",
                                        "Create Product Subscription", "Update Agreement", "Update Data Sharing Agreement",
                                        "Update Digital Subscription", "Update Product Subscription"]:
                 result = process_agreement_upsert_command(client, current_block, directive)
-            elif potential_command in ["Create CSV File"]:
-                result = process_csv_element_upsert_command(client, current_block, directive)
-
             elif potential_command in SIMPLE_COLLECTIONS:
                 result = process_collection_upsert_command(client, current_block, directive)
             elif potential_command in GOV_COM_LIST:
@@ -216,19 +209,15 @@ def process_md_file(input_file: str, output_folder:str, directive: str, server: 
             elif potential_command in ['Link Governance Mechanism', 'Detach Governance Mechanism',
                                        'Link Governance Response', 'Detach Governance Response',]:
                 result = process_supporting_gov_def_link_detach_command(client, current_block, directive)
-
             elif potential_command in ['Link Digital Products', 'Detach Digital Products',
                                        'Link Product-Product', 'Detach Product-Product'
                                      ]:
                 result = process_product_dependency_command(client, current_block, directive)
-            elif potential_command in ['Link Governed By', 'Detach Governed By']:
-                result = process_governed_by_link_detach_command(client, current_block, directive)
-
             elif potential_command in ['Link Agreement->Item', 'Detach Agreement->Item']:
                 result = process_link_agreement_item_command(client, current_block, directive)
             elif potential_command in ['Link Collection->Resource', 'Detach Collection->Resource']:
                 result = process_attach_collection_command(client, current_block, directive)
-            elif potential_command in ['Add Member->Collection', 'Detach Member->Collection', 'Add Member', 'Remove Member',
+            elif potential_command in ['Link Member->Collection', 'Detach Member->Collection', 'Add Member', 'Remove Member',
                                        'Add to Folder', 'Remove from Folder']:
                 result = process_add_to_collection_command(client, current_block, directive)
             elif potential_command in ['Link Subscriber->Subscription', 'Detach Subscriber->Subscription']:
@@ -298,7 +287,7 @@ def process_md_file(input_file: str, output_folder:str, directive: str, server: 
         process_current_block(current_block)
 
     # Join the final output list into a single string
-    final_output = "\n".join(final_output) if isinstance(final_output, list) else final_output
+    final_output = "\n".join(final_output)
 
     try:
         if updated:

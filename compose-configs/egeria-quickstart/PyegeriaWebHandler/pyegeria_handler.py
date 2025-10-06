@@ -71,7 +71,7 @@ def _run_and_capture(func: Callable, *args, **kwargs) -> str:
 
 def _invoke_processor(req: ProcessRequest) -> str:
     # Click wraps the function; use the callback when present and pass kwargs
-    cmd = dr_egeria_md.process_markdown_file
+    cmd = dr_egeria_md.process_md_file
     func = getattr(cmd, "callback", cmd)
 
     return _run_and_capture(

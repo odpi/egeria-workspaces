@@ -15,7 +15,7 @@ ____
 
 >	**Alternative Labels**: Member; Member Id
 
-CSV Data File::~{fileSystemName}~:/loading-bay/Sustainability Files/NAICS-6-digit_2022_Codes.csv
+raw emission factor data.csv
 ## Collection Id
 >	**Input Required**: True
 

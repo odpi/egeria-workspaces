@@ -12,19 +12,18 @@
 
 >	**Alternative Labels**: Name
 
-NAICS Codes-2017
+Raw Emissions Factors
 ## Description
 >	**Input Required**: False
 
 >	**Description**: Description of the contents of a product.
 
-NAICS Codes classify different kinds of businesses based on what they produce. They are organized hierarchically with more digits providing finer granularity in the kind of economic activity.
+Emissions factors are used to convert from the amount of a particular fuel to the CO2 equivalence.
 ## Product Name
 >	**Input Required**: False
 
 >	**Description**: The external name of the digital product.
-
-NAICS Codes - Industry Classifications - 2017
+Raw Emissions Factors Data
 ## Status
 >	**Input Required**: False
 
