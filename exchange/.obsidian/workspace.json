@@ -8,20 +8,140 @@
         "type": "tabs",
         "children": [
           {
-            "id": "d89e7c9c24650d44",
+            "id": "3d0b50d98bb600cb",
             "type": "leaf",
             "state": {
               "type": "canvas",
               "state": {
-                "file": "Obsidian/Data-Driven-LDN/7. Master Digital Product Root.canvas",
+                "file": "ML-OPS Context Diagram.canvas",
                 "viewState": {
-                  "x": 345.2620296318495,
-                  "y": -603.2066670431509,
-                  "zoom": -0.6014356461029785
+                  "x": -57.76710945830467,
+                  "y": 249.59716552578107,
+                  "zoom": 0
                 }
               },
               "icon": "lucide-layout-dashboard",
-              "title": "7. Master Digital Product Root"
+              "title": "ML-OPS Context Diagram"
+            }
+          },
+          {
+            "id": "203bf3a969b3e4e2",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "loading-bay/dr-egeria-inbox/ML-OPS/ONNX.md",
+                "mode": "source",
+                "source": false,
+                "backlinks": true,
+                "backlinkOpts": {
+                  "collapseAll": false,
+                  "extraContext": false,
+                  "sortOrder": "alphabetical",
+                  "showSearch": false,
+                  "searchQuery": "",
+                  "backlinkCollapsed": false,
+                  "unlinkedCollapsed": true
+                }
+              },
+              "icon": "lucide-file",
+              "title": "ONNX"
+            }
+          },
+          {
+            "id": "66aefafcf9f9cee8",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "loading-bay/dr-egeria-inbox/ML-OPS/Milvus.md",
+                "mode": "source",
+                "source": false,
+                "backlinks": true,
+                "backlinkOpts": {
+                  "collapseAll": false,
+                  "extraContext": false,
+                  "sortOrder": "alphabetical",
+                  "showSearch": false,
+                  "searchQuery": "",
+                  "backlinkCollapsed": false,
+                  "unlinkedCollapsed": true
+                }
+              },
+              "icon": "lucide-file",
+              "title": "Milvus"
+            }
+          },
+          {
+            "id": "637d0d9f5dd06176",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "loading-bay/dr-egeria-inbox/ML-OPS/BeeAi Framework.md",
+                "mode": "source",
+                "source": false,
+                "backlinks": true,
+                "backlinkOpts": {
+                  "collapseAll": false,
+                  "extraContext": false,
+                  "sortOrder": "alphabetical",
+                  "showSearch": false,
+                  "searchQuery": "",
+                  "backlinkCollapsed": false,
+                  "unlinkedCollapsed": true
+                }
+              },
+              "icon": "lucide-file",
+              "title": "BeeAi Framework"
+            }
+          },
+          {
+            "id": "636c291b4f81c779",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "distribution-hub/dr-egeria-outbox/October/Solution-Blueprint-2025-10-13-20-53-26.md",
+                "mode": "source",
+                "source": false,
+                "backlinks": true,
+                "backlinkOpts": {
+                  "collapseAll": false,
+                  "extraContext": false,
+                  "sortOrder": "alphabetical",
+                  "showSearch": false,
+                  "searchQuery": "",
+                  "backlinkCollapsed": false,
+                  "unlinkedCollapsed": true
+                }
+              },
+              "icon": "lucide-file",
+              "title": "Solution-Blueprint-2025-10-13-20-53-26"
+            }
+          },
+          {
+            "id": "3c0a39a2f7ad7676",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "loading-bay/dr-egeria-inbox/ML-OPS/ML-OPS-Data-Prep-Blueprint.md",
+                "mode": "source",
+                "source": false,
+                "backlinks": true,
+                "backlinkOpts": {
+                  "collapseAll": false,
+                  "extraContext": false,
+                  "sortOrder": "alphabetical",
+                  "showSearch": false,
+                  "searchQuery": "",
+                  "backlinkCollapsed": false,
+                  "unlinkedCollapsed": true
+                }
+              },
+              "icon": "lucide-file",
+              "title": "ML-OPS-Data-Prep-Blueprint"
             }
           }
         ]
@@ -153,6 +273,32 @@
               "icon": "lucide-list",
               "title": "Outline of Emissions Factors"
             }
+          },
+          {
+            "id": "1dc8f4a26e973e14",
+            "type": "leaf",
+            "state": {
+              "type": "footnotes",
+              "state": {
+                "file": "ML-OPS Context Diagram.canvas"
+              },
+              "icon": "lucide-file-signature",
+              "title": "Footnotes"
+            }
+          },
+          {
+            "id": "a5ed2a4ecd279da6",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
           }
         ],
         "currentTab": 2
@@ -172,11 +318,42 @@
       "command-palette:Open command palette": false,
       "bases:Create new base": false,
       "call-dr-egeria:Call Dr.Egeria": false,
-      "obsidian-advanced-slides:Show Slide Preview": false
+      "obsidian-advanced-slides:Show Slide Preview": false,
+      "workspaces:Manage workspace layouts": false
     }
   },
-  "active": "c61e9f02215ddc7d",
+  "active": "3d0b50d98bb600cb",
   "lastOpenFiles": [
+    "distribution-hub/dr-egeria-outbox/October/Solution-Blueprint-2025-10-13-20-53-26.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/Data Prep Report.md",
+    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-14 01:48-Data Prep Report.md",
+    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-14 01:46-Data Prep Report.md",
+    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-14 01:45-Data Prep Report.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/ML-OPS-Data-Prep-Blueprint.md",
+    "Untitled.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/KServe.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/Data Prep Kit.md",
+    "ML-OPS Context Diagram.canvas",
+    "loading-bay/dr-egeria-inbox/ML-OPS/BeeAi Framework.md",
+    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-14 01:08-Load-Data-to-Milvus.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/Load-Data-to-Milvus.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/Docling.md",
+    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-14 00:29-Data Prep Kit.md",
+    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-13 21:31-Load-Data-to-Milvus.md",
+    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-13 18:20-ML-OPS-Data-Prep-Blueprint.md",
+    "README.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/ONNX.md",
+    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-13 18:00-ONNX.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/Milvus.md",
+    "distribution-hub/October/Solution-Blueprint-2025-10-13-09-40-25.md",
+    "distribution-hub/October/Solution-Blueprint-2025-10-13-09-33-13.md",
+    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-11 21:47-ML-OPS-Data-Prep-Blueprint.md",
+    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-12 02:28-Milvus.md",
+    "Obsidian/Data-Driven-LDN/7. Master Digital Product Root.canvas",
+    "loading-bay/dr-egeria-inbox/ML-OPS",
+    "distribution-hub/surveys/survey-reports/Survey Report for f8f649e6-17cb-4c5a-b9e3-1d070eb9502f-Fri Oct 10 21:02:21 UTC 2025.md",
+    "distribution-hub/surveys/report-28443220-4164-4364-91c3-7e598fbfb710-missingReferenceData.csv",
+    "distribution-hub/surveys/report-28443220-4164-4364-91c3-7e598fbfb710-fileNameCounts.csv",
     "Obsidian/Data-Driven-LDN/8. Emissions Factors.canvas",
     "Obsidian/Data-Driven-LDN/Why.md",
     "Obsidian/Data-Driven-LDN/14. Open Source Community.canvas",
@@ -185,24 +362,7 @@
     "Obsidian/Data-Driven-LDN/12. Enterprise View.canvas",
     "Obsidian/Data-Driven-LDN/11. Setting Up a Marketplace.canvas",
     "Obsidian/Data-Driven-LDN/10. ERA 5 Example.canvas",
-    "Obsidian/Data-Driven-LDN/7. Master Digital Product Root.canvas",
     "Obsidian/Data-Driven-LDN/6. Consuming Digital Products.canvas",
-    "Obsidian/Data-Driven-LDN/5. Compoents for Self-Service.canvas",
-    "Obsidian/Data-Driven-LDN/Untitled.md",
-    "Obsidian/Data-Driven-LDN/Report on a Digital Product Catalog.md",
-    "Obsidian/Data-Driven-LDN/interesting points.md",
-    "distribution-hub/dr-egeria-outbox/processed-2025-09-20 19:01-input.md",
-    "loading-bay/dr-egeria-inbox/Inbox-DataDrivenLDN/Governance Strategy-Sustainability.md",
-    "distribution-hub/reports/Digital-Products-2025-09-21-22-18-24.md",
-    "distribution-hub/reports/Digital Products List-2025-09-23 07:36.md",
-    "distribution-hub/reports/Sustainability Product Catalog-2025-09-23 07:33.md",
-    "distribution-hub/dr-egeria-outbox/DataDrivenLDN/processed-2025-09-23 06:29-Define  Raw Emissions Factors Product.md",
-    "distribution-hub/dr-egeria-outbox/DataDrivenLDN/processed-2025-09-23 06:27-Define  Raw Emissions Factors Product.md",
-    "distribution-hub/reports/Sustainability Catalog Report -2025-09-22 22:16.md",
-    "distribution-hub/reports/Sustainability Catalog Report-2025-09-22 21:41.md",
-    "distribution-hub/reports/Sustainability Digital-Product-Catalog-2025-09-22-20-07-15.md",
-    "distribution-hub/reports/Digital-Product-Catalog-2025-09-22-20-07-15.md",
-    "Obsidian/Data-Driven-LDN/1. Recap.md",
     "Obsidian/Images/open-forum.png",
     "Obsidian/Images/open-source-communities.png",
     "Obsidian/Images/three-challenges-expanded.png",
@@ -212,25 +372,13 @@
     "Obsidian/Images/dr-egeria-solution-blueprint.png",
     "Obsidian/Images/very-large-data-sets.png",
     "Obsidian/Images",
-    "Untitled",
     "Obsidian/Images/valid-values-solution-blueprint.png",
     "Obsidian/Images/user-journey.png",
-    "Obsidian/Available Format Sets.md",
-    "loading-bay/open-metadata-archives/README.md",
-    "Obsidian/Data-Driven-LDN/Digital Products & Data Mesh/Snowflake.md",
-    "Obsidian/Data-Driven-LDN/Digital Products & Data Mesh/Snowflake 1.md",
-    "loading-bay/dr-egeria-inbox/Sustainability Commands/Attach CC License to ERA artifacts.md",
-    "loading-bay/dr-egeria-inbox/Sustainability Commands/ExtRef - EFDB - emission factor database.md",
-    "2025-09-21.md",
-    "loading-bay/dr-egeria-inbox/dr_egeria_data_designer_1 1.md",
-    "distribution-hub/dr-egeria-outbox/DataDrivenLDN/processed-2025-09-22 15:32-ExtRef - EFDB - emission factor database.md",
     "loading-bay/Sustainability Files/debug_log.log",
     "loading-bay/Sustainability Files/6-digit_2017_Codes.csv",
     "loading-bay/Sustainability Files/~$2017_NAICS_Structure.xlsx",
     "loading-bay/Sustainability Files/2022_NAICS_Manual.pdf",
     "loading-bay/Sustainability Files/ICD-10_2023_5th_Ed_NCCS.pdf",
-    "loading-bay/Sustainability Files/2022_NAICS_Structure.xlsx",
-    "loading-bay/Sustainability Files/2022_NAICS_Descriptions.xlsx",
-    "loading-bay/Sustainability Files/2017_NAICS_Structure.csv"
+    "loading-bay/Sustainability Files/2022_NAICS_Structure.xlsx"
   ]
 }
