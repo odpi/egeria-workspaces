@@ -1,6 +1,6 @@
 Define Sustainability Product Catalog Structure
 
-# Update Digital Product Catalog
+# Create Digital Product Catalog
 >	Create or update a Digital Product Catalog. 
 
 

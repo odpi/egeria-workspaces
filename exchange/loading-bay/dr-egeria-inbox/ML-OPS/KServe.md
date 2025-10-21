@@ -176,7 +176,7 @@ KServe provides a Kubernetes Custom Resource Definition for serving predictive a
 ## Solution Component Type  
 >   **Input Required**: False  
   
->   **Description**: Type of solution component.  
+>   **Description**: Type of solution component.  Flowchart template shape.
   
 >   **Alternative Labels**: Soln Component Type  
   

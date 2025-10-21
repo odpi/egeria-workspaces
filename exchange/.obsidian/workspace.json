@@ -11,17 +11,48 @@
             "id": "3d0b50d98bb600cb",
             "type": "leaf",
             "state": {
-              "type": "canvas",
+              "type": "markdown",
               "state": {
-                "file": "ML-OPS Context Diagram.canvas",
-                "viewState": {
-                  "x": -57.76710945830467,
-                  "y": 249.59716552578107,
-                  "zoom": 0
+                "file": "loading-bay/dr-egeria-inbox/ML-OPS/Docling.md",
+                "mode": "source",
+                "source": false,
+                "backlinks": true,
+                "backlinkOpts": {
+                  "collapseAll": false,
+                  "extraContext": false,
+                  "sortOrder": "alphabetical",
+                  "showSearch": false,
+                  "searchQuery": "",
+                  "backlinkCollapsed": false,
+                  "unlinkedCollapsed": true
                 }
               },
-              "icon": "lucide-layout-dashboard",
-              "title": "ML-OPS Context Diagram"
+              "icon": "lucide-file",
+              "title": "Docling"
+            }
+          },
+          {
+            "id": "c1410f64edf0503f",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "loading-bay/dr-egeria-inbox/ML-OPS/ML-OPS-Data-Prep-Blueprint.md",
+                "mode": "source",
+                "source": false,
+                "backlinks": true,
+                "backlinkOpts": {
+                  "collapseAll": false,
+                  "extraContext": false,
+                  "sortOrder": "alphabetical",
+                  "showSearch": false,
+                  "searchQuery": "",
+                  "backlinkCollapsed": false,
+                  "unlinkedCollapsed": true
+                }
+              },
+              "icon": "lucide-file",
+              "title": "ML-OPS-Data-Prep-Blueprint"
             }
           },
           {
@@ -102,7 +133,7 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "distribution-hub/dr-egeria-outbox/October/Solution-Blueprint-2025-10-13-20-53-26.md",
+                "file": "loading-bay/dr-egeria-inbox/Sustainability Commands/Define NAICS Codes 2022 Product.md",
                 "mode": "source",
                 "source": false,
                 "backlinks": true,
@@ -117,7 +148,31 @@
                 }
               },
               "icon": "lucide-file",
-              "title": "Solution-Blueprint-2025-10-13-20-53-26"
+              "title": "Define NAICS Codes 2022 Product"
+            }
+          },
+          {
+            "id": "a0b493039b39017a",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "loading-bay/dr-egeria-inbox/ML-OPS/Data Prep Report.md",
+                "mode": "source",
+                "source": false,
+                "backlinks": true,
+                "backlinkOpts": {
+                  "collapseAll": false,
+                  "extraContext": false,
+                  "sortOrder": "alphabetical",
+                  "showSearch": false,
+                  "searchQuery": "",
+                  "backlinkCollapsed": false,
+                  "unlinkedCollapsed": true
+                }
+              },
+              "icon": "lucide-file",
+              "title": "Data Prep Report"
             }
           },
           {
@@ -144,7 +199,8 @@
               "title": "ML-OPS-Data-Prep-Blueprint"
             }
           }
-        ]
+        ],
+        "currentTab": 3
       }
     ],
     "direction": "vertical"
@@ -176,7 +232,7 @@
             "state": {
               "type": "search",
               "state": {
-                "query": "obvious",
+                "query": "",
                 "matchingCase": false,
                 "explainSearch": false,
                 "collapseAll": false,
@@ -280,7 +336,7 @@
             "state": {
               "type": "footnotes",
               "state": {
-                "file": "ML-OPS Context Diagram.canvas"
+                "file": "loading-bay/dr-egeria-inbox/Sustainability Commands/Define NAICS Codes 2022 Product.md"
               },
               "icon": "lucide-file-signature",
               "title": "Footnotes"
@@ -322,40 +378,40 @@
       "workspaces:Manage workspace layouts": false
     }
   },
-  "active": "3d0b50d98bb600cb",
+  "active": "c61e9f02215ddc7d",
   "lastOpenFiles": [
+    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-20 21:09-Milvus.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/ML-OPS-Data-Prep-Blueprint.md",
+    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-20 21:09-ML-OPS-Data-Prep-Blueprint.md",
+    "Output PIpeline.md",
+    "claude_desktop_config.json.md",
+    "ML-OPS Context Diagram.canvas",
+    "README.md",
+    "loading-bay/dr-egeria-inbox/Sustainability Commands/Define NAICS Codes 2022 Product.md",
+    "loading-bay/dr-egeria-inbox/Sustainability Commands/Ext - Ref to Official NAICS Codes Details.md",
+    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-15 21:58-Ext - Ref to Official NAICS Codes Details.md",
+    "loading-bay/dr-egeria-inbox/Sustainability Commands/Define Sustainability Product Catalog Structure.md",
+    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-15 21:57-Define Sustainability Product Catalog Structure.md",
+    "loading-bay/dr-egeria-inbox/Sustainability Commands/Define NAICS Codes 2017 Product.md",
     "distribution-hub/dr-egeria-outbox/October/Solution-Blueprint-2025-10-13-20-53-26.md",
     "loading-bay/dr-egeria-inbox/ML-OPS/Data Prep Report.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/Milvus.md",
+    "distribution-hub/dr-egeria-outbox/Solution-Blueprint-DrE-2025-10-15-13-27-12.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/Load-Data-to-Milvus.md",
+    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-14 13:53-Load-Data-to-Milvus.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/Docling.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/KServe.md",
     "distribution-hub/dr-egeria-outbox/October/processed-2025-10-14 01:48-Data Prep Report.md",
     "distribution-hub/dr-egeria-outbox/October/processed-2025-10-14 01:46-Data Prep Report.md",
     "distribution-hub/dr-egeria-outbox/October/processed-2025-10-14 01:45-Data Prep Report.md",
-    "loading-bay/dr-egeria-inbox/ML-OPS/ML-OPS-Data-Prep-Blueprint.md",
-    "Untitled.md",
-    "loading-bay/dr-egeria-inbox/ML-OPS/KServe.md",
     "loading-bay/dr-egeria-inbox/ML-OPS/Data Prep Kit.md",
-    "ML-OPS Context Diagram.canvas",
     "loading-bay/dr-egeria-inbox/ML-OPS/BeeAi Framework.md",
     "distribution-hub/dr-egeria-outbox/October/processed-2025-10-14 01:08-Load-Data-to-Milvus.md",
-    "loading-bay/dr-egeria-inbox/ML-OPS/Load-Data-to-Milvus.md",
-    "loading-bay/dr-egeria-inbox/ML-OPS/Docling.md",
-    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-14 00:29-Data Prep Kit.md",
-    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-13 21:31-Load-Data-to-Milvus.md",
-    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-13 18:20-ML-OPS-Data-Prep-Blueprint.md",
-    "README.md",
-    "loading-bay/dr-egeria-inbox/ML-OPS/ONNX.md",
-    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-13 18:00-ONNX.md",
-    "loading-bay/dr-egeria-inbox/ML-OPS/Milvus.md",
-    "distribution-hub/October/Solution-Blueprint-2025-10-13-09-40-25.md",
-    "distribution-hub/October/Solution-Blueprint-2025-10-13-09-33-13.md",
-    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-11 21:47-ML-OPS-Data-Prep-Blueprint.md",
-    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-12 02:28-Milvus.md",
     "Obsidian/Data-Driven-LDN/7. Master Digital Product Root.canvas",
     "loading-bay/dr-egeria-inbox/ML-OPS",
-    "distribution-hub/surveys/survey-reports/Survey Report for f8f649e6-17cb-4c5a-b9e3-1d070eb9502f-Fri Oct 10 21:02:21 UTC 2025.md",
     "distribution-hub/surveys/report-28443220-4164-4364-91c3-7e598fbfb710-missingReferenceData.csv",
     "distribution-hub/surveys/report-28443220-4164-4364-91c3-7e598fbfb710-fileNameCounts.csv",
     "Obsidian/Data-Driven-LDN/8. Emissions Factors.canvas",
-    "Obsidian/Data-Driven-LDN/Why.md",
     "Obsidian/Data-Driven-LDN/14. Open Source Community.canvas",
     "Obsidian/Data-Driven-LDN/15...and finally....canvas",
     "Obsidian/Data-Driven-LDN/13. Exploring Future Work.canvas",

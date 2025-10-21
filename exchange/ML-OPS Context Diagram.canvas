@@ -5,16 +5,6 @@
 		{"id":"df9997a4669453d4","type":"group","x":-610,"y":480,"width":340,"height":330,"label":"Monitoring setup"},
 		{"id":"e2d85640320950d9","type":"group","x":140,"y":500,"width":300,"height":240,"label":"Packaging & UI"},
 		{
-			"id":"4fdfb29a09fd1b53",
-			"type":"text",
-			"text":"Elyra",
-			"styleAttributes":{"textAlign":"center"},
-			"x":160,
-			"y":540,
-			"width":260,
-			"height":60
-		},
-		{
 			"id":"02c4421e9c4a824b",
 			"type":"text",
 			"text":"Observability - monitoring, tracing, logs (BeeAI?, OpenTelemenetry? Prometheus?)",
@@ -24,6 +14,23 @@
 			"width":300,
 			"height":110
 		},
+		{"id":"183f7da4be9de425","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/Docling.md","x":-580,"y":-150,"width":280,"height":60},
+		{"id":"97c911410a31fa76","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/ONNX.md","x":-580,"y":300,"width":280,"height":60},
+		{"id":"0eb132dd272beda7","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/KServe.md","x":-580,"y":200,"width":280,"height":60},
+		{"id":"348fc5813610b816","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/Milvus.md","x":-580,"y":110,"width":280,"height":60},
+		{"id":"8f15b2b77a59f116","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/Data Prep Kit.md","x":-580,"y":-20,"width":280,"height":90},
+		{
+			"id":"4fdfb29a09fd1b53",
+			"type":"text",
+			"text":"Elyra",
+			"styleAttributes":{"textAlign":"center"},
+			"x":160,
+			"y":540,
+			"width":260,
+			"height":60
+		},
+		{"id":"b9189665a6597d59","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/ML-OPS-Data-Prep-Blueprint.md","x":-260,"y":-150,"width":380,"height":60},
+		{"id":"8dccaf3eb5343343","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/Load-Data-to-Milvus.md","x":-260,"y":60,"width":260,"height":60},
 		{
 			"id":"da43f9d4fd0d7566",
 			"type":"text",
@@ -55,16 +62,6 @@
 			"height":60
 		},
 		{
-			"id":"f5e095407460c641",
-			"type":"text",
-			"text":"KServe & ONNX - Model Serving",
-			"styleAttributes":{"textAlign":"center"},
-			"x":460,
-			"y":-90,
-			"width":260,
-			"height":60
-		},
-		{
 			"id":"d99475a0396856f1",
 			"type":"text",
 			"text":"Docling - Grounding",
@@ -81,6 +78,16 @@
 			"styleAttributes":{"textAlign":"center"},
 			"x":460,
 			"y":170,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"f5e095407460c641",
+			"type":"text",
+			"text":"KServe & ONNX - Model Serving",
+			"styleAttributes":{"textAlign":"center"},
+			"x":460,
+			"y":-90,
 			"width":260,
 			"height":60
 		},
@@ -104,14 +111,7 @@
 			"y":330,
 			"width":260,
 			"height":60
-		},
-		{"id":"183f7da4be9de425","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/Docling.md","x":-580,"y":-150,"width":280,"height":60},
-		{"id":"97c911410a31fa76","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/ONNX.md","x":-580,"y":300,"width":280,"height":60},
-		{"id":"0eb132dd272beda7","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/KServe.md","x":-580,"y":200,"width":280,"height":60},
-		{"id":"348fc5813610b816","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/Milvus.md","x":-580,"y":110,"width":280,"height":60},
-		{"id":"8f15b2b77a59f116","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/Data Prep Kit.md","x":-580,"y":-20,"width":280,"height":90},
-		{"id":"b9189665a6597d59","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/ML-OPS-Data-Prep-Blueprint.md","x":-260,"y":-150,"width":380,"height":60},
-		{"id":"8dccaf3eb5343343","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/Load-Data-to-Milvus.md","x":-260,"y":60,"width":260,"height":60}
+		}
 	],
 	"edges":[
 		{
