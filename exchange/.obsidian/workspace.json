@@ -232,7 +232,7 @@
             "state": {
               "type": "search",
               "state": {
-                "query": "",
+                "query": "tag:#Sustainability",
                 "matchingCase": false,
                 "explainSearch": false,
                 "collapseAll": false,
@@ -253,7 +253,8 @@
               "title": "Bookmarks"
             }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "horizontal",
@@ -361,8 +362,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 567.5,
-    "collapsed": true
+    "width": 567.5
   },
   "left-ribbon": {
     "hiddenItems": {
@@ -378,7 +378,7 @@
       "workspaces:Manage workspace layouts": false
     }
   },
-  "active": "c61e9f02215ddc7d",
+  "active": "5784ac1789b2bffd",
   "lastOpenFiles": [
     "distribution-hub/dr-egeria-outbox/October/processed-2025-10-20 21:09-Milvus.md",
     "loading-bay/dr-egeria-inbox/ML-OPS/ML-OPS-Data-Prep-Blueprint.md",
