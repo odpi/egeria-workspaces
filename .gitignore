@@ -147,7 +147,7 @@ compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-da
 
 
 
-#/runtime-volumes/unitycatalog1/etc/db/
+/runtime-volumes/unitycatalog1/etc/db/
 /runtime-volumes/egeria-platform-data/logs/
 /exchange/distribution-hub/dr-egeria-outbox/
 /exchange/exploring obsidian/
@@ -164,5 +164,7 @@ compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-da
 /exchange/loading-bay/dr-egeria-inbox/GeoSpatial Data/**
 /exchange/loading-bay/dr-egeria-inbox/Inbox-DataDrivenLDN/**
 /exchange/loading-bay/dr-egeria-inbox/Reference Data Products/**
-#/runtime-volumes/unitycatalog1/etc/db/**
+/runtime-volumes/unitycatalog1/etc/db/**
 
+/compose-configs/optional-associated-runtimes/milvus/volumes/
+/compose-configs/optional-associated-runtimes/milvus/volumes/**

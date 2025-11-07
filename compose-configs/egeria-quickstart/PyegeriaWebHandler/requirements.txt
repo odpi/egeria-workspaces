@@ -3,7 +3,8 @@ uvicorn[standard] # uvicorn[standard] includes httptools and websockets for bett
 pydantic
 requests
 httpx
-pyegeria >=5.4.7.7
+
+pyegeria>=5.4.8.10
 email-validator
 loguru
 rich
