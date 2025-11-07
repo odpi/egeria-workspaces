@@ -32,7 +32,7 @@ Here is the break-down of the configurations:
 ### egeria-quickstart
 This provides the standard Egeria deployment, suitable for most use cases.
 It contains the `egeria-quickstart.yaml` docker compose script and supporting files. The result of running this compose script sets up:
-* Egeria running on port 9444
+* Egeria running on port 9443
 * Apache Kafka running on port 9192
 * Postgres running on port 5442
 * Jupyter running on port 7888

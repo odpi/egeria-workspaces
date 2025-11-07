@@ -8,31 +8,28 @@ from datetime import datetime
 from loguru import logger
 from pydantic import ValidationError
 
+from md_processing.md_commands.project_commands import process_link_project_dependency_command
 
-log_format = "{time} | {level} | {function} | {line} | {message} | {extra}"
-logger.remove()
-logger.add(sys.stderr, level="ERROR", format=log_format, colorize=True)
-logger.add("debug_log.log", rotation="1 day", retention="1 week", compression="zip", level="INFO", format=log_format,
-           colorize=True)
+
 
 from rich import print
 from rich.console import Console
+from md_processing.md_commands.product_manager_commands import process_csv_element_upsert_command
 
 from md_processing import (extract_command, process_glossary_upsert_command, process_term_upsert_command,
                            process_provenance_command, get_current_datetime_string,
                            process_project_upsert_command, command_list, process_blueprint_upsert_command,
                            process_solution_component_upsert_command, process_component_link_unlink_command,
-                           process_csv_element_upsert_command, process_link_project_dependency_command,
+                           process_csv_element_upsert_command,
                            process_link_term_term_relationship_command,
                            process_information_supply_chain_upsert_command,
-                           process_information_supply_chain_link_unlink_command, process_sol_arch_list_command,
+                           process_information_supply_chain_link_unlink_command,
                            process_digital_product_upsert_command, process_agreement_upsert_command,
                            process_collection_upsert_command, process_link_agreement_item_command,
                            process_gov_definition_upsert_command, GOV_COM_LIST, GOV_LINK_LIST,
                            process_governed_by_link_detach_command,
                            process_gov_def_link_detach_command, process_product_dependency_command,
                            process_add_to_collection_command, process_attach_collection_command,
-    # process_collection_list_command, process_gov_definition_list_command,
                            process_gov_def_context_command, process_supporting_gov_def_link_detach_command,
                            process_attach_subscriber_command, process_output_command,
                            COLLECTIONS_LIST, SIMPLE_COLLECTIONS, GOV_LINK_LIST, process_output_command, LIST_COMMANDS,
@@ -47,12 +44,17 @@ from md_processing.md_commands.data_designer_commands import (process_data_spec_
                                                               process_data_structure_upsert_command,
                                                               process_data_class_upsert_command)
 
+from md_processing.md_commands.feedback_commands import (process_add_comment_command, process_journal_entry_command,
+                                                         process_upsert_note_command, process_attach_note_log_command,
+                                                         process_upsert_informal_tag_command, process_tag_element_command)
+
+
 from pyegeria import EgeriaTech, PyegeriaException, print_basic_exception, print_validation_error
 
 EGERIA_METADATA_STORE = os.environ.get("EGERIA_METADATA_STORE", "active-metadata-store")
 EGERIA_KAFKA_ENDPOINT = os.environ.get("KAFKA_ENDPOINT", "localhost:9092")
 EGERIA_PLATFORM_URL = os.environ.get("EGERIA_PLATFORM_URL", "https://localhost:9443")
-EGERIA_VIEW_SERVER = os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server")
+EGERIA_VIEW_SERVER = os.environ.get("EGERIA_VIEW_SERVER", "view-server")
 EGERIA_VIEW_SERVER_URL = os.environ.get("EGERIA_VIEW_SERVER_URL", "https://localhost:9443")
 EGERIA_INTEGRATION_DAEMON = os.environ.get("EGERIA_INTEGRATION_DAEMON", "integration-daemon")
 EGERIA_INTEGRATION_DAEMON_URL = os.environ.get("EGERIA_INTEGRATION_DAEMON_URL", "https://localhost:9443")
@@ -68,6 +70,11 @@ EGERIA_ROOT_PATH = os.environ.get("EGERIA_ROOT_PATH", "../../")
 EGERIA_INBOX_PATH = os.environ.get("EGERIA_INBOX_PATH", "md_processing/dr_egeria_inbox")
 EGERIA_OUTBOX_PATH = os.environ.get("EGERIA_OUTBOX_PATH", "md_processing/dr_egeria_outbox")
 
+log_format = "{time} | {level} | {function} | {line} | {message} | {extra}"
+logger.remove()
+logger.add(sys.stderr, level="ERROR", format=log_format, colorize=True)
+logger.add("debug_log.log", rotation="1 day", retention="1 week", compression="zip", level="INFO", format=log_format,
+           colorize=True)
 
 @logger.catch
 def process_md_file(input_file: str, output_folder:str, directive: str, server: str, url: str, userid: str,
@@ -114,6 +121,19 @@ def process_md_file(input_file: str, output_folder:str, directive: str, server: 
                 result = process_provenance_command(input_file, current_block)
                 prov_found = True
 
+            elif potential_command in ["Create Comment", "Update Comment"]:
+                result = process_add_comment_command(client, current_block, directive)
+            elif potential_command in ["Create Journal Entry"]:
+                result = process_journal_entry_command(client, current_block, directive)
+            elif potential_command in ["Create Note", "Update Note"]:
+                result = process_upsert_note_command(client, current_block, directive)
+            elif potential_command in ["Link NoteLog", "Detach NoteLog"]:
+                result = process_attach_note_log_command(client, current_block, directive)
+            elif potential_command in ["Create Informal Tag", "Update Informal Tag"]:
+                result = process_upsert_informal_tag_command(client, current_block, directive)
+            elif potential_command in ["Link Tag", "Detach Tag"]:
+                result = process_tag_element_command(client, current_block, directive)
+
             elif potential_command in EXT_REF_UPSERT:
                 result = process_external_reference_upsert_command(client, current_block, directive)
             elif potential_command in LINK_EXT_REF:
@@ -149,14 +169,7 @@ def process_md_file(input_file: str, output_folder:str, directive: str, server: 
             elif potential_command in ["Create Blueprint", "Update Blueprint", "Create Solution Blueprint",
                                        "Update Solution Blueprint"]:
                 result = process_blueprint_upsert_command(client, current_block, directive)
-            elif potential_command in ["View Solution Blueprints", "View Blueprint", "View Solution Blueprint"]:
-                result = process_sol_arch_list_command(client, current_block, "Solution Blueprints", directive)
-            elif potential_command in ["View Solution Component", "View Solution Components"]:
-                result = process_sol_arch_list_command(client, current_block, "Solution Components", directive)
-            elif potential_command in ["View Solution Roles", "View Solution Role"]:
-                result = process_sol_arch_list_command(client, current_block, "Solution Roles", directive)
-            elif potential_command in ["View Information Supply Chain", "View Information Supply Chains"]:
-                result = process_sol_arch_list_command(client, current_block, "Information Supply Chains", directive)
+
             elif potential_command in ["Create Solution Component", "Update Solution Component"]:
                 result = process_solution_component_upsert_command(client, current_block, directive)
             elif potential_command in ["Link Solution Components", "Link Solution Component Peers", "Wire Solution Components",
@@ -208,9 +221,7 @@ def process_md_file(input_file: str, output_folder:str, directive: str, server: 
                 result = process_collection_upsert_command(client, current_block, directive)
             elif potential_command in GOV_COM_LIST:
                 result = process_gov_definition_upsert_command(client, current_block, directive)
-            # elif potential_command in ['View Governance Definitions', 'List Governance Definitions',
-            #                            'View Gov Definitions', 'List Gov Definitions']:
-            #     result = process_gov_definition_list_command(client, current_block, directive)
+
             elif potential_command in GOV_LINK_LIST:
                 result = process_gov_def_link_detach_command(client, current_block, directive)
             elif potential_command in ['Link Governance Mechanism', 'Detach Governance Mechanism',
@@ -236,11 +247,6 @@ def process_md_file(input_file: str, output_folder:str, directive: str, server: 
             elif potential_command in ['View Report']:
                 result = process_output_command(client, current_block, directive)
 
-            # elif potential_command in COLLECTIONS_LIST:
-            #     result = process_collection_list_command(client, current_block, directive)
-
-
-
             else:
                 # If object_action is not recognized, keep the block as-is
                 result = None
@@ -257,7 +263,7 @@ def process_md_file(input_file: str, output_folder:str, directive: str, server: 
                 print(f"\n==>\tErrors found while processing command: \'{potential_command}\'\n"
                       f"\tPlease correct and try again. \n")
                 final_output.append(current_block)
-                final_output.append('\n___\n')
+                final_output.append('\n____\n')
         else:
             # If there is no object_action, append the block as-is
             final_output.append(current_block)
@@ -277,7 +283,7 @@ def process_md_file(input_file: str, output_folder:str, directive: str, server: 
             in_h1_block = True
 
         # Handle the end of a block (line starts with `---`)
-        elif line.startswith("___"):
+        elif line.startswith("___") or line.startswith("---"):
             if in_h1_block:
                 # Process the current block when it ends with `---`
                 current_block += f"\n{line}"
