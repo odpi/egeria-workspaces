@@ -21,6 +21,7 @@ pandas = "^2.2.3"
 jupyter-notebook-parser = "^0.1.4"
 marko = "^2.1.2"
 fastapi = "^0.116.1"
+pyspark = "3.5.3"
 
 
 
