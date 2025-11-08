@@ -1,0 +1,135 @@
+# Delta Lake on Spark + Hive Metastore + MinIO
+# - Uses MinIO for S3-compatible storage
+# - Hive Metastore backed by the always-on Postgres from egeria-quickstart (host.docker.internal:5442)
+# - Spark 3.5.x master/worker configured for Delta + S3A + Hive
+#
+# Prereqs (once):
+# - Ensure egeria-quickstart Postgres is running and has DB `hive_metastore` with user `egeria_admin` / pass `admin4egeria`
+# - Download Postgres JDBC driver jar to ./drivers/postgresql-42.7.4.jar (path is relative to this file)
+#   curl -L -o drivers/postgresql-42.7.4.jar \
+#     https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.4/postgresql-42.7.4.jar
+#
+# How to run:
+#   docker compose up -d
+#
+# Access:
+# - MinIO Console: http://localhost:${MINIO_HOST_PORT_CONSOLE:-8201} (MINIO_ROOT_USER/MINIO_ROOT_PASSWORD from .env)
+# - Spark Master UI: http://localhost:8080
+# - Spark Worker UI: http://localhost:8081
+# - Hive Metastore Thrift: thrift://localhost:9083
+
+services:
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: dl-minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "${MINIO_HOST_PORT_API:-8200}:9000"   # S3 API (host)
+      - "${MINIO_HOST_PORT_CONSOLE:-8201}:9001"   # MinIO Console (host)
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - minio-data:/data
+    networks:
+      - deltalan
+
+  minio-mc-init:
+    image: quay.io/minio/mc:latest
+    container_name: dl-minio-mc-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command: "set -e; until (curl -sf http://minio:9000/minio/health/live >/dev/null); do echo 'Waiting for MinIO...'; sleep 2; done; mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; mc mb -p local/${S3_BUCKET} || true; mc anonymous set download local/${S3_BUCKET} || true; echo 'MinIO initialized'"
+    networks:
+      - deltalan
+
+  hive-metastore-init:
+    image: apache/hive:4.0.0
+    container_name: dl-hive-metastore-init
+    depends_on:
+      - minio
+    networks:
+      - deltalan
+    environment:
+      SERVICE_NAME: metastore
+      HIVE_DB: postgres
+      HIVE_JDBC_URL: jdbc:postgresql://host.docker.internal:5442/hive_metastore
+      HIVE_METASTORE_USER: egeria_admin
+      HIVE_METASTORE_PASSWORD: admin4egeria
+    volumes:
+      - ./drivers/postgresql-42.7.4.jar:/opt/hive/lib/postgresql-42.7.4.jar:ro
+    entrypoint: ["/bin/bash", "-lc"]
+    command: "set -e; until (echo > /dev/tcp/host.docker.internal/5442) 2>/dev/null; do echo 'Waiting for Postgres (5442)...'; sleep 2; done; /opt/hive/bin/schematool -dbType postgres -userName $${HIVE_METASTORE_USER} -passWord $${HIVE_METASTORE_PASSWORD} -url $${HIVE_JDBC_URL} -initOrUpgradeSchema -verbose || true; echo 'Hive metastore schema ensured'"
+    restart: "no"
+
+  hive-metastore:
+    image: apache/hive:4.0.0
+    container_name: dl-hive-metastore
+    depends_on:
+      - hive-metastore-init
+    networks:
+      - deltalan
+    environment:
+      SERVICE_NAME: metastore
+      HIVE_DB: postgres
+      HIVE_JDBC_URL: jdbc:postgresql://host.docker.internal:5442/hive_metastore
+      HIVE_METASTORE_USER: egeria_admin
+      HIVE_METASTORE_PASSWORD: admin4egeria
+      HIVE_LOGLEVEL: INFO
+    ports:
+      - "9083:9083"  # Thrift metastore endpoint
+    volumes:
+      - ./drivers/postgresql-42.7.4.jar:/opt/hive/lib/postgresql-42.7.4.jar:ro
+    command: ["/opt/hive/bin/hive", "--service", "metastore", "-p", "9083"]
+
+  spark-master:
+    image: apache/spark:3.5.1
+    container_name: dl-spark-master
+    environment:
+      - SPARK_LOG_LEVEL=INFO
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    ports:
+      - "7077:7077"   # Spark master RPC
+      - "8080:8080"   # Spark master UI
+    volumes:
+      - ./spark/conf:/opt/spark/conf
+      - spark-warehouse:/opt/spark/warehouse
+    depends_on:
+      - minio
+      - hive-metastore
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master", "--host", "spark-master", "--port", "7077", "--webui-port", "8080"]
+    networks:
+      - deltalan
+
+  spark-worker:
+    image: apache/spark:3.5.1
+    container_name: dl-spark-worker
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    ports:
+      - "8081:8081"   # Spark worker UI
+    volumes:
+      - ./spark/conf:/opt/spark/conf
+      - spark-warehouse:/opt/spark/warehouse
+    depends_on:
+      - spark-master
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077", "--webui-port", "8081", "--cores", "${SPARK_WORKER_CORES}", "--memory", "${SPARK_WORKER_MEMORY}"]
+    networks:
+      - deltalan
+
+volumes:
+  minio-data:
+  spark-warehouse:
+
+networks:
+  deltalan:
+    driver: bridge
