@@ -55,6 +55,7 @@ services:
     image: 'bitnamilegacy/kafka:latest'
     networks:
       - egeria_network
+    restart: always
     ports:
       - '9192:9192'
       - '9194:9194'
