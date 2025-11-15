@@ -86,7 +86,7 @@ Content-Type: application/json
       "endpoint" :
       {
         "class" : "Endpoint",
-        "address" : "~{metadataAccessSecretsStore}~"
+        "networkAddress" : "~{metadataAccessSecretsStore}~"
       },
       "configurationProperties" :
       {
@@ -201,7 +201,7 @@ Content-Type: application/json
       "endpoint" :
       {
         "class" : "Endpoint",
-        "address" : "~{metadataAccessSecretsStore}~"
+        "networkAddress" : "~{metadataAccessSecretsStore}~"
       },
       "configurationProperties" :
       {
@@ -378,7 +378,7 @@ Content-Type: application/json
       "endpoint" :
       {
         "class" : "Endpoint",
-        "address" : "~{metadataAccessSecretsStore}~"
+        "networkAddress" : "~{metadataAccessSecretsStore}~"
       },
       "configurationProperties" :
       {
@@ -486,7 +486,7 @@ Content-Type: application/json
       "endpoint" :
       {
         "class" : "Endpoint",
-        "address" : "~{metadataAccessSecretsStore}~"
+        "networkAddress" : "~{metadataAccessSecretsStore}~"
       },
       "configurationProperties" :
       {
