@@ -1,0 +1,95 @@
+version: "3.9"
+
+services:
+  zookeeper:
+    image: zookeeper:3.8
+    container_name: zookeeper
+    environment:
+      ALLOW_ANONYMOUS_LOGIN: "yes"
+    ports:
+      - "2181:2181"
+    restart: unless-stopped
+
+  hadoop-namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: hadoop-namenode
+    environment:
+      CLUSTER_NAME: atlas-hadoop
+    volumes:
+      - hadoop-name:/hadoop/dfs/name
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+    restart: unless-stopped
+
+  hadoop-datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: hadoop-datanode
+    environment:
+      CORE_CONF_fs_defaultFS: hdfs://hadoop-namenode:9000
+      HDFS_CONF_dfs_replication: 1
+    volumes:
+      - hadoop-data:/hadoop/dfs/data
+    depends_on:
+      - hadoop-namenode
+    restart: unless-stopped
+
+  hive-metastore:
+    image: bde2020/hive:2.3.2-postgresql-metastore
+    container_name: atlas-hive-metastore
+    environment:
+      HIVE_METASTORE_DB_HOSTNAME: host.docker.internal
+      HIVE_METASTORE_DB_PORT: 5442
+      HIVE_METASTORE_DB_NAME: metastore
+      HIVE_METASTORE_DB_USER: egeria_admin
+      HIVE_METASTORE_DB_PASSWORD: admin4egeria
+      HIVE_SITE_CONF_datanucleus_autoCreateSchema: "true"
+      HIVE_SITE_CONF_datanucleus_fixedDatastore: "false"
+      HIVE_SITE_CONF_hive_metastore_uris: thrift://hive-metastore:9183
+      CORE_CONF_fs_defaultFS: hdfs://hadoop-namenode:9000
+    ports:
+      - "9183:9183"
+    restart: unless-stopped
+
+  hive-server:
+    image: bde2020/hive:2.3.2-postgresql-metastore
+    container_name: hive-server
+    environment:
+      SERVICE_NAME: hiveserver2
+      HIVE_METASTORE_DB_HOSTNAME: host.docker.internal
+      HIVE_METASTORE_DB_PORT: 5442
+      HIVE_METASTORE_DB_NAME: metastore
+      HIVE_METASTORE_DB_USER: hive
+      HIVE_METASTORE_DB_PASSWORD: hive
+      HIVE_SITE_CONF_hive_metastore_uris: thrift://hive-metastore:9183
+      CORE_CONF_fs_defaultFS: hdfs://hadoop-namenode:9000
+    depends_on:
+      - hive-metastore
+    ports:
+      - "10000:10000"
+    restart: unless-stopped
+
+  atlas:
+    image: sburn/apache-atlas:2.3.0
+    container_name: apache-atlas
+    depends_on:
+      - zookeeper
+      - hive-metastore
+      - hive-server
+    environment:
+      ATLAS_OPTS: >
+        -Datlas.notification.kafka.bootstrap.servers=host.docker.internal:9192
+        -Datlas.audit.hbase.zookeeper.quorum=zookeeper:2181
+        -Datlas.graph.storage.hostname=zookeeper
+        -Datlas.server.bind.address=0.0.0.0
+        -Datlas.repository.store.impl=org.apache.atlas.repository.store.graph.v2.AtlasJanusGraphDatabase
+    ports:
+      - "21000:21000"
+    volumes:
+      - atlas-data:/var/lib/atlas
+    restart: unless-stopped
+
+volumes:
+  hadoop-name:
+  hadoop-data:
+  atlas-data:
