@@ -8,7 +8,7 @@
         "type": "tabs",
         "children": [
           {
-            "id": "3d0b50d98bb600cb",
+            "id": "cd2746b9cb4f01a6",
             "type": "leaf",
             "state": {
               "type": "markdown",
@@ -32,12 +32,12 @@
             }
           },
           {
-            "id": "c1410f64edf0503f",
+            "id": "fa10ee60f2ed8fbc",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "loading-bay/dr-egeria-inbox/ML-OPS/ML-OPS-Data-Prep-Blueprint.md",
+                "file": "Obsidian/Templates/Advanced Dr. Egeria Templates/Digital Product Manager/Create_Agreement.md",
                 "mode": "source",
                 "source": false,
                 "backlinks": true,
@@ -52,16 +52,16 @@
                 }
               },
               "icon": "lucide-file",
-              "title": "ML-OPS-Data-Prep-Blueprint"
+              "title": "Create_Agreement"
             }
           },
           {
-            "id": "203bf3a969b3e4e2",
+            "id": "da3aa72a051f2c19",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "loading-bay/dr-egeria-inbox/ML-OPS/ONNX.md",
+                "file": "distribution-hub/dr-egeria-outbox/October/Solution-Blueprint-2025-10-13-20-53-26.md",
                 "mode": "source",
                 "source": false,
                 "backlinks": true,
@@ -76,16 +76,16 @@
                 }
               },
               "icon": "lucide-file",
-              "title": "ONNX"
+              "title": "Solution-Blueprint-2025-10-13-20-53-26"
             }
           },
           {
-            "id": "66aefafcf9f9cee8",
+            "id": "0c3dae839fa06425",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "loading-bay/dr-egeria-inbox/ML-OPS/Milvus.md",
+                "file": "Obsidian/Reports List.md",
                 "mode": "source",
                 "source": false,
                 "backlinks": true,
@@ -100,16 +100,16 @@
                 }
               },
               "icon": "lucide-file",
-              "title": "Milvus"
+              "title": "Reports List"
             }
           },
           {
-            "id": "637d0d9f5dd06176",
+            "id": "66dcb9a53a2e967f",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "loading-bay/dr-egeria-inbox/ML-OPS/BeeAi Framework.md",
+                "file": "Obsidian/Available Format Sets.md",
                 "mode": "source",
                 "source": false,
                 "backlinks": true,
@@ -124,79 +124,7 @@
                 }
               },
               "icon": "lucide-file",
-              "title": "BeeAi Framework"
-            }
-          },
-          {
-            "id": "636c291b4f81c779",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "loading-bay/dr-egeria-inbox/Sustainability Commands/Define NAICS Codes 2022 Product.md",
-                "mode": "source",
-                "source": false,
-                "backlinks": true,
-                "backlinkOpts": {
-                  "collapseAll": false,
-                  "extraContext": false,
-                  "sortOrder": "alphabetical",
-                  "showSearch": false,
-                  "searchQuery": "",
-                  "backlinkCollapsed": false,
-                  "unlinkedCollapsed": true
-                }
-              },
-              "icon": "lucide-file",
-              "title": "Define NAICS Codes 2022 Product"
-            }
-          },
-          {
-            "id": "a0b493039b39017a",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "loading-bay/dr-egeria-inbox/ML-OPS/Data Prep Report.md",
-                "mode": "source",
-                "source": false,
-                "backlinks": true,
-                "backlinkOpts": {
-                  "collapseAll": false,
-                  "extraContext": false,
-                  "sortOrder": "alphabetical",
-                  "showSearch": false,
-                  "searchQuery": "",
-                  "backlinkCollapsed": false,
-                  "unlinkedCollapsed": true
-                }
-              },
-              "icon": "lucide-file",
-              "title": "Data Prep Report"
-            }
-          },
-          {
-            "id": "3c0a39a2f7ad7676",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "loading-bay/dr-egeria-inbox/ML-OPS/ML-OPS-Data-Prep-Blueprint.md",
-                "mode": "source",
-                "source": false,
-                "backlinks": true,
-                "backlinkOpts": {
-                  "collapseAll": false,
-                  "extraContext": false,
-                  "sortOrder": "alphabetical",
-                  "showSearch": false,
-                  "searchQuery": "",
-                  "backlinkCollapsed": false,
-                  "unlinkedCollapsed": true
-                }
-              },
-              "icon": "lucide-file",
-              "title": "ML-OPS-Data-Prep-Blueprint"
+              "title": "Available Format Sets"
             }
           }
         ],
@@ -257,7 +185,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 373.5
+    "width": 458.5024719238281
   },
   "right": {
     "id": "080fb47234a684ea",
@@ -378,39 +306,46 @@
       "workspaces:Manage workspace layouts": false
     }
   },
-  "active": "c61e9f02215ddc7d",
+  "active": "0c3dae839fa06425",
   "lastOpenFiles": [
-    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-20 21:09-Milvus.md",
-    "loading-bay/dr-egeria-inbox/ML-OPS/ML-OPS-Data-Prep-Blueprint.md",
-    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-20 21:09-ML-OPS-Data-Prep-Blueprint.md",
-    "Output PIpeline.md",
-    "claude_desktop_config.json.md",
-    "ML-OPS Context Diagram.canvas",
-    "README.md",
-    "loading-bay/dr-egeria-inbox/Sustainability Commands/Define NAICS Codes 2022 Product.md",
-    "loading-bay/dr-egeria-inbox/Sustainability Commands/Ext - Ref to Official NAICS Codes Details.md",
-    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-15 21:58-Ext - Ref to Official NAICS Codes Details.md",
-    "loading-bay/dr-egeria-inbox/Sustainability Commands/Define Sustainability Product Catalog Structure.md",
-    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-15 21:57-Define Sustainability Product Catalog Structure.md",
-    "loading-bay/dr-egeria-inbox/Sustainability Commands/Define NAICS Codes 2017 Product.md",
+    "distribution-hub/dr-egeria-outbox/October/Untitled.md",
     "distribution-hub/dr-egeria-outbox/October/Solution-Blueprint-2025-10-13-20-53-26.md",
-    "loading-bay/dr-egeria-inbox/ML-OPS/Data Prep Report.md",
-    "loading-bay/dr-egeria-inbox/ML-OPS/Milvus.md",
-    "distribution-hub/dr-egeria-outbox/Solution-Blueprint-DrE-2025-10-15-13-27-12.md",
-    "loading-bay/dr-egeria-inbox/ML-OPS/Load-Data-to-Milvus.md",
-    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-14 13:53-Load-Data-to-Milvus.md",
-    "loading-bay/dr-egeria-inbox/ML-OPS/Docling.md",
-    "loading-bay/dr-egeria-inbox/ML-OPS/KServe.md",
-    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-14 01:48-Data Prep Report.md",
-    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-14 01:46-Data Prep Report.md",
-    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-14 01:45-Data Prep Report.md",
-    "loading-bay/dr-egeria-inbox/ML-OPS/Data Prep Kit.md",
-    "loading-bay/dr-egeria-inbox/ML-OPS/BeeAi Framework.md",
-    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-14 01:08-Load-Data-to-Milvus.md",
+    "distribution-hub/dr-egeria-outbox/October/processed-2025-11-06 15:21-Tech Type Details.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/Tech Type Details.md",
+    "distribution-hub/dr-egeria-outbox/October/processed-2025-10-03 01:16-Define Sustainability Data Dictionary.md",
+    "Obsidian/Available Format Sets.md",
+    "Obsidian/Reports List.md",
+    "Obsidian/Templates/Advanced Dr. Egeria Templates/Digital Product Manager/Create_Agreement.md",
+    "Obsidian/Templates/Basic Dr. Egeria Templates/Digital Product Manager/Create_Agreement.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/Evil Eye2.md",
+    "distribution-hub/dr-egeria-outbox/October/processed-2025-11-04 14:03-dr-egeria-help-2025-11-03.md",
+    "loading-bay/dr-egeria-samples/create-egeria-markdown-glossary.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/dr-egeria-help-2025-11-03.md",
+    "loading-bay/dr-egeria-samples/dr-egeria-help-2025-09-09T11:10:03.md",
+    "loading-bay/dr-egeria-samples/dr.egeria templates.md",
+    "loading-bay/dr-egeria-samples/generated_help_terms.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/Untitled.md",
+    "Obsidian/Templates/Basic Dr. Egeria Templates/Solution Architect/Link_Solution_Component_Peers.md",
+    "Obsidian/Templates/Basic Dr. Egeria Templates/Solution Architect/Link_Information_Supply_Chain_Peers.md",
+    "Obsidian/Templates/Basic Dr. Egeria Templates/Solution Architect/Create_Solution_Role.md",
+    "Obsidian/Templates/Basic Dr. Egeria Templates/Solution Architect/Create_Solution_Component.md",
+    "Obsidian/Templates/Basic Dr. Egeria Templates/Solution Architect/Create_Solution_Blueprint.md",
+    "Obsidian/Templates/Basic Dr. Egeria Templates/Solution Architect/Create_Information_Supply_Chain.md",
+    "Obsidian/Templates/Basic Dr. Egeria Templates/Project/Link_Project_Hierarchy.md",
+    "Obsidian/Templates/Basic Dr. Egeria Templates/Project/Link_Project_Dependency.md",
+    "Obsidian/Templates/Basic Dr. Egeria Templates/Project/Create_Task.md",
+    "Obsidian/Templates/Basic Dr. Egeria Templates/Solution Architect",
+    "Obsidian/Templates/Basic Dr. Egeria Templates/Project",
+    "Obsidian/Templates/Basic Dr. Egeria Templates/Governance Officer",
+    "Obsidian/Templates/Basic Dr. Egeria Templates/Glossary",
+    "Obsidian/Templates/Basic Dr. Egeria Templates/General",
+    "Obsidian/Templates/Basic Dr. Egeria Templates/Feedback Manager",
+    "Obsidian/Templates/Basic Dr. Egeria Templates/External Reference",
+    "Obsidian/Templates/Basic Dr. Egeria Templates/Digital Product Manager",
+    "Obsidian/Templates/Basic Dr. Egeria Templates/Data Designer",
+    "Obsidian/Templates/Basic Dr. Egeria Templates",
+    "ML-OPS Context Diagram.canvas",
     "Obsidian/Data-Driven-LDN/7. Master Digital Product Root.canvas",
-    "loading-bay/dr-egeria-inbox/ML-OPS",
-    "distribution-hub/surveys/report-28443220-4164-4364-91c3-7e598fbfb710-missingReferenceData.csv",
-    "distribution-hub/surveys/report-28443220-4164-4364-91c3-7e598fbfb710-fileNameCounts.csv",
     "Obsidian/Data-Driven-LDN/8. Emissions Factors.canvas",
     "Obsidian/Data-Driven-LDN/14. Open Source Community.canvas",
     "Obsidian/Data-Driven-LDN/15...and finally....canvas",
@@ -427,14 +362,7 @@
     "Obsidian/Images/ERA 5 on AWS Registry of Open Data.png",
     "Obsidian/Images/dr-egeria-solution-blueprint.png",
     "Obsidian/Images/very-large-data-sets.png",
-    "Obsidian/Images",
     "Obsidian/Images/valid-values-solution-blueprint.png",
-    "Obsidian/Images/user-journey.png",
-    "loading-bay/Sustainability Files/debug_log.log",
-    "loading-bay/Sustainability Files/6-digit_2017_Codes.csv",
-    "loading-bay/Sustainability Files/~$2017_NAICS_Structure.xlsx",
-    "loading-bay/Sustainability Files/2022_NAICS_Manual.pdf",
-    "loading-bay/Sustainability Files/ICD-10_2023_5th_Ed_NCCS.pdf",
-    "loading-bay/Sustainability Files/2022_NAICS_Structure.xlsx"
+    "Obsidian/Images/user-journey.png"
   ]
 }

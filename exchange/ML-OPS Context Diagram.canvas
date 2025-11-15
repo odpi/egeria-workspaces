@@ -1,66 +1,10 @@
 {
 	"nodes":[
-		{"id":"7121e7474fc50612","type":"group","x":-610,"y":-190,"width":750,"height":570,"label":"Data Preparation setup"},
+		{"id":"7121e7474fc50612","type":"group","x":-610,"y":-175,"width":750,"height":570,"label":"Data Preparation Production setup"},
+		{"id":"9f3484b6b8529c60","type":"group","x":-610,"y":-1060,"width":750,"height":570,"label":"Data Preparation Local setup"},
 		{"id":"3b50d78b67439138","type":"group","x":440,"y":-190,"width":300,"height":600,"label":"LLM-based search setup"},
-		{"id":"df9997a4669453d4","type":"group","x":-610,"y":480,"width":340,"height":330,"label":"Monitoring setup"},
-		{"id":"e2d85640320950d9","type":"group","x":140,"y":500,"width":300,"height":240,"label":"Packaging & UI"},
-		{
-			"id":"02c4421e9c4a824b",
-			"type":"text",
-			"text":"Observability - monitoring, tracing, logs (BeeAI?, OpenTelemenetry? Prometheus?)",
-			"styleAttributes":{"textAlign":"center"},
-			"x":-590,
-			"y":490,
-			"width":300,
-			"height":110
-		},
-		{"id":"183f7da4be9de425","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/Docling.md","x":-580,"y":-150,"width":280,"height":60},
-		{"id":"97c911410a31fa76","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/ONNX.md","x":-580,"y":300,"width":280,"height":60},
-		{"id":"0eb132dd272beda7","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/KServe.md","x":-580,"y":200,"width":280,"height":60},
-		{"id":"348fc5813610b816","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/Milvus.md","x":-580,"y":110,"width":280,"height":60},
-		{"id":"8f15b2b77a59f116","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/Data Prep Kit.md","x":-580,"y":-20,"width":280,"height":90},
-		{
-			"id":"4fdfb29a09fd1b53",
-			"type":"text",
-			"text":"Elyra",
-			"styleAttributes":{"textAlign":"center"},
-			"x":160,
-			"y":540,
-			"width":260,
-			"height":60
-		},
-		{"id":"b9189665a6597d59","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/ML-OPS-Data-Prep-Blueprint.md","x":-260,"y":-150,"width":380,"height":60},
-		{"id":"8dccaf3eb5343343","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/Load-Data-to-Milvus.md","x":-260,"y":60,"width":260,"height":60},
-		{
-			"id":"da43f9d4fd0d7566",
-			"type":"text",
-			"text":"Openlineage & Marquez - Lineage",
-			"styleAttributes":{"textAlign":"center"},
-			"x":-590,
-			"y":620,
-			"width":300,
-			"height":60
-		},
-		{
-			"id":"ef5d65efdace8dc0",
-			"type":"text",
-			"text":"Egeria - Governance",
-			"styleAttributes":{"textAlign":"center"},
-			"x":-590,
-			"y":720,
-			"width":300,
-			"height":60
-		},
-		{
-			"id":"c193f6b950d1301f",
-			"type":"text",
-			"text":"Milvus - RAG Building",
-			"styleAttributes":{"textAlign":"center"},
-			"x":460,
-			"y":-170,
-			"width":260,
-			"height":60
-		},
+		{"id":"df9997a4669453d4","type":"group","x":-610,"y":645,"width":340,"height":330,"label":"Monitoring setup"},
+		{"id":"e2d85640320950d9","type":"group","x":440,"y":690,"width":300,"height":240,"label":"Packaging & UI"},
 		{
 			"id":"d99475a0396856f1",
 			"type":"text",
@@ -92,6 +36,21 @@
 			"height":60
 		},
 		{"id":"0cc394ef1763db68","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/BeeAi Framework.md","x":460,"y":10,"width":260,"height":60},
+		{"id":"b9189665a6597d59","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/ML-OPS-Data-Prep-Blueprint.md","x":-588,"y":-854,"width":380,"height":60},
+		{"id":"bb6b6b8b241e1f98","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/Docling.md","x":-580,"y":-1020,"width":280,"height":60},
+		{"id":"c02b87e3cd819e85","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/ML-OPS-Data-Prep-Blueprint.md","x":-260,"y":-1020,"width":380,"height":60},
+		{"id":"5618158bc2df1681","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/Data Prep Kit.md","x":-580,"y":-890,"width":280,"height":90},
+		{"id":"7368c8ca83d9a14c","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/Load-Data-to-Milvus.md","x":-260,"y":-810,"width":260,"height":60},
+		{
+			"id":"c193f6b950d1301f",
+			"type":"text",
+			"text":"Milvus - RAG Building",
+			"styleAttributes":{"textAlign":"center"},
+			"x":460,
+			"y":-170,
+			"width":260,
+			"height":60
+		},
 		{
 			"id":"1d35791f1f5abac0",
 			"type":"text",
@@ -111,25 +70,71 @@
 			"y":330,
 			"width":260,
 			"height":60
-		}
+		},
+		{
+			"id":"4fdfb29a09fd1b53",
+			"type":"text",
+			"text":"Elyra",
+			"styleAttributes":{"textAlign":"center"},
+			"x":460,
+			"y":730,
+			"width":260,
+			"height":60
+		},
+		{
+			"id":"02c4421e9c4a824b",
+			"type":"text",
+			"text":"Observability - monitoring, tracing, logs (BeeAI?, OpenTelemenetry? Prometheus?)",
+			"styleAttributes":{"textAlign":"center"},
+			"x":-590,
+			"y":655,
+			"width":300,
+			"height":110
+		},
+		{
+			"id":"da43f9d4fd0d7566",
+			"type":"text",
+			"text":"Openlineage & Marquez - Lineage",
+			"styleAttributes":{"textAlign":"center"},
+			"x":-590,
+			"y":785,
+			"width":300,
+			"height":60
+		},
+		{
+			"id":"ef5d65efdace8dc0",
+			"type":"text",
+			"text":"Egeria - Governance",
+			"styleAttributes":{"textAlign":"center"},
+			"x":-590,
+			"y":885,
+			"width":300,
+			"height":60
+		},
+		{"id":"183f7da4be9de425","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/Docling.md","x":-580,"y":-135,"width":280,"height":60},
+		{"id":"8f15b2b77a59f116","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/Data Prep Kit.md","x":-580,"y":-5,"width":280,"height":90},
+		{"id":"348fc5813610b816","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/Milvus.md","x":-580,"y":125,"width":280,"height":60},
+		{"id":"0eb132dd272beda7","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/KServe.md","x":-580,"y":215,"width":280,"height":60},
+		{"id":"97c911410a31fa76","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/ONNX.md","x":-580,"y":315,"width":280,"height":60},
+		{"id":"b968244dbf4d2418","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/Milvus.md","x":-580,"y":-760,"width":280,"height":60}
 	],
 	"edges":[
 		{
-			"id":"d77f167f312efc34",
+			"id":"2dc2f323fa833c2c",
 			"styleAttributes":{},
 			"toFloating":false,
-			"fromNode":"8f15b2b77a59f116",
+			"fromNode":"5618158bc2df1681",
 			"fromSide":"right",
-			"toNode":"8dccaf3eb5343343",
+			"toNode":"7368c8ca83d9a14c",
 			"toSide":"top"
 		},
 		{
-			"id":"2649f781df14231c",
+			"id":"98863ece4de79afa",
 			"styleAttributes":{},
 			"toFloating":false,
-			"fromNode":"8dccaf3eb5343343",
+			"fromNode":"7368c8ca83d9a14c",
 			"fromSide":"bottom",
-			"toNode":"348fc5813610b816",
+			"toNode":"b968244dbf4d2418",
 			"toSide":"right"
 		}
 	],
