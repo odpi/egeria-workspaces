@@ -1,0 +1,231 @@
+#
+# These commands add the CocoComboArchive to qs-metadata-store and a new governance engine for clinical trials
+# to qs-engine-host.  They use IntelliJ's HTTP Client.
+#
+@baseURL=https://localhost:9443
+@adminUserId=garygeeke
+
+
+###
+# ---------------------------------------------
+# Metadata Access Store: qs-metadata-store
+#
+##
+
+###
+# @name Load open metadata archive file
+# Load a file that contains the Coco Pharmaceuticals metadata.
+POST {{baseURL}}/open-metadata/server-operations/users/{{adminUserId}}/servers/qs-metadata-store/instance/open-metadata-archives/file
+Content-Type: text/plain
+
+content-packs/CocoComboArchive.omarchive
+
+
+###
+# @name Load open metadata archive file
+# Load a file that contains the Coco Pharmaceuticals metadata.
+POST {{baseURL}}/open-metadata/server-operations/users/{{adminUserId}}/servers/qs-metadata-store/instance/open-metadata-archives/file
+Content-Type: text/plain
+
+content-packs/SimpleCatalog.omarchive
+
+
+###
+# @name Load open metadata archive file
+# Load a file that contains the Coco Pharmaceuticals metadata.
+POST {{baseURL}}/open-metadata/server-operations/users/{{adminUserId}}/servers/qs-metadata-store/instance/open-metadata-archives/file
+Content-Type: text/plain
+
+content-packs/UnityCatalogContentPack.omarchive
+
+
+
+###
+# @name Load open metadata archive file
+# Load a file that contains the Coco Pharmaceuticals metadata.
+POST {{baseURL}}/open-metadata/server-operations/users/{{adminUserId}}/servers/qs-metadata-store/instance/open-metadata-archives/file
+Content-Type: text/plain
+
+content-packs/ObservabilityContentPack.omarchive
+
+
+###
+# @name Load open metadata archive file
+# Load a file that contains the Coco Pharmaceuticals metadata.
+POST {{baseURL}}/open-metadata/server-operations/users/{{adminUserId}}/servers/qs-metadata-store/instance/open-metadata-archives/file
+Content-Type: text/plain
+
+content-packs/PostgresContentPack.omarchive
+
+###
+# @name Load open metadata archive file
+# Load a file that contains the Coco Pharmaceuticals metadata.
+POST {{baseURL}}/open-metadata/server-operations/users/{{adminUserId}}/servers/qs-metadata-store/instance/open-metadata-archives/file
+Content-Type: text/plain
+
+content-packs/CloudInformationModel.omarchive
+
+###
+# -------------------------
+# Engine Host: qs-engine-host
+#
+
+###
+# Add the ClinicalTrials engine at CocoPharmaceuticals engine to qs-engine-host
+POST {{baseURL}}/open-metadata/admin-services/users/{{adminUserId}}/servers/qs-engine-host/engine
+Content-Type: application/json
+
+{
+      "class": "EngineConfig",
+      "engineId": "113c35dc-ea92-40ce-aef2-daf9e08c1b05",
+      "engineQualifiedName": "ClinicalTrials@CocoPharmaceuticals",
+      "engineUserId": "generalnpa"
+}
+
+
+###
+# Add the AssetQuality engine at CocoPharmaceuticals engine to qs-engine-host
+POST {{baseURL}}/open-metadata/admin-services/users/{{adminUserId}}/servers/qs-engine-host/engine
+Content-Type: application/json
+
+{
+  "class": "EngineConfig",
+  "engineId": "76257f18-293f-4e7c-b79f-8b7e5fa44552",
+  "engineQualifiedName": "AssetQuality@CocoPharmaceuticals",
+  "engineUserId": "generalnpa"
+}
+
+
+###
+# Restart the qs-engine-host server on the OMAG Server Platform.
+POST {{baseURL}}/open-metadata/platform-services/users/{{adminUserId}}/server-platform/servers/qs-engine-host/instance
+
+
+###
+@ucURL=http://localhost:8087
+#@ucURL=http://egeria.pdr-associates.com:8070
+###
+# =====================================================================================================================
+# Set up Unity Catalog ...
+
+###
+# @name create catalog
+POST {{ucURL}}/api/2.1/unity-catalog/catalogs
+Content-Type: application/json
+
+{
+  "name": "clinical_trials",
+  "comment": "Clinical trials data for personalized medicine research."
+}
+
+###
+# @name List catalogs
+GET {{ucURL}}/api/2.1/unity-catalog/catalogs
+Content-Type: application/json
+
+
+###
+# @name delete volume
+DELETE {{ucURL}}/api/2.1/unity-catalog/volumes/clinical_trials.teddy_bear_drop_foot.weekly_measurements
+Content-Type: application/json
+
+
+###
+# @name delete volume
+DELETE {{ucURL}}/api/2.1/unity-catalog/volumes/clinical_trials.werewolf_transformation.weekly_measurements
+Content-Type: application/json
+
+###
+# @name delete volume
+DELETE {{ucURL}}/api/2.1/unity-catalog/volumes/clinical_trials.dragon_breath.weekly_measurements
+Content-Type: application/json
+
+###
+# @name delete volume
+DELETE {{ucURL}}/api/2.1/unity-catalog/volumes/clinical_trials.falcon_feather_mite.weekly_measurements
+Content-Type: application/json
+
+
+###
+# @name delete volume
+DELETE {{ucURL}}/api/2.1/unity-catalog/volumes/clinical_trials.teddy_bear_drop_foot.weekly_measurements
+Content-Type: application/json
+
+
+###
+# @name delete schema
+DELETE {{ucURL}}/api/2.1/unity-catalog/schemas/clinical_trials.teddy_bear_drop_foot
+Content-Type: application/json
+
+###
+# Remember to delete files in data lake
+###
+
+
+###
+# =====================================================================================================================
+# Set up the data spec ...
+
+
+@viewServer=qs-view-server
+
+###
+# =====================================================================================================================
+# Manage the authentication token.  Run this request to create/refresh the token.
+
+# @name Token (RequestBody)
+POST {{baseURL}}/api/token
+Content-Type: application/json
+
+{
+  "userId" : "peterprofile",
+  "password" : "secret"
+}
+
+> {% client.global.set("token", response.body); %}
+
+
+###
+# @name get the GUID for the data spec - this is created in set up clinical trial
+# Retrieve the metadata element using its unique identifier.
+POST {{baseURL}}/servers/{{viewServer}}/api/open-metadata/runtime-manager/metadata-elements/guid-by-unique-name
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "class" : "NameRequestBody",
+  "name" : "Collection:PROJ-CT-TBDF:DataSpecification",
+  "namePropertyName" : "qualifiedName"
+}
+
+> {% client.global.set("dataSpecGUID", response.body.guid); %}
+
+
+###
+# @name createDataStructure for weekly measurements
+# Create a data structure.
+POST {{baseURL}}/servers/{{viewServer}}/api/open-metadata/data-designer/data-structures
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "class" : "NewDataStructureRequestBody",
+  "anchorGUID" : "{{dataSpecGUID}}",
+  "isOwnAnchor": false,
+  "parentGUID": "{{dataSpecGUID}}",
+  "parentRelationshipTypeName": "CollectionMembership",
+  "parentAtEnd1": true,
+  "properties": {
+    "class" : "DataStructureProperties",
+    "qualifiedName": "DataStructure::PROJ-CT-TBDF::WeeklyMeasurements",
+    "displayName": "Weekly Measurement Data",
+    "description": "This describes the structure of the data files that hold the measurements taken weekly for each patient.  The data for patients at a particular hospital are typically delivered together in a single CSV file.  Restatements are possible by sending the data for the patients using the same data and patient identifier.  The new values will override the original values.",
+    "namespace": "PROJ-CT-TBDF",
+    "versionIdentifier": "V1.0"
+  }
+}
+
+> {% client.global.set("dataStructureGUID", response.body.guid); %}
+
+
+###
