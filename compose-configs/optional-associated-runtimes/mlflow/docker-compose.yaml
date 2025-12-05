@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Contributors to the Egeria project
+
+version: "3.8"
+
+services:
+  # 1. Artifact Store (MinIO - S3 compatible)
+  # MinIO API (Default 9000) exposed on 9005
+  # MinIO Console (Default 9001) exposed on 9006
+  minio:
+    image: minio/minio:latest
+    container_name: mlflow_minio_server
+    restart: always
+    environment:
+      MINIO_ROOT_USER: minio_access_key
+      MINIO_ROOT_PASSWORD: minio_secret_key
+    volumes:
+      - minio_data:/data # Persistent storage for artifacts
+    ports:
+      - "9005:9000" # Host: 9005 -> Container: 9000 (API)
+      - "9006:9001" # Host: 9006 -> Container: 9001 (Console UI)
+    command: server /data --console-address ":9001"
+    networks:
+      - egeria_network # Connect to your existing network
+
+  # 2. MLflow Tracking Server
+  # MLflow UI (Default 5000) exposed on 5005
+  mlflow:
+    # BUILD STEP: Requires a local Dockerfile in a directory named 'mlflow_server'
+    build:
+      context: ./mlflow_server
+      dockerfile: Dockerfile
+    image: custom_mlflow_server
+    container_name: mlflow_tracking_server
+    restart: always
+    environment:
+      # Connect MLflow to your EXTERNAL PostgreSQL
+      # Note: 'host.docker.internal' works on Mac/Windows, but you may need the host IP address on Linux.
+      BACKEND_STORE_URI: postgresql://mlflow_user:mlflow_password@host.docker.internal:5442/mlflow_db
+
+      # Connect MLflow to the internal MinIO service
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000 # Use internal Docker network name and default container port
+      AWS_ACCESS_KEY_ID: minio_access_key
+      AWS_SECRET_ACCESS_KEY: minio_secret_key
+      ARTIFACT_ROOT: s3://mlflow-artifacts/
+
+    command: mlflow server --backend-store-uri $BACKEND_STORE_URI --default-artifact-root $ARTIFACT_ROOT --host 0.0.0.0 --port 5000
+    ports:
+      - "5025:5000" # Host: 5025 -> Container: 5000 (MLflow UI)
+    depends_on:
+      - minio
+    networks:
+      - egeria_network # Connect to your existing network
+
+networks:
+  egeria_network:
+    external: true
+
+volumes:
+  minio_data:
