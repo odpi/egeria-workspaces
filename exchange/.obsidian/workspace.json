@@ -80,55 +80,36 @@
             }
           },
           {
-            "id": "0c3dae839fa06425",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "Obsidian/Reports List.md",
-                "mode": "source",
-                "source": false,
-                "backlinks": true,
-                "backlinkOpts": {
-                  "collapseAll": false,
-                  "extraContext": false,
-                  "sortOrder": "alphabetical",
-                  "showSearch": false,
-                  "searchQuery": "",
-                  "backlinkCollapsed": false,
-                  "unlinkedCollapsed": true
-                }
-              },
-              "icon": "lucide-file",
-              "title": "Reports List"
-            }
-          },
-          {
             "id": "66dcb9a53a2e967f",
             "type": "leaf",
             "state": {
-              "type": "markdown",
+              "type": "canvas",
               "state": {
-                "file": "Obsidian/Available Format Sets.md",
-                "mode": "source",
-                "source": false,
-                "backlinks": true,
-                "backlinkOpts": {
-                  "collapseAll": false,
-                  "extraContext": false,
-                  "sortOrder": "alphabetical",
-                  "showSearch": false,
-                  "searchQuery": "",
-                  "backlinkCollapsed": false,
-                  "unlinkedCollapsed": true
+                "file": "Obsidian/Data-Driven-LDN/GeoSpatial Demo/Managing External Data.canvas",
+                "viewState": {
+                  "x": 411,
+                  "y": 220,
+                  "zoom": -2.7889475055877178
                 }
               },
-              "icon": "lucide-file",
-              "title": "Available Format Sets"
+              "icon": "lucide-layout-dashboard",
+              "title": "Managing External Data"
+            }
+          },
+          {
+            "id": "ab6b151dd828268e",
+            "type": "leaf",
+            "state": {
+              "type": "release-notes",
+              "state": {
+                "currentVersion": "1.10.6"
+              },
+              "icon": "lucide-book-up",
+              "title": "Release Notes 1.10.6"
             }
           }
         ],
-        "currentTab": 3
+        "currentTab": 4
       }
     ],
     "direction": "vertical"
@@ -185,7 +166,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 458.5024719238281
+    "width": 642.5024719238281
   },
   "right": {
     "id": "080fb47234a684ea",
@@ -306,15 +287,33 @@
       "workspaces:Manage workspace layouts": false
     }
   },
-  "active": "0c3dae839fa06425",
+  "active": "ab6b151dd828268e",
   "lastOpenFiles": [
+    "Obsidian/Data-Driven-LDN/1. Recap.canvas",
+    "Obsidian/Data-Driven-LDN/13. Exploring Future Work.canvas",
+    "Obsidian/Data-Driven-LDN/14. Open Source Community.canvas",
+    "Obsidian/Data-Driven-LDN/11. Setting Up a Marketplace.canvas",
+    "Obsidian/Data-Driven-LDN/7. Master Digital Product Root.canvas",
+    "Obsidian/Data-Driven-LDN/6. Consuming Digital Products.canvas",
+    "Obsidian/Data-Driven-LDN/5. Compoents for Self-Service.canvas",
+    "Obsidian/Data-Driven-LDN/4. Valid Value Set Product Solution Blueprint.canvas",
+    "Obsidian/Data-Driven-LDN/3. Egeria.canvas",
+    "Obsidian/Data-Driven-LDN/2. Users Journey.canvas",
+    "Obsidian/Available Format Sets.md",
+    "distribution-hub/surveys/survey-reports/Survey Report for 890d26a8-a740-42c0-8585-801274bbf8f1-Tue Nov 18 21:02:19 UTC 2025.md",
+    "distribution-hub/surveys/survey-reports/Survey Report for 890d26a8-a740-42c0-8585-801274bbf8f1-Tue Nov 18 21:01:50 UTC 2025.md",
+    "distribution-hub/surveys/survey-reports/Survey Report for 53891a04-8ad8-46fd-8ba4-ff4a0c83ebcb-Tue Nov 18 15:03:02 UTC 2025.md",
+    "distribution-hub/reports/debug_log.log",
+    "distribution-hub/surveys/survey-reports/Survey Report for 534734b6-35d8-4c7c-a1f3-5d2806c6009e-Sun Nov 16 21:07:42 UTC 2025.md",
+    "distribution-hub/surveys/survey-reports/Survey Report for 534734b6-35d8-4c7c-a1f3-5d2806c6009e-Sun Nov 16 02:58:25 UTC 2025.md",
+    "2025-11-14.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/Untitled.md",
+    "Obsidian/Reports List.md",
     "distribution-hub/dr-egeria-outbox/October/Untitled.md",
     "distribution-hub/dr-egeria-outbox/October/Solution-Blueprint-2025-10-13-20-53-26.md",
     "distribution-hub/dr-egeria-outbox/October/processed-2025-11-06 15:21-Tech Type Details.md",
     "loading-bay/dr-egeria-inbox/ML-OPS/Tech Type Details.md",
     "distribution-hub/dr-egeria-outbox/October/processed-2025-10-03 01:16-Define Sustainability Data Dictionary.md",
-    "Obsidian/Available Format Sets.md",
-    "Obsidian/Reports List.md",
     "Obsidian/Templates/Advanced Dr. Egeria Templates/Digital Product Manager/Create_Agreement.md",
     "Obsidian/Templates/Basic Dr. Egeria Templates/Digital Product Manager/Create_Agreement.md",
     "loading-bay/dr-egeria-inbox/ML-OPS/Evil Eye2.md",
@@ -324,16 +323,8 @@
     "loading-bay/dr-egeria-samples/dr-egeria-help-2025-09-09T11:10:03.md",
     "loading-bay/dr-egeria-samples/dr.egeria templates.md",
     "loading-bay/dr-egeria-samples/generated_help_terms.md",
-    "loading-bay/dr-egeria-inbox/ML-OPS/Untitled.md",
     "Obsidian/Templates/Basic Dr. Egeria Templates/Solution Architect/Link_Solution_Component_Peers.md",
     "Obsidian/Templates/Basic Dr. Egeria Templates/Solution Architect/Link_Information_Supply_Chain_Peers.md",
-    "Obsidian/Templates/Basic Dr. Egeria Templates/Solution Architect/Create_Solution_Role.md",
-    "Obsidian/Templates/Basic Dr. Egeria Templates/Solution Architect/Create_Solution_Component.md",
-    "Obsidian/Templates/Basic Dr. Egeria Templates/Solution Architect/Create_Solution_Blueprint.md",
-    "Obsidian/Templates/Basic Dr. Egeria Templates/Solution Architect/Create_Information_Supply_Chain.md",
-    "Obsidian/Templates/Basic Dr. Egeria Templates/Project/Link_Project_Hierarchy.md",
-    "Obsidian/Templates/Basic Dr. Egeria Templates/Project/Link_Project_Dependency.md",
-    "Obsidian/Templates/Basic Dr. Egeria Templates/Project/Create_Task.md",
     "Obsidian/Templates/Basic Dr. Egeria Templates/Solution Architect",
     "Obsidian/Templates/Basic Dr. Egeria Templates/Project",
     "Obsidian/Templates/Basic Dr. Egeria Templates/Governance Officer",
@@ -343,17 +334,7 @@
     "Obsidian/Templates/Basic Dr. Egeria Templates/External Reference",
     "Obsidian/Templates/Basic Dr. Egeria Templates/Digital Product Manager",
     "Obsidian/Templates/Basic Dr. Egeria Templates/Data Designer",
-    "Obsidian/Templates/Basic Dr. Egeria Templates",
     "ML-OPS Context Diagram.canvas",
-    "Obsidian/Data-Driven-LDN/7. Master Digital Product Root.canvas",
-    "Obsidian/Data-Driven-LDN/8. Emissions Factors.canvas",
-    "Obsidian/Data-Driven-LDN/14. Open Source Community.canvas",
-    "Obsidian/Data-Driven-LDN/15...and finally....canvas",
-    "Obsidian/Data-Driven-LDN/13. Exploring Future Work.canvas",
-    "Obsidian/Data-Driven-LDN/12. Enterprise View.canvas",
-    "Obsidian/Data-Driven-LDN/11. Setting Up a Marketplace.canvas",
-    "Obsidian/Data-Driven-LDN/10. ERA 5 Example.canvas",
-    "Obsidian/Data-Driven-LDN/6. Consuming Digital Products.canvas",
     "Obsidian/Images/open-forum.png",
     "Obsidian/Images/open-source-communities.png",
     "Obsidian/Images/three-challenges-expanded.png",
