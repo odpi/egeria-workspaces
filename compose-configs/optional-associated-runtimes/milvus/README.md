@@ -9,5 +9,12 @@ support AI applications. We are using Milvus in our AI experiments in the Egeria
 
 As always, your feedback and participation are welcome. 
 
+# Milvus Admin UI
+Milvus provides a web-based user interface for managing and interacting with the database. You can access the Milvus Admin UI at http://localhost:9091/webui
+
+# Milvus access
+Milvus is at http://localhost:19530
+
+
 
 License: CC BY 4.0, Copyright Contributors to the ODPi Egeria project.
