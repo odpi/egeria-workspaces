@@ -77,6 +77,9 @@ __MACOSX
 # Ignore private maven repo 
 .repository
 
+# From Obsidion
+exchange/.obsidian/workspace.json
+
 # exclude temporary lock files
 *.lock
 log
@@ -133,7 +136,7 @@ runtime-volumes/unitycatalog*/etc/conf/token.txt
 
 loading-bay/open-metadata-archives/*.omarchive
 
-exchange/loading-bay/secrets/*omsecrets
+#exchange/loading-bay/secrets/*omsecrets
 exchange/loading-bay/secrets/*yml
 exchange/loading-bay/secrets/*yaml
 exchange/loading-bay/open-metadata-archives/*omarchive
