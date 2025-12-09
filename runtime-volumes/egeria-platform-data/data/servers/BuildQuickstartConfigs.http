@@ -572,7 +572,7 @@ Content-Type: application/json
 
 {
   "class" : "ServerPropertiesRequestBody",
-  "localServerDescription" : "AA server that runs integration connectors that synchronize and exchange metadata with different types of technologies and tools.",
+  "localServerDescription" : "A server that runs integration connectors that synchronize and exchange metadata with different types of technologies and tools.",
   "organizationName" : "~{organizationName}~",
   "localServerURL" : "~{egeriaEndpoint}~",
   "localServerUserId" : "qsdaemonnpa",
