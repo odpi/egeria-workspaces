@@ -4,7 +4,7 @@ create user airflow_user with superuser login password 'user4airflow';
 create user marquez_user with superuser login password 'user4marquez';
 create user example_user with login password 'user4example';
 create user uc_user with superuser login password 'user4uc';
-
+create user mlflow_user with superuser login password 'mlflow_password';
 
 create database egeria;
 create database superset;
@@ -14,6 +14,7 @@ create database marquez;
 create database examples;
 create database ucdb;
 CREATE DATABASE hive_metastore;
+create database mlflow_db;
 
 grant all privileges on database egeria to egeria_admin, egeria_user;
 grant all privileges on database superset to egeria_admin, egeria_user;
@@ -23,4 +24,4 @@ grant all privileges on database marquez to marquez_user;
 grant all privileges on database examples to example_user;
 ALTER DATABASE hive_metastore OWNER TO egeria_admin;
 GRANT ALL PRIVILEGES ON DATABASE hive_metastore TO egeria_admin;
-
+grant all privileges on database mlflow_db to mlflow_user

@@ -49,6 +49,9 @@ that we often use with Egeria. Currently this includes:
 some very nice visualization of open lineage graphs.
 * superset - Apache Superset is an open source reporting and dashboard tool.
 * unity-catalog - Open source catalog for managing physical artifacts in a lakehouse environment.
+* deltalake-spark - Open source lakehouse runtime for managing data in a lakehouse environment.
+* milvus—Open source vector database for efficient similarity search and clustering of large datasets.
+* mlflow—Open source platform for managing the end-to-end machine learning lifecycle.
 
 ### other-egeria-deployments
 While the egeria-quickstart environment is a good starting point for most folk, we've also included
