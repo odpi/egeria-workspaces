@@ -1,0 +1,82 @@
+#
+# These commands connect qs-metadata-store to a cohort called "workspacesCollaboration".
+# They use IntelliJ's HTTP Client.
+#
+# Make sure that you set up a unique organization name in the "yourOrgName" variable to be sure your servers
+# are correctly identified.
+#
+@baseURL=https://localhost:9443
+@adminUserId=garygeeke
+@cohort=workspacesCollaboration
+@yourOrgName=add your org name here
+
+###
+# =====================================================================================================================
+# Manage the authentication token.  Run this request to create/refresh the token.
+
+# @name Token (RequestBody)
+POST {{baseURL}}/api/token
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "userId" : "{{adminUserId}}",
+  "password" : "secret"
+}
+
+> {% client.global.set("token", response.body); %}
+
+###
+# -------------------------
+# View Server: qs-view-server
+#
+###
+# @name Set organization name
+# Set up the name of the organization that owns this server.
+POST {{baseURL}}/open-metadata/admin-services/servers/qs-view-server/organization-name?name={{yourOrgName}}
+Authorization: Bearer {{token}}
+
+###
+# -------------------------
+# Engine Host: qs-engine-host
+#
+###
+# @name Set organization name
+# Set up the name of the organization that owns this server.
+POST {{baseURL}}/open-metadata/admin-services/servers/qs-engine-host/organization-name?name={{yourOrgName}}
+Authorization: Bearer {{token}}
+
+###
+# ---------------------------------------
+# Integration Daemon: qs-integration-daemon
+#
+###
+# @name Set organization name
+# Set up the name of the organization that owns this server.
+POST {{baseURL}}/open-metadata/admin-services/servers/qs-integration-daemon/organization-name?name={{yourOrgName}}
+Authorization: Bearer {{token}}
+
+# ---------------------------------------------
+# Metadata Access Store: qs-metadata-store
+#
+###
+# @name Set organization name
+# Set up the name of the organization that owns this server.
+POST {{baseURL}}/open-metadata/admin-services/servers/qs-metadata-store/organization-name?name={{yourOrgName}}
+Authorization: Bearer {{token}}
+
+###
+# Add the server to the cohort.
+POST {{baseURL}}/open-metadata/admin-services/servers/qs-metadata-store/cohorts/{{cohort}}
+Authorization: Bearer {{token}}
+
+
+###
+# Restart the qs-metadata-store server on the OMAG Server Platform.
+POST {{baseURL}}/open-metadata/platform-services/server-platform/servers/qs-metadata-store/instance
+Authorization: Bearer {{token}}
+
+
+
+
+###
