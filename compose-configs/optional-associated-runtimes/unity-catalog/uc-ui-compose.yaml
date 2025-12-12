@@ -20,7 +20,8 @@ services:
     ports:
       - "8087:8087"
     volumes:
-      - ./../../../runtime-volumes/unitycatalog1/etc:/home/unitycatalog/etc
+#      - ./../../../runtime-volumes/unitycatalog1/etc:/home/unitycatalog/etc
+      - uc_server1:/home/unitycatalog/etc
       - ./../../../exchange/coco-data-lake:/mnt/coco-data-lake
 
     command: ./bin/start-uc-server -p 8087
@@ -31,11 +32,12 @@ services:
       #      context: .
       #      dockerfile: Dockerfile
     image: unitycatalog/unitycatalog:latest
-    container_name: uc-server2
+    container_name: uc_server2
     ports:
       - "8187:8187"
     volumes:
-      - ./../../../runtime-volumes/unitycatalog2/etc:/home/unitycatalog/etc
+#      - ./../../../runtime-volumes/unitycatalog2/etc:/home/unitycatalog/etc
+      - uc_server2:/home/unitycatalog/etc
       - ./../../../exchange/coco-data-lake:/mnt/coco-data-lake
 
     command: ./bin/start-uc-server -p 8187
@@ -61,3 +63,10 @@ services:
       - server2
 
 
+volumes:
+  uc_server1:
+    name: uc_server1
+    driver: local
+  uc_server2:
+    name: uc_server2
+    driver: local

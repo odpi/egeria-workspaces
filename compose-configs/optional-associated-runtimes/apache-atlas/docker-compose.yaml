@@ -1,4 +1,19 @@
-version: "3.9"
+---
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Contributors to the Egeria project
+
+# Atlas Compose Script
+#
+# Assumptions:
+#   * Ports
+#       zookeeper: 2101
+#       hadoop-namenode: 9870
+#       hadoop-datanode: 9000
+#       hive-metastore: 9083
+#       atlas-server: 21000
+#       atlas-ui: 21001
+#
+#
 
 services:
   zookeeper:
