@@ -25,7 +25,7 @@ services:
       egeria-main:
         condition: service_healthy
 
-    image: docker.io/jupyter/scipy-notebook:latest
+    image: quay.io/jupyter/scipy-notebook:latest
     container_name: jupyter-work-full
     networks:
       - egeria_network
