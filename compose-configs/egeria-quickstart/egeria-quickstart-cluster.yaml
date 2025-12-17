@@ -1,0 +1,11 @@
+services:
+  kafka:
+    environment:
+      KAFKA_CFG_ADVERTISED_LISTENERS: >-
+        PLAINTEXT://kafka:9192,EXTERNAL://${HOST_FQDN}:9194
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: "${KAFKA_CONTROLLER_QUORUM_VOTERS}"
+
+  egeria-main:
+    environment:
+      HOST_FQDN: "${HOST_FQDN}"
+      KAFKA_BOOTSTRAP_SERVERS: "${KAFKA_BOOTSTRAP_SERVERS}"

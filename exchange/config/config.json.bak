@@ -12,27 +12,27 @@
     "Egeria Engine Host URL": "",
     "Egeria Glossary Path": "glossary",
     "Egeria Integration Daemon": "qs-integration-daemon",
-    "Egeria Integration Daemon URL": "https://laz.local:9443",
+    "Egeria Integration Daemon URL": "https://localhost:9443",
     "Egeria Jupyter": true,
-    "Egeria Kafka Endpoint": "laz.local:9192",
+    "Egeria Kafka Endpoint": "localhost:9192",
     "Egeria Mermaid Folder": "mermaid_graphs",
     "Egeria Metadata Store": "qs-metadata-store",
-    "Egeria Platform URL": "https://laz.local:9443",
+    "Egeria Platform URL": "https://localhost:9443",
     "Egeria View Server": "qs-view-server2",
-    "Egeria View Server URL": "https://laz.local:9443",
+    "Egeria View Server URL": "https://localhost:9443",
     "Pyegeria Root": "/Users/dwolfson/localGit/egeria-v5-3/egeria-python",
     "Pyegeria Config Directory": "/Users/dwolfson/localGit/egeria-v5-3/egeria-python/config",
-    "Pyegeria Publishing Root": "http://laz.local:8085/dr-egeria-outbox",
+    "Pyegeria Publishing Root": "http://localhost:8085/dr-egeria-outbox",
     "Pyegeria User Format Sets Dir": "/Users/dwolfson/localGit/egeria-v5-3/egeria-python"
   },
   "feature_x_enabled": "foo",
   "Logging": {
     "console_filter_levels": [
-      "ERROR",
-      "WARNING",
-      "INFO"
+      "ERROR",  "WARNING", "INFO"
     ],
-    "console_logging_enabled": [],
+    "console_logging_enabled": [
+
+    ],
     "console_logging_level": "INFO",
     "enable_logging": true,
     "file_logging_level": "INFO",

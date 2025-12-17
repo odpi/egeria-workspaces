@@ -51,23 +51,39 @@ services:
       - ../../exchange/config:/home/jovyan/config
 
   kafka:
-#    image: 'bitnami/kafka:latest'
-    image: 'bitnamilegacy/kafka:latest'
+    #    image: 'bitnami/kafka:latest'
+    image: "bitnamilegacy/kafka:latest"
     networks:
       - egeria_network
     restart: always
     ports:
-      - '9192:9192'
-      - '9194:9194'
+      # Internal listener (mostly for same-host containers)
+      - "9192:9192"
+      # KRaft controller quorum port (must be reachable cross-host)
+      - "9193:9193"
+      # External broker port (must be reachable cross-host)
+      - "9194:9194"
     environment:
-      - KAFKA_CFG_NODE_ID=0
-      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
-      - KAFKA_CFG_PROCESS_ROLES=controller,broker
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9193
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://kafka:9192,CONTROLLER://:9193,EXTERNAL://:9194
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9192,EXTERNAL://localhost:9194
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      KAFKA_CFG_NODE_ID: "${KAFKA_NODE_ID}"
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_CFG_PROCESS_ROLES: "controller,broker"
+
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: "${KAFKA_CONTROLLER_QUORUM_VOTERS}"
+
+      KAFKA_CFG_LISTENERS: >-
+        PLAINTEXT://:9192,CONTROLLER://:9193,EXTERNAL://:9194
+      KAFKA_CFG_ADVERTISED_LISTENERS: >-
+        PLAINTEXT://kafka:9192,EXTERNAL://${HOST_FQDN}:9194
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: >-
+        CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+
+      # KRaft cluster identity (must match across all nodes)
+      KAFKA_KRAFT_CLUSTER_ID: "${KAFKA_CLUSTER_ID}"
+    volumes:
+      - kafka-data:/bitnami/kafka
 
   # Proxy service for OpenLineage
   proxy:
@@ -99,10 +115,12 @@ services:
       - '9443:9443'
       - '5005:5005'
     environment:
-      - XTDB_ENABLE_BYTEUTILS_SHA1=True
-      - XTDB_DISABLE_LIBCRYPTO=True
-      - startup.server.list=qs-metadata-store,qs-engine-host,qs-integration-daemon,qs-view-server
-      - server.port=9443
+      XTDB_ENABLE_BYTEUTILS_SHA1: "True"
+      XTDB_DISABLE_LIBCRYPTO: "True"
+      startup.server.list: "qs-metadata-store,qs-engine-host,qs-integration-daemon,qs-view-server"
+      server.port: "9443"
+      HOST_FQDN: "${HOST_FQDN}"
+      KAFKA_BOOTSTRAP_SERVERS: "${KAFKA_BOOTSTRAP_SERVERS}"
     healthcheck:
       test: curl -k -X GET "https://localhost:9443/open-metadata/platform-services/users/garygeeke/server-platform/origin" || exit 1
       interval: 20s
@@ -204,4 +222,4 @@ networks:
   egeria_network:
     driver: bridge
     name: egeria_network
-#        external: tru
+    external: true

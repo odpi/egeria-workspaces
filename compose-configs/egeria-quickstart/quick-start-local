@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "[DEPRECATION] This script has moved to the repo root as './quick-start-local'."
+echo "Invoking the new location..."
+
+REPO_ROOT_DIR="$(cd "$(dirname "$0")"/../.. && pwd)"
+exec "${REPO_ROOT_DIR}/quick-start-local" "$@"

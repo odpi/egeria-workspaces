@@ -82,19 +82,18 @@ the file `proxy.yml`.
 ----
 # Usage
 
-Follow these steps to use Docker Compose.
+Most users should start from the repository root using one of the quick-start scripts:
 
-1. Install and Configure Docker and Docker Compose. 
-   * Docker and Docker compose must be installed and running - see https://docs.docker.com/install/
-   * Configure docker with at least 8GB memory
-   * Create the egeria_network from a terminal window by issuing: `docker network create egeria_network`
-2. Download or clone the egeria-workspaces repo at [**egeria-workspaces**](https://github.com/odpi/egeria-workspaces.git)
-3. In a terminal window, change directory to `<your path to here>/egeria-workspaces/compose-configs/egeria-quickstart`
-4. At the command line issue:
+1. Install and configure Docker (or Podman) and Docker Compose. 
+   * Docker must be installed and running — see https://docs.docker.com/install/
+   * Configure Docker with at least 8GB memory
+   * A Docker network named `egeria_network` will be created automatically by the scripts if needed
+2. Clone the repo: [odpi/egeria-workspaces](https://github.com/odpi/egeria-workspaces.git)
+3. From the repository root, run one of:
+   * `./quick-start-local` — single-machine development (localhost)
+   * `./quick-start-multi-host` — reachable from other hosts on your network (uses host FQDN and external Kafka listeners)
 
-   `docker compose -f egeria-quickstart.yaml up --build`
-
-   This will:
+These scripts will:
 
    * build a jupyter image that is pre-configured to work with Egeria 
     
@@ -105,7 +104,7 @@ Follow these steps to use Docker Compose.
    For Egeria, this means not only starting up the initial set of servers, but then loading the **CoreContentPack.omarchive** into the metadata repository, and then configuring all the servers. 
    This can take several minutes the first time the containers are created. Subsequent startups will be much faster.
 
-Using either the **docker desktop** application or the docker command line you can see the two new containers running. To do this with the docker command line, you can issue:
+Using either the **Docker Desktop** application or the docker command line you can see the new containers running. To do this with the docker command line, you can issue:
 
 `docker ps`
 
@@ -115,7 +114,33 @@ You can control the containers with docker compose commands - see [docker compos
 
 To access jupyter, open a browser to `http://localhost:7888`. At the password prompt, enter `egeria`. This should open up your notebook environment.
 
->Note: You only need to use the --build option if you want to rebuild the jupyter image.
+>Note: You only need to use the --build option if you want to rebuild the Jupyter image.
+
+## Advanced: Manual Docker Compose
+
+If you prefer to run Docker Compose manually instead of using the root scripts, from this directory you can run:
+
+```
+docker compose -f egeria-quickstart.yaml up --build
+```
+
+For the local overlay (host-gateway mappings):
+
+```
+docker compose \
+  -f egeria-quickstart.yaml \
+  -f egeria-quickstart-local.yaml \
+  up -d
+```
+
+For the multi-host overlay (external Kafka listeners / FQDN):
+
+```
+docker compose \
+  -f egeria-quickstart.yaml \
+  -f egeria-quickstart-cluster.yaml \
+  up -d
+```
 
 ## Next Steps
 

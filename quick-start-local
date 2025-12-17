@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Always run from repo root (this script lives at repo root)
+cd "$(dirname "$0")"
+
+echo "[quick-start-local] Preparing environment (.env) and compose files..."
+
+pushd compose-configs/egeria-quickstart >/dev/null
+  # Generate/update .env and normalize exchange/config/config.json
+  ./gen-env.sh
+
+  echo "[quick-start-local] Ensuring docker network 'egeria_network' exists..."
+  if ! docker network inspect egeria_network >/dev/null 2>&1; then
+    docker network create egeria_network >/dev/null
+    echo "[quick-start-local] Created docker network 'egeria_network'"
+  else
+    echo "[quick-start-local] Docker network 'egeria_network' already exists"
+  fi
+
+  echo "[quick-start-local] Starting local quickstart stack (host-gateway mappings enabled)..."
+  docker compose \
+    -f egeria-quickstart.yaml \
+    -f egeria-quickstart-local.yaml \
+    up -d
+popd >/dev/null
+echo "[quick-start-local] Done. Useful URLs:"
+HOST_FQDN_PRINT=$(grep '^HOST_FQDN=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "localhost")
+KAFKA_CLUSTER_ID_PRINT=$(grep '^KAFKA_CLUSTER_ID=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "42")
+echo "  - Effective HOST_FQDN: ${HOST_FQDN_PRINT}"
+echo "  - Effective KAFKA_CLUSTER_ID: ${KAFKA_CLUSTER_ID_PRINT}"
+echo "  - Egeria (platform): https://${HOST_FQDN_PRINT:-localhost}:9443"
+echo "  - Jupyter:           http://${HOST_FQDN_PRINT:-localhost}:7888   (password: egeria)"
+echo "  - Web:               http://${HOST_FQDN_PRINT:-localhost}:8085"
