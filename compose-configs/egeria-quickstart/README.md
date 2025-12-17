@@ -8,7 +8,7 @@ it easy to get a stack running quickly. This deployment configures and starts:
 
 * Egeria on port 9443 and will automatically start the default servers.
 * Jupyter is deployed using port 7888 so as not to interfere with other jupyter servers
-* Kafka on port 9192 to support communications between Egeria servers and other sources.
+* Kafka on port 9192,9193,9194 to support communications between Egeria servers and other sources.
 * Postgres on port 5442 is configured with the *egeria* database and is dynamically configured with the needed schemas.
 * Open Lineage Proxy running on ports 6000 and 6001. Details of the proxy's configuration are in the file `proxy.yml`. 
 * Apache Web Server on port 8085 and configured with `httpd.conf`.
