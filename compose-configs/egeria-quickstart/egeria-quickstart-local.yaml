@@ -1,0 +1,12 @@
+services:
+  egeria-main:
+    extra_hosts:
+      - "${HOST_FQDN}:host-gateway"
+
+  pyegeria-web:
+    extra_hosts:
+      - "${HOST_FQDN}:host-gateway"
+
+  jupyter-hub:
+    extra_hosts:
+      - "${HOST_FQDN}:host-gateway"

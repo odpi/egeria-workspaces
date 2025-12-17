@@ -18,9 +18,31 @@ you need to have docker and docker compose compatible software installed. We tes
 [Docker Desktop](https://www.docker.com/get-started/) but **podmand** and **podman-compose** should also work 
 [Podman](https://podman.io/). 
 
->Note: The minimum level of Egeria (egeria-platform) required is 5.2. If you have older images you should either remove these old images or modify 
- the docker compose yaml scripts to use the image tag 'stable' (referring to 5.2 production release) or a specific post 5.2 release.
+>Note: The minimum level of Egeria (egeria-platform) required is 6.0. If you have older images you should either remove these old images or modify 
+ the docker compose yaml scripts to use the image tag 'stable' (referring to 6.0 production release) or a specific post 6.0 release.
 
+
+# Quick Start (recommended)
+If you want a working Egeria environment with the defaults, use one of these scripts from the repository root:
+
+- `./quick-start-local` — single-machine development on your laptop/desktop.
+  - Uses localhost/host-gateway mappings; all endpoints available on your machine only.
+  - Best for self-contained experiments and tutorials.
+- `./quick-start-multi-host` — when other hosts on your network need to reach your Egeria and Kafka.
+  - Enables external Kafka listeners and uses your host's FQDN (from `hostname -f`).
+  - Best for demos to others on the same network or multi-node experiments.
+
+Both scripts will:
+- Generate/update `.env` in `compose-configs/egeria-quickstart/` via `gen-env.sh` (also normalizes `exchange/config/config.json`).
+- Ensure the Docker network `egeria_network` exists.
+- Bring up the Egeria quickstart stack with the right compose overlays.
+
+After startup, try:
+- Egeria platform: `https://localhost:9443`
+- Jupyter: `http://localhost:7888` (password: `egeria`)
+- Web: `http://localhost:8085`
+
+Advanced users can still use Docker Compose directly; see the quickstart README for details.
 
 # Contents
 **egeria-workspaces** consists of a number of artifacts reflected by the folder structure itself. Here is a quick tour:
@@ -33,7 +55,7 @@ Here is the break-down of the configurations:
 This provides the standard Egeria deployment, suitable for most use cases.
 It contains the `egeria-quickstart.yaml` docker compose script and supporting files. The result of running this compose script sets up:
 * Egeria running on port 9443
-* Apache Kafka running on port 9192
+* Apache Kafka running on port 9192,9193, 9194
 * Postgres running on port 5442
 * Jupyter running on port 7888
 * Open Lineage Proxy running on port 6000
