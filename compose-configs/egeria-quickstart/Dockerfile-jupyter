@@ -6,9 +6,9 @@
 
 # The published image tag is taken from the numerical version of
 # our base image, and appended with the contents of .tag-append (file)
-FROM quay.io/jupyter/scipy-notebook:latest
-ARG env_name=python313
-#ARG py_ver=3.12
+FROM quay.io/jupyter/scipy-notebook
+ARG env_name=python312
+ARG py_ver=3.12
 ENV JUPYTER_ENABLE_LAB=yes
 
 # Much of the following is commented out as it is a bit unstable - but it does allow you to install the latest
@@ -77,8 +77,8 @@ RUN pipx ensurepath
 RUN pipx install pyegeria
 RUN pipx ensurepath
 
-RUN mkdir -p /home/jovyan/workbooks
-RUN chmod +xrw /home/jovyan/workbooks
+# RUN mkdir -p /home/jovyan/workbooks
+# RUN chmod +xrw /home/jovyan/workbooks
 COPY ../Start-Here.md /home/jovyan
 COPY ../custom.css /home/.jupyter
 
