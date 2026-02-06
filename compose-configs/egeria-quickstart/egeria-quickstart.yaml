@@ -25,7 +25,7 @@ services:
       egeria-main:
         condition: service_healthy
 
-    image: docker.io/jupyter/scipy-notebook:latest
+    image: quay.io/jupyter/scipy-notebook:latest
     container_name: jupyter-work-full
     networks:
       - egeria_network
@@ -44,6 +44,7 @@ services:
       - ./before-notebook.d:/usr/local/bin/before-notebook.d
       - ../../work:/home/jovyan/work
       - ../../workspaces:/home/jovyan/workspaces
+      - ../../workbooks:/home/jovyan/workbooks
       - ../../exchange/distribution-hub:/home/jovyan/distribution-hub
       - ../../exchange/loading-bay:/home/jovyan/loading-bay
       - ../../exchange/landing-area:/home/jovyan/landing-area
