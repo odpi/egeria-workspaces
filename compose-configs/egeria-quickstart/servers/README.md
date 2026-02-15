@@ -29,6 +29,8 @@ The final server provides the services for Egeria's python capabilities built ar
 
 These server configurations can be (re)created using the `BuildQuickstartConfigs.http` script.
 
+> **Note:** When using the `quick-start-local` or `quick-start-multi-host` scripts, these configurations are copied to `runtime-volumes/egeria-platform-data/data/servers/`. Local modifications should be made in that runtime directory to persist and be ignored by Git.
+
 
 ----
 License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/),

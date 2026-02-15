@@ -6,6 +6,11 @@ cd "$(dirname "$0")"
 
 echo "[quick-start-multi-host] Preparing environment (.env) and compose files..."
 
+# Copy the server configurations to the runtime volume
+echo "[quick-start-multi-host] Copying server configurations to runtime-volumes/egeria-platform-data/data/servers..."
+mkdir -p runtime-volumes/egeria-platform-data/data
+cp -r compose-configs/egeria-quickstart/servers runtime-volumes/egeria-platform-data/data/
+
 pushd compose-configs/egeria-quickstart >/dev/null
   # Generate/update .env and normalize exchange/config/config.json
   ./gen-env.sh

@@ -95,6 +95,8 @@ Most users should start from the repository root using one of the quick-start sc
 
 These scripts will:
 
+   * copy the server configuration files from `compose-configs/egeria-quickstart/servers` to `runtime-volumes/egeria-platform-data/data/servers`. This enables you to make local changes to the server configurations that persist across restarts and are ignored by Git.
+
    * build a jupyter image that is pre-configured to work with Egeria 
     
    * download the docker images for Kafka, Egeria, and Postgres, and then create and start the containers. Both kafka and Egeria will then automatically configure themselves. 
