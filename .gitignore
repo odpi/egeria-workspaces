@@ -171,3 +171,4 @@ compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-da
 /compose-configs/optional-associated-runtimes/milvus/volumes/**!/runtime-volumes/
 /runtime-volumes/milvus/volumes/
 /runtime-volumes/milvus/volumes/**!/exchange/config/config.json.bak
+/runtime-volumes/egeria-platform-data/data/

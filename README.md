@@ -33,6 +33,7 @@ If you want a working Egeria environment with the defaults, use one of these scr
   - Best for demos to others on the same network or multi-node experiments.
 
 Both scripts will:
+- Copy the server configuration files from `compose-configs/egeria-quickstart/servers` to `runtime-volumes/egeria-platform-data/data/servers`. This allows you to modify the server configurations locally without them being tracked by Git.
 - Generate/update `.env` in `compose-configs/egeria-quickstart/` via `gen-env.sh` (also normalizes `exchange/config/config.json`).
 - Ensure the Docker network `egeria_network` exists.
 - Bring up the Egeria quickstart stack with the right compose overlays.
