@@ -1,8 +1,8 @@
-apache-airflow-providers-openlineage
+apache-airflow-providers-openlineage>=1.2.0
 apache-airflow-providers-postgres
-confluent-kafka
-openlineage-python[kafka]
-pyegeria
+confluent-kafka>=2.0.2
+
+pyegeria>=5.5.3.15
 apache-airflow-providers-apache-kafka
-asgiref
+
 unitycatalog

@@ -45,7 +45,8 @@ going:
 directory, type `./airflow.sh <command>`, where **command** might be an airflow command such as *info*, e.g: `./airflow.sh info`
 
 ### Airflow 
-* WebUI is port 8070, user: *airflow*, password: *airflow*
+* WebUI is port 8072 (API server), user: *airflow*, password: *airflow*
+* Configured with `LocalExecutor` for simplicity in Airflow 3.x
 * Publishes OpenLineage events to port 6000
 * Postgres database for 
 
