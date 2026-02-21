@@ -5,12 +5,12 @@
 # Enables HTTP server configuration overrides (see: https://www.dropwizard.io/en/stable/manual/configuration.html#servers)
 server:
   applicationConnectors:
-  - type: http
-    port: ${MARQUEZ_PORT:-5050}
-    httpCompliance: RFC7230_LEGACY
+    - type: http
+      port: ${MARQUEZ_PORT:-5050}
+      httpCompliance: RFC7230_LEGACY
   adminConnectors:
-  - type: http
-    port: ${MARQUEZ_ADMIN_PORT:-5051}
+    - type: http
+      port: ${MARQUEZ_ADMIN_PORT:-5051}
   # Enables access logs formatted as JSON
   # requestLog:
   #   appenders:
@@ -23,9 +23,9 @@ server:
 # Enables database configuration overrides (see: https://www.dropwizard.io/en/stable/manual/configuration.html#database)
 db:
   driverClass: org.postgresql.Driver
-  url: jdbc:postgresql://${POSTGRES_HOST:-host.docker.internal}:${POSTGRES_PORT:-5442}/${POSTGRES_DB}
-  user: ${POSTGRES_USER}
-  password: ${POSTGRES_PASSWORD}
+  url: jdbc:postgresql://${POSTGRES_HOST:-host.docker.internal}:${POSTGRES_PORT:-5442}/${POSTGRES_DB:-marquez}
+  user: "${POSTGRES_USER}"
+  password: "${POSTGRES_PASSWORD}"
 
 # Adjusts retention policy
 # dbRetention:
@@ -48,6 +48,11 @@ migrateOnStartup: ${MIGRATE_ON_STARTUP:-true}
 graphql:
   enabled: ${GRAPHQL_ENABLED:-true}
 
+### SEARCH CONFIG ###
+# Enabled the Search endpoint
+search:
+  enabled: ${SEARCH_ENABLED:-false}
+
 ### LOGGING CONFIG ###
 
 # Enables logging configuration overrides (see: https://www.dropwizard.io/en/stable/manual/configuration.html#logging)
@@ -66,13 +71,6 @@ logging:
     #   environment: ${SENTRY_ENVIRONMENT}
     #   stacktraceAppPackages: ['marquez']
 
-#search:
-#  enabled: true
-#  scheme: http
-#  host: marquez-opensearch
-#  port: 9200
-#  username: admin
-#  password: admin
 
 ### TRACING ###
 
