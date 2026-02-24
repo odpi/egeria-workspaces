@@ -195,7 +195,7 @@ POST {{baseURL}}/open-metadata/admin-services/servers/qs-metadata-store/open-met
 Authorization: Bearer {{token}}
 Content-Type: text/plain
 
-content-packs/JacquardHarvesterContentPack.omarchive
+content-packs/OpenMetadataDigitalProductsContentPack.omarchive
 
 ###
 # -------------------------
