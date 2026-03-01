@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
+    environment:
+      # Optional: Set OLLAMA_HOST to 0.0.0.0 to make Ollama accessible outside the container
+      - OLLAMA_HOST=0.0.0.0
+
+volumes:
+  ollama-data:
