@@ -1,6 +1,6 @@
 #
-# These commands rebuild the sample configuration documents for qs-metadata-store,
-# qs-view-server, qs-engine-host and qs-integration-daemon.  They use IntelliJ's HTTP Client.
+# These commands rebuild the sample configuration documents for fs-metadata-store,
+# fs-view-server, fs-engine-host and fs-integration-daemon.  They use IntelliJ's HTTP Client.
 #
 @baseURL=https://localhost:9443
 @adminUserId=garygeeke
@@ -23,17 +23,17 @@ Content-Type: application/json
 
 ###
 # ---------------------------------------------
-# Metadata Access Store: qs-metadata-store
+# Metadata Access Store: fs-metadata-store
 #
 ###
 # Set up the basic properties of the server.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-metadata-store/server-properties
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-metadata-store/server-properties
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
   "class" : "ServerPropertiesRequestBody",
-  "localServerDescription" : "A metadata store that supports Open Metadata Access Services (OMASs) with event notifications.  It provides metadata to qs-view-server, qs-engine-host and qs-integration-daemon.",
+  "localServerDescription" : "A metadata store that supports Open Metadata Access Services (OMASs) with event notifications.  It provides metadata to fs-view-server, fs-engine-host and fs-integration-daemon.",
   "organizationName" : "~{organizationName}~",
   "localServerURL" : "~{egeriaEndpoint}~",
   "localServerUserId" : "qsstorenpa",
@@ -46,7 +46,7 @@ Content-Type: application/json
 ###
 # @name Enable the PostgreSQL Repository
 # Set up the local repository to use the PostgreSQL Repository implementation.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-metadata-store/local-repository/mode/postgres-repository
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-metadata-store/local-repository/mode/postgres-repository
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -59,21 +59,21 @@ Content-Type: application/json
 
 ###
 
-@qsMetadataStoreMetadataCollectionId=9905c3cb-94c5-4494-9229-0d6f69c0b842
+@fsMetadataStoreMetadataCollectionId=7fb0be8e-46ec-4ca2-8613-be26290db8b7
 
 ###
 # @name Set local metadata collection id
 # Set up the identifier of the collection of metadata that originates from this metadata server.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-metadata-store/local-repository/metadata-collection-id
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-metadata-store/local-repository/metadata-collection-id
 Authorization: Bearer {{token}}
 Content-Type: text/plain
 
-{{qsMetadataStoreMetadataCollectionId}}
+{{fsMetadataStoreMetadataCollectionId}}
 
 
 ###
 # Set up the connection for the server security connector.  This connector verifies the authorization of any user calling the server's services.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-metadata-store/security/connection
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-metadata-store/security/connection
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -110,7 +110,7 @@ Content-Type: application/json
 ###
 # Set up the common properties needed to call your event bus.  The value of ~{kafkaEndpoint}~ is resolved in the
 # application.properties file using the `platform.placeholder.variables` property.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-metadata-store/event-bus
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-metadata-store/event-bus
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -128,7 +128,7 @@ Content-Type: application/json
 ###
 # Add the event topic audit log destination to the server's configuration document.  The list of severities that are sent to this destination are passed on the request body.  An empty list means all severities.
 # The server may have multiple audit log destinations configured.  Typically each destination has a different subset of the severities configured.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-metadata-store/audit-log-destinations/event-topic?topicName=egeria.omag.server.quickstart.ffdc.audit-logs
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-metadata-store/audit-log-destinations/event-topic?topicName=egeria.omag.server.quickstart.ffdc.audit-logs
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -136,14 +136,14 @@ Content-Type: application/json
 
 ###
 # Set up all of the registered, undeprecated Open Metadata Access Services (OMASs) with kafka notifications enabled.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-metadata-store/access-services
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-metadata-store/access-services
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
 
 ###
 # Add the file name for an Open Metadata Archive that should be loaded each time the server starts.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-metadata-store/open-metadata-archives/file
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-metadata-store/open-metadata-archives/file
 Authorization: Bearer {{token}}
 Content-Type: text/plain
 
@@ -151,7 +151,7 @@ content-packs/CoreContentPack.omarchive
 
 ###
 # Add the file name for an Open Metadata Archive that should be loaded each time the server starts.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-metadata-store/open-metadata-archives/file
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-metadata-store/open-metadata-archives/file
 Authorization: Bearer {{token}}
 Content-Type: text/plain
 
@@ -159,7 +159,7 @@ content-packs/OrganizationInsightContentPack.omarchive
 
 ###
 # Add the file name for an Open Metadata Archive that should be loaded each time the server starts.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-metadata-store/open-metadata-archives/file
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-metadata-store/open-metadata-archives/file
 Authorization: Bearer {{token}}
 Content-Type: text/plain
 
@@ -167,7 +167,7 @@ content-packs/EgeriaContentPack.omarchive
 
 ###
 # Add the file name for an Open Metadata Archive that should be loaded each time the server starts.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-metadata-store/open-metadata-archives/file
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-metadata-store/open-metadata-archives/file
 Authorization: Bearer {{token}}
 Content-Type: text/plain
 
@@ -175,7 +175,7 @@ content-packs/FilesContentPack.omarchive
 
 ###
 # Add the file name for an Open Metadata Archive that should be loaded each time the server starts.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-metadata-store/open-metadata-archives/file
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-metadata-store/open-metadata-archives/file
 Authorization: Bearer {{token}}
 Content-Type: text/plain
 
@@ -183,7 +183,7 @@ content-packs/PostgresContentPack.omarchive
 
 ###
 # Add the file name for an Open Metadata Archive that should be loaded each time the server starts.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-metadata-store/open-metadata-archives/file
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-metadata-store/open-metadata-archives/file
 Authorization: Bearer {{token}}
 Content-Type: text/plain
 
@@ -191,7 +191,7 @@ content-packs/OpenLineageContentPack.omarchive
 
 ###
 # Add the file name for an Open Metadata Archive that should be loaded each time the server starts.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-metadata-store/open-metadata-archives/file
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-metadata-store/open-metadata-archives/file
 Authorization: Bearer {{token}}
 Content-Type: text/plain
 
@@ -199,47 +199,19 @@ content-packs/OpenMetadataDigitalProductsContentPack.omarchive
 
 ###
 # Add the file name for an Open Metadata Archive that should be loaded each time the server starts.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-metadata-store/open-metadata-archives/file
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-metadata-store/open-metadata-archives/file
 Authorization: Bearer {{token}}
 Content-Type: text/plain
 
 content-packs/APIsContentPack.omarchive
 
 ###
-# @name Load open metadata archive file
-# Load a file that contains the connectors for interacting with Unity Catalog.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-metadata-store/open-metadata-archives/file
-Authorization: Bearer {{token}}
-Content-Type: text/plain
-
-content-packs/UnityCatalogContentPack.omarchive
-
-###
-# @name Load open metadata archive file
-# Load a file that contains the Coco Pharmaceuticals metadata.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-metadata-store/open-metadata-archives/file
-Authorization: Bearer {{token}}
-Content-Type: text/plain
-
-content-packs/CocoComboArchive.omarchive
-
-###
-# @name Load open metadata archive file
-# Load a file that contains the simple catalog that demonstrates asset metadata.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-metadata-store/open-metadata-archives/file
-Authorization: Bearer {{token}}
-Content-Type: text/plain
-
-content-packs/SimpleCatalog.omarchive
-
-
-###
 # -------------------------
-# View Server: qs-view-server
+# View Server: fs-view-server
 #
 ###
 # Set up the basic properties of the server.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-view-server/server-properties
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-view-server/server-properties
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -258,7 +230,7 @@ Content-Type: application/json
 ###
 # Set up the common properties needed to call your event bus.  The value of ~{kafkaEndpoint}~ is resolved in the
 # application.properties file using the `platform.placeholder.variables` property.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-view-server/event-bus
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-view-server/event-bus
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -276,7 +248,7 @@ Content-Type: application/json
 ###
 # Add the event topic audit log destination to the server's configuration document.  The list of severities that are sent to this destination are passed on the request body.  An empty list means all severities.
 # The server may have multiple audit log destinations configured.  Typically each destination has a different subset of the severities configured.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-view-server/audit-log-destinations/event-topic?topicName=egeria.omag.server.quickstart.ffdc.audit-logs
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-view-server/audit-log-destinations/event-topic?topicName=egeria.omag.server.quickstart.ffdc.audit-logs
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -286,13 +258,13 @@ Content-Type: application/json
 ###
 # Set up all of the registered, undeprecated Open Metadata View Services (OMVSs).  The request body lists the platforms
 # and servers that will appear on the appropriate UI dropdowns.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-view-server/view-services
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-view-server/view-services
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
   "class": "ViewServiceRequestBody",
-  "omagserverName": "qs-metadata-store",
+  "omagserverName": "fs-metadata-store",
   "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
   "secretsStoreProvider" : "~{secretsStoreProvider}~",
   "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -301,7 +273,7 @@ Content-Type: application/json
 
 ###
 # Set up the connection for the server security connector.  This connector verifies the authorization of any user calling the server's services.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-view-server/security/connection
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-view-server/security/connection
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -338,17 +310,17 @@ Content-Type: application/json
 
 ###
 # -------------------------
-# Engine Host: qs-engine-host
+# Engine Host: fs-engine-host
 #
 ###
 # Set up the basic properties of the server.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-engine-host/server-properties
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-engine-host/server-properties
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
   "class" : "ServerPropertiesRequestBody",
-  "localServerDescription" : "A server that runs governance service requests, triggered by engine actions created in qs-metadata-store.",
+  "localServerDescription" : "A server that runs governance service requests, triggered by engine actions created in fs-metadata-store.",
   "organizationName" : "~{organizationName}~",
   "localServerURL" : "~{egeriaEndpoint}~",
   "localServerUserId" : "qsenginenpa",
@@ -362,7 +334,7 @@ Content-Type: application/json
 ###
 # Set up the common properties needed to call your event bus.  The value of ~{kafkaEndpoint}~ is resolved in the
 # application.properties file using the `platform.placeholder.variables` property.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-engine-host/event-bus
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-engine-host/event-bus
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -380,7 +352,7 @@ Content-Type: application/json
 ###
 # Add the event topic audit log destination to the server's configuration document.  The list of severities that are sent to this destination are passed on the request body.  An empty list means all severities.
 # The server may have multiple audit log destinations configured.  Typically each destination has a different subset of the severities configured.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-engine-host/audit-log-destinations/event-topic?topicName=egeria.omag.server.quickstart.ffdc.audit-logs
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-engine-host/audit-log-destinations/event-topic?topicName=egeria.omag.server.quickstart.ffdc.audit-logs
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -388,9 +360,9 @@ Content-Type: application/json
 
 
 ###
-# Set up the address of the qs-metadata-store that will supply the engine host with metadata along with the
+# Set up the address of the fs-metadata-store that will supply the engine host with metadata along with the
 # qualified names of the governance engines it will run.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-engine-host/governance-engines
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-engine-host/governance-engines
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -400,7 +372,7 @@ Content-Type: application/json
       "engineId": "6a86651a-c9c1-4aee-8a83-4c028d89f775",
       "engineQualifiedName": "AssetOnboarding",
       "engineUserId": "assetonboardingengine",
-      "omagserverName": "qs-metadata-store",
+      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -411,7 +383,7 @@ Content-Type: application/json
       "engineId": "947248ee-a6eb-4f99-8376-7ff488b6281e",
       "engineQualifiedName": "Stewardship",
       "engineUserId": "stewardshipengine",
-      "omagserverName": "qs-metadata-store",
+      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -422,7 +394,7 @@ Content-Type: application/json
       "engineId": "d91b91c2-e019-4eca-870d-d88f7caae696",
       "engineQualifiedName": "FileSurvey",
       "engineUserId": "filesurveyengine",
-      "omagserverName": "qs-metadata-store",
+      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -433,7 +405,7 @@ Content-Type: application/json
       "engineId": "8be68bbe-54ac-4358-aeb9-90782d4e544c",
       "engineQualifiedName": "FileGovernance",
       "engineUserId": "filegovernanceengine",
-      "omagserverName": "qs-metadata-store",
+      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -444,7 +416,7 @@ Content-Type: application/json
       "engineId": "f71a3abb-6d61-4338-8caf-6124a07e35d2",
       "engineQualifiedName": "UnityCatalogSurvey",
       "engineUserId": "unitycatalogsurveyengine",
-      "omagserverName": "qs-metadata-store",
+      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -455,7 +427,7 @@ Content-Type: application/json
       "engineId": "d4d86ff2-0654-4616-a5f2-3c15c07865b6",
       "engineQualifiedName": "UnityCatalogGovernance",
       "engineUserId": "unitycataloggovernanceengine",
-      "omagserverName": "qs-metadata-store",
+      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -466,7 +438,7 @@ Content-Type: application/json
       "engineId": "c0cf5da9-7725-4bdc-ae6e-6f69b4ce3ba2",
       "engineQualifiedName": "PostgreSQLSurvey",
       "engineUserId": "postgresqlsurveyengine",
-      "omagserverName": "qs-metadata-store",
+      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -477,7 +449,7 @@ Content-Type: application/json
       "engineId": "4a8f28dc-5257-49e3-bfab-6605d83537dd",
       "engineQualifiedName": "PostgreSQLGovernance",
       "engineUserId": "postgresqlgovernanceengine",
-      "omagserverName": "qs-metadata-store",
+      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -488,7 +460,7 @@ Content-Type: application/json
       "engineId": "9b7a1da6-7882-41c7-b838-0e297787972f",
       "engineQualifiedName": "ApacheAtlasSurvey",
       "engineUserId": "apacheatlassurveyengine",
-      "omagserverName": "qs-metadata-store",
+      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -499,7 +471,7 @@ Content-Type: application/json
       "engineId": "f5c3b142-0e10-44ae-a160-a1e4d2f32e13",
       "engineQualifiedName": "ApacheAtlasGovernance",
       "engineUserId": "apacheatlassurveyengine",
-      "omagserverName": "qs-metadata-store",
+      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -510,7 +482,7 @@ Content-Type: application/json
       "engineId": "6e04ff1b-1ba3-4eaf-a821-0d52951cc3c4",
       "engineQualifiedName": "EgeriaSurvey",
       "engineUserId": "egeriasurveyengine",
-      "omagserverName": "qs-metadata-store",
+      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -521,7 +493,7 @@ Content-Type: application/json
       "engineId": "d1d36d25-1176-4cd7-a46c-4dcc62990047",
       "engineQualifiedName": "EgeriaGovernance",
       "engineUserId": "egeriagovernanceengine",
-      "omagserverName": "qs-metadata-store",
+      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -532,7 +504,7 @@ Content-Type: application/json
       "engineId": "5f30c642-ceb4-4374-901f-1990572aa109",
       "engineQualifiedName": "ApacheKafkaSurvey",
       "engineUserId": "apachekafkasurveyengine",
-      "omagserverName": "qs-metadata-store",
+      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -543,7 +515,7 @@ Content-Type: application/json
       "engineId": "e107c6ea-7fbe-407b-b51f-e35a488ef49d",
       "engineQualifiedName": "ApacheKafkaGovernance",
       "engineUserId": "apachekafkagovernanceengine",
-      "omagserverName": "qs-metadata-store",
+      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -554,7 +526,7 @@ Content-Type: application/json
       "engineId": "c49e4fbf-a6e2-48c8-985c-b4949616b2c4",
       "engineQualifiedName": "EgeriaWatchdog",
       "engineUserId": "egeriawatchdogengine",
-      "omagserverName": "qs-metadata-store",
+      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -565,29 +537,7 @@ Content-Type: application/json
       "engineId": "67676a0a-cf44-48b9-bedd-09b0870071b9",
       "engineQualifiedName": "MetadataObservability",
       "engineUserId": "observabilitygovernanceengine",
-      "omagserverName": "qs-metadata-store",
-      "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
-      "secretsStoreProvider" : "~{secretsStoreProvider}~",
-      "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
-      "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~"
-    },
-    {
-      "class": "EngineConfig",
-      "engineId": "113c35dc-ea92-40ce-aef2-daf9e08c1b05",
-      "engineQualifiedName": "ClinicalTrials@CocoPharmaceuticals",
-      "engineUserId": "generalnpa",
-      "omagserverName": "qs-metadata-store",
-      "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
-      "secretsStoreProvider" : "~{secretsStoreProvider}~",
-      "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
-      "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~"
-    },
-    {
-      "class": "EngineConfig",
-      "engineId": "76257f18-293f-4e7c-b79f-8b7e5fa44552",
-      "engineQualifiedName": "AssetQuality@CocoPharmaceuticals",
-      "engineUserId": "generalnpa",
-      "omagserverName": "qs-metadata-store",
+      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -598,7 +548,7 @@ Content-Type: application/json
 
 ###
 # Set up the connection for the server security connector.  This connector verifies the authorization of any user calling the server's services.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-engine-host/security/connection
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-engine-host/security/connection
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -635,11 +585,11 @@ Content-Type: application/json
 
 ###
 # ---------------------------------------
-# Integration Daemon: qs-integration-daemon
+# Integration Daemon: fs-integration-daemon
 #
 ###
 # Set up the basic properties of the server.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-integration-daemon/server-properties
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-integration-daemon/server-properties
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -657,8 +607,8 @@ Content-Type: application/json
 
 ###
 # Set up the qualified name of the integration group that this server supports and the location of the
-# metadata access store qs-metadata-store
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-integration-daemon/integration-groups/configuration/all
+# metadata access store fs-metadata-store
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-integration-daemon/integration-groups/configuration/all
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -666,7 +616,7 @@ Content-Type: application/json
     {
       "class": "IntegrationGroupConfig",
       "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:Default",
-      "omagserverName": "qs-metadata-store",
+      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -675,7 +625,7 @@ Content-Type: application/json
     {
       "class": "IntegrationGroupConfig",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
-      "omagserverName" : "qs-metadata-store",
+      "omagserverName" : "fs-metadata-store",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
       "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~",
@@ -684,7 +634,7 @@ Content-Type: application/json
     {
       "class": "IntegrationGroupConfig",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
-      "omagserverName" : "qs-metadata-store",
+      "omagserverName" : "fs-metadata-store",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
       "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~",
@@ -693,7 +643,7 @@ Content-Type: application/json
     {
       "class": "IntegrationGroupConfig",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
-      "omagserverName" : "qs-metadata-store",
+      "omagserverName" : "fs-metadata-store",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
       "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~",
@@ -702,7 +652,7 @@ Content-Type: application/json
     {
       "class": "IntegrationGroupConfig",
       "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:ApacheAtlas",
-      "omagserverName": "qs-metadata-store",
+      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -711,7 +661,7 @@ Content-Type: application/json
     {
       "class": "IntegrationGroupConfig",
       "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:ApacheKafka",
-      "omagserverName": "qs-metadata-store",
+      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -720,7 +670,7 @@ Content-Type: application/json
     {
       "class": "IntegrationGroupConfig",
       "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:OpenAPIs",
-      "omagserverName": "qs-metadata-store",
+      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -729,7 +679,7 @@ Content-Type: application/json
     {
       "class": "IntegrationGroupConfig",
       "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:PostgreSQL",
-      "omagserverName": "qs-metadata-store",
+      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -738,7 +688,7 @@ Content-Type: application/json
     {
       "class": "IntegrationGroupConfig",
       "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:UnityCatalog",
-      "omagserverName": "qs-metadata-store",
+      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -747,7 +697,7 @@ Content-Type: application/json
     {
       "class": "IntegrationGroupConfig",
       "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:Jacquard",
-      "omagserverName": "qs-metadata-store",
+      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
@@ -757,7 +707,7 @@ Content-Type: application/json
 
 ###
 # Set up the connection for the server security connector.  This connector verifies the authorization of any user calling the server's services.
-POST {{baseURL}}/open-metadata/admin-services/servers/qs-integration-daemon/security/connection
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-integration-daemon/security/connection
 Authorization: Bearer {{token}}
 Content-Type: application/json
 

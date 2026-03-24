@@ -1,16 +1,25 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 <!-- Copyright Contributors to the Egeria project. -->
 
-# Quickstart server configurations
+# Pre-built server configurations
 
-This directory contains the server configurations for the four [OMAG Servers](https://egeria-project.org/concepts/omag-server/) that make up the quick start environment:
+This directory contains the server configurations for the [OMAG Servers](https://egeria-project.org/concepts/omag-server/) that make up the both the Quickstart and Freshstart environments:
+
+* The [Quickstart server configuration](#quickstart-server-configurations) are used with the quickstart environment.  These servers are configured for the Coco Pharmaceuticals use cases and demos.
+* The [Freshstart server configuration](#freshstart-server-configurations) are used with the freshstart environment.  These servers are configured with the standard connectors, ready for you to set up your own Egeria environment.
+
+## Quickstart server configurations
+
+The quickstart servers are as follows:
 
 * **qs-metadata-store** is a [Metadata Access Store](https://egeria-project.org/concepts/metadata-access-store/)
   that supports both REST APIs for retrieving and maintaining open metadata along with
   event notifications each time there is change in the metadata.  It is storing its
   metadata in a PostgreSQL repository.  This means that any
   metadata that you create will still be in the repository when you restart this server.
-  This server automatically loads the [Core ]
+  This server automatically loads the following open metadata archives:
+  
+  - [CoreContentPack]()
 
 * **qs-integration-daemon** is an [Integration Daemon](https://egeria-project.org/concepts/integration-daemon/) that 
   runs [Integration Connectors](https://egeria-project.org/concepts/integration-connectors/).
@@ -30,6 +39,10 @@ The final server provides the services for Egeria's python capabilities built ar
 These server configurations can be (re)created using the `BuildQuickstartConfigs.http` script.
 
 > **Note:** When using the `quick-start-local` or `quick-start-multi-host` scripts, these configurations are copied to `runtime-volumes/egeria-platform-data/data/servers/`. Local modifications should be made in that runtime directory to persist and be ignored by Git.
+
+## Freshstart server configurations
+
+The freshstart server configurations define servers for the freshstart environment... more to come!
 
 
 ----
