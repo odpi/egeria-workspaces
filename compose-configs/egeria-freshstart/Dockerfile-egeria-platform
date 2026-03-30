@@ -1,0 +1,4 @@
+FROM quay.io/odpi/egeria-platform:latest
+
+# Freshstart secrets are runtime-mounted from runtime-volumes/freshstart-platform-data/secrets.
+

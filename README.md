@@ -23,27 +23,46 @@ you need to have docker and docker compose compatible software installed. We tes
 
 
 # Quick Start (recommended)
-If you want a working Egeria environment with the defaults, use one of these scripts from the repository root:
+This repository now provides two isolated deployment flavors with shared Kafka and PostgreSQL infrastructure.
 
-- `./quick-start-local` — single-machine development on your laptop/desktop.
-  - Uses localhost/host-gateway mappings; all endpoints available on your machine only.
-  - Best for self-contained experiments and tutorials.
-- `./quick-start-multi-host` — when other hosts on your network need to reach your Egeria and Kafka.
-  - Enables external Kafka listeners and uses your host's FQDN (from `hostname -f`).
-  - Best for demos to others on the same network or multi-node experiments.
+## Quickstart deployment (Coco Pharmaceuticals defaults)
 
-Both scripts will:
-- Copy the server configuration files from `compose-configs/egeria-quickstart/servers` to `runtime-volumes/egeria-platform-data/data/servers`. This allows you to modify the server configurations locally without them being tracked by Git.
-- Generate/update `.env` in `compose-configs/egeria-quickstart/` via `gen-env.sh` (also normalizes `exchange/config/config.json`).
-- Ensure the Docker network `egeria_network` exists.
-- Bring up the Egeria quickstart stack with the right compose overlays.
+- `./quick-start-local`
+- `./quick-start-multi-host`
 
-After startup, try:
+After startup, use:
+
 - Egeria platform: `https://localhost:9443`
 - Jupyter: `http://localhost:7888` (password: `egeria`)
 - Web: `http://localhost:8085`
 
-Advanced users can still use Docker Compose directly; see the quickstart README for details.
+## Freshstart deployment (clean fs-* defaults)
+
+- `./fresh-start-local`
+- `./fresh-start-multi-host`
+
+After startup, use:
+
+- Egeria platform: `https://localhost:8443`
+- Jupyter: `http://localhost:7889` (password: `egeria`)
+- Web: `http://localhost:8086`
+
+All four scripts automatically ensure the shared infrastructure stack in `compose-configs/shared-infra/` is running.
+This shared stack now includes Kafka, PostgreSQL, and the OpenLineage proxy.
+
+The startup scripts now always:
+
+- rebuild local compose images with `docker compose build --pull`, so Docker checks for newer base images such as `quay.io/odpi/egeria-platform:latest`, and
+- start containers with `docker compose up -d --pull always`, so Docker checks for newer remote images before using cached ones.
+
+If you want a completely clean rebuild that ignores Docker's local build cache, set `NO_CACHE=1` when starting either deployment:
+
+```bash
+NO_CACHE=1 ./quick-start-local
+NO_CACHE=1 ./fresh-start-local
+```
+
+Accepted truthy values are `1`, `true`, `yes`, and `on`. Falsey values are unset, `0`, `false`, `no`, and `off`.
 
 # Contents
 **egeria-workspaces** consists of a number of artifacts reflected by the folder structure itself. Here is a quick tour:
@@ -52,18 +71,15 @@ Subdirectories contain artifacts for different deployments of Egeria along with 
 The deployments provide **docker compose** scripts to orchestrate the building, configuration and startup of the components needed.
 Here is the break-down of the configurations:
 
-### egeria-quickstart
-This provides the standard Egeria deployment, suitable for most use cases.
-It contains the `egeria-quickstart.yaml` docker compose script and supporting files. The result of running this compose script sets up:
-* Egeria running on port 9443
-* Apache Kafka running on port 9192,9193, 9194
-* Postgres running on port 5442
-* Jupyter running on port 7888
-* Open Lineage Proxy running on port 6000
+### shared-infra
+This compose stack provides the shared Kafka and PostgreSQL services used by both deployments. It is managed
+automatically by the start scripts, and can also be managed directly in `compose-configs/shared-infra/`.
 
-There are several additional features of this environment - including sharing of select folders between Jupyter and Egeria,
-and externalization of the configuration and runtime information to make it available outside the docker containers.
-More details can be found in the [README.md](./compose-configs/egeria-quickstart/README.md) file within this directory.
+### egeria-quickstart
+This provides the Coco Pharmaceuticals quickstart deployment and runs on port `9443`.
+
+### egeria-freshstart
+This provides the freshstart deployment and runs on port `8443`.
 
 ### optional-associated-runtimes
 This folder contains some sample docker compose scripts to start some other runtimes
@@ -94,9 +110,9 @@ their configurations and only share a subset of the folders. They provide config
 * view-server
 
 More details can be found in the README.md files within this folder.
-## exchange
-The exchange folder is to support exchange of file-based information between the Egeria running in a docker container,
-the Jupyter environment, and the host file-system. 
+## exchange-quickstart / exchange-freshstart
+These folders support file-based exchange between Egeria containers, Jupyter, and the host file-system for each deployment.
+Quickstart and freshstart each have an isolated exchange tree.
 ### coco-data-lake
 A file location supporting Coco Pharmaceuticals scenarios.
 ### distribution-hub
@@ -115,8 +131,11 @@ There are sub-directories for different kinds of information:
 
 - glossary - for importing and exporting glossary terms
 - open-metadata-archives - for importing open-metadata-archives
-- secrets - to configure local secrets; default secrets are provided, yet will often be
-replaced with local information.
+- secrets - optional host-side secrets location for custom workflows in exchange trees.
+  Runtime platform secrets now live under each deployment runtime volume at
+  `/deployments/secrets` inside the container:
+  - quickstart: `runtime-volumes/quickstart-platform-data/secrets`
+  - freshstart: `runtime-volumes/freshstart-platform-data/secrets`
 
 ## runtime-volumes
 The information in these folders are used by the Runtimes. They are not for the general
@@ -124,8 +143,10 @@ user to use. Externalizing runtime information here, rather than embedded within
 means that if containers are upgraded or destroyed, the environment can still be recovered.
 Currently there are sub-directories here for:
 * airflow-volumes
-* egeria-pg
-* egeria-platform-data
+* quickstart-platform-data
+* quickstart-apache-web
+* freshstart-platform-data
+* freshstart-apache-web
 * unitycatalog1 
 * unitycatalog2
 

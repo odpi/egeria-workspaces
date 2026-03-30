@@ -76,7 +76,7 @@ Some tutorials for working with Egeria can be found at [Tutorials](https://egeri
 Installing pyegeria also installs the `hey_egeria` command line interface - a tutorial video can be found at [hey-egeria](https://youtu.be/eVFnDMh18e8)
 
 # Please Note
-Please note that, by default, this compose script will store repository data outside the docker container at **\<workspaces root\>/runtime-volumes/egeria-platform-data** using an 
+Please note that, by default, this compose script will store repository data outside the docker container at **\<workspaces root\>/runtime-volumes/quickstart-platform-data** using an 
 [XTDB](https://xtdb.com) key-value-store configuration. This configuration can be changed to suite your requirements.
 As the repository contents are stored outside of the docker container, it means that you can alter your Egeria deployment and 
 still retain your repository. Please see [Configuring Egeria](https://egeria-project.org/guides/admin/configuring-the-omag-server-platform/) or reach out to us on slack for further information.

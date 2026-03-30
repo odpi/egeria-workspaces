@@ -8,10 +8,9 @@ it easy to get a stack running quickly. This deployment configures and starts:
 
 * Egeria on port 9443 and will automatically start the default servers.
 * Jupyter is deployed using port 7888 so as not to interfere with other jupyter servers
-* Kafka on port 9192,9193,9194 to support communications between Egeria servers and other sources.
-* Postgres on port 5442 is configured with the *egeria* database and is dynamically configured with the needed schemas.
-* Open Lineage Proxy running on ports 6000 and 6001. Details of the proxy's configuration are in the file `proxy.yml`. 
 * Apache Web Server on port 8085 and configured with `httpd.conf`.
+
+Kafka, PostgreSQL, and the OpenLineage proxy are provided by the shared infra stack in `compose-configs/shared-infra`.
 
 
 This environment is not designed for enterprise-wide use. Please see the [Planning Guide](https://egeria-project.org/guides/planning/)
@@ -34,7 +33,7 @@ You can use the pyegeria command `list-archives` from a terminal window to see a
 * Out-of-the-box Connectors - descriptions of the integration connectors can be found at [Integration Connectors](https://egeria-project.org/connectors/).
 
 * Auto-Started Servers - by default a useful set of Egeria Open Metadata and Governance (OMAG) servers are pre-installed
-and started when the Egeria platform is started.  A description of these servers can be found at [sample configs](open-metadata-resources/open-metadata-deployment/sample-configs/README.md).
+and started when the Egeria platform is started. A description of these servers is included in the `servers/` directory in this deployment.
 The pre-configured and started servers are:
 
   * qs-metadata-store
@@ -45,17 +44,16 @@ The pre-configured and started servers are:
    
 * Mounted volumes for:
     * **distribution-hub**: an area where information created by Egeria (such as logs and survey information) can be easily exposed.
-    * **egeria-platform-data**: this is a default location to hold your metadata repository when using the out of the box repository configuration. This has been externalized so that you can easily preserve your repository independently of docker.
+    * **quickstart-platform-data**: mounted to `/deployments` (read-write) and includes data, logs, secrets and local platform configuration.
     * **landing-area**: a convenient drop off point for files and folders you want to survey, analyze, and catalog with Egeria.
     * **landing-bay**: a place to drop files that you want to be loaded into Egeria - e.g glossary terms to import into an Egeria glossary.
   
     
 
-## Kafka - configured for Egeria
-We use the bitnami/kafka image described at [kafka](https://hub.docker.com/r/bitnami/kafka)
+## Shared Kafka and PostgreSQL
 
-* Port - We use the default port of 9192 for Kafka. This port is also exposed in the host environment. Changing this port also requires corresponding changes to the Egeria configuration.
-* Other configuration can be seen in the *egeria-platform.yaml* file. 
+Quickstart uses the shared Kafka and PostgreSQL containers managed by `compose-configs/shared-infra`.
+The startup scripts call `compose-configs/shared-infra/ensure-shared-infra.sh` automatically.
 
 ## Jupyter - configured for Egeria
 A standard Jupyter data science docker image is extended to pre-install **pyegeria** and simplify using Egeria from Jupyter notebooks.
@@ -68,16 +66,11 @@ File system volumes are mounted for:
 
 ## Postgresql - configured for Egeria
 
-This is a standard PostgreSQL database server with a database named *egeria*. The port for postgres is set to 5442. On initialization, two user roles are created:
-
-* egeria_admin with password 'admin4egeria'
-* egeria_user with password 'user4egeria'
-
-Egeria will automatically create database schemas in this database to support the different kinds of activities you configure and run.
+PostgreSQL runs in the shared infra stack and provides the `egeria` database used by quickstart.
 
 ## Open Lineage Proxy 
-This is a standard Open Lineage Proxy running on ports 6000 and 6001. Details of the proxy's configuration are in
-the file `proxy.yml`. 
+This is now provided by the shared infrastructure stack and runs on ports 6000 and 6001.
+Its build and runtime configuration are in `compose-configs/shared-infra/shared-infra.yaml` and `proxy.yml`.
 
 ----
 # Usage
@@ -95,7 +88,10 @@ Most users should start from the repository root using one of the quick-start sc
 
 These scripts will:
 
-   * copy the server configuration files from `compose-configs/egeria-quickstart/servers` to `runtime-volumes/egeria-platform-data/data/servers`. This enables you to make local changes to the server configurations that persist across restarts and are ignored by Git.
+   * copy the server configuration files from `compose-configs/egeria-quickstart/servers` to `runtime-volumes/quickstart-platform-data/data/servers`. This enables you to make local changes to the server configurations that persist across restarts and are ignored by Git.
+
+   * build the `egeria-main` image from `Dockerfile-egeria-platform`.
+   * ensure `runtime-volumes/quickstart-platform-data/secrets` exists (seeded from `compose-configs/egeria-quickstart/secrets` only when missing), and mount `runtime-volumes/quickstart-platform-data` to `/deployments`.
 
    * build a jupyter image that is pre-configured to work with Egeria 
     
@@ -105,6 +101,20 @@ These scripts will:
 
    For Egeria, this means not only starting up the initial set of servers, but then loading the **CoreContentPack.omarchive** into the metadata repository, and then configuring all the servers. 
    This can take several minutes the first time the containers are created. Subsequent startups will be much faster.
+
+The startup scripts now automatically refresh images more aggressively than before:
+
+- local compose images are rebuilt with `docker compose build --pull`, which checks for newer base images before building, and
+- containers are started with `docker compose up -d --pull always`, which checks for newer remote images before using cached ones.
+
+If you want to force a completely clean rebuild that ignores Docker's local build cache, set `NO_CACHE=1` when starting the stack from the repository root:
+
+```bash
+NO_CACHE=1 ./quick-start-local
+NO_CACHE=1 ./quick-start-multi-host
+```
+
+Accepted truthy values are `1`, `true`, `yes`, and `on`. Falsey values are unset, `0`, `false`, `no`, and `off`.
 
 Using either the **Docker Desktop** application or the docker command line you can see the new containers running. To do this with the docker command line, you can issue:
 
@@ -122,27 +132,55 @@ To access jupyter, open a browser to `http://localhost:7888`. At the password pr
 
 If you prefer to run Docker Compose manually instead of using the root scripts, from this directory you can run:
 
-```
-docker compose -f egeria-quickstart.yaml up --build
+```bash
+docker compose -f egeria-quickstart.yaml build --pull
+docker compose -f egeria-quickstart.yaml up -d --pull always
 ```
 
 For the local overlay (host-gateway mappings):
 
-```
+```bash
 docker compose \
   -f egeria-quickstart.yaml \
   -f egeria-quickstart-local.yaml \
-  up -d
+  build --pull
+
+docker compose \
+  -f egeria-quickstart.yaml \
+  -f egeria-quickstart-local.yaml \
+  up -d --pull always
 ```
 
 For the multi-host overlay (external Kafka listeners / FQDN):
 
-```
+```bash
 docker compose \
   -f egeria-quickstart.yaml \
   -f egeria-quickstart-cluster.yaml \
-  up -d
+  build --pull
+
+docker compose \
+  -f egeria-quickstart.yaml \
+  -f egeria-quickstart-cluster.yaml \
+  up -d --pull always
 ```
+
+To bypass the local build cache during the manual build step, add `--no-cache`:
+
+```bash
+docker compose -f egeria-quickstart.yaml build --pull --no-cache
+```
+
+## Secrets Location for Quickstart
+
+- Quickstart platform secrets are resolved at `/deployments/secrets`.
+- The runtime-mounted source directory is `runtime-volumes/quickstart-platform-data/secrets`.
+- Startup scripts seed missing defaults from `compose-configs/egeria-quickstart/secrets`.
+- Default quickstart secrets files are:
+  - `coco-user-directory.omsecrets`
+  - `egeria-servers.omsecrets`
+  - `integration.omsecrets`
+- `exchange-quickstart/loading-bay/secrets` is not required for normal quickstart startup.
 
 ## Next Steps
 

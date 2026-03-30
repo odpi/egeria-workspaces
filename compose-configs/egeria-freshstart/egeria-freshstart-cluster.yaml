@@ -1,0 +1,6 @@
+services:
+  freshstart-egeria-main:
+    environment:
+      HOST_FQDN: "${HOST_FQDN}"
+      KAFKA_BOOTSTRAP_SERVERS: "egeria-shared-kafka:9192"
+

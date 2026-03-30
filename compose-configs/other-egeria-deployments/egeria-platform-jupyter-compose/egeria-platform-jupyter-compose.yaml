@@ -39,9 +39,9 @@ services:
             - ./before-notebook.d:/usr/local/bin/before-notebook.d
             - ../../../work:/home/jovyan/work
             - ../../../workspaces:/home/jovyan/workbooks
-            - ../../../exchange/distribution-hub:/home/jovyan/distribution-hub
-            - ../../../exchange/loading-bay:/home/jovyan/loading-bay
-            - ../../../exchange/landing-area:/home/jovyan/landing-area
+            - ../../../exchange-quickstart/distribution-hub:/home/jovyan/distribution-hub
+            - ../../../exchange-quickstart/loading-bay:/home/jovyan/loading-bay
+            - ../../../exchange-quickstart/landing-area:/home/jovyan/landing-area
 
 
     kafka:
@@ -89,11 +89,11 @@ services:
 
 
         volumes:
-            - ../../../exchange/landing-area:/deployments/landing-area
-            - ../../../exchange/distribution-hub:/deployments/distribution-hub
-            - ../../../exchange/distribution-hub/surveys:/deployments/surveys
-            - ../../../exchange/distribution-hub/logs:/deployments/logs
-            - ../../../exchange/loading-bay:/deployments/loading-bay
+            - ../../../exchange-quickstart/landing-area:/deployments/landing-area
+            - ../../../exchange-quickstart/distribution-hub:/deployments/distribution-hub
+            - ../../../exchange-quickstart/distribution-hub/surveys:/deployments/surveys
+            - ../../../exchange-quickstart/distribution-hub/logs:/deployments/logs
+            - ../../../exchange-quickstart/loading-bay:/deployments/loading-bay
             - ../../../work:/deployments/work
 
 

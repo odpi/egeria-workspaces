@@ -1,0 +1,5 @@
+Term Name,Qualified Name,Abbreviation,Summary,Description,Examples,Usage,Version Identifier,Status
+Second,GlossaryTerm: Second - 2024-11-07T13:58:46.468812,,A second term,this is an updated description,,,0.1,DRAFT
+First,GlossaryTerm: First - 2024-11-06T02:45:17.570638,,A first term,,,,0.1,DRAFT
+Third,GlossaryTerm: Third - 2024-11-06T02:45:18.320372,,A third term,,,,0.1,DRAFT
+Fourth,,,A fourth term,This is the fourth term,,,0.1,DRAFT

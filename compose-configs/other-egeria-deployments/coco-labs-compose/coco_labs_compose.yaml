@@ -45,10 +45,10 @@ services:
     volumes:
       - ./before-notebook.d:/usr/local/bin/before-notebook.d
       - ./coco-labs-notebooks/:/home/jovyan/labs
-      - ../../../exchange/distribution-hub:/home/jovyan/distribution-hub
-      - ../../../exchange/loading-bay:/home/jovyan/loading-bay
-      - ../../../exchange/landing-area:/home/jovyan/landing-area
-      - ../../../exchange/coco-data-lake:/home/jovyan/coco-data-lake
+      - ../../../exchange-quickstart/distribution-hub:/home/jovyan/distribution-hub
+      - ../../../exchange-quickstart/loading-bay:/home/jovyan/loading-bay
+      - ../../../exchange-quickstart/landing-area:/home/jovyan/landing-area
+      - ../../../exchange-quickstart/coco-data-lake:/home/jovyan/coco-data-lake
 
   kafka-coco:
     image: 'bitnami/kafka:latest'
@@ -83,7 +83,7 @@ services:
     volumes:
       - ./coco-labs-runtimes-data/coco-pg:/var/lib/postgresql/data/pgdata
       - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
-      - ../../../exchange/coco-data-lake:/var/data/coco-data-lake
+      - ../../../exchange-quickstart/coco-data-lake:/var/data/coco-data-lake
     command: -p 5446 -c max_connections=1000
 
   # Proxy service for OpenLineage
@@ -125,11 +125,11 @@ services:
       retries: 3
       start_period: 10s
     volumes:
-      - ../../../exchange/landing-area:/deployments/landing-area
-      - ../../../exchange/distribution-hub:/deployments/distribution-hub
-      - ../../../exchange/distribution-hub/surveys:/deployments/surveys
-      - ../../../exchange/loading-bay:/deployments/loading-bay
-      - ../../../exchange/coco-data-lake:/deployments/coco-data-lake
+      - ../../../exchange-quickstart/landing-area:/deployments/landing-area
+      - ../../../exchange-quickstart/distribution-hub:/deployments/distribution-hub
+      - ../../../exchange-quickstart/distribution-hub/surveys:/deployments/surveys
+      - ../../../exchange-quickstart/loading-bay:/deployments/loading-bay
+      - ../../../exchange-quickstart/coco-data-lake:/deployments/coco-data-lake
 
       - ./coco-labs-runtimes-data/coco-data-core/logs:/deployments/logs
       - ./coco-labs-runtimes-data/coco-data-core/servers:/deployments/data/servers
@@ -157,11 +157,11 @@ services:
       retries: 3
       start_period: 10s
     volumes:
-      - ../../../exchange/landing-area:/deployments/landing-area
-      - ../../../exchange/distribution-hub:/deployments/distribution-hub
-      - ../../../exchange/distribution-hub/surveys:/deployments/surveys
-      - ../../../exchange/loading-bay:/deployments/loading-bay
-      - ../../../exchange/coco-data-lake:/deployments/coco-data-lake
+      - ../../../exchange-quickstart/landing-area:/deployments/landing-area
+      - ../../../exchange-quickstart/distribution-hub:/deployments/distribution-hub
+      - ../../../exchange-quickstart/distribution-hub/surveys:/deployments/surveys
+      - ../../../exchange-quickstart/loading-bay:/deployments/loading-bay
+      - ../../../exchange-quickstart/coco-data-lake:/deployments/coco-data-lake
 
       - ./coco-labs-runtimes-data/coco-data-datalake/logs:/deployments/logs
       - ./coco-labs-runtimes-data/coco-data-datalake/servers:/deployments/data/servers
@@ -189,11 +189,11 @@ services:
       retries: 3
       start_period: 10s
     volumes:
-      - ../../../exchange/landing-area:/deployments/landing-area
-      - ../../../exchange/distribution-hub:/deployments/distribution-hub
-      - ../../../exchange/distribution-hub/surveys:/deployments/surveys
-      - ../../../exchange/loading-bay:/deployments/loading-bay
-      - ../../../exchange/coco-data-lake:/deployments/coco-data-lake
+      - ../../../exchange-quickstart/landing-area:/deployments/landing-area
+      - ../../../exchange-quickstart/distribution-hub:/deployments/distribution-hub
+      - ../../../exchange-quickstart/distribution-hub/surveys:/deployments/surveys
+      - ../../../exchange-quickstart/loading-bay:/deployments/loading-bay
+      - ../../../exchange-quickstart/coco-data-lake:/deployments/coco-data-lake
 
       - ./coco-labs-runtimes-data/coco-data-development/logs:/deployments/logs
       - ./coco-labs-runtimes-data/coco-data-development/servers:/deployments/data/servers

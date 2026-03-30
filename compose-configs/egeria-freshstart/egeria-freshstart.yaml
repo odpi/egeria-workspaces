@@ -1,0 +1,116 @@
+---
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Contributors to the Egeria project
+
+services:
+  freshstart-jupyter-hub:
+    depends_on:
+      freshstart-egeria-main:
+        condition: service_healthy
+    image: quay.io/jupyter/scipy-notebook:latest
+    container_name: freshstart-jupyter-work-full
+    networks:
+      - egeria_network
+    ports:
+      - "7889:7888"
+      - "5679:5678"
+    environment:
+      JUPYTER_ENABLE_LAB: "yes"
+      JUPYTER_TOKEN: "egeria"
+      JUPYTER_PORT: "7888"
+    build:
+      context: ../egeria-quickstart
+      dockerfile: Dockerfile-jupyter
+    volumes:
+      - ../egeria-quickstart/before-notebook.d:/usr/local/bin/before-notebook.d
+      - ../../work:/home/jovyan/work
+      - ../../workbooks:/home/jovyan/workbooks
+      - ../../exchange-freshstart/distribution-hub:/home/jovyan/distribution-hub
+      - ../../exchange-freshstart/loading-bay:/home/jovyan/loading-bay
+      - ../../exchange-freshstart/landing-area:/home/jovyan/landing-area
+      - ../../exchange-freshstart/config:/home/jovyan/config
+
+  freshstart-egeria-main:
+    image: 'egeria-freshstart-platform:local'
+    build:
+      context: .
+      dockerfile: Dockerfile-egeria-platform
+    networks:
+      - egeria_network
+    ports:
+      - '8443:8443'
+      - '5006:5005'
+    environment:
+      XTDB_ENABLE_BYTEUTILS_SHA1: "True"
+      XTDB_DISABLE_LIBCRYPTO: "True"
+      startup.server.list: "fs-metadata-store,fs-engine-host,fs-integration-daemon,fs-view-server"
+      server.port: "8443"
+      HOST_FQDN: "${HOST_FQDN}"
+      KAFKA_BOOTSTRAP_SERVERS: "egeria-shared-kafka:9192"
+    healthcheck:
+      test: curl -k -X GET "https://localhost:8443/open-metadata/platform-services/users/garygeeke/server-platform/origin" || exit 1
+      interval: 20s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    volumes:
+      - ../../exchange-freshstart/landing-area:/deployments/landing-area
+      - ../../exchange-freshstart/distribution-hub:/deployments/distribution-hub
+      - ../../exchange-freshstart/distribution-hub/surveys:/deployments/surveys
+      - ../../runtime-volumes/freshstart-platform-data/logs:/deployments/logs
+      - ../../runtime-volumes/freshstart-platform-data/data:/deployments/data
+      - ../../runtime-volumes/freshstart-platform-data/secrets:/deployments/secrets
+      - ../../exchange-freshstart/loading-bay:/deployments/loading-bay
+      - ../../work:/deployments/work
+      - ../../runtime-volumes/freshstart-platform-data/freshstart.application.properties:/deployments/application.properties
+
+  freshstart-pyegeria-web:
+    container_name: freshstart-pyegeria-web
+    build:
+      context: ./PyegeriaWebHandler
+      dockerfile: ./Dockerfile-fast-api
+    ports:
+      - "8001:8000"
+    networks:
+      - egeria_network
+    environment:
+      EGERIA_PLATFORM_URL: https://freshstart-egeria-main:8443
+      EGERIA_VIEW_SERVER: fs-view-server
+      EGERIA_VIEW_SERVER_URL: https://freshstart-egeria-main:8443
+      EGERIA_INTEGRATION_DAEMON_URL: https://freshstart-egeria-main:8443
+    volumes:
+      - ./PyegeriaWebHandler:/app
+      - ../../exchange-freshstart/distribution-hub/dr-egeria-outbox:/dr-egeria-outbox
+      - ../../exchange-freshstart/loading-bay/dr-egeria-inbox:/dr-egeria-inbox
+      - ../../exchange-freshstart/config:/config
+    depends_on:
+      - freshstart-egeria-main
+    command: uvicorn pyegeria_handler:app --host 0.0.0.0 --port 8000 --reload --loop asyncio
+
+  freshstart-apache-web:
+    build:
+      context: ../egeria-quickstart
+      dockerfile: Dockerfile-apache-web
+    container_name: freshstart-web-server
+    user: "daemon:daemon"
+    ports:
+      - "8086:8085"
+    networks:
+      - egeria_network
+    volumes:
+      - ../../exchange-freshstart/distribution-hub/dr-egeria-outbox:/usr/local/apache2/htdocs/dr-egeria-outbox
+      - ../../exchange-freshstart/loading-bay/dr-egeria-inbox:/usr/local/apache2/htdocs/dr-egeria-inbox
+      - ../egeria-quickstart/httpd.conf:/usr/local/apache2/conf/httpd.conf
+      - ../egeria-quickstart/sites-available/fastapi-proxy.conf:/usr/local/apache2/conf/extra/fastapi-proxy.conf
+      - ../../runtime-volumes/freshstart-apache-web/site:/usr/local/apache2/htdocs
+      - ../egeria-quickstart/markdown-header.html:/usr/local/apache2/conf/markdown-header.html
+      - ../../runtime-volumes/freshstart-apache-web/ErrorLogs:/usr/local/apache2/logs
+    depends_on:
+      - freshstart-pyegeria-web
+
+networks:
+  egeria_network:
+    driver: bridge
+    name: egeria_network
+    external: true
+

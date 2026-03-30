@@ -78,7 +78,7 @@ __MACOSX
 .repository
 
 # From Obsidion
-exchange/.obsidian/workspace.json
+exchange-quickstart/.obsidian/workspace.json
 
 # exclude temporary lock files
 *.lock
@@ -111,13 +111,14 @@ jitdump*dmp
 build/
 
 # egeria-workspaces
-exchange/distribution-hub/*/**
+exchange-quickstart/distribution-hub/*/**
 work
-runtime-volumes/egeria-platform-data/data-old/servers/*/repository/**
-runtime-volumes/egeria-platform-data/data-old/servers/*/repository
-runtime-volumes/egeria-platform-data/data-old/coco-data-lake/**
+runtime-volumes/quickstart-platform-data/data-old/servers/*/repository/**
+runtime-volumes/quickstart-platform-data/data-old/servers/*/repository
+runtime-volumes/quickstart-platform-data/data-old/coco-data-lake/**
 
-runtime-volumes/apache-web/ErrorLogs/**
+runtime-volumes/quickstart-apache-web/ErrorLogs/**
+runtime-volumes/freshstart-apache-web/ErrorLogs/**
 
 
 runtime-volumes/airflow-volumes/**
@@ -136,12 +137,12 @@ runtime-volumes/unitycatalog*/etc/conf/token.txt
 
 loading-bay/open-metadata-archives/*.omarchive
 
-#exchange/loading-bay/secrets/*omsecrets
-exchange/loading-bay/secrets/*yml
-exchange/loading-bay/secrets/*yaml
-exchange/loading-bay/open-metadata-archives/*omarchive
-exchange/landing-area/**
-exchange/coco-data-lake/
+#exchange-quickstart/loading-bay/secrets/*omsecrets
+exchange-quickstart/loading-bay/secrets/*yml
+exchange-quickstart/loading-bay/secrets/*yaml
+exchange-quickstart/loading-bay/open-metadata-archives/*omarchive
+exchange-quickstart/landing-area/**
+exchange-quickstart/coco-data-lake/
 compose-configs/optional-associated-runtimes/airflow-marquez/runtime-data/**
 
 compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-data/*/logs/**
@@ -150,27 +151,33 @@ compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-da
 compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-data/coco-pg/**
 
 
-/runtime-volumes/egeria-platform-data/logs/
-/exchange/distribution-hub/dr-egeria-outbox/
-/exchange/exploring obsidian/
-/exchange/.obsidian/workspace.json
-/exchange/config/debug_log/**
-/exchange/.obsidian/**
-/exchange/Data Products & Data Mesh/**
-/exchange/Obsidian/**
-/exchange/Sustainability Samples/**
-/exchange/treasury-dts-history/**
+/runtime-volumes/quickstart-platform-data/logs/
+/runtime-volumes/freshstart-platform-data/logs/
+/exchange-quickstart/distribution-hub/dr-egeria-outbox/
+/exchange-quickstart/exploring obsidian/
+/exchange-quickstart/.obsidian/workspace.json
+/exchange-quickstart/config/debug_log/**
+/exchange-quickstart/.obsidian/**
+/exchange-quickstart/Data Products & Data Mesh/**
+/exchange-quickstart/Obsidian/**
+/exchange-quickstart/Sustainability Samples/**
+/exchange-quickstart/treasury-dts-history/**
 
-/exchange/distribution-hub/dr-egeria-outbox/DataDrivenLDN/**
-/exchange/loading-bay/dr-egeria-inbox/Automated Delivery of Internal Products/**
-/exchange/loading-bay/dr-egeria-inbox/GeoSpatial Data/**
-/exchange/loading-bay/dr-egeria-inbox/Inbox-DataDrivenLDN/**
-/exchange/loading-bay/dr-egeria-inbox/Reference Data Products/**
+/exchange-quickstart/distribution-hub/dr-egeria-outbox/DataDrivenLDN/**
+/exchange-quickstart/loading-bay/dr-egeria-inbox/Automated Delivery of Internal Products/**
+/exchange-quickstart/loading-bay/dr-egeria-inbox/GeoSpatial Data/**
+/exchange-quickstart/loading-bay/dr-egeria-inbox/Inbox-DataDrivenLDN/**
+/exchange-quickstart/loading-bay/dr-egeria-inbox/Reference Data Products/**
 
 /compose-configs/optional-associated-runtimes/milvus/volumes/
 /compose-configs/optional-associated-runtimes/milvus/volumes/**!/runtime-volumes/
 /runtime-volumes/milvus/volumes/
-/runtime-volumes/milvus/volumes/**!/exchange/config/config.json.bak
-/runtime-volumes/egeria-platform-data/data/
+/runtime-volumes/milvus/volumes/**!/exchange-quickstart/config/config.json.bak
+/runtime-volumes/quickstart-platform-data/data/
+/runtime-volumes/freshstart-platform-data/data/
+
+compose-configs/egeria-quickstart/.env
+compose-configs/egeria-freshstart/.env
+compose-configs/shared-infra/.env
 
 /workspaces/egeria-docs-maintenance/snippets/

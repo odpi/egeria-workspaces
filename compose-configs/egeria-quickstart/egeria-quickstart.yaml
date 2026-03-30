@@ -14,7 +14,7 @@
 #   * Ports 9443 and 9192 are available on the host system - these are the default ports for Kafka and Egeria.
 #   * Port 8085 is used for the external web server
 #   * Port 7888 is used by jupyter server
-#   * by default, the jupyter notebooks in the 'workspaces' folder are mounted and available for use by the jupyter notebooks
+#   * by default, the jupyter notebooks in the 'workspaces' folder are mounted at /home/jovyan/coco-workspaces
 #   * by default, strict SSL validation is turned off
 #
 #
@@ -26,7 +26,7 @@ services:
         condition: service_healthy
 
     image: quay.io/jupyter/scipy-notebook:latest
-    container_name: jupyter-work-full
+    container_name: quickstart-jupyter-work-full
     networks:
       - egeria_network
     ports:
@@ -43,72 +43,20 @@ services:
     volumes:
       - ./before-notebook.d:/usr/local/bin/before-notebook.d
       - ../../work:/home/jovyan/work
-      - ../../workspaces:/home/jovyan/workspaces
+      - ../../workspaces:/home/jovyan/coco-workspaces
       - ../../workbooks:/home/jovyan/workbooks
-      - ../../exchange/distribution-hub:/home/jovyan/distribution-hub
-      - ../../exchange/loading-bay:/home/jovyan/loading-bay
-      - ../../exchange/landing-area:/home/jovyan/landing-area
-      - ../../exchange/coco-data-lake:/home/jovyan/coco-data-lake
-      - ../../exchange/config:/home/jovyan/config
-
-  kafka:
-    #    image: 'bitnami/kafka:latest'
-    image: "bitnamilegacy/kafka:latest"
-    networks:
-      - egeria_network
-    restart: always
-    ports:
-      # Internal listener (mostly for same-host containers)
-      - "9192:9192"
-      # KRaft controller quorum port (must be reachable cross-host)
-      - "9193:9193"
-      # External broker port (must be reachable cross-host)
-      - "9194:9194"
-    environment:
-      KAFKA_CFG_NODE_ID: "${KAFKA_NODE_ID}"
-      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
-      KAFKA_CFG_PROCESS_ROLES: "controller,broker"
-
-      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
-      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: "${KAFKA_CONTROLLER_QUORUM_VOTERS}"
-
-      KAFKA_CFG_LISTENERS: >-
-        PLAINTEXT://:9192,CONTROLLER://:9193,EXTERNAL://:9194
-      KAFKA_CFG_ADVERTISED_LISTENERS: >-
-        PLAINTEXT://kafka:9192,EXTERNAL://${HOST_FQDN}:9194
-      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: >-
-        CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
-
-      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
-
-      # KRaft cluster identity (must match across all nodes)
-      KAFKA_KRAFT_CLUSTER_ID: "${KAFKA_CLUSTER_ID}"
-    volumes:
-      - kafka-data:/bitnami/kafka
-
-  # Proxy service for OpenLineage
-  proxy:
-    build:
-      dockerfile: Dockerfile-proxy
-    container_name: openlineage-proxy-backend
-    depends_on:
-      - kafka
-    networks:
-      - egeria_network
-    ports:
-      - "6000:6000"
-      - "6001:6001"
-    environment: #             - MARQUEZ_HTTP_ENDPOINT=http://marquez-api:5050/api/v1/lineage
-      - OPENLINEAGE_PROXY_CONFIG=/usr/src/app/proxy.yml
-    #             - OPENLINEAGE_PROXY_SOURCE=/usr/src/app/proxy.yml
-    volumes:
-      - ./usr/src/app/build/libs:/usr/src/app/build/libs
-      - ./proxy.yml:/usr/src/app/proxy.yml
+      - ../../exchange-quickstart/distribution-hub:/home/jovyan/distribution-hub
+      - ../../exchange-quickstart/loading-bay:/home/jovyan/loading-bay
+      - ../../exchange-quickstart/landing-area:/home/jovyan/landing-area
+      - ../../exchange-quickstart/coco-data-lake:/home/jovyan/coco-data-lake
+      - ../../exchange-quickstart/treasury-dts-history:/home/jovyan/treasury-dts-history
+      - ../../exchange-quickstart/config:/home/jovyan/config
 
   egeria-main:
-    depends_on:
-      - kafka
-    image: 'quay.io/odpi/egeria-platform:latest'
+    image: 'egeria-quickstart-platform:local'
+    build:
+      context: .
+      dockerfile: Dockerfile-egeria-platform
     #        image: 'docker.io/odpi/egeria-platform:stable'
     networks:
       - egeria_network
@@ -121,7 +69,7 @@ services:
       startup.server.list: "qs-metadata-store,qs-engine-host,qs-integration-daemon,qs-view-server"
       server.port: "9443"
       HOST_FQDN: "${HOST_FQDN}"
-      KAFKA_BOOTSTRAP_SERVERS: "${KAFKA_BOOTSTRAP_SERVERS}"
+      KAFKA_BOOTSTRAP_SERVERS: "egeria-shared-kafka:9192"
     healthcheck:
       test: curl -k -X GET "https://localhost:9443/open-metadata/platform-services/users/garygeeke/server-platform/origin" || exit 1
       interval: 20s
@@ -129,40 +77,20 @@ services:
       retries: 3
       start_period: 10s
     volumes:
-      - ../../exchange/landing-area:/deployments/landing-area
-      - ../../exchange/distribution-hub:/deployments/distribution-hub
-      - ../../exchange/distribution-hub/surveys:/deployments/surveys
-      - ../../runtime-volumes/egeria-platform-data/logs:/deployments/logs
-      - ../../runtime-volumes/egeria-platform-data/data:/deployments/data
-      - ../../exchange/loading-bay:/deployments/loading-bay
-      - ../../exchange/coco-data-lake:/deployments/coco-data-lake
+      - ../../exchange-quickstart/landing-area:/deployments/landing-area
+      - ../../exchange-quickstart/distribution-hub:/deployments/distribution-hub
+      - ../../exchange-quickstart/distribution-hub/surveys:/deployments/surveys
+      - ../../runtime-volumes/quickstart-platform-data/logs:/deployments/logs
+      - ../../runtime-volumes/quickstart-platform-data/data:/deployments/data
+      - ../../exchange-quickstart/loading-bay:/deployments/loading-bay
+      - ../../exchange-quickstart/coco-data-lake:/deployments/coco-data-lake
+      - ../../exchange-quickstart/treasury-dts-history:/deployments/treasury-dts-history
       - ../../work:/deployments/work
-      - ../../runtime-volumes/egeria-platform-data/application.properties:/deployments/application.properties
-
-  postgres:
-    image: postgres:17.5-bookworm
-#    image: postgres:latest
-    container_name: postgres_for_egeria
-    restart: always
-    networks:
-      - egeria_network
-    ports:
-      - "127.0.0.1:5442:5442"
-    shm_size: 128mb
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: egeria
-      PGDATA: /var/lib/postgresql/data/pgdata
-    volumes:
-#      - ../../runtime-volumes/egeria-pg:/var/lib/postgresql/data/pgdata
-      - egeria_postgres_data:/var/lib/postgresql/data/pgdata
-      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
-      - ../../exchange/coco-data-lake:/var/data/coco-data-lake
-      - ../../exchange/treasury-dts-history:/var/data/treasury-dts-history
-    command: -p 5442 -c max_connections=1000
+      - ../../runtime-volumes/quickstart-platform-data/quickstart.application.properties:/deployments/application.properties
 
   # Define your FastAPI application service
   pyegeria-web:
+    container_name: quickstart-pyegeria-web
     build:
       context: ./PyegeriaWebHandler
       dockerfile: ./Dockerfile-fast-api
@@ -170,11 +98,16 @@ services:
       - "8000:8000" # Map host port 8000 to container port 8000
     networks:
       - egeria_network
+    environment:
+      EGERIA_PLATFORM_URL: https://egeria-main:9443
+      EGERIA_VIEW_SERVER: qs-view-server
+      EGERIA_VIEW_SERVER_URL: https://egeria-main:9443
+      EGERIA_INTEGRATION_DAEMON_URL: https://egeria-main:9443
     volumes:
       - ./PyegeriaWebHandler:/app
-      - ../../exchange/distribution-hub/dr-egeria-outbox:/dr-egeria-outbox  # Mount the dr-egeria-outbox directory
-      - ../../exchange/loading-bay/dr-egeria-inbox:/dr-egeria-inbox
-      - ../../exchange/config:/config
+      - ../../exchange-quickstart/distribution-hub/dr-egeria-outbox:/dr-egeria-outbox  # Mount the dr-egeria-outbox directory
+      - ../../exchange-quickstart/loading-bay/dr-egeria-inbox:/dr-egeria-inbox
+      - ../../exchange-quickstart/config:/config
 # Mount the dr-egeria-inbox directory
 #    environment:
       # Pass environment variables to the container
@@ -191,32 +124,23 @@ services:
     build:
       context: .
       dockerfile: Dockerfile-apache-web
-    container_name: web-server
+    container_name: quickstart-web-server
     user: "daemon:daemon"  # Explicitly set the user and group to match httpd.conf
     ports:
       - "8085:8085"  # Map host port 8080 to container port 8080
     networks:
       - egeria_network
     volumes:
-      - ../../exchange/distribution-hub/dr-egeria-outbox:/usr/local/apache2/htdocs/dr-egeria-outbox  # Mount the dr-egeria-outbox directory
-      - ../../exchange/loading-bay/dr-egeria-inbox:/usr/local/apache2/htdocs/dr-egeria-inbox  # Mount the dr-egeria-inbox directory
+      - ../../exchange-quickstart/distribution-hub/dr-egeria-outbox:/usr/local/apache2/htdocs/dr-egeria-outbox  # Mount the dr-egeria-outbox directory
+      - ../../exchange-quickstart/loading-bay/dr-egeria-inbox:/usr/local/apache2/htdocs/dr-egeria-inbox  # Mount the dr-egeria-inbox directory
       - ./httpd.conf:/usr/local/apache2/conf/httpd.conf  # Use the fixed configuration file
       - ./sites-available/fastapi-proxy.conf:/usr/local/apache2/conf/extra/fastapi-proxy.conf  # Mount the FastAPI proxy vhost file
-      - ../../runtime-volumes/apache-web/site:/usr/local/apache2/htdocs # mount site
+      - ../../runtime-volumes/quickstart-apache-web/site:/usr/local/apache2/htdocs # mount site
       - ./markdown-header.html:/usr/local/apache2/conf/markdown-header.html  # Mount the markdown viewer
-      - ../../runtime-volumes/apache-web/ErrorLogs:/usr/local/apache2/logs  # Mount the logs directory
+      - ../../runtime-volumes/quickstart-apache-web/ErrorLogs:/usr/local/apache2/logs  # Mount the logs directory
       - ../../workspaces/Dr-Egeria-Samples:/usr/local/apache2/htdocs/Dr-Egeria-Samples  # Mount the Dr-Egeria-Samples directory
     depends_on:
       - pyegeria-web
-#
-# Change external to true and create volumes manually if you wish to persist between runs
-#
-volumes:
-  zookeeper-data:
-    external: false
-  kafka-data:
-    external: false
-  egeria_postgres_data: # Define the reusable volume
 
 
 networks:

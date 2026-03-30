@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")"
+
+source compose-configs/shared-infra/compose-build-flags.sh
+
+echo "[fresh-start-multi-host] Preparing environment (.env) and compose files..."
+echo "[fresh-start-multi-host] Freshstart uses runtime-volumes/freshstart-platform-data mounted at /deployments."
+
+RUNTIME_DEPLOYMENTS_DIR="runtime-volumes/freshstart-platform-data"
+chmod -R a+rwX "$RUNTIME_DEPLOYMENTS_DIR"
+
+TARGET_SERVER_DIR="runtime-volumes/freshstart-platform-data/data/servers"
+echo "[fresh-start-multi-host] Copying freshstart server configurations to ${TARGET_SERVER_DIR}..."
+rm -rf "$TARGET_SERVER_DIR"
+mkdir -p "$TARGET_SERVER_DIR"
+cp compose-configs/egeria-quickstart/servers/*.http "$TARGET_SERVER_DIR"/
+cp compose-configs/egeria-quickstart/servers/README.md "$TARGET_SERVER_DIR"/
+cp -r compose-configs/egeria-quickstart/servers/fs-* "$TARGET_SERVER_DIR"/
+
+compose-configs/shared-infra/ensure-shared-infra.sh
+
+pushd compose-configs/egeria-freshstart >/dev/null
+  ./gen-env.sh
+
+  echo "[fresh-start-multi-host] Building freshstart images (pulling newer base images when available)..."
+  docker compose -p egeria-freshstart -f egeria-freshstart.yaml build "${COMPOSE_BUILD_FLAGS[@]}"
+
+  echo "[fresh-start-multi-host] Starting freshstart stack with external Kafka listeners..."
+  docker compose -p egeria-freshstart \
+    -f egeria-freshstart.yaml \
+    -f egeria-freshstart-cluster.yaml \
+    up -d --pull always
+popd >/dev/null
+
+echo "[fresh-start-multi-host] Done. Useful notes:"
+HOST_FQDN_PRINT=$(grep '^HOST_FQDN=' compose-configs/egeria-freshstart/.env | cut -d= -f2- || echo "localhost")
+KAFKA_CLUSTER_ID_PRINT=$(grep '^KAFKA_CLUSTER_ID=' compose-configs/egeria-freshstart/.env | cut -d= -f2- || echo "42")
+echo "  - Effective HOST_FQDN: ${HOST_FQDN_PRINT}"
+echo "  - Effective KAFKA_CLUSTER_ID: ${KAFKA_CLUSTER_ID_PRINT}"
+echo "  - Egeria (platform): https://${HOST_FQDN_PRINT:-localhost}:8443 (reachable from other hosts if DNS resolves)"
+echo "  - Kafka external:    ${HOST_FQDN_PRINT:-localhost}:9194"
+echo "  - Jupyter (local):   http://localhost:7889   (password: egeria)"
+echo "  - Web (local):       http://localhost:8086"
+

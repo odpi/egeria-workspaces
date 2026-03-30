@@ -1,0 +1,94 @@
+---
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Contributors to the Egeria project
+
+services:
+  proxy:
+    build:
+      context: ../egeria-quickstart
+      dockerfile: Dockerfile-proxy
+    container_name: egeria-shared-openlineage-proxy-backend
+    networks:
+      - egeria_network
+    ports:
+      - "6000:6000"
+      - "6001:6001"
+    environment:
+      - OPENLINEAGE_PROXY_CONFIG=/usr/src/app/proxy.yml
+    volumes:
+      - ../egeria-quickstart/usr/src/app/build/libs:/usr/src/app/build/libs
+      - ../egeria-quickstart/proxy.yml:/usr/src/app/proxy.yml
+
+  kafka:
+    image: "bitnamilegacy/kafka:latest"
+    container_name: egeria-shared-kafka
+    hostname: egeria-shared-kafka
+    networks:
+      - egeria_network
+    restart: always
+    ports:
+      - "9192:9192"
+      - "9193:9193"
+      - "9194:9194"
+    environment:
+      KAFKA_CFG_NODE_ID: "1"
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_CFG_PROCESS_ROLES: "controller,broker"
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: "1@egeria-shared-kafka:9193"
+      KAFKA_CFG_LISTENERS: >-
+        PLAINTEXT://:9192,CONTROLLER://:9193,EXTERNAL://:9194
+      KAFKA_CFG_ADVERTISED_LISTENERS: >-
+        PLAINTEXT://egeria-shared-kafka:9192,EXTERNAL://${HOST_FQDN}:9194
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: >-
+        CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_KRAFT_CLUSTER_ID: "${KAFKA_CLUSTER_ID}"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -ec 'cat < /dev/null > /dev/tcp/127.0.0.1/9192'"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+    volumes:
+      - shared_kafka_data:/bitnami/kafka
+
+  postgres:
+    image: postgres:17.5-bookworm
+    container_name: egeria-shared-postgres
+    restart: always
+    networks:
+      - egeria_network
+    ports:
+      - "127.0.0.1:5442:5442"
+    shm_size: 128mb
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: egeria
+      PGDATA: /var/lib/postgresql/data/pgdata
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -p 5442"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+    volumes:
+      - shared_postgres_data:/var/lib/postgresql/data/pgdata
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+      # quickstart data files
+      - ../../exchange-quickstart/coco-data-lake:/var/data/coco-data-lake
+      - ../../exchange-quickstart/treasury-dts-history:/var/data/treasury-dts-history
+    command: -p 5442 -c max_connections=1000
+
+volumes:
+  shared_kafka_data:
+    external: false
+  shared_postgres_data:
+    external: false
+
+networks:
+  egeria_network:
+    driver: bridge
+    name: egeria_network
+    external: true
+
