@@ -4,7 +4,10 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 echo "[fresh-start-multi-host] Preparing environment (.env) and compose files..."
-echo "[fresh-start-multi-host] Freshstart secrets are sourced from compose-configs/egeria-freshstart/secrets and baked into /deployments/loading-bay/secrets."
+echo "[fresh-start-multi-host] Freshstart uses runtime-volumes/freshstart-platform-data mounted at /deployments."
+
+RUNTIME_DEPLOYMENTS_DIR="runtime-volumes/freshstart-platform-data"
+chmod -R a+rwX "$RUNTIME_DEPLOYMENTS_DIR"
 
 TARGET_SERVER_DIR="runtime-volumes/freshstart-platform-data/data/servers"
 echo "[fresh-start-multi-host] Copying freshstart server configurations to ${TARGET_SERVER_DIR}..."
@@ -19,7 +22,7 @@ compose-configs/shared-infra/ensure-shared-infra.sh
 pushd compose-configs/egeria-freshstart >/dev/null
   ./gen-env.sh
 
-  echo "[fresh-start-multi-host] Building freshstart Egeria image (refreshes baked-in secrets in /deployments/loading-bay/secrets)..."
+  echo "[fresh-start-multi-host] Building freshstart Egeria image..."
   docker compose -p egeria-freshstart -f egeria-freshstart.yaml build freshstart-egeria-main
 
   echo "[fresh-start-multi-host] Starting freshstart stack with external Kafka listeners..."

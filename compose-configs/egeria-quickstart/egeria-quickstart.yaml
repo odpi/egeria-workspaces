@@ -14,7 +14,7 @@
 #   * Ports 9443 and 9192 are available on the host system - these are the default ports for Kafka and Egeria.
 #   * Port 8085 is used for the external web server
 #   * Port 7888 is used by jupyter server
-#   * by default, the jupyter notebooks in the 'workspaces' folder are mounted and available for use by the jupyter notebooks
+#   * by default, the jupyter notebooks in the 'workspaces' folder are mounted at /home/jovyan/coco-workspaces
 #   * by default, strict SSL validation is turned off
 #
 #
@@ -43,30 +43,14 @@ services:
     volumes:
       - ./before-notebook.d:/usr/local/bin/before-notebook.d
       - ../../work:/home/jovyan/work
-      - ../../workspaces:/home/jovyan/workspaces
+      - ../../workspaces:/home/jovyan/coco-workspaces
       - ../../workbooks:/home/jovyan/workbooks
       - ../../exchange-quickstart/distribution-hub:/home/jovyan/distribution-hub
       - ../../exchange-quickstart/loading-bay:/home/jovyan/loading-bay
       - ../../exchange-quickstart/landing-area:/home/jovyan/landing-area
       - ../../exchange-quickstart/coco-data-lake:/home/jovyan/coco-data-lake
+      - ../../exchange-quickstart/treasury-dts-history:/home/jovyan/treasury-dts-history
       - ../../exchange-quickstart/config:/home/jovyan/config
-
-  # Proxy service for OpenLineage
-  proxy:
-    build:
-      dockerfile: Dockerfile-proxy
-    container_name: quickstart-openlineage-proxy-backend
-    networks:
-      - egeria_network
-    ports:
-      - "6000:6000"
-      - "6001:6001"
-    environment: #             - MARQUEZ_HTTP_ENDPOINT=http://marquez-api:5050/api/v1/lineage
-      - OPENLINEAGE_PROXY_CONFIG=/usr/src/app/proxy.yml
-    #             - OPENLINEAGE_PROXY_SOURCE=/usr/src/app/proxy.yml
-    volumes:
-      - ./usr/src/app/build/libs:/usr/src/app/build/libs
-      - ./proxy.yml:/usr/src/app/proxy.yml
 
   egeria-main:
     image: 'egeria-quickstart-platform:local'
@@ -98,13 +82,9 @@ services:
       - ../../exchange-quickstart/distribution-hub/surveys:/deployments/surveys
       - ../../runtime-volumes/quickstart-platform-data/logs:/deployments/logs
       - ../../runtime-volumes/quickstart-platform-data/data:/deployments/data
-      - ../../exchange-quickstart/loading-bay/glossary:/deployments/loading-bay/glossary
-      - ../../exchange-quickstart/loading-bay/open-metadata-archives:/deployments/loading-bay/open-metadata-archives
-      - ../../exchange-quickstart/loading-bay/sample-data:/deployments/loading-bay/sample-data
-      - ../../exchange-quickstart/loading-bay/dr-egeria-inbox:/deployments/loading-bay/dr-egeria-inbox
-      - ../../exchange-quickstart/loading-bay/dr-egeria-samples:/deployments/loading-bay/dr-egeria-samples
-      - ../../exchange-quickstart/loading-bay/Sustainability Files:/deployments/loading-bay/Sustainability Files
+      - ../../exchange-quickstart/loading-bay:/deployments/loading-bay
       - ../../exchange-quickstart/coco-data-lake:/deployments/coco-data-lake
+      - ../../exchange-quickstart/treasury-dts-history:/deployments/treasury-dts-history
       - ../../work:/deployments/work
       - ../../runtime-volumes/quickstart-platform-data/quickstart.application.properties:/deployments/application.properties
 

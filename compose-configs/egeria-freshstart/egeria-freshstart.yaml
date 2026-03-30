@@ -24,27 +24,11 @@ services:
     volumes:
       - ../egeria-quickstart/before-notebook.d:/usr/local/bin/before-notebook.d
       - ../../work:/home/jovyan/work
+      - ../../workbooks:/home/jovyan/workbooks
       - ../../exchange-freshstart/distribution-hub:/home/jovyan/distribution-hub
       - ../../exchange-freshstart/loading-bay:/home/jovyan/loading-bay
       - ../../exchange-freshstart/landing-area:/home/jovyan/landing-area
-      - ../../exchange-freshstart/coco-data-lake:/home/jovyan/coco-data-lake
       - ../../exchange-freshstart/config:/home/jovyan/config
-
-  freshstart-proxy:
-    build:
-      context: ../egeria-quickstart
-      dockerfile: Dockerfile-proxy
-    container_name: freshstart-openlineage-proxy-backend
-    networks:
-      - egeria_network
-    ports:
-      - "6002:6000"
-      - "6003:6001"
-    environment:
-      - OPENLINEAGE_PROXY_CONFIG=/usr/src/app/proxy.yml
-    volumes:
-      - ../egeria-quickstart/usr/src/app/build/libs:/usr/src/app/build/libs
-      - ../egeria-quickstart/proxy.yml:/usr/src/app/proxy.yml
 
   freshstart-egeria-main:
     image: 'egeria-freshstart-platform:local'
@@ -75,12 +59,8 @@ services:
       - ../../exchange-freshstart/distribution-hub/surveys:/deployments/surveys
       - ../../runtime-volumes/freshstart-platform-data/logs:/deployments/logs
       - ../../runtime-volumes/freshstart-platform-data/data:/deployments/data
-      - ../../exchange-freshstart/loading-bay/glossary:/deployments/loading-bay/glossary
-      - ../../exchange-freshstart/loading-bay/open-metadata-archives:/deployments/loading-bay/open-metadata-archives
-      - ../../exchange-freshstart/loading-bay/sample-data:/deployments/loading-bay/sample-data
-      - ../../exchange-freshstart/loading-bay/dr-egeria-inbox:/deployments/loading-bay/dr-egeria-inbox
-      - ../../exchange-freshstart/loading-bay/dr-egeria-samples:/deployments/loading-bay/dr-egeria-samples
-      - ../../exchange-freshstart/coco-data-lake:/deployments/coco-data-lake
+      - ../../runtime-volumes/freshstart-platform-data/secrets:/deployments/secrets
+      - ../../exchange-freshstart/loading-bay:/deployments/loading-bay
       - ../../work:/deployments/work
       - ../../runtime-volumes/freshstart-platform-data/freshstart.application.properties:/deployments/application.properties
 

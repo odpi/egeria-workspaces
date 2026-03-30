@@ -8,10 +8,9 @@ it easy to get a stack running quickly. This deployment configures and starts:
 
 * Egeria on port 9443 and will automatically start the default servers.
 * Jupyter is deployed using port 7888 so as not to interfere with other jupyter servers
-* Open Lineage Proxy running on ports 6000 and 6001. Details of the proxy's configuration are in the file `proxy.yml`. 
 * Apache Web Server on port 8085 and configured with `httpd.conf`.
 
-Kafka and PostgreSQL are provided by the shared infra stack in `compose-configs/shared-infra`.
+Kafka, PostgreSQL, and the OpenLineage proxy are provided by the shared infra stack in `compose-configs/shared-infra`.
 
 
 This environment is not designed for enterprise-wide use. Please see the [Planning Guide](https://egeria-project.org/guides/planning/)
@@ -45,7 +44,7 @@ The pre-configured and started servers are:
    
 * Mounted volumes for:
     * **distribution-hub**: an area where information created by Egeria (such as logs and survey information) can be easily exposed.
-    * **quickstart-platform-data**: this is a default location to hold your metadata repository when using the out of the box repository configuration. This has been externalized so that you can easily preserve your repository independently of docker.
+    * **quickstart-platform-data**: mounted to `/deployments` (read-write) and includes data, logs, secrets and local platform configuration.
     * **landing-area**: a convenient drop off point for files and folders you want to survey, analyze, and catalog with Egeria.
     * **landing-bay**: a place to drop files that you want to be loaded into Egeria - e.g glossary terms to import into an Egeria glossary.
   
@@ -70,8 +69,8 @@ File system volumes are mounted for:
 PostgreSQL runs in the shared infra stack and provides the `egeria` database used by quickstart.
 
 ## Open Lineage Proxy 
-This is a standard Open Lineage Proxy running on ports 6000 and 6001. Details of the proxy's configuration are in
-the file `proxy.yml`. 
+This is now provided by the shared infrastructure stack and runs on ports 6000 and 6001.
+Its build and runtime configuration are in `compose-configs/shared-infra/shared-infra.yaml` and `proxy.yml`.
 
 ----
 # Usage
@@ -91,7 +90,8 @@ These scripts will:
 
    * copy the server configuration files from `compose-configs/egeria-quickstart/servers` to `runtime-volumes/quickstart-platform-data/data/servers`. This enables you to make local changes to the server configurations that persist across restarts and are ignored by Git.
 
-   * build the `egeria-main` image from `Dockerfile-egeria-platform`, which copies quickstart secrets from `compose-configs/egeria-quickstart/secrets` into `/deployments/loading-bay/secrets`.
+   * build the `egeria-main` image from `Dockerfile-egeria-platform`.
+   * ensure `runtime-volumes/quickstart-platform-data/secrets` exists (seeded from `compose-configs/egeria-quickstart/secrets` only when missing), and mount `runtime-volumes/quickstart-platform-data` to `/deployments`.
 
    * build a jupyter image that is pre-configured to work with Egeria 
     
@@ -142,9 +142,10 @@ docker compose \
 
 ## Secrets Location for Quickstart
 
-- Quickstart platform secrets are sourced from `compose-configs/egeria-quickstart/secrets`.
-- They are copied into the Egeria container image at `/deployments/loading-bay/secrets` during image build.
-- The quickstart image includes only these quickstart secrets files:
+- Quickstart platform secrets are resolved at `/deployments/secrets`.
+- The runtime-mounted source directory is `runtime-volumes/quickstart-platform-data/secrets`.
+- Startup scripts seed missing defaults from `compose-configs/egeria-quickstart/secrets`.
+- Default quickstart secrets files are:
   - `coco-user-directory.omsecrets`
   - `egeria-servers.omsecrets`
   - `integration.omsecrets`

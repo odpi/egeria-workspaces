@@ -48,6 +48,7 @@ After startup, use:
 - Web: `http://localhost:8086`
 
 All four scripts automatically ensure the shared infrastructure stack in `compose-configs/shared-infra/` is running.
+This shared stack now includes Kafka, PostgreSQL, and the OpenLineage proxy.
 
 # Contents
 **egeria-workspaces** consists of a number of artifacts reflected by the folder structure itself. Here is a quick tour:
@@ -116,11 +117,11 @@ There are sub-directories for different kinds of information:
 
 - glossary - for importing and exporting glossary terms
 - open-metadata-archives - for importing open-metadata-archives
-- secrets - optional host-side secrets location for custom workflows. The default quickstart and
-  freshstart startup paths use image-baked secrets from `compose-configs/egeria-quickstart/secrets`
-  and `compose-configs/egeria-freshstart/secrets`, copied into
-  `/deployments/loading-bay/secrets` inside each Egeria container. Quickstart ships
-  `coco-user-directory.omsecrets`; freshstart ships `egeria-user-directory.omsecrets`.
+- secrets - optional host-side secrets location for custom workflows in exchange trees.
+  Runtime platform secrets now live under each deployment runtime volume at
+  `/deployments/secrets` inside the container:
+  - quickstart: `runtime-volumes/quickstart-platform-data/secrets`
+  - freshstart: `runtime-volumes/freshstart-platform-data/secrets`
 
 ## runtime-volumes
 The information in these folders are used by the Runtimes. They are not for the general

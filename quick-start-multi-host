@@ -5,7 +5,10 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 echo "[quick-start-multi-host] Preparing environment (.env) and compose files..."
-echo "[quick-start-multi-host] Quickstart secrets are sourced from compose-configs/egeria-quickstart/secrets and baked into /deployments/loading-bay/secrets."
+echo "[quick-start-multi-host] Quickstart uses image-provided secrets and mounts runtime data/logs only."
+
+mkdir -p runtime-volumes/quickstart-platform-data/data runtime-volumes/quickstart-platform-data/logs
+chmod -R a+rwX runtime-volumes/quickstart-platform-data
 
 # Copy the quickstart server configurations to the runtime volume
 TARGET_SERVER_DIR="runtime-volumes/quickstart-platform-data/data/servers"
@@ -22,7 +25,7 @@ pushd compose-configs/egeria-quickstart >/dev/null
   # Generate/update .env and normalize exchange-quickstart/config/config.json
   ./gen-env.sh
 
-  echo "[quick-start-multi-host] Building quickstart Egeria image (refreshes baked-in secrets in /deployments/loading-bay/secrets)..."
+  echo "[quick-start-multi-host] Building quickstart Egeria image..."
   docker compose -p egeria-quickstart -f egeria-quickstart.yaml build egeria-main
 
   echo "[quick-start-multi-host] Starting quickstart stack with external Kafka listeners..."

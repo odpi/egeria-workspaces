@@ -10,10 +10,9 @@ The freshstart deployment is isolated from quickstart and uses:
 - Egeria platform on `8443`
 - Jupyter on `7889`
 - Apache web on `8086`
-- OpenLineage proxy on `6002` and `6003`
 - FastAPI handler on `8001`
 
-Kafka (`9192/9193/9194`) and PostgreSQL (`5442`) are shared infrastructure services managed from
+Kafka (`9192/9193/9194`), PostgreSQL (`5442`), and the OpenLineage proxy (`6000/6001`) are shared infrastructure services managed from
 `compose-configs/shared-infra`.
 
 ## Usage
@@ -31,20 +30,21 @@ These scripts:
 4. start the freshstart compose stack.
 
 They also build `freshstart-egeria-main` from `Dockerfile-egeria-platform`, which copies
-freshstart secrets from `compose-configs/egeria-freshstart/secrets` into `/deployments/loading-bay/secrets`.
+no deployment-specific secrets into the image. Runtime secrets are mounted from the runtime volume.
 
 ## Runtime and exchange locations
 
 - runtime data: `runtime-volumes/freshstart-platform-data`
+- runtime secrets: `runtime-volumes/freshstart-platform-data/secrets` (mounted to `/deployments/secrets`)
 - apache runtime: `runtime-volumes/freshstart-apache-web`
 - exchange tree: `exchange-freshstart`
 - deployment-local secrets: `compose-configs/egeria-freshstart/secrets`
 
 ## Secrets Location for Freshstart
 
-- Freshstart platform secrets are sourced from `compose-configs/egeria-freshstart/secrets`.
-- They are copied into the Egeria container image at `/deployments/loading-bay/secrets` during image build.
-- The freshstart image includes only these freshstart secrets files:
+- Freshstart platform secrets are resolved at `/deployments/secrets`.
+- They are sourced from `runtime-volumes/freshstart-platform-data/secrets` (read-write mount).
+- Default files currently included in this runtime folder are:
   - `egeria-user-directory.omsecrets`
   - `egeria-servers.omsecrets`
   - `integration.omsecrets`

@@ -6,8 +6,8 @@
 This directory is available for optional host-side secrets workflows.
 
 The default quickstart startup path does not require files here. It sources secrets from
-`compose-configs/egeria-quickstart/secrets`, which are copied into the Egeria image at
-`/deployments/loading-bay/secrets` during image build.
+`runtime-volumes/quickstart-platform-data/secrets`, mounted in the Egeria container at
+`/deployments/secrets`.
 
 
 

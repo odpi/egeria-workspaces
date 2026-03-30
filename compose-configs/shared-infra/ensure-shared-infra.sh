@@ -31,12 +31,13 @@ else
   echo "[shared-infra] Docker network 'egeria_network' already exists"
 fi
 
-echo "[shared-infra] Ensuring shared Kafka and Postgres are running..."
-docker compose -p egeria-shared-infra -f shared-infra.yaml up -d kafka postgres
+echo "[shared-infra] Ensuring shared Kafka, Postgres, and proxy are running..."
+docker compose -p egeria-shared-infra -f shared-infra.yaml up -d proxy kafka postgres
 
 wait_for_container_state egeria-shared-kafka
 wait_for_container_state egeria-shared-postgres
+wait_for_container_state egeria-shared-openlineage-proxy-backend
 
-echo "[shared-infra] Shared Kafka and Postgres are ready."
+echo "[shared-infra] Shared Kafka, Postgres, and proxy are ready."
 popd >/dev/null
 

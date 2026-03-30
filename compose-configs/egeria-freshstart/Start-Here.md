@@ -7,11 +7,11 @@ If you are viewing this file in a Jupyter server, the freshstart environment is 
 
 By default this Jupyter environment mounts:
 
-- `coco-data-lake`
 - `distribution-hub`
 - `landing-area`
 - `loading-bay`
 - `work`
+- `workbooks`
 
 These folders are mounted from the `exchange-freshstart` and `work` folders in the `egeria-workspaces` repository.
 

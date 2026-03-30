@@ -6,11 +6,13 @@ If you are viewing this file in a Jupyter server then now you are ready to explo
 
 If you are running Jupyter, on the left hand navigation panel you should see a number of folders:
 * coco-data-lake
+* treasury-dts-history
 * distribution-hub
 * landing-area
 * loading-bay
 * work - for your own notebooks.
 * workbooks - contains some starter jupyter notebooks and demos.
+* coco-workspaces - shared samples and walkthrough content for quickstart.
 
 These folders reside outside of the container and by default located in the `egeria-workspaces` directory that contains the scripts used to start up this environment. These locations can be changed by altering the **Docker Compose** script 
 `egeria-quickstart.yaml` using a text editor.

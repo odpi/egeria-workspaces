@@ -33,6 +33,18 @@ with open(path, "r", encoding="utf-8") as f:
 
 new_data = rewrite(data)
 
+env = new_data.get("Environment")
+if isinstance(env, dict):
+    env["Egeria Engine Host"] = "fs-engine-host"
+    env["Egeria Integration Daemon"] = "fs-integration-daemon"
+    env["Egeria Metadata Store"] = "fs-metadata-store"
+    env["Egeria View Server"] = "fs-view-server"
+    env["Egeria Platform URL"] = f"https://{host}:8443"
+    env["Egeria Integration Daemon URL"] = f"https://{host}:8443"
+    env["Egeria View Server URL"] = f"https://{host}:8443"
+    env["Egeria Kafka Endpoint"] = f"{host}:9192"
+    env["Pyegeria Publishing Root"] = f"http://{host}:8086/dr-egeria-outbox"
+
 backup_path = path + ".bak"
 if not os.path.exists(backup_path):
     shutil.copy2(path, backup_path)

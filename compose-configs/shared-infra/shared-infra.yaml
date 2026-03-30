@@ -3,6 +3,22 @@
 # Copyright Contributors to the Egeria project
 
 services:
+  proxy:
+    build:
+      context: ../egeria-quickstart
+      dockerfile: Dockerfile-proxy
+    container_name: egeria-shared-openlineage-proxy-backend
+    networks:
+      - egeria_network
+    ports:
+      - "6000:6000"
+      - "6001:6001"
+    environment:
+      - OPENLINEAGE_PROXY_CONFIG=/usr/src/app/proxy.yml
+    volumes:
+      - ../egeria-quickstart/usr/src/app/build/libs:/usr/src/app/build/libs
+      - ../egeria-quickstart/proxy.yml:/usr/src/app/proxy.yml
+
   kafka:
     image: "bitnamilegacy/kafka:latest"
     container_name: egeria-shared-kafka
@@ -62,9 +78,6 @@ services:
       # quickstart data files
       - ../../exchange-quickstart/coco-data-lake:/var/data/coco-data-lake
       - ../../exchange-quickstart/treasury-dts-history:/var/data/treasury-dts-history
-      # freshstart data files (distinct container paths so both sets are available)
-      - ../../exchange-freshstart/coco-data-lake:/var/data/freshstart/coco-data-lake
-      - ../../exchange-freshstart/treasury-dts-history:/var/data/freshstart/treasury-dts-history
     command: -p 5442 -c max_connections=1000
 
 volumes:
