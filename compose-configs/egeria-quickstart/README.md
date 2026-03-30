@@ -102,6 +102,20 @@ These scripts will:
    For Egeria, this means not only starting up the initial set of servers, but then loading the **CoreContentPack.omarchive** into the metadata repository, and then configuring all the servers. 
    This can take several minutes the first time the containers are created. Subsequent startups will be much faster.
 
+The startup scripts now automatically refresh images more aggressively than before:
+
+- local compose images are rebuilt with `docker compose build --pull`, which checks for newer base images before building, and
+- containers are started with `docker compose up -d --pull always`, which checks for newer remote images before using cached ones.
+
+If you want to force a completely clean rebuild that ignores Docker's local build cache, set `NO_CACHE=1` when starting the stack from the repository root:
+
+```bash
+NO_CACHE=1 ./quick-start-local
+NO_CACHE=1 ./quick-start-multi-host
+```
+
+Accepted truthy values are `1`, `true`, `yes`, and `on`. Falsey values are unset, `0`, `false`, `no`, and `off`.
+
 Using either the **Docker Desktop** application or the docker command line you can see the new containers running. To do this with the docker command line, you can issue:
 
 `docker ps`
@@ -118,26 +132,43 @@ To access jupyter, open a browser to `http://localhost:7888`. At the password pr
 
 If you prefer to run Docker Compose manually instead of using the root scripts, from this directory you can run:
 
-```
-docker compose -f egeria-quickstart.yaml up --build
+```bash
+docker compose -f egeria-quickstart.yaml build --pull
+docker compose -f egeria-quickstart.yaml up -d --pull always
 ```
 
 For the local overlay (host-gateway mappings):
 
-```
+```bash
 docker compose \
   -f egeria-quickstart.yaml \
   -f egeria-quickstart-local.yaml \
-  up -d
+  build --pull
+
+docker compose \
+  -f egeria-quickstart.yaml \
+  -f egeria-quickstart-local.yaml \
+  up -d --pull always
 ```
 
 For the multi-host overlay (external Kafka listeners / FQDN):
 
-```
+```bash
 docker compose \
   -f egeria-quickstart.yaml \
   -f egeria-quickstart-cluster.yaml \
-  up -d
+  build --pull
+
+docker compose \
+  -f egeria-quickstart.yaml \
+  -f egeria-quickstart-cluster.yaml \
+  up -d --pull always
+```
+
+To bypass the local build cache during the manual build step, add `--no-cache`:
+
+```bash
+docker compose -f egeria-quickstart.yaml build --pull --no-cache
 ```
 
 ## Secrets Location for Quickstart

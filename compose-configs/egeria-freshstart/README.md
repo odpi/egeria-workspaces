@@ -32,6 +32,40 @@ These scripts:
 They also build `freshstart-egeria-main` from `Dockerfile-egeria-platform`, which copies
 no deployment-specific secrets into the image. Runtime secrets are mounted from the runtime volume.
 
+The startup scripts now automatically refresh images during startup:
+
+- local compose images are rebuilt with `docker compose build --pull`, which checks for newer base images before building, and
+- containers are started with `docker compose up -d --pull always`, which checks for newer remote images before using cached ones.
+
+If you want to force a completely clean rebuild that ignores Docker's local build cache, set `NO_CACHE=1` when starting the stack from the repository root:
+
+```bash
+NO_CACHE=1 ./fresh-start-local
+NO_CACHE=1 ./fresh-start-multi-host
+```
+
+Accepted truthy values are `1`, `true`, `yes`, and `on`. Falsey values are unset, `0`, `false`, `no`, and `off`.
+
+If you prefer to run Docker Compose manually from this directory, use:
+
+```bash
+docker compose -f egeria-freshstart.yaml build --pull
+docker compose -f egeria-freshstart.yaml -f egeria-freshstart-local.yaml up -d --pull always
+```
+
+For the multi-host overlay:
+
+```bash
+docker compose -f egeria-freshstart.yaml build --pull
+docker compose -f egeria-freshstart.yaml -f egeria-freshstart-cluster.yaml up -d --pull always
+```
+
+To bypass the local build cache during the manual build step, add `--no-cache`:
+
+```bash
+docker compose -f egeria-freshstart.yaml build --pull --no-cache
+```
+
 ## Runtime and exchange locations
 
 - runtime data: `runtime-volumes/freshstart-platform-data`

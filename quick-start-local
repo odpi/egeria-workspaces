@@ -4,6 +4,8 @@ set -euo pipefail
 # Always run from repo root (this script lives at repo root)
 cd "$(dirname "$0")"
 
+source compose-configs/shared-infra/compose-build-flags.sh
+
 echo "[quick-start-local] Preparing environment (.env) and compose files..."
 echo "[quick-start-local] Quickstart uses image-provided secrets and mounts runtime data/logs only."
 
@@ -25,14 +27,14 @@ pushd compose-configs/egeria-quickstart >/dev/null
   # Generate/update .env and normalize exchange-quickstart/config/config.json
   ./gen-env.sh
 
-  echo "[quick-start-local] Building quickstart Egeria image..."
-  docker compose -p egeria-quickstart -f egeria-quickstart.yaml build egeria-main
+  echo "[quick-start-local] Building quickstart images (pulling newer base images when available)..."
+  docker compose -p egeria-quickstart -f egeria-quickstart.yaml build "${COMPOSE_BUILD_FLAGS[@]}"
 
   echo "[quick-start-local] Starting local quickstart stack (host-gateway mappings enabled)..."
   docker compose -p egeria-quickstart \
     -f egeria-quickstart.yaml \
     -f egeria-quickstart-local.yaml \
-    up -d
+    up -d --pull always
 popd >/dev/null
 echo "[quick-start-local] Done. Useful URLs:"
 HOST_FQDN_PRINT=$(grep '^HOST_FQDN=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "localhost")

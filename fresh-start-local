@@ -3,6 +3,8 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+source compose-configs/shared-infra/compose-build-flags.sh
+
 echo "[fresh-start-local] Preparing environment (.env) and compose files..."
 echo "[fresh-start-local] Freshstart uses runtime-volumes/freshstart-platform-data mounted at /deployments."
 
@@ -22,14 +24,14 @@ compose-configs/shared-infra/ensure-shared-infra.sh
 pushd compose-configs/egeria-freshstart >/dev/null
   ./gen-env.sh
 
-  echo "[fresh-start-local] Building freshstart Egeria image..."
-  docker compose -p egeria-freshstart -f egeria-freshstart.yaml build freshstart-egeria-main
+  echo "[fresh-start-local] Building freshstart images (pulling newer base images when available)..."
+  docker compose -p egeria-freshstart -f egeria-freshstart.yaml build "${COMPOSE_BUILD_FLAGS[@]}"
 
   echo "[fresh-start-local] Starting local freshstart stack (host-gateway mappings enabled)..."
   docker compose -p egeria-freshstart \
     -f egeria-freshstart.yaml \
     -f egeria-freshstart-local.yaml \
-    up -d
+    up -d --pull always
 popd >/dev/null
 
 echo "[fresh-start-local] Done. Useful URLs:"

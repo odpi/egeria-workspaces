@@ -50,6 +50,20 @@ After startup, use:
 All four scripts automatically ensure the shared infrastructure stack in `compose-configs/shared-infra/` is running.
 This shared stack now includes Kafka, PostgreSQL, and the OpenLineage proxy.
 
+The startup scripts now always:
+
+- rebuild local compose images with `docker compose build --pull`, so Docker checks for newer base images such as `quay.io/odpi/egeria-platform:latest`, and
+- start containers with `docker compose up -d --pull always`, so Docker checks for newer remote images before using cached ones.
+
+If you want a completely clean rebuild that ignores Docker's local build cache, set `NO_CACHE=1` when starting either deployment:
+
+```bash
+NO_CACHE=1 ./quick-start-local
+NO_CACHE=1 ./fresh-start-local
+```
+
+Accepted truthy values are `1`, `true`, `yes`, and `on`. Falsey values are unset, `0`, `false`, `no`, and `off`.
+
 # Contents
 **egeria-workspaces** consists of a number of artifacts reflected by the folder structure itself. Here is a quick tour:
 ## compose-configs

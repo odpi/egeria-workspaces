@@ -3,6 +3,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+source "${SCRIPT_DIR}/compose-build-flags.sh"
+
 wait_for_container_state() {
   local container_name="$1"
   local attempts="${2:-40}"
@@ -32,7 +34,8 @@ else
 fi
 
 echo "[shared-infra] Ensuring shared Kafka, Postgres, and proxy are running..."
-docker compose -p egeria-shared-infra -f shared-infra.yaml up -d proxy kafka postgres
+docker compose -p egeria-shared-infra -f shared-infra.yaml build "${COMPOSE_BUILD_FLAGS[@]}" proxy
+docker compose -p egeria-shared-infra -f shared-infra.yaml up -d --pull always proxy kafka postgres
 
 wait_for_container_state egeria-shared-kafka
 wait_for_container_state egeria-shared-postgres

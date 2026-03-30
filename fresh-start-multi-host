@@ -3,6 +3,8 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+source compose-configs/shared-infra/compose-build-flags.sh
+
 echo "[fresh-start-multi-host] Preparing environment (.env) and compose files..."
 echo "[fresh-start-multi-host] Freshstart uses runtime-volumes/freshstart-platform-data mounted at /deployments."
 
@@ -22,14 +24,14 @@ compose-configs/shared-infra/ensure-shared-infra.sh
 pushd compose-configs/egeria-freshstart >/dev/null
   ./gen-env.sh
 
-  echo "[fresh-start-multi-host] Building freshstart Egeria image..."
-  docker compose -p egeria-freshstart -f egeria-freshstart.yaml build freshstart-egeria-main
+  echo "[fresh-start-multi-host] Building freshstart images (pulling newer base images when available)..."
+  docker compose -p egeria-freshstart -f egeria-freshstart.yaml build "${COMPOSE_BUILD_FLAGS[@]}"
 
   echo "[fresh-start-multi-host] Starting freshstart stack with external Kafka listeners..."
   docker compose -p egeria-freshstart \
     -f egeria-freshstart.yaml \
     -f egeria-freshstart-cluster.yaml \
-    up -d
+    up -d --pull always
 popd >/dev/null
 
 echo "[fresh-start-multi-host] Done. Useful notes:"

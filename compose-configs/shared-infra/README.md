@@ -20,11 +20,27 @@ Both root startup scripts (`quick-start-*` and `fresh-start-*`) call `ensure-sha
 3. starts OpenLineage proxy, Kafka, and PostgreSQL when they are missing or stopped,
 4. waits until all services are ready.
 
+`ensure-shared-infra.sh` now also refreshes images during startup:
+
+- it rebuilds the local proxy image with `docker compose build --pull`, and
+- it starts services with `docker compose up -d --pull always` so Docker checks for newer remote images before using cached ones.
+
+To bypass the local build cache for the proxy build, set `NO_CACHE=1` before running the script.
+
 You can also manage the shared stack directly from this directory:
 
 ```bash
 ./ensure-shared-infra.sh
+NO_CACHE=1 ./ensure-shared-infra.sh
+docker compose -p egeria-shared-infra -f shared-infra.yaml build --pull proxy
+docker compose -p egeria-shared-infra -f shared-infra.yaml up -d --pull always proxy kafka postgres
 docker compose -p egeria-shared-infra -f shared-infra.yaml ps
 docker compose -p egeria-shared-infra -f shared-infra.yaml down
+```
+
+To force a clean rebuild of the proxy image when running Docker Compose manually, add `--no-cache` to the build step:
+
+```bash
+docker compose -p egeria-shared-infra -f shared-infra.yaml build --pull --no-cache proxy
 ```
 
