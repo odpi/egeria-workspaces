@@ -22,7 +22,7 @@ services:
     volumes:
 #      - ./../../../runtime-volumes/unitycatalog1/etc:/home/unitycatalog/etc
       - uc_server1:/home/unitycatalog/etc
-      - ./../../../exchange/coco-data-lake:/mnt/coco-data-lake
+      - ./../../../exchange-quickstart/coco-data-lake:/mnt/coco-data-lake
 
     command: ./bin/start-uc-server -p 8087
 
@@ -38,7 +38,7 @@ services:
     volumes:
 #      - ./../../../runtime-volumes/unitycatalog2/etc:/home/unitycatalog/etc
       - uc_server2:/home/unitycatalog/etc
-      - ./../../../exchange/coco-data-lake:/mnt/coco-data-lake
+      - ./../../../exchange-quickstart/coco-data-lake:/mnt/coco-data-lake
 
     command: ./bin/start-uc-server -p 8187
 

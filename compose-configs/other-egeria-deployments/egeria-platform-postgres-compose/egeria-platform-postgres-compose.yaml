@@ -56,11 +56,11 @@ services:
 
 
         volumes:
-            - ../../../exchange/landing-area:/deployments/landing-area
-            - ../../../exchange/distribution-hub:/deployments/distribution-hub
-            - ../../../exchange/distribution-hub/surveys:/deployments/surveys
-            - ../../../exchange/distribution-hub/logs:/deployments/logs
-            - ../../../exchange/loading-bay:/deployments/loading-bay
+            - ../../../exchange-quickstart/landing-area:/deployments/landing-area
+            - ../../../exchange-quickstart/distribution-hub:/deployments/distribution-hub
+            - ../../../exchange-quickstart/distribution-hub/surveys:/deployments/surveys
+            - ../../../exchange-quickstart/distribution-hub/logs:/deployments/logs
+            - ../../../exchange-quickstart/loading-bay:/deployments/loading-bay
             - ../../../work:/deployments/work
 
     postgres:

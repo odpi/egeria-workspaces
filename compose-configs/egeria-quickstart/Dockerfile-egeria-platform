@@ -1,0 +1,10 @@
+FROM quay.io/odpi/egeria-platform:latest
+
+# Replace any base-image sample secrets with the quickstart-specific set only.
+RUN rm -rf /deployments/loading-bay/secrets \
+	&& mkdir -p /deployments/loading-bay/secrets
+
+COPY secrets/coco-user-directory.omsecrets /deployments/loading-bay/secrets/
+COPY secrets/egeria-servers.omsecrets /deployments/loading-bay/secrets/
+COPY secrets/integration.omsecrets /deployments/loading-bay/secrets/
+

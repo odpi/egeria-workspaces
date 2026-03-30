@@ -1,0 +1,13 @@
+services:
+  freshstart-egeria-main:
+    extra_hosts:
+      - "${HOST_FQDN}:host-gateway"
+
+  freshstart-pyegeria-web:
+    extra_hosts:
+      - "${HOST_FQDN}:host-gateway"
+
+  freshstart-jupyter-hub:
+    extra_hosts:
+      - "${HOST_FQDN}:host-gateway"
+

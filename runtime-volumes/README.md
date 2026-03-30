@@ -5,6 +5,13 @@
 This directory is used to hold the runtime data for the various runtimes configurable in Egeria workspaces.
 This includes data for the Egeria platform, and any associated runtimes such as Milvus, UC, and Airflow.
 
+Deployment-specific runtime folders include:
+
+- `quickstart-platform-data`
+- `quickstart-apache-web`
+- `freshstart-platform-data`
+- `freshstart-apache-web`
+
 As always, your feedback and participation are welcome. 
 
 

@@ -5,26 +5,28 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 echo "[quick-start-multi-host] Preparing environment (.env) and compose files..."
+echo "[quick-start-multi-host] Quickstart secrets are sourced from compose-configs/egeria-quickstart/secrets and baked into /deployments/loading-bay/secrets."
 
-# Copy the server configurations to the runtime volume
-echo "[quick-start-multi-host] Copying server configurations to runtime-volumes/egeria-platform-data/data/servers..."
-mkdir -p runtime-volumes/egeria-platform-data/data
-cp -r compose-configs/egeria-quickstart/servers runtime-volumes/egeria-platform-data/data/
+# Copy the quickstart server configurations to the runtime volume
+TARGET_SERVER_DIR="runtime-volumes/quickstart-platform-data/data/servers"
+echo "[quick-start-multi-host] Copying quickstart server configurations to ${TARGET_SERVER_DIR}..."
+rm -rf "$TARGET_SERVER_DIR"
+mkdir -p "$TARGET_SERVER_DIR"
+cp compose-configs/egeria-quickstart/servers/*.http "$TARGET_SERVER_DIR"/
+cp compose-configs/egeria-quickstart/servers/README.md "$TARGET_SERVER_DIR"/
+cp -r compose-configs/egeria-quickstart/servers/qs-* "$TARGET_SERVER_DIR"/
+
+compose-configs/shared-infra/ensure-shared-infra.sh
 
 pushd compose-configs/egeria-quickstart >/dev/null
-  # Generate/update .env and normalize exchange/config/config.json
+  # Generate/update .env and normalize exchange-quickstart/config/config.json
   ./gen-env.sh
 
-  echo "[quick-start-multi-host] Ensuring docker network 'egeria_network' exists..."
-  if ! docker network inspect egeria_network >/dev/null 2>&1; then
-    docker network create egeria_network >/dev/null
-    echo "[quick-start-multi-host] Created docker network 'egeria_network'"
-  else
-    echo "[quick-start-multi-host] Docker network 'egeria_network' already exists"
-  fi
+  echo "[quick-start-multi-host] Building quickstart Egeria image (refreshes baked-in secrets in /deployments/loading-bay/secrets)..."
+  docker compose -p egeria-quickstart -f egeria-quickstart.yaml build egeria-main
 
   echo "[quick-start-multi-host] Starting quickstart stack with external Kafka listeners..."
-  docker compose \
+  docker compose -p egeria-quickstart \
     -f egeria-quickstart.yaml \
     -f egeria-quickstart-cluster.yaml \
     up -d

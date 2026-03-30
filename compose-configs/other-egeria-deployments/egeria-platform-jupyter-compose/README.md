@@ -57,7 +57,7 @@ The pre-configured and started servers are:
    
 * Mounted volumes for:
     * **distribution-hub**: an area where information created by Egeria (such as logs and survey information) can be easily exposed.
-    * **egeria-platform-data**: this is a default location to hold your metadata repository when using the out of the box repository configuration. This has been externalized so that you can easily preserve your repository independently of docker.
+    * **quickstart-platform-data**: this is a default location to hold your metadata repository when using the out of the box repository configuration. This has been externalized so that you can easily preserve your repository independently of docker.
     * **landing-area**: a convenient drop off point for files and folders you want to survey, analyze and perhaps catalog with Egeria.
     * **landing-bay**: 
   

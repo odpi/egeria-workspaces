@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
 HOST_FQDN="$(hostname -f 2>/dev/null || hostname)"
 
-EXCHANGE_CONFIG_JSON="../../exchange/config/config.json"
+EXCHANGE_CONFIG_JSON="../../exchange-quickstart/config/config.json"
 
 if [[ -f "$EXCHANGE_CONFIG_JSON" ]]; then
   if command -v python3 >/dev/null 2>&1; then
-    # Update exchange/config.json: replace "localhost" and "127.0.0.1" with the host FQDN
+    # Update exchange-quickstart/config.json: replace "localhost" and "127.0.0.1" with the host FQDN
     # in all string values. Creates a one-time backup (config.json.bak) if it doesn't exist.
     python3 - "$EXCHANGE_CONFIG_JSON" "$HOST_FQDN" <<'PY'
 import json
