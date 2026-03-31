@@ -180,4 +180,7 @@ compose-configs/egeria-quickstart/.env
 compose-configs/egeria-freshstart/.env
 compose-configs/shared-infra/.env
 
+/exchange/**
+/runtime-volumes/freshstart-platform-data/secrets/*.omsecrets
+
 /workspaces/egeria-docs-maintenance/snippets/
