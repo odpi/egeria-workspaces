@@ -23,32 +23,22 @@ you need to have docker and docker compose compatible software installed. We tes
 
 
 # Quick Start (recommended)
-This repository now provides two isolated deployment flavors with shared Kafka and PostgreSQL infrastructure.
+This repository provides two isolated deployment flavors that share a common Kafka, PostgreSQL, and OpenLineage proxy infrastructure stack.
 
-## Quickstart deployment (Coco Pharmaceuticals defaults)
-
-- `./quick-start-local`
-- `./quick-start-multi-host`
-
-After startup, use:
-
-- Egeria platform: `https://localhost:9443`
-- Jupyter: `http://localhost:7888` (password: `egeria`)
-- Web: `http://localhost:8085`
-
-## Freshstart deployment (clean fs-* defaults)
-
-- `./fresh-start-local`
-- `./fresh-start-multi-host`
-
-After startup, use:
-
-- Egeria platform: `https://localhost:8443`
-- Jupyter: `http://localhost:7889` (password: `egeria`)
-- Web: `http://localhost:8086`
+| | **egeria-quickstart** | **egeria-freshstart** |
+|---|---|---|
+| Start script (single host) | `./quick-start-local` | `./fresh-start-local` |
+| Start script (multi-host) | `./quick-start-multi-host` | `./fresh-start-multi-host` |
+| Egeria platform | `https://localhost:9443` | `https://localhost:8443` |
+| Jupyter | `http://localhost:7888` (password: `egeria`) | `http://localhost:7889` (password: `egeria`) |
+| Web | `http://localhost:8085` | `http://localhost:8086` |
+| Servers | `qs-*` (Coco Pharmaceuticals defaults) | `fs-*` (clean defaults) |
+| Platform secrets | Image-bundled (no host mount required) | Host-managed: `runtime-volumes/freshstart-platform-data/secrets` |
+| Exchange tree | `exchange-quickstart/` | `exchange-freshstart/` |
+| Runtime data | `runtime-volumes/quickstart-platform-data/` | `runtime-volumes/freshstart-platform-data/` |
 
 All four scripts automatically ensure the shared infrastructure stack in `compose-configs/shared-infra/` is running.
-This shared stack now includes Kafka, PostgreSQL, and the OpenLineage proxy.
+This shared stack provides Kafka, PostgreSQL, and the OpenLineage proxy used by both deployments.
 
 The startup scripts now always:
 
@@ -132,10 +122,9 @@ There are sub-directories for different kinds of information:
 - glossary - for importing and exporting glossary terms
 - open-metadata-archives - for importing open-metadata-archives
 - secrets - optional host-side secrets location for custom workflows in exchange trees.
-  Runtime platform secrets now live under each deployment runtime volume at
-  `/deployments/secrets` inside the container:
-  - quickstart: `runtime-volumes/quickstart-platform-data/secrets`
-  - freshstart: `runtime-volumes/freshstart-platform-data/secrets`
+  Runtime platform secrets are resolved at `/deployments/secrets` inside the container:
+  - quickstart: image-bundled default secrets (no host secrets mount by default)
+  - freshstart: host-managed `runtime-volumes/freshstart-platform-data/secrets`
 
 ## runtime-volumes
 The information in these folders are used by the Runtimes. They are not for the general

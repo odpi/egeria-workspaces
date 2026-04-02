@@ -5,9 +5,8 @@
 
 This directory is available for optional host-side secrets workflows.
 
-The default quickstart startup path does not require files here. It sources secrets from
-`runtime-volumes/quickstart-platform-data/secrets`, mounted in the Egeria container at
-`/deployments/secrets`.
+The default quickstart startup path does not require files here. Quickstart uses image-bundled
+platform secrets resolved at `/deployments/secrets` in the Egeria container.
 
 
 

@@ -25,7 +25,7 @@ services:
       egeria-main:
         condition: service_healthy
 
-    image: quay.io/jupyter/scipy-notebook:latest
+    image: egeria-quickstart-jupyter:local
     container_name: quickstart-jupyter-work-full
     networks:
       - egeria_network
@@ -39,6 +39,7 @@ services:
       JUPYTER_PORT: "7888"
 
     build:
+      context: .
       dockerfile: Dockerfile-jupyter
     volumes:
       - ./before-notebook.d:/usr/local/bin/before-notebook.d

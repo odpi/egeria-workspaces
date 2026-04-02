@@ -72,13 +72,12 @@ docker compose -f egeria-freshstart.yaml build --pull --no-cache
 - runtime secrets: `runtime-volumes/freshstart-platform-data/secrets` (mounted to `/deployments/secrets`)
 - apache runtime: `runtime-volumes/freshstart-apache-web`
 - exchange tree: `exchange-freshstart`
-- deployment-local secrets: `compose-configs/egeria-freshstart/secrets`
 
 ## Secrets Location for Freshstart
 
 - Freshstart platform secrets are resolved at `/deployments/secrets`.
 - They are sourced from `runtime-volumes/freshstart-platform-data/secrets` (read-write mount).
-- Default files currently included in this runtime folder are:
+- Typical files in this runtime folder are:
   - `egeria-user-directory.omsecrets`
   - `egeria-servers.omsecrets`
   - `integration.omsecrets`

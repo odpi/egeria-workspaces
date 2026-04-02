@@ -15,5 +15,7 @@ By default this Jupyter environment mounts:
 
 These folders are mounted from the `exchange-freshstart` and `work` folders in the `egeria-workspaces` repository.
 
+Freshstart platform secrets are resolved in the container at `/deployments/secrets` and are mounted from `runtime-volumes/freshstart-platform-data/secrets`.
+
 For deployment details and startup scripts, see `compose-configs/egeria-freshstart/README.md`.
 

@@ -91,7 +91,7 @@ These scripts will:
    * copy the server configuration files from `compose-configs/egeria-quickstart/servers` to `runtime-volumes/quickstart-platform-data/data/servers`. This enables you to make local changes to the server configurations that persist across restarts and are ignored by Git.
 
    * build the `egeria-main` image from `Dockerfile-egeria-platform`.
-   * ensure `runtime-volumes/quickstart-platform-data/secrets` exists (seeded from `compose-configs/egeria-quickstart/secrets` only when missing), and mount `runtime-volumes/quickstart-platform-data` to `/deployments`.
+   * ensure `runtime-volumes/quickstart-platform-data/data` and `runtime-volumes/quickstart-platform-data/logs` exist with write permissions.
 
    * build a jupyter image that is pre-configured to work with Egeria 
     
@@ -173,14 +173,10 @@ docker compose -f egeria-quickstart.yaml build --pull --no-cache
 
 ## Secrets Location for Quickstart
 
-- Quickstart platform secrets are resolved at `/deployments/secrets`.
-- The runtime-mounted source directory is `runtime-volumes/quickstart-platform-data/secrets`.
-- Startup scripts seed missing defaults from `compose-configs/egeria-quickstart/secrets`.
-- Default quickstart secrets files are:
-  - `coco-user-directory.omsecrets`
-  - `egeria-servers.omsecrets`
-  - `integration.omsecrets`
-- `exchange-quickstart/loading-bay/secrets` is not required for normal quickstart startup.
+- Quickstart platform secrets are resolved at `/deployments/secrets` inside the container.
+- By default, these come from the Egeria platform image — no host secrets mount is required.
+- To customise secrets, add a volume mount from a host directory to `/deployments/secrets` in `egeria-quickstart.yaml`.
+- `exchange-quickstart/loading-bay/secrets` is optional and not used by the default startup.
 
 ## Next Steps
 

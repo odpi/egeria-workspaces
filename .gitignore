@@ -137,9 +137,6 @@ runtime-volumes/unitycatalog*/etc/conf/token.txt
 
 loading-bay/open-metadata-archives/*.omarchive
 
-#exchange-quickstart/loading-bay/secrets/*omsecrets
-exchange-quickstart/loading-bay/secrets/*yml
-exchange-quickstart/loading-bay/secrets/*yaml
 exchange-quickstart/loading-bay/open-metadata-archives/*omarchive
 exchange-quickstart/landing-area/**
 exchange-quickstart/coco-data-lake/
