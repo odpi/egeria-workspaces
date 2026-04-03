@@ -81,7 +81,7 @@ docker compose -f egeria-freshstart.yaml build --pull --no-cache
   - `egeria-user-directory.omsecrets` — user accounts, security groups, roles, and access controls
   - `egeria-servers.omsecrets` — NPA credentials and database passwords for the `fs-*` servers
   - `integration.omsecrets` — integration connector secrets (empty by default)
-- The startup scripts (`fresh-start-local`, `fresh-start-multi-host`) automatically seed the runtime secrets directory from the templates **the first time it is empty**. Subsequent starts leave any customisations in place.
+- The startup scripts (`fresh-start-local`, `fresh-start-multi-host`) automatically seed the runtime secrets directory from the templates on each run, **copying only files that do not already exist**. Customised files are never overwritten.
 - To reset to defaults, delete `runtime-volumes/freshstart-platform-data/secrets/` and restart.
 - `exchange-freshstart/loading-bay/secrets` is optional and not used by the default startup.
 

@@ -18,9 +18,10 @@ and customise as needed before starting the stack.
 ## How to use
 
 The freshstart startup scripts (`fresh-start-local`, `fresh-start-multi-host`) seed
-`runtime-volumes/freshstart-platform-data/secrets/` from here **the first time** the
-runtime secrets directory is empty.  To reset to defaults, delete the runtime secrets
-directory and restart.
+`runtime-volumes/freshstart-platform-data/secrets/` from here on **every run**, but
+**only copy files that do not already exist** — existing customisations are never
+overwritten.  To reset a file to the template default, delete it from the runtime
+secrets directory and restart.
 
 To customise:
 
@@ -38,4 +39,5 @@ To customise:
 ----
 License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/),
 Copyright Contributors to the ODPi Egeria project.
+
 

@@ -15,12 +15,21 @@ TEMPLATE_SECRETS_DIR="compose-configs/egeria-freshstart/secrets"
 mkdir -p "$RUNTIME_SECRETS_DIR"
 chmod -R a+rwX "$RUNTIME_DEPLOYMENTS_DIR"
 
-# Seed secrets from templates only when the runtime secrets directory is empty
+# Seed secrets from templates only for files that don't already exist
 if [ -z "$(ls -A "$RUNTIME_SECRETS_DIR" 2>/dev/null)" ]; then
   echo "[fresh-start-multi-host] Seeding runtime secrets from templates in ${TEMPLATE_SECRETS_DIR}..."
   cp "${TEMPLATE_SECRETS_DIR}"/*.omsecrets "$RUNTIME_SECRETS_DIR"/
 else
-  echo "[fresh-start-multi-host] Runtime secrets already present in ${RUNTIME_SECRETS_DIR} — skipping seed."
+  echo "[fresh-start-multi-host] Checking for missing runtime secrets (will not overwrite existing files)..."
+  for template_file in "${TEMPLATE_SECRETS_DIR}"/*.omsecrets; do
+    target_file="${RUNTIME_SECRETS_DIR}/$(basename "$template_file")"
+    if [ ! -f "$target_file" ]; then
+      echo "[fresh-start-multi-host]   Seeding missing: $(basename "$template_file")"
+      cp "$template_file" "$target_file"
+    else
+      echo "[fresh-start-multi-host]   Already present (skipping): $(basename "$template_file")"
+    fi
+  done
 fi
 
 TARGET_SERVER_DIR="runtime-volumes/freshstart-platform-data/data/servers"
