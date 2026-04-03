@@ -33,7 +33,7 @@ This repository provides two isolated deployment flavors that share a common Kaf
 | Jupyter | `http://localhost:7888` (password: `egeria`) | `http://localhost:7889` (password: `egeria`) |
 | Web | `http://localhost:8085` | `http://localhost:8086` |
 | Servers | `qs-*` (Coco Pharmaceuticals defaults) | `fs-*` (clean defaults) |
-| Platform secrets | Image-bundled (no host mount required) | Host-managed: `runtime-volumes/freshstart-platform-data/secrets` |
+| Platform secrets | Image-bundled (no host mount required) | Seeded from `compose-configs/egeria-freshstart/secrets/` templates into `runtime-volumes/freshstart-platform-data/secrets` on first run |
 | Exchange tree | `exchange-quickstart/` | `exchange-freshstart/` |
 | Runtime data | `runtime-volumes/quickstart-platform-data/` | `runtime-volumes/freshstart-platform-data/` |
 
@@ -124,7 +124,8 @@ There are sub-directories for different kinds of information:
 - secrets - optional host-side secrets location for custom workflows in exchange trees.
   Runtime platform secrets are resolved at `/deployments/secrets` inside the container:
   - quickstart: image-bundled default secrets (no host secrets mount by default)
-  - freshstart: host-managed `runtime-volumes/freshstart-platform-data/secrets`
+  - freshstart: seeded from `compose-configs/egeria-freshstart/secrets/` templates into
+    `runtime-volumes/freshstart-platform-data/secrets` on first run; customise in place thereafter
 
 ## runtime-volumes
 The information in these folders are used by the Runtimes. They are not for the general

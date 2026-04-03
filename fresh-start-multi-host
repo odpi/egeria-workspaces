@@ -9,7 +9,19 @@ echo "[fresh-start-multi-host] Preparing environment (.env) and compose files...
 echo "[fresh-start-multi-host] Freshstart uses runtime-volumes/freshstart-platform-data mounted at /deployments."
 
 RUNTIME_DEPLOYMENTS_DIR="runtime-volumes/freshstart-platform-data"
+RUNTIME_SECRETS_DIR="runtime-volumes/freshstart-platform-data/secrets"
+TEMPLATE_SECRETS_DIR="compose-configs/egeria-freshstart/secrets"
+
+mkdir -p "$RUNTIME_SECRETS_DIR"
 chmod -R a+rwX "$RUNTIME_DEPLOYMENTS_DIR"
+
+# Seed secrets from templates only when the runtime secrets directory is empty
+if [ -z "$(ls -A "$RUNTIME_SECRETS_DIR" 2>/dev/null)" ]; then
+  echo "[fresh-start-multi-host] Seeding runtime secrets from templates in ${TEMPLATE_SECRETS_DIR}..."
+  cp "${TEMPLATE_SECRETS_DIR}"/*.omsecrets "$RUNTIME_SECRETS_DIR"/
+else
+  echo "[fresh-start-multi-host] Runtime secrets already present in ${RUNTIME_SECRETS_DIR} — skipping seed."
+fi
 
 TARGET_SERVER_DIR="runtime-volumes/freshstart-platform-data/data/servers"
 echo "[fresh-start-multi-host] Copying freshstart server configurations to ${TARGET_SERVER_DIR}..."
