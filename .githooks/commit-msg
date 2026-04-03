@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+msg_file="${1:?commit message path required}"
+
+# First line only for subject linting.
+subject="$(head -n 1 "$msg_file")"
+
+# Lightweight conventional commit style with optional scope and optional !.
+subject_regex='^(feat|fix|docs|chore|refactor|test|build|ci|perf|revert)(\([A-Za-z0-9._/-]+\))?!?: .+'
+
+if ! printf '%s\n' "$subject" | grep -Eq "$subject_regex"; then
+  cat <<'EOF'
+ERROR: Commit subject does not match policy.
+
+Expected:
+  type(scope): short summary
+
+Allowed types:
+  feat fix docs chore refactor test build ci perf revert
+
+Examples:
+  feat(freshstart): add isolated fs-* startup flow
+  fix(jupyter): ensure pipx and pyegeria CLI are installed
+  docs(readme): clarify local vs multi-host behavior
+EOF
+  exit 1
+fi
+
+# Require at least one well-formed signoff trailer.
+if ! grep -Eq '^Signed-off-by: .+ <.+>$' "$msg_file"; then
+  cat <<'EOF'
+ERROR: Missing Signed-off-by trailer.
+
+Use:
+  git commit -s -m "type(scope): short summary"
+EOF
+  exit 1
+fi
+
+exit 0
+
