@@ -66,6 +66,18 @@ To bypass the local build cache during the manual build step, add `--no-cache`:
 docker compose -f egeria-freshstart.yaml build --pull --no-cache
 ```
 
+## Local vs multi-host
+
+The two startup scripts apply different Docker Compose overlays on top of `egeria-freshstart.yaml`:
+
+| | `./fresh-start-local` | `./fresh-start-multi-host` |
+|---|---|---|
+| Overlay file | `egeria-freshstart-local.yaml` | `egeria-freshstart-cluster.yaml` |
+| Extra behaviour | Adds `extra_hosts` mapping `${HOST_FQDN} → host-gateway` inside the Egeria, Jupyter, and pyegeria-web containers | No `extra_hosts` — relies on real DNS resolution of `${HOST_FQDN}` |
+| When to use | Single machine (laptop / workstation). Lets containers reach the host by its hostname without a real DNS entry. Required on Linux where `host.docker.internal` is not automatic. | When Egeria needs to be reachable from **other machines** on your network. `HOST_FQDN` must resolve via DNS on all participating hosts. |
+
+Neither overlay changes ports, images, or volumes — the only difference is whether containers get a synthetic `/etc/hosts` entry for the host machine's hostname.
+
 ## Runtime and exchange locations
 
 - runtime data: `runtime-volumes/freshstart-platform-data`

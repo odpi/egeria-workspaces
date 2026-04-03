@@ -40,6 +40,12 @@ This repository provides two isolated deployment flavors that share a common Kaf
 All four scripts automatically ensure the shared infrastructure stack in `compose-configs/shared-infra/` is running.
 This shared stack provides Kafka, PostgreSQL, and the OpenLineage proxy used by both deployments.
 
+### Local vs multi-host
+
+The `-local` scripts add a synthetic `/etc/hosts` entry inside each container that maps your machine's hostname to Docker's `host-gateway` address, so containers can resolve the host by name without a real DNS entry. This is required on Linux (where `host.docker.internal` is not automatic) and the right choice for any single-machine setup.
+
+The `-multi-host` scripts omit that mapping and expect `HOST_FQDN` to resolve via real DNS — use these only when Egeria needs to be reachable from other machines on your network.
+
 The startup scripts now always:
 
 - rebuild local compose images with `docker compose build --pull`, so Docker checks for newer base images such as `quay.io/odpi/egeria-platform:latest`, and
