@@ -1,0 +1,60 @@
+name: Commit Policy
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+      - edited
+
+jobs:
+  commit-policy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit messages and signoff
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          SUBJECT_REGEX='^(feat|fix|docs|chore|refactor|test|build|ci|perf|revert)(\([A-Za-z0-9._/-]+\))?!?: .+'
+
+          echo "Checking commits in range: ${BASE_SHA}..${HEAD_SHA}"
+
+          failures=0
+
+          while IFS= read -r commit; do
+            [ -z "$commit" ] && continue
+
+            subject="$(git log -1 --pretty=%s "$commit")"
+            body="$(git log -1 --pretty=%B "$commit")"
+
+            if ! printf '%s\n' "$subject" | grep -Eq "$SUBJECT_REGEX"; then
+              echo "::error::Commit ${commit} has invalid subject: ${subject}"
+              failures=$((failures + 1))
+            fi
+
+            if ! printf '%s\n' "$body" | grep -Eq '^Signed-off-by: .+ <.+>$'; then
+              echo "::error::Commit ${commit} is missing Signed-off-by trailer"
+              failures=$((failures + 1))
+            fi
+          done < <(git rev-list --no-merges "${BASE_SHA}..${HEAD_SHA}")
+
+          if [ "$failures" -gt 0 ]; then
+            echo "\nCommit policy failed. Use: git commit -s -m \"type(scope): short summary\""
+            exit 1
+          fi
+
+          echo "Commit policy passed."
+
