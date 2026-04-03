@@ -58,24 +58,25 @@ USER root
 #RUN npm install -g mermaid.cli
 #sudo chown -R 1000:100 "/home/jovyan/.npm"
 
+ENV PATH="/home/${NB_USER}/.local/bin:${PATH}"
+
+USER root
+RUN python -m pip install --no-cache-dir \
+	pyegeria \
+	rich \
+	unitycatalog \
+	pipx \
+	textual \
+	textual-dev \
+	apache-airflow-client \
+	jupyterlab_execute_time \
+	mermaid.py \
+	plotly \
+	dash
+
 USER ${NB_UID}
-RUN pip install --no-cache-dir 'pyegeria'
-RUN pip install --no-cache-dir 'rich'
-RUN pip install --no-cache-dir 'unitycatalog'
-RUN pip install --no-cache-dir 'pipx'
-RUN pip install --no-cache-dir 'textual'
-RUN pip install --no-cache-dir 'textual-dev'
-RUN pip install --no-cache-dir 'apache-airflow-client'
-RUN pip install --no-cache-dir 'jupyterlab_execute_time'
-RUN pip install --no-cache-dir 'mermaid.py'
-RUN pip install --no-cache-dir 'plotly'
-RUN pip install --no-cache-dir 'dash'
-
-
-
-RUN pipx ensurepath
-RUN pipx install pyegeria
-RUN pipx ensurepath
+RUN python -m pipx ensurepath
+RUN python -m pipx install pyegeria
 
 # RUN mkdir -p /home/jovyan/workbooks
 # RUN chmod +xrw /home/jovyan/workbooks

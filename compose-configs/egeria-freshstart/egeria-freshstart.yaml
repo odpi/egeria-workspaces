@@ -7,7 +7,7 @@ services:
     depends_on:
       freshstart-egeria-main:
         condition: service_healthy
-    image: quay.io/jupyter/scipy-notebook:latest
+    image: egeria-freshstart-jupyter:local
     container_name: freshstart-jupyter-work-full
     networks:
       - egeria_network

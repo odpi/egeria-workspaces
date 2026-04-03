@@ -17,6 +17,8 @@ If you are running Jupyter, on the left hand navigation panel you should see a n
 These folders reside outside of the container and by default located in the `egeria-workspaces` directory that contains the scripts used to start up this environment. These locations can be changed by altering the **Docker Compose** script 
 `egeria-quickstart.yaml` using a text editor.
 
+Quickstart platform secrets are resolved in the container at `/deployments/secrets` and, by default, come from the platform image.
+
 A good way to get started is by opening the `egeria-workbooks` Notebook iun the `workbooks` folder.
 
 For more information, please see [Egeria Docker Compose](https://egeria-project.org/education/open-metadata-labs/overview)

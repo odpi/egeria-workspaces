@@ -66,23 +66,36 @@ To bypass the local build cache during the manual build step, add `--no-cache`:
 docker compose -f egeria-freshstart.yaml build --pull --no-cache
 ```
 
+## Local vs multi-host
+
+The two startup scripts apply different Docker Compose overlays on top of `egeria-freshstart.yaml`:
+
+| | `./fresh-start-local` | `./fresh-start-multi-host` |
+|---|---|---|
+| Overlay file | `egeria-freshstart-local.yaml` | `egeria-freshstart-cluster.yaml` |
+| Extra behaviour | Adds `extra_hosts` mapping `${HOST_FQDN} → host-gateway` inside the Egeria, Jupyter, and pyegeria-web containers | No `extra_hosts` — relies on real DNS resolution of `${HOST_FQDN}` |
+| When to use | Single machine (laptop / workstation). Lets containers reach the host by its hostname without a real DNS entry. Required on Linux where `host.docker.internal` is not automatic. | When Egeria needs to be reachable from **other machines** on your network. `HOST_FQDN` must resolve via DNS on all participating hosts. |
+
+Neither overlay changes ports, images, or volumes — the only difference is whether containers get a synthetic `/etc/hosts` entry for the host machine's hostname.
+
 ## Runtime and exchange locations
 
 - runtime data: `runtime-volumes/freshstart-platform-data`
 - runtime secrets: `runtime-volumes/freshstart-platform-data/secrets` (mounted to `/deployments/secrets`)
 - apache runtime: `runtime-volumes/freshstart-apache-web`
 - exchange tree: `exchange-freshstart`
-- deployment-local secrets: `compose-configs/egeria-freshstart/secrets`
 
 ## Secrets Location for Freshstart
 
-- Freshstart platform secrets are resolved at `/deployments/secrets`.
-- They are sourced from `runtime-volumes/freshstart-platform-data/secrets` (read-write mount).
-- Default files currently included in this runtime folder are:
-  - `egeria-user-directory.omsecrets`
-  - `egeria-servers.omsecrets`
-  - `integration.omsecrets`
-- `exchange-freshstart/loading-bay/secrets` is not required for normal freshstart startup.
+- Freshstart platform secrets are resolved at `/deployments/secrets` inside the container.
+- The runtime source is `runtime-volumes/freshstart-platform-data/secrets` (read-write mounted — not tracked by Git).
+- **Template files** are kept in `compose-configs/egeria-freshstart/secrets/` (tracked by Git) and provide a starting point:
+  - `egeria-user-directory.omsecrets` — user accounts, security groups, roles, and access controls
+  - `egeria-servers.omsecrets` — NPA credentials and database passwords for the `fs-*` servers
+  - `integration.omsecrets` — integration connector secrets (empty by default)
+- The startup scripts (`fresh-start-local`, `fresh-start-multi-host`) automatically seed the runtime secrets directory from the templates on each run, **copying only files that do not already exist**. Customised files are never overwritten.
+- To reset to defaults, delete `runtime-volumes/freshstart-platform-data/secrets/` and restart.
+- `exchange-freshstart/loading-bay/secrets` is optional and not used by the default startup.
 
 ----
 License: CC BY 4.0, Copyright Contributors to the ODPi Egeria project.

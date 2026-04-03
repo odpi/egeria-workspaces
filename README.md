@@ -23,32 +23,28 @@ you need to have docker and docker compose compatible software installed. We tes
 
 
 # Quick Start (recommended)
-This repository now provides two isolated deployment flavors with shared Kafka and PostgreSQL infrastructure.
+This repository provides two isolated deployment flavors that share a common Kafka, PostgreSQL, and OpenLineage proxy infrastructure stack.
 
-## Quickstart deployment (Coco Pharmaceuticals defaults)
-
-- `./quick-start-local`
-- `./quick-start-multi-host`
-
-After startup, use:
-
-- Egeria platform: `https://localhost:9443`
-- Jupyter: `http://localhost:7888` (password: `egeria`)
-- Web: `http://localhost:8085`
-
-## Freshstart deployment (clean fs-* defaults)
-
-- `./fresh-start-local`
-- `./fresh-start-multi-host`
-
-After startup, use:
-
-- Egeria platform: `https://localhost:8443`
-- Jupyter: `http://localhost:7889` (password: `egeria`)
-- Web: `http://localhost:8086`
+| | **egeria-quickstart** | **egeria-freshstart** |
+|---|---|---|
+| Start script (single host) | `./quick-start-local` | `./fresh-start-local` |
+| Start script (multi-host) | `./quick-start-multi-host` | `./fresh-start-multi-host` |
+| Egeria platform | `https://localhost:9443` | `https://localhost:8443` |
+| Jupyter | `http://localhost:7888` (password: `egeria`) | `http://localhost:7889` (password: `egeria`) |
+| Web | `http://localhost:8085` | `http://localhost:8086` |
+| Servers | `qs-*` (Coco Pharmaceuticals defaults) | `fs-*` (clean defaults) |
+| Platform secrets | Image-bundled (no host mount required) | Seeded from `compose-configs/egeria-freshstart/secrets/` templates into `runtime-volumes/freshstart-platform-data/secrets` on first run |
+| Exchange tree | `exchange-quickstart/` | `exchange-freshstart/` |
+| Runtime data | `runtime-volumes/quickstart-platform-data/` | `runtime-volumes/freshstart-platform-data/` |
 
 All four scripts automatically ensure the shared infrastructure stack in `compose-configs/shared-infra/` is running.
-This shared stack now includes Kafka, PostgreSQL, and the OpenLineage proxy.
+This shared stack provides Kafka, PostgreSQL, and the OpenLineage proxy used by both deployments.
+
+### Local vs multi-host
+
+The `-local` scripts add a synthetic `/etc/hosts` entry inside each container that maps your machine's hostname to Docker's `host-gateway` address, so containers can resolve the host by name without a real DNS entry. This is required on Linux (where `host.docker.internal` is not automatic) and the right choice for any single-machine setup.
+
+The `-multi-host` scripts omit that mapping and expect `HOST_FQDN` to resolve via real DNS — use these only when Egeria needs to be reachable from other machines on your network.
 
 The startup scripts now always:
 
@@ -132,10 +128,10 @@ There are sub-directories for different kinds of information:
 - glossary - for importing and exporting glossary terms
 - open-metadata-archives - for importing open-metadata-archives
 - secrets - optional host-side secrets location for custom workflows in exchange trees.
-  Runtime platform secrets now live under each deployment runtime volume at
-  `/deployments/secrets` inside the container:
-  - quickstart: `runtime-volumes/quickstart-platform-data/secrets`
-  - freshstart: `runtime-volumes/freshstart-platform-data/secrets`
+  Runtime platform secrets are resolved at `/deployments/secrets` inside the container:
+  - quickstart: image-bundled default secrets (no host secrets mount by default)
+  - freshstart: seeded from `compose-configs/egeria-freshstart/secrets/` templates into
+    `runtime-volumes/freshstart-platform-data/secrets` on first run; customise in place thereafter
 
 ## runtime-volumes
 The information in these folders are used by the Runtimes. They are not for the general

@@ -83,15 +83,15 @@ Most users should start from the repository root using one of the quick-start sc
    * A Docker network named `egeria_network` will be created automatically by the scripts if needed
 2. Clone the repo: [odpi/egeria-workspaces](https://github.com/odpi/egeria-workspaces.git)
 3. From the repository root, run one of:
-   * `./quick-start-local` — single-machine development (localhost)
-   * `./quick-start-multi-host` — reachable from other hosts on your network (uses host FQDN and external Kafka listeners)
+   * `./quick-start-local` — single-machine development (see [Local vs multi-host](#local-vs-multi-host))
+   * `./quick-start-multi-host` — reachable from other hosts on your network (see [Local vs multi-host](#local-vs-multi-host))
 
 These scripts will:
 
    * copy the server configuration files from `compose-configs/egeria-quickstart/servers` to `runtime-volumes/quickstart-platform-data/data/servers`. This enables you to make local changes to the server configurations that persist across restarts and are ignored by Git.
 
    * build the `egeria-main` image from `Dockerfile-egeria-platform`.
-   * ensure `runtime-volumes/quickstart-platform-data/secrets` exists (seeded from `compose-configs/egeria-quickstart/secrets` only when missing), and mount `runtime-volumes/quickstart-platform-data` to `/deployments`.
+   * ensure `runtime-volumes/quickstart-platform-data/data` and `runtime-volumes/quickstart-platform-data/logs` exist with write permissions.
 
    * build a jupyter image that is pre-configured to work with Egeria 
     
@@ -173,14 +173,22 @@ docker compose -f egeria-quickstart.yaml build --pull --no-cache
 
 ## Secrets Location for Quickstart
 
-- Quickstart platform secrets are resolved at `/deployments/secrets`.
-- The runtime-mounted source directory is `runtime-volumes/quickstart-platform-data/secrets`.
-- Startup scripts seed missing defaults from `compose-configs/egeria-quickstart/secrets`.
-- Default quickstart secrets files are:
-  - `coco-user-directory.omsecrets`
-  - `egeria-servers.omsecrets`
-  - `integration.omsecrets`
-- `exchange-quickstart/loading-bay/secrets` is not required for normal quickstart startup.
+- Quickstart platform secrets are resolved at `/deployments/secrets` inside the container.
+- By default, these come from the Egeria platform image — no host secrets mount is required.
+- To customise secrets, add a volume mount from a host directory to `/deployments/secrets` in `egeria-quickstart.yaml`.
+- `exchange-quickstart/loading-bay/secrets` is optional and not used by the default startup.
+
+## Local vs multi-host
+
+The two startup scripts apply different Docker Compose overlays on top of `egeria-quickstart.yaml`:
+
+| | `./quick-start-local` | `./quick-start-multi-host` |
+|---|---|---|
+| Overlay file | `egeria-quickstart-local.yaml` | `egeria-quickstart-cluster.yaml` |
+| Extra behaviour | Adds `extra_hosts` mapping `${HOST_FQDN} → host-gateway` inside the Egeria, Jupyter, and pyegeria-web containers | No `extra_hosts` — relies on real DNS resolution of `${HOST_FQDN}` |
+| When to use | Single machine (laptop / workstation). Lets containers reach the host by its hostname without a real DNS entry. Required on Linux where `host.docker.internal` is not automatic. | When Egeria needs to be reachable from **other machines** on your network. `HOST_FQDN` must resolve via DNS on all participating hosts. |
+
+Neither overlay changes ports, images, or volumes — the only difference is whether containers get a synthetic `/etc/hosts` entry for the host machine's hostname.
 
 ## Next Steps
 
