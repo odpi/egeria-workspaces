@@ -12,6 +12,7 @@ By default this Jupyter environment mounts:
 - `loading-bay`
 - `work`
 - `workbooks`
+- `config`
 
 These folders are mounted from the `exchange-freshstart` and `work` folders in the `egeria-workspaces` repository.
 
