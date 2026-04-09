@@ -105,6 +105,7 @@ services:
       - ../../runtime-volumes/freshstart-apache-web/site:/usr/local/apache2/htdocs
       - ../egeria-quickstart/markdown-header.html:/usr/local/apache2/conf/markdown-header.html
       - ../../runtime-volumes/freshstart-apache-web/ErrorLogs:/usr/local/apache2/logs
+      - ../../workspaces/Dr-Egeria-Samples:/usr/local/apache2/htdocs/Dr-Egeria-Samples
     depends_on:
       - freshstart-pyegeria-web
 
