@@ -85,22 +85,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Obsidian/Reports List.md",
+                "file": "loading-bay/dr-egeria-inbox/Security/security-references.md",
                 "mode": "source",
-                "source": false,
-                "backlinks": true,
-                "backlinkOpts": {
-                  "collapseAll": false,
-                  "extraContext": false,
-                  "sortOrder": "alphabetical",
-                  "showSearch": false,
-                  "searchQuery": "",
-                  "backlinkCollapsed": false,
-                  "unlinkedCollapsed": true
-                }
+                "source": false
               },
               "icon": "lucide-file",
-              "title": "Reports List"
+              "title": "security-references"
             }
           },
           {
@@ -301,9 +291,8 @@
       "templates:Insert template": false,
       "command-palette:Open command palette": false,
       "bases:Create new base": false,
-      "call-dr-egeria:Call Dr.Egeria": false,
-      "obsidian-advanced-slides:Show Slide Preview": false,
-      "workspaces:Manage workspace layouts": false
+      "workspaces:Manage workspace layouts": false,
+      "call-dr-egeria:Call Dr.Egeria": false
     }
   },
   "active": "0c3dae839fa06425",
