@@ -36,7 +36,7 @@ Content-Type: application/json
   "localServerDescription" : "A metadata store that supports Open Metadata Access Services (OMASs) with event notifications.  It provides metadata to fs-view-server, fs-engine-host and fs-integration-daemon.",
   "organizationName" : "~{organizationName}~",
   "localServerURL" : "~{egeriaEndpoint}~",
-  "localServerUserId" : "qsstorenpa",
+  "localServerUserId" : "fsstorenpa",
   "secretsStoreProvider" : "~{secretsStoreProvider}~",
   "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
   "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~",
@@ -51,8 +51,8 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
-  "databaseURL": "~{repositoryDatabaseURL}~?currentSchema=repository_qs_metadata_store",
-  "databaseSchema": "repository_qs_metadata_store",
+  "databaseURL": "~{repositoryDatabaseURL}~?currentSchema=repository_fs_metadata_store",
+  "databaseSchema": "repository_fs_metadata_store",
   "secretsStore": "~{egeriaServersSecretsStore}~",
   "secretsCollectionName": "~{repositorySecretCollectionName}~"
 }
@@ -220,7 +220,7 @@ Content-Type: application/json
   "localServerDescription" : "A server that supplies REST API endpoints for User Interfaces and non-Java environments such as Python.",
   "organizationName" : "~{organizationName}~",
   "localServerURL" : "~{egeriaEndpoint}~",
-  "localServerUserId" : "qsviewnpa",
+  "localServerUserId" : "fsviewnpa",
   "secretsStoreProvider" : "~{secretsStoreProvider}~",
   "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
   "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~",
@@ -323,7 +323,7 @@ Content-Type: application/json
   "localServerDescription" : "A server that runs governance service requests, triggered by engine actions created in fs-metadata-store.",
   "organizationName" : "~{organizationName}~",
   "localServerURL" : "~{egeriaEndpoint}~",
-  "localServerUserId" : "qsenginenpa",
+  "localServerUserId" : "fsenginenpa",
   "secretsStoreProvider" : "~{secretsStoreProvider}~",
   "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
   "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~",
@@ -598,7 +598,7 @@ Content-Type: application/json
   "localServerDescription" : "A server that runs integration connectors that synchronize and exchange metadata with different types of technologies and tools.",
   "organizationName" : "~{organizationName}~",
   "localServerURL" : "~{egeriaEndpoint}~",
-  "localServerUserId" : "qsdaemonnpa",
+  "localServerUserId" : "fsdaemonnpa",
   "secretsStoreProvider" : "~{secretsStoreProvider}~",
   "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
   "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~",
