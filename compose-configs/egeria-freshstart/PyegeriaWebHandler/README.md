@@ -15,3 +15,17 @@ of dr_egeria_md.py into the root of the pyegeria-web-handler directory and make 
 Check that the imports are correct. The name of the main routine is process_markdown_file. So if this changes in the
 future, you will need to change either pyegeria_handler or dr_egeria_md.py to match. Other than that is should be a drop
 in replacement.
+
+## Command Catalog Notes
+`md_processing/__init__.py` now re-exports command handlers and command lists from
+`pyegeria.view.md_processing_utils` when available, and only falls back to local stubs when unavailable.
+This prevents valid commands from being silently skipped because local constants were empty.
+
+`dr_egeria_md.py` also attempts handler dispatch even when a command is missing from `command_list` and logs a warning.
+
+## Troubleshooting
+If FastAPI returns `No updates detected. New File not created.`:
+- Verify the markdown block starts with a command H1 (`# <Command Name>`).
+- Check `debug_log.log` for warnings like `not found in command_list` or `Unknown command`.
+- Confirm your pyegeria version includes the command handler in `pyegeria.view.md_processing_utils`.
+
