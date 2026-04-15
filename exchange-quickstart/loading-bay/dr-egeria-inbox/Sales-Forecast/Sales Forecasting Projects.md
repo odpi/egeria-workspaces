@@ -10,22 +10,7 @@
 
 >	**Alternative Labels**: "Term Name"
 
-
-## Actual Completion Date
->	**Input Required**: False
-
->	**Attribute Type**: Simple
-
->	**Description**: The actual date the project completed as an ISO 8601 string.
-
-
-## Actual Start Date
->	**Input Required**: False
-
->	**Attribute Type**: Simple
-
->	**Description**: The actual date the project started as an ISO 8601 string.
-
+SalesForecasting-Campaign
 
 ## Mission
 >	**Input Required**: False

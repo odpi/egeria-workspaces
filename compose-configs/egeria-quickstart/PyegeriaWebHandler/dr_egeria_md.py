@@ -115,7 +115,9 @@ def process_md_file(input_file: str, output_folder:str, directive: str, server: 
             return  # No block to process
 
         potential_command = extract_command(current_block)  # Extract object_action
-        if potential_command in cmd_list:
+        if potential_command:
+            if potential_command not in cmd_list:
+                logger.warning(f"Command '{potential_command}' not found in command_list; attempting handler dispatch anyway.")
             # Process the block based on the object_action
             if potential_command == "Provenance":
                 result = process_provenance_command(input_file, current_block)
