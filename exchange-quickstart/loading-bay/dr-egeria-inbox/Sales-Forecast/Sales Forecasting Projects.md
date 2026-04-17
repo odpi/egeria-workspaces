@@ -227,3 +227,13 @@ SalesForecasting-Campaign
 
 >	**Description**: The authors.
 
+____
+
+# View Report
+## Output Format 
+LIST
+## REPORT SPEC
+Project-DrE-Basic
+
+## Search String
+*

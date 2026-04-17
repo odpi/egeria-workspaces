@@ -1,7 +1,10 @@
-import { App, Editor, MarkdownView, Modal, Plugin, Notice, PluginSettingTab, Setting, requestUrl } from "obsidian";
+import { App, Notice, Plugin, PluginSettingTab, Setting, normalizePath, requestUrl, Modal } from "obsidian";
 
 interface SendNoteSettings {
     apiUrl: string;
+    platformUrl: string;
+    serverName: string;
+    directive: "process" | "validate" | "display";
     userId: string;
     userPass: string;
     outputFolder: string;
@@ -10,6 +13,9 @@ interface SendNoteSettings {
 
 const DEFAULT_SETTINGS: SendNoteSettings = {
     apiUrl: "http://localhost:8085/dr-egeria/process",
+    platformUrl: "https://host.docker.internal:9443",
+    serverName: "qs-view-server",
+    directive: "process",
     userId: "erinoverview",
     userPass: "secret",
     outputFolder: "Monday",
@@ -47,23 +53,20 @@ export default class SendNotePlugin extends Plugin {
             return;
         }
 
-        const content = await this.app.vault.read(file);
-
-        // Determine input_file optionally prepending inputFolder
-        const baseName = file.basename + ".md";
+        // Use vault-relative path so subfolders are preserved and filenames do not collide.
+        const baseName = normalizePath(file.name);
         const inputFile = (this.settings.inputFolder && this.settings.inputFolder.trim().length > 0)
-            ? `${this.settings.inputFolder.replace(/\\+$/,'').replace(/\/+$/,'')}/${baseName}`
+            ? `${this.settings.inputFolder.replace(/\\+$/g, "").replace(/\/+$/g, "")}/${baseName}`
             : baseName;
 
         const payload = {
             input_file: inputFile,
             output_folder: this.settings.outputFolder,
-            directive: "process",
-            url: "https://host.docker.internal:9443",
-            server: "qs-view-server",
+            directive: this.settings.directive,
+            url: this.settings.platformUrl,
+            server: this.settings.serverName,
             user_id: this.settings.userId,
             user_pass: this.settings.userPass
-           // content: content
         };
 
         console.log("📤 Sending note with payload:", payload);
@@ -74,11 +77,10 @@ export default class SendNotePlugin extends Plugin {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "Accept": "application/json"
+                    "Accept": "text/plain, application/json"
                 },
                 body: JSON.stringify(payload),
-                // timeout: 30000, // optional
-                 throw: true,   // set to false if you prefer not to throw on non-2xx
+                throw: false,
             });
 
 
@@ -104,7 +106,16 @@ export default class SendNotePlugin extends Plugin {
                 throw new Error(`HTTP ${response.status} - ${detail}`);
             }
 
-            new Notice("✅ Note sent successfully!");
+            if (rawBody.trim().length > 0) {
+                if (rawBody.length > 200) {
+                    new ResultModal(this.app, rawBody).open();
+                    new Notice(`✅ Dr.Egeria processed the note. See results in modal.`);
+                } else {
+                    new Notice(`✅ Dr.Egeria response: ${rawBody}`);
+                }
+            } else {
+                new Notice("✅ Note sent successfully!");
+            }
 
         } catch (err: unknown) {
             let message = "Unknown error";
@@ -146,12 +157,49 @@ class SendNoteSettingTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName("API URL")
-            .setDesc("Endpoint to send notes to")
+            .setDesc("FastAPI endpoint that accepts process requests")
             .addText(text => text
                 .setPlaceholder("https://localhost:8085/dr-egeria/process")
                 .setValue(this.plugin.settings.apiUrl)
                 .onChange(async (value) => {
                     this.plugin.settings.apiUrl = value;
+                    await this.plugin.saveSettings();
+                }));
+
+        new Setting(containerEl)
+            .setName("Platform URL")
+            .setDesc("Egeria platform URL passed in the request payload")
+            .addText(text => text
+                .setPlaceholder("https://host.docker.internal:9443")
+                .setValue(this.plugin.settings.platformUrl)
+                .onChange(async (value) => {
+                    this.plugin.settings.platformUrl = value;
+                    await this.plugin.saveSettings();
+                }));
+
+        new Setting(containerEl)
+            .setName("View Server")
+            .setDesc("Egeria view server passed in the request payload")
+            .addText(text => text
+                .setPlaceholder("qs-view-server")
+                .setValue(this.plugin.settings.serverName)
+                .onChange(async (value) => {
+                    this.plugin.settings.serverName = value;
+                    await this.plugin.saveSettings();
+                }));
+
+        new Setting(containerEl)
+            .setName("Directive")
+            .setDesc("How Dr.Egeria should handle the file")
+            .addDropdown(dropdown => dropdown
+                .addOption("process", "process")
+                .addOption("validate", "validate")
+                .addOption("display", "display")
+                .setValue(this.plugin.settings.directive)
+                .onChange(async (value) => {
+                    if (value === "process" || value === "validate" || value === "display") {
+                        this.plugin.settings.directive = value;
+                    }
                     await this.plugin.saveSettings();
                 }));
 
@@ -169,13 +217,16 @@ class SendNoteSettingTab extends PluginSettingTab {
         new Setting(containerEl)
             .setName("Password")
             .setDesc("Password for authentication")
-            .addText(text => text
-                .setPlaceholder("secret")
-                .setValue(this.plugin.settings.userPass)
-                .onChange(async (value) => {
-                    this.plugin.settings.userPass = value;
-                    await this.plugin.saveSettings();
-                }));
+            .addText(text => {
+                text.setPlaceholder("secret")
+                    .setValue(this.plugin.settings.userPass)
+                    .onChange(async (value) => {
+                        this.plugin.settings.userPass = value;
+                        await this.plugin.saveSettings();
+                    });
+                text.inputEl.type = "password";
+                return text;
+            });
 
         new Setting(containerEl)
             .setName("Output Folder")
@@ -190,7 +241,7 @@ class SendNoteSettingTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName("Input Folder (optional)")
-            .setDesc("If set, will be prepended to input_file as 'input_folder/filename.md'")
+            .setDesc("If set, prepended to vault-relative file path as 'input_folder/path/to/file.md'")
             .addText(text => text
                 .setPlaceholder("inbox")
                 .setValue(this.plugin.settings.inputFolder || "")
@@ -198,5 +249,52 @@ class SendNoteSettingTab extends PluginSettingTab {
                     this.plugin.settings.inputFolder = value;
                     await this.plugin.saveSettings();
                 }));
+
+        containerEl.createEl("h3", { text: "Maintenance" });
+
+        new Setting(containerEl)
+            .setName("Refresh Command Specs")
+            .setDesc("Reload Dr. Egeria command definitions from JSON files on the server")
+            .addButton(button => button
+                .setButtonText("Refresh Now")
+                .onClick(async () => {
+                    const refreshUrl = this.plugin.settings.apiUrl.replace("/process", "/refresh");
+                    try {
+                        const response = await requestUrl({
+                            url: refreshUrl,
+                            method: "POST",
+                        });
+                        if (response.status === 200) {
+                            new Notice("✅ Command specs refreshed!");
+                        } else {
+                            new Notice(`❌ Refresh failed (Status ${response.status}): ${response.text}`);
+                        }
+                    } catch (err) {
+                        new Notice(`❌ Error: ${err}`);
+                    }
+                }));
+    }
+}
+
+class ResultModal extends Modal {
+    text: string;
+    constructor(app: App, text: string) {
+        super(app);
+        this.text = text;
+    }
+
+    onOpen() {
+        const { contentEl } = this;
+        contentEl.createEl("h2", { text: "Dr.Egeria Results" });
+        const pre = contentEl.createEl("pre", { text: this.text });
+        pre.style.whiteSpace = "pre-wrap";
+        pre.style.wordBreak = "break-all";
+        pre.style.maxHeight = "400px";
+        pre.style.overflowY = "auto";
+    }
+
+    onClose() {
+        const { contentEl } = this;
+        contentEl.empty();
     }
 }

@@ -1,9 +1,9 @@
 [
   "sample-plugin",
-  "call-dr-egeria",
   "editor-width-slider",
   "advanced-canvas",
   "obsidian-advanced-slides",
   "obsidian-vega",
-  "obsidian-kanban"
+  "obsidian-kanban",
+  "call-dr-egeria"
 ]

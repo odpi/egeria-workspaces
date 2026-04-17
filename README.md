@@ -122,7 +122,7 @@ If you add files under this directory, they will be automatically classified usi
 and then catalogued into the *qs-metadata-store* metadata repository as [assets](https://egeria-project.org/concepts/asset/).
 
 ### loading-bay
-The *landing-bay* directory is where users place information to be ingested by Egeria.
+The *loading-bay* directory is where users place information to be ingested by Egeria.
 There are sub-directories for different kinds of information:
 
 - glossary - for importing and exporting glossary terms

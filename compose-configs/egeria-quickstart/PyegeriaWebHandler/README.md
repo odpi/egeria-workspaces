@@ -7,21 +7,19 @@ used to execute Dr.Egeria commands from anything that can make a REST call - and
 the Egeria runtime.
 
 ## Maintenance Notes
-A version of dr_egeria_md.py has been copied to the root of the pyegeria-web-handler directory rather than 
-just calling it from the md_processing module of pyegeria. This facilitated building. However, what this does mean is that after
-significant change (generally additions) to the Dr.Egeria md_processing module, we need to copy the new version
-of dr_egeria_md.py into the root of the pyegeria-web-handler directory and make a few checks and changes.
+The Pyegeria Web Handler now uses the **Dr. Egeria v2** core, which features a dynamic registry-based dispatcher (`V2Dispatcher`).
 
-Check that the imports are correct. The name of the main routine is process_markdown_file. So if this changes in the
-future, you will need to change either pyegeria_handler or dr_egeria_md.py to match. Other than that is should be a drop
-in replacement.
+### Dynamic Discovery
+Unlike previous versions, you no longer need to manually update `dr_egeria_md.py` with `if-elif` blocks when new commands are added to `pyegeria`. The handler now:
+1.  **Auto-Registers**: Scans command specifications (JSON) in `md_processing/data/compact_commands` and automatically maps them to their respective processors.
+2.  **Supports Variants**: Handles "Link", "Attach", "Add", "Detach", "Remove", etc., automatically based on the command specs.
+3.  **Hot Reload**: You can trigger a refresh of the command specifications (without restarting the container) via the `/dr-egeria/refresh` POST endpoint or the "Refresh" button in the Obsidian plugin.
 
-## Command Catalog Notes
-`md_processing/__init__.py` now re-exports command handlers and command lists from
-`pyegeria.view.md_processing_utils` when available, and only falls back to local stubs when unavailable.
-This prevents valid commands from being silently skipped because local constants were empty.
+### Diagnostics
+The v2 engine provides rich feedback tables ("Command Analysis" and "Parsed Attributes"). If the Obsidian plugin detects a long response, it will display these diagnostics in a modal window to help troubleshoot markdown formatting or missing requirements.
 
-`dr_egeria_md.py` also attempts handler dispatch even when a command is missing from `command_list` and logs a warning.
+### Generalized MCP
+The included `mcp_server.py` now supports dynamic execution. You can use the `egeria_execute_command` tool to run any Dr. Egeria command by name, and `egeria_list_commands` to see what is currently available.
 
 ## Troubleshooting
 If FastAPI returns `No updates detected. New File not created.`:
