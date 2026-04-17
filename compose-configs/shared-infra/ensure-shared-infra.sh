@@ -34,8 +34,15 @@ else
 fi
 
 echo "[shared-infra] Ensuring shared Kafka, Postgres, and proxy are running..."
-docker compose -p egeria-shared-infra -f shared-infra.yaml build "${COMPOSE_BUILD_FLAGS[@]}" proxy
-docker compose -p egeria-shared-infra -f shared-infra.yaml up -d --pull always proxy kafka postgres
+if ! docker compose -p egeria-shared-infra -f shared-infra.yaml build "${COMPOSE_BUILD_FLAGS[@]}" proxy; then
+  echo "[shared-infra] Pull-enabled build failed; retrying build without pull to use local cache..."
+  docker compose -p egeria-shared-infra -f shared-infra.yaml build proxy
+fi
+
+if ! docker compose -p egeria-shared-infra -f shared-infra.yaml up -d --pull always proxy kafka postgres; then
+  echo "[shared-infra] Pull-enabled up failed; retrying up without pull to use local cache..."
+  docker compose -p egeria-shared-infra -f shared-infra.yaml up -d proxy kafka postgres
+fi
 
 wait_for_container_state egeria-shared-kafka
 wait_for_container_state egeria-shared-postgres

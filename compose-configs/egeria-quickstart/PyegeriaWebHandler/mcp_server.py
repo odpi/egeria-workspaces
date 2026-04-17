@@ -155,6 +155,43 @@ async def egeria_list_collections(
     return await dr_egeria_run_block(ctx, block, url, server_name, user_id, user_pass, directive="display")
 
 
+@server.tool()
+async def egeria_refresh_specs(ctx: Context) -> str:
+    """Refresh Dr. Egeria command specifications from JSON files."""
+    from md_processing.md_processing_utils.md_processing_constants import load_commands
+    load_commands()
+    return "Command specifications refreshed"
+
+
+@server.tool()
+async def egeria_execute_command(
+    ctx: Context,
+    command_name: str,
+    attributes: str,
+    url: str,
+    server_name: str,
+    user_id: str,
+    user_pass: str,
+    directive: str = "process"
+) -> str:
+    """Execute any Dr. Egeria command by name.
+    - command_name: The name of the command (e.g., 'Create Glossary')
+    - attributes: The markdown content containing the attributes (## Label\nValue)
+    """
+    block = f"# {command_name}\n{attributes}\n___\n"
+    return await dr_egeria_run_block(ctx, block, url, server_name, user_id, user_pass, directive=directive)
+
+
+@server.tool()
+async def egeria_list_commands(ctx: Context) -> str:
+    """List all available Dr. Egeria commands."""
+    from md_processing.md_processing_utils.md_processing_constants import COMMAND_DEFINITIONS, load_commands
+    load_commands()
+    specs = COMMAND_DEFINITIONS.get("Command Specifications", {})
+    commands = sorted(specs.keys())
+    return "Available commands:\n" + "\n".join(f"- {cmd}" for cmd in commands)
+
+
 async def main() -> None:
     # Run stdio transport for MCP
     await server.run_stdio()
