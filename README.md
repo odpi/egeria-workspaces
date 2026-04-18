@@ -40,6 +40,47 @@ This repository provides two isolated deployment flavors that share a common Kaf
 All four scripts automatically ensure the shared infrastructure stack in `compose-configs/shared-infra/` is running.
 This shared stack provides Kafka, PostgreSQL, and the OpenLineage proxy used by both deployments.
 
+### Using both MCP servers together
+
+You can configure the `pyegeria` MCP server and the Dr. Egeria MCP server from `PyegeriaWebHandler` in the same MCP client configuration. The recommended client-side aliases are `pyegeria` for the pyegeria package server and `dr-egeria` for the Dr. Egeria server; these names only need to be unique within the `mcpServers` block.
+
+See `exchange-quickstart/claude_desktop_config.json.md` for a combined example configuration that includes both servers. For Dr. Egeria MCP details, tool descriptions, and environment settings, see `compose-configs/egeria-quickstart/PyegeriaWebHandler/README.md` or `compose-configs/egeria-freshstart/PyegeriaWebHandler/README.md`.
+
+The quickstart examples use `https://localhost:9443` and `qs-view-server`; if you are using freshstart, switch those values to the appropriate freshstart platform URL and server names.
+
+#### Quick Example
+
+After configuring both servers in `~/.config/Claude/claude_desktop_config.json`, you can interact with Egeria like this:
+
+```
+User: "Using the Dr. Egeria MCP server, create a new glossary called 'Product Catalog' 
+       and then list all glossaries to confirm it was created."
+
+Claude: I'll create the glossary using Dr. Egeria commands and then list all glossaries.
+
+[Calls dr_egeria_run_block with Create Glossary command]
+✓ Glossary 'Product Catalog' created successfully
+
+[Calls egeria_list_glossaries]
+Available glossaries:
+• Data Assets (id: glossary-001)
+• Product Catalog (id: glossary-002)  [newly created]
+• Business Concepts (id: glossary-003)
+```
+
+You can also switch to the `pyegeria` server for lower-level metadata queries:
+
+```
+User: "Using the pyegeria MCP server, what are the available metadata stores?"
+
+Claude: I'll query the available metadata stores.
+
+[Calls pyegeria tools]
+Available metadata stores:
+• qs-metadata-store (primary store, type: metaverse)
+• qs-archive-store (archive store, type: archive)
+```
+
 ### Local vs multi-host
 
 The `-local` scripts add a synthetic `/etc/hosts` entry inside each container that maps your machine's hostname to Docker's `host-gateway` address, so containers can resolve the host by name without a real DNS entry. This is required on Linux (where `host.docker.internal` is not automatic) and the right choice for any single-machine setup.

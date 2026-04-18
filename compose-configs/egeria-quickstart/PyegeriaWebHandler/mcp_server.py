@@ -20,13 +20,44 @@ from typing import Optional
 
 from loguru import logger
 
-# Ensure environment defaults similar to the FastAPI handler
-os.environ.setdefault("EGERIA_USER", "erinoverview")
-os.environ.setdefault("EGERIA_USER_PASSWORD", "secret")
-# Important: ensure root path is empty so container joins to /dr-egeria-inbox/<file>
-os.environ.setdefault("EGERIA_ROOT_PATH", "/")
-os.environ.setdefault("EGERIA_INBOX_PATH", "dr-egeria-inbox")
-os.environ.setdefault("EGERIA_OUTBOX_PATH", "dr-egeria-outbox")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DEPLOYMENT_DIR = os.path.dirname(SCRIPT_DIR)
+DEPLOYMENT_NAME = os.path.basename(DEPLOYMENT_DIR)
+WORKSPACE_ROOT = os.path.dirname(os.path.dirname(DEPLOYMENT_DIR))
+EXCHANGE_ROOT = os.path.join(WORKSPACE_ROOT, "exchange-quickstart")
+
+
+def _bootstrap_runtime_defaults() -> None:
+    """Configure safe defaults before importing pyegeria/md_processing.
+
+    Claude Desktop may launch this process from a read-only working directory, so
+    any relative pyegeria log path would fail during import-time logging setup.
+    """
+    log_directory = os.environ.setdefault("PYEGERIA_LOG_DIRECTORY", os.path.join(SCRIPT_DIR, "logs"))
+    os.makedirs(log_directory, exist_ok=True)
+
+    os.environ.setdefault("EGERIA_USER", "erinoverview")
+    os.environ.setdefault("EGERIA_USER_PASSWORD", "secret")
+
+    if os.path.exists("/.dockerenv"):
+        root_default = "/"
+        inbox_default = "dr-egeria-inbox"
+        outbox_default = "dr-egeria-outbox"
+    elif os.path.isdir(EXCHANGE_ROOT):
+        root_default = EXCHANGE_ROOT
+        inbox_default = "loading-bay/dr-egeria-inbox"
+        outbox_default = "distribution-hub/dr-egeria-outbox"
+    else:
+        root_default = SCRIPT_DIR
+        inbox_default = "dr-egeria-inbox"
+        outbox_default = "dr-egeria-outbox"
+
+    os.environ.setdefault("EGERIA_ROOT_PATH", root_default)
+    os.environ.setdefault("EGERIA_INBOX_PATH", inbox_default)
+    os.environ.setdefault("EGERIA_OUTBOX_PATH", outbox_default)
+
+
+_bootstrap_runtime_defaults()
 
 EGERIA_ROOT_PATH = os.environ.get("EGERIA_ROOT_PATH", "/")
 EGERIA_INBOX_PATH = os.environ.get("EGERIA_INBOX_PATH", "dr-egeria-inbox")
@@ -39,9 +70,8 @@ from mcp.server.fastmcp import FastMCP, Context
 
 
 server = FastMCP(
-    "pyegeria-mcp",
-    version="0.1.0",
-    description="Model Context Protocol server exposing Egeria via Dr. Egeria markdown commands.",
+    "dr-egeria-mcp",
+    instructions="Model Context Protocol server exposing Egeria via Dr. Egeria markdown commands.",
 )
 
 
@@ -193,8 +223,18 @@ async def egeria_list_commands(ctx: Context) -> str:
 
 
 async def main() -> None:
-    # Run stdio transport for MCP
-    await server.run_stdio()
+    # Run stdio transport for MCP across multiple FastMCP API versions.
+    run_stdio_async = getattr(server, "run_stdio_async", None)
+    if callable(run_stdio_async):
+        await run_stdio_async()
+        return
+
+    run_stdio = getattr(server, "run_stdio", None)
+    if callable(run_stdio):
+        await run_stdio()
+        return
+
+    server.run(transport="stdio")
 
 
 if __name__ == "__main__":
