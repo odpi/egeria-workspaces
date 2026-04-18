@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "loading-bay/dr-egeria-inbox/Sales-Forecast/Sales_Forecast_Definitions.md",
+                "file": "loading-bay/dr-egeria-inbox/ML-OPS/ML-OPS-Data-Prep-Blueprint.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Sales_Forecast_Definitions"
+              "title": "ML-OPS-Data-Prep-Blueprint"
             }
           }
         ]
@@ -198,12 +198,26 @@
       "call-dr-egeria:Call Dr.Egeria": false
     }
   },
-  "active": "66dcb9a53a2e967f",
+  "active": "c61e9f02215ddc7d",
   "lastOpenFiles": [
+    "distribution-hub/dr-egeria-outbox/Sales-Forecast-Out/processed-2026-04-18 15:16-ML-OPS-Data-Prep-Blueprint.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/Docling.md",
+    "distribution-hub/dr-egeria-outbox/Sales-Forecast-Out/processed-2026-04-18 15:04-Data Prep Kit.md",
+    "distribution-hub/dr-egeria-outbox/processed-2026-04-18 16:53-mcp-20260418-165314-713006.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/Data Prep Kit.md",
     "loading-bay/dr-egeria-inbox/Sales-Forecast/Sales Forecasting Projects.md",
-    "distribution-hub/dr-egeria-outbox/processed-2026-04-08 19:33-security-references.md",
-    "loading-bay/dr-egeria-inbox/Sales-Forecast/Sales_Forecast_Definitions.md",
+    "loading-bay/dr-egeria-inbox/mcp-20260418-165314-713006.md",
+    "loading-bay/dr-egeria-inbox/mcp-20260418-165124-856828.md",
+    "distribution-hub/dr-egeria-outbox/processed-2026-04-18 16:51-mcp-20260418-165113-753161.md",
+    "loading-bay/dr-egeria-inbox/mcp-20260418-165113-753161.md",
+    "loading-bay/dr-egeria-inbox/mcp-20260418-165030-382340.md",
+    "loading-bay/dr-egeria-inbox/mcp-20260418-164934-861397.md",
+    "loading-bay/dr-egeria-inbox/mcp-20260418-164929-710521.md",
+    "distribution-hub/dr-egeria-outbox/Sales-Forecast-Out/processed-2026-04-17 13:47-Sales Forecasting Projects.md",
     "distribution-hub/dr-egeria-outbox/processed-2026-04-08 19:25-Evil Eye2.md",
+    "distribution-hub/dr-egeria-outbox/processed-2026-04-08 19:31-security-references.md",
+    "loading-bay/dr-egeria-inbox/Sales-Forecast/Sales_Forecast_Definitions.md",
+    "distribution-hub/dr-egeria-outbox/processed-2026-04-08 19:33-security-references.md",
     "distribution-hub/dr-egeria-outbox/Sales-Forecast-Out",
     "loading-bay/dr-egeria-inbox/Sales-Forecast/Sales-Forecast-Campaign.md",
     "loading-bay/dr-egeria-inbox/Sales_Forecast_Definitions.md",
@@ -215,20 +229,6 @@
     "loading-bay/dr-egeria-inbox/to_review/test_missing_name.md",
     "loading-bay/dr-egeria-inbox/to_review/Simple-Data-Lens.md",
     "loading-bay/dr-egeria-inbox/to_review/security-references.md",
-    "loading-bay/dr-egeria-inbox/to_review/security-glossary.md",
-    "loading-bay/dr-egeria-inbox/to_review/Sales_Forecast_Definitions.md",
-    "loading-bay/dr-egeria-inbox/to_review/Radio-Collection.md",
-    "loading-bay/dr-egeria-inbox/to_review/project.md",
-    "loading-bay/dr-egeria-inbox/to_review/product-test.md",
-    "loading-bay/dr-egeria-inbox/to_review/prod_play.md",
-    "loading-bay/dr-egeria-inbox/to_review/probe.md",
-    "loading-bay/dr-egeria-inbox/to_review/ONNX.md",
-    "loading-bay/dr-egeria-inbox/to_review/ML-OPS-Prod-Data-Prep-Blueprint.md",
-    "loading-bay/dr-egeria-inbox/to_review/ML-OPS-Local-Data-Prep-Blueprint.md",
-    "loading-bay/dr-egeria-inbox/to_review/mini_col.md",
-    "loading-bay/dr-egeria-inbox/to_review/milvus.md",
-    "loading-bay/dr-egeria-inbox/to_review/load_milvus.md",
-    "loading-bay/dr-egeria-inbox/to_review/KServe.md",
     "loading-bay/dr-egeria-inbox/to_review/glossary_creation_experiment copy.ipynb",
     "loading-bay/dr-egeria-inbox/to_review/glossary_creation_experiment.ipynb",
     "loading-bay/dr-egeria-inbox/to_review",

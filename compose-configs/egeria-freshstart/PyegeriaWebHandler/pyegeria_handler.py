@@ -2,11 +2,44 @@
 
 
 import os
-os.environ.setdefault("EGERIA_USER", "erinoverview")
-os.environ.setdefault("EGERIA_USER_PASSWORD", "secret")
-os.environ.setdefault("EGERIA_ROOT_PATH", "/")
-os.environ.setdefault("EGERIA_INBOX_PATH", "dr-egeria-inbox")
-os.environ.setdefault("EGERIA_OUTBOX_PATH", "dr-egeria-outbox")
+from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+DEPLOYMENT_DIR = SCRIPT_DIR.parent
+WORKSPACE_ROOT = DEPLOYMENT_DIR.parent.parent
+EXCHANGE_ROOT = WORKSPACE_ROOT / "exchange-freshstart"
+
+
+def _bootstrap_runtime_defaults() -> None:
+    log_directory = os.environ.setdefault("PYEGERIA_LOG_DIRECTORY", str(SCRIPT_DIR / "logs"))
+    os.makedirs(log_directory, exist_ok=True)
+
+    os.environ.setdefault("EGERIA_USER", "erinoverview")
+    os.environ.setdefault("EGERIA_USER_PASSWORD", "secret")
+
+    root_default: str
+    inbox_default: str
+    outbox_default: str
+
+    if os.path.exists("/.dockerenv"):
+        root_default = "/"
+        inbox_default = "dr-egeria-inbox"
+        outbox_default = "dr-egeria-outbox"
+    elif EXCHANGE_ROOT.is_dir():
+        root_default = str(EXCHANGE_ROOT)
+        inbox_default = "loading-bay/dr-egeria-inbox"
+        outbox_default = "distribution-hub/dr-egeria-outbox"
+    else:
+        root_default = str(SCRIPT_DIR)
+        inbox_default = "dr-egeria-inbox"
+        outbox_default = "dr-egeria-outbox"
+
+    os.environ.setdefault("EGERIA_ROOT_PATH", str(root_default))
+    os.environ.setdefault("EGERIA_INBOX_PATH", str(inbox_default))
+    os.environ.setdefault("EGERIA_OUTBOX_PATH", str(outbox_default))
+
+
+_bootstrap_runtime_defaults()
 
 import asyncio
 import concurrent.futures

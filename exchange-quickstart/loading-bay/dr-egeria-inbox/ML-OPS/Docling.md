@@ -7,7 +7,7 @@ Can be used standalone or in the context of the [[Data Prep Kit]]].
   
   
 ____  
-# Update Solution Component  
+# Create Solution Component  
 >   A reusable solution component.  
   
 ## Display Name  
@@ -77,23 +77,8 @@ DeployedSoftwareComponent
 >   **Default Value**: DRAFT  
   
   
-## Initial Status  
->   **Input Required**: False  
-  
->   **Description**: Optional lifecycle status. If not specified, set to ACTIVE. If set to Other then the value in User Defined Status will be used.  
-  
->   **Valid Values**: DRAFT; PREPARED; PROPOSED; APPROVED; REJECTED; ACTIVE; DISABLED; DEPRECATED; OTHER  
-  
->   **Default Value**: ACTIVE  
-  
-  
-## In Solution Components  
->   **Input Required**: False  
-  
->   **Description**: Solution components that include this one.  
-  
->   **Alternative Labels**: In Solution Component; In Component  
-  
+
+
   
 ## In Solution Blueprints  
 >   **Input Required**: False  

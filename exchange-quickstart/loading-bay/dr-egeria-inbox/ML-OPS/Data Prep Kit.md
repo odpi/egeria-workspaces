@@ -4,7 +4,7 @@
 2. Define an initial component for DPK - the issue seems to be that it can run stand-alone, on spark or on ray.  
   
   
-# Don't Create Cited Document  
+# Create Cited Document  
 >   A cited document  
   
 ## Display Name  
@@ -414,7 +414,7 @@ SolutionBlueprint::Initial-Data-Prep-Blueprint-for-ML-OPs::0.1
   
 ____  
   
-# Don't Link External Reference Link  
+# Link External Reference Link  
   
 ## Element Name  
   
