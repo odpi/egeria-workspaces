@@ -27,25 +27,25 @@ Both root startup scripts (`quick-start-*` and `fresh-start-*`) call `ensure-sha
 
 To bypass the local build cache for the proxy build, set `NO_CACHE=1` before running the script.
 
-## Image pinning and hardened Kafka defaults
+## Image pinning and optional hardened Kafka
 
-`gen-env.sh` writes image references into `compose-configs/shared-infra/.env`:
+`gen-env.sh` now writes image references into `compose-configs/shared-infra/.env`:
 
-- `SHARED_KAFKA_IMAGE` (default pinned reference for the hardened Kafka image)
+- `SHARED_KAFKA_IMAGE` (default pinned digest for the current Bitnami legacy Kafka image)
 - `SHARED_POSTGRES_IMAGE` (default pinned digest for PostgreSQL)
-- `HARDENED_KAFKA_DATA_DIR` (host path used for persistent hardened Kafka data)
-- `HARDENED_KAFKA_LOG_DIR` (container path used for KRaft logs in hardened mode)
+- `USE_HARDENED_KAFKA` (`0` by default)
+- `KAFKA_HARDENED_IMAGE` (placeholder value you replace with your hardened image)
 
-Kafka runs on the hardened image by default. Startup behavior remains the same while image references are pinned.
-To change the hardened image reference, set:
+By default, startup behavior is unchanged except image references are pinned. To opt into a hardened Kafka image, set:
 
 ```bash
-SHARED_KAFKA_IMAGE=<your-compatible-hardened-kafka-image>
+USE_HARDENED_KAFKA=1
+KAFKA_HARDENED_IMAGE=<your-compatible-hardened-kafka-image>
 ```
 
+When enabled, `ensure-shared-infra.sh` adds `shared-infra.hardened-kafka.yaml` as a compose override.
+
 > Note: the hardened image must be compatible with the current Kafka configuration (KRaft single-node and `KAFKA_CFG_*` environment variables).
-> Kafka persistence uses a dedicated host directory (`HARDENED_KAFKA_DATA_DIR`) prepared by
-> `ensure-shared-infra.sh`, so it does not depend on the legacy `/bitnami/kafka` volume permissions.
 
 You can also manage the shared stack directly from this directory:
 
@@ -56,6 +56,16 @@ docker compose -p egeria-shared-infra -f shared-infra.yaml build --pull proxy
 docker compose -p egeria-shared-infra -f shared-infra.yaml up -d --pull always proxy kafka postgres
 docker compose -p egeria-shared-infra -f shared-infra.yaml ps
 docker compose -p egeria-shared-infra -f shared-infra.yaml down
+```
+
+To run with a hardened Kafka override manually:
+
+```bash
+docker compose \
+  -p egeria-shared-infra \
+  -f shared-infra.yaml \
+  -f shared-infra.hardened-kafka.yaml \
+  up -d --pull always proxy kafka postgres
 ```
 
 To force a clean rebuild of the proxy image when running Docker Compose manually, add `--no-cache` to the build step:
@@ -75,10 +85,11 @@ docker compose -p egeria-shared-infra -f compose-configs/shared-infra/shared-inf
 ./fresh-start-local
 ```
 
-Rollback to a previous Kafka image reference:
+Rollback to current non-hardened path:
 
 ```bash
-SHARED_KAFKA_IMAGE=<previous-kafka-image-ref>
+USE_HARDENED_KAFKA=0
+# Optional: keep KAFKA_HARDENED_IMAGE for later tests
 ./compose-configs/shared-infra/ensure-shared-infra.sh
 ```
 

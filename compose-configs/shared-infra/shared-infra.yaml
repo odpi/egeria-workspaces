@@ -20,7 +20,8 @@ services:
       - ../egeria-quickstart/proxy.yml:/usr/src/app/proxy.yml
 
   kafka:
-    # Kafka runs on a pinned hardened image by default.
+    # Default Kafka image is pinned via .env for reproducibility.
+    # Use shared-infra.hardened-kafka.yaml for an opt-in hardened override.
     image: "${SHARED_KAFKA_IMAGE}"
     container_name: egeria-shared-kafka
     hostname: egeria-shared-kafka
@@ -36,16 +37,15 @@ services:
       KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_CFG_PROCESS_ROLES: "controller,broker"
       KAFKA_CFG_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
-      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: "1@127.0.0.1:9193"
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: "1@egeria-shared-kafka:9193"
       KAFKA_CFG_LISTENERS: >-
-        PLAINTEXT://0.0.0.0:9192,CONTROLLER://0.0.0.0:9193,EXTERNAL://0.0.0.0:9194
+        PLAINTEXT://:9192,CONTROLLER://:9193,EXTERNAL://:9194
       KAFKA_CFG_ADVERTISED_LISTENERS: >-
-        PLAINTEXT://egeria-shared-kafka:9192,CONTROLLER://127.0.0.1:9193,EXTERNAL://${HOST_FQDN}:9194
+        PLAINTEXT://egeria-shared-kafka:9192,EXTERNAL://${HOST_FQDN}:9194
       KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: >-
         CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
       KAFKA_CFG_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
       KAFKA_KRAFT_CLUSTER_ID: "${KAFKA_CLUSTER_ID}"
-      KAFKA_CFG_LOG_DIRS: "${HARDENED_KAFKA_LOG_DIR}"
     healthcheck:
       test: ["CMD-SHELL", "bash -ec 'cat < /dev/null > /dev/tcp/127.0.0.1/9192'"]
       interval: 15s
@@ -53,7 +53,7 @@ services:
       retries: 10
       start_period: 20s
     volumes:
-      - "${HARDENED_KAFKA_DATA_DIR}:/var/lib/kafka-data"
+      - shared_kafka_data:/bitnami/kafka
 
   postgres:
     # Postgres is also pinned via .env so updates are explicit.
@@ -84,6 +84,8 @@ services:
     command: -p 5442 -c max_connections=1000
 
 volumes:
+  shared_kafka_data:
+    external: false
   shared_postgres_data:
     external: false
 

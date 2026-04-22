@@ -4,8 +4,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-
 HOST_FQDN="$(hostname -f 2>/dev/null || hostname)"
 
 read_existing_env() {
@@ -30,11 +28,8 @@ SHARED_KAFKA_IMAGE_VAL="${SHARED_KAFKA_IMAGE:-}"
 if [[ -z "$SHARED_KAFKA_IMAGE_VAL" ]]; then
   SHARED_KAFKA_IMAGE_VAL="$(read_existing_env SHARED_KAFKA_IMAGE)"
 fi
-if [[ "$SHARED_KAFKA_IMAGE_VAL" == bitnamilegacy/kafka* ]]; then
-  SHARED_KAFKA_IMAGE_VAL=""
-fi
 if [[ -z "$SHARED_KAFKA_IMAGE_VAL" ]]; then
-  SHARED_KAFKA_IMAGE_VAL="cleanstart/kafka@sha256:3bfad519feac67e6bd1ae2b18b3e4770cdf2fedf53ecff7b38a520a7c5d77564"
+  SHARED_KAFKA_IMAGE_VAL="bitnamilegacy/kafka@sha256:f45d5b813412e1ef7ce67b467309a84e4c6dc03d7626a0b6da867db9b69bd107"
 fi
 
 SHARED_POSTGRES_IMAGE_VAL="${SHARED_POSTGRES_IMAGE:-}"
@@ -45,20 +40,20 @@ if [[ -z "$SHARED_POSTGRES_IMAGE_VAL" ]]; then
   SHARED_POSTGRES_IMAGE_VAL="postgres@sha256:fbcea1bd13b6a882cd6caa6b58db3ae5c102efe50ec625b3e2a5cbc50db5bfe4"
 fi
 
-HARDENED_KAFKA_DATA_DIR_VAL="${HARDENED_KAFKA_DATA_DIR:-}"
-if [[ -z "$HARDENED_KAFKA_DATA_DIR_VAL" ]]; then
-  HARDENED_KAFKA_DATA_DIR_VAL="$(read_existing_env HARDENED_KAFKA_DATA_DIR)"
+USE_HARDENED_KAFKA_VAL="${USE_HARDENED_KAFKA:-}"
+if [[ -z "$USE_HARDENED_KAFKA_VAL" ]]; then
+  USE_HARDENED_KAFKA_VAL="$(read_existing_env USE_HARDENED_KAFKA)"
 fi
-if [[ -z "$HARDENED_KAFKA_DATA_DIR_VAL" ]]; then
-  HARDENED_KAFKA_DATA_DIR_VAL="${REPO_ROOT}/runtime-volumes/shared-infra-hardened-kafka"
+if [[ -z "$USE_HARDENED_KAFKA_VAL" ]]; then
+  USE_HARDENED_KAFKA_VAL="0"
 fi
 
-HARDENED_KAFKA_LOG_DIR_VAL="${HARDENED_KAFKA_LOG_DIR:-}"
-if [[ -z "$HARDENED_KAFKA_LOG_DIR_VAL" ]]; then
-  HARDENED_KAFKA_LOG_DIR_VAL="$(read_existing_env HARDENED_KAFKA_LOG_DIR)"
+KAFKA_HARDENED_IMAGE_VAL="${KAFKA_HARDENED_IMAGE:-}"
+if [[ -z "$KAFKA_HARDENED_IMAGE_VAL" ]]; then
+  KAFKA_HARDENED_IMAGE_VAL="$(read_existing_env KAFKA_HARDENED_IMAGE)"
 fi
-if [[ -z "$HARDENED_KAFKA_LOG_DIR_VAL" ]]; then
-  HARDENED_KAFKA_LOG_DIR_VAL="/var/lib/kafka-data/kraft-logs"
+if [[ -z "$KAFKA_HARDENED_IMAGE_VAL" ]]; then
+  KAFKA_HARDENED_IMAGE_VAL="docker.io/<vendor>/<hardened-kafka-image>:<tag-or-digest>"
 fi
 
 TMP_ENV=".env.tmp"
@@ -68,10 +63,10 @@ KAFKA_CLUSTER_ID=${KAFKA_CLUSTER_ID_VAL}
 KAFKA_BOOTSTRAP_SERVERS=${HOST_FQDN}:9194
 SHARED_KAFKA_IMAGE=${SHARED_KAFKA_IMAGE_VAL}
 SHARED_POSTGRES_IMAGE=${SHARED_POSTGRES_IMAGE_VAL}
-HARDENED_KAFKA_DATA_DIR=${HARDENED_KAFKA_DATA_DIR_VAL}
-HARDENED_KAFKA_LOG_DIR=${HARDENED_KAFKA_LOG_DIR_VAL}
+USE_HARDENED_KAFKA=${USE_HARDENED_KAFKA_VAL}
+KAFKA_HARDENED_IMAGE=${KAFKA_HARDENED_IMAGE_VAL}
 EOF
 mv -f "$TMP_ENV" .env
 
-echo "[shared-infra/gen-env.sh] Wrote .env with HOST_FQDN=${HOST_FQDN}, KAFKA_CLUSTER_ID=${KAFKA_CLUSTER_ID_VAL}" >&2
+echo "[shared-infra/gen-env.sh] Wrote .env with HOST_FQDN=${HOST_FQDN}, KAFKA_CLUSTER_ID=${KAFKA_CLUSTER_ID_VAL}, USE_HARDENED_KAFKA=${USE_HARDENED_KAFKA_VAL}" >&2
 

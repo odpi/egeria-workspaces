@@ -14,8 +14,8 @@ The freshstart deployment is isolated from quickstart and uses:
 
 Kafka (`9192/9193/9194`), PostgreSQL (`5442`), and the OpenLineage proxy (`6000/6001`) are shared infrastructure services managed from
 `compose-configs/shared-infra`.
-Shared-infra pins image references by default in `compose-configs/shared-infra/.env`, including the hardened Kafka image
-with a persistent host-side data path.
+Shared-infra now pins Kafka and PostgreSQL image references by default in `compose-configs/shared-infra/.env` and
+supports an opt-in hardened Kafka override with `USE_HARDENED_KAFKA=1` plus `KAFKA_HARDENED_IMAGE=<image>`.
 
 ## Usage
 

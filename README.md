@@ -39,8 +39,8 @@ This repository provides two isolated deployment flavors that share a common Kaf
 
 All four scripts automatically ensure the shared infrastructure stack in `compose-configs/shared-infra/` is running.
 This shared stack provides Kafka, PostgreSQL, and the OpenLineage proxy used by both deployments.
-Shared-infra image references are pinned in `compose-configs/shared-infra/.env` by default, including the hardened
-Kafka image and a persistent host-side Kafka data path.
+Shared-infra image references are now pinned in `compose-configs/shared-infra/.env` by default, with an opt-in
+`USE_HARDENED_KAFKA=1` mode for testing a compatible hardened Kafka image override.
 
 ### Using both MCP servers together
 
