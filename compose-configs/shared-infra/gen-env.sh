@@ -52,8 +52,11 @@ KAFKA_HARDENED_IMAGE_VAL="${KAFKA_HARDENED_IMAGE:-}"
 if [[ -z "$KAFKA_HARDENED_IMAGE_VAL" ]]; then
   KAFKA_HARDENED_IMAGE_VAL="$(read_existing_env KAFKA_HARDENED_IMAGE)"
 fi
+if [[ "$KAFKA_HARDENED_IMAGE_VAL" == *"<"* || "$KAFKA_HARDENED_IMAGE_VAL" == *">"* ]]; then
+  KAFKA_HARDENED_IMAGE_VAL=""
+fi
 if [[ -z "$KAFKA_HARDENED_IMAGE_VAL" ]]; then
-  KAFKA_HARDENED_IMAGE_VAL="docker.io/<vendor>/<hardened-kafka-image>:<tag-or-digest>"
+  KAFKA_HARDENED_IMAGE_VAL="docker.io/example/hardened-kafka:latest"
 fi
 
 TMP_ENV=".env.tmp"
