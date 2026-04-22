@@ -200,6 +200,7 @@
   },
   "active": "c61e9f02215ddc7d",
   "lastOpenFiles": [
+    "config/config_workspaces.json",
     "distribution-hub/dr-egeria-outbox/Sales-Forecast-Out/processed-2026-04-18 15:16-ML-OPS-Data-Prep-Blueprint.md",
     "loading-bay/dr-egeria-inbox/ML-OPS/Docling.md",
     "distribution-hub/dr-egeria-outbox/Sales-Forecast-Out/processed-2026-04-18 15:04-Data Prep Kit.md",
@@ -228,7 +229,6 @@
     "loading-bay/dr-egeria-inbox/to_review/test_term_rel.md",
     "loading-bay/dr-egeria-inbox/to_review/test_missing_name.md",
     "loading-bay/dr-egeria-inbox/to_review/Simple-Data-Lens.md",
-    "loading-bay/dr-egeria-inbox/to_review/security-references.md",
     "loading-bay/dr-egeria-inbox/to_review/glossary_creation_experiment copy.ipynb",
     "loading-bay/dr-egeria-inbox/to_review/glossary_creation_experiment.ipynb",
     "loading-bay/dr-egeria-inbox/to_review",
