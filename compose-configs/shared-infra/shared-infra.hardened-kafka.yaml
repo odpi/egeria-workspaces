@@ -8,7 +8,8 @@ services:
     # Provide a compatible hardened Kafka image through KAFKA_HARDENED_IMAGE in .env.
     image: "${KAFKA_HARDENED_IMAGE}"
     environment:
-      # Smoke-test path: this hardened image runs as a non-root user and cannot write to
-      # the current /bitnami-backed volume without additional permission/volume changes.
-      KAFKA_CFG_LOG_DIRS: "/tmp/kraft-logs"
+      # Hardened mode persists broker data in a dedicated host path prepared by ensure-shared-infra.sh.
+      KAFKA_CFG_LOG_DIRS: "${HARDENED_KAFKA_LOG_DIR}"
+    volumes:
+      - "${HARDENED_KAFKA_DATA_DIR}:/var/lib/kafka-data"
 

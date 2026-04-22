@@ -34,6 +34,11 @@ case "${USE_HARDENED_KAFKA:-0}" in
   1|true|TRUE|True|yes|YES|Yes|on|ON|On)
     COMPOSE_FILES+=(-f shared-infra.hardened-kafka.yaml)
     echo "[shared-infra] USE_HARDENED_KAFKA enabled: using shared-infra.hardened-kafka.yaml override."
+    if [[ -n "${HARDENED_KAFKA_DATA_DIR:-}" ]]; then
+      mkdir -p "${HARDENED_KAFKA_DATA_DIR}"
+      chmod 0777 "${HARDENED_KAFKA_DATA_DIR}" || true
+      echo "[shared-infra] Hardened Kafka data dir: ${HARDENED_KAFKA_DATA_DIR}"
+    fi
     ;;
   ""|0|false|FALSE|False|no|NO|No|off|OFF|Off)
     ;;

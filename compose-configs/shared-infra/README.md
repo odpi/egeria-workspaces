@@ -35,6 +35,8 @@ To bypass the local build cache for the proxy build, set `NO_CACHE=1` before run
 - `SHARED_POSTGRES_IMAGE` (default pinned digest for PostgreSQL)
 - `USE_HARDENED_KAFKA` (`0` by default)
 - `KAFKA_HARDENED_IMAGE` (placeholder value you replace with your hardened image)
+- `HARDENED_KAFKA_DATA_DIR` (host path used for persistent hardened Kafka data)
+- `HARDENED_KAFKA_LOG_DIR` (container path used for KRaft logs in hardened mode)
 
 By default, startup behavior is unchanged except image references are pinned. To opt into a hardened Kafka image, set:
 
@@ -46,8 +48,8 @@ KAFKA_HARDENED_IMAGE=<your-compatible-hardened-kafka-image>
 When enabled, `ensure-shared-infra.sh` adds `shared-infra.hardened-kafka.yaml` as a compose override.
 
 > Note: the hardened image must be compatible with the current Kafka configuration (KRaft single-node and `KAFKA_CFG_*` environment variables).
-> The current tested override is suitable for smoke tests: it uses a writable temporary KRaft log path because the hardened
-> image runs as a non-root user and does not yet align with the existing `/bitnami/kafka` persistent-volume permissions.
+> The hardened override now uses a dedicated persistent host directory (`HARDENED_KAFKA_DATA_DIR`) prepared by
+> `ensure-shared-infra.sh`, so it does not depend on the legacy `/bitnami/kafka` volume permissions.
 
 You can also manage the shared stack directly from this directory:
 
