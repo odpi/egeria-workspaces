@@ -46,6 +46,8 @@ KAFKA_HARDENED_IMAGE=<your-compatible-hardened-kafka-image>
 When enabled, `ensure-shared-infra.sh` adds `shared-infra.hardened-kafka.yaml` as a compose override.
 
 > Note: the hardened image must be compatible with the current Kafka configuration (KRaft single-node and `KAFKA_CFG_*` environment variables).
+> The current tested override is suitable for smoke tests: it uses a writable temporary KRaft log path because the hardened
+> image runs as a non-root user and does not yet align with the existing `/bitnami/kafka` persistent-volume permissions.
 
 You can also manage the shared stack directly from this directory:
 
