@@ -7,4 +7,8 @@ services:
     # This override is opt-in and only used when ensure-shared-infra.sh adds this file.
     # Provide a compatible hardened Kafka image through KAFKA_HARDENED_IMAGE in .env.
     image: "${KAFKA_HARDENED_IMAGE}"
+    environment:
+      # Smoke-test path: this hardened image runs as a non-root user and cannot write to
+      # the current /bitnami-backed volume without additional permission/volume changes.
+      KAFKA_CFG_LOG_DIRS: "/tmp/kraft-logs"
 
