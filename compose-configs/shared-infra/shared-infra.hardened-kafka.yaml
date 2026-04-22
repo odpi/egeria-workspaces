@@ -1,0 +1,10 @@
+---
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Contributors to the Egeria project
+
+services:
+  kafka:
+    # This override is opt-in and only used when ensure-shared-infra.sh adds this file.
+    # Provide a compatible hardened Kafka image through KAFKA_HARDENED_IMAGE in .env.
+    image: "${KAFKA_HARDENED_IMAGE}"
+

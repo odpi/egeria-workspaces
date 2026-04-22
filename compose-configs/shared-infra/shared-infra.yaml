@@ -20,7 +20,9 @@ services:
       - ../egeria-quickstart/proxy.yml:/usr/src/app/proxy.yml
 
   kafka:
-    image: "bitnamilegacy/kafka:latest"
+    # Default Kafka image is pinned via .env for reproducibility.
+    # Use shared-infra.hardened-kafka.yaml for an opt-in hardened override.
+    image: "${SHARED_KAFKA_IMAGE}"
     container_name: egeria-shared-kafka
     hostname: egeria-shared-kafka
     networks:
@@ -54,7 +56,8 @@ services:
       - shared_kafka_data:/bitnami/kafka
 
   postgres:
-    image: postgres:17.5-bookworm
+    # Postgres is also pinned via .env so updates are explicit.
+    image: "${SHARED_POSTGRES_IMAGE}"
     container_name: egeria-shared-postgres
     restart: always
     networks:
