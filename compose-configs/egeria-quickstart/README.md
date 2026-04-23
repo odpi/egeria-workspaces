@@ -54,6 +54,8 @@ The pre-configured and started servers are:
 
 Quickstart uses the shared Kafka and PostgreSQL containers managed by `compose-configs/shared-infra`.
 The startup scripts call `compose-configs/shared-infra/ensure-shared-infra.sh` automatically.
+The shared-infra stack pins image references by default in `compose-configs/shared-infra/.env`,
+including the hardened Kafka image with a persistent host-side data path.
 
 ## Jupyter - configured for Egeria
 A standard Jupyter data science docker image is extended to pre-install **pyegeria** and simplify using Egeria from Jupyter notebooks.
