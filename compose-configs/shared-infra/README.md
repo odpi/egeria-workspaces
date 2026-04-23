@@ -36,6 +36,26 @@ Both root startup scripts (`quick-start-*` and `fresh-start-*`) call `ensure-sha
 
 To bypass the local build cache for the proxy build, set `NO_CACHE=1` before running the script.
 
+## Image pinning and hardened Kafka defaults
+
+`gen-env.sh` writes image references into `compose-configs/shared-infra/.env`:
+
+- `SHARED_KAFKA_IMAGE` (default pinned reference for the hardened Kafka image)
+- `SHARED_POSTGRES_IMAGE` (default pinned digest for PostgreSQL)
+- `HARDENED_KAFKA_DATA_DIR` (host path used for persistent hardened Kafka data)
+- `HARDENED_KAFKA_LOG_DIR` (container path used for KRaft logs in hardened mode)
+
+Kafka runs on the hardened image by default. Startup behavior remains the same while image references are pinned.
+To change the hardened image reference, set:
+
+```bash
+SHARED_KAFKA_IMAGE=<your-compatible-hardened-kafka-image>
+```
+
+> Note: the hardened image must be compatible with the current Kafka configuration (KRaft single-node and `KAFKA_CFG_*` environment variables).
+> Kafka persistence uses a dedicated host directory (`HARDENED_KAFKA_DATA_DIR`) prepared by
+> `ensure-shared-infra.sh`, so it does not depend on the legacy `/bitnami/kafka` volume permissions.
+
 You can also manage the shared stack directly from this directory:
 
 ```bash
@@ -74,5 +94,23 @@ docker exec egeria-shared-postgres psql -U postgres -p 5442 \
 
 docker exec egeria-shared-postgres psql -U postgres -p 5442 -d egeria_advisor \
   -c "CREATE EXTENSION IF NOT EXISTS vector;"
+```
+
+## Validation and rollback
+
+Smoke-check after changes:
+
+```bash
+./compose-configs/shared-infra/ensure-shared-infra.sh
+docker compose -p egeria-shared-infra -f compose-configs/shared-infra/shared-infra.yaml ps
+./quick-start-local
+./fresh-start-local
+```
+
+Rollback to a previous Kafka or Postgres image reference:
+
+```bash
+SHARED_KAFKA_IMAGE=<previous-kafka-image-ref> ./compose-configs/shared-infra/ensure-shared-infra.sh
+SHARED_POSTGRES_IMAGE=<previous-postgres-image-ref> ./compose-configs/shared-infra/ensure-shared-infra.sh
 ```
 
