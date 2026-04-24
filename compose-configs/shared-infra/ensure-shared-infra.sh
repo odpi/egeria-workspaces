@@ -25,6 +25,15 @@ wait_for_container_state() {
 
 pushd "$SCRIPT_DIR" >/dev/null
 ./gen-env.sh
+set -a
+source ./.env
+set +a
+
+if [[ -n "${HARDENED_KAFKA_DATA_DIR:-}" ]]; then
+  mkdir -p "${HARDENED_KAFKA_DATA_DIR}"
+  chmod 0777 "${HARDENED_KAFKA_DATA_DIR}" || true
+  echo "[shared-infra] Kafka data dir: ${HARDENED_KAFKA_DATA_DIR}"
+fi
 
 if ! docker network inspect egeria_network >/dev/null 2>&1; then
   docker network create egeria_network >/dev/null
