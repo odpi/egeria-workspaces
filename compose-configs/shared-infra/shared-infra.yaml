@@ -54,7 +54,7 @@ services:
       - shared_kafka_data:/bitnami/kafka
 
   postgres:
-    image: postgres:17.5-bookworm
+    image: pgvector/pgvector:pg17
     container_name: egeria-shared-postgres
     restart: always
     networks:

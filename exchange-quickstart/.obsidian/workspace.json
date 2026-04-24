@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "loading-bay/dr-egeria-inbox/ML-OPS/ML-OPS-Data-Prep-Blueprint.md",
+                "file": "loading-bay/dr-egeria-inbox/Sustainability Commands/Add Raw Emissions Factors Data to Emissions Factors Product.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "ML-OPS-Data-Prep-Blueprint"
+              "title": "Add Raw Emissions Factors Data to Emissions Factors Product"
             }
           }
         ]
@@ -78,7 +78,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 255.5
+    "width": 305.5
   },
   "right": {
     "id": "080fb47234a684ea",
@@ -198,13 +198,20 @@
       "call-dr-egeria:Call Dr.Egeria": false
     }
   },
-  "active": "c61e9f02215ddc7d",
+  "active": "66dcb9a53a2e967f",
   "lastOpenFiles": [
+    "loading-bay/dr-egeria-inbox/mcp-20260424-130521-796168.md",
+    "loading-bay/dr-egeria-inbox/mcp-20260424-125908-581667.md",
+    "Untitled.canvas",
+    "loading-bay/dr-egeria-inbox/ML-OPS/Data Prep Kit.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/Data Prep Report.md",
+    "loading-bay/dr-egeria-inbox/Sustainability Commands/Add Raw Emissions Factors Data to Emissions Factors Product.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/Evil Eye2.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/ML-OPS-Data-Prep-Blueprint.md",
     "distribution-hub/dr-egeria-outbox/Sales-Forecast-Out/processed-2026-04-18 15:16-ML-OPS-Data-Prep-Blueprint.md",
     "loading-bay/dr-egeria-inbox/ML-OPS/Docling.md",
     "distribution-hub/dr-egeria-outbox/Sales-Forecast-Out/processed-2026-04-18 15:04-Data Prep Kit.md",
     "distribution-hub/dr-egeria-outbox/processed-2026-04-18 16:53-mcp-20260418-165314-713006.md",
-    "loading-bay/dr-egeria-inbox/ML-OPS/Data Prep Kit.md",
     "loading-bay/dr-egeria-inbox/Sales-Forecast/Sales Forecasting Projects.md",
     "loading-bay/dr-egeria-inbox/mcp-20260418-165314-713006.md",
     "loading-bay/dr-egeria-inbox/mcp-20260418-165124-856828.md",
@@ -223,12 +230,6 @@
     "loading-bay/dr-egeria-inbox/Sales_Forecast_Definitions.md",
     "Templates",
     "loading-bay/dr-egeria-inbox/Sales-Forecast",
-    "loading-bay/dr-egeria-inbox/to_review/view.md",
-    "loading-bay/dr-egeria-inbox/to_review/verify_project.md",
-    "loading-bay/dr-egeria-inbox/to_review/test_term_rel.md",
-    "loading-bay/dr-egeria-inbox/to_review/test_missing_name.md",
-    "loading-bay/dr-egeria-inbox/to_review/Simple-Data-Lens.md",
-    "loading-bay/dr-egeria-inbox/to_review/security-references.md",
     "loading-bay/dr-egeria-inbox/to_review/glossary_creation_experiment copy.ipynb",
     "loading-bay/dr-egeria-inbox/to_review/glossary_creation_experiment.ipynb",
     "loading-bay/dr-egeria-inbox/to_review",
@@ -245,7 +246,6 @@
     "Obsidian/Data-Driven-LDN/13. Exploring Future Work.canvas",
     "Obsidian/Data-Driven-LDN/12. Enterprise View.canvas",
     "Obsidian/Data-Driven-LDN/11. Setting Up a Marketplace.canvas",
-    "Obsidian/Data-Driven-LDN/10. ERA 5 Example.canvas",
     "Obsidian/Images/open-forum.png",
     "Obsidian/Images/open-source-communities.png",
     "Obsidian/Images/three-challenges-expanded.png",
