@@ -1,0 +1,9 @@
+{
+	"nodes":[
+		{"id":"08c08700dd29edef","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/Data Prep Kit.md","x":-520,"y":-240,"width":400,"height":400},
+		{"id":"6b03a7e62159dfd9","type":"file","file":"loading-bay/dr-egeria-inbox/ML-OPS/Data Prep Report.md","x":60,"y":-240,"width":400,"height":400}
+	],
+	"edges":[
+		{"id":"bfec1cf02af46968","fromNode":"08c08700dd29edef","fromSide":"bottom","toNode":"6b03a7e62159dfd9","toSide":"bottom"}
+	]
+}

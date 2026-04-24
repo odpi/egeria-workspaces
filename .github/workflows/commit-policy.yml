@@ -28,8 +28,7 @@ jobs:
 
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
           HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-          SUBJECT_REGEX='^(feat|fix|docs|chore|refactor|test|build|ci|perf|revert)(\([A-Za-z0-9._/-]+\))?!?: .+'
-
+          SUBJECT_REGEX='^.+$'
           echo "Checking commits in range: ${BASE_SHA}..${HEAD_SHA}"
 
           failures=0

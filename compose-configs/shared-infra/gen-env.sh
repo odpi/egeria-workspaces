@@ -41,8 +41,12 @@ SHARED_POSTGRES_IMAGE_VAL="${SHARED_POSTGRES_IMAGE:-}"
 if [[ -z "$SHARED_POSTGRES_IMAGE_VAL" ]]; then
   SHARED_POSTGRES_IMAGE_VAL="$(read_existing_env SHARED_POSTGRES_IMAGE)"
 fi
+# Migrate away from plain postgres images to pgvector
+if [[ "$SHARED_POSTGRES_IMAGE_VAL" == postgres:* || "$SHARED_POSTGRES_IMAGE_VAL" == "postgres@sha256:"* ]]; then
+  SHARED_POSTGRES_IMAGE_VAL=""
+fi
 if [[ -z "$SHARED_POSTGRES_IMAGE_VAL" ]]; then
-  SHARED_POSTGRES_IMAGE_VAL="postgres@sha256:fbcea1bd13b6a882cd6caa6b58db3ae5c102efe50ec625b3e2a5cbc50db5bfe4"
+  SHARED_POSTGRES_IMAGE_VAL="pgvector/pgvector:pg17"
 fi
 
 HARDENED_KAFKA_DATA_DIR_VAL="${HARDENED_KAFKA_DATA_DIR:-}"

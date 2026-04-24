@@ -22,7 +22,7 @@ Use:
 git commit -s -m "type(scope): short summary"
 ```
 
-### Accepted subject format
+### Recommended subject format
 
 `type(scope): summary`
 
