@@ -8,89 +8,20 @@
         "type": "tabs",
         "children": [
           {
-            "id": "cd2746b9cb4f01a6",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "loading-bay/dr-egeria-inbox/ML-OPS/Docling.md",
-                "mode": "source",
-                "source": false,
-                "backlinks": true,
-                "backlinkOpts": {
-                  "collapseAll": false,
-                  "extraContext": false,
-                  "sortOrder": "alphabetical",
-                  "showSearch": false,
-                  "searchQuery": "",
-                  "backlinkCollapsed": false,
-                  "unlinkedCollapsed": true
-                }
-              },
-              "icon": "lucide-file",
-              "title": "Docling"
-            }
-          },
-          {
-            "id": "fa10ee60f2ed8fbc",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "Obsidian/Templates/Advanced Dr. Egeria Templates/Digital Product Manager/Create_Agreement.md",
-                "mode": "source",
-                "source": false,
-                "backlinks": true,
-                "backlinkOpts": {
-                  "collapseAll": false,
-                  "extraContext": false,
-                  "sortOrder": "alphabetical",
-                  "showSearch": false,
-                  "searchQuery": "",
-                  "backlinkCollapsed": false,
-                  "unlinkedCollapsed": true
-                }
-              },
-              "icon": "lucide-file",
-              "title": "Create_Agreement"
-            }
-          },
-          {
-            "id": "da3aa72a051f2c19",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "distribution-hub/dr-egeria-outbox/October/Solution-Blueprint-2025-10-13-20-53-26.md",
-                "mode": "source",
-                "source": false,
-                "backlinks": true,
-                "backlinkOpts": {
-                  "collapseAll": false,
-                  "extraContext": false,
-                  "sortOrder": "alphabetical",
-                  "showSearch": false,
-                  "searchQuery": "",
-                  "backlinkCollapsed": false,
-                  "unlinkedCollapsed": true
-                }
-              },
-              "icon": "lucide-file",
-              "title": "Solution-Blueprint-2025-10-13-20-53-26"
-            }
-          },
-          {
             "id": "66dcb9a53a2e967f",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {},
+              "type": "markdown",
+              "state": {
+                "file": "loading-bay/dr-egeria-inbox/Sustainability Commands/Add Raw Emissions Factors Data to Emissions Factors Product.md",
+                "mode": "source",
+                "source": false
+              },
               "icon": "lucide-file",
-              "title": "New tab"
+              "title": "Add Raw Emissions Factors Data to Emissions Factors Product"
             }
           }
-        ],
-        "currentTab": 3
+        ]
       }
     ],
     "direction": "vertical"
@@ -147,7 +78,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 458.5024719238281
+    "width": 305.5
   },
   "right": {
     "id": "080fb47234a684ea",
@@ -267,44 +198,45 @@
       "call-dr-egeria:Call Dr.Egeria": false
     }
   },
-  "active": "c61e9f02215ddc7d",
+  "active": "66dcb9a53a2e967f",
   "lastOpenFiles": [
-    "distribution-hub/Dr-Egeria-Templates/basic/Digital Product Manager/Create_Digital_Product_Catalog.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Digital Product Manager/Create_Data_Sharing_Agreement.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Digital Product Manager/Create_Digital_Subscription.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Digital Product Manager/Link_Product_Dependency.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Digital Product Manager/Link_Digital_Subscriber.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Digital Product Manager/Create_Digital_Product.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Digital Product Manager/Link_Contract.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Digital Product Manager/Link_Agreement_Item.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Digital Product Manager/Link_Agreement_Actor.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Digital Product Manager/Create_CSV_File.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Digital Product Manager/Create_Agreement.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Digital Product Manager",
-    "distribution-hub/Dr-Egeria-Templates/basic/Solution Architect/Link_Solution_Component_to_Blueprint.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Solution Architect/Link_Information_Supply_Chain_Peers.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Solution Architect/Link_Information_Supply_Chain_Child.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Solution Architect/Create_Information_Supply_Chain.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Solution Architect/Create_Solution_Component.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Solution Architect/Create_Solution_Blueprint.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Solution Architect/Link_Solution_Components.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Solution Architect/Link_SubComponent.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Solution Architect/Link_Solution_Design.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Solution Architect/Link_Component_to_Actor.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Solution Architect/Link_Blueprint_Child.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Solution Architect/Link_Actor_to_Blueprint.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Solution Architect/Create_Solution_Role.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Solution Architect",
-    "distribution-hub/Dr-Egeria-Templates/basic/Governance Officer/Link_Agreement_Terms_and_Conditions.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Governance Officer/Link_Regulation_Certification_Type.md",
-    "distribution-hub/Dr-Egeria-Templates/basic/Governance Officer",
-    "distribution-hub/Dr-Egeria-Templates/basic/External Reference",
-    "distribution-hub/Dr-Egeria-Templates/basic/Data Designer",
-    "distribution-hub/Dr-Egeria-Templates/basic/Collections",
-    "distribution-hub/Dr-Egeria-Templates/basic/Projects",
-    "distribution-hub/Dr-Egeria-Templates/basic/Glossary",
-    "distribution-hub/Dr-Egeria-Templates/basic/Report",
-    "distribution-hub/Dr-Egeria-Templates/basic/Feedback",
+    "loading-bay/dr-egeria-inbox/mcp-20260424-130521-796168.md",
+    "loading-bay/dr-egeria-inbox/mcp-20260424-125908-581667.md",
+    "Untitled.canvas",
+    "loading-bay/dr-egeria-inbox/ML-OPS/Data Prep Kit.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/Data Prep Report.md",
+    "loading-bay/dr-egeria-inbox/Sustainability Commands/Add Raw Emissions Factors Data to Emissions Factors Product.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/Evil Eye2.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/ML-OPS-Data-Prep-Blueprint.md",
+    "distribution-hub/dr-egeria-outbox/Sales-Forecast-Out/processed-2026-04-18 15:16-ML-OPS-Data-Prep-Blueprint.md",
+    "loading-bay/dr-egeria-inbox/ML-OPS/Docling.md",
+    "distribution-hub/dr-egeria-outbox/Sales-Forecast-Out/processed-2026-04-18 15:04-Data Prep Kit.md",
+    "distribution-hub/dr-egeria-outbox/processed-2026-04-18 16:53-mcp-20260418-165314-713006.md",
+    "loading-bay/dr-egeria-inbox/Sales-Forecast/Sales Forecasting Projects.md",
+    "loading-bay/dr-egeria-inbox/mcp-20260418-165314-713006.md",
+    "loading-bay/dr-egeria-inbox/mcp-20260418-165124-856828.md",
+    "distribution-hub/dr-egeria-outbox/processed-2026-04-18 16:51-mcp-20260418-165113-753161.md",
+    "loading-bay/dr-egeria-inbox/mcp-20260418-165113-753161.md",
+    "loading-bay/dr-egeria-inbox/mcp-20260418-165030-382340.md",
+    "loading-bay/dr-egeria-inbox/mcp-20260418-164934-861397.md",
+    "loading-bay/dr-egeria-inbox/mcp-20260418-164929-710521.md",
+    "distribution-hub/dr-egeria-outbox/Sales-Forecast-Out/processed-2026-04-17 13:47-Sales Forecasting Projects.md",
+    "distribution-hub/dr-egeria-outbox/processed-2026-04-08 19:25-Evil Eye2.md",
+    "distribution-hub/dr-egeria-outbox/processed-2026-04-08 19:31-security-references.md",
+    "loading-bay/dr-egeria-inbox/Sales-Forecast/Sales_Forecast_Definitions.md",
+    "distribution-hub/dr-egeria-outbox/processed-2026-04-08 19:33-security-references.md",
+    "distribution-hub/dr-egeria-outbox/Sales-Forecast-Out",
+    "loading-bay/dr-egeria-inbox/Sales-Forecast/Sales-Forecast-Campaign.md",
+    "loading-bay/dr-egeria-inbox/Sales_Forecast_Definitions.md",
+    "Templates",
+    "loading-bay/dr-egeria-inbox/Sales-Forecast",
+    "loading-bay/dr-egeria-inbox/to_review/glossary_creation_experiment copy.ipynb",
+    "loading-bay/dr-egeria-inbox/to_review/glossary_creation_experiment.ipynb",
+    "loading-bay/dr-egeria-inbox/to_review",
+    "Templates/Dr-Egeria-Templates/basic/Digital Product Manager",
+    "Templates/Dr-Egeria-Templates/basic/Solution Architect",
+    "Templates/Dr-Egeria-Templates/basic/Governance Officer",
+    "Templates/Dr-Egeria-Templates/basic/External Reference",
     "ML-OPS Context Diagram.canvas",
     "MCP.canvas",
     "Obsidian/Data-Driven-LDN/7. Master Digital Product Root.canvas",
@@ -314,7 +246,6 @@
     "Obsidian/Data-Driven-LDN/13. Exploring Future Work.canvas",
     "Obsidian/Data-Driven-LDN/12. Enterprise View.canvas",
     "Obsidian/Data-Driven-LDN/11. Setting Up a Marketplace.canvas",
-    "Obsidian/Data-Driven-LDN/10. ERA 5 Example.canvas",
     "Obsidian/Images/open-forum.png",
     "Obsidian/Images/open-source-communities.png",
     "Obsidian/Images/three-challenges-expanded.png",

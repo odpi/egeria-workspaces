@@ -25,6 +25,15 @@ wait_for_container_state() {
 
 pushd "$SCRIPT_DIR" >/dev/null
 ./gen-env.sh
+set -a
+source ./.env
+set +a
+
+if [[ -n "${HARDENED_KAFKA_DATA_DIR:-}" ]]; then
+  mkdir -p "${HARDENED_KAFKA_DATA_DIR}"
+  chmod 0777 "${HARDENED_KAFKA_DATA_DIR}" || true
+  echo "[shared-infra] Kafka data dir: ${HARDENED_KAFKA_DATA_DIR}"
+fi
 
 if ! docker network inspect egeria_network >/dev/null 2>&1; then
   docker network create egeria_network >/dev/null
@@ -34,8 +43,15 @@ else
 fi
 
 echo "[shared-infra] Ensuring shared Kafka, Postgres, and proxy are running..."
-docker compose -p egeria-shared-infra -f shared-infra.yaml build "${COMPOSE_BUILD_FLAGS[@]}" proxy
-docker compose -p egeria-shared-infra -f shared-infra.yaml up -d --pull always proxy kafka postgres
+if ! docker compose -p egeria-shared-infra -f shared-infra.yaml build "${COMPOSE_BUILD_FLAGS[@]}" proxy; then
+  echo "[shared-infra] Pull-enabled build failed; retrying build without pull to use local cache..."
+  docker compose -p egeria-shared-infra -f shared-infra.yaml build proxy
+fi
+
+if ! docker compose -p egeria-shared-infra -f shared-infra.yaml up -d --pull always proxy kafka postgres; then
+  echo "[shared-infra] Pull-enabled up failed; retrying up without pull to use local cache..."
+  docker compose -p egeria-shared-infra -f shared-infra.yaml up -d proxy kafka postgres
+fi
 
 wait_for_container_state egeria-shared-kafka
 wait_for_container_state egeria-shared-postgres

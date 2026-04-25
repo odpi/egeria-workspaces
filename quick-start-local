@@ -6,6 +6,46 @@ cd "$(dirname "$0")"
 
 source compose-configs/shared-infra/compose-build-flags.sh
 
+image_exists() {
+  local image_ref="$1"
+  docker image inspect "$image_ref" >/dev/null 2>&1
+}
+
+ensure_service_image() {
+  local service_name="$1"
+  local image_ref="$2"
+  local required="${3:-1}"
+
+  if image_exists "$image_ref"; then
+    echo "[quick-start-local] Using existing local image for ${service_name}: ${image_ref}"
+    return 0
+  fi
+
+  echo "[quick-start-local] Local image missing for ${service_name} (${image_ref}); attempting build..."
+  if ! docker compose -p egeria-quickstart -f egeria-quickstart.yaml build "${COMPOSE_BUILD_FLAGS[@]}" "$service_name"; then
+    echo "[quick-start-local] Pull-enabled build failed for ${service_name}; retrying without pull..."
+    if ! docker compose -p egeria-quickstart -f egeria-quickstart.yaml build "$service_name"; then
+      if [[ "$required" -eq 1 ]]; then
+        echo "[quick-start-local] ERROR: unable to build required service '${service_name}' and no local image exists (${image_ref})." >&2
+        return 1
+      fi
+      echo "[quick-start-local] WARNING: unable to build optional service '${service_name}'."
+      return 2
+    fi
+  fi
+
+  if image_exists "$image_ref"; then
+    return 0
+  fi
+
+  if [[ "$required" -eq 1 ]]; then
+    echo "[quick-start-local] ERROR: build finished but local image still not found for ${service_name} (${image_ref})." >&2
+    return 1
+  fi
+
+  return 2
+}
+
 echo "[quick-start-local] Preparing environment (.env) and compose files..."
 echo "[quick-start-local] Quickstart uses image-provided secrets and mounts runtime data/logs only."
 
@@ -27,14 +67,44 @@ pushd compose-configs/egeria-quickstart >/dev/null
   # Generate/update .env and normalize exchange-quickstart/config/config.json
   ./gen-env.sh
 
-  echo "[quick-start-local] Building quickstart images (pulling newer base images when available)..."
-  docker compose -p egeria-quickstart -f egeria-quickstart.yaml build "${COMPOSE_BUILD_FLAGS[@]}"
+  echo "[quick-start-local] Ensuring core images are available (platform, pyegeria-web, jupyter)..."
+  ensure_service_image egeria-main egeria-quickstart-platform:local 1
+  ensure_service_image pyegeria-web egeria-quickstart-pyegeria-web:latest 1
+  ensure_service_image jupyter-hub egeria-quickstart-jupyter:local 1
 
-  echo "[quick-start-local] Starting local quickstart stack (host-gateway mappings enabled)..."
-  docker compose -p egeria-quickstart \
+  APACHE_BUILD_OK=1
+  echo "[quick-start-local] Ensuring apache-web image is available (optional)..."
+  if ! ensure_service_image apache-web egeria-quickstart-apache-web:latest 0; then
+    APACHE_BUILD_OK=0
+  fi
+
+  echo "[quick-start-local] Starting core quickstart stack (host-gateway mappings enabled)..."
+  if ! docker compose -p egeria-quickstart \
     -f egeria-quickstart.yaml \
     -f egeria-quickstart-local.yaml \
-    up -d --pull always
+    up -d --pull always egeria-main pyegeria-web jupyter-hub; then
+    echo "[quick-start-local] Pull-enabled core up failed; retrying without pull and without build..."
+    docker compose -p egeria-quickstart \
+      -f egeria-quickstart.yaml \
+      -f egeria-quickstart-local.yaml \
+      up -d --no-build egeria-main pyegeria-web jupyter-hub
+  fi
+
+  if [[ "$APACHE_BUILD_OK" -eq 1 ]]; then
+    echo "[quick-start-local] Starting apache-web..."
+    if ! docker compose -p egeria-quickstart \
+      -f egeria-quickstart.yaml \
+      -f egeria-quickstart-local.yaml \
+      up -d --pull always apache-web; then
+      echo "[quick-start-local] Pull-enabled apache-web up failed; retrying without pull and without build..."
+      if ! docker compose -p egeria-quickstart \
+        -f egeria-quickstart.yaml \
+        -f egeria-quickstart-local.yaml \
+        up -d --no-build apache-web; then
+        echo "[quick-start-local] WARNING: apache-web did not start. Core services are running."
+      fi
+    fi
+  fi
 popd >/dev/null
 echo "[quick-start-local] Done. Useful URLs:"
 HOST_FQDN_PRINT=$(grep '^HOST_FQDN=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "localhost")

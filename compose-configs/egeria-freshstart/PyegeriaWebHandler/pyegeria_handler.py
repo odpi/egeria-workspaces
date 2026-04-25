@@ -1,24 +1,57 @@
 # FastAPI app for Dr. Egeria Markdown processing
 
 
+import os
+from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+DEPLOYMENT_DIR = SCRIPT_DIR.parent
+WORKSPACE_ROOT = DEPLOYMENT_DIR.parent.parent
+EXCHANGE_ROOT = WORKSPACE_ROOT / "exchange-freshstart"
+
+
+def _bootstrap_runtime_defaults() -> None:
+    log_directory = os.environ.setdefault("PYEGERIA_LOG_DIRECTORY", str(SCRIPT_DIR / "logs"))
+    os.makedirs(log_directory, exist_ok=True)
+
+    os.environ.setdefault("EGERIA_USER", "erinoverview")
+    os.environ.setdefault("EGERIA_USER_PASSWORD", "secret")
+
+    root_default: str
+    inbox_default: str
+    outbox_default: str
+
+    if os.path.exists("/.dockerenv"):
+        root_default = "/"
+        inbox_default = "dr-egeria-inbox"
+        outbox_default = "dr-egeria-outbox"
+    elif EXCHANGE_ROOT.is_dir():
+        root_default = str(EXCHANGE_ROOT)
+        inbox_default = "loading-bay/dr-egeria-inbox"
+        outbox_default = "distribution-hub/dr-egeria-outbox"
+    else:
+        root_default = str(SCRIPT_DIR)
+        inbox_default = "dr-egeria-inbox"
+        outbox_default = "dr-egeria-outbox"
+
+    os.environ.setdefault("EGERIA_ROOT_PATH", str(root_default))
+    os.environ.setdefault("EGERIA_INBOX_PATH", str(inbox_default))
+    os.environ.setdefault("EGERIA_OUTBOX_PATH", str(outbox_default))
+
+
+_bootstrap_runtime_defaults()
+
 import asyncio
 import concurrent.futures
 import io
-import os
 from contextlib import redirect_stdout, redirect_stderr
 from typing import Callable
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field
 from pyegeria import print_basic_exception
 
-os.environ.setdefault("EGERIA_USER", "erinoverview")
-os.environ.setdefault("EGERIA_USER_PASSWORD", "secret")
-# Important: ensure root path is empty so container joins to /dr-egeria-inbox/<file>
-os.environ.setdefault("EGERIA_ROOT_PATH", "/")
-os.environ.setdefault("EGERIA_INBOX_PATH", "dr-egeria-inbox")
-os.environ.setdefault("EGERIA_OUTBOX_PATH", "dr-egeria-outbox")
 
 EGERIA_USER = os.environ.get("EGERIA_USER", "erinoverview")
 EGERIA_USER_PASSWORD = os.environ.get("EGERIA_USER_PASSWORD", "secret")
@@ -98,6 +131,19 @@ async def process_markdown(request: ProcessRequest):
     except Exception as e:
         print_basic_exception(e)
         raise HTTPException(status_code=500, detail=f"Processing failed: {e}")
+
+
+@app.post("/dr-egeria/refresh")
+async def refresh_commands():
+    """Refresh Dr. Egeria command specifications from JSON files."""
+    try:
+        from md_processing.md_processing_utils.md_processing_constants import load_commands
+        # This will reload the COMMAND_DEFINITIONS dictionary
+        load_commands()
+        return {"status": "success", "message": "Command specifications refreshed"}
+    except Exception as e:
+        print_basic_exception(e)
+        raise HTTPException(status_code=500, detail=f"Refresh failed: {e}")
 
 
 @app.on_event("shutdown")
