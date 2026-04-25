@@ -14,7 +14,7 @@
 #   * Ports 9443 and 9192 are available on the host system - these are the default ports for Kafka and Egeria.
 #   * Port 8085 is used for the external web server
 #   * Port 7888 is used by jupyter server
-#   * by default, the jupyter notebooks in the 'workspaces' folder are mounted at /home/jovyan/coco-workspaces
+#   * by default, the jupyter notebooks in the 'coco-workbooks' folder are mounted at /home/jovyan/coco-worksbooks
 #   * by default, strict SSL validation is turned off
 #
 #
@@ -44,7 +44,7 @@ services:
     volumes:
       - ./before-notebook.d:/usr/local/bin/before-notebook.d
       - ../../work:/home/jovyan/work
-      - ../../workspaces:/home/jovyan/coco-workspaces
+      - ../../coco-workbooks:/home/jovyan/coco-workbooks
       - ../../workbooks:/home/jovyan/workbooks
       - ../../exchange-quickstart/distribution-hub:/home/jovyan/distribution-hub
       - ../../exchange-quickstart/loading-bay:/home/jovyan/loading-bay

@@ -180,4 +180,4 @@ compose-configs/shared-infra/.env
 /exchange/**
 /runtime-volumes/freshstart-platform-data/secrets/*.omsecrets
 
-/workspaces/egeria-docs-maintenance/snippets/
+/coco-workbooks/egeria-docs-maintenance/snippets/

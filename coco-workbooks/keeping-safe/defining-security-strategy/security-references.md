@@ -33,7 +33,7 @@ ACTIVE
 
 ExternalReference::nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-228-upd1.pdf
 
-## GUID
-
-----
+____
+License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/),
+Copyright Contributors to the ODPi Egeria project.
 
