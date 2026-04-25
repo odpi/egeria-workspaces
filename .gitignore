@@ -182,3 +182,4 @@ compose-configs/shared-infra/.env
 /runtime-volumes/freshstart-platform-data/secrets/*.omsecrets
 
 /workspaces/egeria-docs-maintenance/snippets/
+!/exchange-quickstart/.obsidian/workspace.json
