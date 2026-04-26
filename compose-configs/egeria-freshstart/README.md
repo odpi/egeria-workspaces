@@ -84,7 +84,7 @@ Neither overlay changes ports, images, or volumes — the only difference is whe
 
 - runtime data: `runtime-volumes/freshstart-platform-data`
 - runtime secrets: `runtime-volumes/freshstart-platform-data/secrets` (mounted to `/deployments/secrets`)
-- apache runtime: `runtime-volumes/freshstart-apache-web`
+- apache web runtime: `runtime-volumes/freshstart-apache-web`
 - exchange tree: `exchange-freshstart`
 
 ## Secrets Location for Freshstart

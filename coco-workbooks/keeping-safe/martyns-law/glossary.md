@@ -1921,7 +1921,7 @@ GlossaryTerm::MartynsLawUK::QualifyingEvent
 
 ### External Reference
 
-RelatedMedia::MartynsLawUK::Scope::Events::Infographic
+ExternalReference::MartynsLawUK::Scope::Events
 
 ### Label
 
@@ -2062,7 +2062,7 @@ GlossaryTerm::MartynsLawUK::QualifyingPremises
 
 ### External Reference
 
-RelatedMedia::MartynsLawUK::Scope::Premises::Infographic
+ExternalReference::MartynsLawUK::Scope::Premises
 
 ### Label
 

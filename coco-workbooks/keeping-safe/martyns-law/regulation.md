@@ -190,7 +190,7 @@ Regulation::MartynsLawUK
 External Sources
 ### Description  
 
-This is a list of key external sources of information from the UK government and regulator.
+This is a list of key external sources from the UK government and regulator.
 ### Resource Use  
 
 Related Information
