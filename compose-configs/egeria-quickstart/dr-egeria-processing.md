@@ -5,14 +5,41 @@ upgrades or if containers are destroyed. The secrets location is `runtime-volume
 the host, and is mounted to `/deployments/secrets` inside the container. You can place any secrets files you need here,
 and they will be available to Egeria at runtime.
 
-Both deployments support the processing of Markdown files containing Dr. Egeria commands.
+Both deployments support the processing of Markdown files containing Dr. Egeria commands via the `PyegeriaWebHandler` service.
 
-The deployments contain a PyegeriaWebHandler server that monitors the `landing-area` directory for new markdown files.
-When a new file is added, it is automatically processed by the PyegeriaWebHandler, which executes the Dr. Egeria
-commands contained within the file and generates output in the `distribution-hub` directory. These commands are
-currently
-triggered by an Obsidian Plugin ( found in, for example
-exchange-quickstart/.obsidian/plugins/egeria-obsidian-plugin/README.md )
+### PyegeriaWebHandler Service
+
+The deployments include a `PyegeriaWebHandler` service (running on port 8085 by default) that provides a FastAPI-based endpoint for processing markdown files.
+
+When a markdown file is sent to the handler (typically via the Obsidian plugin), it:
+1. Receives the file path (supporting both absolute paths and paths relative to `Dr.Egeria Inbox`).
+2. Processes the Dr. Egeria commands contained within the file.
+3. Generates output in the `dr-egeria-outbox` directory within the respective vault.
+4. Returns structured status and console output to the caller, including logical environment and profile keys.
+
+### Configuration Keys
+
+The handler uses logical keys provided in the request to help identify and report on the configuration being used:
+- **Environment Key**: Identifies the server environment (e.g., "Quickstart Local").
+- **User Profile Key**: Identifies the user settings profile (e.g., "Egeria Markdown").
+
+These keys are currently used for reporting and display purposes in the Obsidian plugin results modal.
+
+### Multi-Vault Support
+
+The quickstart environment is pre-configured to support multiple Obsidian vaults by mounting them into the container:
+- `/work/Obsidian`
+- `/coco-workbooks`
+
+The `PyegeriaWebHandler` can switch between these vaults based on the `Pyegeria Root` and `Dr.Egeria Inbox` settings provided in the request (configured in Obsidian plugin profiles).
+
+### Obsidian Integration
+
+The primary way to interact with Dr. Egeria is via the "Call Dr. Egeria" Obsidian plugin.
+Configuration guide for different vaults can be found in [OBSIDIAN_PROFILES.md](./OBSIDIAN_PROFILES.md).
+
+The plugin source and its own documentation are located at:
+`obsidian-plugins/call-dr-egeria/README.md`
 
 The egeria-quickstart version of PyegeriageWebHandler is currently more advanced than the egeria-freshstart version, and
 includes support for a wider range of Dr. Egeria commands. The egeria-freshstart version is more basic and only supports

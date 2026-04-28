@@ -192,6 +192,14 @@ The two startup scripts apply different Docker Compose overlays on top of `egeri
 
 Neither overlay changes ports, images, or volumes — the only difference is whether containers get a synthetic `/etc/hosts` entry for the host machine's hostname.
 
+## Dr. Egeria Processing
+
+This environment includes support for processing Markdown files containing Dr. Egeria commands. This is primarily intended for use with Obsidian.
+
+The `PyegeriaWebHandler` service (port 8085) handles processing requests and can be configured to work with multiple Obsidian vaults.
+
+For more details, see [Dr. Egeria Processing](./dr-egeria-processing.md).
+
 ## Next Steps
 
 Now that your Egeria environment is running and configured it is waiting for you to make requests. 
