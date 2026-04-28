@@ -105,14 +105,14 @@ services:
       EGERIA_VIEW_SERVER: qs-view-server
       EGERIA_VIEW_SERVER_URL: https://egeria-main:9443
       EGERIA_INTEGRATION_DAEMON_URL: https://egeria-main:9443
-      EGERIA_ROOT_PATH: "/"
-      EGERIA_INBOX_PATH: "dr-egeria-inbox"
+      EGERIA_ROOT_PATH: "/work/Obsidian"
+      EGERIA_INBOX_PATH: "/work/Obsidian"
       EGERIA_OUTBOX_PATH: "dr-egeria-outbox"
     volumes:
       - ./PyegeriaWebHandler:/app
-      - ../../exchange-quickstart/distribution-hub/dr-egeria-outbox:/dr-egeria-outbox  # Mount the dr-egeria-outbox directory
-      - ../../exchange-quickstart/loading-bay/dr-egeria-inbox:/dr-egeria-inbox
       - ../../exchange-quickstart/config:/config
+      - ../../work:/work
+      - ../../coco-workbooks:/coco-workbooks
 # Mount the dr-egeria-inbox directory
 #    environment:
       # Pass environment variables to the container
@@ -136,8 +136,9 @@ services:
     networks:
       - egeria_network
     volumes:
-      - ../../exchange-quickstart/distribution-hub/dr-egeria-outbox:/usr/local/apache2/htdocs/dr-egeria-outbox  # Mount the dr-egeria-outbox directory
-      - ../../exchange-quickstart/loading-bay/dr-egeria-inbox:/usr/local/apache2/htdocs/dr-egeria-inbox  # Mount the dr-egeria-inbox directory
+      - ../../work:/usr/local/apache2/htdocs/work
+      - ../../coco-workbooks:/usr/local/apache2/htdocs/coco-workbooks
+#      - ../../exchange-quickstart/loading-bay/dr-egeria-inbox:/usr/local/apache2/htdocs/dr-egeria-inbox  # Mount the dr-egeria-inbox directory
       - ./httpd.conf:/usr/local/apache2/conf/httpd.conf  # Use the fixed configuration file
       - ./sites-available/fastapi-proxy.conf:/usr/local/apache2/conf/extra/fastapi-proxy.conf  # Mount the FastAPI proxy vhost file
       - ../../runtime-volumes/quickstart-apache-web/site:/usr/local/apache2/htdocs # mount site

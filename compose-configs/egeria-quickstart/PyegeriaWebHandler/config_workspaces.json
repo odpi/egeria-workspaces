@@ -2,8 +2,8 @@
         "Environment": {
                 "Egeria Kafka Endpoint": "host.docker.internal:9192",
                 "Egeria Jupyter": true,
-                "Dr.Egeria Outbox": "distribution-hub/dr-egeria-outbox",
-                "Dr.Egeria Inbox": "loading-bay/dr-egeria-inbox",
+                "Dr.Egeria Outbox": ".",
+                "Dr.Egeria Inbox": ".",
                 "Egeria Integration Daemon": "qs-integration-daemon",
                 "Egeria Integration Daemon URL": "https://host.docker.internal:9443",
                 "Egeria View Server": "qs-view-server",
@@ -12,12 +12,12 @@
                 "Egeria Platform URL": "https://host.docker.internal:9443",
                 "Egeria Engine Host": "qs-engine-host",
                 "Egeria Engine Host URL": "https://host.docker.internal:9443",
-                "Egeria Glossary Path": "/home/jovyan/loading-bay/glossary",
-                "Egeria Mermaid Folder": "/home/jovyan/work/mermaid_graphs",
-                "Pyegeria Root": "/home/jovyan",
-                "Pyegeria Config Directory": "/home/jovyan/config",
-                "Pyegeria User Format Sets Dir": "/home/jovyan/config/format-sets",
-                "Pyegeria Publishing Root": "http://localhost:8085/dr-egeria-outbox",
+                "Egeria Glossary Path": "/work/Obsidian/glossary",
+                "Egeria Mermaid Folder": "/work/Obsidian/mermaid_graphs",
+                "Pyegeria Root": "/work/Obsidian",
+                "Pyegeria Config Directory": "/config",
+                "Pyegeria User Format Sets Dir": "/config/format-sets",
+                "Pyegeria Publishing Root": "http://localhost:8085/work/Obsidian/dr-egeria-outbox",
 
                 "console_width": 250
         },
@@ -31,7 +31,7 @@
                 "console_logging_level": "INFO",
                 "enable_logging": true,
                 "file_logging_level": "INFO",
-                "log_directory": "/home/jovyan/work/logs",
+                "log_directory": "/work/logs",
                 "logging_console_format": "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
                 "logging_file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level} | {module}-{function}:{line}-{message}-{extra}"
               },

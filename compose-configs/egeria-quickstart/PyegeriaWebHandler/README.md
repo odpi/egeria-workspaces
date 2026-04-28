@@ -18,6 +18,12 @@ Unlike previous versions, you no longer need to manually update `dr_egeria_md.py
 ### Diagnostics
 The v2 engine provides rich feedback tables ("Command Analysis" and "Parsed Attributes"). If the Obsidian plugin detects a long response, it will display these diagnostics in a modal window to help troubleshoot markdown formatting or missing requirements.
 
+### Path Handling
+The Dr. Egeria v2 engine and the Obsidian plugin work together to ensure that input paths are correctly resolved:
+- The Obsidian plugin allows configuring an **Input Folder** (e.g., `loading-bay/dr-egeria-inbox`).
+- When sending a note, the plugin prepends this folder to the note's path if it's not already present.
+- The web handler on the server can also use the `EGERIA_INBOX_PATH` environment variable to strip redundant path segments if they are mistakenly included, ensuring the core processing engine receives the correct relative path.
+
 ### Generalized MCP
 The included `mcp_server.py` now supports dynamic execution. You can use the `egeria_execute_command` tool to run any Dr. Egeria command by name, and `egeria_list_commands` to see what is currently available.
 
