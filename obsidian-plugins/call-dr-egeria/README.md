@@ -8,7 +8,7 @@
     "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
     "deploy": "npm run build && node deploy.mjs",
     "deploy:coco": "npm run build && node deploy.mjs ../../coco-workbooks",
-    "deploy:work": "npm run build && node deploy.mjs ../../work/Obsidian",
+    "deploy:work": "npm run build && node deploy.mjs ../../work/Work-Obsidian",
     "package": "npm run build && mkdir -p dist && cp main.js manifest.json versions.json dist/",
     "version": "node version-bump.mjs && git add manifest.json versions.json"
   },
@@ -63,7 +63,7 @@ The plugin is deployed into Obsidian vaults under each vault's plugin directory:
 `/.obsidian/plugins/call-dr-egeria/`
 
 For example:
-`coco-workbooks/.obsidian/plugins/call-dr-egeria/ work/Obsidian/.obsidian/plugins/call-dr-egeria/`
+`coco-workbooks/.obsidian/plugins/call-dr-egeria/` or `work/Work-Obsidian/.obsidian/plugins/call-dr-egeria/`
 
 
 Only built plugin assets should be deployed into vaults.
@@ -107,7 +107,7 @@ Convenience scripts are provided for standard environments:
 # Deploy to ../../coco-workbooks
 npm run deploy:coco
 
-# Deploy to ../../work/Obsidian
+# Deploy to ../../work/Work-Obsidian
 npm run deploy:work
 ```
 
@@ -151,7 +151,7 @@ The plugin supports multiple configuration profiles, allowing you to quickly swi
     - **Input Folder**: Default path prepended to the active note's path when sending to Dr.Egeria. If the note's path already starts with this folder, it is not prepended again.
     - **Output Folder**: Passed to Dr.Egeria to specify where to write results.
   - **Environment & User Profile JSON**: Detailed configuration blocks.
-    - **Pyegeria Root**: Can be an absolute path or a relative path (e.g., `work/Obsidian`). Relative paths are resolved against the workspace root.
+    - **Pyegeria Root**: Can be an absolute path or a relative path (e.g., `work/Work-Obsidian`). Relative paths are resolved against the workspace root.
 
 ### Credentials
 
@@ -174,8 +174,8 @@ User ID and Password are kept separate from the profile JSON to avoid accidental
   "Dr.Egeria Outbox": ".",
   "Dr.Egeria Inbox": ".",
   "Egeria Platform URL": "https://host.docker.internal:9443",
-  "Pyegeria Root": "/work/Obsidian",
-  "Pyegeria Publishing Root": "http://localhost:8085/work/Obsidian/dr-egeria-outbox",
+  "Pyegeria Root": "/work/Work-Obsidian",
+  "Pyegeria Publishing Root": "http://localhost:8085/work/Work-Obsidian/dr-egeria-outbox",
   "console_width": 250
 }
 ```

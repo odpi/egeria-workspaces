@@ -1,24 +1,9 @@
 {
         "Environment": {
-                "Egeria Kafka Endpoint": "host.docker.internal:9192",
-                "Egeria Jupyter": true,
-                "Dr.Egeria Outbox": ".",
                 "Dr.Egeria Inbox": ".",
-                "Egeria Integration Daemon": "qs-integration-daemon",
-                "Egeria Integration Daemon URL": "https://host.docker.internal:9443",
-                "Egeria View Server": "qs-view-server",
-                "Egeria View Server URL": "https://host.docker.internal:9443",
-                "Egeria Metadata Store": "qs-metadata-store",
-                "Egeria Platform URL": "https://host.docker.internal:9443",
-                "Egeria Engine Host": "qs-engine-host",
-                "Egeria Engine Host URL": "https://host.docker.internal:9443",
-                "Egeria Glossary Path": "/work/Obsidian/glossary",
-                "Egeria Mermaid Folder": "/work/Obsidian/mermaid_graphs",
-                "Pyegeria Root": "/work/Obsidian",
-                "Pyegeria Config Directory": "/config",
-                "Pyegeria User Format Sets Dir": "/config/format-sets",
-                "Pyegeria Publishing Root": "http://localhost:8085/work/Obsidian/dr-egeria-outbox",
-
+                "Dr.Egeria Outbox": ".",
+                "Pyegeria Root": "/work/Work-Obsidian",
+                "Pyegeria Publishing Root": "http://localhost:8085/work/Work-Obsidian/dr-egeria-outbox",
                 "console_width": 250
         },
        

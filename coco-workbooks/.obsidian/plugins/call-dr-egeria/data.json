@@ -1,0 +1,43 @@
+{
+  "activeProfileId": "quickstart-local",
+  "directive": "process",
+  "userId": "erinoverview",
+  "userPass": "secret",
+  "profiles": [
+    {
+      "id": "quickstart-local",
+      "name": "coco-workbooks",
+      "apiUrl": "http://localhost:8085/dr-egeria/process",
+      "environmentKey": "Quickstart Local",
+      "userProfileKey": "Egeria Markdown",
+      "outputFolder": "dr-egeria-outbox",
+      "inputFolder": ".",
+      "environment": {
+        "Egeria Kafka Endpoint": "host.docker.internal:9192",
+        "Egeria Jupyter": true,
+        "Dr.Egeria Outbox": ".",
+        "Dr.Egeria Inbox": ".",
+        "Egeria Integration Daemon": "qs-integration-daemon",
+        "Egeria Integration Daemon URL": "https://host.docker.internal:9443",
+        "Egeria View Server": "qs-view-server",
+        "Egeria View Server URL": "https://host.docker.internal:9443",
+        "Egeria Metadata Store": "qs-metadata-store",
+        "Egeria Platform URL": "https://host.docker.internal:9443",
+        "Egeria Engine Host": "qs-engine-host",
+        "Egeria Engine Host URL": "https://host.docker.internal:9443",
+        "Egeria Glossary Path": "/home/jovyan/loading-bay/glossary",
+        "Egeria Mermaid Folder": "/home/jovyan/work/mermaid_graphs",
+        "Pyegeria Root": "coco-workbooks",
+        "Pyegeria Config Directory": "/home/jovyan/config",
+        "Pyegeria User Format Sets Dir": "/home/jovyan/config/format-sets",
+        "Pyegeria Publishing Root": "http://localhost:8085/dr-egeria-outbox",
+        "console_width": 100
+      },
+      "userProfile": {
+        "Egeria Home Glossary Name": "Egeria-Markdown",
+        "Egeria Local Qualifier": "PDR",
+        "Egeria Home Collection": "MyHome"
+      }
+    }
+  ]
+}

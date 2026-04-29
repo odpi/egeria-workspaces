@@ -2,73 +2,43 @@
 
 To support a vault-centric workflow with two different Obsidian vaults, please configure the following two profiles in your "Call Dr. Egeria" plugin settings.
 
-#### Profile 1: Vault 1 (work/Obsidian)
-- **Profile Name**: Vault 1 (work/Obsidian)
+#### Profile 1: Vault 1 (Work-Obsidian)
+- **Profile Name**: Work
 - **API URL**: `http://localhost:8085/dr-egeria/process`
-- **Environment Key**: Quickstart Local
+- **Environment Key**: Work
 - **User Profile Key**: Egeria Markdown
-- **Input Folder**: `/work/Obsidian`
-- **Output Folder**: `dr-egeria-outbox`
+- **Input Folder**: `<blank>`
+- **Output Folder**: `<blank>`
 - **Environment JSON**:
   ```json
   {
-    "Egeria Kafka Endpoint": "host.docker.internal:9192",
-    "Egeria Jupyter": true,
-    "Dr.Egeria Outbox": ".",
     "Dr.Egeria Inbox": ".",
-    "Egeria Integration Daemon": "qs-integration-daemon",
-    "Egeria Integration Daemon URL": "https://host.docker.internal:9443",
-    "Egeria View Server": "qs-view-server",
-    "Egeria View Server URL": "https://host.docker.internal:9443",
-    "Egeria Metadata Store": "qs-metadata-store",
-    "Egeria Platform URL": "https://host.docker.internal:9443",
-    "Egeria Engine Host": "qs-engine-host",
-    "Egeria Engine Host URL": "https://host.docker.internal:9443",
-    "Egeria Glossary Path": "/work/Obsidian/glossary",
-    "Egeria Mermaid Folder": "/work/Obsidian/mermaid_graphs",
-    "Pyegeria Root": "/work/Obsidian",
-    "Pyegeria Config Directory": "/config",
-    "Pyegeria User Format Sets Dir": "/config/format-sets",
-    "Pyegeria Publishing Root": "http://localhost:8085/work/Obsidian/dr-egeria-outbox",
-    "console_width": 250
+    "Dr.Egeria Outbox": ".",
+    "Pyegeria Root": "/work/Work-Obsidian",
+    "Pyegeria Publishing Root": "http://localhost:8085/work/Work-Obsidian/dr-egeria-outbox"
   }
   ```
 
 #### Profile 2: Vault 2 (coco-workbooks)
-- **Profile Name**: Vault 2 (coco-workbooks)
+- **Profile Name**: coco-workbooks
 - **API URL**: `http://localhost:8085/dr-egeria/process`
-- **Environment Key**: Quickstart Local
+- **Environment Key**: coco-workbooks
 - **User Profile Key**: Egeria Markdown
-- **Input Folder**: `/coco-workbooks`
-- **Output Folder**: `dr-egeria-outbox`
+- **Input Folder**: `<blank>`
+- **Output Folder**: `<blank>`
 - **Environment JSON**:
   ```json
   {
-    "Egeria Kafka Endpoint": "host.docker.internal:9192",
-    "Egeria Jupyter": true,
-    "Dr.Egeria Outbox": ".",
     "Dr.Egeria Inbox": ".",
-    "Egeria Integration Daemon": "qs-integration-daemon",
-    "Egeria Integration Daemon URL": "https://host.docker.internal:9443",
-    "Egeria View Server": "qs-view-server",
-    "Egeria View Server URL": "https://host.docker.internal:9443",
-    "Egeria Metadata Store": "qs-metadata-store",
-    "Egeria Platform URL": "https://host.docker.internal:9443",
-    "Egeria Engine Host": "qs-engine-host",
-    "Egeria Engine Host URL": "https://host.docker.internal:9443",
-    "Egeria Glossary Path": "/coco-workbooks/glossary",
-    "Egeria Mermaid Folder": "/coco-workbooks/mermaid_graphs",
+    "Dr.Egeria Outbox": ".",
     "Pyegeria Root": "/coco-workbooks",
-    "Pyegeria Config Directory": "/config",
-    "Pyegeria User Format Sets Dir": "/config/format-sets",
-    "Pyegeria Publishing Root": "http://localhost:8085/coco-workbooks/dr-egeria-outbox",
-    "console_width": 250
+    "Pyegeria Publishing Root": "http://localhost:8085/coco-workbooks/dr-egeria-outbox"
   }
   ```
 
 ### Key Changes & Interactions
 
-- **Vault Roots**: All paths for `Egeria Root`, `Inbox`, and `Outbox` are now relative to the container's mount points (`/work/Obsidian` or `/coco-workbooks`).
+- **Vault Roots**: All paths for `Egeria Root`, `Inbox`, and `Outbox` are now relative to the container's mount points (`/work/Work-Obsidian` or `/coco-workbooks`).
 - **Path Interaction**: The plugin's **Input Folder** is prepended to the active note's path before being sent to the backend. To ensure the backend correctly identifies the file, the `Dr.Egeria Inbox` in the **Environment JSON** should be set to `.` (the current directory relative to the root), which prevents redundant path stripping.
 - **Output Interaction**: Similarly, setting `Dr.Egeria Outbox` to `.` in the JSON allows the plugin's **Output Folder** setting to be used as a relative path from the `Pyegeria Root`.
 - **Publishing Root**: Each profile has a unique publishing root so that Apache can correctly serve the generated results.

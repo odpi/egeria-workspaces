@@ -52,13 +52,13 @@ const DEFAULT_SETTINGS: SendNoteSettings = {
             apiUrl: "http://localhost:8085/dr-egeria/process",
             environmentKey: "Quickstart Local",
             userProfileKey: "Egeria Markdown",
-            outputFolder: "distribution-hub/dr-egeria-outbox",
+            outputFolder: "dr-egeria-outbox",
             inputFolder: "",
             environment: {
                 "Egeria Kafka Endpoint": "host.docker.internal:9192",
                 "Egeria Jupyter": true,
-                "Dr.Egeria Outbox": "distribution-hub/dr-egeria-outbox",
-                "Dr.Egeria Inbox": "loading-bay/dr-egeria-inbox",
+                "Dr.Egeria Outbox": ".",
+                "Dr.Egeria Inbox": ".",
                 "Egeria Integration Daemon": "qs-integration-daemon",
                 "Egeria Integration Daemon URL": "https://host.docker.internal:9443",
                 "Egeria View Server": "qs-view-server",
@@ -67,12 +67,12 @@ const DEFAULT_SETTINGS: SendNoteSettings = {
                 "Egeria Platform URL": "https://host.docker.internal:9443",
                 "Egeria Engine Host": "qs-engine-host",
                 "Egeria Engine Host URL": "https://host.docker.internal:9443",
-                "Egeria Glossary Path": "/home/jovyan/loading-bay/glossary",
-                "Egeria Mermaid Folder": "/home/jovyan/work/mermaid_graphs",
-                "Pyegeria Root": "/home/jovyan",
-                "Pyegeria Config Directory": "/home/jovyan/config",
-                "Pyegeria User Format Sets Dir": "/home/jovyan/config/format-sets",
-                "Pyegeria Publishing Root": "http://localhost:8085/dr-egeria-outbox",
+                "Egeria Glossary Path": "/work/Work-Obsidian/glossary",
+                "Egeria Mermaid Folder": "/work/Work-Obsidian/mermaid_graphs",
+                "Pyegeria Root": "/work/Work-Obsidian",
+                "Pyegeria Config Directory": "/config",
+                "Pyegeria User Format Sets Dir": "/config/format-sets",
+                "Pyegeria Publishing Root": "http://localhost:8085/work/Work-Obsidian/dr-egeria-outbox",
                 "console_width": 250
             },
             userProfile: {
@@ -165,11 +165,13 @@ export default class SendNotePlugin extends Plugin {
             if (overlapIndex !== -1) {
                 // Merge segments
                 const combined = [...inputSegments.slice(0, overlapIndex), ...baseSegments];
-                inputFile = combined.join("/");
-            } else if (normalizedBasePath.startsWith(normalizedInputFolder + "/")) {
+                inputFile = (profile.inputFolder.startsWith("/") ? "/" : "") + combined.join("/");
+            } else if (normalizedInputFolder === ".") {
                 inputFile = normalizedBasePath;
+            } else if (normalizedBasePath.startsWith(normalizedInputFolder + "/")) {
+                inputFile = (profile.inputFolder.startsWith("/") ? "/" : "") + normalizedBasePath;
             } else {
-                inputFile = `${normalizedInputFolder}/${normalizedBasePath}`;
+                inputFile = (profile.inputFolder.startsWith("/") ? "/" : "") + `${normalizedInputFolder}/${normalizedBasePath}`;
             }
         }
         
@@ -589,13 +591,26 @@ class ResultModal extends Modal {
     }
 
     onOpen() {
-        const { contentEl } = this;
+        const { contentEl, modalEl } = this;
         contentEl.createEl("h2", { text: "Dr.Egeria Results" });
+        
+        // Make the modal resizable via CSS
+        modalEl.style.resize = "both";
+        modalEl.style.overflow = "auto";
+        modalEl.style.minWidth = "400px";
+        modalEl.style.minHeight = "300px";
+        modalEl.style.width = "80%";
+        modalEl.style.height = "70%";
+
         const pre = contentEl.createEl("pre", { text: this.text });
         pre.style.whiteSpace = "pre-wrap";
         pre.style.wordBreak = "break-word";
-        pre.style.maxHeight = "500px";
+        pre.style.height = "calc(100% - 60px)";
         pre.style.overflowY = "auto";
+        pre.style.margin = "0";
+        pre.style.padding = "10px";
+        pre.style.border = "1px solid var(--background-modifier-border)";
+        pre.style.backgroundColor = "var(--background-secondary)";
     }
 
     onClose() {

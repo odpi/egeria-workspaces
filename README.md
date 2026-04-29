@@ -61,6 +61,14 @@ There are four [servers](https://egeria-project.org/concepts/omag-server/) confi
 | [Engine Host](https://egeria-project.org/concepts/engine-host/)                     | `qs-engine-host`        | `fs-engine-host`        | The server that runs [governance services](https://egeria-project.org/concepts/governance-service/).                                                                                           |
 | [Metadata Access Store](https://egeria-project.org/concepts/metadata-access-store/) | `qs-metadata-store`     | `fs-metadata-store`     | The server that hosts the metadata repository.                                                                                                                                                 |
 
+### Using the "Call Dr. Egeria" Obsidian Plugin
+
+The **Call Dr. Egeria** Obsidian plugin allows you to send Markdown notes from your Obsidian vault directly to Egeria for processing, validation, or display.
+
+- **Source**: `obsidian-plugins/call-dr-egeria/`
+- **Setup & Configuration**: See the [Obsidian Plugin README](obsidian-plugins/call-dr-egeria/README.md) for build and deployment instructions.
+- **Detailed Profiles**: For specific configuration profiles aligned with this workspace (e.g., for `work/Work-Obsidian` or `coco-workbooks`), see [OBSIDIAN_PROFILES.md](compose-configs/egeria-quickstart/OBSIDIAN_PROFILES.md).
+
 ### Using both MCP servers together
 
 You can configure the `pyegeria` MCP server and the Dr. Egeria MCP server from `PyegeriaWebHandler` in the same MCP client configuration. The recommended client-side aliases are `pyegeria` for the pyegeria package server and `dr-egeria` for the Dr. Egeria server; these names only need to be unique within the `mcpServers` block.

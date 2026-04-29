@@ -105,8 +105,8 @@ services:
       EGERIA_VIEW_SERVER: qs-view-server
       EGERIA_VIEW_SERVER_URL: https://egeria-main:9443
       EGERIA_INTEGRATION_DAEMON_URL: https://egeria-main:9443
-      EGERIA_ROOT_PATH: "/work/Obsidian"
-      EGERIA_INBOX_PATH: "/work/Obsidian"
+      EGERIA_ROOT_PATH: "/"
+      EGERIA_INBOX_PATH: "."
       EGERIA_OUTBOX_PATH: "dr-egeria-outbox"
     volumes:
       - ./PyegeriaWebHandler:/app
