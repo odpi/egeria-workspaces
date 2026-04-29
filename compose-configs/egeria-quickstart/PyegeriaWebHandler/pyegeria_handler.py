@@ -106,6 +106,8 @@ def _apply_request_configuration(req: ProcessRequest) -> tuple[str, str]:
     environment = req.environment or {}
     user_profile = req.user_profile or {}
 
+    print(f"DEBUG: Request environment: {environment}")
+
     platform_url = str(
         environment.get("Egeria Platform URL")
         or environment.get("Egeria View Server URL")
@@ -149,13 +151,33 @@ def _apply_request_configuration(req: ProcessRequest) -> tuple[str, str]:
         if config_key in environment:
             os.environ[env_key] = _stringify_env_value(environment[config_key])
 
+    # Re-apply EGERIA_ROOT_PATH if Pyegeria Root was in environment
     if "Pyegeria Root" in environment:
         root_path = _stringify_env_value(environment["Pyegeria Root"])
         if root_path and not Path(root_path).is_absolute():
-            # If relative, resolve against WORKSPACE_ROOT
             os.environ["EGERIA_ROOT_PATH"] = str(WORKSPACE_ROOT / root_path)
         else:
             os.environ["EGERIA_ROOT_PATH"] = root_path
+    
+    # Re-apply EGERIA_INBOX_PATH if it was in environment (mapped via env_mappings)
+    if "Dr.Egeria Inbox" in environment:
+        os.environ["EGERIA_INBOX_PATH"] = _stringify_env_value(environment["Dr.Egeria Inbox"])
+
+    # Log values after configuration application
+    print(f"DEBUG: Configured EGERIA_ROOT_PATH: {os.environ.get('EGERIA_ROOT_PATH')}")
+    print(f"DEBUG: Configured EGERIA_INBOX_PATH: {os.environ.get('EGERIA_INBOX_PATH')}")
+
+    # Special handling for absolute paths sent from plugin
+    if req.input_file.startswith("/"):
+        os.environ["EGERIA_ROOT_PATH"] = "/"
+        os.environ["EGERIA_INBOX_PATH"] = "."
+        print(f"DEBUG: Absolute path detected. Forcing EGERIA_ROOT_PATH='/' and EGERIA_INBOX_PATH='.'")
+    else:
+        # If relative, check if it already starts with root_path (redundant but safe)
+        root_path = os.environ.get("EGERIA_ROOT_PATH", "/")
+        if root_path != "/" and req.input_file.startswith(root_path.rstrip("/") + "/"):
+             os.environ["EGERIA_INBOX_PATH"] = "."
+             print(f"DEBUG: Relative path already contains root. Setting EGERIA_INBOX_PATH='.'")
 
     for config_key, env_key in profile_mappings.items():
         if config_key in user_profile:
@@ -164,7 +186,33 @@ def _apply_request_configuration(req: ProcessRequest) -> tuple[str, str]:
     os.environ["EGERIA_USER"] = req.user_id
     os.environ["EGERIA_USER_PASSWORD"] = req.user_pass
 
-    return view_server, platform_url
+    # Check if the file actually exists using the combination
+    combined_path = Path(os.environ.get("EGERIA_ROOT_PATH", "/")) / os.environ.get("EGERIA_INBOX_PATH", ".") / req.input_file
+    print(f"DEBUG: Combined absolute path check: {combined_path}")
+    
+    if combined_path.exists():
+        print(f"DEBUG: FILE FOUND at {combined_path}. Using absolute path for processor.")
+        # If found, use the absolute path to bypass internal library resolution issues.
+        # However, we must ensure EGERIA_OUTBOX_PATH is absolute or correctly rooted.
+        
+        # If the outbox is relative, we should try to keep it relative to the vault root 
+        # that we discovered during combined_path construction.
+        current_root = os.environ.get("EGERIA_ROOT_PATH", "/")
+        outbox = os.environ.get("EGERIA_OUTBOX_PATH", "dr-egeria-outbox")
+        
+        if not Path(outbox).is_absolute() and current_root != "/":
+            # Force outbox to be absolute relative to the vault root
+            absolute_outbox = str(Path(current_root) / outbox)
+            os.environ["EGERIA_OUTBOX_PATH"] = absolute_outbox
+            print(f"DEBUG: Forced absolute EGERIA_OUTBOX_PATH: {absolute_outbox}")
+
+        os.environ["EGERIA_ROOT_PATH"] = "/"
+        os.environ["EGERIA_INBOX_PATH"] = "."
+        return str(combined_path), view_server, platform_url
+    else:
+        print(f"DEBUG: FILE NOT FOUND at {combined_path}")
+
+    return req.input_file, view_server, platform_url
 
 
 def _run_and_capture(func: Callable, *args, **kwargs) -> str:
@@ -227,15 +275,30 @@ def _console_output_indicates_error(console_output: str) -> bool:
 
 
 def _invoke_processor(req: ProcessRequest) -> ProcessResponse:
-    server, url = _apply_request_configuration(req)
+    input_file, server, url = _apply_request_configuration(req)
 
     cmd = dr_egeria_md.process_md_file
     func = getattr(cmd, "callback", cmd)
+    
+    # Ensure output_folder is also absolute if we've resolved a root
+    output_folder = req.output_folder or ""
+    if not Path(output_folder).is_absolute():
+        # Look for the vault root in the input_file path
+        # If input_file is /coco-workbooks/..., the root is /coco-workbooks
+        if input_file.startswith("/coco-workbooks"):
+            output_folder = str(Path("/coco-workbooks") / output_folder)
+        elif input_file.startswith("/work/Work-Obsidian"):
+            output_folder = str(Path("/work/Work-Obsidian") / output_folder)
+        elif input_file.startswith("/work"):
+             output_folder = str(Path("/work") / output_folder)
+
+    print(f"DEBUG: Invoking processor with input_file: {input_file}")
+    print(f"DEBUG: Invoking processor with output_folder: {output_folder}")
 
     console_output = _run_and_capture(
         func,
-        input_file=req.input_file,
-        output_folder=req.output_folder or "",
+        input_file=input_file,
+        output_folder=output_folder,
         directive=req.directive,
         server=server,
         url=url,
@@ -250,7 +313,7 @@ def _invoke_processor(req: ProcessRequest) -> ProcessResponse:
         return ProcessResponse(
             status="error",
             message="Dr.Egeria command completed with errors.",
-            input_file=req.input_file,
+            input_file=input_file,
             output_folder=req.output_folder or "",
             output_file=output_file,
             output_path=output_path,
@@ -262,7 +325,7 @@ def _invoke_processor(req: ProcessRequest) -> ProcessResponse:
     return ProcessResponse(
         status="success",
         message="Dr.Egeria command completed successfully.",
-        input_file=req.input_file,
+        input_file=input_file,
         output_folder=req.output_folder or "",
         output_file=output_file,
         output_path=output_path,
