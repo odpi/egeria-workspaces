@@ -15,6 +15,7 @@ def _bootstrap_runtime_defaults() -> None:
 
     os.environ.setdefault("EGERIA_USER", "erinoverview")
     os.environ.setdefault("EGERIA_USER_PASSWORD", "secret")
+    os.environ.setdefault("EGERIA_WIDTH", "100")
 
     root_default: str
     inbox_default: str
@@ -46,8 +47,9 @@ import io
 from contextlib import redirect_stderr, redirect_stdout
 from typing import Any, Callable
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from pyegeria import print_basic_exception
 
@@ -60,11 +62,65 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# Security Token (Simplified for local use)
+MCP_ACCESS_TOKEN = os.environ.get("MCP_ACCESS_TOKEN", "egeria-secret-mcp-token")
+
+# Use a standard ASGI middleware instead of BaseHTTPMiddleware to avoid 
+# issues with custom response types like SSE.
+class MCPTokenMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope, receive)
+        path = request.url.path
+        
+        # Check for SSE or messages endpoints.
+        if path.endswith("/sse") or path.endswith("/messages") or "/sse/" in path or "/messages/" in path:
+            if request.method == "OPTIONS":
+                await self.app(scope, receive, send)
+                return
+
+            # For /messages POST requests, the token might be missing if established via SSE.
+            # We allow it if it has a session_id, as that was established via a token-authenticated SSE call.
+            if (path.endswith("/messages") or "/messages/" in path) and request.method == "POST":
+                if request.query_params.get("session_id"):
+                    await self.app(scope, receive, send)
+                    return
+
+            token = request.query_params.get("token") or request.headers.get("X-API-Key")
+            if token != MCP_ACCESS_TOKEN:
+                response = JSONResponse(
+                    status_code=403, 
+                    content={"detail": "Invalid MCP Access Token"}
+                )
+                await response(scope, receive, send)
+                return
+
+        await self.app(scope, receive, send)
+
+app.add_middleware(MCPTokenMiddleware)
+
+# CORS configuration for Obsidian security
+# CORSMiddleware is added AFTER other middlewares so it wraps them
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["app://obsidian.md", "http://localhost:8085", "http://localhost:8000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
 
 
 class ProcessRequest(BaseModel):
     input_file: str = Field(..., description="Markdown file to process")
+    source_file: str | None = Field(None, description="Original source filename")
     output_folder: str = Field("", description="Output folder")
     directive: str = Field("process", description="Processing directive: display | validate | process")
 
@@ -87,6 +143,15 @@ class ProcessResponse(BaseModel):
     console_output: str = ""
     environment_key: str
     user_profile_key: str
+
+
+from mcp_server import server as mcp_server
+
+# Mount the MCP SSE application
+# FastMCP.sse_app() returns a Starlette app with /sse and /messages routes
+mcp_app = mcp_server.sse_app()
+
+app.mount("/", mcp_app)
 
 
 @app.get("/")
@@ -138,7 +203,7 @@ def _apply_request_configuration(req: ProcessRequest) -> tuple[str, str]:
         "Pyegeria Config Directory": "PYEGERIA_CONFIG_DIRECTORY",
         "Pyegeria User Format Sets Dir": "PYEGERIA_USER_FORMAT_SETS_DIR",
         "Pyegeria Publishing Root": "PYEGERIA_PUBLISHING_ROOT",
-        "console_width": "PYEGERIA_CONSOLE_WIDTH",
+        "console_width": "EGERIA_WIDTH",
     }
 
     profile_mappings = {
@@ -169,16 +234,10 @@ def _apply_request_configuration(req: ProcessRequest) -> tuple[str, str]:
 
     # Special handling for absolute paths sent from plugin
     if req.input_file.startswith("/"):
-        os.environ["EGERIA_ROOT_PATH"] = "/"
-        os.environ["EGERIA_INBOX_PATH"] = "."
-        print(f"DEBUG: Absolute path detected. Forcing EGERIA_ROOT_PATH='/' and EGERIA_INBOX_PATH='.'")
-    else:
-        # If relative, check if it already starts with root_path (redundant but safe)
-        root_path = os.environ.get("EGERIA_ROOT_PATH", "/")
-        if root_path != "/" and req.input_file.startswith(root_path.rstrip("/") + "/"):
-             os.environ["EGERIA_INBOX_PATH"] = "."
-             print(f"DEBUG: Relative path already contains root. Setting EGERIA_INBOX_PATH='.'")
-
+        # If the file path is already absolute, we don't need to prepend anything,
+        # but we do want to check fallbacks if it's not found at the literal path.
+        print(f"DEBUG: Absolute path detected in request: {req.input_file}")
+    
     for config_key, env_key in profile_mappings.items():
         if config_key in user_profile:
             os.environ[env_key] = _stringify_env_value(user_profile[config_key])
@@ -187,32 +246,52 @@ def _apply_request_configuration(req: ProcessRequest) -> tuple[str, str]:
     os.environ["EGERIA_USER_PASSWORD"] = req.user_pass
 
     # Check if the file actually exists using the combination
-    combined_path = Path(os.environ.get("EGERIA_ROOT_PATH", "/")) / os.environ.get("EGERIA_INBOX_PATH", ".") / req.input_file
-    print(f"DEBUG: Combined absolute path check: {combined_path}")
+    current_root = os.environ.get("EGERIA_ROOT_PATH", "/")
+    current_inbox = os.environ.get("EGERIA_INBOX_PATH", ".")
+    combined_path = Path(current_root) / current_inbox / req.input_file
+    resolved_path = combined_path.resolve()
+    print(f"DEBUG: Combined absolute path check: {resolved_path}")
     
-    if combined_path.exists():
-        print(f"DEBUG: FILE FOUND at {combined_path}. Using absolute path for processor.")
-        # If found, use the absolute path to bypass internal library resolution issues.
-        # However, we must ensure EGERIA_OUTBOX_PATH is absolute or correctly rooted.
-        
-        # If the outbox is relative, we should try to keep it relative to the vault root 
-        # that we discovered during combined_path construction.
-        current_root = os.environ.get("EGERIA_ROOT_PATH", "/")
-        outbox = os.environ.get("EGERIA_OUTBOX_PATH", "dr-egeria-outbox")
-        
-        if not Path(outbox).is_absolute() and current_root != "/":
-            # Force outbox to be absolute relative to the vault root
-            absolute_outbox = str(Path(current_root) / outbox)
-            os.environ["EGERIA_OUTBOX_PATH"] = absolute_outbox
-            print(f"DEBUG: Forced absolute EGERIA_OUTBOX_PATH: {absolute_outbox}")
-
-        os.environ["EGERIA_ROOT_PATH"] = "/"
-        os.environ["EGERIA_INBOX_PATH"] = "."
-        return str(combined_path), view_server, platform_url
+    # List of possible mount points to check if not found at the primary path
+    mount_points = ["/work", "/coco-workbooks", "/work/Work-Obsidian"]
+    
+    if resolved_path.exists():
+        print(f"DEBUG: FILE FOUND at {resolved_path}. Using absolute path for processor.")
     else:
-        print(f"DEBUG: FILE NOT FOUND at {combined_path}")
+        print(f"DEBUG: FILE NOT FOUND at {resolved_path}. Checking fallback mount points...")
+        found_fallback = False
+        for mp in mount_points:
+            fallback_path = Path(mp) / req.input_file.lstrip("/")
+            if fallback_path.exists():
+                resolved_path = fallback_path.resolve()
+                print(f"DEBUG: FILE FOUND at fallback {resolved_path}")
+                found_fallback = True
+                break
+        
+        if not found_fallback:
+            print(f"DEBUG: FILE NOT FOUND in any common location.")
+            return req.input_file, view_server, platform_url
 
-    return req.input_file, view_server, platform_url
+    # If found, use the absolute path to bypass internal library resolution issues.
+    # However, we must ensure EGERIA_OUTBOX_PATH is absolute or correctly rooted.
+    outbox = os.environ.get("EGERIA_OUTBOX_PATH", "dr-egeria-outbox")
+    
+    # Discover the correct root for the outbox based on where we found the file
+    discovered_root = "/"
+    for mp in mount_points:
+        if str(resolved_path).startswith(mp):
+            discovered_root = mp
+            break
+            
+    if not Path(outbox).is_absolute():
+        # Force outbox to be absolute relative to the discovered root
+        absolute_outbox = str(Path(discovered_root) / outbox)
+        os.environ["EGERIA_OUTBOX_PATH"] = absolute_outbox
+        print(f"DEBUG: Forced absolute EGERIA_OUTBOX_PATH: {absolute_outbox}")
+
+    os.environ["EGERIA_ROOT_PATH"] = "/"
+    os.environ["EGERIA_INBOX_PATH"] = "."
+    return str(resolved_path), view_server, platform_url
 
 
 def _run_and_capture(func: Callable, *args, **kwargs) -> str:
@@ -297,7 +376,7 @@ def _invoke_processor(req: ProcessRequest) -> ProcessResponse:
 
     console_output = _run_and_capture(
         func,
-        input_file=input_file,
+        input_file=req.source_file if req.source_file else input_file,
         output_folder=output_folder,
         directive=req.directive,
         server=server,
@@ -358,11 +437,19 @@ async def process_markdown(request: ProcessRequest):
 
 @app.post("/dr-egeria/refresh")
 async def refresh_commands():
-    """Refresh Dr. Egeria command specifications from JSON files."""
+    """Refresh Dr. Egeria command specifications and reload dispatcher logic."""
     try:
+        import importlib
+        import dr_egeria_md
         from md_processing.md_processing_utils.md_processing_constants import load_commands
+        
+        # 1. Reload command specifications from JSON
         load_commands()
-        return {"status": "success", "message": "Command specifications refreshed"}
+        
+        # 2. Force reload the dispatcher module to pick up any code fixes
+        importlib.reload(dr_egeria_md)
+        
+        return {"status": "success", "message": "Command specifications and dispatcher module reloaded"}
     except Exception as e:
         print_basic_exception(e)
         raise HTTPException(status_code=500, detail=f"Refresh failed: {e}")

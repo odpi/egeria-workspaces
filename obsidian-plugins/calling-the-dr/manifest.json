@@ -1,0 +1,10 @@
+{
+  "id": "calling-the-dr",
+  "name": "Calling the Dr.",
+  "version": "0.1.0",
+  "minAppVersion": "0.15.0",
+  "description": "MCP-based interface for Dr. Egeria commands.",
+  "author": "Egeria Project",
+  "authorUrl": "https://egeria-project.org",
+  "isDesktopOnly": true
+}

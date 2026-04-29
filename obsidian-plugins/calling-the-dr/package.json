@@ -1,0 +1,32 @@
+{
+  "name": "calling-the-dr",
+  "version": "0.1.0",
+  "description": "Next-generation Obsidian plugin for Dr. Egeria using the Model Context Protocol (MCP).",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
+    "deploy:coco": "npm run build && node deploy.mjs ../../coco-workbooks",
+    "deploy:work": "npm run build && node deploy.mjs ../../work/Work-Obsidian"
+  },
+  "keywords": [
+    "obsidian",
+    "plugin",
+    "egeria",
+    "mcp",
+    "dr-egeria"
+  ],
+  "author": "Egeria Project",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@types/node": "^20.17.57",
+    "builtin-modules": "^3.3.0",
+    "esbuild": "^0.25.12",
+    "obsidian": "latest",
+    "tslib": "^2.8.1",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.0"
+  }
+}
