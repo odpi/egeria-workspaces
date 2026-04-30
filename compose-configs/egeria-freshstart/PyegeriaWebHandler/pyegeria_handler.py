@@ -109,8 +109,8 @@ app.add_middleware(MCPTokenMiddleware)
 # CORSMiddleware is added AFTER other middlewares so it wraps them
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["app://obsidian.md", "http://localhost:8085", "http://localhost:8000"],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

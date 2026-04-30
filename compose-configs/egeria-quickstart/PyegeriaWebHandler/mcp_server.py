@@ -292,27 +292,6 @@ async def egeria_list_commands(ctx: Context) -> str:
     return "Available commands:\n" + "\n".join(f"- {cmd}" for cmd in commands)
 
 
-async def main() -> None:
-    # Run stdio transport for MCP across multiple FastMCP API versions.
-    run_stdio_async = getattr(server, "run_stdio_async", None)
-    if callable(run_stdio_async):
-        await run_stdio_async()
-        return
-
-    run_stdio = getattr(server, "run_stdio", None)
-    if callable(run_stdio):
-        await run_stdio()
-        return
-
-    server.run(transport="stdio")
-
-
-if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        pass
-
 @server.tool()
 async def list_reports(ctx: Context) -> dict:
     """List all available Egeria reports."""
@@ -356,3 +335,25 @@ async def run_report(
         user=user_id, 
         user_pass=user_pass
     )
+
+
+async def main() -> None:
+    # Run stdio transport for MCP across multiple FastMCP API versions.
+    run_stdio_async = getattr(server, "run_stdio_async", None)
+    if callable(run_stdio_async):
+        await run_stdio_async()
+        return
+
+    run_stdio = getattr(server, "run_stdio", None)
+    if callable(run_stdio):
+        await run_stdio()
+        return
+
+    server.run(transport="stdio")
+
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass

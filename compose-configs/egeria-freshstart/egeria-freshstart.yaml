@@ -81,6 +81,7 @@ services:
       EGERIA_ROOT_PATH: "/"
       EGERIA_INBOX_PATH: "dr-egeria-inbox"
       EGERIA_OUTBOX_PATH: "dr-egeria-outbox"
+      MCP_ACCESS_TOKEN: "egeria-secret-mcp-token"
     volumes:
       - ./PyegeriaWebHandler:/app
       - ../../exchange-freshstart/distribution-hub/dr-egeria-outbox:/dr-egeria-outbox
@@ -88,7 +89,7 @@ services:
       - ../../exchange-freshstart/config:/config
     depends_on:
       - freshstart-egeria-main
-    command: uvicorn pyegeria_handler:app --host 0.0.0.0 --port 8000 --reload --loop asyncio
+    command: uvicorn pyegeria_handler:app --host :: --port 8000 --reload --loop asyncio
 
   freshstart-apache-web:
     build:
