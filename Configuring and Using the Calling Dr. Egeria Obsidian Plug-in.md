@@ -15,7 +15,7 @@ The **Calling the Dr.** plugin uses the **Model Context Protocol (MCP)** over SS
 
 ### Configuration
 1.  **MCP Server URL**: `http://localhost:8000/sse`
-2.  **MCP Access Token**: `coco-secret-mcp-token`
+2.  **MCP Access Token**: `egeria-secret-mcp-token`
 3.  **Egeria Credentials**: Enter your **User ID** (e.g., `erinoverview`), **Password** (`secret`), and **Platform URL** (`https://host.docker.internal:9443`) directly in the plugin settings fields. 
     *   *Note: If you leave these fields blank, the plugin will use the default credentials configured on the backend server.*
 4.  **Outbox Path**: The folder where results will be saved (e.g., `dr-egeria-outbox`).
@@ -61,7 +61,7 @@ Supported Environment Variables:
 - `EGERIA_USER_PASSWORD`: Default Egeria Password.
 - `EGERIA_PLATFORM_URL`: Default Egeria Platform URL.
 - `EGERIA_VIEW_SERVER`: Default View Server name.
-- `MCP_ACCESS_TOKEN`: The security token required for the SSE connection. **Must match the plugin setting.**
+- `MCP_ACCESS_TOKEN`: The security token required for the SSE connection. This is configured as an environment variable for the `PyegeriaWebHandler` container. **If you are running multiple containers, you can set a unique token for each container.** Must match the plugin setting.
 
 ---
 

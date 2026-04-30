@@ -51,12 +51,35 @@ The Egeria MCP server supports two primary transport modes:
 
 1.  **SSE (Server-Sent Events)**:
     - **URL**: `http://localhost:8000/sse`
-    - **Usage**: Primarily used by the "Calling the Dr." Obsidian plugin.
-    - **Remote Access**: Replace `localhost` with the Host machine's IP address. Ensure port 8000 is accessible.
+    - **Usage**: Primarily used by the "Calling the Dr." Obsidian plugin and web-based MCP clients.
+    - **Remote Access**: Replace `localhost` with the Host machine's IP address or hostname (e.g., `http://cray:8000/sse`).
+    - **Binding**: The server binds to `::` (all interfaces, IPv4 and IPv6) to ensure reachability via mDNS names like `cray.local`.
 
 2.  **stdio**:
     - **Command**: `python /app/mcp_server.py` (inside the container)
     - **Usage**: Used by Claude Desktop, CLI tools, and IDEs that launch MCP servers as subprocesses.
+
+#### Using the SSE Transport
+
+The SSE transport allows clients to connect to the Egeria MCP server over HTTP. This is useful for browser-based tools or environments where the client cannot launch a local subprocess.
+
+**Example: Connecting with MCP Inspector**
+
+To debug or explore the Egeria tools via SSE, you can use the [MCP Inspector](https://github.com/modelcontextprotocol/inspector):
+
+```bash
+npx @modelcontextprotocol/inspector http://localhost:8000/sse
+```
+
+**Example: Remote Claude (SSE)**
+
+While Claude Desktop typically uses `stdio`, some custom Claude implementations or other AI agents may support SSE. Ensure you include the security token if required (see Security section).
+
+```
+URL: http://<host-ip>:8000/sse?token=egeria-secret-mcp-token
+```
+
+#### Visual Architecture
 
 ```mermaid
 graph TD
@@ -95,4 +118,4 @@ graph TD
 
 The MCP SSE endpoint is protected by:
 - **CORS**: Configured to allow all origins (`*`) to facilitate remote access and Obsidian integration.
-- **Token Authentication**: Requires an `X-API-Key` or `token` query parameter (default: `egeria-secret-mcp-token`).
+- **Token Authentication**: Requires an `X-API-Key` or `token` query parameter (default: `egeria-secret-mcp-token`). This is configured as an environment variable for the `PyegeriaWebHandler` container. **If you are running multiple containers, you can set a unique token for each container.**
