@@ -59,6 +59,8 @@ Open Obsidian **Settings** and navigate to the **Calling the Dr. Settings (MCP)*
 - **Egeria View Server**: The name of the View Server. Default: `qs-view-server`.
 - **Default Directive**: Choose between `process` (execute), `validate` (check syntax), or `display` (view metadata).
 - **Outbox Path**: The location relative to your vault root where Dr. Egeria should save output files (e.g., `dr-egeria-outbox`).
+- **Vault Root**: The absolute path to your vault inside the Docker container (e.g., `/work/Work-Obsidian`). Used to provide logical context to the backend.
+- **Input Path**: The subfolder path within your vault where the current note is located.
 
 ## Usage
 
@@ -79,6 +81,6 @@ If you update Dr. Egeria command definitions or fix dispatcher logic in the back
 
 - **403 Forbidden**: Ensure your **MCP Access Token** matches the token configured in the backend (usually defined in `pyegeria_handler.py`).
 - **CORS Errors**: The backend automatically handles CORS for `app://obsidian.md`. If you see CORS errors, check that your `MCP Server URL` is correct and accessible.
-- **File Not Found**: Ensure the note you are processing is accessible to the backend (e.g., in a mounted volume like `/coco-workbooks` or `/work`).
+- **Vault Root Configuration**: If you receive errors about file paths, ensure your **Vault Root** in settings matches the expected path on the backend (e.g. `/work/Work-Obsidian`). Note that the backend no longer requires direct file access to process your notes.
 - **Permission Denied**: This is resolved in V3 by having the plugin write files directly. If you still see this, check your local OS permissions for the Obsidian vault folder.
 - **Timeout**: Some searches take a long time. The plugin will notify you of the timeout, but the processing often completes in the background. Check your outbox after a few moments.

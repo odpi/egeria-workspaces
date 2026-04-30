@@ -145,12 +145,12 @@ class ProcessResponse(BaseModel):
     user_profile_key: str
 
 
+# Initialize MCP Server with consolidated tools
 from mcp_server import server as mcp_server
 
 # Mount the MCP SSE application
 # FastMCP.sse_app() returns a Starlette app with /sse and /messages routes
 mcp_app = mcp_server.sse_app()
-
 app.mount("/", mcp_app)
 
 

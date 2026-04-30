@@ -64,7 +64,10 @@ _bootstrap_runtime_defaults()
 EGERIA_ROOT_PATH = os.environ.get("EGERIA_ROOT_PATH", "/")
 EGERIA_INBOX_PATH = os.environ.get("EGERIA_INBOX_PATH", "dr-egeria-inbox")
 
-# Local import of existing processor
+try:
+    from pyegeria.core import mcp_adapter
+except ImportError:
+    mcp_adapter = None
 import dr_egeria_md  # type: ignore
 
 # MCP server primitives
@@ -130,10 +133,10 @@ def _write_block_to_inbox(markdown_block: str) -> str:
 async def dr_egeria_run_block(
     ctx: Context,
     markdown_block: str,
-    url: str,
-    server_name: str,
-    user_id: str,
-    user_pass: str,
+    url: str = os.environ.get("EGERIA_PLATFORM_URL", "https://host.docker.internal:9443"),
+    server_name: str = os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server"),
+    user_id: str = os.environ.get("EGERIA_USER", "erinoverview"),
+    user_pass: str = os.environ.get("EGERIA_USER_PASSWORD", "secret"),
     directive: str = "process",
     output_folder: str = "",
     outbox_path: Optional[str] = None,
@@ -150,12 +153,20 @@ async def dr_egeria_run_block(
     - outbox_path: optional path for outbox (relative to EGERIA_ROOT_PATH)
     - input_file: optional source filename for output naming
     """
+    # Use provided values or fall back to env if empty
+    actual_url = url or os.environ.get("EGERIA_PLATFORM_URL", "https://host.docker.internal:9443")
+    actual_server = server_name or os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server")
+    actual_user = user_id or os.environ.get("EGERIA_USER", "erinoverview")
+    actual_pass = user_pass or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+
     # Write to inbox and invoke the existing file-based processor
-    logger.info(f"Executing dr_egeria_run_block for command in {markdown_block[:50]}...")
+    logger.info(f"Executing dr_egeria_run_block for {input_file or 'provided content'}...")
     file_name = _write_block_to_inbox(markdown_block)
     
-    # If input_file is provided, use its name as base for output
-    effective_input_file = input_file if input_file else file_name
+    # The temporary file we just wrote is the ACTUAL input source.
+    # We use its absolute path to bypass any environment-based path resolution in the processor.
+    # This is critical when the client (e.g. Obsidian) is remote and sends content via MCP.
+    effective_input_file = os.path.join(EGERIA_ROOT_PATH, EGERIA_INBOX_PATH, file_name)
 
     final_output_folder = output_folder or ""
     final_outbox_path = outbox_path or os.environ.get("EGERIA_OUTBOX_PATH", "dr-egeria-outbox")
@@ -176,10 +187,10 @@ async def dr_egeria_run_block(
             input_file=effective_input_file,
             output_folder=final_output_folder,
             directive=directive,
-            server=server_name,
-            url=url,
-            userid=user_id,
-            user_pass=user_pass,
+            server=actual_server,
+            url=actual_url,
+            userid=actual_user,
+            user_pass=actual_pass,
             outbox_path=final_outbox_path,
         )
     except asyncio.CancelledError:
@@ -200,29 +211,39 @@ def _build_simple_block(title: str) -> str:
 @server.tool()
 async def egeria_list_glossaries(
     ctx: Context,
-    url: str,
-    server_name: str,
-    user_id: str,
-    user_pass: str,
+    url: str = os.environ.get("EGERIA_PLATFORM_URL", "https://host.docker.internal:9443"),
+    server_name: str = os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server"),
+    user_id: str = os.environ.get("EGERIA_USER", "erinoverview"),
+    user_pass: str = os.environ.get("EGERIA_USER_PASSWORD", "secret"),
 ) -> str:
     """List or view glossaries in the connected Egeria environment."""
+    actual_url = url or os.environ.get("EGERIA_PLATFORM_URL", "https://host.docker.internal:9443")
+    actual_server = server_name or os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server")
+    actual_user = user_id or os.environ.get("EGERIA_USER", "erinoverview")
+    actual_pass = user_pass or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    
     block = _build_simple_block("View Glossaries")
-    return await dr_egeria_run_block(ctx, block, url, server_name, user_id, user_pass, directive="display")
+    return await dr_egeria_run_block(ctx, block, actual_url, actual_server, actual_user, actual_pass, directive="display")
 
 
 @server.tool()
 async def egeria_list_collections(
     ctx: Context,
-    url: str,
-    server_name: str,
-    user_id: str,
-    user_pass: str,
+    url: str = os.environ.get("EGERIA_PLATFORM_URL", "https://host.docker.internal:9443"),
+    server_name: str = os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server"),
+    user_id: str = os.environ.get("EGERIA_USER", "erinoverview"),
+    user_pass: str = os.environ.get("EGERIA_USER_PASSWORD", "secret"),
 ) -> str:
     """List or view collections/folders in the connected Egeria environment."""
+    actual_url = url or os.environ.get("EGERIA_PLATFORM_URL", "https://host.docker.internal:9443")
+    actual_server = server_name or os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server")
+    actual_user = user_id or os.environ.get("EGERIA_USER", "erinoverview")
+    actual_pass = user_pass or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+
     # Many collection views are produced through the output command paths; use a generic View command
     block = _build_simple_block("View Collections")
     # Fallback: if not recognized, the processor will echo an unknown command message which is still useful feedback
-    return await dr_egeria_run_block(ctx, block, url, server_name, user_id, user_pass, directive="display")
+    return await dr_egeria_run_block(ctx, block, actual_url, actual_server, actual_user, actual_pass, directive="display")
 
 
 @server.tool()
@@ -230,9 +251,8 @@ async def egeria_refresh_specs(ctx: Context) -> str:
     """Reload Dr. Egeria command specifications and dispatcher logic from the backend."""
     try:
         import importlib
-        import dr_egeria_md
         from md_processing.md_processing_utils.md_processing_constants import load_commands
-        
+
         load_commands()
         importlib.reload(dr_egeria_md)
         return "✅ Dr. Egeria command specifications and dispatcher module reloaded."
@@ -292,3 +312,47 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         pass
+
+@server.tool()
+async def list_reports(ctx: Context) -> dict:
+    """List all available Egeria reports."""
+    return mcp_adapter.list_reports() if mcp_adapter else {"error": "no adapter"}
+
+@server.tool()
+async def find_report_specs(ctx: Context, perspective: Optional[str] = None) -> dict:
+    """Search for report specifications by perspective."""
+    return mcp_adapter.run_find_report_specs(perspective=perspective) if mcp_adapter else {"error": "no adapter"}
+
+@server.tool()
+async def describe_report(ctx: Context, name: str) -> dict:
+    """Return the schema for a specific report."""
+    return mcp_adapter.describe_report(name, "DICT") if mcp_adapter else {"error": "no adapter"}
+
+@server.tool()
+async def run_report(
+    ctx: Context, 
+    report_name: str, 
+    url: str, 
+    server_name: str, 
+    user_id: str, 
+    user_pass: str,
+    search_string: str = "*",
+    page_size: int = 0,
+    start_from: int = 0
+) -> dict:
+    """Execute an Egeria report and return the results."""
+    if not mcp_adapter:
+        return {"error": "no adapter"}
+    params = {
+        "search_string": search_string,
+        "page_size": page_size,
+        "start_from": start_from
+    }
+    return mcp_adapter.run_report(
+        report=report_name, 
+        params=params,
+        view_server=server_name, 
+        view_url=url, 
+        user=user_id, 
+        user_pass=user_pass
+    )

@@ -63,7 +63,10 @@ _bootstrap_runtime_defaults()
 EGERIA_ROOT_PATH = os.environ.get("EGERIA_ROOT_PATH", "/")
 EGERIA_INBOX_PATH = os.environ.get("EGERIA_INBOX_PATH", "dr-egeria-inbox")
 
-# Local import of existing processor
+try:
+    from pyegeria.core import mcp_adapter
+except ImportError:
+    mcp_adapter = None
 import dr_egeria_md  # type: ignore
 
 # MCP server primitives
@@ -156,21 +159,33 @@ async def dr_egeria_run_block(
     # If input_file is provided, use its name as base for output
     effective_input_file = input_file if input_file else file_name
 
+    # Always ensure the environment matches basic platform settings
+    os.environ["EGERIA_ROOT_PATH"] = "/"
+    os.environ["EGERIA_INBOX_PATH"] = "."
+    
     cmd = dr_egeria_md.process_markdown_file
     func = getattr(cmd, "callback", cmd)
-    text = _run_and_capture(
-        func,
-        input_file=effective_input_file,
-        output_folder=output_folder or "",
-        directive=directive,
-        server=server_name,
-        url=url,
-        userid=user_id,
-        user_pass=user_pass,
-        outbox_path=outbox_path,
-    )
-    logger.info(f"Captured {len(text)} chars of output")
-    return text or "(no output)"
+    try:
+        # In Content-First V3, the processor now returns the generated Markdown string
+        result_markdown = func(
+            input_file=effective_input_file,
+            output_folder=output_folder or "",
+            directive=directive,
+            server=server_name,
+            url=url,
+            userid=user_id,
+            user_pass=user_pass,
+            outbox_path=outbox_path,
+        )
+    except asyncio.CancelledError:
+        logger.warning("MCP tool execution cancelled (timeout likely)")
+        return "❌ Request timed out or was cancelled by the client."
+    except Exception as e:
+        logger.error(f"MCP tool execution failed: {e}")
+        return f"❌ Error during execution: {e}"
+
+    logger.info(f"Captured {len(result_markdown)} chars of markdown")
+    return result_markdown or "(no markdown generated)"
 
 
 def _build_simple_block(title: str) -> str:
@@ -210,9 +225,8 @@ async def egeria_refresh_specs(ctx: Context) -> str:
     """Reload Dr. Egeria command specifications and dispatcher logic from the backend."""
     try:
         import importlib
-        import dr_egeria_md
         from md_processing.md_processing_utils.md_processing_constants import load_commands
-        
+
         load_commands()
         importlib.reload(dr_egeria_md)
         return "✅ Dr. Egeria command specifications and dispatcher module reloaded."
@@ -272,3 +286,47 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         pass
+
+@server.tool()
+async def list_reports(ctx: Context) -> dict:
+    """List all available Egeria reports."""
+    return mcp_adapter.list_reports() if mcp_adapter else {"error": "no adapter"}
+
+@server.tool()
+async def find_report_specs(ctx: Context, perspective: Optional[str] = None) -> dict:
+    """Search for report specifications by perspective."""
+    return mcp_adapter.run_find_report_specs(perspective=perspective) if mcp_adapter else {"error": "no adapter"}
+
+@server.tool()
+async def describe_report(ctx: Context, name: str) -> dict:
+    """Return the schema for a specific report."""
+    return mcp_adapter.describe_report(name, "DICT") if mcp_adapter else {"error": "no adapter"}
+
+@server.tool()
+async def run_report(
+    ctx: Context, 
+    report_name: str, 
+    url: str, 
+    server_name: str, 
+    user_id: str, 
+    user_pass: str,
+    search_string: str = "*",
+    page_size: int = 0,
+    start_from: int = 0
+) -> dict:
+    """Execute an Egeria report and return the results."""
+    if not mcp_adapter:
+        return {"error": "no adapter"}
+    params = {
+        "search_string": search_string,
+        "page_size": page_size,
+        "start_from": start_from
+    }
+    return mcp_adapter.run_report(
+        report=report_name, 
+        params=params,
+        view_server=server_name, 
+        view_url=url, 
+        user=user_id, 
+        user_pass=user_pass
+    )
