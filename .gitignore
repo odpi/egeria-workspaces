@@ -184,3 +184,4 @@ compose-configs/shared-infra/.env
 /workspaces/egeria-docs-maintenance/snippets/
 !/exchange-quickstart/.obsidian/workspace.json
 /coco-workbooks/egeria-docs-maintenance/snippets/
+!/coco-workbooks/.obsidian/workspace.json

@@ -99,6 +99,14 @@ Neither overlay changes ports, images, or volumes — the only difference is whe
 - To reset to defaults, delete `runtime-volumes/freshstart-platform-data/secrets/` and restart.
 - `exchange-freshstart/loading-bay/secrets` is optional and not used by the default startup.
 
+## Dr. Egeria Processing
+
+The freshstart environment supports Dr. Egeria processing on port `8001` (MCP/REST).
+
+- **Obsidian Plugins**: See the [Obsidian Plugins README](../../obsidian-plugins/call-dr-egeria/README.md) for details on the `Calling the Dr. (MCP)` and legacy plugins.
+- **MCP Server**: The backend (port 8001/sse) exposes Dr. Egeria commands as MCP tools.
+- **Configuring Profiles**: Use `fs-view-server` and `https://localhost:8443` in your plugin settings.
+
 ----
 License: CC BY 4.0, Copyright Contributors to the ODPi Egeria project.
 

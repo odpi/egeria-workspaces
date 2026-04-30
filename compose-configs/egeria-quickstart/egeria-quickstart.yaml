@@ -108,6 +108,7 @@ services:
       EGERIA_ROOT_PATH: "/"
       EGERIA_INBOX_PATH: "."
       EGERIA_OUTBOX_PATH: "dr-egeria-outbox"
+      MCP_ACCESS_TOKEN: "coco-secret-mcp-token"
     volumes:
       - ./PyegeriaWebHandler:/app
       - ../../exchange-quickstart/config:/config

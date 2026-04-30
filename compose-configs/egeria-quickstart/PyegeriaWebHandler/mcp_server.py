@@ -14,6 +14,7 @@ import asyncio
 import io
 import os
 import tempfile
+from pathlib import Path
 from contextlib import redirect_stdout, redirect_stderr
 from datetime import datetime
 from typing import Optional
@@ -156,21 +157,40 @@ async def dr_egeria_run_block(
     # If input_file is provided, use its name as base for output
     effective_input_file = input_file if input_file else file_name
 
+    final_output_folder = output_folder or ""
+    final_outbox_path = outbox_path or os.environ.get("EGERIA_OUTBOX_PATH", "dr-egeria-outbox")
+    
+    # In "Content-First" mode, we don't need all the path resolution logic
+    # because the backend doesn't write the file. We just need to find the input file
+    # to process it.
+
+    # Always ensure the environment matches basic platform settings
+    os.environ["EGERIA_ROOT_PATH"] = "/"
+    os.environ["EGERIA_INBOX_PATH"] = "."
+    
     cmd = dr_egeria_md.process_markdown_file
     func = getattr(cmd, "callback", cmd)
-    text = _run_and_capture(
-        func,
-        input_file=effective_input_file,
-        output_folder=output_folder or "",
-        directive=directive,
-        server=server_name,
-        url=url,
-        userid=user_id,
-        user_pass=user_pass,
-        outbox_path=outbox_path,
-    )
-    logger.info(f"Captured {len(text)} chars of output")
-    return text or "(no output)"
+    try:
+        # In Content-First V3, the processor now returns the generated Markdown string
+        result_markdown = func(
+            input_file=effective_input_file,
+            output_folder=final_output_folder,
+            directive=directive,
+            server=server_name,
+            url=url,
+            userid=user_id,
+            user_pass=user_pass,
+            outbox_path=final_outbox_path,
+        )
+    except asyncio.CancelledError:
+        logger.warning("MCP tool execution cancelled (timeout likely)")
+        return "❌ Request timed out or was cancelled by the client."
+    except Exception as e:
+        logger.error(f"MCP tool execution failed: {e}")
+        return f"❌ Error during execution: {e}"
+
+    logger.info(f"Captured {len(result_markdown)} chars of markdown")
+    return result_markdown or "(no markdown generated)"
 
 
 def _build_simple_block(title: str) -> str:

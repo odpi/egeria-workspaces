@@ -194,8 +194,14 @@ def setup_dispatcher(client: EgeriaTech) -> V2Dispatcher:
 
 async def process_md_file_async(input_file: str, output_folder: str, directive: str, 
                                 server: str, url: str, userid: str, user_pass: str,
-                                outbox_path: Optional[str] = None) -> None:
-    console = Console(width=int(EGERIA_WIDTH))
+                                outbox_path: Optional[str] = None) -> str:
+    # Get latest configuration from environment dynamically
+    width = int(os.environ.get("EGERIA_WIDTH", "100"))
+    root_path = os.environ.get("EGERIA_ROOT_PATH", "/")
+    inbox_path = os.environ.get("EGERIA_INBOX_PATH", "dr-egeria-inbox")
+    outbox_env = os.environ.get("EGERIA_OUTBOX_PATH", "dr-egeria-outbox")
+
+    console = Console(width=width, force_terminal=False)
     client = EgeriaTech(server, url, user_id=userid)
     client.create_egeria_bearer_token(userid, user_pass)
     
@@ -206,7 +212,7 @@ async def process_md_file_async(input_file: str, output_folder: str, directive: 
     if os.path.isabs(input_file):
         full_file_path = os.path.normpath(input_file)
     else:
-        full_file_path = os.path.normpath(os.path.join(EGERIA_ROOT_PATH, EGERIA_INBOX_PATH, input_file))
+        full_file_path = os.path.normpath(os.path.join(root_path, inbox_path, input_file))
     
     # Fallback search if not found at primary path
     if not os.path.exists(full_file_path):
@@ -219,80 +225,41 @@ async def process_md_file_async(input_file: str, output_folder: str, directive: 
                 
     if not os.path.exists(full_file_path):
         console.print(f"[bold red]Error:[/bold red] File not found at {full_file_path}")
-        return
+        return f"Error: File not found at {full_file_path}"
 
     try:
         with open(full_file_path, 'r') as f:
             content = f.read()
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] Failed to read {full_file_path}: {e}")
-        return
+        return f"Error: Failed to read {full_file_path}: {e}"
 
     extractor = UniversalExtractor(content)
     commands = extractor.extract_commands()
     
     if not commands:
         console.print(f"[bold yellow]Warning:[/bold yellow] No valid Egeria commands found in {input_file}")
-        return
+        return f"Warning: No valid Egeria commands found in {input_file}"
 
     results = await dispatcher.dispatch_batch(commands, context={"directive": directive})
     
-    # Aggregate output and write to file
+    # Aggregate output
     final_output = ""
     for res in results:
         if res.get("output"):
             final_output += res["output"] + "\n\n"
     
-    # Determine output filename: <input_file_name>-processed-<date-time>.md
-    base_name = os.path.splitext(os.path.basename(input_file))[0]
-    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-    out_file_name = f"{base_name}-processed-{ts}.md"
-    
-    effective_outbox = outbox_path if outbox_path else EGERIA_OUTBOX_PATH
-    
-    # Handle absolute vs relative paths for outbox
-    # If it starts with 'work/', we assume it's relative to / (since /work is mounted)
-    if os.path.isabs(effective_outbox):
-        full_output_dir = os.path.join(effective_outbox, output_folder)
-    elif effective_outbox.startswith("work/") or effective_outbox.startswith("coco-workbooks/"):
-        full_output_dir = os.path.join("/", effective_outbox, output_folder)
-    else:
-        full_output_dir = os.path.join(EGERIA_ROOT_PATH, effective_outbox, output_folder)
-        
-    # Standardize path: remove redundant slashes and resolve any .. segments
-    full_output_dir = os.path.normpath(full_output_dir)
-    os.makedirs(full_output_dir, exist_ok=True)
-    full_output_path = os.path.join(full_output_dir, out_file_name)
-    
-    try:
-        with open(full_output_path, 'w') as f:
-            f.write(final_output)
-        console.print(f"\n[bold green]Success:[/bold green] Output written to {full_output_path}")
-        console.print(f"Output file: {out_file_name}")
-        console.print(f"Output path: {full_output_path}")
-    except Exception as e:
-        console.print(f"\n[bold red]Error:[/bold red] Failed to write output file: {e}")
-
-    # Print results back to console (which is captured by the web handler)
-    for res in results:
-        if res.get("output"):
-            console.print(res["output"])
-    
-    # Final success/failure summary
-    has_errors = any(res.get("status") == "failure" for res in results)
-    if has_errors:
-        console.print(f"\n[bold red]Status:[/bold red] Processing finished with errors.")
-    else:
-        console.print(f"\n[bold green]Status:[/bold green] Processing finished successfully.")
+    return final_output
 
 def process_markdown_file(input_file: str, output_folder: str, directive: str, 
                         server: str, url: str, userid: str, user_pass: str,
-                        outbox_path: Optional[str] = None) -> None:
+                        outbox_path: Optional[str] = None) -> str:
     """Synchronous wrapper for backward compatibility with existing pyegeria_handler.py and mcp_server.py"""
     try:
-        asyncio.run(process_md_file_async(input_file, output_folder, directive, server, url, userid, user_pass, outbox_path))
+        return asyncio.run(process_md_file_async(input_file, output_folder, directive, server, url, userid, user_pass, outbox_path))
     except Exception as e:
         print(f"Async processing failed: {e}")
+        return f"Error: Async processing failed: {e}"
 
 # Alias for backward compatibility
 process_md_file = process_markdown_file
