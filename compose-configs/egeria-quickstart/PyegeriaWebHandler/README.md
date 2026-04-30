@@ -19,10 +19,11 @@ Unlike previous versions, you no longer need to manually update `dr_egeria_md.py
 The v2 engine provides rich feedback tables ("Command Analysis" and "Parsed Attributes"). If the Obsidian plugin detects a long response, it will display these diagnostics in a modal window to help troubleshoot markdown formatting or missing requirements.
 
 ### Path Handling
-The Dr. Egeria v2 engine and the Obsidian plugin work together to ensure that input paths are correctly resolved:
-- The Obsidian plugin allows configuring an **Input Folder** (e.g., `loading-bay/dr-egeria-inbox`).
-- When sending a note, the plugin prepends this folder to the note's path if it's not already present.
-- The web handler on the server can also use the `EGERIA_INBOX_PATH` environment variable to strip redundant path segments if they are mistakenly included, ensuring the core processing engine receives the correct relative path.
+The Dr. Egeria engine and the Obsidian plugin work together to ensure that input paths are correctly resolved, even in "Content-First" mode:
+- The Obsidian plugin allows configuring a **Vault Root** (the path inside the container) and an **Input Path** (the subfolder in the vault).
+- These are combined with the note name to create a logical `input_file` path sent to the backend.
+- The MCP server uses this logical path for context (like naming output files) but processes the actual markdown content from a temporary file created in the container's inbox. 
+- This ensures that notes can be processed even if the Obsidian vault is not mounted into the Docker container.
 
 ### Generalized MCP
 The included `mcp_server.py` now supports dynamic execution. You can use the `egeria_execute_command` tool to run any Dr. Egeria command by name, and `egeria_list_commands` to see what is currently available.
@@ -101,6 +102,7 @@ The MCP server exposes the following tools:
 
 - **`dr_egeria_run_block`** (Main Tool - Direct Dr. Egeria Commands)
    - Execute any Dr. Egeria markdown command block. 
+   - **Content-First Processing**: The server saves the `markdown_block` to a temporary file in the container, allowing it to process content from remote clients (like Obsidian) without requiring local file access.
    - **Output Note**: In SSE mode, this tool returns the generated Markdown as a string.
    - Parameters:
      - `markdown_block`: Markdown content with H1 command blocks

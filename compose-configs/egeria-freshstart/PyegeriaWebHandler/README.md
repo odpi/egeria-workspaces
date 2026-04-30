@@ -23,6 +23,13 @@ This prevents valid commands from being silently skipped because local constants
 
 `dr_egeria_md.py` also attempts handler dispatch even when a command is missing from `command_list` and logs a warning.
 
+### Path Handling
+The Dr. Egeria engine and the Obsidian plugin work together to ensure that input paths are correctly resolved, even in "Content-First" mode:
+- The Obsidian plugin allows configuring a **Vault Root** (the path inside the container) and an **Input Path** (the subfolder in the vault).
+- These are combined with the note name to create a logical `input_file` path sent to the backend.
+- The MCP server uses this logical path for context (like naming output files) but processes the actual markdown content from a temporary file created in the container's inbox. 
+- This ensures that notes can be processed even if the Obsidian vault is not mounted into the Docker container.
+
 ## Model Context Protocol (MCP) Support
 
 ### Overview
@@ -95,6 +102,8 @@ The MCP server exposes the following tools:
 
 1. **`dr_egeria_run_block`** (Main Tool - Direct Dr. Egeria Commands)
    - Execute any Dr. Egeria markdown command block
+   - **Content-First Processing**: The server saves the `markdown_block` to a temporary file in the container, allowing it to process content from remote clients (like Obsidian) without requiring local file access.
+   - **Output Note**: In SSE mode, this tool returns the generated Markdown as a string.
    - Parameters:
      - `markdown_block`: Markdown content with H1 command blocks
      - `url`: Egeria platform URL (e.g., `https://host.docker.internal:9443`)

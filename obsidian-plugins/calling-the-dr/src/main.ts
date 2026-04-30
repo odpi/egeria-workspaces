@@ -12,6 +12,7 @@ interface CallingTheDrSettings {
     defaultDirective: string;
     outboxPath: string;
     inputPath: string;
+    vaultRoot: string;
     verbose: boolean;
 }
 
@@ -25,6 +26,7 @@ const DEFAULT_SETTINGS: CallingTheDrSettings = {
     defaultDirective: "process",
     outboxPath: "dr-egeria-outbox",
     inputPath: "",
+    vaultRoot: "/work/Work-Obsidian",
     verbose: true
 };
 
@@ -89,7 +91,9 @@ export default class CallingTheDrPlugin extends Plugin {
                     directive: this.settings.defaultDirective,
                     output_folder: "", // can add this to settings later if needed
                     outbox_path: this.settings.outboxPath,
-                    input_file: this.settings.inputPath ? `${this.settings.inputPath}/${file.name}` : file.name
+                    input_file: this.settings.inputPath 
+                        ? `${this.settings.vaultRoot}/${this.settings.inputPath}/${file.name}`.replace(/\/+/g, '/') 
+                        : `${this.settings.vaultRoot}/${file.name}`.replace(/\/+/g, '/')
                 }
             }) as any;
 
@@ -155,6 +159,9 @@ export default class CallingTheDrPlugin extends Plugin {
 
     async loadSettings() {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+        if (!this.settings.vaultRoot) {
+            this.settings.vaultRoot = this.settings.egeriaUrl.includes("coco") ? "/coco-workbooks" : "/work/Work-Obsidian";
+        }
     }
 
     async saveSettings() {
@@ -347,8 +354,11 @@ class CallingTheDrSettingTab extends PluginSettingTab {
             .setDesc("The absolute path to your vault inside the Docker container.")
             .addText(text => text
                 .setPlaceholder("/coco-workbooks")
-                .setValue(this.plugin.settings.egeriaUrl.includes("coco") ? "/coco-workbooks" : "/work/Work-Obsidian")
-                .setDisabled(true));
+                .setValue(this.plugin.settings.vaultRoot)
+                .onChange(async (value) => {
+                    this.plugin.settings.vaultRoot = value;
+                    await this.plugin.saveSettings();
+                }));
 
         containerEl.createEl("h3", { text: "Maintenance" });
 

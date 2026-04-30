@@ -16,8 +16,11 @@ The **Calling the Dr.** plugin uses the **Model Context Protocol (MCP)** over SS
 ### Configuration
 1.  **MCP Server URL**: `http://localhost:8000/sse`
 2.  **MCP Access Token**: `coco-secret-mcp-token`
-3.  **Egeria Credentials**: Enter your User ID (e.g., `erinoverview`), Password (`secret`), and Platform URL (`https://host.docker.internal:9443`).
+3.  **Egeria Credentials**: Enter your **User ID** (e.g., `erinoverview`), **Password** (`secret`), and **Platform URL** (`https://host.docker.internal:9443`) directly in the plugin settings fields. 
+    *   *Note: If you leave these fields blank, the plugin will use the default credentials configured on the backend server.*
 4.  **Outbox Path**: The folder where results will be saved (e.g., `dr-egeria-outbox`).
+5.  **Vault Root**: The absolute path to your vault inside the Docker container (e.g., `/work/Work-Obsidian` or `/coco-workbooks`). This is used to logically identify the note to the backend processor.
+6.  **Input Path**: (Optional) The subfolder path within your vault where the current note is located (e.g., `keeping-safe/martyns-law`).
 
 ### Usage
 1.  Open a note with a Dr. Egeria command (e.g., `# View Glossaries`).
@@ -31,7 +34,7 @@ The **Calling the Dr.** plugin uses the **Model Context Protocol (MCP)** over SS
 The **Call Dr. Egeria** plugin uses a path-based HTTP API. It requires your Obsidian vault to be mounted as a volume in the `pyegeria-web` Docker container.
 
 ### Configuration
-Requires an **Environment JSON** block in the plugin settings to map the container paths:
+In addition to the **User ID** and **Password** fields in the settings, this legacy plugin requires an **Environment JSON** block to map the container paths:
 
 **Example (coco-workbooks):**
 ```json
@@ -42,6 +45,7 @@ Requires an **Environment JSON** block in the plugin settings to map the contain
   "Pyegeria Publishing Root": "http://localhost:8085/coco-workbooks/dr-egeria-outbox"
 }
 ```
+*(Note: The V3 "Calling the Dr." plugin does NOT use this JSON block.)*
 
 ### Usage
 1.  Click the **Phone** icon in the ribbon.
@@ -49,7 +53,30 @@ Requires an **Environment JSON** block in the plugin settings to map the contain
 
 ---
 
+### Default Credentials via Environment Variables
+To avoid entering credentials in every Obsidian vault or MCP client, you can configure them as environment variables in the `quickstart-pyegeria-web` Docker container. The plugin and Claude Desktop will fall back to these values if their respective settings are left blank.
+
+Supported Environment Variables:
+- `EGERIA_USER`: Default Egeria User ID.
+- `EGERIA_USER_PASSWORD`: Default Egeria Password.
+- `EGERIA_PLATFORM_URL`: Default Egeria Platform URL.
+- `EGERIA_VIEW_SERVER`: Default View Server name.
+- `MCP_ACCESS_TOKEN`: The security token required for the SSE connection. **Must match the plugin setting.**
+
+---
+
 ## 🛠 Troubleshooting
+
+### 401 Unauthorized
+*   Ensure your Egeria User ID and Password in the plugin settings match the credentials expected by the Egeria platform.
+
+### Timeouts
+*   Some Egeria operations (like broad glossary searches) can take over 90 seconds. 
+*   In **Calling the Dr. (V3)**, a timeout message will appear, but the backend often continues processing. Check your outbox folder after a few moments.
+
+### Connection Refused
+*   Ensure the `quickstart-pyegeria-web` Docker container is running.
+*   Check that `http://localhost:8000` is accessible from your host machine.
 
 ### Remote Usage (Cross-Machine)
 The "Calling the Dr." plugin can be used from other machines on your local network.
@@ -105,15 +132,4 @@ graph TD
 
 ---
 
-## 🛠 Troubleshooting
-
-### 401 Unauthorized
-*   Ensure your Egeria User ID and Password in the plugin settings match the credentials expected by the Egeria platform.
-
-### Timeouts
-*   Some Egeria operations (like broad glossary searches) can take over 90 seconds. 
-*   In **Calling the Dr. (V3)**, a timeout message will appear, but the backend often continues processing. Check your outbox folder after a few moments.
-
-### Connection Refused
-*   Ensure the `quickstart-pyegeria-web` Docker container is running.
-*   Check that `http://localhost:8000` is accessible from your host machine.
+For more advanced integration, see the [Using MCP in Egeria-Workspaces](Using%20MCP%20in%20Egeria-Workspaces.md) guide.
