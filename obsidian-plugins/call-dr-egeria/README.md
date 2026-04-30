@@ -30,43 +30,21 @@
 }<!-- SPDX-License-Identifier: CC-BY-4.0 -->
 <!-- Copyright Contributors to the ODPi Egeria project. -->
 
-# Call Dr.Egeria Obsidian Plugin
+# Call Dr.Egeria Obsidian Plugins
 
-Call Dr.Egeria is an Obsidian plugin that sends the active Markdown note to a Dr.Egeria processing service.
+This directory contains two Obsidian plugins for interacting with Dr. Egeria.
 
-It is intended for use with the Egeria Workspaces quickstart/freshstart environments, but it can also be deployed into other Obsidian vaults.
+## 1. Calling the Dr. (MCP) - RECOMMENDED
+The new, feature-rich plugin using the **Model Context Protocol (MCP)**. It supports dynamic command discovery, hot-reloading of specs, and detailed diagnostic feedback.
 
-## What the plugin does
+- **Source**: `obsidian-plugins/calling-the-dr/`
+- **Documentation**: See [Calling the Dr. README](../calling-the-dr/README.md)
 
-The plugin allows you to:
+## 2. Call Dr. Egeria (Legacy)
+The original plugin that uses a direct REST API. It is maintained for compatibility but lacks the advanced discovery and refresh features of the MCP version.
 
-- send the current Obsidian note to Dr.Egeria;
-- choose a processing directive:
-  - `display`
-  - `validate`
-  - `process`
-- configure one or more Dr.Egeria profiles;
-- send Environment and User Profile configuration with each request;
-- keep credentials separate from the profile JSON;
-- refresh Dr.Egeria command specifications from Obsidian;
-- view command status, console output, and output file/path information returned by the web handler.
-
-## Directory layout
-
-The plugin source is located at:
-`obsidian-plugins/call-dr-egeria/`
-
-This directory is the development/package source.
-
-The plugin is deployed into Obsidian vaults under each vault's plugin directory:
-
-`/.obsidian/plugins/call-dr-egeria/`
-
-For example:
-`coco-workbooks/.obsidian/plugins/call-dr-egeria/` or `work/Work-Obsidian/.obsidian/plugins/call-dr-egeria/`
-
-
-Only built plugin assets should be deployed into vaults.
+- **Source**: `obsidian-plugins/call-dr-egeria/`
+- **Documentation**: See [Legacy Plugin Instructions](./Configuring%20and%20Using%20the%20Calling%20Dr.%20Egeria%20Obsidian%20Plug-in.md)
 
 ## Prerequisites
 

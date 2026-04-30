@@ -61,12 +61,18 @@ There are four [servers](https://egeria-project.org/concepts/omag-server/) confi
 | [Engine Host](https://egeria-project.org/concepts/engine-host/)                     | `qs-engine-host`        | `fs-engine-host`        | The server that runs [governance services](https://egeria-project.org/concepts/governance-service/).                                                                                           |
 | [Metadata Access Store](https://egeria-project.org/concepts/metadata-access-store/) | `qs-metadata-store`     | `fs-metadata-store`     | The server that hosts the metadata repository.                                                                                                                                                 |
 
-### Using the "Call Dr. Egeria" Obsidian Plugin
+### Using the Dr. Egeria Obsidian Plugins
 
-The **Call Dr. Egeria** Obsidian plugin allows you to send Markdown notes from your Obsidian vault directly to Egeria for processing, validation, or display.
+Dr. Egeria commands can be executed directly from your Obsidian vault using one of the available plugins:
 
-- **Source**: `obsidian-plugins/call-dr-egeria/`
-- **Setup & Configuration**: See the [Obsidian Plugin README](obsidian-plugins/call-dr-egeria/README.md) for build and deployment instructions.
+1.  **Calling the Dr. (MCP) - RECOMMENDED**: A next-generation plugin using the Model Context Protocol (MCP). It features dynamic command discovery, hot-reloading of specifications, and rich diagnostic feedback. This plugin uses a "Content-First" architecture where note content is sent to the backend and the results are written directly to the vault via the Obsidian API, eliminating Docker permission issues.
+    - **Source**: `obsidian-plugins/calling-the-dr/`
+    - **Documentation**: [Calling the Dr. (MCP) Guide](Configuring and Using the Calling Dr. Egeria Obsidian Plug-in.md)
+
+2.  **Call Dr. Egeria (Legacy)**: The original plugin using a direct REST API.
+    - **Source**: `obsidian-plugins/call-dr-egeria/`
+    - **Documentation**: [Call Dr. Egeria README](obsidian-plugins/call-dr-egeria/README.md)
+
 - **Detailed Profiles**: For specific configuration profiles aligned with this workspace (e.g., for `work/Work-Obsidian` or `coco-workbooks`), see [OBSIDIAN_PROFILES.md](compose-configs/egeria-quickstart/OBSIDIAN_PROFILES.md).
 
 ### Using both MCP servers together

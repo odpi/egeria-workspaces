@@ -14,6 +14,7 @@ import asyncio
 import io
 import os
 import tempfile
+from pathlib import Path
 from contextlib import redirect_stdout, redirect_stderr
 from datetime import datetime
 from typing import Optional
@@ -38,6 +39,7 @@ def _bootstrap_runtime_defaults() -> None:
 
     os.environ.setdefault("EGERIA_USER", "erinoverview")
     os.environ.setdefault("EGERIA_USER_PASSWORD", "secret")
+    os.environ.setdefault("EGERIA_WIDTH", "100")
 
     if os.path.exists("/.dockerenv"):
         root_default = "/"
@@ -67,11 +69,19 @@ import dr_egeria_md  # type: ignore
 
 # MCP server primitives
 from mcp.server.fastmcp import FastMCP, Context
-
+from mcp.shared.exceptions import McpError
+# from mcp.types import INTERNAL_ERROR
+from mcp.server.transport_security import TransportSecuritySettings
 
 server = FastMCP(
     "dr-egeria-mcp",
     instructions="Model Context Protocol server exposing Egeria via Dr. Egeria markdown commands.",
+)
+
+# Disable DNS rebinding protection to allow connection from Obsidian (app://obsidian.md)
+# and other origins/hosts in the docker environment.
+server.settings.transport_security = TransportSecuritySettings(
+    enable_dns_rebinding_protection=False
 )
 
 
@@ -126,6 +136,8 @@ async def dr_egeria_run_block(
     user_pass: str,
     directive: str = "process",
     output_folder: str = "",
+    outbox_path: Optional[str] = None,
+    input_file: Optional[str] = None,
 ) -> str:
     """Execute a Dr. Egeria markdown command block using the existing processor and return the console output.
     Parameters:
@@ -135,22 +147,50 @@ async def dr_egeria_run_block(
     - user_id / user_pass: Egeria credentials
     - directive: display | validate | process (default process)
     - output_folder: optional subfolder under outbox
+    - outbox_path: optional path for outbox (relative to EGERIA_ROOT_PATH)
+    - input_file: optional source filename for output naming
     """
     # Write to inbox and invoke the existing file-based processor
+    logger.info(f"Executing dr_egeria_run_block for command in {markdown_block[:50]}...")
     file_name = _write_block_to_inbox(markdown_block)
+    
+    # If input_file is provided, use its name as base for output
+    effective_input_file = input_file if input_file else file_name
+
+    final_output_folder = output_folder or ""
+    final_outbox_path = outbox_path or os.environ.get("EGERIA_OUTBOX_PATH", "dr-egeria-outbox")
+    
+    # In "Content-First" mode, we don't need all the path resolution logic
+    # because the backend doesn't write the file. We just need to find the input file
+    # to process it.
+
+    # Always ensure the environment matches basic platform settings
+    os.environ["EGERIA_ROOT_PATH"] = "/"
+    os.environ["EGERIA_INBOX_PATH"] = "."
+    
     cmd = dr_egeria_md.process_markdown_file
     func = getattr(cmd, "callback", cmd)
-    text = _run_and_capture(
-        func,
-        input_file=file_name,
-        output_folder=output_folder or "",
-        directive=directive,
-        server=server_name,
-        url=url,
-        userid=user_id,
-        user_pass=user_pass,
-    )
-    return text or "(no output)"
+    try:
+        # In Content-First V3, the processor now returns the generated Markdown string
+        result_markdown = func(
+            input_file=effective_input_file,
+            output_folder=final_output_folder,
+            directive=directive,
+            server=server_name,
+            url=url,
+            userid=user_id,
+            user_pass=user_pass,
+            outbox_path=final_outbox_path,
+        )
+    except asyncio.CancelledError:
+        logger.warning("MCP tool execution cancelled (timeout likely)")
+        return "❌ Request timed out or was cancelled by the client."
+    except Exception as e:
+        logger.error(f"MCP tool execution failed: {e}")
+        return f"❌ Error during execution: {e}"
+
+    logger.info(f"Captured {len(result_markdown)} chars of markdown")
+    return result_markdown or "(no markdown generated)"
 
 
 def _build_simple_block(title: str) -> str:
@@ -187,10 +227,18 @@ async def egeria_list_collections(
 
 @server.tool()
 async def egeria_refresh_specs(ctx: Context) -> str:
-    """Refresh Dr. Egeria command specifications from JSON files."""
-    from md_processing.md_processing_utils.md_processing_constants import load_commands
-    load_commands()
-    return "Command specifications refreshed"
+    """Reload Dr. Egeria command specifications and dispatcher logic from the backend."""
+    try:
+        import importlib
+        import dr_egeria_md
+        from md_processing.md_processing_utils.md_processing_constants import load_commands
+        
+        load_commands()
+        importlib.reload(dr_egeria_md)
+        return "✅ Dr. Egeria command specifications and dispatcher module reloaded."
+    except Exception as e:
+        logger.error(f"Refresh failed: {e}")
+        return f"❌ Refresh failed: {e}"
 
 
 @server.tool()
@@ -202,14 +250,16 @@ async def egeria_execute_command(
     server_name: str,
     user_id: str,
     user_pass: str,
-    directive: str = "process"
+    directive: str = "process",
+    outbox_path: Optional[str] = None
 ) -> str:
     """Execute any Dr. Egeria command by name.
     - command_name: The name of the command (e.g., 'Create Glossary')
     - attributes: The markdown content containing the attributes (## Label\nValue)
+    - outbox_path: optional path for outbox (relative to EGERIA_ROOT_PATH)
     """
     block = f"# {command_name}\n{attributes}\n___\n"
-    return await dr_egeria_run_block(ctx, block, url, server_name, user_id, user_pass, directive=directive)
+    return await dr_egeria_run_block(ctx, block, url, server_name, user_id, user_pass, directive=directive, outbox_path=outbox_path)
 
 
 @server.tool()

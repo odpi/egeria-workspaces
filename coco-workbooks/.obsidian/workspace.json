@@ -11,14 +11,10 @@
             "id": "ada883ee2e0b3ae0",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "keeping-safe/martyns-law/external-references.md",
-                "mode": "source",
-                "source": false
-              },
+              "type": "empty",
+              "state": {},
               "icon": "lucide-file",
-              "title": "external-references"
+              "title": "New tab"
             }
           }
         ]
@@ -181,15 +177,16 @@
       "templates:Insert template": false,
       "command-palette:Open command palette": false,
       "bases:Create new base": false,
-      "call-dr-egeria:Call Dr.Egeria": false
+      "calling-the-dr:Calling the Dr. (MCP)": false
     }
   },
-  "active": "e7aa20e054520325",
+  "active": "ada883ee2e0b3ae0",
   "lastOpenFiles": [
+    "external-references.md",
+    "keeping-safe/martyns-law/external-references.md",
     "dr-egeria-outbox/processed-2026-04-29 00:51-external-references.md",
     "processed-2026-04-29 00:50-external-references.md",
     "keeping-safe/martyns-law/external-references 1.md",
-    "keeping-safe/martyns-law/external-references.md",
     "keeping-safe/martyns-law/README.md"
   ]
 }
