@@ -179,7 +179,8 @@ export default class SendNotePlugin extends Plugin {
 
         const payload = {
             input_file: inputFile,
-            output_folder: profile.outputFolder,
+            source_file: file.name,
+            output_folder: profile.outputFolder || file.parent?.path || "",
             directive: this.settings.directive,
             environment_key: profile.environmentKey,
             user_profile_key: profile.userProfileKey,

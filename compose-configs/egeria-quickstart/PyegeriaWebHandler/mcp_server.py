@@ -14,6 +14,7 @@ import asyncio
 import io
 import os
 import tempfile
+from pathlib import Path
 from contextlib import redirect_stdout, redirect_stderr
 from datetime import datetime
 from typing import Optional
@@ -38,6 +39,7 @@ def _bootstrap_runtime_defaults() -> None:
 
     os.environ.setdefault("EGERIA_USER", "erinoverview")
     os.environ.setdefault("EGERIA_USER_PASSWORD", "secret")
+    os.environ.setdefault("EGERIA_WIDTH", "100")
 
     if os.path.exists("/.dockerenv"):
         root_default = "/"
@@ -62,16 +64,27 @@ _bootstrap_runtime_defaults()
 EGERIA_ROOT_PATH = os.environ.get("EGERIA_ROOT_PATH", "/")
 EGERIA_INBOX_PATH = os.environ.get("EGERIA_INBOX_PATH", "dr-egeria-inbox")
 
-# Local import of existing processor
+try:
+    from pyegeria.core import mcp_adapter
+except ImportError:
+    mcp_adapter = None
 import dr_egeria_md  # type: ignore
 
 # MCP server primitives
 from mcp.server.fastmcp import FastMCP, Context
-
+from mcp.shared.exceptions import McpError
+# from mcp.types import INTERNAL_ERROR
+from mcp.server.transport_security import TransportSecuritySettings
 
 server = FastMCP(
     "dr-egeria-mcp",
     instructions="Model Context Protocol server exposing Egeria via Dr. Egeria markdown commands.",
+)
+
+# Disable DNS rebinding protection to allow connection from Obsidian (app://obsidian.md)
+# and other origins/hosts in the docker environment.
+server.settings.transport_security = TransportSecuritySettings(
+    enable_dns_rebinding_protection=False
 )
 
 
@@ -120,12 +133,14 @@ def _write_block_to_inbox(markdown_block: str) -> str:
 async def dr_egeria_run_block(
     ctx: Context,
     markdown_block: str,
-    url: str,
-    server_name: str,
-    user_id: str,
-    user_pass: str,
+    url: str = os.environ.get("EGERIA_PLATFORM_URL", "https://host.docker.internal:9443"),
+    server_name: str = os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server"),
+    user_id: str = os.environ.get("EGERIA_USER", "erinoverview"),
+    user_pass: str = os.environ.get("EGERIA_USER_PASSWORD", "secret"),
     directive: str = "process",
     output_folder: str = "",
+    outbox_path: Optional[str] = None,
+    input_file: Optional[str] = None,
 ) -> str:
     """Execute a Dr. Egeria markdown command block using the existing processor and return the console output.
     Parameters:
@@ -135,22 +150,58 @@ async def dr_egeria_run_block(
     - user_id / user_pass: Egeria credentials
     - directive: display | validate | process (default process)
     - output_folder: optional subfolder under outbox
+    - outbox_path: optional path for outbox (relative to EGERIA_ROOT_PATH)
+    - input_file: optional source filename for output naming
     """
+    # Use provided values or fall back to env if empty
+    actual_url = url or os.environ.get("EGERIA_PLATFORM_URL", "https://host.docker.internal:9443")
+    actual_server = server_name or os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server")
+    actual_user = user_id or os.environ.get("EGERIA_USER", "erinoverview")
+    actual_pass = user_pass or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+
     # Write to inbox and invoke the existing file-based processor
+    logger.info(f"Executing dr_egeria_run_block for {input_file or 'provided content'}...")
     file_name = _write_block_to_inbox(markdown_block)
+    
+    # The temporary file we just wrote is the ACTUAL input source.
+    # We use its absolute path to bypass any environment-based path resolution in the processor.
+    # This is critical when the client (e.g. Obsidian) is remote and sends content via MCP.
+    effective_input_file = os.path.join(EGERIA_ROOT_PATH, EGERIA_INBOX_PATH, file_name)
+
+    final_output_folder = output_folder or ""
+    final_outbox_path = outbox_path or os.environ.get("EGERIA_OUTBOX_PATH", "dr-egeria-outbox")
+    
+    # In "Content-First" mode, we don't need all the path resolution logic
+    # because the backend doesn't write the file. We just need to find the input file
+    # to process it.
+
+    # Always ensure the environment matches basic platform settings
+    os.environ["EGERIA_ROOT_PATH"] = "/"
+    os.environ["EGERIA_INBOX_PATH"] = "."
+    
     cmd = dr_egeria_md.process_markdown_file
     func = getattr(cmd, "callback", cmd)
-    text = _run_and_capture(
-        func,
-        input_file=file_name,
-        output_folder=output_folder or "",
-        directive=directive,
-        server=server_name,
-        url=url,
-        userid=user_id,
-        user_pass=user_pass,
-    )
-    return text or "(no output)"
+    try:
+        # In Content-First V3, the processor now returns the generated Markdown string
+        result_markdown = func(
+            input_file=effective_input_file,
+            output_folder=final_output_folder,
+            directive=directive,
+            server=actual_server,
+            url=actual_url,
+            userid=actual_user,
+            user_pass=actual_pass,
+            outbox_path=final_outbox_path,
+        )
+    except asyncio.CancelledError:
+        logger.warning("MCP tool execution cancelled (timeout likely)")
+        return "❌ Request timed out or was cancelled by the client."
+    except Exception as e:
+        logger.error(f"MCP tool execution failed: {e}")
+        return f"❌ Error during execution: {e}"
+
+    logger.info(f"Captured {len(result_markdown)} chars of markdown")
+    return result_markdown or "(no markdown generated)"
 
 
 def _build_simple_block(title: str) -> str:
@@ -160,37 +211,54 @@ def _build_simple_block(title: str) -> str:
 @server.tool()
 async def egeria_list_glossaries(
     ctx: Context,
-    url: str,
-    server_name: str,
-    user_id: str,
-    user_pass: str,
+    url: str = os.environ.get("EGERIA_PLATFORM_URL", "https://host.docker.internal:9443"),
+    server_name: str = os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server"),
+    user_id: str = os.environ.get("EGERIA_USER", "erinoverview"),
+    user_pass: str = os.environ.get("EGERIA_USER_PASSWORD", "secret"),
 ) -> str:
     """List or view glossaries in the connected Egeria environment."""
+    actual_url = url or os.environ.get("EGERIA_PLATFORM_URL", "https://host.docker.internal:9443")
+    actual_server = server_name or os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server")
+    actual_user = user_id or os.environ.get("EGERIA_USER", "erinoverview")
+    actual_pass = user_pass or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    
     block = _build_simple_block("View Glossaries")
-    return await dr_egeria_run_block(ctx, block, url, server_name, user_id, user_pass, directive="display")
+    return await dr_egeria_run_block(ctx, block, actual_url, actual_server, actual_user, actual_pass, directive="display")
 
 
 @server.tool()
 async def egeria_list_collections(
     ctx: Context,
-    url: str,
-    server_name: str,
-    user_id: str,
-    user_pass: str,
+    url: str = os.environ.get("EGERIA_PLATFORM_URL", "https://host.docker.internal:9443"),
+    server_name: str = os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server"),
+    user_id: str = os.environ.get("EGERIA_USER", "erinoverview"),
+    user_pass: str = os.environ.get("EGERIA_USER_PASSWORD", "secret"),
 ) -> str:
     """List or view collections/folders in the connected Egeria environment."""
+    actual_url = url or os.environ.get("EGERIA_PLATFORM_URL", "https://host.docker.internal:9443")
+    actual_server = server_name or os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server")
+    actual_user = user_id or os.environ.get("EGERIA_USER", "erinoverview")
+    actual_pass = user_pass or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+
     # Many collection views are produced through the output command paths; use a generic View command
     block = _build_simple_block("View Collections")
     # Fallback: if not recognized, the processor will echo an unknown command message which is still useful feedback
-    return await dr_egeria_run_block(ctx, block, url, server_name, user_id, user_pass, directive="display")
+    return await dr_egeria_run_block(ctx, block, actual_url, actual_server, actual_user, actual_pass, directive="display")
 
 
 @server.tool()
 async def egeria_refresh_specs(ctx: Context) -> str:
-    """Refresh Dr. Egeria command specifications from JSON files."""
-    from md_processing.md_processing_utils.md_processing_constants import load_commands
-    load_commands()
-    return "Command specifications refreshed"
+    """Reload Dr. Egeria command specifications and dispatcher logic from the backend."""
+    try:
+        import importlib
+        from md_processing.md_processing_utils.md_processing_constants import load_commands
+
+        load_commands()
+        importlib.reload(dr_egeria_md)
+        return "✅ Dr. Egeria command specifications and dispatcher module reloaded."
+    except Exception as e:
+        logger.error(f"Refresh failed: {e}")
+        return f"❌ Refresh failed: {e}"
 
 
 @server.tool()
@@ -202,14 +270,16 @@ async def egeria_execute_command(
     server_name: str,
     user_id: str,
     user_pass: str,
-    directive: str = "process"
+    directive: str = "process",
+    outbox_path: Optional[str] = None
 ) -> str:
     """Execute any Dr. Egeria command by name.
     - command_name: The name of the command (e.g., 'Create Glossary')
     - attributes: The markdown content containing the attributes (## Label\nValue)
+    - outbox_path: optional path for outbox (relative to EGERIA_ROOT_PATH)
     """
     block = f"# {command_name}\n{attributes}\n___\n"
-    return await dr_egeria_run_block(ctx, block, url, server_name, user_id, user_pass, directive=directive)
+    return await dr_egeria_run_block(ctx, block, url, server_name, user_id, user_pass, directive=directive, outbox_path=outbox_path)
 
 
 @server.tool()
@@ -220,6 +290,51 @@ async def egeria_list_commands(ctx: Context) -> str:
     specs = COMMAND_DEFINITIONS.get("Command Specifications", {})
     commands = sorted(specs.keys())
     return "Available commands:\n" + "\n".join(f"- {cmd}" for cmd in commands)
+
+
+@server.tool()
+async def list_reports(ctx: Context) -> dict:
+    """List all available Egeria reports."""
+    return mcp_adapter.list_reports() if mcp_adapter else {"error": "no adapter"}
+
+@server.tool()
+async def find_report_specs(ctx: Context, perspective: Optional[str] = None) -> dict:
+    """Search for report specifications by perspective."""
+    return mcp_adapter.run_find_report_specs(perspective=perspective) if mcp_adapter else {"error": "no adapter"}
+
+@server.tool()
+async def describe_report(ctx: Context, name: str) -> dict:
+    """Return the schema for a specific report."""
+    return mcp_adapter.describe_report(name, "DICT") if mcp_adapter else {"error": "no adapter"}
+
+@server.tool()
+async def run_report(
+    ctx: Context, 
+    report_name: str, 
+    url: str, 
+    server_name: str, 
+    user_id: str, 
+    user_pass: str,
+    search_string: str = "*",
+    page_size: int = 0,
+    start_from: int = 0
+) -> dict:
+    """Execute an Egeria report and return the results."""
+    if not mcp_adapter:
+        return {"error": "no adapter"}
+    params = {
+        "search_string": search_string,
+        "page_size": page_size,
+        "start_from": start_from
+    }
+    return mcp_adapter.run_report(
+        report=report_name, 
+        params=params,
+        view_server=server_name, 
+        view_url=url, 
+        user=user_id, 
+        user_pass=user_pass
+    )
 
 
 async def main() -> None:

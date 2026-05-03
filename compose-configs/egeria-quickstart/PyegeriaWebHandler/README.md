@@ -19,10 +19,11 @@ Unlike previous versions, you no longer need to manually update `dr_egeria_md.py
 The v2 engine provides rich feedback tables ("Command Analysis" and "Parsed Attributes"). If the Obsidian plugin detects a long response, it will display these diagnostics in a modal window to help troubleshoot markdown formatting or missing requirements.
 
 ### Path Handling
-The Dr. Egeria v2 engine and the Obsidian plugin work together to ensure that input paths are correctly resolved:
-- The Obsidian plugin allows configuring an **Input Folder** (e.g., `loading-bay/dr-egeria-inbox`).
-- When sending a note, the plugin prepends this folder to the note's path if it's not already present.
-- The web handler on the server can also use the `EGERIA_INBOX_PATH` environment variable to strip redundant path segments if they are mistakenly included, ensuring the core processing engine receives the correct relative path.
+The Dr. Egeria engine and the Obsidian plugin work together to ensure that input paths are correctly resolved, even in "Content-First" mode:
+- The Obsidian plugin allows configuring a **Vault Root** (the path inside the container) and an **Input Path** (the subfolder in the vault).
+- These are combined with the note name to create a logical `input_file` path sent to the backend.
+- The MCP server uses this logical path for context (like naming output files) but processes the actual markdown content from a temporary file created in the container's inbox. 
+- This ensures that notes can be processed even if the Obsidian vault is not mounted into the Docker container.
 
 ### Generalized MCP
 The included `mcp_server.py` now supports dynamic execution. You can use the `egeria_execute_command` tool to run any Dr. Egeria command by name, and `egeria_list_commands` to see what is currently available.
@@ -33,11 +34,13 @@ The included `mcp_server.py` now supports dynamic execution. You can use the `eg
 The PyegeriaWebHandler includes a built-in MCP (Model Context Protocol) server that exposes Dr. Egeria capabilities through the MCP standard. This allows AI assistants like Claude to interact with your Egeria metadata ecosystem through a standardized protocol.
 
 ### MCP Protocol Support
-The PyegeriaWebHandler uses the **Model Context Protocol (MCP)** standard via the `mcp` Python library (version >= 1.15.0). The implementation uses:
-- **Transport Protocol**: stdio (standard input/output) for local execution
-- **Server Framework**: `FastMCP` from the `mcp` library for simplified server implementation
-- **Protocol Version**: MCP 1.0 compatible
-- **Tool-Based Interface**: All Egeria commands are exposed as MCP "tools" that can be called by MCP clients
+The PyegeriaWebHandler uses the **Model Context Protocol (MCP)** standard via the `mcp` Python library. The implementation is highly flexible, supporting:
+- **Transport Protocols**: 
+  - **SSE (over HTTP)**: Used by the "Calling the Dr." Obsidian plugin (port 8000/sse).
+  - **stdio**: Used by local command-line tools and Claude Desktop.
+- **Server Framework**: `FastMCP` from the `mcp` library for simplified server implementation.
+- **Content-First Architecture**: In SSE mode, the server returns the generated Markdown content directly to the client, which then handles the file writing. This eliminates permission issues and path-mapping complexity.
+- **Tool-Based Interface**: All Dr. Egeria commands are exposed as MCP "tools" that can be discovered and called by any MCP client.
 
 ### Configuration
 
@@ -97,8 +100,10 @@ The key under `mcpServers` is a client-side alias, not a protocol-mandated serve
 
 The MCP server exposes the following tools:
 
-1. **`dr_egeria_run_block`** (Main Tool - Direct Dr. Egeria Commands)
-   - Execute any Dr. Egeria markdown command block
+- **`dr_egeria_run_block`** (Main Tool - Direct Dr. Egeria Commands)
+   - Execute any Dr. Egeria markdown command block. 
+   - **Content-First Processing**: The server saves the `markdown_block` to a temporary file in the container, allowing it to process content from remote clients (like Obsidian) without requiring local file access.
+   - **Output Note**: In SSE mode, this tool returns the generated Markdown as a string.
    - Parameters:
      - `markdown_block`: Markdown content with H1 command blocks
      - `url`: Egeria platform URL (e.g., `https://host.docker.internal:9443`)
@@ -106,7 +111,6 @@ The MCP server exposes the following tools:
      - `user_id`: Egeria user ID
      - `user_pass`: Egeria user password
      - `directive`: `display`, `validate`, or `process` (default: `process`)
-     - `output_folder`: Optional output subfolder under outbox
 
 2. **`egeria_execute_command`** (Convenience Wrapper)
    - Execute any Dr. Egeria command by name instead of writing markdown
