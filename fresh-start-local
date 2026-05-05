@@ -5,6 +5,81 @@ cd "$(dirname "$0")"
 
 source compose-configs/shared-infra/compose-build-flags.sh
 
+print_usage() {
+  cat <<'EOF'
+Usage: ./fresh-start-local [--refresh-platform]
+
+Options:
+  --refresh-platform  Force rebuild of freshstart-egeria-main so Docker pulls the latest base image.
+  -h, --help          Show this help text.
+EOF
+}
+
+REFRESH_PLATFORM=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --refresh-platform)
+      REFRESH_PLATFORM=1
+      shift
+      ;;
+    -h|--help)
+      print_usage
+      exit 0
+      ;;
+    *)
+      echo "[fresh-start-local] Unknown option: $1" >&2
+      print_usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+image_exists() {
+  local image_ref="$1"
+  docker image inspect "$image_ref" >/dev/null 2>&1
+}
+
+ensure_service_image() {
+  local service_name="$1"
+  local image_ref="$2"
+  local required="${3:-1}"
+  local force_rebuild="${4:-0}"
+
+  if [[ "$force_rebuild" -eq 0 ]] && image_exists "$image_ref"; then
+    echo "[fresh-start-local] Using existing local image for ${service_name}: ${image_ref}"
+    return 0
+  fi
+
+  if [[ "$force_rebuild" -eq 1 ]]; then
+    echo "[fresh-start-local] Refreshing ${service_name} image (${image_ref}) to pull latest base image..."
+  else
+    echo "[fresh-start-local] Local image missing for ${service_name} (${image_ref}); attempting build..."
+  fi
+
+  if ! docker compose -p egeria-freshstart -f egeria-freshstart.yaml build "${COMPOSE_BUILD_FLAGS[@]}" "$service_name"; then
+    echo "[fresh-start-local] Pull-enabled build failed for ${service_name}; retrying without pull..."
+    if ! docker compose -p egeria-freshstart -f egeria-freshstart.yaml build "$service_name"; then
+      if [[ "$required" -eq 1 ]]; then
+        echo "[fresh-start-local] ERROR: unable to build required service '${service_name}' and no local image exists (${image_ref})." >&2
+        return 1
+      fi
+      echo "[fresh-start-local] WARNING: unable to build optional service '${service_name}'."
+      return 2
+    fi
+  fi
+
+  if image_exists "$image_ref"; then
+    return 0
+  fi
+
+  if [[ "$required" -eq 1 ]]; then
+    echo "[fresh-start-local] ERROR: build finished but local image still not found for ${service_name} (${image_ref})." >&2
+    return 1
+  fi
+
+  return 2
+}
+
 echo "[fresh-start-local] Preparing environment (.env) and compose files..."
 echo "[fresh-start-local] Freshstart uses runtime-volumes/freshstart-platform-data mounted at /deployments."
 
@@ -45,14 +120,44 @@ compose-configs/shared-infra/ensure-shared-infra.sh
 pushd compose-configs/egeria-freshstart >/dev/null
   ./gen-env.sh
 
-  echo "[fresh-start-local] Building freshstart images (pulling newer base images when available)..."
-  docker compose -p egeria-freshstart -f egeria-freshstart.yaml build "${COMPOSE_BUILD_FLAGS[@]}"
+  echo "[fresh-start-local] Ensuring core images are available (platform, pyegeria-web, jupyter)..."
+  ensure_service_image freshstart-egeria-main egeria-freshstart-platform:local 1 "$REFRESH_PLATFORM"
+  ensure_service_image freshstart-pyegeria-web egeria-freshstart-freshstart-pyegeria-web:latest 1
+  ensure_service_image freshstart-jupyter-hub egeria-freshstart-jupyter:local 1
 
-  echo "[fresh-start-local] Starting local freshstart stack (host-gateway mappings enabled)..."
-  docker compose -p egeria-freshstart \
+  APACHE_BUILD_OK=1
+  echo "[fresh-start-local] Ensuring freshstart-apache-web image is available (optional)..."
+  if ! ensure_service_image freshstart-apache-web egeria-freshstart-freshstart-apache-web:latest 0; then
+    APACHE_BUILD_OK=0
+  fi
+
+  echo "[fresh-start-local] Starting core freshstart stack (host-gateway mappings enabled)..."
+  if ! docker compose -p egeria-freshstart \
     -f egeria-freshstart.yaml \
     -f egeria-freshstart-local.yaml \
-    up -d --pull always
+    up -d --pull always freshstart-egeria-main freshstart-pyegeria-web freshstart-jupyter-hub; then
+    echo "[fresh-start-local] Pull-enabled core up failed; retrying without pull and without build..."
+    docker compose -p egeria-freshstart \
+      -f egeria-freshstart.yaml \
+      -f egeria-freshstart-local.yaml \
+      up -d --no-build freshstart-egeria-main freshstart-pyegeria-web freshstart-jupyter-hub
+  fi
+
+  if [[ "$APACHE_BUILD_OK" -eq 1 ]]; then
+    echo "[fresh-start-local] Starting freshstart-apache-web..."
+    if ! docker compose -p egeria-freshstart \
+      -f egeria-freshstart.yaml \
+      -f egeria-freshstart-local.yaml \
+      up -d --pull always freshstart-apache-web; then
+      echo "[fresh-start-local] Pull-enabled apache up failed; retrying without pull and without build..."
+      if ! docker compose -p egeria-freshstart \
+        -f egeria-freshstart.yaml \
+        -f egeria-freshstart-local.yaml \
+        up -d --no-build freshstart-apache-web; then
+        echo "[fresh-start-local] WARNING: freshstart-apache-web did not start. Core services are running."
+      fi
+    fi
+  fi
 popd >/dev/null
 
 echo "[fresh-start-local] Done. Useful URLs:"
