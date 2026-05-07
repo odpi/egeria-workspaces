@@ -6,6 +6,35 @@ cd "$(dirname "$0")"
 
 source compose-configs/shared-infra/compose-build-flags.sh
 
+print_usage() {
+  cat <<'EOF'
+Usage: ./quick-start-local [--refresh-platform]
+
+Options:
+  --refresh-platform  Force rebuild of egeria-main so Docker pulls the latest base image.
+  -h, --help          Show this help text.
+EOF
+}
+
+REFRESH_PLATFORM=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --refresh-platform)
+      REFRESH_PLATFORM=1
+      shift
+      ;;
+    -h|--help)
+      print_usage
+      exit 0
+      ;;
+    *)
+      echo "[quick-start-local] Unknown option: $1" >&2
+      print_usage >&2
+      exit 1
+      ;;
+  esac
+done
+
 image_exists() {
   local image_ref="$1"
   docker image inspect "$image_ref" >/dev/null 2>&1
@@ -15,13 +44,18 @@ ensure_service_image() {
   local service_name="$1"
   local image_ref="$2"
   local required="${3:-1}"
+  local force_rebuild="${4:-0}"
 
-  if image_exists "$image_ref"; then
+  if [[ "$force_rebuild" -eq 0 ]] && image_exists "$image_ref"; then
     echo "[quick-start-local] Using existing local image for ${service_name}: ${image_ref}"
     return 0
   fi
 
-  echo "[quick-start-local] Local image missing for ${service_name} (${image_ref}); attempting build..."
+  if [[ "$force_rebuild" -eq 1 ]]; then
+    echo "[quick-start-local] Refreshing ${service_name} image (${image_ref}) to pull latest base image..."
+  else
+    echo "[quick-start-local] Local image missing for ${service_name} (${image_ref}); attempting build..."
+  fi
   if ! docker compose -p egeria-quickstart -f egeria-quickstart.yaml build "${COMPOSE_BUILD_FLAGS[@]}" "$service_name"; then
     echo "[quick-start-local] Pull-enabled build failed for ${service_name}; retrying without pull..."
     if ! docker compose -p egeria-quickstart -f egeria-quickstart.yaml build "$service_name"; then
@@ -68,7 +102,7 @@ pushd compose-configs/egeria-quickstart >/dev/null
   ./gen-env.sh
 
   echo "[quick-start-local] Ensuring core images are available (platform, pyegeria-web, jupyter)..."
-  ensure_service_image egeria-main egeria-quickstart-platform:local 1
+  ensure_service_image egeria-main egeria-quickstart-platform:local 1 "$REFRESH_PLATFORM"
   ensure_service_image pyegeria-web egeria-quickstart-pyegeria-web:latest 1
   ensure_service_image jupyter-hub egeria-quickstart-jupyter:local 1
 

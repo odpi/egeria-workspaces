@@ -136,6 +136,14 @@ NO_CACHE=1 ./fresh-start-local
 
 Accepted truthy values are `1`, `true`, `yes`, and `on`. Falsey values are unset, `0`, `false`, `no`, and `off`.
 
+If you specifically want to force-refresh the quickstart or freshstart platform image base (even when a local platform
+image already exists), run:
+
+```bash
+./quick-start-local --refresh-platform
+./fresh-start-local --refresh-platform
+```
+
 ## Contents of this repository
 
 **egeria-workspaces** consists of a number of artifacts reflected by the folder structure itself. Here is a quick tour:

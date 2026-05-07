@@ -48,6 +48,12 @@ NO_CACHE=1 ./fresh-start-multi-host
 
 Accepted truthy values are `1`, `true`, `yes`, and `on`. Falsey values are unset, `0`, `false`, `no`, and `off`.
 
+If you want to refresh just the freshstart platform base image (even when `egeria-freshstart-platform:local` already exists), run:
+
+```bash
+./fresh-start-local --refresh-platform
+```
+
 If you prefer to run Docker Compose manually from this directory, use:
 
 ```bash
