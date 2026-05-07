@@ -110,16 +110,29 @@ jitdump*dmp
 .gradle/
 build/
 
+# Personal workbooks and markdown files
+work/**
+!work/.obsidian
+!work/.obsidian/**
+work/.obsidian/workspace.json
+!work/README.md
+!work/start-up-images
+!work/start-up-images/*
+
+# Coco Workbooks
+coco-workbooks/egeria-docs-maintenance/snippets/
+coco-workbooks/dr-egeria-outbox/**
+coco-workbooks/.obsidian/workspace.json
+coco-workbooks/pyegeria/work/mermaid_graphs/**
+
 # egeria-workspaces
 exchange-quickstart/distribution-hub/*/**
-work
 runtime-volumes/quickstart-platform-data/data-old/servers/*/repository/**
 runtime-volumes/quickstart-platform-data/data-old/servers/*/repository
 runtime-volumes/quickstart-platform-data/data-old/coco-data-lake/**
 
 runtime-volumes/quickstart-apache-web/ErrorLogs/**
 runtime-volumes/freshstart-apache-web/ErrorLogs/**
-
 
 runtime-volumes/airflow-volumes/**
 runtime-volumes/airflow-volumes/logs
@@ -166,6 +179,7 @@ compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-da
 /exchange-quickstart/loading-bay/dr-egeria-inbox/GeoSpatial Data/**
 /exchange-quickstart/loading-bay/dr-egeria-inbox/Inbox-DataDrivenLDN/**
 /exchange-quickstart/loading-bay/dr-egeria-inbox/Reference Data Products/**
+/exchange-quickstart/loading-bay/dr-egeria-inbox/mcp-*.md
 
 /compose-configs/optional-associated-runtimes/milvus/volumes/
 /compose-configs/optional-associated-runtimes/milvus/volumes/**!/runtime-volumes/
@@ -182,6 +196,4 @@ compose-configs/shared-infra/.env
 /runtime-volumes/freshstart-platform-data/secrets/*.omsecrets
 
 /workspaces/egeria-docs-maintenance/snippets/
-!/exchange-quickstart/.obsidian/workspace.json
-/coco-workbooks/egeria-docs-maintenance/snippets/
-!/coco-workbooks/.obsidian/workspace.json
+

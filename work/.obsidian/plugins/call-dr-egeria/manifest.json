@@ -1,0 +1,11 @@
+{
+  "id": "call-dr-egeria",
+  "name": "Call Dr.Egeria",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Send Obsidian notes to Dr.Egeria for validation, display, or processing.",
+  "author": "ODPi Egeria Contributors",
+  "authorUrl": "https://egeria-project.org",
+  "isDesktopOnly": false,
+  "main": "main.js"
+}
