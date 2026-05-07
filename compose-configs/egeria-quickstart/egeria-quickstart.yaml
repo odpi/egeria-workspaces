@@ -124,7 +124,7 @@ services:
       - egeria-main
     # Optional: for development, you might want hot-reloading
 #     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-    command: uvicorn pyegeria_handler:app --host :: --port 8000 --reload --loop asyncio
+    command: uvicorn pyegeria_handler:app --host "::" --port 8000 --reload --loop asyncio
 
   apache-web:
     build:

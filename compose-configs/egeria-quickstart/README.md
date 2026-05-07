@@ -118,6 +118,15 @@ NO_CACHE=1 ./quick-start-multi-host
 
 Accepted truthy values are `1`, `true`, `yes`, and `on`. Falsey values are unset, `0`, `false`, `no`, and `off`.
 
+If you want to force refresh the `egeria-main` image (even when `egeria-quickstart-platform:local` already exists), run:
+
+```bash
+./quick-start-local --refresh-platform
+```
+
+This triggers a rebuild of the platform service with `docker compose build --pull` so Docker checks for a newer
+`quay.io/odpi/egeria-platform:latest` base image.
+
 Using either the **Docker Desktop** application or the docker command line you can see the new containers running. To do this with the docker command line, you can issue:
 
 `docker ps`
