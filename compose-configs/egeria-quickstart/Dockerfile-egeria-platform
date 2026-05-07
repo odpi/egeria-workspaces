@@ -1,4 +1,4 @@
-FROM quay.io/odpi/egeria-platform:latest
-
+#FROM quay.io/odpi/egeria-platform:latest
+FROM odpi/egeria-platform:latest
 # Quickstart now relies on runtime-mounted /deployments content and default image behavior.
 
