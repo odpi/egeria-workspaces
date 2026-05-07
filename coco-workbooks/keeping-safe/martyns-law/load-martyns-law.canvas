@@ -1,0 +1,13 @@
+{
+	"nodes":[
+		{"id":"536adb48f29b5194","x":-231,"y":680,"width":400,"height":400,"type":"file","file":"keeping-safe/martyns-law/regulation.md"},
+		{"id":"a4e25e22c6d0bbd5","x":-231,"y":1180,"width":400,"height":400,"type":"file","file":"keeping-safe/martyns-law/collections.md"},
+		{"id":"45141221333061c4","x":-231,"y":-360,"width":400,"height":400,"type":"file","file":"keeping-safe/martyns-law/external-references.md"},
+		{"id":"3835e00029b4664f","x":-231,"y":160,"width":400,"height":400,"type":"file","file":"keeping-safe/martyns-law/glossary.md"}
+	],
+	"edges":[
+		{"id":"6c648bd406d48214","fromNode":"45141221333061c4","fromSide":"bottom","toNode":"3835e00029b4664f","toSide":"top"},
+		{"id":"5a53bfd89c5b10e1","fromNode":"3835e00029b4664f","fromSide":"bottom","toNode":"536adb48f29b5194","toSide":"top"},
+		{"id":"6db637d8a7ac5bc5","fromNode":"536adb48f29b5194","fromSide":"bottom","toNode":"a4e25e22c6d0bbd5","toSide":"top"}
+	]
+}

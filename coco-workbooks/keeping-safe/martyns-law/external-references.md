@@ -45,7 +45,8 @@ This folder contains a list of external sources that describe the Terrorism (Pro
 The folder includes a link to the act itself as well as key guidelines from the Home Office and the SIA.  There are also posters and infographics for use in education sessions.
 ### Qualified Name  
 
-CollectionFolder::MartynsLawUK::ExternalSources  
+CollectionFolder::MartynsLawUK::ExternalSources
+
 ### Content Status  
 
 ACTIVE  
