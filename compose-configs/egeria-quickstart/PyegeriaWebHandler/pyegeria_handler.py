@@ -52,6 +52,9 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from pyegeria import print_basic_exception
+import pyegeria
+pyegeria.enable_ssl_check = False
+pyegeria.disable_ssl_warnings = True
 
 import dr_egeria_md
 
@@ -147,7 +150,8 @@ class ProcessResponse(BaseModel):
 
 # Initialize MCP Server with consolidated tools
 from mcp_server import server as mcp_server
-
+from type_system_handler import router as type_system_router
+app.include_router(type_system_router)
 # Mount the MCP SSE application
 # FastMCP.sse_app() returns a Starlette app with /sse and /messages routes
 mcp_app = mcp_server.sse_app()

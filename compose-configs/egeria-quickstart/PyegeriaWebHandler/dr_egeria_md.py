@@ -7,6 +7,12 @@ from typing import Type, Callable, List, Dict, Any, Optional
 from loguru import logger
 from rich.console import Console
 from pyegeria import EgeriaTech, PyegeriaException, print_basic_exception
+import pyegeria
+pyegeria.enable_ssl_check = False
+pyegeria.disable_ssl_warnings = True
+
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Use local md_processing
 from md_processing.md_processing_utils.md_processing_constants import (
