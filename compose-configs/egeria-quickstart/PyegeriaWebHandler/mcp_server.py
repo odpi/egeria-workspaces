@@ -64,6 +64,9 @@ _bootstrap_runtime_defaults()
 EGERIA_ROOT_PATH = os.environ.get("EGERIA_ROOT_PATH", "/")
 EGERIA_INBOX_PATH = os.environ.get("EGERIA_INBOX_PATH", "dr-egeria-inbox")
 
+import pyegeria
+pyegeria.enable_ssl_check = False
+pyegeria.disable_ssl_warnings = True
 try:
     from pyegeria.core import mcp_adapter
 except ImportError:

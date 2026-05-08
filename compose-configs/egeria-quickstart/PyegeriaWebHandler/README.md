@@ -264,7 +264,165 @@ Output: Available glossaries:
 - `user_id`: Your Egeria username
 - `user_pass`: Your Egeria password
 
-## Troubleshooting
+## Type System Explorer
+
+The PyegeriaWebHandler includes a built-in **Type System Explorer** — an interactive browser for the Egeria open metadata type system. It queries the live Egeria instance via `ValidMetadataManager` and presents all entity types, relationship types, and classification types in a navigable web UI.
+
+### Accessing the Explorer
+
+Once the stack is running, open a browser and navigate to:
+
+```
+http://localhost:8085/type-explorer
+```
+
+Apache proxies this request through to the `pyegeria-web` container, which serves the single-page application and its backing API.
+
+### Features
+
+The explorer has two top-level views, switchable via tabs in the header: **Type Explorer** and **Attribute Index**.
+
+#### Type Explorer view
+
+**Area selector** — A dropdown in the header filters the view to a specific Egeria type system area, or shows all areas together:
+
+| Area | Name |
+|------|------|
+| 0 | Foundation (OpenMetadataRoot, Referenceable, security base types) |
+| 1 | Collaboration (people, teams, organisations) |
+| 2 | Assets & Infrastructure |
+| 3 | Glossary |
+| 4 | Governance |
+| 5 | Schemas |
+| 6 | Data Stores |
+| 7 | Lineage |
+
+**Sidebar** — Shows three collapsible sections, each with a count in parentheses. All three start collapsed; click any section header to expand or collapse it:
+- **Entity Types** — a full inheritance tree from `OpenMetadataRoot` down, with model area badges. Expand or collapse any branch; click any node to select it. When an area filter is active, only the types in that area and their ancestor path are visible in the tree.
+- **Classifications** — flat alphabetical list of all classification types.
+- **Relationships** — flat alphabetical list of all relationship types.
+- A **search box** at the top switches all three sections into a flat filtered list simultaneously.
+
+**Properties tab** — For any selected entity type, shows a table of all properties including inherited ones. Each row indicates which supertype originally defined the property (`own` badge for properties defined directly on the selected type, `req` for required). A toggle shows or hides inherited properties.
+
+**Relationships tab** — Lists every relationship that the selected type participates in, derived by walking the full supertype chain. Shows the direction, the other endpoint type (clickable), and any properties on the relationship itself.
+
+**Graph tab** — An SVG inheritance diagram showing the complete ancestor chain above the selected type and all direct subtypes below. Nodes are clickable to navigate. Pan by dragging; zoom with the scroll wheel or the −/+/1:1 toolbar buttons.
+
+#### Attribute Index view
+
+Shows every property name that appears anywhere in the type system — entities, relationships, and classifications — and for each property lists all the types that define it, grouped by kind. Use this view to answer questions such as "which types have a `description` property?" or to find naming inconsistencies across the type model.
+
+- **Sidebar** — searchable alphabetical list of all property names with a count of how many types use each.
+- **Detail panel** — three tables (Entities, Relationships, Classifications) showing every type that declares the selected property, its data type, and whether it is required. Clicking a type name navigates to it in the Type Explorer view.
+
+#### Theme toggle
+
+A **☀/☾** button in the top-right of the header switches between dark mode (default) and light mode. The preference is not persisted across page loads.
+
+### REST API
+
+The explorer is backed by a REST endpoint that can also be called directly:
+
+#### `GET /api/types`
+
+Returns all entity, relationship, and classification type definitions from the live Egeria instance.
+
+**Query parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `area` | integer | Optional. Filter entity types to a single area (0–7). Relationships and classifications are always returned in full. |
+| `url` | string | Egeria platform URL. Defaults to `EGERIA_PLATFORM_URL` env var. |
+| `server` | string | Egeria view server name. Defaults to `EGERIA_VIEW_SERVER` env var. |
+| `user_id` | string | Egeria user id. Defaults to `EGERIA_USER` env var. |
+| `user_pwd` | string | Egeria user password. Defaults to `EGERIA_USER_PASSWORD` env var. |
+
+**Example — all types:**
+```
+GET http://localhost:8085/api/types
+```
+
+**Example — governance types only:**
+```
+GET http://localhost:8085/api/types?area=4
+```
+
+**Response structure:**
+```json
+{
+  "areaNames": { "0": "Foundation", "4": "Governance", ... },
+  "entities": {
+    "GovernanceDefinition": {
+      "guid": "...",
+      "area": 4,
+      "abstract": true,
+      "supertype": "Referenceable",
+      "desc": "An aspect of the governance program.",
+      "props": [
+        { "name": "documentIdentifier", "type": "string", "desc": "...", "req": false }
+      ]
+    }
+  },
+  "classifications": {
+    "Confidentiality": {
+      "guid": "...",
+      "desc": "Confidentiality level of data.",
+      "validFor": ["Referenceable"],
+      "props": [ ... ]
+    }
+  },
+  "relationships": {
+    "GovernanceDefinitionScope": {
+      "guid": "...",
+      "desc": "Links a governance definition to its scope.",
+      "end1": "GovernanceDefinition",
+      "end2": "Referenceable",
+      "role1": "governanceDefinition",
+      "role2": "scope",
+      "props": []
+    }
+  }
+}
+```
+
+The `props` list on each entity type contains only the **own properties** for that type. The UI computes the full inherited property list client-side by walking the `supertype` chain. Calling `/api/types` directly gives you the same raw data.
+
+### Implementation
+
+| File | Purpose |
+|------|---------|
+| `type_system_handler.py` | FastAPI `APIRouter` with the `/api/types` and `/type-explorer` routes. Calls `ValidMetadataManager.get_all_entity_defs()`, `get_all_relationship_defs()`, and `get_all_classification_defs()`. Derives area numbers by walking the supertype chain against `AREA_ANCHORS` — types that bypass the usual area-specific roots (e.g. `InformationSupplyChain`, `SolutionComponent`) are listed explicitly. Includes an import-time patch for a pyegeria bug in classification loading. |
+| `type-explorer.html` | Self-contained single-page application (React via CDN, no build step). Fetches from `/api/types` on load. Place this file directly in `PyegeriaWebHandler/` alongside `type_system_handler.py`. |
+| `sites-available/fastapi-proxy.conf` | Apache proxy rules routing `/type-explorer` and `/api/types` to `pyegeria-web:8000`. |
+| `pyegeria_handler.py` | Two lines added before the MCP mount: imports the router and calls `app.include_router()`. |
+
+**Area derivation** — The Egeria REST API does not include an area field in its TypeDef responses; area is a documentation concept. The handler derives it by walking up the supertype chain until it reaches a known anchor type. The mapping is defined in the `AREA_ANCHORS` dict in `type_system_handler.py`.
+
+Not all types inherit from an area-specific root. Several Egeria types (notably `InformationSupplyChain`, `SolutionComponent`, `SolutionBlueprint`, `SolutionPort`, and `Port`) inherit directly from `Referenceable`, which would otherwise resolve to area 0 (Foundation). These are listed explicitly in `AREA_ANCHORS`:
+
+```python
+# Area 7 — Lineage (explicit entries for types that bypass Process in their supertype chain)
+"Process": 7, "Port": 7, "LineageMapping": 7,
+"InformationSupplyChain": 7, "InformationSupplyChainSegment": 7,
+"SolutionBlueprint": 7, "SolutionComponent": 7, "SolutionPort": 7,
+```
+
+`Referenceable` itself is explicitly mapped to area 0 so it appears correctly in the Foundation area rather than being derived through the chain.
+
+Add further entries to `AREA_ANCHORS` if you add custom types or discover that a standard type is assigned to the wrong area.
+
+**Pyegeria compatibility note** — `ValidMetadataManager.get_all_classification_defs()` in current pyegeria versions uses a hardcoded `"typeDefList"` response key instead of the more robust `_extract_typedef_list()` helper used by the entity and relationship equivalents. `type_system_handler.py` monkey-patches this at import time to use the same helper, making classification loading resilient to future API response changes. The patch can be removed once the fix is merged upstream in pyegeria.
+
+### Troubleshooting
+
+**`Service Unavailable` on `/type-explorer`** — The `pyegeria-web` container is not running. Check `docker logs quickstart-pyegeria-web` for startup errors.
+
+**Types don't appear / partial results** — The Egeria platform may not be fully started yet. The `/api/types` endpoint will return a 502 with a descriptive message if the platform is unreachable. Wait for `egeria-main` to report healthy, then reload the explorer.
+
+**Area derivation is wrong for a type** — Add the type (or one of its supertypes) to `AREA_ANCHORS` in `type_system_handler.py` with the correct area number. The container picks up the change immediately (uvicorn runs with `--reload`).
+
+**Entity tree is empty when area filter is applied** — The tree always roots at `OpenMetadataRoot`. When an area filter is active the full entity graph is still used for navigation; `visibleInTree` (computed in the UI) controls which nodes are rendered so that only the ancestors of matching types are shown. If no types match the selected area, the tree will show nothing — this is correct behaviour.
 
 ### MCP Server Issues
 - **MCP server won't start**: Ensure the `mcp` package (>= 1.15.0) is installed: `pip install 'mcp>=1.15.0'`
@@ -276,4 +434,3 @@ If FastAPI returns `No updates detected. New File not created.`:
 - Verify the markdown block starts with a command H1 (`# <Command Name>`).
 - Check `debug_log.log` for warnings like `not found in command_list` or `Unknown command`.
 - Confirm your pyegeria version includes the command handler in `pyegeria.view.md_processing_utils`.
-
