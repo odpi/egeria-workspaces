@@ -235,7 +235,7 @@ Currently there are sub-directories here for:
 ### work
 This folder is meant for you to put your own private working files for use with Egeria and
 Jupyter. The directory is mounted and visible within both Egeria and Jupyter runtimes. 
-It is ignored by Git.
+Your additions are ignored by Git.
 
 ### workspaces
 This set of folders contains examples, samples, utilities and other artifacts useful to 
