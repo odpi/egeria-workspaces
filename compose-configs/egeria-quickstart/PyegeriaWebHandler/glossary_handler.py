@@ -117,6 +117,7 @@ def _serialize_term(term: dict) -> dict:
         "status":          header.get("status", "") or "",
         "contentStatus":   props.get("contentStatus", "") or "",
         "activityStatus":  props.get("activityStatus", "") or "",
+        "mermaidGraph":    props.get("mermaidGraph", "") or "",
         "folders":         _folder_memberships(term),
     }
 

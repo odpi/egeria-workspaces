@@ -72,6 +72,7 @@ def _serialize_node(element: dict) -> dict:
         "currentVersion":   props.get("currentVersion", "") or "",
         "deploymentStatus": props.get("deploymentStatus", "") or "",
         "status":           header.get("status", "") or "",
+        "mermaidGraph":     props.get("mermaidGraph", "") or "",
     }
 
 
