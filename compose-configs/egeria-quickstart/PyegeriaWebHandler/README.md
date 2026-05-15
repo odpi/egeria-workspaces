@@ -303,11 +303,17 @@ The explorer has two top-level views, switchable via tabs in the header: **Type 
 - **Relationships** — flat alphabetical list of all relationship types.
 - A **search box** at the top switches all three sections into a flat filtered list simultaneously.
 
-**Properties tab** — For any selected entity type, shows a table of all properties including inherited ones. Each row indicates which supertype originally defined the property (`own` badge for properties defined directly on the selected type, `req` for required). A toggle shows or hides inherited properties.
+**Properties tab** — For any selected entity type, shows a table of all properties including inherited ones. Each row indicates which supertype originally defined the property (`own` badge for properties defined directly on the selected type, `req` for required). Properties marked deprecated in Egeria are shown with a strikethrough and a `deprecated` badge. A toggle shows or hides inherited properties.
 
 **Relationships tab** — Lists every relationship that the selected type participates in, derived by walking the full supertype chain. Shows the direction, the other endpoint type (clickable), and any properties on the relationship itself.
 
 **Graph tab** — An SVG inheritance diagram showing the complete ancestor chain above the selected type and all direct subtypes below. Nodes are clickable to navigate. Pan by dragging; zoom with the scroll wheel or the −/+/1:1 toolbar buttons.
+
+**Type header badges** — The detail header for any selected type shows:
+- An `abstract` badge when the type cannot be directly instantiated.
+- A `deprecated` badge when the type is marked deprecated in Egeria.
+- A `wiki↗` link (opens in a new tab) when Egeria's REST API returns a `descriptionWiki` URL for that type. Not all types have one; coverage is highest for types that have a dedicated page in the Egeria documentation.
+- The type's GUID (truncated) as a reference identifier.
 
 #### Attribute Index view
 
@@ -351,31 +357,37 @@ GET http://localhost:8085/api/types?area=4
 **Response structure:**
 ```json
 {
-  "areaNames": { "0": "Foundation", "4": "Governance", ... },
+  "areaNames": { "0": "Foundation", "4": "Governance" },
   "entities": {
     "GovernanceDefinition": {
-      "guid": "...",
+      "guid": "578a3500-9ad3-45fe-8ada-e4e9af9c3359",
       "area": 4,
       "abstract": true,
       "supertype": "Referenceable",
       "desc": "An aspect of the governance program.",
+      "wiki": "https://egeria-project.org/types/4/0401-Governance-Definitions/",
+      "deprecated": false,
       "props": [
-        { "name": "documentIdentifier", "type": "string", "desc": "...", "req": false }
+        { "name": "documentIdentifier", "type": "string", "desc": "Unique identifier for the governance document.", "req": false, "deprecated": false }
       ]
     }
   },
   "classifications": {
     "Confidentiality": {
-      "guid": "...",
+      "guid": "742dab6d-e269-4445-b04a-cf3f92e54c3c",
       "desc": "Confidentiality level of data.",
+      "wiki": "https://egeria-project.org/types/4/0421-Governance-Classification-Levels/",
+      "deprecated": false,
       "validFor": ["Referenceable"],
-      "props": [ ... ]
+      "props": []
     }
   },
   "relationships": {
     "GovernanceDefinitionScope": {
-      "guid": "...",
+      "guid": "3845b5cc-8c85-462f-b7e6-47472a568793",
       "desc": "Links a governance definition to its scope.",
+      "wiki": "",
+      "deprecated": false,
       "end1": "GovernanceDefinition",
       "end2": "Referenceable",
       "role1": "governanceDefinition",
@@ -388,7 +400,13 @@ GET http://localhost:8085/api/types?area=4
 
 The `props` list on each entity type contains only the **own properties** for that type. The UI computes the full inherited property list client-side by walking the `supertype` chain. Calling `/api/types` directly gives you the same raw data.
 
+**`wiki` field** — Taken directly from Egeria's `descriptionWiki` field on the TypeDef. Present for types that have a dedicated documentation page on `egeria-project.org`. Empty string when not provided by Egeria. Note: this field exists only at the type level; individual properties do not have wiki URLs in the Egeria REST API (they carry a `descriptionGUID` reference instead).
+
+**`deprecated` field** — `true` when Egeria's `status` field on the TypeDef is `DEPRECATED_TYPEDEF` or `DEPRECATED`. For properties, derived from `attributeStatus` being `DEPRECATED_ATTRIBUTE` or `DEPRECATED`.
+
 ### Implementation
+
+For a detailed description of the architecture, data refresh cycle, dependency versions, and maintenance procedures, see [type-explorer-architecture.md](type-explorer-architecture.md).
 
 | File | Purpose |
 |------|---------|
@@ -402,10 +420,13 @@ The `props` list on each entity type contains only the **own properties** for th
 Not all types inherit from an area-specific root. Several Egeria types (notably `InformationSupplyChain`, `SolutionComponent`, `SolutionBlueprint`, `SolutionPort`, and `Port`) inherit directly from `Referenceable`, which would otherwise resolve to area 0 (Foundation). These are listed explicitly in `AREA_ANCHORS`:
 
 ```python
-# Area 7 — Lineage (explicit entries for types that bypass Process in their supertype chain)
-"Process": 7, "Port": 7, "LineageMapping": 7,
-"InformationSupplyChain": 7, "InformationSupplyChainSegment": 7,
-"SolutionBlueprint": 7, "SolutionComponent": 7, "SolutionPort": 7,
+AREA_ANCHORS = {
+    # ... other entries ...
+    # Area 7 — Lineage (explicit entries for types that bypass Process in their supertype chain)
+    "Process": 7, "Port": 7, "LineageMapping": 7,
+    "InformationSupplyChain": 7, "InformationSupplyChainSegment": 7,
+    "SolutionBlueprint": 7, "SolutionComponent": 7, "SolutionPort": 7,
+}
 ```
 
 `Referenceable` itself is explicitly mapped to area 0 so it appears correctly in the Foundation area rather than being derived through the chain.
@@ -423,6 +444,8 @@ Add further entries to `AREA_ANCHORS` if you add custom types or discover that a
 **Area derivation is wrong for a type** — Add the type (or one of its supertypes) to `AREA_ANCHORS` in `type_system_handler.py` with the correct area number. The container picks up the change immediately (uvicorn runs with `--reload`).
 
 **Entity tree is empty when area filter is applied** — The tree always roots at `OpenMetadataRoot`. When an area filter is active the full entity graph is still used for navigation; `visibleInTree` (computed in the UI) controls which nodes are rendered so that only the ancestors of matching types are shown. If no types match the selected area, the tree will show nothing — this is correct behaviour.
+
+**Clicking a grayed-out ancestor type shows no detail** — Ancestor types (e.g. `Referenceable`, `OpenMetadataRoot`) appear dimmed in the tree when an area filter is active because they belong to a different area. They are still fully clickable and their detail view is populated from the full unfiltered entity set (`allEntities`), not the filtered one.
 
 ### MCP Server Issues
 - **MCP server won't start**: Ensure the `mcp` package (>= 1.15.0) is installed: `pip install 'mcp>=1.15.0'`

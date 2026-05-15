@@ -15,6 +15,7 @@ create database examples;
 create database ucdb;
 CREATE DATABASE hive_metastore;
 create database mlflow_db;
+create database coco_ods;
 
 grant all privileges on database egeria to egeria_admin, egeria_user;
 grant all privileges on database superset to egeria_admin, egeria_user;

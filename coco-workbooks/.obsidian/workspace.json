@@ -11,10 +11,14 @@
             "id": "ada883ee2e0b3ae0",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {},
+              "type": "markdown",
+              "state": {
+                "file": "keeping-safe/martyns-law/regulation.md",
+                "mode": "source",
+                "source": false
+              },
               "icon": "lucide-file",
-              "title": "New tab"
+              "title": "regulation"
             }
           }
         ]
@@ -182,6 +186,9 @@
   },
   "active": "ada883ee2e0b3ae0",
   "lastOpenFiles": [
+    "keeping-safe/martyns-law/debug_log.log",
+    "dr-egeria-outbox/regulation-processed-20260513-101852.md",
+    "keeping-safe/martyns-law/Untitled.ipynb",
     "start-up-images/trust-author-warning.png",
     "start-up-images/check-plugins.png",
     "start-up-images/select-coco-workbooks.png",
