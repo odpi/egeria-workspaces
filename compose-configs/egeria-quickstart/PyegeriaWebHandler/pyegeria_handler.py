@@ -162,6 +162,8 @@ from digital_products_handler import router as digital_products_router
 app.include_router(digital_products_router)
 from valid_values_handler import router as valid_values_router
 app.include_router(valid_values_router)
+from mermaid_handler import router as mermaid_router
+app.include_router(mermaid_router)
 # Mount the MCP SSE application
 # FastMCP.sse_app() returns a Starlette app with /sse and /messages routes
 mcp_app = mcp_server.sse_app()

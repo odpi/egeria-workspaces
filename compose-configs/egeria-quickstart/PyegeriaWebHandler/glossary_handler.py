@@ -104,21 +104,27 @@ def _folder_memberships(term: dict) -> list:
 def _serialize_term(term: dict) -> dict:
     props  = _props(term)
     header = _header(term)
+    # TemplateSubstitute is a classification stored as a sibling key in elementHeader,
+    # not inside the classifications list.  SourcedFrom is a top-level relationship key.
+    is_template_substitute  = bool(header.get("templateSubstitute"))
+    is_sourced_from_template = bool(term.get("sourcedFromTemplate"))
     return {
-        "guid":            header.get("guid", ""),
-        "typeName":        _type_name(term),
-        "displayName":     props.get("displayName", "") or props.get("name", "") or "",
-        "qualifiedName":   props.get("qualifiedName", "") or "",
-        "description":     props.get("description", "") or "",
-        "abbreviation":    props.get("abbreviation", "") or "",
-        "examples":        props.get("examples", "") or "",
-        "usage":           props.get("usage", "") or "",
-        "summary":         props.get("summary", "") or "",
-        "status":          header.get("status", "") or "",
-        "contentStatus":   props.get("contentStatus", "") or "",
-        "activityStatus":  props.get("activityStatus", "") or "",
-        "mermaidGraph":    props.get("mermaidGraph", "") or "",
-        "folders":         _folder_memberships(term),
+        "guid":                   header.get("guid", ""),
+        "typeName":               _type_name(term),
+        "displayName":            props.get("displayName", "") or props.get("name", "") or "",
+        "qualifiedName":          props.get("qualifiedName", "") or "",
+        "description":            props.get("description", "") or "",
+        "abbreviation":           props.get("abbreviation", "") or "",
+        "examples":               props.get("examples", "") or "",
+        "usage":                  props.get("usage", "") or "",
+        "summary":                props.get("summary", "") or "",
+        "status":                 header.get("status", "") or "",
+        "contentStatus":          props.get("contentStatus", "") or "",
+        "activityStatus":         props.get("activityStatus", "") or "",
+        "mermaidGraph":           props.get("mermaidGraph", "") or "",
+        "folders":                _folder_memberships(term),
+        "isTemplateSubstitute":   is_template_substitute,
+        "isSourcedFromTemplate":  is_sourced_from_template,
     }
 
 
@@ -226,8 +232,17 @@ def get_terms_in_collection(
     if not isinstance(raw, list):
         raw = []
 
+    # Deduplicate by GUID (graph_query_depth=1 can return the same term multiple times)
+    seen: set = set()
+    unique: list = []
+    for t in raw:
+        g = _header(t).get("guid", "")
+        if g and g not in seen:
+            seen.add(g)
+            unique.append(t)
+
     # Filter: term is in this collection if the collection GUID appears in memberOfCollections
-    terms = [_serialize_term(t) for t in raw
+    terms = [_serialize_term(t) for t in unique
              if collection_guid in _collection_guids(t)]
     terms.sort(key=lambda t: (t.get("displayName") or "").lower())
     return JSONResponse({"terms": terms, "total": len(terms), "collection": collection_guid})
@@ -266,7 +281,15 @@ def search_all_terms(
     if not isinstance(raw, list):
         raw = []
 
-    terms = [_serialize_term(t) for t in raw]
+    seen: set = set()
+    unique: list = []
+    for t in raw:
+        g = _header(t).get("guid", "")
+        if g and g not in seen:
+            seen.add(g)
+            unique.append(t)
+
+    terms = [_serialize_term(t) for t in unique]
     terms.sort(key=lambda t: (t.get("displayName") or "").lower())
     return JSONResponse({"terms": terms, "total": len(terms), "query": search_string})
 

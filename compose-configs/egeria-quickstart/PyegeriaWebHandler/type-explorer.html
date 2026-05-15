@@ -45,7 +45,7 @@
     #root { display: flex; flex-direction: column; height: 100vh; }
     .header { background: var(--panel); border-bottom: 1px solid var(--border);
               padding: 10px 20px; display: flex; align-items: center; gap: 14px;
-              flex-shrink: 0; }
+              flex-shrink: 0; overflow-x: auto; }
     .body   { display: flex; flex: 1; overflow: hidden; }
     .sidebar { width: 254px; flex-shrink: 0; border-right: 1px solid var(--border);
                background: rgba(11,17,28,.85); display: flex; flex-direction: column; overflow: hidden; }
@@ -155,7 +155,7 @@
     .theme-btn:hover { background: var(--hover); color: var(--text); }
   </style>
   <!-- Mermaid diagram rendering (loaded synchronously so it's available when app script runs) -->
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 </head>
 <body>
   <div id="root">
@@ -476,37 +476,92 @@ const {
 } = React;
 
 // ── Markdown renderer ─────────────────────────────────────────────────────────
-// Initialize mermaid if available
-if (window.mermaid) {
-  window.mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' });
-}
-
 function MermaidDiagram({ code }) {
-  const divRef = React.useRef(null);
-  const [renderErr, setRenderErr] = React.useState(false);
-  React.useEffect(() => {
-    if (!code || !divRef.current) return;
-    const el = divRef.current;
-    el.innerHTML = '';
-    setRenderErr(false);
-    const doRender = () => {
-      try {
-        const id = 'mmd' + Math.random().toString(36).slice(2);
-        Promise.resolve(window.mermaid.render(id, code)).then(function(result) {
-          if (divRef.current) divRef.current.innerHTML = result.svg;
-        }).catch(function() { setRenderErr(true); });
-      } catch(e) { setRenderErr(true); }
-    };
-    if (window.mermaid) { doRender(); }
-    else {
-      const t = setInterval(function() { if (window.mermaid) { clearInterval(t); doRender(); } }, 150);
-      return function() { clearInterval(t); };
+  const ref = React.useRef(null);
+  const [errMsg, setErrMsg] = React.useState('');
+
+  React.useEffect(function() {
+    if (!code) return;
+    setErrMsg('');
+    if (ref.current) ref.current.innerHTML = '';
+
+    function doRender() {
+      try { window.mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' }); } catch(_) {}
+      var id = 'mmd' + Math.random().toString(36).slice(2);
+      window.mermaid.render(id, code)
+        .then(function(result) {
+          if (ref.current) ref.current.innerHTML = result.svg || '';
+        })
+        .catch(function(err) {
+          console.warn('Mermaid render failed:', err);
+          setErrMsg(String(err));
+        });
+    }
+
+    if (window.mermaid && window.mermaid.render) {
+      doRender();
+    } else {
+      var attempts = 0;
+      var timer = setInterval(function() {
+        if (window.mermaid && window.mermaid.render) {
+          clearInterval(timer); doRender();
+        } else if (++attempts > 40) {
+          clearInterval(timer);
+          setErrMsg('Mermaid library not loaded — CDN may be unreachable');
+        }
+      }, 150);
+      return function() { clearInterval(timer); };
     }
   }, [code]);
-  if (renderErr) return React.createElement('pre', {
-    style: { fontSize: 11, color: 'var(--muted)', background: 'rgba(255,255,255,.04)', padding: '8px 12px', borderRadius: 4, overflowX: 'auto', whiteSpace: 'pre-wrap', margin: '8px 0' }
-  }, code);
-  return React.createElement('div', { ref: divRef, className: 'mermaid-wrap' });
+
+  return errMsg
+    ? React.createElement('div', null,
+        React.createElement('div', { style: { fontSize: 11, color: '#f87171', padding: '4px 0 6px' } }, '⚠ ' + errMsg),
+        React.createElement('pre', { style: { fontSize: 11, color: 'var(--muted)', background: 'rgba(255,255,255,.04)', padding: '8px 12px', borderRadius: 4, overflowX: 'auto', whiteSpace: 'pre-wrap', margin: 0, border: '1px solid var(--border)' } }, code)
+      )
+    : React.createElement('div', { ref: ref, className: 'mermaid-wrap' });
+}
+
+// Fetches mermaid graph for a specific element GUID from the backend
+function MermaidSection({ guid }) {
+  const [code, setCode] = React.useState(null);    // null = loading, '' = none, string = code
+  const [open, setOpen] = React.useState(false);
+  const [visible, setVisible] = React.useState(true);
+
+  React.useEffect(function() {
+    if (!guid || !open) return;
+    setCode(null);
+    fetch('/api/mermaid/' + encodeURIComponent(guid))
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(data) { setCode(data && data.mermaidGraph ? data.mermaidGraph : ''); })
+      .catch(function() { setCode(''); });
+  }, [guid, open]);
+
+  var btnStyle = { fontSize: 12, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' };
+
+  if (!guid) return null;
+  if (!open) {
+    return React.createElement('div', { style: { margin: '8px 0' } },
+      React.createElement('button', { onClick: function() { setOpen(true); setVisible(true); }, style: btnStyle }, '▦ Load Context Diagram')
+    );
+  }
+  if (code === null) return React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '8px 0' } }, 'Loading diagram…');
+  if (!code) return React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '8px 0' } }, 'No context diagram available for this element.');
+  if (!visible) {
+    return React.createElement('div', { style: { margin: '8px 0' } },
+      React.createElement('button', { onClick: function() { setVisible(true); }, style: btnStyle }, '▦ Show Context Diagram')
+    );
+  }
+  return React.createElement('div', null,
+    React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 } },
+      React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)', fontWeight: 600 } }, 'Context Diagram'),
+      React.createElement('button', {
+        onClick: function() { setVisible(false); },
+        style: { fontSize: 11, padding: '1px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--dim)', cursor: 'pointer' }
+      }, 'Hide')
+    ),
+    React.createElement(MermaidDiagram, { code: code })
+  );
 }
 
 function _renderMdHtml(rawText) {
@@ -1852,14 +1907,18 @@ function GlossaryTermDetail({ term }) {
   const folderList = (term.folders || []);
 
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
-    React.createElement("div", { style: { fontSize: 18, fontWeight: 700, marginBottom: 4 } }, term.displayName),
+    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' } },
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, term.displayName),
+      term.isTemplateSubstitute && React.createElement("span", { className: "badge", style: { background: 'rgba(245,158,11,.15)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.4)', fontSize: 11 } }, "Template Substitute"),
+      !term.isTemplateSubstitute && term.isSourcedFromTemplate && React.createElement("span", { className: "badge", style: { background: 'rgba(245,158,11,.08)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.25)', fontSize: 11 } }, "From Template")
+    ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 8 } }, term.guid),
     folderList.length > 0 && React.createElement("div", { style: { display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 } },
       React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)', marginRight: 4 } }, "Folders:"),
       folderList.map(f => React.createElement("span", { key: f.guid, className: "badge", style: { fontSize: 11, background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)' } }, f.displayName || f.guid))
     ),
     term.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(term.description)),
-    term.mermaidGraph && React.createElement(MermaidDiagram, { code: term.mermaidGraph }),
+    React.createElement(MermaidSection, { guid: term.guid }),
     fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
       React.createElement("tbody", null,
         fields.map(([label, value]) =>
@@ -1898,6 +1957,7 @@ function GlossaryView({ navGuid }) {
 
   const [selectedItem, setSelectedItem] = useState(null);
   const [filterText, setFilterText] = useState('');
+  const [showTemplates, setShowTemplates] = useState(false);
   const [glossaryError, setGlossaryError] = useState('');
 
   // Fetch term when cross-navigated from Digital Products
@@ -1983,22 +2043,28 @@ function GlossaryView({ navGuid }) {
   // Items shown in middle pane for glossary mode
   const filteredTerms = useMemo(() => {
     const q = filterText.trim().toLowerCase();
-    const base = q ? terms.filter(t =>
-      (t.displayName || '').toLowerCase().includes(q) ||
-      (t.description || '').toLowerCase().includes(q) ||
-      (t.abbreviation || '').toLowerCase().includes(q)
-    ) : terms;
-    return base.slice().sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
-  }, [terms, filterText]);
+    return terms.filter(t => {
+      if (!showTemplates && t.isTemplateSubstitute) return false;
+      if (!q) return true;
+      return (t.displayName || '').toLowerCase().includes(q) ||
+             (t.description || '').toLowerCase().includes(q) ||
+             (t.abbreviation || '').toLowerCase().includes(q);
+    }).slice().sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
+  }, [terms, filterText, showTemplates]);
+
+  const templateTermCount = useMemo(() =>
+    terms.filter(t => t.isTemplateSubstitute).length,
+  [terms]);
 
   const filteredSearchTerms = useMemo(() => {
     const q = filterText.trim().toLowerCase();
-    const base = q ? searchTerms.filter(t =>
-      (t.displayName || '').toLowerCase().includes(q) ||
-      (t.description || '').toLowerCase().includes(q)
-    ) : searchTerms;
-    return base.slice().sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
-  }, [searchTerms, filterText]);
+    return searchTerms.filter(t => {
+      if (!showTemplates && t.isTemplateSubstitute) return false;
+      if (!q) return true;
+      return (t.displayName || '').toLowerCase().includes(q) ||
+             (t.description || '').toLowerCase().includes(q);
+    }).slice().sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
+  }, [searchTerms, filterText, showTemplates]);
 
   const selectedObj = useMemo(() => {
     // Cross-navigation target takes priority when it matches selectedItem
@@ -2022,7 +2088,11 @@ function GlossaryView({ navGuid }) {
   const middleError   = isSearchMode ? searchError : scopeError;
   const middleCounts  = isSearchMode
     ? ('Terms (' + filteredSearchTerms.length + (filteredSearchTerms.length !== searchTerms.length ? '/' + searchTerms.length : '') + ')')
-    : (scopeState === 'loading' ? 'Loading…' : (folders.length + ' folder' + (folders.length !== 1 ? 's' : '') + ', ' + filteredTerms.length + (filteredTerms.length !== terms.length ? '/' + terms.length : '') + ' term' + (terms.length !== 1 ? 's' : '')));
+    : (scopeState === 'loading' ? 'Loading…' : (
+        folders.length + ' folder' + (folders.length !== 1 ? 's' : '') +
+        ', ' + filteredTerms.length + (filteredTerms.length !== terms.length - templateTermCount ? '/' + (terms.length - templateTermCount) : '') + ' term' + ((terms.length - templateTermCount) !== 1 ? 's' : '') +
+        (!showTemplates && templateTermCount > 0 ? ' · ' + templateTermCount + ' template' + (templateTermCount !== 1 ? 's' : '') + ' hidden' : '')
+      ));
 
   return React.createElement("div", { className: "body" },
     // Left: glossary list
@@ -2062,7 +2132,11 @@ function GlossaryView({ navGuid }) {
               React.createElement("input", { name: "sq", type: "search", placeholder: "Search all terms…", defaultValue: searchQuery === '*' ? '' : searchQuery, style: { flex: 1, fontSize: 13, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' } }),
               React.createElement("button", { type: "submit", style: { padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', cursor: 'pointer', fontSize: 12 } }, "Go")
             )
-          : React.createElement("input", { type: "search", placeholder: "Filter terms…", value: filterText, onChange: e => setFilterText(e.target.value), style: { width: '100%', boxSizing: 'border-box', fontSize: 13, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' } })
+          : React.createElement("input", { type: "search", placeholder: "Filter terms…", value: filterText, onChange: e => setFilterText(e.target.value), style: { width: '100%', boxSizing: 'border-box', fontSize: 13, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' } }),
+        React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
+          React.createElement("input", { type: "checkbox", checked: showTemplates, onChange: function(e) { setShowTemplates(e.target.checked); }, style: { margin: 0, cursor: 'pointer' } }),
+          "Show template substitutes"
+        )
       ),
       middleError && React.createElement("div", { style: { padding: 10, color: 'var(--muted)', fontSize: 12 } }, "Error: " + middleError),
       React.createElement("div", { className: "tree-scroll" },
@@ -2071,7 +2145,10 @@ function GlossaryView({ navGuid }) {
           ? filteredSearchTerms.map(t => React.createElement("div", {
               key: t.guid, className: "tree-item" + (selectedItem === t.guid ? " sel" : ""),
               onClick: () => setSelectedItem(t.guid), title: t.description || t.qualifiedName,
-            }, React.createElement("span", { className: "type-name" }, t.displayName || t.qualifiedName || t.guid)))
+            },
+              React.createElement("span", { className: "type-name", style: { flex: 1 } }, t.displayName || t.qualifiedName || t.guid),
+              t.isTemplateSubstitute && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(245,158,11,.12)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.35)', flexShrink: 0 } }, "template")
+            ))
           // Glossary/folder scope: folders first, then terms
           : [
               ...folders.map(f => React.createElement("div", {
@@ -2086,7 +2163,10 @@ function GlossaryView({ navGuid }) {
               ...filteredTerms.map(t => React.createElement("div", {
                 key: t.guid, className: "tree-item" + (selectedItem === t.guid ? " sel" : ""),
                 onClick: () => setSelectedItem(t.guid), title: t.description || t.qualifiedName,
-              }, React.createElement("span", { className: "type-name" }, t.displayName || t.qualifiedName || t.guid)))
+              },
+                React.createElement("span", { className: "type-name", style: { flex: 1 } }, t.displayName || t.qualifiedName || t.guid),
+                t.isTemplateSubstitute && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(245,158,11,.12)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.35)', flexShrink: 0 } }, "template")
+              ))
             ]
       )
     ),
@@ -2129,7 +2209,7 @@ function ReferenceDataDetail({ item }) {
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, item.guid),
     item.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(item.description)),
-    item.mermaidGraph && React.createElement(MermaidDiagram, { code: item.mermaidGraph }),
+    React.createElement(MermaidSection, { guid: item.guid }),
     fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
       React.createElement("tbody", null,
         fields.map(([label, value]) =>
@@ -2143,43 +2223,104 @@ function ReferenceDataDetail({ item }) {
   );
 }
 
+function RefDataTreeNode({ item, byGuid, depth, selected, onSelect, expanded, toggleExpanded, search }) {
+  const q = search.trim().toLowerCase();
+  const children = useMemo(function() {
+    return Object.values(byGuid).filter(function(it) {
+      return (it.parentSets || []).some(function(ps) { return ps.guid === item.guid; });
+    }).sort(function(a, b) {
+      if (a.isSet !== b.isSet) return a.isSet ? -1 : 1;
+      return (a.displayName || '').toLowerCase().localeCompare((b.displayName || '').toLowerCase());
+    });
+  }, [byGuid, item.guid]);
+
+  const hasChildren = children.length > 0;
+  const isExpanded  = expanded.has(item.guid);
+  const label       = item.displayName || item.qualifiedName || item.guid;
+
+  if (q && !label.toLowerCase().includes(q) && !children.some(function(c) { return (c.displayName || '').toLowerCase().includes(q); })) return null;
+
+  return React.createElement('div', null,
+    React.createElement('div', {
+      className: 'tree-item' + (selected === item.guid ? ' sel' : ''),
+      style: { paddingLeft: 8 + depth * 20 },
+      onClick: function() {
+        onSelect(item.guid);
+        if (hasChildren) toggleExpanded(item.guid);
+      },
+      title: item.description || item.qualifiedName,
+    },
+      hasChildren
+        ? React.createElement('span', { style: { width: 16, fontSize: 10, color: isExpanded ? 'var(--accent)' : 'var(--muted)', flexShrink: 0, textAlign: 'center' } }, isExpanded ? '▼' : '▶')
+        : React.createElement('span', { style: { width: 16, flexShrink: 0 } }),
+      React.createElement('span', { className: 'type-name', style: { flex: 1 } }, label),
+      item.isSet && React.createElement('span', { className: 'badge', style: { background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.3)', fontSize: 9, flexShrink: 0 } }, item.typeName || 'Set')
+    ),
+    isExpanded && hasChildren && children.map(function(child) {
+      return React.createElement(RefDataTreeNode, {
+        key: child.guid, item: child, byGuid: byGuid, depth: depth + 1,
+        selected: selected, onSelect: onSelect, expanded: expanded, toggleExpanded: toggleExpanded, search: search,
+      });
+    })
+  );
+}
+
 function ReferenceDataView() {
   const [loadState, setLoadState] = useState('loading');
   const [attempt, setAttempt]     = useState(0);
   const [items, setItems]         = useState([]);
   const [selected, setSelected]   = useState(null);
   const [search, setSearch]       = useState('');
-  const [typeFilter, setTypeFilter] = useState('all'); // 'all' | 'sets' | 'values'
+  const [expanded, setExpanded]   = useState(function() { return new Set(); });
   const [error, setError]         = useState('');
 
-  useEffect(() => {
+  useEffect(function() {
     setLoadState('loading');
     setError('');
     fetch('/api/reference-data?page_size=500')
-      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(data => {
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) {
         const list = data.definitions || [];
         setItems(list);
         setLoadState('ready');
-        if (list.length > 0) setSelected(list[0].guid);
+        // Auto-select and expand the first root set
+        const rootSets = list.filter(function(it) {
+          return it.isSet && (!it.parentSets || it.parentSets.length === 0);
+        });
+        if (rootSets.length > 0) {
+          setSelected(rootSets[0].guid);
+          setExpanded(new Set([rootSets[0].guid]));
+        } else if (list.length > 0) {
+          setSelected(list[0].guid);
+        }
       })
-      .catch(err => { setError(err.message); setLoadState('error'); });
+      .catch(function(err) { setError(err.message); setLoadState('error'); });
   }, [attempt]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return items.filter(it => {
-      const itIsSet = !!it.isSet;
-      if (typeFilter === 'sets'   && !itIsSet) return false;
-      if (typeFilter === 'values' &&  itIsSet) return false;
-      if (!q) return true;
-      return (it.displayName || '').toLowerCase().includes(q) ||
-             (it.description || '').toLowerCase().includes(q) ||
-             (it.preferredValue || '').toLowerCase().includes(q);
-    });
-  }, [items, search, typeFilter]);
+  const byGuid = useMemo(function() {
+    const m = {};
+    items.forEach(function(it) { m[it.guid] = it; });
+    return m;
+  }, [items]);
 
-  const selectedItem = selected ? filtered.find(it => it.guid === selected) || items.find(it => it.guid === selected) || null : null;
+  const rootNodes = useMemo(function() {
+    // Root = sets with no parentSets, or items with no parentSets that aren't in any set's members
+    return items.filter(function(it) {
+      return it.isSet && (!it.parentSets || it.parentSets.length === 0);
+    }).sort(function(a, b) {
+      return (a.displayName || '').toLowerCase().localeCompare((b.displayName || '').toLowerCase());
+    });
+  }, [items]);
+
+  function toggleExpanded(guid) {
+    setExpanded(function(prev) {
+      const next = new Set(prev);
+      if (next.has(guid)) next.delete(guid); else next.add(guid);
+      return next;
+    });
+  }
+
+  const selectedItem = selected ? byGuid[selected] || null : null;
 
   if (loadState === 'loading') return React.createElement("div", { className: "body", style: { alignItems: 'center', justifyContent: 'center' } },
     React.createElement("div", { className: "center" }, "Loading reference data…")
@@ -2187,44 +2328,30 @@ function ReferenceDataView() {
   if (loadState === 'error') return React.createElement("div", { className: "body", style: { alignItems: 'center', justifyContent: 'center' } },
     React.createElement("div", { className: "center" },
       React.createElement("div", { style: { color: 'var(--muted)', marginBottom: 8 } }, "Error: " + error),
-      React.createElement("button", { className: "view-tab on", onClick: () => setAttempt(a => a + 1) }, "Retry")
+      React.createElement("button", { className: "view-tab on", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "Retry")
     )
   );
-
-  const setCount   = items.filter(i => !!i.isSet).length;
-  const valueCount = items.filter(i => !i.isSet).length;
 
   return React.createElement("div", { className: "body" },
     React.createElement("div", { className: "sidebar" },
       React.createElement("div", { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
         React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } },
-          filtered.length + (filtered.length !== items.length ? '/' + items.length : '') + ' items'
+          items.length + ' items · ' + rootNodes.length + ' sets'
         ),
         React.createElement("input", {
           type: "search", placeholder: "Filter…", value: search,
-          onChange: e => setSearch(e.target.value),
+          onChange: function(e) { setSearch(e.target.value); },
           style: { width: '100%', boxSizing: 'border-box', fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' }
-        }),
-        React.createElement("div", { style: { display: 'flex', gap: 4 } },
-          ['all', 'sets', 'values'].map(f =>
-            React.createElement("button", { key: f, className: "view-tab" + (typeFilter === f ? " on" : ""), style: { fontSize: 10, padding: '2px 6px' }, onClick: () => setTypeFilter(f) },
-              f === 'all' ? 'All (' + items.length + ')' : f === 'sets' ? 'Sets (' + setCount + ')' : 'Values (' + valueCount + ')'
-            )
-          )
-        )
+        })
       ),
       React.createElement("div", { className: "tree-scroll" },
-        filtered.map(it =>
-          React.createElement("div", {
-            key: it.guid,
-            className: "tree-item" + (selected === it.guid ? " sel" : ""),
-            onClick: () => setSelected(it.guid),
-            title: it.description || it.qualifiedName,
-          },
-            React.createElement("span", { className: "type-name" }, it.displayName || it.qualifiedName || it.guid),
-            it.isSet && React.createElement("span", { className: "badge", style: { background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.3)', fontSize: 9 } }, it.typeName || 'Set')
-          )
-        )
+        rootNodes.map(function(root) {
+          return React.createElement(RefDataTreeNode, {
+            key: root.guid, item: root, byGuid: byGuid, depth: 0,
+            selected: selected, onSelect: setSelected,
+            expanded: expanded, toggleExpanded: toggleExpanded, search: search,
+          });
+        })
       )
     ),
     React.createElement("div", { className: "main" },
@@ -2270,7 +2397,7 @@ function DigitalProductDetail({ product, onNavigateToGlossary }) {
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, product.guid),
     product.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(product.description)),
-    product.mermaidGraph && React.createElement(MermaidDiagram, { code: product.mermaidGraph }),
+    React.createElement(MermaidSection, { guid: product.guid }),
     fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
       React.createElement("tbody", null,
         fields.map(function([label, value]) {
@@ -2490,7 +2617,7 @@ function ValidValueDetail({ item }) {
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, item.guid),
     item.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(item.description)),
-    item.mermaidGraph && React.createElement(MermaidDiagram, { code: item.mermaidGraph }),
+    React.createElement(MermaidSection, { guid: item.guid }),
     fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
       React.createElement("tbody", null,
         fields.map(([label, value]) =>
@@ -2504,11 +2631,11 @@ function ValidValueDetail({ item }) {
   );
 }
 
-// Common Egeria property names that have registered valid values
+// Standard Egeria property names — click to look up their registered valid values
 const _COMMON_PROPS = [
-  'contentStatus', 'activityStatus', 'typeName', 'governanceStatus',
-  'operationalStatus', 'confidentiality', 'criticality', 'retention',
-  'projectStatus', 'actionStatus', 'certificationStatus', 'licenseStatus',
+  'contentStatus', 'activityStatus', 'governanceStatus',
+  'operationalStatus', 'confidentiality', 'criticality',
+  'retention', 'projectStatus',
 ];
 
 function ValidValueEntry({ val }) {
@@ -2560,7 +2687,7 @@ function ValidValuesView() {
         React.createElement("input", { name: "pn", type: "text", placeholder: "e.g. contentStatus", value: propertyName, onChange: e => setPropertyName(e.target.value), style: { flex: 1, fontSize: 13, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' } }),
         React.createElement("button", { type: "submit", style: { padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', cursor: 'pointer', fontSize: 12 } }, "Go")
       ),
-      React.createElement("div", { style: { padding: '6px 12px', fontSize: 11, color: 'var(--dim)', borderBottom: '1px solid var(--border)' } }, "Common properties:"),
+      React.createElement("div", { style: { padding: '6px 12px', fontSize: 11, color: 'var(--dim)', borderBottom: '1px solid var(--border)' } }, "Standard Egeria property names:"),
       React.createElement("div", { className: "tree-scroll" },
         _COMMON_PROPS.map(p =>
           React.createElement("div", {
@@ -2696,13 +2823,13 @@ function App() {
       /*#__PURE__*/React.createElement("img", { src: "data:image/png;base64,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", alt: "Egeria", style: { height: 28, width: 'auto', borderRadius: 4 } }),
       /*#__PURE__*/React.createElement("span", { style: { fontFamily: 'ui-monospace,monospace', fontSize: 11, color: 'var(--dim)', letterSpacing: 3, textTransform: 'uppercase' } }, "Egeria"),
       /*#__PURE__*/React.createElement("span", { style: { width: 1, height: 14, background: 'var(--border)', display: 'inline-block' } }),
+      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'type-system' ? " on" : ""), onClick: () => { setSection('type-system'); setView('types'); } }, "Type Explorer"),
       /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'glossary' ? " on" : ""), onClick: () => setSection('glossary') }, "Glossary"),
       /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'reference-data' ? " on" : ""), onClick: () => setSection('reference-data') }, "Reference Data"),
       /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'digital-products' ? " on" : ""), onClick: () => setSection('digital-products') }, "Digital Products"),
       /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'report-specs' ? " on" : ""), onClick: () => setSection('report-specs') }, "Report Specs"),
       /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'valid-values' ? " on" : ""), onClick: () => setSection('valid-values') }, "Valid Values"),
       /*#__PURE__*/React.createElement("div", { style: { flex: 1 } }),
-      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'type-system' ? " on" : ""), onClick: () => { setSection('type-system'); setView('types'); } }, "Type Explorer"),
       section === 'type-system' && /*#__PURE__*/React.createElement("button", { className: "view-tab" + (view === 'attrs' ? " on" : ""), onClick: () => setView('attrs') }, "Attribute Index"),
       section === 'type-system' && view === 'types' && /*#__PURE__*/React.createElement("select", {
         className: "area-select",

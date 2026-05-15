@@ -1,11 +1,11 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 <!-- Copyright Contributors to the ODPi Egeria project. -->
 
-# Type System Explorer — Architecture
+# Egeria Explorer — Architecture
 
-This document covers how the Type System Explorer works internally, what it depends on, when data is fetched, and what needs periodic maintenance.
+This document covers how the Egeria Explorer works internally: its request flow, data-fetching strategy, known Egeria API behaviours, frontend dependencies, and maintenance notes.
 
-For feature documentation and the REST API reference, see [README.md](README.md#type-system-explorer).
+For feature documentation and the REST API reference, see [README.md](README.md#egeria-explorer).
 
 ---
 
@@ -13,21 +13,31 @@ For feature documentation and the REST API reference, see [README.md](README.md#
 
 ```
 Browser
-  │  GET /type-explorer          (page load — serves the SPA HTML)
-  │  GET /api/types[?area=N]     (data fetch — called once by the SPA on load)
+  │  GET /egeria-explorer              (page load — serves the SPA HTML)
+  │  GET /api/types                    (type system data)
+  │  GET /api/reference-data           (reference data sets + values)
+  │  GET /api/glossary                 (glossary list)
+  │  GET /api/glossary/{guid}/terms    (terms in a glossary or folder)
+  │  GET /api/glossary-terms           (cross-glossary term search)
+  │  GET /api/digital-products/catalogs          (catalog list)
+  │  GET /api/digital-products/catalogs/{guid}/tree  (full catalog tree)
+  │  GET /api/digital-products/{guid}            (node detail)
+  │  GET /api/mermaid/{guid}           (context diagram for any element)
+  │  GET /api/valid-values/lookup      (valid values for a property name)
   ▼
 Apache httpd  (port 8085)
-  │  ProxyPass /type-explorer  → http://pyegeria-web:8000/type-explorer
-  │  ProxyPass /api/types      → http://pyegeria-web:8000/api/types
+  │  ProxyPass /egeria-explorer → http://pyegeria-web:8000/egeria-explorer
+  │  ProxyPass /api/*           → http://pyegeria-web:8000/api/*
   ▼
 FastAPI  (pyegeria-web container, port 8000)
-  │  GET /type-explorer  → FileResponse("type-explorer.html")
-  │  GET /api/types      → type_system_handler.get_all_types()
+  │  type_system_handler.py       → ValidMetadataManager
+  │  reference_data_handler.py    → ReferenceDataManager
+  │  glossary_handler.py          → GlossaryManager
+  │  digital_products_handler.py  → CollectionManager
+  │  mermaid_handler.py           → MetadataExpert
+  │  valid_values_handler.py      → ReferenceDataManager
   ▼
-pyegeria  ValidMetadataManager
-  │  get_all_entity_defs()         → GET /servers/{server}/api/open-metadata/valid-metadata/open-metadata-types/entity-defs
-  │  get_all_relationship_defs()   → GET /servers/{server}/api/open-metadata/valid-metadata/open-metadata-types/relationship-defs
-  │  get_all_classification_defs() → GET /servers/{server}/api/open-metadata/valid-metadata/open-metadata-types/classification-defs
+pyegeria (various managers)
   ▼
 Egeria platform  (egeria-main container, port 9443)
 ```
@@ -38,27 +48,110 @@ Apache and the FastAPI server run in separate containers on the same Docker netw
 
 ## Request lifecycle
 
-### Page load (`GET /type-explorer`)
+### Page load (`GET /egeria-explorer` or `GET /type-explorer`)
 
-1. Browser requests `/type-explorer` from Apache.
-2. Apache proxies to FastAPI, which serves `type-explorer.html` as a static file.
-3. The HTML is fully self-contained: React 18, ReactDOM, and the compiled application JavaScript are all inlined. No external CDN calls are made.
-4. Once the page renders, the SPA immediately fires a single `fetch('/api/types')` call.
+1. Browser requests `/egeria-explorer` (or the alias `/type-explorer`) from Apache.
+2. Apache proxies to FastAPI. `type_system_handler.py` has two `@router.get` decorators on the same handler function so both URLs serve the same `type-explorer.html` via `FileResponse`.
+3. The HTML is a self-contained React 18 SPA. React and ReactDOM are loaded from CDN (`unpkg.com`). Mermaid diagram rendering is loaded from CDN (`cdn.jsdelivr.net/npm/mermaid@11`). Application JavaScript is inlined in the HTML.
+4. On load the SPA fetches `/api/types` immediately. All other section data is fetched lazily when the user first opens that tab.
 
-### Data fetch (`GET /api/types`)
+### Tab data fetching
 
-1. FastAPI calls `_get_client()` to construct a `ValidMetadataManager` instance using the connection parameters (from query params, falling back to env vars).
-2. Three sequential synchronous calls are made to pyegeria:
-   - `get_all_entity_defs()` — ~300–600 type defs depending on Egeria version
-   - `get_all_relationship_defs()` — ~400–800 type defs
-   - `get_all_classification_defs()` — ~50–100 type defs
-3. Each pyegeria call opens a new HTTP connection to the Egeria platform, issues a `GET` to the REST endpoint, and returns the parsed JSON list.
-4. The handler normalises the raw lists, derives area numbers by walking supertype chains, and returns a single JSON object.
-5. The session is closed after all three calls complete.
+| Tab | Endpoint | Fetched when |
+|-----|----------|-------------|
+| Type System | `GET /api/types` | Page load |
+| Reference Data | `GET /api/reference-data?page_size=500` | First time tab is opened |
+| Glossary | `GET /api/glossary` | First time tab is opened |
+| Glossary terms | `GET /api/glossary/{guid}/terms` | Glossary or folder selected |
+| Digital Products | `GET /api/digital-products/catalogs` | First time tab is opened |
+| Digital Products tree | `GET /api/digital-products/catalogs/{guid}/tree` | Catalog selected |
+| Context diagram | `GET /api/mermaid/{guid}` | User clicks "Load Context Diagram" button |
+| Valid Values | `GET /api/valid-values/lookup?property_name=…` | User selects or enters a property name |
 
-**There is no server-side caching.** Every `/api/types` request re-queries Egeria. The SPA calls the endpoint once per page load (not once per type click). Subsequent navigation within the page — clicking types, switching tabs, changing the area filter — uses only the in-memory data already fetched.
+**There is no server-side caching.** Data is re-fetched on tab re-open (after a page reload) but held in React state for the session while the page is open.
 
-**Typical response time** is 1–4 seconds depending on Egeria startup state and network latency inside Docker. If Egeria is still initialising, the call will fail with a 502 and the SPA displays a retry button.
+---
+
+## Egeria graph_query_depth — behaviour and tradeoffs
+
+Most API calls specify a `graph_query_depth` parameter that controls how far Egeria traverses relationship edges when building the response:
+
+- **`graph_query_depth=0`** — returns the element's own properties only. No relationship data in the response. Fast; each matching element appears exactly once.
+- **`graph_query_depth=1`** — returns the element's properties plus all directly related elements (one hop out). Slower; **can return duplicates** (see below).
+
+### Why graph_query_depth=1 causes duplicates
+
+With depth=1, Egeria traverses outward from every primary hit. If a neighbor element also matches the search, it appears in results twice:
+1. As a primary search hit.
+2. As a neighbor of each other primary hit that is linked to it.
+
+**Example — glossary terms in a folder:** If a folder contains terms A, B, and C, and the search returns all three as primary hits, then A also appears as a neighbor of B and C (via `CollectionMembership`), B appears as a neighbor of A and C, and so on. A folder of 20 terms can yield up to 400 rows for 20 unique terms.
+
+**Mitigation:** The glossary handler deduplicates by GUID immediately after the API response, before any filtering:
+
+```python
+seen: set = set()
+unique: list = []
+for t in raw:
+    g = _header(t).get("guid", "")
+    if g and g not in seen:
+        seen.add(g)
+        unique.append(t)
+```
+
+### When depth=1 is necessary
+
+`memberOfCollections` (on glossary terms) and `memberOfValidValueSets` (on reference data values) are only populated when `graph_query_depth=1`. These fields are essential for:
+- Filtering terms by their containing glossary/folder.
+- Building the parent-child tree in the Reference Data view.
+
+The deduplication cost is worth paying to get this relationship data.
+
+### Endpoints using depth=0 (fast path)
+
+`find_collections` (digital products catalog listing) and the top-level glossary list use `graph_query_depth=0` deliberately. These endpoints only need root-level element properties; they do not need relationship traversal. Switching to depth=0 cut per-page response time from ~30s to <0.5s on typical Egeria demo data.
+
+---
+
+## Mermaid diagram rendering
+
+Context diagrams are rendered client-side using the Mermaid JS library loaded from CDN.
+
+### Version requirement
+
+Egeria generates mermaid diagram code using **mermaid v11+ syntax** — specifically the `@{ shape: … }` node shape notation introduced in v11.0. Loading mermaid v10 (or earlier) results in silent render failures: `mermaid.render()` resolves successfully but returns an empty SVG. Always load `mermaid@11` or later.
+
+Current CDN reference in `type-explorer.html`:
+```html
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+```
+
+### Rendering flow
+
+1. User clicks **▦ Load Context Diagram** on any element detail panel.
+2. `MermaidSection` component sets `open = true`, triggering a `useEffect` that calls `GET /api/mermaid/{guid}`.
+3. `mermaid_handler.py` constructs a `MetadataExpert` client and calls `get_anchored_element_graph(guid, mermaid_only=True)`.
+4. The mermaid diagram code string is returned to the browser and stored in the component's `code` state.
+5. `MermaidDiagram` component calls `window.mermaid.render(id, code)` which returns a Promise resolving to `{ svg }`.
+6. The SVG string is injected into the DOM via `innerHTML`.
+
+Once rendered, the user can toggle visibility with a **Hide** / **▦ Show Context Diagram** button. The `code` state is preserved so no re-fetch is needed on show. The `open` state gates the fetch; the `visible` state gates the render.
+
+If the CDN is unreachable (mermaid not loaded), the component polls for up to 6 seconds then shows the raw mermaid code with a "library not loaded" warning. If `render()` rejects, the error message is shown above the raw code.
+
+### Backend class name
+
+The pyegeria class for element graph queries is `MetadataExpert` (not `MetadataExplorer`). The method is `get_anchored_element_graph(guid, mermaid_only=True)`.
+
+---
+
+## Reference Data tree construction
+
+The Reference Data view displays a hierarchy: root-level ValidValueSets as tree roots, with their member values and child sets nested underneath. This tree is built client-side from a flat list returned by the backend.
+
+**Backend:** `GET /api/reference-data` fetches all valid value definitions using `graph_query_depth=1`. The serialiser reads `element["memberOfValidValueSets"]` to extract each element's parent set GUIDs and names, adding them as a `parentSets` field.
+
+**Frontend:** The `RefDataTreeNode` component filters `byGuid` (a `guid → item` map) to find children of a given set. Root nodes are sets with an empty `parentSets` list. The tree expands/collapses on click. Sets can be nested arbitrarily deep.
 
 ---
 
@@ -66,13 +159,11 @@ Apache and the FastAPI server run in separate containers on the same Docker netw
 
 | Trigger | Data refreshed? |
 |---------|----------------|
-| Browser page load / hard refresh | Yes — full `/api/types` call |
-| In-page navigation (click a type, change area filter) | No — uses cached in-memory data from initial load |
-| SPA "Retry" button after a failed load | Yes — re-fetches `/api/types` |
-| Container restart (no browser action) | No — browser still holds the previous fetch result |
-| Egeria type system changes (e.g. new custom type deployed) | Only visible after the user reloads the page |
-
-The type system of a running Egeria instance changes rarely in practice (only when new archive files are loaded or custom type definitions are deployed). A page reload is sufficient to pick up any changes.
+| Browser page load / hard refresh | Yes — all tab data is re-fetched when tabs are opened |
+| In-section navigation (click an item) | No — uses in-memory React state |
+| SPA retry button after failed load | Yes — re-fetches that section's data |
+| Container restart (no browser action) | No — browser still holds previous data |
+| Egeria data changes | Only visible after page reload and tab re-open |
 
 ---
 
@@ -80,89 +171,98 @@ The type system of a running Egeria instance changes rarely in practice (only wh
 
 ### Python (server-side)
 
-| Package | Used for | Version constraint |
-|---------|----------|--------------------|
-| `fastapi` | HTTP routing, `APIRouter`, `FileResponse` | Any recent |
-| `uvicorn` | ASGI server running FastAPI inside the container | Any recent |
-| `pyegeria` | `ValidMetadataManager` — wraps Egeria REST calls | `< 6.0` (see note) |
-| `httpx` / `aiohttp` | HTTP client used internally by pyegeria | Pulled in by pyegeria |
+| Package | Used for |
+|---------|----------|
+| `fastapi` | HTTP routing, `APIRouter`, `FileResponse` |
+| `uvicorn` | ASGI server with `--reload` for hot code pickup |
+| `pyegeria` | All manager classes; always latest release |
+| `loguru` | Structured logging in all handlers |
 
-**pyegeria version note:** pyegeria 6.x introduced a circular import in `pyegeria.core._exceptions` that prevents the module from loading. Pin `pyegeria<6.0` in `requirements.txt` and remove any `RUN pip install pyegeria --upgrade` line from `Dockerfile-fast-api` until this is resolved upstream.
+**pyegeria managers used:**
+
+| Manager | Handler | Key methods |
+|---------|---------|-------------|
+| `ValidMetadataManager` | `type_system_handler.py` | `get_all_entity_defs`, `get_all_relationship_defs`, `get_all_classification_defs` |
+| `ReferenceDataManager` | `reference_data_handler.py`, `valid_values_handler.py` | `find_valid_value_definitions`, `get_valid_metadata_values` |
+| `GlossaryManager` | `glossary_handler.py` | `find_glossaries`, `find_glossary_terms`, `get_term_by_guid`, `get_collection_members` |
+| `CollectionManager` | `digital_products_handler.py` | `find_collections`, `get_collection_members`, `get_collection_by_guid` |
+| `MetadataExpert` | `mermaid_handler.py` | `get_anchored_element_graph` |
 
 ### Frontend (browser-side)
 
-The SPA has no runtime dependencies fetched from the network. Everything is inlined in `type-explorer.html`:
+| Library | Source | Purpose |
+|---------|--------|---------|
+| React 18 | CDN (`unpkg.com`) | Component rendering |
+| ReactDOM 18 | CDN (`unpkg.com`) | DOM mounting |
+| Mermaid 11+ | CDN (`cdn.jsdelivr.net`) | Context diagram rendering |
+| Application JS | Inlined in `type-explorer.html` | All UI logic |
 
-| Library | Version inlined | Purpose |
-|---------|----------------|---------|
-| React | 18.x (production build) | Component rendering |
-| ReactDOM | 18.x (production build) | DOM mounting |
-| Application JS | compiled from JSX at build time | All UI logic |
-
-The original JSX source lives in the `<script type="text/babel">` block of the pre-compilation artifact. If UI changes are needed, edit the JSX source and recompile — do not edit the inlined JS directly. See the Handoff.md for the build command.
+The application JavaScript is written inline in the HTML using `React.createElement()` calls (no JSX transpilation required). All React hooks are destructured from `React` at the top of the script block.
 
 ### Infrastructure
 
 | Component | Role |
 |-----------|------|
-| Apache httpd (`egeria-quickstart` container) | Reverse proxy; routes `/type-explorer` and `/api/types` to FastAPI |
-| Docker network (`egeria-quickstart_default`) | Internal name resolution; `pyegeria-web` and `egeria-main` hostnames |
-| Egeria platform (`egeria-main` container, port 9443) | Source of truth for all type definitions |
+| Apache httpd (`egeria-quickstart` container) | Reverse proxy; routes `/egeria-explorer` and `/api/*` to FastAPI |
+| Docker network | Internal name resolution; `pyegeria-web` and `egeria-main` hostnames |
+| Egeria platform (`egeria-main`, port 9443) | Source of truth for all instance and type data |
 
 ---
 
-## Area derivation
+## Handler file map
 
-The Egeria REST API does not include an area number in its TypeDef responses. Area is a documentation-level concept that groups related types. The handler derives it at response-build time by walking each type's supertype chain upward until hitting a known anchor in `AREA_ANCHORS`.
+| File | Router prefix | Purpose |
+|------|--------------|---------|
+| `type_system_handler.py` | `/api/types`, `/egeria-explorer`, `/type-explorer` | Type definitions; serves the SPA HTML via two URL aliases |
+| `reference_data_handler.py` | `/api/reference-data` | Valid value set/value tree |
+| `glossary_handler.py` | `/api/glossary`, `/api/glossary-terms` | Glossaries, folders, terms |
+| `digital_products_handler.py` | `/api/digital-products` | Catalog→family→product hierarchy |
+| `mermaid_handler.py` | `/api/mermaid` | Element context diagrams |
+| `valid_values_handler.py` | `/api/valid-values` | Property-name valid value lookups |
+| `report_specs_handler.py` | `/api/report-specs` | pyegeria report format specs |
+| `pyegeria_handler.py` | — | FastAPI app; mounts all routers |
+| `type-explorer.html` | — | Self-contained SPA served by type_system_handler |
 
-```
-GovernanceProcedure
-  → TechnicalControl
-    → GovernanceControl
-      → GovernanceDefinition   ← AREA_ANCHORS["GovernanceDefinition"] = 4
-```
+---
 
-Types that bypass the normal area roots (several lineage types inherit directly from `Referenceable` rather than through `Process`) are listed explicitly in `AREA_ANCHORS`. `Referenceable` itself is pinned to area 0.
+## Known pyegeria quirks
 
-Area derivation runs once per request, not at startup. It adds negligible overhead since the type counts are small.
+### Classification defs response key
+
+`ValidMetadataManager.get_all_classification_defs()` uses a hardcoded `"typeDefList"` response key instead of the `_extract_typedef_list()` helper used by the entity and relationship equivalents. `type_system_handler.py` monkey-patches this at import time. The patch can be removed once the fix is merged upstream in pyegeria.
+
+### MetadataExpert vs MetadataExplorer
+
+The class for element graph queries is `MetadataExpert`. There is no `MetadataExplorer` class in pyegeria; using that name produces an `ImportError`.
+
+### mermaidGraph field location
+
+Egeria places the `mermaidGraph` string at the **response container level** (e.g., `element["mermaidGraph"]`), not inside `element["properties"]`. Per-element serialisers that look in `properties` will always find an empty string. The dedicated `/api/mermaid/{guid}` endpoint using `MetadataExpert.get_anchored_element_graph` is the correct way to retrieve per-element diagrams.
 
 ---
 
 ## Maintenance
 
-### When to update `AREA_ANCHORS`
+### Adding a new Explorer section
 
-Update `AREA_ANCHORS` in `type_system_handler.py` when:
-- A type appears in the wrong area in the explorer (check its supertype chain).
-- You deploy custom types that do not inherit from an existing area anchor.
-- Egeria introduces new root types in a future version.
+1. Create `<section>_handler.py` with a `router = APIRouter(tags=["<section>"])`.
+2. Add endpoints; follow the `_get_manager()` / `_props()` / `_header()` pattern from existing handlers.
+3. Register in `pyegeria_handler.py`: `from <section>_handler import router as <section>_router` then `app.include_router(<section>_router)`.
+4. Add the frontend component(s) to `type-explorer.html` and a tab button in the `App` component's tab bar.
+5. Update this document and README.md.
 
-The container picks up changes immediately because uvicorn runs with `--reload`.
+### Upgrading mermaid
 
-### pyegeria compatibility patch
-
-`type_system_handler.py` monkey-patches `ValidMetadataManager.get_all_classification_defs()` at import time. The upstream method uses a hardcoded `"typeDefList"` response key; the patch replaces it with the same `_extract_typedef_list()` helper used by the entity and relationship methods, making it resilient to API response format variations.
-
-Check the pyegeria changelog after any pyegeria upgrade. If the upstream method is fixed, the patch block (marked with a `# pyegeria bug:` comment near the top of the file) can be removed.
+If the CDN version is bumped, verify that Egeria's generated diagram syntax is still valid for the new version. The `%%{init: {"flowchart": {"htmlLabels": false}} }%%` directive and `@{ shape: … }` node syntax have been stable since mermaid v11.0.
 
 ### Debug logging
 
-On every `/api/types` call, the handler logs at INFO level:
+All handlers log at `ERROR`/`WARNING` level via `loguru`. On a failed API call:
 ```
-Entity def sample keys: ['class', 'guid', 'name', 'status', ..., 'descriptionWiki', ...]
-Entity def sample wiki: https://egeria-project.org/types/0/0020-Property-Facets/
+ERROR | mermaid_handler:43 - Failed to create MetadataExpert
 ```
+Check `docker logs quickstart-pyegeria-web` for the full traceback. The most common causes are bearer token expiry (re-create by restarting the connection) and network issues between the pyegeria-web and egeria-main containers.
 
-If `descriptionWiki` shows as `<missing>`, the Egeria endpoint for that version does not return wiki URLs and the wiki link feature will be inactive. If the keys list is empty or the call fails, check the pyegeria version and Egeria platform health.
+### graph_query_depth tuning
 
-### Freshstart config
-
-The Type System Explorer is currently deployed only in the `egeria-quickstart` compose config. The same `type_system_handler.py`, `type-explorer.html`, `pyegeria_handler.py` patch, and `fastapi-proxy.conf` addition need to be applied to `egeria-freshstart` to make it available there as well.
-
----
-
-## Security considerations
-
-- The `/api/types` endpoint accepts Egeria credentials as query parameters. In production these should come from env vars (the defaults) rather than being passed in URLs, which may appear in server logs.
-- The explorer is read-only; it calls only `GET` endpoints on the Egeria platform and makes no mutations.
-- The inlined React bundle is the production (minified) build. It contains no `eval` or dynamic code execution.
+If a new section requires relationship data, use `graph_query_depth=1` and add GUID deduplication. If a section only needs element properties, use `graph_query_depth=0` for maximum speed. Never pass depth values greater than 1 for list/search endpoints — the combinatorial explosion of graph traversal makes responses extremely slow.

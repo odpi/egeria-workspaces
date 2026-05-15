@@ -49,8 +49,19 @@ def _serialize_vv_def(element: dict) -> dict:
     type_info = header.get("type") or {}
     type_name = type_info.get("typeName", "") or ""
     super_types = type_info.get("superTypeNames") or []
-    # An element is a "set" if its most-specific type IS ValidValueSet or inherits from it
     is_set = type_name in _SET_TYPES or bool(_SET_TYPES.intersection(set(super_types)))
+
+    # Extract parent set memberships (present when graph_query_depth=1)
+    parent_sets = []
+    for rel in (element.get("memberOfValidValueSets") or []):
+        re  = rel.get("relatedElement") or {}
+        reh = re.get("elementHeader") or {}
+        rep = re.get("properties") or {}
+        g   = reh.get("guid", "")
+        n   = rep.get("displayName", "") or rep.get("name", "")
+        if g:
+            parent_sets.append({"guid": g, "displayName": n})
+
     return {
         "guid":           header.get("guid", ""),
         "typeName":       type_name,
@@ -67,6 +78,7 @@ def _serialize_vv_def(element: dict) -> dict:
         "status":         header.get("status", "") or "",
         "isDeprecated":   props.get("isDeprecated", False),
         "isCaseSensitive":props.get("isCaseSensitive", False),
+        "parentSets":     parent_sets,
     }
 
 
@@ -97,7 +109,7 @@ def get_valid_value_definitions(
             output_format="JSON",
             start_from=start_from,
             page_size=page_size,
-            graph_query_depth=0,
+            graph_query_depth=1,
         )
     except Exception as exc:
         logger.exception("find_valid_value_definitions failed")

@@ -205,6 +205,7 @@ def _normalize_raw(raw, label: str) -> list[dict]:
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @router.get("/egeria-explorer", include_in_schema=False)
+@router.get("/type-explorer", include_in_schema=False)
 async def egeria_explorer_ui():
     """Serve the Egeria Explorer single-page application."""
     html_path = _HERE / "type-explorer.html"
