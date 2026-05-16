@@ -264,165 +264,203 @@ Output: Available glossaries:
 - `user_id`: Your Egeria username
 - `user_pass`: Your Egeria password
 
-## Type System Explorer
+## Egeria Explorer
 
-The PyegeriaWebHandler includes a built-in **Type System Explorer** — an interactive browser for the Egeria open metadata type system. It queries the live Egeria instance via `ValidMetadataManager` and presents all entity types, relationship types, and classification types in a navigable web UI.
+The PyegeriaWebHandler includes a built-in **Egeria Explorer** — an interactive browser for the live Egeria metadata ecosystem. It presents six sections in a single-page application, all read-only, all backed by live Egeria API calls.
 
 ### Accessing the Explorer
 
 Once the stack is running, open a browser and navigate to:
 
 ```
+http://localhost:8085/egeria-explorer
+```
+
+The alias `/type-explorer` is also supported and serves the same application:
+
+```
 http://localhost:8085/type-explorer
 ```
 
-Apache proxies this request through to the `pyegeria-web` container, which serves the single-page application and its backing API.
+Apache proxies both URLs through to the `pyegeria-web` container, which serves the single-page application and its backing API.
 
-### Features
+### Sections
 
-The explorer has two top-level views, switchable via tabs in the header: **Type Explorer** and **Attribute Index**.
+The explorer has six tabs across the top, ordered left to right: **Type Explorer → Glossary → Reference Data → Digital Products → Report Specs → Valid Values**. Each tab is independent; data is loaded lazily when the tab is first opened. All sections are read-only.
 
-#### Type Explorer view
+#### Type System
 
-**Area selector** — A dropdown in the header filters the view to a specific Egeria type system area, or shows all areas together:
+Browses the Egeria open metadata type system fetched live from `ValidMetadataManager`.
 
-| Area | Name |
-|------|------|
-| 0 | Foundation (OpenMetadataRoot, Referenceable, security base types) |
-| 1 | Collaboration (people, teams, organisations) |
-| 2 | Assets & Infrastructure |
-| 3 | Glossary |
-| 4 | Governance |
-| 5 | Schemas |
-| 6 | Data Stores |
-| 7 | Lineage |
+Two sub-views:
 
-**Sidebar** — Shows three collapsible sections, each with a count in parentheses. All three start collapsed; click any section header to expand or collapse it:
-- **Entity Types** — a full inheritance tree from `OpenMetadataRoot` down, with model area badges. Expand or collapse any branch; click any node to select it. When an area filter is active, only the types in that area and their ancestor path are visible in the tree.
-- **Classifications** — flat alphabetical list of all classification types.
-- **Relationships** — flat alphabetical list of all relationship types.
-- A **search box** at the top switches all three sections into a flat filtered list simultaneously.
+**Type Explorer** — Left sidebar with three collapsible sections (Entity Types, Classifications, Relationships). A search box filters all three simultaneously. The right panel shows:
+- **Properties tab** — all own and inherited properties, with `own`/`req`/`deprecated` badges and a toggle to hide inherited properties.
+- **Relationships tab** — every relationship the type participates in, derived by walking the full supertype chain.
+- **Graph tab** — SVG inheritance diagram showing ancestors above and direct subtypes below. Nodes are clickable to navigate.
 
-**Properties tab** — For any selected entity type, shows a table of all properties including inherited ones. Each row indicates which supertype originally defined the property (`own` badge for properties defined directly on the selected type, `req` for required). A toggle shows or hides inherited properties.
+A dropdown in the header filters entity types to a specific area (0 = Foundation through 7 = Lineage). Relationship and classification types are always shown in full regardless of the area filter.
 
-**Relationships tab** — Lists every relationship that the selected type participates in, derived by walking the full supertype chain. Shows the direction, the other endpoint type (clickable), and any properties on the relationship itself.
+**Attribute Index** — Searchable cross-reference of every property name to every type that declares it. Useful for answering "which types have a `description` field?" Clicking a type name navigates to it in the Type Explorer.
 
-**Graph tab** — An SVG inheritance diagram showing the complete ancestor chain above the selected type and all direct subtypes below. Nodes are clickable to navigate. Pan by dragging; zoom with the scroll wheel or the −/+/1:1 toolbar buttons.
+#### Reference Data
 
-#### Attribute Index view
+Browses Egeria's valid value sets and values. Displays as an expandable tree: root-level `ValidValueSet` (and `ReferenceDataSet`) nodes expand to show their member values and any nested child sets.
 
-Shows every property name that appears anywhere in the type system — entities, relationships, and classifications — and for each property lists all the types that define it, grouped by kind. Use this view to answer questions such as "which types have a `description` property?" or to find naming inconsistencies across the type model.
+- Click a set to see its description, qualified name, and usage.
+- Click a value to see its preferred value, category, data type, scope, and deprecation status.
+- The filter box narrows visible tree nodes by display name.
+- Click the **▦ Load Context Diagram** button to fetch and render a Mermaid context diagram for any selected element.
 
-- **Sidebar** — searchable alphabetical list of all property names with a count of how many types use each.
-- **Detail panel** — three tables (Entities, Relationships, Classifications) showing every type that declares the selected property, its data type, and whether it is required. Clicking a type name navigates to it in the Type Explorer view.
+#### Digital Products
 
-#### Theme toggle
+Browses the digital product catalog hierarchy: Catalogs → Families → Products. Each level is a `Collection` subtype in Egeria.
 
-A **☀/☾** button in the top-right of the header switches between dark mode (default) and light mode. The preference is not persisted across page loads.
+- Select a catalog from the left panel to load its full tree.
+- The tree uses expand/collapse twisties. Containers are sorted above leaf products.
+- The detail panel shows all `DigitalProductProperties` fields (maturity, version, dates, deployment status).
+- Glossary-linked products show a **View in Glossary →** button that navigates to the Glossary tab for that element.
+- Click **▦ Load Context Diagram** on any element to render its Mermaid context diagram.
 
-### REST API
+#### Glossary
 
-The explorer is backed by a REST endpoint that can also be called directly:
+Browses glossaries, folders, and terms.
 
-#### `GET /api/types`
+- Top panel: list of all glossaries.
+- When a glossary is selected: its folders and a cross-glossary term search appear.
+- Selecting a folder loads its terms in the right panel.
+- Term detail shows all term properties (display name, summary, description, examples, usage, abbreviation, content status, activity status) plus folder memberships.
+- **Template substitutes** — terms carrying the `TemplateSubstitute` classification are template placeholder entries, not real user-facing terms. They are hidden by default. A checkbox in the middle pane header ("Show template substitutes") reveals them; hidden ones are counted in a "N templates hidden" note. Template substitutes appear in the list with an amber `template` badge; when opened in the detail panel they are labelled **Template Substitute**. Terms copied from a template (but not themselves substitutes) show a lighter **From Template** badge.
+- Click **▦ Load Context Diagram** on any term to render its diagram.
 
-Returns all entity, relationship, and classification type definitions from the live Egeria instance.
+#### Report Specs
 
-**Query parameters:**
+Browse pyegeria's client-side report format specifications. These are not stored in Egeria — they are Python objects in the pyegeria package describing how API responses can be formatted. No Egeria connection is needed to view this tab.
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `area` | integer | Optional. Filter entity types to a single area (0–7). Relationships and classifications are always returned in full. |
-| `url` | string | Egeria platform URL. Defaults to `EGERIA_PLATFORM_URL` env var. |
-| `server` | string | Egeria view server name. Defaults to `EGERIA_VIEW_SERVER` env var. |
-| `user_id` | string | Egeria user id. Defaults to `EGERIA_USER` env var. |
-| `user_pwd` | string | Egeria user password. Defaults to `EGERIA_USER_PASSWORD` env var. |
+- Left panel: searchable list of all specs with perspective filter.
+- Right panel: name, description, family, perspectives, output formats, and the full question spec.
 
-**Example — all types:**
+#### Valid Values
+
+Look up the registered valid values for a specific Egeria property name. Uses Egeria's controlled vocabulary registry (`get_valid_metadata_values`), which is separate from the Reference Data sets.
+
+- Left panel: a text input for any property name, plus quick-access buttons for standard Egeria property names (`contentStatus`, `activityStatus`, `governanceStatus`, etc.).
+- Right panel: the ordered list of allowed values for the selected property, with display names, preferred values, and descriptions.
+
+---
+
+### Context diagrams (all sections)
+
+Every detail panel in every section includes a **▦ Load Context Diagram** button. Clicking it calls `GET /api/mermaid/{guid}`, which uses `MetadataExpert.get_anchored_element_graph()` to fetch the element's Mermaid context graph from Egeria. The diagram is rendered client-side by the Mermaid JS library (v11+). If the diagram is unavailable for an element, a "No context diagram available" message is shown.
+
+Once a diagram is loaded it can be toggled: a **Hide** button collapses it back to a compact "▦ Show Context Diagram" button without re-fetching. Clicking that button expands it again instantly (the diagram code is cached in component state).
+
+Diagrams are loaded on demand, not pre-fetched, to avoid slowing down list and detail views.
+
+---
+
+### REST API reference
+
+All endpoints are accessible directly in addition to being used by the SPA. Connection parameters default to environment variables (`EGERIA_PLATFORM_URL`, `EGERIA_VIEW_SERVER`, `EGERIA_USER`, `EGERIA_USER_PASSWORD`).
+
+#### Type System
+
+**`GET /api/types`** — All entity, relationship, and classification type definitions.
+
+Query params: `area` (int, 0–7), `url`, `server`, `user_id`, `user_pwd`.
+
 ```
 GET http://localhost:8085/api/types
-```
-
-**Example — governance types only:**
-```
 GET http://localhost:8085/api/types?area=4
 ```
 
-**Response structure:**
-```json
-{
-  "areaNames": { "0": "Foundation", "4": "Governance", ... },
-  "entities": {
-    "GovernanceDefinition": {
-      "guid": "...",
-      "area": 4,
-      "abstract": true,
-      "supertype": "Referenceable",
-      "desc": "An aspect of the governance program.",
-      "props": [
-        { "name": "documentIdentifier", "type": "string", "desc": "...", "req": false }
-      ]
-    }
-  },
-  "classifications": {
-    "Confidentiality": {
-      "guid": "...",
-      "desc": "Confidentiality level of data.",
-      "validFor": ["Referenceable"],
-      "props": [ ... ]
-    }
-  },
-  "relationships": {
-    "GovernanceDefinitionScope": {
-      "guid": "...",
-      "desc": "Links a governance definition to its scope.",
-      "end1": "GovernanceDefinition",
-      "end2": "Referenceable",
-      "role1": "governanceDefinition",
-      "role2": "scope",
-      "props": []
-    }
-  }
-}
-```
+Response: `{ areaNames, entities, classifications, relationships }`. Each entity includes `guid`, `area`, `abstract`, `supertype`, `desc`, `wiki`, `deprecated`, `props` (own properties only).
 
-The `props` list on each entity type contains only the **own properties** for that type. The UI computes the full inherited property list client-side by walking the `supertype` chain. Calling `/api/types` directly gives you the same raw data.
+#### Reference Data
+
+**`GET /api/reference-data`** — All valid value definitions with parent set relationships.
+
+Query params: `q` (search string), `start_from`, `page_size` (default 200, max 1000).
+
+Response: `{ definitions, sets, values, total }`. Each definition includes `guid`, `typeName`, `isSet`, `displayName`, `qualifiedName`, `description`, `preferredValue`, `category`, `dataType`, `usage`, `scope`, `isDeprecated`, `isCaseSensitive`, `parentSets`.
+
+**`GET /api/reference-data/{vv_guid}`** — Single valid value definition by GUID.
+
+**`GET /api/reference-data/metadata-values`** — Valid values for a specific property name.
+
+Query params: `property_name` (required), `type_name` (optional).
+
+#### Glossary
+
+**`GET /api/glossary`** — All glossaries.
+
+**`GET /api/glossary/{guid}/folders`** — CollectionFolder children of a glossary.
+
+**`GET /api/glossary/{guid}/terms`** — Terms whose `memberOfCollections` includes this GUID. Requires `graph_query_depth=1` internally; results are deduplicated by GUID before return.
+
+**`GET /api/glossary-terms`** — Cross-glossary term search.
+
+Query param: `q` (search string, default `*`).
+
+**`GET /api/glossary/term/{guid}`** — Single term by GUID.
+
+#### Digital Products
+
+**`GET /api/digital-products/catalogs`** — All `DigitalProductCatalog` collections.
+
+**`GET /api/digital-products/catalogs/{guid}/tree`** — Full recursive hierarchy for a catalog. Response: `{ catalog, children }` where each node has `guid`, `typeName`, `displayName`, `isContainer`, `children`.
+
+**`GET /api/digital-products/{guid}`** — Single product/collection node.
+
+#### Context Diagrams
+
+**`GET /api/mermaid/{guid}`** — Mermaid diagram code for any element.
+
+Response: `{ guid, mermaidGraph }`. `mermaidGraph` is an empty string if no diagram is available.
+
+#### Valid Values
+
+**`GET /api/valid-values/lookup`** — Valid values for a property name.
+
+Query params: `property_name` (required), `type_name` (optional).
+
+---
 
 ### Implementation
 
+For internal architecture, data-fetching strategy, `graph_query_depth` behaviour, and maintenance procedures, see [type-explorer-architecture.md](type-explorer-architecture.md).
+
+For the extension history and remaining open work, see [Extending the TypeExplorer.md](Extending%20the%20TypeExplorer.md).
+
 | File | Purpose |
 |------|---------|
-| `type_system_handler.py` | FastAPI `APIRouter` with the `/api/types` and `/type-explorer` routes. Calls `ValidMetadataManager.get_all_entity_defs()`, `get_all_relationship_defs()`, and `get_all_classification_defs()`. Derives area numbers by walking the supertype chain against `AREA_ANCHORS` — types that bypass the usual area-specific roots (e.g. `InformationSupplyChain`, `SolutionComponent`) are listed explicitly. Includes an import-time patch for a pyegeria bug in classification loading. |
-| `type-explorer.html` | Self-contained single-page application (React via CDN, no build step). Fetches from `/api/types` on load. Place this file directly in `PyegeriaWebHandler/` alongside `type_system_handler.py`. |
-| `sites-available/fastapi-proxy.conf` | Apache proxy rules routing `/type-explorer` and `/api/types` to `pyegeria-web:8000`. |
-| `pyegeria_handler.py` | Two lines added before the MCP mount: imports the router and calls `app.include_router()`. |
+| `type_system_handler.py` | `/api/types` and `/egeria-explorer`; serves the SPA HTML; derives area numbers from supertype chain |
+| `reference_data_handler.py` | `/api/reference-data`; fetches with `graph_query_depth=1` to get `parentSets` for tree construction |
+| `glossary_handler.py` | `/api/glossary*`; uses `graph_query_depth=1` for terms; GUID-deduplicates before returning |
+| `digital_products_handler.py` | `/api/digital-products`; recursive tree via `get_collection_members` with `graph_query_depth=0` |
+| `mermaid_handler.py` | `/api/mermaid/{guid}`; uses `MetadataExpert.get_anchored_element_graph` |
+| `valid_values_handler.py` | `/api/valid-values/lookup`; uses `ReferenceDataManager.get_valid_metadata_values` |
+| `report_specs_handler.py` | `/api/report-specs`; reads local pyegeria report spec objects; no Egeria connection |
+| `pyegeria_handler.py` | FastAPI app entry point; mounts all routers |
+| `type-explorer.html` | Self-contained SPA (React 18 + Mermaid 11 via CDN, application JS inlined) |
 
-**Area derivation** — The Egeria REST API does not include an area field in its TypeDef responses; area is a documentation concept. The handler derives it by walking up the supertype chain until it reaches a known anchor type. The mapping is defined in the `AREA_ANCHORS` dict in `type_system_handler.py`.
-
-Not all types inherit from an area-specific root. Several Egeria types (notably `InformationSupplyChain`, `SolutionComponent`, `SolutionBlueprint`, `SolutionPort`, and `Port`) inherit directly from `Referenceable`, which would otherwise resolve to area 0 (Foundation). These are listed explicitly in `AREA_ANCHORS`:
-
-```python
-# Area 7 — Lineage (explicit entries for types that bypass Process in their supertype chain)
-"Process": 7, "Port": 7, "LineageMapping": 7,
-"InformationSupplyChain": 7, "InformationSupplyChainSegment": 7,
-"SolutionBlueprint": 7, "SolutionComponent": 7, "SolutionPort": 7,
-```
-
-`Referenceable` itself is explicitly mapped to area 0 so it appears correctly in the Foundation area rather than being derived through the chain.
-
-Add further entries to `AREA_ANCHORS` if you add custom types or discover that a standard type is assigned to the wrong area.
-
-**Pyegeria compatibility note** — `ValidMetadataManager.get_all_classification_defs()` in current pyegeria versions uses a hardcoded `"typeDefList"` response key instead of the more robust `_extract_typedef_list()` helper used by the entity and relationship equivalents. `type_system_handler.py` monkey-patches this at import time to use the same helper, making classification loading resilient to future API response changes. The patch can be removed once the fix is merged upstream in pyegeria.
+---
 
 ### Troubleshooting
 
-**`Service Unavailable` on `/type-explorer`** — The `pyegeria-web` container is not running. Check `docker logs quickstart-pyegeria-web` for startup errors.
+**Explorer shows "Loading Egeria Explorer…" forever** — A JavaScript syntax error in `type-explorer.html` prevented React from mounting. Open the browser developer console; a `SyntaxError` will be visible. This typically means a stray straight-quote character (`"`) inside a string literal — use Unicode curly quotes (`"…"`) instead, or escape with `\`.
 
-**Types don't appear / partial results** — The Egeria platform may not be fully started yet. The `/api/types` endpoint will return a 502 with a descriptive message if the platform is unreachable. Wait for `egeria-main` to report healthy, then reload the explorer.
+**`Service Unavailable` on `/egeria-explorer`** — The `pyegeria-web` container is not running. Check `docker logs quickstart-pyegeria-web` for startup errors.
 
-**Area derivation is wrong for a type** — Add the type (or one of its supertypes) to `AREA_ANCHORS` in `type_system_handler.py` with the correct area number. The container picks up the change immediately (uvicorn runs with `--reload`).
+**Types don't appear / partial results** — The Egeria platform may not be fully started. The `/api/types` endpoint returns a 502 if Egeria is unreachable; the SPA shows a retry button. Wait for `egeria-main` to report healthy.
 
-**Entity tree is empty when area filter is applied** — The tree always roots at `OpenMetadataRoot`. When an area filter is active the full entity graph is still used for navigation; `visibleInTree` (computed in the UI) controls which nodes are rendered so that only the ancestors of matching types are shown. If no types match the selected area, the tree will show nothing — this is correct behaviour.
+**Mermaid diagrams show raw code instead of a rendered diagram** — Mermaid JS failed to load from CDN (network/proxy issue), or the CDN version is wrong. Egeria generates mermaid v11+ syntax; loading `mermaid@10` causes silent render failures. Check the `<script>` tag in `type-explorer.html` references `mermaid@11`. If the CDN is unreachable in your environment, a local copy of `mermaid.min.js` must be served instead.
+
+**Reference Data tree shows no items** — `find_valid_value_definitions` returned no results, or all items had no `parentSets` and the root-set filter excluded them. Check that the Egeria instance has valid value definitions loaded. Items with no `parentSets` that are not themselves sets will not appear in the tree; they can still be retrieved individually via `/api/reference-data/{guid}`.
+
+**Glossary terms show duplicates** — The deduplication pass uses `_header(t).get("guid", "")`. If a term has an empty GUID in the response, it could slip through. Check the Egeria instance for corrupt or incomplete elements.
+
+**Area derivation is wrong for a type** — Add the type (or one of its supertypes) to `AREA_ANCHORS` in `type_system_handler.py` with the correct area number. The container picks up the change immediately (uvicorn `--reload`).
 
 ### MCP Server Issues
 - **MCP server won't start**: Ensure the `mcp` package (>= 1.15.0) is installed: `pip install 'mcp>=1.15.0'`

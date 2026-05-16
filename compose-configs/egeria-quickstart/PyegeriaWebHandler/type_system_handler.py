@@ -5,7 +5,7 @@ Copyright Contributors to the ODPi Egeria project.
 Type System Explorer — FastAPI router.
 
 Provides two endpoints:
-  GET /type-explorer        → serves the single-page HTML explorer
+  GET /egeria-explorer      → serves the single-page HTML explorer
   GET /api/types            → returns all type definitions as JSON
                               (optional ?area=N filter for entities)
 
@@ -168,11 +168,12 @@ def _extract_props(td: dict) -> list[dict]:
         return []
     return [
         {
-            "name":   p.get("attributeName", ""),
-            "type":   _attr_type_str(p.get("attributeType") if isinstance(p.get("attributeType"), dict) else {}),
-            "desc":   p.get("attributeDescription", ""),
-            "req":    p.get("attributeCardinality") == "AT_LEAST_ONE",
-            "unique": p.get("unique", False),
+            "name":       p.get("attributeName", ""),
+            "type":       _attr_type_str(p.get("attributeType") if isinstance(p.get("attributeType"), dict) else {}),
+            "desc":       p.get("attributeDescription", ""),
+            "req":        p.get("attributeCardinality") == "AT_LEAST_ONE",
+            "unique":     p.get("unique", False),
+            "deprecated": str(p.get("attributeStatus", "")).upper() in ("DEPRECATED_ATTRIBUTE", "DEPRECATED"),
         }
         for p in raw if isinstance(p, dict) and p.get("attributeName")
     ]
@@ -203,12 +204,13 @@ def _normalize_raw(raw, label: str) -> list[dict]:
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
+@router.get("/egeria-explorer", include_in_schema=False)
 @router.get("/type-explorer", include_in_schema=False)
-async def type_explorer_ui():
-    """Serve the Type Explorer single-page application."""
+async def egeria_explorer_ui():
+    """Serve the Egeria Explorer single-page application."""
     html_path = _HERE / "type-explorer.html"
     if not html_path.exists():
-        raise HTTPException(status_code=404, detail=f"Type Explorer UI not found at {html_path}")
+        raise HTTPException(status_code=404, detail=f"Egeria Explorer UI not found at {html_path}")
     return FileResponse(path=str(html_path), media_type="text/html")
 
 
@@ -244,6 +246,10 @@ def get_all_types(
         logger.debug("Fetching entity definitions...")
         entity_raw = _normalize_raw(c.get_all_entity_defs(), "Entity definitions")
         logger.debug(f"Fetched {len(entity_raw)} entity definitions")
+        if entity_raw:
+            sample = entity_raw[0]
+            logger.info(f"Entity def sample keys: {list(sample.keys())}")
+            logger.info(f"Entity def sample wiki: {sample.get('descriptionWiki', '<missing>')}")
         
         logger.debug("Fetching relationship definitions...")
         relationship_raw = _normalize_raw(c.get_all_relationship_defs(), "Relationship definitions")
@@ -277,12 +283,14 @@ def get_all_types(
         if area is not None and derived != area:
             continue
         entities[name] = {
-            "guid":     td.get("guid"),
-            "area":     derived,
-            "abstract": td.get("isAbstract", False),
-            "supertype": sup_map.get(name),
-            "desc":     td.get("description", ""),
-            "props":    _extract_props(td),
+            "guid":       td.get("guid"),
+            "area":       derived,
+            "abstract":   td.get("isAbstract", False),
+            "supertype":  sup_map.get(name),
+            "desc":       td.get("description", ""),
+            "wiki":       td.get("descriptionWiki", ""),
+            "deprecated": str(td.get("status", "")).upper() in ("DEPRECATED_TYPEDEF", "DEPRECATED"),
+            "props":      _extract_props(td),
         }
 
     # ── Relationships ─────────────────────────────────────────────────────────
@@ -300,13 +308,15 @@ def get_all_types(
         et1 = et1 if isinstance(et1, dict) else {}
         et2 = et2 if isinstance(et2, dict) else {}
         relationships[name] = {
-            "guid": td.get("guid"),
-            "desc": td.get("description", ""),
-            "end1": et1.get("name") if isinstance(et1, dict) else et1,
-            "end2": et2.get("name") if isinstance(et2, dict) else et2,
-            "role1": e1.get("attributeName"),
-            "role2": e2.get("attributeName"),
-            "props": _extract_props(td),
+            "guid":       td.get("guid"),
+            "desc":       td.get("description", ""),
+            "wiki":       td.get("descriptionWiki", ""),
+            "deprecated": str(td.get("status", "")).upper() in ("DEPRECATED_TYPEDEF", "DEPRECATED"),
+            "end1":       et1.get("name") if isinstance(et1, dict) else et1,
+            "end2":       et2.get("name") if isinstance(et2, dict) else et2,
+            "role1":      e1.get("attributeName"),
+            "role2":      e2.get("attributeName"),
+            "props":      _extract_props(td),
         }
 
     # ── Classifications ───────────────────────────────────────────────────────
@@ -319,12 +329,14 @@ def get_all_types(
         if not isinstance(valid_for, list):
             valid_for = []
         classifications[name] = {
-            "guid":     td.get("guid"),
-            "desc":     td.get("description", ""),
-            "validFor": [
+            "guid":       td.get("guid"),
+            "desc":       td.get("description", ""),
+            "wiki":       td.get("descriptionWiki", ""),
+            "deprecated": str(td.get("status", "")).upper() in ("DEPRECATED_TYPEDEF", "DEPRECATED"),
+            "validFor":   [
                 (v.get("name") if isinstance(v, dict) else v) for v in valid_for if v
             ],
-            "props": _extract_props(td),
+            "props":      _extract_props(td),
         }
 
     return JSONResponse({

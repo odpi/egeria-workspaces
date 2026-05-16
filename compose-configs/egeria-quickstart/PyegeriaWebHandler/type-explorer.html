@@ -3,8 +3,8 @@
   SPDX-License-Identifier: Apache-2.0
   Copyright Contributors to the ODPi Egeria project.
 
-  Egeria Type System Explorer — fully self-contained, no CDN required.
-  Served by PyegeriaWebHandler at /type-explorer
+  Egeria Explorer — fully self-contained, no CDN required.
+  Served by PyegeriaWebHandler at /egeria-explorer
   Data fetched live from /api/types (ValidMetadataManager)
 
   Bundled: React 18 + ReactDOM 18 (production builds)
@@ -14,7 +14,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Egeria — Type Explorer</title>
+  <title>Egeria Explorer</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -45,7 +45,7 @@
     #root { display: flex; flex-direction: column; height: 100vh; }
     .header { background: var(--panel); border-bottom: 1px solid var(--border);
               padding: 10px 20px; display: flex; align-items: center; gap: 14px;
-              flex-shrink: 0; }
+              flex-shrink: 0; overflow-x: auto; }
     .body   { display: flex; flex: 1; overflow: hidden; }
     .sidebar { width: 254px; flex-shrink: 0; border-right: 1px solid var(--border);
                background: rgba(11,17,28,.85); display: flex; flex-direction: column; overflow: hidden; }
@@ -59,21 +59,21 @@
                     font-family: ui-monospace, monospace; font-size: 12px; }
     .stats { padding: 5px 10px; border-bottom: 1px solid rgba(26,45,72,.5);
              display: flex; gap: 14px; font-size: 10px; color: var(--dim); }
-    .tree-scroll { flex: 1; overflow-y: auto; padding: 4px 0; }
+    .tree-scroll { flex: 1; overflow-y: auto; overflow-x: auto; padding: 4px 0; }
     .tree-item { display: flex; align-items: center; gap: 4px; padding: 3px 8px;
-                 cursor: pointer; border-radius: 3px; border-left: 2px solid transparent; }
+                 cursor: pointer; border-radius: 3px; border-left: 2px solid transparent;
+                 min-width: max-content; }
     .tree-item:hover { background: var(--hover); }
     .tree-item.sel  { background: rgba(96,165,250,.1); border-left-color: var(--accent); }
     .section-hdr { padding: 5px 10px; font-size: 10px; color: var(--muted);
                    letter-spacing: 1px; cursor: pointer; display: flex; gap: 5px; }
     .section-hdr:hover { background: var(--hover); }
-    .type-name { font-family: ui-monospace,monospace; font-size: 12px; flex: 1;
-                 overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .type-name { font-family: ui-monospace,monospace; font-size: 12px; flex-shrink: 0; white-space: nowrap; }
     .badge { border-radius: 4px; padding: 1px 5px; font-size: 10px;
              font-family: ui-monospace,monospace; font-weight: 500; flex-shrink: 0; white-space: nowrap; }
 
     /* main panel */
-    .detail { padding: 20px 24px; max-width: 920px; }
+    .detail { padding: 20px 24px; }
     .detail-name { font-family: ui-monospace,monospace; font-size: 22px; font-weight: 700; }
     .detail-desc { color: var(--muted); font-size: 13px; line-height: 1.5; margin-top: 6px; }
     .chain { display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
@@ -91,6 +91,8 @@
     td { padding: 7px 10px; border-bottom: 1px solid rgba(26,45,72,.4);
          font-size: 12px; color: var(--text); vertical-align: top; }
     tr.own-row td { background: rgba(96,165,250,.05); }
+    tr.depr-row td { opacity: 0.6; }
+    .depr { text-decoration: line-through; opacity: 0.7; }
     .mono { font-family: ui-monospace,monospace; }
     .rel-card { background: rgba(11,17,28,.6); border: 1px solid var(--border);
                 border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
@@ -138,6 +140,10 @@
       transition: background-color .2s, color .2s, border-color .2s;
     }
 
+    /* ── Mermaid diagrams ────────────────────────────────────────── */
+    .mermaid-wrap { overflow-x: auto; margin: 8px 0; background: #fff; border-radius: 4px; padding: 4px; }
+    .mermaid-wrap svg { max-width: 100%; }
+
     /* ── View tabs & theme button ────────────────────────────────── */
     .view-tab { background: none; border: none; border-bottom: 2px solid transparent;
                 padding: 4px 12px; cursor: pointer; font-size: 13px; color: var(--muted);
@@ -148,12 +154,14 @@
                  font-family: inherit; }
     .theme-btn:hover { background: var(--hover); color: var(--text); }
   </style>
+  <!-- Mermaid diagram rendering (loaded synchronously so it's available when app script runs) -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 </head>
 <body>
   <div id="root">
     <div class="center">
       <div class="spinner"></div>
-      <span>Loading Type Explorer…</span>
+      <span>Loading Egeria Explorer…</span>
     </div>
   </div>
 
@@ -467,6 +475,171 @@ const {
   useRef
 } = React;
 
+// ── Markdown renderer ─────────────────────────────────────────────────────────
+function MermaidDiagram({ code }) {
+  const ref = React.useRef(null);
+  const [errMsg, setErrMsg] = React.useState('');
+
+  React.useEffect(function() {
+    if (!code) return;
+    setErrMsg('');
+    if (ref.current) ref.current.innerHTML = '';
+
+    function doRender() {
+      try { window.mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' }); } catch(_) {}
+      var id = 'mmd' + Math.random().toString(36).slice(2);
+      window.mermaid.render(id, code)
+        .then(function(result) {
+          if (ref.current) ref.current.innerHTML = result.svg || '';
+        })
+        .catch(function(err) {
+          console.warn('Mermaid render failed:', err);
+          setErrMsg(String(err));
+        });
+    }
+
+    if (window.mermaid && window.mermaid.render) {
+      doRender();
+    } else {
+      var attempts = 0;
+      var timer = setInterval(function() {
+        if (window.mermaid && window.mermaid.render) {
+          clearInterval(timer); doRender();
+        } else if (++attempts > 40) {
+          clearInterval(timer);
+          setErrMsg('Mermaid library not loaded — CDN may be unreachable');
+        }
+      }, 150);
+      return function() { clearInterval(timer); };
+    }
+  }, [code]);
+
+  return errMsg
+    ? React.createElement('div', null,
+        React.createElement('div', { style: { fontSize: 11, color: '#f87171', padding: '4px 0 6px' } }, '⚠ ' + errMsg),
+        React.createElement('pre', { style: { fontSize: 11, color: 'var(--muted)', background: 'rgba(255,255,255,.04)', padding: '8px 12px', borderRadius: 4, overflowX: 'auto', whiteSpace: 'pre-wrap', margin: 0, border: '1px solid var(--border)' } }, code)
+      )
+    : React.createElement('div', { ref: ref, className: 'mermaid-wrap' });
+}
+
+// Fetches mermaid graph for a specific element GUID from the backend
+function MermaidSection({ guid }) {
+  const [code, setCode] = React.useState(null);    // null = loading, '' = none, string = code
+  const [open, setOpen] = React.useState(false);
+  const [visible, setVisible] = React.useState(true);
+
+  React.useEffect(function() {
+    if (!guid || !open) return;
+    setCode(null);
+    fetch('/api/mermaid/' + encodeURIComponent(guid))
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(data) { setCode(data && data.mermaidGraph ? data.mermaidGraph : ''); })
+      .catch(function() { setCode(''); });
+  }, [guid, open]);
+
+  var btnStyle = { fontSize: 12, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' };
+
+  if (!guid) return null;
+  if (!open) {
+    return React.createElement('div', { style: { margin: '8px 0' } },
+      React.createElement('button', { onClick: function() { setOpen(true); setVisible(true); }, style: btnStyle }, '▦ Load Context Diagram')
+    );
+  }
+  if (code === null) return React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '8px 0' } }, 'Loading diagram…');
+  if (!code) return React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '8px 0' } }, 'No context diagram available for this element.');
+  if (!visible) {
+    return React.createElement('div', { style: { margin: '8px 0' } },
+      React.createElement('button', { onClick: function() { setVisible(true); }, style: btnStyle }, '▦ Show Context Diagram')
+    );
+  }
+  return React.createElement('div', null,
+    React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 } },
+      React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)', fontWeight: 600 } }, 'Context Diagram'),
+      React.createElement('button', {
+        onClick: function() { setVisible(false); },
+        style: { fontSize: 11, padding: '1px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--dim)', cursor: 'pointer' }
+      }, 'Hide')
+    ),
+    React.createElement(MermaidDiagram, { code: code })
+  );
+}
+
+function _renderMdHtml(rawText) {
+  if (!rawText || !rawText.trim()) return '';
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const inlineMarkup = s => s
+    .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*\n]+?)\*/g, '<em>$1</em>')
+    .replace(/`([^`\n]+)`/g, '<code style="background:rgba(255,255,255,.08);padding:1px 4px;border-radius:3px;font-size:.9em">$1</code>');
+
+  const lines = rawText.split('\n');
+  const parts = [];
+  let i = 0;
+  while (i < lines.length) {
+    // Detect markdown table: current line has pipes, next is separator row
+    if (i + 1 < lines.length && /^\|.+\|/.test(lines[i]) && /^\|[\s\-:|]+\|/.test(lines[i + 1])) {
+      const tlines = [];
+      while (i < lines.length && /^\|/.test(lines[i].trim())) { tlines.push(lines[i]); i++; }
+      const headers = tlines[0].split('|').slice(1, -1).map(h => h.trim());
+      const seps    = tlines[1].split('|').slice(1, -1).map(s => s.trim());
+      const aligns  = seps.map(s => s.startsWith(':') && s.endsWith(':') ? 'center' : s.endsWith(':') ? 'right' : 'left');
+      const rows    = tlines.slice(2).map(r => r.split('|').slice(1, -1).map(c => c.trim()));
+      let t = '<div style="overflow-x:auto;margin:8px 0"><table style="border-collapse:collapse;font-size:12px"><thead><tr>';
+      headers.forEach(function(h, j) { t += '<th style="text-align:' + (aligns[j]||'left') + ';padding:5px 8px;border:1px solid var(--border);color:var(--muted);white-space:nowrap">' + inlineMarkup(esc(h)) + '</th>'; });
+      t += '</tr></thead><tbody>';
+      rows.forEach(function(row) {
+        t += '<tr>';
+        headers.forEach(function(_, j) { t += '<td style="text-align:' + (aligns[j]||'left') + ';padding:5px 8px;border:1px solid var(--border)">' + inlineMarkup(esc(row[j] || '')) + '</td>'; });
+        t += '</tr>';
+      });
+      t += '</tbody></table></div>';
+      parts.push(t);
+    } else {
+      // Accumulate non-table lines until a table starts
+      const nonTable = [];
+      while (i < lines.length && !(i + 1 < lines.length && /^\|.+\|/.test(lines[i]) && /^\|[\s\-:|]+\|/.test(lines[i + 1]))) {
+        nonTable.push(lines[i]); i++;
+      }
+      if (nonTable.length > 0) {
+        parts.push(inlineMarkup(esc(nonTable.join('\n')))
+          .replace(/^### (.+)$/gm, '<b style="font-size:12px;display:block;margin:8px 0 2px;color:var(--accent)">$1</b>')
+          .replace(/^## (.+)$/gm,  '<b style="font-size:13px;display:block;margin:10px 0 2px;color:var(--accent)">$1</b>')
+          .replace(/^# (.+)$/gm,   '<b style="font-size:14px;display:block;margin:12px 0 4px;color:var(--accent)">$1</b>')
+          .replace(/^[-*] (.+)$/gm, '<span style="display:block;padding-left:12px">• $1</span>')
+          .replace(/^(\d+)\. (.+)$/gm, '<span style="display:block;padding-left:12px">$1. $2</span>')
+          .replace(/\n\n/g, '<br><br>')
+          .replace(/\n/g, '<br>'));
+      }
+    }
+  }
+  return parts.join('');
+}
+
+function renderMd(text) {
+  if (!text || !text.trim()) return null;
+  // Split on fenced mermaid code blocks
+  const segs = [];
+  const re = /```mermaid\n([\s\S]*?)```/g;
+  let last = 0, m;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) segs.push({ type: 'md', src: text.slice(last, m.index) });
+    segs.push({ type: 'mermaid', code: m[1].trim() });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) segs.push({ type: 'md', src: text.slice(last) });
+  if (segs.length === 0) return null;
+  const els = segs.map(function(seg, i) {
+    if (seg.type === 'mermaid') return React.createElement(MermaidDiagram, { key: i, code: seg.code });
+    const html = _renderMdHtml(seg.src);
+    if (!html) return null;
+    return React.createElement('div', { key: i, dangerouslySetInnerHTML: { __html: html }, style: { lineHeight: 1.6, wordBreak: 'break-word' } });
+  }).filter(Boolean);
+  if (els.length === 0) return null;
+  if (els.length === 1) return els[0];
+  return React.createElement('div', null, ...els);
+}
+
 // ── Badge ─────────────────────────────────────────────────────────────────────
 
 const BADGE_STYLE = {
@@ -719,6 +892,21 @@ function GraphView({
   );
 }
 
+// ── Shared helpers ────────────────────────────────────────────────────────────
+
+function WikiLink({ href }) {
+  if (!href) return /*#__PURE__*/React.createElement("span", { style: { color: 'var(--dim)' } }, "—");
+  return /*#__PURE__*/React.createElement("a", {
+    href: href, target: "_blank", rel: "noopener noreferrer",
+    title: href,
+    style: { color: 'var(--accent)', fontSize: 11, textDecoration: 'none', whiteSpace: 'nowrap' }
+  }, "wiki↗");
+}
+
+function DeprBadge() {
+  return /*#__PURE__*/React.createElement(Badge, { kind: "abstract" }, "deprecated");
+}
+
 // ── Type Detail ───────────────────────────────────────────────────────────────
 
 function TypeDetail({
@@ -759,7 +947,7 @@ function TypeDetail({
     }
   }, name), t.abstract && /*#__PURE__*/React.createElement(Badge, {
     kind: "abstract"
-  }, "abstract"), t.area !== undefined && /*#__PURE__*/React.createElement(Badge, {
+  }, "abstract"), t.deprecated && /*#__PURE__*/React.createElement(DeprBadge, null), t.area !== undefined && /*#__PURE__*/React.createElement(Badge, {
     kind: "model"
   }, "Area ", t.area), t.guid && /*#__PURE__*/React.createElement("span", {
     style: {
@@ -768,7 +956,7 @@ function TypeDetail({
       fontFamily: 'ui-monospace,monospace'
     },
     title: t.guid
-  }, t.guid.slice(0, 8), "\u2026")), /*#__PURE__*/React.createElement("p", {
+  }, t.guid.slice(0, 8), "\u2026"), t.wiki && /*#__PURE__*/React.createElement(WikiLink, { href: t.wiki })), /*#__PURE__*/React.createElement("p", {
     className: "detail-desc"
   }, t.desc || '—')), /*#__PURE__*/React.createElement("div", {
     className: "chain"
@@ -867,9 +1055,9 @@ function TypeDetail({
     const isOwn = p.source === name;
     return /*#__PURE__*/React.createElement("tr", {
       key: i,
-      className: isOwn ? 'own-row' : ''
+      className: [isOwn ? 'own-row' : '', p.deprecated ? 'depr-row' : ''].filter(Boolean).join(' ')
     }, /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
-      className: "mono",
+      className: p.deprecated ? "mono depr" : "mono",
       style: {
         color: isOwn ? '#93c5fd' : 'var(--text)'
       }
@@ -877,7 +1065,7 @@ function TypeDetail({
       kind: "req"
     }, "req")), isOwn && /*#__PURE__*/React.createElement("span", null, " ", /*#__PURE__*/React.createElement(Badge, {
       kind: "own"
-    }, "own"))), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
+    }, "own")), p.deprecated && /*#__PURE__*/React.createElement("span", null, " ", /*#__PURE__*/React.createElement(DeprBadge, null))), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
       className: "mono",
       style: {
         color: '#7a9ab8'
@@ -1004,7 +1192,7 @@ function ClassifDetail({
     }
   }, name), /*#__PURE__*/React.createElement(Badge, {
     kind: "classif"
-  }, "classification")), /*#__PURE__*/React.createElement("p", {
+  }, "classification"), c.deprecated && /*#__PURE__*/React.createElement(DeprBadge, null), c.wiki && /*#__PURE__*/React.createElement(WikiLink, { href: c.wiki })), /*#__PURE__*/React.createElement("p", {
     className: "detail-desc"
   }, c.desc || '—'), /*#__PURE__*/React.createElement("p", {
     style: {
@@ -1071,7 +1259,7 @@ function RelDetail({
     }
   }, name), /*#__PURE__*/React.createElement(Badge, {
     kind: "rel"
-  }, "relationship")), /*#__PURE__*/React.createElement("p", {
+  }, "relationship"), r.deprecated && /*#__PURE__*/React.createElement(DeprBadge, null), r.wiki && /*#__PURE__*/React.createElement(WikiLink, { href: r.wiki })), /*#__PURE__*/React.createElement("p", {
     className: "detail-desc"
   }, r.desc || '—')), /*#__PURE__*/React.createElement("div", {
     className: "arrow-row"
@@ -1199,9 +1387,9 @@ function Sidebar({
     visibleInTree
   } = data || {};
   const q = search.toLowerCase().trim();
-  const filtTypes = q ? Object.keys(entities).filter(n => n.toLowerCase().includes(q)) : null;
-  const filtClassif = Object.keys(classifications).filter(n => !q || n.toLowerCase().includes(q));
-  const filtRels = Object.keys(relationships).filter(n => !q || n.toLowerCase().includes(q));
+  const filtTypes = q ? Object.keys(entities).filter(n => n.toLowerCase().includes(q)).sort() : null;
+  const filtClassif = Object.keys(classifications).filter(n => !q || n.toLowerCase().includes(q)).sort();
+  const filtRels = Object.keys(relationships).filter(n => !q || n.toLowerCase().includes(q)).sort();
   const mkSideRow = (kind, name, col, selCol, selBg) => /*#__PURE__*/React.createElement("div", {
     key: name,
     className: `tree-item${selected.name === name && selected.kind === kind ? ' sel' : ''}`,
@@ -1230,15 +1418,15 @@ function Sidebar({
     style: {
       color: 'var(--accent)'
     }
-  }, Object.keys(entities).length), " types"), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", {
+  }, Object.keys(entities).length), " Entities"), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", {
     style: {
       color: 'var(--classif)'
     }
-  }, Object.keys(classifications).length), " classifs"), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", {
+  }, Object.keys(classifications).length), " Classifications"), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", {
     style: {
       color: 'var(--rel)'
     }
-  }, Object.keys(relationships).length), " rels")), /*#__PURE__*/React.createElement("div", {
+  }, Object.keys(relationships).length), " Relationships")), /*#__PURE__*/React.createElement("div", {
     className: "tree-scroll"
   }, filtTypes ? /*#__PURE__*/React.createElement(React.Fragment, null, filtTypes.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1447,6 +1635,1090 @@ function AttrIndexView({ rawData, onNavigateToType }) {
   );
 }
 
+// ── Report Spec Browser ───────────────────────────────────────────────────────
+
+function ReportSpecDetail({ spec, onSelectSpec }) {
+  const [selFormat, setSelFormat] = useState(0);
+  const perspBadge = { background: 'rgba(94,234,212,.12)', color: '#5eead4', border: '0.5px solid rgba(94,234,212,.3)' };
+  const formats = spec.formats || [];
+  const activeFmt = formats[selFormat] || null;
+
+  return React.createElement('div', { className: 'detail', style: { overflowY: 'auto', height: '100%' } },
+    React.createElement('div', { className: 'detail-name' }, spec.name),
+    React.createElement('div', { style: { display: 'flex', gap: 6, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' } },
+      spec.family     && React.createElement('span', { className: 'badge', style: BADGE_STYLE.base  }, spec.family),
+      spec.target_type && React.createElement('span', { className: 'badge', style: BADGE_STYLE.entity }, spec.target_type)
+    ),
+    spec.heading && React.createElement('div', { style: { marginTop: 12, fontWeight: 600, fontSize: 13, color: 'var(--text)' } }, spec.heading),
+    spec.description && React.createElement('div', { className: 'detail-desc', style: { marginTop: 6 } }, spec.description),
+    spec.aliases && spec.aliases.length > 0 && React.createElement('div', { style: { marginTop: 8, fontSize: 11, color: 'var(--dim)' } },
+      'Aliases: ' + spec.aliases.join(', ')
+    ),
+    // Output formats section
+    formats.length > 0 && React.createElement('div', { style: { marginTop: 24 } },
+      React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 } }, 'Output Formats'),
+      React.createElement('div', { style: { display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 14 } },
+        formats.map((fmt, i) =>
+          React.createElement('button', {
+            key: i,
+            className: 'view-tab' + (selFormat === i ? ' on' : ''),
+            style: { fontSize: 11 },
+            onClick: () => setSelFormat(i),
+          }, (fmt.types || []).join(' / ') || ('Format ' + (i + 1)))
+        )
+      ),
+      activeFmt && activeFmt.attributes && activeFmt.attributes.length > 0 && React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 } },
+        React.createElement('thead', null,
+          React.createElement('tr', null,
+            React.createElement('th', { style: { textAlign: 'left', padding: '4px 8px 4px 0', color: 'var(--dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' } }, 'Key'),
+            React.createElement('th', { style: { textAlign: 'left', padding: '4px 8px 4px 0', color: 'var(--dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' } }, 'Name'),
+            React.createElement('th', { style: { textAlign: 'left', padding: '4px 8px 4px 0', color: 'var(--dim)', fontWeight: 500, borderBottom: '1px solid var(--border)', width: 30 } }, 'MD'),
+            React.createElement('th', { style: { textAlign: 'left', padding: '4px 0', color: 'var(--dim)', fontWeight: 500, borderBottom: '1px solid var(--border)' } }, 'Detail Spec')
+          )
+        ),
+        React.createElement('tbody', null,
+          activeFmt.attributes.map((a, ai) =>
+            React.createElement('tr', { key: ai, style: { borderBottom: '1px solid rgba(26,45,72,.3)' } },
+              React.createElement('td', { style: { padding: '4px 8px 4px 0', fontFamily: 'ui-monospace,monospace', fontSize: 11, color: 'var(--accent)' } }, a.key),
+              React.createElement('td', { style: { padding: '4px 8px 4px 0', color: 'var(--text)' } }, a.name),
+              React.createElement('td', { style: { padding: '4px 8px 4px 0', textAlign: 'center' } },
+                a.format && React.createElement('span', { title: 'Markdown formatted', style: { color: '#a78bfa', fontSize: 10 } }, 'MD')
+              ),
+              React.createElement('td', { style: { padding: '4px 0', color: 'var(--text)' } },
+                a.detailSpec
+                  ? React.createElement('button', {
+                      onClick: () => onSelectSpec && onSelectSpec(a.detailSpec),
+                      style: { background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent)', fontFamily: 'ui-monospace,monospace', fontSize: 11, textDecoration: 'underline' }
+                    }, a.detailSpec)
+                  : null
+              )
+            )
+          )
+        )
+      )
+    ),
+    // Questions section
+    spec.question_spec && spec.question_spec.length > 0 && React.createElement('div', { style: { marginTop: 24 } },
+      React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 } }, 'Questions by Perspective'),
+      spec.question_spec.map((qs, i) =>
+        React.createElement('div', { key: i, style: { marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid rgba(26,45,72,.4)' } },
+          React.createElement('div', { style: { display: 'flex', gap: 5, marginBottom: 8, flexWrap: 'wrap' } },
+            qs.perspectives.map(p => React.createElement('span', { key: p, className: 'badge', style: perspBadge }, p))
+          ),
+          React.createElement('ul', { style: { listStyle: 'none', paddingLeft: 0, margin: 0 } },
+            qs.questions.map((qText, qi) =>
+              React.createElement('li', { key: qi, style: { fontSize: 12, color: 'var(--text)', padding: '4px 0', borderBottom: '1px solid rgba(26,45,72,.25)' } }, qText)
+            )
+          )
+        )
+      )
+    )
+  );
+}
+
+function ReportSpecView() {
+  const [loadState, setLoadState] = useState('loading');
+  const [attempt, setAttempt]     = useState(0);
+  const [specs, setSpecs]         = useState([]);
+  const [selected, setSelected]   = useState(null);
+  const [history, setHistory]     = useState([]); // navigation back-stack
+  const [search, setSearch]       = useState('');
+  const [perspFilter, setPerspFilter] = useState('');
+  const [error, setError]         = useState('');
+
+  useEffect(() => {
+    setLoadState('loading');
+    setError('');
+    fetch('/api/report-specs')
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(data => {
+        const list = data.specs || [];
+        setSpecs(list);
+        setLoadState('ready');
+        if (list.length > 0) setSelected(list[0].name);
+      })
+      .catch(err => { setError(err.message); setLoadState('error'); });
+  }, [attempt]);
+
+  // Collect all unique perspectives client-side from all loaded specs
+  const allPerspectives = useMemo(() => {
+    const set = new Set();
+    specs.forEach(s => (s.question_spec || []).forEach(qs => (qs.perspectives || []).forEach(p => set.add(p))));
+    return [...set].sort();
+  }, [specs]);
+
+  const navigateTo = useCallback(name => {
+    setHistory(prev => selected ? [...prev, selected] : prev);
+    setSelected(name);
+  }, [selected]);
+
+  const navigateBack = useCallback(() => {
+    setHistory(prev => {
+      if (prev.length === 0) return prev;
+      const next = [...prev];
+      const target = next.pop();
+      setSelected(target);
+      return next;
+    });
+  }, []);
+
+  const filtered = useMemo(() => {
+    const sq = search.toLowerCase().trim();
+    const sp = perspFilter.toLowerCase();
+    return specs.filter(s => {
+      if (sp) {
+        const perps = s.question_spec.flatMap(qs => qs.perspectives.map(p => p.toLowerCase()));
+        if (!perps.includes(sp) && !perps.includes('any')) return false;
+      }
+      if (!sq) return true;
+      if (s.name.toLowerCase().includes(sq))        return true;
+      if (s.description.toLowerCase().includes(sq)) return true;
+      if (s.family && s.family.toLowerCase().includes(sq)) return true;
+      return s.question_spec.some(qs => qs.questions.some(qText => qText.toLowerCase().includes(sq)));
+    });
+  }, [specs, search, perspFilter]);
+
+  const selectedSpec = specs.find(s => s.name === selected) || null;
+
+  if (loadState === 'loading') return React.createElement('div', { className: 'body', style: { alignItems: 'center', justifyContent: 'center' } },
+    React.createElement('div', { className: 'center' },
+      React.createElement('div', { className: 'spinner' }),
+      React.createElement('span', null, 'Loading report specs…')
+    )
+  );
+  if (loadState === 'error') return React.createElement('div', { className: 'body', style: { alignItems: 'center', justifyContent: 'center' } },
+    React.createElement('div', { className: 'center' },
+      React.createElement('span', { style: { fontSize: 24 } }, '⚠'),
+      React.createElement('span', { style: { color: '#f87171' } }, 'Failed to load report specs'),
+      React.createElement('span', { style: { fontSize: 12 } }, error),
+      React.createElement('button', {
+        onClick: () => setAttempt(a => a + 1),
+        style: { marginTop: 8, padding: '6px 16px', background: 'rgba(96,165,250,.1)', border: '1px solid rgba(96,165,250,.3)', color: 'var(--accent)', borderRadius: 5, cursor: 'pointer', fontSize: 13 }
+      }, 'Retry')
+    )
+  );
+
+  return React.createElement('div', { className: 'body' },
+    // Sidebar
+    React.createElement('div', { className: 'sidebar' },
+      React.createElement('div', { className: 'search-wrap' },
+        React.createElement('input', {
+          className: 'search-input',
+          placeholder: 'Search name, description, questions…',
+          value: search,
+          onChange: e => setSearch(e.target.value)
+        }),
+        allPerspectives.length > 0 && React.createElement('select', {
+          className: 'area-select',
+          style: { width: '100%', marginTop: 6 },
+          value: perspFilter,
+          onChange: e => { setPerspFilter(e.target.value); }
+        },
+          React.createElement('option', { value: '' }, 'All perspectives'),
+          allPerspectives.map(p => React.createElement('option', { key: p, value: p.toLowerCase() }, p))
+        )
+      ),
+      React.createElement('div', { className: 'stats' },
+        React.createElement('span', null,
+          React.createElement('span', { style: { color: 'var(--accent)' } }, filtered.length),
+          ' of ',
+          React.createElement('span', { style: { color: 'var(--accent)' } }, specs.length),
+          ' specs'
+        )
+      ),
+      React.createElement('div', { className: 'tree-scroll' },
+        filtered.map(s => React.createElement('div', {
+          key: s.name,
+          className: 'tree-item' + (selected === s.name ? ' sel' : ''),
+          onClick: () => { setHistory([]); setSelected(s.name); }
+        },
+          React.createElement('span', { className: 'type-name' }, s.name),
+          s.family && React.createElement('span', {
+            className: 'badge',
+            style: { background: 'rgba(100,116,139,.1)', color: '#94a3b8', border: '0.5px solid rgba(100,116,139,.3)', fontSize: 9 }
+          }, s.family)
+        ))
+      )
+    ),
+    // Detail panel
+    React.createElement('div', { className: 'main' },
+      selectedSpec
+        ? React.createElement('div', { style: { display: 'flex', flexDirection: 'column', height: '100%' } },
+            history.length > 0 && React.createElement('div', { style: { padding: '6px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 } },
+              React.createElement('button', {
+                onClick: navigateBack,
+                style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }
+              }, '← Back to ', history[history.length - 1])
+            ),
+            React.createElement('div', { style: { flex: 1, overflowY: 'auto' } },
+              React.createElement(ReportSpecDetail, { spec: selectedSpec, onSelectSpec: navigateTo })
+            )
+          )
+        : React.createElement('div', { className: 'center' },
+            React.createElement('span', { style: { color: 'var(--muted)' } }, 'Select a report spec from the sidebar')
+          )
+    )
+  );
+}
+
+// ── Glossary Explorer ─────────────────────────────────────────────────────────
+
+function GlossaryFolderDetail({ folder }) {
+  if (!folder) return null;
+  const fields = [
+    ['Qualified Name', folder.qualifiedName],
+    ['Type',           folder.typeName],
+    ['Status',         folder.status],
+    ['Description',    folder.description],
+  ].filter(([, v]) => v && String(v).trim());
+  return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 } },
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, folder.displayName || folder.qualifiedName),
+      React.createElement("span", { className: "badge", style: { background: 'rgba(99,102,241,.12)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)' } }, "Folder")
+    ),
+    React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, folder.guid),
+    folder.description && React.createElement("p", { style: { fontSize: 13, lineHeight: 1.6, marginBottom: 16 } }, folder.description),
+    fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
+      React.createElement("tbody", null,
+        fields.map(([label, value]) =>
+          React.createElement("tr", { key: label, style: { borderTop: '1px solid var(--border)' } },
+            React.createElement("td", { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', verticalAlign: 'top', width: 140 } }, label),
+            React.createElement("td", { style: { padding: '6px 0', wordBreak: 'break-word' } }, value)
+          )
+        )
+      )
+    )
+  );
+}
+
+function GlossaryTermDetail({ term }) {
+  if (!term) return null;
+  const fields = [
+    ['Qualified Name', term.qualifiedName],
+    ['Abbreviation',   term.abbreviation],
+    ['Summary',        term.summary],
+    ['Examples',       term.examples],
+    ['Usage',          term.usage],
+    ['Status',         term.status],
+    ['Content Status', term.contentStatus],
+    ['Activity Status',term.activityStatus],
+  ].filter(([, v]) => v && v.trim());
+
+  const folderList = (term.folders || []);
+
+  return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' } },
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, term.displayName),
+      term.isTemplateSubstitute && React.createElement("span", { className: "badge", style: { background: 'rgba(245,158,11,.15)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.4)', fontSize: 11 } }, "Template Substitute"),
+      !term.isTemplateSubstitute && term.isSourcedFromTemplate && React.createElement("span", { className: "badge", style: { background: 'rgba(245,158,11,.08)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.25)', fontSize: 11 } }, "From Template")
+    ),
+    React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 8 } }, term.guid),
+    folderList.length > 0 && React.createElement("div", { style: { display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 } },
+      React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)', marginRight: 4 } }, "Folders:"),
+      folderList.map(f => React.createElement("span", { key: f.guid, className: "badge", style: { fontSize: 11, background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)' } }, f.displayName || f.guid))
+    ),
+    term.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(term.description)),
+    React.createElement(MermaidSection, { guid: term.guid }),
+    fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
+      React.createElement("tbody", null,
+        fields.map(([label, value]) =>
+          React.createElement("tr", { key: label, style: { borderTop: '1px solid var(--border)' } },
+            React.createElement("td", { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', verticalAlign: 'top', width: 140 } }, label),
+            React.createElement("td", { style: { padding: '6px 0' } }, renderMd(value))
+          )
+        )
+      )
+    )
+  );
+}
+
+function GlossaryView({ navGuid }) {
+  const [glossaryState, setGlossaryState] = useState('loading');
+  const [glossaryAttempt, setGlossaryAttempt] = useState(0);
+  const [glossaries, setGlossaries] = useState([]);
+  // null = "All Terms" search mode; a guid = selected glossary
+  const [selectedGlossary, setSelectedGlossary] = useState(null);
+  // Folder breadcrumb stack: [{guid, displayName}]
+  const [folderStack, setFolderStack] = useState([]);
+  // External navigation target (from Digital Products cross-link)
+  const [navTerm, setNavTerm] = useState(null);
+
+  // Content for current scope (glossary or folder): separate folders and terms
+  const [folders, setFolders] = useState([]);
+  const [terms, setTerms] = useState([]);
+  const [scopeState, setScopeState] = useState('idle');
+  const [scopeError, setScopeError] = useState('');
+
+  // "All Terms" cross-glossary search
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchTerms, setSearchTerms] = useState([]);
+  const [searchState, setSearchState] = useState('idle');
+  const [searchError, setSearchError] = useState('');
+
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [filterText, setFilterText] = useState('');
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [glossaryError, setGlossaryError] = useState('');
+
+  // Fetch term when cross-navigated from Digital Products
+  useEffect(() => {
+    if (!navGuid) { setNavTerm(null); return; }
+    fetch('/api/glossary/term/' + encodeURIComponent(navGuid))
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(data) { if (data) { setNavTerm(data); setSelectedItem(data.guid); } })
+      .catch(function() {});
+  }, [navGuid]);
+
+  // Current scope guid: deepest folder or the glossary itself
+  const currentScopeGuid = useMemo(() => {
+    if (!selectedGlossary) return null;
+    return folderStack.length > 0 ? folderStack[folderStack.length - 1].guid : selectedGlossary;
+  }, [selectedGlossary, folderStack]);
+
+  // Load glossary list once
+  useEffect(() => {
+    setGlossaryState('loading');
+    setGlossaryError('');
+    fetch('/api/glossary')
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(data => {
+        const list = (data.glossaries || []).sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
+        setGlossaries(list);
+        setGlossaryState('ready');
+        if (list.length > 0) setSelectedGlossary(list[0].guid);
+      })
+      .catch(err => { setGlossaryError(err.message); setGlossaryState('error'); });
+  }, [glossaryAttempt]);
+
+  // Load folders + terms whenever scope changes
+  useEffect(() => {
+    if (!currentScopeGuid) return;
+    setScopeState('loading');
+    setScopeError('');
+    setFolders([]);
+    setTerms([]);
+    setSelectedItem(null);
+    setFilterText('');
+    Promise.all([
+      fetch('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/folders').then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+      fetch('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/terms').then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+    ])
+    .then(([fData, tData]) => {
+      setFolders(fData.folders || []);
+      setTerms(tData.terms || []);
+      setScopeState('ready');
+    })
+    .catch(err => { setScopeError(err.message); setScopeState('error'); });
+  }, [currentScopeGuid]);
+
+  // Cross-glossary search
+  const runSearch = useCallback((q) => {
+    const sq = (q || '').trim() || '*';
+    setSearchQuery(sq);
+    setSearchState('loading');
+    setSearchError('');
+    setSearchTerms([]);
+    setSelectedItem(null);
+    fetch('/api/glossary-terms?q=' + encodeURIComponent(sq))
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(data => { setSearchTerms(data.terms || []); setSearchState('ready'); })
+      .catch(err => { setSearchError(err.message); setSearchState('idle'); });
+  }, []);
+
+  const openFolder = useCallback((folder) => {
+    setFolderStack(s => [...s, { guid: folder.guid, displayName: folder.displayName }]);
+  }, []);
+
+  const navigateTo = useCallback((idx) => {
+    if (idx < 0) {
+      // Back to glossary root
+      setFolderStack([]);
+    } else {
+      setFolderStack(s => s.slice(0, idx + 1));
+    }
+  }, []);
+
+  const isSearchMode = selectedGlossary === null;
+
+  // Items shown in middle pane for glossary mode
+  const filteredTerms = useMemo(() => {
+    const q = filterText.trim().toLowerCase();
+    return terms.filter(t => {
+      if (!showTemplates && t.isTemplateSubstitute) return false;
+      if (!q) return true;
+      return (t.displayName || '').toLowerCase().includes(q) ||
+             (t.description || '').toLowerCase().includes(q) ||
+             (t.abbreviation || '').toLowerCase().includes(q);
+    }).slice().sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
+  }, [terms, filterText, showTemplates]);
+
+  const templateTermCount = useMemo(() =>
+    terms.filter(t => t.isTemplateSubstitute).length,
+  [terms]);
+
+  const filteredSearchTerms = useMemo(() => {
+    const q = filterText.trim().toLowerCase();
+    return searchTerms.filter(t => {
+      if (!showTemplates && t.isTemplateSubstitute) return false;
+      if (!q) return true;
+      return (t.displayName || '').toLowerCase().includes(q) ||
+             (t.description || '').toLowerCase().includes(q);
+    }).slice().sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
+  }, [searchTerms, filterText, showTemplates]);
+
+  const selectedObj = useMemo(() => {
+    // Cross-navigation target takes priority when it matches selectedItem
+    if (navTerm && selectedItem === navTerm.guid) return navTerm;
+    const pool = isSearchMode ? filteredSearchTerms : [...folders.map(f => ({...f, isFolder: true})), ...filteredTerms];
+    return selectedItem ? pool.find(x => x.guid === selectedItem) || null : null;
+  }, [selectedItem, isSearchMode, filteredSearchTerms, folders, filteredTerms, navTerm]);
+
+  if (glossaryState === 'loading') return React.createElement("div", { className: "body", style: { alignItems: 'center', justifyContent: 'center' } },
+    React.createElement("div", { className: "center" }, "Loading glossaries…")
+  );
+  if (glossaryState === 'error') return React.createElement("div", { className: "body", style: { alignItems: 'center', justifyContent: 'center' } },
+    React.createElement("div", { className: "center" },
+      React.createElement("div", { style: { color: 'var(--muted)', marginBottom: 8 } }, "Error: " + glossaryError),
+      React.createElement("button", { className: "view-tab on", onClick: () => setGlossaryAttempt(a => a + 1) }, "Retry")
+    )
+  );
+
+  const selectedGlossaryName = selectedGlossary ? (glossaries.find(g => g.guid === selectedGlossary) || {}).displayName || '' : '';
+  const middleLoading = isSearchMode ? searchState === 'loading' : scopeState === 'loading';
+  const middleError   = isSearchMode ? searchError : scopeError;
+  const middleCounts  = isSearchMode
+    ? ('Terms (' + filteredSearchTerms.length + (filteredSearchTerms.length !== searchTerms.length ? '/' + searchTerms.length : '') + ')')
+    : (scopeState === 'loading' ? 'Loading…' : (
+        folders.length + ' folder' + (folders.length !== 1 ? 's' : '') +
+        ', ' + filteredTerms.length + (filteredTerms.length !== terms.length - templateTermCount ? '/' + (terms.length - templateTermCount) : '') + ' term' + ((terms.length - templateTermCount) !== 1 ? 's' : '') +
+        (!showTemplates && templateTermCount > 0 ? ' · ' + templateTermCount + ' template' + (templateTermCount !== 1 ? 's' : '') + ' hidden' : '')
+      ));
+
+  return React.createElement("div", { className: "body" },
+    // Left: glossary list
+    React.createElement("div", { className: "sidebar" },
+      React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } }, "Glossaries (" + glossaries.length + ")"),
+      React.createElement("div", { className: "tree-scroll" },
+        React.createElement("div", {
+          className: "tree-item" + (isSearchMode ? " sel" : ""),
+          onClick: () => { setSelectedGlossary(null); setFolderStack([]); runSearch('*'); },
+          title: "Search terms across all glossaries",
+        }, React.createElement("span", { style: { fontStyle: 'italic', color: 'var(--dim)' } }, "All Terms (search)")),
+        glossaries.map(g =>
+          React.createElement("div", {
+            key: g.guid,
+            className: "tree-item" + (selectedGlossary === g.guid ? " sel" : ""),
+            onClick: () => { setSelectedGlossary(g.guid); setFolderStack([]); },
+            title: g.description || g.qualifiedName,
+          }, React.createElement("span", { className: "type-name" }, g.displayName || g.qualifiedName || g.guid))
+        )
+      )
+    ),
+    // Middle: folders + terms (or search results)
+    React.createElement("div", { style: { width: 300, flexShrink: 0, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
+      // Header
+      React.createElement("div", { style: { padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 5 } },
+        // Breadcrumb (glossary mode only)
+        !isSearchMode && React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', fontSize: 11 } },
+          React.createElement("span", { style: { cursor: 'pointer', color: folderStack.length > 0 ? 'var(--accent)' : 'var(--dim)', fontWeight: 600 }, onClick: () => navigateTo(-1) }, selectedGlossaryName || 'Glossary'),
+          folderStack.map((f, i) => [
+            React.createElement("span", { key: 'sep' + i, style: { color: 'var(--dim)' } }, "›"),
+            React.createElement("span", { key: 'f' + i, style: { cursor: 'pointer', color: i === folderStack.length - 1 ? 'var(--dim)' : 'var(--accent)', fontWeight: i === folderStack.length - 1 ? 600 : 400 }, onClick: () => navigateTo(i) }, f.displayName)
+          ])
+        ),
+        React.createElement("div", { style: { fontWeight: 600, fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, middleCounts),
+        isSearchMode
+          ? React.createElement("form", { onSubmit: e => { e.preventDefault(); runSearch(e.target.elements.sq.value); }, style: { display: 'flex', gap: 4 } },
+              React.createElement("input", { name: "sq", type: "search", placeholder: "Search all terms…", defaultValue: searchQuery === '*' ? '' : searchQuery, style: { flex: 1, fontSize: 13, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' } }),
+              React.createElement("button", { type: "submit", style: { padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', cursor: 'pointer', fontSize: 12 } }, "Go")
+            )
+          : React.createElement("input", { type: "search", placeholder: "Filter terms…", value: filterText, onChange: e => setFilterText(e.target.value), style: { width: '100%', boxSizing: 'border-box', fontSize: 13, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' } }),
+        React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
+          React.createElement("input", { type: "checkbox", checked: showTemplates, onChange: function(e) { setShowTemplates(e.target.checked); }, style: { margin: 0, cursor: 'pointer' } }),
+          "Show template substitutes"
+        )
+      ),
+      middleError && React.createElement("div", { style: { padding: 10, color: 'var(--muted)', fontSize: 12 } }, "Error: " + middleError),
+      React.createElement("div", { className: "tree-scroll" },
+        isSearchMode
+          // All-Terms search results
+          ? filteredSearchTerms.map(t => React.createElement("div", {
+              key: t.guid, className: "tree-item" + (selectedItem === t.guid ? " sel" : ""),
+              onClick: () => setSelectedItem(t.guid), title: t.description || t.qualifiedName,
+            },
+              React.createElement("span", { className: "type-name", style: { flex: 1 } }, t.displayName || t.qualifiedName || t.guid),
+              t.isTemplateSubstitute && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(245,158,11,.12)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.35)', flexShrink: 0 } }, "template")
+            ))
+          // Glossary/folder scope: folders first, then terms
+          : [
+              ...folders.map(f => React.createElement("div", {
+                key: f.guid, className: "tree-item" + (selectedItem === f.guid ? " sel" : ""),
+                title: f.description || f.qualifiedName,
+                style: { display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' },
+              },
+                React.createElement("span", { style: { fontSize: 12, cursor: 'pointer', color: 'var(--dim)' }, onClick: () => openFolder(f) }, "📁"),
+                React.createElement("span", { className: "type-name", style: { flex: 1 }, onClick: () => setSelectedItem(f.guid) }, f.displayName || f.qualifiedName || f.guid),
+                React.createElement("span", { style: { fontSize: 18, padding: '0 4px', cursor: 'pointer', color: 'var(--accent)', lineHeight: 1 }, title: "Open folder", onClick: () => openFolder(f) }, "›")
+              )),
+              ...filteredTerms.map(t => React.createElement("div", {
+                key: t.guid, className: "tree-item" + (selectedItem === t.guid ? " sel" : ""),
+                onClick: () => setSelectedItem(t.guid), title: t.description || t.qualifiedName,
+              },
+                React.createElement("span", { className: "type-name", style: { flex: 1 } }, t.displayName || t.qualifiedName || t.guid),
+                t.isTemplateSubstitute && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(245,158,11,.12)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.35)', flexShrink: 0 } }, "template")
+              ))
+            ]
+      )
+    ),
+    // Right: detail
+    React.createElement("div", { className: "main" },
+      selectedObj
+        ? (selectedObj.isFolder
+            ? React.createElement(GlossaryFolderDetail, { folder: selectedObj })
+            : React.createElement(GlossaryTermDetail, { term: selectedObj }))
+        : React.createElement("div", { className: "center" },
+            middleLoading
+              ? React.createElement("span", { style: { color: 'var(--muted)' } }, "Loading…")
+              : React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a term or folder to view details")
+          )
+    )
+  );
+}
+
+// ── Reference Data Explorer ───────────────────────────────────────────────────
+
+function ReferenceDataDetail({ item }) {
+  if (!item) return null;
+  const fields = [
+    ['Qualified Name',  item.qualifiedName],
+    ['Preferred Value', item.preferredValue],
+    ['Category',        item.category],
+    ['Data Type',       item.dataType],
+    ['Usage',           item.usage],
+    ['Scope',           item.scope],
+    ['Status',          item.status],
+    ['Deprecated',      item.isDeprecated ? 'Yes' : null],
+    ['Case Sensitive',  item.isCaseSensitive ? 'Yes' : null],
+  ].filter(([, v]) => v && String(v).trim());
+
+  const isSet = !!item.isSet;
+  return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 } },
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, item.displayName || item.qualifiedName),
+      React.createElement("span", { className: "badge", style: { background: isSet ? 'rgba(99,102,241,.15)' : 'rgba(16,185,129,.12)', color: isSet ? '#818cf8' : '#34d399', border: '0.5px solid ' + (isSet ? 'rgba(99,102,241,.3)' : 'rgba(16,185,129,.3)') } }, item.typeName || (isSet ? 'Set' : 'Value'))
+    ),
+    React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, item.guid),
+    item.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(item.description)),
+    React.createElement(MermaidSection, { guid: item.guid }),
+    fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
+      React.createElement("tbody", null,
+        fields.map(([label, value]) =>
+          React.createElement("tr", { key: label, style: { borderTop: '1px solid var(--border)' } },
+            React.createElement("td", { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', verticalAlign: 'top', width: 140 } }, label),
+            React.createElement("td", { style: { padding: '6px 0' } }, renderMd(value))
+          )
+        )
+      )
+    )
+  );
+}
+
+function RefDataTreeNode({ item, byGuid, depth, selected, onSelect, expanded, toggleExpanded, search }) {
+  const q = search.trim().toLowerCase();
+  const children = useMemo(function() {
+    return Object.values(byGuid).filter(function(it) {
+      return (it.parentSets || []).some(function(ps) { return ps.guid === item.guid; });
+    }).sort(function(a, b) {
+      if (a.isSet !== b.isSet) return a.isSet ? -1 : 1;
+      return (a.displayName || '').toLowerCase().localeCompare((b.displayName || '').toLowerCase());
+    });
+  }, [byGuid, item.guid]);
+
+  const hasChildren = children.length > 0;
+  const isExpanded  = expanded.has(item.guid);
+  const label       = item.displayName || item.qualifiedName || item.guid;
+
+  if (q && !label.toLowerCase().includes(q) && !children.some(function(c) { return (c.displayName || '').toLowerCase().includes(q); })) return null;
+
+  return React.createElement('div', null,
+    React.createElement('div', {
+      className: 'tree-item' + (selected === item.guid ? ' sel' : ''),
+      style: { paddingLeft: 8 + depth * 20 },
+      onClick: function() {
+        onSelect(item.guid);
+        if (hasChildren) toggleExpanded(item.guid);
+      },
+      title: item.description || item.qualifiedName,
+    },
+      hasChildren
+        ? React.createElement('span', { style: { width: 16, fontSize: 10, color: isExpanded ? 'var(--accent)' : 'var(--muted)', flexShrink: 0, textAlign: 'center' } }, isExpanded ? '▼' : '▶')
+        : React.createElement('span', { style: { width: 16, flexShrink: 0 } }),
+      React.createElement('span', { className: 'type-name', style: { flex: 1 } }, label),
+      item.isSet && React.createElement('span', { className: 'badge', style: { background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.3)', fontSize: 9, flexShrink: 0 } }, item.typeName || 'Set')
+    ),
+    isExpanded && hasChildren && children.map(function(child) {
+      return React.createElement(RefDataTreeNode, {
+        key: child.guid, item: child, byGuid: byGuid, depth: depth + 1,
+        selected: selected, onSelect: onSelect, expanded: expanded, toggleExpanded: toggleExpanded, search: search,
+      });
+    })
+  );
+}
+
+function ReferenceDataView() {
+  const [loadState, setLoadState] = useState('loading');
+  const [attempt, setAttempt]     = useState(0);
+  const [items, setItems]         = useState([]);
+  const [selected, setSelected]   = useState(null);
+  const [search, setSearch]       = useState('');
+  const [expanded, setExpanded]   = useState(function() { return new Set(); });
+  const [error, setError]         = useState('');
+
+  useEffect(function() {
+    setLoadState('loading');
+    setError('');
+    fetch('/api/reference-data?page_size=500')
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) {
+        const list = data.definitions || [];
+        setItems(list);
+        setLoadState('ready');
+        // Auto-select and expand the first root set
+        const rootSets = list.filter(function(it) {
+          return it.isSet && (!it.parentSets || it.parentSets.length === 0);
+        });
+        if (rootSets.length > 0) {
+          setSelected(rootSets[0].guid);
+          setExpanded(new Set([rootSets[0].guid]));
+        } else if (list.length > 0) {
+          setSelected(list[0].guid);
+        }
+      })
+      .catch(function(err) { setError(err.message); setLoadState('error'); });
+  }, [attempt]);
+
+  const byGuid = useMemo(function() {
+    const m = {};
+    items.forEach(function(it) { m[it.guid] = it; });
+    return m;
+  }, [items]);
+
+  const rootNodes = useMemo(function() {
+    // Root = sets with no parentSets, or items with no parentSets that aren't in any set's members
+    return items.filter(function(it) {
+      return it.isSet && (!it.parentSets || it.parentSets.length === 0);
+    }).sort(function(a, b) {
+      return (a.displayName || '').toLowerCase().localeCompare((b.displayName || '').toLowerCase());
+    });
+  }, [items]);
+
+  function toggleExpanded(guid) {
+    setExpanded(function(prev) {
+      const next = new Set(prev);
+      if (next.has(guid)) next.delete(guid); else next.add(guid);
+      return next;
+    });
+  }
+
+  const selectedItem = selected ? byGuid[selected] || null : null;
+
+  if (loadState === 'loading') return React.createElement("div", { className: "body", style: { alignItems: 'center', justifyContent: 'center' } },
+    React.createElement("div", { className: "center" }, "Loading reference data…")
+  );
+  if (loadState === 'error') return React.createElement("div", { className: "body", style: { alignItems: 'center', justifyContent: 'center' } },
+    React.createElement("div", { className: "center" },
+      React.createElement("div", { style: { color: 'var(--muted)', marginBottom: 8 } }, "Error: " + error),
+      React.createElement("button", { className: "view-tab on", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "Retry")
+    )
+  );
+
+  return React.createElement("div", { className: "body" },
+    React.createElement("div", { className: "sidebar" },
+      React.createElement("div", { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
+        React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } },
+          items.length + ' items · ' + rootNodes.length + ' sets'
+        ),
+        React.createElement("input", {
+          type: "search", placeholder: "Filter…", value: search,
+          onChange: function(e) { setSearch(e.target.value); },
+          style: { width: '100%', boxSizing: 'border-box', fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' }
+        })
+      ),
+      React.createElement("div", { className: "tree-scroll" },
+        rootNodes.map(function(root) {
+          return React.createElement(RefDataTreeNode, {
+            key: root.guid, item: root, byGuid: byGuid, depth: 0,
+            selected: selected, onSelect: setSelected,
+            expanded: expanded, toggleExpanded: toggleExpanded, search: search,
+          });
+        })
+      )
+    ),
+    React.createElement("div", { className: "main" },
+      selectedItem
+        ? React.createElement(ReferenceDataDetail, { item: selectedItem })
+        : React.createElement("div", { className: "center" },
+            React.createElement("span", { style: { color: 'var(--muted)' } }, items.length === 0 ? "No valid value definitions found" : "Select an item to view details")
+          )
+    )
+  );
+}
+
+// ── Digital Products Explorer ─────────────────────────────────────────────────
+
+function DigitalProductDetail({ product, onNavigateToGlossary }) {
+  if (!product) return null;
+  const fields = [
+    ['Qualified Name',   product.qualifiedName],
+    ['Product Name',     product.productName],
+    ['Product Type',     product.productType],
+    ['Maturity',         product.maturity],
+    ['Service Life',     product.serviceLife],
+    ['Current Version',  product.currentVersion],
+    ['Deployment Status',product.deploymentStatus],
+    ['Introduction Date',product.introductionDate],
+    ['Next Version Date',product.nextVersionDate],
+    ['Withdrawal Date',  product.withdrawalDate],
+    ['Status',           product.status],
+  ].filter(([, v]) => v && String(v).trim());
+
+  const isGlossaryType = product.typeName && (
+    product.typeName === 'GlossaryTerm' || product.typeName === 'Glossary' || product.typeName === 'GlossaryCategory'
+  );
+
+  return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, product.displayName || product.qualifiedName),
+      product.typeName && React.createElement("span", { className: "badge", style: { background: 'rgba(96,165,250,.1)', color: '#93c5fd', border: '0.5px solid rgba(96,165,250,.3)' } }, product.typeName),
+      isGlossaryType && onNavigateToGlossary && React.createElement("button", {
+        onClick: function() { onNavigateToGlossary(product.guid); },
+        style: { padding: '3px 10px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.1)', color: 'var(--accent)', cursor: 'pointer', fontSize: 12 }
+      }, "View in Glossary →")
+    ),
+    React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, product.guid),
+    product.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(product.description)),
+    React.createElement(MermaidSection, { guid: product.guid }),
+    fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
+      React.createElement("tbody", null,
+        fields.map(function([label, value]) {
+          return React.createElement("tr", { key: label, style: { borderTop: '1px solid var(--border)' } },
+            React.createElement("td", { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', verticalAlign: 'top', width: 160 } }, label),
+            React.createElement("td", { style: { padding: '6px 0' } }, renderMd(String(value)))
+          );
+        })
+      )
+    )
+  );
+}
+
+function DigitalTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggleNode }) {
+  const isExp = expanded.has(node.guid);
+  const isSel = selectedGuid === node.guid;
+  const paddingLeft = 8 + depth * 24;
+  const typeColor = node.isContainer ? '#a78bfa' : '#60a5fa';
+
+  return React.createElement(React.Fragment, null,
+    React.createElement("div", {
+      className: "tree-item" + (isSel ? " sel" : ""),
+      style: { paddingLeft },
+      title: (node.description || node.qualifiedName || '') + (node.typeName ? ' [' + node.typeName + ']' : ''),
+      onClick: function() {
+        onSelect(node.guid, node);
+        if (node.isContainer) toggleNode(node.guid);
+      }
+    },
+      node.isContainer
+        ? React.createElement("span", { style: { color: isExp ? 'var(--accent)' : 'var(--muted)', width: 18, display: 'inline-block', fontSize: 11, flexShrink: 0, fontWeight: 700, textAlign: 'center' } },
+            isExp ? '▼' : '▶'
+          )
+        : React.createElement("span", { style: { width: 18, display: 'inline-block', flexShrink: 0 } }),
+      React.createElement("span", { className: "type-name" }, node.displayName || node.qualifiedName || node.guid),
+      node.typeName && React.createElement("span", { className: "badge", style: { background: 'rgba(99,102,241,.1)', color: typeColor, border: '0.5px solid rgba(99,102,241,.3)', fontSize: 9, marginLeft: 4 } }, node.typeName)
+    ),
+    isExp && (node.children || []).map(function(child) {
+      return React.createElement(DigitalTreeNode, {
+        key: child.guid,
+        node: child,
+        depth: depth + 1,
+        selectedGuid: selectedGuid,
+        onSelect: onSelect,
+        expanded: expanded,
+        toggleNode: toggleNode,
+      });
+    })
+  );
+}
+
+function DigitalProductsView({ onNavigateToGlossary }) {
+  const [catState, setCatState]     = useState('loading');
+  const [catAttempt, setCatAttempt] = useState(0);
+  const [catalogs, setCatalogs]     = useState([]);
+  const [selectedCat, setSelectedCat] = useState(null);
+
+  const [treeState, setTreeState]   = useState('idle');
+  const [treeData, setTreeData]     = useState(null);
+  const [selectedNode, setSelectedNode] = useState(null);
+  const [selectedNodeObj, setSelectedNodeObj] = useState(null);
+  const [expanded, setExpanded]     = useState(new Set());
+  const [catError, setCatError]     = useState('');
+  const [treeError, setTreeError]   = useState('');
+
+  // Load catalog list on mount
+  useEffect(() => {
+    setCatState('loading');
+    setCatError('');
+    fetch('/api/digital-products/catalogs')
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(data => {
+        const list = (data.catalogs || []).slice().sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
+        setCatalogs(list);
+        setCatState('ready');
+        if (list.length > 0) setSelectedCat(list[0].guid);
+      })
+      .catch(err => { setCatError(err.message); setCatState('error'); });
+  }, [catAttempt]);
+
+  // Load tree for selected catalog
+  useEffect(() => {
+    if (!selectedCat) return;
+    setTreeState('loading');
+    setTreeError('');
+    setTreeData(null);
+    setSelectedNode(null);
+    setSelectedNodeObj(null);
+    fetch('/api/digital-products/catalogs/' + encodeURIComponent(selectedCat) + '/tree')
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(data => {
+        setTreeData(data);
+        setTreeState('ready');
+        // Auto-expand all containers in the tree
+        const containers = new Set();
+        const collect = nodes => nodes.forEach(n => {
+          if (n.isContainer) { containers.add(n.guid); collect(n.children || []); }
+        });
+        collect(data.children || []);
+        setExpanded(containers);
+      })
+      .catch(err => { setTreeError(err.message); setTreeState('error'); });
+  }, [selectedCat]);
+
+  const toggleNode = useCallback(guid => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(guid)) next.delete(guid);
+      else next.add(guid);
+      return next;
+    });
+  }, []);
+
+  const handleSelect = useCallback((guid, nodeObj) => {
+    setSelectedNode(guid);
+    setSelectedNodeObj(nodeObj);
+  }, []);
+
+  if (catState === 'loading') return React.createElement("div", { className: "body", style: { alignItems: 'center', justifyContent: 'center' } },
+    React.createElement("div", { className: "center" }, "Loading catalogs…")
+  );
+  if (catState === 'error') return React.createElement("div", { className: "body", style: { alignItems: 'center', justifyContent: 'center' } },
+    React.createElement("div", { className: "center" },
+      React.createElement("div", { style: { color: 'var(--muted)', marginBottom: 8 } }, "Error: " + catError),
+      React.createElement("button", { className: "view-tab on", onClick: () => setCatAttempt(a => a + 1) }, "Retry")
+    )
+  );
+
+  return React.createElement("div", { className: "body" },
+    // Catalog list (left)
+    React.createElement("div", { className: "sidebar" },
+      React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } }, "Catalogs (" + catalogs.length + ")"),
+      React.createElement("div", { className: "tree-scroll" },
+        catalogs.map(c =>
+          React.createElement("div", {
+            key: c.guid,
+            className: "tree-item" + (selectedCat === c.guid ? " sel" : ""),
+            onClick: () => setSelectedCat(c.guid),
+            title: c.description || c.qualifiedName,
+          },
+            React.createElement("span", { className: "type-name" }, c.displayName || c.qualifiedName || c.guid)
+          )
+        )
+      )
+    ),
+    // Hierarchy tree (middle)
+    React.createElement("div", { style: { width: 300, flexShrink: 0, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
+      React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } },
+        treeState === 'loading' ? 'Loading hierarchy…' : 'Hierarchy'
+      ),
+      treeState === 'error' && React.createElement("div", { style: { padding: 12, color: 'var(--muted)', fontSize: 12 } },
+        "Error: " + treeError
+      ),
+      treeState === 'ready' && React.createElement("div", { className: "tree-scroll" },
+        treeData && (treeData.children || []).length === 0
+          ? React.createElement("div", { style: { padding: '12px 10px', fontSize: 12, color: 'var(--dim)' } }, "No members found in this catalog")
+          : (treeData ? (treeData.children || []) : []).map(node =>
+              React.createElement(DigitalTreeNode, {
+                key: node.guid,
+                node,
+                depth: 0,
+                selectedGuid: selectedNode,
+                onSelect: handleSelect,
+                expanded,
+                toggleNode,
+              })
+            )
+      )
+    ),
+    // Node detail (right)
+    React.createElement("div", { className: "main" },
+      selectedNodeObj
+        ? React.createElement(DigitalProductDetail, { product: selectedNodeObj, onNavigateToGlossary: onNavigateToGlossary })
+        : React.createElement("div", { className: "center" },
+            React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a node to view details")
+          )
+    )
+  );
+}
+
+// ── Placeholder (shown for sections not yet implemented) ─────────────────────
+
+const SECTION_LABELS = {};
+
+function PlaceholderView({ section }) {
+  const label = SECTION_LABELS[section] || section;
+  return /*#__PURE__*/React.createElement("div", { className: "body", style: { alignItems: 'center', justifyContent: 'center' } },
+    /*#__PURE__*/React.createElement("div", { className: "center" },
+      /*#__PURE__*/React.createElement("span", { style: { fontSize: 40, color: 'var(--border)' } }, "◌"),
+      /*#__PURE__*/React.createElement("span", { style: { color: 'var(--muted)', fontSize: 18, fontWeight: 600, marginTop: 12 } }, label),
+      /*#__PURE__*/React.createElement("span", { style: { color: 'var(--dim)', fontSize: 13, marginTop: 4 } }, "Coming soon")
+    )
+  );
+}
+
+// ── Valid Values Explorer ─────────────────────────────────────────────────────
+
+function ValidValueDetail({ item }) {
+  if (!item) return null;
+  const fields = [
+    ['Qualified Name',  item.qualifiedName],
+    ['Preferred Value', item.preferredValue],
+    ['Category',        item.category],
+    ['Data Type',       item.dataType],
+    ['Usage',           item.usage],
+    ['Scope',           item.scope],
+    ['Status',          item.status],
+    ['Deprecated',      item.isDeprecated ? 'Yes' : null],
+    ['Case Sensitive',  item.isCaseSensitive ? 'Yes' : null],
+  ].filter(([, v]) => v && String(v).trim());
+
+  const isSet = !!item.isSet;
+  return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 } },
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, item.displayName || item.qualifiedName),
+      isSet && React.createElement("span", { className: "badge", style: { background: 'rgba(99,102,241,.15)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.3)' } }, item.typeName || 'Set')
+    ),
+    React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, item.guid),
+    item.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(item.description)),
+    React.createElement(MermaidSection, { guid: item.guid }),
+    fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
+      React.createElement("tbody", null,
+        fields.map(([label, value]) =>
+          React.createElement("tr", { key: label, style: { borderTop: '1px solid var(--border)' } },
+            React.createElement("td", { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', verticalAlign: 'top', width: 140 } }, label),
+            React.createElement("td", { style: { padding: '6px 0' } }, renderMd(value))
+          )
+        )
+      )
+    )
+  );
+}
+
+// Standard Egeria property names — click to look up their registered valid values
+const _COMMON_PROPS = [
+  'contentStatus', 'activityStatus', 'governanceStatus',
+  'operationalStatus', 'confidentiality', 'criticality',
+  'retention', 'projectStatus',
+];
+
+function ValidValueEntry({ val }) {
+  if (!val) return null;
+  return React.createElement("div", { style: { padding: '14px 20px', borderBottom: '1px solid var(--border)' } },
+    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 } },
+      React.createElement("span", { style: { fontWeight: 600, fontSize: 14 } }, val.displayName || val.preferredValue || '?'),
+      val.preferredValue && React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)' } }, val.preferredValue)
+    ),
+    val.description && React.createElement("p", { style: { margin: 0, fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 } }, val.description)
+  );
+}
+
+function ValidValuesView() {
+  // Left: property name input + common presets
+  const [propertyName, setPropertyName] = useState('');
+  const [submittedProp, setSubmittedProp] = useState('');
+  // Right: loaded values for the submitted property
+  const [values, setValues] = useState([]);
+  const [loadState, setLoadState] = useState('idle');
+  const [error, setError] = useState('');
+
+  const lookup = useCallback((prop) => {
+    const p = (prop || '').trim();
+    if (!p) return;
+    setSubmittedProp(p);
+    setLoadState('loading');
+    setError('');
+    setValues([]);
+    fetch('/api/valid-values/lookup?property_name=' + encodeURIComponent(p))
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(data => {
+        const sorted = (data.values || []).slice().sort((a, b) => {
+          const ao = a.ordinal != null ? a.ordinal : 9999;
+          const bo = b.ordinal != null ? b.ordinal : 9999;
+          return ao !== bo ? ao - bo : (a.displayName || '').localeCompare(b.displayName || '');
+        });
+        setValues(sorted);
+        setLoadState('ready');
+      })
+      .catch(err => { setError(err.message); setLoadState('error'); });
+  }, []);
+
+  return React.createElement("div", { className: "body" },
+    // Left: property selector
+    React.createElement("div", { className: "sidebar" },
+      React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } }, "Property Name"),
+      React.createElement("form", { onSubmit: e => { e.preventDefault(); lookup(e.target.elements.pn.value); }, style: { padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 4 } },
+        React.createElement("input", { name: "pn", type: "text", placeholder: "e.g. contentStatus", value: propertyName, onChange: e => setPropertyName(e.target.value), style: { flex: 1, fontSize: 13, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' } }),
+        React.createElement("button", { type: "submit", style: { padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', cursor: 'pointer', fontSize: 12 } }, "Go")
+      ),
+      React.createElement("div", { style: { padding: '6px 12px', fontSize: 11, color: 'var(--dim)', borderBottom: '1px solid var(--border)' } }, "Standard Egeria property names:"),
+      React.createElement("div", { className: "tree-scroll" },
+        _COMMON_PROPS.map(p =>
+          React.createElement("div", {
+            key: p,
+            className: "tree-item" + (submittedProp === p ? " sel" : ""),
+            onClick: () => { setPropertyName(p); lookup(p); },
+          }, React.createElement("span", { className: "type-name" }, p))
+        )
+      )
+    ),
+    // Right: valid values for selected property
+    React.createElement("div", { className: "main", style: { flexDirection: 'column', alignItems: 'stretch', overflowY: 'auto' } },
+      !submittedProp
+        ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a property name or type one to look up its valid values"))
+        : loadState === 'loading'
+        ? React.createElement("div", { className: "center" }, "Loading valid values for “" + submittedProp + "”…")
+        : loadState === 'error'
+        ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "Error: " + error))
+        : React.createElement("div", null,
+            React.createElement("div", { style: { padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 } },
+              React.createElement("span", { style: { fontSize: 16, fontWeight: 700 } }, submittedProp),
+              React.createElement("span", { className: "badge" }, values.length + ' value' + (values.length !== 1 ? 's' : ''))
+            ),
+            values.length === 0
+              ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "No registered valid values for “" + submittedProp + "”"))
+              : values.map((v, i) => React.createElement(ValidValueEntry, { key: i, val: v }))
+          )
+    )
+  );
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 
 const AREA_NAMES = {
@@ -1468,6 +2740,13 @@ function App() {
   const [selected, setSelected]   = useState({ kind: 'type', name: '' });
   const [theme, setTheme]         = useState('dark');
   const [view, setView]           = useState('types'); // 'types' | 'attrs'
+  const [section, setSection]     = useState('type-system'); // 'type-system' | 'reference-data' | 'digital-products' | 'glossary' | 'report-specs' | 'valid-values'
+  const [glossaryNavGuid, setGlossaryNavGuid] = useState(null);
+
+  const onNavigateToGlossary = useCallback(function(guid) {
+    setSection('glossary');
+    setGlossaryNavGuid(guid);
+  }, []);
 
   // Fetch type data once
   useEffect(() => {
@@ -1512,6 +2791,7 @@ function App() {
 
   // Navigate from Attribute Index to a specific type; reset area filter so it's visible
   const onNavigateToType = useCallback((kind, name) => {
+    setSection('type-system');
     setView('types');
     setAreaFilter('all');
     setSelected({ kind, name });
@@ -1535,7 +2815,7 @@ function App() {
     }, "Retry")
   ));
 
-  const { entities = {}, classifications = {}, relationships = {} } = data;
+  const { entities = {}, classifications = {}, relationships = {}, allEntities = {} } = data;
 
   return /*#__PURE__*/React.createElement(React.Fragment, null,
     // Header
@@ -1543,9 +2823,15 @@ function App() {
       /*#__PURE__*/React.createElement("img", { src: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJQAAACUCAMAAABC4vDmAAAAilBMVEX///9wzNsAAAAkICFmydkhHR5ry9oZFBX7+/v7/v72+/z29vYeGhvb8fXLy8vw8PCN1eEJAADb29sPBgno6Ohbxtfu+PoVDxBzcnJramrh4eG1tbXV1dU+PT2Pj4+w4eliYWHAv79SUVGfnp6j3OasrKzG6e99fHxFREQrKCk0MTJ/0N6Ih4daWFkY3gLWAAAJN0lEQVR4nO1caZeqOBDVxBhb4oI44oat2DZq6///e1MVlyeQVV8L58zcb9pIl7m1V2Gj8d/CbtavWoQSdiQmdZMqSDkli6qlKGBLKDssq5YijzllNJ5VLUUegz2njIyrFiOHYB1SSrZVi5HDOEWZsqrFyGGURhS0PKhajkdsYk4BpEam11lFglIQi5+rFuWO8ZoAdWQNBMZ18ecLEcMZ8V1nGtfFTQVTwiiNjptGow/CkUHVAgE2CXgCFq6lLHtBya5qiRrBiqCG31wmxD5eOX/zAxwTDdPR7TWhYl8xf1sBXkCQ091jDo7iN7OEycR6yXiGGh4mD04A7Y9sCtd9ONzLCd8/za8P8yUjqeFkmssKVlEpJHe/mj+9vyHT5J9ms/VpvGSHGh4fCmnmLqJRISZ/tprt1t84q2HbJtQKqSPJvPD2BtznuiRUs/31ukx4n2bLcOaDVMaVVekPS07FMf9WD75gs20+dgdMpEyGLzfYR2h1Cjc5F4ySwntf8nbd12T6+IHv1v7R6/koAk8QlahDdA5loS73G74m1LeFvNEBZCKpOhdHoYqJ3uWG36/IhJZn0vJlDGYX6oLJEYQqiXsh8AUL/BhK8rQqMMdcjmQdH6EmzeZrBFosbyTwnMpmd4OKvqsFWhyfAb2W8ePBEc9JL9OYlhUd8ZIFXsnTWV6AJYtBpsYipjxVvN+9WKAlcmnw2TaSd0KZpobPb0MNt5KB9lMWeLE87UcX4MejdenteX95y6EwIKtTT0ngP09YYFeSN9RRPwIt5klRjfspWFxyzam25Szhdu9nXein2Z+kMWW8kMLN14QzAEmkI1BkCTdYTEgHy8cgAc9xE2zmo+wABQxlURgTqd99DnJrPv+UC7VYyBzIyzvyjJCIgQ+gbLXNkksHD11CMfV0u78aFrc5jSAryTnrTkqjiB0ZX4N/H9Hp9Sp+1nQ5niCwZ455ywJ5lzcXi/6YiASMrx9KWeRluh6VN4GWww3OXO0WIbKIOF1uDuQkX2VgDWSkvBD+R9OPQIsf2WBHTN28wAqUEHFVpTnkyeKgaXNY2Chdbsl5Ek5jja13MhLxMLpxtggxK92qS1KL08nDZhlSVbRV5mKaZn/O5lpTKA/Li0BbFJ/yUpWix5YLPCxlk9+WQj7AZqzoozzGG32CFKqdqLMFWuMS6vLao8canGKdXVySIwcCP20RnAoa+jXIcUij9uyOFmizvMYI1dyrGR3gJ1Q1WMOh1EXY6zJI3WK/ti/kVUyVFiOcLNCaPwdrLRcaLFQx6Q4HC7RXGmB77KDhQomACSoS/eRIEtg2ENhtWjPCDXYydYWeCn2ijUkSlvLEyfGvCI0MFUwZHUJMJY+VQJc6/yh8PCdisLWooNECnToiSIY7e0F/52AUJhcqLa9trlwhGGvz7pJEixlQR2Jrh3+iN6+L5VlKRLBvx4nLeLWPYiriw5FbR+5Sb5oKAqXltWy1mKLjq8IADwnSA7LfYMpu5ftigeXLvvCgmraInSl642XsDhFWWyLKHOPRRJ2ZfLuQd/HnduMLpgRl2rvPG76VLnToVEgP9oIdNJVATqoMkyifyYxsjBf7vdIdWDvc8yMzhYwHnCAPjlL3eDRUabRbg3QERWj68P0NR7GjUIqK1FGppPaUukMfQxwGNG0zmELWuTJozRIMkDlOIbuyEVomqiuPyqJVy8Jg8ZSYrg4Grr5fanRT4bdtLXMEhHz+2Lw7GWPtZuUYJQ26Iz1V2+ipNgWhtsSwIbUhoVvslmFGY2WXEGS0QIgy/LE2XkSlztkfrELHFZyvloY8hN2B7gpCjQ9MaD38SdvzLPxbc+45NImMKJ5UYxpSFqn3ATszt2y+ayGoaxtRlIQa4MAoJiQ5Z9vdZrmcjwfB1eT6UMS4eH/LqOV2knoCi4qOTgJDL6QoEeZO0SHZn2ezDDCFolWom1jlf2n22pYSq+gSAANctbmDMSE4jwEc2y129i4Zujm+yRmT/pqi85TA0QOHU4o5F4Kxu4DCZdVs6JIxmfNPCDOi1FpdYezp71ZZtk73RxGSC6LUYcnTYnl30eVlmhg4B3rSYhTe85vpdwbj+Wi5XPYRS4fExSm2NSwWOE4EOxbyETkqdrAyBWxDzj8wWeAgFTQuDj9AjZ5clHIJt1cYLFDlEDfYE3tKJhfLu1/7o4+Pp7gUz3aQ+NFnZLqS59geNgwJdyHl+/xb2/JbbvAgD6EnUPbxCkJFzy1PWndDCrj211R/IqXWMNSnz6wpSvKaLpZ3g77zOYtpdCoKpZs1mnBp+HotU2kJhJBccJ8o1Kl8oQW+5MnP6CxwfizyBzoVegvVdXabj+jpZu1T4C+nQiiUV28P8e1PHuLSrSo7EdnDfCySF7G/UD17OaCE1gLBVeZ0qB/70+dteTfoCISUmImHADyGLN1TqCcs7wYNgYO9yK9uHFhk2i4po/eE5d0w0RAoRwgPUfnM3cd/iGvD98m1IB2BR07lUP2KLfGLfdY5mRmykC83+5eC0XB9fzknLPa46YtLXVoLPOVmQMGae+RT1rGHFbohYYKPD93VahF5PErkNWNXQ1pguQJCAgW9J+vMfdj25D5QDh8aAiEuU34c3V+5pglPb07loLNAKPZofEsXOuu9Y8/uRcu730bTSpNSJdez6pzd+Osp+63+kBaoUILODKXaX/Vq4Naclqvfr1jeDUigKofpZKhXwuspBhTqryzJw51ayjoowLPiuqUfJSY/rdeWmR9upYnnHXSi+vaiEr2/9OCFHpJBFlX/HFEeW7mK5J0N/zJ2+DDfMyXWr2LDcNd6WqtHMSEO4ga4You4WoyS2LS/XxHGKJXfXscbME+4U3/6vRiDXjFWo0d8JfoM19OrlqKIhWlPuDJMoXA+1uupf9lir+FRbT0Wht4Hol/Urw6zqH4eVE4offZ334IRdV2EeSNwmhQ9N876PXRwuapuoQa35/8XygmzGgqFOhXWTdHB+vwWsN8B9FP7uvkp763wdyCLaOw/Y/tlYJZQt1/m6ns/JvIG4NNQ9fl1oAuW2ueIKkQaKxaGKsaW1K9GXsS4v1y1FHnsQua2Ffg+BBm4KFYrLR9vBf6sWlQnv7nj2IvltVLyzkHgT82k9UruaMyJ7qHeyjA6n2vX1gACfyGF+hf8Gpg9oMbnbwAAAABJRU5ErkJggg==", alt: "Egeria", style: { height: 28, width: 'auto', borderRadius: 4 } }),
       /*#__PURE__*/React.createElement("span", { style: { fontFamily: 'ui-monospace,monospace', fontSize: 11, color: 'var(--dim)', letterSpacing: 3, textTransform: 'uppercase' } }, "Egeria"),
       /*#__PURE__*/React.createElement("span", { style: { width: 1, height: 14, background: 'var(--border)', display: 'inline-block' } }),
-      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (view === 'types' ? " on" : ""), onClick: () => setView('types') }, "Type Explorer"),
-      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (view === 'attrs' ? " on" : ""), onClick: () => setView('attrs') }, "Attribute Index"),
-      view === 'types' && /*#__PURE__*/React.createElement("select", {
+      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'type-system' ? " on" : ""), onClick: () => { setSection('type-system'); setView('types'); } }, "Type Explorer"),
+      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'glossary' ? " on" : ""), onClick: () => setSection('glossary') }, "Glossary"),
+      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'reference-data' ? " on" : ""), onClick: () => setSection('reference-data') }, "Reference Data"),
+      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'digital-products' ? " on" : ""), onClick: () => setSection('digital-products') }, "Digital Products"),
+      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'report-specs' ? " on" : ""), onClick: () => setSection('report-specs') }, "Report Specs"),
+      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'valid-values' ? " on" : ""), onClick: () => setSection('valid-values') }, "Valid Values"),
+      /*#__PURE__*/React.createElement("div", { style: { flex: 1 } }),
+      section === 'type-system' && /*#__PURE__*/React.createElement("button", { className: "view-tab" + (view === 'attrs' ? " on" : ""), onClick: () => setView('attrs') }, "Attribute Index"),
+      section === 'type-system' && view === 'types' && /*#__PURE__*/React.createElement("select", {
         className: "area-select",
         value: areaFilter,
         onChange: e => {
@@ -1555,11 +2841,10 @@ function App() {
           if (first) setSelected({ kind: 'type', name: first });
         }
       }, Object.entries(AREA_NAMES).map(([k, v]) => /*#__PURE__*/React.createElement("option", { key: k, value: k }, v))),
-      /*#__PURE__*/React.createElement("div", { style: { flex: 1 } }),
-      /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', display: 'flex', gap: 12 } },
-        /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", { style: { color: 'var(--accent)' } }, Object.keys(entities).length), " types"),
-        /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", { style: { color: 'var(--classif)' } }, Object.keys(classifications).length), " classifs"),
-        /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", { style: { color: 'var(--rel)' } }, Object.keys(relationships).length), " rels")
+      section === 'type-system' && /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', display: 'flex', gap: 12 } },
+        /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", { style: { color: 'var(--accent)' } }, Object.keys(entities).length), " Entities"),
+        /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", { style: { color: 'var(--classif)' } }, Object.keys(classifications).length), " Classifications"),
+        /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", { style: { color: 'var(--rel)' } }, Object.keys(relationships).length), " Relationships")
       ),
       /*#__PURE__*/React.createElement("button", {
         className: "theme-btn",
@@ -1567,13 +2852,25 @@ function App() {
         title: theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
       }, theme === 'dark' ? "\u2600 Light" : "\u263E Dark")
     ),
-    // Body \u2014 switches between Type Explorer and Attribute Index
-    view === 'attrs'
-      ? /*#__PURE__*/React.createElement(AttrIndexView, { rawData: rawData, onNavigateToType: onNavigateToType })
-      : /*#__PURE__*/React.createElement("div", { className: "body" },
+    // Body \u2014 dispatches to section, then to Type System sub-view
+    section === 'report-specs'
+      ? React.createElement(ReportSpecView, null)
+      : section === 'glossary'
+      ? React.createElement(GlossaryView, { navGuid: glossaryNavGuid })
+      : section === 'reference-data'
+      ? React.createElement(ReferenceDataView, null)
+      : section === 'digital-products'
+      ? React.createElement(DigitalProductsView, { onNavigateToGlossary: onNavigateToGlossary })
+      : section === 'valid-values'
+      ? React.createElement(ValidValuesView, null)
+      : section !== 'type-system'
+      ? /*#__PURE__*/React.createElement(PlaceholderView, { section: section })
+      : view === 'attrs'
+        ? /*#__PURE__*/React.createElement(AttrIndexView, { rawData: rawData, onNavigateToType: onNavigateToType })
+        : /*#__PURE__*/React.createElement("div", { className: "body" },
           /*#__PURE__*/React.createElement(Sidebar, { selected: selected, onSelect: onSelect, data: data }),
           /*#__PURE__*/React.createElement("div", { className: "main" },
-            selected.kind === 'type' && entities[selected.name] && /*#__PURE__*/React.createElement(TypeDetail, { name: selected.name, entities: entities, relationships: relationships, onSelect: onSelect }),
+            selected.kind === 'type' && (entities[selected.name] || allEntities[selected.name]) && /*#__PURE__*/React.createElement(TypeDetail, { name: selected.name, entities: allEntities, relationships: relationships, onSelect: onSelect }),
             selected.kind === 'classif' && classifications[selected.name] && /*#__PURE__*/React.createElement(ClassifDetail, { name: selected.name, classifications: classifications }),
             selected.kind === 'rel' && relationships[selected.name] && /*#__PURE__*/React.createElement(RelDetail, { name: selected.name, relationships: relationships, onSelect: onSelect }),
             !selected.name && /*#__PURE__*/React.createElement("div", { className: "center" },

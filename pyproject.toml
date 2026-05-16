@@ -28,3 +28,8 @@ pyspark = "3.5.3"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "loguru>=0.7.3",
+]
