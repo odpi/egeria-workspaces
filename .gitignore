@@ -195,5 +195,5 @@ compose-configs/shared-infra/.env
 /exchange/**
 /runtime-volumes/freshstart-platform-data/secrets/*.omsecrets
 
-/workspaces/egeria-docs-maintenance/snippets/
-
+# Obsidian local workspace state
+**/.obsidian/workspace.json
