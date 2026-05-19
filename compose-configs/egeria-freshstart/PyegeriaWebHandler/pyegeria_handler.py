@@ -146,6 +146,8 @@ class ProcessResponse(BaseModel):
 
 
 from mcp_server import server as mcp_server
+from rest_api_handler import router as rest_api_router
+app.include_router(rest_api_router)
 
 # Mount the MCP SSE application
 # FastMCP.sse_app() returns a Starlette app with /sse and /messages routes

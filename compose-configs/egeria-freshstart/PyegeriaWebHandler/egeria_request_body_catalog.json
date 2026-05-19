@@ -1,0 +1,1475 @@
+{
+  "description": "Egeria REST API outer request body catalog. Derived from egeria-platform-6.1 http-client-collections.",
+  "version": "6.1",
+  "groups": {
+    "create_entity": {
+      "label": "Create Entity",
+      "description": "Create a new metadata entity. The 'properties' field holds the type-specific Layer 2 body.",
+      "bodyTypes": [
+        "NewElementRequestBody",
+        "NewAttachmentRequestBody",
+        "NewOpenMetadataElementRequestBody",
+        "ActionRequestBody"
+      ]
+    },
+    "create_from_template": {
+      "label": "Create from Template",
+      "description": "Instantiate a new element by copying a template and substituting placeholder values.",
+      "bodyTypes": [
+        "TemplateRequestBody",
+        "UpdateWithTemplateRequestBody"
+      ]
+    },
+    "update_entity": {
+      "label": "Update Entity",
+      "description": "Update properties on an existing entity. 'mergeUpdate: true' performs a partial update; false replaces all properties.",
+      "bodyTypes": [
+        "UpdateElementRequestBody",
+        "UpdatePropertiesRequestBody",
+        "UpdateEffectivityDatesRequestBody",
+        "ConnectorConfigPropertiesRequestBody"
+      ]
+    },
+    "delete_entity": {
+      "label": "Delete Entity",
+      "description": "Delete a metadata entity. 'cascadeDelete' removes anchored child elements.",
+      "bodyTypes": [
+        "DeleteElementRequestBody",
+        "OpenMetadataDeleteRequestBody"
+      ]
+    },
+    "relationship": {
+      "label": "Relationship",
+      "description": "Create or update a relationship between two elements.",
+      "bodyTypes": [
+        "NewRelationshipRequestBody",
+        "UpdateRelationshipRequestBody",
+        "NewRelatedElementsRequestBody",
+        "FindRelationshipRequestBody",
+        "DeleteRelationshipRequestBody"
+      ]
+    },
+    "classification": {
+      "label": "Classification",
+      "description": "Add, update, or remove a classification on an element.",
+      "bodyTypes": [
+        "NewClassificationRequestBody",
+        "UpdateClassificationRequestBody",
+        "DeleteClassificationRequestBody"
+      ]
+    },
+    "search": {
+      "label": "Search / Query",
+      "description": "Find metadata elements by string, structured properties, or name. All include pagination and status-filter options.",
+      "bodyTypes": [
+        "SearchStringRequestBody",
+        "FilterRequestBody",
+        "FindRequestBody",
+        "GetRequestBody",
+        "ResultsRequestBody",
+        "HistoryRequestBody",
+        "UniqueNameRequestBody",
+        "UniqueRequestBody",
+        "ActivityStatusFilterRequestBody",
+        "ContentStatusFilterRequestBody",
+        "DeploymentStatusFilterRequestBody",
+        "ActivityStatusRequestBody"
+      ]
+    },
+    "external_id": {
+      "label": "External Identifiers",
+      "description": "Attach or manage external system identifiers on Egeria elements.",
+      "bodyTypes": [
+        "NewExternalIdRequestBody"
+      ]
+    },
+    "governance_action": {
+      "label": "Governance Actions",
+      "description": "Initiate or manage governance engine actions and processes.",
+      "bodyTypes": [
+        "InitiateEngineActionRequestBody",
+        "InitiateGovernanceActionTypeRequestBody",
+        "InitiateGovernanceActionProcessRequestBody"
+      ]
+    },
+    "scalar": {
+      "label": "Simple / Scalar",
+      "description": "Thin wrappers carrying a single value \u2014 used for targeted operations.",
+      "bodyTypes": [
+        "EffectiveTimeRequestBody",
+        "MetadataSourceRequestBody",
+        "NameRequestBody",
+        "StringRequestBody",
+        "URLRequestBody"
+      ]
+    },
+    "admin": {
+      "label": "Admin / System",
+      "description": "Platform administration, security configuration, and user management.",
+      "bodyTypes": [
+        "PlatformSecurityRequestBody",
+        "SecretsCollectionRequestBody",
+        "SecurityAccessControlRequestBody",
+        "UserAccountRequestBody",
+        "UserAccountRequestBody"
+      ]
+    }
+  },
+  "bodies": {
+    "ActionRequestBody": {
+      "group": "create_entity",
+      "fields": {
+        "actionSponsorGUID": "",
+        "assignToActorGUID": "",
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "initialClassifications": "Map of classification name \u2192 classification properties to apply at creation time.",
+        "newActionTargets": "",
+        "originatorGUID": "",
+        "properties": "Layer 2 body: the type-specific properties object. Set 'class' to the Properties type name."
+      },
+      "example": {
+        "class": "ActionRequestBody",
+        "initialClassifications": {
+          "ZoneMembership": {
+            "class": "ZoneMembershipProperties",
+            "zoneMembership": [
+              "governance"
+            ]
+          }
+        },
+        "newActionTargets": [
+          {
+            "actionTargetGUID": "add guid here",
+            "actionTargetName": "add name here"
+          }
+        ],
+        "properties": {
+          "class": "ActionProperties",
+          "qualifiedName": "",
+          "identifier": "",
+          "displayName": "",
+          "description": "",
+          "versionIdentifier": "",
+          "category": "",
+          "url": "",
+          "resourceName": "",
+          "namespacePath": "",
+          "deployedImplementationType": "",
+          "source": "",
+          "expectedBehaviour": "",
+          "requestedTime": "{{$isoTimestamp}}",
+          "requestedStartTime": "{{$isoTimestamp}}",
+          "startTime": "{{$isoTimestamp}}",
+          "dueTime": "{{$isoTimestamp}}",
+          "lastReviewTime": "{{$isoTimestamp}}",
+          "lastPauseTime": "{{$isoTimestamp}}",
+          "lastResumeTime": "{{$isoTimestamp}}",
+          "completionTime": "{{$isoTimestamp}}",
+          "priority": 0,
+          "formula": "",
+          "formulaType": "",
+          "activityStatus": "REQUESTED",
+          "userDefinedActivityStatus": "",
+          "situation": "",
+          "additionalProperties": {
+            "property1": "propertyValue1",
+            "property2": "propertyValue2"
+          }
+        },
+        "originatorGUID": "add guid of requester (ActionRequester relationship)",
+        "actionSponsorGUID": "add guid of sponsor (Actions relationship)",
+        "assignToActorGUID": "add guid of actor that will be assigned this action (AssignmentScope relationship)"
+      }
+    },
+    "ActivityStatusFilterRequestBody": {
+      "group": "search",
+      "fields": {
+        "activityStatusList": "",
+        "asOfTime": "",
+        "category": "",
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "filter": "",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage).",
+        "limitResultsByStatus": "Only return elements with these statuses (e.g. ['ACTIVE']).",
+        "pageSize": "Maximum number of results per page.",
+        "sequencingOrder": "Sort order: PROPERTY_ASCENDING, PROPERTY_DESCENDING, CREATION_DATE_RECENT, etc.",
+        "sequencingProperty": "Property name to sort by (e.g. 'qualifiedName').",
+        "startFrom": "Zero-based index for pagination."
+      },
+      "example": {
+        "class": "ActivityStatusFilterRequestBody",
+        "filter": "xxx",
+        "activityStatusList": [
+          "IN_PROGRESS"
+        ],
+        "category": "Governance",
+        "startFrom": 0,
+        "pageSize": 0,
+        "asOfTime": "{{$isoTimestamp}}",
+        "effectiveTime": "{{$isoTimestamp}}",
+        "forLineage": false,
+        "forDuplicateProcessing": false,
+        "limitResultsByStatus": [
+          "ACTIVE"
+        ],
+        "sequencingOrder": "PROPERTY_ASCENDING",
+        "sequencingProperty": "qualifiedName"
+      }
+    },
+    "ActivityStatusRequestBody": {
+      "group": "search",
+      "fields": {
+        "activityStatusList": "",
+        "asOfTime": "",
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage)."
+      },
+      "example": {
+        "class": "ActivityStatusRequestBody",
+        "activityStatusList": [
+          "REQUESTED",
+          "WAITING",
+          "IN_PROGRESS"
+        ]
+      }
+    },
+    "ConnectorConfigPropertiesRequestBody": {
+      "group": "update_entity",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "configurationProperties": "",
+        "connectorName": "",
+        "mergeUpdate": "true = partial update (only supplied fields change); false = replace all properties."
+      },
+      "example": {
+        "class": "ConnectorConfigPropertiesRequestBody",
+        "connectorName": "{{connectorName}}",
+        "mergeUpdate": false,
+        "configurationProperties": {
+          "propertyName1": "propertyValue1",
+          "propertyName2": "propertyValue2"
+        }
+      }
+    },
+    "ContentStatusFilterRequestBody": {
+      "group": "search",
+      "fields": {
+        "asOfTime": "",
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "contentStatusList": "",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "filter": "",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage).",
+        "limitResultsByStatus": "Only return elements with these statuses (e.g. ['ACTIVE']).",
+        "pageSize": "Maximum number of results per page.",
+        "sequencingOrder": "Sort order: PROPERTY_ASCENDING, PROPERTY_DESCENDING, CREATION_DATE_RECENT, etc.",
+        "sequencingProperty": "Property name to sort by (e.g. 'qualifiedName').",
+        "startFrom": "Zero-based index for pagination."
+      },
+      "example": {
+        "class": "ContentStatusFilterRequestBody",
+        "filter": "xxx",
+        "contentStatusList": [
+          "ACTIVE"
+        ],
+        "startFrom": 0,
+        "pageSize": 0,
+        "asOfTime": "{{$isoTimestamp}}",
+        "effectiveTime": "{{$isoTimestamp}}",
+        "forLineage": false,
+        "forDuplicateProcessing": false,
+        "limitResultsByStatus": [
+          "ACTIVE"
+        ],
+        "sequencingOrder": "PROPERTY_ASCENDING",
+        "sequencingProperty": "qualifiedName"
+      }
+    },
+    "DeleteClassificationRequestBody": {
+      "group": "classification",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "externalSourceGUID": "GUID of the external metadata source. Leave blank for native Egeria ownership.",
+        "externalSourceName": "Qualified name of the external metadata source. Leave blank for native Egeria ownership.",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage)."
+      },
+      "example": {
+        "class": "DeleteClassificationRequestBody",
+        "externalSourceGUID": "add guid here",
+        "externalSourceName": "add qualified name here",
+        "effectiveTime": "{{$isoTimestamp}}",
+        "forLineage": false,
+        "forDuplicateProcessing": false
+      }
+    },
+    "DeleteElementRequestBody": {
+      "group": "delete_entity",
+      "fields": {
+        "archiveDate": "",
+        "archiveProcess": "",
+        "archiveProperties": "",
+        "cascadeDelete": "true = also delete all elements anchored to this element.",
+        "cascadedDelete": "",
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "deleteMethod": "",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "externalSourceGUID": "GUID of the external metadata source. Leave blank for native Egeria ownership.",
+        "externalSourceName": "Qualified name of the external metadata source. Leave blank for native Egeria ownership.",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage)."
+      },
+      "example": {
+        "class": "DeleteElementRequestBody",
+        "cascadeDelete": false,
+        "externalSourceGUID": "add guid here",
+        "externalSourceName": "add qualified name here",
+        "effectiveTime": "{{$isoTimestamp}}",
+        "forLineage": false,
+        "forDuplicateProcessing": false
+      }
+    },
+    "DeleteRelationshipRequestBody": {
+      "group": "relationship",
+      "fields": {
+        "cascadeDelete": "true = also delete all elements anchored to this element.",
+        "cascadedDelete": "",
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "deleteMethod": "",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "externalSourceGUID": "GUID of the external metadata source. Leave blank for native Egeria ownership.",
+        "externalSourceName": "Qualified name of the external metadata source. Leave blank for native Egeria ownership.",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage)."
+      },
+      "example": {
+        "class": "DeleteRelationshipRequestBody",
+        "externalSourceGUID": "add guid here",
+        "externalSourceName": "add qualified name here",
+        "effectiveTime": "{{$isoTimestamp}}",
+        "forLineage": false,
+        "forDuplicateProcessing": false
+      }
+    },
+    "DeploymentStatusFilterRequestBody": {
+      "group": "search",
+      "fields": {
+        "asOfTime": "",
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "deploymentStatusList": "",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "filter": "",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage).",
+        "limitResultsByStatus": "Only return elements with these statuses (e.g. ['ACTIVE']).",
+        "pageSize": "Maximum number of results per page.",
+        "sequencingOrder": "Sort order: PROPERTY_ASCENDING, PROPERTY_DESCENDING, CREATION_DATE_RECENT, etc.",
+        "sequencingProperty": "Property name to sort by (e.g. 'qualifiedName').",
+        "startFrom": "Zero-based index for pagination."
+      },
+      "example": {
+        "class": "DeploymentStatusFilterRequestBody",
+        "filter": "xxx",
+        "deploymentStatusList": [
+          "ACTIVE"
+        ],
+        "startFrom": 0,
+        "pageSize": 0,
+        "asOfTime": "{{$isoTimestamp}}",
+        "effectiveTime": "{{$isoTimestamp}}",
+        "forLineage": false,
+        "forDuplicateProcessing": false,
+        "limitResultsByStatus": [
+          "ACTIVE"
+        ],
+        "sequencingOrder": "PROPERTY_ASCENDING",
+        "sequencingProperty": "qualifiedName"
+      }
+    },
+    "EffectiveTimeRequestBody": {
+      "group": "scalar",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted)."
+      },
+      "example": {
+        "class": "EffectiveTimeRequestBody",
+        "effectiveTime": "{{$isoTimestamp}}"
+      }
+    },
+    "FilterRequestBody": {
+      "group": "search",
+      "fields": {
+        "asOfTime": "",
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "endsWith": "Anchor the search string to the end of values.",
+        "filter": "",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage).",
+        "graphQueryDepth": "How many relationship hops to traverse (0 = element only, 1 = include neighbours).",
+        "ignoreCase": "Case-insensitive matching when true.",
+        "includeOnlyClassifiedElements": "",
+        "includeOnlyRelationships": "",
+        "limitResultsByStatus": "Only return elements with these statuses (e.g. ['ACTIVE']).",
+        "metadataElementSubtypeNames": "Also include elements of these subtypes.",
+        "metadataElementTypeName": "Restrict results to elements of this open metadata type.",
+        "pageSize": "Maximum number of results per page.",
+        "relationshipsPageSize": "",
+        "sequencingOrder": "Sort order: PROPERTY_ASCENDING, PROPERTY_DESCENDING, CREATION_DATE_RECENT, etc.",
+        "sequencingProperty": "Property name to sort by (e.g. 'qualifiedName').",
+        "skipClassifiedElements": "",
+        "skipRelationships": "",
+        "startFrom": "Zero-based index for pagination.",
+        "startsWith": "Anchor the search string to the start of values."
+      },
+      "example": {
+        "class": "FilterRequestBody",
+        "filter": "Add name here",
+        "startFrom": 0,
+        "pageSize": 10,
+        "asOfTime": "{{$isoTimestamp}}",
+        "effectiveTime": "{{$isoTimestamp}}",
+        "forLineage": false,
+        "forDuplicateProcessing": false,
+        "limitResultsByStatus": [
+          "ACTIVE"
+        ],
+        "sequencingOrder": "PROPERTY_ASCENDING",
+        "sequencingProperty": "qualifiedName"
+      }
+    },
+    "FindRelationshipRequestBody": {
+      "group": "relationship",
+      "fields": {
+        "asOfTime": "",
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "limitResultsByStatus": "Only return elements with these statuses (e.g. ['ACTIVE']).",
+        "relationshipTypeName": "",
+        "searchProperties": "",
+        "sequencingOrder": "Sort order: PROPERTY_ASCENDING, PROPERTY_DESCENDING, CREATION_DATE_RECENT, etc.",
+        "sequencingProperty": "Property name to sort by (e.g. 'qualifiedName')."
+      },
+      "example": {
+        "class": "FindRelationshipRequestBody",
+        "relationshipTypeName": "ResourceList",
+        "searchProperties": {
+          "class": "SearchProperties",
+          "conditions": [
+            {
+              "property": "resourceUse",
+              "operator": "EQ",
+              "value": {
+                "class": "PrimitiveTypePropertyValue",
+                "typeName": "string",
+                "primitiveValue": "Survey Resource"
+              }
+            }
+          ],
+          "matchCriteria": "ALL"
+        },
+        "effectiveTime": "{{$isoTimestamp}}",
+        "limitResultsByStatus": [
+          "ACTIVE"
+        ],
+        "asOfTime": "{{$isoTimestamp}}",
+        "sequencingOrder": "CREATION_DATE_RECENT",
+        "sequencingProperty": ""
+      }
+    },
+    "FindRequestBody": {
+      "group": "search",
+      "fields": {
+        "asOfTime": "",
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "graphQueryDepth": "How many relationship hops to traverse (0 = element only, 1 = include neighbours).",
+        "includeOnlyClassifiedElements": "",
+        "includeOnlyRelationships": "",
+        "limitResultsByStatus": "Only return elements with these statuses (e.g. ['ACTIVE']).",
+        "matchClassifications": "",
+        "metadataElementSubtypeNames": "Also include elements of these subtypes.",
+        "metadataElementTypeName": "Restrict results to elements of this open metadata type.",
+        "pageSize": "Maximum number of results per page.",
+        "relationshipsPageSize": "",
+        "searchProperties": "",
+        "sequencingOrder": "Sort order: PROPERTY_ASCENDING, PROPERTY_DESCENDING, CREATION_DATE_RECENT, etc.",
+        "sequencingProperty": "Property name to sort by (e.g. 'qualifiedName').",
+        "skipClassifiedElements": "",
+        "skipRelationships": ""
+      },
+      "example": {
+        "class": "FindRequestBody",
+        "metadataElementTypeName": "ValidValueDefinition",
+        "searchProperties": {
+          "class": "SearchProperties",
+          "conditions": [
+            {
+              "property": "identifier",
+              "operator": "LIKE",
+              "value": {
+                "class": "PrimitiveTypePropertyValue",
+                "typeName": "string",
+                "primitiveValue": "deployedImplementationType"
+              }
+            }
+          ],
+          "matchCriteria": "ANY"
+        }
+      }
+    },
+    "GetRequestBody": {
+      "group": "search",
+      "fields": {
+        "asOfTime": "",
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage).",
+        "graphQueryDepth": "How many relationship hops to traverse (0 = element only, 1 = include neighbours).",
+        "includeOnlyClassifiedElements": "",
+        "includeOnlyRelationships": "",
+        "limitResultsByStatus": "Only return elements with these statuses (e.g. ['ACTIVE']).",
+        "maxMermaidNodeCount": "",
+        "metadataElementSubtypeNames": "Also include elements of these subtypes.",
+        "metadataElementTypeName": "Restrict results to elements of this open metadata type.",
+        "relationshipsPageSize": "",
+        "skipClassifiedElements": "",
+        "skipRelationships": ""
+      },
+      "example": {
+        "class": "GetRequestBody",
+        "asOfTime": "{{$isoTimestamp}}",
+        "effectiveTime": "{{$isoTimestamp}}",
+        "forLineage": false,
+        "forDuplicateProcessing": false
+      }
+    },
+    "HistoryRequestBody": {
+      "group": "search",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "oldestFirst": ""
+      },
+      "example": {
+        "class": "HistoryRequestBody",
+        "effectiveTime": "{{$isoTimestamp}}",
+        "oldestFirst": false
+      }
+    },
+    "InitiateEngineActionRequestBody": {
+      "group": "governance_action",
+      "fields": {
+        "actionTargets": "",
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "description": "",
+        "displayName": "",
+        "domainIdentifier": "",
+        "originatorEngineName": "",
+        "originatorServiceName": "",
+        "processName": "",
+        "qualifiedName": "",
+        "receivedGuards": "",
+        "requestParameters": "",
+        "requestSourceGUIDs": "",
+        "requestSourceName": "",
+        "requestType": "",
+        "startDate": ""
+      },
+      "example": {
+        "class": "InitiateEngineActionRequestBody",
+        "qualifiedName": "EngineAction: .....",
+        "domainIdentifier": 0,
+        "displayName": "",
+        "description": "",
+        "requestSourceGUIDs": [
+          ""
+        ],
+        "actionTargets": [
+          {
+            "class": "NewActionTarget",
+            "actionTargetName": "",
+            "actionTargetGUID": ""
+          }
+        ],
+        "receivedGuards": [
+          ""
+        ],
+        "startDate": "",
+        "requestType": "",
+        "requestParameters": {
+          "parameterName1": "parameterValue1",
+          "parameterName2": "parameterValue2"
+        },
+        "processName": "",
+        "requestSourceName": "",
+        "originatorServiceName": "",
+        "originatorEngineName": ""
+      }
+    },
+    "InitiateGovernanceActionTypeRequestBody": {
+      "group": "governance_action",
+      "fields": {
+        "actionTargets": "",
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "governanceActionTypeQualifiedName": ""
+      },
+      "example": {
+        "class": "InitiateGovernanceActionTypeRequestBody",
+        "governanceActionTypeQualifiedName": "put qualified name here",
+        "actionTargets": [
+          {
+            "class": "NewActionTarget",
+            "actionTargetName": "target name goes here",
+            "actionTargetGUID": "target guid goes here"
+          }
+        ]
+      }
+    },
+    "MetadataSourceRequestBody": {
+      "group": "scalar",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "externalSourceGUID": "GUID of the external metadata source. Leave blank for native Egeria ownership.",
+        "externalSourceName": "Qualified name of the external metadata source. Leave blank for native Egeria ownership.",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage)."
+      },
+      "example": {
+        "class": "MetadataSourceRequestBody",
+        "externalSourceGUID": "Add guid here",
+        "externalSourceName": "Add qualified name here",
+        "forLineage": false,
+        "forDuplicateProcessing": false,
+        "effectiveTime": "{{$isoTimestamp}}"
+      }
+    },
+    "NameRequestBody": {
+      "group": "scalar",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "name": ""
+      },
+      "example": {
+        "class": "NameRequestBody",
+        "name": "add secret name here"
+      }
+    },
+    "NewAttachmentRequestBody": {
+      "group": "create_entity",
+      "fields": {
+        "anchorGUID": "GUID of the anchor element that 'owns' this element's lifecycle.",
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "externalSourceGUID": "GUID of the external metadata source. Leave blank for native Egeria ownership.",
+        "externalSourceName": "Qualified name of the external metadata source. Leave blank for native Egeria ownership.",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage).",
+        "initialClassifications": "Map of classification name \u2192 classification properties to apply at creation time.",
+        "isOwnAnchor": "true if this element is its own anchor (top-level elements).",
+        "parentAtEnd1": "Which end of the parent relationship this element occupies.",
+        "parentGUID": "GUID of the parent element to link to on creation.",
+        "parentRelationshipProperties": "Properties to set on the parent relationship.",
+        "parentRelationshipTypeName": "Relationship type name used to link to the parent.",
+        "properties": "Layer 2 body: the type-specific properties object. Set 'class' to the Properties type name."
+      },
+      "example": {
+        "class": "NewAttachmentRequestBody",
+        "anchorGUID": "add guid here",
+        "isOwnAnchor": false,
+        "parentGUID": "add guid here",
+        "parentRelationshipTypeName": "add type name here",
+        "parentRelationshipProperties": {
+          "class": "RelationshipElementProperties",
+          "propertyValueMap": {
+            "description": {
+              "class": "PrimitiveTypePropertyValue",
+              "typeName": "string",
+              "primitiveValue": "New description"
+            }
+          }
+        },
+        "parentAtEnd1": false,
+        "properties": {
+          "class": "ContributionRecordProperties",
+          "qualifiedName": "add unique name here",
+          "displayName": "add name here",
+          "identifier": "add name here",
+          "description": "add description here",
+          "category": "add category here",
+          "url": "add url here",
+          "karmaPoints": 0,
+          "additionalProperties": {
+            "property1": "propertyValue1",
+            "property2": "propertyValue2"
+          },
+          "extendedProperties": {
+            "property1": "propertyValue1",
+            "property2": "propertyValue2"
+          },
+          "effectiveFrom": "{{$isoTimestamp}}",
+          "effectiveTo": "{{$isoTimestamp}}"
+        },
+        "externalSourceGUID": "add guid here",
+        "externalSourceName": "add qualified name here",
+        "effectiveTime": "{{$isoTimestamp}}",
+        "forLineage": false,
+        "forDuplicateProcessing": false
+      }
+    },
+    "NewClassificationRequestBody": {
+      "group": "classification",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "externalSourceGUID": "GUID of the external metadata source. Leave blank for native Egeria ownership.",
+        "externalSourceName": "Qualified name of the external metadata source. Leave blank for native Egeria ownership.",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage).",
+        "properties": "Layer 2 body: the type-specific properties object. Set 'class' to the Properties type name."
+      },
+      "example": {
+        "class": "NewClassificationRequestBody",
+        "properties": {
+          "class": "SecurityGroupMembershipProperties",
+          "groups": [
+            ""
+          ],
+          "effectiveFrom": "{{$isoTimestamp}}",
+          "effectiveTo": "{{$isoTimestamp}}"
+        },
+        "externalSourceGUID": "add guid here",
+        "externalSourceName": "add qualified name here",
+        "effectiveTime": "{{$isoTimestamp}}",
+        "forLineage": false,
+        "forDuplicateProcessing": false
+      }
+    },
+    "NewElementRequestBody": {
+      "group": "create_entity",
+      "fields": {
+        "anchorGUID": "GUID of the anchor element that 'owns' this element's lifecycle.",
+        "anchorScopeGUIDs": "Restrict anchor search to these scope GUIDs.",
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "externalSourceGUID": "GUID of the external metadata source. Leave blank for native Egeria ownership.",
+        "externalSourceName": "Qualified name of the external metadata source. Leave blank for native Egeria ownership.",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage).",
+        "isOwnAnchor": "true if this element is its own anchor (top-level elements).",
+        "parentAtEnd1": "Which end of the parent relationship this element occupies.",
+        "parentGUID": "GUID of the parent element to link to on creation.",
+        "parentRelationshipProperties": "Properties to set on the parent relationship.",
+        "parentRelationshipTypeName": "Relationship type name used to link to the parent.",
+        "properties": "Layer 2 body: the type-specific properties object. Set 'class' to the Properties type name."
+      },
+      "example": {
+        "class": "NewElementRequestBody",
+        "anchorGUID": "add guid here",
+        "isOwnAnchor": false,
+        "parentGUID": "add guid here",
+        "parentRelationshipTypeName": "add type name here",
+        "parentRelationshipProperties": {
+          "class": "RelationshipElementProperties",
+          "propertyValueMap": {
+            "description": {
+              "class": "PrimitiveTypePropertyValue",
+              "typeName": "string",
+              "primitiveValue": "New description"
+            }
+          }
+        },
+        "parentAtEnd1": false,
+        "properties": {
+          "class": "ActorProfileProperties",
+          "typeName": "enter the type of the element",
+          "qualifiedName": "add unique name here",
+          "displayName": "add short name here",
+          "description": "add description here",
+          "additionalProperties": {
+            "property1": "propertyValue1",
+            "property2": "propertyValue2"
+          },
+          "extendedProperties": {
+            "property1": "propertyValue1",
+            "property2": "propertyValue2"
+          },
+          "effectiveFrom": "{{$isoTimestamp}}",
+          "effectiveTo": "{{$isoTimestamp}}"
+        },
+        "externalSourceGUID": "add guid here",
+        "externalSourceName": "add qualified name here",
+        "effectiveTime": "{{$isoTimestamp}}",
+        "forLineage": false,
+        "forDuplicateProcessing": false
+      }
+    },
+    "NewExternalIdRequestBody": {
+      "group": "external_id",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveFrom": "ISO-8601 datetime from which this element is effective.",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "effectiveTo": "ISO-8601 datetime after which this element is no longer effective.",
+        "externalSourceGUID": "GUID of the external metadata source. Leave blank for native Egeria ownership.",
+        "externalSourceName": "Qualified name of the external metadata source. Leave blank for native Egeria ownership.",
+        "parentRelationshipProperties": "Properties to set on the parent relationship.",
+        "properties": "Layer 2 body: the type-specific properties object. Set 'class' to the Properties type name."
+      },
+      "example": {
+        "class": "NewExternalIdRequestBody",
+        "externalSourceGUID": "{{externalScopeGUID}}",
+        "externalSourceName": "{{externalScopeName}}",
+        "properties": {
+          "class": "ExternalIdProperties",
+          "key": "Add external identifier here",
+          "keyPattern": "LOCAL_KEY",
+          "description": "Add optional description here",
+          "displayName": "Add optional name used for the identifier in the third party technology here",
+          "externalInstanceTypeName": "Describe the type name in the external system",
+          "externalInstanceCreatedBy": "Add userId used in third Party",
+          "externalInstanceCreationTime": "When was the instance created in the third party",
+          "externalInstanceLastUpdatedBy": "Add userId used in third Party",
+          "externalInstanceLastUpdateTime": "When was the instance last updated in the third party",
+          "externalInstanceVersion": 1
+        },
+        "parentRelationshipProperties": {
+          "class": "ExternalIdLinkProperties",
+          "permittedSynchronization": "BOTH_DIRECTIONS",
+          "usage": "Add how the identifier is used by the third party",
+          "source": "Describe how the identifier was discovered",
+          "lastSynchronized": "{{$isoTimestamp}}",
+          "mappingProperties": {
+            "propertyName1": "propertyValue1",
+            "propertyName2": "propertyValue2"
+          }
+        },
+        "effectiveFrom": "{{$isoTimestamp}}",
+        "effectiveTo": "{{$isoTimestamp}}",
+        "effectiveTime": "{{$isoTimestamp}}"
+      }
+    },
+    "NewOpenMetadataElementRequestBody": {
+      "group": "create_entity",
+      "fields": {
+        "anchorGUID": "GUID of the anchor element that 'owns' this element's lifecycle.",
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveFrom": "ISO-8601 datetime from which this element is effective.",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "effectiveTo": "ISO-8601 datetime after which this element is no longer effective.",
+        "externalSourceGUID": "GUID of the external metadata source. Leave blank for native Egeria ownership.",
+        "externalSourceName": "Qualified name of the external metadata source. Leave blank for native Egeria ownership.",
+        "initialClassifications": "Map of classification name \u2192 classification properties to apply at creation time.",
+        "isOwnAnchor": "true if this element is its own anchor (top-level elements).",
+        "parentAtEnd1": "Which end of the parent relationship this element occupies.",
+        "parentGUID": "GUID of the parent element to link to on creation.",
+        "parentRelationshipProperties": "Properties to set on the parent relationship.",
+        "parentRelationshipTypeName": "Relationship type name used to link to the parent.",
+        "properties": "Layer 2 body: the type-specific properties object. Set 'class' to the Properties type name.",
+        "typeName": "Open metadata type name for generic low-level create operations."
+      },
+      "example": {
+        "class": "NewOpenMetadataElementRequestBody",
+        "externalSourceGUID": "",
+        "externalSourceName": "",
+        "typeName": "",
+        "initialClassifications": {},
+        "anchorGUID": "",
+        "isOwnAnchor": false,
+        "effectiveFrom": "{{$isoTimestamp}}",
+        "effectiveTo": "{{$isoTimestamp}}",
+        "properties": {},
+        "parentGUID": "",
+        "parentRelationshipTypeName": "",
+        "parentRelationshipProperties": {},
+        "parentAtEnd1": true,
+        "effectiveTime": "{{$isoTimestamp}}"
+      }
+    },
+    "NewRelatedElementsRequestBody": {
+      "group": "relationship",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "externalSourceGUID": "GUID of the external metadata source. Leave blank for native Egeria ownership.",
+        "externalSourceName": "Qualified name of the external metadata source. Leave blank for native Egeria ownership.",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage)."
+      },
+      "example": {
+        "class": "NewRelatedElementsRequestBody",
+        "externalSourceGUID": "",
+        "externalSourceName": "",
+        "forLineage": false,
+        "forDuplicateProcessing": false,
+        "effectiveTime": "{{$isoTimestamp}}"
+      }
+    },
+    "NewRelationshipRequestBody": {
+      "group": "relationship",
+      "fields": {
+        "anchorScopeGUIDs": "Restrict anchor search to these scope GUIDs.",
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "externalSourceGUID": "GUID of the external metadata source. Leave blank for native Egeria ownership.",
+        "externalSourceName": "Qualified name of the external metadata source. Leave blank for native Egeria ownership.",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage).",
+        "makeAnchor": "",
+        "properties": "Layer 2 body: the type-specific properties object. Set 'class' to the Properties type name.",
+        "relationshipProperties": ""
+      },
+      "example": {
+        "class": "NewRelationshipRequestBody",
+        "properties": {
+          "class": "GovernanceActionExecutorProperties",
+          "requestType": "add label here",
+          "requestParameters": {},
+          "requestParameterFilter": [],
+          "requestParameterMap": {},
+          "actionTargetFilter": [],
+          "actionTargetMap": {},
+          "effectiveFrom": "{{$isoTimestamp}}",
+          "effectiveTo": "{{$isoTimestamp}}"
+        },
+        "externalSourceGUID": "add guid here",
+        "externalSourceName": "add qualified name here",
+        "effectiveTime": "{{$isoTimestamp}}",
+        "forLineage": false,
+        "forDuplicateProcessing": false
+      }
+    },
+    "OpenMetadataDeleteRequestBody": {
+      "group": "delete_entity",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "externalSourceGUID": "GUID of the external metadata source. Leave blank for native Egeria ownership.",
+        "externalSourceName": "Qualified name of the external metadata source. Leave blank for native Egeria ownership.",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage)."
+      },
+      "example": {
+        "class": "OpenMetadataDeleteRequestBody",
+        "externalSourceGUID": "",
+        "externalSourceName": "",
+        "forLineage": false,
+        "forDuplicateProcessing": false,
+        "effectiveTime": "{{$isoTimestamp}}"
+      }
+    },
+    "PlatformSecurityRequestBody": {
+      "group": "admin",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "platformSecurityConnection": "",
+        "urlRoot": ""
+      },
+      "example": {
+        "class": "PlatformSecurityRequestBody",
+        "urlRoot": "{{baseURL}}",
+        "platformSecurityConnection": {
+          "class": "Connection",
+          "connectorType": {
+            "class": "ConnectorType",
+            "connectorProviderClassName": "org.odpi.openmetadata.metadatasecurity.accessconnector.OpenMetadataAccessSecurityProvider"
+          }
+        }
+      }
+    },
+    "ResultsRequestBody": {
+      "group": "search",
+      "fields": {
+        "asOfTime": "",
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage).",
+        "graphQueryDepth": "How many relationship hops to traverse (0 = element only, 1 = include neighbours).",
+        "includeOnlyRelationships": "",
+        "limitResultsByStatus": "Only return elements with these statuses (e.g. ['ACTIVE']).",
+        "metadataElementTypeName": "Restrict results to elements of this open metadata type.",
+        "pageSize": "Maximum number of results per page.",
+        "sequencingOrder": "Sort order: PROPERTY_ASCENDING, PROPERTY_DESCENDING, CREATION_DATE_RECENT, etc.",
+        "sequencingProperty": "Property name to sort by (e.g. 'qualifiedName').",
+        "startFrom": "Zero-based index for pagination."
+      },
+      "example": {
+        "class": "ResultsRequestBody",
+        "startFrom": 0,
+        "pageSize": 10
+      }
+    },
+    "SearchStringRequestBody": {
+      "group": "search",
+      "fields": {
+        "asOfTime": "",
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "endsWith": "Anchor the search string to the end of values.",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage).",
+        "graphQueryDepth": "How many relationship hops to traverse (0 = element only, 1 = include neighbours).",
+        "ignoreCase": "Case-insensitive matching when true.",
+        "includeOnlyClassifiedElements": "",
+        "includeOnlyRelationships": "",
+        "limitResultsByStatus": "Only return elements with these statuses (e.g. ['ACTIVE']).",
+        "maxMermaidNodeCount": "",
+        "metadataElementSubtypeNames": "Also include elements of these subtypes.",
+        "metadataElementTypeName": "Restrict results to elements of this open metadata type.",
+        "pageSize": "Maximum number of results per page.",
+        "relationshipsPageSize": "",
+        "searchString": "Regular expression or keyword to match against element properties.",
+        "sequencingOrder": "Sort order: PROPERTY_ASCENDING, PROPERTY_DESCENDING, CREATION_DATE_RECENT, etc.",
+        "sequencingProperty": "Property name to sort by (e.g. 'qualifiedName').",
+        "skipClassifiedElements": "",
+        "skipRelationships": "",
+        "startFrom": "Zero-based index for pagination.",
+        "startsWith": "Anchor the search string to the start of values."
+      },
+      "example": {
+        "class": "SearchStringRequestBody",
+        "searchString": "xxx",
+        "startsWith": false,
+        "endsWith": false,
+        "ignoreCase": true,
+        "startFrom": 0,
+        "pageSize": 0,
+        "asOfTime": "{{$isoTimestamp}}",
+        "effectiveTime": "{{$isoTimestamp}}",
+        "forLineage": false,
+        "forDuplicateProcessing": false,
+        "limitResultsByStatus": [
+          "ACTIVE"
+        ],
+        "sequencingOrder": "PROPERTY_ASCENDING",
+        "sequencingProperty": "qualifiedName"
+      }
+    },
+    "SecretsCollectionRequestBody": {
+      "group": "admin",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "secretsCollection": ""
+      },
+      "example": {
+        "class": "SecretsCollectionRequestBody",
+        "secretsCollection": {
+          "collectionName": "add secret name here",
+          "displayName": "add display name here",
+          "description": "add description here",
+          "refreshTimeInterval": 60,
+          "secrets": {
+            "secretName1": "secretValue1",
+            "secretName2": "secretValue2"
+          },
+          "tokenAPI": {
+            "httpRequestType": "GET",
+            "url": "Add URL for REST API call to retrieve bearer token.",
+            "contentType": "application/json",
+            "requestBody": {
+              "requestBodyProperty1": "value1",
+              "requestBodyProperty2": "value2"
+            },
+            "responseBodyMapping": {
+              "responseProperty1": "secretName1",
+              "responseProperty2": "secretName2"
+            }
+          }
+        }
+      }
+    },
+    "SecurityAccessControlRequestBody": {
+      "group": "admin",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "securityAccessControl": ""
+      },
+      "example": {
+        "class": "SecurityAccessControlRequestBody",
+        "securityAccessControl": {
+          "controlName": "{{controlName}}",
+          "displayName": "",
+          "description": "",
+          "controlTypeName": "",
+          "associatedSecurityList": {
+            "operationName": [
+              "listOrUser1",
+              "listOrUser2"
+            ]
+          },
+          "mappingProperties": {
+            "property1": "propertyValue1"
+          },
+          "securityLabels": [],
+          "securityProperties": {
+            "property1": "propertyValue1"
+          },
+          "otherProperties": {
+            "property1": "propertyValue1"
+          }
+        }
+      }
+    },
+    "StringRequestBody": {
+      "group": "scalar",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "string": ""
+      },
+      "example": {
+        "class": "StringRequestBody",
+        "string": "add new address here"
+      }
+    },
+    "TemplateRequestBody": {
+      "group": "create_from_template",
+      "fields": {
+        "allowRetrieve": "",
+        "anchorGUID": "GUID of the anchor element that 'owns' this element's lifecycle.",
+        "anchorScopeGUIDs": "Restrict anchor search to these scope GUIDs.",
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveFrom": "ISO-8601 datetime from which this element is effective.",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "effectiveTo": "ISO-8601 datetime after which this element is no longer effective.",
+        "externalSourceGUID": "GUID of the external metadata source. Leave blank for native Egeria ownership.",
+        "externalSourceName": "Qualified name of the external metadata source. Leave blank for native Egeria ownership.",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage).",
+        "isOwnAnchor": "true if this element is its own anchor (top-level elements).",
+        "openMetadataTypeName": "",
+        "parentAtEnd1": "Which end of the parent relationship this element occupies.",
+        "parentGUID": "GUID of the parent element to link to on creation.",
+        "parentRelationshipProperties": "Properties to set on the parent relationship.",
+        "parentRelationshipTypeName": "Relationship type name used to link to the parent.",
+        "placeholderPropertyValues": "Map of placeholder name \u2192 value for template substitution.",
+        "replacementProperties": "Properties to override on the copy (using typed PropertyValue map).",
+        "templateGUID": "GUID of the template element to copy.",
+        "typeName": "Open metadata type name for generic low-level create operations."
+      },
+      "example": {
+        "class": "TemplateRequestBody",
+        "anchorGUID": "add guid here",
+        "isOwnAnchor": false,
+        "parentGUID": "add guid here",
+        "parentRelationshipTypeName": "add type name here",
+        "parentRelationshipProperties": {
+          "class": "RelationshipElementProperties",
+          "propertyValueMap": {
+            "description": {
+              "class": "PrimitiveTypePropertyValue",
+              "typeName": "string",
+              "primitiveValue": "New description"
+            }
+          }
+        },
+        "parentAtEnd1": false,
+        "templateGUID": "add guid here",
+        "replacementProperties": {
+          "class": "ElementProperties",
+          "propertyValueMap": {
+            "description": {
+              "class": "PrimitiveTypePropertyValue",
+              "typeName": "string",
+              "primitiveValue": "New description"
+            }
+          }
+        },
+        "placeholderPropertyValues": {
+          "placeholder1": "propertyValue1",
+          "placeholder2": "propertyValue2"
+        },
+        "externalSourceGUID": "add guid here",
+        "externalSourceName": "add qualified name here",
+        "effectiveTime": "{{$isoTimestamp}}",
+        "forLineage": false,
+        "forDuplicateProcessing": false
+      }
+    },
+    "URLRequestBody": {
+      "group": "scalar",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "urlRoot": ""
+      },
+      "example": {
+        "class": "URLRequestBody",
+        "urlRoot": "{{baseURL}}"
+      }
+    },
+    "UniqueNameRequestBody": {
+      "group": "search",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "name": "",
+        "namePropertyName": ""
+      },
+      "example": {
+        "class": "UniqueNameRequestBody",
+        "name": "System::coco-sus",
+        "namePropertyName": "qualifiedName"
+      }
+    },
+    "UniqueRequestBody": {
+      "group": "search",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "name": "",
+        "namePropertyName": ""
+      },
+      "example": {
+        "class": "UniqueRequestBody",
+        "effectiveTime": "{{$isoTimestamp}}",
+        "name": "active-metadata-store",
+        "namePropertyName": "displayName"
+      }
+    },
+    "UpdateClassificationRequestBody": {
+      "group": "classification",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "externalSourceGUID": "GUID of the external metadata source. Leave blank for native Egeria ownership.",
+        "externalSourceName": "Qualified name of the external metadata source. Leave blank for native Egeria ownership.",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage).",
+        "mergeUpdate": "true = partial update (only supplied fields change); false = replace all properties.",
+        "properties": "Layer 2 body: the type-specific properties object. Set 'class' to the Properties type name."
+      },
+      "example": {
+        "class": "UpdateClassificationRequestBody",
+        "mergeUpdate": true,
+        "properties": {
+          "class": "SecurityGroupMembershipProperties",
+          "groups": [
+            ""
+          ],
+          "effectiveFrom": "{{$isoTimestamp}}",
+          "effectiveTo": "{{$isoTimestamp}}"
+        },
+        "externalSourceGUID": "add guid here",
+        "externalSourceName": "add qualified name here",
+        "effectiveTime": "{{$isoTimestamp}}",
+        "forLineage": false,
+        "forDuplicateProcessing": false
+      }
+    },
+    "UpdateEffectivityDatesRequestBody": {
+      "group": "update_entity",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveFrom": "ISO-8601 datetime from which this element is effective.",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "effectiveTo": "ISO-8601 datetime after which this element is no longer effective.",
+        "externalSourceGUID": "GUID of the external metadata source. Leave blank for native Egeria ownership.",
+        "externalSourceName": "Qualified name of the external metadata source. Leave blank for native Egeria ownership.",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage)."
+      },
+      "example": {
+        "class": "UpdateEffectivityDatesRequestBody",
+        "externalSourceGUID": "",
+        "externalSourceName": "",
+        "effectiveFrom": "{{$isoTimestamp}}",
+        "effectiveTo": "{{$isoTimestamp}}",
+        "forLineage": false,
+        "forDuplicateProcessing": false,
+        "effectiveTime": "{{$isoTimestamp}}"
+      }
+    },
+    "UpdateElementRequestBody": {
+      "group": "update_entity",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveFrom": "ISO-8601 datetime from which this element is effective.",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "effectiveTo": "ISO-8601 datetime after which this element is no longer effective.",
+        "externalSourceGUID": "GUID of the external metadata source. Leave blank for native Egeria ownership.",
+        "externalSourceName": "Qualified name of the external metadata source. Leave blank for native Egeria ownership.",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage).",
+        "mergeUpdate": "true = partial update (only supplied fields change); false = replace all properties.",
+        "properties": "Layer 2 body: the type-specific properties object. Set 'class' to the Properties type name."
+      },
+      "example": {
+        "class": "UpdateElementRequestBody",
+        "mergeUpdate": true,
+        "properties": {
+          "class": "ActorProfileProperties",
+          "typeName": "enter the type of the element",
+          "qualifiedName": "add unique name here",
+          "displayName": "add short name here",
+          "description": "add description here",
+          "additionalProperties": {
+            "property1": "propertyValue1",
+            "property2": "propertyValue2"
+          },
+          "extendedProperties": {
+            "property1": "propertyValue1",
+            "property2": "propertyValue2"
+          },
+          "effectiveFrom": "{{$isoTimestamp}}",
+          "effectiveTo": "{{$isoTimestamp}}"
+        },
+        "externalSourceGUID": "add guid here",
+        "externalSourceName": "add qualified name here",
+        "effectiveTime": "{{$isoTimestamp}}",
+        "forLineage": false,
+        "forDuplicateProcessing": false
+      }
+    },
+    "UpdatePropertiesRequestBody": {
+      "group": "update_entity",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "externalSourceGUID": "GUID of the external metadata source. Leave blank for native Egeria ownership.",
+        "externalSourceName": "Qualified name of the external metadata source. Leave blank for native Egeria ownership.",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage).",
+        "properties": "Layer 2 body: the type-specific properties object. Set 'class' to the Properties type name.",
+        "replaceProperties": ""
+      },
+      "example": {
+        "class": "UpdatePropertiesRequestBody",
+        "externalSourceGUID": "",
+        "externalSourceName": "",
+        "forLineage": false,
+        "forDuplicateProcessing": false,
+        "effectiveTime": "{{$isoTimestamp}}",
+        "properties": {
+          "class": "ElementProperties",
+          "propertyValueMap": {
+            "description": {
+              "class": "PrimitiveTypePropertyValue",
+              "typeName": "string",
+              "primitiveValue": "New description"
+            }
+          }
+        },
+        "replaceProperties": false
+      }
+    },
+    "UpdateRelationshipRequestBody": {
+      "group": "relationship",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "externalSourceGUID": "GUID of the external metadata source. Leave blank for native Egeria ownership.",
+        "externalSourceName": "Qualified name of the external metadata source. Leave blank for native Egeria ownership.",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage).",
+        "mergeUpdate": "true = partial update (only supplied fields change); false = replace all properties.",
+        "properties": "Layer 2 body: the type-specific properties object. Set 'class' to the Properties type name."
+      },
+      "example": {
+        "class": "UpdateRelationshipRequestBody",
+        "properties": {
+          "class": "NextGovernanceActionProcessStepProperties",
+          "guard": "Add name of guard that could trigger the next step",
+          "mandatoryGuard": false
+        }
+      }
+    },
+    "UpdateWithTemplateRequestBody": {
+      "group": "create_from_template",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "effectiveTime": "Point-in-time for the operation (defaults to now if omitted).",
+        "externalSourceGUID": "GUID of the external metadata source. Leave blank for native Egeria ownership.",
+        "externalSourceName": "Qualified name of the external metadata source. Leave blank for native Egeria ownership.",
+        "forDuplicateProcessing": "true = suppress duplicate-detection during this operation.",
+        "forLineage": "true = include elements with the Memento classification (archived for lineage).",
+        "mergeClassifications": "",
+        "mergeUpdate": "true = partial update (only supplied fields change); false = replace all properties.",
+        "properties": "Layer 2 body: the type-specific properties object. Set 'class' to the Properties type name."
+      },
+      "example": {
+        "class": "UpdateWithTemplateRequestBody",
+        "mergeUpdate": true,
+        "mergeClassifications": true,
+        "properties": {
+          "class": "GlossaryTermProperties",
+          "qualifiedName": "Must provide a unique name here",
+          "identifier": "Add value here",
+          "displayName": "Add display name here",
+          "versionIdentifier": "Add value here",
+          "description": "Add description of the collection here",
+          "category": "Add appropriate valid value for type",
+          "url": "Add value here",
+          "authors": [
+            "author1",
+            "author2"
+          ],
+          "contentStatus": "DRAFT",
+          "userDefinedStatus": "Add value here",
+          "aliases": [
+            "alias1",
+            "alias2"
+          ],
+          "summary": "Add value here",
+          "examples": "Add value here",
+          "abbreviation": "Add value here",
+          "usage": "Add value here",
+          "additionalProperties": {
+            "property1": "Add value here",
+            "property2": "Add value here"
+          }
+        },
+        "externalSourceGUID": "add guid here",
+        "externalSourceName": "add qualified name here",
+        "effectiveTime": "{{$isoTimestamp}}",
+        "forLineage": false,
+        "forDuplicateProcessing": false
+      }
+    },
+    "UserAccountRequestBody": {
+      "group": "admin",
+      "fields": {
+        "class": "Discriminator \u2014 always the body type name (set automatically).",
+        "userAccount": ""
+      },
+      "example": {
+        "class": "UserAccountRequestBody",
+        "userAccount": {
+          "class": "OpenMetadataUserAccount",
+          "userId": "",
+          "userName": "",
+          "userAccountType": "EMPLOYEE",
+          "employeeNumber": "",
+          "employeeType": "",
+          "givenName": "",
+          "surname": "",
+          "email": "",
+          "manager": "",
+          "distinguishedName": "",
+          "securityRoles": [
+            ""
+          ],
+          "securityGroups": [
+            ""
+          ],
+          "otherProperties": {
+            "defaultZones": [],
+            "publishZones": []
+          },
+          "userAccountStatus": "CREDENTIALS_EXPIRED",
+          "secrets": {
+            "clearPassword": "newSecret1"
+          }
+        }
+      }
+    }
+  }
+}

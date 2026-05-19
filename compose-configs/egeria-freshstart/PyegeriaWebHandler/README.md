@@ -7,21 +7,16 @@ used to execute Dr.Egeria commands from anything that can make a REST call - and
 the Egeria runtime.
 
 ## Maintenance Notes
-A version of dr_egeria_md.py has been copied to the root of the pyegeria-web-handler directory rather than 
-just calling it from the md_processing module of pyegeria. This facilitated building. However, what this does mean is that after
-significant change (generally additions) to the Dr.Egeria md_processing module, we need to copy the new version
-of dr_egeria_md.py into the root of the pyegeria-web-handler directory and make a few checks and changes.
+The Pyegeria Web Handler now uses the **Dr. Egeria v2** core, which features a dynamic registry-based dispatcher (`V2Dispatcher`).
 
-Check that the imports are correct. The name of the main routine is process_markdown_file. So if this changes in the
-future, you will need to change either pyegeria_handler or dr_egeria_md.py to match. Other than that is should be a drop
-in replacement.
+### Dynamic Discovery
+Unlike previous versions, you no longer need to manually update `dr_egeria_md.py` with `if-elif` blocks when new commands are added to `pyegeria`. The handler now:
+1.  **Auto-Registers**: Scans command specifications (JSON) in `md_processing/data/compact_commands` and automatically maps them to their respective processors.
+2.  **Supports Variants**: Handles "Link", "Attach", "Add", "Detach", "Remove", etc., automatically based on the command specs.
+3.  **Hot Reload**: You can trigger a refresh of the command specifications (without restarting the container) via the `/dr-egeria/refresh` POST endpoint or the "Refresh" button in the Obsidian plugin.
 
-## Command Catalog Notes
-`md_processing/__init__.py` now re-exports command handlers and command lists from
-`pyegeria.view.md_processing_utils` when available, and only falls back to local stubs when unavailable.
-This prevents valid commands from being silently skipped because local constants were empty.
-
-`dr_egeria_md.py` also attempts handler dispatch even when a command is missing from `command_list` and logs a warning.
+### Diagnostics
+The v2 engine provides rich feedback tables ("Command Analysis" and "Parsed Attributes"). If the Obsidian plugin detects a long response, it will display these diagnostics in a modal window to help troubleshoot markdown formatting or missing requirements.
 
 ### Path Handling
 The Dr. Egeria engine and the Obsidian plugin work together to ensure that input paths are correctly resolved, even in "Content-First" mode:
@@ -30,17 +25,22 @@ The Dr. Egeria engine and the Obsidian plugin work together to ensure that input
 - The MCP server uses this logical path for context (like naming output files) but processes the actual markdown content from a temporary file created in the container's inbox. 
 - This ensures that notes can be processed even if the Obsidian vault is not mounted into the Docker container.
 
+### Generalized MCP
+The included `mcp_server.py` now supports dynamic execution. You can use the `egeria_execute_command` tool to run any Dr. Egeria command by name, and `egeria_list_commands` to see what is currently available.
+
 ## Model Context Protocol (MCP) Support
 
 ### Overview
 The PyegeriaWebHandler includes a built-in MCP (Model Context Protocol) server that exposes Dr. Egeria capabilities through the MCP standard. This allows AI assistants like Claude to interact with your Egeria metadata ecosystem through a standardized protocol.
 
 ### MCP Protocol Support
-The PyegeriaWebHandler uses the **Model Context Protocol (MCP)** standard via the `mcp` Python library (version >= 1.15.0). The implementation uses:
-- **Transport Protocol**: stdio (standard input/output) for local execution
-- **Server Framework**: `FastMCP` from the `mcp` library for simplified server implementation
-- **Protocol Version**: MCP 1.0 compatible
-- **Tool-Based Interface**: All Egeria commands are exposed as MCP "tools" that can be called by MCP clients
+The PyegeriaWebHandler uses the **Model Context Protocol (MCP)** standard via the `mcp` Python library. The implementation is highly flexible, supporting:
+- **Transport Protocols**: 
+  - **SSE (over HTTP)**: Used by the "Calling the Dr." Obsidian plugin (port 8000/sse).
+  - **stdio**: Used by local command-line tools and Claude Desktop.
+- **Server Framework**: `FastMCP` from the `mcp` library for simplified server implementation.
+- **Content-First Architecture**: In SSE mode, the server returns the generated Markdown content directly to the client, which then handles the file writing. This eliminates permission issues and path-mapping complexity.
+- **Tool-Based Interface**: All Dr. Egeria commands are exposed as MCP "tools" that can be discovered and called by any MCP client.
 
 ### Configuration
 
@@ -58,13 +58,13 @@ If you want to run the MCP server locally on your machine (e.g., for Claude Desk
 ```bash
 export EGERIA_USER="erinoverview"
 export EGERIA_USER_PASSWORD="secret"
-export EGERIA_ROOT_PATH="/Users/<you>/localGit/egeria-v6/egeria-workspaces-fs/exchange-freshstart"
+export EGERIA_ROOT_PATH="/Users/<you>/localGit/egeria-v6/egeria-workspaces-fs/exchange-quickstart"
 export EGERIA_INBOX_PATH="loading-bay/dr-egeria-inbox"
 export EGERIA_OUTBOX_PATH="distribution-hub/dr-egeria-outbox"
-export PYEGERIA_LOG_DIRECTORY="/Users/<you>/localGit/egeria-v6/egeria-workspaces-fs/compose-configs/egeria-freshstart/PyegeriaWebHandler/logs"
+export PYEGERIA_LOG_DIRECTORY="/Users/<you>/localGit/egeria-v6/egeria-workspaces-fs/compose-configs/egeria-quickstart/PyegeriaWebHandler/logs"
 ```
 
-If you launch `mcp_server.py` from within this workspace and do not set these values explicitly, the server will now auto-detect the freshstart exchange tree and use a writable local log directory.
+If you launch `mcp_server.py` from within this workspace and do not set these values explicitly, the server will now auto-detect the quickstart exchange tree and use a writable local log directory.
 
 **Running the MCP Server:**
 ```bash
@@ -84,12 +84,12 @@ The key under `mcpServers` is a client-side alias, not a protocol-mandated serve
       "env": {
         "EGERIA_USER": "erinoverview",
         "EGERIA_USER_PASSWORD": "secret",
-        "EGERIA_VIEW_SERVER": "fs-view-server",
-        "EGERIA_VIEW_SERVER_URL": "https://localhost:8443",
-        "EGERIA_ROOT_PATH": "/Users/<you>/localGit/egeria-v6/egeria-workspaces-fs/exchange-freshstart",
+        "EGERIA_VIEW_SERVER": "qs-view-server",
+        "EGERIA_VIEW_SERVER_URL": "https://localhost:9443",
+        "EGERIA_ROOT_PATH": "/Users/<you>/localGit/egeria-v6/egeria-workspaces-fs/exchange-quickstart",
         "EGERIA_INBOX_PATH": "loading-bay/dr-egeria-inbox",
         "EGERIA_OUTBOX_PATH": "distribution-hub/dr-egeria-outbox",
-        "PYEGERIA_LOG_DIRECTORY": "/Users/<you>/localGit/egeria-v6/egeria-workspaces-fs/compose-configs/egeria-freshstart/PyegeriaWebHandler/logs"
+        "PYEGERIA_LOG_DIRECTORY": "/Users/<you>/localGit/egeria-v6/egeria-workspaces-fs/compose-configs/egeria-quickstart/PyegeriaWebHandler/logs"
       }
     }
   }
@@ -100,8 +100,8 @@ The key under `mcpServers` is a client-side alias, not a protocol-mandated serve
 
 The MCP server exposes the following tools:
 
-1. **`dr_egeria_run_block`** (Main Tool - Direct Dr. Egeria Commands)
-   - Execute any Dr. Egeria markdown command block
+- **`dr_egeria_run_block`** (Main Tool - Direct Dr. Egeria Commands)
+   - Execute any Dr. Egeria markdown command block. 
    - **Content-First Processing**: The server saves the `markdown_block` to a temporary file in the container, allowing it to process content from remote clients (like Obsidian) without requiring local file access.
    - **Output Note**: In SSE mode, this tool returns the generated Markdown as a string.
    - Parameters:
@@ -111,7 +111,6 @@ The MCP server exposes the following tools:
      - `user_id`: Egeria user ID
      - `user_pass`: Egeria user password
      - `directive`: `display`, `validate`, or `process` (default: `process`)
-     - `output_folder`: Optional output subfolder under outbox
 
 2. **`egeria_execute_command`** (Convenience Wrapper)
    - Execute any Dr. Egeria command by name instead of writing markdown
@@ -148,7 +147,7 @@ The MCP server exposes the following tools:
 **Why the convenience wrappers might fail**:
 - They still require connection parameters (`url`, `server_name`, `user_id`, `user_pass`)
 - If Claude doesn't pass these parameters, the tool call will fail
-- You need to tell Claude: "List glossaries from our Egeria instance at https://localhost:8443 with server fs-view-server"
+- You need to tell Claude: "List glossaries from our Egeria instance at https://localhost:9443 with server qs-view-server"
 
 ### Does MCP Support Interfere with Pyegeria's MCP Server?
 
@@ -205,8 +204,8 @@ Claude: I'll query the available metadata stores using the pyegeria MCP server.
 [Claude calls appropriate pyegeria tool]
 
 Output: Available metadata stores:
-- fs-metadata-store (primary)
-- fs-archive-store (archive)
+- qs-metadata-store (primary)
+- qs-archive-store (archive)
 ```
 
 ### Comparison: When to Use Each Server
@@ -247,8 +246,8 @@ The convenience tools (`egeria_list_glossaries`, `egeria_list_collections`, etc.
 
 **Example - Listing glossaries:**
 ```
-User: "List all the glossaries in our Egeria instance at https://localhost:8443 
-       using the Dr. Egeria MCP server with server name fs-view-server"
+User: "List all the glossaries in our Egeria instance at https://localhost:9443 
+       using the Dr. Egeria MCP server with server name qs-view-server"
 
 Claude: I'll list the glossaries using the egeria_list_glossaries tool.
 [Calls egeria_list_glossaries with url, server_name, user_id, user_pass]
@@ -261,11 +260,282 @@ Output: Available glossaries:
 
 **Why this matters**: The convenience tools are wrappers around `dr_egeria_run_block`. They need your connection details to work:
 - `url`: Your Egeria platform URL
-- `server_name`: Your view server name (e.g., `fs-view-server`)
+- `server_name`: Your view server name (e.g., `qs-view-server`)
 - `user_id`: Your Egeria username
 - `user_pass`: Your Egeria password
 
-## Troubleshooting
+## Egeria Explorer
+
+The PyegeriaWebHandler includes a built-in **Egeria Explorer** — an interactive browser for the live Egeria metadata ecosystem. It presents six sections in a single-page application, all read-only, all backed by live Egeria API calls.
+
+### Accessing the Explorer
+
+Once the stack is running, open a browser and navigate to:
+
+```
+http://localhost:8085/egeria-explorer
+```
+
+The alias `/type-explorer` is also supported and serves the same application:
+
+```
+http://localhost:8085/type-explorer
+```
+
+Apache proxies both URLs through to the `pyegeria-web` container, which serves the single-page application and its backing API.
+
+### Sections
+
+The explorer has seven tabs across the top, ordered left to right: **Type Explorer → Glossary → Reference Data → Digital Products → Report Specs → Valid Values → REST APIs**. Each tab is independent; data is loaded lazily when the tab is first opened. All sections are read-only.
+
+#### Type System
+
+Browses the Egeria open metadata type system fetched live from `ValidMetadataManager`.
+
+Two sub-views:
+
+**Type Explorer** — Left sidebar with three collapsible sections (Entity Types, Classifications, Relationships). A search box filters all three simultaneously. The right panel shows:
+- **Properties tab** — all own and inherited properties, with `own`/`req`/`deprecated` badges and a toggle to hide inherited properties.
+- **Relationships tab** — every relationship the type participates in, derived by walking the full supertype chain.
+- **Graph tab** — SVG inheritance diagram showing ancestors above and direct subtypes below. Nodes are clickable to navigate.
+
+A dropdown in the header filters entity types to a specific area (0 = Foundation through 7 = Lineage). Relationship and classification types are always shown in full regardless of the area filter.
+
+**Attribute Index** — Searchable cross-reference of every property name to every type that declares it. Useful for answering "which types have a `description` field?" Clicking a type name navigates to it in the Type Explorer.
+
+#### Reference Data
+
+Browses Egeria's valid value sets and values. Displays as an expandable tree: root-level `ValidValueSet` (and `ReferenceDataSet`) nodes expand to show their member values and any nested child sets.
+
+- Click a set to see its description, qualified name, and usage.
+- Click a value to see its preferred value, category, data type, scope, and deprecation status.
+- The filter box narrows visible tree nodes by display name.
+- Click the **▦ Load Context Diagram** button to fetch and render a Mermaid context diagram for any selected element.
+
+#### Digital Products
+
+Browses the digital product catalog hierarchy: Catalogs → Families → Products. Each level is a `Collection` subtype in Egeria.
+
+- Select a catalog from the left panel to load its full tree.
+- The tree uses expand/collapse twisties. Containers are sorted above leaf products.
+- The detail panel shows all `DigitalProductProperties` fields (maturity, version, dates, deployment status).
+- Glossary-linked products show a **View in Glossary →** button that navigates to the Glossary tab for that element.
+- Click **▦ Load Context Diagram** on any element to render its Mermaid context diagram.
+
+#### Glossary
+
+Browses glossaries, folders, and terms.
+
+- Top panel: list of all glossaries.
+- When a glossary is selected: its folders and a cross-glossary term search appear.
+- Selecting a folder loads its terms in the right panel.
+- Term detail shows all term properties (display name, summary, description, examples, usage, abbreviation, content status, activity status) plus folder memberships.
+- **Template substitutes** — terms carrying the `TemplateSubstitute` classification are template placeholder entries, not real user-facing terms. They are hidden by default. A checkbox in the middle pane header ("Show template substitutes") reveals them; hidden ones are counted in a "N templates hidden" note. Template substitutes appear in the list with an amber `template` badge; when opened in the detail panel they are labelled **Template Substitute**. Terms copied from a template (but not themselves substitutes) show a lighter **From Template** badge.
+- Click **▦ Load Context Diagram** on any term to render its diagram.
+
+#### Report Specs
+
+Browse pyegeria's client-side report format specifications. These are not stored in Egeria — they are Python objects in the pyegeria package describing how API responses can be formatted. No Egeria connection is needed to view this tab.
+
+- Left panel: searchable list of all specs with perspective filter.
+- Right panel: name, description, family, perspectives, output formats, and the full question spec.
+
+#### Valid Values
+
+Look up the registered valid values for a specific Egeria property name. Uses Egeria's controlled vocabulary registry (`get_valid_metadata_values`), which is separate from the Reference Data sets.
+
+- Left panel: a text input for any property name, plus quick-access buttons for standard Egeria property names (`contentStatus`, `activityStatus`, `governanceStatus`, etc.).
+- Right panel: the ordered list of allowed values for the selected property, with display names, preferred values, and descriptions.
+
+#### REST APIs
+
+Browsable reference for the Egeria REST API surface, combining live OpenAPI discovery with a curated request body catalog.
+
+The tab has three panels:
+
+**Left — Service list.** OMAS/OMVS services derived from the OpenAPI spec tags (e.g., "Asset Manager OMAS", "Glossary Manager OMVS"). Click **Load API Endpoints** in the toolbar to fetch the spec from the live Egeria platform. Services are filterable by name.
+
+**Middle — Endpoint list.** All endpoints for the selected service, each showing its HTTP method (color-coded badge), path, and summary. Filterable by path or summary text.
+
+**Right — Detail / Body Catalog** (two inner tabs):
+
+- *Endpoint Detail* — parameters table (path and query), the matched Layer 1 outer body type (click to jump to the Body Catalog), the inferred Layer 2 properties type name, a copyable example JSON payload assembled from the catalog, and a ready-to-run `curl` snippet.
+- *Body Catalog* — the full request body catalog, always available without a live Egeria connection. Grouped into functional families (Create Entity, Update Entity, Delete Entity, Relationship, Classification, Search/Query, etc.), with every field annotated and a representative example for each type.
+
+**Two-layer payload model.** Egeria REST request bodies follow a consistent two-layer pattern:
+
+```json
+{
+  "class": "NewElementRequestBody",      ← Layer 1: outer wrapper (~44 types)
+  "externalSourceGUID": "...",
+  "parentGUID": "...",
+  "properties": {
+    "class": "CollectionProperties",     ← Layer 2: type-specific properties
+    "qualifiedName": "...",
+    "displayName": "..."
+  }
+}
+```
+
+Layer 1 is a small, stable set of wrapper types defined in `egeria_request_body_catalog.json`. Layer 2 is derived from the Egeria type system — for any entity or relationship type, all properties including inherited ones are valid.
+
+**Keeping the catalog current.** After upgrading Egeria, regenerate the catalog with:
+
+```bash
+python3 build_request_body_catalog.py /path/to/egeria-platform-X.Y/assembly/opt/http-client-collections
+```
+
+Or, if `HTTP_COLLECTIONS_PATH` is set in the environment, use the in-app endpoint:
+
+```
+POST http://localhost:8085/api/request-bodies/rebuild
+```
+
+The OpenAPI endpoint data always comes from the live platform and is cached for one hour. Force a re-fetch with:
+
+```
+POST http://localhost:8085/api/rest-apis/refresh
+```
+
+---
+
+### Context diagrams (all sections)
+
+Every detail panel in every section includes a **▦ Load Context Diagram** button. Clicking it calls `GET /api/mermaid/{guid}`, which uses `MetadataExpert.get_anchored_element_graph()` to fetch the element's Mermaid context graph from Egeria. The diagram is rendered client-side by the Mermaid JS library (v11+). If the diagram is unavailable for an element, a "No context diagram available" message is shown.
+
+Once a diagram is loaded it can be toggled: a **Hide** button collapses it back to a compact "▦ Show Context Diagram" button without re-fetching. Clicking that button expands it again instantly (the diagram code is cached in component state).
+
+Diagrams are loaded on demand, not pre-fetched, to avoid slowing down list and detail views.
+
+---
+
+### REST API reference
+
+All endpoints are accessible directly in addition to being used by the SPA. Connection parameters default to environment variables (`EGERIA_PLATFORM_URL`, `EGERIA_VIEW_SERVER`, `EGERIA_USER`, `EGERIA_USER_PASSWORD`).
+
+#### Type System
+
+**`GET /api/types`** — All entity, relationship, and classification type definitions.
+
+Query params: `area` (int, 0–7), `url`, `server`, `user_id`, `user_pwd`.
+
+```
+GET http://localhost:8085/api/types
+GET http://localhost:8085/api/types?area=4
+```
+
+Response: `{ areaNames, entities, classifications, relationships }`. Each entity includes `guid`, `area`, `abstract`, `supertype`, `desc`, `wiki`, `deprecated`, `props` (own properties only).
+
+#### Reference Data
+
+**`GET /api/reference-data`** — All valid value definitions with parent set relationships.
+
+Query params: `q` (search string), `start_from`, `page_size` (default 200, max 1000).
+
+Response: `{ definitions, sets, values, total }`. Each definition includes `guid`, `typeName`, `isSet`, `displayName`, `qualifiedName`, `description`, `preferredValue`, `category`, `dataType`, `usage`, `scope`, `isDeprecated`, `isCaseSensitive`, `parentSets`.
+
+**`GET /api/reference-data/{vv_guid}`** — Single valid value definition by GUID.
+
+**`GET /api/reference-data/metadata-values`** — Valid values for a specific property name.
+
+Query params: `property_name` (required), `type_name` (optional).
+
+#### Glossary
+
+**`GET /api/glossary`** — All glossaries.
+
+**`GET /api/glossary/{guid}/folders`** — CollectionFolder children of a glossary.
+
+**`GET /api/glossary/{guid}/terms`** — Terms whose `memberOfCollections` includes this GUID. Requires `graph_query_depth=1` internally; results are deduplicated by GUID before return.
+
+**`GET /api/glossary-terms`** — Cross-glossary term search.
+
+Query param: `q` (search string, default `*`).
+
+**`GET /api/glossary/term/{guid}`** — Single term by GUID.
+
+#### Digital Products
+
+**`GET /api/digital-products/catalogs`** — All `DigitalProductCatalog` collections.
+
+**`GET /api/digital-products/catalogs/{guid}/tree`** — Full recursive hierarchy for a catalog. Response: `{ catalog, children }` where each node has `guid`, `typeName`, `displayName`, `isContainer`, `children`.
+
+**`GET /api/digital-products/{guid}`** — Single product/collection node.
+
+#### Context Diagrams
+
+**`GET /api/mermaid/{guid}`** — Mermaid diagram code for any element.
+
+Response: `{ guid, mermaidGraph }`. `mermaidGraph` is an empty string if no diagram is available.
+
+#### Valid Values
+
+**`GET /api/valid-values/lookup`** — Valid values for a property name.
+
+Query params: `property_name` (required), `type_name` (optional).
+
+#### REST API Explorer
+
+**`GET /api/request-bodies`** — The full Layer 1 request body catalog as JSON.
+
+No Egeria connection required. Loaded from `egeria_request_body_catalog.json` on first call and cached in process. Response: `{ _meta, groups, bodies }`.
+
+**`POST /api/request-bodies/rebuild`** — Regenerate the catalog from the http-client-collections directory.
+
+Request body: `{ "http_collections_path": "/path/to/http-client-collections" }` (optional if `HTTP_COLLECTIONS_PATH` env var is set). Re-runs the extraction, overwrites the JSON file on disk, and updates the in-process cache.
+
+**`GET /api/rest-apis`** — OpenAPI-derived endpoint catalog, augmented with Layer 1 body type mapping.
+
+Query params: `url` (platform URL, overrides env). Fetches `/v3/api-docs` from the Egeria platform and returns `{ services }` — a list of OMAS/OMVS services, each with its endpoints, matched outer body type, inferred properties type, and parameter definitions. Results are cached in process for one hour.
+
+**`POST /api/rest-apis/refresh`** — Clear the OpenAPI spec cache.
+
+Query param: `url` (clears only that platform's entry; clears all if omitted).
+
+---
+
+### Implementation
+
+For internal architecture, data-fetching strategy, `graph_query_depth` behaviour, and maintenance procedures, see [type-explorer-architecture.md](type-explorer-architecture.md).
+
+For the extension history and remaining open work, see [Extending the TypeExplorer.md](Extending%20the%20TypeExplorer.md).
+
+| File | Purpose |
+|------|---------|
+| `type_system_handler.py` | `/api/types` and `/egeria-explorer`; serves the SPA HTML; derives area numbers from supertype chain |
+| `reference_data_handler.py` | `/api/reference-data`; fetches with `graph_query_depth=1` to get `parentSets` for tree construction |
+| `glossary_handler.py` | `/api/glossary*`; uses `graph_query_depth=1` for terms; GUID-deduplicates before returning |
+| `digital_products_handler.py` | `/api/digital-products`; recursive tree via `get_collection_members` with `graph_query_depth=0` |
+| `mermaid_handler.py` | `/api/mermaid/{guid}`; uses `MetadataExpert.get_anchored_element_graph` |
+| `valid_values_handler.py` | `/api/valid-values/lookup`; uses `ReferenceDataManager.get_valid_metadata_values` |
+| `report_specs_handler.py` | `/api/report-specs`; reads local pyegeria report spec objects; no Egeria connection |
+| `rest_api_handler.py` | `/api/request-bodies`, `/api/rest-apis`; catalog + live OpenAPI endpoint discovery |
+| `pyegeria_handler.py` | FastAPI app entry point; mounts all routers |
+| `type-explorer.html` | Self-contained SPA (React 18 + Mermaid 11 via CDN, application JS inlined) |
+| `egeria_request_body_catalog.json` | Generated catalog of Layer 1 request body types; regenerate with `build_request_body_catalog.py` |
+| `build_request_body_catalog.py` | Standalone script: extracts body types from http-client-collections and writes the catalog JSON |
+
+---
+
+### Troubleshooting
+
+**Explorer shows "Loading Egeria Explorer…" forever** — A JavaScript syntax error in `type-explorer.html` prevented React from mounting. Open the browser developer console; a `SyntaxError` will be visible. This typically means a stray straight-quote character (`"`) inside a string literal — use Unicode curly quotes (`"…"`) instead, or escape with `\`.
+
+**`Service Unavailable` on `/egeria-explorer`** — The `pyegeria-web` container is not running. Check `docker logs quickstart-pyegeria-web` for startup errors.
+
+**Types don't appear / partial results** — The Egeria platform may not be fully started. The `/api/types` endpoint returns a 502 if Egeria is unreachable; the SPA shows a retry button. Wait for `egeria-main` to report healthy.
+
+**Mermaid diagrams show raw code instead of a rendered diagram** — Mermaid JS failed to load from CDN (network/proxy issue), or the CDN version is wrong. Egeria generates mermaid v11+ syntax; loading `mermaid@10` causes silent render failures. Check the `<script>` tag in `type-explorer.html` references `mermaid@11`. If the CDN is unreachable in your environment, a local copy of `mermaid.min.js` must be served instead.
+
+**Reference Data tree shows no items** — `find_valid_value_definitions` returned no results, or all items had no `parentSets` and the root-set filter excluded them. Check that the Egeria instance has valid value definitions loaded. Items with no `parentSets` that are not themselves sets will not appear in the tree; they can still be retrieved individually via `/api/reference-data/{guid}`.
+
+**REST API tab shows no services** — The OpenAPI spec could not be fetched. Check that the Egeria platform is running and the platform URL is correct (defaults to `EGERIA_PLATFORM_URL` env var). The `/v3/api-docs` endpoint must be reachable from the `pyegeria-web` container. The Body Catalog inner tab is always available regardless of Egeria status.
+
+**Catalog body types look out of date after an Egeria upgrade** — Run `python3 build_request_body_catalog.py` pointing at the new version's `http-client-collections` directory, then restart the container (or call `POST /api/request-bodies/rebuild` if `HTTP_COLLECTIONS_PATH` is set).
+
+**Glossary terms show duplicates** — The deduplication pass uses `_header(t).get("guid", "")`. If a term has an empty GUID in the response, it could slip through. Check the Egeria instance for corrupt or incomplete elements.
+
+**Area derivation is wrong for a type** — Add the type (or one of its supertypes) to `AREA_ANCHORS` in `type_system_handler.py` with the correct area number. The container picks up the change immediately (uvicorn `--reload`).
 
 ### MCP Server Issues
 - **MCP server won't start**: Ensure the `mcp` package (>= 1.15.0) is installed: `pip install 'mcp>=1.15.0'`
@@ -277,4 +547,3 @@ If FastAPI returns `No updates detected. New File not created.`:
 - Verify the markdown block starts with a command H1 (`# <Command Name>`).
 - Check `debug_log.log` for warnings like `not found in command_list` or `Unknown command`.
 - Confirm your pyegeria version includes the command handler in `pyegeria.view.md_processing_utils`.
-
