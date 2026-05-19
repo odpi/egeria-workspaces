@@ -286,7 +286,7 @@ Apache proxies both URLs through to the `pyegeria-web` container, which serves t
 
 ### Sections
 
-The explorer has six tabs across the top, ordered left to right: **Type Explorer → Glossary → Reference Data → Digital Products → Report Specs → Valid Values**. Each tab is independent; data is loaded lazily when the tab is first opened. All sections are read-only.
+The explorer has seven tabs across the top, ordered left to right: **Type Explorer → Glossary → Reference Data → Digital Products → Report Specs → Valid Values → REST APIs**. Each tab is independent; data is loaded lazily when the tab is first opened. All sections are read-only.
 
 #### Type System
 
@@ -346,6 +346,56 @@ Look up the registered valid values for a specific Egeria property name. Uses Eg
 
 - Left panel: a text input for any property name, plus quick-access buttons for standard Egeria property names (`contentStatus`, `activityStatus`, `governanceStatus`, etc.).
 - Right panel: the ordered list of allowed values for the selected property, with display names, preferred values, and descriptions.
+
+#### REST APIs
+
+Browsable reference for the Egeria REST API surface, combining live OpenAPI discovery with a curated request body catalog.
+
+The tab has three panels:
+
+**Left — Service list.** OMAS/OMVS services derived from the OpenAPI spec tags (e.g., "Asset Manager OMAS", "Glossary Manager OMVS"). Click **Load API Endpoints** in the toolbar to fetch the spec from the live Egeria platform. Services are filterable by name.
+
+**Middle — Endpoint list.** All endpoints for the selected service, each showing its HTTP method (color-coded badge), path, and summary. Filterable by path or summary text.
+
+**Right — Detail / Body Catalog** (two inner tabs):
+
+- *Endpoint Detail* — parameters table (path and query), the matched Layer 1 outer body type (click to jump to the Body Catalog), the inferred Layer 2 properties type name, a copyable example JSON payload assembled from the catalog, and a ready-to-run `curl` snippet.
+- *Body Catalog* — the full request body catalog, always available without a live Egeria connection. Grouped into functional families (Create Entity, Update Entity, Delete Entity, Relationship, Classification, Search/Query, etc.), with every field annotated and a representative example for each type.
+
+**Two-layer payload model.** Egeria REST request bodies follow a consistent two-layer pattern:
+
+```json
+{
+  "class": "NewElementRequestBody",      ← Layer 1: outer wrapper (~44 types)
+  "externalSourceGUID": "...",
+  "parentGUID": "...",
+  "properties": {
+    "class": "CollectionProperties",     ← Layer 2: type-specific properties
+    "qualifiedName": "...",
+    "displayName": "..."
+  }
+}
+```
+
+Layer 1 is a small, stable set of wrapper types defined in `egeria_request_body_catalog.json`. Layer 2 is derived from the Egeria type system — for any entity or relationship type, all properties including inherited ones are valid.
+
+**Keeping the catalog current.** After upgrading Egeria, regenerate the catalog with:
+
+```bash
+python3 build_request_body_catalog.py /path/to/egeria-platform-X.Y/assembly/opt/http-client-collections
+```
+
+Or, if `HTTP_COLLECTIONS_PATH` is set in the environment, use the in-app endpoint:
+
+```
+POST http://localhost:8085/api/request-bodies/rebuild
+```
+
+The OpenAPI endpoint data always comes from the live platform and is cached for one hour. Force a re-fetch with:
+
+```
+POST http://localhost:8085/api/rest-apis/refresh
+```
 
 ---
 
@@ -424,6 +474,24 @@ Response: `{ guid, mermaidGraph }`. `mermaidGraph` is an empty string if no diag
 
 Query params: `property_name` (required), `type_name` (optional).
 
+#### REST API Explorer
+
+**`GET /api/request-bodies`** — The full Layer 1 request body catalog as JSON.
+
+No Egeria connection required. Loaded from `egeria_request_body_catalog.json` on first call and cached in process. Response: `{ _meta, groups, bodies }`.
+
+**`POST /api/request-bodies/rebuild`** — Regenerate the catalog from the http-client-collections directory.
+
+Request body: `{ "http_collections_path": "/path/to/http-client-collections" }` (optional if `HTTP_COLLECTIONS_PATH` env var is set). Re-runs the extraction, overwrites the JSON file on disk, and updates the in-process cache.
+
+**`GET /api/rest-apis`** — OpenAPI-derived endpoint catalog, augmented with Layer 1 body type mapping.
+
+Query params: `url` (platform URL, overrides env). Fetches `/v3/api-docs` from the Egeria platform and returns `{ services }` — a list of OMAS/OMVS services, each with its endpoints, matched outer body type, inferred properties type, and parameter definitions. Results are cached in process for one hour.
+
+**`POST /api/rest-apis/refresh`** — Clear the OpenAPI spec cache.
+
+Query param: `url` (clears only that platform's entry; clears all if omitted).
+
 ---
 
 ### Implementation
@@ -441,8 +509,11 @@ For the extension history and remaining open work, see [Extending the TypeExplor
 | `mermaid_handler.py` | `/api/mermaid/{guid}`; uses `MetadataExpert.get_anchored_element_graph` |
 | `valid_values_handler.py` | `/api/valid-values/lookup`; uses `ReferenceDataManager.get_valid_metadata_values` |
 | `report_specs_handler.py` | `/api/report-specs`; reads local pyegeria report spec objects; no Egeria connection |
+| `rest_api_handler.py` | `/api/request-bodies`, `/api/rest-apis`; catalog + live OpenAPI endpoint discovery |
 | `pyegeria_handler.py` | FastAPI app entry point; mounts all routers |
 | `type-explorer.html` | Self-contained SPA (React 18 + Mermaid 11 via CDN, application JS inlined) |
+| `egeria_request_body_catalog.json` | Generated catalog of Layer 1 request body types; regenerate with `build_request_body_catalog.py` |
+| `build_request_body_catalog.py` | Standalone script: extracts body types from http-client-collections and writes the catalog JSON |
 
 ---
 
@@ -457,6 +528,10 @@ For the extension history and remaining open work, see [Extending the TypeExplor
 **Mermaid diagrams show raw code instead of a rendered diagram** — Mermaid JS failed to load from CDN (network/proxy issue), or the CDN version is wrong. Egeria generates mermaid v11+ syntax; loading `mermaid@10` causes silent render failures. Check the `<script>` tag in `type-explorer.html` references `mermaid@11`. If the CDN is unreachable in your environment, a local copy of `mermaid.min.js` must be served instead.
 
 **Reference Data tree shows no items** — `find_valid_value_definitions` returned no results, or all items had no `parentSets` and the root-set filter excluded them. Check that the Egeria instance has valid value definitions loaded. Items with no `parentSets` that are not themselves sets will not appear in the tree; they can still be retrieved individually via `/api/reference-data/{guid}`.
+
+**REST API tab shows no services** — The OpenAPI spec could not be fetched. Check that the Egeria platform is running and the platform URL is correct (defaults to `EGERIA_PLATFORM_URL` env var). The `/v3/api-docs` endpoint must be reachable from the `pyegeria-web` container. The Body Catalog inner tab is always available regardless of Egeria status.
+
+**Catalog body types look out of date after an Egeria upgrade** — Run `python3 build_request_body_catalog.py` pointing at the new version's `http-client-collections` directory, then restart the container (or call `POST /api/request-bodies/rebuild` if `HTTP_COLLECTIONS_PATH` is set).
 
 **Glossary terms show duplicates** — The deduplication pass uses `_header(t).get("guid", "")`. If a term has an empty GUID in the response, it could slip through. Check the Egeria instance for corrupt or incomplete elements.
 
