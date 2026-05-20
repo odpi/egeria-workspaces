@@ -20,13 +20,13 @@ from loguru import logger
 router = APIRouter(tags=["reference-data"])
 
 
-def _get_manager():
+def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     from pyegeria import ReferenceDataManager
-    url    = os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
-    server = os.environ.get("EGERIA_VIEW_SERVER",   "view-server")
-    user   = os.environ.get("EGERIA_USER",          "erinoverview")
-    pwd    = os.environ.get("EGERIA_USER_PASSWORD",  "secret")
-    mgr = ReferenceDataManager(view_server=server, platform_url=url, user_id=user, user_pwd=pwd)
+    url     = url     or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server  = server  or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id = user_id or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    mgr = ReferenceDataManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
     mgr.create_egeria_bearer_token()
     return mgr
 
@@ -88,6 +88,10 @@ def get_valid_value_definitions(
     q:          Optional[str] = Query(None, description="Search string (substring match, case-insensitive). Defaults to all."),
     start_from: int           = Query(0,   ge=0),
     page_size:  int           = Query(200, ge=1, le=1000),
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
 ):
     """
     Return valid value definitions from Egeria.
@@ -96,7 +100,7 @@ def get_valid_value_definitions(
     Returns a flat list suitable for client-side grouping by typeName (ValidValueSet vs ValidValueDefinition).
     """
     try:
-        mgr = _get_manager()
+        mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("Failed to create ReferenceDataManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
@@ -139,6 +143,10 @@ def get_valid_value_definitions(
 def get_metadata_values(
     property_name: str           = Query(..., description="Property name to look up valid values for"),
     type_name:     Optional[str] = Query(None, description="Optional: restrict to a specific open metadata type"),
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
 ):
     """
     Return the valid metadata values registered for a given property name.
@@ -146,7 +154,7 @@ def get_metadata_values(
     Does not require Egeria connection (uses local ValidMetadataManager registry).
     """
     try:
-        mgr = _get_manager()
+        mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("Failed to create ReferenceDataManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
@@ -169,10 +177,16 @@ def get_metadata_values(
 
 
 @router.get("/api/reference-data/{vv_guid}", summary="Get a valid value definition by GUID")
-def get_valid_value_definition(vv_guid: str):
+def get_valid_value_definition(
+    vv_guid: str,
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
     """Return full detail for a single valid value definition."""
     try:
-        mgr = _get_manager()
+        mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("Failed to create ReferenceDataManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")

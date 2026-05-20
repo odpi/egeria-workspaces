@@ -154,6 +154,7 @@
                 padding: 4px 12px; cursor: pointer; font-size: 13px; color: var(--muted);
                 font-family: inherit; line-height: 1.5; }
     .view-tab.on { color: var(--accent); font-weight: 600; border-bottom-color: var(--accent); }
+    .view-tab:disabled { opacity: 0.35; cursor: not-allowed; }
     .theme-btn { background: var(--card); border: 1px solid var(--border); color: var(--muted);
                  border-radius: 20px; padding: 3px 12px; cursor: pointer; font-size: 12px;
                  font-family: inherit; }
@@ -536,6 +537,26 @@ const {
   useRef
 } = React;
 
+// ── Credential context ────────────────────────────────────────────────────────
+// Provides Egeria connection params to all child components without prop-drilling.
+const CredContext = React.createContext({ url: '', server: '', userId: '', password: '' });
+
+function credQS(creds) {
+  var p = new URLSearchParams();
+  if (creds && creds.url)      p.set('url',      creds.url);
+  if (creds && creds.server)   p.set('server',   creds.server);
+  if (creds && creds.userId)   p.set('user_id',  creds.userId);
+  if (creds && creds.password) p.set('user_pwd', creds.password);
+  var s = p.toString();
+  return s ? '?' + s : '';
+}
+
+function credAppend(base, creds) {
+  var qs = credQS(creds);
+  if (!qs) return base;
+  return base + (base.includes('?') ? '&' + qs.slice(1) : qs);
+}
+
 // ── Markdown renderer ─────────────────────────────────────────────────────────
 function MermaidDiagram({ code }) {
   const ref = React.useRef(null);
@@ -588,11 +609,12 @@ function DiagramPanel({ fetchUrl, label, buttonLabel }) {
   const [code, setCode] = React.useState(null);
   const [open, setOpen] = React.useState(false);
   const [visible, setVisible] = React.useState(true);
+  const creds = React.useContext(CredContext);
 
   React.useEffect(function() {
     if (!open) return;
     setCode(null);
-    fetch(fetchUrl)
+    fetch(credAppend(fetchUrl, creds))
       .then(function(r) { return r.ok ? r.json() : null; })
       .then(function(data) { setCode(data && data.mermaidGraph ? data.mermaidGraph : ''); })
       .catch(function() { setCode(''); });
@@ -2061,6 +2083,7 @@ function GlossaryTermDetail({ term, onNavigateToTerm }) {
 }
 
 function GlossaryView({ navGuid }) {
+  const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(254);
   const [glossaryState, setGlossaryState] = useState('loading');
   const [glossaryAttempt, setGlossaryAttempt] = useState(0);
@@ -2095,7 +2118,7 @@ function GlossaryView({ navGuid }) {
   // Fetch term when cross-navigated from Digital Products
   useEffect(() => {
     if (!navGuid) { setNavTerm(null); return; }
-    fetch('/api/glossary/term/' + encodeURIComponent(navGuid))
+    fetch(credAppend('/api/glossary/term/' + encodeURIComponent(navGuid), creds))
       .then(function(r) { return r.ok ? r.json() : null; })
       .then(function(data) { if (data) { setNavTerm(data); setSelectedItem(data.guid); } })
       .catch(function() {});
@@ -2111,7 +2134,7 @@ function GlossaryView({ navGuid }) {
   useEffect(() => {
     setGlossaryState('loading');
     setGlossaryError('');
-    fetch('/api/glossary')
+    fetch(credAppend('/api/glossary', creds))
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
         const list = (data.glossaries || []).sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
@@ -2134,8 +2157,8 @@ function GlossaryView({ navGuid }) {
     setTermDetailState('idle');
     setFilterText('');
     Promise.all([
-      fetch('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/folders').then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
-      fetch('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/terms').then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+      fetch(credAppend('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/folders', creds)).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+      fetch(credAppend('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/terms', creds)).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
     ])
     .then(([fData, tData]) => {
       setFolders(fData.folders || []);
@@ -2156,7 +2179,7 @@ function GlossaryView({ navGuid }) {
     setSelectedItem(null);
     setTermDetail(null);
     setTermDetailState('idle');
-    fetch('/api/glossary-terms?q=' + encodeURIComponent(sq))
+    fetch(credAppend('/api/glossary-terms?q=' + encodeURIComponent(sq), creds))
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => { setSearchTerms(data.terms || []); setSearchState('ready'); })
       .catch(err => { setSearchError(err.message); setSearchState('idle'); });
@@ -2218,7 +2241,7 @@ function GlossaryView({ navGuid }) {
     if (navTerm && navTerm.guid === selectedItem) { setTermDetail(navTerm); setTermDetailState('ready'); return; }
     setTermDetail(null);
     setTermDetailState('loading');
-    fetch('/api/glossary/term/' + encodeURIComponent(selectedItem))
+    fetch(credAppend('/api/glossary/term/' + encodeURIComponent(selectedItem), creds))
       .then(r => r.ok ? r.json() : null)
       .then(data => { setTermDetail(data || null); setTermDetailState(data ? 'ready' : 'error'); })
       .catch(() => setTermDetailState('error'));
@@ -2432,6 +2455,7 @@ function RefDataTreeNode({ item, byGuid, depth, selected, onSelect, expanded, to
 }
 
 function ReferenceDataView() {
+  const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(254);
   const [loadState, setLoadState] = useState('loading');
   const [attempt, setAttempt]     = useState(0);
@@ -2444,7 +2468,7 @@ function ReferenceDataView() {
   useEffect(function() {
     setLoadState('loading');
     setError('');
-    fetch('/api/reference-data?page_size=500')
+    fetch(credAppend('/api/reference-data?page_size=500', creds))
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) {
         const list = data.definitions || [];
@@ -2618,6 +2642,7 @@ function DigitalTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggle
 }
 
 function DigitalProductsView({ onNavigateToGlossary }) {
+  const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(254);
   const [treeW, onTreeDivDown] = useResizable(300);
   const [catState, setCatState]     = useState('loading');
@@ -2637,7 +2662,7 @@ function DigitalProductsView({ onNavigateToGlossary }) {
   useEffect(() => {
     setCatState('loading');
     setCatError('');
-    fetch('/api/digital-products/catalogs')
+    fetch(credAppend('/api/digital-products/catalogs', creds))
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
         const list = (data.catalogs || []).slice().sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
@@ -2656,7 +2681,7 @@ function DigitalProductsView({ onNavigateToGlossary }) {
     setTreeData(null);
     setSelectedNode(null);
     setSelectedNodeObj(null);
-    fetch('/api/digital-products/catalogs/' + encodeURIComponent(selectedCat) + '/tree')
+    fetch(credAppend('/api/digital-products/catalogs/' + encodeURIComponent(selectedCat) + '/tree', creds))
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
         setTreeData(data);
@@ -2812,7 +2837,59 @@ const _SPLASH_CAPABILITIES = [
   },
 ];
 
-function SplashScreen({ onNavigate }) {
+function ConnectionForm({ saveCreds }) {
+  const creds = React.useContext(CredContext);
+  const [form, setForm] = React.useState({
+    url:      creds.url,
+    server:   creds.server,
+    userId:   creds.userId,
+    password: creds.password,
+  });
+  const [saved, setSaved] = React.useState(false);
+  function set(k, v) { setForm(function(f) { return Object.assign({}, f, { [k]: v }); }); setSaved(false); }
+  function onSubmit(e) {
+    e.preventDefault();
+    saveCreds(form);
+    setSaved(true);
+  }
+  var fieldStyle = { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', width: '100%', boxSizing: 'border-box' };
+  var labelStyle = { fontSize: 11, color: 'var(--dim)', marginBottom: 2, display: 'block' };
+  var rowStyle   = { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 };
+  return React.createElement('div', {
+    style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '16px 20px', marginBottom: 32 }
+  },
+    React.createElement('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--fg)', marginBottom: 12 } }, 'Connection Settings'),
+    React.createElement('form', { onSubmit: onSubmit },
+      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: 8, alignItems: 'end' } },
+        React.createElement('div', { style: rowStyle },
+          React.createElement('label', { style: labelStyle }, 'Platform URL'),
+          React.createElement('input', { style: fieldStyle, type: 'text', value: form.url, placeholder: 'https://localhost:9443', onChange: function(e) { set('url', e.target.value); } })
+        ),
+        React.createElement('div', { style: rowStyle },
+          React.createElement('label', { style: labelStyle }, 'View Server'),
+          React.createElement('input', { style: fieldStyle, type: 'text', value: form.server, placeholder: 'qs-view-server', onChange: function(e) { set('server', e.target.value); } })
+        ),
+        React.createElement('div', { style: rowStyle },
+          React.createElement('label', { style: labelStyle }, 'User ID'),
+          React.createElement('input', { style: fieldStyle, type: 'text', value: form.userId, placeholder: 'erinoverview', onChange: function(e) { set('userId', e.target.value); } })
+        ),
+        React.createElement('div', { style: rowStyle },
+          React.createElement('label', { style: labelStyle }, 'Password'),
+          React.createElement('input', { style: fieldStyle, type: 'password', value: form.password, placeholder: 'secret', onChange: function(e) { set('password', e.target.value); } })
+        ),
+        React.createElement('button', {
+          type: 'submit',
+          style: { padding: '6px 14px', borderRadius: 5, border: '1px solid rgba(96,165,250,.4)', background: saved ? 'rgba(52,211,153,.12)' : 'rgba(96,165,250,.1)', color: saved ? '#34d399' : 'var(--accent)', cursor: 'pointer', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }
+        }, saved ? '✔ Saved' : 'Connect')
+      ),
+      React.createElement('p', { style: { margin: '8px 0 0', fontSize: 11, color: 'var(--dim)' } },
+        'Leave fields empty to use server defaults from environment variables. Settings are saved to browser local storage.'
+      )
+    )
+  );
+}
+
+function SplashScreen({ onNavigate, saveCreds }) {
   var cardStyle = {
     background: 'var(--surface)',
     border: '1px solid var(--border)',
@@ -2842,12 +2919,13 @@ function SplashScreen({ onNavigate }) {
         style: { fontSize: 26, fontWeight: 700, margin: '0 0 8px', color: 'var(--fg)' }
       }, 'Egeria Explorer'),
       React.createElement('p', {
-        style: { fontSize: 14, color: 'var(--muted)', margin: '0 0 36px', lineHeight: 1.65, maxWidth: 660 }
+        style: { fontSize: 14, color: 'var(--muted)', margin: '0 0 28px', lineHeight: 1.65, maxWidth: 660 }
       },
         'A lightweight exploration tool for your Egeria metadata ecosystem. ' +
         'Browse the open metadata type system, business glossaries, reference data, digital products, ' +
         'and view-server REST APIs — all connected live to your running Egeria platform.'
       ),
+      React.createElement(ConnectionForm, { saveCreds: saveCreds }),
       React.createElement('div', {
         style: {
           display: 'grid',
@@ -2913,12 +2991,6 @@ function ValidValueDetail({ item }) {
   );
 }
 
-// Standard Egeria property names — click to look up their registered valid values
-const _COMMON_PROPS = [
-  'contentStatus', 'activityStatus', 'governanceStatus',
-  'operationalStatus', 'confidentiality', 'criticality',
-  'retention', 'projectStatus',
-];
 
 function ValidValueEntry({ val }) {
   if (!val) return null;
@@ -2932,14 +3004,36 @@ function ValidValueEntry({ val }) {
 }
 
 function ValidValuesView() {
+  const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(254);
-  // Left: property name input + common presets
+  // Left: property name input + dynamic presets from Egeria
   const [propertyName, setPropertyName] = useState('');
   const [submittedProp, setSubmittedProp] = useState('');
+  const [knownProps, setKnownProps] = useState([]);
+  const [propsState, setPropsState] = useState('loading'); // 'loading' | 'ready' | 'error'
+  const [propsError, setPropsError] = useState('');
   // Right: loaded values for the submitted property
   const [values, setValues] = useState([]);
   const [loadState, setLoadState] = useState('idle');
   const [error, setError] = useState('');
+
+  // Fetch list of properties that have registered valid values
+  useEffect(() => {
+    setPropsState('loading');
+    setPropsError('');
+    fetch(credAppend('/api/valid-values/properties', creds))
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(data => {
+        if (data && Array.isArray(data.properties)) {
+          setKnownProps(data.properties);
+          setPropsState('ready');
+        } else {
+          setKnownProps([]);
+          setPropsState('ready');
+        }
+      })
+      .catch(err => { setPropsError(err.message); setPropsState('error'); });
+  }, [creds]);
 
   const lookup = useCallback((prop) => {
     const p = (prop || '').trim();
@@ -2948,7 +3042,7 @@ function ValidValuesView() {
     setLoadState('loading');
     setError('');
     setValues([]);
-    fetch('/api/valid-values/lookup?property_name=' + encodeURIComponent(p))
+    fetch(credAppend('/api/valid-values/lookup?property_name=' + encodeURIComponent(p), creds))
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
         const sorted = (data.values || []).slice().sort((a, b) => {
@@ -2960,7 +3054,7 @@ function ValidValuesView() {
         setLoadState('ready');
       })
       .catch(err => { setError(err.message); setLoadState('error'); });
-  }, []);
+  }, [creds]);
 
   return React.createElement("div", { className: "body" },
     // Left: property selector
@@ -2970,9 +3064,14 @@ function ValidValuesView() {
         React.createElement("input", { name: "pn", type: "text", placeholder: "e.g. contentStatus", value: propertyName, onChange: e => setPropertyName(e.target.value), style: { flex: 1, fontSize: 13, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' } }),
         React.createElement("button", { type: "submit", style: { padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', cursor: 'pointer', fontSize: 12 } }, "Go")
       ),
-      React.createElement("div", { style: { padding: '6px 12px', fontSize: 11, color: 'var(--dim)', borderBottom: '1px solid var(--border)' } }, "Standard Egeria property names:"),
+      React.createElement("div", { style: { padding: '6px 12px', fontSize: 11, color: 'var(--dim)', borderBottom: '1px solid var(--border)' } },
+        propsState === 'loading' ? "Loading properties…"
+        : propsState === 'error' ? React.createElement("span", { style: { color: '#d44' }, title: propsError }, "⚠ " + propsError)
+        : knownProps.length === 0 ? "No registered properties found"
+        : "Properties with registered values:"
+      ),
       React.createElement("div", { className: "tree-scroll" },
-        _COMMON_PROPS.map(p =>
+        knownProps.map(p =>
           React.createElement("div", {
             key: p,
             className: "tree-item" + (submittedProp === p ? " sel" : ""),
@@ -3076,18 +3175,20 @@ function RestApiView() {
       .catch(function(e) { setCatError(String(e)); });
   }, []);
 
+  const creds = React.useContext(CredContext);
+
   // Load OpenAPI endpoint list
   function loadOpenApi() {
     setApiLoading(true);
     setApiError('');
-    fetch('/api/rest-apis')
+    fetch(credAppend('/api/rest-apis', creds))
       .then(function(r) { return r.json(); })
       .then(function(d) { setOpenapi(d); setApiLoading(false); })
       .catch(function(e) { setApiError(String(e)); setApiLoading(false); });
   }
 
   function refreshOpenApi() {
-    fetch('/api/rest-apis/refresh', { method: 'POST' })
+    fetch(credAppend('/api/rest-apis/refresh', creds), { method: 'POST' })
       .then(function() { loadOpenApi(); });
   }
 
@@ -3440,6 +3541,21 @@ const AREA_NAMES = {
   "7": "Area 7 — Lineage"
 };
 function App() {
+  const [creds, setCreds] = useState(function() {
+    try {
+      var s = localStorage.getItem('egeria-creds');
+      return s ? JSON.parse(s) : { url: '', server: 'qs-view-server', userId: 'erinoverview', password: 'secret' };
+    } catch(e) { return { url: '', server: 'qs-view-server', userId: 'erinoverview', password: 'secret' }; }
+  });
+  const [connected, setConnected] = useState(function() {
+    try { return !!localStorage.getItem('egeria-creds'); } catch(e) { return false; }
+  });
+  const saveCreds = useCallback(function(c) {
+    setCreds(c);
+    setConnected(true);
+    try { localStorage.setItem('egeria-creds', JSON.stringify(c)); } catch(e) {}
+  }, []);
+
   const [loadState, setLoadState] = useState('loading');
   const [error, setError]         = useState('');
   const [rawData, setRawData]     = useState(null);
@@ -3460,7 +3576,7 @@ function App() {
   // Fetch type data once
   useEffect(() => {
     setLoadState('loading');
-    fetch('/api/types').then(r => {
+    fetch(credAppend('/api/types', creds)).then(r => {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json();
     }).then(data => {
@@ -3526,20 +3642,21 @@ function App() {
 
   const { entities = {}, classifications = {}, relationships = {}, allEntities = {} } = data;
 
-  return /*#__PURE__*/React.createElement(React.Fragment, null,
+  return /*#__PURE__*/React.createElement(CredContext.Provider, { value: creds },
+  /*#__PURE__*/React.createElement(React.Fragment, null,
     // Header
     /*#__PURE__*/React.createElement("div", { className: "header" },
       /*#__PURE__*/React.createElement("img", { src: "data:image/png;base64,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", alt: "Egeria", style: { height: 28, width: 'auto', borderRadius: 4 } }),
       /*#__PURE__*/React.createElement("span", { style: { fontFamily: 'ui-monospace,monospace', fontSize: 11, color: 'var(--dim)', letterSpacing: 3, textTransform: 'uppercase' } }, "Egeria"),
       /*#__PURE__*/React.createElement("span", { style: { width: 1, height: 14, background: 'var(--border)', display: 'inline-block' } }),
       /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'splash' ? " on" : ""), onClick: () => setSection('splash') }, "⌂ Home"),
-      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'type-system' ? " on" : ""), onClick: () => { setSection('type-system'); setView('types'); } }, "Type Explorer"),
-      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'glossary' ? " on" : ""), onClick: () => setSection('glossary') }, "Glossary"),
-      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'reference-data' ? " on" : ""), onClick: () => setSection('reference-data') }, "Reference Data"),
-      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'digital-products' ? " on" : ""), onClick: () => setSection('digital-products') }, "Digital Products"),
-      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'report-specs' ? " on" : ""), onClick: () => setSection('report-specs') }, "Report Specs"),
-      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'valid-values' ? " on" : ""), onClick: () => setSection('valid-values') }, "Valid Values"),
-      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'rest-apis' ? " on" : ""), onClick: () => setSection('rest-apis') }, "REST APIs"),
+      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'type-system' ? " on" : ""), disabled: !connected, title: connected ? '' : 'Connect on the Home tab first', onClick: () => { setSection('type-system'); setView('types'); } }, "Type Explorer"),
+      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'glossary' ? " on" : ""), disabled: !connected, title: connected ? '' : 'Connect on the Home tab first', onClick: () => setSection('glossary') }, "Glossary"),
+      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'reference-data' ? " on" : ""), disabled: !connected, title: connected ? '' : 'Connect on the Home tab first', onClick: () => setSection('reference-data') }, "Reference Data"),
+      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'digital-products' ? " on" : ""), disabled: !connected, title: connected ? '' : 'Connect on the Home tab first', onClick: () => setSection('digital-products') }, "Digital Products"),
+      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'report-specs' ? " on" : ""), disabled: !connected, title: connected ? '' : 'Connect on the Home tab first', onClick: () => setSection('report-specs') }, "Report Specs"),
+      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'valid-values' ? " on" : ""), disabled: !connected, title: connected ? '' : 'Connect on the Home tab first', onClick: () => setSection('valid-values') }, "Valid Values"),
+      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'rest-apis' ? " on" : ""), disabled: !connected, title: connected ? '' : 'Connect on the Home tab first', onClick: () => setSection('rest-apis') }, "REST APIs"),
       /*#__PURE__*/React.createElement("div", { style: { flex: 1 } }),
       section === 'type-system' && /*#__PURE__*/React.createElement("button", { className: "view-tab" + (view === 'attrs' ? " on" : ""), onClick: () => setView('attrs') }, "Attribute Index"),
       section === 'type-system' && view === 'types' && /*#__PURE__*/React.createElement("select", {
@@ -3565,7 +3682,7 @@ function App() {
     ),
     // Body \u2014 dispatches to section, then to Type System sub-view
     section === 'splash'
-      ? React.createElement(SplashScreen, { onNavigate: function(s) { setSection(s); if (s === 'type-system') setView('types'); } })
+      ? React.createElement(SplashScreen, { onNavigate: function(s) { setSection(s); if (s === 'type-system') setView('types'); }, saveCreds: saveCreds })
       : section === 'report-specs'
       ? React.createElement(ReportSpecView, null)
       : section === 'glossary'
@@ -3595,7 +3712,7 @@ function App() {
             )
           )
         )
-  );
+  ));
 }
 ReactDOM.createRoot(document.getElementById('root')).render(/*#__PURE__*/React.createElement(App, null));</script>
 </body>

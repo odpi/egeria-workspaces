@@ -10,37 +10,38 @@ Endpoints:
 """
 
 import os
-from fastapi import APIRouter, HTTPException
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
 router = APIRouter(tags=["mermaid"])
 
 
-def _get_classifier():
+def _get_classifier(url=None, server=None, user_id=None, user_pwd=None):
     from pyegeria import ClassificationExplorer
     import pyegeria
     pyegeria.enable_ssl_check = False
     pyegeria.disable_ssl_warnings = True
-    url    = os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
-    server = os.environ.get("EGERIA_VIEW_SERVER",   "view-server")
-    user   = os.environ.get("EGERIA_USER",          "erinoverview")
-    pwd    = os.environ.get("EGERIA_USER_PASSWORD",  "secret")
-    mgr = ClassificationExplorer(view_server=server, platform_url=url, user_id=user, user_pwd=pwd)
+    url     = url     or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server  = server  or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id = user_id or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    mgr = ClassificationExplorer(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
     mgr.create_egeria_bearer_token()
     return mgr
 
 
-def _get_expert():
+def _get_expert(url=None, server=None, user_id=None, user_pwd=None):
     from pyegeria import MetadataExpert
     import pyegeria
     pyegeria.enable_ssl_check = False
     pyegeria.disable_ssl_warnings = True
-    url    = os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
-    server = os.environ.get("EGERIA_VIEW_SERVER",   "view-server")
-    user   = os.environ.get("EGERIA_USER",          "erinoverview")
-    pwd    = os.environ.get("EGERIA_USER_PASSWORD",  "secret")
-    mgr = MetadataExpert(view_server=server, platform_url=url, user_id=user, user_pwd=pwd)
+    url     = url     or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server  = server  or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id = user_id or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    mgr = MetadataExpert(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
     mgr.create_egeria_bearer_token()
     return mgr
 
@@ -52,14 +53,20 @@ def _normalise(graph) -> str:
 
 
 @router.get("/api/mermaid/{guid}/anchored", summary="Get full anchored element graph")
-def get_anchored_graph(guid: str):
+def get_anchored_graph(
+    guid: str,
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
     """
     Return a Mermaid diagram showing the element and all its anchored elements.
     Uses MetadataExpert.get_anchored_element_graph — a broader, more expensive traversal.
     Returns {guid, mermaidGraph}.
     """
     try:
-        mgr = _get_expert()
+        mgr = _get_expert(url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("Failed to create MetadataExpert")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
@@ -74,14 +81,20 @@ def get_anchored_graph(guid: str):
 
 
 @router.get("/api/mermaid/{guid}", summary="Get context diagram for an element (graph_query_depth=5)")
-def get_mermaid_graph(guid: str):
+def get_mermaid_graph(
+    guid: str,
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
     """
     Return a Mermaid context diagram using ClassificationExplorer.get_element_by_guid.
     Extracts the top-level mermaidGraph field from the response.
     Returns {guid, mermaidGraph}.
     """
     try:
-        mgr = _get_classifier()
+        mgr = _get_classifier(url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("Failed to create ClassificationManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")

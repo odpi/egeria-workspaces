@@ -24,6 +24,7 @@ Browser
   │  GET /api/digital-products/{guid}            (node detail)
   │  GET /api/mermaid/{guid}           (context diagram — graph_query_depth=5)
   │  GET /api/mermaid/{guid}/anchored  (full anchored element graph)
+  │  GET /api/valid-values/properties  (property names that have registered valid values)
   │  GET /api/valid-values/lookup      (valid values for a property name)
   │  GET /api/request-bodies           (Layer 1 request body catalog — no Egeria needed)
   │  GET /api/rest-apis                (OpenAPI endpoint catalog)
@@ -75,7 +76,8 @@ Apache and the FastAPI server run in separate containers on the same Docker netw
 | Digital Products tree | `GET /api/digital-products/catalogs/{guid}/tree` | Catalog selected |
 | Context diagram | `GET /api/mermaid/{guid}` — `get_metadata_element_by_guid` at depth=5 | User clicks "▦ Load Context Diagram" |
 | Full anchored graph | `GET /api/mermaid/{guid}/anchored` — `get_anchored_element_graph` | User clicks "▦ Load Full Graph" |
-| Valid Values | `GET /api/valid-values/lookup?property_name=…` | User selects or enters a property name |
+| Valid Values — property list | `GET /api/valid-values/properties` | First time tab is opened (pre-populates sidebar) |
+| Valid Values — lookup | `GET /api/valid-values/lookup?property_name=…` | User selects or enters a property name |
 | REST APIs — body catalog | `GET /api/request-bodies` | REST APIs tab is opened (no Egeria needed) |
 | REST APIs — endpoints | `GET /api/rest-apis` | User clicks "Load API Endpoints" in the toolbar |
 
@@ -201,6 +203,7 @@ The Reference Data view displays a hierarchy: root-level ValidValueSets as tree 
 |---------|---------|-------------|
 | `ValidMetadataManager` | `type_system_handler.py` | `get_all_entity_defs`, `get_all_relationship_defs`, `get_all_classification_defs` |
 | `ReferenceDataManager` | `reference_data_handler.py`, `valid_values_handler.py` | `find_valid_value_definitions`, `get_valid_metadata_values` |
+| `MetadataExpert` | `valid_values_handler.py` | `find_metadata_elements` (properties list — raw OpenMetadata format) |
 | `GlossaryManager` | `glossary_handler.py` | `find_glossaries`, `find_glossary_terms`, `get_term_by_guid`, `get_collection_members` |
 | `CollectionManager` | `digital_products_handler.py` | `find_collections`, `get_collection_members`, `get_collection_by_guid` |
 | `MetadataExpert` | `mermaid_handler.py` | `get_metadata_element_by_guid` (depth=5), `get_anchored_element_graph` |
@@ -274,6 +277,20 @@ This table answers the question "where does the data actually come from?" for ea
 Fixed upstream in pyegeria (the method now uses `_extract_typedef_list()` and accepts `get_inherited_attributes` / `get_relationship_attributes` parameters). The monkey-patch that previously existed in `type_system_handler.py` has been removed.
 
 This incident is a worked example of the pyegeria upgrade process — see [Upgrading pyegeria](#upgrading-pyegeria) below.
+
+### find_metadata_elements returns raw OpenMetadata format
+
+`MetadataExpert.find_metadata_elements(body)` returns elements in raw OpenMetadata format — **not** the processed pyegeria format returned by manager methods like `find_valid_value_definitions`. There is no `elementHeader` / `properties` split; instead each element has:
+
+```
+el["elementGUID"]                                                      # top-level GUID
+el["elementProperties"]["propertiesAsStrings"]["identifier"]          # fastest path — string value
+el["elementProperties"]["propertyValueMap"]["identifier"]["primitiveValue"]  # full structure
+```
+
+The property name field is `"identifier"`, not `"propertyName"`. Code that looks for `"propertyName"` in `propertyValueMap` will silently find nothing.
+
+The `propertiesAsStrings` shortcut is preferred for extraction — it contains the same string values without the type wrapper objects.
 
 ### MetadataExpert vs MetadataExplorer
 
