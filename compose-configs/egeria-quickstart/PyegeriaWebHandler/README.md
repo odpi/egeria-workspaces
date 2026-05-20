@@ -286,7 +286,13 @@ Apache proxies both URLs through to the `pyegeria-web` container, which serves t
 
 ### Sections
 
-The explorer has seven tabs across the top, ordered left to right: **Type Explorer → Glossary → Reference Data → Digital Products → Report Specs → Valid Values → REST APIs**. Each tab is independent; data is loaded lazily when the tab is first opened. All sections are read-only.
+The explorer opens to a **Home** splash screen on first load. Eight tabs run across the top, ordered left to right: **⌂ Home → Type Explorer → Glossary → Reference Data → Digital Products → Report Specs → Valid Values → REST APIs**. Each tab is independent; data is loaded lazily when the tab is first opened. All sections are read-only.
+
+#### Home (Splash Screen)
+
+The initial view shown when the application loads. It presents a one-paragraph description of the tool and a card for each of the seven capabilities. Each card shows an icon, title, and short description of what that section does. Clicking **Open →** on any card navigates directly to that section. The **⌂ Home** tab in the header returns to this screen from any section.
+
+No Egeria connection or data fetch is required to display the splash screen.
 
 #### Type System
 

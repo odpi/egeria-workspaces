@@ -22,7 +22,8 @@ Browser
   │  GET /api/digital-products/catalogs          (catalog list)
   │  GET /api/digital-products/catalogs/{guid}/tree  (full catalog tree)
   │  GET /api/digital-products/{guid}            (node detail)
-  │  GET /api/mermaid/{guid}           (context diagram for any element)
+  │  GET /api/mermaid/{guid}           (context diagram — graph_query_depth=5)
+  │  GET /api/mermaid/{guid}/anchored  (full anchored element graph)
   │  GET /api/valid-values/lookup      (valid values for a property name)
   │  GET /api/request-bodies           (Layer 1 request body catalog — no Egeria needed)
   │  GET /api/rest-apis                (OpenAPI endpoint catalog)
@@ -59,19 +60,21 @@ Apache and the FastAPI server run in separate containers on the same Docker netw
 1. Browser requests `/egeria-explorer` (or the alias `/type-explorer`) from Apache.
 2. Apache proxies to FastAPI. `type_system_handler.py` has two `@router.get` decorators on the same handler function so both URLs serve the same `type-explorer.html` via `FileResponse`.
 3. The HTML is a self-contained React 18 SPA. React and ReactDOM are loaded from CDN (`unpkg.com`). Mermaid diagram rendering is loaded from CDN (`cdn.jsdelivr.net/npm/mermaid@11`). Application JavaScript is inlined in the HTML.
-4. On load the SPA fetches `/api/types` immediately. All other section data is fetched lazily when the user first opens that tab.
+4. On load the SPA fetches `/api/types` immediately and renders the **Home (Splash Screen)** as the initial visible section. All other section data is fetched lazily when the user first opens that tab.
 
 ### Tab data fetching
 
 | Tab | Endpoint | Fetched when |
 |-----|----------|-------------|
+| Home (Splash Screen) | — | Shown immediately on page load; no data fetch |
 | Type System | `GET /api/types` | Page load |
 | Reference Data | `GET /api/reference-data?page_size=500` | First time tab is opened |
 | Glossary | `GET /api/glossary` | First time tab is opened |
 | Glossary terms | `GET /api/glossary/{guid}/terms` | Glossary or folder selected |
 | Digital Products | `GET /api/digital-products/catalogs` | First time tab is opened |
 | Digital Products tree | `GET /api/digital-products/catalogs/{guid}/tree` | Catalog selected |
-| Context diagram | `GET /api/mermaid/{guid}` | User clicks "Load Context Diagram" button |
+| Context diagram | `GET /api/mermaid/{guid}` — `get_metadata_element_by_guid` at depth=5 | User clicks "▦ Load Context Diagram" |
+| Full anchored graph | `GET /api/mermaid/{guid}/anchored` — `get_anchored_element_graph` | User clicks "▦ Load Full Graph" |
 | Valid Values | `GET /api/valid-values/lookup?property_name=…` | User selects or enters a property name |
 | REST APIs — body catalog | `GET /api/request-bodies` | REST APIs tab is opened (no Egeria needed) |
 | REST APIs — endpoints | `GET /api/rest-apis` | User clicks "Load API Endpoints" in the toolbar |
@@ -136,20 +139,26 @@ Current CDN reference in `type-explorer.html`:
 
 ### Rendering flow
 
-1. User clicks **▦ Load Context Diagram** on any element detail panel.
-2. `MermaidSection` component sets `open = true`, triggering a `useEffect` that calls `GET /api/mermaid/{guid}`.
-3. `mermaid_handler.py` constructs a `MetadataExpert` client and calls `get_anchored_element_graph(guid, mermaid_only=True)`.
-4. The mermaid diagram code string is returned to the browser and stored in the component's `code` state.
-5. `MermaidDiagram` component calls `window.mermaid.render(id, code)` which returns a Promise resolving to `{ svg }`.
-6. The SVG string is injected into the DOM via `innerHTML`.
+Each element detail panel exposes two lazy-loading diagram buttons, each backed by a `DiagramPanel` component:
 
-Once rendered, the user can toggle visibility with a **Hide** / **▦ Show Context Diagram** button. The `code` state is preserved so no re-fetch is needed on show. The `open` state gates the fetch; the `visible` state gates the render.
+**▦ Load Context Diagram** (`GET /api/mermaid/{guid}`)
+1. `DiagramPanel` sets `open = true`, triggering a fetch to `GET /api/mermaid/{guid}`.
+2. `mermaid_handler.py` calls `MetadataExpert.get_metadata_element_by_guid(guid, graph_query_depth=5, output_format="JSON")`.
+3. The top-level `mermaidGraph` field is extracted from the response (depth=5 scope).
+4. The diagram code is stored in `code` state and rendered via `MermaidDiagram`.
+
+**▦ Load Full Graph** (`GET /api/mermaid/{guid}/anchored`)
+1. `DiagramPanel` sets `open = true`, triggering a fetch to `GET /api/mermaid/{guid}/anchored`.
+2. `mermaid_handler.py` calls `MetadataExpert.get_anchored_element_graph(guid, mermaid_only=True)`.
+3. The returned mermaid string (broader, slower traversal) is stored and rendered.
+
+Both panels support **Hide** / **▦ Show** toggling. `code` state is preserved per panel so no re-fetch occurs on show. The `/anchored` route is registered before `/{guid}` in FastAPI so the literal path segment is not consumed as a GUID.
 
 If the CDN is unreachable (mermaid not loaded), the component polls for up to 6 seconds then shows the raw mermaid code with a "library not loaded" warning. If `render()` rejects, the error message is shown above the raw code.
 
 ### Backend class name
 
-The pyegeria class for element graph queries is `MetadataExpert` (not `MetadataExplorer`). The method is `get_anchored_element_graph(guid, mermaid_only=True)`.
+The pyegeria class for element graph queries is `MetadataExpert` (not `MetadataExplorer`). The method is `get_anchored_element_graph(guid, mermaid_only=True, graph_query_depth=5)`.
 
 ---
 
@@ -194,7 +203,7 @@ The Reference Data view displays a hierarchy: root-level ValidValueSets as tree 
 | `ReferenceDataManager` | `reference_data_handler.py`, `valid_values_handler.py` | `find_valid_value_definitions`, `get_valid_metadata_values` |
 | `GlossaryManager` | `glossary_handler.py` | `find_glossaries`, `find_glossary_terms`, `get_term_by_guid`, `get_collection_members` |
 | `CollectionManager` | `digital_products_handler.py` | `find_collections`, `get_collection_members`, `get_collection_by_guid` |
-| `MetadataExpert` | `mermaid_handler.py` | `get_anchored_element_graph` |
+| `MetadataExpert` | `mermaid_handler.py` | `get_metadata_element_by_guid` (depth=5), `get_anchored_element_graph` |
 
 ### Frontend (browser-side)
 
@@ -242,12 +251,14 @@ This table answers the question "where does the data actually come from?" for ea
 
 | Section | Data source | Egeria required? | Caching |
 |---------|-------------|-----------------|---------|
+| Home (Splash Screen) | Static — rendered from hardcoded capability list | **No** | N/A |
 | Type System | `ValidMetadataManager` → Egeria REST API | Yes | None (re-fetched per page load) |
 | Glossary | `GlossaryManager` → Egeria REST API | Yes | None |
 | Reference Data | `ReferenceDataManager` → Egeria REST API | Yes | None |
 | Digital Products | `CollectionManager` → Egeria REST API | Yes | None |
 | Valid Values | `ReferenceDataManager` → Egeria REST API | Yes | None |
-| Context Diagrams | `MetadataExpert` → Egeria REST API | Yes | None |
+| Context Diagram | `MetadataExpert.get_metadata_element_by_guid` at depth=5 | Yes | None |
+| Full Anchored Graph | `MetadataExpert.get_anchored_element_graph` | Yes | None |
 | Report Specs | pyegeria module introspection (format specs) | **No** | None |
 | REST APIs — body catalog | `egeria_request_body_catalog.json` (static file in container) | **No** | Process lifetime |
 | REST APIs — endpoints | Egeria `/v3/api-docs` OpenAPI spec | Yes | 1 hour in-process |
@@ -270,7 +281,14 @@ The class for element graph queries is `MetadataExpert`. There is no `MetadataEx
 
 ### mermaidGraph field location
 
-Egeria places the `mermaidGraph` string at the **response container level** (e.g., `element["mermaidGraph"]`), not inside `element["properties"]`. Per-element serialisers that look in `properties` will always find an empty string. The dedicated `/api/mermaid/{guid}` endpoint using `MetadataExpert.get_anchored_element_graph` is the correct way to retrieve per-element diagrams.
+Egeria places the `mermaidGraph` string at the **top level of the element dict** (e.g., `element["mermaidGraph"]`), not inside `element["properties"]`. The field is **generated at execution time** and is scoped to the same depth and relationship constraints as the enclosing find/get call — it reflects exactly what that query returned, no more.
+
+Per-element serialisers read it with a two-level fallback to guard against format variation:
+```python
+element.get("mermaidGraph", "") or props.get("mermaidGraph", "") or ""
+```
+
+The `mermaidGraph` field is present in responses from any find or get method when `output_format="JSON"` is passed. The `/api/mermaid/{guid}` endpoint uses `MetadataExpert.get_anchored_element_graph` with `graph_query_depth=5` to fetch a depth=5 diagram for the context diagram button, since list and tree queries use depth 0–1 and their embedded `mermaidGraph` values would be too shallow.
 
 ---
 
