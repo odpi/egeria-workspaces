@@ -350,7 +350,7 @@ Browse pyegeria's client-side report format specifications. These are not stored
 
 Look up the registered valid values for a specific Egeria property name. Uses Egeria's controlled vocabulary registry (`get_valid_metadata_values`), which is separate from the Reference Data sets.
 
-- Left panel: a text input for any property name, plus quick-access buttons for standard Egeria property names (`contentStatus`, `activityStatus`, `governanceStatus`, etc.).
+- Left panel: on tab open, a sidebar is pre-populated with all property names that have registered valid values (via `GET /api/valid-values/properties`). Click a name to look it up, or type any property name directly.
 - Right panel: the ordered list of allowed values for the selected property, with display names, preferred values, and descriptions.
 
 #### REST APIs
@@ -476,6 +476,10 @@ Response: `{ guid, mermaidGraph }`. `mermaidGraph` is an empty string if no diag
 
 #### Valid Values
 
+**`GET /api/valid-values/properties`** — List all property names that have at least one registered valid value.
+
+Response: `{ properties: [string, ...], total: N }`. Used by the Valid Values tab to pre-populate the sidebar. Queries `ValidMetadataValue` entries where `preferredValue IS_NULL` (these are the header registrations). Property names are extracted from `elementProperties.propertiesAsStrings.identifier` in the raw OpenMetadata response.
+
 **`GET /api/valid-values/lookup`** — Valid values for a property name.
 
 Query params: `property_name` (required), `type_name` (optional).
@@ -513,7 +517,7 @@ For the extension history and remaining open work, see [Extending the TypeExplor
 | `glossary_handler.py` | `/api/glossary*`; uses `graph_query_depth=1` for terms; GUID-deduplicates before returning |
 | `digital_products_handler.py` | `/api/digital-products`; recursive tree via `get_collection_members` with `graph_query_depth=0` |
 | `mermaid_handler.py` | `/api/mermaid/{guid}`; uses `MetadataExpert.get_anchored_element_graph` |
-| `valid_values_handler.py` | `/api/valid-values/lookup`; uses `ReferenceDataManager.get_valid_metadata_values` |
+| `valid_values_handler.py` | `/api/valid-values/properties` (pre-populates sidebar via `MetadataExpert.find_metadata_elements`); `/api/valid-values/lookup` (values for a name via `ReferenceDataManager.get_valid_metadata_values`) |
 | `report_specs_handler.py` | `/api/report-specs`; reads local pyegeria report spec objects; no Egeria connection |
 | `rest_api_handler.py` | `/api/request-bodies`, `/api/rest-apis`; catalog + live OpenAPI endpoint discovery |
 | `pyegeria_handler.py` | FastAPI app entry point; mounts all routers |

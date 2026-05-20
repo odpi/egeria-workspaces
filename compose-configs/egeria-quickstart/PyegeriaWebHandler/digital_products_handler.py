@@ -14,6 +14,7 @@ Endpoints:
 """
 
 import os
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
@@ -29,13 +30,13 @@ _CONTAINER_TYPES = {
 }
 
 
-def _get_manager():
+def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     from pyegeria import CollectionManager
-    url    = os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
-    server = os.environ.get("EGERIA_VIEW_SERVER",   "view-server")
-    user   = os.environ.get("EGERIA_USER",          "erinoverview")
-    pwd    = os.environ.get("EGERIA_USER_PASSWORD",  "secret")
-    mgr = CollectionManager(view_server=server, platform_url=url, user_id=user, user_pwd=pwd)
+    url     = url     or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server  = server  or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id = user_id or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    mgr = CollectionManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
     mgr.create_egeria_bearer_token()
     return mgr
 
@@ -156,10 +157,14 @@ def _build_tree(mgr, collection_guid: str, visited: set, depth: int = 0) -> list
 def get_catalogs(
     start_from: int = Query(0,   ge=0),
     page_size:  int = Query(100, ge=1, le=500),
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
 ):
     """Return all DigitalProductCatalog collections (paginated through all available collections)."""
     try:
-        mgr = _get_manager()
+        mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("Failed to create CollectionManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
@@ -177,14 +182,20 @@ def get_catalogs(
 
 @router.get("/api/digital-products/catalogs/{catalog_guid}/tree",
             summary="Full hierarchy tree for a catalog")
-def get_catalog_tree(catalog_guid: str):
+def get_catalog_tree(
+    catalog_guid: str,
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
     """
     Return the full recursive hierarchy tree for a DigitalProductCatalog.
 
     Tree nodes: {guid, typeName, displayName, ..., isContainer: bool, children: [node...]}
     """
     try:
-        mgr = _get_manager()
+        mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("Failed to create CollectionManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
@@ -204,10 +215,16 @@ def get_catalog_tree(catalog_guid: str):
 
 
 @router.get("/api/digital-products/{node_guid}", summary="Get detail for any product/collection node")
-def get_node(node_guid: str):
+def get_node(
+    node_guid: str,
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
     """Return detail for a single digital product or family node."""
     try:
-        mgr = _get_manager()
+        mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("Failed to create CollectionManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")

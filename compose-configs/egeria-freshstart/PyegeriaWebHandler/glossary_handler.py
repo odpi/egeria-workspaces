@@ -22,13 +22,13 @@ from loguru import logger
 router = APIRouter(tags=["glossary"])
 
 
-def _get_manager():
+def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     from pyegeria import GlossaryManager
-    url    = os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
-    server = os.environ.get("EGERIA_VIEW_SERVER",   "view-server")
-    user   = os.environ.get("EGERIA_USER",          "erinoverview")
-    pwd    = os.environ.get("EGERIA_USER_PASSWORD",  "secret")
-    mgr = GlossaryManager(view_server=server, platform_url=url, user_id=user, user_pwd=pwd)
+    url     = url     or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server  = server  or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id = user_id or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    mgr = GlossaryManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
     mgr.create_egeria_bearer_token()
     return mgr
 
@@ -156,10 +156,14 @@ def _serialize_term(term: dict) -> dict:
 def get_glossaries(
     start_from: int = Query(0,   ge=0),
     page_size:  int = Query(100, ge=1, le=500),
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
 ):
     """Return all Egeria glossaries with summary information."""
     try:
-        mgr = _get_manager()
+        mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("Failed to create GlossaryManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
@@ -191,10 +195,14 @@ def get_glossary_folders(
     collection_guid: str,
     start_from: int = Query(0,   ge=0),
     page_size:  int = Query(200, ge=1, le=1000),
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
 ):
     """Return the CollectionFolder children of a glossary (organisational hierarchy)."""
     try:
-        mgr = _get_manager()
+        mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("Failed to create GlossaryManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
@@ -223,6 +231,10 @@ def get_terms_in_collection(
     collection_guid: str,
     start_from: int = Query(0,   ge=0),
     page_size:  int = Query(500, ge=1, le=2000),
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
 ):
     """
     Return GlossaryTerms that are members of the given collection (glossary or folder).
@@ -231,7 +243,7 @@ def get_terms_in_collection(
     then filters for GlossaryTerm type elements. Much faster than a full-table scan.
     """
     try:
-        mgr = _get_manager()
+        mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("Failed to create GlossaryManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
@@ -259,13 +271,17 @@ def search_all_terms(
     q:          str = Query("*",   description="Search string; use * to return all"),
     start_from: int = Query(0,     ge=0),
     page_size:  int = Query(200,   ge=1, le=1000),
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
 ):
     """
     Search for GlossaryTerms across all glossaries using a text search string.
     Terms can belong to multiple glossaries; this view is independent of glossary membership.
     """
     try:
-        mgr = _get_manager()
+        mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("Failed to create GlossaryManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
@@ -302,10 +318,16 @@ def search_all_terms(
 
 
 @router.get("/api/glossary/term/{term_guid}", summary="Get a single term by GUID")
-def get_term(term_guid: str):
+def get_term(
+    term_guid: str,
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
     """Return full detail for a single glossary term."""
     try:
-        mgr = _get_manager()
+        mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("Failed to create GlossaryManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
