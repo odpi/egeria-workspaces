@@ -2,7 +2,13 @@
 import os
 from typing import Optional
 
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 # Try multiple import paths for pyegeria components
+import pyegeria
+pyegeria.enable_ssl_check = False
+pyegeria.disable_ssl_warnings = True
 EgeriaTech = None
 load_app_config = None
 Client2 = None
