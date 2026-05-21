@@ -166,6 +166,10 @@ from mermaid_handler import router as mermaid_router
 app.include_router(mermaid_router)
 from rest_api_handler import router as rest_api_router
 app.include_router(rest_api_router)
+from solution_architect_handler import router as solution_architect_router
+app.include_router(solution_architect_router)
+from data_design_handler import router as data_design_router
+app.include_router(data_design_router)
 # Mount the MCP SSE application
 # FastMCP.sse_app() returns a Starlette app with /sse and /messages routes
 mcp_app = mcp_server.sse_app()
