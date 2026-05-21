@@ -27,6 +27,7 @@ _CONTAINER_TYPES = {
     "DigitalProductCatalog", "DigitalProductFamily",
     "Collection", "RootCollection", "FolderCollection",
     "DataSpecCollection", "DataDictionary",
+    "DigitalProduct", "TabularDataSetCollection",
 }
 
 

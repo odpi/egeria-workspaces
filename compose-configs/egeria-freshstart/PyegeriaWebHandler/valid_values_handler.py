@@ -7,7 +7,6 @@ Valid Metadata Values Explorer — FastAPI router.
 Endpoints:
   GET /api/valid-values/properties  → property names that have registered valid values
   GET /api/valid-values/lookup      → valid values for a specific Egeria property name
-  GET /api/valid-values/debug       → raw find_metadata_elements response (for diagnosis)
 """
 
 import os
@@ -125,42 +124,6 @@ def _names_from_raw(raw) -> set:
         if n:
             names.add(n)
     return names
-
-
-@router.get("/api/valid-values/debug", summary="Debug: raw find_metadata_elements response structure")
-def debug_valid_value_properties(
-    url:     Optional[str] = Query(None),
-    server:  Optional[str] = Query(None),
-    user_id: Optional[str] = Query(None),
-    user_pwd:Optional[str] = Query(None),
-):
-    """Return diagnostic information about the raw find_metadata_elements response."""
-    try:
-        mgr = _get_expert(url, server, user_id, user_pwd)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
-
-    try:
-        raw = mgr.find_metadata_elements(_FIND_BODY)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"find_metadata_elements failed: {exc}")
-
-    first = None
-    if isinstance(raw, list) and raw:
-        first = raw[0]
-    elif isinstance(raw, dict):
-        elems = raw.get("elements") or raw.get("elementsAsStrings") or []
-        first = elems[0] if elems else None
-
-    return JSONResponse({
-        "raw_type":        type(raw).__name__,
-        "raw_length":      len(raw) if isinstance(raw, (list, str)) else None,
-        "raw_keys":        list(raw.keys()) if isinstance(raw, dict) else None,
-        "first_item_type": type(first).__name__ if first is not None else None,
-        "first_item_keys": list(first.keys()) if isinstance(first, dict) else None,
-        "first_item":      first,
-        "names_extracted": sorted(_names_from_raw(raw)),
-    })
 
 
 @router.get("/api/valid-values/properties", summary="List property names that have registered valid values")
