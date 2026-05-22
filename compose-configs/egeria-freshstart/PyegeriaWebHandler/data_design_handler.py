@@ -131,6 +131,36 @@ def _rels(mgr, element: dict) -> dict:
         return {}
 
 
+def _extract_all_rels(element: dict) -> dict:
+    """
+    Scan every list key in an element response and extract related-element entries.
+    Returns {fieldKey: [{guid, displayName, qualifiedName, typeName}, ...]} for
+    every non-empty relationship list found, regardless of relationship type.
+    Skips structural keys (elementHeader, properties, mermaidGraph).
+    """
+    SKIP = {"elementHeader", "properties", "mermaidGraph"}
+    result = {}
+    for key, val in element.items():
+        if key in SKIP or not isinstance(val, list) or not val:
+            continue
+        items = []
+        for entry in val:
+            re = entry.get("relatedElement") or entry
+            rh = re.get("elementHeader") or {}
+            rp = re.get("properties") or {}
+            g  = rh.get("guid") or re.get("guid") or ""
+            if g:
+                items.append({
+                    "guid":          g,
+                    "displayName":   rp.get("displayName") or rp.get("name") or "",
+                    "qualifiedName": rp.get("qualifiedName") or "",
+                    "typeName":      (rh.get("type") or {}).get("typeName") or "",
+                })
+        if items:
+            result[key] = items
+    return result
+
+
 def _serialize_spec(el: dict) -> dict:
     p = _props(el)
     n = _base(el)
@@ -310,23 +340,12 @@ def get_spec(
                     })
         except Exception:
             logger.warning(f"get_collection_members failed for DataSpec {guid}")
-        node["containsDataStructures"] = [m for m in members if m.get("typeName") == "DataStructure"]
-        node["members"] = members
-        # Parent collections (e.g. DataDictionaries) — embedded in the element's relationship list
-        parent_refs = []
-        for m in _safe_list(element.get("memberOfCollections")):
-            re = m.get("relatedElement") or m
-            rh = re.get("elementHeader") or {}
-            rp = re.get("properties") or {}
-            g  = rh.get("guid", "")
-            if g:
-                parent_refs.append({
-                    "guid":          g,
-                    "displayName":   rp.get("displayName") or rp.get("name") or "",
-                    "qualifiedName": rp.get("qualifiedName") or "",
-                    "typeName":      (rh.get("type") or {}).get("typeName") or "",
-                })
-        node["memberOfCollections"] = parent_refs
+        rels = _extract_all_rels(element)
+        # Inject the reliably-fetched collection members (get_collection_by_guid
+        # doesn't traverse depth, so collectionMembers won't be in the element)
+        if members:
+            rels["collectionMembers"] = members
+        node["relationships"] = rels
         return JSONResponse(node)
     except HTTPException:
         raise
@@ -353,10 +372,7 @@ def get_structure(
         if not element:
             raise HTTPException(status_code=404, detail=f"Structure {guid!r} not found")
         node = _serialize_structure(element)
-        r = _rels(mgr, element)
-        node["containsDataFields"] = _zip_refs(r.get("member_data_field_guids", []),    r.get("member_data_field_names", []),   r.get("member_data_fields", []))
-        node["memberOfDataSpecs"]  = _zip_refs(r.get("member_of_data_spec_guids", []),  r.get("member_of_data_spec_names", []), r.get("in_data_spec", []))
-        node["memberOfDataDicts"]  = _zip_refs(r.get("member_of_data_dicts_guids", []), r.get("member_of_data_dicts_names", []),r.get("in_data_dictionary", []))
+        node["relationships"] = _extract_all_rels(element)
         return JSONResponse(node)
     except HTTPException:
         raise
@@ -383,10 +399,7 @@ def get_field(
         if not element:
             raise HTTPException(status_code=404, detail=f"Field {guid!r} not found")
         node = _serialize_field(element)
-        r = _rels(mgr, element)
-        node["assignedMeanings"]     = _zip_refs(r.get("assigned_meanings_guids", []),  r.get("assigned_meanings_names", []),  r.get("assigned_meanings_qnames", []))
-        node["partOfDataStructures"] = _zip_refs(r.get("data_structure_guids", []),     r.get("data_structure_names", []),     r.get("in_data_structure", []))
-        node["assignedDataClasses"]  = _zip_refs(r.get("data_class_guids", []),         r.get("data_class_names", []),         r.get("data_class_qnames", []))
+        node["relationships"] = _extract_all_rels(element)
         return JSONResponse(node)
     except HTTPException:
         raise
@@ -413,8 +426,7 @@ def get_grain(
         if not element:
             raise HTTPException(status_code=404, detail=f"Grain {guid!r} not found")
         node = _serialize_grain(element)
-        r = _rels(mgr, element)
-        node["assignedDataValueSpecs"] = _zip_refs(r.get("assigned_data_value_spec_guids", []), r.get("assigned_data_value_spec_names", []), r.get("assigned_data_value_spec_qnames", []))
+        node["relationships"] = _extract_all_rels(element)
         return JSONResponse(node)
     except HTTPException:
         raise

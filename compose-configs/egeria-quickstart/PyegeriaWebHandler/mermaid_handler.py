@@ -46,6 +46,30 @@ def _get_expert(url=None, server=None, user_id=None, user_pwd=None):
     return mgr
 
 
+_ALL_MERMAID_FIELDS = [
+    "mermaidGraph",
+    "anchorMermaidGraph",
+    "informationSupplyChainMermaidGraph",
+    "fieldLevelLineageGraph",
+    "actionMermaidGraph",
+    "localLineageGraph",
+    "edgeMermaidGraph",
+    "iscImplementationMermaidGraph",
+    "specificationMermaidGraph",
+    "solutionBlueprintMermaidGraph",
+    "solutionSubcomponentMermaidGraph",
+    "governanceActionProcessMermaidGraph",
+    # newer pyegeria fields (may not be present in older installations)
+    "organizationTreeMermaidGraph",
+    "collectionMermaidMindMap",
+    "zoneProfileMermaidPieChart",
+    "zoneProfileAnchoredMermaidPieChart",
+    "zoneProfileAllPieChart",
+    "userAccountTypeProfileMermaidPieChart",
+    "userAccountStatusMermaidPieChart",
+]
+
+
 def _normalise(graph) -> str:
     if not isinstance(graph, str) or graph.lower().startswith("no "):
         return ""
@@ -101,9 +125,15 @@ def get_mermaid_graph(
 
     try:
         element = mgr.get_element_by_guid(guid, output_format="JSON")
-        graph = _normalise(element.get("mermaidGraph", "") if isinstance(element, dict) else "")
+        graphs = {}
+        if isinstance(element, dict):
+            lower_map = {k.lower(): v for k, v in element.items()}
+            for field in _ALL_MERMAID_FIELDS:
+                val = _normalise(lower_map.get(field.lower(), ""))
+                if val:
+                    graphs[field] = val
     except Exception as exc:
         logger.warning(f"get_element_by_guid failed for {guid}: {exc}")
-        graph = ""
+        graphs = {}
 
-    return JSONResponse({"guid": guid, "mermaidGraph": graph})
+    return JSONResponse({"guid": guid, "mermaidGraph": graphs.get("mermaidGraph", ""), "graphs": graphs})

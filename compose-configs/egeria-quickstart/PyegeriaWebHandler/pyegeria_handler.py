@@ -170,6 +170,12 @@ from solution_architect_handler import router as solution_architect_router
 app.include_router(solution_architect_router)
 from data_design_handler import router as data_design_router
 app.include_router(data_design_router)
+from perspectives_handler import router as perspectives_router
+app.include_router(perspectives_router)
+from dr_egeria_commands_handler import router as dr_egeria_commands_router
+app.include_router(dr_egeria_commands_router)
+from isc_handler import router as isc_router
+app.include_router(isc_router)
 # Mount the MCP SSE application
 # FastMCP.sse_app() returns a Starlette app with /sse and /messages routes
 mcp_app = mcp_server.sse_app()

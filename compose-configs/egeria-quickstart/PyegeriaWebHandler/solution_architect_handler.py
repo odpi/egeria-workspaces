@@ -50,6 +50,28 @@ def _rel_list(element: dict, key: str) -> list:
     return element.get(key) or []
 
 
+_SA_MERMAID_FIELDS = [
+    "mermaidGraph", "solutionBlueprintMermaidGraph", "solutionSubcomponentMermaidGraph",
+    "iscImplementationMermaidGraph", "informationSupplyChainMermaidGraph",
+    "edgeMermaidGraph", "anchorMermaidGraph", "specificationMermaidGraph",
+    "actionMermaidGraph", "localLineageGraph", "fieldLevelLineageGraph",
+    "governanceActionProcessMermaidGraph", "organizationTreeMermaidGraph",
+    "collectionMermaidMindMap", "zoneProfileMermaidPieChart",
+    "zoneProfileAnchoredMermaidPieChart", "zoneProfileAllPieChart",
+    "userAccountTypeProfileMermaidPieChart", "userAccountStatusMermaidPieChart",
+]
+
+
+def _extract_mermaid_fields(element: dict) -> dict:
+    lower_map = {k.lower(): v for k, v in element.items()}
+    result = {}
+    for f in _SA_MERMAID_FIELDS:
+        v = lower_map.get(f.lower()) or ""
+        if v and isinstance(v, str) and not v.lower().startswith("no "):
+            result[f] = v
+    return result
+
+
 def _serialize_rel_entries(rel_list: list) -> list:
     """Convert [{relatedElement: {elementHeader, properties}}, ...] → [{guid, displayName, qualifiedName, typeName}]."""
     result = []
@@ -86,7 +108,7 @@ def _serialize_blueprint_summary(element: dict) -> dict:
 
 def _serialize_blueprint_detail(element: dict) -> dict:
     detail = _serialize_blueprint_summary(element)
-    detail["mermaidGraph"] = element.get("mermaidGraph") or ""
+    detail.update(_extract_mermaid_fields(element))
     # Components linked to this blueprint (nestedComponents or collectionMembers key varies by depth)
     components = _serialize_rel_entries(_rel_list(element, "nestedComponents"))
     if not components:
@@ -95,6 +117,7 @@ def _serialize_blueprint_detail(element: dict) -> dict:
         # collectionMembers includes component-type entries at graph_query_depth >= 1
         components = _serialize_rel_entries(_rel_list(element, "collectionMembers"))
     detail["components"] = components
+    detail["memberOf"] = _serialize_rel_entries(_rel_list(element, "memberOfCollections"))
     return detail
 
 
@@ -117,7 +140,7 @@ def _serialize_component_summary(element: dict) -> dict:
 
 def _serialize_component_detail(element: dict) -> dict:
     detail = _serialize_component_summary(element)
-    detail["mermaidGraph"] = element.get("mermaidGraph") or ""
+    detail.update(_extract_mermaid_fields(element))
 
     # Parent blueprints come from memberOfCollections filtered by SolutionBlueprint typeName
     raw_collections = _rel_list(element, "memberOfCollections")

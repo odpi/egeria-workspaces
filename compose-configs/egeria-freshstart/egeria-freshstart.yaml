@@ -87,6 +87,7 @@ services:
       - ../../exchange-freshstart/distribution-hub/dr-egeria-outbox:/dr-egeria-outbox
       - ../../exchange-freshstart/loading-bay/dr-egeria-inbox:/dr-egeria-inbox
       - ../../exchange-freshstart/config:/config
+      - ../../templates:/app/templates
     depends_on:
       - freshstart-egeria-main
     command: uvicorn pyegeria_handler:app --host :: --port 8000 --reload --loop asyncio
