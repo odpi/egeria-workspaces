@@ -24,6 +24,8 @@ Endpoints:
   GET /api/data-design/fields/{guid}      → detail for a Data Field
   GET /api/data-design/grains             → list all Data Grains (subtype of DataValueSpecification)
   GET /api/data-design/grains/{guid}      → detail for a Data Grain
+  GET /api/data-design/classes            → list all Data Classes (subtype of DataValueSpecification)
+  GET /api/data-design/classes/{guid}     → detail for a Data Class (with nested class relationships)
 """
 
 import asyncio
@@ -131,14 +133,66 @@ def _rels(mgr, element: dict) -> dict:
         return {}
 
 
+def _extract_all_rels(element: dict) -> dict:
+    """
+    Scan every list key in an element response and extract related-element entries.
+    Returns {fieldKey: [{guid, displayName, qualifiedName, typeName}, ...]} for
+    every non-empty relationship list found, regardless of relationship type.
+    Skips structural keys (elementHeader, properties, mermaidGraph).
+    """
+    SKIP = {"elementHeader", "properties", "mermaidGraph"}
+    result = {}
+    for key, val in element.items():
+        if key in SKIP or not isinstance(val, list) or not val:
+            continue
+        items = []
+        for entry in val:
+            re = entry.get("relatedElement") or entry
+            rh = re.get("elementHeader") or {}
+            rp = re.get("properties") or {}
+            g  = rh.get("guid") or re.get("guid") or ""
+            if g:
+                items.append({
+                    "guid":          g,
+                    "displayName":   rp.get("displayName") or rp.get("name") or "",
+                    "qualifiedName": rp.get("qualifiedName") or "",
+                    "typeName":      (rh.get("type") or {}).get("typeName") or "",
+                })
+        if items:
+            result[key] = items
+    return result
+
+
+_DD_MERMAID_FIELDS = [
+    "mermaidGraph", "specificationMermaidGraph", "anchorMermaidGraph",
+    "edgeMermaidGraph", "localLineageGraph", "fieldLevelLineageGraph",
+    "collectionMermaidMindMap", "solutionBlueprintMermaidGraph",
+    "iscImplementationMermaidGraph", "informationSupplyChainMermaidGraph",
+    "governanceActionProcessMermaidGraph", "organizationTreeMermaidGraph",
+    "zoneProfileMermaidPieChart", "zoneProfileAnchoredMermaidPieChart",
+    "zoneProfileAllPieChart", "userAccountTypeProfileMermaidPieChart",
+    "userAccountStatusMermaidPieChart",
+]
+
+
+def _extract_mermaid_fields(element: dict) -> dict:
+    lower_map = {k.lower(): v for k, v in element.items()}
+    result = {}
+    for f in _DD_MERMAID_FIELDS:
+        v = lower_map.get(f.lower()) or ""
+        if v and isinstance(v, str) and not v.lower().startswith("no "):
+            result[f] = v
+    return result
+
+
 def _serialize_spec(el: dict) -> dict:
     p = _props(el)
     n = _base(el)
     n.update({
         "versionIdentifier": p.get("versionIdentifier", "") or "",
         "namespace":         p.get("namespace", "") or p.get("namespacePath", "") or "",
-        "mermaidGraph":      el.get("mermaidGraph", "") or p.get("mermaidGraph", "") or "",
     })
+    n.update(_extract_mermaid_fields(el))
     return n
 
 
@@ -148,8 +202,8 @@ def _serialize_structure(el: dict) -> dict:
     n.update({
         "versionIdentifier": p.get("versionIdentifier", "") or "",
         "namespace":         p.get("namespace", "") or p.get("namespacePath", "") or "",
-        "mermaidGraph":      el.get("mermaidGraph", "") or p.get("mermaidGraph", "") or "",
     })
+    n.update(_extract_mermaid_fields(el))
     return n
 
 
@@ -162,18 +216,31 @@ def _serialize_field(el: dict) -> dict:
         "defaultValue":  p.get("defaultValue", "") or "",
         "minimumLength": p.get("minimumLength", 0) or 0,
         "length":        p.get("length", 0) or 0,
-        "mermaidGraph":  el.get("mermaidGraph", "") or p.get("mermaidGraph", "") or "",
     })
+    n.update(_extract_mermaid_fields(el))
     return n
 
 
 def _serialize_grain(el: dict) -> dict:
     p = _props(el)
     n = _base(el)
+    n.update({"dataType": p.get("dataType", "") or ""})
+    n.update(_extract_mermaid_fields(el))
+    return n
+
+
+def _serialize_class(el: dict) -> dict:
+    p = _props(el)
+    n = _base(el)
     n.update({
-        "dataType":    p.get("dataType", "") or "",
-        "mermaidGraph": el.get("mermaidGraph", "") or p.get("mermaidGraph", "") or "",
+        "dataType":             p.get("dataType", "") or "",
+        "namespace":            p.get("namespace", "") or p.get("namespacePath", "") or "",
+        "versionIdentifier":    p.get("versionIdentifier", "") or "",
+        "matchThreshold":       p.get("matchThreshold", 0) or 0,
+        "matchCriteria":        p.get("matchCriteria", "") or "",
+        "specificationDetails": p.get("specificationDetails", "") or "",
     })
+    n.update(_extract_mermaid_fields(el))
     return n
 
 
@@ -268,6 +335,29 @@ def list_grains(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@router.get("/api/data-design/classes", summary="List all Data Classes")
+def list_classes(
+    url:     Optional[str] = Query(None),
+    server:  Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
+    user_pwd:Optional[str] = Query(None),
+):
+    try:
+        mgr = _get_designer(url, server, user_id, user_pwd)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+    try:
+        raw = _search_data_value_specs(mgr)
+        items = sorted(
+            [_serialize_class(e) for e in _safe_list(raw) if _type_name(e) == "DataClass"],
+            key=lambda x: (x.get("displayName") or "").lower(),
+        )
+        return JSONResponse({"classes": items, "total": len(items)})
+    except Exception as exc:
+        logger.exception("list_classes failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 # ── Detail endpoints ───────────────────────────────────────────────────────────
 
 @router.get("/api/data-design/specs/{guid}", summary="Detail for a Data Spec")
@@ -310,23 +400,12 @@ def get_spec(
                     })
         except Exception:
             logger.warning(f"get_collection_members failed for DataSpec {guid}")
-        node["containsDataStructures"] = [m for m in members if m.get("typeName") == "DataStructure"]
-        node["members"] = members
-        # Parent collections (e.g. DataDictionaries) — embedded in the element's relationship list
-        parent_refs = []
-        for m in _safe_list(element.get("memberOfCollections")):
-            re = m.get("relatedElement") or m
-            rh = re.get("elementHeader") or {}
-            rp = re.get("properties") or {}
-            g  = rh.get("guid", "")
-            if g:
-                parent_refs.append({
-                    "guid":          g,
-                    "displayName":   rp.get("displayName") or rp.get("name") or "",
-                    "qualifiedName": rp.get("qualifiedName") or "",
-                    "typeName":      (rh.get("type") or {}).get("typeName") or "",
-                })
-        node["memberOfCollections"] = parent_refs
+        rels = _extract_all_rels(element)
+        # Inject the reliably-fetched collection members (get_collection_by_guid
+        # doesn't traverse depth, so collectionMembers won't be in the element)
+        if members:
+            rels["collectionMembers"] = members
+        node["relationships"] = rels
         return JSONResponse(node)
     except HTTPException:
         raise
@@ -353,10 +432,7 @@ def get_structure(
         if not element:
             raise HTTPException(status_code=404, detail=f"Structure {guid!r} not found")
         node = _serialize_structure(element)
-        r = _rels(mgr, element)
-        node["containsDataFields"] = _zip_refs(r.get("member_data_field_guids", []),    r.get("member_data_field_names", []),   r.get("member_data_fields", []))
-        node["memberOfDataSpecs"]  = _zip_refs(r.get("member_of_data_spec_guids", []),  r.get("member_of_data_spec_names", []), r.get("in_data_spec", []))
-        node["memberOfDataDicts"]  = _zip_refs(r.get("member_of_data_dicts_guids", []), r.get("member_of_data_dicts_names", []),r.get("in_data_dictionary", []))
+        node["relationships"] = _extract_all_rels(element)
         return JSONResponse(node)
     except HTTPException:
         raise
@@ -383,10 +459,7 @@ def get_field(
         if not element:
             raise HTTPException(status_code=404, detail=f"Field {guid!r} not found")
         node = _serialize_field(element)
-        r = _rels(mgr, element)
-        node["assignedMeanings"]     = _zip_refs(r.get("assigned_meanings_guids", []),  r.get("assigned_meanings_names", []),  r.get("assigned_meanings_qnames", []))
-        node["partOfDataStructures"] = _zip_refs(r.get("data_structure_guids", []),     r.get("data_structure_names", []),     r.get("in_data_structure", []))
-        node["assignedDataClasses"]  = _zip_refs(r.get("data_class_guids", []),         r.get("data_class_names", []),         r.get("data_class_qnames", []))
+        node["relationships"] = _extract_all_rels(element)
         return JSONResponse(node)
     except HTTPException:
         raise
@@ -413,11 +486,37 @@ def get_grain(
         if not element:
             raise HTTPException(status_code=404, detail=f"Grain {guid!r} not found")
         node = _serialize_grain(element)
-        r = _rels(mgr, element)
-        node["assignedDataValueSpecs"] = _zip_refs(r.get("assigned_data_value_spec_guids", []), r.get("assigned_data_value_spec_names", []), r.get("assigned_data_value_spec_qnames", []))
+        node["relationships"] = _extract_all_rels(element)
         return JSONResponse(node)
     except HTTPException:
         raise
     except Exception as exc:
         logger.exception("get_grain failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/api/data-design/classes/{guid}", summary="Detail for a Data Class")
+def get_class(
+    guid: str,
+    url:     Optional[str] = Query(None),
+    server:  Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
+    user_pwd:Optional[str] = Query(None),
+):
+    try:
+        mgr = _get_designer(url, server, user_id, user_pwd)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+    try:
+        raw = mgr.get_data_class_by_guid(guid, output_format="JSON")
+        element = _first(raw)
+        if not element:
+            raise HTTPException(status_code=404, detail=f"DataClass {guid!r} not found")
+        node = _serialize_class(element)
+        node["relationships"] = _extract_all_rels(element)
+        return JSONResponse(node)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("get_class failed")
         raise HTTPException(status_code=500, detail=str(exc))

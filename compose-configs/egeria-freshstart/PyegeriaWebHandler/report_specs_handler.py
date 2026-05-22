@@ -12,11 +12,13 @@ pyegeria.view.base_report_formats.  They are not stored in Egeria and this
 endpoint requires no Egeria connection.
 """
 
+import os
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
+from pydantic import BaseModel
 
 router = APIRouter(tags=["report-specs"])
 
@@ -57,6 +59,16 @@ def _serialize(name: str, fs) -> dict:
         for qs in (getattr(fs, "question_spec", []) or [])
     ]
 
+    action = getattr(fs, "action", None)
+    action_dict = None
+    if action is not None:
+        action_dict = {
+            "function":        getattr(action, "function", "") or "",
+            "required_params": list(getattr(action, "required_params", []) or []),
+            "optional_params": list(getattr(action, "optional_params", []) or []),
+            "spec_params":     dict(getattr(action, "spec_params", {}) or {}),
+        }
+
     return {
         "name":          name,
         "family":        getattr(fs, "family",      None),
@@ -67,6 +79,7 @@ def _serialize(name: str, fs) -> dict:
         "output_types":  sorted(output_types),
         "formats":       formats,
         "question_spec": question_spec,
+        "action":        action_dict,
     }
 
 
@@ -135,3 +148,43 @@ def get_report_specs(
         "perspectives": all_perspectives,
         "total":        len(result),
     })
+
+
+# ── Execute ───────────────────────────────────────────────────────────────────
+
+class ExecuteRequest(BaseModel):
+    spec_name:     str
+    output_format: str = "REPORT"
+    params:        dict = {}
+    url:           Optional[str] = None
+    server:        Optional[str] = None
+    user_id:       Optional[str] = None
+    user_pwd:      Optional[str] = None
+
+
+@router.post("/api/report-specs/execute", summary="Execute a report spec action")
+def execute_spec(req: ExecuteRequest):
+    """Call exec_report_spec and return a normalised result structure."""
+    from pyegeria.view.format_set_executor import exec_report_spec
+
+    url      = req.url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server   = req.server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id  = req.user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = req.user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+
+    try:
+        result = exec_report_spec(
+            req.spec_name,
+            output_format=req.output_format,
+            params=req.params,
+            view_server=server,
+            view_url=url,
+            user=user_id,
+            user_pass=user_pwd,
+        )
+        return JSONResponse(result)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        logger.exception("exec_report_spec failed")
+        raise HTTPException(status_code=500, detail=f"Execution failed: {exc}")

@@ -114,6 +114,7 @@ services:
       - ../../exchange-quickstart/config:/config
       - ../../work:/work
       - ../../coco-workbooks:/coco-workbooks
+      - ../../templates:/app/templates
 # Mount the dr-egeria-inbox directory
 #    environment:
       # Pass environment variables to the container

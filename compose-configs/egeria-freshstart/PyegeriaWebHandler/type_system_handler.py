@@ -181,6 +181,11 @@ def _normalize_raw(raw, label: str) -> list[dict]:
     return []
 
 
+# ── Module-level caches (process-lifetime, cleared on restart) ────────────────
+
+_TYPE_NAMES_CACHE: dict[str, list[str]] = {}
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @router.get("/egeria-explorer", include_in_schema=False)
@@ -191,6 +196,47 @@ async def egeria_explorer_ui():
     if not html_path.exists():
         raise HTTPException(status_code=404, detail=f"Egeria Explorer UI not found at {html_path}")
     return FileResponse(path=str(html_path), media_type="text/html")
+
+
+@router.get("/api/types/names", summary="Get sorted type names by kind")
+def get_type_names(
+    kind: str = Query("entity", description="Type kind: entity, classification, or relationship"),
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
+    """Return a sorted list of type names for the given kind. Results are cached process-wide."""
+    cache_key = kind.lower()
+    if cache_key in _TYPE_NAMES_CACHE:
+        return JSONResponse({"kind": kind, "names": _TYPE_NAMES_CACHE[cache_key]})
+
+    if cache_key not in ("entity", "classification", "relationship"):
+        raise HTTPException(status_code=400, detail=f"Unknown kind '{kind}'. Use entity, classification, or relationship.")
+
+    d = _env_defaults()
+    url      = url      or d["url"]
+    server   = server   or d["server"]
+    user_id  = user_id  or d["user_id"]
+    user_pwd = user_pwd or d["user_pwd"]
+
+    try:
+        c = _get_client(url, server, user_id, user_pwd)
+        if cache_key == "entity":
+            raw = _normalize_raw(c.get_all_entity_defs(), "Entity definitions")
+        elif cache_key == "classification":
+            raw = _normalize_raw(c.get_all_classification_defs(), "Classification definitions")
+        else:
+            raw = _normalize_raw(c.get_all_relationship_defs(), "Relationship definitions")
+        c.close_session()
+    except PyegeriaException as exc:
+        raise HTTPException(status_code=502, detail=f"Egeria error: {exc}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Type names query failed: {exc}")
+
+    names = sorted(td["name"] for td in raw if td.get("name"))
+    _TYPE_NAMES_CACHE[cache_key] = names
+    return JSONResponse({"kind": kind, "names": names})
 
 
 @router.get("/api/types", summary="Get all open metadata type definitions")

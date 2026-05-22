@@ -57,6 +57,31 @@ _TERM_REL_KEYS = [
     ("categories",     "Categories"),
 ]
 
+_TERM_REL_KEY_NAMES = {k for k, _ in _TERM_REL_KEYS}
+_TERM_STRUCT_KEYS   = {"elementHeader", "properties", "mermaidGraph", "sourcedFromTemplate"}
+
+
+def _camel_to_label(s: str) -> str:
+    result = s[0].upper() if s else ''
+    for c in s[1:]:
+        result += (' ' + c) if c.isupper() else c
+    return result
+
+
+def _extract_extra_rels(term: dict) -> dict:
+    """Scan term element keys not already in _TERM_REL_KEYS for relationship lists.
+    Captures semantic assignments (DataFields etc.) whatever key name Egeria uses."""
+    result = {}
+    for key, val in term.items():
+        if key in _TERM_REL_KEY_NAMES or key in _TERM_STRUCT_KEYS:
+            continue
+        if not isinstance(val, list) or not val:
+            continue
+        items = _related_elements(val)
+        if items:
+            result[_camel_to_label(key)] = items
+    return result
+
 
 def _related_elements(raw_list: list) -> list:
     """Extract [{guid, displayName, qualifiedName, typeName}] from a relationship list."""
@@ -171,8 +196,11 @@ def _serialize_term(term: dict) -> dict:
         "isTemplateSubstitute":   is_template_substitute,
         "isSourcedFromTemplate":  is_sourced_from_template,
         "classifications":        _extract_classifications(header),
-        "relationships":          {label: items for key, label in _TERM_REL_KEYS
-                                   if (items := _related_elements(term.get(key)))},
+        "relationships":          {
+                                      **{label: items for key, label in _TERM_REL_KEYS
+                                         if (items := _related_elements(term.get(key)))},
+                                      **_extract_extra_rels(term),
+                                  },
     }
 
 

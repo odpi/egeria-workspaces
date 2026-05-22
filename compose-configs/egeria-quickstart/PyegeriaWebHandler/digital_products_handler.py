@@ -54,11 +54,60 @@ def _type_name(element: dict) -> str:
     return (_header(element).get("type") or {}).get("typeName", "") or ""
 
 
+_DP_SKIP_KEYS = {"elementHeader", "properties"}
+
+_DP_MERMAID_FIELDS = [
+    "mermaidGraph", "collectionMermaidMindMap", "edgeMermaidGraph",
+    "anchorMermaidGraph", "specificationMermaidGraph",
+    "iscImplementationMermaidGraph", "informationSupplyChainMermaidGraph",
+    "solutionBlueprintMermaidGraph", "solutionSubcomponentMermaidGraph",
+    "actionMermaidGraph", "localLineageGraph", "fieldLevelLineageGraph",
+    "governanceActionProcessMermaidGraph", "organizationTreeMermaidGraph",
+    "zoneProfileMermaidPieChart", "zoneProfileAnchoredMermaidPieChart",
+    "zoneProfileAllPieChart", "userAccountTypeProfileMermaidPieChart",
+    "userAccountStatusMermaidPieChart",
+]
+
+
+def _extract_mermaid_fields(element: dict) -> dict:
+    lower_map = {k.lower(): v for k, v in element.items()}
+    result = {}
+    for f in _DP_MERMAID_FIELDS:
+        v = lower_map.get(f.lower()) or ""
+        if v and isinstance(v, str) and not v.lower().startswith("no "):
+            result[f] = v
+    return result
+
+
+def _extract_all_rels(element: dict) -> dict:
+    """Extract all relationship lists from an element → {key: [{guid, displayName, qualifiedName, typeName}]}."""
+    result = {}
+    for key, val in element.items():
+        if key in _DP_SKIP_KEYS or not isinstance(val, list) or not val:
+            continue
+        items = []
+        for entry in val:
+            re = entry.get("relatedElement") or entry
+            rh = re.get("elementHeader") or {}
+            rp = re.get("properties") or {}
+            g  = rh.get("guid") or re.get("guid") or ""
+            if g:
+                items.append({
+                    "guid":          g,
+                    "displayName":   rp.get("displayName") or rp.get("name") or "",
+                    "qualifiedName": rp.get("qualifiedName") or "",
+                    "typeName":      (rh.get("type") or {}).get("typeName") or "",
+                })
+        if items:
+            result[key] = items
+    return result
+
+
 def _serialize_node(element: dict) -> dict:
     props  = _props(element)
     header = _header(element)
     tn = _type_name(element)
-    return {
+    node = {
         "guid":             header.get("guid", ""),
         "typeName":         tn,
         "displayName":      props.get("displayName", "") or props.get("name", "") or "",
@@ -74,8 +123,9 @@ def _serialize_node(element: dict) -> dict:
         "currentVersion":   props.get("currentVersion", "") or "",
         "deploymentStatus": props.get("deploymentStatus", "") or "",
         "status":           header.get("status", "") or "",
-        "mermaidGraph":     element.get("mermaidGraph", "") or props.get("mermaidGraph", "") or "",
     }
+    node.update(_extract_mermaid_fields(element))
+    return node
 
 
 def _find_all_catalogs(mgr) -> list:
@@ -239,4 +289,22 @@ def get_node(
     if not raw:
         raise HTTPException(status_code=404, detail=f"Node {node_guid!r} not found")
 
-    return JSONResponse(_serialize_node(raw))
+    node = _serialize_node(raw)
+    node["relationships"] = _extract_all_rels(raw)
+
+    # Fetch direct members so the detail is usable when navigated directly (not via tree)
+    try:
+        raw_members = mgr.get_collection_members(
+            collection_guid=node_guid,
+            output_format="JSON",
+            page_size=200,
+            body={"class": "ResultsRequestBody", "graphQueryDepth": 0},
+        )
+    except Exception:
+        raw_members = []
+    if isinstance(raw_members, list):
+        node["children"] = [_serialize_node(m) for m in raw_members]
+    else:
+        node["children"] = []
+
+    return JSONResponse(node)
