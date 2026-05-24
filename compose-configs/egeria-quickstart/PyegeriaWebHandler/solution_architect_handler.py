@@ -194,6 +194,7 @@ def list_blueprints(
             output_format="JSON",
             start_from=start_from,
             page_size=page_size,
+            graph_query_depth=0,
         )
     except Exception as exc:
         logger.exception("find_solution_blueprints failed")
@@ -254,6 +255,7 @@ def list_components(
             output_format="JSON",
             start_from=start_from,
             page_size=page_size,
+            graph_query_depth=0,
         )
     except Exception as exc:
         logger.exception("find_solution_components failed")

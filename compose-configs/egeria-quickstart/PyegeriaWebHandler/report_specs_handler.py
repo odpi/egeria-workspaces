@@ -186,5 +186,9 @@ def execute_spec(req: ExecuteRequest):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
+        # Propagate Egeria 401s as HTTP 401 so the client can show a meaningful message.
+        exc_text = str(exc)
+        if "HTTP Code: 401" in exc_text or getattr(exc, "http_error_code", None) == 401:
+            raise HTTPException(status_code=401, detail="Not authorized for this operation — the current user does not have permission for this report")
         logger.exception("exec_report_spec failed")
         raise HTTPException(status_code=500, detail=f"Execution failed: {exc}")

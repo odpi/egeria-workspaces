@@ -62,6 +62,17 @@ def _type_name(element: dict) -> str:
 _SKIP_KEYS = {"elementHeader", "properties", "mermaidGraph"}
 
 
+def _is_question(element: dict) -> bool:
+    """Return True if this GlossaryTerm has the Question classification."""
+    header = _header(element)
+    for cls in (header.get("classifications") or []):
+        cls_header = cls.get("elementHeader") or cls
+        type_name = (cls_header.get("type") or {}).get("typeName") or cls_header.get("classificationName") or ""
+        if type_name == "Question":
+            return True
+    return False
+
+
 def _extract_all_rels(element: dict) -> dict:
     """Extract all relationship lists → {key: [{guid, displayName, qualifiedName, typeName}]}."""
     result = {}
@@ -220,28 +231,45 @@ def get_questions(
         raw = mgr.find_glossary_terms(
             search_string="*",
             starts_with=True,
+            ends_with=False,
             ignore_case=True,
+            include_only_classified_elements=["Question"],
+            graph_query_depth=2,
             output_format="JSON",
             start_from=start_from,
             page_size=page_size,
-            include_only_classified_elements=["IsQuestion"],
-            graph_query_depth=0,
         )
     except Exception as exc:
-        logger.exception("find_glossary_terms (IsQuestion) failed")
+        logger.exception("find_glossary_terms (Question) failed")
         raise HTTPException(status_code=500, detail=f"Question retrieval failed: {exc}")
 
     if not isinstance(raw, list):
         raw = []
 
+    logger.info(f"find_metadata_elements_with_string returned {len(raw)} raw elements")
+
+    # Server-side include_only_classified_elements should have already filtered to Questions.
+    # Apply client-side check as well; if it drops everything (classification data not in header),
+    # fall back to trusting the server filter.
     seen: set = set()
     questions = []
     for t in raw:
         g = _header(t).get("guid", "")
-        if g and g not in seen:
+        if g and g not in seen and _is_question(t):
             seen.add(g)
             questions.append(_serialize_question(t))
+
+    if not questions and raw:
+        logger.warning("_is_question filtered out all elements — classification data may be in a different location; trusting server filter")
+        seen2: set = set()
+        for t in raw:
+            g = _header(t).get("guid", "")
+            if g and g not in seen2:
+                seen2.add(g)
+                questions.append(_serialize_question(t))
+
     questions.sort(key=lambda q: (q.get("displayName") or "").lower())
+    logger.info(f"Questions found: {len(questions)} (from {len(raw)} raw elements)")
     return JSONResponse({"questions": questions, "total": len(questions)})
 
 
@@ -264,7 +292,7 @@ def get_question(
         raw = mgr.get_term_by_guid(
             question_guid,
             output_format="JSON",
-            body={"class": "GetRequestBody", "graphQueryDepth": 1},
+            body={"class": "GetRequestBody", "graphQueryDepth": 2},
         )
     except Exception as exc:
         logger.exception("get_term_by_guid failed")
