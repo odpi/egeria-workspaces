@@ -218,6 +218,10 @@
   </style>
   <!-- Mermaid diagram rendering (loaded synchronously so it's available when app script runs) -->
   <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <!-- Vega-Lite chart rendering for report output — deferred so they don't block initial page render -->
+  <script src="https://cdn.jsdelivr.net/npm/vega@5/build/vega.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5/build/vega-lite.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-embed@6/build/vega-embed.min.js" defer></script>
 </head>
 <body>
   <div id="root">
@@ -655,6 +659,90 @@ function DiagramPanelFromData({ code, label }) {
   );
 }
 
+// Renders a Vega-Lite spec (string or object) as an embedded chart.
+function VegaChart({ spec }) {
+  var ref = React.useRef(null);
+  var [state, setState] = React.useState('loading');
+  var [errMsg, setErrMsg] = React.useState('');
+  React.useEffect(function() {
+    if (!ref.current) return;
+    var cancelled = false;
+    var viewResult = null;
+    var retryTimer = null;
+    var parsed;
+    try { parsed = typeof spec === 'string' ? JSON.parse(spec) : spec; }
+    catch(e) { setState('error'); setErrMsg('Invalid JSON: ' + e.message); return; }
+    function tryRender() {
+      if (cancelled) return;
+      if (typeof vegaEmbed === 'undefined') {
+        // vega-embed deferred — not ready yet; poll every 300ms (up to ~10s)
+        retryTimer = setTimeout(tryRender, 300);
+        return;
+      }
+      setState('loading');
+      vegaEmbed(ref.current, parsed, { actions: false, theme: 'dark', renderer: 'canvas' })
+        .then(function(result) {
+          viewResult = result;
+          if (!cancelled) setState('done');
+          else result.finalize();
+        })
+        .catch(function(e) {
+          if (!cancelled) { setState('error'); setErrMsg(String(e)); }
+        });
+    }
+    tryRender();
+    return function() {
+      cancelled = true;
+      clearTimeout(retryTimer);
+      if (viewResult) viewResult.finalize();
+    };
+  }, [spec]);
+  return React.createElement('div', { style: { margin: '8px 0' } },
+    state === 'loading' && React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', color: 'var(--dim)', fontSize: 12 } },
+      React.createElement('div', { className: 'spinner', style: { width: 16, height: 16 } }), 'Rendering chart…'
+    ),
+    state === 'error' && React.createElement('div', { style: { padding: 8, background: 'rgba(248,113,113,.08)', borderRadius: 4, color: '#f87171', fontSize: 11 } }, errMsg),
+    React.createElement('div', { ref: ref, style: { background: 'rgba(0,0,0,.05)', borderRadius: 4 } })
+  );
+}
+
+function CollapsibleChartPanel({ label, spec }) {
+  var [visible, setVisible] = React.useState(false);
+  var btnStyle = { fontSize: 12, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'rgba(251,191,36,.08)', color: '#fbbf24', cursor: 'pointer' };
+  return React.createElement('div', { style: { margin: '4px 0' } },
+    React.createElement('button', { onClick: function() { setVisible(function(v) { return !v; }); }, style: btnStyle },
+      (visible ? '▾ Hide ' : '▸ Show ') + label
+    ),
+    visible && React.createElement(VegaChart, { spec: spec })
+  );
+}
+
+// Scans a data object (or array of objects) for Vega-Lite specs emitted by pyegeria (*BarGraph/*PieGraph keys).
+// When data is an array (DICT format results), each row is scanned and unique chart keys are surfaced once.
+function AvailableCharts({ data }) {
+  if (!data) return null;
+  var chartRe = /(?:BarGraph|PieGraph)$/i;
+  var sources = Array.isArray(data) ? data : [data];
+  var seen = {};
+  var entries = [];
+  sources.forEach(function(row) {
+    if (!row || typeof row !== 'object') return;
+    Object.keys(row).forEach(function(k) {
+      if (chartRe.test(k) && row[k] && !seen[k]) {
+        seen[k] = true;
+        entries.push({ key: k, spec: row[k] });
+      }
+    });
+  });
+  if (entries.length === 0) return null;
+  return React.createElement('div', { style: { margin: '8px 0' } },
+    entries.map(function(e) {
+      var label = e.key.replace(/([A-Z])/g, ' $1').replace(/\s*(Bar|Pie)Graph$/i, ' Chart').trim();
+      return React.createElement(CollapsibleChartPanel, { key: e.key, label: label, spec: e.spec });
+    })
+  );
+}
+
 // All known mermaid graph field names — kept in sync with Python _ALL_MERMAID_FIELDS.
 var _ALL_JS_MERMAID_FIELDS = [
   'mermaidGraph', 'iscImplementationMermaidGraph', 'informationSupplyChainMermaidGraph',
@@ -799,6 +887,71 @@ function renderMd(text) {
   const els = segs.map(function(seg, i) {
     if (seg.type === 'mermaid') return React.createElement(MermaidDiagram, { key: i, code: seg.code });
     const html = _renderMdHtml(seg.src);
+    if (!html) return null;
+    return React.createElement('div', { key: i, dangerouslySetInnerHTML: { __html: html }, style: { lineHeight: 1.6, wordBreak: 'break-word' } });
+  }).filter(Boolean);
+  if (els.length === 0) return null;
+  if (els.length === 1) return els[0];
+  return React.createElement('div', null, ...els);
+}
+
+// Splits report content into typed segments: plain, mermaid, vega-lite, json.
+function tokenizeContent(content) {
+  var segs = [];
+  var re = /```(mermaid|vega-lite|json)\n([\s\S]*?)```/g;
+  var last = 0, m;
+  while ((m = re.exec(content)) !== null) {
+    if (m.index > last) segs.push({ type: 'plain', src: content.slice(last, m.index) });
+    segs.push({ type: m[1], src: m[2].trim() });
+    last = m.index + m[0].length;
+  }
+  if (last < content.length) segs.push({ type: 'plain', src: content.slice(last) });
+  return segs;
+}
+
+// Smart renderer for report text output. Handles mermaid/vega-lite/json fences,
+// passes <a id="..."> anchors through for master-detail navigation, and renders
+// [text](#anchor) markdown links as clickable HTML links.
+function SmartReportRenderer({ content }) {
+  if (!content || !content.trim()) return null;
+  var segs = tokenizeContent(content);
+  var els = segs.map(function(seg, i) {
+    if (seg.type === 'mermaid') {
+      return React.createElement(MermaidDiagram, { key: i, code: seg.src });
+    }
+    if (seg.type === 'vega-lite') {
+      return React.createElement(VegaChart, { key: i, spec: seg.src });
+    }
+    if (seg.type === 'json') {
+      var parsed;
+      try { parsed = JSON.parse(seg.src); } catch(e) { parsed = seg.src; }
+      return React.createElement('pre', { key: i,
+        style: { fontSize: 11, overflowX: 'auto', background: 'rgba(0,0,0,.2)', padding: 12, borderRadius: 6, maxHeight: 300, overflowY: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }
+      }, typeof parsed === 'string' ? parsed : JSON.stringify(parsed, null, 2));
+    }
+    // plain segment — protect <a id="..."> anchors before HTML escaping, then restore
+    var anchorMap = {};
+    var aIdx = 0;
+    var processedSrc = seg.src.replace(/<a\s+id="([^"]+)"[^>]*>/gi, function(_, id) {
+      var ph = '\xA7\xA7A' + (aIdx++) + '\xA7\xA7';
+      anchorMap[ph] = id;
+      return ph;
+    });
+    var html = _renderMdHtml(processedSrc);
+    // Add #master-table anchor before the first table so back-links work
+    html = html.replace('<div style="overflow-x:auto', '<a id="master-table"></a><div style="overflow-x:auto');
+    // Render [text](#anchor) markdown links (not handled by _renderMdHtml)
+    html = html.replace(/\[([^\]\n<>]+)\]\(#([^)\n<>]+)\)/g, function(_, txt, anch) {
+      return '<a href="#' + anch + '" style="color:var(--accent)">' + txt + '</a>';
+    });
+    // Restore anchor placeholders with back-to-table links
+    Object.keys(anchorMap).forEach(function(ph) {
+      var id = anchorMap[ph];
+      html = html.replace(ph,
+        '<a id="' + id + '"></a>' +
+        '<a href="#master-table" style="float:right;font-size:10px;color:var(--dim);text-decoration:none;padding:1px 4px">&#8593; back</a>'
+      );
+    });
     if (!html) return null;
     return React.createElement('div', { key: i, dangerouslySetInnerHTML: { __html: html }, style: { lineHeight: 1.6, wordBreak: 'break-word' } });
   }).filter(Boolean);
@@ -1972,6 +2125,121 @@ function ParamInput({ name, value, onChange, required }) {
 
 // ── Report Spec Browser ───────────────────────────────────────────────────────
 
+var _DV_TH = { textAlign: 'left', padding: '4px 8px', fontSize: 11, fontWeight: 600, color: 'var(--dim)',
+               borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', background: 'rgba(0,0,0,.1)', position: 'sticky', top: 0 };
+var _DV_TD = { padding: '4px 8px', fontSize: 12, color: 'var(--text)', borderBottom: '1px solid rgba(26,45,72,.3)',
+               verticalAlign: 'top', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+
+// Spec-driven master-detail table for DICT/JSON report results.
+// columns: [{key, name, detailSpec?}] from spec.formats[].attributes — or auto-inferred from data shape.
+// depth: recursion guard (capped at 3).
+function DictResultView({ rows, columns, depth }) {
+  var d = depth || 0;
+  var [filter, setFilter] = React.useState('');
+  var [expanded, setExpanded] = React.useState({});
+
+  if (!rows || !Array.isArray(rows) || rows.length === 0) {
+    return React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12, fontStyle: 'italic', padding: '8px 0' } }, 'No data.');
+  }
+
+  var cols = columns && columns.length > 0 ? columns : null;
+  var scalarCols, detailCols;
+  if (cols) {
+    scalarCols = cols.filter(function(c) { return !c.detailSpec; });
+    detailCols  = cols.filter(function(c) { return !!c.detailSpec; });
+  } else {
+    var sample = rows[0] || {};
+    scalarCols = Object.keys(sample)
+      .filter(function(k) { var v = sample[k]; return v === null || v === undefined || typeof v !== 'object'; })
+      .slice(0, 8)
+      .map(function(k) { return { key: k, name: k }; });
+    detailCols = [];
+  }
+
+  var filterCol = scalarCols.find(function(c) { return typeof ((rows[0] || {})[c.key]) === 'string'; });
+  var visRows = filter.trim()
+    ? rows.filter(function(r) {
+        var v = filterCol ? String(r[filterCol.key] || '') : JSON.stringify(r);
+        return v.toLowerCase().includes(filter.toLowerCase());
+      })
+    : rows;
+
+  var hasExpand = detailCols.length > 0;
+  var colSpan = scalarCols.length + (hasExpand ? 1 : 0);
+
+  var headerCells = [];
+  if (hasExpand) headerCells.push(React.createElement('th', { key: '__x', style: _DV_TH }, ''));
+  scalarCols.forEach(function(c) {
+    headerCells.push(React.createElement('th', { key: c.key, style: _DV_TH }, c.name || c.key));
+  });
+
+  var tbodyChildren = [];
+  visRows.forEach(function(row, ri) {
+    var rowId = String(row.guid || row.qualifiedName || ri);
+    var isExp = !!expanded[rowId];
+    var cells = [];
+    if (hasExpand) {
+      cells.push(React.createElement('td', { key: '__x',
+        style: Object.assign({}, _DV_TD, { cursor: 'pointer', color: 'var(--accent)', fontSize: 14, width: 22, textAlign: 'center' }),
+        onClick: function() { setExpanded(function(p) { var n = Object.assign({}, p); n[rowId] = !n[rowId]; return n; }); }
+      }, isExp ? '▾' : '▸'));
+    }
+    scalarCols.forEach(function(c) {
+      var val = row[c.key];
+      if (c.key.toLowerCase() === 'guid' && val) {
+        cells.push(React.createElement('td', { key: c.key, style: _DV_TD },
+          React.createElement('code', { style: { fontSize: 10, fontFamily: 'ui-monospace,monospace', userSelect: 'all' } },
+            String(val).slice(0, 14) + '…'
+          )
+        ));
+      } else {
+        var disp = val == null ? '' : (typeof val === 'object' ? JSON.stringify(val) : String(val));
+        cells.push(React.createElement('td', { key: c.key, style: _DV_TD, title: disp.length > 60 ? disp : undefined }, disp));
+      }
+    });
+    tbodyChildren.push(React.createElement('tr', { key: rowId,
+      style: { background: isExp ? 'rgba(99,102,241,.04)' : 'transparent' }
+    }, cells));
+    if (isExp && d < 3) {
+      var detailContent = [];
+      detailContent.push(React.createElement(AvailableCharts, { key: '__charts', data: row }));
+      detailContent.push(React.createElement(AvailableMermaidDiagrams, { key: '__mermaid', data: row }));
+      detailCols.forEach(function(c) {
+        var sub = row[c.key];
+        if (!sub) return;
+        var subRows = Array.isArray(sub) ? sub : [sub];
+        detailContent.push(React.createElement('div', { key: c.key, style: { marginTop: 8 } },
+          React.createElement('div', { style: { fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: .5 } }, c.name || c.key),
+          React.createElement(DictResultView, { rows: subRows, columns: null, depth: d + 1 })
+        ));
+      });
+      tbodyChildren.push(React.createElement('tr', { key: rowId + '__d' },
+        React.createElement('td', { colSpan: colSpan,
+          style: { padding: '8px 12px 12px', background: 'rgba(0,0,0,.08)', borderBottom: '1px solid var(--border)' }
+        }, detailContent)
+      ));
+    }
+  });
+
+  return React.createElement('div', null,
+    scalarCols.length >= 2 && React.createElement('input', {
+      type: 'text', placeholder: 'Filter…',
+      value: filter, onChange: function(e) { setFilter(e.target.value); },
+      style: { width: '100%', boxSizing: 'border-box', padding: '5px 8px', marginBottom: 6, fontSize: 12,
+               background: 'rgba(0,0,0,.15)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)' }
+    }),
+    React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginBottom: 4 } },
+      visRows.length + ' row' + (visRows.length !== 1 ? 's' : '') + (filter.trim() ? ' (filtered)' : '')
+    ),
+    React.createElement('div', { style: { overflowX: 'auto', maxHeight: 520, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 4 } },
+      React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse' } },
+        React.createElement('thead', null, React.createElement('tr', null, headerCells)),
+        React.createElement('tbody', null, tbodyChildren)
+      )
+    )
+  );
+}
+
 function ReportSpecDetail({ spec, onSelectSpec }) {
   const creds = React.useContext(CredContext);
   const [selFormat, setSelFormat] = useState(0);
@@ -1982,6 +2250,7 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
   // ── Execution state ──────────────────────────────────────────────────────
   const [execParams, setExecParams]       = useState({});
   const [execFmt, setExecFmt]             = useState('REPORT');
+  const [sentFmt, setSentFmt]             = useState('');
   const [execState, setExecState]         = useState('idle');
   const [execResult, setExecResult]       = useState(null);
   const [execError, setExecError]         = useState('');
@@ -1992,6 +2261,7 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
     setExecState('idle');
     setExecResult(null);
     setExecError('');
+    setSentFmt('');
     setShowOptParams(false);
     setShowAdvanced(false);
     var types = spec.output_types || [];
@@ -2016,9 +2286,15 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
     setExecState('running');
     setExecResult(null);
     setExecError('');
+    // GRAPH is a UI-side rendering mode; send DICT (preferred) or JSON (always available) to the executor.
+    var actualFmt = execFmt;
+    if (execFmt === 'GRAPH') {
+      actualFmt = (spec.output_types || []).includes('DICT') ? 'DICT' : 'JSON';
+    }
+    setSentFmt(actualFmt);
     var body = {
       spec_name:     spec.name,
-      output_format: execFmt,
+      output_format: actualFmt,
       params:        Object.fromEntries(Object.entries(execParams).filter(function(e) {
         var v = e[1]; return Array.isArray(v) ? v.length > 0 : v !== '';
       })),
@@ -2033,7 +2309,15 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
       body: JSON.stringify(body),
     })
       .then(function(r) {
-        return r.ok ? r.json() : r.json().then(function(e) { return Promise.reject(e.detail || 'Error ' + r.status); });
+        if (r.ok) return r.json();
+        // Read body as text first — error responses may be HTML (e.g. gateway timeout), not JSON.
+        return r.text().then(function(body) {
+          if (r.status === 401) return Promise.reject('Not authorized for this operation');
+          var detail = null;
+          try { detail = JSON.parse(body).detail; } catch(e) {}
+          var isTimeout = r.status === 408 || r.status === 502 || r.status === 504 || r.status === 524;
+          return Promise.reject(detail || (isTimeout ? 'Request timed out — the operation took too long' : 'Error ' + r.status));
+        });
       })
       .then(function(data) { setExecResult(data); setExecState('done'); })
       .catch(function(err) { setExecError(String(err)); setExecState('error'); });
@@ -2044,11 +2328,21 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
     if (execState === 'error')   return React.createElement('div', { style: { padding: '8px 0', color: '#f87171', fontSize: 12 } }, 'Error: ' + execError);
     if (!execResult) return null;
     if (execResult.kind === 'empty') return React.createElement('div', { style: { padding: '8px 0', color: 'var(--dim)', fontSize: 13, fontStyle: 'italic' } }, 'No results found.');
-    if (execResult.kind === 'text')  return React.createElement('div', { style: { fontSize: 13, lineHeight: 1.6 } }, renderMd(execResult.content));
+    if (execResult.kind === 'text') {
+      return React.createElement('div', { style: { fontSize: 13, lineHeight: 1.6 } },
+        React.createElement(SmartReportRenderer, { content: execResult.content })
+      );
+    }
     if (execResult.kind === 'json') {
-      return React.createElement('pre', {
-        style: { fontSize: 11, overflowX: 'auto', background: 'rgba(0,0,0,.2)', padding: 12, borderRadius: 6, maxHeight: 400, overflowY: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }
-      }, JSON.stringify(execResult.data, null, 2));
+      var rawData = execResult.data;
+      var rows = Array.isArray(rawData) ? rawData : (rawData && typeof rawData === 'object' ? [rawData] : []);
+      var fmtForCols = sentFmt || execFmt;
+      var fmtObj = (spec.formats || []).find(function(f) { return (f.types || []).includes(fmtForCols); });
+      var columns = fmtObj ? (fmtObj.attributes || []) : [];
+      return React.createElement('div', null,
+        React.createElement(AvailableCharts, { data: rawData }),
+        React.createElement(DictResultView, { rows: rows, columns: columns, depth: 0 })
+      );
     }
     return React.createElement('pre', { style: { fontSize: 11 } }, JSON.stringify(execResult, null, 2));
   }
@@ -4675,6 +4969,16 @@ function PerspectivesView({ onNavigateToGlossary }) {
   );
 }
 
+function getDualTitle(title) {
+  if (!title) return '';
+  var parts = title.split(/\s+/);
+  var verb = parts[0];
+  var rest = parts.slice(1).join(' ');
+  var counterpart = { Create: 'Update', Update: 'Create', Link: 'Unlink', Unlink: 'Link', Attach: 'Detach', Detach: 'Attach', Add: 'Remove', Remove: 'Add' };
+  var cv = counterpart[verb];
+  return (cv && rest) ? cv + ' ' + rest : '';
+}
+
 function DrEgeriaCommandsView() {
   const [sideW, onDivDown] = useResizable(280);
   const [level, setLevel]   = useState('basic');
@@ -4684,6 +4988,14 @@ function DrEgeriaCommandsView() {
   const [selectedFamily, setSelectedFamily] = useState(null);
   const [selectedCmd, setSelectedCmd]       = useState(null);
   const [showOptional, setShowOptional]     = useState(true);
+  // Execution panel state
+  const [detailMode, setDetailMode]   = useState('reference'); // 'reference' | 'execute'
+  const [execParams, setExecParams]   = useState({});
+  const [execVerb, setExecVerb]       = useState(null); // null = use template verb; overrides to counterpart
+  const [directive, setDirective]     = useState('display');
+  const [execState, setExecState]     = useState('idle'); // 'idle' | 'running' | 'done' | 'error'
+  const [execResult, setExecResult]   = useState('');
+  const creds = React.useContext(CredContext);
 
   useEffect(function() {
     setLoadState('loading');
@@ -4699,6 +5011,15 @@ function DrEgeriaCommandsView() {
     setSelectedFamily(families.length > 0 ? families[0] : null);
     setSelectedCmd(null);
   }, [level, cmdData]);
+
+  // Reset execution state when the selected command changes
+  useEffect(function() {
+    setExecParams({});
+    setExecVerb(null);
+    setExecState('idle');
+    setExecResult('');
+    setDetailMode('reference');
+  }, [selectedCmd]);
 
   var levelData = cmdData ? (cmdData[level] || {}) : {};
   var families  = Object.keys(levelData).sort();
@@ -4757,6 +5078,134 @@ function DrEgeriaCommandsView() {
     );
   }
 
+  function runExecute() {
+    if (!activeItem) return;
+    setExecState('running');
+    setExecResult('');
+    var titleParts = (activeItem.title || '').split(/\s+/);
+    var effectiveTitle = execVerb
+      ? execVerb + ' ' + titleParts.slice(1).join(' ')
+      : activeItem.title;
+    fetch('/api/dr-egeria/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title:    effectiveTitle,
+        params:   execParams,
+        directive: directive,
+        url:      creds.url,
+        server:   creds.server,
+        user_id:  creds.userId,
+        user_pwd: creds.password,
+      })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      setExecResult(data.markdown || data.error || '(no output)');
+      setExecState('done');
+    })
+    .catch(function(e) {
+      setExecResult('Network error: ' + e);
+      setExecState('error');
+    });
+  }
+
+  function renderExecutePanel(required, optional) {
+    var inputStyle = { width: '100%', boxSizing: 'border-box', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--fg)', padding: '5px 8px', fontSize: 12, fontFamily: 'inherit' };
+    var dirBtnStyle = function(d) {
+      return { padding: '4px 12px', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 600,
+        background: directive === d ? (d === 'process' ? 'rgba(248,113,113,.15)' : d === 'validate' ? 'rgba(251,191,36,.15)' : 'rgba(99,102,241,.15)') : 'transparent',
+        color: directive === d ? (d === 'process' ? '#f87171' : d === 'validate' ? '#fbbf24' : 'var(--accent)') : 'var(--dim)',
+        border: directive === d ? '1px solid currentColor' : '1px solid var(--border)' };
+    };
+    var dirHint = directive === 'display'  ? 'Preview only — no changes made, no GUIDs assigned.'
+                : directive === 'validate' ? 'Validates parameters without creating anything.'
+                : '⚠ Process will create or update metadata in Egeria.';
+    function paramField(p) {
+      return React.createElement("div", { key: p.name, style: { marginBottom: 10 } },
+        React.createElement("label", { style: { fontSize: 11, color: p.required ? '#86efac' : 'var(--dim)', display: 'block', marginBottom: 3, fontWeight: p.required ? 700 : 400 } },
+          p.name + (p.required ? ' *' : ''), p.attribute_type && React.createElement("span", { style: { marginLeft: 6, fontWeight: 400, color: 'var(--dim)' } }, p.attribute_type)
+        ),
+        p.description && React.createElement("div", { style: { fontSize: 10, color: 'var(--dim)', marginBottom: 3 } }, p.description),
+        p.valid_values
+          ? React.createElement("select", { style: Object.assign({}, inputStyle), value: execParams[p.name] || p.default_value || '',
+              onChange: function(e) { setExecParams(function(prev) { var n = Object.assign({}, prev); n[p.name] = e.target.value; return n; }); } },
+              React.createElement("option", { value: '' }, '— ' + (p.default_value ? 'default: ' + p.default_value : 'select') + ' —'),
+              p.valid_values.split(',').map(function(v) { return React.createElement("option", { key: v.trim(), value: v.trim() }, v.trim()); })
+            )
+          : React.createElement("input", { type: 'text', style: inputStyle, placeholder: p.default_value || '',
+              value: execParams[p.name] !== undefined ? execParams[p.name] : '',
+              onChange: function(e) { setExecParams(function(prev) { var n = Object.assign({}, prev); n[p.name] = e.target.value; return n; }); }
+            })
+      );
+    }
+    var canonVerb = activeItem ? activeItem.title.split(/\s+/)[0] : '';
+    var counterVerb = { Create: 'Update', Update: 'Create', Link: 'Unlink', Unlink: 'Link', Attach: 'Detach', Detach: 'Attach', Add: 'Remove', Remove: 'Add' }[canonVerb] || '';
+    var activeVerb = execVerb || canonVerb;
+    var verbBtnStyle = function(v) {
+      return { padding: '4px 12px', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 600,
+        background: activeVerb === v ? 'rgba(251,191,36,.15)' : 'transparent',
+        color: activeVerb === v ? '#fbbf24' : 'var(--dim)',
+        border: activeVerb === v ? '1px solid rgba(251,191,36,.4)' : '1px solid var(--border)' };
+    };
+    return React.createElement("div", null,
+      React.createElement("div", { style: { marginBottom: 14, padding: '8px 12px', background: 'rgba(99,102,241,.06)', border: '1px solid rgba(99,102,241,.2)', borderRadius: 6 } },
+        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', marginBottom: 2 } }, "For testing individual commands"),
+        React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', lineHeight: 1.5 } },
+          "In practice, users create Dr. Egeria markdown documents that combine command sequences with narrative prose to define repeatable metadata workflows."
+        )
+      ),
+      counterVerb && React.createElement("div", { style: { display: 'flex', gap: 6, marginBottom: 14, alignItems: 'center' } },
+        React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)', marginRight: 4 } }, "Verb:"),
+        React.createElement("button", { style: verbBtnStyle(canonVerb),  onClick: function() { setExecVerb(null);        setExecState('idle'); setExecResult(''); } }, canonVerb),
+        React.createElement("button", { style: verbBtnStyle(counterVerb), onClick: function() { setExecVerb(counterVerb); setExecState('idle'); setExecResult(''); } }, counterVerb)
+      ),
+      React.createElement("div", { style: { display: 'flex', gap: 6, marginBottom: 4, alignItems: 'center', flexWrap: 'wrap' } },
+        React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)', marginRight: 4 } }, "Directive:"),
+        React.createElement("button", { style: dirBtnStyle('display'),  onClick: function() { setDirective('display');  setExecState('idle'); setExecResult(''); } }, "Display"),
+        React.createElement("button", { style: dirBtnStyle('validate'), onClick: function() { setDirective('validate'); setExecState('idle'); setExecResult(''); } }, "Validate"),
+        React.createElement("button", { style: dirBtnStyle('process'),  onClick: function() { setDirective('process');  setExecState('idle'); setExecResult(''); } }, "Process"),
+        React.createElement("span", { style: { flex: 1 } }),
+        React.createElement("button", {
+          onClick: runExecute,
+          disabled: execState === 'running',
+          style: { padding: '6px 18px', border: 'none', borderRadius: 4, cursor: execState === 'running' ? 'wait' : 'pointer', fontWeight: 700, fontSize: 13,
+            background: directive === 'process' ? 'rgba(248,113,113,.2)' : 'rgba(99,102,241,.2)',
+            color: directive === 'process' ? '#f87171' : 'var(--accent)' }
+        }, execState === 'running' ? '⏳ Running…' : '▶ Run')
+      ),
+      React.createElement("div", { style: { fontSize: 11, color: directive === 'process' ? '#f87171' : 'var(--dim)', marginBottom: 14, fontStyle: 'italic' } }, dirHint),
+      required.length > 0 && React.createElement("div", { style: { marginBottom: 16 } },
+        React.createElement("div", { style: { fontWeight: 700, fontSize: 12, color: '#86efac', marginBottom: 8 } }, "Required Parameters"),
+        required.map(paramField)
+      ),
+      optional.length > 0 && React.createElement("div", { style: { marginBottom: 16 } },
+        React.createElement("div", {
+          style: { fontWeight: 700, fontSize: 12, color: 'var(--dim)', marginBottom: 8, cursor: 'pointer' },
+          onClick: function() { setShowOptional(function(v) { return !v; }); }
+        }, (showOptional ? "▾" : "▸") + " Optional Parameters (" + optional.length + ")"),
+        showOptional && optional.map(paramField)
+      ),
+      execState !== 'idle' && React.createElement("div", { style: { marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 16 } },
+        execState === 'running' && React.createElement("div", { style: { display: 'flex', gap: 8, alignItems: 'center', color: 'var(--dim)', fontSize: 12 } },
+          React.createElement("div", { className: 'spinner', style: { width: 14, height: 14 } }), "Executing…"
+        ),
+        execState === 'done' && React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, padding: '6px 10px', borderRadius: 4,
+            background: 'rgba(134,239,172,.08)', border: '1px solid rgba(134,239,172,.2)' } },
+          React.createElement("span", { style: { fontSize: 16 } }, "✓"),
+          React.createElement("span", { style: { fontSize: 12, color: '#86efac', fontWeight: 600 } }, "Completed"),
+          React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)', marginLeft: 4 } }, directive === 'display' ? "— preview only, no changes made" : directive === 'validate' ? "— validation complete" : "— metadata updated")
+        ),
+        execState === 'error' && React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, padding: '6px 10px', borderRadius: 4,
+            background: 'rgba(248,113,113,.08)', border: '1px solid rgba(248,113,113,.2)' } },
+          React.createElement("span", { style: { fontSize: 16 } }, "✗"),
+          React.createElement("span", { style: { fontSize: 12, color: '#f87171', fontWeight: 600 } }, "Execution failed")
+        ),
+        (execState === 'done' || execState === 'error') && React.createElement(SmartReportRenderer, { content: execResult })
+      )
+    );
+  }
+
   function renderDetail() {
     if (!activeItem) return React.createElement("div", { className: "center" },
       React.createElement("span", { style: { color: 'var(--dim)', fontSize: 13 } }, "Select a command from the list")
@@ -4764,33 +5213,48 @@ function DrEgeriaCommandsView() {
     var required = (activeItem.parameters || []).filter(function(p) { return p.required; });
     var optional = (activeItem.parameters || []).filter(function(p) { return !p.required; });
     var levelLabel = level.charAt(0).toUpperCase() + level.slice(1);
+    var modeBtnStyle = function(m) {
+      return { padding: '4px 12px', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 600,
+        background: detailMode === m ? 'var(--accent)' : 'transparent',
+        color: detailMode === m ? 'var(--bg)' : 'var(--dim)' };
+    };
     return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
       React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
         React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, activeItem.title),
+        getDualTitle(activeItem.title) && React.createElement("span", { className: "badge", style: { background: 'rgba(134,239,172,.08)', color: '#86efac', border: '0.5px solid rgba(134,239,172,.3)', fontSize: 10 } },
+          'Also: ' + getDualTitle(activeItem.title)
+        ),
         React.createElement("span", { className: "badge", style: { background: 'rgba(251,191,36,.1)', color: '#fbbf24', border: '0.5px solid rgba(251,191,36,.3)' } },
           levelLabel + ' / ' + (activeItem._family || '')
         )
       ),
       React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 12 } }, activeItem.filename || ''),
-      activeItem.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16, color: 'var(--fg)' } }, activeItem.description),
-      React.createElement("div", { style: { display: 'flex', gap: 16, marginBottom: 16 } },
-        React.createElement("span", { style: { fontSize: 12, color: '#86efac' } }, "✓ " + (activeItem.required_count || 0) + " required"),
-        React.createElement("span", { style: { fontSize: 12, color: 'var(--dim)' } }, (activeItem.optional_count || 0) + " optional")
+      activeItem.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 12, color: 'var(--fg)' } }, activeItem.description),
+      React.createElement("div", { style: { display: 'flex', gap: 6, marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 10 } },
+        React.createElement("button", { style: modeBtnStyle('reference'), onClick: function() { setDetailMode('reference'); } }, "Reference"),
+        React.createElement("button", { style: modeBtnStyle('execute'),   onClick: function() { setDetailMode('execute');   setExecState('idle'); setExecResult(''); } }, "Execute")
       ),
-      required.length > 0 && React.createElement("div", { style: { marginBottom: 20 } },
-        React.createElement("div", { style: { fontWeight: 700, fontSize: 13, marginBottom: 8, color: '#86efac' } }, "Required Parameters"),
-        renderParamTable(required, '#86efac')
-      ),
-      optional.length > 0 && React.createElement("div", null,
-        React.createElement("div", {
-          style: { fontWeight: 700, fontSize: 13, marginBottom: 8, color: 'var(--dim)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 },
-          onClick: function() { setShowOptional(function(v) { return !v; }); }
-        },
-          React.createElement("span", null, showOptional ? "▾" : "▸"),
-          "Optional Parameters (" + optional.length + ")"
+      detailMode === 'reference' && React.createElement("div", null,
+        React.createElement("div", { style: { display: 'flex', gap: 16, marginBottom: 16 } },
+          React.createElement("span", { style: { fontSize: 12, color: '#86efac' } }, "✓ " + (activeItem.required_count || 0) + " required"),
+          React.createElement("span", { style: { fontSize: 12, color: 'var(--dim)' } }, (activeItem.optional_count || 0) + " optional")
         ),
-        showOptional && renderParamTable(optional, 'var(--fg)')
-      )
+        required.length > 0 && React.createElement("div", { style: { marginBottom: 20 } },
+          React.createElement("div", { style: { fontWeight: 700, fontSize: 13, marginBottom: 8, color: '#86efac' } }, "Required Parameters"),
+          renderParamTable(required, '#86efac')
+        ),
+        optional.length > 0 && React.createElement("div", null,
+          React.createElement("div", {
+            style: { fontWeight: 700, fontSize: 13, marginBottom: 8, color: 'var(--dim)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 },
+            onClick: function() { setShowOptional(function(v) { return !v; }); }
+          },
+            React.createElement("span", null, showOptional ? "▾" : "▸"),
+            "Optional Parameters (" + optional.length + ")"
+          ),
+          showOptional && renderParamTable(optional, 'var(--fg)')
+        )
+      ),
+      detailMode === 'execute' && renderExecutePanel(required, optional)
     );
   }
 
@@ -5151,9 +5615,15 @@ function App() {
   const [connected, setConnected] = useState(function() {
     try { return !!localStorage.getItem('egeria-creds'); } catch(e) { return false; }
   });
+  // Bumped every time the user saves new credentials so all connected section views remount and re-fetch.
+  const [credsKey, setCredsKey] = useState(0);
+  // Bumped to retry the type-system fetch with the latest credentials (used after credential fixes).
+  const [typeAttempt, setTypeAttempt] = useState(0);
   const saveCreds = useCallback(function(c) {
     setCreds(c);
     setConnected(true);
+    setCredsKey(function(k) { return k + 1; });
+    setTypeAttempt(function(t) { return t + 1; });
     try { localStorage.setItem('egeria-creds', JSON.stringify(c)); } catch(e) {}
   }, []);
 
@@ -5185,7 +5655,7 @@ function App() {
   }, []);
 
   const onNavigateToDataDesign = useCallback(function(typeName, guid) {
-    var typeMap = { DataSpec: 'specs', DataStructure: 'structures', DataField: 'fields', DataGrain: 'grains', DataClass: 'grains' };
+    var typeMap = { DataSpec: 'specs', DataStructure: 'structures', DataField: 'fields', DataGrain: 'grains', DataClass: 'classes' };
     setDataDesignNav({ guid: guid, type: typeMap[typeName] || 'specs' });
     setSection('data-design');
   }, []);
@@ -5198,7 +5668,7 @@ function App() {
 
   const [typeSideW, onTypeDivDown] = useResizable(254);
 
-  // Fetch type data once
+  // Fetch type data; re-runs when typeAttempt changes (triggered by saveCreds) so a credential fix retries.
   useEffect(() => {
     setLoadState('loading');
     fetch(credAppend('/api/types', creds)).then(r => {
@@ -5210,7 +5680,7 @@ function App() {
       const area4 = Object.keys(data.entities || {}).find(n => data.entities[n].area === 4);
       setSelected({ kind: 'type', name: area4 || Object.keys(data.entities || {})[0] || '' });
     }).catch(err => { setError(err.message); setLoadState('error'); });
-  }, []);
+  }, [typeAttempt]);
 
   // Apply theme class to document root
   useEffect(() => {
@@ -5253,17 +5723,21 @@ function App() {
     /*#__PURE__*/React.createElement("div", { className: "spinner" }),
     /*#__PURE__*/React.createElement("span", null, "Fetching type system from Egeria\u2026")
   ));
-  if (loadState === 'error') return /*#__PURE__*/React.createElement("div", {
-    style: { display: 'flex', flexDirection: 'column', height: '100vh' }
-  }, /*#__PURE__*/React.createElement("div", { className: "center" },
-    /*#__PURE__*/React.createElement("span", { style: { fontSize: 24 } }, "\u26A0"),
-    /*#__PURE__*/React.createElement("span", { style: { color: '#f87171' } }, "Failed to load type system"),
-    /*#__PURE__*/React.createElement("span", { style: { fontSize: 12 } }, error),
-    /*#__PURE__*/React.createElement("button", {
-      onClick: () => window.location.reload(),
-      style: { marginTop: 8, padding: '6px 16px', background: 'rgba(96,165,250,.1)', border: '1px solid rgba(96,165,250,.3)', color: 'var(--accent)', borderRadius: 5, cursor: 'pointer', fontSize: 13 }
-    }, "Retry")
-  ));
+  if (loadState === 'error') return React.createElement(CredContext.Provider, { value: creds },
+    React.createElement("div", { style: { display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'auto', background: 'var(--bg)' } },
+      React.createElement("div", { style: { maxWidth: 720, margin: '48px auto 0', padding: '0 24px', width: '100%' } },
+        React.createElement("div", { style: { textAlign: 'center', marginBottom: 24, padding: '20px 24px', background: 'rgba(248,113,113,.06)', border: '1px solid rgba(248,113,113,.2)', borderRadius: 8 } },
+          React.createElement("div", { style: { fontSize: 28 } }, "\u26A0"),
+          React.createElement("div", { style: { color: '#f87171', fontSize: 15, fontWeight: 600, marginTop: 6 } }, "Failed to load Egeria type system"),
+          React.createElement("div", { style: { fontSize: 12, color: 'var(--dim)', marginTop: 6, fontFamily: 'ui-monospace,monospace' } }, error),
+          React.createElement("div", { style: { fontSize: 11, color: '#fbbf24', marginTop: 10 } },
+            "A 401 / 502 usually means wrong credentials. Update them below and click Connect to retry."
+          )
+        ),
+        React.createElement(ConnectionForm, { saveCreds: saveCreds })
+      )
+    )
+  );
 
   const { entities = {}, classifications = {}, relationships = {}, allEntities = {} } = data;
 
@@ -5314,27 +5788,27 @@ function App() {
     section === 'splash'
       ? React.createElement(SplashScreen, { onNavigate: function(s) { setSection(s); if (s === 'type-system') setView('types'); }, saveCreds: saveCreds })
       : section === 'report-specs'
-      ? React.createElement(ReportSpecView, null)
+      ? React.createElement(ReportSpecView, { key: credsKey })
       : section === 'glossary'
-      ? React.createElement(GlossaryView, { navGuid: glossaryNavGuid, onNavigateToDataDesign: onNavigateToDataDesign })
+      ? React.createElement(GlossaryView, { key: credsKey, navGuid: glossaryNavGuid, onNavigateToDataDesign: onNavigateToDataDesign })
       : section === 'reference-data'
-      ? React.createElement(ReferenceDataView, null)
+      ? React.createElement(ReferenceDataView, { key: credsKey })
       : section === 'digital-products'
-      ? React.createElement(DigitalProductsView, { navGuid: digitalProductNavGuid, onNavigateToGlossary: onNavigateToGlossary, onNavigateToDataSpec: onNavigateToDataSpec, onNavigateToDataDesign: onNavigateToDataDesign })
+      ? React.createElement(DigitalProductsView, { key: credsKey, navGuid: digitalProductNavGuid, onNavigateToGlossary: onNavigateToGlossary, onNavigateToDataSpec: onNavigateToDataSpec, onNavigateToDataDesign: onNavigateToDataDesign })
       : section === 'valid-values'
-      ? React.createElement(ValidValuesView, { navProp: validValuesNavProp })
+      ? React.createElement(ValidValuesView, { key: credsKey, navProp: validValuesNavProp })
       : section === 'rest-apis'
-      ? React.createElement(RestApiView, null)
+      ? React.createElement(RestApiView, { key: credsKey })
       : section === 'solution-architect'
-      ? React.createElement(SolutionArchitectView, null)
+      ? React.createElement(SolutionArchitectView, { key: credsKey })
       : section === 'data-design'
-      ? React.createElement(DataDesignView, { navGuid: dataDesignNav.guid, navType: dataDesignNav.type, onNavigateToGlossary: onNavigateToGlossary, onNavigateToDigitalProduct: onNavigateToDigitalProduct })
+      ? React.createElement(DataDesignView, { key: credsKey, navGuid: dataDesignNav.guid, navType: dataDesignNav.type, onNavigateToGlossary: onNavigateToGlossary, onNavigateToDigitalProduct: onNavigateToDigitalProduct })
       : section === 'perspectives'
-      ? React.createElement(PerspectivesView, { onNavigateToGlossary: onNavigateToGlossary })
+      ? React.createElement(PerspectivesView, { key: credsKey, onNavigateToGlossary: onNavigateToGlossary })
       : section === 'dr-egeria'
       ? React.createElement(DrEgeriaCommandsView, null)
       : section === 'isc'
-      ? React.createElement(InformationSupplyChainView, null)
+      ? React.createElement(InformationSupplyChainView, { key: credsKey })
       : section !== 'type-system'
       ? /*#__PURE__*/React.createElement(PlaceholderView, { section: section })
       : view === 'attrs'

@@ -9,19 +9,27 @@ structured representation of all available Dr. Egeria commands, grouped by
 level (basic/advanced) and family.
 
 Endpoints:
-  GET /api/dr-egeria/commands    → all commands grouped by level and family
+  GET /api/dr-egeria/commands         → all commands grouped by level and family
+  POST /api/dr-egeria/execute         → build and execute a command block
 """
 
 import os
 import re
+import tempfile
+from datetime import datetime
+from typing import Optional
 
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from loguru import logger
 
 router = APIRouter(tags=["dr-egeria"])
 
 TEMPLATES_ROOT = os.environ.get("TEMPLATES_PATH", "/app/templates")
+EGERIA_ROOT_PATH  = os.environ.get("EGERIA_ROOT_PATH",  "/")
+EGERIA_INBOX_PATH = os.environ.get("EGERIA_INBOX_PATH", "dr-egeria-inbox")
+EGERIA_OUTBOX_PATH = os.environ.get("EGERIA_OUTBOX_PATH", "dr-egeria-outbox")
 
 
 def _parse_template(filepath: str) -> dict:
@@ -150,3 +158,84 @@ def get_commands():
     advanced_count = sum(len(cmds) for cmds in result["advanced"].values())
     logger.info(f"Dr. Egeria commands loaded: {basic_count} basic, {advanced_count} advanced")
     return JSONResponse(result)
+
+
+class ExecuteRequest(BaseModel):
+    title:     str
+    params:    dict = {}
+    directive: str  = "display"
+    url:       Optional[str] = None
+    server:    Optional[str] = None
+    user_id:   Optional[str] = None
+    user_pwd:  Optional[str] = None
+
+
+def _build_markdown_block(title: str, params: dict) -> str:
+    """Build a Dr. Egeria markdown block from a command title and parameter dict."""
+    lines = [f"# Egeria Explorer\n", f"## {title}\n", "> \n"]
+    for name, value in params.items():
+        if value is not None and str(value).strip():
+            lines.append(f"### {name}\n> {value}\n\n")
+    lines.append("___\n")
+    return "".join(lines)
+
+
+def _write_and_execute(markdown_block: str, directive: str,
+                       url: str, server: str, user_id: str, user_pwd: str) -> str:
+    """Write block to temp inbox file, execute, return result markdown."""
+    import dr_egeria_md
+
+    ts = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    inbox_dir = os.path.join(EGERIA_ROOT_PATH, EGERIA_INBOX_PATH)
+    os.makedirs(inbox_dir, exist_ok=True)
+    file_path = os.path.join(inbox_dir, f"explorer-{ts}.md")
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(markdown_block)
+
+    # Patch env so the processor resolves paths correctly
+    os.environ["EGERIA_ROOT_PATH"]  = "/"
+    os.environ["EGERIA_INBOX_PATH"] = "."
+
+    cmd  = dr_egeria_md.process_markdown_file
+    func = getattr(cmd, "callback", cmd)
+    try:
+        result = func(
+            input_file=file_path,
+            output_folder="",
+            directive=directive,
+            server=server,
+            url=url,
+            userid=user_id,
+            user_pass=user_pwd,
+            outbox_path=EGERIA_OUTBOX_PATH,
+        )
+        return result or "(no output generated)"
+    finally:
+        try:
+            os.remove(file_path)
+        except OSError:
+            pass
+
+
+@router.post("/api/dr-egeria/execute", summary="Execute a Dr. Egeria command block")
+def execute_command(req: ExecuteRequest):
+    """Build a markdown block from the given command title + params and execute it."""
+    url     = req.url     or os.environ.get("EGERIA_PLATFORM_URL",  "https://egeria-main:9443")
+    server  = req.server  or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id = req.user_id or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = req.user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+
+    block = _build_markdown_block(req.title, req.params)
+    logger.info(f"Dr. Egeria execute: title={req.title!r} directive={req.directive!r}")
+
+    try:
+        result_md = _write_and_execute(block, req.directive, url, server, user_id, user_pwd)
+    except Exception as exc:
+        logger.exception("Dr. Egeria execute failed")
+        return JSONResponse(
+            {"error": str(exc), "markdown": f"❌ Execution failed: {exc}"},
+            status_code=500,
+        )
+
+    return JSONResponse({"markdown": result_md, "directive": req.directive})

@@ -287,6 +287,9 @@ def get_all_types(
         c.close_session()
     except PyegeriaException as exc:
         logger.exception(f"Pyegeria error in get_all_types: {exc}")
+        exc_text = str(exc)
+        if "HTTP Code: 401" in exc_text or getattr(exc, "http_error_code", None) == 401:
+            raise HTTPException(status_code=401, detail="Not authorized — check credentials or user permissions")
         raise HTTPException(status_code=502, detail=f"Egeria error: {exc}")
     except Exception as exc:
         logger.exception(f"Unexpected error in get_all_types: {exc}")
