@@ -72,11 +72,11 @@
     /* ── Persona picker overlay ── */
     .overlay  { position: fixed; inset: 0; background: var(--overlay); display: flex; align-items: center; justify-content: center; z-index: 900; }
     .p-modal  { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 28px 32px 32px; width: min(940px, 96vw); max-height: 88vh; overflow-y: auto; position: relative; }
-    .p-modal-hdr  { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 6px; }
-    .p-modal-title { font-size: 1.2rem; font-weight: 700; }
-    .p-close { background: none; border: none; color: var(--muted); font-size: 1.3rem; cursor: pointer; line-height: 1; padding: 2px 6px; border-radius: 4px; }
-    .p-close:hover { background: var(--border); color: var(--text); }
-    .p-modal-sub  { color: var(--muted); font-size: 0.85rem; margin-bottom: 22px; }
+    .p-modal-hdr  { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .p-modal-hdr-left { flex: 1; min-width: 0; }
+    .p-modal-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 4px; }
+    .p-modal-sub  { color: var(--muted); font-size: 0.85rem; }
+    .p-modal-hdr-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
     .p-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
     .pcard  { background: var(--bg); border: 2px solid var(--border); border-radius: 10px; padding: 16px; cursor: pointer; transition: border-color 0.15s; }
     .pcard:hover    { border-color: var(--accent); }
@@ -87,7 +87,7 @@
     .pcard-bio   { font-size: 0.78rem; color: var(--muted); margin-bottom: 10px; line-height: 1.4; }
     .pcard-link  { font-size: 0.74rem; color: var(--accent); text-decoration: none; }
     .pcard-link:hover { text-decoration: underline; }
-    .p-footer { margin-top: 20px; text-align: right; }
+    .p-modal-hdr-actions .btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .dbadge { font-size: 0.68rem; padding: 2px 7px; border-radius: 4px; }
     .d-Starter   { background: #1a3a1a; color: #4caf50; }
     .d-Business  { background: #1a2a3a; color: #64b5f6; }
@@ -169,14 +169,16 @@
 <div class="overlay" id="picker" style="display:none" onclick="overlayClick(event)">
   <div class="p-modal">
     <div class="p-modal-hdr">
-      <div class="p-modal-title">Choose your persona</div>
-      <button class="p-close" onclick="closePicker()" title="Close">✕</button>
+      <div class="p-modal-hdr-left">
+        <div class="p-modal-title">Choose your persona</div>
+        <div class="p-modal-sub">Select a Coco Pharmaceuticals character to explore from their perspective. You can switch at any time.</div>
+      </div>
+      <div class="p-modal-hdr-actions">
+        <button class="btn" onclick="closePicker()">Cancel</button>
+        <button class="btn btn-accent" id="confirm-btn" disabled onclick="confirmPersona()">Select Persona</button>
+      </div>
     </div>
-    <div class="p-modal-sub">Select a Coco Pharmaceuticals character to explore from their perspective. You can switch at any time.</div>
     <div class="p-grid" id="p-grid"></div>
-    <div class="p-footer">
-      <button class="btn" onclick="closePicker()">Skip for now</button>
-    </div>
   </div>
 </div>
 
@@ -249,7 +251,7 @@ function renderAppGrid() {
   ];
   document.getElementById('app-grid').innerHTML = apps.map(function(a) {
     var action = a.enabled
-      ? '<button class="btn btn-accent app-action" onclick="launch(' + JSON.stringify(a.url) + ',' + a.newTab + ')">' + (a.newTab ? 'Open ↗' : 'Open') + '</button>'
+      ? '<button class="btn btn-accent app-action" onclick="launch(' + JSON.stringify(a.url).replace(/"/g, '&quot;') + ',' + a.newTab + ')">' + (a.newTab ? 'Open ↗' : 'Open') + '</button>'
       : '<span class="soon-badge">Coming soon</span>';
     return '<div class="app-tile' + (a.enabled ? '' : ' disabled') + '">' +
       '<div class="app-icon">' + a.icon + '</div>' +
@@ -265,24 +267,41 @@ function launch(url, newTab) {
 }
 
 // ── Picker ────────────────────────────────────────────────────────────────────
+var _pendingId = null;
+
 function openPicker() {
+  _pendingId = null;
   renderPicker();
   document.getElementById('picker').style.display = 'flex';
+  _updateConfirmBtn();
 }
 
 function closePicker() {
   document.getElementById('picker').style.display = 'none';
+  _pendingId = null;
 }
 
 function overlayClick(evt) {
-  // Close if clicking the dark backdrop, not the modal itself
   if (evt.target === document.getElementById('picker')) closePicker();
+}
+
+function _updateConfirmBtn() {
+  var btn = document.getElementById('confirm-btn');
+  if (!btn) return;
+  if (_pendingId) {
+    btn.disabled = false;
+    btn.textContent = 'Select — ' + esc(_personas[_pendingId].display_name);
+  } else {
+    btn.disabled = true;
+    btn.textContent = 'Select Persona';
+  }
 }
 
 function renderPicker() {
   document.getElementById('p-grid').innerHTML = Object.keys(_personas).map(function(id) {
     var p = _personas[id];
-    return '<div class="pcard' + (id === _currentPersonaId ? ' selected' : '') + '" onclick="selectPersona(' + JSON.stringify(id) + ')">' +
+    var isActive = id === (_pendingId || _currentPersonaId);
+    return '<div class="pcard' + (isActive ? ' selected' : '') + '" onclick="highlightCard(&quot;' + esc(id) + '&quot;)">' +
       '<div class="pcard-meta">' +
         '<span class="dbadge d-' + esc(p.difficulty) + '">' + esc(p.difficulty) + '</span>' +
         (p.starter ? '<span class="sbadge">Starter</span>' : '') +
@@ -297,7 +316,21 @@ function renderPicker() {
   }).join('');
 }
 
-function selectPersona(id) {
+function highlightCard(id) {
+  _pendingId = id;
+  // Update selected state on all cards without re-rendering
+  document.querySelectorAll('.pcard').forEach(function(el) {
+    el.classList.toggle('selected', el.getAttribute('onclick').indexOf('"' + id + '"') !== -1);
+  });
+  _updateConfirmBtn();
+}
+
+function confirmPersona() {
+  if (!_pendingId) return;
+  var id = _pendingId;
+  var btn = document.getElementById('confirm-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
   fetch('/api/demo/select-persona', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -312,6 +345,8 @@ function selectPersona(id) {
     closePicker();
     applyPersonaUI(info);
   }).catch(function(e) {
+    btn.disabled = false;
+    _updateConfirmBtn();
     alert('Could not select persona: ' + e.message);
   });
 }

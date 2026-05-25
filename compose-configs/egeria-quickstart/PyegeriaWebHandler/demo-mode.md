@@ -193,6 +193,106 @@ After a reset, set `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD` in `.e
 
 ---
 
+## SSL / HTTPS
+
+SSL is **off by default**. The web server listens on port 8085 (HTTP) only. HTTPS is opt-in: three commented-out lines in `egeria-quickstart.yaml` are all that separate HTTP from HTTPS.
+
+### Prerequisites
+
+- A TLS certificate and private key for your domain (Let's Encrypt, self-signed, or commercial CA).
+- The certificate files accessible on the Docker host at a stable path (not `~/Downloads`).
+- Port 443 open on any firewall between users and the host.
+- DNS pointing your domain at the host's IP address.
+
+### Enabling SSL
+
+**Step 1 — Edit `sites-available/fastapi-ssl.conf`.**
+Change the four `Define` lines at the top to match your deployment:
+
+```apache
+Define SSL_SERVER_NAME your.domain.com
+Define SSL_CERT_FILE   /etc/ssl/egeria/server.crt
+Define SSL_KEY_FILE    /etc/ssl/egeria/server.key
+Define SSL_CHAIN_FILE  /etc/ssl/egeria/server-ca.crt
+```
+
+**Step 2 — Uncomment the three SSL lines in `egeria-quickstart.yaml`** under `apache-web`:
+
+```yaml
+ports:
+  - "8085:8085"
+  - "443:443"          # ← uncomment
+
+volumes:
+  # ... existing volumes ...
+  - ./sites-available/fastapi-ssl.conf:/usr/local/apache2/conf/extra/fastapi-ssl.conf  # ← uncomment
+  - /path/to/your/certs:/etc/ssl/egeria:ro                                             # ← uncomment, fix path
+```
+
+Replace `/path/to/your/certs` with the directory on the host that contains the cert files named in Step 1.
+
+**Step 3 — Update `SITE_URL` in `.env`** to use `https://`:
+
+```ini
+SITE_URL=https://your.domain.com
+```
+
+**Step 4 — Rebuild and restart the Apache container:**
+
+```bash
+docker compose -f egeria-quickstart.yaml up --build apache-web -d
+```
+
+The `--build` is required because `httpd.conf` changed. After this, subsequent cert or conf edits (volume-mounted) only need a restart:
+
+```bash
+docker compose -f egeria-quickstart.yaml restart apache-web
+```
+
+HTTP on port 8085 continues to work. If you want to redirect all HTTP traffic to HTTPS, add a `Redirect permanent / https://your.domain.com` inside the `<VirtualHost *:8085>` block in `fastapi-proxy.conf`.
+
+### Disabling SSL
+
+**Step 1 — Re-comment the three SSL lines** in `egeria-quickstart.yaml` (add `#` back):
+
+```yaml
+# - "443:443"
+# - ./sites-available/fastapi-ssl.conf:/usr/local/apache2/conf/extra/fastapi-ssl.conf
+# - /path/to/your/certs:/etc/ssl/egeria:ro
+```
+
+**Step 2 — Restart the Apache container:**
+
+```bash
+docker compose -f egeria-quickstart.yaml restart apache-web
+```
+
+No rebuild needed. `httpd.conf` contains `IncludeOptional conf/extra/fastapi-ssl.conf` — when the file is not mounted, Apache silently skips it and starts HTTP-only.
+
+### How it works
+
+`httpd.conf` contains a single line:
+
+```apache
+IncludeOptional conf/extra/fastapi-ssl.conf
+```
+
+When `fastapi-ssl.conf` is **not mounted**, Apache ignores it — no SSL modules are loaded, port 443 is not opened, and the container starts normally on 8085.
+
+When the file **is mounted**, Apache loads it, which in turn loads `mod_ssl`, opens port 443, and activates the `<VirtualHost *:443>` block. All proxy locations are mirrored from the HTTP VirtualHost so the full application is available over both protocols.
+
+### Certificate renewal
+
+When your certificate expires, replace the files in the mounted host directory and restart the Apache container — no rebuild required:
+
+```bash
+docker compose -f egeria-quickstart.yaml restart apache-web
+```
+
+For Let's Encrypt with Certbot, the renewed files land in the same path automatically. Point the cert volume mount at the live directory (`/etc/letsencrypt/live/your.domain.com/`) and the container picks up renewals on its next restart.
+
+---
+
 ## Security checklist
 
 Before making a deployment public:
@@ -201,6 +301,7 @@ Before making a deployment public:
 - [ ] `SMTP_PASSWORD` set in `.env` (not in the yaml)
 - [ ] `SMTP_HOST` set (or documented that email verification requires admin activation)
 - [ ] `SITE_URL` set to the actual public URL (required for correct verify/reset links)
+- [ ] HTTPS enabled for public deployments (see [SSL / HTTPS](#ssl--https) above); `SITE_URL` updated to `https://`
 - [ ] Port 8000 (FastAPI) NOT exposed to the internet; all traffic via Apache on port 8085
 - [ ] `demo-data/` volume mounted on persistent storage (not ephemeral container layer)
 - [ ] Egeria data store pre-loaded with Coco Pharmaceuticals data before announcing the demo

@@ -61,8 +61,11 @@
     /* ── Persona picker overlay ── */
     .overlay  { position: fixed; inset: 0; background: var(--overlay); display: flex; align-items: center; justify-content: center; z-index: 900; }
     .p-modal  { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 32px; width: min(920px, 96vw); max-height: 88vh; overflow-y: auto; }
-    .p-modal-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 6px; }
-    .p-modal-sub   { color: var(--muted); font-size: 0.86rem; margin-bottom: 24px; }
+    .p-modal-hdr  { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .p-modal-hdr-left { flex: 1; min-width: 0; }
+    .p-modal-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 4px; }
+    .p-modal-sub   { color: var(--muted); font-size: 0.86rem; }
+    .p-modal-hdr-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
     .p-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
     .pcard  { background: var(--bg); border: 2px solid var(--border); border-radius: 10px; padding: 16px; cursor: pointer; transition: border-color 0.15s; }
     .pcard:hover    { border-color: var(--accent); }
@@ -79,6 +82,7 @@
     .d-Technical { background: #2a1a3a; color: #ce93d8; }
     .sbadge { font-size: 0.68rem; background: #4caf50; color: #fff; padding: 2px 7px; border-radius: 4px; }
     .ftr { border-top: 1px solid var(--border); padding: 14px 28px; display: flex; align-items: center; }
+    .p-modal-hdr-actions .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
     #loading-state { text-align: center; padding-top: 100px; color: var(--muted); font-size: 0.95rem; }
   </style>
@@ -119,10 +123,18 @@
 </footer>
 
 <!-- Persona picker overlay -->
-<div class="overlay" id="picker" style="display:none">
+<div class="overlay" id="picker" style="display:none" onclick="overlayClick(event)">
   <div class="p-modal">
-    <div class="p-modal-title">Choose your persona</div>
-    <div class="p-modal-sub">Select a Coco Pharmaceuticals character to explore the metadata environment from their perspective.</div>
+    <div class="p-modal-hdr">
+      <div class="p-modal-hdr-left">
+        <div class="p-modal-title">Choose your persona</div>
+        <div class="p-modal-sub">Select a Coco Pharmaceuticals character to explore the metadata environment from their perspective.</div>
+      </div>
+      <div class="p-modal-hdr-actions">
+        <button class="btn" onclick="closePicker()">Cancel</button>
+        <button class="btn btn-accent" id="confirm-btn" disabled onclick="confirmPersona()">Select Persona</button>
+      </div>
+    </div>
     <div class="p-grid" id="p-grid"></div>
   </div>
 </div>
@@ -201,7 +213,7 @@ function renderHub(persona) {
 
   document.getElementById('app-grid').innerHTML = apps.map(function(a) {
     var action = a.enabled
-      ? '<button class="btn btn-accent app-action" onclick="launch(' + JSON.stringify(a.url) + ',' + a.newTab + ')">' + (a.newTab ? 'Open ↗' : 'Open') + '</button>'
+      ? '<button class="btn btn-accent app-action" onclick="launch(' + JSON.stringify(a.url).replace(/"/g, '&quot;') + ',' + a.newTab + ')">' + (a.newTab ? 'Open ↗' : 'Open') + '</button>'
       : '<span class="soon-badge">Coming soon</span>';
     return '<div class="app-tile' + (a.enabled ? '' : ' disabled') + '">' +
       '<div class="app-icon">' + a.icon + '</div>' +
@@ -219,16 +231,41 @@ function launch(url, newTab) {
 }
 
 // ── Picker ───────────────────────────────────────────────────────────────────
+var _pendingId = null;
+
 function openPicker() {
+  _pendingId = null;
   renderPicker();
   document.getElementById('picker').style.display = 'flex';
+  _updateConfirmBtn();
+}
+
+function closePicker() {
+  document.getElementById('picker').style.display = 'none';
+  _pendingId = null;
+}
+
+function overlayClick(evt) {
+  if (evt.target === document.getElementById('picker')) closePicker();
+}
+
+function _updateConfirmBtn() {
+  var btn = document.getElementById('confirm-btn');
+  if (!btn) return;
+  if (_pendingId) {
+    btn.disabled = false;
+    btn.textContent = 'Select — ' + esc(_personas[_pendingId].display_name);
+  } else {
+    btn.disabled = true;
+    btn.textContent = 'Select Persona';
+  }
 }
 
 function renderPicker() {
-  var html = Object.keys(_personas).map(function(id) {
+  document.getElementById('p-grid').innerHTML = Object.keys(_personas).map(function(id) {
     var p = _personas[id];
-    var active = id === _currentPersonaId;
-    return '<div class="pcard' + (active ? ' selected' : '') + '" onclick="selectPersona(' + JSON.stringify(id) + ')">' +
+    var isActive = id === (_pendingId || _currentPersonaId);
+    return '<div class="pcard' + (isActive ? ' selected' : '') + '" onclick="highlightCard(&quot;' + esc(id) + '&quot;)">' +
       '<div class="pcard-meta">' +
         '<span class="dbadge d-' + esc(p.difficulty) + '">' + esc(p.difficulty) + '</span>' +
         (p.starter ? '<span class="sbadge">Starter</span>' : '') +
@@ -239,22 +276,41 @@ function renderPicker() {
       (p.profile_url ? '<a class="pcard-link" href="' + esc(p.profile_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">View profile ↗</a>' : '') +
     '</div>';
   }).join('');
-  document.getElementById('p-grid').innerHTML = html;
 }
 
-function selectPersona(id) {
+function highlightCard(id) {
+  _pendingId = id;
+  document.querySelectorAll('.pcard').forEach(function(el) {
+    el.classList.toggle('selected', el.getAttribute('onclick').indexOf('"' + id + '"') !== -1);
+  });
+  _updateConfirmBtn();
+}
+
+function confirmPersona() {
+  if (!_pendingId) return;
+  var id = _pendingId;
+  var btn = document.getElementById('confirm-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
   fetch('/api/demo/select-persona', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ persona: id })
-  }).then(function(r){ return r.json(); }).then(function() {
+  }).then(function(r) {
+    if (!r.ok) throw new Error('Server error ' + r.status);
+    return r.json();
+  }).then(function() {
     var pd = _personas[id];
     var info = { id: id, display_name: pd.display_name, coco_title: pd.coco_title };
     _currentPersonaId = id;
     _saveStored(info);
-    document.getElementById('picker').style.display = 'none';
+    closePicker();
     renderHub(info);
-  }).catch(function(e){ alert('Could not select persona: ' + e); });
+  }).catch(function(e) {
+    btn.disabled = false;
+    _updateConfirmBtn();
+    alert('Could not select persona: ' + e.message);
+  });
 }
 
 // ── Logout ───────────────────────────────────────────────────────────────────
