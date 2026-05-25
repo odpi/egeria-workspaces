@@ -182,6 +182,14 @@ To bypass the local build cache during the manual build step, add `--no-cache`:
 docker compose -f egeria-quickstart.yaml build --pull --no-cache
 ```
 
+## SSL / HTTPS
+
+HTTPS is disabled by default. To enable it, see the **SSL / HTTPS** section in
+[`PyegeriaWebHandler/demo-mode.md`](PyegeriaWebHandler/demo-mode.md#ssl--https).
+The short version: uncomment three lines in `egeria-quickstart.yaml` and edit four
+`Define` lines in `sites-available/fastapi-ssl.conf`. No image rebuild is required
+to toggle SSL on or off after the first setup.
+
 ## Secrets Location for Quickstart
 
 - Quickstart platform secrets are resolved at `/deployments/secrets` inside the container.
