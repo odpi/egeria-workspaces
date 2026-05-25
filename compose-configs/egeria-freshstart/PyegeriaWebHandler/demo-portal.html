@@ -1,0 +1,274 @@
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+<!-- Copyright Contributors to the ODPi Egeria project. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Egeria Demo Environment · Coco Pharmaceuticals</title>
+  <style>
+    :root {
+      --bg:      #1a1a2e;
+      --card:    #16213e;
+      --border:  #0f3460;
+      --accent:  #e94560;
+      --text:    #e0e0e0;
+      --muted:   #888;
+      --green:   #4caf50;
+      --overlay: rgba(0,0,0,0.82);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; }
+
+    /* ── Header ── */
+    .hdr { background: var(--card); border-bottom: 1px solid var(--border); padding: 12px 28px; display: flex; align-items: center; gap: 16px; }
+    .hdr-logo { font-size: 1.2rem; font-weight: 700; color: var(--accent); letter-spacing: -0.02em; white-space: nowrap; }
+    .hdr-persona { display: flex; align-items: center; gap: 14px; margin-left: auto; }
+    .hdr-name  { font-weight: 600; }
+    .hdr-title { color: var(--muted); font-size: 0.82rem; }
+    .btn { padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; font-size: 0.82rem; white-space: nowrap; }
+    .btn:hover { background: var(--border); }
+    .btn-accent { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn-accent:hover { opacity: 0.85; background: var(--accent); }
+
+    /* ── Main ── */
+    .main { max-width: 1100px; margin: 0 auto; padding: 36px 28px; }
+    .welcome-head { font-size: 1.6rem; font-weight: 700; margin-bottom: 6px; }
+    .welcome-sub  { color: var(--muted); margin-bottom: 28px; }
+
+    /* ── Persona bio card ── */
+    .bio-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 22px 26px; margin-bottom: 36px; display: flex; gap: 24px; flex-wrap: wrap; }
+    .bio-text  { flex: 1; min-width: 220px; }
+    .bio-text p { color: var(--muted); font-size: 0.88rem; line-height: 1.55; margin-bottom: 12px; }
+    .bio-link  { font-size: 0.82rem; color: var(--accent); text-decoration: none; }
+    .bio-link:hover { text-decoration: underline; }
+    .bio-highlights { display: flex; flex-direction: column; gap: 6px; min-width: 200px; }
+    .bio-highlights span { font-size: 0.82rem; color: var(--muted); }
+    .bio-highlights span::before { content: "→ "; color: var(--accent); }
+
+    /* ── App grid ── */
+    .section-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+    .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+    .app-tile { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 24px 20px; display: flex; flex-direction: column; gap: 8px; transition: border-color 0.15s; }
+    .app-tile:not(.disabled):hover { border-color: var(--accent); }
+    .app-tile.disabled { opacity: 0.42; }
+    .app-icon { font-size: 2rem; }
+    .app-name { font-size: 1rem; font-weight: 600; }
+    .app-desc { font-size: 0.8rem; color: var(--muted); flex: 1; line-height: 1.45; }
+    .app-action { margin-top: 8px; }
+    .soon-badge { font-size: 0.7rem; background: var(--border); color: var(--muted); padding: 3px 8px; border-radius: 4px; display: inline-block; }
+
+    /* ── Persona picker overlay ── */
+    .overlay  { position: fixed; inset: 0; background: var(--overlay); display: flex; align-items: center; justify-content: center; z-index: 900; }
+    .p-modal  { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 32px; width: min(920px, 96vw); max-height: 88vh; overflow-y: auto; }
+    .p-modal-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 6px; }
+    .p-modal-sub   { color: var(--muted); font-size: 0.86rem; margin-bottom: 24px; }
+    .p-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+    .pcard  { background: var(--bg); border: 2px solid var(--border); border-radius: 10px; padding: 16px; cursor: pointer; transition: border-color 0.15s; }
+    .pcard:hover    { border-color: var(--accent); }
+    .pcard.selected { border-color: var(--green); }
+    .pcard-meta  { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+    .pcard-name  { font-weight: 600; margin-bottom: 2px; }
+    .pcard-title { color: var(--muted); font-size: 0.78rem; margin-bottom: 8px; }
+    .pcard-bio   { font-size: 0.78rem; color: var(--muted); margin-bottom: 10px; line-height: 1.4; }
+    .pcard-link  { font-size: 0.74rem; color: var(--accent); text-decoration: none; }
+    .pcard-link:hover { text-decoration: underline; }
+    .dbadge { font-size: 0.68rem; padding: 2px 7px; border-radius: 4px; }
+    .d-Starter   { background: #1a3a1a; color: #4caf50; }
+    .d-Business  { background: #1a2a3a; color: #64b5f6; }
+    .d-Technical { background: #2a1a3a; color: #ce93d8; }
+    .sbadge { font-size: 0.68rem; background: #4caf50; color: #fff; padding: 2px 7px; border-radius: 4px; }
+    .ftr { border-top: 1px solid var(--border); padding: 14px 28px; display: flex; align-items: center; }
+
+    #loading-state { text-align: center; padding-top: 100px; color: var(--muted); font-size: 0.95rem; }
+  </style>
+</head>
+<body>
+
+<header class="hdr">
+  <div style="display:flex;align-items:center;gap:14px">
+    <img src="/static/egeria-logo.png" alt="Egeria" style="height:28px">
+  </div>
+  <div class="hdr-logo">Egeria Demo Environment</div>
+  <div id="hdr-loading" style="color:var(--muted);font-size:0.82rem;margin-left:auto">Loading…</div>
+  <div id="hdr-persona" class="hdr-persona" style="display:none">
+    <div>
+      <div class="hdr-name"  id="h-name"></div>
+      <div class="hdr-title" id="h-title"></div>
+    </div>
+    <button class="btn" onclick="openPicker()">Switch Persona</button>
+    <button class="btn" onclick="doLogout()">Log out</button>
+  </div>
+</header>
+
+<main class="main">
+  <div id="loading-state">Loading…</div>
+
+  <div id="hub" style="display:none">
+    <div class="welcome-head" id="welcome-head"></div>
+    <div class="welcome-sub"  id="welcome-sub"></div>
+    <div class="bio-card" id="bio-card" style="display:none"></div>
+    <div class="section-label">Available Tools</div>
+    <div class="app-grid" id="app-grid"></div>
+  </div>
+</main>
+
+<!-- ── Footer ─────────────────────────────────────────────────────────────── -->
+<footer class="ftr">
+  <img src="/static/pdr-logo.png" alt="PDR Associates" style="height:30px; opacity:0.7">
+</footer>
+
+<!-- Persona picker overlay -->
+<div class="overlay" id="picker" style="display:none">
+  <div class="p-modal">
+    <div class="p-modal-title">Choose your persona</div>
+    <div class="p-modal-sub">Select a Coco Pharmaceuticals character to explore the metadata environment from their perspective.</div>
+    <div class="p-grid" id="p-grid"></div>
+  </div>
+</div>
+
+<script>
+var _personas = {};
+var _currentPersonaId = null;
+var _user = null;
+
+function _loadStored() {
+  try { var s = localStorage.getItem('egeria-persona'); return s ? JSON.parse(s) : null; } catch(e) { return null; }
+}
+function _saveStored(p) {
+  try { localStorage.setItem('egeria-persona', JSON.stringify(p)); } catch(e) {}
+}
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+fetch('/api/auth/me').then(function(r){ return r.json(); }).then(function(me) {
+  if (!me.authenticated) { window.location.href = '/login'; return; }
+  _user = me;
+  return fetch('/api/demo/personas').then(function(r){ return r.json(); }).then(function(data) {
+    _personas = data;
+    var stored = _loadStored();
+    _currentPersonaId = stored ? stored.id : null;
+    document.getElementById('loading-state').style.display = 'none';
+    if (!_currentPersonaId) {
+      renderPicker();
+      document.getElementById('picker').style.display = 'flex';
+    } else {
+      renderHub(stored);
+    }
+  });
+}).catch(function() { window.location.href = '/login'; });
+
+// ── Hub ───────────────────────────────────────────────────────────────────────
+function renderHub(persona) {
+  var pd = persona && _personas[persona.id] ? _personas[persona.id] : null;
+
+  // Header
+  document.getElementById('hdr-loading').style.display = 'none';
+  document.getElementById('h-name').textContent  = persona ? persona.display_name : (_user ? _user.display_name : '');
+  document.getElementById('h-title').textContent = persona ? (persona.coco_title || '') : '';
+  document.getElementById('hdr-persona').style.display = 'flex';
+
+  // Welcome
+  document.getElementById('welcome-head').textContent = 'Welcome, ' + (persona ? persona.display_name : (_user ? _user.display_name : ''));
+  document.getElementById('welcome-sub').textContent  = persona ? ('Exploring as ' + persona.coco_title + ' at Coco Pharmaceuticals') : '';
+
+  // Bio card
+  if (pd) {
+    var highlights = (pd.highlights || []).map(function(h){ return '<span>' + esc(h) + '</span>'; }).join('');
+    var profileLink = pd.profile_url
+      ? '<a class="bio-link" href="' + esc(pd.profile_url) + '" target="_blank" rel="noopener">View full profile at egeria-project.org ↗</a>'
+      : '';
+    document.getElementById('bio-card').innerHTML =
+      '<div class="bio-text">' +
+        '<p>' + esc(pd.bio || '') + '</p>' +
+        profileLink +
+      '</div>' +
+      '<div class="bio-highlights">' + highlights + '</div>';
+    document.getElementById('bio-card').style.display = 'flex';
+  }
+
+  // App tiles
+  var jupyterUrl = 'http://' + window.location.hostname + ':7888/?token=egeria';
+  var apps = [
+    { icon: '🔍', name: 'Egeria Explorer', desc: 'Explore metadata — types, glossary, lineage, governance blueprints, and more.',
+      url: '/egeria-explorer', newTab: false, enabled: true },
+    { icon: '📓', name: 'Jupyter Lab',     desc: 'Interactive notebooks for data science and Egeria API exploration.',
+      url: jupyterUrl, newTab: true, enabled: true },
+    { icon: '🌐', name: 'Coco Web',        desc: 'Coco Pharmaceuticals internal web resources and reference material.',
+      url: '/local', newTab: true, enabled: true },
+    { icon: '🤖', name: 'Egeria Advisor',  desc: 'AI-powered guidance for your Egeria environment.',
+      url: null, newTab: true, enabled: false },
+  ];
+
+  document.getElementById('app-grid').innerHTML = apps.map(function(a) {
+    var action = a.enabled
+      ? '<button class="btn btn-accent app-action" onclick="launch(' + JSON.stringify(a.url) + ',' + a.newTab + ')">' + (a.newTab ? 'Open ↗' : 'Open') + '</button>'
+      : '<span class="soon-badge">Coming soon</span>';
+    return '<div class="app-tile' + (a.enabled ? '' : ' disabled') + '">' +
+      '<div class="app-icon">' + a.icon + '</div>' +
+      '<div class="app-name">' + esc(a.name) + '</div>' +
+      '<div class="app-desc">' + esc(a.desc) + '</div>' +
+      action + '</div>';
+  }).join('');
+
+  document.getElementById('hub').style.display = 'block';
+}
+
+function launch(url, newTab) {
+  if (!url) return;
+  if (newTab) { window.open(url, '_blank', 'noopener'); } else { window.location.href = url; }
+}
+
+// ── Picker ───────────────────────────────────────────────────────────────────
+function openPicker() {
+  renderPicker();
+  document.getElementById('picker').style.display = 'flex';
+}
+
+function renderPicker() {
+  var html = Object.keys(_personas).map(function(id) {
+    var p = _personas[id];
+    var active = id === _currentPersonaId;
+    return '<div class="pcard' + (active ? ' selected' : '') + '" onclick="selectPersona(' + JSON.stringify(id) + ')">' +
+      '<div class="pcard-meta">' +
+        '<span class="dbadge d-' + esc(p.difficulty) + '">' + esc(p.difficulty) + '</span>' +
+        (p.starter ? '<span class="sbadge">Starter</span>' : '') +
+      '</div>' +
+      '<div class="pcard-name">'  + esc(p.display_name) + '</div>' +
+      '<div class="pcard-title">' + esc(p.coco_title)   + '</div>' +
+      '<div class="pcard-bio">'   + esc((p.bio || '').substring(0, 110)) + '…</div>' +
+      (p.profile_url ? '<a class="pcard-link" href="' + esc(p.profile_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">View profile ↗</a>' : '') +
+    '</div>';
+  }).join('');
+  document.getElementById('p-grid').innerHTML = html;
+}
+
+function selectPersona(id) {
+  fetch('/api/demo/select-persona', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ persona: id })
+  }).then(function(r){ return r.json(); }).then(function() {
+    var pd = _personas[id];
+    var info = { id: id, display_name: pd.display_name, coco_title: pd.coco_title };
+    _currentPersonaId = id;
+    _saveStored(info);
+    document.getElementById('picker').style.display = 'none';
+    renderHub(info);
+  }).catch(function(e){ alert('Could not select persona: ' + e); });
+}
+
+// ── Logout ───────────────────────────────────────────────────────────────────
+function doLogout() {
+  fetch('/api/auth/logout', { method: 'POST' }).then(function() {
+    localStorage.removeItem('egeria-persona');
+    window.location.href = '/login';
+  });
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

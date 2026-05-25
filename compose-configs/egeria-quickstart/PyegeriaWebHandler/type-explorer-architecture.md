@@ -30,6 +30,21 @@ Browser
   │  GET /api/rest-apis                (OpenAPI endpoint catalog)
   │  POST /api/request-bodies/rebuild  (regenerate catalog from http-client-collections)
   │  POST /api/rest-apis/refresh       (clear OpenAPI cache)
+  │  GET /api/solution/blueprints      (solution blueprints list)
+  │  GET /api/solution/blueprints/{guid} (blueprint detail)
+  │  GET /api/solution/components      (solution components list)
+  │  GET /api/data-design/specs        (data specs list)
+  │  GET /api/data-design/structures   (data structures)
+  │  GET /api/data-design/fields       (data fields)
+  │  GET /api/data-design/grains       (data grains)
+  │  GET /api/data-design/classes      (data classes)
+  │  GET /api/perspectives             (perspectives list)
+  │  GET /api/questions                (questions list — GlossaryTerms with Question classification)
+  │  GET /api/isc                      (information supply chains)
+  │  GET /api/dr-egeria/commands       (Dr. Egeria command templates)
+  │  POST /api/dr-egeria/execute       (execute a Dr. Egeria command)
+  │  GET /login, /register, /admin, /privacy  (demo mode pages — only active when DEMO_MODE=true)
+  │  GET /api/auth/me, POST /api/auth/login, etc.  (demo auth — only active when DEMO_MODE=true)
   ▼
 Apache httpd  (port 8085)
   │  ProxyPass /egeria-explorer → http://pyegeria-web:8000/egeria-explorer
@@ -44,6 +59,12 @@ FastAPI  (pyegeria-web container, port 8000)
   │  valid_values_handler.py      → ReferenceDataManager
   │  rest_api_handler.py          → egeria_request_body_catalog.json (static)
   │                                 + Egeria /v3/api-docs (live, cached 1h)
+  │  solution_architect_handler.py → SolutionArchitectManager
+  │  data_design_handler.py        → DataDesignerManager + CollectionManager
+  │  perspectives_handler.py       → ActorProfileManager + GlossaryManager
+  │  dr_egeria_commands_handler.py → local markdown templates + dr_egeria_md processor
+  │  isc_handler.py                → InformationSupplyChainManager
+  │  demo_auth_handler.py          → SQLite (demo only, DEMO_MODE=true)
   ▼
 pyegeria (various managers)
   ▼
@@ -80,6 +101,11 @@ Apache and the FastAPI server run in separate containers on the same Docker netw
 | Valid Values — lookup | `GET /api/valid-values/lookup?property_name=…` | User selects or enters a property name |
 | REST APIs — body catalog | `GET /api/request-bodies` | REST APIs tab is opened (no Egeria needed) |
 | REST APIs — endpoints | `GET /api/rest-apis` | User clicks "Load API Endpoints" in the toolbar |
+| Solution Architect | `GET /api/solution/blueprints`, `GET /api/solution/components` | First time tab is opened (lazy) |
+| Data Design | `GET /api/data-design/specs`, `GET /api/data-design/structures`, etc. | First time sub-tab is opened |
+| Perspectives | `GET /api/perspectives`, `GET /api/questions` | First time tab is opened |
+| Dr. Egeria Commands | `GET /api/dr-egeria/commands` | First time tab is opened (static — no Egeria needed) |
+| Supply Chains | `GET /api/isc` | First time tab is opened |
 
 **Server-side caching:** Most handlers have no caching — data is re-fetched on tab re-open. The REST API handler is the exception: the OpenAPI spec fetched from Egeria (`/v3/api-docs`) is cached in process for one hour. The request body catalog is loaded from disk once and held for the process lifetime. All other data is held in React state for the current page session.
 
@@ -207,6 +233,11 @@ The Reference Data view displays a hierarchy: root-level ValidValueSets as tree 
 | `GlossaryManager` | `glossary_handler.py` | `find_glossaries`, `find_glossary_terms`, `get_term_by_guid`, `get_collection_members` |
 | `CollectionManager` | `digital_products_handler.py` | `find_collections`, `get_collection_members`, `get_collection_by_guid` |
 | `MetadataExpert` | `mermaid_handler.py` | `get_metadata_element_by_guid` (depth=5), `get_anchored_element_graph` |
+| `SolutionArchitectManager` | `solution_architect_handler.py` | `find_solution_blueprints`, `get_solution_blueprint_by_guid`, `find_solution_components`, `get_solution_component_by_guid` |
+| `DataDesignerManager` | `data_design_handler.py` | `find_data_structures`, `find_data_fields`, `find_data_grains`, `find_data_classes`; falls back to search-string endpoint for data value specs (pyegeria ≤6.0.12.3 missing `find_data_value_specifications`) |
+| `ActorProfileManager` | `perspectives_handler.py` | `find_actors`, `get_actor_profile_by_guid` |
+| `InformationSupplyChainManager` | `isc_handler.py` | `find_information_supply_chains`, `get_information_supply_chain_by_guid` |
+| `CollectionManager` | `data_design_handler.py` | Used alongside DataDesignerManager to fetch collection memberships |
 
 ### Frontend (browser-side)
 
@@ -241,6 +272,16 @@ The application JavaScript is written inline in the HTML using `React.createElem
 | `valid_values_handler.py` | `/api/valid-values` | Property-name valid value lookups |
 | `report_specs_handler.py` | `/api/report-specs` | pyegeria report format specs |
 | `rest_api_handler.py` | `/api/request-bodies`, `/api/rest-apis` | Layer 1 body catalog (static) + OpenAPI endpoint catalog (live, cached) |
+| `solution_architect_handler.py` | `/api/solution` | Solution blueprints and components via SolutionArchitectManager |
+| `data_design_handler.py` | `/api/data-design` | Data specs, structures, fields, grains, classes via DataDesignerManager |
+| `perspectives_handler.py` | `/api/perspectives`, `/api/questions` | Egeria Perspectives (actor profiles) and Questions (GlossaryTerms with Question classification) |
+| `dr_egeria_commands_handler.py` | `/api/dr-egeria` | Command template catalog (static) and command execution (live) |
+| `isc_handler.py` | `/api/isc` | Information supply chains via InformationSupplyChainManager |
+| `demo_auth_handler.py` | `/api/auth`, `/api/demo` | Demo mode auth, persona selection, admin endpoints; active only when `DEMO_MODE=true` |
+| `demo_config.py` | — | DEMO_MODE flag and all JWT/SMTP/DB settings read from env vars |
+| `demo_db.py` | — | SQLite models (User, Event, Config) via SQLAlchemy; `demo.db` at DEMO_DB_PATH |
+| `personas.json` | — | 10 Coco Pharmaceuticals persona definitions with credentials and UI metadata |
+| `demo-login.html`, `demo-register.html`, `demo-admin.html`, `demo-privacy.html` | — | Self-contained demo mode HTML pages served by pyegeria_handler.py |
 | `pyegeria_handler.py` | — | FastAPI app; mounts all routers |
 | `type-explorer.html` | — | Self-contained SPA served by type_system_handler |
 | `egeria_request_body_catalog.json` | — | Generated catalog of Layer 1 request body types; loaded once at startup |
@@ -265,8 +306,91 @@ This table answers the question "where does the data actually come from?" for ea
 | Report Specs | pyegeria module introspection (format specs) | **No** | None |
 | REST APIs — body catalog | `egeria_request_body_catalog.json` (static file in container) | **No** | Process lifetime |
 | REST APIs — endpoints | Egeria `/v3/api-docs` OpenAPI spec | Yes | 1 hour in-process |
+| Solution Architect | `SolutionArchitectManager` → Egeria REST API | Yes | None |
+| Data Design | `DataDesignerManager` + `CollectionManager` → Egeria REST API | Yes | None |
+| Perspectives | `ActorProfileManager` + `GlossaryManager` → Egeria REST API | Yes | None |
+| Dr. Egeria Commands | Markdown template files in container (`md_processing/data/compact_commands`) | **No** | Process lifetime |
+| Supply Chains | `InformationSupplyChainManager` → Egeria REST API | Yes | None |
 
-**Report Specs** and the **REST API body catalog** work without an Egeria connection. All other sections require the Egeria platform to be running and reachable from the `pyegeria-web` container at the URL configured by `EGERIA_PLATFORM_URL`.
+**Report Specs**, the **REST API body catalog**, and **Dr. Egeria Commands** work without an Egeria connection. All other sections require the Egeria platform to be running and reachable from the `pyegeria-web` container at the URL configured by `EGERIA_PLATFORM_URL`.
+
+---
+
+## Demo mode architecture
+
+Demo mode is an optional layer that adds user registration, authentication, and persona-based access control to Egeria Explorer. It is activated by setting `DEMO_MODE=true` in the container environment.
+
+### Component overview
+
+```
+Browser
+  │  GET /login, /register          → demo-login.html, demo-register.html (served by FastAPI)
+  │  POST /api/auth/register        → email + bcrypt hash stored in SQLite
+  │  GET /api/auth/verify/{token}   → marks user verified; sets demo_token cookie; redirects to /egeria-explorer
+  │  POST /api/auth/login           → verifies bcrypt hash; sets demo_token cookie (2h expiry)
+  │  GET /egeria-explorer           → auth gate checks demo_token; 302 → /login if absent/invalid
+  │  POST /api/demo/select-persona  → returns Coco Pharmaceuticals Egeria credentials
+  │  GET /admin                     → admin panel (admin role required)
+  ▼
+FastAPI (pyegeria-web:8000)
+  │  demo_auth_handler.py           → JWT decode/encode, bcrypt, email via SMTP
+  │  demo_db.py (SQLite)            → User, Event, Config tables at DEMO_DB_PATH
+  ▼
+pyegeria_handler.py
+  │  DEMO_MODE=true → includes demo_auth_handler router
+  │  /login, /register, /admin, /privacy routes always present; redirect to /egeria-explorer if DEMO_MODE=false
+```
+
+### Authentication flow
+
+1. User registers with name, email, password → POST `/api/auth/register` → bcrypt-hashed password stored in SQLite; verify token emailed.
+2. Email link hits `GET /api/auth/verify/{token}` → `verified=True` set in DB; `demo_token` JWT cookie set; browser redirected to `/egeria-explorer`.
+3. Subsequent requests to `/egeria-explorer` pass through the auth gate in `type_system_handler.py`, which decodes the JWT from the cookie using `python-jose` / HS256. Invalid or expired tokens redirect to `/login`.
+4. After reaching the Explorer, the persona picker (`PersonaPickerModal`) fires on first load. It calls `GET /api/demo/personas` (public, no auth) then `POST /api/demo/select-persona` (auth required). The server returns the persona's Egeria username and well-known password (`"secret"`). The browser stores these in `localStorage` as `egeria-creds` and in `egeria-persona` for the badge display.
+
+### JWT session
+
+- **Algorithm**: HS256, secret from `JWT_SECRET` env var.
+- **User expiry**: `JWT_EXPIRY_USER_SEC` (default 7200 = 2 hours).
+- **Admin expiry**: `JWT_EXPIRY_ADMIN_SEC` (default 604800 = 7 days).
+- The cookie name is `demo_token`, HTTPOnly, SameSite=lax.
+- If SMTP is not configured, email verification is skipped (the user is still created but remains `verified=False` until an admin enables them, or the env allows auto-verify for development).
+
+### SQLite schema
+
+Three tables in the database at `DEMO_DB_PATH` (default `/app/demo-data/demo.db`):
+
+**`users`** — `id` (UUID PK), `display_name`, `org`, `email` (unique), `password_hash`, `role` (user|admin), `verified`, `verify_token`, `reset_token`, `reset_expires`, `created_at`, `last_login`.
+
+**`events`** — `id` (UUID PK), `user_id` (FK → users), `event_type` (register|verify|login|persona_select), `detail` (JSON text), `created_at`.
+
+**`config`** — `key` (PK), `value` (text). Seeded with defaults: `reset_interval_hours`, `directive_cap`, `session_lifetime_user`, `session_lifetime_admin`, `reset_notify_minutes`, `last_reset_at`, `reset_state`.
+
+### Persona selection flow
+
+The `POST /api/demo/select-persona` endpoint:
+1. Verifies the user is authenticated and verified (JWT cookie required).
+2. Looks up the persona in `personas.json` by the `persona` field in the request body.
+3. Returns `{ persona, display_name, coco_title, egeria_user, egeria_password }`.
+4. The browser's `applyPersona()` function in `App` takes these credentials, calls `saveCreds()` to update `CredContext` (the React context that all data-fetching handlers read), and stores `egeria-persona` in localStorage for the badge display and "Switch Persona" functionality.
+
+The returned password is always `"secret"` — the well-known Coco Pharmaceuticals demo default. This is not a security concern as the Egeria instance is pre-populated with non-sensitive fictional data.
+
+### When DEMO_MODE is false
+
+All auth routes are still registered in FastAPI (the page routes `/login`, `/register`, `/admin`, `/privacy` always exist) but:
+- `GET /login` redirects to `/egeria-explorer` immediately.
+- `GET /egeria-explorer` serves the HTML without any cookie check.
+- `demo_auth_handler` router is NOT mounted (no `/api/auth/*` or `/api/demo/*` routes).
+- The `PersonaPickerModal` in the SPA does not appear (it only activates when `/api/auth/me` returns `authenticated: true`).
+
+### Security considerations for public deployment
+
+- Change `JWT_SECRET` from the default before public exposure.
+- Set `SMTP_HOST` to enable email verification; without it, newly registered users cannot verify themselves.
+- Mount `demo-data/` on a persistent volume (see `runtime-volumes/quickstart-demo-data`).
+- The `directive_cap` config key limits what demo users can execute via the Dr. Egeria Commands tab (planned: `validate` level prevents writes; `process` allows writes).
+- Do not expose port 8000 (FastAPI) directly; all public traffic should pass through Apache on port 8085.
 
 ---
 
@@ -306,6 +430,10 @@ element.get("mermaidGraph", "") or props.get("mermaidGraph", "") or ""
 ```
 
 The `mermaidGraph` field is present in responses from any find or get method when `output_format="JSON"` is passed. The `/api/mermaid/{guid}` endpoint uses `MetadataExpert.get_anchored_element_graph` with `graph_query_depth=5` to fetch a depth=5 diagram for the context diagram button, since list and tree queries use depth 0–1 and their embedded `mermaidGraph` values would be too shallow.
+
+### DataDesignerManager — find_data_value_specifications missing in early 6.x
+
+In pyegeria ≤6.0.12.3, `DataDesignerManager.find_data_value_specifications()` is absent (the async method `_async_post` it relied on was not yet available). `data_design_handler.py` works around this by calling the underlying Egeria REST endpoint directly via `mgr.make_request()` with the search-string URL. If a future pyegeria version restores the method, the direct call in `_search_data_value_specs()` should be replaced with the manager method.
 
 ---
 

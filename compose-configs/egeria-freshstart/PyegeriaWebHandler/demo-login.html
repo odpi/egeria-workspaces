@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Egeria Demo Environment — Sign In</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117; --card: #1a1d27; --border: #2e3246;
+      --accent: #6366f1; --accent-hover: #4f52d6; --accent-dim: #3d4068;
+      --text: #e2e4f0; --muted: #8b8fa8; --error: #f87171; --success: #34d399;
+    }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 2.5rem 2rem; width: 100%; max-width: 400px; }
+    .logo { text-align: center; margin-bottom: 1.75rem; }
+    .logo-mark { font-size: 2rem; margin-bottom: 0.4rem; }
+    .logo h1 { font-size: 1.35rem; font-weight: 700; color: var(--text); }
+    .logo p { font-size: 0.82rem; color: var(--muted); margin-top: 0.25rem; }
+    label { display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 0.35rem; margin-top: 1rem; }
+    input[type=email], input[type=password] {
+      width: 100%; padding: 0.6rem 0.75rem; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); font-size: 0.9rem; outline: none; transition: border 0.15s;
+    }
+    input:focus { border-color: var(--accent); }
+    .btn {
+      display: block; width: 100%; padding: 0.65rem; margin-top: 1.5rem;
+      background: var(--accent); color: #fff; border: none; border-radius: 6px;
+      font-size: 0.92rem; font-weight: 600; cursor: pointer; transition: background 0.15s;
+    }
+    .btn:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .msg { margin-top: 1rem; padding: 0.65rem 0.75rem; border-radius: 6px; font-size: 0.84rem; display: none; }
+    .msg.error { background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.35); color: var(--error); }
+    .msg.success { background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.35); color: var(--success); }
+    .links { text-align: center; margin-top: 1.5rem; font-size: 0.82rem; color: var(--muted); }
+    .links a { color: var(--accent); text-decoration: none; }
+    .links a:hover { text-decoration: underline; }
+    .divider { height: 1px; background: var(--border); margin: 1.5rem 0; }
+    .forgot { text-align: right; margin-top: 0.3rem; }
+    .forgot a { font-size: 0.78rem; color: var(--muted); text-decoration: none; }
+    .forgot a:hover { color: var(--accent); }
+    #forgotForm { display: none; }
+    #forgotForm h3 { font-size: 0.95rem; margin-bottom: 0.5rem; }
+    #forgotForm p { font-size: 0.82rem; color: var(--muted); margin-bottom: 1rem; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <div style="display:flex;align-items:center;justify-content:center;gap:18px;margin-bottom:0.5rem">
+      <img src="/static/egeria-logo.png" alt="Egeria" style="height:36px">
+      <img src="/static/pdr-logo.png"    alt="PDR"    style="height:36px">
+    </div>
+    <h1>Egeria Demo Environment</h1>
+    <p>Coco Pharmaceuticals</p>
+  </div>
+
+  <div id="loginForm">
+    <label for="email">Email address</label>
+    <input type="email" id="email" placeholder="you@example.com" autocomplete="email">
+    <label for="password">Password</label>
+    <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+    <div class="forgot"><a href="#" id="forgotLink">Forgot password?</a></div>
+    <button class="btn" id="loginBtn" onclick="doLogin()">Sign In</button>
+    <div class="msg" id="loginMsg"></div>
+    <div class="divider"></div>
+    <div class="links">Don't have an account? <a href="/register">Create one</a></div>
+    <div class="links" style="margin-top:0.5rem"><a href="/privacy">Privacy Policy</a></div>
+  </div>
+
+  <div id="forgotForm">
+    <h3>Reset your password</h3>
+    <p>Enter your email and we'll send a reset link.</p>
+    <label for="resetEmail">Email address</label>
+    <input type="email" id="resetEmail" placeholder="you@example.com">
+    <button class="btn" id="resetBtn" onclick="doForgot()">Send Reset Link</button>
+    <div class="msg" id="resetMsg"></div>
+    <div class="divider"></div>
+    <div class="links"><a href="#" id="backToLogin">← Back to sign in</a></div>
+  </div>
+</div>
+
+<script>
+  document.getElementById('forgotLink').addEventListener('click', function(e) {
+    e.preventDefault();
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('forgotForm').style.display = 'block';
+  });
+  document.getElementById('backToLogin').addEventListener('click', function(e) {
+    e.preventDefault();
+    document.getElementById('forgotForm').style.display = 'none';
+    document.getElementById('loginForm').style.display = 'block';
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      if (document.getElementById('loginForm').style.display !== 'none' || document.getElementById('forgotForm').style.display !== 'block') {
+        doLogin();
+      }
+    }
+  });
+
+  // Check if already authenticated
+  fetch('/api/auth/me').then(r => r.json()).then(data => {
+    if (data.authenticated) window.location.href = '/portal';
+  }).catch(() => {});
+
+  function showMsg(id, type, text) {
+    var el = document.getElementById(id);
+    el.className = 'msg ' + type;
+    el.textContent = text;
+    el.style.display = 'block';
+  }
+
+  function doLogin() {
+    var email = document.getElementById('email').value.trim();
+    var password = document.getElementById('password').value;
+    if (!email || !password) { showMsg('loginMsg', 'error', 'Please enter your email and password.'); return; }
+    var btn = document.getElementById('loginBtn');
+    btn.disabled = true; btn.textContent = 'Signing in…';
+    fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, password: password }),
+    }).then(function(r) {
+      return r.json().then(function(d) { return { ok: r.ok, data: d }; });
+    }).then(function(res) {
+      btn.disabled = false; btn.textContent = 'Sign In';
+      if (res.ok) {
+        showMsg('loginMsg', 'success', 'Welcome back, ' + res.data.display_name + '!');
+        setTimeout(function() { window.location.href = '/portal'; }, 600);
+      } else {
+        showMsg('loginMsg', 'error', res.data.detail || 'Sign in failed.');
+      }
+    }).catch(function() {
+      btn.disabled = false; btn.textContent = 'Sign In';
+      showMsg('loginMsg', 'error', 'Network error — please try again.');
+    });
+  }
+
+  function doForgot() {
+    var email = document.getElementById('resetEmail').value.trim();
+    if (!email) { showMsg('resetMsg', 'error', 'Please enter your email address.'); return; }
+    var btn = document.getElementById('resetBtn');
+    btn.disabled = true; btn.textContent = 'Sending…';
+    fetch('/api/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email }),
+    }).then(function(r) { return r.json(); })
+    .then(function(d) {
+      btn.disabled = false; btn.textContent = 'Send Reset Link';
+      showMsg('resetMsg', 'success', d.message || 'Check your inbox for a reset link.');
+    }).catch(function() {
+      btn.disabled = false; btn.textContent = 'Send Reset Link';
+      showMsg('resetMsg', 'error', 'Network error — please try again.');
+    });
+  }
+</script>
+</body>
+</html>

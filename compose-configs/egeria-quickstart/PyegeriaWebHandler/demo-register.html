@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Egeria Demo Environment — Create Account</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117; --card: #1a1d27; --border: #2e3246;
+      --accent: #6366f1; --accent-hover: #4f52d6;
+      --text: #e2e4f0; --muted: #8b8fa8; --error: #f87171; --success: #34d399;
+    }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 2.5rem 2rem; width: 100%; max-width: 420px; }
+    .logo { text-align: center; margin-bottom: 1.75rem; }
+    .logo-mark { font-size: 2rem; margin-bottom: 0.4rem; }
+    .logo h1 { font-size: 1.35rem; font-weight: 700; }
+    .logo p { font-size: 0.82rem; color: var(--muted); margin-top: 0.25rem; }
+    label { display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 0.35rem; margin-top: 1rem; }
+    input[type=text], input[type=email], input[type=password] {
+      width: 100%; padding: 0.6rem 0.75rem; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); font-size: 0.9rem; outline: none; transition: border 0.15s;
+    }
+    input:focus { border-color: var(--accent); }
+    .hint { font-size: 0.76rem; color: var(--muted); margin-top: 0.3rem; }
+    .btn { display: block; width: 100%; padding: 0.65rem; margin-top: 1.5rem; background: var(--accent); color: #fff; border: none; border-radius: 6px; font-size: 0.92rem; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+    .btn:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .msg { margin-top: 1rem; padding: 0.65rem 0.75rem; border-radius: 6px; font-size: 0.84rem; display: none; }
+    .msg.error { background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.35); color: var(--error); }
+    .msg.success { background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.35); color: var(--success); }
+    .links { text-align: center; margin-top: 1.5rem; font-size: 0.82rem; color: var(--muted); }
+    .links a { color: var(--accent); text-decoration: none; }
+    .links a:hover { text-decoration: underline; }
+    .divider { height: 1px; background: var(--border); margin: 1.5rem 0; }
+    .terms { font-size: 0.76rem; color: var(--muted); margin-top: 1rem; text-align: center; }
+    .terms a { color: var(--accent); text-decoration: none; }
+    #success-view { display: none; text-align: center; padding: 1rem 0; }
+    #success-view .icon { font-size: 3rem; margin-bottom: 1rem; }
+    #success-view h2 { font-size: 1.2rem; margin-bottom: 0.75rem; }
+    #success-view p { font-size: 0.88rem; color: var(--muted); line-height: 1.5; }
+    .btn-outline { display: block; width: 100%; padding: 0.55rem; margin-top: 0.75rem; background: transparent; color: var(--accent); border: 1px solid var(--accent); border-radius: 6px; font-size: 0.88rem; cursor: pointer; transition: background 0.15s; }
+    .btn-outline:hover:not(:disabled) { background: rgba(99,102,241,0.12); }
+    .btn-outline:disabled { opacity: 0.5; cursor: not-allowed; }
+    .resend-msg { font-size: 0.8rem; margin-top: 0.5rem; text-align: center; min-height: 1.2em; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <div style="display:flex;align-items:center;justify-content:center;gap:18px;margin-bottom:0.5rem">
+      <img src="/static/egeria-logo.png" alt="Egeria" style="height:36px">
+      <img src="/static/pdr-logo.png"    alt="PDR"    style="height:36px">
+    </div>
+    <h1>Create Your Account</h1>
+    <p>Egeria Demo Environment · Coco Pharmaceuticals</p>
+  </div>
+
+  <div id="form-view">
+    <label for="displayName">Your name</label>
+    <input type="text" id="displayName" placeholder="Jane Smith" autocomplete="name">
+
+    <label for="org">Organisation <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+    <input type="text" id="org" placeholder="Acme Corp">
+
+    <label for="email">Email address</label>
+    <input type="email" id="email" placeholder="you@example.com" autocomplete="email">
+
+    <label for="password">Password</label>
+    <input type="password" id="password" placeholder="Min. 8 characters" autocomplete="new-password">
+    <p class="hint">At least 8 characters</p>
+
+    <label for="confirm">Confirm password</label>
+    <input type="password" id="confirm" placeholder="••••••••" autocomplete="new-password">
+
+    <button class="btn" id="registerBtn" onclick="doRegister()">Create Account</button>
+    <div class="msg" id="regMsg"></div>
+    <p class="terms">By registering you agree to our <a href="/privacy" target="_blank">Privacy Policy</a>. This is a public demo environment.</p>
+    <div class="divider"></div>
+    <div class="links">Already have an account? <a href="/login">Sign in</a></div>
+  </div>
+
+  <div id="success-view">
+    <div class="icon">📬</div>
+    <h2>Check your inbox</h2>
+    <p>We've sent a verification link to <strong id="sentTo"></strong>.<br>Click the link to activate your account and start exploring.</p>
+    <button class="btn-outline" id="resendBtn" onclick="doResend()">Resend verification email</button>
+    <div class="resend-msg" id="resendMsg"></div>
+    <div class="divider"></div>
+    <div class="links"><a href="/login">Back to sign in</a></div>
+  </div>
+</div>
+
+<script>
+  var _registeredEmail = '';
+
+  // Redirect if already authenticated
+  fetch('/api/auth/me').then(r => r.json()).then(d => {
+    if (d.authenticated) window.location.href = '/portal';
+  }).catch(() => {});
+
+  function showMsg(type, text) {
+    var el = document.getElementById('regMsg');
+    el.className = 'msg ' + type;
+    el.textContent = text;
+    el.style.display = 'block';
+  }
+
+  function doRegister() {
+    var displayName = document.getElementById('displayName').value.trim();
+    var org = document.getElementById('org').value.trim();
+    var email = document.getElementById('email').value.trim();
+    var password = document.getElementById('password').value;
+    var confirm = document.getElementById('confirm').value;
+
+    if (!displayName) { showMsg('error', 'Please enter your name.'); return; }
+    if (!email) { showMsg('error', 'Please enter your email address.'); return; }
+    if (password.length < 8) { showMsg('error', 'Password must be at least 8 characters.'); return; }
+    if (password !== confirm) { showMsg('error', 'Passwords do not match.'); return; }
+
+    var btn = document.getElementById('registerBtn');
+    btn.disabled = true; btn.textContent = 'Creating account…';
+
+    var body = { display_name: displayName, email: email, password: password };
+    if (org) body.org = org;
+
+    fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then(function(r) {
+      return r.json().then(function(d) { return { ok: r.ok, data: d }; });
+    }).then(function(res) {
+      btn.disabled = false; btn.textContent = 'Create Account';
+      if (res.ok) {
+        _registeredEmail = email;
+        document.getElementById('form-view').style.display = 'none';
+        document.getElementById('sentTo').textContent = email;
+        document.getElementById('success-view').style.display = 'block';
+      } else {
+        showMsg('error', res.data.detail || 'Registration failed. Please try again.');
+      }
+    }).catch(function() {
+      btn.disabled = false; btn.textContent = 'Create Account';
+      showMsg('error', 'Network error — please try again.');
+    });
+  }
+
+  function doResend() {
+    if (!_registeredEmail) return;
+    var btn = document.getElementById('resendBtn');
+    var msg = document.getElementById('resendMsg');
+    btn.disabled = true; btn.textContent = 'Sending…';
+    fetch('/api/auth/resend-verification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: _registeredEmail }),
+    }).then(function(r) { return r.json(); }).then(function() {
+      msg.style.color = 'var(--success)';
+      msg.textContent = 'Sent! Check your inbox (and spam folder).';
+      btn.textContent = 'Resend verification email';
+      // Re-enable after 30s to prevent spam
+      setTimeout(function() { btn.disabled = false; msg.textContent = ''; }, 30000);
+    }).catch(function() {
+      msg.style.color = 'var(--error)';
+      msg.textContent = 'Network error — please try again.';
+      btn.disabled = false; btn.textContent = 'Resend verification email';
+    });
+  }
+</script>
+</body>
+</html>

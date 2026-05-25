@@ -48,8 +48,9 @@ from contextlib import redirect_stderr, redirect_stdout
 from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from pyegeria import print_basic_exception
 import pyegeria
@@ -176,15 +177,80 @@ from dr_egeria_commands_handler import router as dr_egeria_commands_router
 app.include_router(dr_egeria_commands_router)
 from isc_handler import router as isc_router
 app.include_router(isc_router)
-# Mount the MCP SSE application
-# FastMCP.sse_app() returns a Starlette app with /sse and /messages routes
-mcp_app = mcp_server.sse_app()
-app.mount("/", mcp_app)
 
+# ── Demo mode ──────────────────────────────────────────────────────────────────
+from demo_config import DEMO_MODE
+
+if DEMO_MODE:
+    from demo_auth_handler import router as demo_auth_router
+    app.include_router(demo_auth_router)
 
 @app.get("/")
 async def health():
     return {"status": "ok", "service": "dr-egeria-md"}
+
+
+# ── Demo page routes ───────────────────────────────────────────────────────────
+
+@app.get("/login", include_in_schema=False)
+async def login_page():
+    if not DEMO_MODE:
+        return RedirectResponse(url="/egeria-explorer")
+    html_path = SCRIPT_DIR / "demo-login.html"
+    if not html_path.exists():
+        raise HTTPException(status_code=404, detail="Login page not found")
+    return FileResponse(str(html_path), media_type="text/html")
+
+
+@app.get("/register", include_in_schema=False)
+async def register_page():
+    if not DEMO_MODE:
+        return RedirectResponse(url="/egeria-explorer")
+    html_path = SCRIPT_DIR / "demo-register.html"
+    if not html_path.exists():
+        raise HTTPException(status_code=404, detail="Register page not found")
+    return FileResponse(str(html_path), media_type="text/html")
+
+
+@app.get("/admin", include_in_schema=False)
+async def admin_page(request: Request):
+    if not DEMO_MODE:
+        return RedirectResponse(url="/egeria-explorer")
+    from demo_auth_handler import get_current_user
+    from demo_db import get_engine
+    from sqlalchemy.orm import Session
+    with Session(get_engine()) as db:
+        user = get_current_user(request, db)
+    if not user or not user.verified or user.role != "admin":
+        return RedirectResponse(url="/login", status_code=302)
+    html_path = SCRIPT_DIR / "demo-admin.html"
+    if not html_path.exists():
+        raise HTTPException(status_code=404, detail="Admin page not found")
+    return FileResponse(str(html_path), media_type="text/html")
+
+
+@app.get("/privacy", include_in_schema=False)
+async def privacy_page():
+    html_path = SCRIPT_DIR / "demo-privacy.html"
+    if not html_path.exists():
+        raise HTTPException(status_code=404, detail="Privacy page not found")
+    return FileResponse(str(html_path), media_type="text/html")
+
+
+@app.get("/portal", include_in_schema=False)
+async def portal_page(request: Request):
+    if DEMO_MODE:
+        from demo_auth_handler import get_current_user
+        from demo_db import get_engine
+        from sqlalchemy.orm import Session
+        with Session(get_engine()) as db:
+            user = get_current_user(request, db)
+        if not user or not user.verified:
+            return RedirectResponse(url="/login", status_code=302)
+    html_path = SCRIPT_DIR / "demo-portal.html"
+    if not html_path.exists():
+        raise HTTPException(status_code=404, detail="Portal page not found")
+    return FileResponse(str(html_path), media_type="text/html")
 
 
 def _stringify_env_value(value: Any) -> str:
@@ -483,6 +549,25 @@ async def refresh_commands():
         raise HTTPException(status_code=500, detail=f"Refresh failed: {e}")
 
 
+@app.on_event("startup")
+async def on_startup():
+    from demo_config import DEMO_MODE
+    if DEMO_MODE:
+        from demo_db import bootstrap_admin
+        bootstrap_admin()
+
+
 @app.on_event("shutdown")
 async def on_shutdown():
     executor.shutdown(wait=True)
+
+
+# Static assets (logos, etc.) — must be mounted before the "/" catch-all below.
+_static_dir = SCRIPT_DIR / "static"
+if _static_dir.is_dir():
+    app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+
+# Mount MCP SSE app last — mounting at "/" is a catch-all and must come after
+# all @app.get() / include_router() registrations or it intercepts them first.
+mcp_app = mcp_server.sse_app()
+app.mount("/", mcp_app)
