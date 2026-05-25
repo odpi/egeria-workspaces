@@ -403,6 +403,60 @@ The OpenAPI endpoint data always comes from the live platform and is cached for 
 POST http://localhost:8085/api/rest-apis/refresh
 ```
 
+#### Solution Architect
+
+Browses Egeria's solution architecture artefacts — blueprints and solution components.
+
+Two sub-navigations selectable from the left sidebar header:
+
+**Blueprints** — a list of all `SolutionBlueprint` elements. Selecting one loads its detail: display name, description, lifecycle status, qualified name, and the list of components it contains (each component linkable to the Components view). A **▦ Load Context Diagram** button is available for every blueprint.
+
+**Components** — all `SolutionComponent` elements, independently browsable. Detail panel shows component type, version, description, and a list of implementations (linked assets or deployed capabilities). Components link back to the blueprints they belong to. Context diagrams available for each component.
+
+#### Data Design
+
+Browses Egeria's data design artefacts: Data Specs, Data Structures, Data Fields, Data Grains, and Data Classes.
+
+Five sub-navigations in the left sidebar:
+
+- **Specs** — `DataSpec` (a Collection subtype) elements representing named data requirements.
+- **Structures** — `DataStructure` elements, groupings of Data Fields.
+- **Fields** — `DataField` elements, individual field definitions within a structure.
+- **Grains** — `DataGrain` elements, the unit of data in a Data Spec.
+- **Classes** — `DataClass` elements, reusable data type classifications.
+
+Each sub-view has a search filter and shows element cards. Selecting an element opens its detail panel with all properties plus linked related elements (e.g., the parent structure for a field, or the data class assigned to a field). Context diagrams are available for all element types.
+
+#### Perspectives
+
+Browses Egeria's governance perspectives — structured viewpoints used to reason about the metadata from specific stakeholder angles.
+
+Two sub-navigations:
+
+**Perspectives** — All `ActorProfile` elements whose type is "Perspective". Each perspective has a description and is linked to a set of Questions via `ScopedBy` relationships. The detail panel shows all linked Questions.
+
+**Questions** — All `GlossaryTerm` elements carrying the `Question` classification. Questions represent governance concerns or decision points. Detail shows the term's summary, description, and linked Perspectives. Uses `GlossaryManager.find_glossary_terms` with `include_only_classified_elements=["Question"]` and `graph_query_depth=2` to ensure classifications are included in the response.
+
+#### Dr. Egeria Commands
+
+Browsable reference for all Dr. Egeria markdown command templates, plus an in-browser execution panel.
+
+**Commands tab** — Three-column layout:
+
+- *Left* — command families grouped by level (Basic / Advanced). Click a family to see its commands in the middle column.
+- *Middle* — command list for the selected family, with title, description, and a "Create / Update" or "Link / Unlink" dual-verb badge where applicable.
+- *Right* — command detail: full parameter list with required/optional status, a pre-filled markdown template, and an Execute panel.
+
+**Execute panel** — Fills in the markdown template with values entered in the parameter fields. A **Verb** row (shown when a counterpart verb exists) lets you switch between e.g. Create and Update before running. A testing disclaimer reminds users this executes real Egeria writes. Click **Run** to POST to `/api/dr-egeria/execute` and see the result markdown inline.
+
+No Egeria connection is required to browse command templates. Executing a command does require a running Egeria instance and valid credentials in the connection context.
+
+#### Supply Chains
+
+Browses Egeria's Information Supply Chain (ISC) elements.
+
+Left sidebar lists all `InformationSupplyChain` elements with a search filter. Selecting one loads the detail panel: display name, description, scope, lifecycle status, and the full relationship graph including `InformationSupplyChainLink` segments. A **▦ Load Context Diagram** and a **▦ Load Full Graph** button are available.
+
 ---
 
 ### Context diagrams (all sections)
@@ -501,6 +555,80 @@ Query params: `url` (platform URL, overrides env). Fetches `/v3/api-docs` from t
 **`POST /api/rest-apis/refresh`** — Clear the OpenAPI spec cache.
 
 Query param: `url` (clears only that platform's entry; clears all if omitted).
+
+#### Solution Architect
+
+**`GET /api/solution/blueprints`** — All solution blueprints.
+
+Query params: `url`, `server`, `user_id`, `user_pwd`.
+
+Response: `[{ guid, displayName, qualifiedName, description, lifecycleStatus, components: [{guid, displayName, qualifiedName, componentType}] }]`.
+
+**`GET /api/solution/blueprints/{guid}`** — Full detail for a single blueprint.
+
+**`GET /api/solution/components`** — All solution components.
+
+Response: `[{ guid, displayName, qualifiedName, componentType, description, mermaidGraph }]`.
+
+**`GET /api/solution/components/{guid}`** — Full detail for a single component.
+
+**`GET /api/solution/components/{guid}/implementations`** — Implementation elements linked to a component.
+
+#### Data Design
+
+**`GET /api/data-design/specs`** — All DataSpec elements (Collection subtypes).
+
+**`GET /api/data-design/structures`** — All DataStructure elements.
+
+**`GET /api/data-design/fields`** — All DataField elements.
+
+**`GET /api/data-design/grains`** — All DataGrain elements.
+
+**`GET /api/data-design/classes`** — All DataClass elements.
+
+All list endpoints accept `url`, `server`, `user_id`, `user_pwd` query params.
+
+**`GET /api/data-design/specs/{guid}`** — Full detail for a DataSpec.
+
+**`GET /api/data-design/structures/{guid}`** — Full detail for a DataStructure.
+
+**`GET /api/data-design/fields/{guid}`** — Full detail for a DataField.
+
+#### Perspectives
+
+**`GET /api/perspectives`** — All Perspective actor profiles.
+
+Response: `[{ guid, displayName, qualifiedName, description, typeName }]`.
+
+**`GET /api/perspectives/{perspective_guid}`** — Full detail for a single Perspective, including linked Questions.
+
+**`GET /api/questions`** — All GlossaryTerms with the `Question` classification.
+
+Query params: `start_from` (default 0), `page_size` (default 100), plus standard connection params.
+
+**`GET /api/questions/{question_guid}`** — Full detail for a single Question.
+
+#### Dr. Egeria Commands
+
+**`GET /api/dr-egeria/commands`** — All command templates grouped by level and family.
+
+No Egeria connection required. Response: `{ basic: { familyName: [{ title, description, params, template }] }, advanced: {...} }`.
+
+**`POST /api/dr-egeria/execute`** — Execute a command block.
+
+Body: `{ title, params, directive, url, server, user_id, user_pwd }`. Builds a markdown block and calls `dr_egeria_md.process_md_file`. Returns the output markdown.
+
+#### Information Supply Chains
+
+**`GET /api/isc`** — All information supply chain elements.
+
+Response: `[{ guid, displayName, qualifiedName, description, scope, lifecycleStatus, mermaidGraph, ... }]`.
+
+**`GET /api/isc/{guid}`** — Full detail for a single information supply chain.
+
+#### Demo mode
+
+See [demo-mode.md](demo-mode.md) for the complete auth and admin API reference.
 
 ---
 

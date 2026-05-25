@@ -215,6 +215,36 @@
     .copy-btn:hover { background: var(--hover); color: var(--text); }
     .api-props-type { font-family: ui-monospace,monospace; font-size: 12px; color: var(--classif);
                       font-weight: 600; }
+
+    /* ── Persona picker overlay ──────────────────────────────── */
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.82); z-index: 1000;
+               display: flex; align-items: center; justify-content: center;
+               backdrop-filter: blur(4px); }
+    .persona-modal { background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+                     padding: 28px 24px; width: min(860px,96vw); max-height: 90vh; overflow-y: auto; }
+    .persona-modal h2 { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; }
+    .persona-modal > p { font-size: 0.8rem; color: var(--muted); margin-bottom: 18px; }
+    .persona-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 10px; }
+    .persona-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+                    padding: 13px; cursor: pointer; transition: border-color .15s, background .15s; }
+    .persona-card:hover { border-color: var(--accent); background: rgba(96,165,250,.06); }
+    .persona-card.pcActive { border-color: var(--accent); background: rgba(96,165,250,.1); }
+    .persona-name { font-size: 0.88rem; font-weight: 700; margin-bottom: 1px; }
+    .persona-title { font-size: 0.73rem; color: var(--muted); margin-bottom: 7px; }
+    .persona-bio { font-size: 0.73rem; color: var(--dim); line-height: 1.45; margin-bottom: 7px; }
+    .persona-hl { padding-left: 1rem; margin: 0; }
+    .persona-hl li { font-size: 0.7rem; color: var(--muted); margin-bottom: 2px; list-style: disc; }
+    .diff-badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 0.68rem;
+                  font-weight: 700; margin-bottom: 5px; letter-spacing: .3px; }
+    .diff-Starter   { background: rgba(52,211,153,.15);  color: #34d399; }
+    .diff-Business  { background: rgba(251,191,36,.15);  color: #fbbf24; }
+    .diff-Technical { background: rgba(167,139,250,.15); color: #c4b5fd; }
+    .persona-badge-btn { background: rgba(96,165,250,.1); border: 1px solid rgba(96,165,250,.3);
+                         color: var(--accent); border-radius: 20px; padding: 3px 10px; font-size: 11px;
+                         cursor: pointer; font-family: inherit; white-space: nowrap; }
+    .persona-badge-btn:hover { background: rgba(96,165,250,.2); }
+    :root.light .persona-card { background: var(--card); }
+    :root.light .persona-modal { background: var(--panel); }
   </style>
   <!-- Mermaid diagram rendering (loaded synchronously so it's available when app script runs) -->
   <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
@@ -5605,7 +5635,94 @@ function SolutionArchitectView() {
   );
 }
 
+// ── Persona Picker ────────────────────────────────────────────────────────────
+
+function PersonaPickerModal({ onSelect, currentPersonaId }) {
+  var _useState = useState({}), personas = _useState[0], setPersonas = _useState[1];
+  var _useState2 = useState(true), loading = _useState2[0], setLoading = _useState2[1];
+  var _useState3 = useState(null), selecting = _useState3[0], setSelecting = _useState3[1];
+
+  useEffect(function() {
+    fetch('/api/demo/personas').then(function(r) { return r.json(); }).then(function(data) {
+      setPersonas(data); setLoading(false);
+    }).catch(function() { setLoading(false); });
+  }, []);
+
+  function selectPersona(id) {
+    setSelecting(id);
+    fetch('/api/demo/select-persona', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ persona: id })
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      onSelect({ id: id, data: data, personaInfo: personas[id] });
+      setSelecting(null);
+    }).catch(function() { setSelecting(null); });
+  }
+
+  return React.createElement('div', { className: 'overlay' },
+    React.createElement('div', { className: 'persona-modal' },
+      React.createElement('h2', null, '🎭 Choose your Coco Pharmaceuticals persona'),
+      React.createElement('p', null, 'You will explore Egeria as this team member. Your Egeria credentials will update automatically.'),
+      loading
+        ? React.createElement('div', { style: { textAlign: 'center', padding: '40px', color: 'var(--muted)' } }, 'Loading personas…')
+        : React.createElement('div', { className: 'persona-grid' },
+            Object.entries(personas).map(function(entry) {
+              var id = entry[0], p = entry[1];
+              var isActive = id === currentPersonaId;
+              var isBusy = selecting === id;
+              return React.createElement('div', {
+                key: id,
+                className: 'persona-card' + (isActive ? ' pcActive' : ''),
+                onClick: function() { if (!selecting) selectPersona(id); }
+              },
+                React.createElement('span', { className: 'diff-badge diff-' + (p.difficulty || 'Starter') }, p.difficulty || 'Starter'),
+                React.createElement('div', { className: 'persona-name' }, p.display_name),
+                React.createElement('div', { className: 'persona-title' }, p.coco_title),
+                React.createElement('div', { className: 'persona-bio' }, p.bio),
+                p.highlights && React.createElement('ul', { className: 'persona-hl' },
+                  p.highlights.map(function(h, i) { return React.createElement('li', { key: i }, h); })
+                ),
+                isBusy && React.createElement('div', { style: { marginTop: 8, fontSize: 11, color: 'var(--accent)' } }, 'Selecting…')
+              );
+            })
+          )
+    )
+  );
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
+
 function App() {
+  // Demo mode state — set if /api/auth/me returns authenticated: true
+  var _demoState = useState(false), demoMode = _demoState[0], setDemoMode = _demoState[1];
+  var _personaState = useState(function() {
+    try { var s = localStorage.getItem('egeria-persona'); return s ? JSON.parse(s) : null; } catch(e) { return null; }
+  }), activePersona = _personaState[0], setActivePersona = _personaState[1];
+  var _showPickerState = useState(false), showPersonaPicker = _showPickerState[0], setShowPersonaPicker = _showPickerState[1];
+
+  // Check auth/demo mode on first load
+  useEffect(function() {
+    fetch('/api/auth/me').then(function(r) { return r.json(); }).then(function(me) {
+      if (me.authenticated) {
+        setDemoMode(true);
+        // If no persona chosen yet, show the picker
+        var storedPersona = null;
+        try { var s = localStorage.getItem('egeria-persona'); storedPersona = s ? JSON.parse(s) : null; } catch(e) {}
+        if (!storedPersona) { window.location.href = '/portal'; return; }
+      }
+    }).catch(function() {});
+  }, []);
+
+  function applyPersona(sel) {
+    // sel = { id, data: { egeria_user, egeria_password, display_name, coco_title, persona }, personaInfo }
+    var newCreds = { url: creds.url, server: creds.server, userId: sel.data.egeria_user, password: sel.data.egeria_password };
+    saveCreds(newCreds);
+    var info = { id: sel.id, display_name: sel.data.display_name, coco_title: sel.data.coco_title };
+    setActivePersona(info);
+    try { localStorage.setItem('egeria-persona', JSON.stringify(info)); } catch(e) {}
+    setShowPersonaPicker(false);
+  }
+
   const [creds, setCreds] = useState(function() {
     try {
       var s = localStorage.getItem('egeria-creds');
@@ -5782,7 +5899,12 @@ function App() {
         className: "theme-btn",
         onClick: () => setTheme(t => t === 'dark' ? 'light' : 'dark'),
         title: theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
-      }, theme === 'dark' ? "\u2600 Light" : "\u263E Dark")
+      }, theme === 'dark' ? "\u2600 Light" : "\u263E Dark"),
+      demoMode && activePersona && React.createElement(React.Fragment, null,
+        React.createElement('span', { className: 'persona-badge-btn', title: activePersona.coco_title || '' }, '\uD83C\uDFAD ' + activePersona.display_name),
+        React.createElement('a', { className: 'theme-btn', style: { marginLeft: 4, textDecoration: 'none' }, href: '/portal' }, 'Portal')
+      ),
+      demoMode && !activePersona && React.createElement('a', { className: 'persona-badge-btn', href: '/portal' }, '\uD83C\uDFAD Choose persona')
     ),
     // Body \u2014 dispatches to section, then to Type System sub-view
     section === 'splash'
@@ -5825,7 +5947,11 @@ function App() {
               /*#__PURE__*/React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a type from the sidebar")
             )
           )
-        )
+        ),
+    showPersonaPicker && React.createElement(PersonaPickerModal, {
+      onSelect: applyPersona,
+      currentPersonaId: activePersona ? activePersona.id : null
+    })
   ));
 }
 ReactDOM.createRoot(document.getElementById('root')).render(/*#__PURE__*/React.createElement(App, null));</script>

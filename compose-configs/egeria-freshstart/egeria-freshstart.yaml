@@ -82,12 +82,25 @@ services:
       EGERIA_INBOX_PATH: "dr-egeria-inbox"
       EGERIA_OUTBOX_PATH: "dr-egeria-outbox"
       MCP_ACCESS_TOKEN: "egeria-secret-mcp-token"
+      # ── Demo mode ────────────────────────────────────────────────────────────
+      DEMO_MODE: "false"
+      DEMO_DB_PATH: "/app/demo-data/demo.db"
+      JWT_SECRET: "${JWT_SECRET:-change-me-before-going-public}"
+      SITE_URL: "http://localhost:8086"
+      SMTP_HOST: ""
+      SMTP_PORT: "587"
+      SMTP_USER: ""
+      SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
+      SMTP_FROM: ""
+      ADMIN_BOOTSTRAP_EMAIL: "${ADMIN_BOOTSTRAP_EMAIL:-}"
+      ADMIN_BOOTSTRAP_PASSWORD: "${ADMIN_BOOTSTRAP_PASSWORD:-}"
     volumes:
       - ./PyegeriaWebHandler:/app
       - ../../exchange-freshstart/distribution-hub/dr-egeria-outbox:/dr-egeria-outbox
       - ../../exchange-freshstart/loading-bay/dr-egeria-inbox:/dr-egeria-inbox
       - ../../exchange-freshstart/config:/config
       - ../../templates:/app/templates
+      - ../../runtime-volumes/freshstart-demo-data:/app/demo-data
     depends_on:
       - freshstart-egeria-main
     command: uvicorn pyegeria_handler:app --host :: --port 8000 --reload --loop asyncio
@@ -107,7 +120,7 @@ services:
       - ../../exchange-freshstart/loading-bay/dr-egeria-inbox:/usr/local/apache2/htdocs/dr-egeria-inbox
       - ../egeria-quickstart/httpd.conf:/usr/local/apache2/conf/httpd.conf
       - ../egeria-quickstart/sites-available/fastapi-proxy.conf:/usr/local/apache2/conf/extra/fastapi-proxy.conf
-      - ../../runtime-volumes/freshstart-apache-web/site:/usr/local/apache2/htdocs
+      - ../../runtime-volumes/freshstart-apache-web/site:/usr/local/apache2/htdocs/local # static site served at /local
       - ../egeria-quickstart/markdown-header.html:/usr/local/apache2/conf/markdown-header.html
       - ../../runtime-volumes/freshstart-apache-web/ErrorLogs:/usr/local/apache2/logs
       - ../../workspaces/Dr-Egeria-Samples:/usr/local/apache2/htdocs/Dr-Egeria-Samples

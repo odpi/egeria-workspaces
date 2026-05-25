@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Egeria Explorer — Privacy Policy</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg: #0f1117; --card: #1a1d27; --border: #2e3246; --accent: #6366f1; --text: #e2e4f0; --muted: #8b8fa8; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; padding: 2rem 1rem; }
+    .container { max-width: 700px; margin: 0 auto; }
+    .back { display: inline-block; margin-bottom: 1.5rem; color: var(--accent); text-decoration: none; font-size: 0.85rem; }
+    .back:hover { text-decoration: underline; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.4rem; }
+    .meta { font-size: 0.8rem; color: var(--muted); margin-bottom: 2rem; }
+    h2 { font-size: 1rem; color: var(--text); margin-top: 1.75rem; margin-bottom: 0.6rem; }
+    p, li { font-size: 0.88rem; color: #c4c7d8; line-height: 1.65; margin-bottom: 0.75rem; }
+    ul { padding-left: 1.25rem; }
+    li { margin-bottom: 0.4rem; }
+    .callout { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin: 1.5rem 0; font-size: 0.86rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <a href="/login" class="back">← Back</a>
+  <h1>Privacy Policy</h1>
+  <p class="meta">Egeria Explorer Demo · Last updated May 2025</p>
+
+  <div class="callout">
+    <strong>This is a public demo environment.</strong> It uses fictional data from the open-source Coco Pharmaceuticals dataset. Do not enter real personal, medical, or commercially sensitive information.
+  </div>
+
+  <h2>What we collect</h2>
+  <p>When you register for a demo account we collect:</p>
+  <ul>
+    <li>Your name and email address (used solely for account management)</li>
+    <li>Your organisation name (optional)</li>
+    <li>A bcrypt-hashed password — we never store your plain-text password</li>
+  </ul>
+  <p>During your session we log basic activity events (login, persona selection) to help us improve the demo experience.</p>
+
+  <h2>How we use your data</h2>
+  <ul>
+    <li>To create and authenticate your demo account</li>
+    <li>To send you a one-time email verification link and, if you request it, a password-reset link</li>
+    <li>To understand how the demo is being used (aggregate usage only)</li>
+  </ul>
+  <p>We do not sell, share, or transfer your personal data to third parties.</p>
+
+  <h2>Data retention</h2>
+  <p>Demo account data is retained for as long as the demo environment is active. You can request deletion at any time by emailing the address below. The demo Egeria metadata store is periodically reset and is unrelated to your account data.</p>
+
+  <h2>Cookies and sessions</h2>
+  <p>We use a single HTTPOnly session cookie (<code>demo_token</code>) to maintain your login. This cookie is not used for tracking and expires when your session ends (or after 2 hours of inactivity for standard users).</p>
+
+  <h2>Security</h2>
+  <p>Passwords are hashed with bcrypt. Session tokens are signed JWTs with short expiry windows. Communication is over HTTPS. Despite these measures, please treat this as a demo environment — do not reuse passwords from other services.</p>
+
+  <h2>Contact</h2>
+  <p>Questions or data-removal requests: open an issue on the <a href="https://github.com/odpi/egeria" target="_blank">Egeria GitHub project</a> or reach the Egeria community via the <a href="https://lfaifoundation.slack.com" target="_blank">LF AI &amp; Data Slack</a>.</p>
+</div>
+</body>
+</html>

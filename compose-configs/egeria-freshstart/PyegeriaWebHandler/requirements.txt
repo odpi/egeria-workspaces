@@ -10,3 +10,12 @@ loguru
 rich
 click
 mcp >=1.15.0
+
+# Demo-mode dependencies
+sqlalchemy
+bcrypt
+python-jose[cryptography]
+python-multipart
+slowapi
+apscheduler
+docker

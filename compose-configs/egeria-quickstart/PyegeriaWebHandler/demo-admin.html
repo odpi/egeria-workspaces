@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Egeria Demo Environment — Admin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117; --card: #1a1d27; --border: #2e3246;
+      --accent: #6366f1; --accent-hover: #4f52d6; --accent-dim: #1e2042;
+      --text: #e2e4f0; --muted: #8b8fa8; --error: #f87171; --success: #34d399;
+      --warn: #fbbf24; --trow: #1e2133;
+    }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; }
+    .topbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 1rem; }
+    .topbar .title { font-size: 1rem; font-weight: 700; }
+    .topbar .subtitle { font-size: 0.8rem; color: var(--muted); }
+    .topbar .spacer { flex: 1; }
+    .topbar .user { font-size: 0.8rem; color: var(--muted); }
+    .topbar a.btn-sm { padding: 0.3rem 0.75rem; background: var(--accent-dim); color: var(--text); border: 1px solid var(--border); border-radius: 5px; font-size: 0.78rem; text-decoration: none; cursor: pointer; }
+    .topbar a.btn-sm:hover { background: var(--accent); }
+    .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); background: var(--card); padding: 0 1.5rem; }
+    .tab { padding: 0.65rem 1.1rem; font-size: 0.85rem; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; transition: all 0.15s; }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .content { padding: 1.5rem; max-width: 1100px; margin: 0 auto; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .section-title { font-size: 0.9rem; font-weight: 600; margin-bottom: 1rem; color: var(--text); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    thead th { text-align: left; padding: 0.5rem 0.75rem; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 500; }
+    tbody tr { border-bottom: 1px solid var(--border); }
+    tbody tr:hover { background: var(--trow); }
+    tbody td { padding: 0.55rem 0.75rem; vertical-align: middle; }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.73rem; font-weight: 600; }
+    .badge-admin { background: rgba(99,102,241,0.2); color: #a5b4fc; }
+    .badge-user { background: rgba(139,143,168,0.15); color: var(--muted); }
+    .badge-ok { background: rgba(52,211,153,0.15); color: var(--success); }
+    .badge-no { background: rgba(248,113,113,0.12); color: var(--error); }
+    .btn-xs { padding: 0.25rem 0.6rem; font-size: 0.72rem; border-radius: 4px; cursor: pointer; border: 1px solid var(--border); background: var(--bg); color: var(--text); transition: all 0.1s; }
+    .btn-xs:hover { background: var(--accent-dim); border-color: var(--accent); }
+    .btn-xs.danger:hover { background: rgba(248,113,113,0.15); border-color: var(--error); color: var(--error); }
+    .msg-banner { padding: 0.6rem 0.9rem; border-radius: 6px; font-size: 0.82rem; margin-bottom: 1rem; display: none; }
+    .msg-banner.error { background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.35); color: var(--error); }
+    .msg-banner.success { background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.35); color: var(--success); }
+    .config-table { width: 100%; border-collapse: collapse; }
+    .config-table tr { border-bottom: 1px solid var(--border); }
+    .config-table td { padding: 0.6rem 0.75rem; font-size: 0.83rem; vertical-align: middle; }
+    .config-table td:first-child { color: var(--muted); width: 42%; font-family: monospace; }
+    .config-table input { padding: 0.35rem 0.55rem; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 0.82rem; width: 160px; }
+    .config-table input:focus { border-color: var(--accent); outline: none; }
+    .empty { color: var(--muted); font-size: 0.84rem; padding: 2rem; text-align: center; }
+    .stats-row { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; flex: 1; min-width: 140px; }
+    .stat-card .num { font-size: 1.6rem; font-weight: 700; color: var(--accent); }
+    .stat-card .label { font-size: 0.76rem; color: var(--muted); margin-top: 0.25rem; }
+    .refresh-btn { float: right; padding: 0.3rem 0.75rem; background: var(--accent-dim); border: 1px solid var(--border); color: var(--text); border-radius: 5px; font-size: 0.78rem; cursor: pointer; }
+    .refresh-btn:hover { background: var(--accent); }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <img src="/static/egeria-logo.png" alt="Egeria" style="height:24px">
+      <img src="/static/pdr-logo.png"    alt="PDR"    style="height:24px">
+      <div>
+        <div class="title">Egeria Demo Environment · Admin</div>
+        <div class="subtitle">Coco Pharmaceuticals · Management Console</div>
+      </div>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <span class="user" id="adminName"></span>
+  <a href="/egeria-explorer" class="btn-sm">Explorer ↗</a>
+  <a href="#" class="btn-sm" onclick="doLogout()">Sign Out</a>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('users')">Users</div>
+  <div class="tab" onclick="showTab('events')">Events</div>
+  <div class="tab" onclick="showTab('config')">Config</div>
+</div>
+
+<div class="content">
+  <div class="msg-banner" id="globalMsg"></div>
+
+  <!-- Users panel -->
+  <div class="panel active" id="panel-users">
+    <button class="refresh-btn" onclick="loadUsers()">↻ Refresh</button>
+    <div class="section-title">Registered Users</div>
+    <div class="stats-row">
+      <div class="stat-card"><div class="num" id="statTotal">—</div><div class="label">Total users</div></div>
+      <div class="stat-card"><div class="num" id="statVerified">—</div><div class="label">Verified</div></div>
+      <div class="stat-card"><div class="num" id="statAdmins">—</div><div class="label">Admins</div></div>
+    </div>
+    <table id="usersTable">
+      <thead><tr><th>Name</th><th>Email</th><th>Org</th><th>Role</th><th>Verified</th><th>Last Login</th><th>Actions</th></tr></thead>
+      <tbody id="usersBody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- Events panel -->
+  <div class="panel" id="panel-events">
+    <button class="refresh-btn" onclick="loadEvents()">↻ Refresh</button>
+    <div class="section-title">Recent Events</div>
+    <table>
+      <thead><tr><th>Time</th><th>User ID</th><th>Event</th><th>Detail</th></tr></thead>
+      <tbody id="eventsBody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- Config panel -->
+  <div class="panel" id="panel-config">
+    <div class="section-title">Runtime Configuration</div>
+    <table class="config-table" id="configTable">
+      <tbody id="configBody"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  var activeTab = 'users';
+
+  // Verify admin access on load
+  fetch('/api/auth/me').then(r => r.json()).then(function(d) {
+    if (!d.authenticated || d.role !== 'admin') {
+      window.location.href = '/login';
+      return;
+    }
+    document.getElementById('adminName').textContent = d.display_name;
+    loadUsers();
+  });
+
+  function showTab(name) {
+    activeTab = name;
+    document.querySelectorAll('.tab').forEach(function(t, i) {
+      t.classList.toggle('active', ['users','events','config'][i] === name);
+    });
+    document.querySelectorAll('.panel').forEach(function(p) {
+      p.classList.remove('active');
+    });
+    document.getElementById('panel-' + name).classList.add('active');
+    if (name === 'users') loadUsers();
+    if (name === 'events') loadEvents();
+    if (name === 'config') loadConfig();
+  }
+
+  function showGlobalMsg(type, text) {
+    var el = document.getElementById('globalMsg');
+    el.className = 'msg-banner ' + type;
+    el.textContent = text;
+    el.style.display = 'block';
+    setTimeout(function() { el.style.display = 'none'; }, 3500);
+  }
+
+  function fmt(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
+  }
+
+  function loadUsers() {
+    fetch('/api/demo/users').then(r => r.json()).then(function(users) {
+      if (!Array.isArray(users)) { document.getElementById('usersBody').innerHTML = '<tr><td colspan="7" class="empty">Error loading users</td></tr>'; return; }
+      document.getElementById('statTotal').textContent = users.length;
+      document.getElementById('statVerified').textContent = users.filter(u => u.verified).length;
+      document.getElementById('statAdmins').textContent = users.filter(u => u.role === 'admin').length;
+      if (!users.length) { document.getElementById('usersBody').innerHTML = '<tr><td colspan="7" class="empty">No users yet</td></tr>'; return; }
+      document.getElementById('usersBody').innerHTML = users.map(function(u) {
+        var roleBadge = u.role === 'admin' ? '<span class="badge badge-admin">admin</span>' : '<span class="badge badge-user">user</span>';
+        var verBadge = u.verified ? '<span class="badge badge-ok">✓</span>' : '<span class="badge badge-no">✗</span>';
+        var promoteBtn = u.role === 'admin'
+          ? '<button class="btn-xs" onclick="setRole(\''+u.id+'\',\'user\')">Demote</button>'
+          : '<button class="btn-xs" onclick="setRole(\''+u.id+'\',\'admin\')">Promote</button>';
+        var toggleBtn = u.verified
+          ? '<button class="btn-xs danger" onclick="disableUser(\''+u.id+'\')">Disable</button>'
+          : '<button class="btn-xs" style="color:var(--success);border-color:var(--success)" onclick="verifyUser(\''+u.id+'\')">Verify</button>';
+        var resendBtn = !u.verified
+          ? '<button class="btn-xs" onclick="adminResend(\''+u.id+'\',\''+esc(u.display_name)+'\')">Resend Email</button>'
+          : '';
+        var deleteBtn = '<button class="btn-xs danger" onclick="deleteUser(\''+u.id+'\',\''+esc(u.display_name)+'\')">Delete</button>';
+        return '<tr><td>'+esc(u.display_name)+'</td><td>'+esc(u.email)+'</td><td>'+(u.org ? esc(u.org) : '<span style="color:var(--muted)">—</span>')+'</td><td>'+roleBadge+'</td><td>'+verBadge+'</td><td>'+fmt(u.last_login)+'</td><td style="display:flex;gap:0.4rem;flex-wrap:wrap;padding:0.55rem 0.75rem">'+promoteBtn+' '+toggleBtn+' '+resendBtn+' '+deleteBtn+'</td></tr>';
+      }).join('');
+    }).catch(function() { document.getElementById('usersBody').innerHTML = '<tr><td colspan="7" class="empty">Failed to load users</td></tr>'; });
+  }
+
+  function setRole(userId, role) {
+    fetch('/api/demo/users/' + userId + '/role', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: role })
+    }).then(r => r.json()).then(function(d) {
+      showGlobalMsg('success', 'Role updated to ' + role);
+      loadUsers();
+    }).catch(function() { showGlobalMsg('error', 'Failed to update role'); });
+  }
+
+  function disableUser(userId) {
+    if (!confirm('Disable this user? They will not be able to log in until re-enabled.')) return;
+    fetch('/api/demo/users/' + userId + '/disable', { method: 'POST' })
+    .then(r => r.json()).then(function() {
+      showGlobalMsg('success', 'User disabled');
+      loadUsers();
+    }).catch(function() { showGlobalMsg('error', 'Failed to disable user'); });
+  }
+
+  function enableUser(userId) {
+    fetch('/api/demo/users/' + userId + '/enable', { method: 'POST' })
+    .then(r => r.json()).then(function() {
+      showGlobalMsg('success', 'User enabled');
+      loadUsers();
+    }).catch(function() { showGlobalMsg('error', 'Failed to enable user'); });
+  }
+
+  function verifyUser(userId) {
+    fetch('/api/demo/users/' + userId + '/enable', { method: 'POST' })
+    .then(r => r.json()).then(function() {
+      showGlobalMsg('success', 'User verified — they can now log in');
+      loadUsers();
+    }).catch(function() { showGlobalMsg('error', 'Failed to verify user'); });
+  }
+
+  function adminResend(userId, name) {
+    fetch('/api/demo/users/' + userId + '/resend-verification', { method: 'POST' })
+    .then(function(r) { return r.json(); }).then(function(d) {
+      if (d.verify_url) {
+        // Show the link so admin can share it manually if email failed
+        var msg = 'Email sent (or use link): ' + d.verify_url;
+        showGlobalMsg('success', 'Verification email sent to ' + name);
+        // Also show the raw link in a prompt for easy copying
+        prompt('Verification link for ' + name + ' (copy and share if email failed):', d.verify_url);
+      } else {
+        showGlobalMsg('success', 'Verification email sent to ' + name);
+      }
+    }).catch(function() { showGlobalMsg('error', 'Failed to resend — check SMTP config'); });
+  }
+
+  function deleteUser(userId, name) {
+    if (!confirm('Permanently delete "' + name + '"? This cannot be undone and will also delete their event history.')) return;
+    fetch('/api/demo/users/' + userId, { method: 'DELETE' })
+    .then(function(r) {
+      if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || 'Delete failed'); });
+      return r.json();
+    }).then(function() {
+      showGlobalMsg('success', '"' + name + '" deleted');
+      loadUsers();
+    }).catch(function(e) { showGlobalMsg('error', e.message || 'Failed to delete user'); });
+  }
+
+  function loadEvents() {
+    fetch('/api/demo/events?limit=200').then(r => r.json()).then(function(events) {
+      if (!Array.isArray(events)) { document.getElementById('eventsBody').innerHTML = '<tr><td colspan="4" class="empty">Error loading events</td></tr>'; return; }
+      if (!events.length) { document.getElementById('eventsBody').innerHTML = '<tr><td colspan="4" class="empty">No events yet</td></tr>'; return; }
+      document.getElementById('eventsBody').innerHTML = events.map(function(e) {
+        return '<tr><td>'+fmt(e.created_at)+'</td><td style="font-size:0.74rem;font-family:monospace;color:var(--muted)">'+esc(e.user_id||'—')+'</td><td><span class="badge badge-user">'+esc(e.event_type)+'</span></td><td style="font-size:0.76rem;color:var(--muted)">'+JSON.stringify(e.detail)+'</td></tr>';
+      }).join('');
+    }).catch(function() { document.getElementById('eventsBody').innerHTML = '<tr><td colspan="4" class="empty">Failed to load events</td></tr>'; });
+  }
+
+  function loadConfig() {
+    fetch('/api/demo/config').then(r => r.json()).then(function(cfg) {
+      if (typeof cfg !== 'object') { document.getElementById('configBody').innerHTML = '<tr><td colspan="3" class="empty">Error loading config</td></tr>'; return; }
+      document.getElementById('configBody').innerHTML = Object.entries(cfg).map(function(kv) {
+        return '<tr><td>'+esc(kv[0])+'</td><td><input id="cfg_'+esc(kv[0])+'" value="'+esc(kv[1]||'')+'"></td><td><button class="btn-xs" onclick="saveConfig(\''+esc(kv[0])+'\')">Save</button></td></tr>';
+      }).join('');
+    }).catch(function() { document.getElementById('configBody').innerHTML = '<tr><td colspan="3" class="empty">Failed to load config</td></tr>'; });
+  }
+
+  function saveConfig(key) {
+    var val = document.getElementById('cfg_'+key).value;
+    fetch('/api/demo/config', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: key, value: val })
+    }).then(r => r.json()).then(function() {
+      showGlobalMsg('success', key + ' updated');
+    }).catch(function() { showGlobalMsg('error', 'Failed to save config'); });
+  }
+
+  function doLogout() {
+    fetch('/api/auth/logout', { method: 'POST' }).then(function() {
+      window.location.href = '/login';
+    });
+  }
+
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+</body>
+</html>

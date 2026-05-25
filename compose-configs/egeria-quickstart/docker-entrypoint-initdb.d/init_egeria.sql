@@ -25,4 +25,9 @@ grant all privileges on database marquez to marquez_user;
 grant all privileges on database examples to example_user;
 ALTER DATABASE hive_metastore OWNER TO egeria_admin;
 GRANT ALL PRIVILEGES ON DATABASE hive_metastore TO egeria_admin;
-grant all privileges on database mlflow_db to mlflow_user
+grant all privileges on database mlflow_db to mlflow_user;
+
+-- Demo mode user registry (schema within the egeria database)
+\connect egeria
+CREATE SCHEMA IF NOT EXISTS demo;
+GRANT ALL ON SCHEMA demo TO egeria_admin, egeria_user;

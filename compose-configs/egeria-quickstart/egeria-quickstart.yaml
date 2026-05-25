@@ -109,12 +109,27 @@ services:
       EGERIA_INBOX_PATH: "."
       EGERIA_OUTBOX_PATH: "dr-egeria-outbox"
       MCP_ACCESS_TOKEN: "egeria-secret-mcp-token"
+      # ── Demo mode — set DEMO_MODE=true to enable public access with auth ──────
+      DEMO_MODE: "true"
+      DEMO_DB_PATH: "/app/demo-data/demo.db"
+      JWT_SECRET: "${JWT_SECRET:-change-me-before-going-public-meow}"
+      SITE_URL: "http://localhost:8085"
+      # SMTP — set SMTP_USER/PASSWORD in .env; if blank, falls back to ADMIN_BOOTSTRAP_EMAIL/PASSWORD
+      SMTP_HOST: "smtp.ionos.com"
+      SMTP_PORT: "465"
+      SMTP_SSL: "true"
+      SMTP_USER: "${SMTP_USER:-}"
+      SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
+      SMTP_FROM: "${SMTP_FROM:-}"
+      ADMIN_BOOTSTRAP_EMAIL: "${ADMIN_BOOTSTRAP_EMAIL:-}"
+      ADMIN_BOOTSTRAP_PASSWORD: "${ADMIN_BOOTSTRAP_PASSWORD:-}"
     volumes:
       - ./PyegeriaWebHandler:/app
       - ../../exchange-quickstart/config:/config
       - ../../work:/work
       - ../../coco-workbooks:/coco-workbooks
       - ../../templates:/app/templates
+      - ../../runtime-volumes/quickstart-demo-data:/app/demo-data
 # Mount the dr-egeria-inbox directory
 #    environment:
       # Pass environment variables to the container
@@ -134,7 +149,8 @@ services:
     container_name: quickstart-web-server
     user: "daemon:daemon"  # Explicitly set the user and group to match httpd.conf
     ports:
-      - "8085:8085"  # Map host port 8080 to container port 8080
+      - "8085:8085"
+      - "443:443"
     networks:
       - egeria_network
     volumes:
@@ -143,10 +159,11 @@ services:
 #      - ../../exchange-quickstart/loading-bay/dr-egeria-inbox:/usr/local/apache2/htdocs/dr-egeria-inbox  # Mount the dr-egeria-inbox directory
       - ./httpd.conf:/usr/local/apache2/conf/httpd.conf  # Use the fixed configuration file
       - ./sites-available/fastapi-proxy.conf:/usr/local/apache2/conf/extra/fastapi-proxy.conf  # Mount the FastAPI proxy vhost file
-      - ../../runtime-volumes/quickstart-apache-web/site:/usr/local/apache2/htdocs # mount site
+      - ../../runtime-volumes/quickstart-apache-web/site:/usr/local/apache2/htdocs/local # static site now served at /local
       - ./markdown-header.html:/usr/local/apache2/conf/markdown-header.html  # Mount the markdown viewer
       - ../../runtime-volumes/quickstart-apache-web/ErrorLogs:/usr/local/apache2/logs  # Mount the logs directory
       - ../../workspaces/Dr-Egeria-Samples:/usr/local/apache2/htdocs/Dr-Egeria-Samples  # Mount the Dr-Egeria-Samples directory
+      - /Users/dwolfson/Downloads/archive-2:/etc/ssl/egeria:ro  # TLS cert for egeria.pdr-associates.com
     depends_on:
       - pyegeria-web
 

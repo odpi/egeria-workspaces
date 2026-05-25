@@ -1,0 +1,142 @@
+{
+  "erinoverview": {
+    "password": "secret",
+    "display_name": "Erin Overview",
+    "coco_title": "IT Project Leader",
+    "bio": "Erin is responsible for IT operations and the rollout of Egeria across Coco Pharmaceuticals. She sees the broadest view of the metadata landscape and is the natural starting point for anyone new to the system.",
+    "highlights": [
+      "Full view across all Explorer tabs",
+      "Sees governance zones, glossary, and data assets",
+      "Good starting point for understanding the whole environment"
+    ],
+    "starter": true,
+    "difficulty": "Starter",
+    "profile_url": "https://egeria-project.org/practices/coco-pharmaceuticals/personas/erin-overview/"
+  },
+  "peterprofile": {
+    "password": "secret",
+    "display_name": "Peter Profile",
+    "coco_title": "Chief Data Officer",
+    "bio": "Peter is the CDO driving Coco's data governance strategy. He focuses on how Egeria's solution blueprints and governance frameworks connect business goals to data practices.",
+    "highlights": [
+      "Solution Architect tab — blueprints and components",
+      "Perspectives tab — governance viewpoints",
+      "ISC tab — information supply chains"
+    ],
+    "starter": true,
+    "difficulty": "Business",
+    "profile_url": "https://egeria-project.org/practices/coco-pharmaceuticals/personas/peter-profile/"
+  },
+  "calliequartile": {
+    "password": "secret",
+    "display_name": "Callie Quartile",
+    "coco_title": "Data Scientist",
+    "bio": "Callie works with clinical and research data. She relies on the glossary for standard definitions, data design for understanding data structures, and lineage to trust her datasets.",
+    "highlights": [
+      "Data Design tab — data structures and schemas",
+      "Glossary tab — standard business terms",
+      "ISC tab — data lineage and provenance"
+    ],
+    "starter": true,
+    "difficulty": "Technical",
+    "profile_url": "https://egeria-project.org/practices/coco-pharmaceuticals/personas/callie-quartile/"
+  },
+  "garygeeke": {
+    "password": "secret",
+    "display_name": "Gary Geeke",
+    "coco_title": "IT Infrastructure Director",
+    "bio": "Gary manages Coco's IT infrastructure. He uses Egeria to understand how systems connect, what types are deployed, and how the governance engine keeps everything compliant.",
+    "highlights": [
+      "Type System tab — Egeria's open metadata types",
+      "Governance tab — rules and compliance status",
+      "Digital Products — deployed system assets"
+    ],
+    "starter": false,
+    "difficulty": "Technical",
+    "profile_url": "https://egeria-project.org/practices/coco-pharmaceuticals/personas/gary-geeke/"
+  },
+  "ivorpadlock": {
+    "password": "secret",
+    "display_name": "Ivor Padlock",
+    "coco_title": "Information Security Officer",
+    "bio": "Ivor is responsible for data privacy and security at Coco. He uses Egeria's governance zones and classifications to ensure sensitive data is properly controlled and auditable.",
+    "highlights": [
+      "Governance tab — security classifications",
+      "Perspectives tab — security viewpoints",
+      "Glossary — privacy-sensitive term definitions"
+    ],
+    "starter": true,
+    "difficulty": "Business",
+    "profile_url": "https://egeria-project.org/practices/coco-pharmaceuticals/personas/ivor-padlock/"
+  },
+  "faithbroker": {
+    "password": "secret",
+    "display_name": "Faith Broker",
+    "coco_title": "Head of Human Resources",
+    "bio": "Faith manages Coco's people and organisational data. She uses Egeria to track team structures, roles, and the governance responsibilities assigned to staff.",
+    "highlights": [
+      "Perspectives tab — organisational roles and teams",
+      "Governance tab — responsibility assignments",
+      "Glossary — HR term definitions"
+    ],
+    "starter": false,
+    "difficulty": "Business",
+    "profile_url": "https://egeria-project.org/practices/coco-pharmaceuticals/personas/faith-broker/"
+  },
+  "pollytasker": {
+    "password": "secret",
+    "display_name": "Polly Tasker",
+    "coco_title": "Project Leader",
+    "bio": "Polly coordinates cross-functional projects at Coco. She uses Egeria to track project metadata, understand data dependencies, and ensure new initiatives are properly governed.",
+    "highlights": [
+      "Solution Architect tab — project-linked blueprints",
+      "ISC tab — data flows for project deliverables",
+      "Perspectives tab — project stakeholder views"
+    ],
+    "starter": false,
+    "difficulty": "Business",
+    "profile_url": "https://egeria-project.org/practices/coco-pharmaceuticals/personas/polly-tasker/"
+  },
+  "zachnow": {
+    "password": "secret",
+    "display_name": "Zach Now",
+    "coco_title": "IT Systems Programmer",
+    "bio": "Zach builds and maintains integrations between Coco's systems and Egeria. He works closely with the type system and integration daemon configuration.",
+    "highlights": [
+      "Type System tab — deep dive into metadata types",
+      "REST API tab — direct API exploration",
+      "Dr. Egeria tab — programmatic metadata management"
+    ],
+    "starter": false,
+    "difficulty": "Technical",
+    "profile_url": "https://egeria-project.org/practices/coco-pharmaceuticals/personas/zach-now/"
+  },
+  "sallycounter": {
+    "password": "secret",
+    "display_name": "Sally Counter",
+    "coco_title": "Finance Controller",
+    "bio": "Sally oversees Coco's financial reporting data. She needs to understand data lineage and quality for regulatory reporting and audit purposes.",
+    "highlights": [
+      "ISC tab — lineage for financial data",
+      "Glossary — finance term definitions",
+      "Data Design — financial data structures"
+    ],
+    "starter": false,
+    "difficulty": "Business",
+    "profile_url": "https://egeria-project.org/practices/coco-pharmaceuticals/personas/sally-counter/"
+  },
+  "nickstructure": {
+    "password": "secret",
+    "display_name": "Nick Structure",
+    "coco_title": "Information Architect",
+    "bio": "Nick defines the data models and standards that shape how Coco stores and shares information. He works across the type system, data design, and glossary to keep definitions consistent.",
+    "highlights": [
+      "Data Design tab — canonical data models",
+      "Type System tab — metadata type definitions",
+      "Glossary — authoritative business definitions"
+    ],
+    "starter": false,
+    "difficulty": "Technical",
+    "profile_url": "https://egeria-project.org/practices/coco-pharmaceuticals/personas/nick-structure/"
+  }
+}
