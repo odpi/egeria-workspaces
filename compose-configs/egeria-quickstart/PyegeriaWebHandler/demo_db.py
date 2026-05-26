@@ -66,7 +66,7 @@ class Config(Base):
 _engine = None
 
 _CONFIG_DEFAULTS = {
-    "reset_interval_hours":  "24",
+    "reset_interval_hours":  "0",   # 0 = disabled; set via admin page to enable
     "directive_cap":         "validate",
     "session_lifetime_user": "7200",
     "session_lifetime_admin":"604800",

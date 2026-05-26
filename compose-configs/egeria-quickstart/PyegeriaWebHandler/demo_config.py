@@ -25,6 +25,14 @@ DEMO_DB_URL:      str = (
     f"@{DEMO_DB_HOST}:{DEMO_DB_PORT}/{DEMO_DB_NAME}"
 )
 
+# ── Egeria metadata store reset ────────────────────────────────────────────────
+# Credentials for the egeria database (not coco_pharma) — used to drop and
+# recreate the metadata store schema during a demo reset.
+EGERIA_CONTAINER_NAME:    str = os.environ.get("EGERIA_CONTAINER_NAME",    "quickstart-egeria-main")
+EGERIA_META_DB_NAME:      str = os.environ.get("EGERIA_META_DB_NAME",      "egeria")
+EGERIA_META_DB_USER:      str = os.environ.get("EGERIA_META_DB_USER",      "egeria_admin")
+EGERIA_META_DB_PASSWORD:  str = os.environ.get("EGERIA_META_DB_PASSWORD",  "admin4egeria")
+
 # ── JWT ────────────────────────────────────────────────────────────────────────
 
 JWT_SECRET: str       = os.environ.get("JWT_SECRET", "change-me-before-going-public")

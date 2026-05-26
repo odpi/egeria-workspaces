@@ -45,7 +45,7 @@ import asyncio
 import concurrent.futures
 import io
 import threading
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import asynccontextmanager, redirect_stderr, redirect_stdout
 from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException, Request
@@ -63,13 +63,26 @@ pyegeria.enable_ssl_check = False
 pyegeria.disable_ssl_warnings = True
 
 import dr_egeria_md
+from demo_config import DEMO_MODE
 from rate_limiter import limiter
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    if DEMO_MODE:
+        from demo_reset_handler import start_scheduler, stop_scheduler
+        await start_scheduler()
+    yield
+    if DEMO_MODE:
+        from demo_reset_handler import stop_scheduler
+        await stop_scheduler()
 
 
 app = FastAPI(
     title="Dr. Egeria Markdown Processor API",
     description="POST an instruction to process a Markdown file via dr_egeria_md.process_markdown_file and get structured command status back.",
     version="1.0.0",
+    lifespan=_lifespan,
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -190,11 +203,12 @@ from isc_handler import router as isc_router
 app.include_router(isc_router)
 
 # ── Demo mode ──────────────────────────────────────────────────────────────────
-from demo_config import DEMO_MODE
 
 if DEMO_MODE:
     from demo_auth_handler import router as demo_auth_router
     app.include_router(demo_auth_router)
+    from demo_reset_handler import router as demo_reset_router
+    app.include_router(demo_reset_router)
 
 @app.get("/")
 async def health():
