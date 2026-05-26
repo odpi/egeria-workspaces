@@ -53,6 +53,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from loguru import logger
 from pyegeria import print_basic_exception
 import pyegeria
 pyegeria.enable_ssl_check = False
@@ -278,7 +279,7 @@ def _apply_request_configuration(req: ProcessRequest) -> tuple[str, str]:
     environment = req.environment or {}
     user_profile = req.user_profile or {}
 
-    print(f"DEBUG: Request environment: {environment}")
+    logger.debug(f"Request environment: {environment}")
 
     platform_url = str(
         environment.get("Egeria Platform URL")
@@ -336,14 +337,14 @@ def _apply_request_configuration(req: ProcessRequest) -> tuple[str, str]:
         os.environ["EGERIA_INBOX_PATH"] = _stringify_env_value(environment["Dr.Egeria Inbox"])
 
     # Log values after configuration application
-    print(f"DEBUG: Configured EGERIA_ROOT_PATH: {os.environ.get('EGERIA_ROOT_PATH')}")
-    print(f"DEBUG: Configured EGERIA_INBOX_PATH: {os.environ.get('EGERIA_INBOX_PATH')}")
+    logger.debug(f"Configured EGERIA_ROOT_PATH: {os.environ.get('EGERIA_ROOT_PATH')}")
+    logger.debug(f"Configured EGERIA_INBOX_PATH: {os.environ.get('EGERIA_INBOX_PATH')}")
 
     # Special handling for absolute paths sent from plugin
     if req.input_file.startswith("/"):
         # If the file path is already absolute, we don't need to prepend anything,
         # but we do want to check fallbacks if it's not found at the literal path.
-        print(f"DEBUG: Absolute path detected in request: {req.input_file}")
+        logger.debug(f"Absolute path detected in request: {req.input_file}")
     
     for config_key, env_key in profile_mappings.items():
         if config_key in user_profile:
@@ -356,26 +357,26 @@ def _apply_request_configuration(req: ProcessRequest) -> tuple[str, str]:
     current_inbox = os.environ.get("EGERIA_INBOX_PATH", ".")
     combined_path = Path(current_root) / current_inbox / req.input_file
     resolved_path = combined_path.resolve()
-    print(f"DEBUG: Combined absolute path check: {resolved_path}")
+    logger.debug(f"Combined absolute path check: {resolved_path}")
     
     # List of possible mount points to check if not found at the primary path
     mount_points = ["/work", "/coco-workbooks", "/work/Work-Obsidian"]
     
     if resolved_path.exists():
-        print(f"DEBUG: FILE FOUND at {resolved_path}. Using absolute path for processor.")
+        logger.debug(f"FILE FOUND at {resolved_path}. Using absolute path for processor.")
     else:
-        print(f"DEBUG: FILE NOT FOUND at {resolved_path}. Checking fallback mount points...")
+        logger.debug(f"FILE NOT FOUND at {resolved_path}. Checking fallback mount points...")
         found_fallback = False
         for mp in mount_points:
             fallback_path = Path(mp) / req.input_file.lstrip("/")
             if fallback_path.exists():
                 resolved_path = fallback_path.resolve()
-                print(f"DEBUG: FILE FOUND at fallback {resolved_path}")
+                logger.debug(f"FILE FOUND at fallback {resolved_path}")
                 found_fallback = True
                 break
         
         if not found_fallback:
-            print(f"DEBUG: FILE NOT FOUND in any common location.")
+            logger.debug(f"FILE NOT FOUND in any common location.")
             return req.input_file, view_server, platform_url
 
     # If found, use the absolute path to bypass internal library resolution issues.
@@ -393,7 +394,7 @@ def _apply_request_configuration(req: ProcessRequest) -> tuple[str, str]:
         # Force outbox to be absolute relative to the discovered root
         absolute_outbox = str(Path(discovered_root) / outbox)
         os.environ["EGERIA_OUTBOX_PATH"] = absolute_outbox
-        print(f"DEBUG: Forced absolute EGERIA_OUTBOX_PATH: {absolute_outbox}")
+        logger.debug(f"Forced absolute EGERIA_OUTBOX_PATH: {absolute_outbox}")
 
     os.environ["EGERIA_ROOT_PATH"] = "/"
     os.environ["EGERIA_INBOX_PATH"] = "."
@@ -482,8 +483,8 @@ def _invoke_processor_locked(req: ProcessRequest) -> ProcessResponse:
         elif input_file.startswith("/work"):
              output_folder = str(Path("/work") / output_folder)
 
-    print(f"DEBUG: Invoking processor with input_file: {input_file}")
-    print(f"DEBUG: Invoking processor with output_folder: {output_folder}")
+    logger.debug(f"Invoking processor with input_file: {input_file}")
+    logger.debug(f"Invoking processor with output_folder: {output_folder}")
 
     console_output = _run_and_capture(
         func,
@@ -527,7 +528,7 @@ def _invoke_processor_locked(req: ProcessRequest) -> ProcessResponse:
 @app.post("/dr-egeria/process", response_model=ProcessResponse)
 async def process_markdown(request: ProcessRequest):
     try:
-        print(f"DEBUG: Received request for input_file: {request.input_file}")
+        logger.debug(f"Received request for input_file: {request.input_file}")
         loop = asyncio.get_event_loop()
         result: ProcessResponse = await loop.run_in_executor(executor, _invoke_processor, request)
         return JSONResponse(content=result.model_dump())
