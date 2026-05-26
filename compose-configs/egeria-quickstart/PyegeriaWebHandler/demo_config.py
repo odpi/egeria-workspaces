@@ -40,19 +40,12 @@ JWT_ALGORITHM: str    = "HS256"
 JWT_EXPIRY_USER_SEC: int  = int(os.environ.get("JWT_EXPIRY_USER_SECONDS",  "7200"))    # 2 h
 JWT_EXPIRY_ADMIN_SEC: int = int(os.environ.get("JWT_EXPIRY_ADMIN_SECONDS", "604800"))  # 7 d
 
-# ── SMTP ───────────────────────────────────────────────────────────────────────
-# SMTP_USER/PASSWORD fall back to the bootstrap admin credentials so you only
-# need to set one pair of email credentials in .env.
+# ── Resend (email) ─────────────────────────────────────────────────────────────
+# Set RESEND_API_KEY in .env (never in the yaml).
+# RESEND_FROM must be an address on a domain you have verified in Resend.
 
-_bootstrap_email:    str = os.environ.get("ADMIN_BOOTSTRAP_EMAIL",    "")
-_bootstrap_password: str = os.environ.get("ADMIN_BOOTSTRAP_PASSWORD", "")
-
-SMTP_HOST:     str  = os.environ.get("SMTP_HOST",     "")
-SMTP_PORT:     int  = int(os.environ.get("SMTP_PORT", "587"))
-SMTP_SSL:      bool = os.environ.get("SMTP_SSL", "false").lower() in ("true", "1", "yes")
-SMTP_USER:     str  = os.environ.get("SMTP_USER",     "") or _bootstrap_email
-SMTP_PASSWORD: str  = os.environ.get("SMTP_PASSWORD", "") or _bootstrap_password
-SMTP_FROM:     str  = os.environ.get("SMTP_FROM",     "") or SMTP_USER
+RESEND_API_KEY: str = os.environ.get("RESEND_API_KEY", "")
+RESEND_FROM:    str = os.environ.get("RESEND_FROM", "")
 
 # ── Resend ─────────────────────────────────────────────────────────────────────
 

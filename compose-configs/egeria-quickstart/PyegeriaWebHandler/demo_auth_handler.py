@@ -28,28 +28,23 @@ Routes:
 import json
 import os
 import secrets
-import smtplib
+import resend as _resend
 from datetime import datetime, timedelta
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from rate_limiter import limiter
 from fastapi.responses import JSONResponse, RedirectResponse
 from jose import JWTError, jwt
 from loguru import logger
-import httpx
 import bcrypt as _bcrypt
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from demo_config import (
+    DEMO_MODE,
     JWT_ALGORITHM, JWT_EXPIRY_ADMIN_SEC, JWT_EXPIRY_USER_SEC, JWT_SECRET,
-    RESEND_API_KEY, RESEND_FROM,
-    SITE_URL, SMTP_FROM, SMTP_HOST, SMTP_PASSWORD, SMTP_PORT, SMTP_SSL, SMTP_USER,
-    COOKIE_SECURE,
+    SITE_URL, RESEND_API_KEY, RESEND_FROM,
 )
 from demo_db import Config, Event, User, get_db, get_config, log_event, set_config
 
@@ -116,56 +111,26 @@ def require_admin(request: Request, db: Session = Depends(get_db)) -> User:
     return user
 
 
-# ── SMTP ───────────────────────────────────────────────────────────────────────
+# ── Email via Resend ───────────────────────────────────────────────────────────
 
 def _send_email(to: str, subject: str, html: str, text: str = "") -> None:
-    # ── Try Resend first ──────────────────────────────────────────────────────
-    if RESEND_API_KEY:
-        try:
-            resp = httpx.post(
-                "https://api.resend.com/emails",
-                headers={
-                    "Authorization": f"Bearer {RESEND_API_KEY.strip()}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "from": RESEND_FROM or SMTP_FROM,
-                    "to": to,
-                    "subject": subject,
-                    "html": html,
-                    "text": text or html,
-                },
-                timeout=10.0,
-            )
-            if resp.status_code != 200:
-                logger.error(f"Resend returned {resp.status_code}: {resp.text}")
-            resp.raise_for_status()
-            logger.info(f"Email sent via Resend to {to!r}: {subject}")
-            return
-        except Exception as exc:
-            logger.error(f"Resend failed, falling back to SMTP if available: {exc}")
-
-    # ── Fallback to SMTP ──────────────────────────────────────────────────────
-    if not SMTP_HOST:
-        logger.warning(f"Email skipped — neither Resend nor SMTP configured for {to!r}")
+    if not RESEND_API_KEY:
+        logger.warning(f"RESEND_API_KEY not set — skipped email to {to!r}: {subject}")
         return
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = SMTP_FROM
-    msg["To"] = to
-    if text:
-        msg.attach(MIMEText(text, "plain"))
-    msg.attach(MIMEText(html, "html"))
+    if not RESEND_FROM:
+        logger.warning(f"RESEND_FROM not set — skipped email to {to!r}: {subject}")
+        return
+    _resend.api_key = RESEND_API_KEY
     try:
-        if SMTP_SSL:
-            ctx = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT)
-        else:
-            ctx = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
-            ctx.starttls()
-        with ctx as smtp:
-            if SMTP_USER and SMTP_PASSWORD:
-                smtp.login(SMTP_USER, SMTP_PASSWORD)
-            smtp.sendmail(SMTP_FROM, to, msg.as_string())
+        params: _resend.Emails.SendParams = {
+            "from": RESEND_FROM,
+            "to": [to],
+            "subject": subject,
+            "html": html,
+        }
+        if text:
+            params["text"] = text
+        _resend.Emails.send(params)
         logger.info(f"Email sent to {to!r}: {subject}")
     except Exception as exc:
         logger.error(f"Failed to send email to {to!r}: {exc}")
@@ -219,8 +184,7 @@ class RoleUpdateRequest(BaseModel):
 # ── Registration & verification ────────────────────────────────────────────────
 
 @router.post("/api/auth/register", summary="Register a new demo account")
-@limiter.limit("5/minute")
-def register(request: Request, req: RegisterRequest, db: Session = Depends(get_db)):
+def register(req: RegisterRequest, db: Session = Depends(get_db)):
     if len(req.password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
     if db.query(User).filter(User.email == req.email.lower()).first():
@@ -294,15 +258,14 @@ def verify_email(token: str, db: Session = Depends(get_db)):
     demo_token = _make_jwt(user.id, user.role)
     exp = JWT_EXPIRY_ADMIN_SEC if user.role == "admin" else JWT_EXPIRY_USER_SEC
     response = RedirectResponse(url="/egeria-explorer?demo_welcome=1", status_code=302)
-    response.set_cookie("demo_token", demo_token, httponly=True, secure=COOKIE_SECURE, samesite="lax", max_age=exp)
+    response.set_cookie("demo_token", demo_token, httponly=True, samesite="lax", max_age=exp)
     return response
 
 
 # ── Login / logout ─────────────────────────────────────────────────────────────
 
 @router.post("/api/auth/login", summary="Log in and receive a session cookie")
-@limiter.limit("10/minute")
-def login(request: Request, req: LoginRequest, response: Response, db: Session = Depends(get_db)):
+def login(req: LoginRequest, response: Response, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email.lower()).first()
     if not user or not _verify(req.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
@@ -315,7 +278,7 @@ def login(request: Request, req: LoginRequest, response: Response, db: Session =
 
     exp = JWT_EXPIRY_ADMIN_SEC if user.role == "admin" else JWT_EXPIRY_USER_SEC
     response.set_cookie("demo_token", _make_jwt(user.id, user.role),
-                        httponly=True, secure=COOKIE_SECURE, samesite="lax", max_age=exp)
+                        httponly=True, samesite="lax", max_age=exp)
     return {"message": "Login successful", "role": user.role, "display_name": user.display_name}
 
 
@@ -329,9 +292,10 @@ def logout(response: Response):
 def get_me(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
     if not user:
-        return JSONResponse({"authenticated": False})
+        return JSONResponse({"authenticated": False, "demo_mode": DEMO_MODE})
     return {
         "authenticated": True,
+        "demo_mode": DEMO_MODE,
         "id": user.id,
         "display_name": user.display_name,
         "email": user.email,
@@ -343,8 +307,7 @@ def get_me(request: Request, db: Session = Depends(get_db)):
 # ── Password reset ─────────────────────────────────────────────────────────────
 
 @router.post("/api/auth/forgot-password", summary="Request a password-reset email")
-@limiter.limit("3/minute")
-def forgot_password(request: Request, req: ForgotPasswordRequest, db: Session = Depends(get_db)):
+def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email.lower()).first()
     if user and user.verified:
         token = secrets.token_urlsafe(32)

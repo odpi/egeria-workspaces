@@ -120,14 +120,14 @@
   <div class="hdr-logos">
     <img src="/static/egeria-logo.png" alt="Egeria" style="height:26px">
   </div>
-  <div class="hdr-title">Egeria Demo Environment</div>
+  <div class="hdr-title" id="hdr-title">Egeria Demo Environment</div>
   <div class="hdr-right">
     <div id="persona-chip" class="persona-chip" style="display:none">
       <span>🎭</span>
       <div><div class="name" id="chip-name"></div><div class="role" id="chip-role"></div></div>
     </div>
     <button class="btn" id="persona-btn" onclick="openPicker()">Choose Persona</button>
-    <button class="btn" onclick="doLogout()">Log out</button>
+    <button class="btn" id="logout-btn" onclick="doLogout()">Log out</button>
   </div>
 </header>
 
@@ -135,8 +135,8 @@
 <div class="hero">
   <div class="hero-inner">
     <div class="hero-text">
-      <h1>Welcome to the Egeria Demo Environment</h1>
-      <p>This environment showcases <strong>Egeria</strong> — the open metadata platform — using Coco Pharmaceuticals, a fictional company whose data landscape illustrates real-world governance, lineage, and cataloguing challenges. Register once, choose a persona, and explore the metadata environment from that character's perspective.</p>
+      <h1 id="hero-title">Welcome to the Egeria Demo Environment</h1>
+      <p id="hero-sub">This environment showcases <strong>Egeria</strong> — the open metadata platform — using Coco Pharmaceuticals, a fictional company whose data landscape illustrates real-world governance, lineage, and cataloguing challenges. Register once, choose a persona, and explore the metadata environment from that character's perspective.</p>
     </div>
     <div class="hero-links">
       <div>
@@ -238,7 +238,23 @@ function _saveStored(p) {
 var _obsidianUrl = '';
 var _obsidianGithubUrl = '';
 
-fetch('/api/auth/me').then(function(r){ return r.json(); }).then(function(me) {
+Promise.all([
+  fetch('/api/auth/me').then(function(r){ return r.json(); }),
+  fetch('/api/platform/org-name').then(function(r){ return r.json(); }).catch(function(){ return {name: ''}; }),
+]).then(function(results) {
+  var me = results[0];
+  var orgName = (results[1].name && results[1].name.trim()) ? results[1].name : 'Egeria Quickstart';
+  if (!me.demo_mode) {
+    document.getElementById('hdr-title').textContent = orgName;
+    document.getElementById('hero-title').textContent = 'Welcome to ' + orgName;
+    document.getElementById('hero-sub').textContent = 'An open metadata platform for learning, development, and experimentation. Select a tool below to get started.';
+    document.getElementById('logout-btn').style.display = 'none';
+    document.getElementById('persona-btn').style.display = 'none';
+    document.title = orgName;
+    renderAppGrid();
+    document.getElementById('persona-cta').style.display = 'none';
+    return;
+  }
   if (!me.authenticated) { window.location.href = '/login'; return; }
   Promise.all([
     fetch('/api/demo/personas').then(function(r){ return r.json(); }),
@@ -300,6 +316,9 @@ function renderAppGrid() {
     { icon: '🤖', name: 'Egeria Advisor',
       desc: 'AI-powered guidance for your Egeria environment.',
       url: null, newTab: true, enabled: false },
+    { icon: '📖', name: 'Egeria Documentation',
+      desc: 'Official Egeria project documentation, guides, and community resources.',
+      url: 'https://egeria-project.ai', newTab: true, enabled: true },
   ];
   document.getElementById('app-grid').innerHTML = apps.map(function(a) {
     var action;

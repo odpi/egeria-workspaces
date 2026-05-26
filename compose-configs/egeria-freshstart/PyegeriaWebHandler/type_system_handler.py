@@ -192,15 +192,10 @@ _TYPE_NAMES_CACHE: dict[str, list[str]] = {}
 @router.get("/type-explorer", include_in_schema=False)
 async def egeria_explorer_ui(request: Request):
     """Serve the Egeria Explorer single-page application."""
-    from demo_config import DEMO_MODE
-    if DEMO_MODE:
-        from demo_auth_handler import get_current_user
-        from demo_db import get_engine
-        from sqlalchemy.orm import Session
-        with Session(get_engine()) as db:
-            user = get_current_user(request, db)
-        if not user or not user.verified:
-            return RedirectResponse(url="/login", status_code=302)
+    from demo_auth_handler import get_current_user
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
     html_path = _HERE / "type-explorer.html"
     if not html_path.exists():
         raise HTTPException(status_code=404, detail=f"Egeria Explorer UI not found at {html_path}")

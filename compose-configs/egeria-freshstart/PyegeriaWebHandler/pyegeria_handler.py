@@ -178,12 +178,10 @@ app.include_router(dr_egeria_commands_router)
 from isc_handler import router as isc_router
 app.include_router(isc_router)
 
-# ── Demo mode ──────────────────────────────────────────────────────────────────
+# ── Auth (Egeria-backed — always active in freshstart) ─────────────────────────
 from demo_config import DEMO_MODE
-
-if DEMO_MODE:
-    from demo_auth_handler import router as demo_auth_router
-    app.include_router(demo_auth_router)
+from demo_auth_handler import router as demo_auth_router
+app.include_router(demo_auth_router)
 
 @app.get("/")
 async def health():
@@ -194,38 +192,34 @@ async def health():
 
 @app.get("/login", include_in_schema=False)
 async def login_page():
-    if not DEMO_MODE:
-        return RedirectResponse(url="/egeria-explorer")
     html_path = SCRIPT_DIR / "demo-login.html"
     if not html_path.exists():
         raise HTTPException(status_code=404, detail="Login page not found")
     return FileResponse(str(html_path), media_type="text/html")
 
 
-@app.get("/register", include_in_schema=False)
-async def register_page():
-    if not DEMO_MODE:
-        return RedirectResponse(url="/egeria-explorer")
-    html_path = SCRIPT_DIR / "demo-register.html"
-    if not html_path.exists():
-        raise HTTPException(status_code=404, detail="Register page not found")
-    return FileResponse(str(html_path), media_type="text/html")
-
 
 @app.get("/admin", include_in_schema=False)
 async def admin_page(request: Request):
-    if not DEMO_MODE:
-        return RedirectResponse(url="/egeria-explorer")
     from demo_auth_handler import get_current_user
-    from demo_db import get_engine
-    from sqlalchemy.orm import Session
-    with Session(get_engine()) as db:
-        user = get_current_user(request, db)
-    if not user or not user.verified or user.role != "admin":
+    user = get_current_user(request)
+    if not user or user.role != "admin":
         return RedirectResponse(url="/login", status_code=302)
     html_path = SCRIPT_DIR / "demo-admin.html"
     if not html_path.exists():
         raise HTTPException(status_code=404, detail="Admin page not found")
+    return FileResponse(str(html_path), media_type="text/html")
+
+
+@app.get("/profile", include_in_schema=False)
+async def profile_page(request: Request):
+    from demo_auth_handler import get_current_user
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+    html_path = SCRIPT_DIR / "demo-profile.html"
+    if not html_path.exists():
+        raise HTTPException(status_code=404, detail="Profile page not found")
     return FileResponse(str(html_path), media_type="text/html")
 
 
@@ -239,14 +233,10 @@ async def privacy_page():
 
 @app.get("/portal", include_in_schema=False)
 async def portal_page(request: Request):
-    if DEMO_MODE:
-        from demo_auth_handler import get_current_user
-        from demo_db import get_engine
-        from sqlalchemy.orm import Session
-        with Session(get_engine()) as db:
-            user = get_current_user(request, db)
-        if not user or not user.verified:
-            return RedirectResponse(url="/login", status_code=302)
+    from demo_auth_handler import get_current_user
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
     html_path = SCRIPT_DIR / "demo-portal.html"
     if not html_path.exists():
         raise HTTPException(status_code=404, detail="Portal page not found")
@@ -551,10 +541,7 @@ async def refresh_commands():
 
 @app.on_event("startup")
 async def on_startup():
-    from demo_config import DEMO_MODE
-    if DEMO_MODE:
-        from demo_db import bootstrap_admin
-        bootstrap_admin()
+    pass  # Egeria is the user store — no local bootstrap needed
 
 
 @app.on_event("shutdown")

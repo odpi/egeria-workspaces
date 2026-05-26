@@ -9,37 +9,49 @@ Items completed in quickstart that still need to be applied or adapted for fresh
 
 ## Pending
 
-### Demo mode parity
-- [ ] **SITE_URL** — update `egeria-freshstart.yaml` `SITE_URL` to the correct public URL when deploying publicly (currently `http://localhost:8086`)
-- [ ] **SMTP** — configure `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD` in `compose-configs/egeria-freshstart/.env` for email verification
-- [ ] **Admin bootstrap** — set `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD` in `.env` before first run
-- [ ] **JWT_SECRET** — set a real random value in `.env` before public deployment
+### Security / deployment readiness
+- [ ] **JWT_SECRET** — set a real random value in `compose-configs/egeria-freshstart/.env` before any public deployment (never in the yaml)
+- [ ] **SITE_URL** — update `SITE_URL` in `egeria-freshstart.yaml` to the correct public URL when deploying beyond localhost (currently `http://localhost:8086`)
+- [ ] **EGERIA_ADMIN_USERS** — add your own Egeria user ID to the `EGERIA_ADMIN_USERS` list in `egeria-freshstart.yaml` after first login so the `bootstrap` account can be retired
 
 ### Portal / Apache config
-- [ ] Freshstart uses quickstart's `httpd.conf` and `fastapi-proxy.conf` (via `context: ../egeria-quickstart`). The portal proxy rules, `/local` alias, and root redirect added to `fastapi-proxy.conf` are already shared. Verify they work on freshstart's port 8086.
-- [ ] Freshstart static site volume mount needs updating to match quickstart pattern (`site:/usr/local/apache2/htdocs/local`) — currently `freshstart-apache-web` mounts at `htdocs` root. **Update `egeria-freshstart.yaml` apache volumes.**
-
-### PostgreSQL demo schema
-- [ ] Run `CREATE SCHEMA IF NOT EXISTS demo; GRANT ALL ON SCHEMA demo TO egeria_admin, egeria_user;` against the freshstart postgres if it uses a separate DB instance. Quickstart's `init_egeria.sql` already includes this for new deployments.
+- [ ] Freshstart shares quickstart's `httpd.conf` and `fastapi-proxy.conf` (via `context: ../egeria-quickstart`). Verify the proxy rules work correctly on freshstart's port 8086.
 
 ### SSL
-- [ ] Configure Apache SSL for freshstart port 8086 once quickstart SSL is proven (same cert, different VirtualHost port).
+- [ ] Configure Apache SSL for freshstart port 8086 once quickstart SSL is proven. See the SSL section in [`PyegeriaWebHandler/demo-mode.md`](PyegeriaWebHandler/demo-mode.md#ssl--https) for the procedure (substitute port 8086 and `egeria-freshstart.yaml`).
+
+### PostgreSQL demo schema
+- [ ] Run `CREATE SCHEMA IF NOT EXISTS demo; GRANT ALL ON SCHEMA demo TO egeria_admin, egeria_user;` against the freshstart postgres if it uses a separate DB instance.
+
+### User management API upgrade
+- [ ] **Switch user listing to new SecurityOfficer list API** — The current implementation reads the `egeria-user-directory.omsecrets` YAML file directly for the admin user list because (a) SecurityOfficer has no list-all endpoint and (b) OMRS sync from SecurityOfficer to the actor registry runs hourly. When Egeria adds a SecurityOfficer list endpoint, replace the YAML-reading path in `list_egeria_users()` in `demo_auth_handler.py` with the new API call. The mutation paths (create/update/delete/disable/reset-password) already use SecurityOfficer correctly — only listing needs updating.
+- [ ] **Fix security roles and groups in admin user list** — The admin panel's Egeria Users table has a Roles column that is currently always empty. Roles and group memberships are stored in the `namedLists` section of the omsecrets YAML as `userMembers` and `listMembers` entries keyed by list/role name — not in the per-user record. To populate the column, either (a) reverse-map from `namedLists` in the YAML reading path, or (b) use the SecurityOfficer list API once available (it returns roles per user). The modal's multi-select dropdowns for roles/groups will work on creation; they just don't pre-populate on edit until this is fixed.
 
 ### Data loading
-- [ ] Freshstart ships empty — unlike quickstart, the Coco Pharmaceuticals demo data is NOT pre-loaded. Demo mode personas will work for auth/persona selection but Egeria Explorer will show an empty metadata store. Decide whether to:
+- [ ] Freshstart ships empty — unlike quickstart, Coco Pharmaceuticals demo data is NOT pre-loaded. Decide whether to:
   - Pre-load Coco data via a notebook/workbook on startup
   - Or document that freshstart is for building from scratch (not a demo environment)
 
 ---
 
-## Completed (synced from quickstart)
+## Completed
 
-- [x] Demo mode infrastructure (demo_config, demo_db, demo_auth_handler, personas.json)
-- [x] Admin bootstrap from `.env` on startup
-- [x] bcrypt fix (passlib → direct bcrypt)
-- [x] Portal hub page (demo-portal.html)
-- [x] Login/register/admin/privacy pages
-- [x] Persona picker with profile links
+- [x] Egeria-backed authentication (no SQLite, no email, no self-registration)
+  - Portal authenticates directly against Egeria `POST /api/token`
+  - `CREDENTIALS_EXPIRED` response triggers forced password-change form inline on login page
+  - JWT session cookie includes Egeria bearer token for admin API calls
+  - Admin role controlled by `EGERIA_ADMIN_USERS` env var
+- [x] Login page (`demo-login.html`) — user ID + password, inline CREDENTIALS_EXPIRED flow
+- [x] Portal hub (`demo-portal.html`) — no persona picker; org name from API; admin tile gated by role
+- [x] Admin panel (`demo-admin.html`) — Egeria Users tab (create/edit/disable/reset/delete) + Config tab
+- [x] Profile page (`demo-profile.html`) — view/edit Egeria profile, change password
+- [x] `demo_auth_handler.py` — full rewrite for Egeria-backed auth; SecurityOfficer admin routes; my-profile proxy; runtime config JSON
+- [x] `demo_config.py` — stripped of DB/email config; added `EGERIA_PLATFORM_URL`, `EGERIA_VIEW_SERVER`, `EGERIA_ADMIN_USERS`, `SITE_URL`
+- [x] `egeria-freshstart.yaml` — removed SMTP/bootstrap env vars; added `EGERIA_ADMIN_USERS`, `EGERIA_ORG_NAME`; fixed `::` YAML quoting bug in uvicorn command
+- [x] `pyegeria_handler.py` — removed `/register` route; auth router always included (not gated on DEMO_MODE); added `/profile` route; removed all `demo_db` lazy imports
+- [x] `type_system_handler.py` — auth guard uses `get_current_user(request)` (no DB dependency)
+- [x] `demo-mode.md` — complete rewrite for Egeria-backed auth architecture
+- [x] `README.md` — added Portal and Authentication section
+- [x] Organisation name resolution (application.properties → EGERIA_ORG_NAME env var → "Egeria")
 - [x] MCP mount ordering fix (mount at "/" moved to end of pyegeria_handler.py)
-- [x] type-explorer.html persona redirect to /portal
-- [x] demo-login.html redirect to /portal after login
+- [x] type-explorer.html auth guard redirects to /login

@@ -105,6 +105,40 @@ Neither overlay changes ports, images, or volumes — the only difference is whe
 - To reset to defaults, delete `runtime-volumes/freshstart-platform-data/secrets/` and restart.
 - `exchange-freshstart/loading-bay/secrets` is optional and not used by the default startup.
 
+## Portal and Authentication
+
+Freshstart includes a web portal at `http://localhost:8086` backed by Egeria's own user store — no SQLite database, no email verification, no self-registration. The admin creates all accounts via the portal's Admin panel.
+
+### First run
+
+1. Start the stack: `./fresh-start-local`
+2. Open `http://localhost:8086/login`
+3. Sign in with `bootstrap` / `secret`
+4. If redirected to the password-change form, set a new password and continue
+5. Go to **Admin → Egeria Users** to create accounts for your team
+
+### Required `.env` settings
+
+Create `compose-configs/egeria-freshstart/.env` (gitignored) with at minimum:
+
+```ini
+JWT_SECRET=your-random-32-plus-char-string
+```
+
+Optional:
+
+```ini
+EGERIA_ORG_NAME=My Organisation   # shown in portal header and login page
+```
+
+### How it works
+
+The portal authenticates directly against Egeria's `POST /api/token` endpoint, issues a short-lived JWT session cookie, and delegates all account management to the Egeria SecurityOfficer API. New accounts are created with status `CREDENTIALS_EXPIRED`, which forces a password change on first login.
+
+The portal admin role is controlled by the `EGERIA_ADMIN_USERS` environment variable in `egeria-freshstart.yaml` — a comma-separated list of Egeria user IDs that receive portal admin access. Default is `bootstrap`.
+
+For the full reference — config variables, REST API, user lifecycle, admin panel guide, and troubleshooting — see [`PyegeriaWebHandler/demo-mode.md`](PyegeriaWebHandler/demo-mode.md).
+
 ## Dr. Egeria Processing
 
 The freshstart environment supports Dr. Egeria processing on port `8001` (MCP/REST).

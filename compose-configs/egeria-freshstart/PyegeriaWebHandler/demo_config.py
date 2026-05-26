@@ -2,8 +2,8 @@
 SPDX-License-Identifier: Apache-2.0
 Copyright Contributors to the ODPi Egeria project.
 
-Demo-mode configuration — reads all settings from environment variables.
-Import this module anywhere that needs DEMO_MODE or auth config.
+Freshstart demo-mode configuration.
+Authentication is backed by Egeria — no SQLite, no email.
 """
 
 import os
@@ -12,10 +12,6 @@ import os
 
 DEMO_MODE: bool = os.environ.get("DEMO_MODE", "false").lower() in ("true", "1", "yes")
 
-# ── Database ───────────────────────────────────────────────────────────────────
-
-DEMO_DB_PATH: str = os.environ.get("DEMO_DB_PATH", "/app/demo-data/demo.db")
-
 # ── JWT ────────────────────────────────────────────────────────────────────────
 
 JWT_SECRET: str       = os.environ.get("JWT_SECRET", "change-me-before-going-public")
@@ -23,20 +19,25 @@ JWT_ALGORITHM: str    = "HS256"
 JWT_EXPIRY_USER_SEC: int  = int(os.environ.get("JWT_EXPIRY_USER_SECONDS",  "7200"))    # 2 h
 JWT_EXPIRY_ADMIN_SEC: int = int(os.environ.get("JWT_EXPIRY_ADMIN_SECONDS", "604800"))  # 7 d
 
-# ── SMTP ───────────────────────────────────────────────────────────────────────
-# SMTP_USER/PASSWORD fall back to the bootstrap admin credentials so you only
-# need to set one pair of email credentials in .env.
+# ── Egeria ─────────────────────────────────────────────────────────────────────
 
-_bootstrap_email:    str = os.environ.get("ADMIN_BOOTSTRAP_EMAIL",    "")
-_bootstrap_password: str = os.environ.get("ADMIN_BOOTSTRAP_PASSWORD", "")
+EGERIA_PLATFORM_URL: str  = os.environ.get("EGERIA_PLATFORM_URL", "https://localhost:9443").rstrip("/")
+EGERIA_VIEW_SERVER: str   = os.environ.get("EGERIA_VIEW_SERVER", "fs-view-server")
+# Name registered by the Egeria platform in the metadata store (platform.name in application.properties).
+EGERIA_PLATFORM_NAME: str = os.environ.get("EGERIA_PLATFORM_NAME", "OMAG Server Platform")
 
-SMTP_HOST:     str  = os.environ.get("SMTP_HOST",     "")
-SMTP_PORT:     int  = int(os.environ.get("SMTP_PORT", "587"))
-SMTP_SSL:      bool = os.environ.get("SMTP_SSL", "false").lower() in ("true", "1", "yes")
-SMTP_USER:     str  = os.environ.get("SMTP_USER",     "") or _bootstrap_email
-SMTP_PASSWORD: str  = os.environ.get("SMTP_PASSWORD", "") or _bootstrap_password
-SMTP_FROM:     str  = os.environ.get("SMTP_FROM",     "") or SMTP_USER
+# User IDs granted admin role in the portal (Egeria handles its own RBAC separately).
+# Comma-separated; bootstrap always included.
+EGERIA_ADMIN_USERS: set[str] = {
+    u.strip()
+    for u in os.environ.get("EGERIA_ADMIN_USERS", "bootstrap").split(",")
+    if u.strip()
+}
 
 # ── URLs ───────────────────────────────────────────────────────────────────────
 
-SITE_URL: str = os.environ.get("SITE_URL", "http://localhost:8085").rstrip("/")
+SITE_URL: str = os.environ.get("SITE_URL", "http://localhost:8086").rstrip("/")
+
+# ── User directory ─────────────────────────────────────────────────────────────
+
+EGERIA_USER_SECRETS_PATH: str = os.environ.get("EGERIA_USER_SECRETS_PATH", "/secrets/user-directory.omsecrets")
