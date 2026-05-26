@@ -35,9 +35,18 @@
 
     /* ── Hero ── */
     .hero { background: linear-gradient(135deg, #16213e 0%, #0f3460 100%); border-bottom: 1px solid var(--border); padding: 40px 28px 36px; }
-    .hero-inner { max-width: 860px; margin: 0 auto; }
+    .hero-inner { max-width: 1060px; margin: 0 auto; display: flex; gap: 36px; align-items: flex-start; flex-wrap: wrap; }
+    .hero-text { flex: 1; min-width: 260px; }
     .hero h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 10px; }
-    .hero p  { color: var(--muted); line-height: 1.65; max-width: 680px; font-size: 0.95rem; }
+    .hero p  { color: var(--muted); line-height: 1.65; font-size: 0.95rem; }
+    .hero-links { flex-shrink: 0; min-width: 200px; display: flex; flex-direction: column; gap: 14px; padding-top: 4px; }
+    .hero-links-row { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+    .hero-links-row a { font-size: 0.8rem; color: var(--muted); text-decoration: none; white-space: nowrap; }
+    .hero-links-row a:hover { color: var(--accent); text-decoration: underline; }
+    .hero-links-label { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #555; margin-bottom: 2px; }
+    .hero-stars { font-size: 0.78rem; color: #555; }
+    .hero-stars a { color: var(--muted); text-decoration: none; margin-right: 8px; white-space: nowrap; }
+    .hero-stars a:hover { color: var(--accent); }
 
     /* ── Main ── */
     .main { max-width: 1060px; margin: 0 auto; padding: 32px 28px; }
@@ -125,8 +134,29 @@
 <!-- ── Hero ───────────────────────────────────────────────────────────────── -->
 <div class="hero">
   <div class="hero-inner">
-    <h1>Welcome to the Egeria Demo Environment</h1>
-    <p>This environment showcases <strong>Egeria</strong> — the open metadata platform — using Coco Pharmaceuticals, a fictional company whose data landscape illustrates real-world governance, lineage, and cataloguing challenges. Register once, choose a persona, and explore the metadata environment from that character's perspective.</p>
+    <div class="hero-text">
+      <h1>Welcome to the Egeria Demo Environment</h1>
+      <p>This environment showcases <strong>Egeria</strong> — the open metadata platform — using Coco Pharmaceuticals, a fictional company whose data landscape illustrates real-world governance, lineage, and cataloguing challenges. Register once, choose a persona, and explore the metadata environment from that character's perspective.</p>
+    </div>
+    <div class="hero-links">
+      <div>
+        <div class="hero-links-label">Resources</div>
+        <div class="hero-links-row">
+          <a href="https://egeria-project.ai" target="_blank" rel="noopener">Documentation ↗</a>
+          <a href="https://github.com/odpi" target="_blank" rel="noopener">GitHub ↗</a>
+          <a href="https://egeria-project.org/practices/coco-pharmaceuticals" target="_blank" rel="noopener">Coco Pharmaceuticals ↗</a>
+        </div>
+      </div>
+      <div>
+        <div class="hero-links-label">Star us on GitHub</div>
+        <div class="hero-stars">
+          <a href="https://github.com/odpi/egeria" target="_blank" rel="noopener">⭐ egeria</a>
+          <a href="https://github.com/odpi/egeria-docs" target="_blank" rel="noopener">⭐ egeria-docs</a>
+          <a href="https://github.com/odpi/egeria-workspaces" target="_blank" rel="noopener">⭐ egeria-workspaces</a>
+          <a href="https://github.com/odpi/egeria-python" target="_blank" rel="noopener">⭐ egeria-python</a>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -169,16 +199,7 @@
 <!-- ── Footer ─────────────────────────────────────────────────────────────── -->
 <footer class="ftr">
   <div class="ftr-links">
-    <a href="https://egeria-project.ai" target="_blank" rel="noopener">Documentation</a>
-    <a href="https://github.com/odpi" target="_blank" rel="noopener">GitHub</a>
-    <a href="https://egeria-project.org/practices/coco-pharmaceuticals" target="_blank" rel="noopener">Coco Pharmaceuticals</a>
     <a href="/privacy">Privacy Policy</a>
-  </div>
-  <div class="ftr-stars">
-    If you find Egeria useful, please star us on GitHub:
-    <a href="https://github.com/odpi/egeria" target="_blank" rel="noopener">⭐ egeria</a>
-    <a href="https://github.com/odpi/egeria-workspaces" target="_blank" rel="noopener">⭐ egeria-workspaces</a>
-    <a href="https://github.com/odpi/egeria-python" target="_blank" rel="noopener">⭐ egeria-python</a>
   </div>
   <img src="/static/pdr-logo.png" alt="PDR Associates" style="height:26px; opacity:0.6">
 </footer>
