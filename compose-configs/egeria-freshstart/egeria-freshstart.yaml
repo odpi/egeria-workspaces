@@ -92,11 +92,13 @@ services:
       # Service account used to obtain fresh Egeria tokens for SecurityOfficer calls.
       # Password must be set in .env as EGERIA_ADMIN_CALLER_PASSWORD (never here).
       EGERIA_ADMIN_CALLER_ID: "bootstrap"
-      # Optional: read org name from application.properties instead of this env var.
+      # Optional: override org name if not read from application.properties.
       EGERIA_ORG_NAME: "${EGERIA_ORG_NAME:-My Organisation}"
       EGERIA_USER_SECRETS_PATH: "/secrets/user-directory.omsecrets"
+      APPLICATION_PROPERTIES_PATH: "/platform/application.properties"
     volumes:
       - ./PyegeriaWebHandler:/app
+      - ../../runtime-volumes/freshstart-platform-data/freshstart.application.properties:/platform/application.properties:ro
       - ../../exchange-freshstart/distribution-hub/dr-egeria-outbox:/dr-egeria-outbox
       - ../../exchange-freshstart/loading-bay/dr-egeria-inbox:/dr-egeria-inbox
       - ../../exchange-freshstart/config:/config

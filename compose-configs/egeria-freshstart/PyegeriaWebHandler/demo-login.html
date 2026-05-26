@@ -119,8 +119,7 @@
         _pendingUserId = res.data.user_id || userId;
         document.getElementById('loginForm').style.display = 'none';
         document.getElementById('changeForm').style.display = 'block';
-        document.getElementById('oldPassword').value = password;
-        document.getElementById('newPassword').focus();
+        document.getElementById('oldPassword').focus();
       } else {
         showMsg('loginMsg', 'error', res.data.detail || 'Invalid user ID or password.');
       }
