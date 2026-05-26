@@ -209,6 +209,10 @@ if DEMO_MODE:
     app.include_router(demo_auth_router)
     from demo_reset_handler import router as demo_reset_router
     app.include_router(demo_reset_router)
+else:
+    @app.get("/api/auth/me", include_in_schema=False)
+    async def auth_me_non_demo():
+        return {"authenticated": True, "demo_mode": False}
 
 @app.get("/")
 async def health():
