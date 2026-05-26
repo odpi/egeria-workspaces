@@ -206,3 +206,9 @@ compose-configs/shared-infra/.env
 
 # Obsidian local workspace state
 **/.obsidian/workspace.json
+
+# Demo auth SQLite runtime data (now on Postgres; file retained for reference)
+runtime-volumes/quickstart-demo-data/
+
+# JetBrains AI / Junie local state
+.junie/
