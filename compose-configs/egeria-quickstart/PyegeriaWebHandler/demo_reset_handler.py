@@ -16,6 +16,7 @@ Docker socket must be mounted into the container:
 """
 
 import asyncio
+import os
 from datetime import datetime
 from typing import Optional
 
@@ -113,10 +114,20 @@ async def _run_reset() -> None:
             set_config("reset_state", "ready")
 
 
+_DOCKER_SOCKET = os.environ.get("DOCKER_HOST", "unix:///var/run/docker.sock")
+
+
 def _do_reset_blocking() -> None:
     """Blocking reset: stop container → drop schema → start container."""
     import docker  # imported here so the module loads even without docker SDK at startup
-    client = docker.from_env()
+    try:
+        client = docker.DockerClient(base_url=_DOCKER_SOCKET)
+        client.ping()  # verify connectivity before proceeding
+    except Exception as exc:
+        raise RuntimeError(
+            f"Cannot reach Docker daemon at {_DOCKER_SOCKET!r}: {exc}. "
+            "Ensure /var/run/docker.sock is mounted into this container."
+        ) from exc
 
     logger.info(f"Stopping container: {EGERIA_CONTAINER_NAME}")
     try:

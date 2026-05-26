@@ -17,6 +17,7 @@ Routes:
   GET  /api/auth/me
   POST /api/demo/select-persona
   GET  /api/demo/personas
+  GET  /api/demo/portal-config
   GET  /api/demo/config          (admin only)
   POST /api/demo/config          (admin only)
   GET  /api/demo/users           (admin only)
@@ -372,6 +373,25 @@ def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
     user.reset_expires = None
     db.commit()
     return {"message": "Password reset successful — you can now log in"}
+
+
+# ── Portal config (authenticated) ─────────────────────────────────────────────
+
+@router.get("/api/demo/portal-config", summary="Return portal tile config for authenticated users")
+def portal_config(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user or not user.verified:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    import urllib.parse
+    raw = get_config("obsidian_vault_url", "")
+    if raw and not raw.startswith("obsidian://"):
+        obsidian_url = "obsidian://open?vault=" + urllib.parse.quote(raw)
+    else:
+        obsidian_url = raw
+    return {
+        "obsidian_vault_url": obsidian_url,
+        "obsidian_github_url": get_config("obsidian_github_url", ""),
+    }
 
 
 # ── Persona selection ──────────────────────────────────────────────────────────
