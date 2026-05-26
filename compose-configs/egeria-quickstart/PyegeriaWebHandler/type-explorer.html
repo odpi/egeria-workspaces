@@ -5765,7 +5765,7 @@ function App() {
   // Check auth/demo mode on first load
   useEffect(function() {
     fetch('/api/auth/me').then(function(r) { return r.json(); }).then(function(me) {
-      if (me.authenticated) {
+      if (me.demo_mode) {
         setDemoMode(true);
         var storedPersona = null;
         try { var s = localStorage.getItem('egeria-persona'); storedPersona = s ? JSON.parse(s) : null; } catch(e) {}
