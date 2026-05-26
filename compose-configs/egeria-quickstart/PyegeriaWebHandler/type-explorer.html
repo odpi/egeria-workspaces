@@ -168,9 +168,8 @@
     .nav-group-btn.on { color: var(--accent); font-weight: 600; border-bottom-color: var(--accent); }
     .nav-group-menu { position: absolute; top: 100%; left: 0; background: var(--panel);
                       border: 1px solid var(--border); border-radius: 6px; padding: 4px 0;
-                      min-width: 172px; z-index: 100; display: none;
+                      min-width: 172px; z-index: 100;
                       box-shadow: 0 8px 24px rgba(0,0,0,.4); }
-    .nav-group:focus-within .nav-group-menu { display: block; }
     .nav-group-item { display: block; width: 100%; text-align: left; background: none; border: none;
                       padding: 7px 16px; font-size: 13px; color: var(--muted); font-family: inherit;
                       cursor: pointer; white-space: nowrap; }
@@ -5720,16 +5719,20 @@ function NavGroup(props) {
   var label = props.label, isActive = props.isActive, items = props.items,
       onSelect = props.onSelect, currentSection = props.currentSection, connected = props.connected;
   var _open = useState(false), open = _open[0], setOpen = _open[1];
+  var ref = React.useRef(null);
   useEffect(function() {
     if (!open) return;
-    function handleOutside() { setOpen(false); }
-    document.addEventListener('click', handleOutside);
-    return function() { document.removeEventListener('click', handleOutside); };
+    function handleOutside(e) {
+      if (ref.current && ref.current.contains(e.target)) return;
+      setOpen(false);
+    }
+    document.addEventListener('mousedown', handleOutside);
+    return function() { document.removeEventListener('mousedown', handleOutside); };
   }, [open]);
-  return React.createElement('div', { className: 'nav-group' },
+  return React.createElement('div', { className: 'nav-group', ref: ref },
     React.createElement('button', {
       className: 'nav-group-btn' + (isActive ? ' on' : ''),
-      onClick: function(e) { e.stopPropagation(); setOpen(function(o) { return !o; }); }
+      onClick: function() { setOpen(function(o) { return !o; }); }
     }, label, ' \u25be'),
     open && React.createElement('div', { className: 'nav-group-menu', style: { display: 'block' } },
       items.map(function(item) {
@@ -5739,8 +5742,7 @@ function NavGroup(props) {
           className: 'nav-group-item' + (currentSection === item.id ? ' on' : ''),
           disabled: dis,
           title: dis ? 'Connect on the Home tab first' : '',
-          onClick: function(e) {
-            e.stopPropagation();
+          onClick: function() {
             setOpen(false);
             if (!dis) onSelect(item.id);
           }
