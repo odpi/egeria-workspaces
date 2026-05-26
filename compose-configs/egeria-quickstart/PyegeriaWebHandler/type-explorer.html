@@ -160,6 +160,31 @@
                  font-family: inherit; }
     .theme-btn:hover { background: var(--hover); color: var(--text); }
 
+    /* ── Nav dropdown groups ──────────────────────────────────────────── */
+    .nav-group { position: relative; display: flex; align-items: stretch; }
+    .nav-group-btn { background: none; border: none; border-bottom: 2px solid transparent;
+                     padding: 4px 10px; cursor: pointer; font-size: 13px; color: var(--muted);
+                     font-family: inherit; line-height: 1.5; display: flex; align-items: center; gap: 3px; }
+    .nav-group-btn.on { color: var(--accent); font-weight: 600; border-bottom-color: var(--accent); }
+    .nav-group-menu { position: absolute; top: calc(100% + 2px); left: 0; background: var(--panel);
+                      border: 1px solid var(--border); border-radius: 6px; padding: 4px 0;
+                      min-width: 172px; z-index: 100; display: none;
+                      box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+    .nav-group:hover .nav-group-menu,
+    .nav-group:focus-within .nav-group-menu { display: block; }
+    .nav-group-item { display: block; width: 100%; text-align: left; background: none; border: none;
+                      padding: 7px 16px; font-size: 13px; color: var(--muted); font-family: inherit;
+                      cursor: pointer; white-space: nowrap; }
+    .nav-group-item:hover:not(:disabled) { background: var(--hover); color: var(--text); }
+    .nav-group-item.on { color: var(--accent); font-weight: 600; }
+    .nav-group-item:disabled { opacity: 0.35; cursor: not-allowed; }
+    :root.light .nav-group-menu { box-shadow: 0 4px 14px rgba(0,0,0,.15); }
+
+    /* ── Type-system sub-toolbar ──────────────────────────────────────── */
+    .type-subbar { background: var(--panel); border-bottom: 1px solid var(--border);
+                   padding: 4px 20px; display: flex; align-items: center; gap: 12px;
+                   flex-shrink: 0; font-size: 12px; }
+
     /* ── REST API Explorer ───────────────────────────────────────── */
     .method-badge { border-radius: 3px; padding: 1px 6px; font-size: 10px; font-weight: 700;
                     font-family: ui-monospace, monospace; letter-spacing: .5px; flex-shrink: 0; }
@@ -5690,6 +5715,29 @@ function PersonaPickerModal({ onSelect, currentPersonaId }) {
   );
 }
 
+// ── Nav dropdown group component ──────────────────────────────────────────────
+
+function NavGroup(props) {
+  var label = props.label, isActive = props.isActive, items = props.items,
+      onSelect = props.onSelect, currentSection = props.currentSection, connected = props.connected;
+  return React.createElement('div', { className: 'nav-group' },
+    React.createElement('button', { className: 'nav-group-btn' + (isActive ? ' on' : '') },
+      label, ' ▾'),
+    React.createElement('div', { className: 'nav-group-menu' },
+      items.map(function(item) {
+        var dis = item.needsConnect && !connected;
+        return React.createElement('button', {
+          key: item.id,
+          className: 'nav-group-item' + (currentSection === item.id ? ' on' : ''),
+          disabled: dis,
+          title: dis ? 'Connect on the Home tab first' : '',
+          onClick: function() { onSelect(item.id); }
+        }, item.label);
+      })
+    )
+  );
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 
 function App() {
@@ -5878,21 +5926,55 @@ function App() {
       /*#__PURE__*/React.createElement("span", { style: { fontFamily: 'ui-monospace,monospace', fontSize: 11, color: 'var(--dim)', letterSpacing: 3, textTransform: 'uppercase' } }, "Egeria"),
       /*#__PURE__*/React.createElement("span", { style: { width: 1, height: 14, background: 'var(--border)', display: 'inline-block' } }),
       /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'splash' ? " on" : ""), onClick: () => setSection('splash') }, "⌂ Home"),
-      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'type-system' ? " on" : ""), disabled: !connected, title: connected ? '' : 'Connect on the Home tab first', onClick: () => { setSection('type-system'); setView('types'); } }, "Type Explorer"),
-      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'glossary' ? " on" : ""), disabled: !connected, title: connected ? '' : 'Connect on the Home tab first', onClick: () => setSection('glossary') }, "Glossary"),
-      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'reference-data' ? " on" : ""), disabled: !connected, title: connected ? '' : 'Connect on the Home tab first', onClick: () => setSection('reference-data') }, "Reference Data"),
-      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'digital-products' ? " on" : ""), disabled: !connected, title: connected ? '' : 'Connect on the Home tab first', onClick: () => setSection('digital-products') }, "Digital Products"),
-      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'report-specs' ? " on" : ""), disabled: !connected, title: connected ? '' : 'Connect on the Home tab first', onClick: () => setSection('report-specs') }, "Report Specs"),
-      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'valid-values' ? " on" : ""), disabled: !connected, title: connected ? '' : 'Connect on the Home tab first', onClick: () => setSection('valid-values') }, "Valid Values"),
-      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'rest-apis' ? " on" : ""), disabled: !connected, title: connected ? '' : 'Connect on the Home tab first', onClick: () => setSection('rest-apis') }, "REST APIs"),
-      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'solution-architect' ? " on" : ""), disabled: !connected, title: connected ? '' : 'Connect on the Home tab first', onClick: () => setSection('solution-architect') }, "Solution Architect"),
-      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'data-design' ? " on" : ""), disabled: !connected, title: connected ? '' : 'Connect on the Home tab first', onClick: () => setSection('data-design') }, "Data Design"),
-      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'perspectives' ? " on" : ""), disabled: !connected, title: connected ? '' : 'Connect on the Home tab first', onClick: () => setSection('perspectives') }, "Perspectives"),
-      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'dr-egeria' ? " on" : ""), onClick: () => setSection('dr-egeria') }, "Dr. Egeria"),
-      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'isc' ? " on" : ""), disabled: !connected, title: connected ? '' : 'Connect on the Home tab first', onClick: () => setSection('isc') }, "Supply Chains"),
+      section !== 'splash' && React.createElement(React.Fragment, null,
+        React.createElement(NavGroup, {
+          label: 'Reference', connected: connected, currentSection: section,
+          isActive: ['type-system','rest-apis','valid-values'].includes(section),
+          onSelect: function(id) { setSection(id); if (id === 'type-system') setView('types'); },
+          items: [
+            { id: 'type-system',  label: 'Type Explorer', needsConnect: true },
+            { id: 'rest-apis',    label: 'REST APIs',      needsConnect: true },
+            { id: 'valid-values', label: 'Valid Values',   needsConnect: true },
+          ]
+        }),
+        React.createElement(NavGroup, {
+          label: 'Review', connected: connected, currentSection: section,
+          isActive: ['glossary','reference-data','data-design','solution-architect','isc','perspectives'].includes(section),
+          onSelect: setSection,
+          items: [
+            { id: 'glossary',           label: 'Glossary',           needsConnect: true },
+            { id: 'reference-data',     label: 'Reference Data',     needsConnect: true },
+            { id: 'data-design',        label: 'Data Design',        needsConnect: true },
+            { id: 'solution-architect', label: 'Solution Architect', needsConnect: true },
+            { id: 'isc',                label: 'Supply Chains',      needsConnect: true },
+            { id: 'perspectives',       label: 'Perspectives',       needsConnect: true },
+          ]
+        }),
+        React.createElement(NavGroup, {
+          label: 'Act', connected: connected, currentSection: section,
+          isActive: ['report-specs','digital-products'].includes(section),
+          onSelect: setSection,
+          items: [
+            { id: 'report-specs',     label: 'Report Specs',     needsConnect: true },
+            { id: 'digital-products', label: 'Digital Products', needsConnect: true },
+          ]
+        }),
+        /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'dr-egeria' ? " on" : ""), onClick: () => setSection('dr-egeria') }, "Dr. Egeria")
+      ),
       /*#__PURE__*/React.createElement("div", { style: { flex: 1 } }),
-      section === 'type-system' && /*#__PURE__*/React.createElement("button", { className: "view-tab" + (view === 'attrs' ? " on" : ""), onClick: () => setView('attrs') }, "Attribute Index"),
-      section === 'type-system' && view === 'types' && /*#__PURE__*/React.createElement("select", {
+      /*#__PURE__*/React.createElement("button", {
+        className: "theme-btn",
+        onClick: () => setTheme(t => t === 'dark' ? 'light' : 'dark'),
+        title: theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
+      }, theme === 'dark' ? "☀ Light" : "☾ Dark"),
+      demoMode && activePersona && React.createElement(React.Fragment, null,
+        React.createElement('span', { className: 'persona-badge-btn', title: activePersona.coco_title || '' }, '🎭 ' + activePersona.display_name),
+        React.createElement('a', { className: 'theme-btn', style: { marginLeft: 4, textDecoration: 'none' }, href: '/portal' }, 'Portal')
+      ),
+      demoMode && !activePersona && React.createElement('a', { className: 'persona-badge-btn', href: '/portal' }, '🎭 Choose persona')
+    ),
+    section === 'type-system' && /*#__PURE__*/React.createElement("div", { className: "type-subbar" },
+      /*#__PURE__*/React.createElement("select", {
         className: "area-select",
         value: areaFilter,
         onChange: e => {
@@ -5902,23 +5984,15 @@ function App() {
           if (first) setSelected({ kind: 'type', name: first });
         }
       }, Object.entries(AREA_NAMES).map(([k, v]) => /*#__PURE__*/React.createElement("option", { key: k, value: k }, v))),
-      section === 'type-system' && /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', display: 'flex', gap: 12 } },
+      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (view === 'attrs' ? " on" : ""), onClick: () => setView('attrs') }, "Attribute Index"),
+      /*#__PURE__*/React.createElement("div", { style: { flex: 1 } }),
+      view === 'types' && /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', display: 'flex', gap: 12 } },
         /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", { style: { color: 'var(--accent)' } }, Object.keys(entities).length), " Entities"),
         /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", { style: { color: 'var(--classif)' } }, Object.keys(classifications).length), " Classifications"),
         /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", { style: { color: 'var(--rel)' } }, Object.keys(relationships).length), " Relationships")
-      ),
-      /*#__PURE__*/React.createElement("button", {
-        className: "theme-btn",
-        onClick: () => setTheme(t => t === 'dark' ? 'light' : 'dark'),
-        title: theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
-      }, theme === 'dark' ? "\u2600 Light" : "\u263E Dark"),
-      demoMode && activePersona && React.createElement(React.Fragment, null,
-        React.createElement('span', { className: 'persona-badge-btn', title: activePersona.coco_title || '' }, '\uD83C\uDFAD ' + activePersona.display_name),
-        React.createElement('a', { className: 'theme-btn', style: { marginLeft: 4, textDecoration: 'none' }, href: '/portal' }, 'Portal')
-      ),
-      demoMode && !activePersona && React.createElement('a', { className: 'persona-badge-btn', href: '/portal' }, '\uD83C\uDFAD Choose persona')
+      )
     ),
-    // Body \u2014 dispatches to section, then to Type System sub-view
+    // Body — dispatches to section, then to Type System sub-view
     section === 'splash'
       ? React.createElement(SplashScreen, { onNavigate: function(s) { setSection(s); if (s === 'type-system') setView('types'); }, saveCreds: saveCreds })
       : section === 'report-specs'
