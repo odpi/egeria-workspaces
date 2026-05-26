@@ -89,6 +89,9 @@ services:
       # Comma-separated Egeria user IDs that receive portal admin role.
       # Add your own admin userId here after first login.
       EGERIA_ADMIN_USERS: "bootstrap"
+      # Service account used to obtain fresh Egeria tokens for SecurityOfficer calls.
+      # Password must be set in .env as EGERIA_ADMIN_CALLER_PASSWORD (never here).
+      EGERIA_ADMIN_CALLER_ID: "bootstrap"
       # Optional: read org name from application.properties instead of this env var.
       EGERIA_ORG_NAME: "${EGERIA_ORG_NAME:-My Organisation}"
       EGERIA_USER_SECRETS_PATH: "/secrets/user-directory.omsecrets"

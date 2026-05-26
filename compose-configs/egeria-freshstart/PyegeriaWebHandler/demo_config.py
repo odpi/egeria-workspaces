@@ -41,3 +41,12 @@ SITE_URL: str = os.environ.get("SITE_URL", "http://localhost:8086").rstrip("/")
 # ── User directory ─────────────────────────────────────────────────────────────
 
 EGERIA_USER_SECRETS_PATH: str = os.environ.get("EGERIA_USER_SECRETS_PATH", "/secrets/user-directory.omsecrets")
+
+# ── Admin service account ───────────────────────────────────────────────────────
+# Used to obtain a fresh Egeria bearer token for SecurityOfficer and admin API
+# calls. The portal admin JWT lasts 7 days but the Egeria bearer token it carries
+# expires sooner; this account's credentials are used to re-authenticate as needed.
+# Set EGERIA_ADMIN_CALLER_PASSWORD in .env — never in yaml.
+
+EGERIA_ADMIN_CALLER_ID: str       = os.environ.get("EGERIA_ADMIN_CALLER_ID", "bootstrap")
+EGERIA_ADMIN_CALLER_PASSWORD: str = os.environ.get("EGERIA_ADMIN_CALLER_PASSWORD", "secret")

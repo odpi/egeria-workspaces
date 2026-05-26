@@ -46,6 +46,8 @@ from pydantic import BaseModel
 
 from demo_config import (
     DEMO_MODE,
+    EGERIA_ADMIN_CALLER_ID,
+    EGERIA_ADMIN_CALLER_PASSWORD,
     EGERIA_ADMIN_USERS,
     EGERIA_PLATFORM_NAME,
     EGERIA_PLATFORM_URL,
@@ -78,6 +80,48 @@ _HUMAN_TYPES = frozenset({"EMPLOYEE", "EXTERNAL", "CONTRACTOR"})
 _SECRETS_PATH = Path(EGERIA_USER_SECRETS_PATH)
 _SECRETS_FILE_LOCK = asyncio.Lock()
 
+# ── Admin Egeria token ─────────────────────────────────────────────────────────
+# SecurityOfficer and ClassificationExplorer calls need a valid Egeria bearer
+# token. Rather than reusing the portal JWT's stored token (which can expire
+# before the 7-day admin portal JWT does), we maintain a separately refreshed
+# token using the configured admin service account credentials.
+
+_admin_token_cache: Optional[tuple[str, datetime]] = None
+_admin_token_lock = asyncio.Lock()
+
+
+async def _get_admin_egeria_token() -> str:
+    """Return a cached Egeria bearer token for admin/SecurityOfficer operations.
+
+    Refreshes automatically every 20 minutes so it stays valid regardless of
+    the portal JWT lifetime.
+    """
+    global _admin_token_cache
+    now = datetime.utcnow()
+    if _admin_token_cache:
+        token, expires_at = _admin_token_cache
+        if now < expires_at:
+            return token
+    async with _admin_token_lock:
+        if _admin_token_cache:
+            token, expires_at = _admin_token_cache
+            if now < expires_at:
+                return token
+        status, text = await _egeria_token_call(EGERIA_ADMIN_CALLER_ID, EGERIA_ADMIN_CALLER_PASSWORD)
+        if status != 200 or not text.strip() or text.strip().startswith("{"):
+            logger.error(
+                f"Failed to obtain admin Egeria token for '{EGERIA_ADMIN_CALLER_ID}': "
+                f"HTTP {status} — check EGERIA_ADMIN_CALLER_ID/PASSWORD in .env"
+            )
+            raise HTTPException(
+                status_code=502,
+                detail="Egeria admin token unavailable — check EGERIA_ADMIN_CALLER_ID/PASSWORD in .env",
+            )
+        token = text.strip()
+        _admin_token_cache = (token, now + timedelta(minutes=20))
+        logger.debug(f"Refreshed Egeria admin token for '{EGERIA_ADMIN_CALLER_ID}'")
+        return token
+
 
 def _read_omsecrets() -> dict:
     return yaml.safe_load(_SECRETS_PATH.read_text())
@@ -94,7 +138,7 @@ def _secrets_users(data: dict) -> dict:
     return data["secretsCollections"]["userDirectory"]["users"]
 
 
-async def _get_platform_guid(egeria_token: str) -> str:
+async def _get_platform_guid() -> str:
     """Return (and cache) the GUID of the Egeria platform element."""
     global _platform_guid_cache
     if _platform_guid_cache:
@@ -102,6 +146,7 @@ async def _get_platform_guid(egeria_token: str) -> str:
     async with _platform_guid_lock:
         if _platform_guid_cache:
             return _platform_guid_cache
+        egeria_token = await _get_admin_egeria_token()
         url = (
             f"{EGERIA_PLATFORM_URL}/servers/{EGERIA_VIEW_SERVER}"
             "/api/open-metadata/classification-explorer/elements/by-exact-property-value"
@@ -391,8 +436,9 @@ def _extract_collection_elements(data: dict) -> list[dict]:
     return result
 
 
-async def _list_elements_by_type(type_name: str, egeria_token: str) -> list[dict]:
+async def _list_elements_by_type(type_name: str) -> list[dict]:
     """Search for all metadata elements of the given type via classification-explorer."""
+    egeria_token = await _get_admin_egeria_token()
     body = {
         "class": "FindPropertyNamesProperties",
         "metadataElementTypeName": type_name,
@@ -401,7 +447,7 @@ async def _list_elements_by_type(type_name: str, egeria_token: str) -> list[dict
     }
     r = await _egeria_post(
         "/api/open-metadata/classification-explorer/elements/by-property-value-search"
-        f"?startsWith=false&endsWith=false&ignoreCase=true",
+        "?startsWith=false&endsWith=false&ignoreCase=true",
         body,
         egeria_token,
     )
@@ -413,12 +459,12 @@ async def _list_elements_by_type(type_name: str, egeria_token: str) -> list[dict
 
 @router.get("/api/admin/roles")
 async def list_roles(admin: CurrentUser = Depends(require_admin)):
-    return await _list_elements_by_type("SecurityRole", admin.egeria_token)
+    return await _list_elements_by_type("SecurityRole")
 
 
 @router.get("/api/admin/groups")
 async def list_groups(admin: CurrentUser = Depends(require_admin)):
-    return await _list_elements_by_type("SecurityGroup", admin.egeria_token)
+    return await _list_elements_by_type("SecurityGroup")
 
 
 # ── Admin — Egeria user accounts ───────────────────────────────────────────────
@@ -484,12 +530,13 @@ async def list_egeria_users(admin: CurrentUser = Depends(require_admin)):
 @router.post("/api/admin/egeria-users")
 async def create_egeria_user(req: CreateUserRequest, admin: CurrentUser = Depends(require_admin)):
     # SecurityOfficer: immediate in-memory effect (user can log in right away)
-    guid = await _get_platform_guid(admin.egeria_token)
+    guid = await _get_platform_guid()
+    admin_token = await _get_admin_egeria_token()
     async with httpx.AsyncClient(verify=False) as client:
         r = await client.post(
             f"{_SECURITY_OFFICER_BASE}/platforms/{guid}/user-accounts",
             json=_build_user_account_body(req),
-            headers=_egeria_headers(admin.egeria_token),
+            headers=_egeria_headers(admin_token),
             timeout=30,
         )
     if r.status_code not in (200, 201):
@@ -515,11 +562,12 @@ async def update_egeria_user(
     req: UpdateUserRequest,
     admin: CurrentUser = Depends(require_admin),
 ):
-    guid = await _get_platform_guid(admin.egeria_token)
+    guid = await _get_platform_guid()
+    admin_token = await _get_admin_egeria_token()
     async with httpx.AsyncClient(verify=False) as client:
         get_r = await client.get(
             f"{_SECURITY_OFFICER_BASE}/platforms/{guid}/user-accounts/{target_id}",
-            headers=_egeria_headers(admin.egeria_token),
+            headers=_egeria_headers(admin_token),
             timeout=30,
         )
     if get_r.status_code != 200:
@@ -541,7 +589,7 @@ async def update_egeria_user(
         r = await client.post(
             f"{_SECURITY_OFFICER_BASE}/platforms/{guid}/user-accounts",
             json={"class": "UserAccountRequestBody", "userAccount": current},
-            headers=_egeria_headers(admin.egeria_token),
+            headers=_egeria_headers(admin_token),
             timeout=30,
         )
     if r.status_code not in (200, 201):
@@ -559,11 +607,12 @@ async def update_egeria_user(
 
 @router.post("/api/admin/egeria-users/{target_id}/disable")
 async def disable_egeria_user(target_id: str, admin: CurrentUser = Depends(require_admin)):
-    guid = await _get_platform_guid(admin.egeria_token)
+    guid = await _get_platform_guid()
+    admin_token = await _get_admin_egeria_token()
     async with httpx.AsyncClient(verify=False) as client:
         get_r = await client.get(
             f"{_SECURITY_OFFICER_BASE}/platforms/{guid}/user-accounts/{target_id}",
-            headers=_egeria_headers(admin.egeria_token),
+            headers=_egeria_headers(admin_token),
             timeout=30,
         )
     if get_r.status_code != 200:
@@ -574,7 +623,7 @@ async def disable_egeria_user(target_id: str, admin: CurrentUser = Depends(requi
         r = await client.post(
             f"{_SECURITY_OFFICER_BASE}/platforms/{guid}/user-accounts",
             json={"class": "UserAccountRequestBody", "userAccount": current},
-            headers=_egeria_headers(admin.egeria_token),
+            headers=_egeria_headers(admin_token),
             timeout=30,
         )
     if r.status_code not in (200, 201):
@@ -595,11 +644,12 @@ async def reset_egeria_password(
     req: ResetPasswordRequest,
     admin: CurrentUser = Depends(require_admin),
 ):
-    guid = await _get_platform_guid(admin.egeria_token)
+    guid = await _get_platform_guid()
+    admin_token = await _get_admin_egeria_token()
     async with httpx.AsyncClient(verify=False) as client:
         get_r = await client.get(
             f"{_SECURITY_OFFICER_BASE}/platforms/{guid}/user-accounts/{target_id}",
-            headers=_egeria_headers(admin.egeria_token),
+            headers=_egeria_headers(admin_token),
             timeout=30,
         )
     if get_r.status_code != 200:
@@ -611,7 +661,7 @@ async def reset_egeria_password(
         r = await client.post(
             f"{_SECURITY_OFFICER_BASE}/platforms/{guid}/user-accounts",
             json={"class": "UserAccountRequestBody", "userAccount": current},
-            headers=_egeria_headers(admin.egeria_token),
+            headers=_egeria_headers(admin_token),
             timeout=30,
         )
     if r.status_code not in (200, 201):
@@ -631,11 +681,12 @@ async def reset_egeria_password(
 async def delete_egeria_user(target_id: str, admin: CurrentUser = Depends(require_admin)):
     if target_id == admin.user_id:
         raise HTTPException(status_code=400, detail="Cannot delete your own account")
-    guid = await _get_platform_guid(admin.egeria_token)
+    guid = await _get_platform_guid()
+    admin_token = await _get_admin_egeria_token()
     async with httpx.AsyncClient(verify=False) as client:
         r = await client.delete(
             f"{_SECURITY_OFFICER_BASE}/platforms/{guid}/user-accounts/{target_id}",
-            headers=_egeria_headers(admin.egeria_token),
+            headers=_egeria_headers(admin_token),
             timeout=30,
         )
     if r.status_code not in (200, 201, 204):
