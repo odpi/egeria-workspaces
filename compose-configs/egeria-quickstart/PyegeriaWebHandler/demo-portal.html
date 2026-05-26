@@ -396,6 +396,7 @@ function confirmPersona() {
 function doLogout() {
   fetch('/api/auth/logout', { method: 'POST' }).then(function() {
     localStorage.removeItem('egeria-persona');
+    localStorage.removeItem('egeria-creds');
     window.location.href = '/login';
   });
 }
