@@ -45,7 +45,7 @@
     #root { display: flex; flex-direction: column; height: 100vh; }
     .header { background: var(--panel); border-bottom: 1px solid var(--border);
               padding: 10px 20px; display: flex; align-items: center; gap: 14px;
-              flex-shrink: 0; overflow-x: auto; }
+              flex-shrink: 0; }
     .body   { display: flex; flex: 1; overflow: hidden; }
     .sidebar { flex-shrink: 0; background: rgba(11,17,28,.85);
                display: flex; flex-direction: column; overflow: hidden; }
@@ -166,11 +166,10 @@
                      padding: 4px 10px; cursor: pointer; font-size: 13px; color: var(--muted);
                      font-family: inherit; line-height: 1.5; display: flex; align-items: center; gap: 3px; }
     .nav-group-btn.on { color: var(--accent); font-weight: 600; border-bottom-color: var(--accent); }
-    .nav-group-menu { position: absolute; top: calc(100% + 2px); left: 0; background: var(--panel);
+    .nav-group-menu { position: absolute; top: 100%; left: 0; background: var(--panel);
                       border: 1px solid var(--border); border-radius: 6px; padding: 4px 0;
                       min-width: 172px; z-index: 100; display: none;
                       box-shadow: 0 8px 24px rgba(0,0,0,.4); }
-    .nav-group:hover .nav-group-menu,
     .nav-group:focus-within .nav-group-menu { display: block; }
     .nav-group-item { display: block; width: 100%; text-align: left; background: none; border: none;
                       padding: 7px 16px; font-size: 13px; color: var(--muted); font-family: inherit;
@@ -3808,7 +3807,7 @@ function ConnectionForm({ saveCreds }) {
   );
 }
 
-function SplashScreen({ onNavigate, saveCreds }) {
+function SplashScreen({ onNavigate, saveCreds, demoMode }) {
   var cardStyle = {
     background: 'var(--surface)',
     border: '1px solid var(--border)',
@@ -3844,7 +3843,7 @@ function SplashScreen({ onNavigate, saveCreds }) {
         'Browse the open metadata type system, business glossaries, reference data, digital products, ' +
         'solution blueprints, data design, and view-server REST APIs — all connected live to your running Egeria platform.'
       ),
-      React.createElement(ConnectionForm, { saveCreds: saveCreds }),
+      !demoMode && React.createElement(ConnectionForm, { saveCreds: saveCreds }),
       React.createElement('div', {
         style: {
           display: 'grid',
@@ -5720,10 +5719,19 @@ function PersonaPickerModal({ onSelect, currentPersonaId }) {
 function NavGroup(props) {
   var label = props.label, isActive = props.isActive, items = props.items,
       onSelect = props.onSelect, currentSection = props.currentSection, connected = props.connected;
+  var _open = useState(false), open = _open[0], setOpen = _open[1];
+  useEffect(function() {
+    if (!open) return;
+    function handleOutside() { setOpen(false); }
+    document.addEventListener('click', handleOutside);
+    return function() { document.removeEventListener('click', handleOutside); };
+  }, [open]);
   return React.createElement('div', { className: 'nav-group' },
-    React.createElement('button', { className: 'nav-group-btn' + (isActive ? ' on' : '') },
-      label, ' ▾'),
-    React.createElement('div', { className: 'nav-group-menu' },
+    React.createElement('button', {
+      className: 'nav-group-btn' + (isActive ? ' on' : ''),
+      onClick: function(e) { e.stopPropagation(); setOpen(function(o) { return !o; }); }
+    }, label, ' \u25be'),
+    open && React.createElement('div', { className: 'nav-group-menu', style: { display: 'block' } },
       items.map(function(item) {
         var dis = item.needsConnect && !connected;
         return React.createElement('button', {
@@ -5731,7 +5739,11 @@ function NavGroup(props) {
           className: 'nav-group-item' + (currentSection === item.id ? ' on' : ''),
           disabled: dis,
           title: dis ? 'Connect on the Home tab first' : '',
-          onClick: function() { onSelect(item.id); }
+          onClick: function(e) {
+            e.stopPropagation();
+            setOpen(false);
+            if (!dis) onSelect(item.id);
+          }
         }, item.label);
       })
     )
@@ -5994,7 +6006,7 @@ function App() {
     ),
     // Body — dispatches to section, then to Type System sub-view
     section === 'splash'
-      ? React.createElement(SplashScreen, { onNavigate: function(s) { setSection(s); if (s === 'type-system') setView('types'); }, saveCreds: saveCreds })
+      ? React.createElement(SplashScreen, { onNavigate: function(s) { setSection(s); if (s === 'type-system') setView('types'); }, saveCreds: saveCreds, demoMode: demoMode })
       : section === 'report-specs'
       ? React.createElement(ReportSpecView, { key: credsKey })
       : section === 'glossary'
