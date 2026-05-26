@@ -382,14 +382,16 @@ def portal_config(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
     if not user or not user.verified:
         raise HTTPException(status_code=401, detail="Authentication required")
+    import urllib.parse
     raw = get_config("obsidian_vault_url", "")
     if raw and not raw.startswith("obsidian://"):
-        # Treat bare value as a vault name → construct the URI
-        import urllib.parse
         obsidian_url = "obsidian://open?vault=" + urllib.parse.quote(raw)
     else:
         obsidian_url = raw
-    return {"obsidian_vault_url": obsidian_url}
+    return {
+        "obsidian_vault_url": obsidian_url,
+        "obsidian_github_url": get_config("obsidian_github_url", ""),
+    }
 
 
 # ── Persona selection ──────────────────────────────────────────────────────────
