@@ -35,17 +35,17 @@
 
     /* ── Hero ── */
     .hero { background: linear-gradient(135deg, #16213e 0%, #0f3460 100%); border-bottom: 1px solid var(--border); padding: 40px 28px 36px; }
-    .hero-inner { max-width: 1060px; margin: 0 auto; display: flex; gap: 36px; align-items: flex-start; flex-wrap: wrap; }
-    .hero-text { flex: 1; min-width: 260px; }
+    .hero-inner { max-width: 1060px; margin: 0 auto; display: flex; gap: 32px; align-items: center; flex-wrap: wrap; }
+    .hero-text { flex: 1; min-width: 260px; text-align: center; }
     .hero h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 10px; }
     .hero p  { color: var(--muted); line-height: 1.65; font-size: 0.95rem; }
-    .hero-links { flex-shrink: 0; min-width: 200px; display: flex; flex-direction: column; gap: 14px; padding-top: 4px; }
-    .hero-links-row { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+    .hero-links { width: 160px; flex-shrink: 0; display: flex; flex-direction: column; gap: 14px; padding-top: 4px; }
+    .hero-links-row { display: flex; flex-direction: column; gap: 5px; }
     .hero-links-row a { font-size: 0.8rem; color: var(--muted); text-decoration: none; white-space: nowrap; }
     .hero-links-row a:hover { color: var(--accent); text-decoration: underline; }
     .hero-links-label { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #555; margin-bottom: 2px; }
-    .hero-stars { font-size: 0.78rem; color: #555; }
-    .hero-stars a { color: var(--muted); text-decoration: none; margin-right: 8px; white-space: nowrap; }
+    .hero-stars { display: flex; flex-direction: column; gap: 5px; }
+    .hero-stars a { font-size: 0.8rem; color: var(--muted); text-decoration: none; white-space: nowrap; }
     .hero-stars a:hover { color: var(--accent); }
 
     /* ── Main ── */
@@ -201,7 +201,9 @@
   <div class="ftr-links">
     <a href="/privacy">Privacy Policy</a>
   </div>
-  <img src="/static/pdr-logo.png" alt="PDR Associates" style="height:26px; opacity:0.6">
+  <a href="https://pdr-associates.com" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;opacity:0.6;transition:opacity 0.15s" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">
+    <img src="/static/pdr-logo.png" alt="PDR Associates" style="height:26px">
+  </a>
 </footer>
 
 <!-- ── Persona picker overlay ─────────────────────────────────────────────── -->
