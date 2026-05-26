@@ -44,7 +44,8 @@ _bootstrap_runtime_defaults()
 import asyncio
 import concurrent.futures
 import io
-from contextlib import redirect_stderr, redirect_stdout
+import threading
+from contextlib import asynccontextmanager, redirect_stderr, redirect_stdout
 from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException, Request
@@ -52,19 +53,39 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from loguru import logger
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from pyegeria import print_basic_exception
 import pyegeria
 pyegeria.enable_ssl_check = False
 pyegeria.disable_ssl_warnings = True
 
 import dr_egeria_md
+from demo_config import DEMO_MODE
+from rate_limiter import limiter
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    if DEMO_MODE:
+        from demo_reset_handler import start_scheduler, stop_scheduler
+        await start_scheduler()
+    yield
+    if DEMO_MODE:
+        from demo_reset_handler import stop_scheduler
+        await stop_scheduler()
 
 
 app = FastAPI(
     title="Dr. Egeria Markdown Processor API",
     description="POST an instruction to process a Markdown file via dr_egeria_md.process_markdown_file and get structured command status back.",
     version="1.0.0",
+    lifespan=_lifespan,
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Security Token (Simplified for local use)
 MCP_ACCESS_TOKEN = os.environ.get("MCP_ACCESS_TOKEN", "egeria-secret-mcp-token")
@@ -108,6 +129,7 @@ class MCPTokenMiddleware:
         await self.app(scope, receive, send)
 
 app.add_middleware(MCPTokenMiddleware)
+app.add_middleware(SlowAPIMiddleware)
 
 # CORS configuration for Obsidian security
 # CORSMiddleware is added AFTER other middlewares so it wraps them
@@ -120,6 +142,8 @@ app.add_middleware(
 )
 
 executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+# Serialises _invoke_processor calls because _apply_request_configuration mutates os.environ
+_processor_lock = threading.Lock()
 
 
 class ProcessRequest(BaseModel):
@@ -179,11 +203,12 @@ from isc_handler import router as isc_router
 app.include_router(isc_router)
 
 # ── Demo mode ──────────────────────────────────────────────────────────────────
-from demo_config import DEMO_MODE
 
 if DEMO_MODE:
     from demo_auth_handler import router as demo_auth_router
     app.include_router(demo_auth_router)
+    from demo_reset_handler import router as demo_reset_router
+    app.include_router(demo_reset_router)
 
 @app.get("/")
 async def health():
@@ -237,6 +262,16 @@ async def privacy_page():
     return FileResponse(str(html_path), media_type="text/html")
 
 
+@app.get("/reset-password", include_in_schema=False)
+async def reset_password_page():
+    if not DEMO_MODE:
+        return RedirectResponse(url="/login")
+    html_path = SCRIPT_DIR / "demo-reset-password.html"
+    if not html_path.exists():
+        raise HTTPException(status_code=404, detail="Reset password page not found")
+    return FileResponse(str(html_path), media_type="text/html")
+
+
 @app.get("/portal", include_in_schema=False)
 async def portal_page(request: Request):
     if DEMO_MODE:
@@ -265,7 +300,7 @@ def _apply_request_configuration(req: ProcessRequest) -> tuple[str, str]:
     environment = req.environment or {}
     user_profile = req.user_profile or {}
 
-    print(f"DEBUG: Request environment: {environment}")
+    logger.debug(f"Request environment: {environment}")
 
     platform_url = str(
         environment.get("Egeria Platform URL")
@@ -323,47 +358,46 @@ def _apply_request_configuration(req: ProcessRequest) -> tuple[str, str]:
         os.environ["EGERIA_INBOX_PATH"] = _stringify_env_value(environment["Dr.Egeria Inbox"])
 
     # Log values after configuration application
-    print(f"DEBUG: Configured EGERIA_ROOT_PATH: {os.environ.get('EGERIA_ROOT_PATH')}")
-    print(f"DEBUG: Configured EGERIA_INBOX_PATH: {os.environ.get('EGERIA_INBOX_PATH')}")
+    logger.debug(f"Configured EGERIA_ROOT_PATH: {os.environ.get('EGERIA_ROOT_PATH')}")
+    logger.debug(f"Configured EGERIA_INBOX_PATH: {os.environ.get('EGERIA_INBOX_PATH')}")
 
     # Special handling for absolute paths sent from plugin
     if req.input_file.startswith("/"):
         # If the file path is already absolute, we don't need to prepend anything,
         # but we do want to check fallbacks if it's not found at the literal path.
-        print(f"DEBUG: Absolute path detected in request: {req.input_file}")
+        logger.debug(f"Absolute path detected in request: {req.input_file}")
     
     for config_key, env_key in profile_mappings.items():
         if config_key in user_profile:
             os.environ[env_key] = _stringify_env_value(user_profile[config_key])
 
-    os.environ["EGERIA_USER"] = req.user_id
-    os.environ["EGERIA_USER_PASSWORD"] = req.user_pass
+
 
     # Check if the file actually exists using the combination
     current_root = os.environ.get("EGERIA_ROOT_PATH", "/")
     current_inbox = os.environ.get("EGERIA_INBOX_PATH", ".")
     combined_path = Path(current_root) / current_inbox / req.input_file
     resolved_path = combined_path.resolve()
-    print(f"DEBUG: Combined absolute path check: {resolved_path}")
+    logger.debug(f"Combined absolute path check: {resolved_path}")
     
     # List of possible mount points to check if not found at the primary path
     mount_points = ["/work", "/coco-workbooks", "/work/Work-Obsidian"]
     
     if resolved_path.exists():
-        print(f"DEBUG: FILE FOUND at {resolved_path}. Using absolute path for processor.")
+        logger.debug(f"FILE FOUND at {resolved_path}. Using absolute path for processor.")
     else:
-        print(f"DEBUG: FILE NOT FOUND at {resolved_path}. Checking fallback mount points...")
+        logger.debug(f"FILE NOT FOUND at {resolved_path}. Checking fallback mount points...")
         found_fallback = False
         for mp in mount_points:
             fallback_path = Path(mp) / req.input_file.lstrip("/")
             if fallback_path.exists():
                 resolved_path = fallback_path.resolve()
-                print(f"DEBUG: FILE FOUND at fallback {resolved_path}")
+                logger.debug(f"FILE FOUND at fallback {resolved_path}")
                 found_fallback = True
                 break
         
         if not found_fallback:
-            print(f"DEBUG: FILE NOT FOUND in any common location.")
+            logger.debug(f"FILE NOT FOUND in any common location.")
             return req.input_file, view_server, platform_url
 
     # If found, use the absolute path to bypass internal library resolution issues.
@@ -381,7 +415,7 @@ def _apply_request_configuration(req: ProcessRequest) -> tuple[str, str]:
         # Force outbox to be absolute relative to the discovered root
         absolute_outbox = str(Path(discovered_root) / outbox)
         os.environ["EGERIA_OUTBOX_PATH"] = absolute_outbox
-        print(f"DEBUG: Forced absolute EGERIA_OUTBOX_PATH: {absolute_outbox}")
+        logger.debug(f"Forced absolute EGERIA_OUTBOX_PATH: {absolute_outbox}")
 
     os.environ["EGERIA_ROOT_PATH"] = "/"
     os.environ["EGERIA_INBOX_PATH"] = "."
@@ -448,6 +482,11 @@ def _console_output_indicates_error(console_output: str) -> bool:
 
 
 def _invoke_processor(req: ProcessRequest) -> ProcessResponse:
+    with _processor_lock:
+        return _invoke_processor_locked(req)
+
+
+def _invoke_processor_locked(req: ProcessRequest) -> ProcessResponse:
     input_file, server, url = _apply_request_configuration(req)
 
     cmd = dr_egeria_md.process_md_file
@@ -465,8 +504,8 @@ def _invoke_processor(req: ProcessRequest) -> ProcessResponse:
         elif input_file.startswith("/work"):
              output_folder = str(Path("/work") / output_folder)
 
-    print(f"DEBUG: Invoking processor with input_file: {input_file}")
-    print(f"DEBUG: Invoking processor with output_folder: {output_folder}")
+    logger.debug(f"Invoking processor with input_file: {input_file}")
+    logger.debug(f"Invoking processor with output_folder: {output_folder}")
 
     console_output = _run_and_capture(
         func,
@@ -510,7 +549,7 @@ def _invoke_processor(req: ProcessRequest) -> ProcessResponse:
 @app.post("/dr-egeria/process", response_model=ProcessResponse)
 async def process_markdown(request: ProcessRequest):
     try:
-        print(f"DEBUG: Received request for input_file: {request.input_file}")
+        logger.debug(f"Received request for input_file: {request.input_file}")
         loop = asyncio.get_event_loop()
         result: ProcessResponse = await loop.run_in_executor(executor, _invoke_processor, request)
         return JSONResponse(content=result.model_dump())

@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from rate_limiter import limiter
 from fastapi.responses import JSONResponse, RedirectResponse
 from jose import JWTError, jwt
 from loguru import logger
@@ -47,6 +48,7 @@ from demo_config import (
     JWT_ALGORITHM, JWT_EXPIRY_ADMIN_SEC, JWT_EXPIRY_USER_SEC, JWT_SECRET,
     RESEND_API_KEY, RESEND_FROM,
     SITE_URL, SMTP_FROM, SMTP_HOST, SMTP_PASSWORD, SMTP_PORT, SMTP_SSL, SMTP_USER,
+    COOKIE_SECURE,
 )
 from demo_db import Config, Event, User, get_db, get_config, log_event, set_config
 
@@ -216,7 +218,8 @@ class RoleUpdateRequest(BaseModel):
 # ── Registration & verification ────────────────────────────────────────────────
 
 @router.post("/api/auth/register", summary="Register a new demo account")
-def register(req: RegisterRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def register(request: Request, req: RegisterRequest, db: Session = Depends(get_db)):
     if len(req.password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
     if db.query(User).filter(User.email == req.email.lower()).first():
@@ -290,14 +293,15 @@ def verify_email(token: str, db: Session = Depends(get_db)):
     demo_token = _make_jwt(user.id, user.role)
     exp = JWT_EXPIRY_ADMIN_SEC if user.role == "admin" else JWT_EXPIRY_USER_SEC
     response = RedirectResponse(url="/egeria-explorer?demo_welcome=1", status_code=302)
-    response.set_cookie("demo_token", demo_token, httponly=True, samesite="lax", max_age=exp)
+    response.set_cookie("demo_token", demo_token, httponly=True, secure=COOKIE_SECURE, samesite="lax", max_age=exp)
     return response
 
 
 # ── Login / logout ─────────────────────────────────────────────────────────────
 
 @router.post("/api/auth/login", summary="Log in and receive a session cookie")
-def login(req: LoginRequest, response: Response, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def login(request: Request, req: LoginRequest, response: Response, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email.lower()).first()
     if not user or not _verify(req.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
@@ -310,7 +314,7 @@ def login(req: LoginRequest, response: Response, db: Session = Depends(get_db)):
 
     exp = JWT_EXPIRY_ADMIN_SEC if user.role == "admin" else JWT_EXPIRY_USER_SEC
     response.set_cookie("demo_token", _make_jwt(user.id, user.role),
-                        httponly=True, samesite="lax", max_age=exp)
+                        httponly=True, secure=COOKIE_SECURE, samesite="lax", max_age=exp)
     return {"message": "Login successful", "role": user.role, "display_name": user.display_name}
 
 
@@ -338,7 +342,8 @@ def get_me(request: Request, db: Session = Depends(get_db)):
 # ── Password reset ─────────────────────────────────────────────────────────────
 
 @router.post("/api/auth/forgot-password", summary="Request a password-reset email")
-def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
+@limiter.limit("3/minute")
+def forgot_password(request: Request, req: ForgotPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email.lower()).first()
     if user and user.verified:
         token = secrets.token_urlsafe(32)

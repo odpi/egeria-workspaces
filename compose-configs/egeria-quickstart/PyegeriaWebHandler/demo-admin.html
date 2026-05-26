@@ -57,6 +57,25 @@
     .stat-card .label { font-size: 0.76rem; color: var(--muted); margin-top: 0.25rem; }
     .refresh-btn { float: right; padding: 0.3rem 0.75rem; background: var(--accent-dim); border: 1px solid var(--border); color: var(--text); border-radius: 5px; font-size: 0.78rem; cursor: pointer; }
     .refresh-btn:hover { background: var(--accent); }
+    .reset-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem 1.5rem; margin-bottom: 1.25rem; }
+    .reset-card h3 { font-size: 0.88rem; font-weight: 600; margin-bottom: 0.75rem; }
+    .reset-status-row { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+    .reset-stat { min-width: 160px; }
+    .reset-stat .label { font-size: 0.74rem; color: var(--muted); margin-bottom: 0.2rem; }
+    .reset-stat .val { font-size: 0.9rem; font-weight: 600; }
+    .state-ready { color: var(--success); }
+    .state-resetting { color: var(--warn); }
+    .schedule-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.5rem; }
+    select.interval-sel { padding: 0.35rem 0.55rem; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 0.82rem; }
+    select.interval-sel:focus { border-color: var(--accent); outline: none; }
+    .btn-primary { padding: 0.4rem 1rem; background: var(--accent); border: none; border-radius: 5px; color: #fff; font-size: 0.82rem; cursor: pointer; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-danger { padding: 0.4rem 1rem; background: rgba(248,113,113,0.15); border: 1px solid var(--error); border-radius: 5px; color: var(--error); font-size: 0.82rem; cursor: pointer; }
+    .btn-danger:hover { background: rgba(248,113,113,0.3); }
+    .btn-danger:disabled { opacity: 0.4; cursor: not-allowed; }
+    .reset-note { font-size: 0.78rem; color: var(--muted); margin-top: 0.6rem; line-height: 1.5; }
+    .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--muted); border-top-color: var(--warn); border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 4px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
@@ -82,6 +101,7 @@
   <div class="tab active" onclick="showTab('users')">Users</div>
   <div class="tab" onclick="showTab('events')">Events</div>
   <div class="tab" onclick="showTab('config')">Config</div>
+  <div class="tab" onclick="showTab('reset')">Reset</div>
 </div>
 
 <div class="content">
@@ -112,6 +132,59 @@
     </table>
   </div>
 
+  <!-- Reset panel -->
+  <div class="panel" id="panel-reset">
+
+    <!-- Status card -->
+    <div class="reset-card">
+      <h3>Environment Status</h3>
+      <div class="reset-status-row">
+        <div class="reset-stat">
+          <div class="label">State</div>
+          <div class="val" id="resetStateVal">—</div>
+        </div>
+        <div class="reset-stat">
+          <div class="label">Last Reset</div>
+          <div class="val" id="resetLastVal">—</div>
+        </div>
+        <div class="reset-stat">
+          <div class="label">Next Scheduled</div>
+          <div class="val" id="resetNextVal">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Schedule card -->
+    <div class="reset-card">
+      <h3>Auto-Reset Schedule</h3>
+      <div class="schedule-row">
+        <label for="intervalSel" style="font-size:0.82rem;color:var(--muted)">Reset every:</label>
+        <select class="interval-sel" id="intervalSel">
+          <option value="0">Disabled</option>
+          <option value="6">6 hours</option>
+          <option value="12">12 hours</option>
+          <option value="24">24 hours</option>
+          <option value="48">48 hours</option>
+          <option value="72">72 hours</option>
+        </select>
+        <button class="btn-primary" onclick="saveSchedule()">Save Schedule</button>
+      </div>
+      <p class="reset-note">The scheduler checks every 5 minutes. A reset restores the Egeria metadata store to its initial Coco Pharmaceuticals state. User accounts are not affected.</p>
+    </div>
+
+    <!-- Force reset card -->
+    <div class="reset-card">
+      <h3>Force Reset Now</h3>
+      <p style="font-size:0.83rem;color:var(--muted);margin-bottom:0.9rem">
+        Immediately stops the Egeria container, drops the metadata store schema, and restarts it.
+        Egeria takes approximately 5 minutes to fully reinitialize after restart.
+        User accounts are <strong style="color:var(--text)">not</strong> affected.
+      </p>
+      <button class="btn-danger" id="forceResetBtn" onclick="forceReset()">Reset Egeria Now</button>
+    </div>
+
+  </div>
+
   <!-- Config panel -->
   <div class="panel" id="panel-config">
     <div class="section-title">Runtime Configuration</div>
@@ -123,6 +196,7 @@
 
 <script>
   var activeTab = 'users';
+  var _resetPollTimer = null;
 
   // Verify admin access on load
   fetch('/api/auth/me').then(r => r.json()).then(function(d) {
@@ -137,15 +211,16 @@
   function showTab(name) {
     activeTab = name;
     document.querySelectorAll('.tab').forEach(function(t, i) {
-      t.classList.toggle('active', ['users','events','config'][i] === name);
+      t.classList.toggle('active', ['users','events','config','reset'][i] === name);
     });
     document.querySelectorAll('.panel').forEach(function(p) {
       p.classList.remove('active');
     });
     document.getElementById('panel-' + name).classList.add('active');
-    if (name === 'users') loadUsers();
+    if (name === 'users')  loadUsers();
     if (name === 'events') loadEvents();
     if (name === 'config') loadConfig();
+    if (name === 'reset')  loadResetStatus();
   }
 
   function showGlobalMsg(type, text) {
@@ -275,6 +350,75 @@
     }).then(r => r.json()).then(function() {
       showGlobalMsg('success', key + ' updated');
     }).catch(function() { showGlobalMsg('error', 'Failed to save config'); });
+  }
+
+  // ── Reset tab ────────────────────────────────────────────────────────────────
+
+  function loadResetStatus() {
+    fetch('/api/demo/reset/status').then(function(r) { return r.json(); }).then(function(d) {
+      var state = d.state || 'ready';
+      var stateEl = document.getElementById('resetStateVal');
+      if (state === 'resetting') {
+        stateEl.innerHTML = '<span class="spinner"></span><span class="state-resetting">Resetting…</span>';
+        document.getElementById('forceResetBtn').disabled = true;
+        if (!_resetPollTimer) _resetPollTimer = setInterval(loadResetStatus, 10000);
+      } else {
+        stateEl.innerHTML = '<span class="state-ready">Ready</span>';
+        document.getElementById('forceResetBtn').disabled = false;
+        if (_resetPollTimer) { clearInterval(_resetPollTimer); _resetPollTimer = null; }
+      }
+
+      var lastEl = document.getElementById('resetLastVal');
+      lastEl.textContent = d.last_reset_at ? fmt(d.last_reset_at) : 'Never';
+
+      var intervalH = parseFloat(d.reset_interval_hours || '0');
+      var sel = document.getElementById('intervalSel');
+      if (sel) {
+        var opt = Array.from(sel.options).find(function(o) { return parseFloat(o.value) === intervalH; });
+        if (opt) sel.value = opt.value; else sel.value = '0';
+      }
+
+      var nextEl = document.getElementById('resetNextVal');
+      if (intervalH > 0 && d.last_reset_at) {
+        var next = new Date(new Date(d.last_reset_at).getTime() + intervalH * 3600000);
+        nextEl.textContent = next.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
+      } else if (intervalH > 0) {
+        nextEl.textContent = 'Soon';
+      } else {
+        nextEl.textContent = 'Disabled';
+      }
+    }).catch(function() { showGlobalMsg('error', 'Failed to load reset status'); });
+  }
+
+  function saveSchedule() {
+    var h = document.getElementById('intervalSel').value;
+    fetch('/api/demo/config', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'reset_interval_hours', value: h })
+    }).then(function(r) { return r.json(); }).then(function() {
+      showGlobalMsg('success', h === '0' ? 'Auto-reset disabled' : 'Schedule saved — resets every ' + h + 'h');
+      loadResetStatus();
+    }).catch(function() { showGlobalMsg('error', 'Failed to save schedule'); });
+  }
+
+  function forceReset() {
+    if (!confirm('This will stop Egeria, wipe all metadata, and restart it.\n\nEgeria takes ~5 minutes to reinitialize. User accounts are unaffected.\n\nProceed?')) return;
+    document.getElementById('forceResetBtn').disabled = true;
+    fetch('/api/demo/reset', { method: 'POST' })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.status === 'reset_started') {
+          showGlobalMsg('success', 'Reset started — Egeria will reinitialize in ~5 minutes');
+          loadResetStatus();
+        } else {
+          showGlobalMsg('error', d.detail || 'Unexpected response');
+          document.getElementById('forceResetBtn').disabled = false;
+        }
+      })
+      .catch(function() {
+        showGlobalMsg('error', 'Reset request failed');
+        document.getElementById('forceResetBtn').disabled = false;
+      });
   }
 
   function doLogout() {

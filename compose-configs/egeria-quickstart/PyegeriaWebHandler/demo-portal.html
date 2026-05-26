@@ -95,7 +95,13 @@
     .sbadge { font-size: 0.68rem; background: #4caf50; color: #fff; padding: 2px 7px; border-radius: 4px; }
 
     /* ── Footer ── */
-    .ftr { border-top: 1px solid var(--border); padding: 14px 28px; display: flex; align-items: center; }
+    .ftr { border-top: 1px solid var(--border); padding: 16px 28px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .ftr-links { display: flex; flex-wrap: wrap; gap: 6px 18px; justify-content: center; font-size: 0.78rem; }
+    .ftr-links a { color: var(--muted); text-decoration: none; }
+    .ftr-links a:hover { color: var(--accent); text-decoration: underline; }
+    .ftr-stars { font-size: 0.76rem; color: var(--muted); text-align: center; }
+    .ftr-stars a { color: var(--muted); text-decoration: none; margin: 0 4px; }
+    .ftr-stars a:hover { color: var(--accent); }
   </style>
 </head>
 <body>
@@ -162,7 +168,19 @@
 
 <!-- ── Footer ─────────────────────────────────────────────────────────────── -->
 <footer class="ftr">
-  <img src="/static/pdr-logo.png" alt="PDR Associates" style="height:30px; opacity:0.7">
+  <div class="ftr-links">
+    <a href="https://egeria-project.ai" target="_blank" rel="noopener">Documentation</a>
+    <a href="https://github.com/odpi" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://egeria-project.org/practices/coco-pharmaceuticals" target="_blank" rel="noopener">Coco Pharmaceuticals</a>
+    <a href="/privacy">Privacy Policy</a>
+  </div>
+  <div class="ftr-stars">
+    If you find Egeria useful, please star us on GitHub:
+    <a href="https://github.com/odpi/egeria" target="_blank" rel="noopener">⭐ egeria</a>
+    <a href="https://github.com/odpi/egeria-workspaces" target="_blank" rel="noopener">⭐ egeria-workspaces</a>
+    <a href="https://github.com/odpi/egeria-python" target="_blank" rel="noopener">⭐ egeria-python</a>
+  </div>
+  <img src="/static/pdr-logo.png" alt="PDR Associates" style="height:26px; opacity:0.6">
 </footer>
 
 <!-- ── Persona picker overlay ─────────────────────────────────────────────── -->
@@ -171,7 +189,7 @@
     <div class="p-modal-hdr">
       <div class="p-modal-hdr-left">
         <div class="p-modal-title">Choose your persona</div>
-        <div class="p-modal-sub">Select a Coco Pharmaceuticals character to explore from their perspective. You can switch at any time.</div>
+        <div class="p-modal-sub">Select a <a href="https://egeria-project.org/practices/coco-pharmaceuticals" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">Coco Pharmaceuticals</a> character to explore from their perspective. You can switch at any time.</div>
       </div>
       <div class="p-modal-hdr-actions">
         <button class="btn" onclick="closePicker()">Cancel</button>
