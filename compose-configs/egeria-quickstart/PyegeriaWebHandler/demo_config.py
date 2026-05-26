@@ -12,9 +12,18 @@ import os
 
 DEMO_MODE: bool = os.environ.get("DEMO_MODE", "false").lower() in ("true", "1", "yes")
 
-# ── Database ───────────────────────────────────────────────────────────────────
+# ── Database (PostgreSQL on egeria-shared-postgres:5442, coco_pharma / demo_auth schema) ──
 
-DEMO_DB_PATH: str = os.environ.get("DEMO_DB_PATH", "/app/demo-data/demo.db")
+DEMO_DB_HOST:     str = os.environ.get("DEMO_DB_HOST",     "egeria-shared-postgres")
+DEMO_DB_PORT:     int = int(os.environ.get("DEMO_DB_PORT", "5442"))
+DEMO_DB_NAME:     str = os.environ.get("DEMO_DB_NAME",     "coco_pharma")
+DEMO_DB_SCHEMA:   str = os.environ.get("DEMO_DB_SCHEMA",   "demo_auth")
+DEMO_DB_USER:     str = os.environ.get("DEMO_DB_USER",     "demo_user")
+DEMO_DB_PASSWORD: str = os.environ.get("DEMO_DB_PASSWORD", "demo4egeria")
+DEMO_DB_URL:      str = (
+    f"postgresql://{DEMO_DB_USER}:{DEMO_DB_PASSWORD}"
+    f"@{DEMO_DB_HOST}:{DEMO_DB_PORT}/{DEMO_DB_NAME}"
+)
 
 # ── JWT ────────────────────────────────────────────────────────────────────────
 

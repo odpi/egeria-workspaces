@@ -111,7 +111,13 @@ services:
       MCP_ACCESS_TOKEN: "egeria-secret-mcp-token"
       # ── Demo mode — set DEMO_MODE=true to enable public access with auth ──────
       DEMO_MODE: "true"
-      DEMO_DB_PATH: "/app/demo-data/demo.db"
+      # Demo auth DB — PostgreSQL on egeria-shared-postgres (coco_pharma / demo_auth schema)
+      DEMO_DB_HOST: "egeria-shared-postgres"
+      DEMO_DB_PORT: "5442"
+      DEMO_DB_NAME: "coco_pharma"
+      DEMO_DB_SCHEMA: "demo_auth"
+      DEMO_DB_USER: "${DEMO_DB_USER:-demo_user}"
+      DEMO_DB_PASSWORD: "${DEMO_DB_PASSWORD:-demo4egeria}"
       JWT_SECRET: "${JWT_SECRET:-change-me-before-going-public-meow}"
       SITE_URL: "${SITE_URL:-http://localhost:8085}"
       # SMTP — set SMTP_USER/PASSWORD in .env; if blank, falls back to ADMIN_BOOTSTRAP_EMAIL/PASSWORD
@@ -131,7 +137,6 @@ services:
       - ../../work:/work
       - ../../coco-workbooks:/coco-workbooks
       - ../../templates:/app/templates
-      - ../../runtime-volumes/quickstart-demo-data:/app/demo-data
 # Mount the dr-egeria-inbox directory
 #    environment:
       # Pass environment variables to the container

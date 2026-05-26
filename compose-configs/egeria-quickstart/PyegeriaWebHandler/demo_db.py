@@ -2,22 +2,21 @@
 SPDX-License-Identifier: Apache-2.0
 Copyright Contributors to the ODPi Egeria project.
 
-Demo-mode database — SQLite via SQLAlchemy.
-Tables live in the `demo_data` file (path from DEMO_DB_PATH env var).
-The Egeria metadata store is separate and unaffected.
+Demo-mode database — PostgreSQL via SQLAlchemy.
+Tables live in the `demo_auth` schema inside the `coco_pharma` database on
+egeria-shared-postgres:5442.  The Egeria metadata store is separate and unaffected.
 """
 
 import json
 import os
 import uuid
 from datetime import datetime
-from pathlib import Path
 from typing import Generator, Optional
 
-from sqlalchemy import Boolean, Column, DateTime, String, Text, create_engine
+from sqlalchemy import Boolean, Column, DateTime, String, Text, create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Session
 
-from demo_config import DEMO_DB_PATH
+from demo_config import DEMO_DB_SCHEMA, DEMO_DB_URL
 
 # ── Models ─────────────────────────────────────────────────────────────────────
 
@@ -27,6 +26,7 @@ class Base(DeclarativeBase):
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = {"schema": DEMO_DB_SCHEMA}
 
     id            = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     display_name  = Column(String(200), nullable=False)
@@ -44,6 +44,7 @@ class User(Base):
 
 class Event(Base):
     __tablename__ = "events"
+    __table_args__ = {"schema": DEMO_DB_SCHEMA}
 
     id         = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id    = Column(String(36))
@@ -54,6 +55,7 @@ class Event(Base):
 
 class Config(Base):
     __tablename__ = "config"
+    __table_args__ = {"schema": DEMO_DB_SCHEMA}
 
     key   = Column(String(100), primary_key=True)
     value = Column(Text)
@@ -77,12 +79,15 @@ _CONFIG_DEFAULTS = {
 def get_engine():
     global _engine
     if _engine is None:
-        db_path = Path(DEMO_DB_PATH)
-        db_path.parent.mkdir(parents=True, exist_ok=True)
         _engine = create_engine(
-            f"sqlite:///{db_path}",
-            connect_args={"check_same_thread": False},
+            DEMO_DB_URL,
+            pool_pre_ping=True,
+            connect_args={"options": f"-csearch_path={DEMO_DB_SCHEMA},public"},
         )
+        # Ensure the schema exists before creating tables
+        with _engine.connect() as conn:
+            conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {DEMO_DB_SCHEMA}"))
+            conn.commit()
         Base.metadata.create_all(_engine)
         _seed_config()
     return _engine

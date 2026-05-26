@@ -13,6 +13,7 @@ mcp >=1.15.0
 
 # Demo-mode dependencies
 sqlalchemy
+psycopg2-binary
 bcrypt
 python-jose[cryptography]
 python-multipart
