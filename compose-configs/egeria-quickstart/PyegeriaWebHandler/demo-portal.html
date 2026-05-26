@@ -241,10 +241,14 @@ var _obsidianGithubUrl = '';
 Promise.all([
   fetch('/api/auth/me').then(function(r){ return r.json(); }),
   fetch('/api/platform/org-name').then(function(r){ return r.json(); }).catch(function(){ return {name: ''}; }),
+  fetch('/api/platform/portal-config').then(function(r){ return r.json(); }).catch(function(){ return {}; }),
 ]).then(function(results) {
   var me = results[0];
   var orgName = (results[1].name && results[1].name.trim()) ? results[1].name : 'Egeria Quickstart';
+  var platformCfg = results[2] || {};
   if (!me.demo_mode) {
+    _obsidianUrl = platformCfg.obsidian_vault_url || '';
+    _obsidianGithubUrl = platformCfg.obsidian_github_url || '';
     document.getElementById('hdr-title').textContent = orgName;
     document.getElementById('hero-title').textContent = 'Welcome to ' + orgName;
     document.getElementById('hero-sub').textContent = 'An open metadata platform for learning, development, and experimentation. Select a tool below to get started.';

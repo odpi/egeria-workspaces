@@ -63,7 +63,7 @@ pyegeria.enable_ssl_check = False
 pyegeria.disable_ssl_warnings = True
 
 import dr_egeria_md
-from demo_config import DEMO_MODE
+from demo_config import DEMO_MODE, OBSIDIAN_VAULT_URL, OBSIDIAN_GITHUB_URL
 from rate_limiter import limiter
 
 
@@ -217,6 +217,17 @@ else:
 @app.get("/")
 async def health():
     return {"status": "ok", "service": "dr-egeria-md"}
+
+
+@app.get("/api/platform/portal-config", include_in_schema=False)
+async def platform_portal_config():
+    import urllib.parse
+    raw = OBSIDIAN_VAULT_URL
+    if raw and not raw.startswith("obsidian://"):
+        obsidian_url = "obsidian://open?vault=" + urllib.parse.quote(raw)
+    else:
+        obsidian_url = raw
+    return {"obsidian_vault_url": obsidian_url, "obsidian_github_url": OBSIDIAN_GITHUB_URL}
 
 
 # ── Demo page routes ───────────────────────────────────────────────────────────
