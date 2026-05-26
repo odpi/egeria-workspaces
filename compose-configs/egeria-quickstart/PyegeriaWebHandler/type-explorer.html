@@ -5964,14 +5964,14 @@ function App() {
         }),
         React.createElement(NavGroup, {
           label: 'Act', connected: connected, currentSection: section,
-          isActive: ['report-specs','digital-products'].includes(section),
+          isActive: ['report-specs','digital-products','dr-egeria'].includes(section),
           onSelect: setSection,
           items: [
             { id: 'report-specs',     label: 'Report Specs',     needsConnect: true },
             { id: 'digital-products', label: 'Digital Products', needsConnect: true },
+            { id: 'dr-egeria',        label: 'Dr. Egeria' },
           ]
-        }),
-        /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'dr-egeria' ? " on" : ""), onClick: () => setSection('dr-egeria') }, "Dr. Egeria")
+        })
       ),
       /*#__PURE__*/React.createElement("div", { style: { flex: 1 } }),
       /*#__PURE__*/React.createElement("button", {
