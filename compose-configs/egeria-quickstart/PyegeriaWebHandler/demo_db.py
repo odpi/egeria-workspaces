@@ -67,6 +67,7 @@ _engine = None
 
 _CONFIG_DEFAULTS = {
     "reset_interval_hours":  "0",   # 0 = disabled; set via admin page to enable
+    "obsidian_vault_url":    "",    # obsidian:// URI for the portal tile; set via admin page
     "directive_cap":         "validate",
     "session_lifetime_user": "7200",
     "session_lifetime_admin":"604800",
