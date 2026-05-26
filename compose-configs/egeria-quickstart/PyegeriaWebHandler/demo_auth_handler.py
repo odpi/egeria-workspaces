@@ -47,6 +47,7 @@ from demo_config import (
     JWT_ALGORITHM, JWT_EXPIRY_ADMIN_SEC, JWT_EXPIRY_USER_SEC, JWT_SECRET,
     RESEND_API_KEY, RESEND_FROM,
     SITE_URL, SMTP_FROM, SMTP_HOST, SMTP_PASSWORD, SMTP_PORT, SMTP_SSL, SMTP_USER,
+    COOKIE_SECURE,
 )
 from demo_db import Config, Event, User, get_db, get_config, log_event, set_config
 
@@ -290,7 +291,7 @@ def verify_email(token: str, db: Session = Depends(get_db)):
     demo_token = _make_jwt(user.id, user.role)
     exp = JWT_EXPIRY_ADMIN_SEC if user.role == "admin" else JWT_EXPIRY_USER_SEC
     response = RedirectResponse(url="/egeria-explorer?demo_welcome=1", status_code=302)
-    response.set_cookie("demo_token", demo_token, httponly=True, samesite="lax", max_age=exp)
+    response.set_cookie("demo_token", demo_token, httponly=True, secure=COOKIE_SECURE, samesite="lax", max_age=exp)
     return response
 
 
@@ -310,7 +311,7 @@ def login(req: LoginRequest, response: Response, db: Session = Depends(get_db)):
 
     exp = JWT_EXPIRY_ADMIN_SEC if user.role == "admin" else JWT_EXPIRY_USER_SEC
     response.set_cookie("demo_token", _make_jwt(user.id, user.role),
-                        httponly=True, samesite="lax", max_age=exp)
+                        httponly=True, secure=COOKIE_SECURE, samesite="lax", max_age=exp)
     return {"message": "Login successful", "role": user.role, "display_name": user.display_name}
 
 

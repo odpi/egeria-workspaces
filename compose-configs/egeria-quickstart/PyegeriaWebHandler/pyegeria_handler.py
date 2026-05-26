@@ -44,6 +44,7 @@ _bootstrap_runtime_defaults()
 import asyncio
 import concurrent.futures
 import io
+import threading
 from contextlib import redirect_stderr, redirect_stdout
 from typing import Any, Callable
 
@@ -120,6 +121,8 @@ app.add_middleware(
 )
 
 executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+# Serialises _invoke_processor calls because _apply_request_configuration mutates os.environ
+_processor_lock = threading.Lock()
 
 
 class ProcessRequest(BaseModel):
@@ -237,6 +240,16 @@ async def privacy_page():
     return FileResponse(str(html_path), media_type="text/html")
 
 
+@app.get("/reset-password", include_in_schema=False)
+async def reset_password_page():
+    if not DEMO_MODE:
+        return RedirectResponse(url="/login")
+    html_path = SCRIPT_DIR / "demo-reset-password.html"
+    if not html_path.exists():
+        raise HTTPException(status_code=404, detail="Reset password page not found")
+    return FileResponse(str(html_path), media_type="text/html")
+
+
 @app.get("/portal", include_in_schema=False)
 async def portal_page(request: Request):
     if DEMO_MODE:
@@ -336,8 +349,7 @@ def _apply_request_configuration(req: ProcessRequest) -> tuple[str, str]:
         if config_key in user_profile:
             os.environ[env_key] = _stringify_env_value(user_profile[config_key])
 
-    os.environ["EGERIA_USER"] = req.user_id
-    os.environ["EGERIA_USER_PASSWORD"] = req.user_pass
+
 
     # Check if the file actually exists using the combination
     current_root = os.environ.get("EGERIA_ROOT_PATH", "/")
@@ -448,6 +460,11 @@ def _console_output_indicates_error(console_output: str) -> bool:
 
 
 def _invoke_processor(req: ProcessRequest) -> ProcessResponse:
+    with _processor_lock:
+        return _invoke_processor_locked(req)
+
+
+def _invoke_processor_locked(req: ProcessRequest) -> ProcessResponse:
     input_file, server, url = _apply_request_configuration(req)
 
     cmd = dr_egeria_md.process_md_file
