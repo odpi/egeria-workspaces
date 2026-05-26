@@ -38,12 +38,14 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 from jose import JWTError, jwt
 from loguru import logger
+import httpx
 import bcrypt as _bcrypt
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from demo_config import (
     JWT_ALGORITHM, JWT_EXPIRY_ADMIN_SEC, JWT_EXPIRY_USER_SEC, JWT_SECRET,
+    RESEND_API_KEY, RESEND_FROM,
     SITE_URL, SMTP_FROM, SMTP_HOST, SMTP_PASSWORD, SMTP_PORT, SMTP_SSL, SMTP_USER,
 )
 from demo_db import Config, Event, User, get_db, get_config, log_event, set_config
@@ -114,8 +116,35 @@ def require_admin(request: Request, db: Session = Depends(get_db)) -> User:
 # ── SMTP ───────────────────────────────────────────────────────────────────────
 
 def _send_email(to: str, subject: str, html: str, text: str = "") -> None:
+    # ── Try Resend first ──────────────────────────────────────────────────────
+    if RESEND_API_KEY:
+        try:
+            resp = httpx.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {RESEND_API_KEY.strip()}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from": RESEND_FROM or SMTP_FROM,
+                    "to": to,
+                    "subject": subject,
+                    "html": html,
+                    "text": text or html,
+                },
+                timeout=10.0,
+            )
+            if resp.status_code != 200:
+                logger.error(f"Resend returned {resp.status_code}: {resp.text}")
+            resp.raise_for_status()
+            logger.info(f"Email sent via Resend to {to!r}: {subject}")
+            return
+        except Exception as exc:
+            logger.error(f"Resend failed, falling back to SMTP if available: {exc}")
+
+    # ── Fallback to SMTP ──────────────────────────────────────────────────────
     if not SMTP_HOST:
-        logger.warning(f"SMTP not configured — skipped email to {to!r}: {subject}")
+        logger.warning(f"Email skipped — neither Resend nor SMTP configured for {to!r}")
         return
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject

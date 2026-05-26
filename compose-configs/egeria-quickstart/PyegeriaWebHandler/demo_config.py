@@ -37,6 +37,11 @@ SMTP_USER:     str  = os.environ.get("SMTP_USER",     "") or _bootstrap_email
 SMTP_PASSWORD: str  = os.environ.get("SMTP_PASSWORD", "") or _bootstrap_password
 SMTP_FROM:     str  = os.environ.get("SMTP_FROM",     "") or SMTP_USER
 
+# ── Resend ─────────────────────────────────────────────────────────────────────
+
+RESEND_API_KEY: str = os.environ.get("RESEND_API_KEY", "")
+RESEND_FROM:    str = os.environ.get("RESEND_FROM",    "")
+
 # ── URLs ───────────────────────────────────────────────────────────────────────
 
 SITE_URL: str = os.environ.get("SITE_URL", "http://localhost:8085").rstrip("/")

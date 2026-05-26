@@ -1,17 +1,21 @@
+FROM python:3.12-slim-bookworm AS python-base
+
 FROM httpd:2.4-bookworm
+
+# Copy Python from the python-base image
+COPY --from=python-base /usr/local/ /usr/local/
 
 # For settng up FastAPI
 COPY ./sites-available/fastapi-proxy.conf /usr/local/apache2/conf/extra/fastapi-proxy.conf
 
-# Install Python runtime for optional CGI tooling.
+# Install necessary libraries for Python and Apache
 # Use HTTPS apt sources to avoid environments that block outbound HTTP.
 RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/*.sources && \
     apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
-    python3 \
-    python3-pip \
-    python3-venv && \
-    rm -rf /var/lib/apt/lists/*
+    libsqlite3-0 \
+    libexpat1 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Enable the necessary Apache modules for reverse proxying
 # These are often enabled by default, but explicitly enabling ensures it.

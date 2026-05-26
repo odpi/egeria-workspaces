@@ -173,6 +173,7 @@ compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-da
 /exchange-quickstart/Obsidian/**
 /exchange-quickstart/Sustainability Samples/**
 /exchange-quickstart/treasury-dts-history/**
+/exchange/treasury-dts-history/**
 
 /exchange-quickstart/distribution-hub/dr-egeria-outbox/DataDrivenLDN/**
 /exchange-quickstart/loading-bay/dr-egeria-inbox/Automated Delivery of Internal Products/**
@@ -188,12 +189,20 @@ compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-da
 /runtime-volumes/quickstart-platform-data/data/
 /runtime-volumes/freshstart-platform-data/data/
 
+# Legacy / alternative platform-data directories (XTDB runtime database files)
+runtime-volumes/egeria-platform-data/
+egeria-platform-data/
+
+# Runtime Kafka and PostgreSQL data (not for version control)
+runtime-volumes/shared-infra-hardened-kafka/
+runtime-volumes/egeria-pg/
+
 compose-configs/egeria-quickstart/.env
 compose-configs/egeria-freshstart/.env
 compose-configs/shared-infra/.env
 
 /exchange/**
-/runtime-volumes/freshstart-platform-data/secrets/*.omsecrets
+/runtime-volumes/freshstart-platform-data/secrets/
 
 # Obsidian local workspace state
 **/.obsidian/workspace.json

@@ -311,6 +311,11 @@ Before making a deployment public:
 
 ## Troubleshooting
 
+**"SSLCertificateFile: file '/etc/ssl/egeria/server.crt' does not exist or is empty"** — This occurs when you have enabled SSL in the compose yaml but the `runtime-volumes/certs` directory is empty or missing the expected files. Either provide your own certificates in that directory or use the helper script to generate self-signed ones:
+```bash
+./generate-certs.sh
+```
+
 **"Authentication required" on /egeria-explorer** — `DEMO_MODE` is true and the session cookie is missing or expired. Visit `/login` to sign in.
 
 **Email verification link not arriving** — SMTP is not configured (`SMTP_HOST` blank). Log into the admin panel and enable the user's account manually: use the Users tab, find the user, and check their status. Alternatively, promote the account to admin (which also sets `verified=true`).

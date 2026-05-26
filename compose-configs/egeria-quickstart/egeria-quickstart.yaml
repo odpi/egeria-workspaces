@@ -113,7 +113,7 @@ services:
       DEMO_MODE: "true"
       DEMO_DB_PATH: "/app/demo-data/demo.db"
       JWT_SECRET: "${JWT_SECRET:-change-me-before-going-public-meow}"
-      SITE_URL: "http://localhost:8085"
+      SITE_URL: "${SITE_URL:-http://localhost:8085}"
       # SMTP — set SMTP_USER/PASSWORD in .env; if blank, falls back to ADMIN_BOOTSTRAP_EMAIL/PASSWORD
       SMTP_HOST: "smtp.ionos.com"
       SMTP_PORT: "465"
@@ -121,6 +121,8 @@ services:
       SMTP_USER: "${SMTP_USER:-}"
       SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
       SMTP_FROM: "${SMTP_FROM:-}"
+      RESEND_API_KEY: "${RESEND_API_KEY:-}"
+      RESEND_FROM: "${RESEND_FROM:-}"
       ADMIN_BOOTSTRAP_EMAIL: "${ADMIN_BOOTSTRAP_EMAIL:-}"
       ADMIN_BOOTSTRAP_PASSWORD: "${ADMIN_BOOTSTRAP_PASSWORD:-}"
     volumes:
@@ -151,7 +153,7 @@ services:
     ports:
       - "8085:8085"
       # SSL (port 443) — disabled by default. See demo-mode.md § SSL / HTTPS.
-      # - "443:443"
+      - "443:443"
     networks:
       - egeria_network
     volumes:
@@ -165,8 +167,8 @@ services:
       - ../../runtime-volumes/quickstart-apache-web/ErrorLogs:/usr/local/apache2/logs
       - ../../workspaces/Dr-Egeria-Samples:/usr/local/apache2/htdocs/Dr-Egeria-Samples
       # SSL cert volume — disabled by default. See demo-mode.md § SSL / HTTPS.
-      # - ./sites-available/fastapi-ssl.conf:/usr/local/apache2/conf/extra/fastapi-ssl.conf
-      # - /path/to/your/certs:/etc/ssl/egeria:ro
+      - ./sites-available/fastapi-ssl.conf:/usr/local/apache2/conf/extra/fastapi-ssl.conf
+      - ../../runtime-volumes/certs:/etc/ssl/egeria:ro
     depends_on:
       - pyegeria-web
 
