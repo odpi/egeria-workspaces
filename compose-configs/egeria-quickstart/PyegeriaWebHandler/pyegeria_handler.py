@@ -54,12 +54,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from loguru import logger
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from pyegeria import print_basic_exception
 import pyegeria
 pyegeria.enable_ssl_check = False
 pyegeria.disable_ssl_warnings = True
 
 import dr_egeria_md
+from rate_limiter import limiter
 
 
 app = FastAPI(
@@ -67,6 +71,8 @@ app = FastAPI(
     description="POST an instruction to process a Markdown file via dr_egeria_md.process_markdown_file and get structured command status back.",
     version="1.0.0",
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Security Token (Simplified for local use)
 MCP_ACCESS_TOKEN = os.environ.get("MCP_ACCESS_TOKEN", "egeria-secret-mcp-token")
@@ -110,6 +116,7 @@ class MCPTokenMiddleware:
         await self.app(scope, receive, send)
 
 app.add_middleware(MCPTokenMiddleware)
+app.add_middleware(SlowAPIMiddleware)
 
 # CORS configuration for Obsidian security
 # CORSMiddleware is added AFTER other middlewares so it wraps them
