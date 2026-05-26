@@ -138,6 +138,11 @@ def _secrets_users(data: dict) -> dict:
     return data["secretsCollections"]["userDirectory"]["users"]
 
 
+def _secrets_named_lists(data: dict) -> dict:
+    """Return the namedLists dict from secretsCollections.userDirectory."""
+    return data.get("secretsCollections", {}).get("userDirectory", {}).get("namedLists", {})
+
+
 async def _get_platform_guid() -> str:
     """Return (and cache) the GUID of the Egeria platform element."""
     global _platform_guid_cache
@@ -459,12 +464,28 @@ async def _list_elements_by_type(type_name: str) -> list[dict]:
 
 @router.get("/api/admin/roles")
 async def list_roles(admin: CurrentUser = Depends(require_admin)):
-    return await _list_elements_by_type("SecurityRole")
+    """List SecurityRole entries from the omsecrets namedLists."""
+    if not _SECRETS_PATH.exists():
+        return []
+    named = _secrets_named_lists(_read_omsecrets())
+    return [
+        {"qualifiedName": key, "displayName": (entry or {}).get("displayName", key)}
+        for key, entry in named.items()
+        if (entry or {}).get("listTypeName") == "SecurityRole"
+    ]
 
 
 @router.get("/api/admin/groups")
 async def list_groups(admin: CurrentUser = Depends(require_admin)):
-    return await _list_elements_by_type("SecurityGroup")
+    """List SecurityGroup entries from the omsecrets namedLists."""
+    if not _SECRETS_PATH.exists():
+        return []
+    named = _secrets_named_lists(_read_omsecrets())
+    return [
+        {"qualifiedName": key, "displayName": (entry or {}).get("displayName", key)}
+        for key, entry in named.items()
+        if (entry or {}).get("listTypeName") == "SecurityGroup"
+    ]
 
 
 # ── Admin — Egeria user accounts ───────────────────────────────────────────────
