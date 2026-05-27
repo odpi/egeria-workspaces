@@ -463,12 +463,15 @@ Browses Egeria's governance definition hierarchy in a three-panel layout (all pa
 
 **Left — Definition Types.** Tree organised into three root groups, each expanded by default:
 
-- **Governance Drivers** (`GovernanceDriver`) — the forces that motivate governance: GovernanceStrategy, BusinessImperative, Regulation, Threat.
-- **Governance Policies** (`GovernancePolicy`) — the intent and direction of governance: GovernanceApproach, GovernancePrinciple.
+- **Governance Drivers** (`GovernanceDriver`) — the forces that motivate governance: BusinessImperative, GovernanceStrategy, Regulation (→ RegulationArticle), Threat.
+- **Governance Policies** (`GovernancePolicy`) — the intent and direction of governance: GovernanceApproach, GovernanceObligation, GovernancePrinciple.
 - **Governance Controls** (`GovernanceControl`) — the mechanisms that implement governance:
-  - TechnicalControl → GovernanceRule, GovernanceActionProcess, ServiceLevelObjective
-  - OrganisationalControl → GovernanceProcedure, GovernanceResponsibilityAssignment
-  - NotificationType
+  - DataLens, DataProcessingPurpose, ExceptionType, GovernanceMetric
+  - GovernanceProcedure (→ Methodology), GovernanceResponsibility
+  - GovernanceRule (→ NamingStandardRule), NotificationType
+  - Requirement, ResearchQuestion
+  - SecurityAccessControl (→ GovernanceZone, ServiceAccessControl)
+  - TermsAndConditions (→ CertificationType, LicenseType, ServiceLevelObjective)
 
 Abstract types are shown in italic. Selecting any node (abstract or concrete) loads that type's definitions in the middle panel.
 

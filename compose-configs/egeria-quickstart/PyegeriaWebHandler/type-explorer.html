@@ -5843,11 +5843,17 @@ function GovDefDetail({ definition, onSelectGuid }) {
 
   const GOV_TYPES = new Set([
     'GovernanceDefinition','GovernanceDriver','GovernancePolicy','GovernanceControl',
-    'TechnicalControl','OrganizationalControl',
-    'GovernanceStrategy','BusinessImperative','Regulation','Threat',
-    'GovernanceApproach','GovernancePrinciple',
-    'GovernanceRule','GovernanceActionProcess','ServiceLevelObjective',
-    'GovernanceProcedure','GovernanceResponsibilityAssignment','NotificationType',
+    // GovernanceDriver subtypes
+    'BusinessImperative','GovernanceStrategy','Regulation','RegulationArticle','Threat',
+    // GovernancePolicy subtypes
+    'GovernanceApproach','GovernanceObligation','GovernancePrinciple',
+    // GovernanceControl subtypes
+    'DataLens','DataProcessingPurpose','ExceptionType','GovernanceMetric',
+    'GovernanceProcedure','Methodology','GovernanceResponsibility',
+    'GovernanceRule','NamingStandardRule','NotificationType',
+    'Requirement','ResearchQuestion',
+    'SecurityAccessControl','GovernanceZone','ServiceAccessControl',
+    'TermsAndConditions','CertificationType','LicenseType','ServiceLevelObjective',
   ]);
 
   function camelToLabel(s) {

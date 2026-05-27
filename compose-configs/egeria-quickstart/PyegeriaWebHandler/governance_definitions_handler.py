@@ -33,10 +33,16 @@ GOV_TYPE_TREE = [
         "label": "Governance Drivers",
         "isAbstract": True,
         "children": [
-            {"typeName": "GovernanceStrategy", "label": "Governance Strategies"},
             {"typeName": "BusinessImperative", "label": "Business Imperatives"},
-            {"typeName": "Regulation",         "label": "Regulations"},
-            {"typeName": "Threat",             "label": "Threats"},
+            {"typeName": "GovernanceStrategy", "label": "Governance Strategies"},
+            {
+                "typeName": "Regulation",
+                "label": "Regulations",
+                "children": [
+                    {"typeName": "RegulationArticle", "label": "Regulation Articles"},
+                ],
+            },
+            {"typeName": "Threat", "label": "Threats"},
         ],
     },
     {
@@ -44,8 +50,9 @@ GOV_TYPE_TREE = [
         "label": "Governance Policies",
         "isAbstract": True,
         "children": [
-            {"typeName": "GovernanceApproach",  "label": "Governance Approaches"},
-            {"typeName": "GovernancePrinciple", "label": "Governance Principles"},
+            {"typeName": "GovernanceApproach",   "label": "Governance Approaches"},
+            {"typeName": "GovernanceObligation", "label": "Governance Obligations"},
+            {"typeName": "GovernancePrinciple",  "label": "Governance Principles"},
         ],
     },
     {
@@ -53,26 +60,45 @@ GOV_TYPE_TREE = [
         "label": "Governance Controls",
         "isAbstract": True,
         "children": [
+            {"typeName": "DataLens",              "label": "Data Lenses"},
+            {"typeName": "DataProcessingPurpose", "label": "Data Processing Purposes"},
+            {"typeName": "ExceptionType",         "label": "Exception Types"},
+            {"typeName": "GovernanceMetric",      "label": "Governance Metrics"},
             {
-                "typeName": "TechnicalControl",
-                "label": "Technical Controls",
-                "isAbstract": True,
+                "typeName": "GovernanceProcedure",
+                "label": "Governance Procedures",
                 "children": [
-                    {"typeName": "GovernanceRule",              "label": "Governance Rules"},
-                    {"typeName": "GovernanceActionProcess",    "label": "Governance Action Processes"},
-                    {"typeName": "ServiceLevelObjective",      "label": "Service Level Objectives"},
+                    {"typeName": "Methodology", "label": "Methodologies"},
+                ],
+            },
+            {"typeName": "GovernanceResponsibility", "label": "Governance Responsibilities"},
+            {
+                "typeName": "GovernanceRule",
+                "label": "Governance Rules",
+                "children": [
+                    {"typeName": "NamingStandardRule", "label": "Naming Standard Rules"},
+                ],
+            },
+            {"typeName": "NotificationType",  "label": "Notification Types"},
+            {"typeName": "Requirement",       "label": "Requirements"},
+            {"typeName": "ResearchQuestion",  "label": "Research Questions"},
+            {
+                "typeName": "SecurityAccessControl",
+                "label": "Security Access Controls",
+                "children": [
+                    {"typeName": "GovernanceZone",       "label": "Governance Zones"},
+                    {"typeName": "ServiceAccessControl", "label": "Service Access Controls"},
                 ],
             },
             {
-                "typeName": "OrganizationalControl",
-                "label": "Organisational Controls",
-                "isAbstract": True,
+                "typeName": "TermsAndConditions",
+                "label": "Terms and Conditions",
                 "children": [
-                    {"typeName": "GovernanceProcedure",                 "label": "Governance Procedures"},
-                    {"typeName": "GovernanceResponsibilityAssignment",  "label": "Responsibility Assignments"},
+                    {"typeName": "CertificationType",     "label": "Certification Types"},
+                    {"typeName": "LicenseType",           "label": "License Types"},
+                    {"typeName": "ServiceLevelObjective", "label": "Service Level Objectives"},
                 ],
             },
-            {"typeName": "NotificationType", "label": "Notification Types"},
         ],
     },
 ]
