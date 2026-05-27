@@ -212,3 +212,4 @@ runtime-volumes/quickstart-demo-data/
 
 # JetBrains AI / Junie local state
 .junie/
+/runtime-volumes/certs/
