@@ -58,9 +58,9 @@ GOV_TYPE_TREE = [
                 "label": "Technical Controls",
                 "isAbstract": True,
                 "children": [
-                    {"typeName": "GovernanceRule",           "label": "Governance Rules"},
-                    {"typeName": "GovernanceProcess",        "label": "Governance Processes"},
-                    {"typeName": "ServiceLevelObjective",    "label": "Service Level Objectives"},
+                    {"typeName": "GovernanceRule",              "label": "Governance Rules"},
+                    {"typeName": "GovernanceActionProcess",    "label": "Governance Action Processes"},
+                    {"typeName": "ServiceLevelObjective",      "label": "Service Level Objectives"},
                 ],
             },
             {
