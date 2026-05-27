@@ -1,0 +1,199 @@
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+<!-- Copyright Contributors to the ODPi Egeria project. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Profile — Egeria</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117; --card: #1a1d27; --border: #2e3246;
+      --accent: #6366f1; --accent-hover: #4f52d6;
+      --text: #e2e4f0; --muted: #8b8fa8; --error: #f87171; --success: #34d399;
+    }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; }
+    .topbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 1rem; }
+    .topbar .title { font-size: 1rem; font-weight: 700; }
+    .topbar .spacer { flex: 1; }
+    .topbar a.btn-sm { padding: 0.3rem 0.75rem; background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 5px; font-size: 0.78rem; text-decoration: none; cursor: pointer; }
+    .topbar a.btn-sm:hover { background: var(--accent); border-color: var(--accent); }
+    .content { max-width: 640px; margin: 2.5rem auto; padding: 0 1.5rem; }
+    .section { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1.5rem 1.75rem; margin-bottom: 1.5rem; }
+    .section-title { font-size: 0.9rem; font-weight: 700; margin-bottom: 1.25rem; color: var(--text); }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 0.3rem; }
+    .form-group input { width: 100%; padding: 0.55rem 0.75rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.88rem; outline: none; transition: border 0.15s; }
+    .form-group input:focus { border-color: var(--accent); }
+    .form-group input[readonly] { opacity: 0.55; cursor: not-allowed; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .btn { padding: 0.55rem 1.25rem; background: var(--accent); color: #fff; border: none; border-radius: 6px; font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+    .btn:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .msg { margin-top: 0.85rem; padding: 0.55rem 0.75rem; border-radius: 6px; font-size: 0.82rem; display: none; }
+    .msg.error   { background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.35); color: var(--error); }
+    .msg.success { background: rgba(52,211,153,0.12);  border: 1px solid rgba(52,211,153,0.35);  color: var(--success); }
+    .user-chip { display: inline-block; padding: 0.2rem 0.65rem; background: var(--accent); color: #fff; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.5rem; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <img src="/static/egeria-logo.png" alt="Egeria" style="height:22px;vertical-align:middle;margin-right:8px">
+    <span class="title">My Profile</span>
+  </div>
+  <div class="spacer"></div>
+  <a href="/portal" class="btn-sm">← Portal</a>
+  <a href="#" class="btn-sm" onclick="doLogout()">Sign Out</a>
+</div>
+
+<div class="content">
+  <div id="profileSection" class="section">
+    <div class="section-title">Profile Information</div>
+    <div class="user-chip" id="userIdChip"></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Given Name</label>
+        <input type="text" id="givenNames" placeholder="Jane">
+      </div>
+      <div class="form-group">
+        <label>Surname</label>
+        <input type="text" id="surname" placeholder="Smith">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Display Name</label>
+      <input type="text" id="displayName" placeholder="Jane Smith">
+    </div>
+    <div class="form-group">
+      <label>Job Title</label>
+      <input type="text" id="jobTitle" placeholder="Data Analyst">
+    </div>
+    <div class="form-group">
+      <label>Description <span style="color:var(--muted);font-size:0.72rem">(optional)</span></label>
+      <input type="text" id="description" placeholder="A short bio…">
+    </div>
+    <button class="btn" id="saveProfileBtn" onclick="saveProfile()">Save Profile</button>
+    <div class="msg" id="profileMsg"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Change Password</div>
+    <div class="form-group">
+      <label>Current Password</label>
+      <input type="password" id="currentPw" autocomplete="current-password">
+    </div>
+    <div class="form-group">
+      <label>New Password</label>
+      <input type="password" id="newPw" autocomplete="new-password">
+    </div>
+    <div class="form-group">
+      <label>Confirm New Password</label>
+      <input type="password" id="confirmPw" autocomplete="new-password">
+    </div>
+    <button class="btn" id="changePwBtn" onclick="changePassword()">Change Password</button>
+    <div class="msg" id="pwMsg"></div>
+  </div>
+</div>
+
+<script>
+var _userId = '';
+var _viewServer = '';
+var _platformUrl = '';
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+fetch('/api/auth/me').then(r => r.json()).then(function(me) {
+  if (!me.authenticated) { window.location.href = '/login'; return; }
+  _userId = me.user_id;
+  document.getElementById('userIdChip').textContent = me.user_id;
+  loadProfile();
+}).catch(function() { window.location.href = '/login'; });
+
+// ── Profile ───────────────────────────────────────────────────────────────────
+function loadProfile() {
+  // Try to load existing profile via the my-profile OMVS
+  fetch('/api/my-profile').then(r => r.json()).then(function(data) {
+    if (!data || data.error) return;
+    var props = data.properties || data;
+    document.getElementById('displayName').value = props.displayName || props.display_name || '';
+    document.getElementById('givenNames').value  = props.givenNames   || props.given_names  || '';
+    document.getElementById('surname').value     = props.surname      || '';
+    document.getElementById('jobTitle').value    = props.jobTitle     || props.job_title    || '';
+    document.getElementById('description').value = props.description  || '';
+  }).catch(() => {});
+}
+
+function saveProfile() {
+  var btn = document.getElementById('saveProfileBtn');
+  btn.disabled = true;
+  var body = {
+    class: 'NewElementRequestBody',
+    isOwnAnchor: true,
+    properties: {
+      class: 'PersonProperties',
+      qualifiedName: _userId,
+      displayName:   document.getElementById('displayName').value.trim(),
+      givenNames:    document.getElementById('givenNames').value.trim(),
+      surname:       document.getElementById('surname').value.trim(),
+      jobTitle:      document.getElementById('jobTitle').value.trim(),
+      description:   document.getElementById('description').value.trim(),
+    },
+    forLineage: false,
+    forDuplicateProcessing: false,
+  };
+  fetch('/api/my-profile', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then(function(r) { return r.json().then(d => ({ok: r.ok, data: d})); })
+  .then(function(res) {
+    btn.disabled = false;
+    showMsg('profileMsg', res.ok ? 'success' : 'error', res.ok ? 'Profile saved.' : (res.data.detail || 'Save failed.'));
+  }).catch(function() { btn.disabled = false; showMsg('profileMsg', 'error', 'Network error.'); });
+}
+
+// ── Password change ───────────────────────────────────────────────────────────
+function changePassword() {
+  var current = document.getElementById('currentPw').value;
+  var newPw   = document.getElementById('newPw').value;
+  var confirm = document.getElementById('confirmPw').value;
+  if (!current || !newPw || !confirm) { showMsg('pwMsg', 'error', 'Please fill in all password fields.'); return; }
+  if (newPw !== confirm) { showMsg('pwMsg', 'error', 'New passwords do not match.'); return; }
+  if (newPw.length < 8) { showMsg('pwMsg', 'error', 'Password must be at least 8 characters.'); return; }
+  var btn = document.getElementById('changePwBtn');
+  btn.disabled = true;
+  fetch('/api/auth/change-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: _userId, password: current, new_password: newPw }),
+  }).then(function(r) { return r.json().then(d => ({ok: r.ok, data: d})); })
+  .then(function(res) {
+    btn.disabled = false;
+    if (res.ok) {
+      document.getElementById('currentPw').value = '';
+      document.getElementById('newPw').value = '';
+      document.getElementById('confirmPw').value = '';
+      showMsg('pwMsg', 'success', 'Password changed successfully.');
+    } else {
+      showMsg('pwMsg', 'error', res.data.detail || 'Password change failed.');
+    }
+  }).catch(function() { btn.disabled = false; showMsg('pwMsg', 'error', 'Network error.'); });
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function showMsg(id, type, text) {
+  var el = document.getElementById(id);
+  el.className = 'msg ' + type;
+  el.textContent = text;
+  el.style.display = 'block';
+  setTimeout(function() { el.style.display = 'none'; }, 4000);
+}
+
+function doLogout() {
+  fetch('/api/auth/logout', { method: 'POST' }).then(function() { window.location.href = '/login'; });
+}
+</script>
+</body>
+</html>

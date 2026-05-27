@@ -23,7 +23,8 @@ JWT_SECRET=your-random-32-plus-char-string
 SITE_URL=https://egeria-demo.example.com
 ADMIN_BOOTSTRAP_EMAIL=you@example.com   # first admin account
 ADMIN_BOOTSTRAP_PASSWORD=changeme       # change this
-SMTP_PASSWORD=your-smtp-password        # leave blank to skip email
+RESEND_API_KEY=re_...                   # from resend.com — leave blank to skip email
+RESEND_FROM=Egeria Demo <noreply@your-domain.com>
 ```
 
 Then start the stack:
@@ -290,16 +291,17 @@ All personas use the Egeria password `"secret"` — the well-known Coco Pharmace
 
 | ID | Display Name | Title | Difficulty | Starter | Focus Areas |
 |----|-------------|-------|-----------|---------|-------------|
-| `erinoverview` | Erin Overview | IT Project Leader | Starter | Yes | Full view; best entry point for new users |
+| `erinoverview` | Erin Overview | IT Project Leader | Business | Yes | Full view; best entry point for new users |
 | `peterprofile` | Peter Profile | Chief Data Officer | Business | Yes | Solution Architect, Perspectives, ISC |
 | `calliequartile` | Callie Quartile | Data Scientist | Technical | Yes | Data Design, Glossary, ISC |
 | `ivorpadlock` | Ivor Padlock | Information Security Officer | Business | Yes | Governance, Perspectives, Glossary |
 | `garygeeke` | Gary Geeke | IT Infrastructure Director | Technical | — | Type System, Governance, Digital Products |
 | `faithbroker` | Faith Broker | Head of Human Resources | Business | — | Perspectives, Governance, Glossary |
 | `pollytasker` | Polly Tasker | Project Leader | Business | — | Solution Architect, ISC, Perspectives |
-| `zachnow` | Zach Now | IT Systems Programmer | Technical | — | Type System, REST APIs, Dr. Egeria |
-| `sallycounter` | Sally Counter | Finance Controller | Business | — | ISC, Glossary, Data Design |
-| `nickstructure` | Nick Structure | Information Architect | Technical | — | Data Design, Type System, Glossary |
+| `tomtally` | Tom Tally | Accounts Manager | Business | — | ISC lineage, Glossary, Data Design |
+| `lemmiestage` | Lemmie Stage | Data Staging Manager | Technical | — | ISC pipeline flows, Data Design, Governance |
+| `juleskeeper` | Jules Keeper | Records Manager | Business | — | Governance retention, Glossary, Perspectives |
+| `stewfaster` | Stew Faster | Data Steward | Business | — | Glossary curation, Data Design, Governance |
 
 **Starter personas** are highlighted in the persona picker with a green "Starter" badge and are recommended as first picks for demo attendees new to Egeria.
 

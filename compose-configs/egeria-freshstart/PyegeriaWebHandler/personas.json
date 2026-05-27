@@ -10,7 +10,7 @@
       "Good starting point for understanding the whole environment"
     ],
     "starter": true,
-    "difficulty": "Starter",
+    "difficulty": "Business",
     "profile_url": "https://egeria-project.org/practices/coco-pharmaceuticals/personas/erin-overview/"
   },
   "peterprofile": {
@@ -97,46 +97,60 @@
     "difficulty": "Business",
     "profile_url": "https://egeria-project.org/practices/coco-pharmaceuticals/personas/polly-tasker/"
   },
-  "zachnow": {
+  "tomtally": {
     "password": "secret",
-    "display_name": "Zach Now",
-    "coco_title": "IT Systems Programmer",
-    "bio": "Zach builds and maintains integrations between Coco's systems and Egeria. He works closely with the type system and integration daemon configuration.",
+    "display_name": "Tom Tally",
+    "coco_title": "Accounts Manager",
+    "bio": "Tom manages Coco's financial accounts and reporting. He relies on Egeria to trace data lineage for regulatory submissions and verify that financial figures are derived from trustworthy, governed sources.",
     "highlights": [
-      "Type System tab — deep dive into metadata types",
-      "REST API tab — direct API exploration",
-      "Dr. Egeria tab — programmatic metadata management"
-    ],
-    "starter": false,
-    "difficulty": "Technical",
-    "profile_url": "https://egeria-project.org/practices/coco-pharmaceuticals/personas/zach-now/"
-  },
-  "sallycounter": {
-    "password": "secret",
-    "display_name": "Sally Counter",
-    "coco_title": "Finance Controller",
-    "bio": "Sally oversees Coco's financial reporting data. She needs to understand data lineage and quality for regulatory reporting and audit purposes.",
-    "highlights": [
-      "ISC tab — lineage for financial data",
-      "Glossary — finance term definitions",
-      "Data Design — financial data structures"
+      "ISC tab — lineage for financial reporting data",
+      "Glossary — finance and accounting term definitions",
+      "Data Design — financial data structures and schemas"
     ],
     "starter": false,
     "difficulty": "Business",
-    "profile_url": "https://egeria-project.org/practices/coco-pharmaceuticals/personas/sally-counter/"
+    "profile_url": "https://egeria-project.org/practices/coco-pharmaceuticals/personas/tom-tally/"
   },
-  "nickstructure": {
+  "lemmiestage": {
     "password": "secret",
-    "display_name": "Nick Structure",
-    "coco_title": "Information Architect",
-    "bio": "Nick defines the data models and standards that shape how Coco stores and shares information. He works across the type system, data design, and glossary to keep definitions consistent.",
+    "display_name": "Lemmie Stage",
+    "coco_title": "Data Staging Manager",
+    "bio": "Lemmie owns Coco's data staging pipelines — the processes that ingest, validate, and prepare data before it enters production systems. He uses Egeria to track what is in-flight and ensure staging datasets are properly catalogued.",
     "highlights": [
-      "Data Design tab — canonical data models",
-      "Type System tab — metadata type definitions",
-      "Glossary — authoritative business definitions"
+      "ISC tab — staging pipeline flows and lineage",
+      "Data Design — staging dataset schemas",
+      "Governance tab — data quality rules for ingestion"
     ],
     "starter": false,
     "difficulty": "Technical",
-    "profile_url": "https://egeria-project.org/practices/coco-pharmaceuticals/personas/nick-structure/"
+    "profile_url": "https://egeria-project.org/practices/coco-pharmaceuticals/personas/lemmie-stage/"
+  },
+  "juleskeeper": {
+    "password": "secret",
+    "display_name": "Jules Keeper",
+    "coco_title": "Records Manager",
+    "bio": "Jules is responsible for Coco's records retention and archival policies. She uses Egeria to classify data assets by retention schedule, track disposal obligations, and ensure records are discoverable for audit.",
+    "highlights": [
+      "Governance tab — retention classifications and policies",
+      "Glossary — records and compliance term definitions",
+      "Perspectives tab — regulatory viewpoints"
+    ],
+    "starter": false,
+    "difficulty": "Business",
+    "profile_url": "https://egeria-project.org/practices/coco-pharmaceuticals/personas/jules-keeper/"
+  },
+  "stewfaster": {
+    "password": "secret",
+    "display_name": "Stew Faster",
+    "coco_title": "Data Steward",
+    "bio": "Stew is a data steward responsible for the quality and consistency of Coco's core reference datasets. He curates glossary definitions, resolves duplicate assets, and works with data owners to keep the catalogue accurate.",
+    "highlights": [
+      "Glossary — term curation and duplicate resolution",
+      "Data Design — reference data management",
+      "Governance tab — stewardship assignments and quality scores"
+    ],
+    "starter": false,
+    "difficulty": "Business",
+    "profile_url": "https://egeria-project.org/practices/coco-pharmaceuticals/personas/stew-faster/"
   }
 }

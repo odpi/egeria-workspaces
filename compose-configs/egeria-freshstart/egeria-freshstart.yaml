@@ -82,28 +82,32 @@ services:
       EGERIA_INBOX_PATH: "dr-egeria-inbox"
       EGERIA_OUTBOX_PATH: "dr-egeria-outbox"
       MCP_ACCESS_TOKEN: "egeria-secret-mcp-token"
-      # ── Demo mode ────────────────────────────────────────────────────────────
+      # ── Auth (Egeria-backed, no SQLite) ──────────────────────────────────────
       DEMO_MODE: "false"
-      DEMO_DB_PATH: "/app/demo-data/demo.db"
       JWT_SECRET: "${JWT_SECRET:-change-me-before-going-public}"
       SITE_URL: "http://localhost:8086"
-      SMTP_HOST: ""
-      SMTP_PORT: "587"
-      SMTP_USER: ""
-      SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
-      SMTP_FROM: ""
-      ADMIN_BOOTSTRAP_EMAIL: "${ADMIN_BOOTSTRAP_EMAIL:-}"
-      ADMIN_BOOTSTRAP_PASSWORD: "${ADMIN_BOOTSTRAP_PASSWORD:-}"
+      # Comma-separated Egeria user IDs that receive portal admin role.
+      # Add your own admin userId here after first login.
+      EGERIA_ADMIN_USERS: "bootstrap"
+      # Service account used to obtain fresh Egeria tokens for SecurityOfficer calls.
+      # Password must be set in .env as EGERIA_ADMIN_CALLER_PASSWORD (never here).
+      EGERIA_ADMIN_CALLER_ID: "bootstrap"
+      # Optional: override org name if not read from application.properties.
+      EGERIA_ORG_NAME: "${EGERIA_ORG_NAME:-My Organisation}"
+      EGERIA_USER_SECRETS_PATH: "/secrets/user-directory.omsecrets"
+      APPLICATION_PROPERTIES_PATH: "/platform/application.properties"
     volumes:
       - ./PyegeriaWebHandler:/app
+      - ../../runtime-volumes/freshstart-platform-data/freshstart.application.properties:/platform/application.properties:ro
       - ../../exchange-freshstart/distribution-hub/dr-egeria-outbox:/dr-egeria-outbox
       - ../../exchange-freshstart/loading-bay/dr-egeria-inbox:/dr-egeria-inbox
       - ../../exchange-freshstart/config:/config
       - ../../templates:/app/templates
       - ../../runtime-volumes/freshstart-demo-data:/app/demo-data
+      - ../../runtime-volumes/freshstart-platform-data/secrets/egeria-user-directory.omsecrets:/secrets/user-directory.omsecrets
     depends_on:
       - freshstart-egeria-main
-    command: uvicorn pyegeria_handler:app --host :: --port 8000 --reload --loop asyncio
+    command: "uvicorn pyegeria_handler:app --host '::' --port 8000 --reload --loop asyncio"
 
   freshstart-apache-web:
     build:
@@ -119,7 +123,7 @@ services:
       - ../../exchange-freshstart/distribution-hub/dr-egeria-outbox:/usr/local/apache2/htdocs/dr-egeria-outbox
       - ../../exchange-freshstart/loading-bay/dr-egeria-inbox:/usr/local/apache2/htdocs/dr-egeria-inbox
       - ../egeria-quickstart/httpd.conf:/usr/local/apache2/conf/httpd.conf
-      - ../egeria-quickstart/sites-available/fastapi-proxy.conf:/usr/local/apache2/conf/extra/fastapi-proxy.conf
+      - ./sites-available/fastapi-proxy.conf:/usr/local/apache2/conf/extra/fastapi-proxy.conf
       - ../../runtime-volumes/freshstart-apache-web/site:/usr/local/apache2/htdocs/local # static site served at /local
       - ../egeria-quickstart/markdown-header.html:/usr/local/apache2/conf/markdown-header.html
       - ../../runtime-volumes/freshstart-apache-web/ErrorLogs:/usr/local/apache2/logs

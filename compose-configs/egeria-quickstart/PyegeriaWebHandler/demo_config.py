@@ -40,21 +40,9 @@ JWT_ALGORITHM: str    = "HS256"
 JWT_EXPIRY_USER_SEC: int  = int(os.environ.get("JWT_EXPIRY_USER_SECONDS",  "7200"))    # 2 h
 JWT_EXPIRY_ADMIN_SEC: int = int(os.environ.get("JWT_EXPIRY_ADMIN_SECONDS", "604800"))  # 7 d
 
-# ── SMTP ───────────────────────────────────────────────────────────────────────
-# SMTP_USER/PASSWORD fall back to the bootstrap admin credentials so you only
-# need to set one pair of email credentials in .env.
-
-_bootstrap_email:    str = os.environ.get("ADMIN_BOOTSTRAP_EMAIL",    "")
-_bootstrap_password: str = os.environ.get("ADMIN_BOOTSTRAP_PASSWORD", "")
-
-SMTP_HOST:     str  = os.environ.get("SMTP_HOST",     "")
-SMTP_PORT:     int  = int(os.environ.get("SMTP_PORT", "587"))
-SMTP_SSL:      bool = os.environ.get("SMTP_SSL", "false").lower() in ("true", "1", "yes")
-SMTP_USER:     str  = os.environ.get("SMTP_USER",     "") or _bootstrap_email
-SMTP_PASSWORD: str  = os.environ.get("SMTP_PASSWORD", "") or _bootstrap_password
-SMTP_FROM:     str  = os.environ.get("SMTP_FROM",     "") or SMTP_USER
-
-# ── Resend ─────────────────────────────────────────────────────────────────────
+# ── Resend (email) ─────────────────────────────────────────────────────────────
+# Set RESEND_API_KEY in .env (never in the yaml).
+# RESEND_FROM must be an address on a domain you have verified in Resend.
 
 RESEND_API_KEY: str = os.environ.get("RESEND_API_KEY", "")
 RESEND_FROM:    str = os.environ.get("RESEND_FROM",    "")
@@ -63,3 +51,15 @@ RESEND_FROM:    str = os.environ.get("RESEND_FROM",    "")
 
 SITE_URL: str = os.environ.get("SITE_URL", "http://localhost:8085").rstrip("/")
 COOKIE_SECURE: bool = SITE_URL.startswith("https://")
+
+# ── Portal tile config ─────────────────────────────────────────────────────────
+# Obsidian vault URL (vault name or full obsidian:// URI) — set in .env or yaml.
+# OBSIDIAN_GITHUB_URL defaults to the coco-workbooks repo so the GitHub button
+# is always available without any configuration.
+
+OBSIDIAN_VAULT_URL:   str = os.environ.get("OBSIDIAN_VAULT_URL",   "")
+OBSIDIAN_GITHUB_URL:  str = os.environ.get("OBSIDIAN_GITHUB_URL",  "https://github.com/odpi/egeria-workspaces/tree/main/coco-workbooks")
+
+# URL of the Egeria Advisor service. Set in .env or yaml (default: localhost:8080).
+# Checked server-side at startup to set advisor_running in portal-config.
+EGERIA_ADVISOR_URL:   str = os.environ.get("EGERIA_ADVISOR_URL",   "http://localhost:8080/")

@@ -1,40 +1,115 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 <!-- Copyright Contributors to the ODPi Egeria project. -->
 
-# Demo Mode — Setup and Operations Guide
+# Freshstart Portal — Authentication and User Management Guide
 
 ---
 
 ## Overview
 
-Demo mode adds user registration, authentication, and persona-based access control to Egeria Explorer. It is designed for public-facing deployments pre-loaded with Coco Pharmaceuticals data, where you want attendees to register and select a named persona before exploring the metadata.
+Freshstart uses **Egeria as the single user store**. There is no SQLite database, no self-registration form, and no email verification. The portal authenticates directly against Egeria's token endpoint, issues a short-lived JWT session cookie, and delegates all account management to the Egeria SecurityOfficer API.
 
-When `DEMO_MODE=false` (the default), all demo machinery is dormant. The Explorer behaves as a local development tool: no login required, no persona picker, no auth gate on `/egeria-explorer`. All demo page routes (`/login`, `/register`, `/admin`, `/privacy`) still exist but redirect immediately to `/egeria-explorer`.
+```
+User → Portal login → POST /api/token (Egeria) → JWT session cookie → Portal hub
+                                    ↓ CREDENTIALS_EXPIRED
+                              Forced password-change form → new token → Portal hub
+```
 
 ---
 
 ## Quick start
 
-Edit `.env` (in the same directory as the yaml, already gitignored) and set these values:
+**First run — bootstrap sequence:**
+
+1. Start the stack: `./fresh-start-local` (from the repository root)
+2. Open `http://localhost:8086/login`
+3. Sign in with `bootstrap` / `secret`
+4. If redirected to the password-change form, set a new password and continue
+5. You are now in the portal as an admin — go to **Admin → Egeria Users** to create accounts for your team
+
+**Required `.env` settings** (`compose-configs/egeria-freshstart/.env`, gitignored):
 
 ```ini
-DEMO_MODE=true                          # activates auth gating
 JWT_SECRET=your-random-32-plus-char-string
-SITE_URL=https://egeria-demo.example.com
-ADMIN_BOOTSTRAP_EMAIL=you@example.com   # first admin account
-ADMIN_BOOTSTRAP_PASSWORD=changeme       # change this
-SMTP_PASSWORD=your-smtp-password        # leave blank to skip email
 ```
 
-Then start the stack:
+Optional:
 
-```bash
-docker compose up --build
+```ini
+EGERIA_ORG_NAME=My Organisation          # shown in portal header and login page
 ```
 
-On first startup the container automatically creates the admin account from `ADMIN_BOOTSTRAP_EMAIL` / `ADMIN_BOOTSTRAP_PASSWORD`. If an admin already exists those vars are ignored, so it is safe to leave them set on subsequent restarts.
+---
 
-Log in at `/login` with those credentials to access the admin panel.
+## Architecture
+
+### Single-layer authentication
+
+| Quickstart | Freshstart |
+|---|---|
+| Login validates against SQLite `users` table | Login calls Egeria `POST /api/token` |
+| Self-registration at `/register` | No registration — admin creates all accounts |
+| Email verification flow | No email — credentials shared out of band |
+| SQLite stores portal sessions and events | Egeria is the source of truth; portal issues JWT on successful auth |
+| Persona picker (Coco Pharmaceuticals) | Direct tool access — no persona |
+
+### User account storage and listing
+
+Egeria manages user accounts through two parallel mechanisms:
+
+- **In-memory cache** — SecurityOfficer OMVS holds the authoritative state for authentication. Mutations (create, update, delete, disable, reset-password) take effect immediately via the SecurityOfficer REST API.
+- **YAML file** (`egeria-user-directory.omsecrets`) — Egeria's persistent backing store. Egeria lazily flushes its in-memory cache to this file (approximately hourly). The portal mounts this file directly at `/secrets/user-directory.omsecrets` and reads it for the admin user list so that newly created accounts are visible immediately without waiting for the hourly flush.
+
+**Write path** (immediate auth effect + immediate listing):
+
+```
+Admin creates user → SecurityOfficer REST (auth takes effect)
+                   → YAML mirror write (listing takes effect)
+```
+
+**Read path** (admin user list):
+
+```
+GET /api/admin/egeria-users → reads /secrets/user-directory.omsecrets directly
+```
+
+This hybrid approach will be replaced by the SecurityOfficer list API once Egeria adds one. See [`BACKLOG.md`](../BACKLOG.md) for the tracking item.
+
+### User account types
+
+Egeria tracks accounts by `userAccountType`. Only human account types are shown in the admin panel:
+
+| Type | Shown in admin? | Notes |
+|------|-----------------|-------|
+| `EMPLOYEE` | Yes | Default for new accounts |
+| `EXTERNAL` | Yes | Contractors, guests |
+| `CONTRACTOR` | Yes | External contractors |
+| `DIGITAL` | No | Egeria internal service NPAs (e.g. `generalnpa`, engine, integration connector identities) |
+
+**Email is not part of a user account** — it belongs in the user's Egeria profile and is managed on the `/profile` page, not in the admin user creation form.
+
+### JWT session cookie
+
+After successful Egeria authentication the portal issues a signed JWT (`demo_token` cookie) containing:
+
+- `sub` — Egeria user ID
+- `role` — `admin` or `user` (see [Admin role](#admin-role) below)
+- `display_name` — user ID (updated once a profile is saved via `/profile`)
+- `egeria_token` — the Egeria bearer token, used for SecurityOfficer admin API calls
+- `exp` — expiry (2 hours for regular users, 7 days for admins)
+
+The Egeria token stored in the JWT is used directly for SecurityOfficer calls — admin operations run with the logged-in admin's own Egeria credentials, naturally respecting Egeria's RBAC.
+
+### Admin role
+
+Portal admin role is determined at login by the `EGERIA_ADMIN_USERS` environment variable — a comma-separated list of Egeria user IDs that receive `role=admin` in the portal JWT. Default is `bootstrap`.
+
+```yaml
+# egeria-freshstart.yaml
+EGERIA_ADMIN_USERS: "bootstrap,yourusername"
+```
+
+Egeria's own RBAC (security roles, groups, zones) is independent of the portal admin flag.
 
 ---
 
@@ -42,186 +117,210 @@ Log in at `/login` with those credentials to access the admin panel.
 
 All settings are read from container environment variables at startup.
 
-**Secrets belong in `.env`, not the yaml.** The compose yaml uses `${JWT_SECRET}` and `${SMTP_PASSWORD}` variable substitution. Docker Compose automatically reads `compose-configs/egeria-quickstart/.env` (already gitignored). Set real values there:
+**Secrets belong in `.env`, not the yaml.** Docker Compose automatically reads `compose-configs/egeria-freshstart/.env` (gitignored).
 
 ```ini
 JWT_SECRET=your-random-32-plus-char-string
-SMTP_PASSWORD=your-smtp-password
 ```
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DEMO_MODE` | `false` | Set `true` to activate demo auth gating |
-| `DEMO_DB_PATH` | `/app/demo-data/demo.db` | Path to the SQLite database file inside the container |
-| `JWT_SECRET` | `change-me-before-going-public` | HS256 signing key for session JWTs — **set in `.env`, never in yaml** |
-| `JWT_EXPIRY_USER_SECONDS` | `7200` | User session lifetime in seconds (2 hours) |
-| `JWT_EXPIRY_ADMIN_SECONDS` | `604800` | Admin session lifetime in seconds (7 days) |
-| `SITE_URL` | `http://localhost:8085` | Base URL for email verification links (no trailing slash) |
-| `SMTP_HOST` | _(blank)_ | SMTP server hostname. If blank, email sending is skipped |
-| `SMTP_PORT` | `587` | SMTP port (587 = STARTTLS) |
-| `SMTP_USER` | _(blank)_ | SMTP authentication username |
-| `SMTP_PASSWORD` | _(blank)_ | SMTP authentication password — **set in `.env`, never in yaml** |
-| `SMTP_FROM` | _(same as SMTP_USER)_ | Sender address for outbound emails |
-| `ADMIN_BOOTSTRAP_EMAIL` | _(blank)_ | Email for the auto-created admin account. Only used when no admin exists yet |
-| `ADMIN_BOOTSTRAP_PASSWORD` | _(blank)_ | Password for the auto-created admin account — **set in `.env`, never in yaml** |
-
-**Development without SMTP:** Leave `SMTP_HOST` blank. New registrations will not receive a verification email. Use the admin panel to manually verify accounts, or promote an account to admin so it can manage others.
+| `JWT_SECRET` | `change-me-before-going-public` | HS256 signing key — **set in `.env`, never in yaml** |
+| `JWT_EXPIRY_USER_SECONDS` | `7200` | User session lifetime (2 hours) |
+| `JWT_EXPIRY_ADMIN_SECONDS` | `604800` | Admin session lifetime (7 days) |
+| `EGERIA_PLATFORM_URL` | `https://freshstart-egeria-main:8443` | Egeria platform URL (already set in yaml) |
+| `EGERIA_VIEW_SERVER` | `fs-view-server` | View server for SecurityOfficer API calls |
+| `EGERIA_ADMIN_USERS` | `bootstrap` | Comma-separated user IDs that get portal admin role |
+| `EGERIA_ORG_NAME` | `Egeria` | Organisation name in portal header and login page |
+| `SITE_URL` | `http://localhost:8086` | Public base URL |
+| `EGERIA_USER_SECRETS_PATH` | `/secrets/user-directory.omsecrets` | Path to the mounted omsecrets YAML file used for user listing |
 
 ---
 
 ## Pages and routes
 
-| Route | Behaviour |
-|-------|-----------|
-| `GET /login` | Serves login form. Auto-redirects to `/egeria-explorer` if already authenticated |
-| `GET /register` | Serves registration form |
-| `GET /egeria-explorer` | Auth-gated when `DEMO_MODE=true`. Redirects to `/login` if no valid session |
-| `GET /admin` | Serves admin panel. Requires `role=admin`; redirects to `/login` otherwise |
-| `GET /privacy` | Serves privacy policy (always accessible, no auth required) |
+| Route | Description |
+|-------|-------------|
+| `GET /login` | Sign-in form (user ID + password). Handles CREDENTIALS_EXPIRED inline |
+| `GET /portal` | Hub with tool tiles. Requires authentication |
+| `GET /admin` | Admin panel. Requires `role=admin` |
+| `GET /profile` | My Profile — view/edit Egeria profile and change password |
+| `GET /egeria-explorer` | Egeria Explorer. Requires authentication |
+| `GET /privacy` | Privacy policy |
 
 ---
 
-## REST API reference (demo)
+## REST API reference
 
 ### Authentication
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `POST` | `/api/auth/register` | Public | Register a new account. Body: `{display_name, email, password, org?}` |
-| `GET` | `/api/auth/verify/{token}` | Public | Verify email, set cookie, redirect to Explorer |
-| `POST` | `/api/auth/login` | Public | Log in. Body: `{email, password}`. Sets `demo_token` cookie |
-| `POST` | `/api/auth/logout` | Public | Clear session cookie |
-| `GET` | `/api/auth/me` | Optional | Returns `{authenticated, id, display_name, email, role}` or `{authenticated: false}` |
-| `POST` | `/api/auth/forgot-password` | Public | Send reset link. Body: `{email}` |
-| `POST` | `/api/auth/reset-password` | Public | Reset password. Body: `{token, password}` |
+| `POST` | `/api/auth/login` | Public | Body: `{user_id, password}`. Returns JWT cookie or `{credentials_expired: true}` |
+| `POST` | `/api/auth/change-password` | Public | Body: `{user_id, password, new_password}`. Returns JWT cookie |
+| `POST` | `/api/auth/logout` | Public | Clears session cookie |
+| `GET` | `/api/auth/me` | Optional | Returns `{authenticated, user_id, display_name, role}` |
 
-### Personas
+### Profile
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET` | `/api/demo/personas` | Public | List all personas (passwords excluded) |
-| `POST` | `/api/demo/select-persona` | Verified user | Select a persona. Body: `{persona}`. Returns Egeria credentials |
+| `GET` | `/api/my-profile` | User | Get current user's Egeria profile |
+| `POST` | `/api/my-profile` | User | Create or update Egeria profile |
 
-### Admin
+### Platform
 
-All admin endpoints require `role=admin`.
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/api/platform/org-name` | Public | Organisation name from `application.properties` or `EGERIA_ORG_NAME` |
+
+### Admin — Egeria users
+
+All endpoints require `role=admin`.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/demo/users` | List all registered users |
-| `POST` | `/api/demo/users/{id}/role` | Set role. Body: `{role: "user"\|"admin"}` |
-| `POST` | `/api/demo/users/{id}/disable` | Disable account (sets `verified=false`) |
-| `GET` | `/api/demo/events?limit=200` | Recent event log |
-| `GET` | `/api/demo/config` | Current runtime config |
-| `POST` | `/api/demo/config` | Update config. Body: `{key, value}` |
+| `GET` | `/api/admin/roles` | List Egeria SecurityRole elements |
+| `GET` | `/api/admin/groups` | List Egeria SecurityGroup elements |
+| `GET` | `/api/admin/egeria-users` | List all Egeria user accounts |
+| `POST` | `/api/admin/egeria-users` | Create a new user account |
+| `PUT` | `/api/admin/egeria-users/{id}` | Update user (name, roles, groups, zones) |
+| `POST` | `/api/admin/egeria-users/{id}/disable` | Set account status to `DISABLED` |
+| `POST` | `/api/admin/egeria-users/{id}/reset-password` | Set new temp password; status → `CREDENTIALS_EXPIRED` |
+| `DELETE` | `/api/admin/egeria-users/{id}` | Delete user account from Egeria |
+
+### Admin — config
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/demo/config` | Get runtime config key/value store |
+| `POST` | `/api/demo/config` | Update a config value. Body: `{key, value}` |
+
+---
+
+## User account lifecycle
+
+### Account statuses
+
+| Status | Meaning |
+|--------|---------|
+| `CREDENTIALS_EXPIRED` | Set on all new accounts — forces password change on first login |
+| `ACTIVE` | Normal working state, set automatically after first password change |
+| `DISABLED` | Account blocked; user cannot log in |
+
+### Creating a user (admin steps)
+
+1. Go to **Admin → Egeria Users → Create User**
+2. Fill in User ID, display name, account type, and a temporary password. Security roles, groups, and zones are optional.
+3. After clicking **Create User**, a prompt shows the credentials — copy and share with the user out of band (Slack, Teams, etc.)
+4. The user logs in with the temporary password → the portal shows the forced password-change form → on success they enter the portal hub
+
+**Note:** Email address is not part of the user account. It belongs in the user's Egeria profile and is set from the `/profile` page after first login.
+
+### First login (user steps)
+
+1. Open `http://localhost:8086/login` (or the configured SITE_URL)
+2. Enter the User ID and temporary password
+3. The portal detects `CREDENTIALS_EXPIRED` and shows the password-change form inline
+4. Set a new password — the portal issues a session and redirects to the hub
+
+### Resetting a password (admin)
+
+In the **Egeria Users** tab, click **Reset Pw** next to the user. Enter a new temporary password. The user's status reverts to `CREDENTIALS_EXPIRED` and they must change it again on next login.
+
+### Disabling an account
+
+Click **Disable** next to the user. Sets `userAccountStatus: DISABLED`. The user cannot log in. Re-create the account or call the SecurityOfficer API directly to re-enable.
 
 ---
 
 ## Admin panel guide
 
-Navigate to `/admin` while logged in as an account with `role=admin`.
+Navigate to `/admin` while signed in as a portal admin.
 
-### Users tab
+### Egeria Users tab
 
-Shows all registered users with role badge, verification status, and last login time. Available actions:
+Lists all human Egeria user accounts (types EMPLOYEE, EXTERNAL, CONTRACTOR) with user ID, display name, account type, status badge, and security roles. Egeria service accounts (type DIGITAL) are filtered out. Actions per user:
 
-- **Promote** — elevate a `user` to `admin`.
-- **Demote** — reduce an `admin` to `user`.
-- **Disable** — blocks login by setting `verified=false`. The user record is retained for audit purposes.
+- **Edit** — opens a modal to update display name, security roles, security groups, default zones, and publish zones
+- **Disable** — sets `userAccountStatus: DISABLED`
+- **Reset Pw** — prompts for a new temporary password, sets status back to `CREDENTIALS_EXPIRED`
+- **Delete** — permanently removes the account from Egeria (confirmation required; cannot be undone)
 
-### Events tab
+The **Create User** button opens the same modal pre-cleared. The **Security Roles** and **Security Groups** multi-selects are populated from the Egeria SecurityOfficer API (requires SecurityRole/SecurityGroup elements in the metadata store).
 
-Shows the 200 most recent events (register, verify, login, persona_select) with timestamps and detail JSON. Use this to diagnose registration problems or confirm that email verification completed.
+**Current limitation:** The Roles column always shows empty in the user list. Role and group memberships are stored in the `namedLists` section of the omsecrets YAML (not in the per-user record), so they cannot be reverse-mapped without additional work. This will be fixed once the SecurityOfficer list API is available. See [BACKLOG.md](../BACKLOG.md).
 
 ### Config tab
 
-Key/value pairs from the `config` table. All values are strings. Editable in place:
-
-- `reset_interval_hours` — planned: how often the Egeria data store is reset (not yet implemented).
-- `directive_cap` — planned: maximum Dr. Egeria directive level available to demo users (`validate` prevents writes; `process` allows writes).
-- `session_lifetime_user` / `session_lifetime_admin` — informational; actual session lifetime is governed by the `JWT_EXPIRY_*` env vars set at container startup.
+Key/value pairs persisted in `/app/demo-data/config.json` on the `demo-data` volume. Editable in place. Use for any runtime tuning flags specific to your deployment.
 
 ---
 
-## Personas reference
+## Organisation name
 
-All personas use the Egeria password `"secret"` — the well-known Coco Pharmaceuticals demo default. This is not a security concern as the Egeria instance is pre-populated with non-sensitive fictional data.
+The portal header shows **"Welcome — \<org name\>"**. Resolved in this order:
 
-| ID | Display Name | Title | Difficulty | Starter | Focus Areas |
-|----|-------------|-------|-----------|---------|-------------|
-| `erinoverview` | Erin Overview | IT Project Leader | Starter | Yes | Full view; best entry point for new users |
-| `peterprofile` | Peter Profile | Chief Data Officer | Business | Yes | Solution Architect, Perspectives, ISC |
-| `calliequartile` | Callie Quartile | Data Scientist | Technical | Yes | Data Design, Glossary, ISC |
-| `ivorpadlock` | Ivor Padlock | Information Security Officer | Business | Yes | Governance, Perspectives, Glossary |
-| `garygeeke` | Gary Geeke | IT Infrastructure Director | Technical | — | Type System, Governance, Digital Products |
-| `faithbroker` | Faith Broker | Head of Human Resources | Business | — | Perspectives, Governance, Glossary |
-| `pollytasker` | Polly Tasker | Project Leader | Business | — | Solution Architect, ISC, Perspectives |
-| `zachnow` | Zach Now | IT Systems Programmer | Technical | — | Type System, REST APIs, Dr. Egeria |
-| `sallycounter` | Sally Counter | Finance Controller | Business | — | ISC, Glossary, Data Design |
-| `nickstructure` | Nick Structure | Information Architect | Technical | — | Data Design, Type System, Glossary |
+1. `platform.organization.name` from `application.properties`, if mounted into pyegeria-web at `/app/application.properties`
+2. The `EGERIA_ORG_NAME` environment variable (simplest option)
+3. Falls back to `"Egeria"`
 
-**Starter personas** are highlighted in the persona picker with a green "Starter" badge and are recommended as first picks for demo attendees new to Egeria.
+To mount the properties file, add this volume to `freshstart-pyegeria-web` in `egeria-freshstart.yaml`:
 
-Persona credentials come from `personas.json` in the container. To add or update a persona, edit `personas.json` and restart the container (the file is read on each request, so a hot reload via uvicorn `--reload` works without a full container restart).
+```yaml
+- ../../runtime-volumes/freshstart-platform-data/freshstart.application.properties:/app/application.properties:ro
+```
+
+Or simply set in `egeria-freshstart.yaml`:
+
+```yaml
+EGERIA_ORG_NAME: "My Organisation"
+```
 
 ---
 
-## Database maintenance
+## SSL / HTTPS
 
-The SQLite database persists at `DEMO_DB_PATH` on the `demo-data` volume. The schema is created automatically on first startup by SQLAlchemy (`Base.metadata.create_all`). No migration step is required for a fresh deployment.
+SSL is off by default. The same opt-in mechanism as quickstart applies. See
+[`../../egeria-quickstart/PyegeriaWebHandler/demo-mode.md`](../../egeria-quickstart/PyegeriaWebHandler/demo-mode.md#ssl--https)
+for the full procedure. Substitute:
 
-**Backup:**
-
-```bash
-docker cp quickstart-pyegeria-web:/app/demo-data/demo.db ./demo-backup-$(date +%Y%m%d).db
-```
-
-**Reset (wipe all users and events, preserving config):**
-
-```bash
-docker exec quickstart-pyegeria-web python -c "
-from demo_db import get_engine
-from sqlalchemy import text
-with get_engine().begin() as conn:
-    conn.execute(text('DELETE FROM events'))
-    conn.execute(text('DELETE FROM users'))
-print('Users and events cleared')
-"
-```
-
-After a reset, set `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD` in `.env` and restart the container — the bootstrap runs automatically on startup when no admin exists.
+- yaml file: `egeria-freshstart.yaml` (apache-web service)
+- Port: 8086 instead of 8085
+- `SSL_SERVER_NAME`: your freshstart domain
 
 ---
 
 ## Security checklist
 
-Before making a deployment public:
+Before making a freshstart deployment accessible beyond localhost:
 
-- [ ] `JWT_SECRET` set to a random 32+ character string in `.env` (not in the yaml)
-- [ ] `SMTP_PASSWORD` set in `.env` (not in the yaml)
-- [ ] `SMTP_HOST` set (or documented that email verification requires admin activation)
-- [ ] `SITE_URL` set to the actual public URL (required for correct verify/reset links)
-- [ ] Port 8000 (FastAPI) NOT exposed to the internet; all traffic via Apache on port 8085
-- [ ] `demo-data/` volume mounted on persistent storage (not ephemeral container layer)
-- [ ] Egeria data store pre-loaded with Coco Pharmaceuticals data before announcing the demo
-- [ ] `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD` set in `.env` (not in the yaml) so admin is created on first startup
+- [ ] `JWT_SECRET` set to a random 32+ character string in `.env` (not in yaml)
+- [ ] `bootstrap` password changed on first login
+- [ ] `EGERIA_ADMIN_USERS` updated to include your own user ID (so bootstrap can be retired)
+- [ ] `SITE_URL` set to the actual public URL
+- [ ] HTTPS enabled for public deployments (see [SSL / HTTPS](#ssl--https))
+- [ ] Port 8001 (FastAPI) **not** exposed directly to the internet; all traffic via Apache on 8086
+- [ ] `runtime-volumes/freshstart-platform-data/secrets/egeria-user-directory.omsecrets` exists (seeded from template by startup script; copy manually if starting compose directly)
 
 ---
 
 ## Troubleshooting
 
-**"Authentication required" on /egeria-explorer** — `DEMO_MODE` is true and the session cookie is missing or expired. Visit `/login` to sign in.
+**Login redirects back to `/login` with no error** — Egeria platform may not be healthy yet. Check `docker compose logs freshstart-egeria-main` and wait for all servers to finish starting.
 
-**Email verification link not arriving** — SMTP is not configured (`SMTP_HOST` blank). Log into the admin panel and enable the user's account manually: use the Users tab, find the user, and check their status. Alternatively, promote the account to admin (which also sets `verified=true`).
+**"Invalid user ID or password"** — Confirm the user ID and password are correct in Egeria's secrets store. User IDs are case-sensitive.
 
-**Admin panel shows "Admin access required"** — The signed-in account has `role=user`. Bootstrap an admin account using the `docker exec` command in the [Quick start](#quick-start) section, then log in with those credentials.
+**Password-change form appears every time** — The Egeria `POST /api/token` endpoint returned `CREDENTIALS_EXPIRED` even after the password change. Check `docker compose logs freshstart-pyegeria-web` — a HTTP 200 response from `/api/token` with a non-JSON body confirms the change succeeded. If the body is a JSON error, the `newPassword` field may not be accepted by this Egeria version.
 
-**demo.db not persisting across container restarts** — The `demo-data` volume is not mounted. Check `egeria-quickstart.yaml` for the `../../runtime-volumes/quickstart-demo-data:/app/demo-data` volume mount. Create the directory if it does not exist:
+**Admin panel shows empty Egeria Users list** — The omsecrets YAML file at `EGERIA_USER_SECRETS_PATH` may not exist or may not contain any human user entries. Check that `runtime-volumes/freshstart-platform-data/secrets/egeria-user-directory.omsecrets` exists on the host and is mounted correctly (the compose file mounts it to `/secrets/user-directory.omsecrets`). Run `docker compose logs freshstart-pyegeria-web` for YAML parse errors. If the file only contains `DIGITAL` accounts (Egeria service NPAs), the list will be empty — this is correct behaviour; human accounts must be created via the admin panel.
+
+**omsecrets file missing on startup** — If `runtime-volumes/freshstart-platform-data/secrets/egeria-user-directory.omsecrets` doesn't exist, the startup script copies the template from `compose-configs/egeria-freshstart/secrets/egeria-user-directory.omsecrets`. If you bypassed the startup script and started compose manually, copy the template manually before starting: `cp compose-configs/egeria-freshstart/secrets/egeria-user-directory.omsecrets runtime-volumes/freshstart-platform-data/secrets/`.
+
+**Roles/Groups dropdowns are empty in Create User form** — Expected if SecurityRole/SecurityGroup metadata has not been loaded into the metadata store via the Secrets Store Cataloguer integration connector. The create form still works — roles and groups fields will be empty multi-selects.
+
+**"Admin access required" on `/admin`** — The signed-in user ID is not in `EGERIA_ADMIN_USERS`. Add it to `egeria-freshstart.yaml` and restart `freshstart-pyegeria-web`:
 
 ```bash
-mkdir -p runtime-volumes/quickstart-demo-data
+docker compose -f egeria-freshstart.yaml restart freshstart-pyegeria-web
 ```
-
-**Persona picker not appearing** — Either `DEMO_MODE` is false (the persona picker only activates when `/api/auth/me` returns `authenticated: true`), or a persona was previously selected and stored in `localStorage`. Clear `egeria-persona` from browser localStorage or click "Switch" in the header badge.
-
-**"Persona not found" error** — The persona ID sent to `/api/demo/select-persona` does not match any key in `personas.json`. Ensure the frontend is using the correct persona IDs (lowercase, no spaces: `erinoverview`, `peterprofile`, etc.).

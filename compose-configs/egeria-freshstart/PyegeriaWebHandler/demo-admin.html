@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Egeria Demo Environment — Admin</title>
+  <title>Egeria — Admin</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -34,29 +34,52 @@
     tbody tr:hover { background: var(--trow); }
     tbody td { padding: 0.55rem 0.75rem; vertical-align: middle; }
     .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.73rem; font-weight: 600; }
-    .badge-admin { background: rgba(99,102,241,0.2); color: #a5b4fc; }
-    .badge-user { background: rgba(139,143,168,0.15); color: var(--muted); }
-    .badge-ok { background: rgba(52,211,153,0.15); color: var(--success); }
-    .badge-no { background: rgba(248,113,113,0.12); color: var(--error); }
+    .badge-active  { background: rgba(52,211,153,0.15);  color: var(--success); }
+    .badge-expired { background: rgba(251,191,36,0.15);  color: var(--warn); }
+    .badge-disabled{ background: rgba(248,113,113,0.12); color: var(--error); }
     .btn-xs { padding: 0.25rem 0.6rem; font-size: 0.72rem; border-radius: 4px; cursor: pointer; border: 1px solid var(--border); background: var(--bg); color: var(--text); transition: all 0.1s; }
     .btn-xs:hover { background: var(--accent-dim); border-color: var(--accent); }
     .btn-xs.danger:hover { background: rgba(248,113,113,0.15); border-color: var(--error); color: var(--error); }
     .msg-banner { padding: 0.6rem 0.9rem; border-radius: 6px; font-size: 0.82rem; margin-bottom: 1rem; display: none; }
-    .msg-banner.error { background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.35); color: var(--error); }
-    .msg-banner.success { background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.35); color: var(--success); }
+    .msg-banner.error   { background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.35); color: var(--error); }
+    .msg-banner.success { background: rgba(52,211,153,0.12);  border: 1px solid rgba(52,211,153,0.35);  color: var(--success); }
     .config-table { width: 100%; border-collapse: collapse; }
     .config-table tr { border-bottom: 1px solid var(--border); }
     .config-table td { padding: 0.6rem 0.75rem; font-size: 0.83rem; vertical-align: middle; }
     .config-table td:first-child { color: var(--muted); width: 42%; font-family: monospace; }
-    .config-table input { padding: 0.35rem 0.55rem; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 0.82rem; width: 160px; }
+    .config-table input { padding: 0.35rem 0.55rem; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 0.82rem; width: 220px; }
     .config-table input:focus { border-color: var(--accent); outline: none; }
     .empty { color: var(--muted); font-size: 0.84rem; padding: 2rem; text-align: center; }
-    .stats-row { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
-    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; flex: 1; min-width: 140px; }
-    .stat-card .num { font-size: 1.6rem; font-weight: 700; color: var(--accent); }
-    .stat-card .label { font-size: 0.76rem; color: var(--muted); margin-top: 0.25rem; }
     .refresh-btn { float: right; padding: 0.3rem 0.75rem; background: var(--accent-dim); border: 1px solid var(--border); color: var(--text); border-radius: 5px; font-size: 0.78rem; cursor: pointer; }
     .refresh-btn:hover { background: var(--accent); }
+    .create-btn { padding: 0.35rem 0.9rem; background: var(--accent); color: #fff; border: none; border-radius: 5px; font-size: 0.8rem; font-weight: 600; cursor: pointer; margin-bottom: 1rem; }
+    .create-btn:hover { background: var(--accent-hover); }
+
+    /* Modal */
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 100; }
+    .overlay.open { display: flex; }
+    .modal { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1.75rem 1.5rem; width: 100%; max-width: 540px; max-height: 90vh; overflow-y: auto; }
+    .modal-title { font-size: 1rem; font-weight: 700; margin-bottom: 1.25rem; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .form-group { margin-bottom: 0.85rem; }
+    .form-group label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 0.3rem; }
+    .form-group input::placeholder { font-style: italic; opacity: 0.6; }
+    .form-group input, .form-group select { width: 100%; padding: 0.5rem 0.65rem; background: var(--bg); border: 1px solid var(--border); border-radius: 5px; color: var(--text); font-size: 0.85rem; outline: none; }
+    .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+    .form-group select[multiple] { height: 100px; }
+    .form-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.25rem; }
+    .btn-cancel { padding: 0.5rem 1rem; background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 5px; cursor: pointer; font-size: 0.85rem; }
+    .btn-cancel:hover { border-color: var(--text); color: var(--text); }
+    .btn-save { padding: 0.5rem 1.25rem; background: var(--accent); color: #fff; border: none; border-radius: 5px; cursor: pointer; font-size: 0.85rem; font-weight: 600; }
+    .btn-save:hover { background: var(--accent-hover); }
+    .btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+    .modal-msg { margin-top: 0.75rem; padding: 0.5rem 0.65rem; border-radius: 5px; font-size: 0.8rem; display: none; }
+    .modal-msg.error   { background: rgba(248,113,113,0.12); color: var(--error); border: 1px solid rgba(248,113,113,0.35); }
+    .modal-msg.success { background: rgba(52,211,153,0.12);  color: var(--success); border: 1px solid rgba(52,211,153,0.35); }
+    .pw-reveal { position: relative; }
+    .pw-reveal input { padding-right: 2.2rem; }
+    .pw-reveal .eye { position: absolute; right: 0.6rem; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--muted); font-size: 0.85rem; user-select: none; }
+    .divider { height: 1px; background: var(--border); margin: 1rem 0; }
   </style>
 </head>
 <body>
@@ -65,86 +88,140 @@
   <div>
     <div style="display:flex;align-items:center;gap:10px">
       <img src="/static/egeria-logo.png" alt="Egeria" style="height:24px">
-      <img src="/static/pdr-logo.png"    alt="PDR"    style="height:24px">
       <div>
-        <div class="title">Egeria Demo Environment · Admin</div>
-        <div class="subtitle">Coco Pharmaceuticals · Management Console</div>
+        <div class="title" id="adminTitle">Egeria Environment · Admin</div>
+        <div class="subtitle">Management Console</div>
       </div>
     </div>
   </div>
   <div class="spacer"></div>
   <span class="user" id="adminName"></span>
-  <a href="/egeria-explorer" class="btn-sm">Explorer ↗</a>
+  <a href="/portal" class="btn-sm">Portal ↗</a>
   <a href="#" class="btn-sm" onclick="doLogout()">Sign Out</a>
 </div>
 
 <div class="tabs">
-  <div class="tab active" onclick="showTab('users')">Users</div>
-  <div class="tab" onclick="showTab('events')">Events</div>
+  <div class="tab active" onclick="showTab('egeria-users')">Egeria Users</div>
   <div class="tab" onclick="showTab('config')">Config</div>
 </div>
 
 <div class="content">
   <div class="msg-banner" id="globalMsg"></div>
 
-  <!-- Users panel -->
-  <div class="panel active" id="panel-users">
-    <button class="refresh-btn" onclick="loadUsers()">↻ Refresh</button>
-    <div class="section-title">Registered Users</div>
-    <div class="stats-row">
-      <div class="stat-card"><div class="num" id="statTotal">—</div><div class="label">Total users</div></div>
-      <div class="stat-card"><div class="num" id="statVerified">—</div><div class="label">Verified</div></div>
-      <div class="stat-card"><div class="num" id="statAdmins">—</div><div class="label">Admins</div></div>
-    </div>
-    <table id="usersTable">
-      <thead><tr><th>Name</th><th>Email</th><th>Org</th><th>Role</th><th>Verified</th><th>Last Login</th><th>Actions</th></tr></thead>
-      <tbody id="usersBody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
-    </table>
-  </div>
-
-  <!-- Events panel -->
-  <div class="panel" id="panel-events">
-    <button class="refresh-btn" onclick="loadEvents()">↻ Refresh</button>
-    <div class="section-title">Recent Events</div>
-    <table>
-      <thead><tr><th>Time</th><th>User ID</th><th>Event</th><th>Detail</th></tr></thead>
-      <tbody id="eventsBody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+  <!-- Egeria Users panel -->
+  <div class="panel active" id="panel-egeria-users">
+    <button class="refresh-btn" onclick="loadEgeriaUsers()">↻ Refresh</button>
+    <div class="section-title">Egeria User Accounts</div>
+    <button class="create-btn" onclick="openCreateModal()">+ Create User</button>
+    <table id="egeriaUsersTable">
+      <thead><tr><th>User ID</th><th>Display Name</th><th>Type</th><th>Status</th><th>Roles</th><th>Actions</th></tr></thead>
+      <tbody id="egeriaUsersBody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
     </table>
   </div>
 
   <!-- Config panel -->
   <div class="panel" id="panel-config">
     <div class="section-title">Runtime Configuration</div>
-    <table class="config-table" id="configTable">
+    <table class="config-table">
       <tbody id="configBody"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody>
     </table>
   </div>
 </div>
 
-<script>
-  var activeTab = 'users';
+<!-- Create / Edit User Modal -->
+<div class="overlay" id="userModal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">Create User</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>User ID *</label>
+        <input type="text" id="mUserId" placeholder="jsmith" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Account Type</label>
+        <select id="mAccountType">
+          <option value="EMPLOYEE">Employee</option>
+          <option value="CONTRACTOR">Contractor</option>
+          <option value="DIGITAL">Digital</option>
+          <option value="EXTERNAL">External</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Display Name</label>
+      <input type="text" id="mUserName" placeholder="Jane Smith">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Given Name</label>
+        <input type="text" id="mGivenName" placeholder="Jane">
+      </div>
+      <div class="form-group">
+        <label>Surname</label>
+        <input type="text" id="mSurname" placeholder="Smith">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Security Roles</label>
+        <select id="mRoles" multiple title="Hold Ctrl/Cmd to select multiple"></select>
+      </div>
+      <div class="form-group">
+        <label>Security Groups</label>
+        <select id="mGroups" multiple title="Hold Ctrl/Cmd to select multiple"></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Default Zones <span style="color:var(--muted);font-size:0.72rem">(comma-separated)</span></label>
+        <input type="text" id="mDefaultZones" placeholder="general,public">
+      </div>
+      <div class="form-group">
+        <label>Publish Zones <span style="color:var(--muted);font-size:0.72rem">(comma-separated)</span></label>
+        <input type="text" id="mPublishZones" placeholder="general">
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="form-group pw-reveal" id="passwordRow">
+      <label>Temporary Password * <span style="color:var(--muted);font-size:0.72rem">— share with user out of band</span></label>
+      <input type="password" id="mPassword" placeholder="TempPass123!" autocomplete="new-password">
+      <span class="eye" onclick="togglePw()">👁</span>
+    </div>
+    <div class="modal-msg" id="modalMsg"></div>
+    <div class="form-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" id="modalSaveBtn" onclick="saveUser()">Create User</button>
+    </div>
+  </div>
+</div>
 
-  // Verify admin access on load
+<script>
+  var _tabs = ['egeria-users','config'];
+  var _roles = [];
+  var _groups = [];
+  var _editUserId = null; // null = create mode
+
+  // Auth check on load
   fetch('/api/auth/me').then(r => r.json()).then(function(d) {
-    if (!d.authenticated || d.role !== 'admin') {
-      window.location.href = '/login';
-      return;
-    }
-    document.getElementById('adminName').textContent = d.display_name;
-    loadUsers();
+    if (!d.authenticated || d.role !== 'admin') { window.location.href = '/login'; return; }
+    document.getElementById('adminName').textContent = d.user_id;
+    loadOrgName();
+    loadRolesAndGroups();
+    loadEgeriaUsers();
   });
 
+  function loadOrgName() {
+    fetch('/api/platform/org-name').then(r => r.json()).then(function(d) {
+      if (d.name) document.getElementById('adminTitle').textContent = d.name + ' · Admin';
+    }).catch(() => {});
+  }
+
   function showTab(name) {
-    activeTab = name;
-    document.querySelectorAll('.tab').forEach(function(t, i) {
-      t.classList.toggle('active', ['users','events','config'][i] === name);
+    _tabs.forEach(function(t, i) {
+      document.querySelectorAll('.tab')[i].classList.toggle('active', t === name);
+      document.getElementById('panel-' + t).classList.toggle('active', t === name);
     });
-    document.querySelectorAll('.panel').forEach(function(p) {
-      p.classList.remove('active');
-    });
-    document.getElementById('panel-' + name).classList.add('active');
-    if (name === 'users') loadUsers();
-    if (name === 'events') loadEvents();
+    if (name === 'egeria-users') loadEgeriaUsers();
     if (name === 'config') loadConfig();
   }
 
@@ -156,111 +233,255 @@
     setTimeout(function() { el.style.display = 'none'; }, 3500);
   }
 
-  function fmt(iso) {
-    if (!iso) return '—';
-    return new Date(iso).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
+  function showModalMsg(type, text) {
+    var el = document.getElementById('modalMsg');
+    el.className = 'modal-msg ' + type;
+    el.textContent = text;
+    el.style.display = 'block';
   }
 
-  function loadUsers() {
-    fetch('/api/demo/users').then(r => r.json()).then(function(users) {
-      if (!Array.isArray(users)) { document.getElementById('usersBody').innerHTML = '<tr><td colspan="7" class="empty">Error loading users</td></tr>'; return; }
-      document.getElementById('statTotal').textContent = users.length;
-      document.getElementById('statVerified').textContent = users.filter(u => u.verified).length;
-      document.getElementById('statAdmins').textContent = users.filter(u => u.role === 'admin').length;
-      if (!users.length) { document.getElementById('usersBody').innerHTML = '<tr><td colspan="7" class="empty">No users yet</td></tr>'; return; }
-      document.getElementById('usersBody').innerHTML = users.map(function(u) {
-        var roleBadge = u.role === 'admin' ? '<span class="badge badge-admin">admin</span>' : '<span class="badge badge-user">user</span>';
-        var verBadge = u.verified ? '<span class="badge badge-ok">✓</span>' : '<span class="badge badge-no">✗</span>';
-        var promoteBtn = u.role === 'admin'
-          ? '<button class="btn-xs" onclick="setRole(\''+u.id+'\',\'user\')">Demote</button>'
-          : '<button class="btn-xs" onclick="setRole(\''+u.id+'\',\'admin\')">Promote</button>';
-        var toggleBtn = u.verified
-          ? '<button class="btn-xs danger" onclick="disableUser(\''+u.id+'\')">Disable</button>'
-          : '<button class="btn-xs" style="color:var(--success);border-color:var(--success)" onclick="verifyUser(\''+u.id+'\')">Verify</button>';
-        var resendBtn = !u.verified
-          ? '<button class="btn-xs" onclick="adminResend(\''+u.id+'\',\''+esc(u.display_name)+'\')">Resend Email</button>'
-          : '';
-        var deleteBtn = '<button class="btn-xs danger" onclick="deleteUser(\''+u.id+'\',\''+esc(u.display_name)+'\')">Delete</button>';
-        return '<tr><td>'+esc(u.display_name)+'</td><td>'+esc(u.email)+'</td><td>'+(u.org ? esc(u.org) : '<span style="color:var(--muted)">—</span>')+'</td><td>'+roleBadge+'</td><td>'+verBadge+'</td><td>'+fmt(u.last_login)+'</td><td style="display:flex;gap:0.4rem;flex-wrap:wrap;padding:0.55rem 0.75rem">'+promoteBtn+' '+toggleBtn+' '+resendBtn+' '+deleteBtn+'</td></tr>';
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function statusBadge(status) {
+    if (!status) return '<span class="badge badge-active">active</span>';
+    var s = status.toLowerCase();
+    if (s === 'credentials_expired') return '<span class="badge badge-expired">first login</span>';
+    if (s === 'disabled')            return '<span class="badge badge-disabled">disabled</span>';
+    return '<span class="badge badge-active">' + esc(status.toLowerCase()) + '</span>';
+  }
+
+  // ── Roles and Groups ──────────────────────────────────────────────────────
+
+  function loadRolesAndGroups() {
+    fetch('/api/admin/roles').then(r => r.json()).then(function(data) {
+      _roles = Array.isArray(data) ? data : [];
+      populateSelect('mRoles', _roles);
+    }).catch(() => {});
+    fetch('/api/admin/groups').then(r => r.json()).then(function(data) {
+      _groups = Array.isArray(data) ? data : [];
+      populateSelect('mGroups', _groups);
+    }).catch(() => {});
+  }
+
+  function populateSelect(id, items) {
+    var sel = document.getElementById(id);
+    var prev = getSelected(id);
+    sel.innerHTML = items.map(function(it) {
+      var val = it.qualifiedName || it.displayName || it.name || '';
+      var lbl = it.displayName || it.qualifiedName || val;
+      var sel_ = prev.includes(val) ? ' selected' : '';
+      return '<option value="' + esc(val) + '"' + sel_ + '>' + esc(lbl) + '</option>';
+    }).join('');
+  }
+
+  function getSelected(id) {
+    var sel = document.getElementById(id);
+    return Array.from(sel.selectedOptions).map(o => o.value);
+  }
+
+  function setSelected(id, values) {
+    var sel = document.getElementById(id);
+    Array.from(sel.options).forEach(function(o) {
+      o.selected = values.includes(o.value);
+    });
+  }
+
+  // ── Egeria Users ──────────────────────────────────────────────────────────
+
+  function loadEgeriaUsers() {
+    fetch('/api/admin/egeria-users').then(r => r.json()).then(function(users) {
+      if (!Array.isArray(users)) {
+        document.getElementById('egeriaUsersBody').innerHTML = '<tr><td colspan="6" class="empty">Error loading users</td></tr>';
+        return;
+      }
+      if (!users.length) {
+        document.getElementById('egeriaUsersBody').innerHTML = '<tr><td colspan="6" class="empty">No user accounts found</td></tr>';
+        return;
+      }
+      document.getElementById('egeriaUsersBody').innerHTML = users.map(function(u) {
+        var uid  = u.userId || '—';
+        var name = u.userName || uid;
+        var type = u.userAccountType || '—';
+        var status = u.userAccountStatus || 'ACTIVE';
+        var roles = (u.securityRoles || []).join(', ') || '—';
+        var disabled = status === 'DISABLED';
+        var editBtn   = '<button class="btn-xs" onclick="openEditModal(' + JSON.stringify(u).replace(/"/g,'&quot;') + ')">Edit</button>';
+        var disableBtn= !disabled
+          ? '<button class="btn-xs danger" onclick="disableUser(' + JSON.stringify(uid).replace(/"/g,'&quot;') + ')">Disable</button>'
+          : '<span class="badge badge-disabled" style="font-size:0.72rem">disabled</span>';
+        var resetBtn  = '<button class="btn-xs" onclick="openResetModal(' + JSON.stringify(uid).replace(/"/g,'&quot;') + ')">Reset Pw</button>';
+        var deleteBtn = '<button class="btn-xs danger" onclick="deleteUser(' + JSON.stringify(uid).replace(/"/g,'&quot;') + ',' + JSON.stringify(name).replace(/"/g,'&quot;') + ')">Delete</button>';
+        return '<tr><td style="font-family:monospace;font-size:0.78rem">'+esc(uid)+'</td><td>'+esc(name)+'</td><td>'+esc(type)+'</td><td>'+statusBadge(status)+'</td><td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.75rem;color:var(--muted)">'+esc(roles)+'</td><td style="display:flex;gap:0.35rem;flex-wrap:wrap;padding:0.55rem 0.75rem">'+editBtn+' '+disableBtn+' '+resetBtn+' '+deleteBtn+'</td></tr>';
       }).join('');
-    }).catch(function() { document.getElementById('usersBody').innerHTML = '<tr><td colspan="7" class="empty">Failed to load users</td></tr>'; });
+    }).catch(function() {
+      document.getElementById('egeriaUsersBody').innerHTML = '<tr><td colspan="6" class="empty">Failed to load users — check Egeria connection</td></tr>';
+    });
   }
 
-  function setRole(userId, role) {
-    fetch('/api/demo/users/' + userId + '/role', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role: role })
-    }).then(r => r.json()).then(function(d) {
-      showGlobalMsg('success', 'Role updated to ' + role);
-      loadUsers();
-    }).catch(function() { showGlobalMsg('error', 'Failed to update role'); });
+  // ── Create/Edit modal ─────────────────────────────────────────────────────
+
+  function clearModal() {
+    ['mUserId','mUserName','mGivenName','mSurname','mPassword','mDefaultZones','mPublishZones'].forEach(function(id) {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('mAccountType').value = 'EMPLOYEE';
+    setSelected('mRoles', []);
+    setSelected('mGroups', []);
+    document.getElementById('modalMsg').style.display = 'none';
+    document.getElementById('modalSaveBtn').disabled = false;
   }
+
+  function openCreateModal() {
+    _editUserId = null;
+    clearModal();
+    document.getElementById('mUserId').disabled = false;
+    document.getElementById('passwordRow').style.display = 'block';
+    document.getElementById('modalTitle').textContent = 'Create User';
+    document.getElementById('modalSaveBtn').textContent = 'Create User';
+    document.getElementById('userModal').classList.add('open');
+  }
+
+  function openEditModal(u) {
+    _editUserId = u.userId;
+    clearModal();
+    document.getElementById('mUserId').value = u.userId || '';
+    document.getElementById('mUserId').disabled = true;
+    document.getElementById('mUserName').value = u.userName || '';
+    document.getElementById('mGivenName').value = u.givenName || '';
+    document.getElementById('mSurname').value = u.surname || '';
+    document.getElementById('mAccountType').value = u.userAccountType || 'EMPLOYEE';
+    var other = u.otherProperties || {};
+    document.getElementById('mDefaultZones').value = (other.defaultZones || '');
+    document.getElementById('mPublishZones').value = (other.publishZones || '');
+    setSelected('mRoles',  u.securityRoles  || []);
+    setSelected('mGroups', u.securityGroups || []);
+    document.getElementById('passwordRow').style.display = 'none';
+    document.getElementById('modalTitle').textContent = 'Edit User — ' + (u.userId || '');
+    document.getElementById('modalSaveBtn').textContent = 'Save Changes';
+    document.getElementById('userModal').classList.add('open');
+  }
+
+  function closeModal() {
+    document.getElementById('userModal').classList.remove('open');
+    _editUserId = null;
+  }
+
+  function togglePw() {
+    var inp = document.getElementById('mPassword');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  }
+
+  function saveUser() {
+    var btn = document.getElementById('modalSaveBtn');
+    btn.disabled = true;
+    var defaultZonesRaw = document.getElementById('mDefaultZones').value.trim();
+    var publishZonesRaw = document.getElementById('mPublishZones').value.trim();
+    var defaultZones = defaultZonesRaw ? defaultZonesRaw.split(',').map(z => z.trim()).filter(Boolean) : [];
+    var publishZones = publishZonesRaw ? publishZonesRaw.split(',').map(z => z.trim()).filter(Boolean) : [];
+
+    if (_editUserId) {
+      // Edit mode
+      var body = {
+        userName:       document.getElementById('mUserName').value.trim() || undefined,
+        securityRoles:  getSelected('mRoles'),
+        securityGroups: getSelected('mGroups'),
+        defaultZones:   defaultZones,
+        publishZones:   publishZones,
+      };
+      fetch('/api/admin/egeria-users/' + encodeURIComponent(_editUserId), {
+        method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+      }).then(function(r) { return r.json().then(d => ({ok: r.ok, data: d})); })
+      .then(function(res) {
+        btn.disabled = false;
+        if (res.ok) { closeModal(); showGlobalMsg('success', 'User updated'); loadEgeriaUsers(); }
+        else showModalMsg('error', res.data.detail || 'Update failed');
+      }).catch(function() { btn.disabled = false; showModalMsg('error', 'Network error'); });
+    } else {
+      // Create mode
+      var userId = document.getElementById('mUserId').value.trim();
+      var clearPassword = document.getElementById('mPassword').value;
+      if (!userId)        { btn.disabled = false; showModalMsg('error', 'User ID is required'); return; }
+      if (!clearPassword) { btn.disabled = false; showModalMsg('error', 'Temporary password is required'); return; }
+      var body = {
+        userId: userId,
+        userName:        document.getElementById('mUserName').value.trim() || userId,
+        userAccountType: document.getElementById('mAccountType').value,
+        givenName:       document.getElementById('mGivenName').value.trim(),
+        surname:         document.getElementById('mSurname').value.trim(),
+        securityRoles:   getSelected('mRoles'),
+        securityGroups:  getSelected('mGroups'),
+        defaultZones:    defaultZones,
+        publishZones:    publishZones,
+        clearPassword:   clearPassword,
+      };
+      fetch('/api/admin/egeria-users', {
+        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+      }).then(function(r) { return r.json().then(d => ({ok: r.ok, data: d})); })
+      .then(function(res) {
+        btn.disabled = false;
+        if (res.ok) {
+          // Show password once before closing
+          if (clearPassword) {
+            prompt('User "' + userId + '" created. Share these credentials out of band:\nUser ID: ' + userId + '\nTemp password:', clearPassword);
+          }
+          closeModal(); showGlobalMsg('success', 'User "' + userId + '" created'); loadEgeriaUsers();
+        } else {
+          showModalMsg('error', res.data.detail || 'Create failed');
+        }
+      }).catch(function() { btn.disabled = false; showModalMsg('error', 'Network error'); });
+    }
+  }
+
+  // ── Disable ───────────────────────────────────────────────────────────────
 
   function disableUser(userId) {
-    if (!confirm('Disable this user? They will not be able to log in until re-enabled.')) return;
-    fetch('/api/demo/users/' + userId + '/disable', { method: 'POST' })
-    .then(r => r.json()).then(function() {
-      showGlobalMsg('success', 'User disabled');
-      loadUsers();
-    }).catch(function() { showGlobalMsg('error', 'Failed to disable user'); });
+    if (!confirm('Disable user "' + userId + '"? They will not be able to log in.')) return;
+    fetch('/api/admin/egeria-users/' + encodeURIComponent(userId) + '/disable', { method: 'POST' })
+    .then(r => r.json()).then(function() { showGlobalMsg('success', '"' + userId + '" disabled'); loadEgeriaUsers(); })
+    .catch(function() { showGlobalMsg('error', 'Failed to disable user'); });
   }
 
-  function enableUser(userId) {
-    fetch('/api/demo/users/' + userId + '/enable', { method: 'POST' })
-    .then(r => r.json()).then(function() {
-      showGlobalMsg('success', 'User enabled');
-      loadUsers();
-    }).catch(function() { showGlobalMsg('error', 'Failed to enable user'); });
-  }
+  // ── Reset password ────────────────────────────────────────────────────────
 
-  function verifyUser(userId) {
-    fetch('/api/demo/users/' + userId + '/enable', { method: 'POST' })
-    .then(r => r.json()).then(function() {
-      showGlobalMsg('success', 'User verified — they can now log in');
-      loadUsers();
-    }).catch(function() { showGlobalMsg('error', 'Failed to verify user'); });
-  }
-
-  function adminResend(userId, name) {
-    fetch('/api/demo/users/' + userId + '/resend-verification', { method: 'POST' })
-    .then(function(r) { return r.json(); }).then(function(d) {
-      if (d.verify_url) {
-        // Show the link so admin can share it manually if email failed
-        var msg = 'Email sent (or use link): ' + d.verify_url;
-        showGlobalMsg('success', 'Verification email sent to ' + name);
-        // Also show the raw link in a prompt for easy copying
-        prompt('Verification link for ' + name + ' (copy and share if email failed):', d.verify_url);
+  function openResetModal(userId) {
+    var pw = prompt('Enter a new temporary password for "' + userId + '":');
+    if (!pw) return;
+    fetch('/api/admin/egeria-users/' + encodeURIComponent(userId) + '/reset-password', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ clearPassword: pw })
+    }).then(r => r.json()).then(function(d) {
+      if (d.status === 'password_reset') {
+        prompt('Password reset for "' + userId + '". Share with the user out of band:', pw);
+        showGlobalMsg('success', 'Password reset for "' + userId + '"');
+        loadEgeriaUsers();
       } else {
-        showGlobalMsg('success', 'Verification email sent to ' + name);
+        showGlobalMsg('error', d.detail || 'Reset failed');
       }
-    }).catch(function() { showGlobalMsg('error', 'Failed to resend — check SMTP config'); });
+    }).catch(function() { showGlobalMsg('error', 'Network error'); });
   }
+
+  // ── Delete ────────────────────────────────────────────────────────────────
 
   function deleteUser(userId, name) {
-    if (!confirm('Permanently delete "' + name + '"? This cannot be undone and will also delete their event history.')) return;
-    fetch('/api/demo/users/' + userId, { method: 'DELETE' })
+    if (!confirm('Permanently delete user "' + name + '" (' + userId + ')? This cannot be undone.')) return;
+    fetch('/api/admin/egeria-users/' + encodeURIComponent(userId), { method: 'DELETE' })
     .then(function(r) {
-      if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || 'Delete failed'); });
+      if (!r.ok) return r.json().then(d => { throw new Error(d.detail || 'Delete failed'); });
       return r.json();
-    }).then(function() {
-      showGlobalMsg('success', '"' + name + '" deleted');
-      loadUsers();
-    }).catch(function(e) { showGlobalMsg('error', e.message || 'Failed to delete user'); });
+    }).then(function() { showGlobalMsg('success', '"' + name + '" deleted'); loadEgeriaUsers(); })
+    .catch(function(e) { showGlobalMsg('error', e.message || 'Failed to delete user'); });
   }
 
-  function loadEvents() {
-    fetch('/api/demo/events?limit=200').then(r => r.json()).then(function(events) {
-      if (!Array.isArray(events)) { document.getElementById('eventsBody').innerHTML = '<tr><td colspan="4" class="empty">Error loading events</td></tr>'; return; }
-      if (!events.length) { document.getElementById('eventsBody').innerHTML = '<tr><td colspan="4" class="empty">No events yet</td></tr>'; return; }
-      document.getElementById('eventsBody').innerHTML = events.map(function(e) {
-        return '<tr><td>'+fmt(e.created_at)+'</td><td style="font-size:0.74rem;font-family:monospace;color:var(--muted)">'+esc(e.user_id||'—')+'</td><td><span class="badge badge-user">'+esc(e.event_type)+'</span></td><td style="font-size:0.76rem;color:var(--muted)">'+JSON.stringify(e.detail)+'</td></tr>';
-      }).join('');
-    }).catch(function() { document.getElementById('eventsBody').innerHTML = '<tr><td colspan="4" class="empty">Failed to load events</td></tr>'; });
-  }
+  // ── Config ────────────────────────────────────────────────────────────────
 
   function loadConfig() {
     fetch('/api/demo/config').then(r => r.json()).then(function(cfg) {
-      if (typeof cfg !== 'object') { document.getElementById('configBody').innerHTML = '<tr><td colspan="3" class="empty">Error loading config</td></tr>'; return; }
+      if (typeof cfg !== 'object' || !Object.keys(cfg).length) {
+        document.getElementById('configBody').innerHTML = '<tr><td colspan="3" class="empty">No config entries yet</td></tr>';
+        return;
+      }
       document.getElementById('configBody').innerHTML = Object.entries(cfg).map(function(kv) {
         return '<tr><td>'+esc(kv[0])+'</td><td><input id="cfg_'+esc(kv[0])+'" value="'+esc(kv[1]||'')+'"></td><td><button class="btn-xs" onclick="saveConfig(\''+esc(kv[0])+'\')">Save</button></td></tr>';
       }).join('');
@@ -268,24 +489,24 @@
   }
 
   function saveConfig(key) {
-    var val = document.getElementById('cfg_'+key).value;
+    var val = document.getElementById('cfg_' + key).value;
     fetch('/api/demo/config', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ key: key, value: val })
-    }).then(r => r.json()).then(function() {
-      showGlobalMsg('success', key + ' updated');
-    }).catch(function() { showGlobalMsg('error', 'Failed to save config'); });
+    }).then(r => r.json()).then(function() { showGlobalMsg('success', key + ' updated'); })
+    .catch(function() { showGlobalMsg('error', 'Failed to save config'); });
   }
+
+  // ── Misc ──────────────────────────────────────────────────────────────────
 
   function doLogout() {
-    fetch('/api/auth/logout', { method: 'POST' }).then(function() {
-      window.location.href = '/login';
-    });
+    fetch('/api/auth/logout', { method: 'POST' }).then(function() { window.location.href = '/login'; });
   }
 
-  function esc(s) {
-    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
+  // Close modal on backdrop click
+  document.getElementById('userModal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
 </script>
 </body>
 </html>

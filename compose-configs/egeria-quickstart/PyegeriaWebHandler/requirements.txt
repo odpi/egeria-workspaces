@@ -13,9 +13,10 @@ mcp >=1.15.0
 
 # Demo-mode dependencies
 sqlalchemy
-psycopg2-binary
-docker
 bcrypt
 python-jose[cryptography]
 python-multipart
 slowapi
+apscheduler
+docker
+resend

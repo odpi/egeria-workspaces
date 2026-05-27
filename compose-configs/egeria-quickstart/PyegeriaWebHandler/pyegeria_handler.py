@@ -63,7 +63,7 @@ pyegeria.enable_ssl_check = False
 pyegeria.disable_ssl_warnings = True
 
 import dr_egeria_md
-from demo_config import DEMO_MODE
+from demo_config import DEMO_MODE, OBSIDIAN_VAULT_URL, OBSIDIAN_GITHUB_URL, EGERIA_ADVISOR_URL
 from rate_limiter import limiter
 
 
@@ -209,10 +209,63 @@ if DEMO_MODE:
     app.include_router(demo_auth_router)
     from demo_reset_handler import router as demo_reset_router
     app.include_router(demo_reset_router)
+else:
+    @app.get("/api/auth/me", include_in_schema=False)
+    async def auth_me_non_demo():
+        return {"authenticated": True, "demo_mode": False}
+
+    class _PersonaSelectReq(BaseModel):
+        persona: str
+
+    @app.get("/api/demo/personas", include_in_schema=False)
+    async def personas_non_demo():
+        from demo_auth_handler import _load_personas
+        ps = _load_personas()
+        return {pid: {k: v for k, v in p.items() if k != "password"} for pid, p in ps.items()}
+
+    @app.post("/api/demo/select-persona", include_in_schema=False)
+    async def select_persona_non_demo(req: _PersonaSelectReq):
+        from demo_auth_handler import _load_personas
+        ps = _load_personas()
+        persona = ps.get(req.persona)
+        if not persona:
+            raise HTTPException(status_code=404, detail=f"Persona {req.persona!r} not found")
+        return {
+            "persona":          req.persona,
+            "display_name":     persona.get("display_name", req.persona),
+            "coco_title":       persona.get("coco_title", ""),
+            "egeria_user":      req.persona,
+            "egeria_password":  persona["password"],
+        }
 
 @app.get("/")
 async def health():
     return {"status": "ok", "service": "dr-egeria-md"}
+
+
+@app.get("/api/platform/portal-config", include_in_schema=False)
+async def platform_portal_config():
+    import urllib.parse
+    import httpx
+    raw = OBSIDIAN_VAULT_URL
+    if raw and not raw.startswith("obsidian://"):
+        obsidian_url = "obsidian://open?vault=" + urllib.parse.quote(raw)
+    else:
+        obsidian_url = raw
+    advisor_running = False
+    if EGERIA_ADVISOR_URL:
+        try:
+            async with httpx.AsyncClient(verify=False, timeout=1.5) as client:
+                await client.head(EGERIA_ADVISOR_URL)
+            advisor_running = True
+        except Exception:
+            advisor_running = False
+    return {
+        "obsidian_vault_url":  obsidian_url,
+        "obsidian_github_url": OBSIDIAN_GITHUB_URL,
+        "advisor_url":         EGERIA_ADVISOR_URL,
+        "advisor_running":     advisor_running,
+    }
 
 
 # ── Demo page routes ───────────────────────────────────────────────────────────

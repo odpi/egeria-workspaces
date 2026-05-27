@@ -3338,10 +3338,81 @@ function ReferenceDataView() {
   );
 }
 
+// ── Tabular Data Preview Modal ────────────────────────────────────────────────
+
+function TabularPreviewModal({ guid, name, creds, onClose }) {
+  var PAGE_SIZE = 100;
+  var _pageState = useState(0), page = _pageState[0], setPage = _pageState[1];
+  var _dataState = useState(null), tableData = _dataState[0], setTableData = _dataState[1];
+  var _loadState = useState(true), loading = _loadState[0], setLoading = _loadState[1];
+  var _errState  = useState(''),   errMsg   = _errState[0],  setErrMsg   = _errState[1];
+
+  useEffect(function() {
+    setLoading(true); setErrMsg('');
+    var params = new URLSearchParams({
+      start_from_row: page * PAGE_SIZE, max_row_count: PAGE_SIZE,
+    });
+    if (creds) { if (creds.url) params.set('url', creds.url); if (creds.server) params.set('server', creds.server); if (creds.userId) params.set('user_id', creds.userId); if (creds.password) params.set('user_pwd', creds.password); }
+    fetch('/api/digital-products/' + guid + '/tabular?' + params.toString())
+      .then(function(r) { return r.json(); })
+      .then(function(d) { setTableData(d); setLoading(false); })
+      .catch(function(e) { setErrMsg('Failed to load data: ' + e); setLoading(false); });
+  }, [guid, page]);
+
+  var columns = (tableData && tableData.columns) || [];
+  var rows    = (tableData && tableData.rows)    || [];
+  var hasMore = tableData && tableData.has_more;
+
+  return React.createElement('div', {
+    style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
+    onClick: function(e) { if (e.target === e.currentTarget) onClose(); }
+  },
+    React.createElement('div', { style: { background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 8, width: '90vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
+      // Header
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', padding: '12px 20px', borderBottom: '1px solid var(--border)', gap: 12 } },
+        React.createElement('div', { style: { flex: 1, fontWeight: 700, fontSize: 15 } }, '📊 Data Preview — ' + (name || guid)),
+        React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Page ' + (page + 1) + (tableData ? ' · ' + rows.length + ' rows' : '')),
+        React.createElement('button', { onClick: onClose, style: { marginLeft: 8, padding: '4px 12px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' } }, 'Close')
+      ),
+      // Body
+      React.createElement('div', { style: { overflowY: 'auto', flex: 1 } },
+        loading ? React.createElement('div', { style: { padding: 40, textAlign: 'center', color: 'var(--dim)' } }, 'Loading…')
+        : errMsg ? React.createElement('div', { style: { padding: 24, color: '#f87171' } }, errMsg)
+        : columns.length === 0 ? React.createElement('div', { style: { padding: 24, color: 'var(--dim)' } }, 'No tabular data returned. The data set may be empty or the format unsupported.')
+        : React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 } },
+            React.createElement('thead', { style: { position: 'sticky', top: 0, background: 'var(--panel)' } },
+              React.createElement('tr', null,
+                columns.map(function(col) {
+                  return React.createElement('th', { key: col, style: { padding: '6px 12px', textAlign: 'left', borderBottom: '2px solid var(--border)', color: 'var(--accent)', whiteSpace: 'nowrap', fontSize: 11 } }, col);
+                })
+              )
+            ),
+            React.createElement('tbody', null,
+              rows.map(function(row, i) {
+                return React.createElement('tr', { key: i, style: { background: i % 2 ? 'rgba(255,255,255,0.02)' : 'transparent' } },
+                  (Array.isArray(row) ? row : columns.map(function(c) { return row[c]; })).map(function(cell, j) {
+                    return React.createElement('td', { key: j, style: { padding: '4px 12px', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' } }, cell == null ? '' : String(cell));
+                  })
+                );
+              })
+            )
+          )
+      ),
+      // Footer / paging
+      React.createElement('div', { style: { display: 'flex', gap: 8, padding: '10px 20px', borderTop: '1px solid var(--border)', alignItems: 'center' } },
+        React.createElement('button', { disabled: page === 0 || loading, onClick: function() { setPage(page - 1); }, style: { padding: '4px 14px', borderRadius: 4, border: '1px solid var(--border)', background: page === 0 ? 'transparent' : 'var(--hover)', color: page === 0 ? 'var(--dim)' : 'var(--text)', cursor: page === 0 ? 'not-allowed' : 'pointer' } }, '← Prev'),
+        React.createElement('span', { style: { flex: 1, fontSize: 11, color: 'var(--dim)' } }, 'Rows ' + (page * PAGE_SIZE + 1) + '–' + (page * PAGE_SIZE + rows.length)),
+        React.createElement('button', { disabled: !hasMore || loading, onClick: function() { setPage(page + 1); }, style: { padding: '4px 14px', borderRadius: 4, border: '1px solid var(--border)', background: !hasMore ? 'transparent' : 'var(--hover)', color: !hasMore ? 'var(--dim)' : 'var(--text)', cursor: !hasMore ? 'not-allowed' : 'pointer' } }, 'Next →')
+      )
+    )
+  );
+}
+
 // ── Digital Products Explorer ─────────────────────────────────────────────────
 
-function DigitalProductDetail({ product, onNavigateToGlossary, onNavigateToDataSpec, onNavigateToDataDesign }) {
+function DigitalProductDetail({ product, onNavigateToGlossary, onNavigateToDataSpec, onNavigateToDataDesign, creds }) {
   if (!product) return null;
+  var _previewState = useState(null), previewDs = _previewState[0], setPreviewDs = _previewState[1];
 
   const DD_TYPES = { DataField: 1, DataStructure: 1, DataSpec: 1, DataGrain: 1, DataClass: 1 };
 
@@ -3425,7 +3496,12 @@ function DigitalProductDetail({ product, onNavigateToGlossary, onNavigateToDataS
             disabled: !onNavigateToDataSpec,
             title: onNavigateToDataSpec ? 'View in Data Design tab' : 'Data Design tab coming in Phase 3',
             style: { padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(74,222,128,.4)', background: onNavigateToDataSpec ? 'rgba(74,222,128,.1)' : 'transparent', color: onNavigateToDataSpec ? '#86efac' : 'var(--dim)', cursor: onNavigateToDataSpec ? 'pointer' : 'not-allowed', fontSize: 11, opacity: onNavigateToDataSpec ? 1 : 0.5 }
-          }, "View Data Spec →")
+          }, "View Data Spec →"),
+          isTabular && React.createElement("button", {
+            onClick: function() { setPreviewDs({ guid: m.guid, name: m.displayName || m.qualifiedName || m.guid }); },
+            title: 'Preview tabular data',
+            style: { padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(251,191,36,.4)', background: 'rgba(251,191,36,.1)', color: '#fcd34d', cursor: 'pointer', fontSize: 11 }
+          }, "Preview Data 📊")
         );
       })
     );
@@ -3461,7 +3537,8 @@ function DigitalProductDetail({ product, onNavigateToGlossary, onNavigateToDataS
     product.relationships && Object.keys(product.relationships).length > 0 && React.createElement("div", { style: { marginTop: memberTypeNames.length > 0 ? 24 : 0 } },
       React.createElement("div", { style: { fontWeight: 700, fontSize: 13, marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' } }, "Relationships"),
       Object.entries(product.relationships).map(function(entry) { return renderRelSection(entry[0], entry[1]); })
-    )
+    ),
+    previewDs && React.createElement(TabularPreviewModal, { guid: previewDs.guid, name: previewDs.name, creds: creds, onClose: function() { setPreviewDs(null); } })
   );
 }
 
@@ -3651,7 +3728,7 @@ function DigitalProductsView({ navGuid, onNavigateToGlossary, onNavigateToDataSp
     // Node detail (right)
     React.createElement("div", { className: "main" },
       (selectedNodeObj || nodeDetail)
-        ? React.createElement(DigitalProductDetail, { product: selectedNodeObj ? Object.assign({}, selectedNodeObj, { relationships: (nodeDetail || {}).relationships }) : nodeDetail, onNavigateToGlossary: onNavigateToGlossary, onNavigateToDataSpec: onNavigateToDataSpec, onNavigateToDataDesign: onNavigateToDataDesign })
+        ? React.createElement(DigitalProductDetail, { product: selectedNodeObj ? Object.assign({}, selectedNodeObj, { relationships: (nodeDetail || {}).relationships }) : nodeDetail, onNavigateToGlossary: onNavigateToGlossary, onNavigateToDataSpec: onNavigateToDataSpec, onNavigateToDataDesign: onNavigateToDataDesign, creds: creds })
         : selectedNode
         ? React.createElement("div", { className: "center" }, React.createElement("div", { className: "spinner" }))
         : React.createElement("div", { className: "center" },
@@ -5765,8 +5842,27 @@ function App() {
   // Check auth/demo mode on first load
   useEffect(function() {
     fetch('/api/auth/me').then(function(r) { return r.json(); }).then(function(me) {
-      if (me.authenticated) {
-        setDemoMode(true);
+      if (!me.demo_mode) {
+        // Non-demo: persona picker is available but not required — apply stored persona if present
+        var storedPersona = null;
+        try { var s = localStorage.getItem('egeria-persona'); storedPersona = s ? JSON.parse(s) : null; } catch(e) {}
+        if (storedPersona) {
+          var hasCreds = false;
+          try { hasCreds = !!localStorage.getItem('egeria-creds'); } catch(e) {}
+          if (!hasCreds) {
+            fetch('/api/demo/select-persona', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ persona: storedPersona.id })
+            }).then(function(r) { return r.json(); }).then(function(sel) {
+              if (sel.egeria_user) {
+                saveCreds({ url: '', server: 'qs-view-server', userId: sel.egeria_user, password: sel.egeria_password });
+              }
+            }).catch(function() {});
+          }
+        }
+        return;
+      }
+      setDemoMode(true);
         var storedPersona = null;
         try { var s = localStorage.getItem('egeria-persona'); storedPersona = s ? JSON.parse(s) : null; } catch(e) {}
         if (!storedPersona) { window.location.href = '/portal'; return; }
@@ -5783,7 +5879,6 @@ function App() {
             }
           }).catch(function() {});
         }
-      }
     }).catch(function() {});
   }, []);
 
@@ -5981,11 +6076,11 @@ function App() {
         onClick: () => setTheme(t => t === 'dark' ? 'light' : 'dark'),
         title: theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
       }, theme === 'dark' ? "☀ Light" : "☾ Dark"),
-      demoMode && activePersona && React.createElement(React.Fragment, null,
+      activePersona && React.createElement(React.Fragment, null,
         React.createElement('span', { className: 'persona-badge-btn', title: activePersona.coco_title || '' }, '🎭 ' + activePersona.display_name),
         React.createElement('a', { className: 'theme-btn', style: { marginLeft: 4, textDecoration: 'none' }, href: '/portal' }, 'Portal')
       ),
-      demoMode && !activePersona && React.createElement('a', { className: 'persona-badge-btn', href: '/portal' }, '🎭 Choose persona')
+      !activePersona && React.createElement('a', { className: 'persona-badge-btn', href: '/portal' }, '🎭 Choose persona')
     ),
     section === 'type-system' && /*#__PURE__*/React.createElement("div", { className: "type-subbar" },
       /*#__PURE__*/React.createElement("select", {
