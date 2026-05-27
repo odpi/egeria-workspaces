@@ -242,12 +242,11 @@ Promise.all([
   fetch('/api/auth/me').then(function(r){ return r.json(); }),
   fetch('/api/platform/org-name').then(function(r){ return r.json(); }).catch(function(){ return {name: ''}; }),
   fetch('/api/platform/portal-config').then(function(r){ return r.json(); }).catch(function(){ return {}; }),
-  fetch('http://' + location.hostname + ':8080/', {method:'HEAD', mode:'no-cors'}).then(function(){ return true; }).catch(function(){ return false; }),
 ]).then(function(results) {
   var me = results[0];
   var orgName = (results[1].name && results[1].name.trim()) ? results[1].name : 'Egeria Quickstart';
   var platformCfg = results[2] || {};
-  var advisorRunning = results[3];
+  var advisorRunning = !!platformCfg.advisor_running;
   if (!me.demo_mode) {
     _obsidianUrl = platformCfg.obsidian_vault_url || '';
     _obsidianGithubUrl = platformCfg.obsidian_github_url || '';
@@ -255,10 +254,14 @@ Promise.all([
     document.getElementById('hero-title').textContent = 'Welcome to ' + orgName;
     document.getElementById('hero-sub').textContent = 'An open metadata platform for learning, development, and experimentation. Select a tool below to get started.';
     document.getElementById('logout-btn').style.display = 'none';
-    document.getElementById('persona-btn').style.display = 'none';
     document.title = orgName;
-    renderAppGrid(me.demo_mode, advisorRunning);
-    document.getElementById('persona-cta').style.display = 'none';
+    renderAppGrid(me.demo_mode, advisorRunning, platformCfg.advisor_url || '');
+    fetch('/api/demo/personas').then(function(r){ return r.json(); }).then(function(data) {
+      _personas = data;
+      var stored = _loadStored();
+      _currentPersonaId = stored ? stored.id : null;
+      if (stored) { applyPersonaUI(stored); } else { document.getElementById('persona-cta').style.display = 'flex'; }
+    }).catch(function() { document.getElementById('persona-cta').style.display = 'none'; });
     return;
   }
   if (!me.authenticated) { window.location.href = '/login'; return; }
@@ -271,7 +274,7 @@ Promise.all([
     _obsidianGithubUrl = (results[1] && results[1].obsidian_github_url) || '';
     var stored = _loadStored();
     _currentPersonaId = stored ? stored.id : null;
-    renderAppGrid(true, false);
+    renderAppGrid(true, false, '');
     if (stored) {
       applyPersonaUI(stored);
     } else {
@@ -304,9 +307,9 @@ function applyPersonaUI(persona) {
 }
 
 // ── App grid ──────────────────────────────────────────────────────────────────
-function renderAppGrid(demoMode, advisorRunning) {
+function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
   var jupyterUrl = 'http://' + window.location.hostname + ':7888/?token=egeria';
-  var advisorUrl = 'http://' + window.location.hostname + ':8080/';
+  advisorUrl = advisorUrl || ('http://' + window.location.hostname + ':8080/');
   var apps = [
     { icon: '🔍', name: 'Egeria Explorer',
       desc: 'Browse Egeria metadata — types, glossary, lineage, governance blueprints, information supply chains, and more.',

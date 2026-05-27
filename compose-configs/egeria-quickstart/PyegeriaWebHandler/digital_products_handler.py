@@ -14,11 +14,16 @@ Endpoints:
 """
 
 import os
+import time
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
+
+# Tree cache: guid → (timestamp, result). Invalidated after 5 minutes.
+_TREE_CACHE: dict = {}
+_TREE_CACHE_TTL = 300  # seconds
 
 router = APIRouter(tags=["digital-products"])
 
@@ -251,6 +256,12 @@ def get_catalog_tree(
         logger.exception("Failed to create CollectionManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
+    cache_key = f"{catalog_guid}|{url or ''}|{server or ''}|{user_id or ''}"
+    cached = _TREE_CACHE.get(cache_key)
+    if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
+        logger.debug(f"Tree cache hit for {catalog_guid}")
+        return JSONResponse(cached[1])
+
     try:
         catalog_raw = mgr.get_collection_by_guid(catalog_guid, output_format="JSON")
     except Exception as exc:
@@ -262,7 +273,9 @@ def get_catalog_tree(
     visited: set = set()
     children = _build_tree(mgr, catalog_guid, visited)
 
-    return JSONResponse({"catalog": catalog, "children": children})
+    result = {"catalog": catalog, "children": children}
+    _TREE_CACHE[cache_key] = (time.time(), result)
+    return JSONResponse(result)
 
 
 @router.get("/api/digital-products/{node_guid}", summary="Get detail for any product/collection node")
@@ -308,3 +321,61 @@ def get_node(
         node["children"] = []
 
     return JSONResponse(node)
+
+
+@router.get("/api/digital-products/{node_guid}/tabular", summary="Preview tabular data for a TabularDataSet")
+def get_tabular_data(
+    node_guid:       str,
+    start_from_row:  int = Query(0,    ge=0),
+    max_row_count:   int = Query(100,  ge=1, le=2000),
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
+    """Fetch a page of rows from a TabularDataSet via DataEngineer.get_tabular_data_set."""
+    try:
+        from pyegeria import DataEngineer
+        url_val     = url     or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+        server_val  = server  or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+        uid         = user_id or os.environ.get("EGERIA_USER",          "erinoverview")
+        pwd         = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+        de = DataEngineer(view_server=server_val, platform_url=url_val, user_id=uid, user_pwd=pwd)
+        de.create_egeria_bearer_token()
+    except Exception as exc:
+        logger.exception("Failed to create DataEngineer")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+    try:
+        raw = de.get_tabular_data_set(
+            tabular_data_set_guid=node_guid,
+            start_from_row=start_from_row,
+            max_row_count=max_row_count,
+            output_format="JSON",
+        )
+    except Exception as exc:
+        logger.exception("get_tabular_data_set failed")
+        raise HTTPException(status_code=500, detail=f"Data retrieval failed: {exc}")
+
+    if not raw:
+        return JSONResponse({"columns": [], "rows": [], "has_more": False,
+                             "start_from_row": start_from_row, "row_count": 0})
+
+    # Normalise: DataEngineer may return a dict with columns/rows, or a list of dicts
+    if isinstance(raw, list):
+        if not raw:
+            return JSONResponse({"columns": [], "rows": [], "has_more": False,
+                                 "start_from_row": start_from_row, "row_count": 0})
+        columns = list(raw[0].keys()) if isinstance(raw[0], dict) else []
+        rows = [[row.get(c, "") for c in columns] for row in raw if isinstance(row, dict)]
+        has_more = len(rows) >= max_row_count
+        return JSONResponse({"columns": columns, "rows": rows, "has_more": has_more,
+                             "start_from_row": start_from_row, "row_count": len(rows)})
+    if isinstance(raw, dict):
+        columns  = raw.get("columns") or (list(raw.get("schema", {}).keys()) if raw.get("schema") else [])
+        rows     = raw.get("rows") or raw.get("data") or []
+        has_more = len(rows) >= max_row_count
+        return JSONResponse({"columns": columns, "rows": rows, "has_more": has_more,
+                             "start_from_row": start_from_row, "row_count": len(rows), "raw": raw})
+    return JSONResponse({"columns": [], "rows": [], "has_more": False,
+                         "start_from_row": start_from_row, "row_count": 0, "raw": raw})
