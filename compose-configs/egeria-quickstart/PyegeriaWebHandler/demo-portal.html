@@ -340,14 +340,11 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
       var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
       var obsBtn = (_obsidianUrl && isLocal)
         ? '<button class="btn btn-accent app-action" onclick="launchObsidian()" title="Requires Obsidian installed locally">Open in Obsidian</button>'
-        : '';
+        : '<a class="btn btn-accent app-action" href="https://obsidian.md" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none">Download Obsidian ↗</a>';
       var ghBtn = _obsidianGithubUrl
         ? '<a class="btn btn-accent app-action" href="' + esc(_obsidianGithubUrl) + '" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none">GitHub ↗</a>'
         : '';
-      var remoteNote = (!isLocal && _obsidianUrl && !_obsidianGithubUrl)
-        ? '<span style="font-size:11px;color:var(--text-muted);align-self:center">Obsidian requires local access</span>'
-        : '';
-      action = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center">' + obsBtn + ghBtn + remoteNote + '</div>';
+      action = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center">' + obsBtn + ghBtn + '</div>';
     } else {
       action = '<button class="btn btn-accent app-action" onclick="launch(' + JSON.stringify(a.url).replace(/"/g, '&quot;') + ',' + a.newTab + ')">' + (a.newTab ? 'Open ↗' : 'Open') + '</button>';
     }
