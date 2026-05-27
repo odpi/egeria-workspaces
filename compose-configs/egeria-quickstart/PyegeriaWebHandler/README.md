@@ -466,7 +466,7 @@ Browses Egeria's governance definition hierarchy in a three-panel layout (all pa
 - **Governance Drivers** (`GovernanceDriver`) — the forces that motivate governance: GovernanceStrategy, BusinessImperative, Regulation, Threat.
 - **Governance Policies** (`GovernancePolicy`) — the intent and direction of governance: GovernanceApproach, GovernancePrinciple.
 - **Governance Controls** (`GovernanceControl`) — the mechanisms that implement governance:
-  - TechnicalControl → GovernanceRule, GovernanceProcess, ServiceLevelObjective
+  - TechnicalControl → GovernanceRule, GovernanceActionProcess, ServiceLevelObjective
   - OrganisationalControl → GovernanceProcedure, GovernanceResponsibilityAssignment
   - NotificationType
 
