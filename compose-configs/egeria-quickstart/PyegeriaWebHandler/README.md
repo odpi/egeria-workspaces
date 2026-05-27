@@ -457,6 +457,33 @@ Browses Egeria's Information Supply Chain (ISC) elements.
 
 Left sidebar lists all `InformationSupplyChain` elements with a search filter. Selecting one loads the detail panel: display name, description, scope, lifecycle status, and the full relationship graph including `InformationSupplyChainLink` segments. A **▦ Load Context Diagram** and a **▦ Load Full Graph** button are available.
 
+#### Governance Definitions
+
+Browses Egeria's governance definition hierarchy in a three-panel layout (all panels resizable).
+
+**Left — Definition Types.** Tree organised into three root groups, each expanded by default:
+
+- **Governance Drivers** (`GovernanceDriver`) — the forces that motivate governance: GovernanceStrategy, BusinessImperative, Regulation, Threat.
+- **Governance Policies** (`GovernancePolicy`) — the intent and direction of governance: GovernanceApproach, GovernancePrinciple.
+- **Governance Controls** (`GovernanceControl`) — the mechanisms that implement governance:
+  - TechnicalControl → GovernanceRule, GovernanceProcess, ServiceLevelObjective
+  - OrganisationalControl → GovernanceProcedure, GovernanceResponsibilityAssignment
+  - NotificationType
+
+Abstract types are shown in italic. Selecting any node (abstract or concrete) loads that type's definitions in the middle panel.
+
+**Middle — Definition List.** Definitions of the selected type, sorted alphabetically by display name. A search box filters by name (debounced 400 ms). When a parent/abstract type is selected, results include all subtypes; a small badge shows each item's concrete type. Selecting a definition loads its detail in the right panel.
+
+**Right — Detail.** Mirrors the SolutionComponent detail style:
+- Display name + typeName badge
+- GUID (monospace)
+- Description (Markdown-rendered)
+- Mermaid context diagram (if available)
+- Properties table: Qualified Name, Identifier, Scope, Usage, Domain, Importance, Status, Summary, Implications, Outcomes, Results
+- All relationship groups returned by the API, with **View →** buttons for related governance definitions enabling in-tab navigation.
+
+Uses `GovernanceOfficer.find_governance_definitions` with `metadata_element_type` kwarg for type filtering, and `get_governance_definition_by_guid` for detail.
+
 ---
 
 ### Context diagrams (all sections)
@@ -626,6 +653,22 @@ Response: `[{ guid, displayName, qualifiedName, description, scope, lifecycleSta
 
 **`GET /api/isc/{guid}`** — Full detail for a single information supply chain.
 
+#### Governance Definitions
+
+**`GET /api/governance/tree`** — The governance definition type hierarchy.
+
+Response: `[{ typeName, label, isAbstract, children: [...] }]` with three root nodes (`GovernanceDriver`, `GovernancePolicy`, `GovernanceControl`) and their subtypes.
+
+**`GET /api/governance/definitions`** — Search or list governance definitions.
+
+Query params: `type_name` (default `GovernanceDefinition`), `search_string` (default `*`), `start_from`, `page_size` (default 200, max 500), plus standard connection params. When `type_name` is not the base type, it is forwarded as `metadata_element_type` to `GovernanceOfficer.find_governance_definitions`.
+
+Response: `{ definitions: [{ guid, typeName, displayName, qualifiedName, description, identifier, domainIdentifier, summary }], total, type_name }`.
+
+**`GET /api/governance/definitions/{guid}`** — Full detail for a single governance definition.
+
+Response: all list fields plus `scope`, `usage`, `importance`, `implications`, `outcomes`, `results`, `status`, `mermaidGraph`, and `relationships: { relName: [{ guid, typeName, displayName, qualifiedName, description }] }`.
+
 #### Demo mode
 
 See [demo-mode.md](demo-mode.md) for the complete auth and admin API reference.
@@ -648,6 +691,7 @@ For the extension history and remaining open work, see [Extending the TypeExplor
 | `valid_values_handler.py` | `/api/valid-values/properties` (pre-populates sidebar via `MetadataExpert.find_metadata_elements`); `/api/valid-values/lookup` (values for a name via `ReferenceDataManager.get_valid_metadata_values`) |
 | `report_specs_handler.py` | `/api/report-specs`; reads local pyegeria report spec objects; no Egeria connection |
 | `rest_api_handler.py` | `/api/request-bodies`, `/api/rest-apis`; catalog + live OpenAPI endpoint discovery |
+| `governance_definitions_handler.py` | `/api/governance/tree`, `/api/governance/definitions`, `/api/governance/definitions/{guid}`; uses `GovernanceOfficer` |
 | `pyegeria_handler.py` | FastAPI app entry point; mounts all routers |
 | `type-explorer.html` | Self-contained SPA (React 18 + Mermaid 11 via CDN, application JS inlined) |
 | `egeria_request_body_catalog.json` | Generated catalog of Layer 1 request body types; regenerate with `build_request_body_catalog.py` |
