@@ -241,18 +241,27 @@ var _obsidianGithubUrl = '';
 Promise.all([
   fetch('/api/auth/me').then(function(r){ return r.json(); }),
   fetch('/api/platform/org-name').then(function(r){ return r.json(); }).catch(function(){ return {name: ''}; }),
+  fetch('/api/platform/portal-config').then(function(r){ return r.json(); }).catch(function(){ return {}; }),
 ]).then(function(results) {
   var me = results[0];
   var orgName = (results[1].name && results[1].name.trim()) ? results[1].name : 'Egeria Quickstart';
+  var platformCfg = results[2] || {};
+  var advisorRunning = !!platformCfg.advisor_running;
   if (!me.demo_mode) {
+    _obsidianUrl = platformCfg.obsidian_vault_url || '';
+    _obsidianGithubUrl = platformCfg.obsidian_github_url || '';
     document.getElementById('hdr-title').textContent = orgName;
     document.getElementById('hero-title').textContent = 'Welcome to ' + orgName;
     document.getElementById('hero-sub').textContent = 'An open metadata platform for learning, development, and experimentation. Select a tool below to get started.';
     document.getElementById('logout-btn').style.display = 'none';
-    document.getElementById('persona-btn').style.display = 'none';
     document.title = orgName;
-    renderAppGrid();
-    document.getElementById('persona-cta').style.display = 'none';
+    renderAppGrid(me.demo_mode, advisorRunning, platformCfg.advisor_url || '');
+    fetch('/api/demo/personas').then(function(r){ return r.json(); }).then(function(data) {
+      _personas = data;
+      var stored = _loadStored();
+      _currentPersonaId = stored ? stored.id : null;
+      if (stored) { applyPersonaUI(stored); } else { document.getElementById('persona-cta').style.display = 'flex'; }
+    }).catch(function() { document.getElementById('persona-cta').style.display = 'none'; });
     return;
   }
   if (!me.authenticated) { window.location.href = '/login'; return; }
@@ -265,7 +274,7 @@ Promise.all([
     _obsidianGithubUrl = (results[1] && results[1].obsidian_github_url) || '';
     var stored = _loadStored();
     _currentPersonaId = stored ? stored.id : null;
-    renderAppGrid();
+    renderAppGrid(true, false, '');
     if (stored) {
       applyPersonaUI(stored);
     } else {
@@ -298,24 +307,25 @@ function applyPersonaUI(persona) {
 }
 
 // ── App grid ──────────────────────────────────────────────────────────────────
-function renderAppGrid() {
+function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
   var jupyterUrl = 'http://' + window.location.hostname + ':7888/?token=egeria';
+  advisorUrl = advisorUrl || ('http://' + window.location.hostname + ':8080/');
   var apps = [
     { icon: '🔍', name: 'Egeria Explorer',
-      desc: 'Browse Coco Pharmaceuticals metadata — types, glossary, lineage, governance blueprints, information supply chains, and more.',
+      desc: 'Browse Egeria metadata — types, glossary, lineage, governance blueprints, information supply chains, and more.',
       url: '/egeria-explorer', newTab: false, enabled: true },
     { icon: '📓', name: 'Jupyter Lab',
       desc: 'Interactive notebooks for data science and hands-on Egeria API exploration.',
       url: jupyterUrl, newTab: true, enabled: true },
     { icon: '🌐', name: 'Coco Web',
       desc: 'Coco Pharmaceuticals internal web resources and reference material.',
-      url: '/local', newTab: true, enabled: true },
+      url: '/local', newTab: true, enabled: !demoMode },
     { icon: '🗒️', name: 'Obsidian Vault',
       desc: 'Open the Coco Pharmaceuticals workbook vault in Obsidian (requires local install), or browse on GitHub.',
       url: _obsidianUrl, newTab: false, enabled: !!(_obsidianUrl || _obsidianGithubUrl), obsidian: true },
     { icon: '🤖', name: 'Egeria Advisor',
-      desc: 'AI-powered guidance for your Egeria environment.',
-      url: null, newTab: true, enabled: false },
+      desc: advisorRunning ? 'AI-powered guidance for your Egeria environment.' : 'AI-powered guidance for your Egeria environment. (Not currently running)',
+      url: advisorUrl, newTab: true, enabled: !demoMode, unavailable: !demoMode && !advisorRunning },
     { icon: '📖', name: 'Egeria Documentation',
       desc: 'Official Egeria project documentation, guides, and community resources.',
       url: 'https://egeria-project.ai', newTab: true, enabled: true },
@@ -324,6 +334,8 @@ function renderAppGrid() {
     var action;
     if (!a.enabled) {
       action = '<span class="soon-badge">Coming soon</span>';
+    } else if (a.unavailable) {
+      action = '<span class="soon-badge" style="background:var(--hover);color:var(--muted)">Not running</span>';
     } else if (a.obsidian) {
       var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
       var obsBtn = (_obsidianUrl && isLocal)

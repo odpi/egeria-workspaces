@@ -45,14 +45,21 @@ JWT_EXPIRY_ADMIN_SEC: int = int(os.environ.get("JWT_EXPIRY_ADMIN_SECONDS", "6048
 # RESEND_FROM must be an address on a domain you have verified in Resend.
 
 RESEND_API_KEY: str = os.environ.get("RESEND_API_KEY", "")
-RESEND_FROM:    str = os.environ.get("RESEND_FROM", "")
-
-# ── Resend ─────────────────────────────────────────────────────────────────────
-
-RESEND_API_KEY: str = os.environ.get("RESEND_API_KEY", "")
 RESEND_FROM:    str = os.environ.get("RESEND_FROM",    "")
 
 # ── URLs ───────────────────────────────────────────────────────────────────────
 
 SITE_URL: str = os.environ.get("SITE_URL", "http://localhost:8085").rstrip("/")
 COOKIE_SECURE: bool = SITE_URL.startswith("https://")
+
+# ── Portal tile config ─────────────────────────────────────────────────────────
+# Obsidian vault URL (vault name or full obsidian:// URI) — set in .env or yaml.
+# OBSIDIAN_GITHUB_URL defaults to the coco-workbooks repo so the GitHub button
+# is always available without any configuration.
+
+OBSIDIAN_VAULT_URL:   str = os.environ.get("OBSIDIAN_VAULT_URL",   "")
+OBSIDIAN_GITHUB_URL:  str = os.environ.get("OBSIDIAN_GITHUB_URL",  "https://github.com/odpi/egeria-workspaces/tree/main/coco-workbooks")
+
+# URL of the Egeria Advisor service. Set in .env or yaml (default: localhost:8080).
+# Checked server-side at startup to set advisor_running in portal-config.
+EGERIA_ADVISOR_URL:   str = os.environ.get("EGERIA_ADVISOR_URL",   "http://localhost:8080/")

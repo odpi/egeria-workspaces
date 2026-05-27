@@ -119,6 +119,12 @@ services:
       RESEND_FROM: "${RESEND_FROM:-}"
       ADMIN_BOOTSTRAP_EMAIL: "${ADMIN_BOOTSTRAP_EMAIL:-}"
       ADMIN_BOOTSTRAP_PASSWORD: "${ADMIN_BOOTSTRAP_PASSWORD:-}"
+      # ── Portal tile config ────────────────────────────────────────────────────
+      # OBSIDIAN_VAULT_URL: vault name or obsidian:// URI — set in .env if using local Obsidian
+      OBSIDIAN_VAULT_URL: "${OBSIDIAN_VAULT_URL:-}"
+      OBSIDIAN_GITHUB_URL: "${OBSIDIAN_GITHUB_URL:-https://github.com/odpi/egeria-workspaces/tree/main/coco-workbooks}"
+      # Egeria Advisor URL — checked server-side; set in .env if running on a non-default port/host
+      EGERIA_ADVISOR_URL: "${EGERIA_ADVISOR_URL:-http://localhost:8080/}"
     volumes:
       - ./PyegeriaWebHandler:/app
       - ../../exchange-quickstart/config:/config
