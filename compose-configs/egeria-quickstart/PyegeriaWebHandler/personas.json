@@ -2,12 +2,12 @@
   "erinoverview": {
     "password": "secret",
     "display_name": "Erin Overview",
-    "coco_title": "IT Project Leader",
-    "bio": "Erin is responsible for IT operations and the rollout of Egeria across Coco Pharmaceuticals. She sees the broadest view of the metadata landscape and is the natural starting point for anyone new to the system.",
+    "coco_title": "Information Architect",
+    "bio": "Erin sets IT standards and manages information supply chains at Coco Pharmaceuticals. She handles data requests from across the business and focuses on how information flows between systems — making her the natural starting point for understanding the full metadata landscape.",
     "highlights": [
       "Full view across all Explorer tabs",
-      "Sees governance zones, glossary, and data assets",
-      "Good starting point for understanding the whole environment"
+      "ISC tab — information supply chains and data flows",
+      "Governance zones, glossary, and data asset standards"
     ],
     "starter": true,
     "difficulty": "Business",
@@ -16,12 +16,12 @@
   "peterprofile": {
     "password": "secret",
     "display_name": "Peter Profile",
-    "coco_title": "Chief Data Officer",
-    "bio": "Peter is the CDO driving Coco's data governance strategy. He focuses on how Egeria's solution blueprints and governance frameworks connect business goals to data practices.",
+    "coco_title": "Data Analyst",
+    "bio": "Peter assesses and reports on data quality across Coco's repositories. He automates quality rules and profilers to track steady improvement in data trustworthiness, and supplies Erin Overview with detailed evidence about information quality status.",
     "highlights": [
-      "Solution Architect tab — blueprints and components",
-      "Perspectives tab — governance viewpoints",
-      "ISC tab — information supply chains"
+      "Data Design tab — data structures and quality rules",
+      "Glossary tab — standard business term definitions",
+      "Governance tab — data quality metrics and stewardship"
     ],
     "starter": true,
     "difficulty": "Business",
@@ -44,12 +44,12 @@
   "garygeeke": {
     "password": "secret",
     "display_name": "Gary Geeke",
-    "coco_title": "IT Infrastructure Director",
-    "bio": "Gary manages Coco's IT infrastructure. He uses Egeria to understand how systems connect, what types are deployed, and how the governance engine keeps everything compliant.",
+    "coco_title": "IT Infrastructure Administrator",
+    "bio": "Gary handles day-to-day IT operations and automation at Coco. He uses Egeria to maintain a systems inventory, track infrastructure auditability, and ensure deployed assets are properly catalogued and compliant.",
     "highlights": [
       "Type System tab — Egeria's open metadata types",
-      "Governance tab — rules and compliance status",
-      "Digital Products — deployed system assets"
+      "Governance tab — compliance rules and audit status",
+      "Digital Products — deployed system assets inventory"
     ],
     "starter": false,
     "difficulty": "Technical",
@@ -58,10 +58,10 @@
   "ivorpadlock": {
     "password": "secret",
     "display_name": "Ivor Padlock",
-    "coco_title": "Information Security Officer",
-    "bio": "Ivor is responsible for data privacy and security at Coco. He uses Egeria's governance zones and classifications to ensure sensitive data is properly controlled and auditable.",
+    "coco_title": "Chief Security Officer",
+    "bio": "Ivor is responsible for both physical and information security at Coco. He uses Egeria to track accountability for data protection, understand how security classifications are applied across assets, and automate safeguards.",
     "highlights": [
-      "Governance tab — security classifications",
+      "Governance tab — security classifications and zones",
       "Perspectives tab — security viewpoints",
       "Glossary — privacy-sensitive term definitions"
     ],
@@ -72,12 +72,12 @@
   "faithbroker": {
     "password": "secret",
     "display_name": "Faith Broker",
-    "coco_title": "Head of Human Resources",
-    "bio": "Faith manages Coco's people and organisational data. She uses Egeria to track team structures, roles, and the governance responsibilities assigned to staff.",
+    "coco_title": "HR Director and Privacy Officer",
+    "bio": "Faith leads HR and serves as Coco's privacy officer. She monitors regulatory compliance, tracks organisational roles and responsibilities, and works to automate compliance requirements into IT systems.",
     "highlights": [
       "Perspectives tab — organisational roles and teams",
-      "Governance tab — responsibility assignments",
-      "Glossary — HR term definitions"
+      "Governance tab — privacy and compliance controls",
+      "Glossary — HR and regulatory term definitions"
     ],
     "starter": false,
     "difficulty": "Business",
@@ -86,8 +86,8 @@
   "pollytasker": {
     "password": "secret",
     "display_name": "Polly Tasker",
-    "coco_title": "Project Leader",
-    "bio": "Polly coordinates cross-functional projects at Coco. She uses Egeria to track project metadata, understand data dependencies, and ensure new initiatives are properly governed.",
+    "coco_title": "Project Manager",
+    "bio": "Polly leads a small IT development team tackling system integrations and enhancements. She uses Egeria to understand data dependencies, track project metadata, and navigate the complexity of coordinating work across siloed systems.",
     "highlights": [
       "Solution Architect tab — project-linked blueprints",
       "ISC tab — data flows for project deliverables",
@@ -114,12 +114,12 @@
   "lemmiestage": {
     "password": "secret",
     "display_name": "Lemmie Stage",
-    "coco_title": "Data Staging Manager",
-    "bio": "Lemmie owns Coco's data staging pipelines — the processes that ingest, validate, and prepare data before it enters production systems. He uses Egeria to track what is in-flight and ensure staging datasets are properly catalogued.",
+    "coco_title": "DevOps Specialist",
+    "bio": "Lemmie is Coco's principal DevOps engineer, specialising in containerised deployments and automation. He uses Egeria to track deployed system assets and understand the security profile of what is running in production.",
     "highlights": [
-      "ISC tab — staging pipeline flows and lineage",
-      "Data Design — staging dataset schemas",
-      "Governance tab — data quality rules for ingestion"
+      "Type System tab — deployed infrastructure asset types",
+      "Governance tab — security and compliance for deployments",
+      "ISC tab — system pipeline flows and dependencies"
     ],
     "starter": false,
     "difficulty": "Technical",
@@ -128,12 +128,12 @@
   "juleskeeper": {
     "password": "secret",
     "display_name": "Jules Keeper",
-    "coco_title": "Records Manager",
-    "bio": "Jules is responsible for Coco's records retention and archival policies. She uses Egeria to classify data assets by retention schedule, track disposal obligations, and ensure records are discoverable for audit.",
+    "coco_title": "Chief Data Officer",
+    "bio": "Jules is Coco's Chief Data Officer, leading the transformation toward data-driven decision making. She focuses on strategy, governance, and establishing data as a core business asset across the enterprise.",
     "highlights": [
-      "Governance tab — retention classifications and policies",
-      "Glossary — records and compliance term definitions",
-      "Perspectives tab — regulatory viewpoints"
+      "Solution Architect tab — blueprints and governance frameworks",
+      "Governance tab — organisation-wide policies and drivers",
+      "Perspectives tab — executive data strategy viewpoints"
     ],
     "starter": false,
     "difficulty": "Business",
@@ -142,12 +142,12 @@
   "stewfaster": {
     "password": "secret",
     "display_name": "Stew Faster",
-    "coco_title": "Data Steward",
-    "bio": "Stew is a data steward responsible for the quality and consistency of Coco's core reference datasets. He curates glossary definitions, resolves duplicate assets, and works with data owners to keep the catalogue accurate.",
+    "coco_title": "Manufacturing Manager",
+    "bio": "Stew manages Coco's manufacturing plant and oversees production lines. He uses Egeria to understand data flows relevant to manufacturing operations and track the quality of operational data feeding into production decisions.",
     "highlights": [
-      "Glossary — term curation and duplicate resolution",
-      "Data Design — reference data management",
-      "Governance tab — stewardship assignments and quality scores"
+      "ISC tab — operational data flows and lineage",
+      "Data Design — manufacturing dataset schemas",
+      "Governance tab — operational data quality rules"
     ],
     "starter": false,
     "difficulty": "Business",
