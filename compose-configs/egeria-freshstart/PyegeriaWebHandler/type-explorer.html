@@ -3729,6 +3729,13 @@ const _SPLASH_CAPABILITIES = [
     description: 'Explore information supply chains and their implementation graphs. Each chain shows its scope, segments, and concrete technical implementations as mermaid diagrams.',
     requiresConnection: true,
   },
+  {
+    section: 'governance',
+    icon: '⚖',
+    title: 'Governance Definitions',
+    description: 'Browse governance drivers, policies, and controls. Search by subtype, navigate relationships between definitions, and view full property detail for each element.',
+    requiresConnection: true,
+  },
 ];
 
 function ConnectionForm({ saveCreds }) {
@@ -5690,6 +5697,252 @@ function PersonaPickerModal({ onSelect, currentPersonaId }) {
   );
 }
 
+// ── Governance Definitions Explorer ──────────────────────────────────────────
+
+function GovDefDetail({ definition, onSelectGuid }) {
+  if (!definition) return null;
+
+  const GOV_TYPES = new Set([
+    'GovernanceDefinition','GovernanceDriver','GovernancePolicy','GovernanceControl',
+    'TechnicalControl','OrganizationalControl',
+    'GovernanceStrategy','BusinessImperative','Regulation','Threat',
+    'GovernanceApproach','GovernancePrinciple',
+    'GovernanceRule','GovernanceProcess','ServiceLevelObjective',
+    'GovernanceProcedure','GovernanceResponsibilityAssignment','NotificationType',
+  ]);
+
+  function camelToLabel(s) {
+    return s.replace(/([A-Z])/g, ' $1').replace(/^(.)/, function(c) { return c.toUpperCase(); }).trim();
+  }
+
+  const SCALAR_FIELDS = [
+    ['Qualified Name',    definition.qualifiedName],
+    ['Identifier',        definition.identifier],
+    ['Scope',             definition.scope],
+    ['Usage',             definition.usage],
+    ['Domain',            definition.domainIdentifier ? String(definition.domainIdentifier) : ''],
+    ['Importance',        definition.importance],
+    ['Status',            definition.status],
+    ['Summary',           definition.summary],
+    ['Implications',      definition.implications],
+    ['Outcomes',          definition.outcomes],
+    ['Results',           definition.results],
+  ].filter(([, v]) => v && String(v).trim());
+
+  function relSection(key, items) {
+    if (!items || !items.length) return null;
+    return React.createElement('div', { key: key, style: { marginBottom: 16 } },
+      React.createElement('div', { style: { fontWeight: 600, fontSize: 13, marginBottom: 6, color: 'var(--accent)' } },
+        camelToLabel(key) + ' (' + items.length + ')'
+      ),
+      items.map(function(item) {
+        const isGov = GOV_TYPES.has(item.typeName);
+        return React.createElement('div', { key: item.guid, style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '4px 0', borderTop: '1px solid var(--border)' } },
+          React.createElement('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, item.displayName || item.qualifiedName || item.guid),
+          item.typeName && React.createElement('span', { className: 'badge', style: { fontSize: 10, background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)', flexShrink: 0 } }, item.typeName),
+          isGov && React.createElement('button', {
+            onClick: function() { onSelectGuid && onSelectGuid(item.guid); },
+            style: { flexShrink: 0, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(167,139,250,.4)', background: 'rgba(167,139,250,.1)', color: '#c4b5fd', cursor: 'pointer', fontSize: 11 }
+          }, 'View →')
+        );
+      })
+    );
+  }
+
+  return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
+      React.createElement('div', { style: { fontSize: 18, fontWeight: 700 } }, definition.displayName || definition.qualifiedName),
+      definition.typeName && React.createElement('span', { className: 'badge', style: { background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)' } }, definition.typeName)
+    ),
+    React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 12 } }, definition.guid),
+    definition.description && React.createElement('div', { style: { fontSize: 13, marginBottom: 16 } }, renderMd(definition.description)),
+    definition.mermaidGraph && React.createElement('div', { style: { marginBottom: 8 } },
+      React.createElement(AvailableMermaidDiagrams, { data: definition }),
+      React.createElement(MermaidSection, { guid: definition.guid })
+    ),
+    SCALAR_FIELDS.length > 0 && React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 20 } },
+      React.createElement('tbody', null,
+        SCALAR_FIELDS.map(function(pair) {
+          return React.createElement('tr', { key: pair[0], style: { borderTop: '1px solid var(--border)' } },
+            React.createElement('td', { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', verticalAlign: 'top', width: 150 } }, pair[0]),
+            React.createElement('td', { style: { padding: '6px 0', whiteSpace: 'pre-wrap' } }, renderMd(String(pair[1])))
+          );
+        })
+      )
+    ),
+    definition.relationships && Object.keys(definition.relationships).length > 0 && React.createElement('div', null,
+      React.createElement('div', { style: { fontWeight: 700, fontSize: 13, marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' } }, 'Relationships'),
+      Object.entries(definition.relationships).map(function(pair) { return relSection(pair[0], pair[1]); })
+    )
+  );
+}
+
+function GovTypeNode({ node, depth, selectedType, onSelect, expanded, toggleExpanded }) {
+  const isExp = expanded.has(node.typeName);
+  const isSel = selectedType === node.typeName;
+  const hasChildren = !!(node.children && node.children.length);
+  const isAbstract = !!node.isAbstract;
+  return React.createElement(React.Fragment, null,
+    React.createElement('div', {
+      className: 'tree-item' + (isSel ? ' sel' : ''),
+      style: { paddingLeft: 8 + depth * 16 },
+      onClick: function() { onSelect(node.typeName); if (hasChildren) toggleExpanded(node.typeName); }
+    },
+      hasChildren
+        ? React.createElement('span', { style: { width: 14, fontSize: 10, color: isExp ? 'var(--accent)' : 'var(--muted)', flexShrink: 0, textAlign: 'center' } }, isExp ? '▼' : '▶')
+        : React.createElement('span', { style: { width: 14, flexShrink: 0 } }),
+      React.createElement('span', { style: { flex: 1, color: isAbstract ? 'var(--dim)' : 'var(--text)', fontStyle: isAbstract ? 'italic' : 'normal', fontSize: 13 } }, node.label),
+      isSel && !isAbstract && React.createElement('span', { style: { width: 6, height: 6, borderRadius: 3, background: 'var(--accent)', flexShrink: 0 } })
+    ),
+    isExp && hasChildren && node.children.map(function(child) {
+      return React.createElement(GovTypeNode, {
+        key: child.typeName, node: child, depth: depth + 1,
+        selectedType: selectedType, onSelect: onSelect,
+        expanded: expanded, toggleExpanded: toggleExpanded,
+      });
+    })
+  );
+}
+
+function GovernanceView() {
+  const creds = React.useContext(CredContext);
+  const [sideW, onDivDown]     = useResizable(220);
+  const [listW, onListDivDown] = useResizable(280);
+
+  const [typeTree, setTypeTree]     = useState([]);
+  const [typeLabels, setTypeLabels] = useState({});
+  const [expanded, setExpanded]     = useState(function() {
+    return new Set(['GovernanceDriver','GovernancePolicy','GovernanceControl']);
+  });
+  const [selType, setSelType]   = useState('GovernanceDriver');
+
+  const [search, setSearch]         = useState('');
+  const [listState, setListState]   = useState('idle');
+  const [listAttempt, setListAttempt] = useState(0);
+  const [definitions, setDefinitions] = useState([]);
+  const [listError, setListError]   = useState('');
+
+  const [selGuid, setSelGuid]       = useState(null);
+  const [detail, setDetail]         = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  function toggleExpanded(tn) {
+    setExpanded(function(prev) {
+      const next = new Set(prev);
+      if (next.has(tn)) next.delete(tn); else next.add(tn);
+      return next;
+    });
+  }
+
+  // Load type tree once
+  useEffect(function() {
+    fetch(credAppend('/api/governance/tree', creds))
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        setTypeTree(d);
+        var map = {};
+        function walk(nodes) { (nodes || []).forEach(function(n) { map[n.typeName] = n.label; walk(n.children); }); }
+        walk(d);
+        setTypeLabels(map);
+      })
+      .catch(function() {});
+  }, []);
+
+  // Load definitions when type or search changes
+  useEffect(function() {
+    if (listState === 'loading') return;
+    setListState('loading'); setListError('');
+    const params = new URLSearchParams({ type_name: selType, page_size: '200' });
+    if (search) params.set('search_string', search);
+    fetch(credAppend('/api/governance/definitions?' + params.toString(), creds))
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(d) { setDefinitions(d.definitions || []); setListState('ready'); })
+      .catch(function(e) { setListError(e.message); setListState('error'); });
+  }, [selType, listAttempt]);
+
+  const searchTimer = React.useRef(null);
+  function onSearchChange(val) {
+    setSearch(val);
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(function() { setListAttempt(function(a) { return a + 1; }); }, 400);
+  }
+
+  // Load detail when guid selected
+  useEffect(function() {
+    if (!selGuid) { setDetail(null); return; }
+    setDetailLoading(true);
+    fetch(credAppend('/api/governance/definitions/' + encodeURIComponent(selGuid), creds))
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(d) { setDetail(d); setDetailLoading(false); })
+      .catch(function() { setDetailLoading(false); });
+  }, [selGuid]);
+
+  function handleTypeSelect(tn) {
+    setSelType(tn);
+    setSelGuid(null);
+    setDetail(null);
+    setListAttempt(function(a) { return a + 1; });
+  }
+
+  const colLabel = listState === 'ready'
+    ? definitions.length + ' definitions'
+    : (typeLabels[selType] || selType);
+
+  return React.createElement('div', { className: 'body' },
+    // Left: type tree
+    React.createElement('div', { className: 'sidebar', style: { width: sideW } },
+      React.createElement('div', { style: { padding: '10px 12px', fontWeight: 600, fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } }, 'Definition Types'),
+      React.createElement('div', { className: 'tree-scroll' },
+        typeTree.map(function(node) {
+          return React.createElement(GovTypeNode, {
+            key: node.typeName, node: node, depth: 0,
+            selectedType: selType, onSelect: handleTypeSelect,
+            expanded: expanded, toggleExpanded: toggleExpanded,
+          });
+        })
+      )
+    ),
+    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
+    // Middle: definition list
+    React.createElement('div', { style: { width: listW, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
+      React.createElement('div', { style: { padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
+        React.createElement('div', { style: { fontWeight: 600, fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } }, colLabel),
+        React.createElement('input', {
+          type: 'search', placeholder: 'Search…', value: search,
+          onChange: function(e) { onSearchChange(e.target.value); },
+          style: { width: '100%', boxSizing: 'border-box', fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' }
+        })
+      ),
+      listState === 'error' && React.createElement('div', { style: { padding: 12, color: '#f87171', fontSize: 12 } }, listError),
+      listState === 'loading' && React.createElement('div', { style: { padding: 24, textAlign: 'center', color: 'var(--dim)', fontSize: 12 } }, 'Loading…'),
+      React.createElement('div', { className: 'tree-scroll' },
+        definitions.map(function(def) {
+          return React.createElement('div', {
+            key: def.guid,
+            className: 'tree-item' + (selGuid === def.guid ? ' sel' : ''),
+            onClick: function() { setSelGuid(def.guid); },
+            title: def.description || def.qualifiedName,
+          },
+            React.createElement('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13 } }, def.displayName || def.qualifiedName || def.guid),
+            def.typeName !== selType && React.createElement('span', { className: 'badge', style: { fontSize: 9, background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)', flexShrink: 0, marginLeft: 4 } }, def.typeName)
+          );
+        })
+      )
+    ),
+    React.createElement(ResizeDivider, { onMouseDown: onListDivDown }),
+    // Right: detail
+    React.createElement('div', { className: 'main' },
+      detailLoading
+        ? React.createElement('div', { className: 'center' }, React.createElement('div', { className: 'spinner' }))
+        : detail
+        ? React.createElement(GovDefDetail, { definition: detail, onSelectGuid: function(g) { setSelGuid(g); } })
+        : React.createElement('div', { className: 'center' },
+            React.createElement('span', { style: { color: 'var(--muted)' } }, definitions.length === 0 && listState === 'ready' ? 'No definitions found' : 'Select a definition to view details')
+          )
+    )
+  );
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 
 function App() {
@@ -5878,6 +6131,7 @@ function App() {
       /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'perspectives' ? " on" : ""), disabled: !connected, title: connected ? '' : 'Connect on the Home tab first', onClick: () => setSection('perspectives') }, "Perspectives"),
       /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'dr-egeria' ? " on" : ""), onClick: () => setSection('dr-egeria') }, "Dr. Egeria"),
       /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'isc' ? " on" : ""), disabled: !connected, title: connected ? '' : 'Connect on the Home tab first', onClick: () => setSection('isc') }, "Supply Chains"),
+      /*#__PURE__*/React.createElement("button", { className: "view-tab" + (section === 'governance' ? " on" : ""), disabled: !connected, title: connected ? '' : 'Connect on the Home tab first', onClick: () => setSection('governance') }, "Governance Definitions"),
       /*#__PURE__*/React.createElement("div", { style: { flex: 1 } }),
       section === 'type-system' && /*#__PURE__*/React.createElement("button", { className: "view-tab" + (view === 'attrs' ? " on" : ""), onClick: () => setView('attrs') }, "Attribute Index"),
       section === 'type-system' && view === 'types' && /*#__PURE__*/React.createElement("select", {
@@ -5931,6 +6185,8 @@ function App() {
       ? React.createElement(DrEgeriaCommandsView, null)
       : section === 'isc'
       ? React.createElement(InformationSupplyChainView, { key: credsKey })
+      : section === 'governance'
+      ? React.createElement(GovernanceView, { key: credsKey })
       : section !== 'type-system'
       ? /*#__PURE__*/React.createElement(PlaceholderView, { section: section })
       : view === 'attrs'
