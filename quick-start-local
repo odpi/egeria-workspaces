@@ -149,10 +149,17 @@ pushd compose-configs/egeria-quickstart >/dev/null
       echo "[quick-start-local]   Generated new JWT_SECRET."
     fi
 
-    # Prompt for TLS cert directory if not set
+    # Prompt for TLS cert directory if not set.
+    # Default to runtime-volumes/certs (relative to repo root) if it exists.
     if [[ -z "$_cert_dir" ]]; then
-      echo "[quick-start-local]   TLS cert dir must contain: server.crt, server.key, server-ca.crt"
-      read -r -p "[quick-start-local]   Certificate directory path: " _cert_dir
+      _default_certs="$(cd "../../runtime-volumes/certs" 2>/dev/null && pwd || true)"
+      if [[ -n "$_default_certs" && -d "$_default_certs" ]]; then
+        read -r -p "[quick-start-local]   Certificate directory [${_default_certs}]: " _cert_dir
+        _cert_dir="${_cert_dir:-$_default_certs}"
+      else
+        echo "[quick-start-local]   TLS cert dir must contain: server.crt, server.key, server-ca.crt"
+        read -r -p "[quick-start-local]   Certificate directory path: " _cert_dir
+      fi
       _cert_dir="${_cert_dir/#\~/$HOME}"
       if [[ "$_cert_dir" != /* ]]; then
         _cert_dir="$(cd "$(pwd)/../../${_cert_dir}" 2>/dev/null && pwd)" || _cert_dir="$(pwd)/../../${_cert_dir}"
