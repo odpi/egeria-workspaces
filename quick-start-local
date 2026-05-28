@@ -121,14 +121,26 @@ pushd compose-configs/egeria-quickstart >/dev/null
     ENV_DEMO=".env.demo"
     echo "[quick-start-local] Demo mode: loading configuration..."
 
-    # Read a single key from .env.demo without sourcing it (avoids shell injection)
-    _get_demo_var() { [[ -f "$ENV_DEMO" ]] && grep -E "^${1}=" "$ENV_DEMO" | head -n1 | cut -d= -f2- || true; }
-    _jwt="$(_get_demo_var JWT_SECRET)"
-    _cert_dir="$(_get_demo_var CERT_DIR)"
-    _admin_email="$(_get_demo_var ADMIN_BOOTSTRAP_EMAIL)"
-    _admin_pass="$(_get_demo_var ADMIN_BOOTSTRAP_PASSWORD)"
-    _resend_key="$(_get_demo_var RESEND_API_KEY)"
-    _resend_from="$(_get_demo_var RESEND_FROM)"
+    # Read a key from a file without sourcing it (avoids shell injection).
+    # Priority: .env.demo (saved secrets) > .env (primed from existing config).
+    _get_env_var() {
+      local key="$1" file="$2"
+      [[ -f "$file" ]] && grep -E "^${key}=" "$file" | head -n1 | cut -d= -f2- || true
+    }
+    _pick() {
+      local key="$1"
+      local v
+      v="$(_get_env_var "$key" "$ENV_DEMO")"
+      [[ -z "$v" ]] && v="$(_get_env_var "$key" ".env")"
+      printf '%s' "$v"
+    }
+
+    _jwt="$(_pick JWT_SECRET)"
+    _cert_dir="$(_pick CERT_DIR)"
+    _admin_email="$(_pick ADMIN_BOOTSTRAP_EMAIL)"
+    _admin_pass="$(_pick ADMIN_BOOTSTRAP_PASSWORD)"
+    _resend_key="$(_pick RESEND_API_KEY)"
+    _resend_from="$(_pick RESEND_FROM)"
 
     # Generate JWT_SECRET if not already set
     if [[ -z "$_jwt" ]]; then
@@ -141,7 +153,6 @@ pushd compose-configs/egeria-quickstart >/dev/null
     if [[ -z "$_cert_dir" ]]; then
       echo "[quick-start-local]   TLS cert dir must contain: server.crt, server.key, server-ca.crt"
       read -r -p "[quick-start-local]   Certificate directory path: " _cert_dir
-      # Expand ~ and make relative paths absolute
       _cert_dir="${_cert_dir/#\~/$HOME}"
       if [[ "$_cert_dir" != /* ]]; then
         _cert_dir="$(cd "$(pwd)/../../${_cert_dir}" 2>/dev/null && pwd)" || _cert_dir="$(pwd)/../../${_cert_dir}"
@@ -158,6 +169,16 @@ pushd compose-configs/egeria-quickstart >/dev/null
     if [[ -z "$_admin_pass" ]]; then
       read -r -s -p "[quick-start-local]   Admin bootstrap password: " _admin_pass
       echo
+    fi
+
+    # Resend email — prompt if not yet configured (blank = no email; that's valid)
+    if [[ -z "$_resend_key" ]]; then
+      echo "[quick-start-local]   Resend API key for email verification / password reset."
+      echo "[quick-start-local]   Leave blank to skip email (accounts must be verified manually via /admin)."
+      read -r -p "[quick-start-local]   RESEND_API_KEY: " _resend_key
+    fi
+    if [[ -n "$_resend_key" && -z "$_resend_from" ]]; then
+      read -r -p "[quick-start-local]   Sender address (e.g. 'Egeria Demo <noreply@yourdomain.com>'): " _resend_from
     fi
 
     # Save credentials to .env.demo (mode 600 — contains secrets)
