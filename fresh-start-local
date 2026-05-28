@@ -3,6 +3,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+source compose-configs/shared-infra/detect-engine.sh
 source compose-configs/shared-infra/compose-build-flags.sh
 
 print_usage() {
@@ -36,7 +37,7 @@ done
 
 image_exists() {
   local image_ref="$1"
-  docker image inspect "$image_ref" >/dev/null 2>&1
+  $CONTAINER_ENGINE image inspect "$image_ref" >/dev/null 2>&1
 }
 
 ensure_service_image() {
@@ -56,9 +57,9 @@ ensure_service_image() {
     echo "[fresh-start-local] Local image missing for ${service_name} (${image_ref}); attempting build..."
   fi
 
-  if ! docker compose -p egeria-freshstart -f egeria-freshstart.yaml build "${COMPOSE_BUILD_FLAGS[@]}" "$service_name"; then
+  if ! $COMPOSE_CMD -p egeria-freshstart -f egeria-freshstart.yaml build "${COMPOSE_BUILD_FLAGS[@]}" "$service_name"; then
     echo "[fresh-start-local] Pull-enabled build failed for ${service_name}; retrying without pull..."
-    if ! docker compose -p egeria-freshstart -f egeria-freshstart.yaml build "$service_name"; then
+    if ! $COMPOSE_CMD -p egeria-freshstart -f egeria-freshstart.yaml build "$service_name"; then
       if [[ "$required" -eq 1 ]]; then
         echo "[fresh-start-local] ERROR: unable to build required service '${service_name}' and no local image exists (${image_ref})." >&2
         return 1
@@ -87,8 +88,12 @@ RUNTIME_DEPLOYMENTS_DIR="runtime-volumes/freshstart-platform-data"
 RUNTIME_SECRETS_DIR="runtime-volumes/freshstart-platform-data/secrets"
 TEMPLATE_SECRETS_DIR="compose-configs/egeria-freshstart/secrets"
 
+prepare_runtime_dir "$RUNTIME_DEPLOYMENTS_DIR"
+prepare_runtime_dir "work"
+prepare_runtime_dir "workbooks"
+prepare_runtime_dir "coco-workbooks"
+prepare_runtime_dir "exchange-freshstart"
 mkdir -p "$RUNTIME_SECRETS_DIR"
-chmod -R a+rwX "$RUNTIME_DEPLOYMENTS_DIR"
 
 # Seed secrets from templates only for files that don't already exist
 if [ -z "$(ls -A "$RUNTIME_SECRETS_DIR" 2>/dev/null)" ]; then
@@ -109,7 +114,7 @@ fi
 
 TARGET_SERVER_DIR="runtime-volumes/freshstart-platform-data/data/servers"
 echo "[fresh-start-local] Copying freshstart server configurations to ${TARGET_SERVER_DIR}..."
-rm -rf "$TARGET_SERVER_DIR"
+safe_rm_rf "$TARGET_SERVER_DIR"
 mkdir -p "$TARGET_SERVER_DIR"
 cp compose-configs/egeria-quickstart/servers/*.http "$TARGET_SERVER_DIR"/
 cp compose-configs/egeria-quickstart/servers/README.md "$TARGET_SERVER_DIR"/
@@ -122,22 +127,22 @@ pushd compose-configs/egeria-freshstart >/dev/null
 
   echo "[fresh-start-local] Ensuring core images are available (platform, pyegeria-web, jupyter)..."
   ensure_service_image freshstart-egeria-main egeria-freshstart-platform:local 1 "$REFRESH_PLATFORM"
-  ensure_service_image freshstart-pyegeria-web egeria-freshstart-freshstart-pyegeria-web:latest 1
+  ensure_service_image freshstart-pyegeria-web egeria-freshstart-pyegeria-web:latest 1
   ensure_service_image freshstart-jupyter-hub egeria-freshstart-jupyter:local 1
 
   APACHE_BUILD_OK=1
   echo "[fresh-start-local] Ensuring freshstart-apache-web image is available (optional)..."
-  if ! ensure_service_image freshstart-apache-web egeria-freshstart-freshstart-apache-web:latest 0; then
+  if ! ensure_service_image freshstart-apache-web egeria-freshstart-apache-web:latest 0; then
     APACHE_BUILD_OK=0
   fi
 
   echo "[fresh-start-local] Starting core freshstart stack (host-gateway mappings enabled)..."
-  if ! docker compose -p egeria-freshstart \
+  if ! $COMPOSE_CMD -p egeria-freshstart \
     -f egeria-freshstart.yaml \
     -f egeria-freshstart-local.yaml \
-    up -d --pull always freshstart-egeria-main freshstart-pyegeria-web freshstart-jupyter-hub; then
+    up -d ${COMPOSE_PULL_FLAGS} freshstart-egeria-main freshstart-pyegeria-web freshstart-jupyter-hub; then
     echo "[fresh-start-local] Pull-enabled core up failed; retrying without pull and without build..."
-    docker compose -p egeria-freshstart \
+    $COMPOSE_CMD -p egeria-freshstart \
       -f egeria-freshstart.yaml \
       -f egeria-freshstart-local.yaml \
       up -d --no-build freshstart-egeria-main freshstart-pyegeria-web freshstart-jupyter-hub
@@ -145,12 +150,12 @@ pushd compose-configs/egeria-freshstart >/dev/null
 
   if [[ "$APACHE_BUILD_OK" -eq 1 ]]; then
     echo "[fresh-start-local] Starting freshstart-apache-web..."
-    if ! docker compose -p egeria-freshstart \
+    if ! $COMPOSE_CMD -p egeria-freshstart \
       -f egeria-freshstart.yaml \
       -f egeria-freshstart-local.yaml \
-      up -d --pull always freshstart-apache-web; then
+      up -d ${COMPOSE_PULL_FLAGS} freshstart-apache-web; then
       echo "[fresh-start-local] Pull-enabled apache up failed; retrying without pull and without build..."
-      if ! docker compose -p egeria-freshstart \
+      if ! $COMPOSE_CMD -p egeria-freshstart \
         -f egeria-freshstart.yaml \
         -f egeria-freshstart-local.yaml \
         up -d --no-build freshstart-apache-web; then

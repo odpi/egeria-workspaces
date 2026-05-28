@@ -8,6 +8,8 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 HOST_FQDN="$(hostname -f 2>/dev/null || hostname)"
 
+source "${SCRIPT_DIR}/detect-engine.sh"
+
 read_existing_env() {
   local key="$1"
   if [[ -f .env ]]; then
@@ -30,11 +32,11 @@ SHARED_KAFKA_IMAGE_VAL="${SHARED_KAFKA_IMAGE:-}"
 if [[ -z "$SHARED_KAFKA_IMAGE_VAL" ]]; then
   SHARED_KAFKA_IMAGE_VAL="$(read_existing_env SHARED_KAFKA_IMAGE)"
 fi
-if [[ "$SHARED_KAFKA_IMAGE_VAL" == bitnamilegacy/kafka* ]]; then
+if [[ "$SHARED_KAFKA_IMAGE_VAL" == bitnamilegacy/kafka* || "$SHARED_KAFKA_IMAGE_VAL" == cleanstart/kafka* ]]; then
   SHARED_KAFKA_IMAGE_VAL=""
 fi
 if [[ -z "$SHARED_KAFKA_IMAGE_VAL" ]]; then
-  SHARED_KAFKA_IMAGE_VAL="cleanstart/kafka@sha256:3bfad519feac67e6bd1ae2b18b3e4770cdf2fedf53ecff7b38a520a7c5d77564"
+  SHARED_KAFKA_IMAGE_VAL="docker.io/cleanstart/kafka@sha256:3bfad519feac67e6bd1ae2b18b3e4770cdf2fedf53ecff7b38a520a7c5d77564"
 fi
 
 SHARED_POSTGRES_IMAGE_VAL="${SHARED_POSTGRES_IMAGE:-}"
@@ -42,11 +44,11 @@ if [[ -z "$SHARED_POSTGRES_IMAGE_VAL" ]]; then
   SHARED_POSTGRES_IMAGE_VAL="$(read_existing_env SHARED_POSTGRES_IMAGE)"
 fi
 # Migrate away from plain postgres images to pgvector
-if [[ "$SHARED_POSTGRES_IMAGE_VAL" == postgres:* || "$SHARED_POSTGRES_IMAGE_VAL" == "postgres@sha256:"* ]]; then
+if [[ "$SHARED_POSTGRES_IMAGE_VAL" == postgres:* || "$SHARED_POSTGRES_IMAGE_VAL" == "postgres@sha256:"* || "$SHARED_POSTGRES_IMAGE_VAL" == "pgvector/pgvector"* ]]; then
   SHARED_POSTGRES_IMAGE_VAL=""
 fi
 if [[ -z "$SHARED_POSTGRES_IMAGE_VAL" ]]; then
-  SHARED_POSTGRES_IMAGE_VAL="pgvector/pgvector:pg17"
+  SHARED_POSTGRES_IMAGE_VAL="docker.io/pgvector/pgvector:pg17"
 fi
 
 HARDENED_KAFKA_DATA_DIR_VAL="${HARDENED_KAFKA_DATA_DIR:-}"
@@ -74,6 +76,7 @@ SHARED_KAFKA_IMAGE=${SHARED_KAFKA_IMAGE_VAL}
 SHARED_POSTGRES_IMAGE=${SHARED_POSTGRES_IMAGE_VAL}
 HARDENED_KAFKA_DATA_DIR=${HARDENED_KAFKA_DATA_DIR_VAL}
 HARDENED_KAFKA_LOG_DIR=${HARDENED_KAFKA_LOG_DIR_VAL}
+HOST_GATEWAY_IP=${HOST_GATEWAY_IP}
 EOF
 mv -f "$TMP_ENV" .env
 

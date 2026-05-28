@@ -1,5 +1,5 @@
 # syntax=docker.io/docker/dockerfile:1.7-labs
-FROM node:18
+FROM docker.io/library/node:18
 
 ARG PROXY_HOST=server
 WORKDIR /ui

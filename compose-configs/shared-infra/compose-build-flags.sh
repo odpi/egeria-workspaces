@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-COMPOSE_BUILD_FLAGS=(--pull)
+COMPOSE_BUILD_FLAGS=()
+if [[ -n "${COMPOSE_BUILD_PULL_FLAGS:-}" ]]; then
+  COMPOSE_BUILD_FLAGS+=($COMPOSE_BUILD_PULL_FLAGS)
+fi
 
 case "${NO_CACHE:-}" in
   ""|0|false|FALSE|False|no|NO|No|off|OFF|Off)

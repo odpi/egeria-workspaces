@@ -1,13 +1,16 @@
 services:
   freshstart-egeria-main:
     extra_hosts:
-      - "${HOST_FQDN}:host-gateway"
+      - "${HOST_FQDN}:${HOST_GATEWAY_IP}"
+      - "host.docker.internal:${HOST_GATEWAY_IP}"
 
   freshstart-pyegeria-web:
     extra_hosts:
-      - "${HOST_FQDN}:host-gateway"
+      - "${HOST_FQDN}:${HOST_GATEWAY_IP}"
+      - "host.docker.internal:${HOST_GATEWAY_IP}"
 
   freshstart-jupyter-hub:
     extra_hosts:
-      - "${HOST_FQDN}:host-gateway"
+      - "${HOST_FQDN}:${HOST_GATEWAY_IP}"
+      - "host.docker.internal:${HOST_GATEWAY_IP}"
 

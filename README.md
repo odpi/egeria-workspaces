@@ -15,8 +15,8 @@ For further help and advice, please feel free to engage with the community on ou
 
 **Egeria Workspaces** uses Docker compose to deploy docker containers, creating a usable environment. So, at a minimum,
 you need to have docker and docker compose compatible software installed. We test **Egeria Workspaces** using
-[Docker Desktop](https://www.docker.com/get-started/) but **podmand** and **podman-compose** should also work 
-[Podman](https://podman.io/). 
+[Docker Desktop](https://www.docker.com/get-started/) but **podman** and **podman-compose** should also work 
+[Podman](https://podman.io/). See [Monitoring Podman with PyCharm](Monitoring%20Podman%20with%20PyCharm.md) for IDE integration steps.
 
 >Note: The minimum level of Egeria (egeria-platform) required is 6.0. If you have older images you should either remove these old images or modify 
  the docker compose yaml scripts to use the image tag 'stable' (referring to 6.0 production release) or a specific post 6.0 release.

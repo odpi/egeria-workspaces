@@ -15,27 +15,68 @@ When `DEMO_MODE=false` (the default), all demo machinery is dormant. The Explore
 
 ## Quick start
 
-Edit `.env` (in the same directory as the yaml, already gitignored) and set these values:
-
-```ini
-DEMO_MODE=true                          # activates auth gating
-JWT_SECRET=your-random-32-plus-char-string
-SITE_URL=https://egeria-demo.example.com
-ADMIN_BOOTSTRAP_EMAIL=you@example.com   # first admin account
-ADMIN_BOOTSTRAP_PASSWORD=changeme       # change this
-RESEND_API_KEY=re_...                   # from resend.com — leave blank to skip email
-RESEND_FROM=Egeria Demo <noreply@your-domain.com>
-```
-
-Then start the stack:
+From the repository root, run:
 
 ```bash
-docker compose up --build
+./quick-start-local --demo
 ```
 
-On first startup the container automatically creates the admin account from `ADMIN_BOOTSTRAP_EMAIL` / `ADMIN_BOOTSTRAP_PASSWORD`. If an admin already exists those vars are ignored, so it is safe to leave them set on subsequent restarts.
+On first run the script will prompt for:
+
+- **TLS certificate directory** — a host directory containing `server.crt`, `server.key`, and `server-ca.crt`
+- **Admin bootstrap email and password** — the initial admin account created on first startup
+
+Answers are saved to `compose-configs/egeria-quickstart/.env.demo` (mode 600, gitignored) and reused on subsequent `--demo` runs. To change any value, edit `.env.demo` directly.
+
+The script also generates a JWT secret automatically if one is not already set, and writes a runtime `ssl-define.conf` that tells Apache the SSL server name (derived from the current `HOST_FQDN`).
+
+Once started:
+
+- HTTP portal: `http://<HOST_FQDN>:8085`
+- HTTPS portal: `https://<HOST_FQDN>` (port 443)
+- Login: `https://<HOST_FQDN>/login`
+
+On first startup the container creates the admin account from the bootstrap credentials. If an admin already exists those values are ignored, so it is safe to leave them set.
 
 Log in at `/login` with those credentials to access the admin panel, then navigate to `/portal` to see the demo portal.
+
+> **Rootless Podman note:** Port 443 is a privileged port. Before running `--demo` with rootless Podman, allow it once:
+> ```bash
+> sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443
+> ```
+> To make this permanent across reboots:
+> ```bash
+> echo 'net.ipv4.ip_unprivileged_port_start=443' | sudo tee /etc/sysctl.d/99-rootless-podman.conf
+> sudo sysctl --system
+> ```
+> Alternatively set `HTTPS_PORT=8443` in `.env.demo` to use a non-privileged port — see [SSL / HTTPS](#ssl--https).
+
+> **Bootstrap race condition (Podman + uvicorn `--reload`):** The admin account is created during the FastAPI startup event, but uvicorn's file-watcher may restart the worker process before startup completes. If login fails with valid credentials, check whether the admin exists and create it manually:
+> ```bash
+> podman exec quickstart-pyegeria-web python3 -c "
+> import sys; sys.path.insert(0, '/app')
+> from demo_db import bootstrap_admin; bootstrap_admin()
+> print('done')
+> "
+> ```
+
+---
+
+### Manual `.env` configuration (without the script)
+
+If you prefer to configure demo mode without using `./quick-start-local --demo`, set these values in `compose-configs/egeria-quickstart/.env.demo` (create it if it doesn't exist) before running the stack manually:
+
+```ini
+JWT_SECRET=your-random-32-plus-char-string
+SITE_URL=https://egeria-demo.example.com
+ADMIN_BOOTSTRAP_EMAIL=you@example.com
+ADMIN_BOOTSTRAP_PASSWORD=changeme
+RESEND_API_KEY=re_...                   # from resend.com — leave blank to skip email
+RESEND_FROM=Egeria Demo <noreply@your-domain.com>
+CERT_DIR=/absolute/path/to/certs
+```
+
+Then run `./quick-start-local --demo` (it will read `.env.demo` and skip prompts).
 
 ---
 
@@ -311,105 +352,126 @@ Persona credentials come from `personas.json` in the container. To add or update
 
 ## Database maintenance
 
-The demo auth database is **PostgreSQL** — the `demo_auth` schema in the `coco_pharma` database on `egeria-shared-postgres:5442`. The schema is created automatically on first startup.
+The demo auth database is **PostgreSQL** — the `demo_auth` schema in the `coco_pharma` database on the shared Postgres instance (port 5442). The schema is created automatically on first startup.
+
+> **Container engine note:** Docker and Podman store named volumes in separate locations (`/var/lib/docker/volumes/` vs `~/.local/share/containers/storage/volumes/`). If you switch engines, the database starts empty — all user registrations from the previous engine are inaccessible. There is no automated migration path; re-register users after an engine switch.
 
 ### Connecting directly
 
+From inside the container (replace `docker` with `podman` as appropriate):
+
 ```bash
-docker exec -it egeria-shared-postgres psql -U demo_user -d coco_pharma
+docker exec -it egeria-shared-postgres psql -h localhost -p 5442 -U demo_user -d coco_pharma
 ```
 
-Or from the host (if port 5442 is exposed):
+From the host (port 5442 is exposed by default):
 
 ```bash
-psql -h localhost -p 5442 -U demo_user -d coco_pharma -n demo_auth
+psql -h localhost -p 5442 -U demo_user -d coco_pharma
 ```
 
 ### Clearing users and events (preserving config)
 
-```sql
-DELETE FROM demo_auth.events;
-DELETE FROM demo_auth.users;
-```
-
-Or via Docker:
-
 ```bash
-docker exec egeria-shared-postgres psql -U demo_user -d coco_pharma \
+docker exec egeria-shared-postgres psql -h localhost -p 5442 -U demo_user -d coco_pharma \
   -c "DELETE FROM demo_auth.events; DELETE FROM demo_auth.users;"
 ```
 
-After clearing, set `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD` in `.env` and restart the `quickstart-pyegeria-web` container — the bootstrap admin is re-created automatically when no admin exists.
+After clearing, credentials in `.env.demo` are used to bootstrap a fresh admin on the next container restart.
 
 ### Full schema reset (nuclear option)
 
 ```bash
-docker exec egeria-shared-postgres psql -U demo_user -d coco_pharma \
+docker exec egeria-shared-postgres psql -h localhost -p 5442 -U demo_user -d coco_pharma \
   -c "DROP SCHEMA IF EXISTS demo_auth CASCADE;"
 ```
 
-The schema is recreated automatically on the next container start.
+The schema and tables are recreated automatically on the next `quickstart-pyegeria-web` startup.
 
 ---
 
 ## SSL / HTTPS
 
-SSL is **off by default**. The web server listens on port 8085 (HTTP) only. HTTPS is opt-in: three commented-out lines in `egeria-quickstart.yaml` are all that separate HTTP from HTTPS.
+SSL is **off by default**. The web server listens on port 8085 (HTTP) only. HTTPS is enabled automatically when you use `./quick-start-local --demo`.
 
 ### Prerequisites
 
-- A TLS certificate and private key for your domain.
-- The certificate files accessible on the Docker host at a stable path.
-- Port 443 open on any firewall between users and the host.
+- A TLS certificate and private key for your domain, with the chain certificate.
+- The certificate files accessible on the host at a stable directory path.
+- Port 443 open on any firewall between users and the host (or use `HTTPS_PORT=8443` for rootless Podman — see below).
 - DNS pointing your domain at the host's IP address.
 
-### Enabling SSL
+### Enabling SSL (automated via `--demo`)
 
-**Step 1 — Edit `sites-available/fastapi-ssl.conf`.**
-Change the four `Define` lines at the top:
+Run:
+
+```bash
+./quick-start-local --demo
+```
+
+When prompted, provide the path to a directory containing:
+
+```
+server.crt       — TLS certificate for your domain
+server.key       — private key
+server-ca.crt    — CA / chain certificate
+```
+
+The script:
+1. Saves the cert path to `.env.demo` as `CERT_DIR`
+2. Generates `runtime-volumes/quickstart-apache-web/ssl-define.conf` containing `Define SSL_SERVER_NAME <HOST_FQDN>`
+3. Applies `egeria-quickstart-demo.yaml`, which mounts the cert directory, the SSL vhost config, and port 443
+
+`SITE_URL` is automatically set to `https://<HOST_FQDN>` (or `https://<HOST_FQDN>:<port>` when `HTTPS_PORT` is non-443).
+
+#### Using a non-standard HTTPS port (rootless Podman)
+
+Rootless Podman cannot bind privileged ports (<1024) without a sysctl change. To use port 8443 instead:
+
+Add to `compose-configs/egeria-quickstart/.env.demo`:
+```ini
+HTTPS_PORT=8443
+```
+
+Then run `./quick-start-local --demo`. The script sets `SITE_URL=https://<HOST_FQDN>:8443` automatically. Users reach the portal at `https://<HOST_FQDN>:8443`.
+
+### Enabling SSL (manual)
+
+If you need to manage the SSL config manually:
+
+**Step 1 — Create `runtime-volumes/quickstart-apache-web/ssl-define.conf`:**
 
 ```apache
 Define SSL_SERVER_NAME your.domain.com
-Define SSL_CERT_FILE   /etc/ssl/egeria/server.crt
-Define SSL_KEY_FILE    /etc/ssl/egeria/server.key
-Define SSL_CHAIN_FILE  /etc/ssl/egeria/server-ca.crt
 ```
 
-**Step 2 — Uncomment the three SSL lines in `egeria-quickstart.yaml`** under `apache-web`:
-
-```yaml
-ports:
-  - "8085:8085"
-  - "443:443"          # ← uncomment
-
-volumes:
-  - ./sites-available/fastapi-ssl.conf:/usr/local/apache2/conf/extra/fastapi-ssl.conf  # ← uncomment
-  - /path/to/your/certs:/etc/ssl/egeria:ro                                             # ← uncomment, fix path
-```
-
-**Step 3 — Update `SITE_URL` in `.env`:**
+**Step 2 — Set `CERT_DIR` and `SITE_URL` in `compose-configs/egeria-quickstart/.env.demo`:**
 
 ```ini
+CERT_DIR=/absolute/path/to/certs
 SITE_URL=https://your.domain.com
 ```
 
-**Step 4 — Rebuild and restart the Apache container:**
+**Step 3 — Apply the demo overlay manually:**
 
 ```bash
-docker compose -f egeria-quickstart.yaml up --build apache-web -d
+docker compose \
+  -f egeria-quickstart.yaml \
+  -f egeria-quickstart-local.yaml \
+  -f egeria-quickstart-docker.yaml \
+  -f egeria-quickstart-demo.yaml \
+  up -d apache-web
 ```
-
-After first setup, cert or conf changes only need a restart (no rebuild).
 
 ### Disabling SSL
 
-Re-comment the three SSL lines in `egeria-quickstart.yaml` and restart Apache:
+Run without `--demo`:
 
 ```bash
-docker compose -f egeria-quickstart.yaml restart apache-web
+./quick-start-local
 ```
 
-`httpd.conf` uses `IncludeOptional conf/extra/fastapi-ssl.conf` — when the file is not mounted, Apache silently starts HTTP-only.
+`httpd.conf` uses `IncludeOptional conf/extra/fastapi-ssl.conf` — when the SSL vhost file is not mounted (no demo overlay), Apache starts HTTP-only on port 8085.
 
 ### Cookie security
 
@@ -417,10 +479,14 @@ Cookies are set with `Secure=true` automatically when `SITE_URL` starts with `ht
 
 ### Certificate renewal
 
-Replace the files in the mounted cert directory and restart Apache — no rebuild required:
+Replace the files in `CERT_DIR` and restart Apache — no rebuild required:
 
 ```bash
-docker compose -f egeria-quickstart.yaml restart apache-web
+docker compose \
+  -f egeria-quickstart.yaml \
+  -f egeria-quickstart-local.yaml \
+  -f egeria-quickstart-demo.yaml \
+  restart apache-web
 ```
 
 ---
@@ -429,20 +495,33 @@ docker compose -f egeria-quickstart.yaml restart apache-web
 
 Before making a deployment public:
 
-- [ ] `JWT_SECRET` set to a random 32+ character string in `.env` (not in the yaml)
-- [ ] `SMTP_PASSWORD` (or `RESEND_API_KEY`) set in `.env` (not in the yaml)
-- [ ] `SITE_URL` set to the actual public URL — required for correct verify/reset links and the `Secure` cookie flag
-- [ ] HTTPS enabled for public deployments; `SITE_URL` updated to `https://`
-- [ ] Port 8000 (FastAPI) NOT exposed to the internet; all traffic via Apache on port 8085
-- [ ] `DEMO_DB_PASSWORD` and `EGERIA_META_DB_PASSWORD` set in `.env` (not in the yaml) if changed from defaults
+- [ ] `JWT_SECRET` in `.env.demo` is a random 32+ character string (auto-generated by `--demo` if not set)
+- [ ] `CERT_DIR` in `.env.demo` points to a directory with valid TLS certs (`server.crt`, `server.key`, `server-ca.crt`)
+- [ ] `RESEND_API_KEY` (or SMTP credentials) set in `.env.demo` if email verification is required
+- [ ] `SITE_URL` is `https://your.domain.com` — set automatically by `--demo` from `HOST_FQDN`; verify it is correct
+- [ ] Port 8000 (FastAPI) NOT exposed to the internet; all traffic via Apache on port 8085/443
+- [ ] `DEMO_DB_PASSWORD` and `EGERIA_META_DB_PASSWORD` set in `.env.demo` if changed from defaults
 - [ ] Egeria data store pre-loaded with Coco Pharmaceuticals data before announcing the demo
-- [ ] `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD` set in `.env` so admin is created on first startup
+- [ ] `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD` set in `.env.demo` so admin is created on first startup
 
 ---
 
 ## Troubleshooting
 
-**"SSLCertificateFile: file '/etc/ssl/egeria/server.crt' does not exist"** — SSL lines are uncommented in the yaml but the cert directory is empty or missing. Generate self-signed certs with `./generate-certs.sh` from the repository root, or provide real certs in the mounted path.
+**"rootlessport cannot expose privileged port 443"** (Podman only) — Rootless Podman cannot bind ports below 1024 without a sysctl change. Either lower the limit (`sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443`) or set `HTTPS_PORT=8443` in `.env.demo` and re-run `./quick-start-local --demo`.
+
+**Login fails with correct credentials / admin account not created** — The `bootstrap_admin()` startup event may have been interrupted by uvicorn's file-watcher reloading the worker process (Podman + `--reload` race condition). Run manually:
+```bash
+podman exec quickstart-pyegeria-web python3 -c "
+import sys; sys.path.insert(0, '/app')
+from demo_db import bootstrap_admin; bootstrap_admin()
+print('done')
+"
+```
+
+**All user accounts are gone after restarting / switching container engines** — Docker and Podman store named volumes in separate locations. Switching engines creates a fresh database volume; prior registrations are not migrated. Re-register users and re-run the bootstrap.
+
+**"SSLCertificateFile: file '/etc/ssl/egeria/server.crt' does not exist"** — `CERT_DIR` in `.env.demo` points to an empty or missing directory. Provide real certs at that path, or update `CERT_DIR` in `.env.demo` to the correct directory and restart with `./quick-start-local --demo`.
 
 **"Authentication required" on /egeria-explorer or /portal** — `DEMO_MODE` is true and the session cookie is missing or expired. Visit `/login` to sign in.
 

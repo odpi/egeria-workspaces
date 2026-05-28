@@ -2,7 +2,7 @@
 # Copyright Contributors to the Egeria project
 
 # Use a lightweight official Python image as the base
-FROM python:3.11-slim
+FROM docker.io/library/python:3.11-slim
 
 # Set environment variables to silence dependency warnings
 ENV PIP_ROOT_USER_ACTION=ignore \

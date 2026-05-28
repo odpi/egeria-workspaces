@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+source "${SCRIPT_DIR}/detect-engine.sh"
 source "${SCRIPT_DIR}/compose-build-flags.sh"
 
 wait_for_container_state() {
@@ -12,7 +13,14 @@ wait_for_container_state() {
   local status=""
 
   for (( attempt=1; attempt<=attempts; attempt++ )); do
-    status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container_name" 2>/dev/null || true)"
+    # Try the explicit name, then try project-prefixed name (for some podman-compose versions)
+    local target_name="$container_name"
+    if ! $CONTAINER_ENGINE inspect "$target_name" >/dev/null 2>&1; then
+        local found_name=$($CONTAINER_ENGINE ps -a --format '{{.Names}}' | grep -E "^${container_name}$|^[^_]+_${container_name#egeria-shared-}_[0-9]+$" | head -n 1)
+        target_name="${found_name:-$container_name}"
+    fi
+
+    status="$($CONTAINER_ENGINE inspect -f "$INSPECT_STATUS_FORMAT" "$target_name" 2>/dev/null || true)"
     if [[ "$status" == "healthy" || "$status" == "running" ]]; then
       return 0
     fi
@@ -30,27 +38,26 @@ source ./.env
 set +a
 
 if [[ -n "${HARDENED_KAFKA_DATA_DIR:-}" ]]; then
-  mkdir -p "${HARDENED_KAFKA_DATA_DIR}"
-  chmod 0777 "${HARDENED_KAFKA_DATA_DIR}" || true
+  prepare_runtime_dir "${HARDENED_KAFKA_DATA_DIR}"
   echo "[shared-infra] Kafka data dir: ${HARDENED_KAFKA_DATA_DIR}"
 fi
 
-if ! docker network inspect egeria_network >/dev/null 2>&1; then
-  docker network create egeria_network >/dev/null
-  echo "[shared-infra] Created docker network 'egeria_network'"
+if ! $CONTAINER_ENGINE network inspect egeria_network >/dev/null 2>&1; then
+  $CONTAINER_ENGINE network create egeria_network >/dev/null
+  echo "[shared-infra] Created $CONTAINER_ENGINE network 'egeria_network'"
 else
-  echo "[shared-infra] Docker network 'egeria_network' already exists"
+  echo "[shared-infra] $CONTAINER_ENGINE network 'egeria_network' already exists"
 fi
 
 echo "[shared-infra] Ensuring shared Kafka, Postgres, and proxy are running..."
-if ! docker compose -p egeria-shared-infra -f shared-infra.yaml build "${COMPOSE_BUILD_FLAGS[@]}" proxy; then
+if ! $COMPOSE_CMD -p egeria-shared-infra -f shared-infra.yaml build "${COMPOSE_BUILD_FLAGS[@]}" proxy; then
   echo "[shared-infra] Pull-enabled build failed; retrying build without pull to use local cache..."
-  docker compose -p egeria-shared-infra -f shared-infra.yaml build proxy
+  $COMPOSE_CMD -p egeria-shared-infra -f shared-infra.yaml build proxy
 fi
 
-if ! docker compose -p egeria-shared-infra -f shared-infra.yaml up -d --pull always proxy kafka postgres; then
+if ! $COMPOSE_CMD -p egeria-shared-infra -f shared-infra.yaml up -d ${COMPOSE_PULL_FLAGS} proxy kafka postgres; then
   echo "[shared-infra] Pull-enabled up failed; retrying up without pull to use local cache..."
-  docker compose -p egeria-shared-infra -f shared-infra.yaml up -d proxy kafka postgres
+  $COMPOSE_CMD -p egeria-shared-infra -f shared-infra.yaml up -d proxy kafka postgres
 fi
 
 wait_for_container_state egeria-shared-kafka

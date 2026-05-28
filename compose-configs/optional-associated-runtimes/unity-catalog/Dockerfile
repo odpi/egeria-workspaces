@@ -3,7 +3,7 @@ ARG HOME="/home/unitycatalog"
 ARG ALPINE_VERSION="3.20"
 
 # Build stage, using Amazon Corretto jdk 17 on alpine with arm64 support
-FROM amazoncorretto:17-alpine${ALPINE_VERSION}-jdk as base
+FROM docker.io/library/amazoncorretto:17-alpine${ALPINE_VERSION}-jdk as base
 
 # Dependencies are installed in $HOME/.cache by sbt
 ARG HOME
@@ -16,7 +16,7 @@ COPY --parents build/ project/ examples/ server/ api/ clients/python/ version.sb
 RUN apk add --no-cache bash && ./build/sbt -info clean package
 
 # Small runtime image
-FROM alpine:${ALPINE_VERSION} as runtime
+FROM docker.io/library/alpine:${ALPINE_VERSION} as runtime
 
 # Specific JAVA_HOME from Amazon Corretto
 ARG JAVA_HOME="/usr/lib/jvm/default-jvm"

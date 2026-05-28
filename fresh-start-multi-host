@@ -3,6 +3,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+source compose-configs/shared-infra/detect-engine.sh
 source compose-configs/shared-infra/compose-build-flags.sh
 
 echo "[fresh-start-multi-host] Preparing environment (.env) and compose files..."
@@ -12,8 +13,8 @@ RUNTIME_DEPLOYMENTS_DIR="runtime-volumes/freshstart-platform-data"
 RUNTIME_SECRETS_DIR="runtime-volumes/freshstart-platform-data/secrets"
 TEMPLATE_SECRETS_DIR="compose-configs/egeria-freshstart/secrets"
 
+prepare_runtime_dir "$RUNTIME_DEPLOYMENTS_DIR"
 mkdir -p "$RUNTIME_SECRETS_DIR"
-chmod -R a+rwX "$RUNTIME_DEPLOYMENTS_DIR"
 
 # Seed secrets from templates only for files that don't already exist
 if [ -z "$(ls -A "$RUNTIME_SECRETS_DIR" 2>/dev/null)" ]; then
@@ -34,7 +35,7 @@ fi
 
 TARGET_SERVER_DIR="runtime-volumes/freshstart-platform-data/data/servers"
 echo "[fresh-start-multi-host] Copying freshstart server configurations to ${TARGET_SERVER_DIR}..."
-rm -rf "$TARGET_SERVER_DIR"
+safe_rm_rf "$TARGET_SERVER_DIR"
 mkdir -p "$TARGET_SERVER_DIR"
 cp compose-configs/egeria-quickstart/servers/*.http "$TARGET_SERVER_DIR"/
 cp compose-configs/egeria-quickstart/servers/README.md "$TARGET_SERVER_DIR"/
@@ -46,13 +47,13 @@ pushd compose-configs/egeria-freshstart >/dev/null
   ./gen-env.sh
 
   echo "[fresh-start-multi-host] Building freshstart images (pulling newer base images when available)..."
-  docker compose -p egeria-freshstart -f egeria-freshstart.yaml build "${COMPOSE_BUILD_FLAGS[@]}"
+  $COMPOSE_CMD -p egeria-freshstart -f egeria-freshstart.yaml build "${COMPOSE_BUILD_FLAGS[@]}"
 
   echo "[fresh-start-multi-host] Starting freshstart stack with external Kafka listeners..."
-  docker compose -p egeria-freshstart \
+  $COMPOSE_CMD -p egeria-freshstart \
     -f egeria-freshstart.yaml \
     -f egeria-freshstart-cluster.yaml \
-    up -d --pull always
+    up -d ${COMPOSE_PULL_FLAGS}
 popd >/dev/null
 
 echo "[fresh-start-multi-host] Done. Useful notes:"
