@@ -203,6 +203,8 @@ from isc_handler import router as isc_router
 app.include_router(isc_router)
 from governance_definitions_handler import router as governance_router
 app.include_router(governance_router)
+from pyegeria_docs_handler import router as pyegeria_docs_router
+app.include_router(pyegeria_docs_router)
 
 # ── Demo mode ──────────────────────────────────────────────────────────────────
 
