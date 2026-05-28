@@ -84,6 +84,7 @@ services:
       MCP_ACCESS_TOKEN: "egeria-secret-mcp-token"
       # ── Auth (Egeria-backed, no SQLite) ──────────────────────────────────────
       DEMO_MODE: "false"
+      FEEDBACK_DB_PATH: "/app/demo-data/feedback.db"
       JWT_SECRET: "${JWT_SECRET:-change-me-before-going-public}"
       SITE_URL: "http://localhost:8086"
       # Comma-separated Egeria user IDs that receive portal admin role.
