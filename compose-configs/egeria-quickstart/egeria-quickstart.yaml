@@ -27,6 +27,7 @@ services:
 
     image: egeria-quickstart-jupyter:local
     container_name: quickstart-jupyter-work-full
+    user: root
     networks:
       - egeria_network
     ports:

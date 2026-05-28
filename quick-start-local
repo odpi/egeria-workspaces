@@ -86,6 +86,10 @@ echo "[quick-start-local] Quickstart uses image-provided secrets and mounts runt
 
 mkdir -p runtime-volumes/quickstart-platform-data/data runtime-volumes/quickstart-platform-data/logs
 prepare_runtime_dir "runtime-volumes/quickstart-platform-data"
+prepare_runtime_dir "work"
+prepare_runtime_dir "workbooks"
+prepare_runtime_dir "coco-workbooks"
+prepare_runtime_dir "exchange-quickstart"
 
 # Copy the quickstart server configurations to the runtime volume
 TARGET_SERVER_DIR="runtime-volumes/quickstart-platform-data/data/servers"

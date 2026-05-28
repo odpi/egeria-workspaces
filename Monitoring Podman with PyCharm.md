@@ -117,6 +117,17 @@ As mentioned in Section 6, the "Down" command is not designed to remove images. 
 3. Re-run your deployment script or PyCharm Run configuration.
 4. Alternatively, use `./quick-start-local --refresh-platform` from the terminal.
 
+### Volume Permissions ("Permission Denied")
+In rootless Podman, the host user (UID 1000) maps to the container's `root` (UID 0). Any other user inside the container (like Jupyter's `jovyan` UID 1000) will see host-mounted volumes as owned by `root` and may be unable to write to them.
+
+We have addressed this in two ways:
+1. **Running as Root:** The Jupyter service is now configured to run as `user: root` in the Compose files. This ensures it has the same permissions as your host user.
+2. **Automated Permission Setup:** Our startup scripts (`./quick-start-local` and `./fresh-start-local`) now automatically run `podman unshare chmod -R a+rwX` on shared directories like `work/` and `exchange-*/`. This ensures that even non-root containers (like the Egeria platform) can write to these shared volumes.
+
+If you encounter `Permission denied` errors when running the containers directly via PyCharm:
+- Run the local startup script once (`./quick-start-local`) to initialize the directory permissions.
+- Ensure you are using the latest version of the Compose files from the `podman-deployment` branch.
+
 ### Postgres or Kafka "Connection Refused" in Containers
 If you see `Connection to host.docker.internal:5442 refused` (Postgres) or `No resolvable bootstrap urls given in bootstrap.servers` (Kafka), it is usually because of how Podman handles internal network resolution and port bindings.
 

@@ -89,6 +89,10 @@ RUNTIME_SECRETS_DIR="runtime-volumes/freshstart-platform-data/secrets"
 TEMPLATE_SECRETS_DIR="compose-configs/egeria-freshstart/secrets"
 
 prepare_runtime_dir "$RUNTIME_DEPLOYMENTS_DIR"
+prepare_runtime_dir "work"
+prepare_runtime_dir "workbooks"
+prepare_runtime_dir "coco-workbooks"
+prepare_runtime_dir "exchange-freshstart"
 mkdir -p "$RUNTIME_SECRETS_DIR"
 
 # Seed secrets from templates only for files that don't already exist

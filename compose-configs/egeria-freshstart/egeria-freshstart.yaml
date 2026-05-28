@@ -9,6 +9,7 @@ services:
         condition: service_healthy
     image: egeria-freshstart-jupyter:local
     container_name: freshstart-jupyter-work-full
+    user: root
     networks:
       - egeria_network
     ports:
