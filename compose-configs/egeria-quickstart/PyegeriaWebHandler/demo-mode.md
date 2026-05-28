@@ -40,6 +40,26 @@ On first startup the container creates the admin account from the bootstrap cred
 
 Log in at `/login` with those credentials to access the admin panel, then navigate to `/portal` to see the demo portal.
 
+> **Rootless Podman note:** Port 443 is a privileged port. Before running `--demo` with rootless Podman, allow it once:
+> ```bash
+> sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443
+> ```
+> To make this permanent across reboots:
+> ```bash
+> echo 'net.ipv4.ip_unprivileged_port_start=443' | sudo tee /etc/sysctl.d/99-rootless-podman.conf
+> sudo sysctl --system
+> ```
+> Alternatively set `HTTPS_PORT=8443` in `.env.demo` to use a non-privileged port — see [SSL / HTTPS](#ssl--https).
+
+> **Bootstrap race condition (Podman + uvicorn `--reload`):** The admin account is created during the FastAPI startup event, but uvicorn's file-watcher may restart the worker process before startup completes. If login fails with valid credentials, check whether the admin exists and create it manually:
+> ```bash
+> podman exec quickstart-pyegeria-web python3 -c "
+> import sys; sys.path.insert(0, '/app')
+> from demo_db import bootstrap_admin; bootstrap_admin()
+> print('done')
+> "
+> ```
+
 ---
 
 ### Manual `.env` configuration (without the script)
@@ -332,44 +352,41 @@ Persona credentials come from `personas.json` in the container. To add or update
 
 ## Database maintenance
 
-The demo auth database is **PostgreSQL** — the `demo_auth` schema in the `coco_pharma` database on `egeria-shared-postgres:5442`. The schema is created automatically on first startup.
+The demo auth database is **PostgreSQL** — the `demo_auth` schema in the `coco_pharma` database on the shared Postgres instance (port 5442). The schema is created automatically on first startup.
+
+> **Container engine note:** Docker and Podman store named volumes in separate locations (`/var/lib/docker/volumes/` vs `~/.local/share/containers/storage/volumes/`). If you switch engines, the database starts empty — all user registrations from the previous engine are inaccessible. There is no automated migration path; re-register users after an engine switch.
 
 ### Connecting directly
 
+From inside the container (replace `docker` with `podman` as appropriate):
+
 ```bash
-docker exec -it egeria-shared-postgres psql -U demo_user -d coco_pharma
+docker exec -it egeria-shared-postgres psql -h localhost -p 5442 -U demo_user -d coco_pharma
 ```
 
-Or from the host (if port 5442 is exposed):
+From the host (port 5442 is exposed by default):
 
 ```bash
-psql -h localhost -p 5442 -U demo_user -d coco_pharma -n demo_auth
+psql -h localhost -p 5442 -U demo_user -d coco_pharma
 ```
 
 ### Clearing users and events (preserving config)
 
-```sql
-DELETE FROM demo_auth.events;
-DELETE FROM demo_auth.users;
-```
-
-Or via Docker:
-
 ```bash
-docker exec egeria-shared-postgres psql -U demo_user -d coco_pharma \
+docker exec egeria-shared-postgres psql -h localhost -p 5442 -U demo_user -d coco_pharma \
   -c "DELETE FROM demo_auth.events; DELETE FROM demo_auth.users;"
 ```
 
-After clearing, set `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD` in `.env` and restart the `quickstart-pyegeria-web` container — the bootstrap admin is re-created automatically when no admin exists.
+After clearing, credentials in `.env.demo` are used to bootstrap a fresh admin on the next container restart.
 
 ### Full schema reset (nuclear option)
 
 ```bash
-docker exec egeria-shared-postgres psql -U demo_user -d coco_pharma \
+docker exec egeria-shared-postgres psql -h localhost -p 5442 -U demo_user -d coco_pharma \
   -c "DROP SCHEMA IF EXISTS demo_auth CASCADE;"
 ```
 
-The schema is recreated automatically on the next container start.
+The schema and tables are recreated automatically on the next `quickstart-pyegeria-web` startup.
 
 ---
 
@@ -381,7 +398,7 @@ SSL is **off by default**. The web server listens on port 8085 (HTTP) only. HTTP
 
 - A TLS certificate and private key for your domain, with the chain certificate.
 - The certificate files accessible on the host at a stable directory path.
-- Port 443 open on any firewall between users and the host.
+- Port 443 open on any firewall between users and the host (or use `HTTPS_PORT=8443` for rootless Podman — see below).
 - DNS pointing your domain at the host's IP address.
 
 ### Enabling SSL (automated via `--demo`)
@@ -405,7 +422,18 @@ The script:
 2. Generates `runtime-volumes/quickstart-apache-web/ssl-define.conf` containing `Define SSL_SERVER_NAME <HOST_FQDN>`
 3. Applies `egeria-quickstart-demo.yaml`, which mounts the cert directory, the SSL vhost config, and port 443
 
-`SITE_URL` is automatically set to `https://<HOST_FQDN>`.
+`SITE_URL` is automatically set to `https://<HOST_FQDN>` (or `https://<HOST_FQDN>:<port>` when `HTTPS_PORT` is non-443).
+
+#### Using a non-standard HTTPS port (rootless Podman)
+
+Rootless Podman cannot bind privileged ports (<1024) without a sysctl change. To use port 8443 instead:
+
+Add to `compose-configs/egeria-quickstart/.env.demo`:
+```ini
+HTTPS_PORT=8443
+```
+
+Then run `./quick-start-local --demo`. The script sets `SITE_URL=https://<HOST_FQDN>:8443` automatically. Users reach the portal at `https://<HOST_FQDN>:8443`.
 
 ### Enabling SSL (manual)
 
@@ -479,6 +507,19 @@ Before making a deployment public:
 ---
 
 ## Troubleshooting
+
+**"rootlessport cannot expose privileged port 443"** (Podman only) — Rootless Podman cannot bind ports below 1024 without a sysctl change. Either lower the limit (`sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443`) or set `HTTPS_PORT=8443` in `.env.demo` and re-run `./quick-start-local --demo`.
+
+**Login fails with correct credentials / admin account not created** — The `bootstrap_admin()` startup event may have been interrupted by uvicorn's file-watcher reloading the worker process (Podman + `--reload` race condition). Run manually:
+```bash
+podman exec quickstart-pyegeria-web python3 -c "
+import sys; sys.path.insert(0, '/app')
+from demo_db import bootstrap_admin; bootstrap_admin()
+print('done')
+"
+```
+
+**All user accounts are gone after restarting / switching container engines** — Docker and Podman store named volumes in separate locations. Switching engines creates a fresh database volume; prior registrations are not migrated. Re-register users and re-run the bootstrap.
 
 **"SSLCertificateFile: file '/etc/ssl/egeria/server.crt' does not exist"** — `CERT_DIR` in `.env.demo` points to an empty or missing directory. Provide real certs at that path, or update `CERT_DIR` in `.env.demo` to the correct directory and restart with `./quick-start-local --demo`.
 
