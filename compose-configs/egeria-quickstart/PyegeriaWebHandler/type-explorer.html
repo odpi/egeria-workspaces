@@ -2812,8 +2812,9 @@ function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign }) 
       term.isTemplateSubstitute && React.createElement("span", { className: "badge", style: { background: 'rgba(245,158,11,.15)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.4)', fontSize: 11 } }, "Template Substitute"),
       !term.isTemplateSubstitute && term.isSourcedFromTemplate && React.createElement("span", { className: "badge", style: { background: 'rgba(245,158,11,.08)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.25)', fontSize: 11 } }, "From Template")
     ),
-    React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 8 } }, term.guid),
-    folderList.length > 0 && React.createElement("div", { style: { display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 } },
+    React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 4 } }, term.guid),
+    React.createElement(EgeriaFeedbackWidget, { guid: term.guid }),
+    folderList.length > 0 && React.createElement("div", { style: { display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8, marginTop: 6 } },
       React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)', marginRight: 4 } }, "Folders:"),
       folderList.map(f => React.createElement("span", { key: f.guid, className: "badge", style: { fontSize: 11, background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)' } }, f.displayName || f.guid))
     ),
@@ -3546,8 +3547,9 @@ function DigitalProductDetail({ product, onNavigateToGlossary, onNavigateToDataS
         style: { padding: '3px 10px', borderRadius: 4, border: '1px solid rgba(251,191,36,.4)', background: 'rgba(251,191,36,.1)', color: '#fcd34d', cursor: 'pointer', fontSize: 12 }
       }, "Preview Data 📊")
     ),
-    React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, product.guid),
-    product.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(product.description)),
+    React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 4 } }, product.guid),
+    React.createElement(EgeriaFeedbackWidget, { guid: product.guid }),
+    product.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16, marginTop: 10 } }, renderMd(product.description)),
     React.createElement(AvailableMermaidDiagrams, { data: product }),
     React.createElement(MermaidSection, { guid: product.guid }),
     fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 20 } },
@@ -6435,6 +6437,278 @@ function GovernanceView() {
   );
 }
 
+// ── EgeriaFeedbackWidget ──────────────────────────────────────────────────────
+
+function EgeriaFeedbackWidget({ guid }) {
+  var _dataState       = useState(null),  feedbackData = _dataState[0],       setFeedbackData = _dataState[1];
+  var _loadState       = useState(true),  loading      = _loadState[0],       setLoading      = _loadState[1];
+  var _showRateState   = useState(false), showRate     = _showRateState[0],   setShowRate     = _showRateState[1];
+  var _hoverState      = useState(0),     hoverStar    = _hoverState[0],      setHoverStar    = _hoverState[1];
+  var _likeLoadState   = useState(false), likeLoading  = _likeLoadState[0],   setLikeLoading  = _likeLoadState[1];
+  var _rateLoadState   = useState(false), rateLoading  = _rateLoadState[0],   setRateLoading  = _rateLoadState[1];
+
+  useEffect(function() {
+    if (!guid) return;
+    setLoading(true);
+    fetch('/api/egeria-feedback/' + encodeURIComponent(guid))
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(d) { if (d) setFeedbackData(d); setLoading(false); })
+      .catch(function() { setLoading(false); });
+  }, [guid]);
+
+  function handleLike() {
+    if (likeLoading || !feedbackData) return;
+    setLikeLoading(true);
+    fetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/like', { method: 'POST' })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(d) { if (d) setFeedbackData(function(p) { return Object.assign({}, p, d); }); })
+      .catch(function() {})
+      .finally(function() { setLikeLoading(false); });
+  }
+
+  function handleStar(n) {
+    if (rateLoading || !feedbackData) return;
+    setRateLoading(true);
+    var sameRating = n === feedbackData.my_rating;
+    var url = '/api/egeria-feedback/' + encodeURIComponent(guid) + '/rating';
+    var opts = sameRating
+      ? { method: 'DELETE' }
+      : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ star_rating: n }) };
+    fetch(url, opts)
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(d) {
+        if (d) setFeedbackData(function(p) { return Object.assign({}, p, d); });
+        setShowRate(false); setHoverStar(0);
+      })
+      .catch(function() {})
+      .finally(function() { setRateLoading(false); });
+  }
+
+  if (loading || !feedbackData) return null;
+
+  var liked = feedbackData.my_like;
+  var likeStyle = {
+    cursor: likeLoading ? 'default' : 'pointer',
+    color:  liked ? '#f87171' : 'var(--muted)',
+    opacity: likeLoading ? 0.5 : 1,
+    fontWeight: 600, fontSize: 13, letterSpacing: '0.02em',
+  };
+
+  var avgRating = feedbackData.avg_rating;
+  var avgStars = avgRating !== null
+    ? '★'.repeat(Math.round(avgRating)) + '☆'.repeat(5 - Math.round(avgRating))
+    : null;
+
+  var starPicker = showRate
+    ? React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 1, marginLeft: 4 } },
+        [1,2,3,4,5].map(function(n) {
+          var active = (hoverStar || feedbackData.my_rating || 0) >= n;
+          return React.createElement('span', {
+            key: n,
+            onClick: function(e) { e.stopPropagation(); handleStar(n); },
+            onMouseEnter: function() { setHoverStar(n); },
+            onMouseLeave: function() { setHoverStar(0); },
+            title: feedbackData.my_rating === n ? 'Remove your rating' : n + ' star' + (n > 1 ? 's' : ''),
+            style: {
+              fontSize: 16, cursor: rateLoading ? 'default' : 'pointer',
+              color: active ? '#f59e0b' : 'var(--dim)',
+              opacity: rateLoading ? 0.5 : 1,
+            }
+          }, active ? '★' : '☆');
+        }),
+        React.createElement('span', {
+          onClick: function(e) { e.stopPropagation(); setShowRate(false); setHoverStar(0); },
+          style: { fontSize: 10, color: 'var(--muted)', cursor: 'pointer', marginLeft: 4 }
+        }, '✕')
+      )
+    : null;
+
+  var ratingDisplay = !showRate
+    ? React.createElement('span', {
+        onClick: function() { setShowRate(true); },
+        title: feedbackData.my_rating ? 'Change your rating' : 'Rate this',
+        style: { cursor: 'pointer' }
+      },
+        avgStars
+        ? React.createElement(React.Fragment, null,
+            React.createElement('span', { style: { color: '#f59e0b', letterSpacing: '0.05em' } }, avgStars),
+            feedbackData.ratings_count > 1 && React.createElement('span', { style: { color: 'var(--dim)', fontSize: 10, marginLeft: 3 } }, '(' + feedbackData.ratings_count + ')')
+          )
+        : React.createElement('span', { style: { color: 'var(--muted)', fontSize: 11 } }, 'Rate ★')
+      )
+    : null;
+
+  return React.createElement('div', {
+    style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, marginBottom: 2, fontSize: 12, userSelect: 'none' }
+  },
+    React.createElement('span', { onClick: handleLike, title: liked ? 'Unlike' : 'Like', style: likeStyle },
+      '♥ ' + feedbackData.likes_count),
+    React.createElement('span', { style: { color: 'var(--border)' } }, '|'),
+    ratingDisplay,
+    starPicker
+  );
+}
+
+// ── Session ID (persists for browser tab lifetime) ────────────────────────────
+
+var _SESSION_ID = (function() {
+  try {
+    var id = sessionStorage.getItem('_demo_session_id');
+    if (!id) {
+      id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).substr(2));
+      sessionStorage.setItem('_demo_session_id', id);
+    }
+    return id;
+  } catch(e) { return 'anon-' + Date.now(); }
+})();
+
+// ── FeedbackButton ────────────────────────────────────────────────────────────
+
+function FeedbackButton({ section }) {
+  var _openState = useState(false),     open       = _openState[0], setOpen       = _openState[1];
+  var _rateState = useState(0),         rating     = _rateState[0], setRating     = _rateState[1];
+  var _hoverState = useState(0),        hoverRating = _hoverState[0], setHoverRating = _hoverState[1];
+  var _commentState = useState(''),     comment    = _commentState[0], setComment    = _commentState[1];
+  var _emailState = useState(''),       email      = _emailState[0], setEmail      = _emailState[1];
+  var _submittedState = useState(false), submitted = _submittedState[0], setSubmitted = _submittedState[1];
+  var _submittingState = useState(false), submitting = _submittingState[0], setSubmitting = _submittingState[1];
+
+  function handleOpen()  { setOpen(true); setSubmitted(false); }
+  function handleClose() {
+    setOpen(false); setRating(0); setComment(''); setEmail('');
+    setSubmitted(false); setHoverRating(0);
+  }
+
+  function handleSubmit() {
+    if (!rating && !comment) return;
+    setSubmitting(true);
+    fetch('/api/demo-feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id:    _SESSION_ID,
+        section:       section || 'splash',
+        star_rating:   rating || null,
+        comment:       comment || null,
+        contact_email: email   || null,
+      }),
+    }).then(function() {
+      setSubmitted(true);
+      setTimeout(handleClose, 2000);
+    }).catch(function() {
+      setSubmitting(false);
+    }).finally(function() {
+      setSubmitting(false);
+    });
+  }
+
+  var floatingBtn = React.createElement('button', {
+    onClick: handleOpen,
+    title: 'Share your feedback',
+    style: {
+      position: 'fixed', bottom: 20, right: 20, zIndex: 900,
+      background: 'var(--accent)', color: '#fff',
+      border: 'none', borderRadius: 20,
+      padding: '7px 15px', fontSize: 12, fontWeight: 600,
+      cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+      letterSpacing: '0.02em',
+    }
+  }, '💬 Feedback');
+
+  if (!open) return floatingBtn;
+
+  var stars = [1,2,3,4,5].map(function(n) {
+    var active = (hoverRating || rating) >= n;
+    return React.createElement('span', {
+      key: n,
+      onClick:     function() { setRating(n); },
+      onMouseEnter: function() { setHoverRating(n); },
+      onMouseLeave: function() { setHoverRating(0); },
+      style: { fontSize: 26, cursor: 'pointer', color: active ? '#f59e0b' : 'var(--dim)', lineHeight: 1 }
+    }, active ? '★' : '☆');
+  });
+
+  var canSubmit = !submitting && (rating > 0 || comment.trim().length > 0);
+
+  var modal = React.createElement('div', {
+    onClick: function(e) { if (e.target === e.currentTarget) handleClose(); },
+    style: {
+      position: 'fixed', inset: 0, zIndex: 1000,
+      background: 'rgba(0,0,0,0.45)',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end',
+      padding: 24,
+    }
+  },
+    React.createElement('div', {
+      style: {
+        background: 'var(--surface)', border: '1px solid var(--border)',
+        borderRadius: 12, padding: '22px 26px', width: 340,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+      }
+    },
+      submitted
+      ? React.createElement('div', {
+          style: { textAlign: 'center', padding: '16px 0', color: 'var(--accent)', fontSize: 15, fontWeight: 600 }
+        }, '✓ Thank you for your feedback!')
+      : React.createElement(React.Fragment, null,
+          React.createElement('div', { style: { fontWeight: 700, fontSize: 14, marginBottom: 4 } }, 'Share your feedback'),
+          React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginBottom: 12 } },
+            'You\'re viewing: ', React.createElement('span', { style: { color: 'var(--text)', fontFamily: 'ui-monospace,monospace', fontSize: 10 } }, section || 'splash')
+          ),
+          React.createElement('div', { style: { display: 'flex', gap: 3, marginBottom: 14 } }, ...stars),
+          React.createElement('textarea', {
+            placeholder: "What's on your mind?",
+            value: comment,
+            onChange: function(e) { setComment(e.target.value); },
+            rows: 3,
+            style: {
+              width: '100%', boxSizing: 'border-box',
+              background: 'var(--bg)', border: '1px solid var(--border)',
+              borderRadius: 6, padding: '7px 9px',
+              color: 'var(--text)', fontSize: 12, fontFamily: 'inherit',
+              resize: 'vertical', marginBottom: 8, outline: 'none',
+            }
+          }),
+          React.createElement('input', {
+            type: 'email',
+            placeholder: 'Email for follow-up (optional)',
+            value: email,
+            onChange: function(e) { setEmail(e.target.value); },
+            style: {
+              width: '100%', boxSizing: 'border-box',
+              background: 'var(--bg)', border: '1px solid var(--border)',
+              borderRadius: 6, padding: '7px 9px',
+              color: 'var(--text)', fontSize: 12, fontFamily: 'inherit',
+              marginBottom: 14, outline: 'none',
+            }
+          }),
+          React.createElement('div', { style: { display: 'flex', gap: 8, justifyContent: 'flex-end' } },
+            React.createElement('button', {
+              onClick: handleClose,
+              style: {
+                padding: '6px 14px', borderRadius: 6,
+                border: '1px solid var(--border)', background: 'transparent',
+                color: 'var(--text)', cursor: 'pointer', fontSize: 12,
+              }
+            }, 'Cancel'),
+            React.createElement('button', {
+              onClick: handleSubmit,
+              disabled: !canSubmit,
+              style: {
+                padding: '6px 14px', borderRadius: 6, border: 'none',
+                background: 'var(--accent)', color: '#fff',
+                cursor: canSubmit ? 'pointer' : 'default',
+                opacity: canSubmit ? 1 : 0.45, fontSize: 12, fontWeight: 600,
+              }
+            }, submitting ? 'Sending…' : 'Send')
+          )
+        )
+    )
+  );
+
+  return React.createElement(React.Fragment, null, floatingBtn, modal);
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 
 function App() {
@@ -6765,7 +7039,8 @@ function App() {
     showPersonaPicker && React.createElement(PersonaPickerModal, {
       onSelect: applyPersona,
       currentPersonaId: activePersona ? activePersona.id : null
-    })
+    }),
+    React.createElement(FeedbackButton, { section: section })
   ));
 }
 ReactDOM.createRoot(document.getElementById('root')).render(/*#__PURE__*/React.createElement(App, null));</script>

@@ -112,6 +112,7 @@ services:
       # ── Demo mode — set DEMO_MODE=true to enable public access with auth ──────
       DEMO_MODE: "false"
       DEMO_DB_PATH: "/app/demo-data/demo.db"
+      FEEDBACK_DB_PATH: "/app/demo-data/feedback.db"
       JWT_SECRET: "${JWT_SECRET:-change-me-before-going-public-meow}"
       SITE_URL: "http://localhost:8085"
       # Resend — set RESEND_API_KEY and RESEND_FROM in .env (never in the yaml)
