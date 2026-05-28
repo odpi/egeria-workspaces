@@ -37,6 +37,9 @@ services:
       JUPYTER_ENABLE_LAB: "yes"
       JUPYTER_TOKEN: "egeria"
       JUPYTER_PORT: "7888"
+    extra_hosts:
+      - "${HOST_FQDN}:${HOST_GATEWAY_IP:-host-gateway}"
+      - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
 
     build:
       context: .
@@ -70,7 +73,10 @@ services:
       startup.server.list: "qs-metadata-store,qs-engine-host,qs-integration-daemon,qs-view-server"
       server.port: "9443"
       HOST_FQDN: "${HOST_FQDN}"
-      KAFKA_BOOTSTRAP_SERVERS: "egeria-shared-kafka:9192"
+      KAFKA_BOOTSTRAP_SERVERS: "${KAFKA_BOOTSTRAP_SERVERS:-host.docker.internal:9194}"
+    extra_hosts:
+      - "${HOST_FQDN}:${HOST_GATEWAY_IP:-host-gateway}"
+      - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
     healthcheck:
       test: curl -k -X GET "https://localhost:9443/open-metadata/platform-services/users/garygeeke/server-platform/origin" || exit 1
       interval: 20s
@@ -92,6 +98,7 @@ services:
 
   # Define your FastAPI application service
   pyegeria-web:
+    image: egeria-quickstart-pyegeria-web:latest
     container_name: quickstart-pyegeria-web
     build:
       context: ./PyegeriaWebHandler
@@ -122,9 +129,11 @@ services:
       # ── Portal tile config ────────────────────────────────────────────────────
       # OBSIDIAN_VAULT_URL: vault name or obsidian:// URI — set in .env if using local Obsidian
       OBSIDIAN_VAULT_URL: "${OBSIDIAN_VAULT_URL:-}"
-      OBSIDIAN_GITHUB_URL: "${OBSIDIAN_GITHUB_URL:-https://github.com/odpi/egeria-workspaces/tree/main/coco-workbooks}"
       # Egeria Advisor URL — checked server-side; set in .env if running on a non-default port/host
       EGERIA_ADVISOR_URL: "${EGERIA_ADVISOR_URL:-http://localhost:8080/}"
+    extra_hosts:
+      - "${HOST_FQDN}:${HOST_GATEWAY_IP:-host-gateway}"
+      - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
     volumes:
       - ./PyegeriaWebHandler:/app
       - ../../exchange-quickstart/config:/config
@@ -145,6 +154,7 @@ services:
     command: uvicorn pyegeria_handler:app --host "::" --port 8000 --reload --loop asyncio
 
   apache-web:
+    image: egeria-quickstart-apache-web:latest
     build:
       context: .
       dockerfile: Dockerfile-apache-web

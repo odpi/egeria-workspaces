@@ -67,7 +67,7 @@ services:
         image: postgres:16.4
         restart: always
         ports:
-            - "127.0.0.1:5442:5442"
+            - "5442:5442"
         shm_size: 128mb
         environment:
             POSTGRES_USER: postgres

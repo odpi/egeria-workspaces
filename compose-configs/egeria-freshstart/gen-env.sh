@@ -6,7 +6,9 @@ cd "$SCRIPT_DIR"
 
 HOST_FQDN="$(hostname -f 2>/dev/null || hostname)"
 
-EXCHANGE_CONFIG_JSON="../../exchange-freshstart/config/config.json"
+source "${SCRIPT_DIR}/../shared-infra/detect-engine.sh"
+
+EXCHANGE_CONFIG_JSON="../../exchange-freshstart/config/config_workspaces.json"
 
 if [[ -f "$EXCHANGE_CONFIG_JSON" ]]; then
   if command -v python3 >/dev/null 2>&1; then
@@ -42,7 +44,7 @@ if isinstance(env, dict):
     env["Egeria Platform URL"] = f"https://{host}:8443"
     env["Egeria Integration Daemon URL"] = f"https://{host}:8443"
     env["Egeria View Server URL"] = f"https://{host}:8443"
-    env["Egeria Kafka Endpoint"] = f"{host}:9192"
+    env["Egeria Kafka Endpoint"] = "host.docker.internal:9194"
     env["Pyegeria Publishing Root"] = f"http://{host}:8086/dr-egeria-outbox"
 
 backup_path = path + ".bak"
@@ -90,6 +92,7 @@ cat > "$TMP_ENV" <<EOF
 HOST_FQDN=${HOST_FQDN}
 KAFKA_CLUSTER_ID=${KAFKA_CLUSTER_ID_VAL}
 KAFKA_BOOTSTRAP_SERVERS=${HOST_FQDN}:9194
+HOST_GATEWAY_IP=${HOST_GATEWAY_IP}
 CONFIG_JSON="${CONFIG_JSON_ESCAPED}"
 EOF
 mv -f "$TMP_ENV" .env

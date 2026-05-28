@@ -1,4 +1,4 @@
-FROM eclipse-temurin:11 AS base
+FROM docker.io/library/eclipse-temurin:11 AS base
 WORKDIR /usr/src/app
 COPY gradle gradle
 COPY gradle.properties gradle.properties
@@ -12,7 +12,7 @@ COPY src ./src
 COPY build.gradle build.gradle
 RUN ./gradlew --no-daemon shadowJar
 
-FROM eclipse-temurin:11
+FROM docker.io/library/eclipse-temurin:11
 WORKDIR /usr/src/app
 COPY --from=build /usr/src/app/build/libs/openlineage-proxy-*.jar /usr/src/app
 COPY proxy.dev.yml proxy.dev.yml

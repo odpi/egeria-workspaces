@@ -4,6 +4,7 @@ set -euo pipefail
 # Always run from repo root (this script lives at repo root)
 cd "$(dirname "$0")"
 
+source compose-configs/shared-infra/detect-engine.sh
 source compose-configs/shared-infra/compose-build-flags.sh
 
 print_usage() {
@@ -37,7 +38,7 @@ done
 
 image_exists() {
   local image_ref="$1"
-  docker image inspect "$image_ref" >/dev/null 2>&1
+  $CONTAINER_ENGINE image inspect "$image_ref" >/dev/null 2>&1
 }
 
 ensure_service_image() {
@@ -56,9 +57,9 @@ ensure_service_image() {
   else
     echo "[quick-start-local] Local image missing for ${service_name} (${image_ref}); attempting build..."
   fi
-  if ! docker compose -p egeria-quickstart -f egeria-quickstart.yaml build "${COMPOSE_BUILD_FLAGS[@]}" "$service_name"; then
+  if ! $COMPOSE_CMD -p egeria-quickstart -f egeria-quickstart.yaml build "${COMPOSE_BUILD_FLAGS[@]}" "$service_name"; then
     echo "[quick-start-local] Pull-enabled build failed for ${service_name}; retrying without pull..."
-    if ! docker compose -p egeria-quickstart -f egeria-quickstart.yaml build "$service_name"; then
+    if ! $COMPOSE_CMD -p egeria-quickstart -f egeria-quickstart.yaml build "$service_name"; then
       if [[ "$required" -eq 1 ]]; then
         echo "[quick-start-local] ERROR: unable to build required service '${service_name}' and no local image exists (${image_ref})." >&2
         return 1
@@ -84,12 +85,12 @@ echo "[quick-start-local] Preparing environment (.env) and compose files..."
 echo "[quick-start-local] Quickstart uses image-provided secrets and mounts runtime data/logs only."
 
 mkdir -p runtime-volumes/quickstart-platform-data/data runtime-volumes/quickstart-platform-data/logs
-chmod -R a+rwX runtime-volumes/quickstart-platform-data
+prepare_runtime_dir "runtime-volumes/quickstart-platform-data"
 
 # Copy the quickstart server configurations to the runtime volume
 TARGET_SERVER_DIR="runtime-volumes/quickstart-platform-data/data/servers"
 echo "[quick-start-local] Copying quickstart server configurations to ${TARGET_SERVER_DIR}..."
-rm -rf "$TARGET_SERVER_DIR"
+safe_rm_rf "$TARGET_SERVER_DIR"
 mkdir -p "$TARGET_SERVER_DIR"
 cp compose-configs/egeria-quickstart/servers/*.http "$TARGET_SERVER_DIR"/
 cp compose-configs/egeria-quickstart/servers/README.md "$TARGET_SERVER_DIR"/
@@ -113,12 +114,12 @@ pushd compose-configs/egeria-quickstart >/dev/null
   fi
 
   echo "[quick-start-local] Starting core quickstart stack (host-gateway mappings enabled)..."
-  if ! docker compose -p egeria-quickstart \
+  if ! $COMPOSE_CMD -p egeria-quickstart \
     -f egeria-quickstart.yaml \
     -f egeria-quickstart-local.yaml \
-    up -d --pull always egeria-main pyegeria-web jupyter-hub; then
+    up -d ${COMPOSE_PULL_FLAGS} egeria-main pyegeria-web jupyter-hub; then
     echo "[quick-start-local] Pull-enabled core up failed; retrying without pull and without build..."
-    docker compose -p egeria-quickstart \
+    $COMPOSE_CMD -p egeria-quickstart \
       -f egeria-quickstart.yaml \
       -f egeria-quickstart-local.yaml \
       up -d --no-build egeria-main pyegeria-web jupyter-hub
@@ -126,12 +127,12 @@ pushd compose-configs/egeria-quickstart >/dev/null
 
   if [[ "$APACHE_BUILD_OK" -eq 1 ]]; then
     echo "[quick-start-local] Starting apache-web..."
-    if ! docker compose -p egeria-quickstart \
+    if ! $COMPOSE_CMD -p egeria-quickstart \
       -f egeria-quickstart.yaml \
       -f egeria-quickstart-local.yaml \
-      up -d --pull always apache-web; then
+      up -d ${COMPOSE_PULL_FLAGS} apache-web; then
       echo "[quick-start-local] Pull-enabled apache-web up failed; retrying without pull and without build..."
-      if ! docker compose -p egeria-quickstart \
+      if ! $COMPOSE_CMD -p egeria-quickstart \
         -f egeria-quickstart.yaml \
         -f egeria-quickstart-local.yaml \
         up -d --no-build apache-web; then

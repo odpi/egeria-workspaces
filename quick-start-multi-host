@@ -4,18 +4,19 @@ set -euo pipefail
 # Always run from repo root (this script lives at repo root)
 cd "$(dirname "$0")"
 
+source compose-configs/shared-infra/detect-engine.sh
 source compose-configs/shared-infra/compose-build-flags.sh
 
 echo "[quick-start-multi-host] Preparing environment (.env) and compose files..."
 echo "[quick-start-multi-host] Quickstart uses image-provided secrets and mounts runtime data/logs only."
 
 mkdir -p runtime-volumes/quickstart-platform-data/data runtime-volumes/quickstart-platform-data/logs
-chmod -R a+rwX runtime-volumes/quickstart-platform-data
+prepare_runtime_dir "runtime-volumes/quickstart-platform-data"
 
 # Copy the quickstart server configurations to the runtime volume
 TARGET_SERVER_DIR="runtime-volumes/quickstart-platform-data/data/servers"
 echo "[quick-start-multi-host] Copying quickstart server configurations to ${TARGET_SERVER_DIR}..."
-rm -rf "$TARGET_SERVER_DIR"
+safe_rm_rf "$TARGET_SERVER_DIR"
 mkdir -p "$TARGET_SERVER_DIR"
 cp compose-configs/egeria-quickstart/servers/*.http "$TARGET_SERVER_DIR"/
 cp compose-configs/egeria-quickstart/servers/README.md "$TARGET_SERVER_DIR"/
@@ -28,13 +29,13 @@ pushd compose-configs/egeria-quickstart >/dev/null
   ./gen-env.sh
 
   echo "[quick-start-multi-host] Building quickstart images (pulling newer base images when available)..."
-  docker compose -p egeria-quickstart -f egeria-quickstart.yaml build "${COMPOSE_BUILD_FLAGS[@]}"
+  $COMPOSE_CMD -p egeria-quickstart -f egeria-quickstart.yaml build "${COMPOSE_BUILD_FLAGS[@]}"
 
   echo "[quick-start-multi-host] Starting quickstart stack with external Kafka listeners..."
-  docker compose -p egeria-quickstart \
+  $COMPOSE_CMD -p egeria-quickstart \
     -f egeria-quickstart.yaml \
     -f egeria-quickstart-cluster.yaml \
-    up -d --pull always
+    up -d ${COMPOSE_PULL_FLAGS}
 popd >/dev/null
 echo "[quick-start-multi-host] Done. Useful notes:"
 HOST_FQDN_PRINT=$(grep '^HOST_FQDN=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "localhost")

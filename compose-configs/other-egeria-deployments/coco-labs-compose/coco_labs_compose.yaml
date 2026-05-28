@@ -74,7 +74,7 @@ services:
     networks:
       - egeria_coco_network
     ports:
-      - "127.0.0.1:5446:5446"
+      - "5446:5446"
     shm_size: 128mb
     environment:
       POSTGRES_USER: postgres

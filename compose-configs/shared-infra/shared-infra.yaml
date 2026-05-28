@@ -4,10 +4,13 @@
 
 services:
   proxy:
+    image: egeria-shared-infra-proxy:latest
     build:
       context: ../egeria-quickstart
       dockerfile: Dockerfile-proxy
     container_name: egeria-shared-openlineage-proxy-backend
+    extra_hosts:
+      - "host.docker.internal:${HOST_GATEWAY_IP}"
     networks:
       - egeria_network
     ports:
@@ -63,7 +66,7 @@ services:
     networks:
       - egeria_network
     ports:
-      - "127.0.0.1:5442:5442"
+      - "5442:5442"
     shm_size: 128mb
     environment:
       POSTGRES_USER: postgres

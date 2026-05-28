@@ -1,6 +1,6 @@
-FROM python:3.12-slim-bookworm AS python-base
+FROM docker.io/library/python:3.12-slim-bookworm AS python-base
 
-FROM httpd:2.4-bookworm
+FROM docker.io/library/httpd:2.4-bookworm
 
 # Copy Python from the python-base image
 COPY --from=python-base /usr/local/ /usr/local/
