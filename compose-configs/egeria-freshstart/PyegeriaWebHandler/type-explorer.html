@@ -3346,7 +3346,7 @@ function TabularPreviewModal({ guid, name, creds, onClose }) {
     style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
     onClick: function(e) { if (e.target === e.currentTarget) onClose(); }
   },
-    React.createElement('div', { style: { background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 8, width: '90vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
+    React.createElement('div', { style: { background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 8, width: '90vw', minHeight: '60vh', maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
       React.createElement('div', { style: { display: 'flex', alignItems: 'center', padding: '12px 20px', borderBottom: '1px solid var(--border)', gap: 12 } },
         React.createElement('div', { style: { flex: 1, fontWeight: 700, fontSize: 15 } }, '📊 Data Preview — ' + (name || guid)),
         React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Page ' + (page + 1) + (tableData ? ' · ' + rows.length + ' rows' : '')),
@@ -3397,7 +3397,9 @@ function DigitalProductDetail({ product, onNavigateToGlossary, onNavigateToDataS
     NotificationType: 1, Requirement: 1, ResearchQuestion: 1, NamingStandardRule: 1, Methodology: 1,
     SecurityAccessControl: 1, GovernanceZone: 1, ServiceAccessControl: 1,
     TermsAndConditions: 1, CertificationType: 1, LicenseType: 1, ServiceLevelObjective: 1,
-    DataLens: 1, DataProcessingPurpose: 1, ExceptionType: 1 };
+    DataLens: 1, DataProcessingPurpose: 1, ExceptionType: 1,
+    GovernanceActionProcess: 1, GovernanceActionProcessStep: 1,
+    GovernanceActionType: 1, GovernanceEngine: 1, GovernanceService: 1 };
 
   function camelToLabel(s) {
     return s.replace(/([A-Z])/g, ' $1').replace(/^(.)/, function(c) { return c.toUpperCase(); }).trim();
@@ -3468,13 +3470,13 @@ function DigitalProductDetail({ product, onNavigateToGlossary, onNavigateToDataS
 
   function memberBadgeStyle(tn) {
     if (tn === 'DataSpecCollection') return { background: 'rgba(74,222,128,.1)', color: '#86efac', border: '0.5px solid rgba(74,222,128,.25)' };
-    if (tn.startsWith('TabularDataSet')) return { background: 'rgba(251,191,36,.1)', color: '#fcd34d', border: '0.5px solid rgba(251,191,36,.25)' };
+    if (tn.startsWith('TabularDataSet') || tn === 'ReferenceCodeTable') return { background: 'rgba(251,191,36,.1)', color: '#fcd34d', border: '0.5px solid rgba(251,191,36,.25)' };
     return { background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)' };
   }
 
   function renderMemberGroup(tn, members) {
     const isDataSpec = tn === 'DataSpecCollection';
-    const isTabular  = tn.startsWith('TabularDataSet');
+    const isTabular  = tn.startsWith('TabularDataSet') || tn === 'ReferenceCodeTable';
     return React.createElement("div", { key: tn, style: { marginBottom: 16 } },
       React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 } },
         tn + " (" + members.length + ")"
@@ -3499,7 +3501,9 @@ function DigitalProductDetail({ product, onNavigateToGlossary, onNavigateToDataS
     );
   }
 
-  const isTabularRoot = product.typeName && product.typeName.startsWith('TabularDataSet');
+  const isTabularRoot = product.typeName && (
+    product.typeName.startsWith('TabularDataSet') || product.typeName === 'ReferenceCodeTable'
+  );
 
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
