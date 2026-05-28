@@ -159,7 +159,6 @@ services:
       context: .
       dockerfile: Dockerfile-apache-web
     container_name: quickstart-web-server
-    user: "daemon:daemon"  # Explicitly set the user and group to match httpd.conf
     ports:
       - "8085:8085"
       # SSL (port 443) — disabled by default. See demo-mode.md § SSL / HTTPS.

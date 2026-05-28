@@ -125,7 +125,6 @@ services:
       context: ../egeria-quickstart
       dockerfile: Dockerfile-apache-web
     container_name: freshstart-web-server
-    user: "daemon:daemon"
     ports:
       - "8086:8085"
     networks:
