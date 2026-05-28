@@ -577,6 +577,35 @@ async def create_egeria_user(req: CreateUserRequest, admin: CurrentUser = Depend
     return {"userId": req.userId, "status": "created"}
 
 
+@router.get("/api/admin/egeria-users/{target_id}")
+async def get_egeria_user(target_id: str, admin: CurrentUser = Depends(require_admin)):
+    """Return full account details for a single user (for populating the admin edit modal)."""
+    guid = await _get_platform_guid()
+    admin_token = await _get_admin_egeria_token()
+    async with httpx.AsyncClient(verify=False) as client:
+        r = await client.get(
+            f"{_SECURITY_OFFICER_BASE}/platforms/{guid}/user-accounts/{target_id}",
+            headers=_egeria_headers(admin_token),
+            timeout=30,
+        )
+    if r.status_code != 200:
+        raise HTTPException(status_code=404, detail=f"User {target_id!r} not found in Egeria")
+    user_account = r.json().get("userAccount") or {}
+    other = user_account.get("otherProperties") or {}
+    return {
+        "userId":            target_id,
+        "userName":          user_account.get("userName", target_id),
+        "userAccountStatus": user_account.get("userAccountStatus", ""),
+        "userAccountType":   user_account.get("userAccountType", "EMPLOYEE"),
+        "securityRoles":     user_account.get("securityRoles") or [],
+        "securityGroups":    user_account.get("securityGroups") or [],
+        "otherProperties": {
+            "defaultZones": other.get("defaultZones", ""),
+            "publishZones":  other.get("publishZones",  ""),
+        },
+    }
+
+
 @router.put("/api/admin/egeria-users/{target_id}")
 async def update_egeria_user(
     target_id: str,

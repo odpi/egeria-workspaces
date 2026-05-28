@@ -328,7 +328,10 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
       url: advisorUrl, newTab: true, enabled: !demoMode, unavailable: !demoMode && !advisorRunning },
     { icon: '📖', name: 'Egeria Documentation',
       desc: 'Official Egeria project documentation, guides, and community resources.',
-      url: 'https://egeria-project.ai', newTab: true, enabled: true },
+      url: 'https://egeria.ai', newTab: true, enabled: true },
+    { icon: '📚', name: 'Egeria JavaDocs',
+      desc: 'Java API reference documentation for the Egeria platform and connectors.',
+      url: 'https://odpi.github.io/egeria/index.html', newTab: true, enabled: true },
   ];
   document.getElementById('app-grid').innerHTML = apps.map(function(a) {
     var action;
@@ -339,12 +342,12 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
     } else if (a.obsidian) {
       var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
       var obsBtn = isLocal
-        ? '<button class="btn btn-accent app-action" onclick="launchObsidian()" title="Requires Obsidian installed locally">Open in Obsidian</button>'
-        : '<a class="btn btn-accent app-action" href="https://obsidian.md" target="_blank" rel="noopener">Download Obsidian ↗</a>';
+        ? '<button class="btn btn-accent app-action" onclick="launchObsidian()" style="width:100%;display:block" title="Requires Obsidian installed locally">Open in Obsidian</button>'
+        : '<a class="btn btn-accent app-action" href="https://obsidian.md" target="_blank" rel="noopener" style="width:100%;display:block;text-align:center">Download Obsidian ↗</a>';
       var ghBtn = _obsidianGithubUrl
-        ? '<a class="btn btn-accent app-action" href="' + esc(_obsidianGithubUrl) + '" target="_blank" rel="noopener">GitHub ↗</a>'
+        ? '<a class="btn btn-accent app-action" href="' + esc(_obsidianGithubUrl) + '" target="_blank" rel="noopener" style="width:100%;display:block;text-align:center">GitHub ↗</a>'
         : '';
-      action = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center">' + obsBtn + ghBtn + '</div>';
+      action = '<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">' + obsBtn + ghBtn + '</div>';
     } else {
       action = '<button class="btn btn-accent app-action" onclick="launch(' + JSON.stringify(a.url).replace(/"/g, '&quot;') + ',' + a.newTab + ')">' + (a.newTab ? 'Open ↗' : 'Open') + '</button>';
     }

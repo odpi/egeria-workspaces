@@ -61,8 +61,7 @@
   <!-- Forced password-change form (shown when CREDENTIALS_EXPIRED) -->
   <div id="changeForm">
     <div class="note">Your password must be changed before you can continue.</div>
-    <label for="oldPassword">Current password</label>
-    <input type="password" id="oldPassword" placeholder="••••••••" autocomplete="current-password">
+    <input type="hidden" id="oldPassword">
     <label for="newPassword">New password</label>
     <input type="password" id="newPassword" placeholder="••••••••" autocomplete="new-password">
     <label for="confirmPassword">Confirm new password</label>
@@ -117,9 +116,10 @@
       } else if (res.status === 403 && res.data.credentials_expired) {
         // Slide to password-change form
         _pendingUserId = res.data.user_id || userId;
+        document.getElementById('oldPassword').value = password;
         document.getElementById('loginForm').style.display = 'none';
         document.getElementById('changeForm').style.display = 'block';
-        document.getElementById('oldPassword').focus();
+        document.getElementById('newPassword').focus();
       } else {
         showMsg('loginMsg', 'error', res.data.detail || 'Invalid user ID or password.');
       }
@@ -133,7 +133,7 @@
     var oldPw  = document.getElementById('oldPassword').value;
     var newPw  = document.getElementById('newPassword').value;
     var confPw = document.getElementById('confirmPassword').value;
-    if (!oldPw || !newPw || !confPw) { showMsg('changeMsg', 'error', 'Please fill in all fields.'); return; }
+    if (!oldPw || !newPw || !confPw) { showMsg('changeMsg', 'error', 'Please fill in all password fields.'); return; }
     if (newPw !== confPw) { showMsg('changeMsg', 'error', 'New passwords do not match.'); return; }
     if (newPw.length < 8) { showMsg('changeMsg', 'error', 'Password must be at least 8 characters.'); return; }
     var btn = document.getElementById('changeBtn');
