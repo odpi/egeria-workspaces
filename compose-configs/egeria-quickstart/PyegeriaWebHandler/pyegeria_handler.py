@@ -207,6 +207,8 @@ from pyegeria_docs_handler import router as pyegeria_docs_router
 app.include_router(pyegeria_docs_router)
 from demo_feedback_handler import router as demo_feedback_router
 app.include_router(demo_feedback_router)
+from egeria_feedback_handler import router as egeria_feedback_router
+app.include_router(egeria_feedback_router)
 
 # ── Demo mode ──────────────────────────────────────────────────────────────────
 
