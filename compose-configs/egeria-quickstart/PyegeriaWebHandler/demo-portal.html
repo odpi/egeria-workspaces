@@ -28,7 +28,7 @@
     .persona-chip { display: flex; align-items: center; gap: 8px; background: var(--border); border-radius: 20px; padding: 4px 14px 4px 10px; font-size: 0.82rem; }
     .persona-chip .name { font-weight: 600; }
     .persona-chip .role { color: var(--muted); font-size: 0.75rem; }
-    .btn { padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; font-size: 0.82rem; white-space: nowrap; transition: background 0.12s; }
+    .btn { display: inline-block; padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; font-size: 0.82rem; white-space: nowrap; transition: background 0.12s; text-decoration: none; box-sizing: border-box; vertical-align: middle; line-height: normal; }
     .btn:hover { background: var(--border); }
     .btn-accent { background: var(--accent); border-color: var(--accent); color: #fff; }
     .btn-accent:hover { opacity: 0.85; background: var(--accent); }
@@ -338,11 +338,11 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
       action = '<span class="soon-badge" style="background:var(--hover);color:var(--muted)">Not running</span>';
     } else if (a.obsidian) {
       var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-      var obsBtn = (_obsidianUrl && isLocal)
+      var obsBtn = isLocal
         ? '<button class="btn btn-accent app-action" onclick="launchObsidian()" title="Requires Obsidian installed locally">Open in Obsidian</button>'
-        : '<a class="btn btn-accent app-action" href="https://obsidian.md" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none">Download Obsidian ↗</a>';
+        : '<a class="btn btn-accent app-action" href="https://obsidian.md" target="_blank" rel="noopener">Download Obsidian ↗</a>';
       var ghBtn = _obsidianGithubUrl
-        ? '<a class="btn btn-accent app-action" href="' + esc(_obsidianGithubUrl) + '" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none">GitHub ↗</a>'
+        ? '<a class="btn btn-accent app-action" href="' + esc(_obsidianGithubUrl) + '" target="_blank" rel="noopener">GitHub ↗</a>'
         : '';
       action = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center">' + obsBtn + ghBtn + '</div>';
     } else {
@@ -367,7 +367,8 @@ function launchObsidian() {
     if (_obsidianGithubUrl) { window.open(_obsidianGithubUrl, '_blank', 'noopener'); }
     return;
   }
-  if (_obsidianUrl) { window.location.href = _obsidianUrl; }
+  // Use configured vault URL, or fall back to bare obsidian:// which opens the app
+  window.location.href = _obsidianUrl || 'obsidian://';
 }
 
 // ── Picker ────────────────────────────────────────────────────────────────────
