@@ -286,18 +286,37 @@ def get_node(
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
 ):
-    """Return detail for a single digital product or family node."""
+    """Return detail for a single digital product, family, or asset node.
+
+    Tries CollectionManager first (covers all Collection subtypes). If the node is
+    a non-collection asset (e.g. TabularDataSet), falls back to AssetMaker.get_asset_by_guid.
+    """
+    url_val  = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    svr_val  = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    uid      = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
+    pwd      = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+
     try:
-        mgr = _get_manager(url, server, user_id, user_pwd)
+        mgr = _get_manager(url_val, svr_val, uid, pwd)
     except Exception as exc:
         logger.exception("Failed to create CollectionManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
+    raw = None
     try:
         raw = mgr.get_collection_by_guid(node_guid, output_format="JSON")
-    except Exception as exc:
-        logger.exception("get_collection_by_guid failed")
-        raise HTTPException(status_code=500, detail=f"Node retrieval failed: {exc}")
+    except Exception:
+        pass  # not a collection — try asset fallback below
+
+    if not raw:
+        # Non-collection asset (e.g. TabularDataSet) — fetch via AssetMaker
+        try:
+            from pyegeria import AssetMaker
+            am = AssetMaker(view_server=svr_val, platform_url=url_val, user_id=uid, user_pwd=pwd)
+            am.create_egeria_bearer_token()
+            raw = am.get_asset_by_guid(node_guid, output_format="JSON")
+        except Exception as exc:
+            logger.exception("AssetMaker.get_asset_by_guid failed")
 
     if not raw:
         raise HTTPException(status_code=404, detail=f"Node {node_guid!r} not found")
