@@ -15,6 +15,7 @@ services:
     environment:
       DEMO_MODE: "true"
       SITE_URL: "${DEMO_SITE_URL}"
+      DEMO_DB_HOST: "host.docker.internal"
 
   apache-web:
     ports:
