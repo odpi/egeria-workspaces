@@ -380,7 +380,26 @@ def get_tabular_data(
         return JSONResponse({"columns": [], "rows": [], "has_more": False,
                              "start_from_row": start_from_row, "row_count": 0})
 
-    # Normalise: DataEngineer may return a dict with columns/rows, or a list of dicts
+    # Egeria returns { columnDescriptions: [{columnName, ...}], dataRecords: {"0":[...], "1":[...]} }
+    # Normalise to columns (list of names) + rows (list of value-lists).
+    if isinstance(raw, dict):
+        col_descs = raw.get("columnDescriptions") or []
+        if col_descs:
+            columns = [c.get("columnName", "") for c in col_descs]
+        else:
+            columns = raw.get("columns") or raw.get("columnNames") or raw.get("header") or []
+
+        data_records = raw.get("dataRecords")
+        if isinstance(data_records, dict) and data_records:
+            sorted_keys = sorted(data_records.keys(), key=lambda x: int(x) if x.isdigit() else 0)
+            rows = [data_records[k] for k in sorted_keys]
+        else:
+            rows = raw.get("rows") or raw.get("data") or raw.get("rowData") or []
+
+        has_more = len(rows) >= max_row_count
+        return JSONResponse({"columns": columns, "rows": rows, "has_more": has_more,
+                             "start_from_row": start_from_row, "row_count": len(rows)})
+
     if isinstance(raw, list):
         if not raw:
             return JSONResponse({"columns": [], "rows": [], "has_more": False,
@@ -390,11 +409,6 @@ def get_tabular_data(
         has_more = len(rows) >= max_row_count
         return JSONResponse({"columns": columns, "rows": rows, "has_more": has_more,
                              "start_from_row": start_from_row, "row_count": len(rows)})
-    if isinstance(raw, dict):
-        columns  = raw.get("columns") or (list(raw.get("schema", {}).keys()) if raw.get("schema") else [])
-        rows     = raw.get("rows") or raw.get("data") or []
-        has_more = len(rows) >= max_row_count
-        return JSONResponse({"columns": columns, "rows": rows, "has_more": has_more,
-                             "start_from_row": start_from_row, "row_count": len(rows), "raw": raw})
+
     return JSONResponse({"columns": [], "rows": [], "has_more": False,
-                         "start_from_row": start_from_row, "row_count": 0, "raw": raw})
+                         "start_from_row": start_from_row, "row_count": 0})

@@ -1717,7 +1717,7 @@ function TreeNode({
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
-const DEF_EXPANDED = new Set(['OpenMetadataRoot', 'Referenceable', 'Asset', 'PersonRole', 'GovernanceDefinition', 'GovernanceControl', 'GovernancePolicy', 'GovernanceDriver', 'TechnicalControl', 'OrganizationalControl', 'GovernanceRole']);
+const DEF_EXPANDED = new Set();
 function Sidebar({
   selected,
   onSelect,
@@ -3317,10 +3317,87 @@ function ReferenceDataView() {
 
 // ── Digital Products Explorer ─────────────────────────────────────────────────
 
-function DigitalProductDetail({ product, onNavigateToGlossary, onNavigateToDataSpec, onNavigateToDataDesign }) {
-  if (!product) return null;
+// ── Tabular Data Preview Modal ────────────────────────────────────────────────
 
-  const DD_TYPES = { DataField: 1, DataStructure: 1, DataSpec: 1, DataGrain: 1, DataClass: 1 };
+function TabularPreviewModal({ guid, name, creds, onClose }) {
+  var PAGE_SIZE = 100;
+  var _pageState = useState(0), page = _pageState[0], setPage = _pageState[1];
+  var _dataState = useState(null), tableData = _dataState[0], setTableData = _dataState[1];
+  var _loadState = useState(true), loading = _loadState[0], setLoading = _loadState[1];
+  var _errState  = useState(''),   errMsg   = _errState[0],  setErrMsg   = _errState[1];
+
+  useEffect(function() {
+    setLoading(true); setErrMsg('');
+    var params = new URLSearchParams({
+      start_from_row: page * PAGE_SIZE, max_row_count: PAGE_SIZE,
+    });
+    if (creds) { if (creds.url) params.set('url', creds.url); if (creds.server) params.set('server', creds.server); if (creds.userId) params.set('user_id', creds.userId); if (creds.password) params.set('user_pwd', creds.password); }
+    fetch('/api/digital-products/' + guid + '/tabular?' + params.toString())
+      .then(function(r) { return r.json(); })
+      .then(function(d) { setTableData(d); setLoading(false); })
+      .catch(function(e) { setErrMsg('Failed to load data: ' + e); setLoading(false); });
+  }, [guid, page]);
+
+  var columns = (tableData && tableData.columns) || [];
+  var rows    = (tableData && tableData.rows)    || [];
+  var hasMore = tableData && tableData.has_more;
+
+  return React.createElement('div', {
+    style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
+    onClick: function(e) { if (e.target === e.currentTarget) onClose(); }
+  },
+    React.createElement('div', { style: { background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 8, width: '90vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', padding: '12px 20px', borderBottom: '1px solid var(--border)', gap: 12 } },
+        React.createElement('div', { style: { flex: 1, fontWeight: 700, fontSize: 15 } }, '📊 Data Preview — ' + (name || guid)),
+        React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Page ' + (page + 1) + (tableData ? ' · ' + rows.length + ' rows' : '')),
+        React.createElement('button', { onClick: onClose, style: { marginLeft: 8, padding: '4px 12px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' } }, 'Close')
+      ),
+      React.createElement('div', { style: { overflowY: 'auto', flex: 1 } },
+        loading ? React.createElement('div', { style: { padding: 40, textAlign: 'center', color: 'var(--dim)' } }, 'Loading…')
+        : errMsg ? React.createElement('div', { style: { padding: 24, color: '#f87171' } }, errMsg)
+        : columns.length === 0 ? React.createElement('div', { style: { padding: 24, color: 'var(--dim)' } }, 'No tabular data returned. The data set may be empty or the format unsupported.')
+        : React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 } },
+            React.createElement('thead', { style: { position: 'sticky', top: 0, background: 'var(--panel)' } },
+              React.createElement('tr', null,
+                columns.map(function(col) {
+                  return React.createElement('th', { key: col, style: { padding: '6px 12px', textAlign: 'left', borderBottom: '2px solid var(--border)', color: 'var(--accent)', whiteSpace: 'nowrap', fontSize: 11 } }, col);
+                })
+              )
+            ),
+            React.createElement('tbody', null,
+              rows.map(function(row, i) {
+                return React.createElement('tr', { key: i, style: { background: i % 2 ? 'rgba(255,255,255,0.02)' : 'transparent' } },
+                  (Array.isArray(row) ? row : columns.map(function(c) { return row[c]; })).map(function(cell, j) {
+                    return React.createElement('td', { key: j, style: { padding: '4px 12px', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' } }, cell == null ? '' : String(cell));
+                  })
+                );
+              })
+            )
+          )
+      ),
+      React.createElement('div', { style: { display: 'flex', gap: 8, padding: '10px 20px', borderTop: '1px solid var(--border)', alignItems: 'center' } },
+        React.createElement('button', { disabled: page === 0 || loading, onClick: function() { setPage(page - 1); }, style: { padding: '4px 14px', borderRadius: 4, border: '1px solid var(--border)', background: page === 0 ? 'transparent' : 'var(--hover)', color: page === 0 ? 'var(--dim)' : 'var(--text)', cursor: page === 0 ? 'not-allowed' : 'pointer' } }, '← Prev'),
+        React.createElement('span', { style: { flex: 1, fontSize: 11, color: 'var(--dim)' } }, 'Rows ' + (page * PAGE_SIZE + 1) + '–' + (page * PAGE_SIZE + rows.length)),
+        React.createElement('button', { disabled: !hasMore || loading, onClick: function() { setPage(page + 1); }, style: { padding: '4px 14px', borderRadius: 4, border: '1px solid var(--border)', background: !hasMore ? 'transparent' : 'var(--hover)', color: !hasMore ? 'var(--dim)' : 'var(--text)', cursor: !hasMore ? 'not-allowed' : 'pointer' } }, 'Next →')
+      )
+    )
+  );
+}
+
+function DigitalProductDetail({ product, onNavigateToGlossary, onNavigateToDataSpec, onNavigateToDataDesign, onNavigateToDigitalProduct, onNavigateToGovernance, creds }) {
+  if (!product) return null;
+  var _previewState = useState(null), previewDs = _previewState[0], setPreviewDs = _previewState[1];
+
+  const DD_TYPES = { DataField: 1, DataStructure: 1, DataSpec: 1, DataGrain: 1, DataClass: 1, DataSpecCollection: 1 };
+  const DP_TYPES = { DigitalProduct: 1, DigitalProductFamily: 1, DigitalProductCatalog: 1, TabularDataSetCollection: 1, Collection: 1 };
+  const GOV_DEF_SUPERS = { GovernanceDefinition: 1, GovernanceDriver: 1, GovernancePolicy: 1, GovernanceControl: 1,
+    GovernanceStrategy: 1, BusinessImperative: 1, Regulation: 1, RegulationArticle: 1, Threat: 1,
+    GovernanceApproach: 1, GovernanceObligation: 1, GovernancePrinciple: 1,
+    GovernanceRule: 1, GovernanceProcedure: 1, GovernanceMetric: 1, GovernanceResponsibility: 1,
+    NotificationType: 1, Requirement: 1, ResearchQuestion: 1, NamingStandardRule: 1, Methodology: 1,
+    SecurityAccessControl: 1, GovernanceZone: 1, ServiceAccessControl: 1,
+    TermsAndConditions: 1, CertificationType: 1, LicenseType: 1, ServiceLevelObjective: 1,
+    DataLens: 1, DataProcessingPurpose: 1, ExceptionType: 1 };
 
   function camelToLabel(s) {
     return s.replace(/([A-Z])/g, ' $1').replace(/^(.)/, function(c) { return c.toUpperCase(); }).trim();
@@ -3333,18 +3410,29 @@ function DigitalProductDetail({ product, onNavigateToGlossary, onNavigateToDataS
         camelToLabel(key) + " (" + items.length + ")"
       ),
       items.map(function(item, i) {
-        var isGlossary = item.typeName === 'GlossaryTerm';
-        var isDD      = DD_TYPES[item.typeName];
+        var tn = item.typeName || '';
+        var isGlossary = tn === 'GlossaryTerm' || tn === 'Glossary' || tn === 'GlossaryCategory';
+        var isDD  = DD_TYPES[tn];
+        var isDP  = DP_TYPES[tn];
+        var isGov = GOV_DEF_SUPERS[tn];
         return React.createElement("div", { key: item.guid || i, style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '4px 0', borderTop: '1px solid var(--border)' } },
           React.createElement("span", { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, item.displayName || item.qualifiedName || item.guid),
-          item.typeName && React.createElement("span", { style: { color: 'var(--dim)', fontSize: 10, flexShrink: 0 } }, item.typeName),
+          tn && React.createElement("span", { style: { color: 'var(--dim)', fontSize: 10, flexShrink: 0 } }, tn),
           isGlossary && onNavigateToGlossary && React.createElement("button", {
             onClick: function() { onNavigateToGlossary(item.guid); },
             style: { flexShrink: 0, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(134,239,172,.4)', background: 'rgba(134,239,172,.1)', color: '#86efac', cursor: 'pointer', fontSize: 11 }
           }, "View →"),
           isDD && onNavigateToDataDesign && React.createElement("button", {
-            onClick: function() { onNavigateToDataDesign(item.typeName, item.guid); },
+            onClick: function() { onNavigateToDataDesign(tn, item.guid); },
             style: { flexShrink: 0, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(94,234,212,.4)', background: 'rgba(94,234,212,.1)', color: '#5eead4', cursor: 'pointer', fontSize: 11 }
+          }, "View →"),
+          isDP && onNavigateToDigitalProduct && React.createElement("button", {
+            onClick: function() { onNavigateToDigitalProduct(item.guid); },
+            style: { flexShrink: 0, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(167,139,250,.4)', background: 'rgba(167,139,250,.1)', color: '#a78bfa', cursor: 'pointer', fontSize: 11 }
+          }, "View →"),
+          isGov && onNavigateToGovernance && React.createElement("button", {
+            onClick: function() { onNavigateToGovernance(item.guid); },
+            style: { flexShrink: 0, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(251,191,36,.4)', background: 'rgba(251,191,36,.1)', color: '#fcd34d', cursor: 'pointer', fontSize: 11 }
           }, "View →")
         );
       })
@@ -3369,7 +3457,6 @@ function DigitalProductDetail({ product, onNavigateToGlossary, onNavigateToDataS
     product.typeName === 'GlossaryTerm' || product.typeName === 'Glossary' || product.typeName === 'GlossaryCategory'
   );
 
-  // Group children by typeName for the members section
   const children = product.children || [];
   const memberGroups = {};
   children.forEach(function(child) {
@@ -3379,7 +3466,6 @@ function DigitalProductDetail({ product, onNavigateToGlossary, onNavigateToDataS
   });
   const memberTypeNames = Object.keys(memberGroups).sort();
 
-  // Colour coding for known member types
   function memberBadgeStyle(tn) {
     if (tn === 'DataSpecCollection') return { background: 'rgba(74,222,128,.1)', color: '#86efac', border: '0.5px solid rgba(74,222,128,.25)' };
     if (tn.startsWith('TabularDataSet')) return { background: 'rgba(251,191,36,.1)', color: '#fcd34d', border: '0.5px solid rgba(251,191,36,.25)' };
@@ -3402,11 +3488,18 @@ function DigitalProductDetail({ product, onNavigateToGlossary, onNavigateToDataS
             disabled: !onNavigateToDataSpec,
             title: onNavigateToDataSpec ? 'View in Data Design tab' : 'Data Design tab coming in Phase 3',
             style: { padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(74,222,128,.4)', background: onNavigateToDataSpec ? 'rgba(74,222,128,.1)' : 'transparent', color: onNavigateToDataSpec ? '#86efac' : 'var(--dim)', cursor: onNavigateToDataSpec ? 'pointer' : 'not-allowed', fontSize: 11, opacity: onNavigateToDataSpec ? 1 : 0.5 }
-          }, "View Data Spec →")
+          }, "View Data Spec →"),
+          isTabular && React.createElement("button", {
+            onClick: function() { setPreviewDs({ guid: m.guid, name: m.displayName || m.qualifiedName || m.guid }); },
+            title: 'Preview tabular data',
+            style: { padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(251,191,36,.4)', background: 'rgba(251,191,36,.1)', color: '#fcd34d', cursor: 'pointer', fontSize: 11 }
+          }, "Preview Data 📊")
         );
       })
     );
   }
+
+  const isTabularRoot = product.typeName && product.typeName.startsWith('TabularDataSet');
 
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
@@ -3415,7 +3508,11 @@ function DigitalProductDetail({ product, onNavigateToGlossary, onNavigateToDataS
       isGlossaryType && onNavigateToGlossary && React.createElement("button", {
         onClick: function() { onNavigateToGlossary(product.guid); },
         style: { padding: '3px 10px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.1)', color: 'var(--accent)', cursor: 'pointer', fontSize: 12 }
-      }, "View in Glossary →")
+      }, "View in Glossary →"),
+      isTabularRoot && React.createElement("button", {
+        onClick: function() { setPreviewDs({ guid: product.guid, name: product.displayName || product.qualifiedName || product.guid }); },
+        style: { padding: '3px 10px', borderRadius: 4, border: '1px solid rgba(251,191,36,.4)', background: 'rgba(251,191,36,.1)', color: '#fcd34d', cursor: 'pointer', fontSize: 12 }
+      }, "Preview Data 📊")
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, product.guid),
     product.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(product.description)),
@@ -3438,7 +3535,8 @@ function DigitalProductDetail({ product, onNavigateToGlossary, onNavigateToDataS
     product.relationships && Object.keys(product.relationships).length > 0 && React.createElement("div", { style: { marginTop: memberTypeNames.length > 0 ? 24 : 0 } },
       React.createElement("div", { style: { fontWeight: 700, fontSize: 13, marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' } }, "Relationships"),
       Object.entries(product.relationships).map(function(entry) { return renderRelSection(entry[0], entry[1]); })
-    )
+    ),
+    previewDs && React.createElement(TabularPreviewModal, { guid: previewDs.guid, name: previewDs.name, creds: creds, onClose: function() { setPreviewDs(null); } })
   );
 }
 
@@ -3480,7 +3578,7 @@ function DigitalTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggle
   );
 }
 
-function DigitalProductsView({ navGuid, onNavigateToGlossary, onNavigateToDataSpec, onNavigateToDataDesign }) {
+function DigitalProductsView({ navGuid, onNavigateToGlossary, onNavigateToDataSpec, onNavigateToDataDesign, onNavigateToDigitalProduct, onNavigateToGovernance }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(254);
   const [treeW, onTreeDivDown] = useResizable(300);
@@ -3628,7 +3726,7 @@ function DigitalProductsView({ navGuid, onNavigateToGlossary, onNavigateToDataSp
     // Node detail (right)
     React.createElement("div", { className: "main" },
       (selectedNodeObj || nodeDetail)
-        ? React.createElement(DigitalProductDetail, { product: selectedNodeObj ? Object.assign({}, selectedNodeObj, { relationships: (nodeDetail || {}).relationships }) : nodeDetail, onNavigateToGlossary: onNavigateToGlossary, onNavigateToDataSpec: onNavigateToDataSpec, onNavigateToDataDesign: onNavigateToDataDesign })
+        ? React.createElement(DigitalProductDetail, { product: selectedNodeObj ? Object.assign({}, selectedNodeObj, { relationships: (nodeDetail || {}).relationships }) : nodeDetail, onNavigateToGlossary: onNavigateToGlossary, onNavigateToDataSpec: onNavigateToDataSpec, onNavigateToDataDesign: onNavigateToDataDesign, onNavigateToDigitalProduct: onNavigateToDigitalProduct, onNavigateToGovernance: onNavigateToGovernance, creds: creds })
         : selectedNode
         ? React.createElement("div", { className: "center" }, React.createElement("div", { className: "spinner" }))
         : React.createElement("div", { className: "center" },
@@ -3640,7 +3738,21 @@ function DigitalProductsView({ navGuid, onNavigateToGlossary, onNavigateToDataSp
 
 // ── Placeholder (shown for sections not yet implemented) ─────────────────────
 
-const SECTION_LABELS = {};
+const SECTION_LABELS = {
+  'type-system':       'Type Explorer',
+  'rest-apis':         'REST APIs',
+  'valid-values':      'Valid Values',
+  'glossary':          'Glossary',
+  'reference-data':    'Reference Data',
+  'data-design':       'Data Design',
+  'solution-architect':'Solution Architect',
+  'isc':               'Information Supply Chains',
+  'perspectives':      'Perspectives',
+  'governance':        'Governance Definitions',
+  'report-specs':      'Report Specifications',
+  'digital-products':  'Digital Products',
+  'dr-egeria':         'Dr. Egeria',
+};
 
 function PlaceholderView({ section }) {
   const label = SECTION_LABELS[section] || section;
@@ -5817,9 +5929,7 @@ function GovernanceView() {
 
   const [typeTree, setTypeTree]     = useState([]);
   const [typeLabels, setTypeLabels] = useState({});
-  const [expanded, setExpanded]     = useState(function() {
-    return new Set(['GovernanceDriver','GovernancePolicy','GovernanceControl']);
-  });
+  const [expanded, setExpanded]     = useState(function() { return new Set(); });
   const [selType, setSelType]   = useState('GovernanceDriver');
 
   const [search, setSearch]         = useState('');
@@ -6042,6 +6152,12 @@ function App() {
     setSection('digital-products');
   }, []);
 
+  const [governanceNavGuid, setGovernanceNavGuid] = useState(null);
+  const onNavigateToGovernance = useCallback(function(guid) {
+    setGovernanceNavGuid(guid || null);
+    setSection('governance');
+  }, []);
+
   const [typeSideW, onTypeDivDown] = useResizable(254);
 
   // Fetch type data; re-runs when typeAttempt changes (triggered by saveCreds) so a credential fix retries.
@@ -6166,6 +6282,8 @@ function App() {
       ),
       demoMode && !activePersona && React.createElement('a', { className: 'persona-badge-btn', href: '/portal' }, '\uD83C\uDFAD Choose persona')
     ),
+    // Section title bar
+    section !== 'splash' && React.createElement("div", { style: { padding: '4px 14px', background: 'var(--panel)', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 600, color: 'var(--text)', flexShrink: 0 } }, SECTION_LABELS[section] || section),
     // Body \u2014 dispatches to section, then to Type System sub-view
     section === 'splash'
       ? React.createElement(SplashScreen, { onNavigate: function(s) { setSection(s); if (s === 'type-system') setView('types'); }, saveCreds: saveCreds })
@@ -6176,7 +6294,7 @@ function App() {
       : section === 'reference-data'
       ? React.createElement(ReferenceDataView, { key: credsKey })
       : section === 'digital-products'
-      ? React.createElement(DigitalProductsView, { key: credsKey, navGuid: digitalProductNavGuid, onNavigateToGlossary: onNavigateToGlossary, onNavigateToDataSpec: onNavigateToDataSpec, onNavigateToDataDesign: onNavigateToDataDesign })
+      ? React.createElement(DigitalProductsView, { key: credsKey, navGuid: digitalProductNavGuid, onNavigateToGlossary: onNavigateToGlossary, onNavigateToDataSpec: onNavigateToDataSpec, onNavigateToDataDesign: onNavigateToDataDesign, onNavigateToDigitalProduct: onNavigateToDigitalProduct, onNavigateToGovernance: onNavigateToGovernance })
       : section === 'valid-values'
       ? React.createElement(ValidValuesView, { key: credsKey, navProp: validValuesNavProp })
       : section === 'rest-apis'

@@ -327,3 +327,75 @@ def get_node(
         node["children"] = []
 
     return JSONResponse(node)
+
+
+@router.get("/api/digital-products/{node_guid}/tabular", summary="Preview tabular data for a TabularDataSet")
+def get_tabular_data(
+    node_guid:       str,
+    start_from_row:  int = Query(0,    ge=0),
+    max_row_count:   int = Query(100,  ge=1, le=2000),
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
+    """Fetch a page of rows from a TabularDataSet via DataEngineer.get_tabular_data_set."""
+    try:
+        from pyegeria import DataEngineer
+        url_val     = url     or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+        server_val  = server  or os.environ.get("EGERIA_VIEW_SERVER",   "fs-view-server")
+        uid         = user_id or os.environ.get("EGERIA_USER",          "erinoverview")
+        pwd         = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+        de = DataEngineer(view_server=server_val, platform_url=url_val, user_id=uid, user_pwd=pwd)
+        de.create_egeria_bearer_token()
+    except Exception as exc:
+        logger.exception("Failed to create DataEngineer")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+    try:
+        raw = de.get_tabular_data_set(
+            tabular_data_set_guid=node_guid,
+            start_from_row=start_from_row,
+            max_row_count=max_row_count,
+            output_format="JSON",
+        )
+    except Exception as exc:
+        logger.exception("get_tabular_data_set failed")
+        raise HTTPException(status_code=500, detail=f"Data retrieval failed: {exc}")
+
+    if not raw:
+        return JSONResponse({"columns": [], "rows": [], "has_more": False,
+                             "start_from_row": start_from_row, "row_count": 0})
+
+    # Egeria returns { columnDescriptions: [{columnName, ...}], dataRecords: {"0":[...], "1":[...]} }
+    # Normalise to columns (list of names) + rows (list of value-lists).
+    if isinstance(raw, dict):
+        col_descs = raw.get("columnDescriptions") or []
+        if col_descs:
+            columns = [c.get("columnName", "") for c in col_descs]
+        else:
+            columns = raw.get("columns") or raw.get("columnNames") or raw.get("header") or []
+
+        data_records = raw.get("dataRecords")
+        if isinstance(data_records, dict) and data_records:
+            sorted_keys = sorted(data_records.keys(), key=lambda x: int(x) if x.isdigit() else 0)
+            rows = [data_records[k] for k in sorted_keys]
+        else:
+            rows = raw.get("rows") or raw.get("data") or raw.get("rowData") or []
+
+        has_more = len(rows) >= max_row_count
+        return JSONResponse({"columns": columns, "rows": rows, "has_more": has_more,
+                             "start_from_row": start_from_row, "row_count": len(rows)})
+
+    if isinstance(raw, list):
+        if not raw:
+            return JSONResponse({"columns": [], "rows": [], "has_more": False,
+                                 "start_from_row": start_from_row, "row_count": 0})
+        columns = list(raw[0].keys()) if isinstance(raw[0], dict) else []
+        rows = [[row.get(c, "") for c in columns] for row in raw if isinstance(row, dict)]
+        has_more = len(rows) >= max_row_count
+        return JSONResponse({"columns": columns, "rows": rows, "has_more": has_more,
+                             "start_from_row": start_from_row, "row_count": len(rows)})
+
+    return JSONResponse({"columns": [], "rows": [], "has_more": False,
+                         "start_from_row": start_from_row, "row_count": 0})
