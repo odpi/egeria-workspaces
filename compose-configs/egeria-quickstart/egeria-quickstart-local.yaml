@@ -13,3 +13,8 @@ services:
     extra_hosts:
       - "${HOST_FQDN}:${HOST_GATEWAY_IP}"
       - "host.docker.internal:${HOST_GATEWAY_IP}"
+
+  apache-web:
+    extra_hosts:
+      - "${HOST_FQDN}:${HOST_GATEWAY_IP}"
+      - "host.docker.internal:${HOST_GATEWAY_IP}"

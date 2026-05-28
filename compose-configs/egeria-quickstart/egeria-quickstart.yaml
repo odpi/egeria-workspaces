@@ -23,7 +23,7 @@ services:
   jupyter-hub:
     depends_on:
       egeria-main:
-        condition: service_healthy
+        condition: service_started
 
     image: egeria-quickstart-jupyter:local
     container_name: quickstart-jupyter-work-full
@@ -59,6 +59,7 @@ services:
 
   egeria-main:
     image: 'egeria-quickstart-platform:local'
+    container_name: quickstart-egeria-main
     build:
       context: .
       dockerfile: Dockerfile-egeria-platform
@@ -80,10 +81,10 @@ services:
       - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
     healthcheck:
       test: curl -k -X GET "https://localhost:9443/open-metadata/platform-services/users/garygeeke/server-platform/origin" || exit 1
-      interval: 20s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+      interval: 30s
+      timeout: 15s
+      retries: 15
+      start_period: 60s
     volumes:
       - ../../exchange-quickstart/landing-area:/deployments/landing-area
       - ../../exchange-quickstart/distribution-hub:/deployments/distribution-hub
@@ -109,10 +110,10 @@ services:
     networks:
       - egeria_network
     environment:
-      EGERIA_PLATFORM_URL: https://egeria-main:9443
+      EGERIA_PLATFORM_URL: https://host.docker.internal:9443
       EGERIA_VIEW_SERVER: qs-view-server
-      EGERIA_VIEW_SERVER_URL: https://egeria-main:9443
-      EGERIA_INTEGRATION_DAEMON_URL: https://egeria-main:9443
+      EGERIA_VIEW_SERVER_URL: https://host.docker.internal:9443
+      EGERIA_INTEGRATION_DAEMON_URL: https://host.docker.internal:9443
       EGERIA_ROOT_PATH: "/"
       EGERIA_INBOX_PATH: "."
       EGERIA_OUTBOX_PATH: "dr-egeria-outbox"
@@ -179,6 +180,9 @@ services:
       # SSL cert volume — disabled by default. See demo-mode.md § SSL / HTTPS.
       # - ./sites-available/fastapi-ssl.conf:/usr/local/apache2/conf/extra/fastapi-ssl.conf
       # - /path/to/your/certs:/etc/ssl/egeria:ro
+    extra_hosts:
+      - "${HOST_FQDN}:${HOST_GATEWAY_IP:-host-gateway}"
+      - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
     depends_on:
       - pyegeria-web
 

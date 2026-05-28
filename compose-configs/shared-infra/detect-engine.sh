@@ -46,9 +46,10 @@ fi
 if [[ "$CONTAINER_ENGINE" == "podman" ]]; then
     # Podman uses .State.Healthcheck.Status, Docker uses .State.Health.Status
     export INSPECT_STATUS_FORMAT='{{if .State.Healthcheck.Status}}{{.State.Healthcheck.Status}}{{else}}{{.State.Status}}{{end}}'
-    # Try to find gateway IP for host resolution, as 'host-gateway' is not supported in some Podman versions
-    GW_IP=$(podman network inspect egeria_network podman 2>/dev/null | grep "gateway" | cut -d'"' -f4 | head -n 1 || true)
-    export HOST_GATEWAY_IP="${GW_IP:-10.0.2.2}"
+    # podman-compose ignores external: true networks and attaches containers to the default
+    # 'podman' bridge instead. Use the default podman network gateway for host resolution.
+    GW_IP=$(podman network inspect podman 2>/dev/null | grep '"gateway"' | cut -d'"' -f4 | head -n 1 || true)
+    export HOST_GATEWAY_IP="${GW_IP:-10.88.0.1}"
 else
     export INSPECT_STATUS_FORMAT='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}'
     export HOST_GATEWAY_IP="host-gateway"

@@ -118,33 +118,76 @@ pushd compose-configs/egeria-quickstart >/dev/null
   fi
 
   echo "[quick-start-local] Starting core quickstart stack (host-gateway mappings enabled)..."
-  if ! $COMPOSE_CMD -p egeria-quickstart \
-    -f egeria-quickstart.yaml \
-    -f egeria-quickstart-local.yaml \
-    up -d ${COMPOSE_PULL_FLAGS} egeria-main pyegeria-web jupyter-hub; then
-    echo "[quick-start-local] Pull-enabled core up failed; retrying without pull and without build..."
-    $COMPOSE_CMD -p egeria-quickstart \
+
+  if [[ "$CONTAINER_ENGINE" == "podman" ]]; then
+    # podman-compose up -d can block indefinitely if prior containers are stuck stopping/starting.
+    # Force-remove any leftover quickstart containers before starting fresh.
+    for _cname in quickstart-egeria-main quickstart-pyegeria-web quickstart-jupyter-work-full \
+                  quickstart-web-server egeria-quickstart_egeria-main_1; do
+      $CONTAINER_ENGINE rm -f "$_cname" >/dev/null 2>&1 || true
+    done
+    # podman-compose up -d still blocks while polling container state (v1.5.0 bug).
+    # Use timeout: containers are created in ~30s; health may take minutes (handled below).
+    timeout 60 $COMPOSE_CMD -p egeria-quickstart \
       -f egeria-quickstart.yaml \
       -f egeria-quickstart-local.yaml \
-      up -d --no-build egeria-main pyegeria-web jupyter-hub
+      up -d egeria-main pyegeria-web jupyter-hub 2>&1 || true
+  else
+    if ! $COMPOSE_CMD -p egeria-quickstart \
+      -f egeria-quickstart.yaml \
+      -f egeria-quickstart-local.yaml \
+      up -d ${COMPOSE_PULL_FLAGS} egeria-main pyegeria-web jupyter-hub; then
+      echo "[quick-start-local] Pull-enabled core up failed; retrying without pull and without build..."
+      $COMPOSE_CMD -p egeria-quickstart \
+        -f egeria-quickstart.yaml \
+        -f egeria-quickstart-local.yaml \
+        up -d --no-build egeria-main pyegeria-web jupyter-hub
+    fi
   fi
 
   if [[ "$APACHE_BUILD_OK" -eq 1 ]]; then
     echo "[quick-start-local] Starting apache-web..."
-    if ! $COMPOSE_CMD -p egeria-quickstart \
-      -f egeria-quickstart.yaml \
-      -f egeria-quickstart-local.yaml \
-      up -d ${COMPOSE_PULL_FLAGS} apache-web; then
-      echo "[quick-start-local] Pull-enabled apache-web up failed; retrying without pull and without build..."
+    if [[ "$CONTAINER_ENGINE" == "podman" ]]; then
+      $CONTAINER_ENGINE rm -f quickstart-web-server >/dev/null 2>&1 || true
+      timeout 30 $COMPOSE_CMD -p egeria-quickstart \
+        -f egeria-quickstart.yaml \
+        -f egeria-quickstart-local.yaml \
+        up -d apache-web 2>&1 || \
+        echo "[quick-start-local] WARNING: apache-web did not start. Core services are running."
+    else
       if ! $COMPOSE_CMD -p egeria-quickstart \
         -f egeria-quickstart.yaml \
         -f egeria-quickstart-local.yaml \
-        up -d --no-build apache-web; then
-        echo "[quick-start-local] WARNING: apache-web did not start. Core services are running."
+        up -d ${COMPOSE_PULL_FLAGS} apache-web; then
+        echo "[quick-start-local] Pull-enabled apache-web up failed; retrying without pull and without build..."
+        if ! $COMPOSE_CMD -p egeria-quickstart \
+          -f egeria-quickstart.yaml \
+          -f egeria-quickstart-local.yaml \
+          up -d --no-build apache-web; then
+          echo "[quick-start-local] WARNING: apache-web did not start. Core services are running."
+        fi
       fi
     fi
   fi
 popd >/dev/null
+
+echo "[quick-start-local] Waiting for egeria-main to become healthy (Egeria JVM typically takes 2-5 min)..."
+_egeria_healthy=0
+for _i in $(seq 1 20); do
+  _status=$($CONTAINER_ENGINE inspect -f "$INSPECT_STATUS_FORMAT" quickstart-egeria-main 2>/dev/null || echo "not-found")
+  if [[ "$_status" == "healthy" ]]; then
+    echo "[quick-start-local] egeria-main is healthy."
+    _egeria_healthy=1
+    break
+  fi
+  echo "[quick-start-local]   attempt ${_i}/20 — current status: ${_status} (waiting 30s...)"
+  sleep 30
+done
+if [[ $_egeria_healthy -eq 0 ]]; then
+  echo "[quick-start-local] WARNING: egeria-main did not reach healthy state within ~10 minutes." >&2
+  echo "[quick-start-local]   Check logs: $CONTAINER_ENGINE logs quickstart-egeria-main" >&2
+fi
+
 echo "[quick-start-local] Done. Useful URLs:"
 HOST_FQDN_PRINT=$(grep '^HOST_FQDN=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "localhost")
 KAFKA_CLUSTER_ID_PRINT=$(grep '^KAFKA_CLUSTER_ID=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "42")
