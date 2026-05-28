@@ -181,6 +181,8 @@ from governance_definitions_handler import router as governance_router
 app.include_router(governance_router)
 from pyegeria_docs_handler import router as pyegeria_docs_router
 app.include_router(pyegeria_docs_router)
+from demo_feedback_handler import router as demo_feedback_router
+app.include_router(demo_feedback_router)
 
 # ── Auth (Egeria-backed — always active in freshstart) ─────────────────────────
 from demo_config import DEMO_MODE
