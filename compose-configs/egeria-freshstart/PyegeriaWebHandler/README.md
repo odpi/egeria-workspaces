@@ -84,12 +84,12 @@ The key under `mcpServers` is a client-side alias, not a protocol-mandated serve
       "env": {
         "EGERIA_USER": "erinoverview",
         "EGERIA_USER_PASSWORD": "secret",
-        "EGERIA_VIEW_SERVER": "qs-view-server",
-        "EGERIA_VIEW_SERVER_URL": "https://localhost:9443",
-        "EGERIA_ROOT_PATH": "/Users/<you>/localGit/egeria-v6/egeria-workspaces-fs/exchange-quickstart",
+        "EGERIA_VIEW_SERVER": "fs-view-server",
+        "EGERIA_VIEW_SERVER_URL": "https://localhost:8443",
+        "EGERIA_ROOT_PATH": "/Users/<you>/localGit/egeria-v6/egeria-workspaces-fs/exchange-freshstart",
         "EGERIA_INBOX_PATH": "loading-bay/dr-egeria-inbox",
         "EGERIA_OUTBOX_PATH": "distribution-hub/dr-egeria-outbox",
-        "PYEGERIA_LOG_DIRECTORY": "/Users/<you>/localGit/egeria-v6/egeria-workspaces-fs/compose-configs/egeria-quickstart/PyegeriaWebHandler/logs"
+        "PYEGERIA_LOG_DIRECTORY": "/Users/<you>/localGit/egeria-v6/egeria-workspaces-fs/compose-configs/egeria-freshstart/PyegeriaWebHandler/logs"
       }
     }
   }
@@ -273,13 +273,13 @@ The PyegeriaWebHandler includes a built-in **Egeria Explorer** — an interactiv
 Once the stack is running, open a browser and navigate to:
 
 ```
-http://localhost:8085/egeria-explorer
+http://localhost:8086/egeria-explorer
 ```
 
 The alias `/type-explorer` is also supported and serves the same application:
 
 ```
-http://localhost:8085/type-explorer
+http://localhost:8086/type-explorer
 ```
 
 Apache proxies both URLs through to the `pyegeria-web` container, which serves the single-page application and its backing API.
@@ -394,14 +394,98 @@ python3 build_request_body_catalog.py /path/to/egeria-platform-X.Y/assembly/opt/
 Or, if `HTTP_COLLECTIONS_PATH` is set in the environment, use the in-app endpoint:
 
 ```
-POST http://localhost:8085/api/request-bodies/rebuild
+POST http://localhost:8086/api/request-bodies/rebuild
 ```
 
 The OpenAPI endpoint data always comes from the live platform and is cached for one hour. Force a re-fetch with:
 
 ```
-POST http://localhost:8085/api/rest-apis/refresh
+POST http://localhost:8086/api/rest-apis/refresh
 ```
+
+#### Solution Architect
+
+Browses Egeria's solution architecture artefacts — blueprints and solution components.
+
+Two sub-navigations selectable from the left sidebar header:
+
+**Blueprints** — a list of all `SolutionBlueprint` elements. Selecting one loads its detail: display name, description, lifecycle status, qualified name, and the list of components it contains (each component linkable to the Components view). A **▦ Load Context Diagram** button is available for every blueprint.
+
+**Components** — all `SolutionComponent` elements, independently browsable. Detail panel shows component type, version, description, and a list of implementations (linked assets or deployed capabilities). Components link back to the blueprints they belong to. Context diagrams available for each component.
+
+#### Data Design
+
+Browses Egeria's data design artefacts: Data Specs, Data Structures, Data Fields, Data Grains, and Data Classes.
+
+Five sub-navigations in the left sidebar:
+
+- **Specs** — `DataSpec` (a Collection subtype) elements representing named data requirements.
+- **Structures** — `DataStructure` elements, groupings of Data Fields.
+- **Fields** — `DataField` elements, individual field definitions within a structure.
+- **Grains** — `DataGrain` elements, the unit of data in a Data Spec.
+- **Classes** — `DataClass` elements, reusable data type classifications.
+
+Each sub-view has a search filter and shows element cards. Selecting an element opens its detail panel with all properties plus linked related elements (e.g., the parent structure for a field, or the data class assigned to a field). Context diagrams are available for all element types.
+
+#### Perspectives
+
+Browses Egeria's governance perspectives — structured viewpoints used to reason about the metadata from specific stakeholder angles.
+
+Two sub-navigations:
+
+**Perspectives** — All `ActorProfile` elements whose type is "Perspective". Each perspective has a description and is linked to a set of Questions via `ScopedBy` relationships. The detail panel shows all linked Questions.
+
+**Questions** — All `GlossaryTerm` elements carrying the `Question` classification. Questions represent governance concerns or decision points. Detail shows the term's summary, description, and linked Perspectives. Uses `GlossaryManager.find_glossary_terms` with `include_only_classified_elements=["Question"]` and `graph_query_depth=2` to ensure classifications are included in the response.
+
+#### Dr. Egeria Commands
+
+Browsable reference for all Dr. Egeria markdown command templates, plus an in-browser execution panel.
+
+**Commands tab** — Three-column layout:
+
+- *Left* — command families grouped by level (Basic / Advanced). Click a family to see its commands in the middle column.
+- *Middle* — command list for the selected family, with title, description, and a "Create / Update" or "Link / Unlink" dual-verb badge where applicable.
+- *Right* — command detail: full parameter list with required/optional status, a pre-filled markdown template, and an Execute panel.
+
+**Execute panel** — Fills in the markdown template with values entered in the parameter fields. A **Verb** row (shown when a counterpart verb exists) lets you switch between e.g. Create and Update before running. A testing disclaimer reminds users this executes real Egeria writes. Click **Run** to POST to `/api/dr-egeria/execute` and see the result markdown inline.
+
+No Egeria connection is required to browse command templates. Executing a command does require a running Egeria instance and valid credentials in the connection context.
+
+#### Supply Chains
+
+Browses Egeria's Information Supply Chain (ISC) elements.
+
+Left sidebar lists all `InformationSupplyChain` elements with a search filter. Selecting one loads the detail panel: display name, description, scope, lifecycle status, and the full relationship graph including `InformationSupplyChainLink` segments. A **▦ Load Context Diagram** and a **▦ Load Full Graph** button are available.
+
+#### Governance Definitions
+
+Browses Egeria's governance definition hierarchy in a three-panel layout (all panels resizable).
+
+**Left — Definition Types.** Tree organised into three root groups, each expanded by default:
+
+- **Governance Drivers** (`GovernanceDriver`) — the forces that motivate governance: BusinessImperative, GovernanceStrategy, Regulation (→ RegulationArticle), Threat.
+- **Governance Policies** (`GovernancePolicy`) — the intent and direction of governance: GovernanceApproach, GovernanceObligation, GovernancePrinciple.
+- **Governance Controls** (`GovernanceControl`) — the mechanisms that implement governance:
+  - DataLens, DataProcessingPurpose, ExceptionType, GovernanceMetric
+  - GovernanceProcedure (→ Methodology), GovernanceResponsibility
+  - GovernanceRule (→ NamingStandardRule), NotificationType
+  - Requirement, ResearchQuestion
+  - SecurityAccessControl (→ GovernanceZone, ServiceAccessControl)
+  - TermsAndConditions (→ CertificationType, LicenseType, ServiceLevelObjective)
+
+Abstract types are shown in italic. Selecting any node (abstract or concrete) loads that type's definitions in the middle panel.
+
+**Middle — Definition List.** Definitions of the selected type, sorted alphabetically by display name. A search box filters by name (debounced 400 ms). When a parent/abstract type is selected, results include all subtypes; a small badge shows each item's concrete type. Selecting a definition loads its detail in the right panel.
+
+**Right — Detail.** Mirrors the SolutionComponent detail style:
+- Display name + typeName badge
+- GUID (monospace)
+- Description (Markdown-rendered)
+- Mermaid context diagram (if available)
+- Properties table: Qualified Name, Identifier, Scope, Usage, Domain, Importance, Status, Summary, Implications, Outcomes, Results
+- All relationship groups returned by the API, with **View →** buttons for related governance definitions enabling in-tab navigation.
+
+Uses `GovernanceOfficer.find_governance_definitions` with `metadata_element_type` kwarg for type filtering, and `get_governance_definition_by_guid` for detail.
 
 ---
 
@@ -426,8 +510,8 @@ All endpoints are accessible directly in addition to being used by the SPA. Conn
 Query params: `area` (int, 0–7), `url`, `server`, `user_id`, `user_pwd`.
 
 ```
-GET http://localhost:8085/api/types
-GET http://localhost:8085/api/types?area=4
+GET http://localhost:8086/api/types
+GET http://localhost:8086/api/types?area=4
 ```
 
 Response: `{ areaNames, entities, classifications, relationships }`. Each entity includes `guid`, `area`, `abstract`, `supertype`, `desc`, `wiki`, `deprecated`, `props` (own properties only).
@@ -502,6 +586,96 @@ Query params: `url` (platform URL, overrides env). Fetches `/v3/api-docs` from t
 
 Query param: `url` (clears only that platform's entry; clears all if omitted).
 
+#### Solution Architect
+
+**`GET /api/solution/blueprints`** — All solution blueprints.
+
+Query params: `url`, `server`, `user_id`, `user_pwd`.
+
+Response: `[{ guid, displayName, qualifiedName, description, lifecycleStatus, components: [{guid, displayName, qualifiedName, componentType}] }]`.
+
+**`GET /api/solution/blueprints/{guid}`** — Full detail for a single blueprint.
+
+**`GET /api/solution/components`** — All solution components.
+
+Response: `[{ guid, displayName, qualifiedName, componentType, description, mermaidGraph }]`.
+
+**`GET /api/solution/components/{guid}`** — Full detail for a single component.
+
+**`GET /api/solution/components/{guid}/implementations`** — Implementation elements linked to a component.
+
+#### Data Design
+
+**`GET /api/data-design/specs`** — All DataSpec elements (Collection subtypes).
+
+**`GET /api/data-design/structures`** — All DataStructure elements.
+
+**`GET /api/data-design/fields`** — All DataField elements.
+
+**`GET /api/data-design/grains`** — All DataGrain elements.
+
+**`GET /api/data-design/classes`** — All DataClass elements.
+
+All list endpoints accept `url`, `server`, `user_id`, `user_pwd` query params.
+
+**`GET /api/data-design/specs/{guid}`** — Full detail for a DataSpec.
+
+**`GET /api/data-design/structures/{guid}`** — Full detail for a DataStructure.
+
+**`GET /api/data-design/fields/{guid}`** — Full detail for a DataField.
+
+#### Perspectives
+
+**`GET /api/perspectives`** — All Perspective actor profiles.
+
+Response: `[{ guid, displayName, qualifiedName, description, typeName }]`.
+
+**`GET /api/perspectives/{perspective_guid}`** — Full detail for a single Perspective, including linked Questions.
+
+**`GET /api/questions`** — All GlossaryTerms with the `Question` classification.
+
+Query params: `start_from` (default 0), `page_size` (default 100), plus standard connection params.
+
+**`GET /api/questions/{question_guid}`** — Full detail for a single Question.
+
+#### Dr. Egeria Commands
+
+**`GET /api/dr-egeria/commands`** — All command templates grouped by level and family.
+
+No Egeria connection required. Response: `{ basic: { familyName: [{ title, description, params, template }] }, advanced: {...} }`.
+
+**`POST /api/dr-egeria/execute`** — Execute a command block.
+
+Body: `{ title, params, directive, url, server, user_id, user_pwd }`. Builds a markdown block and calls `dr_egeria_md.process_md_file`. Returns the output markdown.
+
+#### Information Supply Chains
+
+**`GET /api/isc`** — All information supply chain elements.
+
+Response: `[{ guid, displayName, qualifiedName, description, scope, lifecycleStatus, mermaidGraph, ... }]`.
+
+**`GET /api/isc/{guid}`** — Full detail for a single information supply chain.
+
+#### Governance Definitions
+
+**`GET /api/governance/tree`** — The governance definition type hierarchy.
+
+Response: `[{ typeName, label, isAbstract, children: [...] }]` with three root nodes (`GovernanceDriver`, `GovernancePolicy`, `GovernanceControl`) and their subtypes.
+
+**`GET /api/governance/definitions`** — Search or list governance definitions.
+
+Query params: `type_name` (default `GovernanceDefinition`), `search_string` (default `*`), `start_from`, `page_size` (default 200, max 500), plus standard connection params. When `type_name` is not the base type, it is forwarded as `metadata_element_type` to `GovernanceOfficer.find_governance_definitions`.
+
+Response: `{ definitions: [{ guid, typeName, displayName, qualifiedName, description, identifier, domainIdentifier, summary }], total, type_name }`.
+
+**`GET /api/governance/definitions/{guid}`** — Full detail for a single governance definition.
+
+Response: all list fields plus `scope`, `usage`, `importance`, `implications`, `outcomes`, `results`, `status`, `mermaidGraph`, and `relationships: { relName: [{ guid, typeName, displayName, qualifiedName, description }] }`.
+
+#### Demo mode
+
+See [demo-mode.md](demo-mode.md) for the complete auth and admin API reference.
+
 ---
 
 ### Implementation
@@ -520,6 +694,7 @@ For the extension history and remaining open work, see [Extending the TypeExplor
 | `valid_values_handler.py` | `/api/valid-values/properties` (pre-populates sidebar via `MetadataExpert.find_metadata_elements`); `/api/valid-values/lookup` (values for a name via `ReferenceDataManager.get_valid_metadata_values`) |
 | `report_specs_handler.py` | `/api/report-specs`; reads local pyegeria report spec objects; no Egeria connection |
 | `rest_api_handler.py` | `/api/request-bodies`, `/api/rest-apis`; catalog + live OpenAPI endpoint discovery |
+| `governance_definitions_handler.py` | `/api/governance/tree`, `/api/governance/definitions`, `/api/governance/definitions/{guid}`; uses `GovernanceOfficer` |
 | `pyegeria_handler.py` | FastAPI app entry point; mounts all routers |
 | `type-explorer.html` | Self-contained SPA (React 18 + Mermaid 11 via CDN, application JS inlined) |
 | `egeria_request_body_catalog.json` | Generated catalog of Layer 1 request body types; regenerate with `build_request_body_catalog.py` |

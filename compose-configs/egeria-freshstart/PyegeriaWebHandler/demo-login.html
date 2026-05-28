@@ -18,11 +18,14 @@
     .logo h1 { font-size: 1.35rem; font-weight: 700; color: var(--text); }
     .logo p { font-size: 0.82rem; color: var(--muted); margin-top: 0.25rem; }
     label { display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 0.35rem; margin-top: 1rem; }
-    input[type=text], input[type=password] {
-      width: 100%; padding: 0.6rem 0.75rem; background: var(--bg); border: 1px solid var(--border);
-      border-radius: 6px; color: var(--text); font-size: 0.9rem; outline: none; transition: border 0.15s;
-    }
-    input:focus { border-color: var(--accent); }
+    .pw-wrap { position: relative; display: flex; align-items: center; }
+    .pw-wrap input { flex: 1; padding: 0.6rem 5rem 0.6rem 0.75rem; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); font-size: 0.9rem; outline: none; transition: border 0.15s; width: 100%; }
+    .pw-wrap input:focus { border-color: var(--accent); }
+    .pw-actions { position: absolute; right: 0; display: flex; gap: 0; height: 100%; }
+    .pw-btn { background: none; border: none; border-left: 1px solid var(--border); color: var(--muted); cursor: pointer;
+      font-size: 0.75rem; padding: 0 0.5rem; transition: color 0.15s; display: flex; align-items: center; }
+    .pw-btn:hover { color: var(--text); }
     .btn {
       display: block; width: 100%; padding: 0.65rem; margin-top: 1.5rem;
       background: var(--accent); color: #fff; border: none; border-radius: 6px;
@@ -34,8 +37,12 @@
     .msg.error   { background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.35); color: var(--error); }
     .msg.success { background: rgba(52,211,153,0.12);  border: 1px solid rgba(52,211,153,0.35);  color: var(--success); }
     .msg.warn    { background: rgba(251,191,36,0.12);  border: 1px solid rgba(251,191,36,0.35);  color: var(--warn); }
-    #changeForm { display: none; }
-    #changeForm .note { font-size: 0.82rem; color: var(--warn); margin-bottom: 1rem; padding: 0.6rem 0.75rem; background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.3); border-radius: 6px; }
+    .change-note { font-size: 0.82rem; color: var(--warn); margin-bottom: 1rem; padding: 0.6rem 0.75rem;
+      background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.3); border-radius: 6px; display: none; }
+    .toggle-link { display: block; text-align: right; font-size: 0.78rem; color: var(--muted); margin-top: 0.4rem;
+      cursor: pointer; text-decoration: underline; background: none; border: none; padding: 0; }
+    .toggle-link:hover { color: var(--text); }
+    #newPwSection { display: none; }
   </style>
 </head>
 <body>
@@ -48,51 +55,86 @@
     <p>Sign in with your Egeria credentials</p>
   </div>
 
-  <!-- Sign-in form -->
-  <div id="loginForm">
-    <label for="userId">User ID</label>
-    <input type="text" id="userId" placeholder="your-user-id" autocomplete="username">
-    <label for="password">Password</label>
+  <label for="userId">User ID</label>
+  <input type="text" id="userId" placeholder="your-user-id" autocomplete="username"
+    style="width:100%;padding:0.6rem 0.75rem;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.9rem;outline:none;">
+
+  <label for="password">Password</label>
+  <div class="pw-wrap">
     <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
-    <button class="btn" id="loginBtn" onclick="doLogin()">Sign In</button>
-    <div class="msg" id="loginMsg"></div>
+    <div class="pw-actions">
+      <button type="button" class="pw-btn" onclick="toggleShow('password', this)" title="Show/hide">👁</button>
+      <button type="button" class="pw-btn" onclick="copyPw('password')" title="Copy">⎘</button>
+    </div>
+  </div>
+  <button type="button" class="toggle-link" id="toggleChangePw" onclick="showNewPwSection()">Set new password</button>
+
+  <div id="newPwSection">
+    <div class="change-note" id="changeNote">Your password must be changed before you can continue.</div>
+
+    <label for="newPassword">New password</label>
+    <div class="pw-wrap">
+      <input type="password" id="newPassword" placeholder="••••••••" autocomplete="new-password">
+      <div class="pw-actions">
+        <button type="button" class="pw-btn" onclick="toggleShow('newPassword', this)" title="Show/hide">👁</button>
+        <button type="button" class="pw-btn" onclick="copyPw('newPassword')" title="Copy">⎘</button>
+      </div>
+    </div>
+
+    <label for="confirmPassword">Confirm new password</label>
+    <div class="pw-wrap">
+      <input type="password" id="confirmPassword" placeholder="••••••••" autocomplete="new-password">
+      <div class="pw-actions">
+        <button type="button" class="pw-btn" onclick="toggleShow('confirmPassword', this)" title="Show/hide">👁</button>
+        <button type="button" class="pw-btn" onclick="copyPw('confirmPassword')" title="Copy">⎘</button>
+      </div>
+    </div>
   </div>
 
-  <!-- Forced password-change form (shown when CREDENTIALS_EXPIRED) -->
-  <div id="changeForm">
-    <div class="note">Your password must be changed before you can continue.</div>
-    <label for="oldPassword">Current password</label>
-    <input type="password" id="oldPassword" placeholder="••••••••" autocomplete="current-password">
-    <label for="newPassword">New password</label>
-    <input type="password" id="newPassword" placeholder="••••••••" autocomplete="new-password">
-    <label for="confirmPassword">Confirm new password</label>
-    <input type="password" id="confirmPassword" placeholder="••••••••" autocomplete="new-password">
-    <button class="btn" id="changeBtn" onclick="doChangePassword()">Set New Password</button>
-    <div class="msg" id="changeMsg"></div>
-  </div>
+  <button class="btn" id="loginBtn" onclick="doLogin()">Sign In</button>
+  <div class="msg" id="loginMsg"></div>
 </div>
 
 <script>
-  // Pre-fill org name
   fetch('/api/platform/org-name').then(r => r.json()).then(d => {
     if (d.name) document.getElementById('orgTitle').textContent = 'Welcome — ' + d.name;
   }).catch(() => {});
 
-  // Redirect if already authenticated
   fetch('/api/auth/me').then(r => r.json()).then(data => {
     if (data.authenticated) window.location.href = '/portal';
   }).catch(() => {});
 
   document.addEventListener('keydown', function(e) {
-    if (e.key !== 'Enter') return;
-    if (document.getElementById('changeForm').style.display === 'block') doChangePassword();
-    else doLogin();
+    if (e.key === 'Enter') doLogin();
   });
 
-  var _pendingUserId = '';
+  function showNewPwSection(forced) {
+    var sec = document.getElementById('newPwSection');
+    sec.style.display = 'block';
+    document.getElementById('toggleChangePw').style.display = 'none';
+    if (forced) {
+      document.getElementById('changeNote').style.display = 'block';
+    }
+    document.getElementById('newPassword').focus();
+  }
 
-  function showMsg(id, type, text) {
-    var el = document.getElementById(id);
+  function toggleShow(fieldId, btn) {
+    var inp = document.getElementById(fieldId);
+    if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+    else { inp.type = 'password'; btn.textContent = '👁'; }
+  }
+
+  function copyPw(fieldId) {
+    var val = document.getElementById(fieldId).value;
+    if (!val) return;
+    navigator.clipboard.writeText(val).catch(function() {
+      var ta = document.createElement('textarea');
+      ta.value = val; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    });
+  }
+
+  function showMsg(type, text) {
+    var el = document.getElementById('loginMsg');
     el.className = 'msg ' + type;
     el.textContent = text;
     el.style.display = 'block';
@@ -101,7 +143,19 @@
   function doLogin() {
     var userId   = document.getElementById('userId').value.trim();
     var password = document.getElementById('password').value;
-    if (!userId || !password) { showMsg('loginMsg', 'error', 'Please enter your user ID and password.'); return; }
+    var newPw    = document.getElementById('newPassword').value;
+    var confPw   = document.getElementById('confirmPassword').value;
+    var changingPw = document.getElementById('newPwSection').style.display === 'block' && newPw;
+
+    if (!userId || !password) { showMsg('error', 'Please enter your user ID and password.'); return; }
+
+    if (changingPw) {
+      if (newPw !== confPw) { showMsg('error', 'New passwords do not match.'); return; }
+      if (newPw.length < 8) { showMsg('error', 'New password must be at least 8 characters.'); return; }
+      doChangePassword(userId, password, newPw);
+      return;
+    }
+
     var btn = document.getElementById('loginBtn');
     btn.disabled = true; btn.textContent = 'Signing in…';
     fetch('/api/auth/login', {
@@ -115,46 +169,37 @@
       if (res.status === 200) {
         window.location.href = '/portal';
       } else if (res.status === 403 && res.data.credentials_expired) {
-        // Slide to password-change form
-        _pendingUserId = res.data.user_id || userId;
-        document.getElementById('loginForm').style.display = 'none';
-        document.getElementById('changeForm').style.display = 'block';
-        document.getElementById('oldPassword').focus();
+        showNewPwSection(true);
+        showMsg('warn', 'Enter a new password below to continue.');
       } else {
-        showMsg('loginMsg', 'error', res.data.detail || 'Invalid user ID or password.');
+        showMsg('error', res.data.detail || 'Invalid user ID or password.');
       }
     }).catch(function() {
       btn.disabled = false; btn.textContent = 'Sign In';
-      showMsg('loginMsg', 'error', 'Network error — please try again.');
+      showMsg('error', 'Network error — please try again.');
     });
   }
 
-  function doChangePassword() {
-    var oldPw  = document.getElementById('oldPassword').value;
-    var newPw  = document.getElementById('newPassword').value;
-    var confPw = document.getElementById('confirmPassword').value;
-    if (!oldPw || !newPw || !confPw) { showMsg('changeMsg', 'error', 'Please fill in all fields.'); return; }
-    if (newPw !== confPw) { showMsg('changeMsg', 'error', 'New passwords do not match.'); return; }
-    if (newPw.length < 8) { showMsg('changeMsg', 'error', 'Password must be at least 8 characters.'); return; }
-    var btn = document.getElementById('changeBtn');
+  function doChangePassword(userId, password, newPw) {
+    var btn = document.getElementById('loginBtn');
     btn.disabled = true; btn.textContent = 'Saving…';
     fetch('/api/auth/change-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: _pendingUserId, password: oldPw, new_password: newPw }),
+      body: JSON.stringify({ user_id: userId, password: password, new_password: newPw }),
     }).then(function(r) {
       return r.json().then(function(d) { return { ok: r.ok, data: d }; });
     }).then(function(res) {
-      btn.disabled = false; btn.textContent = 'Set New Password';
+      btn.disabled = false; btn.textContent = 'Sign In';
       if (res.ok) {
-        showMsg('changeMsg', 'success', 'Password changed. Redirecting…');
+        showMsg('success', 'Password changed. Redirecting…');
         setTimeout(function() { window.location.href = '/portal'; }, 800);
       } else {
-        showMsg('changeMsg', 'error', res.data.detail || 'Password change failed.');
+        showMsg('error', res.data.detail || 'Password change failed.');
       }
     }).catch(function() {
-      btn.disabled = false; btn.textContent = 'Set New Password';
-      showMsg('changeMsg', 'error', 'Network error — please try again.');
+      btn.disabled = false; btn.textContent = 'Sign In';
+      showMsg('error', 'Network error — please try again.');
     });
   }
 </script>

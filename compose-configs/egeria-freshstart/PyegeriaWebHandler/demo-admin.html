@@ -349,18 +349,24 @@
     document.getElementById('mUserId').value = u.userId || '';
     document.getElementById('mUserId').disabled = true;
     document.getElementById('mUserName').value = u.userName || '';
-    document.getElementById('mGivenName').value = u.givenName || '';
-    document.getElementById('mSurname').value = u.surname || '';
     document.getElementById('mAccountType').value = u.userAccountType || 'EMPLOYEE';
-    var other = u.otherProperties || {};
-    document.getElementById('mDefaultZones').value = (other.defaultZones || '');
-    document.getElementById('mPublishZones').value = (other.publishZones || '');
-    setSelected('mRoles',  u.securityRoles  || []);
-    setSelected('mGroups', u.securityGroups || []);
     document.getElementById('passwordRow').style.display = 'none';
     document.getElementById('modalTitle').textContent = 'Edit User — ' + (u.userId || '');
     document.getElementById('modalSaveBtn').textContent = 'Save Changes';
     document.getElementById('userModal').classList.add('open');
+    // Fetch full details (roles, groups, zones) from Egeria
+    fetch('/api/admin/egeria-users/' + encodeURIComponent(u.userId))
+      .then(function(r) { return r.json(); })
+      .then(function(full) {
+        document.getElementById('mUserName').value = full.userName || u.userName || '';
+        document.getElementById('mAccountType').value = full.userAccountType || u.userAccountType || 'EMPLOYEE';
+        var other = full.otherProperties || {};
+        document.getElementById('mDefaultZones').value = other.defaultZones || '';
+        document.getElementById('mPublishZones').value = other.publishZones || '';
+        setSelected('mRoles',  full.securityRoles  || []);
+        setSelected('mGroups', full.securityGroups || []);
+      })
+      .catch(function() { showModalMsg('warn', 'Could not load full user details from Egeria'); });
   }
 
   function closeModal() {

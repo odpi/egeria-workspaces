@@ -286,18 +286,37 @@ def get_node(
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
 ):
-    """Return detail for a single digital product or family node."""
+    """Return detail for a single digital product, family, or asset node.
+
+    Tries CollectionManager first (covers all Collection subtypes). If the node is
+    a non-collection asset (e.g. TabularDataSet), falls back to AssetMaker.get_asset_by_guid.
+    """
+    url_val  = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    svr_val  = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    uid      = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
+    pwd      = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+
     try:
-        mgr = _get_manager(url, server, user_id, user_pwd)
+        mgr = _get_manager(url_val, svr_val, uid, pwd)
     except Exception as exc:
         logger.exception("Failed to create CollectionManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
+    raw = None
     try:
         raw = mgr.get_collection_by_guid(node_guid, output_format="JSON")
-    except Exception as exc:
-        logger.exception("get_collection_by_guid failed")
-        raise HTTPException(status_code=500, detail=f"Node retrieval failed: {exc}")
+    except Exception:
+        pass  # not a collection — try asset fallback below
+
+    if not raw:
+        # Non-collection asset (e.g. TabularDataSet) — fetch via AssetMaker
+        try:
+            from pyegeria import AssetMaker
+            am = AssetMaker(view_server=svr_val, platform_url=url_val, user_id=uid, user_pwd=pwd)
+            am.create_egeria_bearer_token()
+            raw = am.get_asset_by_guid(node_guid, output_format="JSON")
+        except Exception as exc:
+            logger.exception("AssetMaker.get_asset_by_guid failed")
 
     if not raw:
         raise HTTPException(status_code=404, detail=f"Node {node_guid!r} not found")
@@ -361,7 +380,26 @@ def get_tabular_data(
         return JSONResponse({"columns": [], "rows": [], "has_more": False,
                              "start_from_row": start_from_row, "row_count": 0})
 
-    # Normalise: DataEngineer may return a dict with columns/rows, or a list of dicts
+    # Egeria returns { columnDescriptions: [{columnName, ...}], dataRecords: {"0":[...], "1":[...]} }
+    # Normalise to columns (list of names) + rows (list of value-lists).
+    if isinstance(raw, dict):
+        col_descs = raw.get("columnDescriptions") or []
+        if col_descs:
+            columns = [c.get("columnName", "") for c in col_descs]
+        else:
+            columns = raw.get("columns") or raw.get("columnNames") or raw.get("header") or []
+
+        data_records = raw.get("dataRecords")
+        if isinstance(data_records, dict) and data_records:
+            sorted_keys = sorted(data_records.keys(), key=lambda x: int(x) if x.isdigit() else 0)
+            rows = [data_records[k] for k in sorted_keys]
+        else:
+            rows = raw.get("rows") or raw.get("data") or raw.get("rowData") or []
+
+        has_more = len(rows) >= max_row_count
+        return JSONResponse({"columns": columns, "rows": rows, "has_more": has_more,
+                             "start_from_row": start_from_row, "row_count": len(rows)})
+
     if isinstance(raw, list):
         if not raw:
             return JSONResponse({"columns": [], "rows": [], "has_more": False,
@@ -371,11 +409,6 @@ def get_tabular_data(
         has_more = len(rows) >= max_row_count
         return JSONResponse({"columns": columns, "rows": rows, "has_more": has_more,
                              "start_from_row": start_from_row, "row_count": len(rows)})
-    if isinstance(raw, dict):
-        columns  = raw.get("columns") or (list(raw.get("schema", {}).keys()) if raw.get("schema") else [])
-        rows     = raw.get("rows") or raw.get("data") or []
-        has_more = len(rows) >= max_row_count
-        return JSONResponse({"columns": columns, "rows": rows, "has_more": has_more,
-                             "start_from_row": start_from_row, "row_count": len(rows), "raw": raw})
+
     return JSONResponse({"columns": [], "rows": [], "has_more": False,
-                         "start_from_row": start_from_row, "row_count": 0, "raw": raw})
+                         "start_from_row": start_from_row, "row_count": 0})
