@@ -6,8 +6,8 @@ Introspects the installed pyegeria package and serves API documentation.
 GET /api/pyegeria-docs → {
     version: str,
     classes: [{
-        name, module, summary, doc,
-        methods: [{ name, signature, summary, doc }]
+        name, module, domain, abstract, parent, summary, doc,
+        methods: [{ name, signature, summary, doc, defined_in }]
     }]
 }
 
@@ -25,6 +25,26 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 router = APIRouter()
+
+# ── domain mapping ────────────────────────────────────────────────────────────
+
+_DOMAIN_LABELS: dict[str, str] = {
+    'omvs':          'OMVS',
+    'utils':         'Utilities',
+    'utilities':     'Utilities',
+    'core':          'Core',
+    'client':        'Core',
+    'commands':      'Commands',
+    'md_processing': 'Markdown Processing',
+}
+
+
+def _domain(module: str) -> str:
+    parts = module.split('.')
+    if len(parts) <= 1:
+        return 'Core'
+    seg = parts[1]
+    return _DOMAIN_LABELS.get(seg, seg.replace('_', ' ').title())
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -63,6 +83,14 @@ def _is_useful(name: str, obj: Any) -> bool:
     return len(public) > 0
 
 
+def _defined_in(cls, method_name: str) -> str:
+    """Return the name of the class in the MRO where method_name is defined."""
+    for klass in cls.__mro__:
+        if method_name in klass.__dict__:
+            return klass.__name__
+    return cls.__name__
+
+
 # ── introspection (cached after first call) ───────────────────────────────────
 
 @functools.lru_cache(maxsize=1)
@@ -77,6 +105,8 @@ def _build_docs() -> dict:
         seen.add(name)
 
         cls_doc = inspect.getdoc(obj) or ""
+        parent = obj.__bases__[0].__name__ if obj.__bases__ else None
+
         methods = []
         for mname, member in sorted(
             inspect.getmembers(obj, predicate=inspect.isfunction)
@@ -85,19 +115,23 @@ def _build_docs() -> dict:
                 continue
             doc = inspect.getdoc(member) or ""
             methods.append({
-                "name": mname,
-                "signature": _clean_sig(member),
-                "summary": _first_sentence(doc),
-                "doc": doc,
+                "name":       mname,
+                "signature":  _clean_sig(member),
+                "summary":    _first_sentence(doc),
+                "doc":        doc,
+                "defined_in": _defined_in(obj, mname),
             })
 
         if methods:
             classes.append({
-                "name": name,
-                "module": obj.__module__,
-                "summary": _first_sentence(cls_doc),
-                "doc": cls_doc,
-                "methods": methods,
+                "name":     name,
+                "module":   obj.__module__,
+                "domain":   _domain(obj.__module__),
+                "abstract": inspect.isabstract(obj),
+                "parent":   parent,
+                "summary":  _first_sentence(cls_doc),
+                "doc":      cls_doc,
+                "methods":  methods,
             })
 
     # Top-level pyegeria namespace first (most user-visible)
