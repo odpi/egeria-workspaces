@@ -6,7 +6,7 @@ Introspects the installed pyegeria package and serves API documentation.
 GET /api/pyegeria-docs → {
     version: str,
     classes: [{
-        name, module, domain, abstract, parent, summary, doc,
+        name, module, domain, abstract, parent, mro, summary, doc,
         methods: [{ name, signature, summary, doc, defined_in }]
     }]
 }
@@ -14,6 +14,7 @@ GET /api/pyegeria-docs → {
 No Egeria connection required. Result is cached in memory after first call.
 """
 
+import abc as _abc
 import functools
 import importlib
 import inspect
@@ -71,6 +72,11 @@ def _first_sentence(text: str) -> str:
     return ""
 
 
+def _is_abstract(cls) -> bool:
+    """True for classes with unimplemented abstract methods OR direct ABC subclasses."""
+    return inspect.isabstract(cls) or _abc.ABC in cls.__bases__
+
+
 def _is_useful(name: str, obj: Any) -> bool:
     if not inspect.isclass(obj):
         return False
@@ -89,6 +95,15 @@ def _defined_in(cls, method_name: str) -> str:
         if method_name in klass.__dict__:
             return klass.__name__
     return cls.__name__
+
+
+def _mro_chain(cls) -> list[str]:
+    """Return pyegeria ancestor class names in MRO order, excluding object/ABC."""
+    return [
+        k.__name__ for k in cls.__mro__[1:]
+        if getattr(k, '__module__', '').startswith('pyegeria')
+        and k.__name__ not in ('object', 'ABC')
+    ]
 
 
 # ── introspection (cached after first call) ───────────────────────────────────
@@ -127,8 +142,9 @@ def _build_docs() -> dict:
                 "name":     name,
                 "module":   obj.__module__,
                 "domain":   _domain(obj.__module__),
-                "abstract": inspect.isabstract(obj),
+                "abstract": _is_abstract(obj),
                 "parent":   parent,
+                "mro":      _mro_chain(obj),
                 "summary":  _first_sentence(cls_doc),
                 "doc":      cls_doc,
                 "methods":  methods,

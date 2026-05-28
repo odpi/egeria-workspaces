@@ -3761,6 +3761,15 @@ const SECTION_LABELS = {
 
 // ── pyegeria API Documentation ────────────────────────────────────────────────
 
+const _DOC_SECTIONS = new Set([
+  'Parameters', 'Params', 'Arguments', 'Args',
+  'Returns', 'Return', 'Yields', 'Yield',
+  'Raises', 'Errors', 'Throws',
+  'Notes', 'Note', 'References', 'See Also',
+  'Examples', 'Example', 'Attributes', 'Methods',
+  'Warnings', 'Warning', 'Other Parameters', 'Todo', 'Deprecated',
+]);
+
 function _parseNumpyDoc(doc) {
   if (!doc) return { summary: '', sections: [] };
   const lines = doc.split('\n');
@@ -3771,11 +3780,16 @@ function _parseNumpyDoc(doc) {
   let inSummary = true;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (i + 1 < lines.length && /^-{3,}$/.test(lines[i + 1].trim())) {
+    const trimmed = line.trim();
+    const next = i + 1 < lines.length ? lines[i + 1].trim() : '';
+    const isNumpy = next.length >= 3 && /^[-~=]{3,}$/.test(next);
+    const noColon = trimmed.endsWith(':') ? trimmed.slice(0, -1) : '';
+    const isGoogle = !isNumpy && noColon.length > 0 && _DOC_SECTIONS.has(noColon);
+    if (isNumpy || isGoogle) {
       if (currentSection !== null) sections.push({ name: currentSection, content: bodyLines.join('\n').trimEnd() });
-      currentSection = line.trim();
+      currentSection = noColon || trimmed;
       bodyLines = [];
-      i++;
+      if (isNumpy) i++;
       inSummary = false;
     } else if (inSummary) {
       summary += (summary ? '\n' : '') + line;
@@ -3804,8 +3818,7 @@ function PyegeriaDocsView() {
       .then(function(r) { return r.json(); })
       .then(function(d) {
         setData(d);
-        const domains = new Set(d.classes.map(function(c) { return c.domain; }));
-        setExpandedDomains(domains);
+        // Start all domains collapsed
         const first = d.classes.find(function(c) { return !c.abstract; }) || d.classes[0];
         if (first) setSelectedClass(first);
       })
@@ -3829,6 +3842,13 @@ function PyegeriaDocsView() {
     Object.keys(map).sort().forEach(function(d) { domainGroups.push({ domain: d, classes: map[d] }); });
   }
 
+  const hasParentMethods = selectedClass && selectedClass.methods.some(function(m) {
+    return m.defined_in !== selectedClass.name && m.defined_in === selectedClass.parent;
+  });
+  const hasAnyInherited = selectedClass && selectedClass.methods.some(function(m) {
+    return m.defined_in !== selectedClass.name;
+  });
+
   const filteredMethods = !selectedClass ? [] : selectedClass.methods.filter(function(m) {
     const modeOk = methodMode === 'all'
       || (methodMode === 'own'    && m.defined_in === selectedClass.name)
@@ -3840,6 +3860,15 @@ function PyegeriaDocsView() {
   });
 
   function selectClass(c) { setSelectedClass(c); setExpandedMethods(new Set()); setMethodSearch(''); }
+
+  function toggleAbstract() {
+    const next = !showAbstract;
+    setShowAbstract(next);
+    if (!next && selectedClass && selectedClass.abstract) {
+      const first = data ? data.classes.find(function(c) { return !c.abstract; }) : null;
+      if (first) selectClass(first);
+    }
+  }
 
   function toggleDomain(d) {
     setExpandedDomains(function(prev) {
@@ -3858,9 +3887,11 @@ function PyegeriaDocsView() {
   }
 
   const _badge = { fontSize: 10, color: 'var(--dim)', border: '1px solid var(--border)', borderRadius: 3, padding: '1px 4px', flexShrink: 0 };
-  const _modeBtnStyle = function(mode) {
-    return { padding: '3px 9px', fontSize: 11, borderRadius: 4, border: '1px solid var(--border)', cursor: 'pointer',
-      background: methodMode === mode ? 'var(--accent)' : 'transparent', color: methodMode === mode ? '#fff' : 'var(--muted)' };
+  const _modeBtnStyle = function(mode, enabled) {
+    const active = methodMode === mode;
+    return { padding: '3px 9px', fontSize: 11, borderRadius: 4, border: '1px solid var(--border)',
+      cursor: enabled ? 'pointer' : 'default', opacity: enabled ? 1 : 0.35,
+      background: active ? 'var(--accent)' : 'transparent', color: active ? '#fff' : 'var(--muted)' };
   };
   const _toggleStyle = function(active) {
     return { padding: '3px 8px', fontSize: 11, borderRadius: 4, border: '1px solid var(--border)', cursor: 'pointer',
@@ -3889,17 +3920,36 @@ function PyegeriaDocsView() {
         return React.createElement("div", { key: g.domain },
           React.createElement("div", {
             onClick: function() { toggleDomain(g.domain); },
-            style: { padding: '5px 12px', cursor: 'pointer', background: 'var(--panel)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6, userSelect: 'none' }
+            style: { padding: '6px 10px 6px 10px', cursor: 'pointer', background: 'var(--panel)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, userSelect: 'none' }
           },
-            React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)', flexShrink: 0 } }, open ? '▾' : '▸'),
+            React.createElement("span", { style: { fontSize: 14, color: 'var(--text)', flexShrink: 0, lineHeight: 1 } }, open ? '▼' : '▶'),
             React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: 'var(--text)', flex: 1 } }, g.domain),
-            React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)' } }, g.classes.length)
+            React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)', background: 'var(--bg)', padding: '1px 5px', borderRadius: 3, border: '1px solid var(--border)' } }, g.classes.length)
           ),
           open && g.classes.map(function(c) { return renderClassRow(c); })
         );
       });
     }
     return filteredClasses.map(function(c) { return renderClassRow(c); });
+  }
+
+  function renderMro() {
+    const mro = selectedClass.mro;
+    if (!mro || mro.length === 0) return null;
+    const items = [];
+    mro.forEach(function(name, idx) {
+      const target = data.classes.find(function(c) { return c.name === name; });
+      items.push(target
+        ? React.createElement("span", { key: name, onClick: function() { selectClass(target); },
+            style: { cursor: 'pointer', color: 'var(--accent)', fontFamily: 'ui-monospace,monospace', textDecoration: 'underline', textDecorationStyle: 'dotted' } }, name)
+        : React.createElement("span", { key: name, style: { color: 'var(--dim)', fontFamily: 'ui-monospace,monospace' } }, name)
+      );
+      if (idx < mro.length - 1) items.push(React.createElement("span", { key: name + '_sep', style: { color: 'var(--dim)', margin: '0 3px' } }, '→'));
+    });
+    return React.createElement("div", { style: { fontSize: 11, color: 'var(--muted)', marginTop: 4, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 2 } },
+      React.createElement("span", { style: { color: 'var(--dim)', marginRight: 2 } }, '↑'),
+      items
+    );
   }
 
   if (error) return React.createElement("div", { className: "body", style: { alignItems: 'center', justifyContent: 'center' } },
@@ -3925,7 +3975,7 @@ function PyegeriaDocsView() {
           React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)' } }, filteredClasses.length + ' — v' + data.version),
           React.createElement("div", { style: { display: 'flex', gap: 4 } },
             React.createElement("button", { onClick: function() { setGroupBy(function(g) { return g === 'domain' ? 'flat' : 'domain'; }); }, style: _toggleStyle(groupBy === 'domain'), title: 'Group by functional domain' }, groupBy === 'domain' ? 'Domain' : 'Flat'),
-            React.createElement("button", { onClick: function() { setShowAbstract(function(v) { return !v; }); }, style: _toggleStyle(showAbstract), title: 'Include abstract base classes' }, 'Abstract')
+            React.createElement("button", { onClick: toggleAbstract, style: _toggleStyle(showAbstract), title: 'Include abstract base classes' }, 'Abstract')
           )
         )
       ),
@@ -3940,14 +3990,14 @@ function PyegeriaDocsView() {
               React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)' } }, selectedClass.domain)
             ),
             React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', marginTop: 2 } }, selectedClass.module),
-            selectedClass.parent && selectedClass.parent !== 'object' && React.createElement("div", { style: { fontSize: 11, color: 'var(--muted)', marginTop: 2 } }, '↑ ' + selectedClass.parent),
+            renderMro(),
             selectedClass.doc && React.createElement("pre", { style: { marginTop: 10, fontSize: 12, color: 'var(--muted)', fontFamily: 'ui-monospace,monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 120, overflowY: 'auto', background: 'var(--bg)', padding: '8px 10px', borderRadius: 5, border: '1px solid var(--border)' } }, selectedClass.doc)
           ),
           React.createElement("div", { style: { padding: '6px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
             React.createElement("div", { style: { display: 'flex', gap: 3 } },
-              React.createElement("button", { onClick: function() { setMethodMode('own');    }, style: _modeBtnStyle('own')    }, 'Own'),
-              React.createElement("button", { onClick: function() { setMethodMode('parent'); }, style: _modeBtnStyle('parent') }, '+Parent'),
-              React.createElement("button", { onClick: function() { setMethodMode('all');    }, style: _modeBtnStyle('all')    }, 'All')
+              React.createElement("button", { onClick: function() { setMethodMode('own'); },    style: _modeBtnStyle('own',    true)          }, 'Own'),
+              React.createElement("button", { onClick: function() { if (hasParentMethods) setMethodMode('parent'); }, style: _modeBtnStyle('parent', !!hasParentMethods) }, '+Parent'),
+              React.createElement("button", { onClick: function() { if (hasAnyInherited)  setMethodMode('all');    }, style: _modeBtnStyle('all',    !!hasAnyInherited)  }, 'All')
             ),
             React.createElement("input", {
               type: 'text', placeholder: 'Search methods…', value: methodSearch,
