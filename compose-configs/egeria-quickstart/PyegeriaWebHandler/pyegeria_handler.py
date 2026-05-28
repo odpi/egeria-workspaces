@@ -201,6 +201,14 @@ from dr_egeria_commands_handler import router as dr_egeria_commands_router
 app.include_router(dr_egeria_commands_router)
 from isc_handler import router as isc_router
 app.include_router(isc_router)
+from governance_definitions_handler import router as governance_router
+app.include_router(governance_router)
+from pyegeria_docs_handler import router as pyegeria_docs_router
+app.include_router(pyegeria_docs_router)
+from demo_feedback_handler import router as demo_feedback_router
+app.include_router(demo_feedback_router)
+from egeria_feedback_handler import router as egeria_feedback_router
+app.include_router(egeria_feedback_router)
 
 # ── Demo mode ──────────────────────────────────────────────────────────────────
 
@@ -254,12 +262,20 @@ async def platform_portal_config():
         obsidian_url = raw
     advisor_running = False
     if EGERIA_ADVISOR_URL:
-        try:
-            async with httpx.AsyncClient(verify=False, timeout=1.5) as client:
-                await client.head(EGERIA_ADVISOR_URL)
-            advisor_running = True
-        except Exception:
-            advisor_running = False
+        check_urls = [EGERIA_ADVISOR_URL]
+        # Inside Docker, localhost resolves to the container, not the host.
+        # Add host.docker.internal as a fallback so the health check reaches
+        # a service running on the host machine.
+        if "localhost" in EGERIA_ADVISOR_URL:
+            check_urls.append(EGERIA_ADVISOR_URL.replace("localhost", "host.docker.internal"))
+        for check_url in check_urls:
+            try:
+                async with httpx.AsyncClient(verify=False, timeout=1.5) as client:
+                    await client.head(check_url)
+                advisor_running = True
+                break
+            except Exception:
+                continue
     return {
         "obsidian_vault_url":  obsidian_url,
         "obsidian_github_url": OBSIDIAN_GITHUB_URL,
