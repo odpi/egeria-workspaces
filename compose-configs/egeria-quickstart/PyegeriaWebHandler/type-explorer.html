@@ -3779,7 +3779,166 @@ const SECTION_LABELS = {
   'report-specs':      'Report Specifications',
   'digital-products':  'Digital Products',
   'dr-egeria':         'Dr. Egeria',
+  'python-api':        'Python API',
 };
+
+// ── pyegeria API Documentation ────────────────────────────────────────────────
+
+function _parseNumpyDoc(doc) {
+  if (!doc) return { summary: '', sections: [] };
+  const lines = doc.split('\n');
+  const sections = [];
+  let summary = '';
+  let currentSection = null;
+  let bodyLines = [];
+  let inSummary = true;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (i + 1 < lines.length && /^-{3,}$/.test(lines[i + 1].trim())) {
+      if (currentSection !== null) sections.push({ name: currentSection, content: bodyLines.join('\n').trimEnd() });
+      currentSection = line.trim();
+      bodyLines = [];
+      i++;
+      inSummary = false;
+    } else if (inSummary) {
+      summary += (summary ? '\n' : '') + line;
+    } else if (currentSection !== null) {
+      bodyLines.push(line);
+    }
+  }
+  if (currentSection !== null) sections.push({ name: currentSection, content: bodyLines.join('\n').trimEnd() });
+  return { summary: summary.trim(), sections };
+}
+
+function PyegeriaDocsView() {
+  const [data, setData]                   = useState(null);
+  const [error, setError]                 = useState(null);
+  const [search, setSearch]               = useState('');
+  const [selectedClass, setSelectedClass] = useState(null);
+  const [expandedMethods, setExpandedMethods] = useState(new Set());
+  const [methodSearch, setMethodSearch]   = useState('');
+
+  useEffect(function() {
+    fetch('/api/pyegeria-docs')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        setData(d);
+        if (d.classes && d.classes.length > 0) setSelectedClass(d.classes[0]);
+      })
+      .catch(function(e) { setError(String(e)); });
+  }, []);
+
+  const filteredClasses = data ? data.classes.filter(function(c) {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return c.name.toLowerCase().includes(q) || c.summary.toLowerCase().includes(q);
+  }) : [];
+
+  const filteredMethods = selectedClass ? selectedClass.methods.filter(function(m) {
+    if (!methodSearch) return true;
+    const q = methodSearch.toLowerCase();
+    return m.name.toLowerCase().includes(q) || m.summary.toLowerCase().includes(q);
+  }) : [];
+
+  function toggleMethod(name) {
+    setExpandedMethods(function(prev) {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  }
+
+  if (error) return React.createElement("div", { className: "body", style: { alignItems: 'center', justifyContent: 'center' } },
+    React.createElement("div", { className: "center" },
+      React.createElement("span", { style: { color: 'var(--err)', fontSize: 14 } }, "Failed to load pyegeria docs: " + error)
+    )
+  );
+
+  if (!data) return React.createElement("div", { className: "body", style: { alignItems: 'center', justifyContent: 'center' } },
+    React.createElement("div", { className: "center" },
+      React.createElement("span", { style: { color: 'var(--muted)' } }, "Loading pyegeria API documentation…")
+    )
+  );
+
+  return React.createElement("div", { className: "body" },
+    React.createElement("div", { style: { width: 260, minWidth: 180, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 } },
+      React.createElement("div", { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)' } },
+        React.createElement("input", {
+          type: 'text', placeholder: 'Search classes…', value: search,
+          onChange: function(e) { setSearch(e.target.value); setSelectedClass(null); setMethodSearch(''); setExpandedMethods(new Set()); },
+          style: { width: '100%', padding: '5px 8px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--text)', fontSize: 12 }
+        }),
+        React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', marginTop: 4 } },
+          filteredClasses.length + ' classes — pyegeria ' + data.version
+        )
+      ),
+      React.createElement("div", { style: { flex: 1, overflowY: 'auto' } },
+        filteredClasses.map(function(c) {
+          const isSelected = selectedClass && selectedClass.name === c.name;
+          return React.createElement("div", {
+            key: c.name,
+            onClick: function() { setSelectedClass(c); setExpandedMethods(new Set()); setMethodSearch(''); },
+            style: { padding: '7px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)', background: isSelected ? 'var(--sel)' : 'transparent', color: isSelected ? 'var(--accent)' : 'var(--text)' }
+          },
+            React.createElement("div", { style: { fontSize: 13, fontWeight: 600, fontFamily: 'ui-monospace,monospace' } }, c.name),
+            c.summary && React.createElement("div", { style: { fontSize: 11, color: 'var(--muted)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, c.summary)
+          );
+        })
+      )
+    ),
+    selectedClass
+      ? React.createElement("div", { style: { flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' } },
+          React.createElement("div", { style: { padding: '12px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
+            React.createElement("div", { style: { fontSize: 16, fontWeight: 700, fontFamily: 'ui-monospace,monospace', color: 'var(--accent)' } }, selectedClass.name),
+            React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', marginTop: 2 } }, selectedClass.module),
+            selectedClass.doc && React.createElement("pre", { style: { marginTop: 10, fontSize: 12, color: 'var(--muted)', fontFamily: 'ui-monospace,monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 120, overflowY: 'auto', background: 'var(--bg)', padding: '8px 10px', borderRadius: 5, border: '1px solid var(--border)' } }, selectedClass.doc)
+          ),
+          React.createElement("div", { style: { padding: '6px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 } },
+            React.createElement("input", {
+              type: 'text', placeholder: 'Search methods…', value: methodSearch,
+              onChange: function(e) { setMethodSearch(e.target.value); },
+              style: { flex: 1, padding: '4px 8px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 5, color: 'var(--text)', fontSize: 12 }
+            }),
+            React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)', whiteSpace: 'nowrap' } }, filteredMethods.length + ' methods')
+          ),
+          React.createElement("div", { style: { flex: 1, overflowY: 'auto' } },
+            filteredMethods.map(function(m) {
+              const isOpen = expandedMethods.has(m.name);
+              const parsed = isOpen ? _parseNumpyDoc(m.doc) : null;
+              return React.createElement("div", { key: m.name, style: { borderBottom: '1px solid var(--border)' } },
+                React.createElement("div", {
+                  onClick: function() { toggleMethod(m.name); },
+                  style: { padding: '8px 14px', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: 8, background: isOpen ? 'var(--panel)' : 'transparent' }
+                },
+                  React.createElement("span", { style: { fontSize: 12, color: 'var(--dim)', marginTop: 2, flexShrink: 0 } }, isOpen ? '▾' : '▸'),
+                  React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                    React.createElement("span", { style: { fontSize: 13, fontWeight: 600, fontFamily: 'ui-monospace,monospace', color: 'var(--text)' } }, m.name),
+                    React.createElement("span", { style: { fontSize: 12, color: 'var(--dim)', fontFamily: 'ui-monospace,monospace' } }, m.signature),
+                    m.summary && !isOpen && React.createElement("div", { style: { fontSize: 12, color: 'var(--muted)', marginTop: 2 } }, m.summary)
+                  )
+                ),
+                isOpen && React.createElement("div", { style: { padding: '0 14px 12px 34px' } },
+                  parsed.summary && React.createElement("p", { style: { fontSize: 13, color: 'var(--text)', marginBottom: 8, lineHeight: 1.5 } }, parsed.summary),
+                  parsed.sections.map(function(s) {
+                    return React.createElement("div", { key: s.name, style: { marginTop: 8 } },
+                      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 } }, s.name),
+                      React.createElement("pre", { style: { fontSize: 12, color: 'var(--muted)', fontFamily: 'ui-monospace,monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: 'var(--bg)', padding: '6px 8px', borderRadius: 4, margin: 0, border: '1px solid var(--border)' } }, s.content)
+                    );
+                  })
+                )
+              );
+            })
+          )
+        )
+      : React.createElement("div", { style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+          React.createElement("div", { className: "center" },
+            React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a class from the sidebar")
+          )
+        )
+  );
+}
+
+// ── Placeholder (shown for sections not yet implemented) ─────────────────────
 
 function PlaceholderView({ section }) {
   const label = SECTION_LABELS[section] || section;
@@ -6340,12 +6499,13 @@ function App() {
       section !== 'splash' && React.createElement(React.Fragment, null,
         React.createElement(NavGroup, {
           label: 'Reference', connected: connected, currentSection: section,
-          isActive: ['type-system','rest-apis','valid-values'].includes(section),
+          isActive: ['type-system','rest-apis','valid-values','python-api'].includes(section),
           onSelect: function(id) { setSection(id); if (id === 'type-system') setView('types'); },
           items: [
             { id: 'type-system',  label: 'Type Explorer', needsConnect: true },
             { id: 'rest-apis',    label: 'REST APIs',      needsConnect: true },
             { id: 'valid-values', label: 'Valid Values',   needsConnect: true },
+            { id: 'python-api',   label: 'Python API' },
           ]
         }),
         React.createElement(NavGroup, {
@@ -6432,6 +6592,8 @@ function App() {
       ? React.createElement(InformationSupplyChainView, { key: credsKey })
       : section === 'governance'
       ? React.createElement(GovernanceView, { key: credsKey })
+      : section === 'python-api'
+      ? React.createElement(PyegeriaDocsView, null)
       : section !== 'type-system'
       ? /*#__PURE__*/React.createElement(PlaceholderView, { section: section })
       : view === 'attrs'
