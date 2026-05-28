@@ -1,0 +1,12 @@
+# Docker Engine overlay for egeria-quickstart.
+# Applied automatically by quick-start-local when CONTAINER_ENGINE=docker.
+#
+# Restores condition: service_healthy on jupyter-hub so Jupyter waits for the
+# Egeria platform to pass its healthcheck before starting.
+# Not applied with Podman because podman-compose 1.5.0 blocks indefinitely
+# when depends_on uses service_healthy.
+services:
+  jupyter-hub:
+    depends_on:
+      egeria-main:
+        condition: service_healthy

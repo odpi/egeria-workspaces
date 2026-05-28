@@ -9,19 +9,30 @@ source compose-configs/shared-infra/compose-build-flags.sh
 
 print_usage() {
   cat <<'EOF'
-Usage: ./quick-start-local [--refresh-platform]
+Usage: ./quick-start-local [OPTIONS]
 
 Options:
-  --refresh-platform  Force rebuild of egeria-main so Docker pulls the latest base image.
+  --refresh-platform  Force rebuild of egeria-main so the container engine pulls
+                      the latest base image.
+  --demo              Enable demo mode: activates user registration, auth gating,
+                      and HTTPS on port 443. On first run, prompts for the TLS
+                      certificate directory and admin credentials; saves them to
+                      compose-configs/egeria-quickstart/.env.demo for reuse.
+                      See compose-configs/egeria-quickstart/PyegeriaWebHandler/demo-mode.md
   -h, --help          Show this help text.
 EOF
 }
 
 REFRESH_PLATFORM=0
+DEMO_MODE_FLAG=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --refresh-platform)
       REFRESH_PLATFORM=1
+      shift
+      ;;
+    --demo)
+      DEMO_MODE_FLAG=1
       shift
       ;;
     -h|--help)
@@ -103,8 +114,98 @@ cp -r compose-configs/egeria-quickstart/servers/qs-* "$TARGET_SERVER_DIR"/
 compose-configs/shared-infra/ensure-shared-infra.sh
 
 pushd compose-configs/egeria-quickstart >/dev/null
+
+  # ── Demo mode: collect / persist credentials ─────────────────────────────
+  _jwt="" _cert_dir="" _admin_email="" _admin_pass="" _resend_key="" _resend_from=""
+  if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
+    ENV_DEMO=".env.demo"
+    echo "[quick-start-local] Demo mode: loading configuration..."
+
+    # Read a single key from .env.demo without sourcing it (avoids shell injection)
+    _get_demo_var() { [[ -f "$ENV_DEMO" ]] && grep -E "^${1}=" "$ENV_DEMO" | head -n1 | cut -d= -f2- || true; }
+    _jwt="$(_get_demo_var JWT_SECRET)"
+    _cert_dir="$(_get_demo_var CERT_DIR)"
+    _admin_email="$(_get_demo_var ADMIN_BOOTSTRAP_EMAIL)"
+    _admin_pass="$(_get_demo_var ADMIN_BOOTSTRAP_PASSWORD)"
+    _resend_key="$(_get_demo_var RESEND_API_KEY)"
+    _resend_from="$(_get_demo_var RESEND_FROM)"
+
+    # Generate JWT_SECRET if not already set
+    if [[ -z "$_jwt" ]]; then
+      _jwt="$(openssl rand -hex 32 2>/dev/null \
+        || python3 -c 'import secrets; print(secrets.token_hex(32))' 2>/dev/null)"
+      echo "[quick-start-local]   Generated new JWT_SECRET."
+    fi
+
+    # Prompt for TLS cert directory if not set
+    if [[ -z "$_cert_dir" ]]; then
+      echo "[quick-start-local]   TLS cert dir must contain: server.crt, server.key, server-ca.crt"
+      read -r -p "[quick-start-local]   Certificate directory path: " _cert_dir
+      # Expand ~ and make relative paths absolute
+      _cert_dir="${_cert_dir/#\~/$HOME}"
+      if [[ "$_cert_dir" != /* ]]; then
+        _cert_dir="$(cd "$(pwd)/../../${_cert_dir}" 2>/dev/null && pwd)" || _cert_dir="$(pwd)/../../${_cert_dir}"
+      fi
+    fi
+    if [[ ! -d "$_cert_dir" ]]; then
+      echo "[quick-start-local] WARNING: '${_cert_dir}' is not a directory — SSL will fail until CERT_DIR is fixed in ${ENV_DEMO}." >&2
+    fi
+
+    # Prompt for admin credentials if not set
+    if [[ -z "$_admin_email" ]]; then
+      read -r -p "[quick-start-local]   Admin bootstrap email: " _admin_email
+    fi
+    if [[ -z "$_admin_pass" ]]; then
+      read -r -s -p "[quick-start-local]   Admin bootstrap password: " _admin_pass
+      echo
+    fi
+
+    # Save credentials to .env.demo (mode 600 — contains secrets)
+    cat > "$ENV_DEMO" <<EOF
+JWT_SECRET=${_jwt}
+CERT_DIR=${_cert_dir}
+ADMIN_BOOTSTRAP_EMAIL=${_admin_email}
+ADMIN_BOOTSTRAP_PASSWORD=${_admin_pass}
+RESEND_API_KEY=${_resend_key}
+RESEND_FROM=${_resend_from}
+EOF
+    chmod 600 "$ENV_DEMO"
+    echo "[quick-start-local]   Demo credentials saved to ${ENV_DEMO}."
+  fi
+
   # Generate/update .env and normalize exchange-quickstart/config/config.json
   ./gen-env.sh
+
+  # Append demo vars to .env immediately after gen-env.sh (which rewrites it each run)
+  if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
+    _host_fqdn="$(grep '^HOST_FQDN=' .env | cut -d= -f2-)"
+    {
+      echo "JWT_SECRET=${_jwt}"
+      echo "CERT_DIR=${_cert_dir}"
+      echo "ADMIN_BOOTSTRAP_EMAIL=${_admin_email}"
+      echo "ADMIN_BOOTSTRAP_PASSWORD=${_admin_pass}"
+      echo "RESEND_API_KEY=${_resend_key}"
+      echo "RESEND_FROM=${_resend_from}"
+    } >> .env
+
+    # Generate runtime ssl-define.conf (Apache Define for SSL_SERVER_NAME)
+    SSL_DEFINE_DIR="../../runtime-volumes/quickstart-apache-web"
+    mkdir -p "$SSL_DEFINE_DIR"
+    printf 'Define SSL_SERVER_NAME %s\n' "${_host_fqdn}" > "${SSL_DEFINE_DIR}/ssl-define.conf"
+    echo "[quick-start-local]   Demo SSL_SERVER_NAME: ${_host_fqdn}"
+  fi
+
+  # Build the compose file list.
+  # - egeria-quickstart-docker.yaml restores service_healthy for Docker
+  #   (podman-compose 1.5.0 blocks indefinitely on service_healthy)
+  # - egeria-quickstart-demo.yaml enables DEMO_MODE, port 443, and SSL mounts
+  COMPOSE_FILES=(-f egeria-quickstart.yaml -f egeria-quickstart-local.yaml)
+  if [[ "$CONTAINER_ENGINE" != "podman" ]]; then
+    COMPOSE_FILES+=(-f egeria-quickstart-docker.yaml)
+  fi
+  if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
+    COMPOSE_FILES+=(-f egeria-quickstart-demo.yaml)
+  fi
 
   echo "[quick-start-local] Ensuring core images are available (platform, pyegeria-web, jupyter)..."
   ensure_service_image egeria-main egeria-quickstart-platform:local 1 "$REFRESH_PLATFORM"
@@ -117,7 +218,7 @@ pushd compose-configs/egeria-quickstart >/dev/null
     APACHE_BUILD_OK=0
   fi
 
-  echo "[quick-start-local] Starting core quickstart stack (host-gateway mappings enabled)..."
+  echo "[quick-start-local] Starting core quickstart stack..."
 
   if [[ "$CONTAINER_ENGINE" == "podman" ]]; then
     # podman-compose up -d can block indefinitely if prior containers are stuck stopping/starting.
@@ -129,18 +230,15 @@ pushd compose-configs/egeria-quickstart >/dev/null
     # podman-compose up -d still blocks while polling container state (v1.5.0 bug).
     # Use timeout: containers are created in ~30s; health may take minutes (handled below).
     timeout 60 $COMPOSE_CMD -p egeria-quickstart \
-      -f egeria-quickstart.yaml \
-      -f egeria-quickstart-local.yaml \
+      "${COMPOSE_FILES[@]}" \
       up -d egeria-main pyegeria-web jupyter-hub 2>&1 || true
   else
     if ! $COMPOSE_CMD -p egeria-quickstart \
-      -f egeria-quickstart.yaml \
-      -f egeria-quickstart-local.yaml \
+      "${COMPOSE_FILES[@]}" \
       up -d ${COMPOSE_PULL_FLAGS} egeria-main pyegeria-web jupyter-hub; then
       echo "[quick-start-local] Pull-enabled core up failed; retrying without pull and without build..."
       $COMPOSE_CMD -p egeria-quickstart \
-        -f egeria-quickstart.yaml \
-        -f egeria-quickstart-local.yaml \
+        "${COMPOSE_FILES[@]}" \
         up -d --no-build egeria-main pyegeria-web jupyter-hub
     fi
   fi
@@ -150,19 +248,16 @@ pushd compose-configs/egeria-quickstart >/dev/null
     if [[ "$CONTAINER_ENGINE" == "podman" ]]; then
       $CONTAINER_ENGINE rm -f quickstart-web-server >/dev/null 2>&1 || true
       timeout 30 $COMPOSE_CMD -p egeria-quickstart \
-        -f egeria-quickstart.yaml \
-        -f egeria-quickstart-local.yaml \
+        "${COMPOSE_FILES[@]}" \
         up -d apache-web 2>&1 || \
         echo "[quick-start-local] WARNING: apache-web did not start. Core services are running."
     else
       if ! $COMPOSE_CMD -p egeria-quickstart \
-        -f egeria-quickstart.yaml \
-        -f egeria-quickstart-local.yaml \
+        "${COMPOSE_FILES[@]}" \
         up -d ${COMPOSE_PULL_FLAGS} apache-web; then
         echo "[quick-start-local] Pull-enabled apache-web up failed; retrying without pull and without build..."
         if ! $COMPOSE_CMD -p egeria-quickstart \
-          -f egeria-quickstart.yaml \
-          -f egeria-quickstart-local.yaml \
+          "${COMPOSE_FILES[@]}" \
           up -d --no-build apache-web; then
           echo "[quick-start-local] WARNING: apache-web did not start. Core services are running."
         fi
@@ -195,4 +290,10 @@ echo "  - Effective HOST_FQDN: ${HOST_FQDN_PRINT}"
 echo "  - Effective KAFKA_CLUSTER_ID: ${KAFKA_CLUSTER_ID_PRINT}"
 echo "  - Egeria (platform): https://${HOST_FQDN_PRINT:-localhost}:9443"
 echo "  - Jupyter:           http://${HOST_FQDN_PRINT:-localhost}:7888   (password: egeria)"
-echo "  - Web:               http://${HOST_FQDN_PRINT:-localhost}:8085"
+if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
+  echo "  - Web (HTTP):        http://${HOST_FQDN_PRINT:-localhost}:8085"
+  echo "  - Web (HTTPS):       https://${HOST_FQDN_PRINT:-localhost}"
+  echo "  - Login:             https://${HOST_FQDN_PRINT:-localhost}/login"
+else
+  echo "  - Web:               http://${HOST_FQDN_PRINT:-localhost}:8085"
+fi

@@ -86,6 +86,7 @@ Most users should start from the repository root using one of the quick-start sc
 2. Clone the repo: [odpi/egeria-workspaces](https://github.com/odpi/egeria-workspaces.git)
 3. From the repository root, run one of:
    * `./quick-start-local` — single-machine development (see [Local vs multi-host](#local-vs-multi-host))
+   * `./quick-start-local --demo` — public demo deployment with user auth, registration, and HTTPS (see [Demo mode](#demo-mode--https))
    * `./quick-start-multi-host` — reachable from other hosts on your network (see [Local vs multi-host](#local-vs-multi-host))
 
 These scripts will:
@@ -182,13 +183,20 @@ To bypass the local build cache during the manual build step, add `--no-cache`:
 docker compose -f egeria-quickstart.yaml build --pull --no-cache
 ```
 
-## SSL / HTTPS
+## Demo mode / HTTPS
 
-HTTPS is disabled by default. To enable it, see the **SSL / HTTPS** section in
-[`PyegeriaWebHandler/demo-mode.md`](PyegeriaWebHandler/demo-mode.md#ssl--https).
-The short version: uncomment three lines in `egeria-quickstart.yaml` and edit four
-`Define` lines in `sites-available/fastapi-ssl.conf`. No image rebuild is required
-to toggle SSL on or off after the first setup.
+Demo mode activates user registration, authentication, and HTTPS. Run:
+
+```bash
+./quick-start-local --demo
+```
+
+On first run it prompts for a TLS certificate directory and admin credentials, saves them to
+`compose-configs/egeria-quickstart/.env.demo` (gitignored), and generates the Apache SSL
+server-name config automatically. Subsequent `--demo` runs reuse the saved values.
+
+For full details including manual configuration, see
+[`PyegeriaWebHandler/demo-mode.md`](PyegeriaWebHandler/demo-mode.md).
 
 ## Secrets Location for Quickstart
 

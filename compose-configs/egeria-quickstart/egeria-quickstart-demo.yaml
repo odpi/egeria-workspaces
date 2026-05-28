@@ -1,0 +1,25 @@
+# Demo mode overlay for egeria-quickstart.
+# Applied by ./quick-start-local --demo
+#
+# Activates DEMO_MODE, enables HTTPS on port 443, and mounts TLS certificates.
+#
+# Prerequisites (set in .env.demo, managed by quick-start-local --demo):
+#   CERT_DIR   — absolute path on the host to a directory containing:
+#                  server.crt, server.key, server-ca.crt
+#
+# ssl-define.conf (sets Apache's SSL_SERVER_NAME to the current HOST_FQDN)
+# is generated at runtime by quick-start-local --demo and mounted from
+# runtime-volumes/quickstart-apache-web/ssl-define.conf.
+services:
+  pyegeria-web:
+    environment:
+      DEMO_MODE: "true"
+      SITE_URL: "https://${HOST_FQDN}"
+
+  apache-web:
+    ports:
+      - "443:443"
+    volumes:
+      - ../../runtime-volumes/quickstart-apache-web/ssl-define.conf:/usr/local/apache2/conf/extra/ssl-define.conf
+      - ./sites-available/fastapi-ssl.conf:/usr/local/apache2/conf/extra/fastapi-ssl.conf
+      - ${CERT_DIR}:/etc/ssl/egeria:ro
