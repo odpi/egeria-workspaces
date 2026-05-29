@@ -349,6 +349,8 @@
     document.getElementById('mUserId').value = u.userId || '';
     document.getElementById('mUserId').disabled = true;
     document.getElementById('mUserName').value = u.userName || '';
+    document.getElementById('mGivenName').value = u.givenName || '';
+    document.getElementById('mSurname').value = u.surname || '';
     document.getElementById('mAccountType').value = u.userAccountType || 'EMPLOYEE';
     document.getElementById('passwordRow').style.display = 'none';
     document.getElementById('modalTitle').textContent = 'Edit User — ' + (u.userId || '');
@@ -362,6 +364,8 @@
       .then(function(r) { return r.json(); })
       .then(function(full) {
         document.getElementById('mUserName').value = full.userName || u.userName || '';
+        document.getElementById('mGivenName').value = full.givenName || u.givenName || '';
+        document.getElementById('mSurname').value = full.surname || u.surname || '';
         document.getElementById('mAccountType').value = full.userAccountType || u.userAccountType || 'EMPLOYEE';
         var other = full.otherProperties || {};
         document.getElementById('mDefaultZones').value = other.defaultZones || '';
@@ -394,6 +398,8 @@
       // Edit mode
       var body = {
         userName:       document.getElementById('mUserName').value.trim() || undefined,
+        givenName:      document.getElementById('mGivenName').value.trim() || undefined,
+        surname:        document.getElementById('mSurname').value.trim() || undefined,
         securityRoles:  getSelected('mRoles'),
         securityGroups: getSelected('mGroups'),
         defaultZones:   defaultZones,
