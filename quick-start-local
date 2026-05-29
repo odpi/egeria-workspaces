@@ -116,7 +116,7 @@ compose-configs/shared-infra/ensure-shared-infra.sh
 pushd compose-configs/egeria-quickstart >/dev/null
 
   # ── Demo mode: collect / persist credentials ─────────────────────────────
-  _jwt="" _cert_dir="" _admin_email="" _admin_pass="" _resend_key="" _resend_from="" _https_port=""
+  _jwt="" _cert_dir="" _admin_email="" _admin_pass="" _resend_key="" _resend_from="" _https_port="" _site_url_override=""
   if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
     ENV_DEMO=".env.demo"
     echo "[quick-start-local] Demo mode: loading configuration..."
@@ -142,6 +142,7 @@ pushd compose-configs/egeria-quickstart >/dev/null
     _resend_key="$(_pick RESEND_API_KEY)"
     _resend_from="$(_pick RESEND_FROM)"
     _https_port="$(_pick HTTPS_PORT)"
+    _site_url_override="$(_pick SITE_URL)"
 
     # Generate JWT_SECRET if not already set
     if [[ -z "$_jwt" ]]; then
@@ -189,6 +190,17 @@ pushd compose-configs/egeria-quickstart >/dev/null
       read -r -p "[quick-start-local]   Sender address (e.g. 'Egeria Demo <noreply@yourdomain.com>'): " _resend_from
     fi
 
+    # Public SITE_URL — may differ from HOST_FQDN (e.g. egeria.pdr-associates.com vs internal hostname)
+    # Used in email verification/reset links and the Secure cookie flag.
+    if [[ -z "$_site_url_override" ]]; then
+      _https_port_num="${_https_port:-443}"
+      _default_site_url="https://$(hostname -f 2>/dev/null || hostname)"
+      [[ "$_https_port_num" != "443" ]] && _default_site_url="${_default_site_url}:${_https_port_num}"
+      echo "[quick-start-local]   Public-facing HTTPS URL (used in email links — must be reachable by recipients)."
+      read -r -p "[quick-start-local]   SITE_URL [${_default_site_url}]: " _site_url_override
+      _site_url_override="${_site_url_override:-$_default_site_url}"
+    fi
+
     # Save credentials to .env.demo (mode 600 — contains secrets)
     cat > "$ENV_DEMO" <<EOF
 JWT_SECRET=${_jwt}
@@ -198,6 +210,7 @@ ADMIN_BOOTSTRAP_PASSWORD=${_admin_pass}
 RESEND_API_KEY=${_resend_key}
 RESEND_FROM=${_resend_from}
 HTTPS_PORT=${_https_port}
+SITE_URL=${_site_url_override}
 EOF
     chmod 600 "$ENV_DEMO"
     echo "[quick-start-local]   Demo credentials saved to ${ENV_DEMO}."
@@ -210,9 +223,12 @@ EOF
   if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
     _host_fqdn="$(grep '^HOST_FQDN=' .env | cut -d= -f2-)"
 
-    # Build SITE_URL — include port suffix only when non-standard
+    # Use explicit SITE_URL from .env.demo if set; otherwise derive from HOST_FQDN.
+    # The public URL often differs from the internal hostname (e.g. egeria.pdr-associates.com vs cray).
     _https_port_num="${_https_port:-443}"
-    if [[ "$_https_port_num" == "443" ]]; then
+    if [[ -n "$_site_url_override" ]]; then
+      _site_url="$_site_url_override"
+    elif [[ "$_https_port_num" == "443" ]]; then
       _site_url="https://${_host_fqdn}"
     else
       _site_url="https://${_host_fqdn}:${_https_port_num}"
