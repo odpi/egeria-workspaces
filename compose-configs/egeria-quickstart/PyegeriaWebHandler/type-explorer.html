@@ -2810,10 +2810,10 @@ function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign }) 
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, term.displayName),
       term.isTemplateSubstitute && React.createElement("span", { className: "badge", style: { background: 'rgba(245,158,11,.15)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.4)', fontSize: 11 } }, "Template Substitute"),
-      !term.isTemplateSubstitute && term.isSourcedFromTemplate && React.createElement("span", { className: "badge", style: { background: 'rgba(245,158,11,.08)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.25)', fontSize: 11 } }, "From Template")
+      !term.isTemplateSubstitute && term.isSourcedFromTemplate && React.createElement("span", { className: "badge", style: { background: 'rgba(245,158,11,.08)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.25)', fontSize: 11 } }, "From Template"),
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: term.guid }))
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 4 } }, term.guid),
-    React.createElement(EgeriaFeedbackWidget, { guid: term.guid }),
     folderList.length > 0 && React.createElement("div", { style: { display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8, marginTop: 6 } },
       React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)', marginRight: 4 } }, "Folders:"),
       folderList.map(f => React.createElement("span", { key: f.guid, className: "badge", style: { fontSize: 11, background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)' } }, f.displayName || f.guid))
@@ -2860,7 +2860,8 @@ function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign }) 
           })
         );
       })
-    )
+    ),
+    React.createElement(EgeriaCommentsSection, { guid: term.guid })
   );
 }
 
@@ -3343,30 +3344,78 @@ function ReferenceDataView() {
 
 function TabularPreviewModal({ guid, name, creds, onClose }) {
   var PAGE_SIZE = 100;
-  var _pageState = useState(0), page = _pageState[0], setPage = _pageState[1];
-  var _dataState = useState(null), tableData = _dataState[0], setTableData = _dataState[1];
-  var _loadState = useState(true), loading = _loadState[0], setLoading = _loadState[1];
-  var _errState  = useState(''),   errMsg   = _errState[0],  setErrMsg   = _errState[1];
+  var DEFAULT_COL_W = 150;
+  var MIN_COL_W = 40;
+
+  var _pageState     = useState(0),    page      = _pageState[0],     setPage      = _pageState[1];
+  var _dataState     = useState(null), tableData = _dataState[0],     setTableData = _dataState[1];
+  var _loadState     = useState(true), loading   = _loadState[0],     setLoading   = _loadState[1];
+  var _errState      = useState(''),   errMsg    = _errState[0],      setErrMsg    = _errState[1];
+  var _colWState     = useState(null), colWidths = _colWState[0],     setColWidths = _colWState[1];
+  var _draggingState = useState(false),isDragging= _draggingState[0], setIsDragging= _draggingState[1];
+  var dragRef = useRef(null); // { colIdx, startX, startW }
 
   useEffect(function() {
-    setLoading(true); setErrMsg('');
-    var params = new URLSearchParams({
-      start_from_row: page * PAGE_SIZE, max_row_count: PAGE_SIZE,
-    });
+    setLoading(true); setErrMsg(''); setColWidths(null);
+    var params = new URLSearchParams({ start_from_row: page * PAGE_SIZE, max_row_count: PAGE_SIZE });
     if (creds) { if (creds.url) params.set('url', creds.url); if (creds.server) params.set('server', creds.server); if (creds.userId) params.set('user_id', creds.userId); if (creds.password) params.set('user_pwd', creds.password); }
     fetch('/api/digital-products/' + guid + '/tabular?' + params.toString())
       .then(function(r) { return r.json(); })
-      .then(function(d) { setTableData(d); setLoading(false); })
+      .then(function(d) {
+        setTableData(d);
+        setLoading(false);
+        if (d && d.columns && d.columns.length) {
+          setColWidths(d.columns.map(function() { return DEFAULT_COL_W; }));
+        }
+      })
       .catch(function(e) { setErrMsg('Failed to load data: ' + e); setLoading(false); });
   }, [guid, page]);
 
   var columns = (tableData && tableData.columns) || [];
   var rows    = (tableData && tableData.rows)    || [];
   var hasMore = tableData && tableData.has_more;
+  var tableWidth = colWidths ? colWidths.reduce(function(s, w) { return s + w; }, 0) : undefined;
+
+  function onResizeMouseDown(e, idx) {
+    e.preventDefault();
+    var startW = colWidths ? colWidths[idx] : DEFAULT_COL_W;
+    dragRef.current = { colIdx: idx, startX: e.clientX, startW: startW };
+    setIsDragging(true);
+
+    function onMouseMove(ev) {
+      if (!dragRef.current) return;
+      var dx = ev.clientX - dragRef.current.startX;
+      var newW = Math.max(MIN_COL_W, dragRef.current.startW + dx);
+      setColWidths(function(prev) {
+        var next = (prev || columns.map(function() { return DEFAULT_COL_W; })).slice();
+        next[dragRef.current.colIdx] = newW;
+        return next;
+      });
+    }
+    function onMouseUp() {
+      dragRef.current = null;
+      setIsDragging(false);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    }
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+
+  var thBase = { padding: '6px 12px', textAlign: 'left', borderBottom: '2px solid var(--border)',
+                 color: 'var(--accent)', fontSize: 11, position: 'relative',
+                 overflow: 'hidden', whiteSpace: 'nowrap', userSelect: 'none' };
+  var tdBase = { padding: '4px 12px', borderBottom: '1px solid var(--border)',
+                 borderRight: '1px dotted var(--border)',
+                 overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' };
+  var handleStyle = { position: 'absolute', right: 0, top: 0, bottom: 0, width: 6,
+                      cursor: 'col-resize', zIndex: 1,
+                      borderRight: '2px dotted rgba(96,165,250,0.5)', boxSizing: 'border-box' };
 
   return React.createElement('div', {
-    style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
-    onClick: function(e) { if (e.target === e.currentTarget) onClose(); }
+    style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+             cursor: isDragging ? 'col-resize' : undefined },
+    onClick: function(e) { if (!isDragging && e.target === e.currentTarget) onClose(); }
   },
     React.createElement('div', { style: { background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 8, width: '90vw', minHeight: '60vh', maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
       // Header
@@ -3376,23 +3425,37 @@ function TabularPreviewModal({ guid, name, creds, onClose }) {
         React.createElement('button', { onClick: onClose, style: { marginLeft: 8, padding: '4px 12px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' } }, 'Close')
       ),
       // Body
-      React.createElement('div', { style: { overflowY: 'auto', flex: 1 } },
+      React.createElement('div', { style: { overflowY: 'auto', overflowX: 'auto', flex: 1 } },
         loading ? React.createElement('div', { style: { padding: 40, textAlign: 'center', color: 'var(--dim)' } }, 'Loading…')
         : errMsg ? React.createElement('div', { style: { padding: 24, color: '#f87171' } }, errMsg)
         : columns.length === 0 ? React.createElement('div', { style: { padding: 24, color: 'var(--dim)' } }, 'No tabular data returned. The data set may be empty or the format unsupported.')
-        : React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 } },
-            React.createElement('thead', { style: { position: 'sticky', top: 0, background: 'var(--panel)' } },
+        : React.createElement('table', { style: { tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 12, width: tableWidth ? tableWidth + 'px' : '100%', minWidth: '100%' } },
+            React.createElement('colgroup', null,
+              columns.map(function(col, i) {
+                return React.createElement('col', { key: col, style: { width: (colWidths ? colWidths[i] : DEFAULT_COL_W) + 'px' } });
+              })
+            ),
+            React.createElement('thead', { style: { position: 'sticky', top: 0, background: 'var(--panel)', zIndex: 2 } },
               React.createElement('tr', null,
-                columns.map(function(col) {
-                  return React.createElement('th', { key: col, style: { padding: '6px 12px', textAlign: 'left', borderBottom: '2px solid var(--border)', color: 'var(--accent)', whiteSpace: 'nowrap', fontSize: 11 } }, col);
+                columns.map(function(col, i) {
+                  return React.createElement('th', { key: col, style: thBase },
+                    col,
+                    React.createElement('div', {
+                      style: handleStyle,
+                      onMouseDown: function(e) { onResizeMouseDown(e, i); },
+                      onMouseEnter: function(e) { e.currentTarget.style.borderRight = '2px solid var(--accent)'; },
+                      onMouseLeave: function(e) { e.currentTarget.style.borderRight = '2px dotted rgba(96,165,250,0.5)'; },
+                    })
+                  );
                 })
               )
             ),
             React.createElement('tbody', null,
               rows.map(function(row, i) {
+                var cells = Array.isArray(row) ? row : columns.map(function(c) { return row[c]; });
                 return React.createElement('tr', { key: i, style: { background: i % 2 ? 'rgba(255,255,255,0.02)' : 'transparent' } },
-                  (Array.isArray(row) ? row : columns.map(function(c) { return row[c]; })).map(function(cell, j) {
-                    return React.createElement('td', { key: j, style: { padding: '4px 12px', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' } }, cell == null ? '' : String(cell));
+                  cells.map(function(cell, j) {
+                    return React.createElement('td', { key: j, style: tdBase }, cell == null ? '' : String(cell));
                   })
                 );
               })
@@ -3402,7 +3465,7 @@ function TabularPreviewModal({ guid, name, creds, onClose }) {
       // Footer / paging
       React.createElement('div', { style: { display: 'flex', gap: 8, padding: '10px 20px', borderTop: '1px solid var(--border)', alignItems: 'center' } },
         React.createElement('button', { disabled: page === 0 || loading, onClick: function() { setPage(page - 1); }, style: { padding: '4px 14px', borderRadius: 4, border: '1px solid var(--border)', background: page === 0 ? 'transparent' : 'var(--hover)', color: page === 0 ? 'var(--dim)' : 'var(--text)', cursor: page === 0 ? 'not-allowed' : 'pointer' } }, '← Prev'),
-        React.createElement('span', { style: { flex: 1, fontSize: 11, color: 'var(--dim)' } }, 'Rows ' + (page * PAGE_SIZE + 1) + '–' + (page * PAGE_SIZE + rows.length)),
+        React.createElement('span', { style: { flex: 1, fontSize: 11, color: 'var(--dim)' } }, 'Rows ' + (page * PAGE_SIZE + 1) + '–' + (page * PAGE_SIZE + rows.length) + (colWidths ? ' · drag dotted column edges in header to resize' : '')),
         React.createElement('button', { disabled: !hasMore || loading, onClick: function() { setPage(page + 1); }, style: { padding: '4px 14px', borderRadius: 4, border: '1px solid var(--border)', background: !hasMore ? 'transparent' : 'var(--hover)', color: !hasMore ? 'var(--dim)' : 'var(--text)', cursor: !hasMore ? 'not-allowed' : 'pointer' } }, 'Next →')
       )
     )
@@ -3545,10 +3608,10 @@ function DigitalProductDetail({ product, onNavigateToGlossary, onNavigateToDataS
       isTabularRoot && React.createElement("button", {
         onClick: function() { setPreviewDs({ guid: product.guid, name: product.displayName || product.qualifiedName || product.guid }); },
         style: { padding: '3px 10px', borderRadius: 4, border: '1px solid rgba(251,191,36,.4)', background: 'rgba(251,191,36,.1)', color: '#fcd34d', cursor: 'pointer', fontSize: 12 }
-      }, "Preview Data 📊")
+      }, "Preview Data 📊"),
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: product.guid }))
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 4 } }, product.guid),
-    React.createElement(EgeriaFeedbackWidget, { guid: product.guid }),
     product.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16, marginTop: 10 } }, renderMd(product.description)),
     React.createElement(AvailableMermaidDiagrams, { data: product }),
     React.createElement(MermaidSection, { guid: product.guid }),
@@ -3570,6 +3633,7 @@ function DigitalProductDetail({ product, onNavigateToGlossary, onNavigateToDataS
       React.createElement("div", { style: { fontWeight: 700, fontSize: 13, marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' } }, "Relationships"),
       Object.entries(product.relationships).map(function(entry) { return renderRelSection(entry[0], entry[1]); })
     ),
+    React.createElement(EgeriaCommentsSection, { guid: product.guid }),
     previewDs && React.createElement(TabularPreviewModal, { guid: previewDs.guid, name: previewDs.name, creds: creds, onClose: function() { setPreviewDs(null); } })
   );
 }
@@ -5045,7 +5109,8 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
           })
         )
       ),
-      renderAllRels(detail.relationships)
+      renderAllRels(detail.relationships),
+      React.createElement(EgeriaCommentsSection, { guid: detail.guid })
     );
   }
 
@@ -5168,7 +5233,8 @@ function SolutionBlueprintDetail({ blueprint, onNavigateToComponent, onNavigateT
           }, "View →")
         );
       })
-    )
+    ),
+    React.createElement(EgeriaCommentsSection, { guid: blueprint.guid })
   );
 }
 
@@ -5257,7 +5323,8 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
           impl.typeName && React.createElement("span", { className: "badge", style: { fontSize: 10, background: 'rgba(74,222,128,.1)', color: '#86efac', border: '0.5px solid rgba(74,222,128,.25)' } }, impl.typeName)
         );
       })
-    )
+    ),
+    React.createElement(EgeriaCommentsSection, { guid: component.guid })
   );
 }
 
@@ -5854,7 +5921,8 @@ function ISCDetail({ data, detail }) {
       )
     ),
     relSection("Segments", structural.segments),
-    relSection("Implementations", structural.implementations)
+    relSection("Implementations", structural.implementations),
+    React.createElement(EgeriaCommentsSection, { guid: src.guid })
   );
 }
 
@@ -6269,7 +6337,8 @@ function GovDefDetail({ definition, onSelectGuid }) {
     definition.relationships && Object.keys(definition.relationships).length > 0 && React.createElement('div', null,
       React.createElement('div', { style: { fontWeight: 700, fontSize: 13, marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' } }, 'Relationships'),
       Object.entries(definition.relationships).map(function(pair) { return relSection(pair[0], pair[1]); })
-    )
+    ),
+    React.createElement(EgeriaCommentsSection, { guid: definition.guid })
   );
 }
 
@@ -6546,6 +6615,170 @@ function EgeriaFeedbackWidget({ guid }) {
     React.createElement('span', { style: { color: 'var(--border)' } }, '|'),
     ratingDisplay,
     starPicker
+  );
+}
+
+// ── EgeriaCommentsSection ─────────────────────────────────────────────────────
+
+function EgeriaCommentsSection({ guid }) {
+  var TYPES = ['STANDARD_COMMENT','QUESTION','ANSWER','SUGGESTION','USAGE_EXPERIENCE','REQUIREMENT','OTHER'];
+  var TYPE_COLOR = {
+    STANDARD_COMMENT: 'var(--muted)', QUESTION: '#60a5fa', ANSWER: '#34d399',
+    SUGGESTION: '#a78bfa', USAGE_EXPERIENCE: '#fbbf24', REQUIREMENT: '#f87171', OTHER: 'var(--dim)'
+  };
+  var TYPE_LABEL = {
+    STANDARD_COMMENT: 'Comment', QUESTION: 'Question', ANSWER: 'Answer',
+    SUGGESTION: 'Suggestion', USAGE_EXPERIENCE: 'Usage', REQUIREMENT: 'Requirement', OTHER: 'Other'
+  };
+
+  var _cState  = useState([]),                 comments    = _cState[0],    setComments    = _cState[1];
+  var _lState  = useState(true),               loading     = _lState[0],    setLoading     = _lState[1];
+  var _tState  = useState(''),                 text        = _tState[0],    setText        = _tState[1];
+  var _ctState = useState('STANDARD_COMMENT'), commentType = _ctState[0],   setCommentType = _ctState[1];
+  var _sState  = useState(false),              submitting  = _sState[0],    setSubmitting  = _sState[1];
+  var _eState  = useState(''),                 errMsg      = _eState[0],    setErrMsg      = _eState[1];
+  // editing: null | { guid, text, commentType }
+  var _edState = useState(null),               editing     = _edState[0],   setEditing     = _edState[1];
+  var _esState = useState(false),              editSaving  = _esState[0],   setEditSaving  = _esState[1];
+  var _eeState = useState(''),                 editErr     = _eeState[0],   setEditErr     = _eeState[1];
+
+  useEffect(function() {
+    if (!guid) return;
+    setLoading(true);
+    fetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments')
+      .then(function(r) { return r.ok ? r.json() : []; })
+      .then(function(d) { setComments(Array.isArray(d) ? d : []); setLoading(false); })
+      .catch(function() { setLoading(false); });
+  }, [guid]);
+
+  function handleSubmit() {
+    if (!text.trim() || submitting) return;
+    setSubmitting(true); setErrMsg('');
+    fetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ comment_type: commentType, text: text.trim() })
+    })
+      .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.detail || 'Error'); }); })
+      .then(function(d) { setComments(Array.isArray(d) ? d : []); setText(''); })
+      .catch(function(e) { setErrMsg(e.message || 'Failed to post comment'); })
+      .finally(function() { setSubmitting(false); });
+  }
+
+  function handleDelete(cguid) {
+    fetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments/' + encodeURIComponent(cguid), { method: 'DELETE' })
+      .then(function(r) { return r.ok ? r.json() : []; })
+      .then(function(d) { setComments(Array.isArray(d) ? d : []); if (editing && editing.guid === cguid) setEditing(null); })
+      .catch(function() {});
+  }
+
+  function startEdit(c) {
+    setEditing({ guid: c.guid, text: c.text, commentType: c.commentType || 'STANDARD_COMMENT' });
+    setEditErr('');
+  }
+
+  function handleEditSave() {
+    if (!editing || !editing.text.trim() || editSaving) return;
+    setEditSaving(true); setEditErr('');
+    fetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments/' + encodeURIComponent(editing.guid), {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ comment_type: editing.commentType, text: editing.text.trim() })
+    })
+      .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.detail || 'Error'); }); })
+      .then(function(d) { setComments(Array.isArray(d) ? d : []); setEditing(null); })
+      .catch(function(e) { setEditErr(e.message || 'Save failed'); })
+      .finally(function() { setEditSaving(false); });
+  }
+
+  var btnBase = { border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: 'pointer', padding: '3px 10px' };
+
+  function renderComment(c) {
+    var col = TYPE_COLOR[c.commentType] || 'var(--muted)';
+    var isEditing = editing && editing.guid === c.guid;
+
+    return React.createElement('div', { key: c.guid, style: { borderLeft: '3px solid ' + col, paddingLeft: 10, marginBottom: 12, fontSize: 12 } },
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' } },
+        React.createElement('span', { style: { fontSize: 10, fontWeight: 700, color: col, textTransform: 'uppercase' } }, TYPE_LABEL[c.commentType] || c.commentType),
+        React.createElement('span', { style: { color: 'var(--dim)', fontSize: 10 } }, c.createdBy || 'unknown'),
+        c.createTime && React.createElement('span', { style: { color: 'var(--dim)', fontSize: 10 } }, '· ' + new Date(c.createTime).toLocaleDateString()),
+        !isEditing && React.createElement('button', {
+          onClick: function() { startEdit(c); },
+          title: 'Edit comment',
+          style: Object.assign({}, btnBase, { marginLeft: 'auto', background: 'var(--hover)', color: 'var(--muted)' })
+        }, 'Edit'),
+        !isEditing && React.createElement('button', {
+          onClick: function() { handleDelete(c.guid); },
+          title: 'Delete comment',
+          style: Object.assign({}, btnBase, { background: 'rgba(248,113,113,.1)', color: '#f87171' })
+        }, 'Delete')
+      ),
+      isEditing
+        ? React.createElement('div', null,
+            React.createElement('div', { style: { marginBottom: 4 } },
+              React.createElement('select', {
+                value: editing.commentType,
+                onChange: function(e) { setEditing(Object.assign({}, editing, { commentType: e.target.value })); },
+                style: { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', fontSize: 11, padding: '3px 6px' }
+              },
+                TYPES.map(function(t) { return React.createElement('option', { key: t, value: t }, TYPE_LABEL[t]); })
+              )
+            ),
+            React.createElement('textarea', {
+              value: editing.text,
+              onChange: function(e) { setEditing(Object.assign({}, editing, { text: e.target.value })); },
+              onKeyDown: function(e) { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleEditSave(); },
+              rows: 3,
+              style: { width: '100%', background: 'var(--card)', border: '1px solid var(--accent)', borderRadius: 4, color: 'var(--text)', fontSize: 12, padding: '6px 8px', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5, outline: 'none', marginBottom: 4 }
+            }),
+            React.createElement('div', { style: { display: 'flex', gap: 6 } },
+              React.createElement('button', {
+                onClick: handleEditSave, disabled: editSaving || !editing.text.trim(),
+                style: Object.assign({}, btnBase, { background: 'var(--accent)', color: '#fff', padding: '4px 14px' })
+              }, editSaving ? '…' : 'Save'),
+              React.createElement('button', {
+                onClick: function() { setEditing(null); setEditErr(''); },
+                style: Object.assign({}, btnBase, { background: 'var(--hover)', color: 'var(--muted)', padding: '4px 14px' })
+              }, 'Cancel')
+            ),
+            editErr && React.createElement('div', { style: { color: '#f87171', fontSize: 11, marginTop: 4 } }, editErr)
+          )
+        : React.createElement('div', { style: { color: 'var(--text)', lineHeight: 1.55, whiteSpace: 'pre-wrap', wordBreak: 'break-word' } }, c.text)
+    );
+  }
+
+  return React.createElement('div', { style: { marginTop: 28, borderTop: '1px solid var(--border)', paddingTop: 16 } },
+    React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 } },
+      'Comments',
+      !loading && React.createElement('span', { style: { background: 'rgba(96,165,250,.12)', color: 'var(--accent)', borderRadius: 8, padding: '0 6px', fontSize: 10, fontWeight: 600 } }, comments.length)
+    ),
+    loading
+      ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', marginBottom: 12 } }, 'Loading…')
+      : comments.length === 0
+        ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', marginBottom: 12, fontStyle: 'italic' } }, 'No comments yet.')
+        : React.createElement('div', { style: { marginBottom: 12 } }, comments.map(renderComment)),
+    React.createElement('div', { style: { marginBottom: 6 } },
+      React.createElement('select', {
+        value: commentType,
+        onChange: function(e) { setCommentType(e.target.value); },
+        style: { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', fontSize: 11, padding: '3px 6px', cursor: 'pointer' }
+      },
+        TYPES.map(function(t) { return React.createElement('option', { key: t, value: t }, TYPE_LABEL[t]); })
+      )
+    ),
+    React.createElement('div', { style: { display: 'flex', gap: 6 } },
+      React.createElement('textarea', {
+        value: text,
+        onChange: function(e) { setText(e.target.value); },
+        onKeyDown: function(e) { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit(); },
+        placeholder: 'Write a comment… (Ctrl/Cmd+Enter to post)',
+        rows: 3,
+        style: { flex: 1, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', fontSize: 12, padding: '6px 8px', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5, outline: 'none' }
+      }),
+      React.createElement('button', {
+        onClick: handleSubmit, disabled: submitting || !text.trim(),
+        style: { alignSelf: 'flex-end', padding: '6px 14px', borderRadius: 4, border: 'none', background: (text.trim() && !submitting) ? 'var(--accent)' : 'var(--hover)', color: (text.trim() && !submitting) ? '#fff' : 'var(--dim)', cursor: (text.trim() && !submitting) ? 'pointer' : 'not-allowed', fontSize: 12, fontWeight: 600, flexShrink: 0 }
+      }, submitting ? '…' : 'Post')
+    ),
+    errMsg && React.createElement('div', { style: { color: '#f87171', fontSize: 11, marginTop: 4 } }, errMsg)
   );
 }
 

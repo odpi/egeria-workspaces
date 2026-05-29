@@ -13,8 +13,11 @@ def _bootstrap_runtime_defaults() -> None:
     log_directory = os.environ.setdefault("PYEGERIA_LOG_DIRECTORY", str(SCRIPT_DIR / "logs"))
     os.makedirs(log_directory, exist_ok=True)
 
-    os.environ.setdefault("EGERIA_USER", "erinoverview")
-    os.environ.setdefault("EGERIA_USER_PASSWORD", "secret")
+    # Freshstart uses Egeria-backed security; the coco persona 'erinoverview' does
+    # not exist in a fresh user directory.  Default to the admin service account so
+    # all handlers that fall back to EGERIA_USER credentials can actually authenticate.
+    os.environ.setdefault("EGERIA_USER",          os.environ.get("EGERIA_ADMIN_CALLER_ID",       "bootstrap"))
+    os.environ.setdefault("EGERIA_USER_PASSWORD",  os.environ.get("EGERIA_ADMIN_CALLER_PASSWORD", "secret"))
     os.environ.setdefault("EGERIA_WIDTH", "100")
 
     root_default: str

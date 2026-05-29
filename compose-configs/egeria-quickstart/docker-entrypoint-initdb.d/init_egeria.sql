@@ -31,3 +31,13 @@ grant all privileges on database mlflow_db to mlflow_user;
 \connect egeria
 CREATE SCHEMA IF NOT EXISTS demo;
 GRANT ALL ON SCHEMA demo TO egeria_admin, egeria_user;
+\connect coco_pharma
+CREATE SCHEMA IF NOT EXISTS coco_sus;
+GRANT ALL ON SCHEMA coco_sus TO egeria_admin, egeria_user, airflow_user;
+SET search_path TO coco_sus;
+\ir data/coco_sus.sql
+
+CREATE SCHEMA IF NOT EXISTS coco_ods;
+GRANT ALL ON SCHEMA coco_ods TO egeria_admin, egeria_user, airflow_user;
+SET search_path TO coco_ods;
+\ir data/coco_ods.sql

@@ -14,11 +14,16 @@ Endpoints:
 """
 
 import os
+import time
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
+
+# Tree cache: guid → (timestamp, result). Invalidated after 5 minutes.
+_TREE_CACHE: dict = {}
+_TREE_CACHE_TTL = 300  # seconds
 
 router = APIRouter(tags=["digital-products"])
 
@@ -251,6 +256,12 @@ def get_catalog_tree(
         logger.exception("Failed to create CollectionManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
+    cache_key = f"{catalog_guid}|{url or ''}|{server or ''}|{user_id or ''}"
+    cached = _TREE_CACHE.get(cache_key)
+    if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
+        logger.debug(f"Tree cache hit for {catalog_guid}")
+        return JSONResponse(cached[1])
+
     try:
         catalog_raw = mgr.get_collection_by_guid(catalog_guid, output_format="JSON")
     except Exception as exc:
@@ -262,7 +273,9 @@ def get_catalog_tree(
     visited: set = set()
     children = _build_tree(mgr, catalog_guid, visited)
 
-    return JSONResponse({"catalog": catalog, "children": children})
+    result = {"catalog": catalog, "children": children}
+    _TREE_CACHE[cache_key] = (time.time(), result)
+    return JSONResponse(result)
 
 
 @router.get("/api/digital-products/{node_guid}", summary="Get detail for any product/collection node")

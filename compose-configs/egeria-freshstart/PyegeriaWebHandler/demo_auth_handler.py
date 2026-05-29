@@ -332,6 +332,8 @@ class CreateUserRequest(BaseModel):
 
 class UpdateUserRequest(BaseModel):
     userName: Optional[str] = None
+    givenName: Optional[str] = None
+    surname: Optional[str] = None
     securityRoles: Optional[list[str]] = None
     securityGroups: Optional[list[str]] = None
     defaultZones: Optional[list[str]] = None
@@ -540,6 +542,8 @@ async def list_egeria_users(admin: CurrentUser = Depends(require_admin)):
         {
             "userId": uid,
             "userName": (entry or {}).get("userName", uid) or uid,
+            "givenName": (entry or {}).get("givenName", ""),
+            "surname": (entry or {}).get("surname", ""),
             "userAccountStatus": (entry or {}).get("userAccountStatus", "AVAILABLE"),
             "userAccountType": (entry or {}).get("userAccountType", "EMPLOYEE"),
             "securityRoles":  (entry or {}).get("securityRoles",  []),
@@ -573,6 +577,8 @@ async def create_egeria_user(req: CreateUserRequest, admin: CurrentUser = Depend
                 "userAccountStatus": "CREDENTIALS_EXPIRED",
                 "userAccountType": req.userAccountType,
                 "userName": req.userName or req.userId,
+                "givenName": req.givenName or "",
+                "surname": req.surname or "",
                 "securityRoles":  req.securityRoles  or [],
                 "securityGroups": req.securityGroups or [],
                 "secrets": {"clearPassword": req.clearPassword},
@@ -599,6 +605,8 @@ async def get_egeria_user(target_id: str, admin: CurrentUser = Depends(require_a
     return {
         "userId":            target_id,
         "userName":          user_account.get("userName", target_id),
+        "givenName":         user_account.get("givenName", ""),
+        "surname":           user_account.get("surname", ""),
         "userAccountStatus": user_account.get("userAccountStatus", ""),
         "userAccountType":   user_account.get("userAccountType", "EMPLOYEE"),
         "securityRoles":     user_account.get("securityRoles") or [],
@@ -629,6 +637,10 @@ async def update_egeria_user(
     current = get_r.json().get("userAccount", {})
     if req.userName is not None:
         current["userName"] = req.userName
+    if req.givenName is not None:
+        current["givenName"] = req.givenName
+    if req.surname is not None:
+        current["surname"] = req.surname
     if req.securityRoles is not None:
         current["securityRoles"] = req.securityRoles
     if req.securityGroups is not None:
@@ -657,6 +669,10 @@ async def update_egeria_user(
                 entry = users[target_id] or {}
                 if req.userName is not None:
                     entry["userName"] = req.userName
+                if req.givenName is not None:
+                    entry["givenName"] = req.givenName
+                if req.surname is not None:
+                    entry["surname"] = req.surname
                 if req.securityRoles is not None:
                     entry["securityRoles"] = req.securityRoles
                 if req.securityGroups is not None:

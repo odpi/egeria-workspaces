@@ -86,6 +86,10 @@ services:
       EGERIA_VIEW_SERVER: fs-view-server
       EGERIA_VIEW_SERVER_URL: https://freshstart-egeria-main:8443
       EGERIA_INTEGRATION_DAEMON_URL: https://freshstart-egeria-main:8443
+      # Service account used by handlers that don't receive a user's bearer token.
+      # Uses the same account as the admin caller so credentials stay in sync.
+      EGERIA_USER: "${EGERIA_ADMIN_CALLER_ID:-bootstrap}"
+      EGERIA_USER_PASSWORD: "${EGERIA_ADMIN_CALLER_PASSWORD:-secret}"
       EGERIA_ROOT_PATH: "/"
       EGERIA_INBOX_PATH: "dr-egeria-inbox"
       EGERIA_OUTBOX_PATH: "dr-egeria-outbox"
