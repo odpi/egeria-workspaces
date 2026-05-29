@@ -4156,8 +4156,8 @@ const _SPLASH_CAPABILITIES = [
 function ConnectionForm({ saveCreds }) {
   const creds = React.useContext(CredContext);
   const [form, setForm] = React.useState({
-    url:      creds.url,
-    server:   creds.server,
+    url:      '',
+    server:   creds.server || 'fs-view-server',
     userId:   creds.userId,
     password: creds.password,
   });
@@ -4165,7 +4165,7 @@ function ConnectionForm({ saveCreds }) {
   function set(k, v) { setForm(function(f) { return Object.assign({}, f, { [k]: v }); }); setSaved(false); }
   function onSubmit(e) {
     e.preventDefault();
-    saveCreds(form);
+    saveCreds(Object.assign({}, form, { url: '' }));
     setSaved(true);
   }
   var fieldStyle = { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', width: '100%', boxSizing: 'border-box' };
@@ -4174,19 +4174,14 @@ function ConnectionForm({ saveCreds }) {
   return React.createElement('div', {
     style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '16px 20px', marginBottom: 32 }
   },
-    React.createElement('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--fg)', marginBottom: 12 } }, 'Connection Settings'),
+    React.createElement('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--fg)', marginBottom: 4 } }, 'Persona'),
+    React.createElement('p', { style: { margin: '0 0 12px', fontSize: 11, color: 'var(--dim)' } },
+      'Platform connection is managed by your administrator. Enter Egeria credentials to browse as a specific user.'
+    ),
     React.createElement('form', { onSubmit: onSubmit },
-      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: 8, alignItems: 'end' } },
+      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, alignItems: 'end' } },
         React.createElement('div', { style: rowStyle },
-          React.createElement('label', { style: labelStyle }, 'Platform URL'),
-          React.createElement('input', { style: fieldStyle, type: 'text', value: form.url, placeholder: 'https://localhost:9443', onChange: function(e) { set('url', e.target.value); } })
-        ),
-        React.createElement('div', { style: rowStyle },
-          React.createElement('label', { style: labelStyle }, 'View Server'),
-          React.createElement('input', { style: fieldStyle, type: 'text', value: form.server, placeholder: 'qs-view-server', onChange: function(e) { set('server', e.target.value); } })
-        ),
-        React.createElement('div', { style: rowStyle },
-          React.createElement('label', { style: labelStyle }, 'User ID'),
+          React.createElement('label', { style: labelStyle }, 'Egeria User ID'),
           React.createElement('input', { style: fieldStyle, type: 'text', value: form.userId, placeholder: 'erinoverview', onChange: function(e) { set('userId', e.target.value); } })
         ),
         React.createElement('div', { style: rowStyle },
@@ -4196,10 +4191,7 @@ function ConnectionForm({ saveCreds }) {
         React.createElement('button', {
           type: 'submit',
           style: { padding: '6px 14px', borderRadius: 5, border: '1px solid rgba(96,165,250,.4)', background: saved ? 'rgba(52,211,153,.12)' : 'rgba(96,165,250,.1)', color: saved ? '#34d399' : 'var(--accent)', cursor: 'pointer', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }
-        }, saved ? '✔ Saved' : 'Connect')
-      ),
-      React.createElement('p', { style: { margin: '8px 0 0', fontSize: 11, color: 'var(--dim)' } },
-        'Leave fields empty to use server defaults from environment variables. Settings are saved to browser local storage.'
+        }, saved ? '✔ Saved' : 'Apply')
       )
     )
   );
@@ -6670,12 +6662,15 @@ function App() {
   const [creds, setCreds] = useState(function() {
     try {
       var s = localStorage.getItem('egeria-creds');
-      return s ? JSON.parse(s) : { url: '', server: 'qs-view-server', userId: 'erinoverview', password: 'secret' };
-    } catch(e) { return { url: '', server: 'qs-view-server', userId: 'erinoverview', password: 'secret' }; }
+      var base = s ? JSON.parse(s) : {};
+      // Freshstart: Egeria connection is always server-managed via env vars.
+      // Never use a cached URL — it would be localhost or another client-visible host
+      // that the server cannot reach inside Docker.
+      return { url: '', server: base.server || 'fs-view-server', userId: base.userId || 'erinoverview', password: base.password || 'secret' };
+    } catch(e) { return { url: '', server: 'fs-view-server', userId: 'erinoverview', password: 'secret' }; }
   });
-  const [connected, setConnected] = useState(function() {
-    try { return !!localStorage.getItem('egeria-creds'); } catch(e) { return false; }
-  });
+  // Freshstart: connection is always server-managed — all tabs enabled immediately.
+  const [connected, setConnected] = useState(true);
   // Bumped every time the user saves new credentials so all connected section views remount and re-fetch.
   const [credsKey, setCredsKey] = useState(0);
   // Bumped to retry the type-system fetch with the latest credentials (used after credential fixes).

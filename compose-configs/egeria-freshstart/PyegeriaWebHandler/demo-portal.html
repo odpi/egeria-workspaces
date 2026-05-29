@@ -85,12 +85,16 @@ var _user = null;
 var _orgName = 'Egeria';
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
+var _platformCfg = {};
+
 Promise.all([
   fetch('/api/auth/me').then(r => r.json()),
   fetch('/api/platform/org-name').then(r => r.json()).catch(() => ({name: ''})),
+  fetch('/api/platform/portal-config').then(r => r.json()).catch(() => ({})),
 ]).then(function(results) {
   var me = results[0];
   var orgData = results[1];
+  _platformCfg = results[2] || {};
   if (!me.authenticated) { window.location.href = '/login'; return; }
   _user = me;
   if (orgData.name) _orgName = orgData.name;
@@ -122,8 +126,10 @@ function renderHub() {
       url: '/egeria-explorer', newTab: false, enabled: true },
     { icon: '📓', name: 'Jupyter Lab',     desc: 'Interactive notebooks for Egeria API exploration and data analysis.',
       url: jupyterUrl, newTab: true, enabled: true },
-    { icon: '🤖', name: 'Egeria Advisor',  desc: 'AI-powered guidance for your Egeria environment.',
-      url: null, newTab: true, enabled: false },
+    { icon: '🤖', name: 'Egeria Advisor',
+      desc: _platformCfg.advisor_running ? 'AI-powered guidance for your Egeria environment.' : 'AI-powered guidance for your Egeria environment. (Not currently running)',
+      url: _platformCfg.advisor_url || ('http://' + window.location.hostname + ':8080/'), newTab: true,
+      enabled: true, unavailable: !_platformCfg.advisor_running },
     { icon: '👤', name: 'My Profile',      desc: 'View and edit your Egeria profile, and change your password.',
       url: '/profile', newTab: false, enabled: true },
     { icon: '📖', name: 'Egeria Documentation',
@@ -144,9 +150,14 @@ function renderHub() {
   }
 
   document.getElementById('app-grid').innerHTML = apps.map(function(a) {
-    var action = a.enabled
-      ? '<button class="btn btn-accent app-action" onclick="launch(' + JSON.stringify(a.url).replace(/"/g, '&quot;') + ',' + a.newTab + ')">' + (a.newTab ? 'Open ↗' : 'Open') + '</button>'
-      : '<span class="soon-badge">Coming soon</span>';
+    var action;
+    if (!a.enabled) {
+      action = '<span class="soon-badge">Coming soon</span>';
+    } else if (a.unavailable) {
+      action = '<span class="soon-badge" style="background:var(--hover);color:var(--muted)">Not running</span>';
+    } else {
+      action = '<button class="btn btn-accent app-action" onclick="launch(' + JSON.stringify(a.url).replace(/"/g, '&quot;') + ',' + a.newTab + ')">' + (a.newTab ? 'Open ↗' : 'Open') + '</button>';
+    }
     return '<div class="app-tile' + (a.enabled ? '' : ' disabled') + '">' +
       '<div class="app-icon">' + a.icon + '</div>' +
       '<div class="app-name">' + esc(a.name) + '</div>' +

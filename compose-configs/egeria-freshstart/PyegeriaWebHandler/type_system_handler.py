@@ -205,10 +205,6 @@ async def egeria_explorer_ui(request: Request):
 @router.get("/api/types/names", summary="Get sorted type names by kind")
 def get_type_names(
     kind: str = Query("entity", description="Type kind: entity, classification, or relationship"),
-    url:      Optional[str] = Query(None),
-    server:   Optional[str] = Query(None),
-    user_id:  Optional[str] = Query(None),
-    user_pwd: Optional[str] = Query(None),
 ):
     """Return a sorted list of type names for the given kind. Results are cached process-wide."""
     cache_key = kind.lower()
@@ -219,13 +215,9 @@ def get_type_names(
         raise HTTPException(status_code=400, detail=f"Unknown kind '{kind}'. Use entity, classification, or relationship.")
 
     d = _env_defaults()
-    url      = url      or d["url"]
-    server   = server   or d["server"]
-    user_id  = user_id  or d["user_id"]
-    user_pwd = user_pwd or d["user_pwd"]
 
     try:
-        c = _get_client(url, server, user_id, user_pwd)
+        c = _get_client(d["url"], d["server"], d["user_id"], d["user_pwd"])
         if cache_key == "entity":
             raw = _normalize_raw(c.get_all_entity_defs(), "Entity definitions")
         elif cache_key == "classification":
@@ -250,10 +242,6 @@ def get_all_types(
         description="Filter entity types to a specific area (0–9). "
                     "Relationships and classifications are always returned in full.",
     ),
-    url:      Optional[str] = Query(None, description="Egeria platform URL (overrides env)"),
-    server:   Optional[str] = Query(None, description="Egeria view server name (overrides env)"),
-    user_id:  Optional[str] = Query(None, description="Egeria user id (overrides env)"),
-    user_pwd: Optional[str] = Query(None, description="Egeria user password (overrides env)"),
 ):
     """
     Return the complete Egeria open metadata type system.
@@ -263,15 +251,13 @@ def get_all_types(
     ``area`` field derived from the supertype chain, and a ``props`` list
     containing only the *own* properties; the UI computes inherited
     properties by walking the ``supertype`` chain client-side.
+
+    Connection is always taken from server-side env vars in freshstart.
     """
     d = _env_defaults()
-    url      = url      or d["url"]
-    server   = server   or d["server"]
-    user_id  = user_id  or d["user_id"]
-    user_pwd = user_pwd or d["user_pwd"]
 
     try:
-        c = _get_client(url, server, user_id, user_pwd)
+        c = _get_client(d["url"], d["server"], d["user_id"], d["user_pwd"])
         logger.debug("Fetching entity definitions...")
         entity_raw = _normalize_raw(c.get_all_entity_defs(), "Entity definitions")
         logger.debug(f"Fetched {len(entity_raw)} entity definitions")
