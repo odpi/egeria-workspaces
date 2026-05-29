@@ -52,6 +52,15 @@ Spec: `report-rendering-plan.md`
 
 ---
 
+## Egeria Explorer — Shared Codebase
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| SHARE-1 | Unify `type-explorer.html` — one file served to both envs; gate demo features via `/api/env` endpoint | open | Dual-file causes constant sync burden; diverge through env detection not separate files |
+| SHARE-2 | Unify backend handlers (digital_products, egeria_feedback, etc.) across freshstart + quickstart | open | Same root cause as SHARE-1; quickstart-only features (tree cache, demo auth) should be env-gated |
+
+---
+
 ## Egeria Explorer — Performance
 
 | # | Item | Status | Notes |
