@@ -257,7 +257,7 @@ def verify_email(token: str, db: Session = Depends(get_db)):
 
     demo_token = _make_jwt(user.id, user.role)
     exp = JWT_EXPIRY_ADMIN_SEC if user.role == "admin" else JWT_EXPIRY_USER_SEC
-    response = RedirectResponse(url="/egeria-explorer?demo_welcome=1", status_code=302)
+    response = RedirectResponse(url="/portal", status_code=302)
     response.set_cookie("demo_token", demo_token, httponly=True, samesite="lax", max_age=exp)
     return response
 
