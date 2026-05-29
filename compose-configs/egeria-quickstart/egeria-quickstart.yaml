@@ -187,6 +187,19 @@ services:
     depends_on:
       - pyegeria-web
 
+  obsidian:
+    image: ghcr.io/linuxserver/obsidian:latest
+    container_name: obsidian-quickstart
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Chicago
+    volumes:
+      - ../../coco-workbooks:/config/Obsidian
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
 
 networks:
   egeria_network:
