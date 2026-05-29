@@ -353,8 +353,11 @@
     document.getElementById('passwordRow').style.display = 'none';
     document.getElementById('modalTitle').textContent = 'Edit User — ' + (u.userId || '');
     document.getElementById('modalSaveBtn').textContent = 'Save Changes';
+    // Pre-populate roles/groups from YAML (immediately available)
+    setSelected('mRoles',  u.securityRoles  || []);
+    setSelected('mGroups', u.securityGroups || []);
     document.getElementById('userModal').classList.add('open');
-    // Fetch full details (roles, groups, zones) from Egeria
+    // Fetch full details from Egeria to confirm/update (includes zones, live state)
     fetch('/api/admin/egeria-users/' + encodeURIComponent(u.userId))
       .then(function(r) { return r.json(); })
       .then(function(full) {
@@ -363,10 +366,10 @@
         var other = full.otherProperties || {};
         document.getElementById('mDefaultZones').value = other.defaultZones || '';
         document.getElementById('mPublishZones').value = other.publishZones || '';
-        setSelected('mRoles',  full.securityRoles  || []);
-        setSelected('mGroups', full.securityGroups || []);
+        setSelected('mRoles',  full.securityRoles  || u.securityRoles  || []);
+        setSelected('mGroups', full.securityGroups || u.securityGroups || []);
       })
-      .catch(function() { showModalMsg('warn', 'Could not load full user details from Egeria'); });
+      .catch(function() { showModalMsg('warn', 'Could not refresh user details from Egeria — showing last saved state'); });
   }
 
   function closeModal() {

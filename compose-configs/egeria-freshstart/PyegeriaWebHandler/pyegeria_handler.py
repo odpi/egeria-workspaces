@@ -187,13 +187,43 @@ from egeria_feedback_handler import router as egeria_feedback_router
 app.include_router(egeria_feedback_router)
 
 # ── Auth (Egeria-backed — always active in freshstart) ─────────────────────────
-from demo_config import DEMO_MODE
+from demo_config import DEMO_MODE, EGERIA_ADVISOR_URL, OBSIDIAN_VAULT_URL, OBSIDIAN_GITHUB_URL
 from demo_auth_handler import router as demo_auth_router
 app.include_router(demo_auth_router)
 
 @app.get("/")
 async def health():
     return {"status": "ok", "service": "dr-egeria-md"}
+
+
+@app.get("/api/platform/portal-config", include_in_schema=False)
+async def platform_portal_config():
+    import urllib.parse
+    import httpx
+    raw = OBSIDIAN_VAULT_URL
+    if raw and not raw.startswith("obsidian://"):
+        obsidian_url = "obsidian://open?vault=" + urllib.parse.quote(raw)
+    else:
+        obsidian_url = raw
+    advisor_running = False
+    if EGERIA_ADVISOR_URL:
+        check_urls = [EGERIA_ADVISOR_URL]
+        if "localhost" in EGERIA_ADVISOR_URL:
+            check_urls.append(EGERIA_ADVISOR_URL.replace("localhost", "host.docker.internal"))
+        for check_url in check_urls:
+            try:
+                async with httpx.AsyncClient(verify=False, timeout=1.5) as client:
+                    await client.head(check_url)
+                advisor_running = True
+                break
+            except Exception:
+                continue
+    return {
+        "obsidian_vault_url":  obsidian_url,
+        "obsidian_github_url": OBSIDIAN_GITHUB_URL,
+        "advisor_url":         EGERIA_ADVISOR_URL,
+        "advisor_running":     advisor_running,
+    }
 
 
 # ── Demo page routes ───────────────────────────────────────────────────────────

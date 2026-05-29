@@ -542,6 +542,8 @@ async def list_egeria_users(admin: CurrentUser = Depends(require_admin)):
             "userName": (entry or {}).get("userName", uid) or uid,
             "userAccountStatus": (entry or {}).get("userAccountStatus", "AVAILABLE"),
             "userAccountType": (entry or {}).get("userAccountType", "EMPLOYEE"),
+            "securityRoles":  (entry or {}).get("securityRoles",  []),
+            "securityGroups": (entry or {}).get("securityGroups", []),
         }
         for uid, entry in users.items()
         if (entry or {}).get("userAccountType", "DIGITAL") in _HUMAN_TYPES
@@ -571,6 +573,8 @@ async def create_egeria_user(req: CreateUserRequest, admin: CurrentUser = Depend
                 "userAccountStatus": "CREDENTIALS_EXPIRED",
                 "userAccountType": req.userAccountType,
                 "userName": req.userName or req.userId,
+                "securityRoles":  req.securityRoles  or [],
+                "securityGroups": req.securityGroups or [],
                 "secrets": {"clearPassword": req.clearPassword},
             }
             _write_omsecrets(data)
@@ -644,13 +648,20 @@ async def update_egeria_user(
         )
     if r.status_code not in (200, 201):
         raise HTTPException(status_code=r.status_code, detail=f"Egeria error: {r.text[:300]}")
-    # Mirror display-name change to YAML
-    if req.userName is not None and _SECRETS_PATH.exists():
+    # Mirror changes to YAML so the list reflects them immediately
+    if _SECRETS_PATH.exists():
         async with _SECRETS_FILE_LOCK:
             data = _read_omsecrets()
             users = _secrets_users(data)
             if target_id in users:
-                (users[target_id] or {})["userName"] = req.userName
+                entry = users[target_id] or {}
+                if req.userName is not None:
+                    entry["userName"] = req.userName
+                if req.securityRoles is not None:
+                    entry["securityRoles"] = req.securityRoles
+                if req.securityGroups is not None:
+                    entry["securityGroups"] = req.securityGroups
+                users[target_id] = entry
                 _write_omsecrets(data)
     return {"userId": target_id, "status": "updated"}
 
