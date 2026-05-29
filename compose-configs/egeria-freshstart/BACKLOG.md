@@ -25,7 +25,8 @@ Items completed in quickstart that still need to be applied or adapted for fresh
 
 ### User management API upgrade
 - [ ] **Switch user listing to new SecurityOfficer list API** — The current implementation reads the `egeria-user-directory.omsecrets` YAML file directly for the admin user list because (a) SecurityOfficer has no list-all endpoint and (b) OMRS sync from SecurityOfficer to the actor registry runs hourly. When Egeria adds a SecurityOfficer list endpoint, replace the YAML-reading path in `list_egeria_users()` in `demo_auth_handler.py` with the new API call. The mutation paths (create/update/delete/disable/reset-password) already use SecurityOfficer correctly — only listing needs updating.
-- [ ] **Fix security roles and groups in admin user list** — The admin panel's Egeria Users table has a Roles column that is currently always empty. Roles and group memberships are stored in the `namedLists` section of the omsecrets YAML as `userMembers` and `listMembers` entries keyed by list/role name — not in the per-user record. To populate the column, either (a) reverse-map from `namedLists` in the YAML reading path, or (b) use the SecurityOfficer list API once available (it returns roles per user). The modal's multi-select dropdowns for roles/groups will work on creation; they just don't pre-populate on edit until this is fixed.
+- [x] **Fix security roles and groups in admin edit modal** — Replaced multi-select with checkbox lists; pre-population on edit now works correctly. See BACKLOG.md FS-1.
+- [ ] **Fix roles column in user list table** — The Roles column in the admin panel user table is still always empty (separate from modal pre-population). Requires reverse-mapping `namedLists` in the YAML reading path or a new SecurityOfficer list API. See BACKLOG.md FS-1 notes.
 
 ### Data loading
 - [ ] Freshstart ships empty — unlike quickstart, Coco Pharmaceuticals demo data is NOT pre-loaded. Decide whether to:
