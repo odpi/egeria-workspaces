@@ -2,13 +2,16 @@
 SPDX-License-Identifier: Apache-2.0
 Copyright Contributors to the ODPi Egeria project.
 
-Egeria native feedback — proxies likes and ratings on any Egeria metadata element
-using the configured demo user identity (EGERIA_USER env var).
+Egeria native feedback — proxies likes, ratings, and comments on any Egeria
+metadata element using the configured demo user identity (EGERIA_USER env var).
 
-GET    /api/egeria-feedback/{guid}          → summary (counts, user state)
-POST   /api/egeria-feedback/{guid}/like     → toggle like
-POST   /api/egeria-feedback/{guid}/rating   → set/update rating
-DELETE /api/egeria-feedback/{guid}/rating   → remove rating
+GET    /api/egeria-feedback/{guid}                        → summary (likes, ratings)
+POST   /api/egeria-feedback/{guid}/like                   → toggle like
+POST   /api/egeria-feedback/{guid}/rating                 → set/update rating
+DELETE /api/egeria-feedback/{guid}/rating                 → remove rating
+GET    /api/egeria-feedback/{guid}/comments               → list comments
+POST   /api/egeria-feedback/{guid}/comments               → add comment
+DELETE /api/egeria-feedback/{guid}/comments/{comment_guid}→ remove comment
 """
 
 import os
@@ -178,3 +181,98 @@ def remove_rating(guid: str):
         raise HTTPException(status_code=500, detail=str(exc))
     avg_rating, ratings_count, my_rating = _ratings_info(client, guid)
     return {"avg_rating": avg_rating, "ratings_count": ratings_count, "my_rating": my_rating}
+
+
+# ── Comments ───────────────────────────────────────────────────────────────────
+
+_COMMENT_TYPES = {
+    "STANDARD_COMMENT", "QUESTION", "ANSWER",
+    "SUGGESTION", "USAGE_EXPERIENCE", "REQUIREMENT", "OTHER",
+}
+
+
+class CommentRequest(BaseModel):
+    comment_type: str = "STANDARD_COMMENT"
+    text: str
+
+
+def _comments_list(client, guid: str) -> list[dict]:
+    try:
+        result = client.get_attached_comments(guid, output_format="JSON")
+        if not isinstance(result, list):
+            return []
+        out = []
+        for elem in result:
+            hdr = elem.get("elementHeader") or {}
+            versions = hdr.get("versions") or {}
+            props = elem.get("properties") or {}
+            # Egeria stores comment text as "description" in CommentProperties
+            text = props.get("description") or props.get("text") or ""
+            out.append({
+                "guid":        hdr.get("guid", ""),
+                "commentType": props.get("commentType", "STANDARD_COMMENT"),
+                "text":        text,
+                "createdBy":   versions.get("createdBy", ""),
+                "createTime":  versions.get("createTime", ""),
+            })
+        return out
+    except Exception as exc:
+        logger.debug(f"get_attached_comments({guid}): {exc}")
+        return []
+
+
+@router.get("/api/egeria-feedback/{guid}/comments", summary="List comments on an element")
+def get_comments(guid: str):
+    return _comments_list(_get_client(), guid)
+
+
+@router.post("/api/egeria-feedback/{guid}/comments", summary="Add a comment to an element")
+def add_comment(guid: str, req: CommentRequest):
+    if not req.text.strip():
+        raise HTTPException(status_code=400, detail="Comment text is required")
+    if req.comment_type not in _COMMENT_TYPES:
+        raise HTTPException(status_code=400, detail=f"Invalid comment_type: {req.comment_type!r}")
+    client = _get_client()
+    try:
+        client.add_comment_to_element(
+            element_guid=guid,
+            comment=req.text.strip(),
+            comment_type=req.comment_type,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    return _comments_list(client, guid)
+
+
+@router.put(
+    "/api/egeria-feedback/{guid}/comments/{comment_guid}",
+    summary="Update a comment",
+)
+def update_comment_endpoint(guid: str, comment_guid: str, req: CommentRequest):
+    if not req.text.strip():
+        raise HTTPException(status_code=400, detail="Comment text is required")
+    if req.comment_type not in _COMMENT_TYPES:
+        raise HTTPException(status_code=400, detail=f"Invalid comment_type: {req.comment_type!r}")
+    client = _get_client()
+    try:
+        client.update_comment(
+            comment_guid=comment_guid,
+            comment=req.text.strip(),
+            comment_type=req.comment_type,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    return _comments_list(client, guid)
+
+
+@router.delete(
+    "/api/egeria-feedback/{guid}/comments/{comment_guid}",
+    summary="Remove a comment",
+)
+def delete_comment(guid: str, comment_guid: str):
+    client = _get_client()
+    try:
+        client.remove_comment_from_element(comment_guid)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    return _comments_list(client, guid)

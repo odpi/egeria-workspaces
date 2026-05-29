@@ -9,9 +9,10 @@ Status: `open` · `in-progress` · `done` · `deferred`
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| DP-1 | Adjustable column widths in tabular dataset preview | done | Drag-to-resize on column right-edge handles; `col-resize` cursor; min 40px |
-| DP-2 | Row filtering in dataset preview | open | Eventually — filter bar above table |
-| DP-3 | Row sorting in dataset preview | open | Eventually — click column header to sort |
+| DP-1 | Adjustable column widths in tabular dataset preview | done | Drag-to-resize on column right-edge handles; dotted separators |
+| DP-2 | Row filtering in dataset preview | open | Filter bar above table |
+| DP-3 | Row sorting in dataset preview | open | Click column header to sort |
+| DP-4 | Search within table preview | open | Global text search across visible rows |
 
 ---
 
@@ -19,8 +20,10 @@ Status: `open` · `in-progress` · `done` · `deferred`
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| FB-1 | Egeria comments on property sheets | open | Bottom of each detail pane; dropdown for comment type; show comment history |
+| FB-1 | Egeria comments on property sheets | done | Glossary Term + Digital Product detail panes; type dropdown; history list |
 | FB-2 | Filter Products / Glossary / Reports by like count or rating | open | |
+| FB-3 | Expand comments to more view types — Solution Architect, Data Designer, others | done | Added to: SolutionBlueprint, SolutionComponent, ISC, GovDef, DataDesign; both freshstart + quickstart |
+| FB-4 | Journals — persistent per-element notes/log separate from Egeria comments | open | Exploratory; may be local storage or a separate Egeria NoteLog |
 
 ---
 
@@ -46,6 +49,32 @@ Spec: `report-rendering-plan.md`
 | FS-2 | My Profile page (`/profile`) — self-service display name, job title, description + password change | open | Calls `MyProfile` API; file exists but completeness unclear |
 | FS-3 | Portal greeting reads org name from `application.properties` | open | `platform.organization.name` property |
 | FS-4 | Delete `demo_db.py` — no SQLite in freshstart | open | Egeria is the sole user store; file still present |
+
+---
+
+## Egeria Explorer — Performance
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| PERF-1 | Digital Product catalog tree load is slow — investigate query optimisation | open | `get_collection_members` called serially per container; `include_only_relationships` explored but not yet validated |
+| PERF-2 | Evaluate server-side lazy loading for deep catalog trees | open | Return top-level only; fetch children on expand click |
+
+---
+
+## Egeria Explorer — Home Page
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| HOME-1 | Reorder portal home page cards into a more logical grouping | open | Current order is accretion-based; needs user-journey-led layout |
+
+---
+
+## Egeria Explorer — Report Specs & Subscriptions
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| RS-1 | Building / editing Report Specs from the UI | open | Large feature; spec TBD — form-driven composition of report specs |
+| RS-2 | Subscribe to a Digital Product | open | Exploratory — notification or watch mechanism when product changes |
 
 ---
 
