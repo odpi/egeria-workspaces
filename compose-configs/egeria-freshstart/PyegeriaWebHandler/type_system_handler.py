@@ -54,6 +54,22 @@ def _get_client(url: str, server: str, user_id: str, user_pwd: str) -> ValidMeta
         raise
 
 
+def _get_client_from_token(url: str, server: str, user_id: str, egeria_token: str) -> ValidMetadataManager:
+    """Create a client using a pre-existing Egeria bearer token (no re-auth round-trip)."""
+    logger.debug(f"Initializing ValidMetadataManager with token for url={url}, server={server}, user_id={user_id}")
+    return ValidMetadataManager(view_server=server, platform_url=url, user_id=user_id, token=egeria_token)
+
+
+def _egeria_token_from_request(request: "Request") -> str | None:
+    """Extract the Egeria bearer token stored in the portal JWT cookie."""
+    try:
+        from demo_auth_handler import get_current_user
+        user = get_current_user(request)
+        return user.egeria_token if user and user.egeria_token else None
+    except Exception:
+        return None
+
+
 # ── Area derivation ───────────────────────────────────────────────────────────
 # The Egeria type API doesn't carry an "area" field; area is a documentation
 # concept.  We derive it by walking up the supertype chain until we hit one of
@@ -203,7 +219,8 @@ async def egeria_explorer_ui(request: Request):
 
 
 @router.get("/api/types/names", summary="Get sorted type names by kind")
-def get_type_names(
+async def get_type_names(
+    request: Request,
     kind: str = Query("entity", description="Type kind: entity, classification, or relationship"),
 ):
     """Return a sorted list of type names for the given kind. Results are cached process-wide."""
@@ -215,9 +232,13 @@ def get_type_names(
         raise HTTPException(status_code=400, detail=f"Unknown kind '{kind}'. Use entity, classification, or relationship.")
 
     d = _env_defaults()
+    egeria_token = _egeria_token_from_request(request)
 
     try:
-        c = _get_client(d["url"], d["server"], d["user_id"], d["user_pwd"])
+        if egeria_token:
+            c = _get_client_from_token(d["url"], d["server"], d["user_id"], egeria_token)
+        else:
+            c = _get_client(d["url"], d["server"], d["user_id"], d["user_pwd"])
         if cache_key == "entity":
             raw = _normalize_raw(c.get_all_entity_defs(), "Entity definitions")
         elif cache_key == "classification":
@@ -236,7 +257,8 @@ def get_type_names(
 
 
 @router.get("/api/types", summary="Get all open metadata type definitions")
-def get_all_types(
+async def get_all_types(
+    request: Request,
     area: Optional[int] = Query(
         None,
         description="Filter entity types to a specific area (0–9). "
@@ -252,12 +274,16 @@ def get_all_types(
     containing only the *own* properties; the UI computes inherited
     properties by walking the ``supertype`` chain client-side.
 
-    Connection is always taken from server-side env vars in freshstart.
+    Connection uses the logged-in user's Egeria bearer token in freshstart.
     """
     d = _env_defaults()
+    egeria_token = _egeria_token_from_request(request)
 
     try:
-        c = _get_client(d["url"], d["server"], d["user_id"], d["user_pwd"])
+        if egeria_token:
+            c = _get_client_from_token(d["url"], d["server"], d["user_id"], egeria_token)
+        else:
+            c = _get_client(d["url"], d["server"], d["user_id"], d["user_pwd"])
         logger.debug("Fetching entity definitions...")
         entity_raw = _normalize_raw(c.get_all_entity_defs(), "Entity definitions")
         logger.debug(f"Fetched {len(entity_raw)} entity definitions")
