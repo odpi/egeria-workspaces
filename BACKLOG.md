@@ -9,7 +9,7 @@ Status: `open` · `in-progress` · `done` · `deferred`
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| DP-1 | Adjustable column widths in tabular dataset preview | open | Drag-to-resize on column headers |
+| DP-1 | Adjustable column widths in tabular dataset preview | done | Drag-to-resize on column right-edge handles; `col-resize` cursor; min 40px |
 | DP-2 | Row filtering in dataset preview | open | Eventually — filter bar above table |
 | DP-3 | Row sorting in dataset preview | open | Eventually — click column header to sort |
 
