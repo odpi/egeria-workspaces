@@ -195,10 +195,16 @@ services:
       - PGID=1000
       - TZ=America/Chicago
     volumes:
+      # Mounting the Obsidian configuration directory from the host to the container
       - ../../coco-workbooks:/config/Obsidian
     ports:
-      - "3000:3000"
+      - "3000:3000"  # Mapping port 3000 on the host to port 3000 in the container
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 
 networks:
