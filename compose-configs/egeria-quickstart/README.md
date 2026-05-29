@@ -68,7 +68,46 @@ File system volumes are mounted for:
 
 ## Postgresql - configured for Egeria
 
-PostgreSQL runs in the shared infra stack and provides the `egeria` database used by quickstart.
+PostgreSQL runs in the shared infra stack (port **5442**) and is initialised on first container creation by
+`docker-entrypoint-initdb.d/init_egeria.sql`.  Docker only runs this script once — when the container's
+data directory is brand new — so it has no effect on subsequent restarts.
+
+### What `init_egeria.sql` does
+
+The script:
+
+1. **Creates database users** — `egeria_admin`, `egeria_user`, `airflow_user`, `marquez_user`,
+   `example_user`, `uc_user`, and `mlflow_user`.
+2. **Creates databases** — `egeria`, `superset`, `coco_pharma`, `airflow`, `marquez`, `examples`,
+   `ucdb`, `hive_metastore`, `mlflow_db`, and `coco_ods`.
+3. **Grants privileges** to the appropriate users on each database.
+4. **Creates schemas** inside specific databases:
+   - `demo` schema in `egeria` — the demo-mode user registry.
+   - `coco_sus` schema in `coco_pharma` — Coco Pharmaceuticals supply chain / source system data.
+   - `coco_ods` schema in `coco_pharma` — Coco Pharmaceuticals operational data store.
+5. **Loads sample data** into each schema immediately after creating it, using the SQL files in
+   `docker-entrypoint-initdb.d/data/`:
+   - `data/coco_sus.sql` is loaded into `coco_sus`
+   - `data/coco_ods.sql` is loaded into `coco_ods`
+
+### Adding schemas to an existing Postgres deployment
+
+If you already had PostgreSQL running before `coco_sus` / `coco_ods` were introduced, the init
+script will not re-run automatically.  Use the helper script to create and load the schemas manually:
+
+```bash
+# From the repository root (defaults: localhost:5442, egeria_admin / admin4egeria)
+./compose-configs/egeria-quickstart/docker-entrypoint-initdb.d/add_coco_schemas.sh
+```
+
+Override connection settings with environment variables if needed:
+
+```bash
+PGHOST=myhost PGPORT=5442 PGUSER=egeria_admin PGPASSWORD=admin4egeria \
+  ./compose-configs/egeria-quickstart/docker-entrypoint-initdb.d/add_coco_schemas.sh
+```
+
+The script is idempotent — it uses `CREATE SCHEMA IF NOT EXISTS` so it is safe to run more than once.
 
 ## Open Lineage Proxy 
 This is now provided by the shared infrastructure stack and runs on ports 6000 and 6001.

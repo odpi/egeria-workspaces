@@ -255,11 +255,25 @@ def update_comment_endpoint(guid: str, comment_guid: str, req: CommentRequest):
         raise HTTPException(status_code=400, detail=f"Invalid comment_type: {req.comment_type!r}")
     client = _get_client()
     try:
-        client.update_comment(
-            comment_guid=comment_guid,
-            comment=req.text.strip(),
-            comment_type=req.comment_type,
-        )
+        # Egeria requires qualifiedName in the update body even for merge updates.
+        # Fetch it from the existing comment so we can include it.
+        existing = client.get_comment_by_guid(comment_guid, output_format="JSON")
+        if isinstance(existing, dict):
+            existing_props = existing.get("properties") or {}
+        else:
+            existing_props = {}
+        qualified_name = existing_props.get("qualifiedName") or f"Comment::{comment_guid}"
+        body = {
+            "class": "UpdateElementRequestBody",
+            "mergeUpdate": True,
+            "properties": {
+                "class": "CommentProperties",
+                "qualifiedName": qualified_name,
+                "description": req.text.strip(),
+                "commentType": req.comment_type,
+            },
+        }
+        client.update_comment(comment_guid=comment_guid, body=body)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
     return _comments_list(client, guid)

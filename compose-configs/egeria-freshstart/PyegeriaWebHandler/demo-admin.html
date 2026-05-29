@@ -66,7 +66,10 @@
     .form-group input::placeholder { font-style: italic; opacity: 0.6; }
     .form-group input, .form-group select { width: 100%; padding: 0.5rem 0.65rem; background: var(--bg); border: 1px solid var(--border); border-radius: 5px; color: var(--text); font-size: 0.85rem; outline: none; }
     .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
-    .form-group select[multiple] { height: 100px; }
+    .checkbox-list { height: 120px; overflow-y: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 5px; padding: 0.3rem 0.5rem; }
+    .checkbox-list label { display: block; padding: 0.2rem 0; font-size: 0.82rem; cursor: pointer; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .checkbox-list label:hover { color: var(--accent); }
+    .checkbox-list input[type="checkbox"] { width: auto; accent-color: var(--accent); cursor: pointer; margin-right: 0.3rem; vertical-align: middle; }
     .form-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.25rem; }
     .btn-cancel { padding: 0.5rem 1rem; background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 5px; cursor: pointer; font-size: 0.85rem; }
     .btn-cancel:hover { border-color: var(--text); color: var(--text); }
@@ -164,11 +167,11 @@
     <div class="form-row">
       <div class="form-group">
         <label>Security Roles</label>
-        <select id="mRoles" multiple title="Hold Ctrl/Cmd to select multiple"></select>
+        <div id="mRoles" class="checkbox-list"></div>
       </div>
       <div class="form-group">
         <label>Security Groups</label>
-        <select id="mGroups" multiple title="Hold Ctrl/Cmd to select multiple"></select>
+        <div id="mGroups" class="checkbox-list"></div>
       </div>
     </div>
     <div class="form-row">
@@ -257,34 +260,32 @@
   function loadRolesAndGroups() {
     fetch('/api/admin/roles').then(r => r.json()).then(function(data) {
       _roles = Array.isArray(data) ? data : [];
-      populateSelect('mRoles', _roles);
     }).catch(() => {});
     fetch('/api/admin/groups').then(r => r.json()).then(function(data) {
       _groups = Array.isArray(data) ? data : [];
-      populateSelect('mGroups', _groups);
     }).catch(() => {});
   }
 
-  function populateSelect(id, items) {
-    var sel = document.getElementById(id);
-    var prev = getSelected(id);
-    sel.innerHTML = items.map(function(it) {
+  function populateSelect(id, items, selected) {
+    var container = document.getElementById(id);
+    var sel = selected || [];
+    container.innerHTML = items.map(function(it) {
       var val = it.qualifiedName || it.displayName || it.name || '';
       var lbl = it.displayName || it.qualifiedName || val;
-      var sel_ = prev.includes(val) ? ' selected' : '';
-      return '<option value="' + esc(val) + '"' + sel_ + '>' + esc(lbl) + '</option>';
+      var chk = sel.includes(val) ? ' checked' : '';
+      return '<label><input type="checkbox" value="' + esc(val) + '"' + chk + '>' + esc(lbl) + '</label>';
     }).join('');
   }
 
   function getSelected(id) {
-    var sel = document.getElementById(id);
-    return Array.from(sel.selectedOptions).map(o => o.value);
+    var container = document.getElementById(id);
+    return Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(function(cb) { return cb.value; });
   }
 
   function setSelected(id, values) {
-    var sel = document.getElementById(id);
-    Array.from(sel.options).forEach(function(o) {
-      o.selected = values.includes(o.value);
+    var container = document.getElementById(id);
+    container.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+      cb.checked = values.includes(cb.value);
     });
   }
 
@@ -327,8 +328,6 @@
       document.getElementById(id).value = '';
     });
     document.getElementById('mAccountType').value = 'EMPLOYEE';
-    setSelected('mRoles', []);
-    setSelected('mGroups', []);
     document.getElementById('modalMsg').style.display = 'none';
     document.getElementById('modalSaveBtn').disabled = false;
   }
@@ -336,6 +335,8 @@
   function openCreateModal() {
     _editUserId = null;
     clearModal();
+    populateSelect('mRoles',  _roles,  []);
+    populateSelect('mGroups', _groups, []);
     document.getElementById('mUserId').disabled = false;
     document.getElementById('passwordRow').style.display = 'block';
     document.getElementById('modalTitle').textContent = 'Create User';
@@ -355,11 +356,11 @@
     document.getElementById('passwordRow').style.display = 'none';
     document.getElementById('modalTitle').textContent = 'Edit User — ' + (u.userId || '');
     document.getElementById('modalSaveBtn').textContent = 'Save Changes';
-    // Pre-populate roles/groups from YAML (immediately available)
-    setSelected('mRoles',  u.securityRoles  || []);
-    setSelected('mGroups', u.securityGroups || []);
+    // Populate checkboxes with YAML roles/groups pre-checked (synchronous, no race)
+    populateSelect('mRoles',  _roles,  u.securityRoles  || []);
+    populateSelect('mGroups', _groups, u.securityGroups || []);
     document.getElementById('userModal').classList.add('open');
-    // Fetch full details from Egeria to confirm/update (includes zones, live state)
+    // Fetch full details from Egeria for zones and live account state
     fetch('/api/admin/egeria-users/' + encodeURIComponent(u.userId))
       .then(function(r) { return r.json(); })
       .then(function(full) {
@@ -370,8 +371,6 @@
         var other = full.otherProperties || {};
         document.getElementById('mDefaultZones').value = other.defaultZones || '';
         document.getElementById('mPublishZones').value = other.publishZones || '';
-        setSelected('mRoles',  full.securityRoles  || u.securityRoles  || []);
-        setSelected('mGroups', full.securityGroups || u.securityGroups || []);
       })
       .catch(function() { showModalMsg('warn', 'Could not refresh user details from Egeria — showing last saved state'); });
   }
