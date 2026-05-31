@@ -271,7 +271,9 @@ class CallDrEgeriaSettingTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName("MCP Server URL")
-            .setDesc("The SSE endpoint of your Dr. Egeria MCP server.")
+            .setDesc("SSE endpoint of your Dr. Egeria MCP server. " +
+                "Local Obsidian (same machine as Docker): http://localhost:8000/sse — " +
+                "Containerized Obsidian (KasmVNC / quickstart): http://pyegeria-web:8000/sse")
             .addText(text => text
                 .setPlaceholder("http://localhost:8000/sse")
                 .setValue(this.plugin.settings.mcpUrl)
