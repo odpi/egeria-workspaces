@@ -1,183 +1,69 @@
-{
-  "name": "call-dr-egeria",
-  "version": "0.1.0",
-  "description": "Send Obsidian notes to Dr.Egeria for processing.",
-  "main": "main.js",
-  "scripts": {
-    "dev": "node esbuild.config.mjs",
-    "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
-    "deploy": "npm run build && node deploy.mjs",
-    "deploy:coco": "npm run build && node deploy.mjs ../../coco-workbooks",
-    "deploy:work": "npm run build && node deploy.mjs ../../work/Work-Obsidian",
-    "package": "npm run build && mkdir -p dist && cp main.js manifest.json versions.json dist/",
-    "version": "node version-bump.mjs && git add manifest.json versions.json"
-  },
-  "keywords": [
-    "obsidian",
-    "plugin",
-    "egeria",
-    "dr-egeria"
-  ],
-  "license": "Apache-2.0",
-  "devDependencies": {
-    "@types/node": "^20.17.57",
-    "builtin-modules": "^3.3.0",
-    "esbuild": "^0.25.12",
-    "obsidian": "latest",
-    "tslib": "^2.8.1",
-    "typescript": "^5.9.3"
-  }
-}<!-- SPDX-License-Identifier: CC-BY-4.0 -->
-<!-- Copyright Contributors to the ODPi Egeria project. -->
+# Call Dr. Egeria — Obsidian Plugin
 
-# Call Dr.Egeria Obsidian Plugins
+**Call Dr. Egeria** is the Obsidian plugin for interacting with Dr. Egeria via the **Model Context Protocol (MCP)** over SSE. It sends the active note to the backend for processing, validation, or display, and writes the result directly back into your vault.
 
-This directory contains two Obsidian plugins for interacting with Dr. Egeria.
+For full setup and configuration details see the primary guide:
+👉 **[Configuring and Using the Call Dr. Egeria Obsidian Plugin](../../Configuring%20and%20Using%20the%20Call%20Dr.%20Egeria%20Obsidian%20Plugin.md)**
 
-## 1. Calling the Dr. (MCP) - RECOMMENDED
-The new, feature-rich plugin using the **Model Context Protocol (MCP)**. It supports dynamic command discovery, hot-reloading of specs, and detailed diagnostic feedback.
+## Key Features
 
-- **Source**: `obsidian-plugins/calling-the-dr/`
-- **Documentation**: See [Calling the Dr. README](../calling-the-dr/README.md)
-
-## 2. Call Dr. Egeria (Legacy)
-The original plugin that uses a direct REST API. It is maintained for compatibility but lacks the advanced discovery and refresh features of the MCP version.
-
-- **Source**: `obsidian-plugins/call-dr-egeria/`
-- **Documentation**: See [Legacy Plugin Instructions](./Configuring%20and%20Using%20the%20Calling%20Dr.%20Egeria%20Obsidian%20Plug-in.md)
+- **MCP over SSE**: Robust, token-secured communication with the Dr. Egeria backend.
+- **Content-First**: Plugin writes results directly to the vault — no Docker volume permissions required.
+- **Auto-Config**: When deployed via `npm run deploy:coco`, the container MCP URL (`http://pyegeria-web:8000/sse`) is written as the default so no manual setup is needed inside the containerized Obsidian.
+- **Live Persona Reload**: When the portal updates the session persona, the plugin detects the change in `data.json` and reloads settings automatically (shows a notice).
+- **Flexible Directives**: `process`, `validate`, and `display` modes.
+- **Rich Results Modal**: Status icons (✅ ❌ ⚠️), resizable window, optional verbose toggle.
 
 ## Prerequisites
 
-The plugin was built and tested with Node.js v20 or later.
-
-From `obsidian-plugins/call-dr-egeria/`, install Node dependencies:
-
-```bash
-npm install
-```
-
-The plugin uses:
-
-- TypeScript
-- esbuild
-- Obsidian plugin APIs
-- npm scripts for build/deploy/package tasks
+- Node.js v20+ (for building)
+- Obsidian desktop (native) **or** the containerized Obsidian via the quickstart stack
 
 ## Build
 
-From `obsidian-plugins/call-dr-egeria/`, run:
-
 ```bash
+cd obsidian-plugins/call-dr-egeria
+npm install
 npm run build
 ```
 
-This compiles and bundles the plugin to `obsidian-plugins/call-dr-egeria/main.js`.
-
 ## Deploy
 
-The plugin must be deployed into an Obsidian vault's plugin directory to be used.
+| Command | Target | MCP URL default |
+|---|---|---|
+| `npm run deploy:coco` | `coco-workbooks` vault (container use) | `http://pyegeria-web:8000/sse` |
+| `npm run deploy:coco:local` | `coco-workbooks` vault (local/native use) | `http://localhost:8000/sse` |
+| `npm run deploy:work` | `work/Work-Obsidian` vault | `http://localhost:8000/sse` |
 
-### Deploying to coco-workbooks or Work vaults
+`deploy:coco` writes `data.json` defaults only on a **fresh install** — existing user config is never overwritten.
 
-Convenience scripts are provided for standard environments:
+After deploying, reload the plugin in Obsidian: **Settings → Community Plugins → Call Dr. Egeria → Reload**.
 
-```bash
-# Deploy to ../../coco-workbooks
-npm run deploy:coco
+## MCP Server URL quick reference
 
-# Deploy to ../../work/Work-Obsidian
-npm run deploy:work
-```
-
-### Deploying to a custom directory
-
-To deploy the plugin to any other Obsidian vault, use the `deploy.mjs` script:
-
-```bash
-node deploy.mjs <path-to-your-obsidian-vault>
-```
-
-For example:
-```bash
-node deploy.mjs ~/Documents/MyNotes
-```
-
-This will create the necessary directory structure (`.obsidian/plugins/call-dr-egeria/`) and copy the built assets.
+| Where Obsidian is running | MCP Server URL |
+|---|---|
+| Native, same machine as Docker | `http://localhost:8000/sse` |
+| Native, different machine on LAN | `http://<host-ip>:8000/sse` |
+| Containerized (KasmVNC / quickstart) | `http://pyegeria-web:8000/sse` |
 
 ## Configuration
 
-Once deployed and enabled in Obsidian (Settings -> Community Plugins), you can configure the plugin in the **Dr.Egeria Settings** tab.
+Open **Settings → Call Dr. Egeria Settings (MCP)**:
 
-### Configuration File
+- **MCP Server URL** — SSE endpoint (see table above)
+- **MCP Access Token** — must match `MCP_ACCESS_TOKEN` in the backend container (default: `egeria-secret-mcp-token`)
+- **Egeria User ID / Password** — persona credentials; auto-populated by the portal in demo mode
+- **Default Directive** — `process` / `validate` / `display`
+- **Outbox Path** — where results are saved (relative to vault root)
+- **Vault Root** — absolute path to vault inside the pyegeria-web container (e.g. `/coco-workbooks`)
+- **Verbose Output** — toggle to hide internal log lines from the results modal
 
-The plugin's settings are stored in a file named `data.json` within the plugin's directory in your vault:
+## Troubleshooting
 
-`<vault-path>/.obsidian/plugins/call-dr-egeria/data.json`
-
-This file is created automatically by Obsidian the first time you modify a setting or when the plugin is loaded with default values. You generally do not need to edit this file manually, as all configuration is available through the Obsidian UI.
-
-### Profiles
-
-The plugin supports multiple configuration profiles, allowing you to quickly switch between different Dr.Egeria environments or configurations.
-
-- **Active Profile**: Select the profile to use from the "Active Profile" dropdown at the top of the settings tab.
-- **Switching Profiles**: When you change the Active Profile, the settings UI updates to show the configuration for that specific profile. All subsequent "Call Dr.Egeria" actions will use the selected profile.
-- **Profile Fields**: Each profile defines:
-  - **API URL**: The Dr.Egeria service endpoint (e.g., `http://localhost:8085/dr-egeria/process`).
-  - **Environment & User Profile Keys**: Logical identifiers for the configuration.
-  - **Input/Output Folders**: Default paths for processing.
-    - **Input Folder**: Default path prepended to the active note's path when sending to Dr.Egeria. If the note's path already starts with this folder, it is not prepended again.
-    - **Output Folder**: Passed to Dr.Egeria to specify where to write results.
-  - **Environment & User Profile JSON**: Detailed configuration blocks.
-    - **Pyegeria Root**: Can be an absolute path or a relative path (e.g., `work/Work-Obsidian`). Relative paths are resolved against the workspace root.
-
-### Credentials
-
-User ID and Password are kept separate from the profile JSON to avoid accidental exposure. These are global settings (not per-profile) and are sent with every request to the Dr.Egeria service.
-
-### Example Configuration
-
-### Profile Settings
-
-- **Environment Key**: A logical name for the environment configuration (e.g., "Quickstart Local").
-- **User Profile Key**: A logical name for the user profile configuration (e.g., "Egeria Markdown").
-- **Input Folder**: Optional path to prepend to the note path. Useful for mapping Obsidian paths to container paths.
-- **Output Folder**: Path where Dr. Egeria should place the results.
-
-#### Environment JSON
-```json
-{
-  "Egeria Kafka Endpoint": "host.docker.internal:9192",
-  "Egeria Jupyter": true,
-  "Dr.Egeria Outbox": ".",
-  "Dr.Egeria Inbox": ".",
-  "Egeria Platform URL": "https://host.docker.internal:9443",
-  "Pyegeria Root": "/work/Work-Obsidian",
-  "Pyegeria Publishing Root": "http://localhost:8085/work/Work-Obsidian/dr-egeria-outbox",
-  "console_width": 250
-}
-```
-> **Note**: Setting `Dr.Egeria Inbox` and `Dr.Egeria Outbox` to `.` in the JSON is recommended when using absolute paths in the **Input Folder** setting, to avoid redundant path stripping by the backend.
-
-#### Multi-Vault Configuration
-If you are using multiple Obsidian vaults with the Egeria quickstart environment, you should create separate profiles for each vault. Each profile should have its `Pyegeria Root`, `Dr.Egeria Inbox`, and `Pyegeria Publishing Root` aligned with the vault's mount point in the container.
-
-Detailed configuration examples for different vaults can be found in `compose-configs/egeria-quickstart/OBSIDIAN_PROFILES.md`.
-
-#### User Profile JSON
-```json
-{
-  "Egeria Home Glossary Name": "Egeria-Markdown",
-  "Egeria Local Qualifier": "PDR",
-  "Egeria Home Collection": "MyHome"
-}
-```
-
-## How to use the plugin
-
-1. **Select a Directive**: In Settings, choose between `process`, `validate`, or `display`.
-2. **Send a Note**:
-   - Click the **Phone icon** ("Call Dr.Egeria") in the left ribbon.
-   - Or use the Command Palette (`Ctrl/Cmd + P`) and search for `Call Dr.Egeria: Send Current Note to Dr.Egeria`.
-3. **View Results**: A modal will appear showing the status, message, and any console output returned by the service.
-4. **Refresh Command Specs**: If the Dr.Egeria command definitions change on the server, use the `Refresh Dr.Egeria Command Specs` command or the button in Settings to reload them.
+| Symptom | Check |
+|---|---|
+| 403 Forbidden | MCP Access Token mismatch |
+| Blank/timeout | Backend still processing — check outbox after a moment |
+| Wrong persona | Portal may not have written `data.json` yet; check Obsidian lock status in the portal |
+| CORS error | Verify MCP Server URL is correct and the backend container is running |

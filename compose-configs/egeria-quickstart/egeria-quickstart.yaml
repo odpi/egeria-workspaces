@@ -188,18 +188,29 @@ services:
       - pyegeria-web
 
   obsidian:
-    image: ghcr.io/linuxserver/obsidian:latest
+    image: lscr.io/linuxserver/obsidian:latest
     container_name: obsidian-quickstart
+    security_opt:
+      - seccomp:unconfined
+    shm_size: "1gb"
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=America/Chicago
     volumes:
-      # Mounting the Obsidian configuration directory from the host to the container
-      - ../../coco-workbooks:/config/Obsidian
+      - ../../coco-workbooks:/config/vaults
+      - ./../runtime-volumes/obsidian-config:/config/.config  # persists app-level settings
     ports:
-      - "3000:3000"  # Mapping port 3000 on the host to port 3000 in the container
+      - "3000:3000"
+      - "3001:3001"
+    networks:
+      - egeria_network
     restart: unless-stopped
+#    mem_limit: 2g # Optional: limit memory usage
+
+    environment:
+      - CUSTOM_USER=youruser
+      - PASSWORD=yourpassword
     logging:
       driver: "json-file"
       options:

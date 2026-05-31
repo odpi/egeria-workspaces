@@ -3,7 +3,7 @@ import esbuild from "esbuild";
 const isProd = process.argv[2] === "production";
 
 const shared = {
-    entryPoints: ["main.ts"],
+    entryPoints: ["src/main.ts"],
     bundle: true,
     outfile: "main.js",
     format: "cjs",
@@ -15,7 +15,9 @@ const shared = {
         "obsidian",
         "electron",
         "@codemirror/*",
-        "codemirror"
+        "codemirror",
+        "fs",
+        "path"
     ],
     logLevel: "info",
     define: {
