@@ -10,19 +10,18 @@ The portal Obsidian tile offers three paths depending on your setup:
 
 | Scenario | How it opens |
 |---|---|
-| `OBSIDIAN_VAULT_URL` set in `.env` | Launches your local Obsidian app via `obsidian://` |
-| Container available (lock free) | Opens the browser-based Obsidian (KasmVNC) at port 3000 |
+| `obsidian_vault_url` set in Admin → Config | Launches your local Obsidian app via `obsidian://` |
+| Container available (lock free) | Opens the browser-based Obsidian at port 3000/3001 |
 | Container in use | Shows "in use" status and a **Browse on GitHub** fallback |
-| `OBSIDIAN_LOCK_ENABLED=false` | Direct link to port 3000, no acquire/release flow |
 
 ---
 
 ## Option A — Local Obsidian (recommended for regular use)
 
-Install [Obsidian](https://obsidian.md) on your machine. Set in `.env`:
+Install [Obsidian](https://obsidian.md) on your machine. In the Admin panel → Config tab, set:
 
 ```
-OBSIDIAN_VAULT_URL=coco-workbooks
+obsidian_vault_url = coco-workbooks
 ```
 
 The portal tile will launch `obsidian://open?vault=coco-workbooks`. No session lock is involved.
@@ -31,7 +30,20 @@ The portal tile will launch `obsidian://open?vault=coco-workbooks`. No session l
 
 ## Option B — Containerised Obsidian (browser-based)
 
-No install needed. The Quickstart stack runs an Obsidian desktop session accessible at `http://localhost:3000` via KasmVNC.
+No install needed. The Quickstart stack automatically starts an Obsidian desktop session using **Selkies** (WebRTC-based streaming). It is always started by `quick-start-local` alongside the core services.
+
+### Access URLs
+
+| From | URL | Notes |
+|------|-----|-------|
+| On the server itself | `http://localhost:3000` | `localhost` is a secure context — WebRTC works |
+| Remote browser | `https://<HOST_FQDN>:3001` | Self-signed cert — accept the browser warning once |
+
+> **Why port 3000 does not work remotely:** Selkies uses WebRTC for video streaming. Browsers only allow WebRTC in a *secure context* — either `https://` or `localhost`. Accessing `http://<hostname>:3000` from any non-localhost machine gives a black screen with a "needs a secure connection" error. Use port 3001 (HTTPS with self-signed cert) for remote access.
+
+### Vault
+
+The container mounts the `coco-workbooks/` directory. On first launch, open the vault inside Obsidian: **File → Open vault → `/config/vaults/coco-workbooks`**. This is pre-selected automatically after the first `quick-start-local` run.
 
 ### Session lock
 
@@ -54,9 +66,7 @@ In demo mode the portal also writes your persona's Egeria credentials into the p
 |---|---|
 | Local Obsidian, same machine as Docker | `http://localhost:8000/sse` |
 | Local Obsidian, different machine on LAN | `http://<host-ip>:8000/sse` |
-| Containerised Obsidian (KasmVNC) | `http://pyegeria-web:8000/sse` |
-
-The containerised URL is set automatically when deploying via `npm run deploy:coco`.
+| Containerised Obsidian (Selkies) | `http://pyegeria-web:8000/sse` |
 
 ### Settings
 
@@ -89,8 +99,9 @@ This means you don't need to manually configure the plugin when switching person
 
 | Symptom | Resolution |
 |---|---|
-| 403 Forbidden | MCP Access Token mismatch — check plugin settings vs `MCP_ACCESS_TOKEN` env var |
-| Connection refused | `quickstart-pyegeria-web` container not running |
-| Timeout | Backend still processing — check outbox after a moment |
+| Black screen / "needs a secure connection" on port 3000 | Use `http://localhost:3000` (on the server) or `https://<HOST_FQDN>:3001` (remote) — Selkies/WebRTC requires a secure context |
+| Self-signed cert warning on port 3001 | Expected — click Advanced → Proceed to accept once |
+| 403 Forbidden in Dr. Egeria plugin | MCP Access Token mismatch — check plugin settings vs `MCP_ACCESS_TOKEN` env var |
+| Connection refused in Dr. Egeria plugin | `quickstart-pyegeria-web` container not running |
+| Timeout in Dr. Egeria plugin | Backend still processing — check outbox after a moment |
 | Wrong persona credentials | Wait for file-watcher notice, or re-acquire the lock |
-| Blank screen in browser Obsidian | Container needs `shm_size: 1gb` and `seccomp:unconfined` — check compose config |

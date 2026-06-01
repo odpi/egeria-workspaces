@@ -6,29 +6,45 @@ Demo mode enables public access to the Quickstart stack with user registration, 
 
 ## Enabling demo mode
 
-In `compose-configs/egeria-quickstart/.env`:
+From the repository root:
 
-```
-DEMO_MODE=true
-JWT_SECRET=<long-random-string>         # change before going public
-ADMIN_BOOTSTRAP_EMAIL=you@example.com
-ADMIN_BOOTSTRAP_PASSWORD=<strong-password>
+```bash
+./quick-start-local --demo
 ```
 
-Optionally configure email notifications (magic-link registration):
-```
-RESEND_API_KEY=re_...
-RESEND_FROM=noreply@yourdomain.com
-```
+On first run the script prompts for:
+- **TLS certificate directory** — a host path containing `server.crt`, `server.key`, `server-ca.crt`
+- **Admin bootstrap email and password** — the initial admin account
+- **Resend API key** (optional) — for email verification; leave blank to verify accounts manually via `/admin`
+
+Answers are saved to `compose-configs/egeria-quickstart/.env.demo` (mode 600, gitignored) and reused on subsequent runs. A JWT secret is auto-generated if not already set.
+
+> **Do not manually edit `.env`** — it is regenerated on every startup. Demo credentials belong in `.env.demo`.
+
+> **Rootless Podman note:** port 443 is privileged. Either run `sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443` once, or set `HTTPS_PORT=8443` in `.env.demo` to use a non-privileged port.
+
+---
+
+## What starts
+
+| Service | URL |
+|---------|-----|
+| Portal (HTTP) | `http://<HOST_FQDN>:8085` |
+| Portal (HTTPS) | `https://<HOST_FQDN>` (port 443, or `HTTPS_PORT`) |
+| Login | `https://<HOST_FQDN>/login` |
+| Jupyter | `http://<HOST_FQDN>:7888` (password: `egeria`) |
+| Egeria platform | `https://<HOST_FQDN>:9443` |
+| Obsidian (local) | `http://localhost:3000` |
+| Obsidian (remote) | `https://<HOST_FQDN>:3001` (self-signed cert — accept once) |
 
 ---
 
 ## User flow
 
 1. Visitor arrives at the portal → redirected to `/login`
-2. They register with email + password → receive a verification email
+2. They register with email + password → receive a verification email (or admin verifies manually)
 3. After verifying → they reach the portal and choose a persona
-4. The persona sets their Egeria credentials for Explorer and Dr. Egeria
+4. If they click Egeria Explorer without choosing a persona first, they are returned to the portal with the persona picker opened automatically
 
 ---
 
@@ -52,6 +68,8 @@ The containerised Obsidian instance is shared among all demo users. The portal m
 - Admins can reserve blocks, evict current holders, and view the audit log
 
 See [Obsidian session management](obsidian-sessions.md) for full details.
+
+For Obsidian access from remote browsers, use `https://<HOST_FQDN>:3001` (self-signed cert). See [Obsidian](../../tools/obsidian.md) for why port 3000 does not work remotely.
 
 ---
 
