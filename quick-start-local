@@ -281,22 +281,22 @@ EOF
     # podman-compose up -d can block indefinitely if prior containers are stuck stopping/starting.
     # Force-remove any leftover quickstart containers before starting fresh.
     for _cname in quickstart-egeria-main quickstart-pyegeria-web quickstart-jupyter-work-full \
-                  quickstart-web-server egeria-quickstart_egeria-main_1; do
+                  quickstart-web-server obsidian-quickstart egeria-quickstart_egeria-main_1; do
       $CONTAINER_ENGINE rm -f "$_cname" >/dev/null 2>&1 || true
     done
     # podman-compose up -d still blocks while polling container state (v1.5.0 bug).
     # Use timeout: containers are created in ~30s; health may take minutes (handled below).
     timeout 60 $COMPOSE_CMD -p egeria-quickstart \
       "${COMPOSE_FILES[@]}" \
-      up -d egeria-main pyegeria-web jupyter-hub 2>&1 || true
+      up -d egeria-main pyegeria-web jupyter-hub obsidian 2>&1 || true
   else
     if ! $COMPOSE_CMD -p egeria-quickstart \
       "${COMPOSE_FILES[@]}" \
-      up -d ${COMPOSE_PULL_FLAGS} egeria-main pyegeria-web jupyter-hub; then
+      up -d ${COMPOSE_PULL_FLAGS} egeria-main pyegeria-web jupyter-hub obsidian; then
       echo "[quick-start-local] Pull-enabled core up failed; retrying without pull and without build..."
       $COMPOSE_CMD -p egeria-quickstart \
         "${COMPOSE_FILES[@]}" \
-        up -d --no-build egeria-main pyegeria-web jupyter-hub
+        up -d --no-build egeria-main pyegeria-web jupyter-hub obsidian
     fi
   fi
 
@@ -347,6 +347,7 @@ echo "  - Effective HOST_FQDN: ${HOST_FQDN_PRINT}"
 echo "  - Effective KAFKA_CLUSTER_ID: ${KAFKA_CLUSTER_ID_PRINT}"
 echo "  - Egeria (platform): https://${HOST_FQDN_PRINT:-localhost}:9443"
 echo "  - Jupyter:           http://${HOST_FQDN_PRINT:-localhost}:7888   (password: egeria)"
+echo "  - Obsidian:          http://${HOST_FQDN_PRINT:-localhost}:3000"
 if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
   _https_port_final="${_https_port:-443}"
   _site_url_final="$(grep '^DEMO_SITE_URL=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "https://${HOST_FQDN_PRINT:-localhost}")"

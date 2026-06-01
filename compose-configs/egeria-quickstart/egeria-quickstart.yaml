@@ -200,7 +200,7 @@ services:
       - TZ=America/Chicago
     volumes:
       - ../../coco-workbooks:/config/vaults
-      - ./../runtime-volumes/obsidian-config:/config/.config  # persists app-level settings
+      - ../../runtime-volumes/obsidian-config:/config/.config  # persists app-level settings
     ports:
       - "3000:3000"
       - "3001:3001"
