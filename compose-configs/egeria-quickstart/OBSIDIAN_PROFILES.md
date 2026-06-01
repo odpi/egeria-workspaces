@@ -1,9 +1,7 @@
 ### Deprecation Notice
 
-The configuration profiles previously detailed in this file have been **deprecated** in favor of a simpler, more robust model used by the **Calling the Dr. (MCP)** plugin.
+Configuration profiles in this file are deprecated. The plugin has been renamed from **Calling the Dr.** to **Call Dr. Egeria**.
 
-All configuration and usage information for both the new MCP plugin and the legacy plugin has been consolidated into a single, comprehensive guide:
+All configuration and usage information is in the current guide:
 
-👉 **[Configuring and Using the Calling Dr. Egeria Obsidian Plug-in](../../Configuring%20and%20Using%20the%20Calling%20Dr.%20Egeria%20Obsidian%20Plug-in.md)**
-
-Please refer to that guide for up-to-date instructions on configuring your Obsidian vaults for use with Dr. Egeria.
+👉 **[Configuring and Using the Call Dr. Egeria Obsidian Plugin](../../Configuring%20and%20Using%20the%20Call%20Dr.%20Egeria%20Obsidian%20Plugin.md)**

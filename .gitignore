@@ -197,6 +197,8 @@ egeria-platform-data/
 runtime-volumes/shared-infra-hardened-kafka/
 runtime-volumes/egeria-pg/
 
+# .env files contain secrets and machine-specific paths — never commit them.
+# .env.example files are templates and ARE committed — do not add them here.
 compose-configs/egeria-quickstart/.env
 compose-configs/egeria-quickstart/.env.demo
 compose-configs/egeria-freshstart/.env
@@ -217,3 +219,7 @@ runtime-volumes/quickstart-demo-data/
 # JetBrains AI / Junie local state
 .junie/
 /runtime-volumes/certs/
+.aider*
+.env
+.env
+.env
