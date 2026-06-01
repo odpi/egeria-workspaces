@@ -400,7 +400,10 @@ var _obsStatus    = null;   // last fetched status object
 function _obsIsLocal() { return !!_obsidianUrl; }
 
 function _obsContainerUrl() {
-  return 'http://' + location.hostname + ':3000';
+  var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  return isLocal
+    ? 'http://' + location.hostname + ':3000'
+    : 'https://' + location.hostname + ':3001';
 }
 
 function _obsLaunchTarget() {
