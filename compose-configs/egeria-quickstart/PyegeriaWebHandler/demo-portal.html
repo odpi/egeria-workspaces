@@ -103,6 +103,17 @@
     .d-Technical { background: #2a1a3a; color: #ce93d8; }
     .sbadge { font-size: 0.68rem; background: #4caf50; color: #fff; padding: 2px 7px; border-radius: 4px; }
 
+    /* ── Obsidian tile live states ── */
+    .obs-status { font-size: 0.78rem; padding: 4px 8px; border-radius: 4px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+    .obs-free  { background: #1a3a1a; color: #4caf50; }
+    .obs-mine  { background: #0d2a3a; color: #69f0ae; }
+    .obs-busy  { background: #3a1a1a; color: #ef9a9a; }
+    .obs-stuck { background: #3a2a1a; color: #ffcc80; }
+    .obs-hint  { font-size: 0.74rem; color: var(--muted); margin-top: 4px; }
+    .obs-evict { background: var(--accent); color: #fff; border-radius: 6px; padding: 8px 10px; font-size: 0.8rem; margin-bottom: 8px; }
+    .obs-actions { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+    .obs-actions .btn { width: 100%; display: block; text-align: center; box-sizing: border-box; }
+
     /* ── Footer ── */
     .ftr { border-top: 1px solid var(--border); padding: 16px 28px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
     .ftr-links { display: flex; flex-wrap: wrap; gap: 6px 18px; justify-content: center; font-size: 0.78rem; }
@@ -256,6 +267,8 @@ Promise.all([
     document.getElementById('logout-btn').style.display = 'none';
     document.title = orgName;
     renderAppGrid(me.demo_mode, advisorRunning, platformCfg.advisor_url || '');
+    refreshObsidianTile();
+    setInterval(refreshObsidianTile, 30000);
     fetch('/api/demo/personas').then(function(r){ return r.json(); }).then(function(data) {
       _personas = data;
       var stored = _loadStored();
@@ -275,6 +288,8 @@ Promise.all([
     var stored = _loadStored();
     _currentPersonaId = stored ? stored.id : null;
     renderAppGrid(true, false, '');
+    refreshObsidianTile();
+    setInterval(refreshObsidianTile, 30000);
     if (stored) {
       applyPersonaUI(stored);
     } else {
@@ -321,8 +336,10 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
       desc: 'Coco Pharmaceuticals internal web resources and reference material.',
       url: '/local', newTab: true, enabled: !demoMode },
     { icon: '🗒️', name: 'Obsidian Vault',
-      desc: 'Open the Coco Pharmaceuticals workbook vault in Obsidian (requires local install), or browse on GitHub.',
-      url: _obsidianUrl, newTab: false, enabled: !!(_obsidianUrl || _obsidianGithubUrl), obsidian: true },
+      desc: _obsidianUrl
+        ? 'Open the Coco Pharmaceuticals workbook vault in your local Obsidian install.'
+        : 'Open the workbook vault in the shared browser-based Obsidian, or browse on GitHub.',
+      enabled: true, obsidian: true },
     { icon: '🤖', name: 'Egeria Advisor',
       desc: advisorRunning ? 'AI-powered guidance for your Egeria environment.' : 'AI-powered guidance for your Egeria environment. (Not currently running)',
       url: advisorUrl, newTab: true, enabled: !demoMode, unavailable: !demoMode && !advisorRunning },
@@ -340,14 +357,7 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
     } else if (a.unavailable) {
       action = '<span class="soon-badge" style="background:var(--hover);color:var(--muted)">Not running</span>';
     } else if (a.obsidian) {
-      var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-      var obsBtn = isLocal
-        ? '<button class="btn btn-accent app-action" onclick="launchObsidian()" style="width:100%;display:block" title="Requires Obsidian installed locally">Open in Obsidian</button>'
-        : '<a class="btn btn-accent app-action" href="https://obsidian.md" target="_blank" rel="noopener" style="width:100%;display:block;text-align:center">Download Obsidian ↗</a>';
-      var ghBtn = _obsidianGithubUrl
-        ? '<a class="btn btn-accent app-action" href="' + esc(_obsidianGithubUrl) + '" target="_blank" rel="noopener" style="width:100%;display:block;text-align:center">GitHub ↗</a>'
-        : '';
-      action = '<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">' + obsBtn + ghBtn + '</div>';
+      action = '<div id="obs-tile-action"><span style="color:var(--muted);font-size:0.8rem">Loading…</span></div>';
     } else {
       action = '<button class="btn btn-accent app-action" onclick="launch(' + JSON.stringify(a.url).replace(/"/g, '&quot;') + ',' + a.newTab + ')">' + (a.newTab ? 'Open ↗' : 'Open') + '</button>';
     }
@@ -364,15 +374,172 @@ function launch(url, newTab) {
   if (newTab) { window.open(url, '_blank', 'noopener'); } else { window.location.href = url; }
 }
 
-function launchObsidian() {
-  var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-  if (!isLocal) {
-    if (_obsidianGithubUrl) { window.open(_obsidianGithubUrl, '_blank', 'noopener'); }
+// ── Obsidian lock management ──────────────────────────────────────────────────
+var _obsToken     = sessionStorage.getItem('obs-token') || null;
+var _obsKeepalive = null;   // setInterval handle
+var _obsTileTimer = null;   // setInterval handle for countdown display
+var _obsStatus    = null;   // last fetched status object
+
+function _obsIsLocal() { return !!_obsidianUrl; }
+
+function _obsContainerUrl() {
+  return 'http://' + location.hostname + ':3000';
+}
+
+function _obsLaunchTarget() {
+  if (_obsIsLocal()) {
+    window.location.href = _obsidianUrl.startsWith('obsidian://') ? _obsidianUrl : ('obsidian://open?vault=' + encodeURIComponent(_obsidianUrl));
+  } else {
+    window.open(_obsContainerUrl(), '_blank', 'noopener');
+  }
+}
+
+function refreshObsidianTile() {
+  fetch('/api/obsidian/status').then(function(r) { return r.json(); }).then(function(s) {
+    _obsStatus = s;
+    _renderObsTile(s);
+  }).catch(function() {
+    var el = document.getElementById('obs-tile-action');
+    if (el) el.innerHTML = _obsGhBtn() || '<span class="obs-hint">Status unavailable</span>';
+  });
+}
+
+function _obsGhBtn() {
+  return _obsidianGithubUrl
+    ? '<a class="btn obs-actions" href="' + esc(_obsidianGithubUrl) + '" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:6px">Browse on GitHub ↗</a>'
+    : '';
+}
+
+function _renderObsTile(s) {
+  var el = document.getElementById('obs-tile-action');
+  if (!el) return;
+  var isMine = _obsToken && s.holder_token === undefined
+    ? false   // server never returns holder_token; we infer from sessionStorage match
+    : !!_obsToken && s.state !== 'FREE';
+
+  // If I have a token but the lock is free, someone else released it - clear my token
+  if (_obsToken && s.state === 'FREE') { _clearObsToken(); isMine = false; }
+
+  var html = '';
+
+  if (_obsIsLocal()) {
+    // Local Obsidian: no lock interaction, just a launch button
+    html = '<div class="obs-actions">'
+      + '<button class="btn btn-accent" onclick="_obsLaunchTarget()">Open in Obsidian</button>'
+      + _obsGhBtn()
+      + '</div>';
+    el.innerHTML = html;
     return;
   }
-  // Use configured vault URL, or fall back to bare obsidian:// which opens the app
-  window.location.href = _obsidianUrl || 'obsidian://';
+
+  // Container Obsidian: full lock UI
+  if (s.evicting && isMine) {
+    var deadline = new Date(s.evict_deadline + 'Z');
+    var secsLeft = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+    html += '<div class="obs-evict">⚠ Admin needs Obsidian in ~' + Math.ceil(secsLeft / 60) + ' min. Please save and close.</div>';
+  }
+
+  if (s.state === 'FREE') {
+    html += '<div class="obs-status obs-free">● Available</div>'
+      + '<div class="obs-actions">'
+      + '<button class="btn btn-accent" onclick="acquireObsidian()">Use Obsidian →</button>'
+      + _obsGhBtn()
+      + '</div>';
+
+  } else if (isMine) {
+    var mins = s.minutes_left !== null ? s.minutes_left : '?';
+    var idleWarn = s.idle_warning ? ' ⚠ idle' : '';
+    html += '<div class="obs-status obs-mine">● Your session · ' + mins + ' min left' + idleWarn + '</div>'
+      + '<div class="obs-actions">'
+      + '<button class="btn btn-accent" onclick="_obsLaunchTarget()">Open Obsidian →</button>'
+      + '<button class="btn" onclick="extendObsidian()">Extend</button>'
+      + '<button class="btn" onclick="releaseObsidian()" style="color:var(--muted)">Release</button>'
+      + '</div>';
+
+  } else if (s.state === 'STUCK') {
+    html += '<div class="obs-status obs-stuck">⚠ Session may be idle</div>'
+      + '<div class="obs-hint">An admin can free it using the admin panel.</div>'
+      + _obsGhBtn();
+
+  } else {
+    // IN_USE or ADMIN_IN_USE by someone else
+    var who = s.holder_display ? ' by ' + esc(s.holder_display) : '';
+    var eta  = s.minutes_left ? ' · ~' + s.minutes_left + ' min remaining' : '';
+    var ev   = (s.evicting && s.evict_deadline)
+      ? ' (eviction in ~' + Math.ceil(Math.max(0, new Date(s.evict_deadline + 'Z') - Date.now()) / 60000) + ' min)'
+      : '';
+    html += '<div class="obs-status obs-busy">● In use' + who + eta + ev + '</div>'
+      + '<div class="obs-hint">Check back later</div>'
+      + _obsGhBtn();
+  }
+
+  el.innerHTML = html;
 }
+
+function acquireObsidian() {
+  var persona   = _currentPersonaId || '';
+  var display   = persona && _personas[persona] ? _personas[persona].display_name : 'User';
+  fetch('/api/obsidian/acquire', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ persona: persona, display_name: display })
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (!data.acquired) {
+      alert('Could not acquire Obsidian: ' + (data.reason || 'unavailable'));
+      refreshObsidianTile();
+      return;
+    }
+    _obsToken = data.token;
+    sessionStorage.setItem('obs-token', _obsToken);
+    _startObsKeepalive();
+    refreshObsidianTile();
+    _obsLaunchTarget();
+  }).catch(function(e) { alert('Error: ' + e.message); });
+}
+
+function releaseObsidian() {
+  if (!_obsToken) return;
+  fetch('/api/obsidian/release', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: _obsToken })
+  }).then(function() { _clearObsToken(); refreshObsidianTile(); })
+    .catch(function() { _clearObsToken(); refreshObsidianTile(); });
+}
+
+function extendObsidian() {
+  if (!_obsToken) return;
+  fetch('/api/obsidian/extend', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: _obsToken })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (!d.extended) { alert('Could not extend: ' + (d.reason || 'blocked by reservation')); }
+    refreshObsidianTile();
+  });
+}
+
+function _startObsKeepalive() {
+  _stopObsKeepalive();
+  _obsKeepalive = setInterval(function() {
+    if (!_obsToken) { _stopObsKeepalive(); return; }
+    fetch('/api/obsidian/keepalive', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: _obsToken })
+    }).catch(function() {});
+    refreshObsidianTile();
+  }, 60000);
+}
+
+function _stopObsKeepalive() {
+  if (_obsKeepalive) { clearInterval(_obsKeepalive); _obsKeepalive = null; }
+}
+
+function _clearObsToken() {
+  _obsToken = null;
+  sessionStorage.removeItem('obs-token');
+  _stopObsKeepalive();
+}
+
+// Restore keepalive if we already hold the lock (page reload)
+if (_obsToken) { _startObsKeepalive(); }
 
 // ── Picker ────────────────────────────────────────────────────────────────────
 var _pendingId = null;
