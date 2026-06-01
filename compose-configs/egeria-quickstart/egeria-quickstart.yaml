@@ -178,6 +178,7 @@ services:
       - ./markdown-header.html:/usr/local/apache2/conf/markdown-header.html
       - ../../runtime-volumes/quickstart-apache-web/ErrorLogs:/usr/local/apache2/logs
       - ../../workspaces/Dr-Egeria-Samples:/usr/local/apache2/htdocs/Dr-Egeria-Samples
+      - ../../portal-docs:/usr/local/apache2/htdocs/docs
       # SSL cert volume — disabled by default. See demo-mode.md § SSL / HTTPS.
       # - ./sites-available/fastapi-ssl.conf:/usr/local/apache2/conf/extra/fastapi-ssl.conf
       # - /path/to/your/certs:/etc/ssl/egeria:ro
@@ -207,10 +208,9 @@ services:
       - egeria_network
     restart: unless-stopped
 #    mem_limit: 2g # Optional: limit memory usage
-
-    environment:
-      - CUSTOM_USER=youruser
-      - PASSWORD=yourpassword
+#   To add KasmVNC authentication, add to environment above:
+#     - CUSTOM_USER=youruser
+#     - PASSWORD=yourpassword
     logging:
       driver: "json-file"
       options:
