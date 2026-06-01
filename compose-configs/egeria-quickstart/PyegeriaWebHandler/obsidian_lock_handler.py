@@ -110,16 +110,22 @@ def _load_state() -> None:
 
 def _startup_cleanup() -> None:
     """Release sessions left over from a previous server run that are now stale."""
-    now = datetime.utcnow()
     if _state.get("state") not in ("IN_USE", "ADMIN_IN_USE", "STUCK"):
         return
-    # Expired by the clock
+
+    # Local mode: single user, stale locks from previous runs are always garbage
+    if not DEMO_MODE:
+        logger.info("obsidian lock: local mode — clearing lock left from previous run")
+        _do_release("startup_cleanup")
+        return
+
+    # Demo mode: release if expired or keepalive is stale
+    now = datetime.utcnow()
     exp = _parse_iso(_state.get("expires_at"))
     if exp and now > exp:
         logger.info("obsidian lock: releasing expired session from previous run")
         _do_release("startup_cleanup")
         return
-    # Keepalive too stale — server was clearly restarted without a clean release
     ka = _parse_iso(_state.get("last_keepalive"))
     if ka and (now - ka).total_seconds() > _IDLE_HARD_MINUTES * 2 * 60:
         logger.info("obsidian lock: releasing stale session from previous run (keepalive dead)")
