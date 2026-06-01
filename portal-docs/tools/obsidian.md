@@ -37,13 +37,16 @@ No install needed. The Quickstart stack automatically starts an Obsidian desktop
 | From | URL | Notes |
 |------|-----|-------|
 | On the server itself | `http://localhost:3000` | `localhost` is a secure context — WebRTC works |
-| Remote browser | `https://<HOST_FQDN>:3001` | Self-signed cert — accept the browser warning once |
+| Remote, local mode | `https://<HOST_FQDN>:3001` | Self-signed cert — accept the browser warning once |
+| Remote, demo mode | `https://<HOST_FQDN>:3001` | Real TLS cert (from `CERT_DIR`) — no browser warning |
 
-> **Why port 3000 does not work remotely:** Selkies uses WebRTC for video streaming. Browsers only allow WebRTC in a *secure context* — either `https://` or `localhost`. Accessing `http://<hostname>:3000` from any non-localhost machine gives a black screen with a "needs a secure connection" error. Use port 3001 (HTTPS with self-signed cert) for remote access.
+The portal tile picks the right URL automatically. You never need to type the port manually.
+
+> **Why port 3000 does not work remotely:** Selkies uses WebRTC for video streaming. Browsers only allow WebRTC in a *secure context* — either `https://` or `localhost`. Accessing `http://<hostname>:3000` from any non-localhost machine gives a black screen with a "needs a secure connection" error.
 
 ### Vault
 
-The container mounts the `coco-workbooks/` directory. On first launch, open the vault inside Obsidian: **File → Open vault → `/config/vaults/coco-workbooks`**. This is pre-selected automatically after the first `quick-start-local` run.
+`coco-workbooks/` is mounted as the vault root at `/config/vaults`. On the very first launch Obsidian shows a vault-selector screen — click **Open** (the path `/config/vaults` is already configured). This is a one-time step; the selection is saved to the mounted config volume and the vault opens directly on every subsequent restart.
 
 ### Session lock
 
@@ -100,7 +103,8 @@ This means you don't need to manually configure the plugin when switching person
 | Symptom | Resolution |
 |---|---|
 | Black screen / "needs a secure connection" on port 3000 | Use `http://localhost:3000` (on the server) or `https://<HOST_FQDN>:3001` (remote) — Selkies/WebRTC requires a secure context |
-| Self-signed cert warning on port 3001 | Expected — click Advanced → Proceed to accept once |
+| Self-signed cert warning on port 3001 | Local mode only — click Advanced → Proceed to accept once. In demo mode the real cert is used and no warning appears. |
+| Vault selector appears on first open | Expected one-time step — click **Open** to confirm `/config/vaults`. The selection persists in `runtime-volumes/obsidian-config/` for all subsequent restarts. |
 | 403 Forbidden in Dr. Egeria plugin | MCP Access Token mismatch — check plugin settings vs `MCP_ACCESS_TOKEN` env var |
 | Connection refused in Dr. Egeria plugin | `quickstart-pyegeria-web` container not running |
 | Timeout in Dr. Egeria plugin | Backend still processing — check outbox after a moment |
