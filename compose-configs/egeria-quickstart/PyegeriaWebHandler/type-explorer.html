@@ -6978,7 +6978,7 @@ function App() {
       setDemoMode(true);
         var storedPersona = null;
         try { var s = localStorage.getItem('egeria-persona'); storedPersona = s ? JSON.parse(s) : null; } catch(e) {}
-        if (!storedPersona) { window.location.href = '/portal'; return; }
+        if (!storedPersona) { window.location.href = '/portal?pick-persona=1'; return; }
         // Persona selected in portal but egeria-creds not yet set — derive them now so nav tabs unlock
         var hasCreds = false;
         try { hasCreds = !!localStorage.getItem('egeria-creds'); } catch(e) {}

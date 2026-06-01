@@ -6,45 +6,42 @@ Local mode runs the full Quickstart stack on your own machine for personal explo
 
 ## Prerequisites
 
-- Docker Desktop (Mac/Windows) or Docker Engine + Compose (Linux)
-- 8 GB RAM allocated to Docker (16 GB recommended)
+- Docker Desktop (Mac/Windows) or Docker Engine + Compose (Linux), or Podman with podman-compose
+- 8 GB RAM allocated to the container engine (16 GB recommended)
 - Ports 8085, 8000, 9443, 7888, 3000, 9194, 5442 available
-
----
-
-## Initial configuration
-
-1. Copy the environment template:
-   ```bash
-   cd compose-configs/egeria-quickstart
-   cp .env.example .env
-   ```
-
-2. Edit `.env` — the minimum required settings:
-   ```
-   HOST_FQDN=localhost         # or your machine's hostname
-   KAFKA_BOOTSTRAP_SERVERS=localhost:9194
-   ```
-
-3. Optional but recommended — set your Obsidian preference:
-   ```
-   # Use your local Obsidian app (vault name or obsidian:// URI)
-   OBSIDIAN_VAULT_URL=coco-workbooks
-
-   # Or leave empty to use the containerised Obsidian at port 3000
-   OBSIDIAN_VAULT_URL=
-   ```
 
 ---
 
 ## Start the stack
 
+From the repository root:
+
 ```bash
-cd compose-configs/egeria-quickstart
-docker compose -f egeria-quickstart.yaml up -d
+./quick-start-local
 ```
 
-Open the portal at **http://localhost:8085**.
+The script handles everything:
+- Detects your container engine (Docker or Podman)
+- Generates `compose-configs/egeria-quickstart/.env` with your hostname and Kafka config
+- Generates `exchange-quickstart/config/config_workspaces.json` from the template (sets hostnames and service names for Jupyter / pyegeria)
+- Seeds Obsidian vault config on first run
+- Starts Egeria, pyegeria-web, Jupyter, Apache, and Obsidian
+- Waits for Egeria to become healthy (JVM typically takes 2–5 min)
+
+Open the portal at **http://\<your-hostname\>:8085** or **http://localhost:8085**.
+
+---
+
+## Configuration files
+
+| File | Purpose |
+|------|---------|
+| `compose-configs/egeria-quickstart/.env` | Generated on every run — do not commit or hand-edit |
+| `compose-configs/egeria-quickstart/.env.example` | Documents all available variables |
+| `exchange-quickstart/config/config_workspaces.json` | Generated on every run — pyegeria / Jupyter config with your hostname |
+| `exchange-quickstart/config/config_workspaces.json.template` | Tracked template with `localhost` placeholders — edit this to change defaults |
+
+To change a persistent default (e.g. `console_width`, Egeria paths, logging), edit the `.template` file. The runtime `config_workspaces.json` is regenerated fresh on each startup.
 
 ---
 
@@ -53,22 +50,17 @@ Open the portal at **http://localhost:8085**.
 | Feature | Local | Demo |
 |---|---|---|
 | User registration / login | No — open access | Yes — email + password |
+| HTTPS / TLS | No | Yes (via `--demo` with your certs) |
 | Persona selection | Stored in browser (localStorage) | Stored per account |
-| Obsidian session lock | Available (auto-clears on restart) | Full lock + reservation system |
 | Admin panel | Not needed | `/admin` |
 | Email notifications | Not needed | Requires Resend API key |
 
 ---
 
-## Configuration reference
+## Useful flags
 
-All settings are in `compose-configs/egeria-quickstart/.env`. See `.env.example` for the full list with descriptions.
-
-Key variables:
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `HOST_FQDN` | — | Hostname used by Egeria and Kafka |
-| `OBSIDIAN_VAULT_URL` | *(empty)* | Local Obsidian vault name or URI |
-| `OBSIDIAN_LOCK_ENABLED` | `true` | Set `false` to disable session lock |
-| `EGERIA_ADVISOR_URL` | `http://localhost:8080/` | Egeria Advisor URL if running |
+```bash
+./quick-start-local --demo             # Enable demo mode (auth, HTTPS, SSL certs)
+./quick-start-local --refresh-platform # Force pull of latest Egeria base image
+./quick-start-local --help
+```

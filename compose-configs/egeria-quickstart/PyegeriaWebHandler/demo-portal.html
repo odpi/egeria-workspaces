@@ -305,6 +305,10 @@ Promise.all([
       applyPersonaUI(stored);
     } else {
       document.getElementById('persona-cta').style.display = 'flex';
+      if (window.location.search.indexOf('pick-persona=1') !== -1) {
+        history.replaceState(null, '', '/portal');
+        setTimeout(openPicker, 100);
+      }
     }
   });
 }).catch(function() { window.location.href = '/login'; });
@@ -396,7 +400,10 @@ var _obsStatus    = null;   // last fetched status object
 function _obsIsLocal() { return !!_obsidianUrl; }
 
 function _obsContainerUrl() {
-  return 'http://' + location.hostname + ':3000';
+  var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  return isLocal
+    ? 'http://' + location.hostname + ':3000'
+    : 'https://' + location.hostname + ':3001';
 }
 
 function _obsLaunchTarget() {
