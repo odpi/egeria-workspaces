@@ -305,6 +305,10 @@ Promise.all([
       applyPersonaUI(stored);
     } else {
       document.getElementById('persona-cta').style.display = 'flex';
+      if (window.location.search.indexOf('pick-persona=1') !== -1) {
+        history.replaceState(null, '', '/portal');
+        setTimeout(openPicker, 100);
+      }
     }
   });
 }).catch(function() { window.location.href = '/login'; });
