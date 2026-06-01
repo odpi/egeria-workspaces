@@ -21,7 +21,7 @@ Status: `open` · `in-progress` · `done` · `deferred`
 | # | Item | Status | Notes |
 |---|------|--------|-------|
 | FB-1 | Egeria comments on property sheets | done | Glossary Term + Digital Product detail panes; type dropdown; history list |
-| FB-2 | Filter Products / Glossary / Reports by like count or rating | open | |
+| FB-2 | Ratings and likes on Data Design, Digital Products, and Report Specs detail panes | open | Same `EgeriaFeedbackWidget` pattern as Glossary Term; also add filter-by-like-count/rating to list views |
 | FB-3 | Expand comments to more view types — Solution Architect, Data Designer, others | done | Added to: SolutionBlueprint, SolutionComponent, ISC, GovDef, DataDesign; both freshstart + quickstart |
 | FB-4 | Journals — persistent per-element notes/log separate from Egeria comments | open | Exploratory; may be local storage or a separate Egeria NoteLog |
 
@@ -45,10 +45,10 @@ Spec: `report-rendering-plan.md`
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| FS-1 | Admin edit user — show all current values; roles/groups as checkboxes (not multi-select highlights) | open | Roles/groups as checkboxes makes it easier to see and toggle current state |
-| FS-2 | My Profile page (`/profile`) — self-service display name, job title, description + password change | open | Calls `MyProfile` API; file exists but completeness unclear |
-| FS-3 | Portal greeting reads org name from `application.properties` | open | `platform.organization.name` property |
-| FS-4 | Delete `demo_db.py` — no SQLite in freshstart | open | Egeria is the sole user store; file still present |
+| FS-1 | Admin edit user — show all current values; roles/groups as checkboxes (not multi-select highlights) | done | Checkbox lists implemented in demo-admin.html with pre-populated values |
+| FS-2 | My Profile page (`/profile`) — self-service display name, job title, description + password change | done | `demo-profile.html` exists and is wired into the handler |
+| FS-3 | Portal greeting reads org name from `application.properties` | done | `get_org_name()` in auth handler; `/api/platform/org-name` endpoint; portal fetches and renders it |
+| FS-4 | Delete `demo_db.py` — no SQLite in freshstart | done | File no longer present |
 
 ---
 
@@ -74,7 +74,16 @@ Spec: `report-rendering-plan.md`
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| HOME-1 | Reorder portal home page cards into a more logical grouping | open | Current order is accretion-based; needs user-journey-led layout |
+| HOME-1 | Reorganise Explorer cards into Act / Review / Reference groups matching the menu bar | done | Three labelled sections with blurb lines; cards reordered to match nav menu membership |
+
+---
+
+## Egeria Explorer — Projects
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| PROJ-1 | Projects card + tab — list projects via `ProjectManager`; show project hierarchy and other dependencies | done | `project_handler.py` backend; `ProjectsView` + `ProjectDetail` in type-explorer; sidebar list + child project cards; search filters by name, description, classification |
+| PROJ-2 | Classification-based project-kind display | done | `ProjectKindBadge` component with per-kind colours (Campaign=blue, StudyProject=green, PersonalProject=amber, Task=red, GlossaryProject=indigo); shown in sidebar list, detail header, and child cards; classification properties shown in expandable detail cards |
 
 ---
 

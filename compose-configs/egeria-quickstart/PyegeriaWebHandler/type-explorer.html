@@ -3844,6 +3844,7 @@ const SECTION_LABELS = {
   'governance':        'Governance Definitions',
   'report-specs':      'Report Specifications',
   'digital-products':  'Digital Products',
+  'projects':          'Projects',
   'dr-egeria':         'Dr. Egeria',
   'python-api':        'Python API',
 };
@@ -4165,88 +4166,113 @@ function PlaceholderView({ section }) {
 // ── Splash Screen ─────────────────────────────────────────────────────────────
 
 const _SPLASH_CAPABILITIES = [
+  // ── Act ──────────────────────────────────────────────────────────────────
   {
-    section: 'type-system',
-    icon: '◈',
-    title: 'Type Explorer',
-    description: 'Browse the open metadata type system — entities, classifications, and relationships. Explore the inheritance hierarchy and full attribute details for every type in the Egeria model.',
+    section: 'report-specs',
+    group: 'act',
+    icon: '⊟',
+    title: 'Report Specs',
+    description: 'Explore report specifications and their links to data assets. View the structure and metadata of reporting artefacts managed in Egeria.',
   },
   {
+    section: 'digital-products',
+    group: 'act',
+    icon: '⬡',
+    title: 'Digital Products',
+    description: 'Catalog of data products with governance metadata, lineage, and associated glossary terms. See how digital products are structured and connected in the metadata graph.',
+  },
+  {
+    section: 'dr-egeria',
+    group: 'act',
+    icon: '⚕',
+    title: 'Dr. Egeria Commands',
+    description: 'Browse the full library of Dr. Egeria markdown command templates organised by level (basic/advanced) and family. View required and optional parameters for each command.',
+  },
+  // ── Review ───────────────────────────────────────────────────────────────
+  {
     section: 'glossary',
+    group: 'review',
     icon: '≡',
     title: 'Glossary',
     description: 'Explore business glossaries, terms, definitions, and semantic relationships. Navigate folders, search across all glossaries, and follow synonyms, antonyms, and related terms.',
   },
   {
     section: 'reference-data',
+    group: 'review',
     icon: '⊡',
     title: 'Reference Data',
     description: 'Browse valid value sets and definitions used across the metadata model. Understand the allowed values for property fields in your Egeria environment.',
   },
   {
-    section: 'digital-products',
-    icon: '⬡',
-    title: 'Digital Products',
-    description: 'Catalog of data products with governance metadata, lineage, and associated glossary terms. See how digital products are structured and connected in the metadata graph.',
-  },
-  {
-    section: 'report-specs',
-    icon: '⊟',
-    title: 'Report Specs',
-    description: 'Explore report specifications and their links to data assets. View the structure and metadata of reporting artefacts managed in Egeria.',
-  },
-  {
-    section: 'valid-values',
-    icon: '✔',
-    title: 'Valid Values',
-    description: 'Look up the registered valid metadata values for specific Egeria property names. Quickly find what values are permitted for any open metadata property.',
-  },
-  {
-    section: 'solution-architect',
-    icon: '◫',
-    title: 'Solution Architect',
-    description: 'Explore solution blueprints and their component hierarchies. Navigate actor assignments, wiring relationships, and concrete implementations across the architecture model.',
-  },
-  {
     section: 'data-design',
+    group: 'review',
     icon: '⊞',
     title: 'Data Design',
     description: 'Browse Data Specs, Data Structures, Data Fields, and Data Grains. Navigate the full data design hierarchy and cross-reference glossary terms and data value specifications.',
   },
   {
-    section: 'perspectives',
-    icon: '◎',
-    title: 'Perspectives & Questions',
-    description: 'Explore governance perspectives and their linked questions. Perspectives represent viewpoints held by actors; Questions are the concerns they must address, linked via ScopedBy relationships.',
-  },
-  {
-    section: 'rest-apis',
-    icon: '⇄',
-    title: 'REST APIs',
-    description: 'Browse the REST API endpoints exposed by the view server. Inspect available operations, parameters, and response shapes for each Egeria service.',
-  },
-  {
-    section: 'dr-egeria',
-    icon: '⚕',
-    title: 'Dr. Egeria Commands',
-    description: 'Browse the full library of Dr. Egeria markdown command templates organised by level (basic/advanced) and family. View required and optional parameters for each command.',
+    section: 'solution-architect',
+    group: 'review',
+    icon: '◫',
+    title: 'Solution Architect',
+    description: 'Explore solution blueprints and their component hierarchies. Navigate actor assignments, wiring relationships, and concrete implementations across the architecture model.',
   },
   {
     section: 'isc',
+    group: 'review',
     icon: '⇌',
     title: 'Information Supply Chains',
     description: 'Explore information supply chains and their implementation graphs. Each chain shows its scope, segments, and concrete technical implementations as mermaid diagrams.',
     requiresConnection: true,
   },
   {
+    section: 'perspectives',
+    group: 'review',
+    icon: '◎',
+    title: 'Perspectives & Questions',
+    description: 'Explore governance perspectives and their linked questions. Perspectives represent viewpoints held by actors; Questions are the concerns they must address, linked via ScopedBy relationships.',
+  },
+  {
     section: 'governance',
+    group: 'review',
     icon: '⚖',
     title: 'Governance Definitions',
     description: 'Browse governance drivers, policies, and controls. Search by subtype, navigate relationships between definitions, and view full property detail for each element.',
     requiresConnection: true,
   },
   {
+    section: 'projects',
+    group: 'review',
+    icon: '◉',
+    title: 'Projects',
+    description: 'Browse projects and their hierarchies. Projects are distinguished by classifications (e.g. Campaign, StudyProject, PersonalProject, Task) — a single project can carry multiple kinds simultaneously.',
+    requiresConnection: true,
+  },
+  // ── Reference ────────────────────────────────────────────────────────────
+  {
+    section: 'type-system',
+    group: 'reference',
+    icon: '◈',
+    title: 'Type Explorer',
+    description: 'Browse the open metadata type system — entities, classifications, and relationships. Explore the inheritance hierarchy and full attribute details for every type in the Egeria model.',
+  },
+  {
+    section: 'rest-apis',
+    group: 'reference',
+    icon: '⇄',
+    title: 'REST APIs',
+    description: 'Browse the REST API endpoints exposed by the view server. Inspect available operations, parameters, and response shapes for each Egeria service.',
+  },
+  {
+    section: 'valid-values',
+    group: 'reference',
+    icon: '✔',
+    title: 'Valid Values',
+    description: 'Look up the registered valid metadata values for specific Egeria property names. Quickly find what values are permitted for any open metadata property.',
+  },
+  {
     section: 'python-api',
+    group: 'reference',
     icon: '🐍',
     title: 'Python API',
     description: 'Browse the pyegeria Python client API — classes grouped by functional domain, methods with docstrings, and filters for inherited vs own methods. No server connection required.',
@@ -4342,26 +4368,37 @@ function SplashScreen({ onNavigate, saveCreds, demoMode }) {
         'solution blueprints, data design, and view-server REST APIs — all connected live to your running Egeria platform.'
       ),
       !demoMode && React.createElement(ConnectionForm, { saveCreds: saveCreds }),
-      React.createElement('div', {
-        style: {
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(245px, 1fr))',
-          gap: 14,
-        }
-      },
-        _SPLASH_CAPABILITIES.map(function(cap) {
-          return React.createElement('div', { key: cap.section, style: cardStyle },
-            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-              React.createElement('span', { style: { fontSize: 18, color: 'var(--accent)', minWidth: 22, textAlign: 'center' } }, cap.icon),
-              React.createElement('span', { style: { fontSize: 14, fontWeight: 600, color: 'var(--fg)' } }, cap.title)
+      React.createElement(React.Fragment, null,
+        [
+          { key: 'act',       label: 'Act',       blurb: 'Take action — run reports, explore products, and issue Dr. Egeria commands.' },
+          { key: 'review',    label: 'Review',    blurb: 'Browse and analyse your metadata — glossaries, designs, supply chains, and governance.' },
+          { key: 'reference', label: 'Reference', blurb: 'Reference tools — type system, REST APIs, valid values, and Python client.' },
+        ].map(function(grp) {
+          var caps = _SPLASH_CAPABILITIES.filter(function(c) { return c.group === grp.key; });
+          return React.createElement('div', { key: grp.key, style: { marginBottom: 32 } },
+            React.createElement('div', {
+              style: { display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 14, paddingBottom: 6, borderBottom: '1px solid var(--border)' }
+            },
+              React.createElement('span', { style: { fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--accent)' } }, grp.label),
+              React.createElement('span', { style: { fontSize: 12, color: 'var(--muted)' } }, grp.blurb)
             ),
-            React.createElement('p', {
-              style: { fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.55, flex: 1 }
-            }, cap.description),
-            React.createElement('button', {
-              onClick: function() { onNavigate(cap.section); },
-              style: openBtnStyle,
-            }, 'Open →')
+            React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(245px, 1fr))', gap: 14 } },
+              caps.map(function(cap) {
+                return React.createElement('div', { key: cap.section, style: cardStyle },
+                  React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                    React.createElement('span', { style: { fontSize: 18, color: 'var(--accent)', minWidth: 22, textAlign: 'center' } }, cap.icon),
+                    React.createElement('span', { style: { fontSize: 14, fontWeight: 600, color: 'var(--fg)' } }, cap.title)
+                  ),
+                  React.createElement('p', {
+                    style: { fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.55, flex: 1 }
+                  }, cap.description),
+                  React.createElement('button', {
+                    onClick: function() { onNavigate(cap.section); },
+                    style: openBtnStyle,
+                  }, 'Open →')
+                );
+              })
+            )
           );
         })
       )
@@ -6255,6 +6292,213 @@ function NavGroup(props) {
   );
 }
 
+// ── Projects Explorer ────────────────────────────────────────────────────────
+
+const _PROJECT_KIND_STYLE = {
+  Campaign:        { bg: 'rgba(59,130,246,.12)',  fg: '#60a5fa',  border: 'rgba(59,130,246,.3)'  },
+  StudyProject:    { bg: 'rgba(52,211,153,.12)',  fg: '#34d399',  border: 'rgba(52,211,153,.3)'  },
+  PersonalProject: { bg: 'rgba(251,191,36,.12)',  fg: '#fbbf24',  border: 'rgba(251,191,36,.3)'  },
+  Task:            { bg: 'rgba(248,113,113,.12)', fg: '#f87171',  border: 'rgba(248,113,113,.3)' },
+  GlossaryProject: { bg: 'rgba(129,140,248,.12)', fg: '#818cf8',  border: 'rgba(129,140,248,.3)' },
+};
+const _PROJECT_KIND_DEFAULT = { bg: 'rgba(168,85,247,.1)', fg: '#c084fc', border: 'rgba(168,85,247,.25)' };
+
+function ProjectKindBadge({ typeName, properties }) {
+  var s = _PROJECT_KIND_STYLE[typeName] || _PROJECT_KIND_DEFAULT;
+  var tip = Object.keys(properties || {}).length > 0 ? JSON.stringify(properties, null, 2) : '';
+  return React.createElement('span', {
+    title: tip,
+    style: {
+      display: 'inline-block', fontSize: 10, fontWeight: 600, letterSpacing: '0.04em',
+      padding: '2px 7px', borderRadius: 10,
+      background: s.bg, color: s.fg, border: '0.5px solid ' + s.border,
+    }
+  }, typeName);
+}
+
+function ProjectsView() {
+  const creds = React.useContext(CredContext);
+  const [sideW, onDivDown] = useResizable(280);
+  const [state, setState]   = React.useState('loading');
+  const [error, setError]   = React.useState('');
+  const [projects, setProjects] = React.useState([]);
+  const [selected, setSelected] = React.useState(null);
+  const [detail, setDetail]     = React.useState(null);
+  const [detailState, setDetailState] = React.useState('idle');
+  const [search, setSearch] = React.useState('');
+
+  React.useEffect(function() {
+    setState('loading');
+    fetch(credAppend('/api/projects?start_from=0&page_size=500', creds))
+      .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function(data) {
+        setProjects(data.projects || []);
+        setState('ready');
+      })
+      .catch(function(e) { setError(String(e)); setState('error'); });
+  }, []);
+
+  React.useEffect(function() {
+    if (!selected) { setDetail(null); return; }
+    setDetailState('loading');
+    fetch(credAppend('/api/projects/' + encodeURIComponent(selected.guid), creds))
+      .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function(data) { setDetail(data); setDetailState('ready'); })
+      .catch(function(e) { setDetailState('error'); });
+  }, [selected]);
+
+  var filtered = projects.filter(function(p) {
+    if (!search) return true;
+    var q = search.toLowerCase();
+    return (p.displayName || '').toLowerCase().includes(q)
+        || (p.description || '').toLowerCase().includes(q)
+        || (p.classifications || []).some(function(c) { return c.typeName.toLowerCase().includes(q); });
+  });
+
+  var sidebarStyle = { width: sideW, minWidth: 180, maxWidth: 520, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 };
+  var listStyle    = { flex: 1, overflowY: 'auto' };
+  var itemStyle    = function(active) { return { padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)', background: active ? 'rgba(96,165,250,.1)' : 'transparent', borderLeft: active ? '2px solid var(--accent)' : '2px solid transparent' }; };
+  var mainStyle    = { flex: 1, overflowY: 'auto', padding: '24px 28px' };
+
+  if (state === 'loading') return React.createElement('div', { className: 'body' },
+    React.createElement('div', { className: 'center' },
+      React.createElement('div', { className: 'spinner' }),
+      React.createElement('span', null, 'Loading projects…')
+    )
+  );
+  if (state === 'error') return React.createElement('div', { className: 'body' },
+    React.createElement('div', { className: 'center' }, 'Error: ' + error)
+  );
+
+  return React.createElement('div', { className: 'body' },
+    // Sidebar
+    React.createElement('div', { style: sidebarStyle },
+      React.createElement('div', { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
+        React.createElement('input', {
+          type: 'text', placeholder: 'Search projects…',
+          value: search, onChange: function(e) { setSearch(e.target.value); },
+          style: { width: '100%', boxSizing: 'border-box', fontSize: 12, padding: '5px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', outline: 'none' }
+        }),
+        React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 5 } },
+          filtered.length + ' of ' + projects.length + ' project' + (projects.length !== 1 ? 's' : '')
+        )
+      ),
+      React.createElement('div', { style: listStyle },
+        filtered.length === 0
+          ? React.createElement('div', { style: { padding: 16, fontSize: 12, color: 'var(--dim)' } }, 'No projects found.')
+          : filtered.map(function(p) {
+              var isActive = selected && selected.guid === p.guid;
+              return React.createElement('div', { key: p.guid, style: itemStyle(isActive), onClick: function() { setSelected(p); } },
+                React.createElement('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4, lineHeight: 1.3 } }, p.displayName || p.qualifiedName || p.guid),
+                (p.classifications || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 3 } },
+                  p.classifications.map(function(c) {
+                    return React.createElement(ProjectKindBadge, { key: c.typeName, typeName: c.typeName, properties: c.properties });
+                  })
+                )
+              );
+            })
+      )
+    ),
+    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
+    // Detail panel
+    React.createElement('div', { style: mainStyle },
+      !selected
+        ? React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, textAlign: 'center', marginTop: 60 } }, '← Select a project to view details')
+        : detailState === 'loading'
+        ? React.createElement('div', { className: 'center' }, React.createElement('div', { className: 'spinner' }))
+        : detailState === 'error'
+        ? React.createElement('div', { style: { color: '#f87171' } }, 'Failed to load project detail.')
+        : detail && React.createElement(ProjectDetail, { project: detail.project, children: detail.children, onSelectChild: setSelected })
+    )
+  );
+}
+
+function ProjectDetail({ project, children, onSelectChild }) {
+  if (!project) return null;
+
+  var fieldRows = [
+    ['Status',          project.projectStatus || project.status],
+    ['Start Date',      project.startDate],
+    ['Planned End',     project.plannedEndDate],
+    ['Qualified Name',  project.qualifiedName],
+  ].filter(function(r) { return r[1]; });
+
+  var sectionHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 10, marginTop: 20 };
+  var cardStyle  = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 };
+
+  return React.createElement('div', null,
+    // Title + kind badges
+    React.createElement('h2', { style: { fontSize: 20, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' } },
+      project.displayName || project.qualifiedName || project.guid
+    ),
+    (project.classifications || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 14 } },
+      project.classifications.map(function(c) {
+        return React.createElement(ProjectKindBadge, { key: c.typeName, typeName: c.typeName, properties: c.properties });
+      })
+    ),
+
+    // Description
+    project.description && React.createElement('p', { style: { fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, margin: '0 0 16px' } }, project.description),
+
+    // Key fields
+    fieldRows.length > 0 && React.createElement('div', null,
+      React.createElement('div', { style: sectionHdr }, 'Details'),
+      React.createElement('table', { style: { borderCollapse: 'collapse', width: '100%', fontSize: 12 } },
+        React.createElement('tbody', null,
+          fieldRows.map(function(r) {
+            return React.createElement('tr', { key: r[0], style: { borderBottom: '1px solid var(--border)' } },
+              React.createElement('td', { style: { padding: '5px 10px 5px 0', color: 'var(--dim)', width: 140, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
+              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', fontFamily: r[0] === 'Qualified Name' ? 'ui-monospace,monospace' : 'inherit', fontSize: r[0] === 'Qualified Name' ? 11 : 12, wordBreak: 'break-all' } }, r[1])
+            );
+          })
+        )
+      )
+    ),
+
+    // Classification detail cards (show properties if non-empty)
+    (project.classifications || []).some(function(c) { return Object.keys(c.properties || {}).length > 0; }) &&
+      React.createElement('div', null,
+        React.createElement('div', { style: sectionHdr }, 'Classification Details'),
+        project.classifications.filter(function(c) { return Object.keys(c.properties || {}).length > 0; }).map(function(c) {
+          var s = _PROJECT_KIND_STYLE[c.typeName] || _PROJECT_KIND_DEFAULT;
+          return React.createElement('div', { key: c.typeName, style: Object.assign({}, cardStyle, { borderLeft: '3px solid ' + s.fg }) },
+            React.createElement('div', { style: { fontSize: 12, fontWeight: 700, color: s.fg, marginBottom: 6 } }, c.typeName),
+            React.createElement('table', { style: { borderCollapse: 'collapse', fontSize: 11 } },
+              React.createElement('tbody', null,
+                Object.entries(c.properties).map(function(e) {
+                  return React.createElement('tr', { key: e[0] },
+                    React.createElement('td', { style: { paddingRight: 12, color: 'var(--dim)', whiteSpace: 'nowrap', verticalAlign: 'top' } }, e[0]),
+                    React.createElement('td', { style: { color: 'var(--text)' } }, String(e[1]))
+                  );
+                })
+              )
+            )
+          );
+        })
+      ),
+
+    // Child projects
+    React.createElement('div', { style: sectionHdr }, 'Sub-Projects'),
+    (!children || children.length === 0)
+      ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'No sub-projects.')
+      : React.createElement('div', null,
+          children.map(function(child) {
+            return React.createElement('div', { key: child.guid, style: Object.assign({}, cardStyle, { cursor: 'pointer' }),
+              onClick: function() { onSelectChild(child); }
+            },
+              React.createElement('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--accent)', marginBottom: 4 } }, child.displayName || child.qualifiedName),
+              (child.classifications || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 3, marginBottom: 4 } },
+                child.classifications.map(function(c) {
+                  return React.createElement(ProjectKindBadge, { key: c.typeName, typeName: c.typeName, properties: c.properties });
+                })
+              ),
+              child.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)' } }, child.description)
+            );
+          })
+        )
+  );
+}
+
 // ── Governance Definitions Explorer ──────────────────────────────────────────
 
 function GovDefDetail({ definition, onSelectGuid }) {
@@ -7168,7 +7412,7 @@ function App() {
         }),
         React.createElement(NavGroup, {
           label: 'Review', connected: connected, currentSection: section,
-          isActive: ['glossary','reference-data','data-design','solution-architect','isc','perspectives','governance'].includes(section),
+          isActive: ['glossary','reference-data','data-design','solution-architect','isc','perspectives','governance','projects'].includes(section),
           onSelect: setSection,
           items: [
             { id: 'glossary',           label: 'Glossary',                needsConnect: true },
@@ -7178,6 +7422,7 @@ function App() {
             { id: 'isc',                label: 'Supply Chains',           needsConnect: true },
             { id: 'perspectives',       label: 'Perspectives',            needsConnect: true },
             { id: 'governance',         label: 'Governance Definitions',  needsConnect: true },
+            { id: 'projects',           label: 'Projects',                needsConnect: true },
           ]
         }),
         React.createElement(NavGroup, {
@@ -7250,6 +7495,8 @@ function App() {
       ? React.createElement(InformationSupplyChainView, { key: credsKey })
       : section === 'governance'
       ? React.createElement(GovernanceView, { key: credsKey })
+      : section === 'projects'
+      ? React.createElement(ProjectsView, { key: credsKey })
       : section === 'python-api'
       ? React.createElement(PyegeriaDocsView, null)
       : section !== 'type-system'
