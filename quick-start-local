@@ -302,12 +302,21 @@ EOF
 
   if [[ "$APACHE_BUILD_OK" -eq 1 ]]; then
     echo "[quick-start-local] Starting apache-web..."
+    _apache_hint() {
+      echo "[quick-start-local] WARNING: apache-web did not start. Core services are running."
+      if [[ "$DEMO_MODE_FLAG" -eq 1 && "${_https_port_num:-443}" -lt 1024 \
+            && "$CONTAINER_ENGINE" == "podman" ]]; then
+        echo "[quick-start-local]   Likely cause: rootless Podman cannot bind privileged port ${_https_port_num:-443}."
+        echo "[quick-start-local]   Fix A (session):   sudo sysctl -w net.ipv4.ip_unprivileged_port_start=${_https_port_num:-443}"
+        echo "[quick-start-local]   Fix B (permanent): set HTTPS_PORT=8443 in .env.demo and re-run --demo"
+      fi
+    }
+
     if [[ "$CONTAINER_ENGINE" == "podman" ]]; then
       $CONTAINER_ENGINE rm -f quickstart-web-server >/dev/null 2>&1 || true
       timeout 30 $COMPOSE_CMD -p egeria-quickstart \
         "${COMPOSE_FILES[@]}" \
-        up -d apache-web 2>&1 || \
-        echo "[quick-start-local] WARNING: apache-web did not start. Core services are running."
+        up -d apache-web 2>&1 || _apache_hint
     else
       if ! $COMPOSE_CMD -p egeria-quickstart \
         "${COMPOSE_FILES[@]}" \
@@ -316,7 +325,7 @@ EOF
         if ! $COMPOSE_CMD -p egeria-quickstart \
           "${COMPOSE_FILES[@]}" \
           up -d --no-build apache-web; then
-          echo "[quick-start-local] WARNING: apache-web did not start. Core services are running."
+          _apache_hint
         fi
       fi
     fi
@@ -347,7 +356,8 @@ echo "  - Effective HOST_FQDN: ${HOST_FQDN_PRINT}"
 echo "  - Effective KAFKA_CLUSTER_ID: ${KAFKA_CLUSTER_ID_PRINT}"
 echo "  - Egeria (platform): https://${HOST_FQDN_PRINT:-localhost}:9443"
 echo "  - Jupyter:           http://${HOST_FQDN_PRINT:-localhost}:7888   (password: egeria)"
-echo "  - Obsidian:          http://${HOST_FQDN_PRINT:-localhost}:3000"
+echo "  - Obsidian (local):  http://localhost:3000        (WebRTC works on localhost only)"
+echo "  - Obsidian (remote): https://${HOST_FQDN_PRINT:-localhost}:3001 (accept self-signed cert in browser)"
 if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
   _https_port_final="${_https_port:-443}"
   _site_url_final="$(grep '^DEMO_SITE_URL=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "https://${HOST_FQDN_PRINT:-localhost}")"
