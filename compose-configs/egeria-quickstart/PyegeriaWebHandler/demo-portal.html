@@ -205,6 +205,9 @@
   <div class="section-label">Available Tools</div>
   <div class="app-grid" id="app-grid"></div>
 
+  <div class="section-label" style="margin-top:32px">Documentation</div>
+  <div class="app-grid" id="doc-grid"></div>
+
 </main>
 
 <!-- ── Footer ─────────────────────────────────────────────────────────────── -->
@@ -332,9 +335,9 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
     { icon: '📓', name: 'Jupyter Lab',
       desc: 'Interactive notebooks for data science and hands-on Egeria API exploration.',
       url: jupyterUrl, newTab: true, enabled: true },
-    { icon: '📚', name: 'Documentation',
+    { icon: '📚', name: 'Egeria Workspaces Documentation',
       desc: 'User guides, tool reference, Dr. Egeria templates, Coco Pharmaceuticals scenarios, and admin docs.',
-      url: '/docs/', newTab: true, enabled: true },
+      url: '/docs/', newTab: true, enabled: true, isDoc: true },
     { icon: '🗒️', name: 'Obsidian Vault',
       desc: _obsidianUrl
         ? 'Open the Coco Pharmaceuticals workbook vault in your local Obsidian install.'
@@ -350,7 +353,7 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
       desc: 'Java API reference documentation for the Egeria platform and connectors.',
       url: 'https://odpi.github.io/egeria/index.html', newTab: true, enabled: true },
   ];
-  document.getElementById('app-grid').innerHTML = apps.map(function(a) {
+  function _renderTile(a) {
     var action;
     if (!a.enabled) {
       action = '<span class="soon-badge">Coming soon</span>';
@@ -366,7 +369,9 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
       '<div class="app-name">' + esc(a.name) + '</div>' +
       '<div class="app-desc">' + esc(a.desc) + '</div>' +
       action + '</div>';
-  }).join('');
+  }
+  document.getElementById('app-grid').innerHTML = apps.filter(function(a) { return !a.isDoc; }).map(_renderTile).join('');
+  document.getElementById('doc-grid').innerHTML  = apps.filter(function(a) { return  a.isDoc; }).map(_renderTile).join('');
 }
 
 function launch(url, newTab) {
