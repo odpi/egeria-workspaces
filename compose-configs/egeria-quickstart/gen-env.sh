@@ -9,15 +9,16 @@ HOST_FQDN="$(hostname -f 2>/dev/null || hostname)"
 source "${SCRIPT_DIR}/../shared-infra/detect-engine.sh"
 
 EXCHANGE_CONFIG_JSON="../../exchange-quickstart/config/config_workspaces.json"
+EXCHANGE_CONFIG_TEMPLATE="${EXCHANGE_CONFIG_JSON}.template"
 
-if [[ -f "$EXCHANGE_CONFIG_JSON" ]]; then
+if [[ ! -f "$EXCHANGE_CONFIG_TEMPLATE" ]]; then
+  echo "[gen-env.sh] WARNING: template not found at ${EXCHANGE_CONFIG_TEMPLATE}; skipping config generation" >&2
+else
+  cp "$EXCHANGE_CONFIG_TEMPLATE" "$EXCHANGE_CONFIG_JSON"
   if command -v python3 >/dev/null 2>&1; then
-    # Update exchange-quickstart/config.json: replace "localhost" and "127.0.0.1" with the host FQDN
-    # in all string values. Creates a one-time backup (config.json.bak) if it doesn't exist.
+    # Substitute HOST_FQDN for localhost/127.0.0.1 and inject qs-* service names.
     python3 - "$EXCHANGE_CONFIG_JSON" "$HOST_FQDN" <<'PY'
 import json
-import os
-import shutil
 import sys
 
 path = sys.argv[1]
@@ -49,22 +50,17 @@ if isinstance(env, dict):
     env["Egeria Kafka Endpoint"] = "host.docker.internal:9194"
     env["Pyegeria Publishing Root"] = f"http://{host}:8085/dr-egeria-outbox"
 
-backup_path = path + ".bak"
-if not os.path.exists(backup_path):
-    shutil.copy2(path, backup_path)
-
 tmp_path = path + ".tmp"
 with open(tmp_path, "w", encoding="utf-8") as f:
     json.dump(new_data, f, indent=2, ensure_ascii=False)
     f.write("\n")
 
+import os
 os.replace(tmp_path, path)
 PY
   else
-    echo "python3 not found; skipping update of ${EXCHANGE_CONFIG_JSON}" >&2
+    echo "[gen-env.sh] python3 not found; skipping host substitution in ${EXCHANGE_CONFIG_JSON}" >&2
   fi
-else
-  echo "Config file not found: ${EXCHANGE_CONFIG_JSON} (skipping update)" >&2
 fi
 
 # Prepare CONFIG_JSON as a compact single line

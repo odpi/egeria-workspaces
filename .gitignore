@@ -224,6 +224,10 @@ runtime-volumes/quickstart-demo-data/
 .env
 .env
 
+# Runtime pyegeria config — generated from *.template by quick-start-local / fresh-start-local
+exchange-quickstart/config/config_workspaces.json
+exchange-freshstart/config/config_workspaces.json
+
 # Claude Code context cache
 contexts/
 

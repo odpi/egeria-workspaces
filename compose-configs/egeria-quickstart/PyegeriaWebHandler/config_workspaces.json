@@ -2,8 +2,8 @@
         "Environment": {
                 "Dr.Egeria Inbox": ".",
                 "Dr.Egeria Outbox": ".",
-                "Pyegeria Root": "/work/Work-Obsidian",
-                "Pyegeria Publishing Root": "http://localhost:8085/work/Work-Obsidian/dr-egeria-outbox",
+                "Pyegeria Root": "/work",
+                "Pyegeria Publishing Root": "http://localhost:8085/dr-egeria-outbox",
                 "console_width": 250
         },
        

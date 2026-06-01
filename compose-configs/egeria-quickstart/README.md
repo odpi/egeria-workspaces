@@ -285,6 +285,23 @@ License: CC BY 4.0, Copyright Contributors to the ODPi Egeria project.
 
 
 
+## Configuration files
+
+### pyegeria / Jupyter config (`exchange-quickstart/config/config_workspaces.json`)
+
+This file is **generated automatically** by `quick-start-local` on every run — do not commit it.
+
+The template is tracked at `exchange-quickstart/config/config_workspaces.json.template`. It contains `localhost` as a placeholder for all host-dependent URLs. At startup, `gen-env.sh` copies the template and replaces `localhost` with the machine's fully-qualified hostname, then injects the correct Egeria service names (`qs-*`). The result is written to `exchange-quickstart/config/config_workspaces.json` and mounted into the Jupyter container at `/home/jovyan/config/`.
+
+| File | Status | Purpose |
+|------|--------|---------|
+| `exchange-quickstart/config/config_workspaces.json.template` | Tracked in git | Pristine template with `localhost` placeholders — edit this to change defaults |
+| `exchange-quickstart/config/config_workspaces.json` | Gitignored, generated at runtime | Machine-specific config read by Jupyter / pyegeria |
+
+To change a persistent default (e.g. `console_width`, `User Profile`), edit the `.template` file. The runtime file is regenerated fresh on every startup.
+
+---
+
 ----
 License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/),
 Copyright Contributors to the ODPi Egeria project.
