@@ -92,6 +92,7 @@ services:
       - ../../runtime-volumes/quickstart-platform-data/logs:/deployments/logs
       - ../../runtime-volumes/quickstart-platform-data/security-logs:/deployments/logs/security
       - ../../runtime-volumes/quickstart-platform-data/data:/deployments/data
+      - ../../runtime-volumes/quickstart-platform-data/secrets:/deployments/secrets
       - ../../exchange-quickstart/loading-bay:/deployments/loading-bay
       - ../../exchange-quickstart/coco-data-lake:/deployments/coco-data-lake
       - ../../exchange-quickstart/treasury-dts-history:/deployments/treasury-dts-history

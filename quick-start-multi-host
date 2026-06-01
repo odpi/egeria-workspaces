@@ -22,6 +22,11 @@ cp compose-configs/egeria-quickstart/servers/*.http "$TARGET_SERVER_DIR"/
 cp compose-configs/egeria-quickstart/servers/README.md "$TARGET_SERVER_DIR"/
 cp -r compose-configs/egeria-quickstart/servers/qs-* "$TARGET_SERVER_DIR"/
 
+RUNTIME_SECRETS_DIR="runtime-volumes/quickstart-platform-data/secrets"
+safe_rm_rf "$RUNTIME_SECRETS_DIR"
+mkdir -p "$RUNTIME_SECRETS_DIR"
+cp compose-configs/egeria-quickstart/secrets/*.omsecrets "$RUNTIME_SECRETS_DIR"/
+
 compose-configs/shared-infra/ensure-shared-infra.sh
 
 pushd compose-configs/egeria-quickstart >/dev/null

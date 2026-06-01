@@ -185,7 +185,7 @@ compose-configs/other-egeria-deployments/coco-labs-compose/coco-labs-runtimes-da
 /compose-configs/optional-associated-runtimes/milvus/volumes/
 /compose-configs/optional-associated-runtimes/milvus/volumes/**!/runtime-volumes/
 /runtime-volumes/milvus/volumes/
-/runtime-volumes/milvus/volumes/**!/exchange-quickstart/config/config.json.bak
+/runtime-volumes/milvus/volumes/**
 /runtime-volumes/quickstart-platform-data/data/
 /runtime-volumes/freshstart-platform-data/data/
 
@@ -209,6 +209,7 @@ runtime-volumes/quickstart-apache-web/ssl-define.conf
 
 /exchange/**
 /runtime-volumes/freshstart-platform-data/secrets/
+/runtime-volumes/quickstart-platform-data/secrets/
 
 # Obsidian local workspace state
 **/.obsidian/workspace.json
@@ -220,8 +221,6 @@ runtime-volumes/quickstart-demo-data/
 .junie/
 /runtime-volumes/certs/
 .aider*
-.env
-.env
 .env
 
 # Runtime pyegeria config — generated from *.template by quick-start-local / fresh-start-local
