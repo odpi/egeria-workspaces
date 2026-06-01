@@ -101,6 +101,15 @@ prepare_runtime_dir "work"
 prepare_runtime_dir "workbooks"
 prepare_runtime_dir "coco-workbooks"
 prepare_runtime_dir "exchange-quickstart"
+prepare_runtime_dir "runtime-volumes/obsidian-config"
+
+# Seed Obsidian vault selection on first run (auto-opens coco-workbooks vault)
+_obs_json="runtime-volumes/obsidian-config/obsidian/obsidian.json"
+if [[ ! -f "$_obs_json" ]]; then
+  mkdir -p "$(dirname "$_obs_json")"
+  cp compose-configs/egeria-quickstart/obsidian-config/obsidian.json "$_obs_json"
+  echo "[quick-start-local] Seeded Obsidian vault config (coco-workbooks)."
+fi
 
 # Copy the quickstart server configurations to the runtime volume
 TARGET_SERVER_DIR="runtime-volumes/quickstart-platform-data/data/servers"
