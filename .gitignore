@@ -223,3 +223,12 @@ runtime-volumes/quickstart-demo-data/
 .env
 .env
 .env
+
+# Claude Code context cache
+contexts/
+
+# Obsidian container runtime config (persisted by the linuxserver/obsidian container)
+runtime-volumes/obsidian-config/
+
+# gen-env.sh backup of exchange-quickstart config
+exchange-quickstart/config/config_workspaces.json.bak
