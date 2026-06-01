@@ -108,6 +108,24 @@ def _load_state() -> None:
         logger.warning(f"obsidian lock: could not load saved state: {exc}")
 
 
+def _startup_cleanup() -> None:
+    """Release sessions left over from a previous server run that are now stale."""
+    now = datetime.utcnow()
+    if _state.get("state") not in ("IN_USE", "ADMIN_IN_USE", "STUCK"):
+        return
+    # Expired by the clock
+    exp = _parse_iso(_state.get("expires_at"))
+    if exp and now > exp:
+        logger.info("obsidian lock: releasing expired session from previous run")
+        _do_release("startup_cleanup")
+        return
+    # Keepalive too stale — server was clearly restarted without a clean release
+    ka = _parse_iso(_state.get("last_keepalive"))
+    if ka and (now - ka).total_seconds() > _IDLE_HARD_MINUTES * 2 * 60:
+        logger.info("obsidian lock: releasing stale session from previous run (keepalive dead)")
+        _do_release("startup_cleanup")
+
+
 def _audit_entry(action: str, display: Optional[str] = None) -> None:
     global _audit
     _audit.append({
@@ -234,6 +252,7 @@ def _do_release(reason: str = "released") -> None:
 async def start_scheduler() -> None:
     global _scheduler_task
     _load_state()
+    _startup_cleanup()
     _scheduler_task = asyncio.create_task(_cleanup_loop())
     logger.info("obsidian lock scheduler started")
 
