@@ -47,6 +47,8 @@ router = APIRouter(prefix="/api/obsidian", tags=["obsidian-lock"])
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 
+LOCK_ENABLED         = os.environ.get("OBSIDIAN_LOCK_ENABLED", "true").lower() not in ("false", "0", "no")
+
 _SESSION_MINUTES     = int(os.environ.get("OBSIDIAN_SESSION_MINUTES",     "20"))
 _IDLE_SOFT_MINUTES   = int(os.environ.get("OBSIDIAN_IDLE_SOFT_MINUTES",    "5"))
 _IDLE_HARD_MINUTES   = int(os.environ.get("OBSIDIAN_IDLE_HARD_MINUTES",   "10"))
@@ -298,6 +300,11 @@ async def _run_cleanup() -> None:
 
 # ── Auth helpers ───────────────────────────────────────────────────────────────
 
+def _require_lock_enabled():
+    if not LOCK_ENABLED:
+        raise HTTPException(status_code=503, detail="Obsidian lock is disabled on this instance (OBSIDIAN_LOCK_ENABLED=false)")
+
+
 def _opt_user(request: Request):
     """Returns the current user if in demo mode + authenticated, else None."""
     if not DEMO_MODE:
@@ -364,6 +371,8 @@ class EvictRequest(BaseModel):
 @router.get("/status")
 async def obsidian_status(request: Request):
     """Public — current lock state, time remaining, next reservation."""
+    if not LOCK_ENABLED:
+        return {"state": "DISABLED"}
     async with _mu:
         now = datetime.utcnow()
         state = _state["state"]
@@ -395,7 +404,7 @@ async def obsidian_status(request: Request):
 
 
 @router.post("/acquire")
-async def acquire(request: Request, body: AcquireRequest):
+async def acquire(request: Request, body: AcquireRequest, _: None = Depends(_require_lock_enabled)):
     """Acquire the Obsidian lock. Returns a session token the caller must use for keepalive/release."""
     user = _require_verified_or_local(request)
 
@@ -459,7 +468,7 @@ async def acquire(request: Request, body: AcquireRequest):
 
 
 @router.post("/release")
-async def release(request: Request, body: ReleaseRequest):
+async def release(request: Request, body: ReleaseRequest, _: None = Depends(_require_lock_enabled)):
     """Release the lock. Must present the token returned at acquire time."""
     async with _mu:
         if _state["state"] == "FREE":
@@ -472,7 +481,7 @@ async def release(request: Request, body: ReleaseRequest):
 
 
 @router.post("/keepalive")
-async def keepalive(request: Request, body: KeepaliveRequest):
+async def keepalive(request: Request, body: KeepaliveRequest, _: None = Depends(_require_lock_enabled)):
     """Heartbeat — resets the idle clock. Portal should call this every 60 s."""
     async with _mu:
         if _state["state"] == "FREE":
@@ -488,7 +497,7 @@ async def keepalive(request: Request, body: KeepaliveRequest):
 
 
 @router.post("/extend")
-async def extend(request: Request, body: ExtendRequest):
+async def extend(request: Request, body: ExtendRequest, _: None = Depends(_require_lock_enabled)):
     """Extend the session by _SESSION_MINUTES, if no reservation is blocking."""
     async with _mu:
         if _state["state"] == "FREE":
@@ -518,7 +527,7 @@ async def list_reservations(request: Request):
 
 
 @router.post("/reservations")
-async def create_reservation(request: Request, body: ReservationRequest):
+async def create_reservation(request: Request, body: ReservationRequest, _: None = Depends(_require_lock_enabled)):
     """Admin — reserve a future block."""
     global _res_seq
     _require_admin_or_local(request)
@@ -549,7 +558,7 @@ async def create_reservation(request: Request, body: ReservationRequest):
 
 
 @router.delete("/reservations/{res_id}")
-async def delete_reservation(request: Request, res_id: int):
+async def delete_reservation(request: Request, res_id: int, _: None = Depends(_require_lock_enabled)):
     """Admin — cancel a reservation."""
     global _reservations
     _require_admin_or_local(request)
@@ -563,7 +572,7 @@ async def delete_reservation(request: Request, res_id: int):
 # ── Admin override endpoints ───────────────────────────────────────────────────
 
 @router.post("/evict")
-async def evict(request: Request, body: EvictRequest):
+async def evict(request: Request, body: EvictRequest, _: None = Depends(_require_lock_enabled)):
     """Admin — begin grace-period eviction of the current holder."""
     _require_admin_or_local(request)
     async with _mu:
@@ -586,7 +595,7 @@ async def evict(request: Request, body: EvictRequest):
 
 
 @router.post("/unlock")
-async def force_unlock(request: Request):
+async def force_unlock(request: Request, _: None = Depends(_require_lock_enabled)):
     """Admin — force-release a stuck or frozen lock."""
     _require_admin_or_local(request)
     async with _mu:
@@ -598,7 +607,7 @@ async def force_unlock(request: Request):
 
 
 @router.get("/audit")
-async def get_audit(request: Request):
+async def get_audit(request: Request, _: None = Depends(_require_lock_enabled)):
     """Admin — recent lock audit log."""
     _require_admin_or_local(request)
     return {"audit": list(reversed(_audit[-50:]))}

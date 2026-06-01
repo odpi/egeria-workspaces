@@ -432,6 +432,16 @@ function _renderObsTile(s) {
     return;
   }
 
+  // Lock disabled: show direct link with no state management
+  if (s.state === 'DISABLED') {
+    html = '<div class="obs-actions">'
+      + '<button class="btn btn-accent" onclick="window.open(\'http://\'+location.hostname+\':3000\',\'_blank\',\'noopener\')">Open Obsidian →</button>'
+      + _obsGhBtn()
+      + '</div>';
+    el.innerHTML = html;
+    return;
+  }
+
   // Container Obsidian: full lock UI
   if (s.evicting && isMine) {
     var deadline = new Date(s.evict_deadline + 'Z');
