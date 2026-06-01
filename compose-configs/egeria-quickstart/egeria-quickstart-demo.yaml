@@ -24,3 +24,8 @@ services:
       - ../../runtime-volumes/quickstart-apache-web/ssl-define.conf:/usr/local/apache2/conf/extra/ssl-define.conf
       - ./sites-available/fastapi-ssl.conf:/usr/local/apache2/conf/extra/fastapi-ssl.conf
       - ${CERT_DIR}:/etc/ssl/egeria:ro
+
+  obsidian:
+    volumes:
+      - ${CERT_DIR}/server.crt:/config/ssl/cert.pem:ro
+      - ${CERT_DIR}/server.key:/config/ssl/cert.key:ro
