@@ -45,8 +45,6 @@ services:
       - '8443:8443'
       - '5006:5005'
     environment:
-      XTDB_ENABLE_BYTEUTILS_SHA1: "True"
-      XTDB_DISABLE_LIBCRYPTO: "True"
       startup.server.list: "fs-metadata-store,fs-engine-host,fs-integration-daemon,fs-view-server"
       server.port: "8443"
       HOST_FQDN: "${HOST_FQDN}"
