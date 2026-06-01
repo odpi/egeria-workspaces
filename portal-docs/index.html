@@ -1,0 +1,164 @@
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+<!-- Copyright Contributors to the ODPi Egeria project. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Egeria Workspaces — Documentation</title>
+  <style>
+    :root {
+      --bg: #1a1a2e; --card: #16213e; --border: #0f3460;
+      --accent: #e94560; --text: #e0e0e0; --muted: #888;
+      --green: #4caf50; --blue: #64b5f6; --purple: #ce93d8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; }
+    .hdr { background: var(--card); border-bottom: 1px solid var(--border); padding: 12px 28px; display: flex; align-items: center; gap: 14px; }
+    .hdr img { height: 26px; }
+    .hdr-title { font-size: 1rem; font-weight: 700; }
+    .hdr-right { margin-left: auto; }
+    .hdr-right a { color: var(--muted); font-size: 0.82rem; text-decoration: none; }
+    .hdr-right a:hover { color: var(--accent); }
+    .hero { background: linear-gradient(135deg, #16213e 0%, #0f3460 100%); border-bottom: 1px solid var(--border); padding: 40px 28px 36px; text-align: center; }
+    .hero h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 10px; }
+    .hero p  { color: var(--muted); font-size: 0.95rem; max-width: 640px; margin: 0 auto; line-height: 1.65; }
+    .main { max-width: 1060px; margin: 0 auto; padding: 36px 28px; }
+    .section-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; margin-top: 36px; }
+    .section-label:first-child { margin-top: 0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 22px 18px; display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: inherit; transition: border-color 0.15s; }
+    .card:hover { border-color: var(--accent); }
+    .card-icon { font-size: 1.8rem; }
+    .card-name { font-size: 0.95rem; font-weight: 600; }
+    .card-desc { font-size: 0.78rem; color: var(--muted); flex: 1; line-height: 1.45; }
+    .card-tag  { font-size: 0.68rem; padding: 2px 7px; border-radius: 4px; display: inline-block; margin-top: 4px; align-self: flex-start; }
+    .tag-tool  { background: #1a2a3a; color: var(--blue); }
+    .tag-qs    { background: #1a3a1a; color: var(--green); }
+    .tag-fs    { background: #2a1a3a; color: var(--purple); }
+    .ftr { border-top: 1px solid var(--border); padding: 14px 28px; text-align: center; font-size: 0.76rem; color: var(--muted); }
+    .ftr a { color: var(--muted); text-decoration: none; margin: 0 8px; }
+    .ftr a:hover { color: var(--accent); }
+  </style>
+</head>
+<body>
+
+<header class="hdr">
+  <img src="/static/egeria-logo.png" alt="Egeria">
+  <span class="hdr-title">Egeria Workspaces — Documentation</span>
+  <div class="hdr-right"><a href="/">← Portal</a></div>
+</header>
+
+<div class="hero">
+  <h1>Egeria Workspaces Reference</h1>
+  <p>Guides for the Egeria tools, the Quickstart demo environment, and the Freshstart development environment.</p>
+</div>
+
+<main class="main">
+
+  <div class="section-label">Tools — available in all environments</div>
+  <div class="grid">
+    <a class="card" href="viewer.html?src=tools/egeria-explorer.md">
+      <div class="card-icon">🔍</div>
+      <div class="card-name">Egeria Explorer</div>
+      <div class="card-desc">Browse types, glossary, lineage, governance blueprints, digital products, and information supply chains.</div>
+      <span class="card-tag tag-tool">Tool</span>
+    </a>
+    <a class="card" href="viewer.html?src=tools/obsidian.md">
+      <div class="card-icon">🗒️</div>
+      <div class="card-name">Obsidian Vault</div>
+      <div class="card-desc">Using Obsidian with Egeria — local install, containerised browser version, and the session lock system.</div>
+      <span class="card-tag tag-tool">Tool</span>
+    </a>
+    <a class="card" href="viewer.html?src=tools/dr-egeria/overview.md">
+      <div class="card-icon">🩺</div>
+      <div class="card-name">Dr. Egeria</div>
+      <div class="card-desc">Write Egeria commands as Markdown, send them via the Call Dr. Egeria plugin, and get rich results back in your vault.</div>
+      <span class="card-tag tag-tool">Tool</span>
+    </a>
+    <a class="card" href="viewer.html?src=tools/dr-egeria/templates-basic.md">
+      <div class="card-icon">📋</div>
+      <div class="card-name">Dr. Egeria Templates</div>
+      <div class="card-desc">Ready-to-use command templates — basic and advanced — covering glossary, governance, lineage, and more.</div>
+      <span class="card-tag tag-tool">Tool</span>
+    </a>
+    <a class="card" href="viewer.html?src=tools/egeria-advisor.md">
+      <div class="card-icon">🤖</div>
+      <div class="card-name">Egeria Advisor</div>
+      <div class="card-desc">AI-powered guidance for navigating and querying your Egeria metadata environment.</div>
+      <span class="card-tag tag-tool">Tool</span>
+    </a>
+    <a class="card" href="viewer.html?src=tools/jupyter.md">
+      <div class="card-icon">📓</div>
+      <div class="card-name">Jupyter Lab</div>
+      <div class="card-desc">Interactive notebooks for data science exploration and hands-on Egeria API work.</div>
+      <span class="card-tag tag-tool">Tool</span>
+    </a>
+  </div>
+
+  <div class="section-label">Quickstart environment</div>
+  <div class="grid">
+    <a class="card" href="viewer.html?src=quickstart/overview.md">
+      <div class="card-icon">🚀</div>
+      <div class="card-name">Quickstart Overview</div>
+      <div class="card-desc">What the Quickstart stack includes, how to start it, and which ports are used.</div>
+      <span class="card-tag tag-qs">Quickstart</span>
+    </a>
+    <a class="card" href="viewer.html?src=quickstart/local/overview.md">
+      <div class="card-icon">💻</div>
+      <div class="card-name">Local Setup</div>
+      <div class="card-desc">Running Quickstart on your own machine — configuration, .env settings, and first-time setup.</div>
+      <span class="card-tag tag-qs">Quickstart · Local</span>
+    </a>
+    <a class="card" href="viewer.html?src=quickstart/demo/overview.md">
+      <div class="card-icon">🎭</div>
+      <div class="card-name">Demo Environment</div>
+      <div class="card-desc">Running Quickstart as a public demo — user registration, personas, and the portal experience.</div>
+      <span class="card-tag tag-qs">Quickstart · Demo</span>
+    </a>
+    <a class="card" href="viewer.html?src=quickstart/demo/admin-guide.md">
+      <div class="card-icon">⚙️</div>
+      <div class="card-name">Admin Guide</div>
+      <div class="card-desc">Managing users, configuring reset schedules, and the Obsidian session lock reservation system.</div>
+      <span class="card-tag tag-qs">Quickstart · Demo</span>
+    </a>
+    <a class="card" href="viewer.html?src=quickstart/coco/overview.md">
+      <div class="card-icon">🏭</div>
+      <div class="card-name">Coco Pharmaceuticals</div>
+      <div class="card-desc">Background on the fictional company used to demonstrate Egeria — personas, data landscape, and governance challenges.</div>
+      <span class="card-tag tag-qs">Quickstart</span>
+    </a>
+    <a class="card" href="viewer.html?src=quickstart/coco/scenarios.md">
+      <div class="card-icon">🗺️</div>
+      <div class="card-name">Demo Scenarios</div>
+      <div class="card-desc">Guided walk-throughs of common Egeria capabilities using Coco Pharmaceuticals data.</div>
+      <span class="card-tag tag-qs">Quickstart</span>
+    </a>
+  </div>
+
+  <div class="section-label">Freshstart environment</div>
+  <div class="grid">
+    <a class="card" href="viewer.html?src=freshstart/overview.md">
+      <div class="card-icon">🌱</div>
+      <div class="card-name">Freshstart Overview</div>
+      <div class="card-desc">A clean-slate Egeria environment for development and experimentation with no pre-loaded data.</div>
+      <span class="card-tag tag-fs">Freshstart</span>
+    </a>
+    <a class="card" href="viewer.html?src=freshstart/getting-started.md">
+      <div class="card-icon">📖</div>
+      <div class="card-name">Getting Started</div>
+      <div class="card-desc">Starting Freshstart, connecting tools, and loading your first metadata.</div>
+      <span class="card-tag tag-fs">Freshstart</span>
+    </a>
+  </div>
+
+</main>
+
+<footer class="ftr">
+  <a href="https://egeria-project.org" target="_blank" rel="noopener">egeria-project.org</a>
+  <a href="https://github.com/odpi/egeria-workspaces" target="_blank" rel="noopener">GitHub</a>
+  <a href="https://egeria-project.org/practices/coco-pharmaceuticals" target="_blank" rel="noopener">Coco Pharmaceuticals</a>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,220 @@
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+<!-- Copyright Contributors to the ODPi Egeria project. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Egeria Docs</title>
+  <!-- marked.js — markdown parser -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+  <!-- mermaid.js — diagram rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <!-- highlight.js — code syntax highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <style>
+    :root {
+      --bg: #1a1a2e; --card: #16213e; --border: #0f3460;
+      --accent: #e94560; --text: #e0e0e0; --muted: #888;
+      --code-bg: #0d1117;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; }
+
+    /* ── Header ── */
+    .hdr { background: var(--card); border-bottom: 1px solid var(--border); padding: 10px 28px; display: flex; align-items: center; gap: 14px; }
+    .hdr img { height: 22px; }
+    .hdr-nav { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; flex: 1; overflow: hidden; }
+    .hdr-nav a { color: var(--muted); text-decoration: none; white-space: nowrap; }
+    .hdr-nav a:hover { color: var(--accent); }
+    .hdr-nav .sep { color: var(--border); }
+    .hdr-nav .crumb-current { color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Layout ── */
+    .layout { display: flex; max-width: 1060px; margin: 0 auto; padding: 28px; gap: 28px; align-items: flex-start; }
+    .toc-col { width: 220px; flex-shrink: 0; position: sticky; top: 20px; }
+    .toc-col h3 { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+    .toc-list { list-style: none; }
+    .toc-list li { margin-bottom: 4px; }
+    .toc-list a { font-size: 0.8rem; color: var(--muted); text-decoration: none; display: block; padding: 2px 0 2px 8px; border-left: 2px solid transparent; }
+    .toc-list a:hover { color: var(--text); border-left-color: var(--accent); }
+    .toc-list a.h3 { padding-left: 18px; font-size: 0.75rem; }
+    .content-col { flex: 1; min-width: 0; }
+
+    /* ── Markdown content ── */
+    .md-body { line-height: 1.7; font-size: 0.92rem; }
+    .md-body h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+    .md-body h2 { font-size: 1.2rem; font-weight: 600; margin: 32px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); color: var(--text); }
+    .md-body h3 { font-size: 1rem; font-weight: 600; margin: 22px 0 8px; color: var(--text); }
+    .md-body h4 { font-size: 0.9rem; font-weight: 600; margin: 16px 0 6px; color: var(--muted); }
+    .md-body p  { margin-bottom: 14px; color: var(--text); }
+    .md-body a  { color: var(--accent); text-decoration: none; }
+    .md-body a:hover { text-decoration: underline; }
+    .md-body ul, .md-body ol { margin: 0 0 14px 22px; }
+    .md-body li { margin-bottom: 5px; }
+    .md-body li > p { margin-bottom: 4px; }
+    .md-body blockquote { border-left: 3px solid var(--accent); margin: 0 0 14px; padding: 8px 14px; background: var(--card); border-radius: 0 6px 6px 0; }
+    .md-body blockquote p { margin: 0; color: var(--muted); font-style: italic; }
+    .md-body table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 0.85rem; }
+    .md-body th { text-align: left; padding: 8px 12px; background: var(--card); border: 1px solid var(--border); font-weight: 600; color: var(--muted); }
+    .md-body td { padding: 7px 12px; border: 1px solid var(--border); vertical-align: top; }
+    .md-body tr:nth-child(even) td { background: rgba(15,52,96,0.2); }
+    .md-body code:not(pre code) { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-family: monospace; color: #e6edf3; }
+    .md-body pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 18px; overflow-x: auto; }
+    .md-body pre code { background: none; padding: 0; font-size: 0.85rem; }
+    .md-body hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+    .md-body img { max-width: 100%; border-radius: 6px; margin: 8px 0; }
+
+    /* ── Mermaid diagrams ── */
+    .md-body .mermaid { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 18px; text-align: center; overflow-x: auto; }
+
+    /* ── Error / loading states ── */
+    .loading { color: var(--muted); padding: 40px; text-align: center; font-size: 0.9rem; }
+    .error-msg { background: rgba(233,69,96,0.12); border: 1px solid rgba(233,69,96,0.4); border-radius: 8px; padding: 16px; color: #ef9a9a; margin: 20px 0; }
+
+    @media (max-width: 720px) {
+      .toc-col { display: none; }
+      .layout { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="hdr">
+  <a href="/docs/"><img src="/static/egeria-logo.png" alt="Egeria"></a>
+  <nav class="hdr-nav" id="breadcrumb">
+    <a href="/docs/">Documentation</a>
+  </nav>
+</header>
+
+<div class="layout">
+  <aside class="toc-col" id="toc-col" style="display:none">
+    <h3>On this page</h3>
+    <ul class="toc-list" id="toc-list"></ul>
+  </aside>
+  <main class="content-col">
+    <div id="content" class="md-body"><div class="loading">Loading…</div></div>
+  </main>
+</div>
+
+<script>
+  mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+
+  // ── Resolve internal markdown links ──────────────────────────────────────────
+  function _mdLinkHref(href, currentSrc) {
+    if (!href || href.startsWith('http') || href.startsWith('#')) return href;
+    if (href.endsWith('.md')) {
+      // relative to current doc
+      var base = currentSrc.substring(0, currentSrc.lastIndexOf('/') + 1);
+      var resolved = base + href;
+      // normalise ../ segments
+      var parts = resolved.split('/');
+      var out = [];
+      parts.forEach(function(p) {
+        if (p === '..') { out.pop(); } else if (p !== '.') { out.push(p); }
+      });
+      return 'viewer.html?src=' + out.join('/');
+    }
+    return href;
+  }
+
+  // ── Build breadcrumb ──────────────────────────────────────────────────────────
+  var _LABELS = {
+    tools: 'Tools', quickstart: 'Quickstart', freshstart: 'Freshstart',
+    local: 'Local', demo: 'Demo', coco: 'Coco Pharmaceuticals',
+    'dr-egeria': 'Dr. Egeria',
+    'overview': 'Overview', 'getting-started': 'Getting Started',
+    'egeria-explorer': 'Egeria Explorer', 'obsidian': 'Obsidian',
+    'egeria-advisor': 'Egeria Advisor', 'jupyter': 'Jupyter',
+    'commands': 'Commands', 'templates-basic': 'Basic Templates',
+    'templates-advanced': 'Advanced Templates',
+    'admin-guide': 'Admin Guide', 'obsidian-sessions': 'Obsidian Sessions',
+    'personas': 'Personas', 'scenarios': 'Scenarios',
+    'configuration': 'Configuration',
+  };
+
+  function _label(slug) {
+    return _LABELS[slug] || slug.replace(/-/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+  }
+
+  function _buildBreadcrumb(src) {
+    var parts = src.replace(/\.md$/, '').split('/');
+    var bc = document.getElementById('breadcrumb');
+    bc.innerHTML = '<a href="/docs/">Documentation</a>';
+    var path = '';
+    parts.forEach(function(p, i) {
+      bc.insertAdjacentHTML('beforeend', '<span class="sep"> › </span>');
+      path += (i === 0 ? '' : '/') + p;
+      if (i === parts.length - 1) {
+        bc.insertAdjacentHTML('beforeend', '<span class="crumb-current">' + _label(p) + '</span>');
+        document.title = _label(p) + ' — Egeria Docs';
+      } else {
+        bc.insertAdjacentHTML('beforeend', '<a href="viewer.html?src=' + path + '/overview.md">' + _label(p) + '</a>');
+      }
+    });
+  }
+
+  // ── Build TOC from rendered headings ─────────────────────────────────────────
+  function _buildToc() {
+    var headings = document.querySelectorAll('#content h2, #content h3');
+    if (headings.length < 2) return;
+    var list = document.getElementById('toc-list');
+    list.innerHTML = '';
+    headings.forEach(function(h, i) {
+      var id = 'heading-' + i;
+      h.id = id;
+      var li = document.createElement('li');
+      var a  = document.createElement('a');
+      a.href = '#' + id;
+      a.textContent = h.textContent;
+      if (h.tagName === 'H3') a.classList.add('h3');
+      li.appendChild(a);
+      list.appendChild(li);
+    });
+    document.getElementById('toc-col').style.display = 'block';
+  }
+
+  // ── Main load ─────────────────────────────────────────────────────────────────
+  var params = new URLSearchParams(location.search);
+  var src = params.get('src') || 'tools/overview.md';
+  // Security: only allow relative paths within portal-docs
+  src = src.replace(/\.\.\//g, '').replace(/^\//, '');
+
+  _buildBreadcrumb(src);
+
+  fetch(src)
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status + ' — ' + src);
+      return r.text();
+    })
+    .then(function(md) {
+      var renderer = new marked.Renderer();
+      renderer.link = function(href, title, text) {
+        var resolved = _mdLinkHref(href, src);
+        var ext = href && (href.startsWith('http') || href.startsWith('//'));
+        return '<a href="' + resolved + '"' + (ext ? ' target="_blank" rel="noopener"' : '') + (title ? ' title="' + title + '"' : '') + '>' + text + '</a>';
+      };
+      // Wrap mermaid code blocks
+      renderer.code = function(code, lang) {
+        if (lang === 'mermaid') {
+          return '<div class="mermaid">' + code + '</div>';
+        }
+        var highlighted = lang && hljs.getLanguage(lang)
+          ? hljs.highlight(code, { language: lang }).value
+          : hljs.highlightAuto(code).value;
+        return '<pre><code class="hljs">' + highlighted + '</code></pre>';
+      };
+      marked.use({ renderer: renderer, breaks: false, gfm: true });
+      document.getElementById('content').innerHTML = marked.parse(md);
+      _buildToc();
+      return mermaid.run({ querySelector: '.mermaid' });
+    })
+    .catch(function(err) {
+      document.getElementById('content').innerHTML =
+        '<div class="error-msg"><strong>Could not load page</strong><br>' + err.message + '</div>' +
+        '<p style="color:var(--muted);margin-top:12px">The page <code>' + src + '</code> may not exist yet. <a href="/docs/">Return to documentation hub →</a></p>';
+    });
+</script>
+</body>
+</html>
