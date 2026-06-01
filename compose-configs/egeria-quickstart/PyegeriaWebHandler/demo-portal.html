@@ -358,10 +358,10 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
       url: advisorUrl, newTab: true, enabled: !demoMode, unavailable: !demoMode && !advisorRunning },
     { icon: '📖', name: 'Egeria Documentation',
       desc: 'Official Egeria project documentation, guides, and community resources.',
-      url: 'https://egeria.ai', newTab: true, enabled: true },
+      url: 'https://egeria.ai', newTab: true, enabled: true, isDoc: true },
     { icon: '📚', name: 'Egeria JavaDocs',
       desc: 'Java API reference documentation for the Egeria platform and connectors.',
-      url: 'https://odpi.github.io/egeria/index.html', newTab: true, enabled: true },
+      url: 'https://odpi.github.io/egeria/index.html', newTab: true, enabled: true, isDoc: true },
   ];
   function _renderTile(a) {
     var action;
