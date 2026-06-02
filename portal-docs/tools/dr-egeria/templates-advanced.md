@@ -2,7 +2,8 @@
 
 Advanced command templates for information supply chains, data design, and complex governance operations.
 
-The full template library is also available at [/Dr-Egeria-Samples](/Dr-Egeria-Samples).
+Browse and copy individual files from the full template library:
+[Basic templates](/Dr-Egeria-Samples/templates/basic) · [Advanced templates](/Dr-Egeria-Samples/templates/advanced)
 
 ---
 
