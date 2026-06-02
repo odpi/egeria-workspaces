@@ -59,6 +59,24 @@ When you evict a holder, they see a warning banner in the portal counting down. 
 
 ---
 
+## Local and small-team mode
+
+In **local mode** (`DEMO_MODE=false`) the session lock is still active — useful when Quickstart is shared by a small team. The lock works identically, but there is no portal login and admin endpoints require no authentication.
+
+**Releasing a stuck lock in local mode:**
+
+Go to `/admin` (the **Admin** tile on the portal home page). The Local Admin page shows the lock state and provides Force Release and Evict buttons — no login required.
+
+**Disabling the lock entirely** for a single-user install:
+
+```
+OBSIDIAN_LOCK_ENABLED=false
+```
+
+Set this in your `.env` and restart `quickstart-pyegeria-web`.
+
+---
+
 ## Configuration
 
 Session behaviour is tunable via the [Config tab](admin-guide.md#config-tab) or `.env`:
