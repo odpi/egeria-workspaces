@@ -175,7 +175,6 @@ services:
 #      - ../../exchange-quickstart/loading-bay/dr-egeria-inbox:/usr/local/apache2/htdocs/dr-egeria-inbox
       - ./httpd.conf:/usr/local/apache2/conf/httpd.conf
       - ./sites-available/fastapi-proxy.conf:/usr/local/apache2/conf/extra/fastapi-proxy.conf
-      - ../../runtime-volumes/quickstart-apache-web/site:/usr/local/apache2/htdocs/local
       - ./markdown-header.html:/usr/local/apache2/conf/markdown-header.html
       - ../../runtime-volumes/quickstart-apache-web/ErrorLogs:/usr/local/apache2/logs
       - ../../workspaces/Dr-Egeria-Samples:/usr/local/apache2/htdocs/Dr-Egeria-Samples

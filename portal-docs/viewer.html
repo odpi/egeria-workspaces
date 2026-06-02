@@ -183,7 +183,7 @@
 
   _buildBreadcrumb(src);
 
-  fetch(src)
+  fetch(src, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
     .then(function(r) {
       if (!r.ok) throw new Error('HTTP ' + r.status + ' — ' + src);
       return r.text();
