@@ -15,6 +15,7 @@ Stops the Egeria stacks, removes locally-built images, pulls the latest
 egeria-workspaces, rebuilds images, and restarts everything.
 
 Options:
+  --demo            Pass --demo to quick-start-local (enables auth, HTTPS, SSL)
   --no-freshstart   Skip the freshstart stack (bring down only quickstart)
   --infra           Also cycle shared infrastructure (Kafka, Postgres, proxy)
   --no-pull         Skip git pull (useful when testing local changes)
@@ -22,12 +23,14 @@ Options:
 EOF
 }
 
+DEMO_FLAG=0
 SKIP_FRESHSTART=0
 REFRESH_INFRA=0
 SKIP_PULL=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --demo)          DEMO_FLAG=1;        shift ;;
     --no-freshstart) SKIP_FRESHSTART=1; shift ;;
     --infra)         REFRESH_INFRA=1;   shift ;;
     --no-pull)       SKIP_PULL=1;       shift ;;
@@ -132,7 +135,11 @@ fi
 # ── 4. Restart ────────────────────────────────────────────────────────────────
 
 echo "[refresh-local] Restarting quickstart stack..."
-./quick-start-local
+if [[ "$DEMO_FLAG" -eq 1 ]]; then
+  ./quick-start-local --demo
+else
+  ./quick-start-local
+fi
 
 if [[ "$SKIP_FRESHSTART" -eq 0 ]]; then
   # Only restart freshstart if its secrets directory already exists — that

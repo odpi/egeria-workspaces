@@ -150,6 +150,7 @@ To stop the stack, remove locally-built images, pull the latest egeria-workspace
 
 ```bash
 ./refresh-local                  # quickstart + freshstart (if previously set up)
+./refresh-local --demo           # refresh and restart in demo mode (auth, HTTPS)
 ./refresh-local --no-freshstart  # quickstart only
 ./refresh-local --infra          # also cycle Kafka / Postgres / proxy
 ./refresh-local --no-pull        # skip git pull (rebuild from current local code)

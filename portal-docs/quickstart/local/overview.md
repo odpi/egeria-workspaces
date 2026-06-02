@@ -68,6 +68,7 @@ To pull the latest egeria-workspaces, rebuild all images, and restart cleanly:
 This stops the running stack, removes locally-built images, runs `git pull`, then calls `quick-start-local` to rebuild and restart. Options:
 
 ```bash
+./refresh-local --demo           # Refresh and restart in demo mode (auth, HTTPS)
 ./refresh-local --no-freshstart  # Skip the freshstart stack
 ./refresh-local --infra          # Also cycle Kafka / Postgres / proxy
 ./refresh-local --no-pull        # Skip git pull (rebuild from current local code)
