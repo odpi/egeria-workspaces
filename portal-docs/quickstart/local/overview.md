@@ -57,6 +57,24 @@ To change a persistent default (e.g. `console_width`, Egeria paths, logging), ed
 
 ---
 
+## Updating to the latest version
+
+To pull the latest egeria-workspaces, rebuild all images, and restart cleanly:
+
+```bash
+./refresh-local
+```
+
+This stops the running stack, removes locally-built images, runs `git pull`, then calls `quick-start-local` to rebuild and restart. Options:
+
+```bash
+./refresh-local --no-freshstart  # Skip the freshstart stack
+./refresh-local --infra          # Also cycle Kafka / Postgres / proxy
+./refresh-local --no-pull        # Skip git pull (rebuild from current local code)
+```
+
+---
+
 ## Useful flags
 
 ```bash

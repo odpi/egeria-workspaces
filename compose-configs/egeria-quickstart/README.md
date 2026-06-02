@@ -144,6 +144,19 @@ These scripts will:
    For Egeria, this means not only starting up the initial set of servers, but then loading the **CoreContentPack.omarchive** into the metadata repository, and then configuring all the servers. 
    This can take several minutes the first time the containers are created. Subsequent startups will be much faster.
 
+### Full refresh (recommended)
+
+To stop the stack, remove locally-built images, pull the latest egeria-workspaces, rebuild, and restart in one step:
+
+```bash
+./refresh-local                  # quickstart + freshstart (if previously set up)
+./refresh-local --no-freshstart  # quickstart only
+./refresh-local --infra          # also cycle Kafka / Postgres / proxy
+./refresh-local --no-pull        # skip git pull (rebuild from current local code)
+```
+
+### Partial refresh
+
 The startup scripts now automatically refresh images more aggressively than before:
 
 - local compose images are rebuilt with `docker compose build --pull`, which checks for newer base images before building, and

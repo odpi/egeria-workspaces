@@ -73,6 +73,25 @@ For Obsidian access from remote browsers, use `https://<HOST_FQDN>:3001` (self-s
 
 ---
 
+## Updating to the latest version
+
+To pull the latest egeria-workspaces and restart the demo environment:
+
+```bash
+./refresh-local --no-pull   # if you just want to rebuild without pulling
+./refresh-local             # pull latest, rebuild all images, restart
+```
+
+Re-run with `--demo` after the refresh to restore HTTPS and auth:
+
+```bash
+./quick-start-local --demo
+```
+
+`refresh-local` preserves `.env.demo` (your certs, admin credentials, and JWT secret are not touched).
+
+---
+
 ## Admin responsibilities
 
 - Monitor and manage registered users in the [Admin panel](admin-guide.md)
