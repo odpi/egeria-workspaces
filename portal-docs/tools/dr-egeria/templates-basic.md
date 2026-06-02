@@ -2,7 +2,8 @@
 
 Ready-to-use command templates for common Egeria operations. Copy any template into an Obsidian note and run it with the [Call Dr. Egeria](../obsidian.md) plugin.
 
-The full template library is also available at [/Dr-Egeria-Samples](/Dr-Egeria-Samples) — browse the folder structure directly.
+Browse and copy individual files from the full template library:
+[Basic templates](/Dr-Egeria-Samples/templates/basic) · [Advanced templates](/Dr-Egeria-Samples/templates/advanced)
 
 ---
 
