@@ -6432,6 +6432,12 @@ function ProjectDetail({ project, children, onSelectChild }) {
 
 // ── Governance Definitions Explorer ──────────────────────────────────────────
 
+const _GOV_DOMAIN_NAMES = {
+  '0': 'All Domains', '1': 'Data', '2': 'Privacy', '3': 'Security',
+  '4': 'IT Infrastructure', '5': 'Software Development',
+  '6': 'Corporate', '7': 'Asset Management',
+};
+
 function GovDefDetail({ definition, onSelectGuid }) {
   if (!definition) return null;
 
@@ -6563,6 +6569,15 @@ function GovernanceView() {
   const [selGuid, setSelGuid]       = useState(null);
   const [detail, setDetail]         = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [domainFilter, setDomainFilter] = useState(null);
+
+  const availableDomains = React.useMemo(function() {
+    var seen = new Set();
+    definitions.forEach(function(d) {
+      if (d.domainIdentifier !== '' && d.domainIdentifier != null) seen.add(String(d.domainIdentifier));
+    });
+    return Array.from(seen).sort(function(a, b) { return Number(a) - Number(b); });
+  }, [definitions]);
 
   function toggleExpanded(tn) {
     setExpanded(function(prev) {
@@ -6619,12 +6634,25 @@ function GovernanceView() {
     setSelType(tn);
     setSelGuid(null);
     setDetail(null);
+    setDomainFilter(null);
     setListAttempt(function(a) { return a + 1; });
   }
 
   const colLabel = listState === 'ready'
     ? definitions.length + ' definitions'
     : (typeLabels[selType] || selType);
+
+  var visibleDefs = domainFilter === null ? definitions
+    : definitions.filter(function(d) { return String(d.domainIdentifier) === domainFilter; });
+
+  function pillStyle(active) {
+    return {
+      fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 10, cursor: 'pointer',
+      border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
+      background: active ? 'rgba(233,69,96,.12)' : 'transparent',
+      color: active ? 'var(--accent)' : 'var(--dim)',
+    };
+  }
 
   return React.createElement('div', { className: 'body' },
     // Left: type tree
@@ -6644,17 +6672,28 @@ function GovernanceView() {
     // Middle: definition list
     React.createElement('div', { style: { width: listW, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
       React.createElement('div', { style: { padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
-        React.createElement('div', { style: { fontWeight: 600, fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } }, colLabel),
+        React.createElement('div', { style: { fontWeight: 600, fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } },
+          listState === 'ready' ? visibleDefs.length + ' of ' + definitions.length + ' definitions' : colLabel
+        ),
         React.createElement('input', {
           type: 'search', placeholder: 'Search…', value: search,
           onChange: function(e) { onSearchChange(e.target.value); },
           style: { width: '100%', boxSizing: 'border-box', fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' }
-        })
+        }),
+        availableDomains.length > 1 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 4 } },
+          React.createElement('button', { onClick: function() { setDomainFilter(null); }, style: pillStyle(domainFilter === null) }, 'All'),
+          availableDomains.map(function(d) {
+            return React.createElement('button', {
+              key: d, onClick: function() { setDomainFilter(d); },
+              style: pillStyle(domainFilter === d)
+            }, _GOV_DOMAIN_NAMES[d] || ('Domain ' + d));
+          })
+        )
       ),
       listState === 'error' && React.createElement('div', { style: { padding: 12, color: '#f87171', fontSize: 12 } }, listError),
       listState === 'loading' && React.createElement('div', { style: { padding: 24, textAlign: 'center', color: 'var(--dim)', fontSize: 12 } }, 'Loading…'),
       React.createElement('div', { className: 'tree-scroll' },
-        definitions.map(function(def) {
+        visibleDefs.map(function(def) {
           return React.createElement('div', {
             key: def.guid,
             className: 'tree-item' + (selGuid === def.guid ? ' sel' : ''),
