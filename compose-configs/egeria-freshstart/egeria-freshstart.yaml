@@ -33,6 +33,7 @@ services:
       - ../../exchange-freshstart/loading-bay:/home/jovyan/loading-bay
       - ../../exchange-freshstart/landing-area:/home/jovyan/landing-area
       - ../../exchange-freshstart/config:/home/jovyan/config
+      - ../../templates:/home/jovyan/templates
 
   freshstart-egeria-main:
     image: 'egeria-freshstart-platform:local'

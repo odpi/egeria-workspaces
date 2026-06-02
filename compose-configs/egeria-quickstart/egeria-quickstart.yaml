@@ -49,6 +49,7 @@ services:
       - ./before-notebook.d:/usr/local/bin/before-notebook.d
       - ../../work:/home/jovyan/work
       - ../../coco-workbooks:/home/jovyan/coco-workbooks
+      - ../../templates:/home/jovyan/templates
       - ../../workbooks:/home/jovyan/workbooks
       - ../../exchange-quickstart/distribution-hub:/home/jovyan/distribution-hub
       - ../../exchange-quickstart/loading-bay:/home/jovyan/loading-bay
@@ -201,7 +202,7 @@ services:
       - TZ=America/Chicago
     volumes:
       - ../../coco-workbooks:/config/vaults
-      - ../../templates:/config/vaults/Dr-Egeria-Samples/templates
+      - ../../templates:/config/templates
       - ../../runtime-volumes/obsidian-config:/config/.config  # persists app-level settings
     ports:
       - "3000:3000"
