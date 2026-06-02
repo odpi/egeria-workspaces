@@ -178,7 +178,6 @@ services:
       - ./sites-available/fastapi-proxy.conf:/usr/local/apache2/conf/extra/fastapi-proxy.conf
       - ./markdown-header.html:/usr/local/apache2/conf/markdown-header.html
       - ../../runtime-volumes/quickstart-apache-web/ErrorLogs:/usr/local/apache2/logs
-      - ../../workspaces/Dr-Egeria-Samples:/usr/local/apache2/htdocs/Dr-Egeria-Samples
       - ../../templates:/usr/local/apache2/htdocs/Dr-Egeria-Samples/templates
       - ../../portal-docs:/usr/local/apache2/htdocs/docs
       # SSL cert volume — disabled by default. See demo-mode.md § SSL / HTTPS.

@@ -173,25 +173,6 @@ some very nice visualization of open lineage graphs.
 * milvus—Open source vector database for efficient similarity search and clustering of large datasets.
 * mlflow—Open source platform for managing the end-to-end machine learning lifecycle.
 
-#### other-egeria-deployments
-While the egeria-quickstart environment is a good starting point for most folk, we've also included
-some other docker scripts to support some simpler deployments. The available deployments are:
-
-* egeria-platform-compose - deploys Egeria with an XTDB file based repository along with Kafka.
-* egeria-platform-jupyter-compose - additionally adds a Jupyter server
-* egeria-platform-postgres-compose - deploys the postgres database for use with Egeria, and Kafka.
-* coco-labs-compose - an environment for working with the Egeria Coco Pharmaceuticals training scenarios (under construction)
-
-These simpler configurations do not externalize 
-their configurations and only share a subset of the folders. They provide configurations for these servers:
-* active-metadata-store
-* simple-metadata-store
-* integration-daemon
-* engine-host
-* view-server
-
-More details can be found in the README.md files within this folder.
-
 ### exchange-quickstart / exchange-freshstart
 These folders support file-based exchange between Egeria containers, Jupyter, and the host file-system for each deployment.
 Quickstart and freshstart each have an isolated exchange tree.
@@ -236,11 +217,6 @@ Currently there are sub-directories here for:
 This folder is meant for you to put your own private working files for use with Egeria and
 Jupyter. The directory is mounted and visible within both Egeria and Jupyter runtimes. 
 Your additions are ignored by Git.
-
-### workspaces
-This set of folders contains examples, samples, utilities and other artifacts useful to 
-getting started with Egeria. Please explore. Extend if desired, and if you want to contribute
-your own content to the community feel free to contact us via Slack or email.
 
 ----
 License: CC BY 4.0, Copyright Contributors to the ODPi Egeria project. of of this 
