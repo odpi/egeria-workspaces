@@ -6581,6 +6581,26 @@ function GovernanceView() {
   const [detail, setDetail]         = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [domainFilter, setDomainFilter] = useState('all');
+  const [domainOptions, setDomainOptions] = useState(null); // null=loading, []=loaded
+
+  // Load governance domain options from valid metadata values
+  useEffect(function() {
+    fetch(credAppend('/api/valid-values/lookup?property_name=domainIdentifier', creds))
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(d) {
+        if (!d || !Array.isArray(d.values) || !d.values.length) { setDomainOptions([]); return; }
+        var opts = d.values
+          .filter(function(v) { return v.preferredValue != null && v.preferredValue !== ''; })
+          .map(function(v) {
+            var pv = String(v.preferredValue);
+            var label = v.displayName || v.description || pv;
+            return { value: pv, label: 'Domain ' + pv + ' — ' + label };
+          })
+          .sort(function(a, b) { return Number(a.value) - Number(b.value); });
+        setDomainOptions(opts);
+      })
+      .catch(function() { setDomainOptions([]); });
+  }, []);
 
   function toggleExpanded(tn) {
     setExpanded(function(prev) {
@@ -6652,8 +6672,11 @@ function GovernanceView() {
         value: domainFilter,
         onChange: function(e) { setDomainFilter(e.target.value); setSelGuid(null); setDetail(null); }
       },
-        Object.entries(_GOV_DOMAIN_NAMES).map(function(entry) {
-          return React.createElement('option', { key: entry[0], value: entry[0] }, entry[1]);
+        (domainOptions && domainOptions.length > 0
+          ? [{ value: 'all', label: 'All Domains' }].concat(domainOptions)
+          : Object.entries(_GOV_DOMAIN_NAMES).map(function(e) { return { value: e[0], label: e[1] }; })
+        ).map(function(opt) {
+          return React.createElement('option', { key: opt.value, value: opt.value }, opt.label);
         })
       ),
       React.createElement('div', { style: { flex: 1 } }),
