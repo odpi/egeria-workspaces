@@ -1,8 +1,8 @@
 {
   "mcpUrl": "http://pyegeria-web:8000/sse",
-  "mcpToken": "egeria-secret-mcp-token",
-  "userId": "erinoverview",
-  "userPass": "secret",
+  "mcpToken": "",
+  "userId": "",
+  "userPass": "",
   "egeriaUrl": "https://host.docker.internal:9443",
   "viewServer": "qs-view-server",
   "defaultDirective": "validate",

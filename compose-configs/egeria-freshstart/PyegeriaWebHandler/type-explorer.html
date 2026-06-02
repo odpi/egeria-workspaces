@@ -113,6 +113,11 @@
                animation: spin .8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* Type-system / governance sub-toolbar */
+    .type-subbar { background: var(--panel); border-bottom: 1px solid var(--border);
+                   padding: 4px 20px; display: flex; align-items: center; gap: 12px;
+                   flex-shrink: 0; font-size: 12px; }
+
     /* area selector */
     .area-select { background: rgba(20,32,52,.8); border: 1px solid var(--border);
                    border-radius: 5px; color: var(--text); padding: 3px 8px;
@@ -6432,6 +6437,18 @@ function ProjectDetail({ project, children, onSelectChild }) {
 
 // ── Governance Definitions Explorer ──────────────────────────────────────────
 
+const _GOV_DOMAIN_NAMES = {
+  'all': 'All Domains',
+  '0':   'Domain 0 — All',
+  '1':   'Domain 1 — Data',
+  '2':   'Domain 2 — Privacy',
+  '3':   'Domain 3 — Security',
+  '4':   'Domain 4 — IT Infrastructure',
+  '5':   'Domain 5 — Software Development',
+  '6':   'Domain 6 — Corporate',
+  '7':   'Domain 7 — Asset Management',
+};
+
 function GovDefDetail({ definition, onSelectGuid }) {
   if (!definition) return null;
 
@@ -6563,6 +6580,27 @@ function GovernanceView() {
   const [selGuid, setSelGuid]       = useState(null);
   const [detail, setDetail]         = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [domainFilter, setDomainFilter] = useState('all');
+  const [domainOptions, setDomainOptions] = useState(null); // null=loading, []=loaded
+
+  // Load governance domain options from valid metadata values
+  useEffect(function() {
+    fetch(credAppend('/api/valid-values/lookup?property_name=domainIdentifier', creds))
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(d) {
+        if (!d || !Array.isArray(d.values) || !d.values.length) { setDomainOptions([]); return; }
+        var opts = d.values
+          .filter(function(v) { return v.preferredValue != null && v.preferredValue !== ''; })
+          .map(function(v) {
+            var pv = String(v.preferredValue);
+            var label = v.displayName || v.description || pv;
+            return { value: pv, label: 'Domain ' + pv + ' — ' + label };
+          })
+          .sort(function(a, b) { return Number(a.value) - Number(b.value); });
+        setDomainOptions(opts);
+      })
+      .catch(function() { setDomainOptions([]); });
+  }, []);
 
   function toggleExpanded(tn) {
     setExpanded(function(prev) {
@@ -6622,11 +6660,33 @@ function GovernanceView() {
     setListAttempt(function(a) { return a + 1; });
   }
 
-  const colLabel = listState === 'ready'
-    ? definitions.length + ' definitions'
-    : (typeLabels[selType] || selType);
+  const colLabel = typeLabels[selType] || selType;
 
-  return React.createElement('div', { className: 'body' },
+  var visibleDefs = domainFilter === 'all' ? definitions
+    : definitions.filter(function(d) { return String(d.domainIdentifier) === domainFilter; });
+
+  return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' } },
+    React.createElement('div', { className: 'type-subbar' },
+      React.createElement('select', {
+        className: 'area-select',
+        value: domainFilter,
+        onChange: function(e) { setDomainFilter(e.target.value); setSelGuid(null); setDetail(null); }
+      },
+        (domainOptions && domainOptions.length > 0
+          ? [{ value: 'all', label: 'All Domains' }].concat(domainOptions)
+          : Object.entries(_GOV_DOMAIN_NAMES).map(function(e) { return { value: e[0], label: e[1] }; })
+        ).map(function(opt) {
+          return React.createElement('option', { key: opt.value, value: opt.value }, opt.label);
+        })
+      ),
+      React.createElement('div', { style: { flex: 1 } }),
+      listState === 'ready' && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } },
+        visibleDefs.length === definitions.length
+          ? definitions.length + ' definitions'
+          : visibleDefs.length + ' of ' + definitions.length + ' definitions'
+      )
+    ),
+    React.createElement('div', { className: 'body' },
     // Left: type tree
     React.createElement('div', { className: 'sidebar', style: { width: sideW } },
       React.createElement('div', { style: { padding: '10px 12px', fontWeight: 600, fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } }, 'Definition Types'),
@@ -6644,7 +6704,9 @@ function GovernanceView() {
     // Middle: definition list
     React.createElement('div', { style: { width: listW, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
       React.createElement('div', { style: { padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
-        React.createElement('div', { style: { fontWeight: 600, fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } }, colLabel),
+        React.createElement('div', { style: { fontWeight: 600, fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } },
+          listState === 'ready' ? visibleDefs.length + ' definitions' : colLabel
+        ),
         React.createElement('input', {
           type: 'search', placeholder: 'Search…', value: search,
           onChange: function(e) { onSearchChange(e.target.value); },
@@ -6654,7 +6716,7 @@ function GovernanceView() {
       listState === 'error' && React.createElement('div', { style: { padding: 12, color: '#f87171', fontSize: 12 } }, listError),
       listState === 'loading' && React.createElement('div', { style: { padding: 24, textAlign: 'center', color: 'var(--dim)', fontSize: 12 } }, 'Loading…'),
       React.createElement('div', { className: 'tree-scroll' },
-        definitions.map(function(def) {
+        visibleDefs.map(function(def) {
           return React.createElement('div', {
             key: def.guid,
             className: 'tree-item' + (selGuid === def.guid ? ' sel' : ''),
@@ -6678,7 +6740,7 @@ function GovernanceView() {
             React.createElement('span', { style: { color: 'var(--muted)' } }, definitions.length === 0 && listState === 'ready' ? 'No definitions found' : 'Select a definition to view details')
           )
     )
-  );
+  ));  // close .body + column wrapper
 }
 
 // ── EgeriaFeedbackWidget ──────────────────────────────────────────────────────
