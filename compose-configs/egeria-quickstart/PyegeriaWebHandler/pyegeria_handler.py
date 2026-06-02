@@ -316,7 +316,10 @@ async def register_page():
 @app.get("/admin", include_in_schema=False)
 async def admin_page(request: Request):
     if not DEMO_MODE:
-        return RedirectResponse(url="/egeria-explorer")
+        html_path = SCRIPT_DIR / "local-admin.html"
+        if not html_path.exists():
+            raise HTTPException(status_code=404, detail="Local admin page not found")
+        return FileResponse(str(html_path), media_type="text/html")
     from demo_auth_handler import get_current_user
     from demo_db import get_engine
     from sqlalchemy.orm import Session

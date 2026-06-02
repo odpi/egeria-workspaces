@@ -355,6 +355,9 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
         ? 'Open the Coco Pharmaceuticals workbook vault in your local Obsidian install.'
         : 'Open the workbook vault in the shared browser-based Obsidian, or browse on GitHub.',
       enabled: true, obsidian: true },
+    { icon: '⚙️', name: 'Admin',
+      desc: 'Manage the Obsidian session lock, view audit log, and add reservations.',
+      url: '/admin', newTab: false, enabled: !demoMode },
     { icon: '🤖', name: 'Egeria Advisor',
       desc: advisorRunning ? 'AI-powered guidance for your Egeria environment.' : 'AI-powered guidance for your Egeria environment. (Not currently running)',
       url: advisorUrl, newTab: true, enabled: !demoMode, unavailable: !demoMode && !advisorRunning },

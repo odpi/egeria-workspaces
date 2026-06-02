@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Copyright Contributors to the ODPi Egeria project. -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Egeria — Local Admin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117; --card: #1a1d27; --border: #2e3246;
+      --accent: #6366f1; --accent-hover: #4f52d6; --accent-dim: #1e2042;
+      --text: #e2e4f0; --muted: #8b8fa8;
+      --error: #f87171; --success: #34d399; --warn: #fbbf24;
+      --trow: #1e2133;
+    }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; }
+
+    /* ── Topbar ── */
+    .topbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 1rem; }
+    .topbar .title { font-size: 1rem; font-weight: 700; }
+    .topbar .subtitle { font-size: 0.78rem; color: var(--muted); }
+    .topbar .spacer { flex: 1; }
+    .topbar a.btn-sm { padding: 0.3rem 0.75rem; background: var(--accent-dim); color: var(--text); border: 1px solid var(--border); border-radius: 5px; font-size: 0.78rem; text-decoration: none; }
+    .topbar a.btn-sm:hover { background: var(--accent); }
+
+    /* ── Layout ── */
+    .page { max-width: 1000px; margin: 0 auto; padding: 1.75rem 1.5rem; display: flex; flex-direction: column; gap: 2rem; }
+
+    /* ── Section headers ── */
+    .section-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+    .section-hdr h2 { font-size: 0.9rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+
+    /* ── Cards ── */
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; }
+    .stats-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 0.9rem 1.1rem; flex: 1; min-width: 130px; }
+    .stat-card .lbl { font-size: 0.72rem; color: var(--muted); margin-bottom: 0.2rem; }
+    .stat-card .val { font-size: 0.95rem; font-weight: 600; }
+
+    /* ── Lock state colours ── */
+    .state-FREE         { color: var(--success); }
+    .state-IN_USE       { color: #64b5f6; }
+    .state-ADMIN_IN_USE { color: #a5b4fc; }
+    .state-STUCK        { color: var(--warn); }
+    .state-DISABLED     { color: var(--muted); }
+
+    /* ── Buttons ── */
+    .btn-primary { padding: 0.4rem 1rem; background: var(--accent); border: none; border-radius: 5px; color: #fff; font-size: 0.82rem; cursor: pointer; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-danger  { padding: 0.4rem 1rem; background: rgba(248,113,113,0.12); border: 1px solid var(--error); border-radius: 5px; color: var(--error); font-size: 0.82rem; cursor: pointer; }
+    .btn-danger:hover  { background: rgba(248,113,113,0.28); }
+    .btn-danger:disabled, .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-xs { padding: 0.22rem 0.55rem; font-size: 0.72rem; border-radius: 4px; cursor: pointer; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+    .btn-xs:hover { background: var(--accent-dim); border-color: var(--accent); }
+    .btn-xs.danger:hover { background: rgba(248,113,113,0.15); border-color: var(--error); color: var(--error); }
+    .actions-row { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; margin-top: 0.9rem; }
+    .form-row { display: flex; gap: 0.6rem; align-items: flex-end; flex-wrap: wrap; margin-top: 0.75rem; }
+    .form-row label { font-size: 0.78rem; color: var(--muted); display: flex; flex-direction: column; gap: 0.2rem; }
+    .form-row input, .form-row select { padding: 0.32rem 0.55rem; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 0.82rem; }
+    .form-row input:focus, .form-row select:focus { border-color: var(--accent); outline: none; }
+
+    /* ── Tables ── */
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 0.75rem; }
+    thead th { text-align: left; padding: 0.45rem 0.6rem; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 500; }
+    tbody tr { border-bottom: 1px solid var(--border); }
+    tbody tr:hover { background: var(--trow); }
+    tbody td { padding: 0.5rem 0.6rem; vertical-align: middle; }
+    .empty { color: var(--muted); text-align: center; padding: 1.5rem; }
+
+    /* ── Badges ── */
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.73rem; font-weight: 600; }
+    .badge-action { background: rgba(99,102,241,0.18); color: #a5b4fc; }
+    .badge-note   { background: rgba(139,143,168,0.12); color: var(--muted); }
+
+    /* ── Banner ── */
+    .banner { padding: 0.55rem 0.9rem; border-radius: 6px; font-size: 0.82rem; margin-bottom: 0.75rem; display: none; }
+    .banner.error   { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.35); color: var(--error); display: block; }
+    .banner.success { background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.35); color: var(--success); display: block; }
+
+    /* ── Platform info table ── */
+    .info-table td { padding: 0.55rem 0.6rem; font-size: 0.83rem; border-bottom: 1px solid var(--border); }
+    .info-table td:first-child { color: var(--muted); width: 38%; font-family: ui-monospace, monospace; font-size: 0.79rem; }
+
+    /* ── Spinner ── */
+    .spinner { display: inline-block; width: 11px; height: 11px; border: 2px solid var(--muted); border-top-color: var(--warn); border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 4px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .note { font-size: 0.78rem; color: var(--muted); margin-top: 0.6rem; line-height: 1.5; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <img src="/static/egeria-logo.png" alt="Egeria" style="height:24px;vertical-align:middle;margin-right:10px">
+    <span class="title" id="orgTitle">Egeria</span>
+    <span class="subtitle"> · Local Admin</span>
+  </div>
+  <div class="spacer"></div>
+  <a href="/portal"         class="btn-sm">Portal ↗</a>
+  <a href="/egeria-explorer" class="btn-sm">Explorer ↗</a>
+  <a href="/docs/"          class="btn-sm">Docs ↗</a>
+</div>
+
+<div class="page">
+
+  <div id="globalBanner" class="banner"></div>
+
+  <!-- ── Obsidian Lock ─────────────────────────────────────────────── -->
+  <section>
+    <div class="section-hdr">
+      <h2>Obsidian Lock</h2>
+      <button class="btn-xs" onclick="loadLock()">↻ Refresh</button>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card"><div class="lbl">State</div><div class="val" id="lockState">—</div></div>
+      <div class="stat-card"><div class="lbl">Holder</div><div class="val" id="lockHolder">—</div></div>
+      <div class="stat-card"><div class="lbl">Egeria User</div><div class="val" id="lockPersona">—</div></div>
+      <div class="stat-card"><div class="lbl">Time Remaining</div><div class="val" id="lockMins">—</div></div>
+    </div>
+
+    <div class="card">
+      <div style="font-size:0.85rem;font-weight:600;margin-bottom:0.5rem">Actions</div>
+      <div class="actions-row">
+        <button class="btn-danger" id="btnUnlock" onclick="doUnlock()" disabled>Force Release</button>
+        <span style="display:flex;align-items:center;gap:0.5rem">
+          <button class="btn-danger" id="btnEvict" onclick="doEvict()" disabled>Evict with grace:</button>
+          <select id="graceSelect" style="padding:0.32rem 0.5rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:0.82rem">
+            <option value="60">60 s</option>
+            <option value="120" selected>120 s</option>
+            <option value="300">300 s</option>
+          </select>
+        </span>
+      </div>
+      <p class="note"><strong>Force Release</strong> drops the lock immediately — use when the holder has closed their session without releasing.<br>
+      <strong>Evict</strong> sends a warning to the holder and releases after the grace period.</p>
+    </div>
+
+    <!-- Reservations -->
+    <div style="margin-top:1.25rem">
+      <div style="font-size:0.85rem;font-weight:600;margin-bottom:0.75rem">Reservations</div>
+      <table>
+        <thead><tr><th>Label</th><th>Starts</th><th>Ends</th><th>Created</th><th></th></tr></thead>
+        <tbody id="resBody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      </table>
+      <div class="form-row" style="margin-top:0.9rem">
+        <label>Label<input id="resLabel" type="text" placeholder="Team sync" style="width:140px"></label>
+        <label>Start<input id="resStart" type="datetime-local"></label>
+        <label>End<input id="resEnd"   type="datetime-local"></label>
+        <button class="btn-primary" onclick="doCreateRes()">Add Reservation</button>
+      </div>
+    </div>
+
+    <!-- Audit log -->
+    <div style="margin-top:1.5rem">
+      <div style="font-size:0.85rem;font-weight:600;margin-bottom:0.75rem">Audit Log <span style="font-size:0.75rem;font-weight:400;color:var(--muted)">(last 50 events)</span></div>
+      <table>
+        <thead><tr><th>Time</th><th>Action</th><th>Holder</th><th>Egeria User</th></tr></thead>
+        <tbody id="auditBody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Platform Info ─────────────────────────────────────────────── -->
+  <section>
+    <div class="section-hdr"><h2>Platform</h2></div>
+    <div class="card">
+      <table class="info-table">
+        <tbody id="platformBody"><tr><td colspan="2" class="empty"><span class="spinner"></span> Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+</div><!-- /page -->
+
+<script>
+  // ── Utilities ──────────────────────────────────────────────────────
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function fmt(iso) {
+    if (!iso) return '—';
+    try { return new Date(iso.endsWith('Z') ? iso : iso + 'Z').toLocaleString(); } catch(e) { return iso; }
+  }
+  function showBanner(type, msg) {
+    var b = document.getElementById('globalBanner');
+    b.className = 'banner ' + type;
+    b.textContent = msg;
+    if (type === 'success') setTimeout(function() { b.className = 'banner'; }, 4000);
+  }
+
+  // ── Org name ───────────────────────────────────────────────────────
+  fetch('/api/platform/org-name').then(function(r) { return r.json(); })
+    .then(function(d) { if (d.name) document.getElementById('orgTitle').textContent = d.name; })
+    .catch(function() {});
+
+  // ── Platform info ──────────────────────────────────────────────────
+  fetch('/api/platform/portal-config').then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(d) {
+      var rows = [];
+      if (d) {
+        rows.push(['obsidian_vault_url', d.obsidian_vault_url || '—']);
+        rows.push(['advisor_url',        d.advisor_url        || '—']);
+        rows.push(['advisor_running',    d.advisor_running ? '<span style="color:var(--success)">running</span>' : '<span style="color:var(--muted)">not detected</span>']);
+      }
+      // Pull Egeria connection defaults from the credentials stored in the browser
+      // (these come from the Explorer's localStorage, best-effort)
+      try {
+        var creds = JSON.parse(localStorage.getItem('egeria-creds') || '{}');
+        if (creds.url)    rows.push(['egeria_platform_url', creds.url]);
+        if (creds.server) rows.push(['egeria_view_server',  creds.server]);
+        if (creds.userId) rows.push(['egeria_user',         creds.userId]);
+      } catch(e) {}
+      document.getElementById('platformBody').innerHTML = rows.length
+        ? rows.map(function(r) { return '<tr><td>' + esc(r[0]) + '</td><td>' + r[1] + '</td></tr>'; }).join('')
+        : '<tr><td colspan="2" class="empty">No platform info available</td></tr>';
+    }).catch(function() {
+      document.getElementById('platformBody').innerHTML = '<tr><td colspan="2" class="empty">Failed to load platform config</td></tr>';
+    });
+
+  // ── Lock polling ───────────────────────────────────────────────────
+  var _pollTimer = null;
+
+  function loadLock() {
+    Promise.all([
+      fetch('/api/obsidian/status').then(function(r) { return r.json(); }),
+      fetch('/api/obsidian/reservations').then(function(r) { return r.json(); }),
+      fetch('/api/obsidian/audit').then(function(r) { return r.json(); }),
+    ]).then(function(results) {
+      renderStatus(results[0]);
+      renderReservations(results[1].reservations || []);
+      renderAudit(results[2].audit || []);
+      // Poll when lock is active
+      var active = results[0].state !== 'FREE' && results[0].state !== 'DISABLED';
+      if (active && !_pollTimer)  _pollTimer = setInterval(loadLock, 15000);
+      if (!active && _pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+    }).catch(function() { showBanner('error', 'Failed to load lock status'); });
+  }
+
+  function renderStatus(s) {
+    var el = document.getElementById('lockState');
+    el.textContent = s.state;
+    el.className = 'val state-' + s.state;
+    document.getElementById('lockHolder').textContent  = s.holder_display || '—';
+    document.getElementById('lockPersona').textContent = s.holder_persona || '—';
+    var mins = (s.minutes_left !== null && s.minutes_left !== undefined)
+      ? s.minutes_left + ' min' : '—';
+    if (s.evicting && s.evict_deadline) {
+      var secs = Math.max(0, Math.round((new Date(s.evict_deadline + 'Z') - Date.now()) / 1000));
+      mins += ' (evicting in ' + secs + 's)';
+    }
+    document.getElementById('lockMins').textContent = mins;
+    var busy = s.state !== 'FREE' && s.state !== 'DISABLED';
+    document.getElementById('btnUnlock').disabled = !busy;
+    document.getElementById('btnEvict').disabled  = !busy;
+  }
+
+  function renderReservations(list) {
+    document.getElementById('resBody').innerHTML = list.length
+      ? list.map(function(r) {
+          return '<tr>'
+            + '<td>' + esc(r.label) + '</td>'
+            + '<td>' + fmt(r.starts_at) + '</td>'
+            + '<td>' + fmt(r.ends_at)   + '</td>'
+            + '<td>' + fmt(r.created_at)+ '</td>'
+            + '<td><button class="btn-xs danger" onclick="doDeleteRes(' + r.id + ')">Delete</button></td>'
+            + '</tr>';
+        }).join('')
+      : '<tr><td colspan="5" class="empty">No upcoming reservations</td></tr>';
+  }
+
+  function renderAudit(list) {
+    document.getElementById('auditBody').innerHTML = list.length
+      ? list.map(function(e) {
+          return '<tr>'
+            + '<td>' + fmt(e.at) + '</td>'
+            + '<td><span class="badge badge-action">' + esc(e.action) + '</span></td>'
+            + '<td>' + esc(e.display || '—') + '</td>'
+            + '<td>' + esc(e.persona || '—') + '</td>'
+            + '</tr>';
+        }).join('')
+      : '<tr><td colspan="4" class="empty">No events yet</td></tr>';
+  }
+
+  // ── Lock actions ───────────────────────────────────────────────────
+  function doUnlock() {
+    if (!confirm('Force-release the Obsidian lock immediately?')) return;
+    fetch('/api/obsidian/unlock', { method: 'POST' })
+      .then(function(r) { return r.json(); })
+      .then(function() { showBanner('success', 'Lock released'); loadLock(); })
+      .catch(function() { showBanner('error', 'Unlock request failed'); });
+  }
+
+  function doEvict() {
+    var grace = parseInt(document.getElementById('graceSelect').value, 10);
+    if (!confirm('Evict current holder with ' + grace + 's grace period?')) return;
+    fetch('/api/obsidian/evict', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ grace_seconds: grace, message: '' })
+    }).then(function(r) { return r.json(); })
+      .then(function() { showBanner('success', 'Eviction started — ' + grace + 's grace period'); loadLock(); })
+      .catch(function() { showBanner('error', 'Eviction request failed'); });
+  }
+
+  // ── Reservation actions ────────────────────────────────────────────
+  function doCreateRes() {
+    var label = document.getElementById('resLabel').value.trim();
+    var start = document.getElementById('resStart').value;
+    var end   = document.getElementById('resEnd').value;
+    if (!label || !start || !end) { showBanner('error', 'Label, start, and end are all required'); return; }
+    fetch('/api/obsidian/reservations', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: label, starts_at: start, ends_at: end })
+    }).then(function(r) { return r.json(); })
+      .then(function() {
+        showBanner('success', 'Reservation created');
+        document.getElementById('resLabel').value = '';
+        document.getElementById('resStart').value = '';
+        document.getElementById('resEnd').value   = '';
+        loadLock();
+      }).catch(function() { showBanner('error', 'Failed to create reservation'); });
+  }
+
+  function doDeleteRes(id) {
+    if (!confirm('Delete this reservation?')) return;
+    fetch('/api/obsidian/reservations/' + id, { method: 'DELETE' })
+      .then(function() { showBanner('success', 'Reservation deleted'); loadLock(); })
+      .catch(function() { showBanner('error', 'Failed to delete reservation'); });
+  }
+
+  // ── Init ───────────────────────────────────────────────────────────
+  loadLock();
+</script>
+</body>
+</html>
