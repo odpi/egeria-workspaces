@@ -165,18 +165,6 @@ Design doc: `my-egeria-integration.md` (in session). Architecture: `textual serv
 
 ---
 
-## my-egeria Integration
-
-| # | Item | Status | Notes |
-|---|------|--------|-------|
-| ME-1 | Quickstart portal tile + WebSocket proxy | in-progress | New `my-profile` service, Apache wstunnel, portal tile |
-| ME-2 | V2: per-persona containers (Apache routes `/my-egeria/{persona}/`) | open | 5× resource use; clean session isolation |
-| ME-3 | V2: per-session process spawning | open | Proper multi-user; requires more plumbing |
-| ME-4 | V2: interactive login screen independent of singleton config | open | Requires upstream pyegeria change |
-| ME-5 | Freshstart integration | deferred | — |
-
----
-
 ## Done (recent)
 
 | Item | Commit |
