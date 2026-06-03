@@ -12,6 +12,12 @@ import os
 
 DEMO_MODE: bool = os.environ.get("DEMO_MODE", "false").lower() in ("true", "1", "yes")
 
+# Auth model: Quickstart resolves Egeria credentials from the connection form
+# (local) or the selected demo persona (demo) — NOT from a server-managed
+# Egeria JWT.  Freshstart sets this True.  Used by shared handlers to decide
+# whether to use the logged-in user's Egeria bearer token.
+SERVER_MANAGED_AUTH: bool = os.environ.get("SERVER_MANAGED_AUTH", "false").lower() in ("true", "1", "yes")
+
 # ── Database (PostgreSQL on egeria-shared-postgres:5442, coco_pharma / demo_auth schema) ──
 
 DEMO_DB_HOST:     str = os.environ.get("DEMO_DB_HOST",     "egeria-shared-postgres")

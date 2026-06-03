@@ -12,6 +12,11 @@ import os
 
 DEMO_MODE: bool = os.environ.get("DEMO_MODE", "false").lower() in ("true", "1", "yes")
 
+# Auth model: Freshstart is Egeria-backed — shared handlers use the logged-in
+# user's Egeria bearer token (from the portal JWT) for Explorer queries,
+# falling back to the env service account if that token is rejected.
+SERVER_MANAGED_AUTH: bool = os.environ.get("SERVER_MANAGED_AUTH", "true").lower() in ("true", "1", "yes")
+
 # ── JWT ────────────────────────────────────────────────────────────────────────
 
 JWT_SECRET: str       = os.environ.get("JWT_SECRET", "change-me-before-going-public")
