@@ -189,6 +189,30 @@ services:
     depends_on:
       - pyegeria-web
 
+  my-profile:
+    image: egeria-quickstart-my-profile:local
+    container_name: quickstart-my-profile
+    build:
+      context: .
+      dockerfile: Dockerfile-my-egeria
+    networks:
+      - egeria_network
+    ports:
+      - "8020:8020"
+    environment:
+      EGERIA_PLATFORM_URL:  "https://host.docker.internal:9443"
+      EGERIA_VIEW_SERVER:   "qs-view-server"
+      EGERIA_USER:          "${QUICKSTART_PERSONA_USER:-erinoverview}"
+      EGERIA_USER_PASSWORD: "${QUICKSTART_PERSONA_PASSWORD:-secret}"
+      MY_EGERIA_HOST:       "0.0.0.0"
+      MY_PROFILE_PORT:      "8020"
+    extra_hosts:
+      - "${HOST_FQDN}:${HOST_GATEWAY_IP:-host-gateway}"
+      - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
+    depends_on:
+      egeria-main:
+        condition: service_healthy
+
   obsidian:
     image: lscr.io/linuxserver/obsidian:latest
     container_name: obsidian-quickstart
