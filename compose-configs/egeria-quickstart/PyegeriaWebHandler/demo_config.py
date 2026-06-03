@@ -66,6 +66,6 @@ COOKIE_SECURE: bool = SITE_URL.startswith("https://")
 OBSIDIAN_VAULT_URL:   str = os.environ.get("OBSIDIAN_VAULT_URL",   "")
 OBSIDIAN_GITHUB_URL:  str = os.environ.get("OBSIDIAN_GITHUB_URL",  "https://github.com/odpi/egeria-workspaces/tree/main/coco-workbooks")
 
-# URL of the Egeria Advisor service. Set in .env or yaml (default: localhost:8080).
+# URL of the Egeria Advisor service. Set in .env or yaml (default: localhost:8880).
 # Checked server-side at startup to set advisor_running in portal-config.
-EGERIA_ADVISOR_URL:   str = os.environ.get("EGERIA_ADVISOR_URL",   "http://localhost:8080/")
+EGERIA_ADVISOR_URL:   str = os.environ.get("EGERIA_ADVISOR_URL",   "http://localhost:8880/")

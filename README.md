@@ -68,6 +68,7 @@ without colliding, and to keep clear of ports commonly used by other application
 | Jupyter (notebook / debug) | **`8888`** / `8889` | **`7888`** / `7889` | `7888` / `5678` | password `egeria` |
 | pyegeria-web (FastAPI/MCP) | **`8800`** | **`7800`** | `8000` | moved off host `8000` |
 | my-egeria (`my-profile` TUI) | **`8820`** | *`7820`* (reserved) | `8020` | textual-serve via Apache `/my-egeria/` |
+| Egeria Advisor | **`8880`** | **`7880`** | external | not in compose; portal links to `EGERIA_ADVISOR_URL` (was `8080`) |
 | ProjectExplorer | *`8830`* (planned) | *`7830`* (reserved) | tbd | see BACKLOG `PORT-7` |
 | Obsidian (web / https) | **`8860`** / `8861` | — | `3000` / `3001` | optional |
 | Shared Kafka | `9192`–`9194` | `9192`–`9194` | same | **fixed — shared-infra** |

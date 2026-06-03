@@ -339,7 +339,7 @@ function applyPersonaUI(persona) {
 // ── App grid ──────────────────────────────────────────────────────────────────
 function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
   var jupyterUrl = 'http://' + window.location.hostname + ':8888/?token=egeria';
-  advisorUrl = advisorUrl || ('http://' + window.location.hostname + ':8080/');
+  advisorUrl = advisorUrl || ('http://' + window.location.hostname + ':8880/');
   var apps = [
     { icon: '🔍', name: 'Egeria Explorer',
       desc: 'Browse Egeria metadata — types, glossary, lineage, governance blueprints, information supply chains, and more.',

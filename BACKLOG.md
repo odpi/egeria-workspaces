@@ -84,6 +84,7 @@ shared kafka (9192–9194), shared postgres (5442).
 | shared-infra | kafka | `egeria-shared-kafka` | 9192:9192, 9193:9193, 9194:9194 | fixed |
 | shared-infra | postgres | `egeria-shared-postgres` | 5442:5442 | fixed (multi-schema) |
 | quickstart | **ProjectExplorer** | *(TBD)* | **8830:8830** *(planned)* | new service — PORT-7 |
+| both | **Egeria Advisor** | *(external, not in compose)* | qs **8880** / fs **7880** | was 8080 (collides w/ Airflow, Spark, new_uc); portal links via `EGERIA_ADVISOR_URL` — PORT-10 |
 
 ### Target host-port allocation (88xx / 78xx)
 
@@ -98,6 +99,7 @@ Format below is `host:container` — only the host (left) side changes; containe
 | my-profile (my-egeria) | 20 | **8820**:8020 | *7820* (reserved) | 8020 / — |
 | ProjectExplorer | 30 | **8830**:8830 | *7830* (reserved) | new |
 | obsidian web / https | 60 / 61 | **8860**:3000 / **8861**:3001 | — | 3000,3001 / — |
+| Egeria Advisor (external) | 80 | **8880** | **7880** | 8080 (both) |
 
 Frees up the problem port **8000** and also vacates **8086** (InfluxDB default). The only
 caveat: quickstart jupyter `8888` is Jupyter's own default — collides only if another
@@ -114,6 +116,7 @@ Jupyter runs on the host.
 | PORT-7 | Allocate + wire host port for ProjectExplorer → **8830** | open | New service (LF-AI project-explorer, see LF-1..4); needs compose service, proxy `<Location>` route, and a portal tile. `7830` reserved for freshstart. |
 | PORT-8 | Repo-wide grep for hardcoded `:8000` / `:8085` / `localhost:80xx` | done | Swept compose/conf/html/py/sh/md/json; also caught `config_workspaces.json` and launch-script URLs in a second pass. |
 | PORT-9 | Fix quickstart Apache proxy targets (`host.docker.internal:8000` → `quickstart-pyegeria-web:8000`) | done | Root cause of post-renumber 503s. Both `fastapi-proxy.conf` and `fastapi-ssl.conf` (44 targets). Now matches freshstart and is host-port-independent. |
+| PORT-10 | Move Egeria Advisor off `8080` → qs **8880** / fs **7880** | done | Advisor is external (not in compose); `8080` collides with Airflow/Spark/new_uc. Updated `EGERIA_ADVISOR_URL` defaults (compose + `demo_config.py`) and portal `:8080` fallbacks in both envs. **Run the Advisor on the matching port**, or override `EGERIA_ADVISOR_URL` in `.env` if it's a single shared instance. |
 
 ---
 

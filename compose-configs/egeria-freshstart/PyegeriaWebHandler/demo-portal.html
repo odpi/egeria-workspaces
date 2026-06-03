@@ -128,7 +128,7 @@ function renderHub() {
       url: jupyterUrl, newTab: true, enabled: true },
     { icon: '🤖', name: 'Egeria Advisor',
       desc: _platformCfg.advisor_running ? 'AI-powered guidance for your Egeria environment.' : 'AI-powered guidance for your Egeria environment. (Not currently running)',
-      url: _platformCfg.advisor_url || ('http://' + window.location.hostname + ':8080/'), newTab: true,
+      url: _platformCfg.advisor_url || ('http://' + window.location.hostname + ':7880/'), newTab: true,
       enabled: true, unavailable: !_platformCfg.advisor_running },
     { icon: '👤', name: 'My Profile',      desc: 'View and edit your Egeria profile, and change your password.',
       url: '/profile', newTab: false, enabled: true },

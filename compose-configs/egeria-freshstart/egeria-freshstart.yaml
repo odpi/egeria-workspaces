@@ -109,7 +109,7 @@ services:
       EGERIA_USER_SECRETS_PATH: "/secrets/user-directory.omsecrets"
       APPLICATION_PROPERTIES_PATH: "/platform/application.properties"
       # Egeria Advisor URL — checked server-side; set in .env if running on a non-default port/host
-      EGERIA_ADVISOR_URL: "${EGERIA_ADVISOR_URL:-http://localhost:8080/}"
+      EGERIA_ADVISOR_URL: "${EGERIA_ADVISOR_URL:-http://localhost:7880/}"
     extra_hosts:
       - "${HOST_FQDN}:${HOST_GATEWAY_IP:-host-gateway}"
       - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
