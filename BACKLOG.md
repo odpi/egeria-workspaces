@@ -22,6 +22,7 @@ exploration. Items can run concurrently when they touch different files; watch t
 | QuickStart demo polish | QS-1, QS-3, QS-4 | **M** |  | Demo-facing; QS-1/QS-3 are quick wins, QS-4 (reset) is bigger. |
 | Performance | PERF-1, PERF-2 | **M** |  | Real pain on deep catalog trees; investigate after correctness work. |
 | Report specs authoring | RS-1, RS-2, RS-3 | **L** |  | Large, spec-still-TBD; defer until RR rendering lands. |
+| User Feedback → Postgres | FB-5 → FB-9 | **M** |  | Per-page tool feedback to `demo.feedback`; env-specific user id; admin tab + analyst docs. Distinct from Egeria feedback. |
 | Journals / feedback extras | FB-4 | **L** |  | Exploratory; storage model undecided. |
 | Demo analytics / extras | QS-5, QS-6, QS-7 | **L** |  | Nice-to-have; QS-7 already deferred. |
 | my-egeria V2 (multi-user) | ME-10, ME-11, ME-12 | **L** |  | Deferred until single-persona path is fully proven. |
@@ -122,12 +123,35 @@ Jupyter runs on the host.
 
 ## Egeria Explorer — Feedback & Comments
 
+**Two distinct feedback systems — keep them separate:**
+
+- **(A) Egeria Feedback** — Likes, Ratings, Comments on Egeria objects, via the Egeria/pyegeria
+  feedback API. **Identical in every environment.** (FB-1..FB-3 done.)
+- **(B) User Feedback** — the "Feedback" button on every tool page capturing the end user's opinion
+  *of the tool/page itself*, persisted to a **Postgres table** (in the shared `demo` schema) so we
+  can analyse how to improve the tools and Egeria. The **user identity attached differs by env**
+  (the only intentional difference); the capture schema and UI are otherwise the same everywhere.
+
 | # | Item | Status | Notes |
 |---|------|--------|-------|
 | FB-1 | Egeria comments on property sheets | done | Glossary Term + Digital Product detail panes; type dropdown; history list |
-| FB-2 | Likes + ratings on remaining detail panes | done | `EgeriaFeedbackWidget` now on all property detail panes. ReportSpecDetail excluded — pyegeria format specs have no Egeria GUID. |
-| FB-3 | Comments (`EgeriaCommentsSection`) on remaining detail panes | done | `EgeriaCommentsSection` now on all property detail panes. ReportSpecDetail excluded — same reason as FB-2. |
+| FB-2 | Likes + ratings on remaining detail panes | done | `EgeriaFeedbackWidget` on all property detail panes. ReportSpecDetail excluded — pyegeria format specs have no Egeria GUID. |
+| FB-3 | Comments (`EgeriaCommentsSection`) on remaining detail panes | done | `EgeriaCommentsSection` on all property detail panes. ReportSpecDetail excluded — same reason as FB-2. |
 | FB-4 | Journals — persistent per-element notes/log separate from Egeria comments | open | Exploratory; may be local storage or a separate Egeria NoteLog |
+| FB-5 | **User Feedback → Postgres** — move per-page feedback from current `/api/demo-feedback` store to a `feedback` table in the `demo` schema (port 5442). One schema, all envs. | open | Replaces/augments `demo_feedback_handler.py`'s current store. |
+| FB-6 | **Env-specific user identity** on User Feedback (the one intentional per-env difference) | open | Demo: logged-in demo user id. Local Quickstart: email the user supplies. Freshstart: logged-in Egeria user id. Resolve via a single `AUTH_MODE`-aware helper. |
+| FB-7 | **Capture schema** for each submission | open | Fields: user id, page/route (+ element GUID if any), environment, persona (demo), timestamp, email, rating/sentiment, category, free-text message, wants-response flag, tool/build version, user-agent+viewport, session/correlation id, locale, consent-to-contact. See note below. |
+| FB-8 | **Admin review tab** in each env's admin panel | open | List/filter/triage submissions; per-env admin UIs differ but all expose a Feedback review tab. |
+| FB-9 | **Analyst docs** — how to query the raw `feedback` table | open | Document SQL recipes (by page, by env, by date, response-requested queue) against Postgres `demo.feedback`. |
+
+**FB-7 recommended capture fields** (your list + additions):
+*Your list:* user id · page · environment · timestamp · email · wants-response.
+*Suggested additions:* the **free-text message** + a **rating/sentiment** (the actual content) · **category**
+(bug / confusing / suggestion / praise) · **element/object GUID or route detail** in view · **active persona**
+(demo) · **tool/build version or git SHA** (correlate to a release) · **user-agent + viewport** (repro UI issues)
+· **session/correlation id** (link multiple submissions / to analytics events QS-5) · **locale** · **explicit
+consent-to-contact** flag (separate from wants-response, for privacy basis) · server-side **triage status**
+(new/triaged/actioned). Optional: screenshot attachment.
 
 ---
 
