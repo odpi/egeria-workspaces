@@ -3178,7 +3178,8 @@ function ReferenceDataDetail({ item }) {
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, item.displayName || item.qualifiedName),
-      React.createElement("span", { className: "badge", style: { background: isSet ? 'rgba(99,102,241,.15)' : 'rgba(16,185,129,.12)', color: isSet ? '#818cf8' : '#34d399', border: '0.5px solid ' + (isSet ? 'rgba(99,102,241,.3)' : 'rgba(16,185,129,.3)') } }, item.typeName || (isSet ? 'Set' : 'Value'))
+      React.createElement("span", { className: "badge", style: { background: isSet ? 'rgba(99,102,241,.15)' : 'rgba(16,185,129,.12)', color: isSet ? '#818cf8' : '#34d399', border: '0.5px solid ' + (isSet ? 'rgba(99,102,241,.3)' : 'rgba(16,185,129,.3)') } }, item.typeName || (isSet ? 'Set' : 'Value')),
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: item.guid }))
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, item.guid),
     item.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(item.description)),
@@ -3192,7 +3193,8 @@ function ReferenceDataDetail({ item }) {
           )
         )
       )
-    )
+    ),
+    React.createElement(EgeriaCommentsSection, { guid: item.guid })
   );
 }
 
@@ -4426,7 +4428,8 @@ function ValidValueDetail({ item }) {
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, item.displayName || item.qualifiedName),
-      isSet && React.createElement("span", { className: "badge", style: { background: 'rgba(99,102,241,.15)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.3)' } }, item.typeName || 'Set')
+      isSet && React.createElement("span", { className: "badge", style: { background: 'rgba(99,102,241,.15)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.3)' } }, item.typeName || 'Set'),
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: item.guid }))
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, item.guid),
     item.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(item.description)),
@@ -4440,7 +4443,8 @@ function ValidValueDetail({ item }) {
           )
         )
       )
-    )
+    ),
+    React.createElement(EgeriaCommentsSection, { guid: item.guid })
   );
 }
 
@@ -5224,7 +5228,8 @@ function SolutionBlueprintDetail({ blueprint, onNavigateToComponent, onNavigateT
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, blueprint.displayName || blueprint.qualifiedName),
-      React.createElement("span", { className: "badge", style: { background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)' } }, blueprint.typeName || 'SolutionBlueprint')
+      React.createElement("span", { className: "badge", style: { background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)' } }, blueprint.typeName || 'SolutionBlueprint'),
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: blueprint.guid }))
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, blueprint.guid),
     blueprint.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(blueprint.description)),
@@ -5319,7 +5324,8 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, component.displayName || component.qualifiedName),
-      React.createElement("span", { className: "badge", style: { background: 'rgba(96,165,250,.1)', color: '#93c5fd', border: '0.5px solid rgba(96,165,250,.3)' } }, component.typeName || 'SolutionComponent')
+      React.createElement("span", { className: "badge", style: { background: 'rgba(96,165,250,.1)', color: '#93c5fd', border: '0.5px solid rgba(96,165,250,.3)' } }, component.typeName || 'SolutionComponent'),
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: component.guid }))
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, component.guid),
     component.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(component.description)),
@@ -5939,7 +5945,8 @@ function ISCDetail({ data, detail }) {
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.displayName || src.qualifiedName),
-      React.createElement("span", { className: "badge", style: { background: 'rgba(94,234,212,.1)', color: '#5eead4', border: '0.5px solid rgba(94,234,212,.3)' } }, src.typeName || 'InformationSupplyChain')
+      React.createElement("span", { className: "badge", style: { background: 'rgba(94,234,212,.1)', color: '#5eead4', border: '0.5px solid rgba(94,234,212,.3)' } }, src.typeName || 'InformationSupplyChain'),
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid }))
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, src.guid),
     src.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(src.description)),
@@ -6427,9 +6434,12 @@ function ProjectDetail({ project, children, onSelectChild }) {
   var cardStyle  = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 };
 
   return React.createElement('div', null,
-    // Title + kind badges
-    React.createElement('h2', { style: { fontSize: 20, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' } },
-      project.displayName || project.qualifiedName || project.guid
+    // Title + kind badges + feedback
+    React.createElement('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 } },
+      React.createElement('h2', { style: { fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text)', flex: 1 } },
+        project.displayName || project.qualifiedName || project.guid
+      ),
+      React.createElement(EgeriaFeedbackWidget, { guid: project.guid })
     ),
     (project.classifications || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 14 } },
       project.classifications.map(function(c) {
@@ -6495,7 +6505,8 @@ function ProjectDetail({ project, children, onSelectChild }) {
               child.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)' } }, child.description)
             );
           })
-        )
+        ),
+    React.createElement(EgeriaCommentsSection, { guid: project.guid })
   );
 }
 
@@ -6572,7 +6583,8 @@ function GovDefDetail({ definition, onSelectGuid }) {
   return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement('div', { style: { fontSize: 18, fontWeight: 700 } }, definition.displayName || definition.qualifiedName),
-      definition.typeName && React.createElement('span', { className: 'badge', style: { background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)' } }, definition.typeName)
+      definition.typeName && React.createElement('span', { className: 'badge', style: { background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)' } }, definition.typeName),
+      React.createElement('div', { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: definition.guid }))
     ),
     React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 12 } }, definition.guid),
     definition.description && React.createElement('div', { style: { fontSize: 13, marginBottom: 16 } }, renderMd(definition.description)),

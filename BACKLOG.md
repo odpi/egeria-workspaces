@@ -21,8 +21,8 @@ Status: `open` · `in-progress` · `done` · `deferred`
 | # | Item | Status | Notes |
 |---|------|--------|-------|
 | FB-1 | Egeria comments on property sheets | done | Glossary Term + Digital Product detail panes; type dropdown; history list |
-| FB-2 | Ratings and likes on Data Design, Digital Products, and Report Specs detail panes | open | Same `EgeriaFeedbackWidget` pattern as Glossary Term; also add filter-by-like-count/rating to list views |
-| FB-3 | Expand comments to more view types — Solution Architect, Data Designer, others | done | Added to: SolutionBlueprint, SolutionComponent, ISC, GovDef, DataDesign; both freshstart + quickstart |
+| FB-2 | Likes + ratings on remaining detail panes | done | `EgeriaFeedbackWidget` now on all property detail panes. ReportSpecDetail excluded — pyegeria format specs have no Egeria GUID. |
+| FB-3 | Comments (`EgeriaCommentsSection`) on remaining detail panes | done | `EgeriaCommentsSection` now on all property detail panes. ReportSpecDetail excluded — same reason as FB-2. |
 | FB-4 | Journals — persistent per-element notes/log separate from Egeria comments | open | Exploratory; may be local storage or a separate Egeria NoteLog |
 
 ---
@@ -54,10 +54,12 @@ Spec: `report-rendering-plan.md`
 
 ## Egeria Explorer — Shared Codebase
 
+`type-explorer.html` (7500 lines) and all backend handlers exist as separate copies under `egeria-quickstart/` and `egeria-freshstart/`. Currently ~38 lines of divergence in the HTML (mainly the connection form: quickstart shows URL+server+user+pwd; freshstart shows user+pwd only). Every new feature added to one must be manually synced to the other — this burden grows over time.
+
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| SHARE-1 | Unify `type-explorer.html` — one file served to both envs; gate demo features via `/api/env` endpoint | open | Dual-file causes constant sync burden; diverge through env detection not separate files |
-| SHARE-2 | Unify backend handlers (digital_products, egeria_feedback, etc.) across freshstart + quickstart | open | Same root cause as SHARE-1; quickstart-only features (tree cache, demo auth) should be env-gated |
+| SHARE-1 | Unify `type-explorer.html` — one canonical file served to both envs | open | Gate quickstart-only features (full connection form, demo-mode UI) via `/api/env` endpoint response. Current divergence is small (~38 lines) but will grow with each new feature. |
+| SHARE-2 | Unify backend handlers across freshstart + quickstart | open | `digital_products_handler.py`, `egeria_feedback_handler.py`, etc. each have separate copies. Quickstart-only features (tree cache, demo auth hooks) should be env-gated rather than forked. |
 
 ---
 
@@ -93,6 +95,7 @@ Spec: `report-rendering-plan.md`
 |---|------|--------|-------|
 | RS-1 | Building / editing Report Specs from the UI | open | Large feature; spec TBD — form-driven composition of report specs |
 | RS-2 | Subscribe to a Digital Product | open | Exploratory — notification or watch mechanism when product changes |
+| RS-3 | Filter Report Specs list by Perspective and/or Question | open | Orthogonal selection axis — user picks a perspective (e.g. governance, lineage) or a question and sees only relevant report specs; complements existing name/description search |
 
 ---
 
@@ -136,10 +139,36 @@ Repo: `/Users/dwolfson/localGit/LF-AI/project-explorer`
 
 ---
 
+## my-egeria Integration (Textual apps in portal)
+
+Design doc: `my-egeria-integration.md` (in session). Architecture: `textual serve` turns Textual apps into browser tools; Apache proxies with WebSocket support.
+
+**Credential model (V1):** single container per app; persona fixed at service startup via `EGERIA_USER` / `EGERIA_USER_PASSWORD` env vars from `.env`. All browser sessions to that app share one persona — fine for local single-user demo.
+
+**Port allocation:** my_profile=8020, Data Products=8021, Tech Types=8022, Reports=8023, Journals=8024
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| ME-1 | `serve_my_profile()` + entry point in pyegeria | done | In `my_egeria/serve.py`; registered in root `pyproject.toml` |
+| ME-2 | `Dockerfile-my-egeria` in quickstart | in-progress | PR from Ultraplan session |
+| ME-3 | `my-profile` compose service in `egeria-quickstart.yaml` | in-progress | PR from Ultraplan session; port 8020 |
+| ME-4 | `mod_proxy_wstunnel` in quickstart `httpd.conf` | in-progress | PR from Ultraplan session; required for WebSocket |
+| ME-5 | WebSocket proxy route `/my-egeria/` in quickstart `fastapi-proxy.conf` | in-progress | PR from Ultraplan session; must use `ws://` scheme not `http://` |
+| ME-6 | "My Egeria" portal tile in quickstart `demo-portal.html` | in-progress | PR from Ultraplan session; opens in new tab |
+| ME-7 | End-to-end smoke test: browser → Apache WS proxy → Textual app | open | Verify `sys.path` / import resolution works for installed package; critical before adding more apps |
+| ME-8 | `serve_*` entry points for additional apps (Data Products, Tech Types, Reports, Journals) | open | Apps exist in `DemoCode/` but no `serve_*` functions or `pyproject.toml` entries yet |
+| ME-9 | Additional app compose services + proxy routes + portal tiles | open | Follow ME-2/3/4/5/6 pattern; ports 8021–8024 |
+| ME-10 | my-egeria integration in freshstart (Option A — app handles login) | deferred | After quickstart smoke test passes; freshstart omits `EGERIA_USER`/`EGERIA_USER_PASSWORD` so app prompts user |
+| ME-11 | V2 per-persona credential routing (one container per Coco persona) | deferred | Zero app changes; Apache routes `/my-egeria/{persona}/` to right container; all passwords `secret` in quickstart |
+| ME-12 | V2 per-session process spawning for freshstart multi-user | deferred | Integration doc Option B; needs process manager service + dynamic port allocation |
+
+---
+
 ## Done (recent)
 
 | Item | Commit |
 |------|--------|
+| Type System Explorer ported to freshstart | — |
 | Egeria Explorer login loop in Freshstart — token expiry + erinoverview defaults | `85341fb6` |
 | Admin edit modal — givenName/surname pre-population | `85341fb6` |
 | Egeria native likes + ratings on detail panes | `1344acfc` |
