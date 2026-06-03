@@ -150,12 +150,12 @@ Design doc: `my-egeria-integration.md` (in session). Architecture: `textual serv
 | # | Item | Status | Notes |
 |---|------|--------|-------|
 | ME-1 | `serve_my_profile()` + entry point in pyegeria | done | In `my_egeria/serve.py`; registered in root `pyproject.toml` |
-| ME-2 | `Dockerfile-my-egeria` in quickstart | in-progress | PR from Ultraplan session |
-| ME-3 | `my-profile` compose service in `egeria-quickstart.yaml` | in-progress | PR from Ultraplan session; port 8020 |
-| ME-4 | `mod_proxy_wstunnel` in quickstart `httpd.conf` | in-progress | PR from Ultraplan session; required for WebSocket |
-| ME-5 | WebSocket proxy route `/my-egeria/` in quickstart `fastapi-proxy.conf` | in-progress | PR from Ultraplan session; must use `ws://` scheme not `http://` |
-| ME-6 | "My Egeria" portal tile in quickstart `demo-portal.html` | in-progress | PR from Ultraplan session; opens in new tab |
-| ME-7 | End-to-end smoke test: browser → Apache WS proxy → Textual app | open | Verify `sys.path` / import resolution works for installed package; critical before adding more apps |
+| ME-2 | `Dockerfile-my-egeria` in quickstart | done | Uses `textual_serve.Server` programmatically; textual==6.1.0 pinned |
+| ME-3 | `my-profile` compose service in `egeria-quickstart.yaml` | done | Port 8020; `EGERIA_USER` / `EGERIA_USER_PASSWORD` from `.env` |
+| ME-4 | `mod_proxy_wstunnel` + `mod_substitute` in quickstart `httpd.conf` | done | Both modules loaded; substitute rewrites `0.0.0.0:8020` → `localhost:8020` in proxied HTML |
+| ME-5 | WebSocket proxy route `/my-egeria/` in quickstart `fastapi-proxy.conf` | done | `http://quickstart-my-profile:8020/` with `upgrade=websocket`; container name not host.docker.internal |
+| ME-6 | "My Egeria" portal tile in quickstart `demo-portal.html` | done | Opens in new tab |
+| ME-7 | End-to-end smoke test: browser → Apache WS proxy → Textual app | done | 200 on HTTP; 101 on WS; static assets reachable; `sys.path` imports work via installed package |
 | ME-8 | `serve_*` entry points for additional apps (Data Products, Tech Types, Reports, Journals) | open | Apps exist in `DemoCode/` but no `serve_*` functions or `pyproject.toml` entries yet |
 | ME-9 | Additional app compose services + proxy routes + portal tiles | open | Follow ME-2/3/4/5/6 pattern; ports 8021–8024 |
 | ME-10 | my-egeria integration in freshstart (Option A — app handles login) | deferred | After quickstart smoke test passes; freshstart omits `EGERIA_USER`/`EGERIA_USER_PASSWORD` so app prompts user |
