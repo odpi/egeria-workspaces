@@ -36,11 +36,17 @@ FB-4 until the higher-leverage items clear.
 
 ## Ports & Networking  🔴 HIGH PRIORITY
 
-**Status (2026-06-03): IMPLEMENTED for all existing services** (PORT-1…PORT-6, PORT-8 done).
-Only PORT-7 (ProjectExplorer, a not-yet-built service) remains open. Compose files, Apache
-`ServerName`, `SITE_URL`, `MY_EGERIA_PUBLIC_URL`, portal links, `gen-env.sh`, `demo_config.py`,
-and all READMEs/docs updated. The full table also lives in the repo-root `README.md`
-(*Host port allocation*).
+**Status (2026-06-03): IMPLEMENTED and VERIFIED on a live quickstart stack** (PORT-1…PORT-6,
+PORT-8, PORT-9 done). Only PORT-7 (ProjectExplorer, a not-yet-built service) remains open.
+Compose files, Apache `ServerName`, `SITE_URL`, `MY_EGERIA_PUBLIC_URL`, portal links,
+`gen-env.sh`, `demo_config.py`, `config_workspaces.json`, launch-script URLs, and all
+READMEs/docs updated. Full table also in repo-root `README.md` (*Host port allocation*).
+Verified after a full `down`/`up`: `:8800` direct, `:8885` /api/types + /egeria-explorer +
+/portal + /my-egeria, `:8888` jupyter, `:8860` obsidian all healthy.
+
+**Correction:** the earlier note "Apache proxy is container-internal, so unaffected" was WRONG
+for quickstart — its vhosts proxied pyegeria-web via `host.docker.internal:8000` (the *host*
+port), so moving 8000→8800 caused 503s. Fixed in PORT-9 by switching to the container name.
 
 **Problem:** the quickstart `pyegeria-web` service publishes host port **8000**, which
 collides with other applications commonly running on a developer's machine and is
@@ -106,7 +112,8 @@ Jupyter runs on the host.
 | PORT-5 | Renumber my-profile host port → **8820** | done | `8020:8020` → `8820:8020`; my-egeria proxy container-internal so unaffected. `7820` reserved for freshstart (ME-10). |
 | PORT-6 | Renumber obsidian host ports → **8860 / 8861** | done | Compose + portal `_obsContainerUrl()`/Open-Obsidian button + demo-mode.md. |
 | PORT-7 | Allocate + wire host port for ProjectExplorer → **8830** | open | New service (LF-AI project-explorer, see LF-1..4); needs compose service, proxy `<Location>` route, and a portal tile. `7830` reserved for freshstart. |
-| PORT-8 | Repo-wide grep for hardcoded `:8000` / `:8085` / `localhost:80xx` | done | Swept compose/conf/html/py/sh/md; remaining `8085`/`8000`/`8020` references confirmed container-internal (vhost `*:8085`, `Listen 8085`, ProxyPass, `EXPOSE`, uvicorn `--port`). |
+| PORT-8 | Repo-wide grep for hardcoded `:8000` / `:8085` / `localhost:80xx` | done | Swept compose/conf/html/py/sh/md/json; also caught `config_workspaces.json` and launch-script URLs in a second pass. |
+| PORT-9 | Fix quickstart Apache proxy targets (`host.docker.internal:8000` → `quickstart-pyegeria-web:8000`) | done | Root cause of post-renumber 503s. Both `fastapi-proxy.conf` and `fastapi-ssl.conf` (44 targets). Now matches freshstart and is host-port-independent. |
 
 ---
 
