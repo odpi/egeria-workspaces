@@ -227,7 +227,7 @@ if DEMO_MODE:
 else:
     @app.get("/api/auth/me", include_in_schema=False)
     async def auth_me_non_demo():
-        return {"authenticated": True, "demo_mode": False}
+        return {"authenticated": True, "demo_mode": False, "server_managed_auth": False}
 
     class _PersonaSelectReq(BaseModel):
         persona: str

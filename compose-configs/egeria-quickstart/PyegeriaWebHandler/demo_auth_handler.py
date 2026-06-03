@@ -42,7 +42,7 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from demo_config import (
-    DEMO_MODE,
+    DEMO_MODE, SERVER_MANAGED_AUTH,
     JWT_ALGORITHM, JWT_EXPIRY_ADMIN_SEC, JWT_EXPIRY_USER_SEC, JWT_SECRET,
     SITE_URL, RESEND_API_KEY, RESEND_FROM,
 )
@@ -292,10 +292,11 @@ def logout(response: Response):
 def get_me(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
     if not user:
-        return JSONResponse({"authenticated": False, "demo_mode": DEMO_MODE})
+        return JSONResponse({"authenticated": False, "demo_mode": DEMO_MODE, "server_managed_auth": SERVER_MANAGED_AUTH})
     return {
         "authenticated": True,
         "demo_mode": DEMO_MODE,
+        "server_managed_auth": SERVER_MANAGED_AUTH,
         "id": user.id,
         "display_name": user.display_name,
         "email": user.email,

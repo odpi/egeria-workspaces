@@ -45,7 +45,7 @@ from loguru import logger
 from pydantic import BaseModel
 
 from demo_config import (
-    DEMO_MODE,
+    DEMO_MODE, SERVER_MANAGED_AUTH,
     EGERIA_ADMIN_CALLER_ID,
     EGERIA_ADMIN_CALLER_PASSWORD,
     EGERIA_ADMIN_USERS,
@@ -400,10 +400,11 @@ def logout(response: Response):
 def get_me(request: Request):
     user = get_current_user(request)
     if not user:
-        return JSONResponse({"authenticated": False, "demo_mode": DEMO_MODE})
+        return JSONResponse({"authenticated": False, "demo_mode": DEMO_MODE, "server_managed_auth": SERVER_MANAGED_AUTH})
     return {
         "authenticated": True,
         "demo_mode": DEMO_MODE,
+        "server_managed_auth": SERVER_MANAGED_AUTH,
         "user_id": user.user_id,
         "display_name": user.display_name,
         "role": user.role,
