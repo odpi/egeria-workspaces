@@ -4,4 +4,4 @@ RUN pip install --no-cache-dir pyegeria --upgrade
 EXPOSE 8020
 # The pyegeria console-script entry point has a packaging bug (wrong import path).
 # Invoke textual serve directly on the known app file instead.
-CMD ["sh", "-c", "textual serve --host ${MY_EGERIA_HOST:-0.0.0.0} --port ${MY_PROFILE_PORT:-8020} /usr/local/lib/python3.12/site-packages/my_egeria/my_egeria/DemoCode/My_Profile/my_profile_app.py"]
+CMD ["sh", "-c", "python -m textual serve --host ${MY_EGERIA_HOST:-0.0.0.0} --port ${MY_PROFILE_PORT:-8020} /usr/local/lib/python3.12/site-packages/my_egeria/my_egeria/DemoCode/My_Profile/my_profile_app.py"]
