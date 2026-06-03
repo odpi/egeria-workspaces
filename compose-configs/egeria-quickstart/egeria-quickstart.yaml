@@ -206,6 +206,9 @@ services:
       EGERIA_USER_PASSWORD: "${QUICKSTART_PERSONA_PASSWORD:-secret}"
       MY_EGERIA_HOST:       "0.0.0.0"
       MY_PROFILE_PORT:      "8020"
+      # Externally-visible URL via the Apache proxy — makes textual-serve emit
+      # same-origin static/WebSocket URLs so the page CSP ('self') allows them.
+      MY_EGERIA_PUBLIC_URL: "${MY_EGERIA_PUBLIC_URL:-http://localhost:8085/my-egeria}"
     extra_hosts:
       - "${HOST_FQDN}:${HOST_GATEWAY_IP:-host-gateway}"
       - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
