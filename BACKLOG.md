@@ -13,7 +13,7 @@ exploration. Items can run concurrently when they touch different files; watch t
 
 | Workstream | Items | My Pri | Your Pri | Why / dependency |
 |------------|-------|:------:|:--------:|------------------|
-| Shared codebase unification | SHARE-1, SHARE-2 | **H** |  | Highest leverage — dual quickstart/freshstart copies tax *every* future change; divergence only grows. Do before more feature work. |
+| Shared codebase unification | SHARE-2 ✅ done · SHARE-1 in-progress | **H** |  | Backend handlers now byte-identical (SHARE-2 done, verified). SHARE-1 (the SPA) designed; needs browser-verified execution in 3 modes. |
 | pyegeria comment-update bug | PY-4 | **H** |  | Breaks an already-shipped feature (comment edit). Small, self-contained. |
 | Report rendering | RR-1 → RR-5 | **H** |  | Core demo value; RR-1/RR-2 unblock RR-3/4/5. Sequential within the group. |
 | Data preview polish | DP-2, DP-3, DP-4 | **M** |  | User-facing, independent, low risk; good "concurrent" fillers. |
@@ -192,12 +192,23 @@ Spec: `report-rendering-plan.md`
 
 ## Egeria Explorer — Shared Codebase
 
-`type-explorer.html` (7500 lines) and all backend handlers exist as separate copies under `egeria-quickstart/` and `egeria-freshstart/`. Currently ~38 lines of divergence in the HTML (mainly the connection form: quickstart shows URL+server+user+pwd; freshstart shows user+pwd only). Every new feature added to one must be manually synced to the other — this burden grows over time.
+`type-explorer.html` (~7500 lines) and the backend handlers existed as separate copies under
+`egeria-quickstart/` and `egeria-freshstart/`. The earlier "~38 lines" estimate was wrong: actual
+divergence was ~4,300 diff-lines, but it splits cleanly — the **Explorer logic was ~95% identical**;
+real divergence is confined to (a) the **auth/credential seam** and (b) the by-design **auth/portal
+layer** (demo SQLite auth vs Egeria-backed auth — intentionally separate, NOT unified).
+
+**SHARE-2 is DONE.** All Explorer **backend handlers are now byte-identical** across both envs and
+verified live (`/api/types` 200 in quickstart *and* freshstart). The credential seam is unified via a
+`SERVER_MANAGED_AUTH` flag in `demo_config.py` (False=quickstart form/demo creds; True=freshstart
+per-user Egeria token w/ service-account fallback). Remaining backend divergence is only the
+by-design auth/portal layer (`demo_auth_handler`, `demo-*.html`, `demo_db`, `pyegeria_handler`
+app-wiring) and the legitimately env-specific `config_workspaces.json` publishing-root port.
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| SHARE-1 | Unify `type-explorer.html` — one canonical file served to both envs | open | Gate quickstart-only features (full connection form, demo-mode UI) via `/api/env` endpoint response. Current divergence is small (~38 lines) but will grow with each new feature. |
-| SHARE-2 | Unify backend handlers across freshstart + quickstart | open | `digital_products_handler.py`, `egeria_feedback_handler.py`, etc. each have separate copies. Quickstart-only features (tree cache, demo auth hooks) should be env-gated rather than forked. |
+| SHARE-2 | Unify backend Explorer handlers across freshstart + quickstart | done | `type_system_handler` (via `SERVER_MANAGED_AUTH` superset), `digital_products`, `governance_definitions`, `egeria_feedback` all byte-identical; rest of Explorer handlers already were. Auth/portal layer stays per-env by design. |
+| SHARE-1 | Unify `type-explorer.html` — one canonical SPA served to both envs | in-progress | **Design ready, needs browser-verified execution.** Not clean drift: the two SPAs differ on the auth model AND `demoMode` means different things (qs: demo-vs-local; fs: authenticated/server-managed), plus structural drift (reordered `NavGroup`/toolbar). Plan: extend `/api/auth/me` with `server_managed_auth` + `default_view_server`; introduce a distinct `srvManaged` state in the SPA; runtime-gate the ~8 auth-model regions (ConnectionForm shape, `creds`/`connected` defaults, load effect, "Connected as" banner, persona-badge, error-retry); adopt one structure as canonical; copy to both. Must be verified in **3 modes**: demo-quickstart, local-quickstart, freshstart. |
 
 ---
 
