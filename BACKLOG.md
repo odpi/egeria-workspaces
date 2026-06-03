@@ -13,7 +13,7 @@ exploration. Items can run concurrently when they touch different files; watch t
 
 | Workstream | Items | My Pri | Your Pri | Why / dependency |
 |------------|-------|:------:|:--------:|------------------|
-| Shared codebase unification | SHARE-2 ✅ done · SHARE-1 in-progress | **H** |  | Backend handlers now byte-identical (SHARE-2 done, verified). SHARE-1 (the SPA) designed; needs browser-verified execution in 3 modes. |
+| Shared codebase unification | SHARE-1 ✅ done · SHARE-2 ✅ done | **H** |  | Both backend handlers and SPA `type-explorer.html` now byte-identical across quickstart/freshstart. Auth model runtime-gated via `srvManaged` + `demoMode` flags. |
 | pyegeria comment-update bug | PY-4 | **H** |  | Breaks an already-shipped feature (comment edit). Small, self-contained. |
 | Report rendering | RR-1 → RR-5 | **H** |  | Core demo value; RR-1/RR-2 unblock RR-3/4/5. Sequential within the group. |
 | Data preview polish | DP-2, DP-3, DP-4 | **M** |  | User-facing, independent, low risk; good "concurrent" fillers. |
@@ -208,7 +208,7 @@ app-wiring) and the legitimately env-specific `config_workspaces.json` publishin
 | # | Item | Status | Notes |
 |---|------|--------|-------|
 | SHARE-2 | Unify backend Explorer handlers across freshstart + quickstart | done | `type_system_handler` (via `SERVER_MANAGED_AUTH` superset), `digital_products`, `governance_definitions`, `egeria_feedback` all byte-identical; rest of Explorer handlers already were. Auth/portal layer stays per-env by design. |
-| SHARE-1 | Unify `type-explorer.html` — one canonical SPA served to both envs | in-progress | **Design ready, needs browser-verified execution.** Not clean drift: the two SPAs differ on the auth model AND `demoMode` means different things (qs: demo-vs-local; fs: authenticated/server-managed), plus structural drift (reordered `NavGroup`/toolbar). Plan: extend `/api/auth/me` with `server_managed_auth` + `default_view_server`; introduce a distinct `srvManaged` state in the SPA; runtime-gate the ~8 auth-model regions (ConnectionForm shape, `creds`/`connected` defaults, load effect, "Connected as" banner, persona-badge, error-retry); adopt one structure as canonical; copy to both. Must be verified in **3 modes**: demo-quickstart, local-quickstart, freshstart. |
+| SHARE-1 | Unify `type-explorer.html` — one canonical SPA served to both envs | done | `/api/auth/me` extended with `server_managed_auth`; `srvManaged` SPA state added; 8 auth regions runtime-gated (ConnectionForm, creds defaults, load effect, "Connected as" banner, persona badge, error-retry, portal link); files byte-identical across both envs. Portal link now present in ALL modes (was regression-hidden behind `demoMode`). Needs browser verification in 3 modes (demo-qs, local-qs, freshstart). |
 
 ---
 
