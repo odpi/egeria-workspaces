@@ -9,7 +9,7 @@ Both deployments support the processing of Markdown files containing Dr. Egeria 
 
 ### PyegeriaWebHandler Service
 
-The deployments include a `PyegeriaWebHandler` service (running on port 8085 by default) that provides a FastAPI-based endpoint for processing markdown files.
+The deployments include a `PyegeriaWebHandler` service (running on port 8885 by default) that provides a FastAPI-based endpoint for processing markdown files.
 
 When a markdown file is sent to the handler (typically via the Obsidian plugin), it:
 1. Receives the file path (supporting both absolute paths and paths relative to `Dr.Egeria Inbox`).

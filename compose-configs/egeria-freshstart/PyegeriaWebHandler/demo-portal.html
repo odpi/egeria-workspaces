@@ -120,7 +120,7 @@ function renderHub() {
   document.getElementById('welcome-sub').textContent  = _orgName + ' — Egeria Metadata Environment. Select a tool below to get started.';
 
   // App grid
-  var jupyterUrl = 'http://' + window.location.hostname + ':7889/?token=egeria';
+  var jupyterUrl = 'http://' + window.location.hostname + ':7888/?token=egeria';
   var apps = [
     { icon: '🔍', name: 'Egeria Explorer', desc: 'Explore metadata — types, glossary, lineage, governance blueprints, and more.',
       url: '/egeria-explorer', newTab: false, enabled: true },

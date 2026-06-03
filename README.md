@@ -37,8 +37,8 @@ The following table summarizes the differences between the two deployments.  The
 | Start script (single host) | `./quick-start-local`                                            | `./fresh-start-local`                                                                                                                   |
 | Start script (multi-host)  | `./quick-start-multi-host`                                       | `./fresh-start-multi-host`                                                                                                              |
 | Egeria platform            | `https://localhost:9443`                                         | `https://localhost:8443`                                                                                                                |
-| Jupyter                    | `http://localhost:7888` (password: `egeria`)                     | `http://localhost:7889` (password: `egeria`)                                                                                            |
-| Web                        | `http://localhost:8085`                                          | `http://localhost:8086`                                                                                                                 |
+| Jupyter                    | `http://localhost:8888` (password: `egeria`)                     | `http://localhost:7888` (password: `egeria`)                                                                                            |
+| Web                        | `http://localhost:8885`                                          | `http://localhost:7885`                                                                                                                 |
 | Servers                    | `qs-*` (Coco Pharmaceuticals defaults)                           | `fs-*` (clean defaults)                                                                                                                 |
 | Platform secrets           | Image-bundled (no host mount required)                           | Seeded from `compose-configs/egeria-freshstart/secrets/` templates into `runtime-volumes/freshstart-platform-data/secrets` on first run |
 | Exchange tree              | `exchange-quickstart/`                                           | `exchange-freshstart/`                                                                                                                  |
@@ -49,6 +49,34 @@ All four scripts automatically ensure the shared infrastructure stack in `compos
 This shared stack provides Kafka, PostgreSQL, and the OpenLineage proxy used by both deployments.
 Shared-infra image references are pinned in `compose-configs/shared-infra/.env` by default, including the hardened
 Kafka image and a persistent host-side Kafka data path.
+
+## Host port allocation
+
+Host (published) ports follow a consistent scheme so the two environments can run side by side
+without colliding, and to keep clear of ports commonly used by other applications (notably `8000`):
+
+- **Quickstart → `88xx`**, **Freshstart → `78xx`**, with the **same last two digits = same function**
+  in both environments.
+- Only the **published host port** follows this scheme; **container-internal ports are unchanged**
+  (the Apache reverse proxy reaches services container-to-container, so it is unaffected).
+- The platform, Kafka and PostgreSQL ports are intentionally **left as-is** (well-established defaults).
+
+| Function | Quickstart | Freshstart | Container | Notes |
+|----------|------------|------------|-----------|-------|
+| Egeria platform (+ JVM debug) | `9443` / `5005` | `8443` / `5006` | same | **fixed — not renumbered** |
+| Apache web portal | **`8885`** | **`7885`** | `8085` | main entry point |
+| Jupyter (notebook / debug) | **`8888`** / `8889` | **`7888`** / `7889` | `7888` / `5678` | password `egeria` |
+| pyegeria-web (FastAPI/MCP) | **`8800`** | **`7800`** | `8000` | moved off host `8000` |
+| my-egeria (`my-profile` TUI) | **`8820`** | *`7820`* (reserved) | `8020` | textual-serve via Apache `/my-egeria/` |
+| ProjectExplorer | *`8830`* (planned) | *`7830`* (reserved) | tbd | see BACKLOG `PORT-7` |
+| Obsidian (web / https) | **`8860`** / `8861` | — | `3000` / `3001` | optional |
+| Shared Kafka | `9192`–`9194` | `9192`–`9194` | same | **fixed — shared-infra** |
+| Shared PostgreSQL | `5442` | `5442` | same | **fixed — shared-infra** |
+| Shared OpenLineage proxy | `6000` / `6001` | `6000` / `6001` | same | shared-infra |
+
+> One caveat: quickstart Jupyter uses `8888`, which is also Jupyter's own default port — it will
+> collide only if you run another Jupyter server on the host. See `BACKLOG.md` → *Ports & Networking*
+> for the full rationale and the migration items (`PORT-1` … `PORT-8`).
 
 ## Servers
 

@@ -10,7 +10,7 @@ port = int(os.environ.get("MY_PROFILE_PORT", "8020"))
 # same-origin static-asset and WebSocket URLs, which the page's CSP ('self')
 # requires. Without it, textual-serve emits http://0.0.0.0:8020 URLs that the
 # browser blocks. Set MY_EGERIA_PUBLIC_URL in compose, e.g.
-# http://localhost:8085/my-egeria
+# http://localhost:8885/my-egeria
 public_url = os.environ.get("MY_EGERIA_PUBLIC_URL") or None
 
 Server(

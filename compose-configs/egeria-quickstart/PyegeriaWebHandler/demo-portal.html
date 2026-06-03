@@ -338,7 +338,7 @@ function applyPersonaUI(persona) {
 
 // ── App grid ──────────────────────────────────────────────────────────────────
 function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
-  var jupyterUrl = 'http://' + window.location.hostname + ':7888/?token=egeria';
+  var jupyterUrl = 'http://' + window.location.hostname + ':8888/?token=egeria';
   advisorUrl = advisorUrl || ('http://' + window.location.hostname + ':8080/');
   var apps = [
     { icon: '🔍', name: 'Egeria Explorer',
@@ -408,8 +408,8 @@ function _obsIsLocal() { return !!_obsidianUrl; }
 function _obsContainerUrl() {
   var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   return isLocal
-    ? 'http://' + location.hostname + ':3000'
-    : 'https://' + location.hostname + ':3001';
+    ? 'http://' + location.hostname + ':8860'
+    : 'https://' + location.hostname + ':8861';
 }
 
 function _obsLaunchTarget() {
@@ -461,7 +461,7 @@ function _renderObsTile(s) {
   // Lock disabled: show direct link with no state management
   if (s.state === 'DISABLED') {
     html = '<div class="obs-actions">'
-      + '<button class="btn btn-accent" onclick="window.open(\'http://\'+location.hostname+\':3000\',\'_blank\',\'noopener\')">Open Obsidian →</button>'
+      + '<button class="btn btn-accent" onclick="window.open(\'http://\'+location.hostname+\':8860\',\'_blank\',\'noopener\')">Open Obsidian →</button>'
       + _obsGhBtn()
       + '</div>';
     el.innerHTML = html;

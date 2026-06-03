@@ -35,10 +35,10 @@ The script also generates a JWT secret automatically if one is not already set, 
 
 Once started, the following services are running:
 
-- HTTP portal: `http://<HOST_FQDN>:8085`
+- HTTP portal: `http://<HOST_FQDN>:8885`
 - HTTPS portal: `https://<HOST_FQDN>` (port 443)
 - Login: `https://<HOST_FQDN>/login`
-- Jupyter: `http://<HOST_FQDN>:7888` (password: `egeria`)
+- Jupyter: `http://<HOST_FQDN>:8888` (password: `egeria`)
 - Obsidian — see [Obsidian browser container](#obsidian-browser-container) below
 
 On first startup the container creates the admin account from the bootstrap credentials. If an admin already exists those values are ignored, so it is safe to leave them set.
@@ -96,7 +96,7 @@ All settings are read from container environment variables at startup.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DEMO_MODE` | `false` | Set `true` to activate demo auth gating |
-| `SITE_URL` | `http://localhost:8085` | Base URL for email verification/reset links (no trailing slash) |
+| `SITE_URL` | `http://localhost:8885` | Base URL for email verification/reset links (no trailing slash) |
 | `JWT_SECRET` | `change-me-before-going-public` | HS256 signing key — **set in `.env`, never in yaml** |
 | `JWT_EXPIRY_USER_SECONDS` | `7200` | User session lifetime in seconds (2 h) |
 | `JWT_EXPIRY_ADMIN_SECONDS` | `604800` | Admin session lifetime in seconds (7 d) |
@@ -397,7 +397,7 @@ The schema and tables are recreated automatically on the next `quickstart-pyeger
 
 ## SSL / HTTPS
 
-SSL is **off by default**. The web server listens on port 8085 (HTTP) only. HTTPS is enabled automatically when you use `./quick-start-local --demo`.
+SSL is **off by default**. The web server listens on port 8885 (HTTP) only. HTTPS is enabled automatically when you use `./quick-start-local --demo`.
 
 ### Prerequisites
 
@@ -476,7 +476,7 @@ Run without `--demo`:
 ./quick-start-local
 ```
 
-`httpd.conf` uses `IncludeOptional conf/extra/fastapi-ssl.conf` — when the SSL vhost file is not mounted (no demo overlay), Apache starts HTTP-only on port 8085.
+`httpd.conf` uses `IncludeOptional conf/extra/fastapi-ssl.conf` — when the SSL vhost file is not mounted (no demo overlay), Apache starts HTTP-only on port 8885.
 
 ### Cookie security
 
@@ -500,19 +500,19 @@ docker compose \
 
 The `obsidian` service (container `obsidian-quickstart`) runs a full desktop Obsidian instance streamed to the browser via [Selkies](https://github.com/selkies-project/selkies) (WebRTC). It starts automatically with `quick-start-local` in all modes.
 
-### Why `http://<HOST_FQDN>:3000` shows a black screen
+### Why `http://<HOST_FQDN>:8860` shows a black screen
 
-Selkies uses WebRTC for streaming. Browsers enforce that WebRTC only works in a **secure context** — HTTPS or `localhost`. Accessing via a plain HTTP hostname (e.g. `http://cray:3000`) gives a black screen with a "needs a secure connection" error from the browser, even though the server is running correctly.
+Selkies uses WebRTC for streaming. Browsers enforce that WebRTC only works in a **secure context** — HTTPS or `localhost`. Accessing via a plain HTTP hostname (e.g. `http://cray:8860`) gives a black screen with a "needs a secure connection" error from the browser, even though the server is running correctly.
 
 ### Access options
 
 | Scenario | URL | Notes |
 |----------|-----|-------|
-| On the server itself | `http://localhost:3000` | `localhost` is always a secure context — no cert needed |
-| Remote, local mode | `https://<HOST_FQDN>:3001` | nginx serves HTTPS with a self-signed cert — accept the browser warning once |
-| Remote, demo mode | `https://<HOST_FQDN>:3001` | The demo overlay mounts your real cert (`CERT_DIR`) into the container — no browser warning |
+| On the server itself | `http://localhost:8860` | `localhost` is always a secure context — no cert needed |
+| Remote, local mode | `https://<HOST_FQDN>:8861` | nginx serves HTTPS with a self-signed cert — accept the browser warning once |
+| Remote, demo mode | `https://<HOST_FQDN>:8861` | The demo overlay mounts your real cert (`CERT_DIR`) into the container — no browser warning |
 
-The portal tile automatically opens the correct URL: `http://localhost:3000` on the server, `https://<HOST_FQDN>:3001` for all remote browsers.
+The portal tile automatically opens the correct URL: `http://localhost:8860` on the server, `https://<HOST_FQDN>:8861` for all remote browsers.
 
 ### Vault access
 
@@ -528,7 +528,7 @@ Before making a deployment public:
 - [ ] `CERT_DIR` in `.env.demo` points to a directory with valid TLS certs (`server.crt`, `server.key`, `server-ca.crt`)
 - [ ] `RESEND_API_KEY` (or SMTP credentials) set in `.env.demo` if email verification is required
 - [ ] `SITE_URL` is `https://your.domain.com` — set automatically by `--demo` from `HOST_FQDN`; verify it is correct
-- [ ] Port 8000 (FastAPI) NOT exposed to the internet; all traffic via Apache on port 8085/443
+- [ ] Port 8000 (FastAPI) NOT exposed to the internet; all traffic via Apache on port 8885/443
 - [ ] `DEMO_DB_PASSWORD` and `EGERIA_META_DB_PASSWORD` set in `.env.demo` if changed from defaults
 - [ ] Egeria data store pre-loaded with Coco Pharmaceuticals data before announcing the demo
 - [ ] `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD` set in `.env.demo` so admin is created on first startup
@@ -570,8 +570,8 @@ print('done')
 
 **No containers start at all / docker compose parse error** — A YAML syntax error in `egeria-quickstart.yaml` prevents `docker compose` from parsing the file, so nothing starts even with `--demo`. Run `docker compose -f compose-configs/egeria-quickstart/egeria-quickstart.yaml config` to identify the offending line. Common cause: a duplicate `environment:` key in a service block.
 
-**Obsidian container not starting / port 3000 unreachable** — Obsidian is started automatically by `quick-start-local` alongside the core services (no separate flag required). If it fails to start, check that the `lscr.io/linuxserver/obsidian:latest` image can be pulled and that ports 3000/3001 are not already in use.
+**Obsidian container not starting / port 8860 unreachable** — Obsidian is started automatically by `quick-start-local` alongside the core services (no separate flag required). If it fails to start, check that the `lscr.io/linuxserver/obsidian:latest` image can be pulled and that ports 8860/8861 are not already in use.
 
-**Obsidian shows black screen / "needs a secure connection"** — This is a browser WebRTC restriction, not a container error. Selkies (the streaming engine) requires a secure context. Use `http://localhost:3000` when on the server itself, or `https://<HOST_FQDN>:3001` (self-signed cert) for remote access. See [Obsidian browser container](#obsidian-browser-container).
+**Obsidian shows black screen / "needs a secure connection"** — This is a browser WebRTC restriction, not a container error. Selkies (the streaming engine) requires a secure context. Use `http://localhost:8860` when on the server itself, or `https://<HOST_FQDN>:8861` (self-signed cert) for remote access. See [Obsidian browser container](#obsidian-browser-container).
 
 **Obsidian tile shows only GitHub link when I'm local** — `obsidian_vault_url` is not set in the Config tab. Set it to your vault name (e.g. `coco-workbooks`) or a full `obsidian://` URI. Local vs. remote detection is based on `window.location.hostname`; ensure you are accessing the portal via `localhost` or `127.0.0.1`.

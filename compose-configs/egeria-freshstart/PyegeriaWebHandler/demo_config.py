@@ -36,7 +36,7 @@ EGERIA_ADMIN_USERS: set[str] = {
 
 # ── URLs ───────────────────────────────────────────────────────────────────────
 
-SITE_URL: str = os.environ.get("SITE_URL", "http://localhost:8086").rstrip("/")
+SITE_URL: str = os.environ.get("SITE_URL", "http://localhost:7885").rstrip("/")
 
 # Optional integrations — set in .env, not in yaml
 EGERIA_ADVISOR_URL:  str = os.environ.get("EGERIA_ADVISOR_URL",  "http://localhost:8080/")

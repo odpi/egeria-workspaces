@@ -22,7 +22,7 @@ User → Portal login → POST /api/token (Egeria) → JWT session cookie → Po
 **First run — bootstrap sequence:**
 
 1. Start the stack: `./fresh-start-local` (from the repository root)
-2. Open `http://localhost:8086/login`
+2. Open `http://localhost:7885/login`
 3. Sign in with `bootstrap` / `secret`
 4. If redirected to the password-change form, set a new password and continue
 5. You are now in the portal as an admin — go to **Admin → Egeria Users** to create accounts for your team
@@ -132,7 +132,7 @@ JWT_SECRET=your-random-32-plus-char-string
 | `EGERIA_VIEW_SERVER` | `fs-view-server` | View server for SecurityOfficer API calls |
 | `EGERIA_ADMIN_USERS` | `bootstrap` | Comma-separated user IDs that get portal admin role |
 | `EGERIA_ORG_NAME` | `Egeria` | Organisation name in portal header and login page |
-| `SITE_URL` | `http://localhost:8086` | Public base URL |
+| `SITE_URL` | `http://localhost:7885` | Public base URL |
 | `EGERIA_USER_SECRETS_PATH` | `/secrets/user-directory.omsecrets` | Path to the mounted omsecrets YAML file used for user listing |
 
 ---
@@ -219,7 +219,7 @@ All endpoints require `role=admin`.
 
 ### First login (user steps)
 
-1. Open `http://localhost:8086/login` (or the configured SITE_URL)
+1. Open `http://localhost:7885/login` (or the configured SITE_URL)
 2. Enter the User ID and temporary password
 3. The portal detects `CREDENTIALS_EXPIRED` and shows the password-change form inline
 4. Set a new password — the portal issues a session and redirects to the hub
@@ -286,7 +286,7 @@ SSL is off by default. The same opt-in mechanism as quickstart applies. See
 for the full procedure. Substitute:
 
 - yaml file: `egeria-freshstart.yaml` (apache-web service)
-- Port: 8086 instead of 8085
+- Port: 7885 instead of 8885
 - `SSL_SERVER_NAME`: your freshstart domain
 
 ---
@@ -300,7 +300,7 @@ Before making a freshstart deployment accessible beyond localhost:
 - [ ] `EGERIA_ADMIN_USERS` updated to include your own user ID (so bootstrap can be retired)
 - [ ] `SITE_URL` set to the actual public URL
 - [ ] HTTPS enabled for public deployments (see [SSL / HTTPS](#ssl--https))
-- [ ] Port 8001 (FastAPI) **not** exposed directly to the internet; all traffic via Apache on 8086
+- [ ] Port 7800 (FastAPI) **not** exposed directly to the internet; all traffic via Apache on 7885
 - [ ] `runtime-volumes/freshstart-platform-data/secrets/egeria-user-directory.omsecrets` exists (seeded from template by startup script; copy manually if starting compose directly)
 
 ---

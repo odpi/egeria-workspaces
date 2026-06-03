@@ -5,6 +5,110 @@ Status: `open` · `in-progress` · `done` · `deferred`
 
 ---
 
+## Prioritization (workstream level)
+
+`My Pri` = Claude's recommendation. `Your Pri` is blank — fill in `H`/`M`/`L` (or a rank) to steer.
+Rationale favours **leverage** (unblocks other work) and **finishing shipped features** over net-new
+exploration. Items can run concurrently when they touch different files; watch the noted dependencies.
+
+| Workstream | Items | My Pri | Your Pri | Why / dependency |
+|------------|-------|:------:|:--------:|------------------|
+| Shared codebase unification | SHARE-1, SHARE-2 | **H** |  | Highest leverage — dual quickstart/freshstart copies tax *every* future change; divergence only grows. Do before more feature work. |
+| pyegeria comment-update bug | PY-4 | **H** |  | Breaks an already-shipped feature (comment edit). Small, self-contained. |
+| Report rendering | RR-1 → RR-5 | **H** |  | Core demo value; RR-1/RR-2 unblock RR-3/4/5. Sequential within the group. |
+| Data preview polish | DP-2, DP-3, DP-4 | **M** |  | User-facing, independent, low risk; good "concurrent" fillers. |
+| my-egeria additional apps | ME-8, ME-9 | **M** |  | TUI now renders end-to-end — momentum is here. Follows the proven ME-2..6 pattern. |
+| ProjectExplorer integration | PORT-7, LF-1 → LF-4 | **M** |  | Needs the LF-AI service stood up first; port `8830` already reserved. |
+| QuickStart demo polish | QS-1, QS-3, QS-4 | **M** |  | Demo-facing; QS-1/QS-3 are quick wins, QS-4 (reset) is bigger. |
+| Performance | PERF-1, PERF-2 | **M** |  | Real pain on deep catalog trees; investigate after correctness work. |
+| Report specs authoring | RS-1, RS-2, RS-3 | **L** |  | Large, spec-still-TBD; defer until RR rendering lands. |
+| Journals / feedback extras | FB-4 | **L** |  | Exploratory; storage model undecided. |
+| Demo analytics / extras | QS-5, QS-6, QS-7 | **L** |  | Nice-to-have; QS-7 already deferred. |
+| my-egeria V2 (multi-user) | ME-10, ME-11, ME-12 | **L** |  | Deferred until single-persona path is fully proven. |
+| pyegeria DataDesigner/SA bugs | PY-1, PY-2, PY-3 | **L** |  | Have working local workarounds; fix upstream opportunistically. |
+
+**Concurrency advice:** SHARE-1/2 first (or you fight merge pain on everything after). PY-4, DP-*,
+and ME-8/9 are independent and safe to interleave. RR-* must go in order. Avoid starting RS-* and
+FB-4 until the higher-leverage items clear.
+
+---
+
+## Ports & Networking  🔴 HIGH PRIORITY
+
+**Status (2026-06-03): IMPLEMENTED for all existing services** (PORT-1…PORT-6, PORT-8 done).
+Only PORT-7 (ProjectExplorer, a not-yet-built service) remains open. Compose files, Apache
+`ServerName`, `SITE_URL`, `MY_EGERIA_PUBLIC_URL`, portal links, `gen-env.sh`, `demo_config.py`,
+and all READMEs/docs updated. The full table also lives in the repo-root `README.md`
+(*Host port allocation*).
+
+**Problem:** the quickstart `pyegeria-web` service publishes host port **8000**, which
+collides with other applications commonly running on a developer's machine and is
+interfering with the environment. We need to move off 8000 — and, while we're at it,
+adopt a consistent, conflict-free host-port scheme across both environments.
+
+**Adopted scheme:** **quickstart = 88xx**, **freshstart = 78xx**, with the **same last
+two digits = same function** in both envs (e.g. jupyter = `88` → quickstart `8888`,
+freshstart `7888`). Only the published **host** port changes; container-internal ports
+stay as-is (the Apache proxy reaches services container-to-container, so it is
+unaffected). Rationale for 88xx/78xx over 9xxx/8xxx: the 9xxx range collides with
+Elasticsearch (9200), Prometheus (9090), MinIO/SonarQube/ClickHouse (9000),
+node_exporter (9100) and our own egeria-main 9443; and an 8xxx/9xxx scheme forces
+pyegeria-web onto the poisoned 8000/9000. The 88xx/78xx blocks are clean (only caveat:
+8888 is Jupyter's own default) and never overlap the fixed services.
+
+**Fixed — do NOT renumber:** egeria-main (quickstart 9443/5005, freshstart 8443/5006),
+shared kafka (9192–9194), shared postgres (5442).
+
+### Current port map (host → container) — after renumbering
+
+| Env | Service | Container | Host:Container | Notes |
+|-----|---------|-----------|----------------|-------|
+| quickstart | jupyter-hub | `quickstart-jupyter-work-full` | 8888:7888, 8889:5678 | notebook + debug |
+| quickstart | egeria-main | `quickstart-egeria-main` | 9443:9443, 5005:5005 | platform + debug (fixed) |
+| quickstart | pyegeria-web | `quickstart-pyegeria-web` | 8800:8000 | ✅ moved off 8000 |
+| quickstart | apache-web | `quickstart-web-server` | 8885:8085 | portal entry point |
+| quickstart | my-profile | `quickstart-my-profile` | 8820:8020 | my-egeria TUI (textual serve) |
+| quickstart | obsidian | `obsidian-quickstart` | 8860:3000, 8861:3001 | optional |
+| freshstart | jupyter-hub | `freshstart-jupyter-work-full` | 7888:7888, 7889:5678 | notebook + debug |
+| freshstart | egeria-main | `freshstart-egeria-main` | 8443:8443, 5006:5005 | platform + debug (fixed) |
+| freshstart | pyegeria-web | `freshstart-pyegeria-web` | 7800:8000 | renumbered |
+| freshstart | apache-web | `freshstart-web-server` | 7885:8085 | portal entry point |
+| shared-infra | openlineage-proxy | `egeria-shared-openlineage-proxy-backend` | 6000:6000, 6001:6001 | fixed |
+| shared-infra | kafka | `egeria-shared-kafka` | 9192:9192, 9193:9193, 9194:9194 | fixed |
+| shared-infra | postgres | `egeria-shared-postgres` | 5442:5442 | fixed (multi-schema) |
+| quickstart | **ProjectExplorer** | *(TBD)* | **8830:8830** *(planned)* | new service — PORT-7 |
+
+### Target host-port allocation (88xx / 78xx)
+
+Format below is `host:container` — only the host (left) side changes; container ports stay.
+
+| Function | Code | Quickstart (88xx) | Freshstart (78xx) | From (qs / fs) |
+|----------|------|-------------------|-------------------|----------------|
+| jupyter notebook | 88 | **8888**:7888 | **7888**:7888 | 7888 / 7889 |
+| jupyter debug (debugpy) | 89 | **8889**:5678 | **7889**:5678 | 5678 / 5679 |
+| pyegeria-web | 00 | **8800**:8000 | **7800**:8000 | 8000 / 8001 |
+| apache portal | 85 | **8885**:8085 | **7885**:8085 | 8085 / 8086 |
+| my-profile (my-egeria) | 20 | **8820**:8020 | *7820* (reserved) | 8020 / — |
+| ProjectExplorer | 30 | **8830**:8830 | *7830* (reserved) | new |
+| obsidian web / https | 60 / 61 | **8860**:3000 / **8861**:3001 | — | 3000,3001 / — |
+
+Frees up the problem port **8000** and also vacates **8086** (InfluxDB default). The only
+caveat: quickstart jupyter `8888` is Jupyter's own default — collides only if another
+Jupyter runs on the host.
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| PORT-1 | Move quickstart `pyegeria-web` off host port 8000 → **8800** | done | `8000:8000` → `8800:8000` in `egeria-quickstart.yaml`. Apache proxy container-internal (`pyegeria-web:8000`) so unaffected. |
+| PORT-2 | Renumber freshstart `pyegeria-web` → **7800** | done | `8001:8000` → `7800:8000` in `egeria-freshstart.yaml`; `SITE_URL`, `gen-env.sh`, docs. |
+| PORT-3 | Renumber jupyter-hub host ports | done | quickstart `8888`/`8889`; freshstart `7888`/`7889`; portal `jupyterUrl` links + docs. |
+| PORT-4 | Renumber apache portal host ports → qs **8885**, fs **7885** | done | Compose, Apache `ServerName`, **`MY_EGERIA_PUBLIC_URL`** → `8885`, `serve_my_egeria.py` comment, READMEs, demo-mode.md. |
+| PORT-5 | Renumber my-profile host port → **8820** | done | `8020:8020` → `8820:8020`; my-egeria proxy container-internal so unaffected. `7820` reserved for freshstart (ME-10). |
+| PORT-6 | Renumber obsidian host ports → **8860 / 8861** | done | Compose + portal `_obsContainerUrl()`/Open-Obsidian button + demo-mode.md. |
+| PORT-7 | Allocate + wire host port for ProjectExplorer → **8830** | open | New service (LF-AI project-explorer, see LF-1..4); needs compose service, proxy `<Location>` route, and a portal tile. `7830` reserved for freshstart. |
+| PORT-8 | Repo-wide grep for hardcoded `:8000` / `:8085` / `localhost:80xx` | done | Swept compose/conf/html/py/sh/md; remaining `8085`/`8000`/`8020` references confirmed container-internal (vhost `*:8085`, `Listen 8085`, ProxyPass, `EXPOSE`, uvicorn `--port`). |
+
+---
+
 ## Egeria Explorer — Data Preview
 
 | # | Item | Status | Notes |

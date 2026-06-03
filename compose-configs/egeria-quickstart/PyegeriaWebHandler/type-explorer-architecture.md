@@ -390,7 +390,7 @@ All auth routes are still registered in FastAPI (the page routes `/login`, `/reg
 - Set `SMTP_HOST` to enable email verification; without it, newly registered users cannot verify themselves.
 - Mount `demo-data/` on a persistent volume (see `runtime-volumes/quickstart-demo-data`).
 - The `directive_cap` config key limits what demo users can execute via the Dr. Egeria Commands tab (planned: `validate` level prevents writes; `process` allows writes).
-- Do not expose port 8000 (FastAPI) directly; all public traffic should pass through Apache on port 8085.
+- Do not expose port 8000 (FastAPI) directly; all public traffic should pass through Apache on host port 8885.
 
 ---
 

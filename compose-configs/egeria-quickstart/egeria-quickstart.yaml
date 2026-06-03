@@ -12,8 +12,8 @@
 #
 # Assumptions:
 #   * Ports 9443 and 9192 are available on the host system - these are the default ports for Kafka and Egeria.
-#   * Port 8085 is used for the external web server
-#   * Port 7888 is used by jupyter server
+#   * Port 8885 is used for the external web server
+#   * Port 8888 is used by jupyter server
 #   * by default, the jupyter notebooks in the 'coco-workbooks' folder are mounted at /home/jovyan/coco-worksbooks
 #   * by default, strict SSL validation is turned off
 #
@@ -31,8 +31,8 @@ services:
     networks:
       - egeria_network
     ports:
-      - 7888:7888
-      - 5678:5678
+      - 8888:7888
+      - 8889:5678
 
     environment:
       JUPYTER_ENABLE_LAB: "yes"
@@ -108,7 +108,7 @@ services:
       context: ./PyegeriaWebHandler
       dockerfile: ./Dockerfile-fast-api
     ports:
-      - "8000:8000" # Map host port 8000 to container port 8000
+      - "8800:8000" # host 8800 -> container 8000 (moved off 8000; see BACKLOG Ports & Networking)
     networks:
       - egeria_network
     environment:
@@ -125,7 +125,7 @@ services:
       DEMO_DB_PATH: "/app/demo-data/demo.db"
       FEEDBACK_DB_PATH: "/app/demo-data/feedback.db"
       JWT_SECRET: "${JWT_SECRET:-change-me-before-going-public-meow}"
-      SITE_URL: "http://localhost:8085"
+      SITE_URL: "http://localhost:8885"
       # Resend — set RESEND_API_KEY and RESEND_FROM in .env (never in the yaml)
       RESEND_API_KEY: "${RESEND_API_KEY:-}"
       RESEND_FROM: "${RESEND_FROM:-}"
@@ -165,7 +165,7 @@ services:
       dockerfile: Dockerfile-apache-web
     container_name: quickstart-web-server
     ports:
-      - "8085:8085"
+      - "8885:8085"
       # SSL (port 443) — disabled by default. See demo-mode.md § SSL / HTTPS.
       # - "443:443"
     networks:
@@ -198,7 +198,7 @@ services:
     networks:
       - egeria_network
     ports:
-      - "8020:8020"
+      - "8820:8020"
     environment:
       EGERIA_PLATFORM_URL:  "https://host.docker.internal:9443"
       EGERIA_VIEW_SERVER:   "qs-view-server"
@@ -210,7 +210,7 @@ services:
       MY_PROFILE_PORT:      "8020"
       # Externally-visible URL via the Apache proxy — makes textual-serve emit
       # same-origin static/WebSocket URLs so the page CSP ('self') allows them.
-      MY_EGERIA_PUBLIC_URL: "${MY_EGERIA_PUBLIC_URL:-http://localhost:8085/my-egeria}"
+      MY_EGERIA_PUBLIC_URL: "${MY_EGERIA_PUBLIC_URL:-http://localhost:8885/my-egeria}"
     extra_hosts:
       - "${HOST_FQDN}:${HOST_GATEWAY_IP:-host-gateway}"
       - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
@@ -233,8 +233,8 @@ services:
       - ../../templates:/config/templates
       - ../../runtime-volumes/obsidian-config:/config/.config  # persists app-level settings
     ports:
-      - "3000:3000"
-      - "3001:3001"
+      - "8860:3000"
+      - "8861:3001"
     networks:
       - egeria_network
     restart: unless-stopped

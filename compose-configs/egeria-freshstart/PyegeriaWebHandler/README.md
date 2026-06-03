@@ -36,7 +36,7 @@ The PyegeriaWebHandler includes a built-in MCP (Model Context Protocol) server t
 ### MCP Protocol Support
 The PyegeriaWebHandler uses the **Model Context Protocol (MCP)** standard via the `mcp` Python library. The implementation is highly flexible, supporting:
 - **Transport Protocols**: 
-  - **SSE (over HTTP)**: Used by the "Calling the Dr." Obsidian plugin (port 8000/sse).
+  - **SSE (over HTTP)**: Used by the "Calling the Dr." Obsidian plugin (host port 7800/sse, or 7885/sse via Apache).
   - **stdio**: Used by local command-line tools and Claude Desktop.
 - **Server Framework**: `FastMCP` from the `mcp` library for simplified server implementation.
 - **Content-First Architecture**: In SSE mode, the server returns the generated Markdown content directly to the client, which then handles the file writing. This eliminates permission issues and path-mapping complexity.
@@ -273,13 +273,13 @@ The PyegeriaWebHandler includes a built-in **Egeria Explorer** — an interactiv
 Once the stack is running, open a browser and navigate to:
 
 ```
-http://localhost:8086/egeria-explorer
+http://localhost:7885/egeria-explorer
 ```
 
 The alias `/type-explorer` is also supported and serves the same application:
 
 ```
-http://localhost:8086/type-explorer
+http://localhost:7885/type-explorer
 ```
 
 Apache proxies both URLs through to the `pyegeria-web` container, which serves the single-page application and its backing API.
@@ -394,13 +394,13 @@ python3 build_request_body_catalog.py /path/to/egeria-platform-X.Y/assembly/opt/
 Or, if `HTTP_COLLECTIONS_PATH` is set in the environment, use the in-app endpoint:
 
 ```
-POST http://localhost:8086/api/request-bodies/rebuild
+POST http://localhost:7885/api/request-bodies/rebuild
 ```
 
 The OpenAPI endpoint data always comes from the live platform and is cached for one hour. Force a re-fetch with:
 
 ```
-POST http://localhost:8086/api/rest-apis/refresh
+POST http://localhost:7885/api/rest-apis/refresh
 ```
 
 #### Solution Architect
@@ -510,8 +510,8 @@ All endpoints are accessible directly in addition to being used by the SPA. Conn
 Query params: `area` (int, 0–7), `url`, `server`, `user_id`, `user_pwd`.
 
 ```
-GET http://localhost:8086/api/types
-GET http://localhost:8086/api/types?area=4
+GET http://localhost:7885/api/types
+GET http://localhost:7885/api/types?area=4
 ```
 
 Response: `{ areaNames, entities, classifications, relationships }`. Each entity includes `guid`, `area`, `abstract`, `supertype`, `desc`, `wiki`, `deprecated`, `props` (own properties only).

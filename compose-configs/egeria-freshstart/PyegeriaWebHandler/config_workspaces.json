@@ -3,7 +3,7 @@
                 "Dr.Egeria Inbox": ".",
                 "Dr.Egeria Outbox": ".",
                 "Pyegeria Root": "/work",
-                "Pyegeria Publishing Root": "http://localhost:8086/dr-egeria-outbox",
+                "Pyegeria Publishing Root": "http://localhost:7885/dr-egeria-outbox",
                 "console_width": 250
         },
        

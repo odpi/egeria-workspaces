@@ -13,8 +13,8 @@ services:
     networks:
       - egeria_network
     ports:
-      - "7889:7888"
-      - "5679:5678"
+      - "7888:7888"
+      - "7889:5678"
     environment:
       JUPYTER_ENABLE_LAB: "yes"
       JUPYTER_TOKEN: "egeria"
@@ -77,7 +77,7 @@ services:
       context: ./PyegeriaWebHandler
       dockerfile: ./Dockerfile-fast-api
     ports:
-      - "8001:8000"
+      - "7800:8000"
     networks:
       - egeria_network
     environment:
@@ -97,7 +97,7 @@ services:
       DEMO_MODE: "false"
       FEEDBACK_DB_PATH: "/app/demo-data/feedback.db"
       JWT_SECRET: "${JWT_SECRET:-change-me-before-going-public}"
-      SITE_URL: "http://localhost:8086"
+      SITE_URL: "http://localhost:7885"
       # Comma-separated Egeria user IDs that receive portal admin role.
       # Add your own admin userId here after first login.
       EGERIA_ADMIN_USERS: "bootstrap"
@@ -133,7 +133,7 @@ services:
       dockerfile: Dockerfile-apache-web
     container_name: freshstart-web-server
     ports:
-      - "8086:8085"
+      - "7885:8085"
     networks:
       - egeria_network
     volumes:

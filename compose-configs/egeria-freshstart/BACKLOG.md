@@ -11,14 +11,14 @@ Items completed in quickstart that still need to be applied or adapted for fresh
 
 ### Security / deployment readiness
 - [ ] **JWT_SECRET** — set a real random value in `compose-configs/egeria-freshstart/.env` before any public deployment (never in the yaml)
-- [ ] **SITE_URL** — update `SITE_URL` in `egeria-freshstart.yaml` to the correct public URL when deploying beyond localhost (currently `http://localhost:8086`)
+- [ ] **SITE_URL** — update `SITE_URL` in `egeria-freshstart.yaml` to the correct public URL when deploying beyond localhost (currently `http://localhost:7885`)
 - [ ] **EGERIA_ADMIN_USERS** — add your own Egeria user ID to the `EGERIA_ADMIN_USERS` list in `egeria-freshstart.yaml` after first login so the `bootstrap` account can be retired
 
 ### Portal / Apache config
-- [ ] Freshstart shares quickstart's `httpd.conf` and `fastapi-proxy.conf` (via `context: ../egeria-quickstart`). Verify the proxy rules work correctly on freshstart's port 8086.
+- [ ] Freshstart shares quickstart's `httpd.conf` and `fastapi-proxy.conf` (via `context: ../egeria-quickstart`). Verify the proxy rules work correctly on freshstart's port 7885.
 
 ### SSL
-- [ ] Configure Apache SSL for freshstart port 8086 once quickstart SSL is proven. See the SSL section in [`PyegeriaWebHandler/demo-mode.md`](PyegeriaWebHandler/demo-mode.md#ssl--https) for the procedure (substitute port 8086 and `egeria-freshstart.yaml`).
+- [ ] Configure Apache SSL for freshstart port 7885 once quickstart SSL is proven. See the SSL section in [`PyegeriaWebHandler/demo-mode.md`](PyegeriaWebHandler/demo-mode.md#ssl--https) for the procedure (substitute port 7885 and `egeria-freshstart.yaml`).
 
 ### PostgreSQL demo schema
 - [ ] Run `CREATE SCHEMA IF NOT EXISTS demo; GRANT ALL ON SCHEMA demo TO egeria_admin, egeria_user;` against the freshstart postgres if it uses a separate DB instance.
