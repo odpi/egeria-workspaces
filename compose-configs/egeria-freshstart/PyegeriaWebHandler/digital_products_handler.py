@@ -292,7 +292,7 @@ def get_node(
     a non-collection asset (e.g. TabularDataSet), falls back to AssetMaker.get_asset_by_guid.
     """
     url_val  = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
-    svr_val  = server   or os.environ.get("EGERIA_VIEW_SERVER",   "fs-view-server")
+    svr_val  = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
     uid      = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
     pwd      = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
 
@@ -356,7 +356,7 @@ def get_tabular_data(
     try:
         from pyegeria import DataEngineer
         url_val     = url     or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
-        server_val  = server  or os.environ.get("EGERIA_VIEW_SERVER",   "fs-view-server")
+        server_val  = server  or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
         uid         = user_id or os.environ.get("EGERIA_USER",          "erinoverview")
         pwd         = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
         de = DataEngineer(view_server=server_val, platform_url=url_val, user_id=uid, user_pwd=pwd)
