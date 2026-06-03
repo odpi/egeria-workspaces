@@ -5120,7 +5120,8 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
     return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
       React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
         React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, detail.displayName || detail.qualifiedName),
-        React.createElement("span", { className: "badge", style: { background: 'rgba(125,211,252,.1)', color: color, border: '0.5px solid rgba(125,211,252,.3)' } }, detail.typeName || '')
+        React.createElement("span", { className: "badge", style: { background: 'rgba(125,211,252,.1)', color: color, border: '0.5px solid rgba(125,211,252,.3)' } }, detail.typeName || ''),
+        React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: detail.guid }))
       ),
       React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, detail.guid),
       detail.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(detail.description)),
