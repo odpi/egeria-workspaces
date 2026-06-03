@@ -202,7 +202,9 @@ services:
     environment:
       EGERIA_PLATFORM_URL:  "https://host.docker.internal:9443"
       EGERIA_VIEW_SERVER:   "qs-view-server"
-      EGERIA_USER:          "${QUICKSTART_PERSONA_USER:-erinoverview}"
+      # peterprofile loads cleanly; erinoverview/garygeeke currently 401 on the
+      # /my-profile endpoint despite a valid token (see ME-7 follow-up note).
+      EGERIA_USER:          "${QUICKSTART_PERSONA_USER:-peterprofile}"
       EGERIA_USER_PASSWORD: "${QUICKSTART_PERSONA_PASSWORD:-secret}"
       MY_EGERIA_HOST:       "0.0.0.0"
       MY_PROFILE_PORT:      "8020"
