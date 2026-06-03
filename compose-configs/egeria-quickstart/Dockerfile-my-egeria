@@ -1,8 +1,9 @@
 FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
-# pyegeria pulls textual 8.x which dropped the `textual serve` CLI.
-# Pin to 6.1.0 (last known working version with `textual serve`).
+# pip install of textual does not install the `textual` console script;
+# use textual_serve.server.Server programmatically via serve_my_egeria.py instead.
 RUN pip install --no-cache-dir pyegeria --upgrade && \
     pip install --no-cache-dir "textual==6.1.0"
+COPY serve_my_egeria.py /usr/local/bin/serve_my_egeria.py
 EXPOSE 8020
-CMD ["sh", "-c", "/usr/local/bin/textual serve --host ${MY_EGERIA_HOST:-0.0.0.0} --port ${MY_PROFILE_PORT:-8020} /usr/local/lib/python3.12/site-packages/my_egeria/my_egeria/DemoCode/My_Profile/my_profile_app.py"]
+CMD ["python", "/usr/local/bin/serve_my_egeria.py"]
