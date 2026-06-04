@@ -12,7 +12,7 @@ The table below shows the key mounts:
 | egeria-quickstart | **quickstart-jupyter-work-full** | /home/jovyan/coco-data-lake | /home/jovyan/distribution-hub      | /home/jovyan/landing-area    | /home/jovyan/loading-bay    |
 | egeria-quickstart | **egeria-shared-postgres**   | /var/data/coco-data-lake       |                                   |                              |                             |
 | airflow-marquez   | **airflow-x**                | /opt/airflow/data/coco-data-lake |                                 |                              |                             |
-| uc-ui-compose     | **server1 (Unity Catalog)**  | /mnt/coco-data-lake            |                                   |                              |                             |
+| uc-ui-compose     | **unity-coco**               | /mnt/coco-data-lake            |                                   |                              |                             |
 | uc-ui-compose     | **server2 (Unity Catalog)**  | /mnt/coco-data-lake            |                                   |                              |                             |
 
 ----

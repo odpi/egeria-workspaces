@@ -11,17 +11,17 @@ name: unitycatalog-egeria
 
 services:
 
-  server1:
+  unity-coco:
 #    build:
 #      context: .
 #      dockerfile: Dockerfile
     image: unitycatalog/unitycatalog:latest
-    container_name: uc-server1
+    container_name: uc-unity-coco
     ports:
       - "8087:8087"
     volumes:
-#      - ./../../../runtime-volumes/unitycatalog1/etc:/home/unitycatalog/etc
-      - uc_server1:/home/unitycatalog/etc
+#      - ./../../../runtime-volumes/unity-coco/etc:/home/unitycatalog/etc
+      - uc_unity_coco:/home/unitycatalog/etc
       - ./../../../exchange-quickstart/coco-data-lake:/mnt/coco-data-lake
 
     command: ./bin/start-uc-server -p 8087
@@ -50,7 +50,7 @@ services:
     ports:
       - "3010:3010"
     depends_on:
-      - server1
+      - unity-coco
 
   ui2:
 #    build:
@@ -64,8 +64,8 @@ services:
 
 
 volumes:
-  uc_server1:
-    name: uc_server1
+  uc_unity_coco:
+    name: uc_unity_coco
     driver: local
   uc_server2:
     name: uc_server2
