@@ -299,6 +299,28 @@ License: CC BY 4.0, Copyright Contributors to the ODPi Egeria project.
 
 
 
+## Troubleshooting
+
+### Proxy Error: DNS lookup failure for `quickstart-pyegeria-web`
+
+Apache returns this when it can't resolve a container hostname — almost always because the containers are not attached to `egeria_network`.
+
+**Root cause:** `egeria_network` is declared `external: true` in both compose files. If the quickstart stack is brought up before `ensure-shared-infra.sh` runs (or after a hard stop that left the network empty), containers attach to the default Podman network instead.
+
+**Fix (Podman 3.x requires a container restart for network changes to take effect):**
+```bash
+for c in quickstart-egeria-main quickstart-pyegeria-web quickstart-web-server \
+          quickstart-jupyter-work-full obsidian-quickstart \
+          egeria-shared-postgres egeria-shared-kafka \
+          egeria-shared-openlineage-proxy-backend; do
+  podman network connect egeria_network $c 2>/dev/null; podman restart $c && echo "restarted $c" || echo "failed $c"
+done
+```
+
+**Prevention:** always start via `compose-configs/shared-infra/ensure-shared-infra.sh` before bringing up the quickstart stack — that script creates `egeria_network` if it doesn't exist.
+
+---
+
 ## Configuration files
 
 ### pyegeria / Jupyter config (`exchange-quickstart/config/config_workspaces.json`)
