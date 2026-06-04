@@ -157,6 +157,8 @@ def get_perspectives(
             page_size=page_size,
             metadata_element_type="Perspective",
             graph_query_depth=0,
+            sequencing_order="PROPERTY_ASCENDING",
+            sequencing_property="displayName",
         )
     except Exception as exc:
         logger.exception("find_actor_profiles (Perspective) failed")
@@ -196,6 +198,8 @@ def get_perspective(
             page_size=200,
             metadata_element_type="Perspective",
             graph_query_depth=1,
+            sequencing_order="PROPERTY_ASCENDING",
+            sequencing_property="displayName",
         )
     except Exception as exc:
         logger.exception("find_actor_profiles (detail) failed")
@@ -238,6 +242,8 @@ def get_questions(
             output_format="JSON",
             start_from=start_from,
             page_size=page_size,
+            sequencing_order="PROPERTY_ASCENDING",
+            sequencing_property="displayName",
         )
     except Exception as exc:
         logger.exception("find_glossary_terms (Question) failed")

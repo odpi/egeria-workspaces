@@ -239,7 +239,7 @@ Currently there are sub-directories here for:
 * quickstart-apache-web
 * freshstart-platform-data
 * freshstart-apache-web
-* unitycatalog1 
+* unity-coco
 * unitycatalog2
 
 ### work

@@ -3,28 +3,44 @@
 # Copyright Contributors to the Egeria project
 #
 # Configures two Unity Catalog servers and a UI for each.
-# The Unity Catalog Servers share the same image and are configured through this script
-# The UC UIs each have their own image, built outside this script that bakes a different port number into the UI.
+# The Unity Catalog Servers share the same image and are configured
+# through this script. The UC UIs each have their own image, built
+# outside this script that bakes a different port number into the UI.
 #
 
 name: unitycatalog-egeria
 
 services:
 
-  server1:
+  unity-coco:
 #    build:
 #      context: .
 #      dockerfile: Dockerfile
     image: unitycatalog/unitycatalog:latest
-    container_name: uc-server1
+    container_name: uc-unity-coco
     ports:
       - "8087:8087"
     volumes:
-#      - ./../../../runtime-volumes/unitycatalog1/etc:/home/unitycatalog/etc
-      - uc_server1:/home/unitycatalog/etc
+#      - ./../../../runtime-volumes/unity-coco/etc:/home/unitycatalog/etc
+      - uc_unity_coco:/home/unitycatalog/etc
       - ./../../../exchange-quickstart/coco-data-lake:/mnt/coco-data-lake
 
-    command: ./bin/start-uc-server -p 8087
+    command:
+      - /bin/sh
+      - -c
+      - |
+        ./bin/start-uc-server -p 8087 &
+        echo "Waiting for Unity Catalog to start..."
+        URL=http://localhost:8087/api/2.1/unity-catalog/catalogs
+        until wget -q -O- $$URL > /dev/null 2>&1; do
+          sleep 5
+        done
+        echo "Creating clinical_trials catalog..."
+        DESC="Clinical trials data for personalized medicine research."
+        JSON="{\"name\": \"clinical_trials\", \"comment\": \"$$DESC\"}"
+        wget -q -O- --post-data="$$JSON" \
+          --header='Content-Type: application/json' $$URL
+        wait
 
 
   server2:
@@ -42,15 +58,16 @@ services:
 
     command: ./bin/start-uc-server -p 8187
 
-  ui1:
+  unity-coco-ui:
 #    build:
 #      context: ui/
 #      dockerfile: Dockerfile
     image: dwolfson/egeria-uc-ui-8087:latest
+    container_name: uc-unity-coco-ui
     ports:
       - "3010:3010"
     depends_on:
-      - server1
+      - unity-coco
 
   ui2:
 #    build:
@@ -64,8 +81,8 @@ services:
 
 
 volumes:
-  uc_server1:
-    name: uc_server1
+  uc_unity_coco:
+    name: uc_unity_coco
     driver: local
   uc_server2:
     name: uc_server2

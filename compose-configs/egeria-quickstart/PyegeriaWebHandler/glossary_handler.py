@@ -229,6 +229,8 @@ def get_glossaries(
             output_format="JSON",
             start_from=start_from,
             page_size=page_size,
+            sequencing_order="PROPERTY_ASCENDING",
+            sequencing_property="displayName",
             graph_query_depth=0,
         )
     except Exception as exc:
@@ -350,6 +352,8 @@ def search_all_terms(
             start_from=start_from,
             page_size=page_size,
             graph_query_depth=1,
+            sequencing_order="PROPERTY_ASCENDING",
+            sequencing_property="displayName",
         )
     except Exception as exc:
         logger.exception("find_glossary_terms failed")

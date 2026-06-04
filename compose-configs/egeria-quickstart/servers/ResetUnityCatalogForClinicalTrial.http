@@ -11,6 +11,8 @@
 
 ###
 # @name create catalog
+# Note: This is now automatically created by the unity-coco container in uc-ui-compose.yaml.
+# This request can be used to recreate it if it was manually deleted.
 POST {{ucURL}}/api/2.1/unity-catalog/catalogs
 Content-Type: application/json
 

@@ -195,6 +195,8 @@ def list_blueprints(
             start_from=start_from,
             page_size=page_size,
             graph_query_depth=0,
+            sequencing_order="PROPERTY_ASCENDING",
+            sequencing_property="displayName",
         )
     except Exception as exc:
         logger.exception("find_solution_blueprints failed")
@@ -256,6 +258,8 @@ def list_components(
             start_from=start_from,
             page_size=page_size,
             graph_query_depth=0,
+            sequencing_order="PROPERTY_ASCENDING",
+            sequencing_property="displayName",
         )
     except Exception as exc:
         logger.exception("find_solution_components failed")

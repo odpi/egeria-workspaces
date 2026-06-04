@@ -259,7 +259,8 @@ def list_specs(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
         raw = mgr.find_collections(search_string="*", metadata_element_type="DataSpec",
-                                    graph_query_depth=0, output_format="JSON")
+                                    graph_query_depth=0, output_format="JSON",
+                                    sequencing_order="PROPERTY_ASCENDING", sequencing_property="displayName")
         items = sorted(
             [_serialize_spec(e) for e in _safe_list(raw)],
             key=lambda x: (x.get("displayName") or "").lower(),
@@ -282,7 +283,8 @@ def list_structures(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
-        raw = mgr.find_data_structures(search_string="*", graph_query_depth=0, output_format="JSON")
+        raw = mgr.find_data_structures(search_string="*", graph_query_depth=0, output_format="JSON",
+                                        sequencing_order="PROPERTY_ASCENDING", sequencing_property="displayName")
         items = sorted([_serialize_structure(e) for e in _safe_list(raw)],
                        key=lambda x: (x.get("displayName") or "").lower())
         return JSONResponse({"structures": items, "total": len(items)})
@@ -303,7 +305,8 @@ def list_fields(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
-        raw = mgr.find_data_fields(search_string="*", graph_query_depth=0, output_format="JSON")
+        raw = mgr.find_data_fields(search_string="*", graph_query_depth=0, output_format="JSON",
+                                    sequencing_order="PROPERTY_ASCENDING", sequencing_property="displayName")
         items = sorted([_serialize_field(e) for e in _safe_list(raw)],
                        key=lambda x: (x.get("displayName") or "").lower())
         return JSONResponse({"fields": items, "total": len(items)})
