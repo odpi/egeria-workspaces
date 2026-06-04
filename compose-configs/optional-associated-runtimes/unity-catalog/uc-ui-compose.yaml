@@ -3,8 +3,9 @@
 # Copyright Contributors to the Egeria project
 #
 # Configures two Unity Catalog servers and a UI for each.
-# The Unity Catalog Servers share the same image and are configured through this script
-# The UC UIs each have their own image, built outside this script that bakes a different port number into the UI.
+# The Unity Catalog Servers share the same image and are configured
+# through this script. The UC UIs each have their own image, built
+# outside this script that bakes a different port number into the UI.
 #
 
 name: unitycatalog-egeria
@@ -24,7 +25,22 @@ services:
       - uc_unity_coco:/home/unitycatalog/etc
       - ./../../../exchange-quickstart/coco-data-lake:/mnt/coco-data-lake
 
-    command: ./bin/start-uc-server -p 8087
+    command:
+      - /bin/sh
+      - -c
+      - |
+        ./bin/start-uc-server -p 8087 &
+        echo "Waiting for Unity Catalog to start..."
+        URL=http://localhost:8087/api/2.1/unity-catalog/catalogs
+        until wget -q -O- $$URL > /dev/null 2>&1; do
+          sleep 5
+        done
+        echo "Creating clinical_trials catalog..."
+        DESC="Clinical trials data for personalized medicine research."
+        JSON="{\"name\": \"clinical_trials\", \"comment\": \"$$DESC\"}"
+        wget -q -O- --post-data="$$JSON" \
+          --header='Content-Type: application/json' $$URL
+        wait
 
 
   server2:
