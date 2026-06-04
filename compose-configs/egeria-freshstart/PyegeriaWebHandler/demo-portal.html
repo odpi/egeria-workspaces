@@ -15,24 +15,40 @@
       --text:    #e0e0e0;
       --muted:   #888;
       --green:   #4caf50;
+      --overlay: rgba(0,0,0,0.82);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; }
 
     /* ── Header ── */
-    .hdr { background: var(--card); border-bottom: 1px solid var(--border); padding: 12px 28px; display: flex; align-items: center; gap: 16px; }
-    .hdr-logo { font-size: 1.15rem; font-weight: 700; color: var(--accent); letter-spacing: -0.02em; white-space: nowrap; }
-    .hdr-right { display: flex; align-items: center; gap: 12px; margin-left: auto; }
-    .hdr-user  { font-size: 0.82rem; color: var(--muted); }
-    .btn { padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; font-size: 0.82rem; white-space: nowrap; }
+    .hdr { background: var(--card); border-bottom: 1px solid var(--border); padding: 10px 28px; display: flex; align-items: center; gap: 14px; }
+    .hdr-logos { display: flex; align-items: center; gap: 12px; }
+    .hdr-title { font-size: 1rem; font-weight: 700; white-space: nowrap; }
+    .hdr-right { display: flex; align-items: center; gap: 10px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+    .user-chip { display: flex; align-items: center; gap: 8px; background: var(--border); border-radius: 20px; padding: 4px 14px 4px 10px; font-size: 0.82rem; }
+    .user-chip .name { font-weight: 600; }
+    .btn { display: inline-block; padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; font-size: 0.82rem; white-space: nowrap; transition: background 0.12s; text-decoration: none; box-sizing: border-box; vertical-align: middle; line-height: normal; }
     .btn:hover { background: var(--border); }
     .btn-accent { background: var(--accent); border-color: var(--accent); color: #fff; }
     .btn-accent:hover { opacity: 0.85; background: var(--accent); }
 
+    /* ── Hero ── */
+    .hero { background: linear-gradient(135deg, #16213e 0%, #0f3460 100%); border-bottom: 1px solid var(--border); padding: 40px 28px 36px; }
+    .hero-inner { max-width: 1060px; margin: 0 auto; display: flex; gap: 32px; align-items: center; flex-wrap: wrap; }
+    .hero-text { flex: 1; min-width: 260px; text-align: center; }
+    .hero h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 10px; }
+    .hero p  { color: var(--muted); line-height: 1.65; font-size: 0.95rem; }
+    .hero-links { width: 160px; flex-shrink: 0; display: flex; flex-direction: column; gap: 14px; padding-top: 4px; }
+    .hero-links-row { display: flex; flex-direction: column; gap: 5px; }
+    .hero-links-row a { font-size: 0.8rem; color: var(--muted); text-decoration: none; white-space: nowrap; }
+    .hero-links-row a:hover { color: var(--accent); text-decoration: underline; }
+    .hero-links-label { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #555; margin-bottom: 2px; }
+    .hero-stars { display: flex; flex-direction: column; gap: 5px; }
+    .hero-stars a { font-size: 0.8rem; color: var(--muted); text-decoration: none; white-space: nowrap; }
+    .hero-stars a:hover { color: var(--accent); }
+
     /* ── Main ── */
-    .main { max-width: 1100px; margin: 0 auto; padding: 36px 28px; }
-    .welcome-head { font-size: 1.6rem; font-weight: 700; margin-bottom: 6px; }
-    .welcome-sub  { color: var(--muted); margin-bottom: 36px; font-size: 0.9rem; line-height: 1.55; }
+    .main { max-width: 1060px; margin: 0 auto; padding: 32px 28px; }
 
     /* ── App grid ── */
     .section-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
@@ -47,100 +63,140 @@
     .soon-badge { font-size: 0.7rem; background: var(--border); color: var(--muted); padding: 3px 8px; border-radius: 4px; display: inline-block; }
 
     /* ── Footer ── */
-    .ftr { border-top: 1px solid var(--border); padding: 14px 28px; display: flex; align-items: center; }
+    .ftr { border-top: 1px solid var(--border); padding: 16px 28px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .ftr-links { display: flex; flex-wrap: wrap; gap: 6px 18px; justify-content: center; font-size: 0.78rem; }
+    .ftr-links a { color: var(--muted); text-decoration: none; }
+    .ftr-links a:hover { color: var(--accent); text-decoration: underline; }
 
     #loading-state { text-align: center; padding-top: 100px; color: var(--muted); font-size: 0.95rem; }
   </style>
 </head>
 <body>
 
+<!-- ── Header ─────────────────────────────────────────────────────────────── -->
 <header class="hdr">
-  <div style="display:flex;align-items:center;gap:14px">
-    <img src="/static/egeria-logo.png" alt="Egeria" style="height:28px">
+  <div class="hdr-logos">
+    <img src="/static/egeria-logo.png" alt="Egeria" style="height:26px">
   </div>
-  <div class="hdr-logo" id="hdr-title">Egeria Freshstart</div>
-  <div id="hdr-right" class="hdr-right" style="display:none">
-    <span class="hdr-user" id="hdr-user"></span>
-    <button class="btn" id="logout-btn" onclick="doLogout()">Log out</button>
+  <div class="hdr-title" id="hdr-title">Egeria Freshstart</div>
+  <div class="hdr-right" id="hdr-right" style="display:none">
+    <div class="user-chip" id="user-chip" style="display:none">
+      <span>👤</span>
+      <div><div class="name" id="chip-name"></div></div>
+    </div>
+    <button class="btn" onclick="doLogout()">Log out</button>
   </div>
 </header>
 
+<!-- ── Hero ───────────────────────────────────────────────────────────────── -->
+<div class="hero">
+  <div class="hero-inner">
+    <div class="hero-text">
+      <h1 id="hero-title">Welcome to Egeria Freshstart</h1>
+      <p id="hero-sub">A clean, authenticated Egeria metadata environment. Explore the open metadata platform, run notebooks, and govern your data landscape. Select a tool below to get started.</p>
+    </div>
+    <div class="hero-links">
+      <div>
+        <div class="hero-links-label">Resources</div>
+        <div class="hero-links-row">
+          <a href="https://egeria-project.ai" target="_blank" rel="noopener">Documentation ↗</a>
+          <a href="https://github.com/odpi" target="_blank" rel="noopener">GitHub ↗</a>
+        </div>
+      </div>
+      <div>
+        <div class="hero-links-label">Star us on GitHub</div>
+        <div class="hero-stars">
+          <a href="https://github.com/odpi/egeria" target="_blank" rel="noopener">⭐ egeria</a>
+          <a href="https://github.com/odpi/egeria-docs" target="_blank" rel="noopener">⭐ egeria-docs</a>
+          <a href="https://github.com/odpi/egeria-workspaces" target="_blank" rel="noopener">⭐ egeria-workspaces</a>
+          <a href="https://github.com/odpi/egeria-python" target="_blank" rel="noopener">⭐ egeria-python</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Main ───────────────────────────────────────────────────────────────── -->
 <main class="main">
   <div id="loading-state">Loading…</div>
 
   <div id="hub" style="display:none">
-    <div class="welcome-head" id="welcome-head"></div>
-    <div class="welcome-sub"  id="welcome-sub"></div>
     <div class="section-label">Available Tools</div>
     <div class="app-grid" id="app-grid"></div>
+
+    <div class="section-label" style="margin-top:32px">Documentation</div>
+    <div class="app-grid" id="doc-grid"></div>
   </div>
 </main>
 
+<!-- ── Footer ─────────────────────────────────────────────────────────────── -->
 <footer class="ftr">
-  <img src="/static/pdr-logo.png" alt="PDR Associates" style="height:30px;opacity:0.7">
+  <div class="ftr-links">
+    <a href="/privacy">Privacy Policy</a>
+  </div>
+  <a href="https://pdr-associates.com" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;opacity:0.6;transition:opacity 0.15s" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">
+    <img src="/static/pdr-logo.png" alt="PDR Associates" style="height:26px">
+  </a>
 </footer>
 
 <script>
 var _user = null;
-var _orgName = 'Egeria';
-
-// ── Boot ──────────────────────────────────────────────────────────────────────
+var _orgName = 'Egeria Freshstart';
 var _platformCfg = {};
 
+// ── Boot ──────────────────────────────────────────────────────────────────────
 Promise.all([
-  fetch('/api/auth/me').then(r => r.json()),
-  fetch('/api/platform/org-name').then(r => r.json()).catch(() => ({name: ''})),
-  fetch('/api/platform/portal-config').then(r => r.json()).catch(() => ({})),
+  fetch('/api/auth/me').then(function(r) { return r.json(); }),
+  fetch('/api/platform/org-name').then(function(r) { return r.json(); }).catch(function() { return {name: ''}; }),
+  fetch('/api/platform/portal-config').then(function(r) { return r.json(); }).catch(function() { return {}; }),
 ]).then(function(results) {
   var me = results[0];
   var orgData = results[1];
   _platformCfg = results[2] || {};
   if (!me.authenticated) { window.location.href = '/login'; return; }
   _user = me;
-  if (orgData.name) _orgName = orgData.name;
+  if (orgData.name && orgData.name.trim()) _orgName = orgData.name.trim();
+
+  var displayName = me.display_name || me.user_id || '';
+  document.title = _orgName + ' — Egeria';
+  document.getElementById('hdr-title').textContent = _orgName;
+  document.getElementById('hero-title').textContent = 'Welcome to ' + _orgName;
+  if (displayName) {
+    document.getElementById('chip-name').textContent = displayName;
+    document.getElementById('user-chip').style.display = 'flex';
+  }
+  document.getElementById('hdr-right').style.display = 'flex';
   document.getElementById('loading-state').style.display = 'none';
-  renderHub();
+
+  renderHub(me.role === 'admin');
 }).catch(function() { window.location.href = '/login'; });
 
 // ── Hub ───────────────────────────────────────────────────────────────────────
-function renderHub() {
-  var displayName = _user.display_name || _user.user_id || 'User';
-  var isAdmin = _user.role === 'admin';
-
-  // Page title
-  document.title = _orgName + ' — Egeria';
-
-  // Header
-  document.getElementById('hdr-title').textContent = _orgName;
-  document.getElementById('hdr-user').textContent = displayName;
-  document.getElementById('hdr-right').style.display = 'flex';
-
-  // Welcome text
-  document.getElementById('welcome-head').textContent = 'Welcome to ' + _orgName;
-  document.getElementById('welcome-sub').textContent  = _orgName + ' — Egeria Metadata Environment. Select a tool below to get started.';
-
-  // App grid
+function renderHub(isAdmin) {
   var jupyterUrl = 'http://' + window.location.hostname + ':7888/?token=egeria';
+  var advisorRunning = !!_platformCfg.advisor_running;
+  var advisorUrl = _platformCfg.advisor_url || ('http://' + window.location.hostname + ':7880/');
+
   var apps = [
-    { icon: '🔍', name: 'Egeria Explorer', desc: 'Explore metadata — types, glossary, lineage, governance blueprints, and more.',
+    { icon: '🔍', name: 'Egeria Explorer',
+      desc: 'Browse Egeria metadata — types, glossary, lineage, governance blueprints, information supply chains, and more.',
       url: '/egeria-explorer', newTab: false, enabled: true },
-    { icon: '📓', name: 'Jupyter Lab',     desc: 'Interactive notebooks for Egeria API exploration and data analysis.',
+    { icon: '📓', name: 'Jupyter Lab',
+      desc: 'Interactive notebooks for data science and hands-on Egeria API exploration.',
       url: jupyterUrl, newTab: true, enabled: true },
+    { icon: '🖥️', name: 'My Egeria',
+      desc: 'Explore your Egeria profile, roles, teams, actions, and data catalog.',
+      url: '/my-egeria/', newTab: true, enabled: false },
     { icon: '🤖', name: 'Egeria Advisor',
-      desc: _platformCfg.advisor_running ? 'AI-powered guidance for your Egeria environment.' : 'AI-powered guidance for your Egeria environment. (Not currently running)',
-      url: _platformCfg.advisor_url || ('http://' + window.location.hostname + ':7880/'), newTab: true,
-      enabled: true, unavailable: !_platformCfg.advisor_running },
-    { icon: '👤', name: 'My Profile',      desc: 'View and edit your Egeria profile, and change your password.',
+      desc: advisorRunning
+        ? 'AI-powered guidance for your Egeria environment.'
+        : 'AI-powered guidance for your Egeria environment. (Not currently running)',
+      url: advisorUrl, newTab: true, enabled: true, unavailable: !advisorRunning },
+    { icon: '👤', name: 'My Profile',
+      desc: 'View and edit your Egeria profile and change your password.',
       url: '/profile', newTab: false, enabled: true },
-    { icon: '📖', name: 'Egeria Documentation',
-      desc: 'Official Egeria project documentation, guides, and community resources.',
-      url: 'https://egeria.ai', newTab: true, enabled: true },
-    { icon: '📚', name: 'Egeria JavaDocs',
-      desc: 'Egeria Java API reference documentation.',
-      url: 'https://odpi.github.io/egeria/index.html', newTab: true, enabled: true },
   ];
 
-  // Admin tile — only shown to admins
   if (isAdmin) {
     apps.push({
       icon: '⚙️', name: 'Admin',
@@ -149,23 +205,37 @@ function renderHub() {
     });
   }
 
-  document.getElementById('app-grid').innerHTML = apps.map(function(a) {
-    var action;
-    if (!a.enabled) {
-      action = '<span class="soon-badge">Coming soon</span>';
-    } else if (a.unavailable) {
-      action = '<span class="soon-badge" style="background:var(--hover);color:var(--muted)">Not running</span>';
-    } else {
-      action = '<button class="btn btn-accent app-action" onclick="launch(' + JSON.stringify(a.url).replace(/"/g, '&quot;') + ',' + a.newTab + ')">' + (a.newTab ? 'Open ↗' : 'Open') + '</button>';
-    }
-    return '<div class="app-tile' + (a.enabled ? '' : ' disabled') + '">' +
-      '<div class="app-icon">' + a.icon + '</div>' +
-      '<div class="app-name">' + esc(a.name) + '</div>' +
-      '<div class="app-desc">' + esc(a.desc) + '</div>' +
-      action + '</div>';
-  }).join('');
+  var docs = [
+    { icon: '📚', name: 'Egeria Workspaces Documentation',
+      desc: 'User guides, tool reference, Dr. Egeria templates, scenarios, and admin docs.',
+      url: '/docs/', newTab: true, enabled: true },
+    { icon: '📖', name: 'Egeria Documentation',
+      desc: 'Official Egeria project documentation, guides, and community resources.',
+      url: 'https://egeria.ai', newTab: true, enabled: true },
+    { icon: '☕', name: 'Egeria JavaDocs',
+      desc: 'Java API reference documentation for the Egeria platform and connectors.',
+      url: 'https://odpi.github.io/egeria/index.html', newTab: true, enabled: true },
+  ];
 
+  document.getElementById('app-grid').innerHTML = apps.map(renderTile).join('');
+  document.getElementById('doc-grid').innerHTML  = docs.map(renderTile).join('');
   document.getElementById('hub').style.display = 'block';
+}
+
+function renderTile(a) {
+  var action;
+  if (!a.enabled) {
+    action = '<span class="soon-badge">Coming soon</span>';
+  } else if (a.unavailable) {
+    action = '<span class="soon-badge" style="background:var(--hover);color:var(--muted)">Not running</span>';
+  } else {
+    action = '<button class="btn btn-accent app-action" onclick="launch(' + JSON.stringify(a.url).replace(/"/g, '&quot;') + ',' + a.newTab + ')">' + (a.newTab ? 'Open ↗' : 'Open') + '</button>';
+  }
+  return '<div class="app-tile' + (a.enabled ? '' : ' disabled') + '">' +
+    '<div class="app-icon">' + a.icon + '</div>' +
+    '<div class="app-name">' + esc(a.name) + '</div>' +
+    '<div class="app-desc">' + esc(a.desc) + '</div>' +
+    action + '</div>';
 }
 
 function launch(url, newTab) {
