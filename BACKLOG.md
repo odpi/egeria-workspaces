@@ -13,20 +13,20 @@ exploration. Items can run concurrently when they touch different files; watch t
 
 | Workstream | Items | My Pri | Your Pri | Why / dependency |
 |------------|-------|:------:|:--------:|------------------|
-| Shared codebase unification | SHARE-1 ✅ done · SHARE-2 ✅ done | **H** |  | Both backend handlers and SPA `type-explorer.html` now byte-identical across quickstart/freshstart. Auth model runtime-gated via `srvManaged` + `demoMode` flags. |
-| pyegeria comment-update bug | PY-4 | **H** |  | Breaks an already-shipped feature (comment edit). Small, self-contained. |
-| Report rendering | RR-1 → RR-5 | **H** |  | Core demo value; RR-1/RR-2 unblock RR-3/4/5. Sequential within the group. |
-| Data preview polish | DP-2, DP-3, DP-4 | **M** |  | User-facing, independent, low risk; good "concurrent" fillers. |
-| my-egeria additional apps | ME-8, ME-9 | **M** |  | TUI now renders end-to-end — momentum is here. Follows the proven ME-2..6 pattern. |
-| ProjectExplorer integration | PORT-7, LF-1 → LF-4 | **M** |  | Needs the LF-AI service stood up first; port `8830` already reserved. |
-| QuickStart demo polish | QS-1, QS-3, QS-4 | **M** |  | Demo-facing; QS-1/QS-3 are quick wins, QS-4 (reset) is bigger. |
-| Performance | PERF-1, PERF-2 | **M** |  | Real pain on deep catalog trees; investigate after correctness work. |
-| Report specs authoring | RS-1, RS-2, RS-3 | **L** |  | Large, spec-still-TBD; defer until RR rendering lands. |
-| User Feedback → Postgres | FB-5 → FB-9 | **M** |  | Per-page tool feedback to `demo.feedback`; env-specific user id; admin tab + analyst docs. Distinct from Egeria feedback. |
-| Journals / feedback extras | FB-4 | **L** |  | Exploratory; storage model undecided. |
-| Demo analytics / extras | QS-5, QS-6, QS-7 | **L** |  | Nice-to-have; QS-7 already deferred. |
-| my-egeria V2 (multi-user) | ME-10, ME-11, ME-12 | **L** |  | Deferred until single-persona path is fully proven. |
-| pyegeria DataDesigner/SA bugs | PY-1, PY-2, PY-3 | **L** |  | Have working local workarounds; fix upstream opportunistically. |
+| Shared codebase unification | SHARE-1 ✅ done · SHARE-2 ✅ done | **H** |          | Both backend handlers and SPA `type-explorer.html` now byte-identical across quickstart/freshstart. Auth model runtime-gated via `srvManaged` + `demoMode` flags. |
+| pyegeria comment-update bug | PY-4 ✅ done | **H** |    H     | Workaround already in `egeria_feedback_handler.py`. |
+| Report rendering | RR-1 → RR-5 | **H** |          | Core demo value; RR-1/RR-2 unblock RR-3/4/5. Sequential within the group. |
+| Data preview polish | DP-2 ✅ · DP-3 ✅ · DP-4 ✅ done | **M** |    H     | Filter bar, column sort, search all done. |
+| my-egeria additional apps | ME-8, ME-9 | **M** |    L     | TUI now renders end-to-end — momentum is here. Follows the proven ME-2..6 pattern. |
+| ProjectExplorer integration | PORT-7, LF-1 → LF-4 | **M** |    M     | Needs the LF-AI service stood up first; port `8830` already reserved. |
+| QuickStart demo polish | QS-1 ✅ · QS-3 ✅ done · QS-4 | **M** |    H     | QS-1/QS-3 already in portal; QS-4 (reset scheduler) still open. |
+| Performance | PERF-1, PERF-2 | **M** |    M     | Real pain on deep catalog trees; investigate after correctness work. |
+| Report specs authoring | RS-1, RS-2, RS-3 | **L** |    L     | Large, spec-still-TBD; defer until RR rendering lands. |
+| User Feedback → Postgres | FB-5 → FB-9 | **M** |    H     | Per-page tool feedback to `demo.feedback`; env-specific user id; admin tab + analyst docs. Distinct from Egeria feedback. |
+| Journals / feedback extras | FB-4 | **L** |    M     | Exploratory; storage model undecided. |
+| Demo analytics / extras | QS-5, QS-6, QS-7 | **L** |    M     | Nice-to-have; QS-7 already deferred. |
+| my-egeria V2 (multi-user) | ME-10, ME-11, ME-12 | **L** |    L     | Deferred until single-persona path is fully proven. |
+| pyegeria DataDesigner/SA bugs | PY-1, PY-2, PY-3 | **L** |    H     | Have working local workarounds; fix upstream opportunistically. |
 
 **Concurrency advice:** SHARE-1/2 first (or you fight merge pain on everything after). PY-4, DP-*,
 and ME-8/9 are independent and safe to interleave. RR-* must go in order. Avoid starting RS-* and
@@ -125,9 +125,9 @@ Jupyter runs on the host.
 | # | Item | Status | Notes |
 |---|------|--------|-------|
 | DP-1 | Adjustable column widths in tabular dataset preview | done | Drag-to-resize on column right-edge handles; dotted separators |
-| DP-2 | Row filtering in dataset preview | open | Filter bar above table |
-| DP-3 | Row sorting in dataset preview | open | Click column header to sort |
-| DP-4 | Search within table preview | open | Global text search across visible rows |
+| DP-2 | Row filtering in dataset preview | done | Filter bar above table; client-side on current page |
+| DP-3 | Row sorting in dataset preview | done | Click column header to sort (↑/↓/↕); numeric-aware; `e.stopPropagation` keeps resize handle separate |
+| DP-4 | Search within table preview | done | Merged with DP-2 — same filter input covers full-text search across all cells |
 
 ---
 
@@ -254,9 +254,9 @@ Spec: `demo_plan.md`
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| QS-1 | Portal — link to egeria-project.ai docs and odpi GitHub repos | open | From `quickstart-demo-items.md` |
+| QS-1 | Portal — link to egeria-project.ai docs and odpi GitHub repos | done | Already in `demo-portal.html` nav bar (Documentation ↗, GitHub ↗, individual repo star links) |
 | QS-2 | Portal — prompt users to star egeria / egeria-workspaces / egeria-python repos | open | Best-practice UX for this TBD |
-| QS-3 | Persona picker page — link to Coco Pharmaceuticals overview | open | `https://egeria-project.org/practices/coco-pharmaceuticals` |
+| QS-3 | Persona picker page — link to Coco Pharmaceuticals overview | done | Already in persona picker modal and nav bar in `demo-portal.html` |
 | QS-4 | Reset scheduler (APScheduler) + Reset Now admin control | open | Coco archive load ≈ 5 min; pre-notify users 30 min before |
 | QS-5 | Usage analytics + event logging (registrations, logins, tab views, persona selections) | open | `events` table in `demo` schema in Postgres |
 | QS-6 | Obsidian integration in demo environment | open | Exploratory — Egeria already has Obsidian integration |
@@ -271,7 +271,7 @@ Spec: `demo_plan.md`
 | PY-1 | `DataDesigner.find_data_value_specifications` calls non-existent `_async_post` | open | `_search_data_value_specs()` hits endpoint directly |
 | PY-2 | `get_data_value_specifications_by_name("*")` rejects wildcard | open | Same workaround as PY-1 |
 | PY-3 | `find_all_solution_blueprints/components` missing in 6.0.12.2 | open | Use `find_*(search_string="*")` |
-| PY-4 | `ServerClient.update_comment` defaults `merge_update=True` and sets `mergeUpdate: true` in body, but Egeria still rejects the request with `OPEN-METADATA-400-004` requiring `qualifiedName` | open | Fetch comment first via `get_comment_by_guid`, extract `qualifiedName`, build body manually — costs an extra round-trip |
+| PY-4 | `ServerClient.update_comment` defaults `merge_update=True` and sets `mergeUpdate: true` in body, but Egeria still rejects the request with `OPEN-METADATA-400-004` requiring `qualifiedName` | done | Workaround already in `egeria_feedback_handler.py`: fetches comment first via `get_comment_by_guid`, extracts `qualifiedName`, builds body manually |
 
 ---
 
