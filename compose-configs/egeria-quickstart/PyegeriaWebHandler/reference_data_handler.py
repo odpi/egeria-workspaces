@@ -115,6 +115,8 @@ def get_valid_value_definitions(
             start_from=start_from,
             page_size=page_size,
             graph_query_depth=1,
+            sequencing_order="PROPERTY_ASCENDING",
+            sequencing_property="displayName",
         )
     except Exception as exc:
         logger.exception("find_valid_value_definitions failed")

@@ -147,6 +147,8 @@ def list_isc(
             start_from=start_from,
             page_size=page_size,
             add_implementation=True,
+            sequencing_order="PROPERTY_ASCENDING",
+            sequencing_property="displayName",
         )
     except Exception as exc:
         logger.exception("find_information_supply_chains failed")

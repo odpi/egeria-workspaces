@@ -154,6 +154,8 @@ def _find_all_catalogs(mgr) -> list:
                 start_from=start_from,
                 page_size=page_size,
                 graph_query_depth=0,
+                sequencing_order="PROPERTY_ASCENDING",
+                sequencing_property="displayName",
             )
         except Exception as exc:
             logger.warning(f"find_collections page {start_from} failed: {exc}")
@@ -375,6 +377,11 @@ def get_tabular_data(
     except Exception as exc:
         logger.exception("get_tabular_data_set failed")
         raise HTTPException(status_code=500, detail=f"Data retrieval failed: {exc}")
+
+    logger.debug("get_tabular_data_set raw type={} keys={}", type(raw).__name__,
+                 list(raw.keys()) if isinstance(raw, dict) else "n/a")
+    logger.info("tabular preview guid={} raw_type={} raw_preview={}",
+                node_guid, type(raw).__name__, str(raw)[:400])
 
     if not raw:
         return JSONResponse({"columns": [], "rows": [], "has_more": False,

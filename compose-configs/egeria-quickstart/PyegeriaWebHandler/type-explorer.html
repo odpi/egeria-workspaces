@@ -3501,7 +3501,7 @@ function TabularPreviewModal({ guid, name, creds, onClose }) {
             ),
             React.createElement('tbody', null,
               visRows.length === 0
-                ? React.createElement('tr', null, React.createElement('td', { colSpan: columns.length, style: { padding: 24, textAlign: 'center', color: 'var(--dim)' } }, 'No rows match the filter.'))
+                ? React.createElement('tr', null, React.createElement('td', { colSpan: columns.length, style: { padding: 24, textAlign: 'center', color: 'var(--dim)' } }, filterText.trim() ? 'No rows match the filter.' : 'No rows returned from the server.'))
                 : visRows.map(function(row, i) {
                     var cells = Array.isArray(row) ? row : columns.map(function(c) { return row[c]; });
                     return React.createElement('tr', { key: i, style: { background: i % 2 ? 'rgba(255,255,255,0.02)' : 'transparent' } },
