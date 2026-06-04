@@ -7432,7 +7432,13 @@ function App() {
   const [selected, setSelected]   = useState({ kind: 'type', name: '' });
   const [theme, setTheme]         = useState('dark');
   const [view, setView]           = useState('types'); // 'types' | 'attrs'
-  const [section, setSection]     = useState('splash'); // 'splash' | 'type-system' | 'reference-data' | 'digital-products' | 'glossary' | 'report-specs' | 'valid-values'
+  const [section, setSection]     = useState(function() {
+    var hash = window.location.hash.slice(1);
+    var valid = new Set(['type-system','reference-data','digital-products','glossary',
+      'report-specs','valid-values','rest-apis','python-api','solution-architect',
+      'data-design','perspectives','dr-egeria','isc','governance','projects']);
+    return valid.has(hash) ? hash : 'splash';
+  });
   const [glossaryNavGuid, setGlossaryNavGuid] = useState(null);
   const [validValuesNavProp, setValidValuesNavProp] = useState(null);
   const [dataDesignNav, setDataDesignNav] = useState({ guid: null, type: null });

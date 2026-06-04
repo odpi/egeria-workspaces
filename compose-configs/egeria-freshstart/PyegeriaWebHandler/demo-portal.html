@@ -215,6 +215,12 @@ function renderHub(isAdmin) {
     { icon: '☕', name: 'Egeria JavaDocs',
       desc: 'Java API reference documentation for the Egeria platform and connectors.',
       url: 'https://odpi.github.io/egeria/index.html', newTab: true, enabled: true },
+    { icon: '🐍', name: 'Python API',
+      desc: 'pyegeria Python client reference — classes, methods, and docstrings grouped by functional domain.',
+      url: '/egeria-explorer#python-api', newTab: false, enabled: true },
+    { icon: '🔌', name: 'REST APIs',
+      desc: 'Live Egeria REST API browser — all open metadata services with endpoints and parameters.',
+      url: '/egeria-explorer#rest-apis', newTab: false, enabled: true },
   ];
 
   document.getElementById('app-grid').innerHTML = apps.map(renderTile).join('');

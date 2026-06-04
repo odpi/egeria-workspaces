@@ -370,6 +370,12 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
     { icon: '📚', name: 'Egeria JavaDocs',
       desc: 'Java API reference documentation for the Egeria platform and connectors.',
       url: 'https://odpi.github.io/egeria/index.html', newTab: true, enabled: true, isDoc: true },
+    { icon: '🐍', name: 'Python API',
+      desc: 'pyegeria Python client reference — classes, methods, and docstrings grouped by functional domain.',
+      url: '/egeria-explorer#python-api', newTab: false, enabled: true, isDoc: true },
+    { icon: '🔌', name: 'REST APIs',
+      desc: 'Live Egeria REST API browser — all open metadata services with endpoints and parameters.',
+      url: '/egeria-explorer#rest-apis', newTab: false, enabled: true, isDoc: true },
   ];
   function _renderTile(a) {
     var action;
