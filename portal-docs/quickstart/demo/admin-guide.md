@@ -1,6 +1,19 @@
 # Admin Guide
 
-The admin panel is at `/admin`. It is only accessible to users with the admin role.
+There are two admin panels depending on how Quickstart is running:
+
+| Mode | URL | Access |
+|------|-----|--------|
+| **Demo mode** (`DEMO_MODE=true`) | `/admin` | Requires login with the admin role |
+| **Local mode** (`DEMO_MODE=false`) | `/admin` | No login — open to anyone on the network |
+
+This page documents the **demo mode** admin panel. For local mode, see [Local Admin](#local-admin) below.
+
+---
+
+## Demo admin panel
+
+The demo admin panel is at `/admin`. It is only accessible to users with the admin role.
 
 ---
 
@@ -78,3 +91,14 @@ Create future reserved blocks (label, start time, end time) to block regular use
 Shows the last 50 lock events — acquisitions, releases, evictions, and auto-releases.
 
 See also: [Obsidian session management](obsidian-sessions.md)
+
+---
+
+## Local Admin
+
+In local mode the same `/admin` URL serves a lightweight page — no authentication required. It provides:
+
+- **Obsidian lock** — status, force release, evict with grace period, reservations, audit log
+- **Platform info** — Obsidian URL, Advisor status, Egeria connection settings
+
+The local admin panel is useful when running Quickstart in a **shared small-team** context. It is linked from the portal home page as an **Admin** tile (visible in local mode only).

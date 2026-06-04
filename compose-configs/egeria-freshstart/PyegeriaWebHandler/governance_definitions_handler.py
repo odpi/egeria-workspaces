@@ -107,7 +107,7 @@ GOV_TYPE_TREE = [
 def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     from pyegeria import GovernanceOfficer
     url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
-    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "fs-view-server")
+    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
     user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
     user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
     mgr = GovernanceOfficer(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)

@@ -369,15 +369,15 @@ KAFKA_CLUSTER_ID_PRINT=$(grep '^KAFKA_CLUSTER_ID=' compose-configs/egeria-quicks
 echo "  - Effective HOST_FQDN: ${HOST_FQDN_PRINT}"
 echo "  - Effective KAFKA_CLUSTER_ID: ${KAFKA_CLUSTER_ID_PRINT}"
 echo "  - Egeria (platform): https://${HOST_FQDN_PRINT:-localhost}:9443"
-echo "  - Jupyter:           http://${HOST_FQDN_PRINT:-localhost}:7888   (password: egeria)"
-echo "  - Obsidian (local):  http://localhost:3000        (WebRTC works on localhost only)"
-echo "  - Obsidian (remote): https://${HOST_FQDN_PRINT:-localhost}:3001 (accept self-signed cert in browser)"
+echo "  - Jupyter:           http://${HOST_FQDN_PRINT:-localhost}:8888   (password: egeria)"
+echo "  - Obsidian (local):  http://localhost:8860        (WebRTC works on localhost only)"
+echo "  - Obsidian (remote): https://${HOST_FQDN_PRINT:-localhost}:8861 (accept self-signed cert in browser)"
 if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
   _https_port_final="${_https_port:-443}"
   _site_url_final="$(grep '^DEMO_SITE_URL=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "https://${HOST_FQDN_PRINT:-localhost}")"
-  echo "  - Web (HTTP):        http://${HOST_FQDN_PRINT:-localhost}:8085"
+  echo "  - Web (HTTP):        http://${HOST_FQDN_PRINT:-localhost}:8885"
   echo "  - Web (HTTPS):       ${_site_url_final}"
   echo "  - Login:             ${_site_url_final}/login"
 else
-  echo "  - Web:               http://${HOST_FQDN_PRINT:-localhost}:8085"
+  echo "  - Web:               http://${HOST_FQDN_PRINT:-localhost}:8885"
 fi

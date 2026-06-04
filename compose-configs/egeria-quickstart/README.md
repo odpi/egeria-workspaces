@@ -7,8 +7,8 @@ development, and learning. Rather than having to install Egeria, prerequisites a
 it easy to get a stack running quickly. This deployment configures and starts:
 
 * Egeria on port 9443 and will automatically start the default servers.
-* Jupyter is deployed using port 7888 so as not to interfere with other jupyter servers
-* Apache Web Server on port 8085 and configured with `httpd.conf`.
+* Jupyter is deployed using port 8888 so as not to interfere with other jupyter servers
+* Apache Web Server on port 8885 and configured with `httpd.conf`.
 
 Kafka, PostgreSQL, and the OpenLineage proxy are provided by the shared infra stack in `compose-configs/shared-infra`.
 
@@ -144,6 +144,20 @@ These scripts will:
    For Egeria, this means not only starting up the initial set of servers, but then loading the **CoreContentPack.omarchive** into the metadata repository, and then configuring all the servers. 
    This can take several minutes the first time the containers are created. Subsequent startups will be much faster.
 
+### Full refresh (recommended)
+
+To stop the stack, remove locally-built images, pull the latest egeria-workspaces, rebuild, and restart in one step:
+
+```bash
+./refresh-local                  # quickstart + freshstart (if previously set up)
+./refresh-local --demo           # refresh and restart in demo mode (auth, HTTPS)
+./refresh-local --no-freshstart  # quickstart only
+./refresh-local --infra          # also cycle Kafka / Postgres / proxy
+./refresh-local --no-pull        # skip git pull (rebuild from current local code)
+```
+
+### Partial refresh
+
 The startup scripts now automatically refresh images more aggressively than before:
 
 - local compose images are rebuilt with `docker compose build --pull`, which checks for newer base images before building, and
@@ -175,7 +189,7 @@ The environment is ready to be used.
 
 You can control the containers with docker compose commands - see [docker compose](https://docs.docker.com/reference/cli/docker/compose/). These commands can be used to manage and use the docker containers.
 
-To access jupyter, open a browser to `http://localhost:7888`. At the password prompt, enter `egeria`. This should open up your notebook environment.
+To access jupyter, open a browser to `http://localhost:8888`. At the password prompt, enter `egeria`. This should open up your notebook environment.
 
 >Note: You only need to use the --build option if you want to rebuild the Jupyter image.
 
@@ -260,7 +274,7 @@ Neither overlay changes ports, images, or volumes — the only difference is whe
 
 This environment includes support for processing Markdown files containing Dr. Egeria commands. This is primarily intended for use with Obsidian but can be used by any MCP client.
 
-The `PyegeriaWebHandler` service (port 8000/8085) provides both a REST API and a **Model Context Protocol (MCP)** server for interacting with Dr. Egeria.
+The `PyegeriaWebHandler` service (host port 8800 direct / 8885 via Apache) provides both a REST API and a **Model Context Protocol (MCP)** server for interacting with Dr. Egeria.
 
 - **Obsidian Plugins**: You should use the **Calling the Dr. (MCP)** plugin (recommended). It uses a "Content-First" architecture that eliminates Docker permission issues. The legacy `Call Dr. Egeria` plugin is also supported but deprecated. See the [Obsidian Plugins README](../../obsidian-plugins/call-dr-egeria/README.md) for details.
 - **MCP Server**: The backend exposes Dr. Egeria commands as MCP tools via both **SSE (HTTP)** and **stdio**. This allows integration with assistants like Claude Desktop or any MCP-compatible environment.

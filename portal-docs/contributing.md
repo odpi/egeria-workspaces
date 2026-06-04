@@ -102,14 +102,24 @@ The viewer supports:
 
 The Dr. Egeria command templates in `templates/` (repo root) are mounted into both environments:
 
-| Environment | URL path | Obsidian vault path |
-|-------------|----------|---------------------|
-| Quickstart | `/Dr-Egeria-Samples/templates/` | `Dr-Egeria-Samples/templates/` |
-| Freshstart | `/Dr-Egeria-Samples/templates/` | *(no Obsidian container)* |
+| Environment | Apache URL | Obsidian vault path | Jupyter path |
+|-------------|------------|---------------------|--------------|
+| Quickstart | `/Dr-Egeria-Samples/templates/` | `templates/` (vault root) | `/home/jovyan/templates/` |
+| Freshstart | `/Dr-Egeria-Samples/templates/` | *(no Obsidian container)* | `/home/jovyan/templates/` |
+
+The vault path works via a git-tracked symlink: `coco-workbooks/templates → ../templates`. The symlink resolves to `/config/templates` inside the Obsidian container (mounted there by the compose file) and to `/home/jovyan/templates` inside Jupyter.
 
 Templates are organised as `templates/basic/<Category>/` and `templates/advanced/<Category>/`. Both levels are browsable via Apache directory listing and directly openable in Obsidian.
 
 The portal-docs pages `tools/dr-egeria/templates-basic.md` and `tools/dr-egeria/templates-advanced.md` are narrative summaries. The live browsable files are at the paths above.
+
+---
+
+## Local admin panel
+
+In local mode (`DEMO_MODE=false`), `/admin` serves a lightweight admin page — no login required. It covers the Obsidian session lock (status, force release, evict, reservations, audit log) and basic platform info. The full demo admin panel (user management, reset, config) is only available in demo mode.
+
+The local admin panel is useful when running Quickstart in a **shared small-team** context where multiple people use the same Obsidian container and someone needs to release a stuck lock without restarting the service.
 
 ---
 

@@ -3178,7 +3178,8 @@ function ReferenceDataDetail({ item }) {
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, item.displayName || item.qualifiedName),
-      React.createElement("span", { className: "badge", style: { background: isSet ? 'rgba(99,102,241,.15)' : 'rgba(16,185,129,.12)', color: isSet ? '#818cf8' : '#34d399', border: '0.5px solid ' + (isSet ? 'rgba(99,102,241,.3)' : 'rgba(16,185,129,.3)') } }, item.typeName || (isSet ? 'Set' : 'Value'))
+      React.createElement("span", { className: "badge", style: { background: isSet ? 'rgba(99,102,241,.15)' : 'rgba(16,185,129,.12)', color: isSet ? '#818cf8' : '#34d399', border: '0.5px solid ' + (isSet ? 'rgba(99,102,241,.3)' : 'rgba(16,185,129,.3)') } }, item.typeName || (isSet ? 'Set' : 'Value')),
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: item.guid }))
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, item.guid),
     item.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(item.description)),
@@ -3192,7 +3193,8 @@ function ReferenceDataDetail({ item }) {
           )
         )
       )
-    )
+    ),
+    React.createElement(EgeriaCommentsSection, { guid: item.guid })
   );
 }
 
@@ -4331,7 +4333,7 @@ function ConnectionForm({ saveCreds }) {
   );
 }
 
-function SplashScreen({ onNavigate, saveCreds, demoMode }) {
+function SplashScreen({ onNavigate, saveCreds, demoMode, srvManaged, authUser }) {
   var cardStyle = {
     background: 'var(--surface)',
     border: '1px solid var(--border)',
@@ -4367,7 +4369,18 @@ function SplashScreen({ onNavigate, saveCreds, demoMode }) {
         'Browse the open metadata type system, business glossaries, reference data, digital products, ' +
         'solution blueprints, data design, and view-server REST APIs — all connected live to your running Egeria platform.'
       ),
-      !demoMode && React.createElement(ConnectionForm, { saveCreds: saveCreds }),
+      authUser
+        ? React.createElement('div', {
+            style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24, padding: '10px 16px', background: 'rgba(52,211,153,.07)', border: '1px solid rgba(52,211,153,.25)', borderRadius: 7 }
+          },
+            React.createElement('span', { style: { fontSize: 16, color: '#34d399' } }, '✓'),
+            React.createElement('span', { style: { fontSize: 13, color: 'var(--fg)' } },
+              'Connected as ',
+              React.createElement('strong', null, authUser.displayName || authUser.userId)
+            ),
+            React.createElement('span', { style: { marginLeft: 'auto', fontSize: 11, color: 'var(--dim)', textTransform: 'capitalize' } }, authUser.role)
+          )
+        : ((!demoMode && !srvManaged) ? React.createElement(ConnectionForm, { saveCreds: saveCreds }) : null),
       React.createElement(React.Fragment, null,
         [
           { key: 'act',       label: 'Act',       blurb: 'Take action — run reports, explore products, and issue Dr. Egeria commands.' },
@@ -4426,7 +4439,8 @@ function ValidValueDetail({ item }) {
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, item.displayName || item.qualifiedName),
-      isSet && React.createElement("span", { className: "badge", style: { background: 'rgba(99,102,241,.15)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.3)' } }, item.typeName || 'Set')
+      isSet && React.createElement("span", { className: "badge", style: { background: 'rgba(99,102,241,.15)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.3)' } }, item.typeName || 'Set'),
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: item.guid }))
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, item.guid),
     item.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(item.description)),
@@ -4440,7 +4454,8 @@ function ValidValueDetail({ item }) {
           )
         )
       )
-    )
+    ),
+    React.createElement(EgeriaCommentsSection, { guid: item.guid })
   );
 }
 
@@ -5130,7 +5145,8 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
     return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
       React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
         React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, detail.displayName || detail.qualifiedName),
-        React.createElement("span", { className: "badge", style: { background: 'rgba(125,211,252,.1)', color: color, border: '0.5px solid rgba(125,211,252,.3)' } }, detail.typeName || '')
+        React.createElement("span", { className: "badge", style: { background: 'rgba(125,211,252,.1)', color: color, border: '0.5px solid rgba(125,211,252,.3)' } }, detail.typeName || ''),
+        React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: detail.guid }))
       ),
       React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, detail.guid),
       detail.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(detail.description)),
@@ -5224,7 +5240,8 @@ function SolutionBlueprintDetail({ blueprint, onNavigateToComponent, onNavigateT
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, blueprint.displayName || blueprint.qualifiedName),
-      React.createElement("span", { className: "badge", style: { background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)' } }, blueprint.typeName || 'SolutionBlueprint')
+      React.createElement("span", { className: "badge", style: { background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)' } }, blueprint.typeName || 'SolutionBlueprint'),
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: blueprint.guid }))
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, blueprint.guid),
     blueprint.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(blueprint.description)),
@@ -5319,7 +5336,8 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, component.displayName || component.qualifiedName),
-      React.createElement("span", { className: "badge", style: { background: 'rgba(96,165,250,.1)', color: '#93c5fd', border: '0.5px solid rgba(96,165,250,.3)' } }, component.typeName || 'SolutionComponent')
+      React.createElement("span", { className: "badge", style: { background: 'rgba(96,165,250,.1)', color: '#93c5fd', border: '0.5px solid rgba(96,165,250,.3)' } }, component.typeName || 'SolutionComponent'),
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: component.guid }))
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, component.guid),
     component.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(component.description)),
@@ -5939,7 +5957,8 @@ function ISCDetail({ data, detail }) {
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.displayName || src.qualifiedName),
-      React.createElement("span", { className: "badge", style: { background: 'rgba(94,234,212,.1)', color: '#5eead4', border: '0.5px solid rgba(94,234,212,.3)' } }, src.typeName || 'InformationSupplyChain')
+      React.createElement("span", { className: "badge", style: { background: 'rgba(94,234,212,.1)', color: '#5eead4', border: '0.5px solid rgba(94,234,212,.3)' } }, src.typeName || 'InformationSupplyChain'),
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid }))
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, src.guid),
     src.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(src.description)),
@@ -6427,9 +6446,12 @@ function ProjectDetail({ project, children, onSelectChild }) {
   var cardStyle  = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 };
 
   return React.createElement('div', null,
-    // Title + kind badges
-    React.createElement('h2', { style: { fontSize: 20, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' } },
-      project.displayName || project.qualifiedName || project.guid
+    // Title + kind badges + feedback
+    React.createElement('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 } },
+      React.createElement('h2', { style: { fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text)', flex: 1 } },
+        project.displayName || project.qualifiedName || project.guid
+      ),
+      React.createElement(EgeriaFeedbackWidget, { guid: project.guid })
     ),
     (project.classifications || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 14 } },
       project.classifications.map(function(c) {
@@ -6495,7 +6517,8 @@ function ProjectDetail({ project, children, onSelectChild }) {
               child.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)' } }, child.description)
             );
           })
-        )
+        ),
+    React.createElement(EgeriaCommentsSection, { guid: project.guid })
   );
 }
 
@@ -6572,7 +6595,8 @@ function GovDefDetail({ definition, onSelectGuid }) {
   return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement('div', { style: { fontSize: 18, fontWeight: 700 } }, definition.displayName || definition.qualifiedName),
-      definition.typeName && React.createElement('span', { className: 'badge', style: { background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)' } }, definition.typeName)
+      definition.typeName && React.createElement('span', { className: 'badge', style: { background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)' } }, definition.typeName),
+      React.createElement('div', { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: definition.guid }))
     ),
     React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 12 } }, definition.guid),
     definition.description && React.createElement('div', { style: { fontSize: 13, marginBottom: 16 } }, renderMd(definition.description)),
@@ -7246,8 +7270,13 @@ function FeedbackButton({ section }) {
 // ── App ───────────────────────────────────────────────────────────────────────
 
 function App() {
-  // Demo mode state — set if /api/auth/me returns authenticated: true
+  // Demo mode state — set if /api/auth/me returns demo_mode: true (Quickstart demo).
   var _demoState = useState(false), demoMode = _demoState[0], setDemoMode = _demoState[1];
+  // Server-managed auth (Freshstart): platform connection comes from the portal JWT + env,
+  // not a connection form or persona. Distinct from demoMode.
+  var _srvState = useState(false), srvManaged = _srvState[0], setSrvManaged = _srvState[1];
+  // Logged-in portal user identity (server-managed / Freshstart). null = N/A or not yet loaded.
+  var _authUserState = useState(null), authUser = _authUserState[0], setAuthUser = _authUserState[1];
   var _personaState = useState(function() {
     try { var s = localStorage.getItem('egeria-persona'); return s ? JSON.parse(s) : null; } catch(e) { return null; }
   }), activePersona = _personaState[0], setActivePersona = _personaState[1];
@@ -7256,6 +7285,16 @@ function App() {
   // Check auth/demo mode on first load
   useEffect(function() {
     fetch('/api/auth/me').then(function(r) { return r.json(); }).then(function(me) {
+      if (me.server_managed_auth) {
+        // Freshstart: connection is server-managed via the portal JWT + env vars — no
+        // personas, no connection form. Mark connected and capture the user identity.
+        setSrvManaged(true);
+        setConnected(true);
+        if (me.authenticated) {
+          setAuthUser({ userId: me.user_id, displayName: me.display_name || me.user_id, role: me.role });
+        }
+        return;
+      }
       if (!me.demo_mode) {
         // Non-demo: persona picker is available but not required — apply stored persona if present
         var storedPersona = null;
@@ -7307,10 +7346,14 @@ function App() {
   }
 
   const [creds, setCreds] = useState(function() {
+    // Empty defaults work in every mode: blank fields are omitted by credQS, so the backend
+    // handlers fall back to their env service account. local-Quickstart users may fill the
+    // form to browse as a specific user; Freshstart uses the portal JWT; demo uses the persona.
     try {
       var s = localStorage.getItem('egeria-creds');
-      return s ? JSON.parse(s) : { url: '', server: 'qs-view-server', userId: 'erinoverview', password: 'secret' };
-    } catch(e) { return { url: '', server: 'qs-view-server', userId: 'erinoverview', password: 'secret' }; }
+      var base = s ? JSON.parse(s) : {};
+      return { url: base.url || '', server: base.server || '', userId: base.userId || '', password: base.password || '' };
+    } catch(e) { return { url: '', server: '', userId: '', password: '' }; }
   });
   const [connected, setConnected] = useState(function() {
     try { return !!localStorage.getItem('egeria-creds'); } catch(e) { return false; }
@@ -7436,11 +7479,21 @@ function App() {
           React.createElement("div", { style: { fontSize: 28 } }, "\u26A0"),
           React.createElement("div", { style: { color: '#f87171', fontSize: 15, fontWeight: 600, marginTop: 6 } }, "Failed to load Egeria type system"),
           React.createElement("div", { style: { fontSize: 12, color: 'var(--dim)', marginTop: 6, fontFamily: 'ui-monospace,monospace' } }, error),
-          React.createElement("div", { style: { fontSize: 11, color: '#fbbf24', marginTop: 10 } },
-            "A 401 / 502 usually means wrong credentials. Update them below and click Connect to retry."
-          )
+          (demoMode || srvManaged)
+            ? React.createElement("div", { style: { marginTop: 14 } },
+                React.createElement("div", { style: { fontSize: 11, color: 'var(--muted)', marginBottom: 10 } },
+                  "The Egeria platform may be starting up or temporarily unreachable. Your session is still active."
+                ),
+                React.createElement("button", {
+                  onClick: function() { setTypeAttempt(function(t) { return t + 1; }); },
+                  style: { padding: '7px 18px', borderRadius: 5, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.1)', color: 'var(--accent)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }
+                }, "Retry")
+              )
+            : React.createElement("div", { style: { fontSize: 11, color: '#fbbf24', marginTop: 10 } },
+                "A 401 / 502 usually means wrong credentials. Update them below and click Connect to retry."
+              )
         ),
-        React.createElement(ConnectionForm, { saveCreds: saveCreds })
+        (!demoMode && !srvManaged) && React.createElement(ConnectionForm, { saveCreds: saveCreds })
       )
     )
   );
@@ -7499,11 +7552,12 @@ function App() {
         onClick: () => setTheme(t => t === 'dark' ? 'light' : 'dark'),
         title: theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
       }, theme === 'dark' ? "☀ Light" : "☾ Dark"),
-      activePersona && React.createElement(React.Fragment, null,
+      demoMode && activePersona && React.createElement(React.Fragment, null,
         React.createElement('span', { className: 'persona-badge-btn', title: activePersona.coco_title || '' }, '🎭 ' + activePersona.display_name),
         React.createElement('a', { className: 'theme-btn', style: { marginLeft: 4, textDecoration: 'none' }, href: '/portal' }, 'Portal')
       ),
-      !activePersona && React.createElement('a', { className: 'persona-badge-btn', href: '/portal' }, '🎭 Choose persona')
+      demoMode && !activePersona && React.createElement('a', { className: 'persona-badge-btn', href: '/portal' }, '🎭 Choose persona'),
+      !demoMode && React.createElement('a', { className: 'theme-btn', style: { textDecoration: 'none' }, href: '/portal' }, 'Portal')
     ),
     section !== 'splash' && React.createElement("div", { style: { padding: '4px 14px', background: 'var(--panel)', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 600, color: 'var(--text)', flexShrink: 0 } }, SECTION_LABELS[section] || section),
     section === 'type-system' && /*#__PURE__*/React.createElement("div", { className: "type-subbar" },
@@ -7527,7 +7581,7 @@ function App() {
     ),
     // Body — dispatches to section, then to Type System sub-view
     section === 'splash'
-      ? React.createElement(SplashScreen, { onNavigate: function(s) { setSection(s); if (s === 'type-system') setView('types'); }, saveCreds: saveCreds, demoMode: demoMode })
+      ? React.createElement(SplashScreen, { onNavigate: function(s) { setSection(s); if (s === 'type-system') setView('types'); }, saveCreds: saveCreds, demoMode: demoMode, srvManaged: srvManaged, authUser: authUser })
       : section === 'report-specs'
       ? React.createElement(ReportSpecView, { key: credsKey })
       : section === 'glossary'

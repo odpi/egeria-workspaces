@@ -8,9 +8,9 @@ This directory contains the *egeria-freshstart* deployment files.
 The freshstart deployment is isolated from quickstart and uses:
 
 - Egeria platform on `8443`
-- Jupyter on `7889`
-- Apache web on `8086`
-- FastAPI handler on `8001`
+- Jupyter on `7888`
+- Apache web on `7885`
+- FastAPI handler on `7800`
 
 Kafka (`9192/9193/9194`), PostgreSQL (`5442`), and the OpenLineage proxy (`6000/6001`) are shared infrastructure services managed from
 `compose-configs/shared-infra`.
@@ -107,12 +107,12 @@ Neither overlay changes ports, images, or volumes — the only difference is whe
 
 ## Portal and Authentication
 
-Freshstart includes a web portal at `http://localhost:8086` backed by Egeria's own user store — no SQLite database, no email verification, no self-registration. The admin creates all accounts via the portal's Admin panel.
+Freshstart includes a web portal at `http://localhost:7885` backed by Egeria's own user store — no SQLite database, no email verification, no self-registration. The admin creates all accounts via the portal's Admin panel.
 
 ### First run
 
 1. Start the stack: `./fresh-start-local`
-2. Open `http://localhost:8086/login`
+2. Open `http://localhost:7885/login`
 3. Sign in with `bootstrap` / `secret`
 4. If redirected to the password-change form, set a new password and continue
 5. Go to **Admin → Egeria Users** to create accounts for your team
@@ -141,10 +141,10 @@ For the full reference — config variables, REST API, user lifecycle, admin pan
 
 ## Dr. Egeria Processing
 
-The freshstart environment supports Dr. Egeria processing on port `8001` (MCP/REST).
+The freshstart environment supports Dr. Egeria processing on port `7800` (MCP/REST).
 
 - **Obsidian Plugins**: See the [Obsidian Plugins README](../../obsidian-plugins/call-dr-egeria/README.md) for details on the `Calling the Dr. (MCP)` and legacy plugins.
-- **MCP Server**: The backend (port 8001/sse) exposes Dr. Egeria commands as MCP tools.
+- **MCP Server**: The backend (port 7800/sse) exposes Dr. Egeria commands as MCP tools.
 - **Configuring Profiles**: Use `fs-view-server` and `https://localhost:8443` in your plugin settings.
 
 ----

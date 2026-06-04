@@ -5,6 +5,121 @@ Status: `open` · `in-progress` · `done` · `deferred`
 
 ---
 
+## Prioritization (workstream level)
+
+`My Pri` = Claude's recommendation. `Your Pri` is blank — fill in `H`/`M`/`L` (or a rank) to steer.
+Rationale favours **leverage** (unblocks other work) and **finishing shipped features** over net-new
+exploration. Items can run concurrently when they touch different files; watch the noted dependencies.
+
+| Workstream | Items | My Pri | Your Pri | Why / dependency |
+|------------|-------|:------:|:--------:|------------------|
+| Shared codebase unification | SHARE-1 ✅ done · SHARE-2 ✅ done | **H** |  | Both backend handlers and SPA `type-explorer.html` now byte-identical across quickstart/freshstart. Auth model runtime-gated via `srvManaged` + `demoMode` flags. |
+| pyegeria comment-update bug | PY-4 | **H** |  | Breaks an already-shipped feature (comment edit). Small, self-contained. |
+| Report rendering | RR-1 → RR-5 | **H** |  | Core demo value; RR-1/RR-2 unblock RR-3/4/5. Sequential within the group. |
+| Data preview polish | DP-2, DP-3, DP-4 | **M** |  | User-facing, independent, low risk; good "concurrent" fillers. |
+| my-egeria additional apps | ME-8, ME-9 | **M** |  | TUI now renders end-to-end — momentum is here. Follows the proven ME-2..6 pattern. |
+| ProjectExplorer integration | PORT-7, LF-1 → LF-4 | **M** |  | Needs the LF-AI service stood up first; port `8830` already reserved. |
+| QuickStart demo polish | QS-1, QS-3, QS-4 | **M** |  | Demo-facing; QS-1/QS-3 are quick wins, QS-4 (reset) is bigger. |
+| Performance | PERF-1, PERF-2 | **M** |  | Real pain on deep catalog trees; investigate after correctness work. |
+| Report specs authoring | RS-1, RS-2, RS-3 | **L** |  | Large, spec-still-TBD; defer until RR rendering lands. |
+| User Feedback → Postgres | FB-5 → FB-9 | **M** |  | Per-page tool feedback to `demo.feedback`; env-specific user id; admin tab + analyst docs. Distinct from Egeria feedback. |
+| Journals / feedback extras | FB-4 | **L** |  | Exploratory; storage model undecided. |
+| Demo analytics / extras | QS-5, QS-6, QS-7 | **L** |  | Nice-to-have; QS-7 already deferred. |
+| my-egeria V2 (multi-user) | ME-10, ME-11, ME-12 | **L** |  | Deferred until single-persona path is fully proven. |
+| pyegeria DataDesigner/SA bugs | PY-1, PY-2, PY-3 | **L** |  | Have working local workarounds; fix upstream opportunistically. |
+
+**Concurrency advice:** SHARE-1/2 first (or you fight merge pain on everything after). PY-4, DP-*,
+and ME-8/9 are independent and safe to interleave. RR-* must go in order. Avoid starting RS-* and
+FB-4 until the higher-leverage items clear.
+
+---
+
+## Ports & Networking  🔴 HIGH PRIORITY
+
+**Status (2026-06-03): IMPLEMENTED and VERIFIED on a live quickstart stack** (PORT-1…PORT-6,
+PORT-8, PORT-9 done). Only PORT-7 (ProjectExplorer, a not-yet-built service) remains open.
+Compose files, Apache `ServerName`, `SITE_URL`, `MY_EGERIA_PUBLIC_URL`, portal links,
+`gen-env.sh`, `demo_config.py`, `config_workspaces.json`, launch-script URLs, and all
+READMEs/docs updated. Full table also in repo-root `README.md` (*Host port allocation*).
+Verified after a full `down`/`up`: `:8800` direct, `:8885` /api/types + /egeria-explorer +
+/portal + /my-egeria, `:8888` jupyter, `:8860` obsidian all healthy.
+
+**Correction:** the earlier note "Apache proxy is container-internal, so unaffected" was WRONG
+for quickstart — its vhosts proxied pyegeria-web via `host.docker.internal:8000` (the *host*
+port), so moving 8000→8800 caused 503s. Fixed in PORT-9 by switching to the container name.
+
+**Problem:** the quickstart `pyegeria-web` service publishes host port **8000**, which
+collides with other applications commonly running on a developer's machine and is
+interfering with the environment. We need to move off 8000 — and, while we're at it,
+adopt a consistent, conflict-free host-port scheme across both environments.
+
+**Adopted scheme:** **quickstart = 88xx**, **freshstart = 78xx**, with the **same last
+two digits = same function** in both envs (e.g. jupyter = `88` → quickstart `8888`,
+freshstart `7888`). Only the published **host** port changes; container-internal ports
+stay as-is (the Apache proxy reaches services container-to-container, so it is
+unaffected). Rationale for 88xx/78xx over 9xxx/8xxx: the 9xxx range collides with
+Elasticsearch (9200), Prometheus (9090), MinIO/SonarQube/ClickHouse (9000),
+node_exporter (9100) and our own egeria-main 9443; and an 8xxx/9xxx scheme forces
+pyegeria-web onto the poisoned 8000/9000. The 88xx/78xx blocks are clean (only caveat:
+8888 is Jupyter's own default) and never overlap the fixed services.
+
+**Fixed — do NOT renumber:** egeria-main (quickstart 9443/5005, freshstart 8443/5006),
+shared kafka (9192–9194), shared postgres (5442).
+
+### Current port map (host → container) — after renumbering
+
+| Env | Service | Container | Host:Container | Notes |
+|-----|---------|-----------|----------------|-------|
+| quickstart | jupyter-hub | `quickstart-jupyter-work-full` | 8888:7888, 8889:5678 | notebook + debug |
+| quickstart | egeria-main | `quickstart-egeria-main` | 9443:9443, 5005:5005 | platform + debug (fixed) |
+| quickstart | pyegeria-web | `quickstart-pyegeria-web` | 8800:8000 | ✅ moved off 8000 |
+| quickstart | apache-web | `quickstart-web-server` | 8885:8085 | portal entry point |
+| quickstart | my-profile | `quickstart-my-profile` | 8820:8020 | my-egeria TUI (textual serve) |
+| quickstart | obsidian | `obsidian-quickstart` | 8860:3000, 8861:3001 | optional |
+| freshstart | jupyter-hub | `freshstart-jupyter-work-full` | 7888:7888, 7889:5678 | notebook + debug |
+| freshstart | egeria-main | `freshstart-egeria-main` | 8443:8443, 5006:5005 | platform + debug (fixed) |
+| freshstart | pyegeria-web | `freshstart-pyegeria-web` | 7800:8000 | renumbered |
+| freshstart | apache-web | `freshstart-web-server` | 7885:8085 | portal entry point |
+| shared-infra | openlineage-proxy | `egeria-shared-openlineage-proxy-backend` | 6000:6000, 6001:6001 | fixed |
+| shared-infra | kafka | `egeria-shared-kafka` | 9192:9192, 9193:9193, 9194:9194 | fixed |
+| shared-infra | postgres | `egeria-shared-postgres` | 5442:5442 | fixed (multi-schema) |
+| quickstart | **ProjectExplorer** | *(TBD)* | **8830:8830** *(planned)* | new service — PORT-7 |
+| both | **Egeria Advisor** | *(external, not in compose)* | qs **8880** / fs **7880** | was 8080 (collides w/ Airflow, Spark, new_uc); portal links via `EGERIA_ADVISOR_URL` — PORT-10 |
+
+### Target host-port allocation (88xx / 78xx)
+
+Format below is `host:container` — only the host (left) side changes; container ports stay.
+
+| Function | Code | Quickstart (88xx) | Freshstart (78xx) | From (qs / fs) |
+|----------|------|-------------------|-------------------|----------------|
+| jupyter notebook | 88 | **8888**:7888 | **7888**:7888 | 7888 / 7889 |
+| jupyter debug (debugpy) | 89 | **8889**:5678 | **7889**:5678 | 5678 / 5679 |
+| pyegeria-web | 00 | **8800**:8000 | **7800**:8000 | 8000 / 8001 |
+| apache portal | 85 | **8885**:8085 | **7885**:8085 | 8085 / 8086 |
+| my-profile (my-egeria) | 20 | **8820**:8020 | *7820* (reserved) | 8020 / — |
+| ProjectExplorer | 30 | **8830**:8830 | *7830* (reserved) | new |
+| obsidian web / https | 60 / 61 | **8860**:3000 / **8861**:3001 | — | 3000,3001 / — |
+| Egeria Advisor (external) | 80 | **8880** | **7880** | 8080 (both) |
+
+Frees up the problem port **8000** and also vacates **8086** (InfluxDB default). The only
+caveat: quickstart jupyter `8888` is Jupyter's own default — collides only if another
+Jupyter runs on the host.
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| PORT-1 | Move quickstart `pyegeria-web` off host port 8000 → **8800** | done | `8000:8000` → `8800:8000` in `egeria-quickstart.yaml`. Apache proxy container-internal (`pyegeria-web:8000`) so unaffected. |
+| PORT-2 | Renumber freshstart `pyegeria-web` → **7800** | done | `8001:8000` → `7800:8000` in `egeria-freshstart.yaml`; `SITE_URL`, `gen-env.sh`, docs. |
+| PORT-3 | Renumber jupyter-hub host ports | done | quickstart `8888`/`8889`; freshstart `7888`/`7889`; portal `jupyterUrl` links + docs. |
+| PORT-4 | Renumber apache portal host ports → qs **8885**, fs **7885** | done | Compose, Apache `ServerName`, **`MY_EGERIA_PUBLIC_URL`** → `8885`, `serve_my_egeria.py` comment, READMEs, demo-mode.md. |
+| PORT-5 | Renumber my-profile host port → **8820** | done | `8020:8020` → `8820:8020`; my-egeria proxy container-internal so unaffected. `7820` reserved for freshstart (ME-10). |
+| PORT-6 | Renumber obsidian host ports → **8860 / 8861** | done | Compose + portal `_obsContainerUrl()`/Open-Obsidian button + demo-mode.md. |
+| PORT-7 | Allocate + wire host port for ProjectExplorer → **8830** | open | New service (LF-AI project-explorer, see LF-1..4); needs compose service, proxy `<Location>` route, and a portal tile. `7830` reserved for freshstart. |
+| PORT-8 | Repo-wide grep for hardcoded `:8000` / `:8085` / `localhost:80xx` | done | Swept compose/conf/html/py/sh/md/json; also caught `config_workspaces.json` and launch-script URLs in a second pass. |
+| PORT-9 | Fix quickstart Apache proxy targets (`host.docker.internal:8000` → `quickstart-pyegeria-web:8000`) | done | Root cause of post-renumber 503s. Both `fastapi-proxy.conf` and `fastapi-ssl.conf` (44 targets). Now matches freshstart and is host-port-independent. |
+| PORT-10 | Move Egeria Advisor off `8080` → qs **8880** / fs **7880** | done | Advisor is external (not in compose); `8080` collides with Airflow/Spark/new_uc. Updated `EGERIA_ADVISOR_URL` defaults (compose + `demo_config.py`) and portal `:8080` fallbacks in both envs. **Run the Advisor on the matching port**, or override `EGERIA_ADVISOR_URL` in `.env` if it's a single shared instance. |
+
+---
+
 ## Egeria Explorer — Data Preview
 
 | # | Item | Status | Notes |
@@ -18,12 +133,35 @@ Status: `open` · `in-progress` · `done` · `deferred`
 
 ## Egeria Explorer — Feedback & Comments
 
+**Two distinct feedback systems — keep them separate:**
+
+- **(A) Egeria Feedback** — Likes, Ratings, Comments on Egeria objects, via the Egeria/pyegeria
+  feedback API. **Identical in every environment.** (FB-1..FB-3 done.)
+- **(B) User Feedback** — the "Feedback" button on every tool page capturing the end user's opinion
+  *of the tool/page itself*, persisted to a **Postgres table** (in the shared `demo` schema) so we
+  can analyse how to improve the tools and Egeria. The **user identity attached differs by env**
+  (the only intentional difference); the capture schema and UI are otherwise the same everywhere.
+
 | # | Item | Status | Notes |
 |---|------|--------|-------|
 | FB-1 | Egeria comments on property sheets | done | Glossary Term + Digital Product detail panes; type dropdown; history list |
-| FB-2 | Ratings and likes on Data Design, Digital Products, and Report Specs detail panes | open | Same `EgeriaFeedbackWidget` pattern as Glossary Term; also add filter-by-like-count/rating to list views |
-| FB-3 | Expand comments to more view types — Solution Architect, Data Designer, others | done | Added to: SolutionBlueprint, SolutionComponent, ISC, GovDef, DataDesign; both freshstart + quickstart |
+| FB-2 | Likes + ratings on remaining detail panes | done | `EgeriaFeedbackWidget` on all property detail panes. ReportSpecDetail excluded — pyegeria format specs have no Egeria GUID. |
+| FB-3 | Comments (`EgeriaCommentsSection`) on remaining detail panes | done | `EgeriaCommentsSection` on all property detail panes. ReportSpecDetail excluded — same reason as FB-2. |
 | FB-4 | Journals — persistent per-element notes/log separate from Egeria comments | open | Exploratory; may be local storage or a separate Egeria NoteLog |
+| FB-5 | **User Feedback → Postgres** — move per-page feedback from current `/api/demo-feedback` store to a `feedback` table in the `demo` schema (port 5442). One schema, all envs. | open | Replaces/augments `demo_feedback_handler.py`'s current store. |
+| FB-6 | **Env-specific user identity** on User Feedback (the one intentional per-env difference) | open | Demo: logged-in demo user id. Local Quickstart: email the user supplies. Freshstart: logged-in Egeria user id. Resolve via a single `AUTH_MODE`-aware helper. |
+| FB-7 | **Capture schema** for each submission | open | Fields: user id, page/route (+ element GUID if any), environment, persona (demo), timestamp, email, rating/sentiment, category, free-text message, wants-response flag, tool/build version, user-agent+viewport, session/correlation id, locale, consent-to-contact. See note below. |
+| FB-8 | **Admin review tab** in each env's admin panel | open | List/filter/triage submissions; per-env admin UIs differ but all expose a Feedback review tab. |
+| FB-9 | **Analyst docs** — how to query the raw `feedback` table | open | Document SQL recipes (by page, by env, by date, response-requested queue) against Postgres `demo.feedback`. |
+
+**FB-7 recommended capture fields** (your list + additions):
+*Your list:* user id · page · environment · timestamp · email · wants-response.
+*Suggested additions:* the **free-text message** + a **rating/sentiment** (the actual content) · **category**
+(bug / confusing / suggestion / praise) · **element/object GUID or route detail** in view · **active persona**
+(demo) · **tool/build version or git SHA** (correlate to a release) · **user-agent + viewport** (repro UI issues)
+· **session/correlation id** (link multiple submissions / to analytics events QS-5) · **locale** · **explicit
+consent-to-contact** flag (separate from wants-response, for privacy basis) · server-side **triage status**
+(new/triaged/actioned). Optional: screenshot attachment.
 
 ---
 
@@ -54,10 +192,23 @@ Spec: `report-rendering-plan.md`
 
 ## Egeria Explorer — Shared Codebase
 
+`type-explorer.html` (~7500 lines) and the backend handlers existed as separate copies under
+`egeria-quickstart/` and `egeria-freshstart/`. The earlier "~38 lines" estimate was wrong: actual
+divergence was ~4,300 diff-lines, but it splits cleanly — the **Explorer logic was ~95% identical**;
+real divergence is confined to (a) the **auth/credential seam** and (b) the by-design **auth/portal
+layer** (demo SQLite auth vs Egeria-backed auth — intentionally separate, NOT unified).
+
+**SHARE-2 is DONE.** All Explorer **backend handlers are now byte-identical** across both envs and
+verified live (`/api/types` 200 in quickstart *and* freshstart). The credential seam is unified via a
+`SERVER_MANAGED_AUTH` flag in `demo_config.py` (False=quickstart form/demo creds; True=freshstart
+per-user Egeria token w/ service-account fallback). Remaining backend divergence is only the
+by-design auth/portal layer (`demo_auth_handler`, `demo-*.html`, `demo_db`, `pyegeria_handler`
+app-wiring) and the legitimately env-specific `config_workspaces.json` publishing-root port.
+
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| SHARE-1 | Unify `type-explorer.html` — one file served to both envs; gate demo features via `/api/env` endpoint | open | Dual-file causes constant sync burden; diverge through env detection not separate files |
-| SHARE-2 | Unify backend handlers (digital_products, egeria_feedback, etc.) across freshstart + quickstart | open | Same root cause as SHARE-1; quickstart-only features (tree cache, demo auth) should be env-gated |
+| SHARE-2 | Unify backend Explorer handlers across freshstart + quickstart | done | `type_system_handler` (via `SERVER_MANAGED_AUTH` superset), `digital_products`, `governance_definitions`, `egeria_feedback` all byte-identical; rest of Explorer handlers already were. Auth/portal layer stays per-env by design. |
+| SHARE-1 | Unify `type-explorer.html` — one canonical SPA served to both envs | done | `/api/auth/me` extended with `server_managed_auth`; `srvManaged` SPA state added; 8 auth regions runtime-gated (ConnectionForm, creds defaults, load effect, "Connected as" banner, persona badge, error-retry, portal link); files byte-identical across both envs. Portal link now present in ALL modes (was regression-hidden behind `demoMode`). Needs browser verification in 3 modes (demo-qs, local-qs, freshstart). |
 
 ---
 
@@ -93,6 +244,7 @@ Spec: `report-rendering-plan.md`
 |---|------|--------|-------|
 | RS-1 | Building / editing Report Specs from the UI | open | Large feature; spec TBD — form-driven composition of report specs |
 | RS-2 | Subscribe to a Digital Product | open | Exploratory — notification or watch mechanism when product changes |
+| RS-3 | Filter Report Specs list by Perspective and/or Question | open | Orthogonal selection axis — user picks a perspective (e.g. governance, lineage) or a question and sees only relevant report specs; complements existing name/description search |
 
 ---
 
@@ -136,10 +288,37 @@ Repo: `/Users/dwolfson/localGit/LF-AI/project-explorer`
 
 ---
 
+## my-egeria Integration (Textual apps in portal)
+
+Design doc: `my-egeria-integration.md` (in session). Architecture: `textual serve` turns Textual apps into browser tools; Apache proxies with WebSocket support.
+
+**Credential model (V1):** single container per app; persona fixed at service startup via `EGERIA_USER` / `EGERIA_USER_PASSWORD` env vars from `.env`. All browser sessions to that app share one persona — fine for local single-user demo.
+
+**Port allocation:** my_profile=8020, Data Products=8021, Tech Types=8022, Reports=8023, Journals=8024
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| ME-1 | `serve_my_profile()` + entry point in pyegeria | done | In `my_egeria/serve.py`; registered in root `pyproject.toml` |
+| ME-2 | `Dockerfile-my-egeria` in quickstart | done | Uses `textual_serve.Server` programmatically; textual==6.1.0 pinned |
+| ME-3 | `my-profile` compose service in `egeria-quickstart.yaml` | done | Port 8020; `EGERIA_USER` / `EGERIA_USER_PASSWORD` from `.env` |
+| ME-4 | `mod_proxy_wstunnel` in quickstart `httpd.conf` | done | Required for `upgrade=websocket`. (mod_substitute hack removed — superseded by ME-7's public_url fix.) |
+| ME-5 | WebSocket proxy route `/my-egeria/` in quickstart `fastapi-proxy.conf` | done | `http://quickstart-my-profile:8020/` with `upgrade=websocket`; container name not host.docker.internal. `/my-egeria/static/...` and `/my-egeria/ws` both route through this Location. |
+| ME-6 | "My Egeria" portal tile in quickstart `demo-portal.html` | done | Opens in new tab |
+| ME-7 | End-to-end smoke test: browser → Apache WS proxy → Textual app | done | Two fixes were needed: (1) `*.tcss` missing from pyegeria `package_data` (StylesheetError crashed every session) — fixed upstream + Dockerfile bridge; (2) CSP blocked cross-origin `0.0.0.0:8020` assets — fixed by passing `public_url` to `textual_serve.Server` so it emits same-origin `/my-egeria/...` URLs. Verified: assets 200, WS 101 through proxy, no StylesheetError. |
+| ME-7a | `/my-profile` returns 401 for some personas (erinoverview, garygeeke) despite valid token | open | peterprofile loads fine and is now the quickstart default. erinoverview/garygeeke get a bearer token (`TOKEN OK`) but the `/my-profile` GET returns 401, so the TUI exits before first paint. Likely related to the known my-profile/type-query 401 (pyegeria). Investigate token scope or account state. |
+| ME-8 | `serve_*` entry points for additional apps (Data Products, Tech Types, Reports, Journals) | open | Apps exist in `DemoCode/` but no `serve_*` functions or `pyproject.toml` entries yet |
+| ME-9 | Additional app compose services + proxy routes + portal tiles | open | Follow ME-2/3/4/5/6 pattern; ports 8021–8024 |
+| ME-10 | my-egeria integration in freshstart (Option A — app handles login) | deferred | After quickstart smoke test passes; freshstart omits `EGERIA_USER`/`EGERIA_USER_PASSWORD` so app prompts user |
+| ME-11 | V2 per-persona credential routing (one container per Coco persona) | deferred | Zero app changes; Apache routes `/my-egeria/{persona}/` to right container; all passwords `secret` in quickstart |
+| ME-12 | V2 per-session process spawning for freshstart multi-user | deferred | Integration doc Option B; needs process manager service + dynamic port allocation |
+
+---
+
 ## Done (recent)
 
 | Item | Commit |
 |------|--------|
+| Type System Explorer ported to freshstart | — |
 | Egeria Explorer login loop in Freshstart — token expiry + erinoverview defaults | `85341fb6` |
 | Admin edit modal — givenName/surname pre-population | `85341fb6` |
 | Egeria native likes + ratings on detail panes | `1344acfc` |

@@ -48,7 +48,7 @@ if isinstance(env, dict):
     env["Egeria Integration Daemon URL"] = f"https://{host}:9443"
     env["Egeria View Server URL"] = f"https://{host}:9443"
     env["Egeria Kafka Endpoint"] = "host.docker.internal:9194"
-    env["Pyegeria Publishing Root"] = f"http://{host}:8085/dr-egeria-outbox"
+    env["Pyegeria Publishing Root"] = f"http://{host}:8885/dr-egeria-outbox"
 
 tmp_path = path + ".tmp"
 with open(tmp_path, "w", encoding="utf-8") as f:

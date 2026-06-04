@@ -12,6 +12,12 @@ import os
 
 DEMO_MODE: bool = os.environ.get("DEMO_MODE", "false").lower() in ("true", "1", "yes")
 
+# Auth model: Quickstart resolves Egeria credentials from the connection form
+# (local) or the selected demo persona (demo) — NOT from a server-managed
+# Egeria JWT.  Freshstart sets this True.  Used by shared handlers to decide
+# whether to use the logged-in user's Egeria bearer token.
+SERVER_MANAGED_AUTH: bool = os.environ.get("SERVER_MANAGED_AUTH", "false").lower() in ("true", "1", "yes")
+
 # ── Database (PostgreSQL on egeria-shared-postgres:5442, coco_pharma / demo_auth schema) ──
 
 DEMO_DB_HOST:     str = os.environ.get("DEMO_DB_HOST",     "egeria-shared-postgres")
@@ -49,7 +55,7 @@ RESEND_FROM:    str = os.environ.get("RESEND_FROM",    "")
 
 # ── URLs ───────────────────────────────────────────────────────────────────────
 
-SITE_URL: str = os.environ.get("SITE_URL", "http://localhost:8085").rstrip("/")
+SITE_URL: str = os.environ.get("SITE_URL", "http://localhost:8885").rstrip("/")
 COOKIE_SECURE: bool = SITE_URL.startswith("https://")
 
 # ── Portal tile config ─────────────────────────────────────────────────────────
@@ -60,6 +66,6 @@ COOKIE_SECURE: bool = SITE_URL.startswith("https://")
 OBSIDIAN_VAULT_URL:   str = os.environ.get("OBSIDIAN_VAULT_URL",   "")
 OBSIDIAN_GITHUB_URL:  str = os.environ.get("OBSIDIAN_GITHUB_URL",  "https://github.com/odpi/egeria-workspaces/tree/main/coco-workbooks")
 
-# URL of the Egeria Advisor service. Set in .env or yaml (default: localhost:8080).
+# URL of the Egeria Advisor service. Set in .env or yaml (default: localhost:8880).
 # Checked server-side at startup to set advisor_running in portal-config.
-EGERIA_ADVISOR_URL:   str = os.environ.get("EGERIA_ADVISOR_URL",   "http://localhost:8080/")
+EGERIA_ADVISOR_URL:   str = os.environ.get("EGERIA_ADVISOR_URL",   "http://localhost:8880/")

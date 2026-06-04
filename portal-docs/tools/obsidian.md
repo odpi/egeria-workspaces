@@ -48,6 +48,8 @@ The portal tile picks the right URL automatically. You never need to type the po
 
 `coco-workbooks/` is mounted as the vault root at `/config/vaults`. On the very first launch Obsidian shows a vault-selector screen — click **Open** (the path `/config/vaults` is already configured). This is a one-time step; the selection is saved to the mounted config volume and the vault opens directly on every subsequent restart.
 
+The `templates/` folder appears at the vault root as a symlink to the shared `templates/` directory in the repo — browse `templates/basic/` and `templates/advanced/` directly from the Obsidian file explorer.
+
 ### Session lock
 
 Because there is only one containerised Obsidian instance, the portal manages exclusive access with a session lock:
@@ -87,6 +89,24 @@ Open **Settings → Call Dr. Egeria Settings (MCP)**:
 1. Open a note containing a Dr. Egeria command.
 2. Click the **Briefcase** icon in the left ribbon, or use **Command Palette → Run Note via MCP**.
 3. Results appear in a resizable modal. If the directive is `process`, output is also saved to the outbox.
+
+---
+
+## Lock management — local and small-team mode
+
+In local mode (`DEMO_MODE=false`) the session lock is still active, which matters when Quickstart is shared by a small team.
+
+**To release a stuck lock without restarting:**
+
+Go to **`/admin`** (no login required in local mode). The Local Admin page shows the current lock state and provides **Force Release** and **Evict** buttons.
+
+**To disable locking entirely** for a single-user local install, set in your `.env`:
+
+```
+OBSIDIAN_LOCK_ENABLED=false
+```
+
+The portal tile will still appear but skips the lock handshake.
 
 ---
 

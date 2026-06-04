@@ -61,11 +61,20 @@ def _get_client_from_token(url: str, server: str, user_id: str, egeria_token: st
 
 
 def _egeria_token_from_request(request: "Request") -> str | None:
-    """Extract the Egeria bearer token stored in the portal JWT cookie."""
+    """Egeria bearer token from the portal JWT cookie — only under server-managed
+    auth (freshstart). Returns None in demo mode and local connection-form mode,
+    where credentials come from the form/env instead (and where the demo
+    ``get_current_user`` has a different, db-bound signature)."""
+    try:
+        from demo_config import SERVER_MANAGED_AUTH
+    except Exception:
+        return None
+    if not SERVER_MANAGED_AUTH:
+        return None
     try:
         from demo_auth_handler import get_current_user
         user = get_current_user(request)
-        return user.egeria_token if user and user.egeria_token else None
+        return user.egeria_token if user and getattr(user, "egeria_token", None) else None
     except Exception:
         return None
 
@@ -208,10 +217,27 @@ _TYPE_NAMES_CACHE: dict[str, list[str]] = {}
 @router.get("/type-explorer", include_in_schema=False)
 async def egeria_explorer_ui(request: Request):
     """Serve the Egeria Explorer single-page application."""
-    from demo_auth_handler import get_current_user
-    user = get_current_user(request)
-    if not user:
-        return RedirectResponse(url="/login", status_code=302)
+    from demo_config import DEMO_MODE
+    try:
+        from demo_config import SERVER_MANAGED_AUTH
+    except Exception:
+        SERVER_MANAGED_AUTH = False
+    if DEMO_MODE:
+        # Demo (Quickstart): SQLite-backed accounts, require a verified user.
+        from demo_auth_handler import get_current_user
+        from demo_db import get_engine
+        from sqlalchemy.orm import Session
+        with Session(get_engine()) as db:
+            user = get_current_user(request, db)
+        if not user or not user.verified:
+            return RedirectResponse(url="/login", status_code=302)
+    elif SERVER_MANAGED_AUTH:
+        # Freshstart: Egeria-backed auth, require a logged-in portal user.
+        from demo_auth_handler import get_current_user
+        user = get_current_user(request)
+        if not user:
+            return RedirectResponse(url="/login", status_code=302)
+    # else (local Quickstart): no login gate — connection form supplies creds.
     html_path = _HERE / "type-explorer.html"
     if not html_path.exists():
         raise HTTPException(status_code=404, detail=f"Egeria Explorer UI not found at {html_path}")
@@ -222,6 +248,10 @@ async def egeria_explorer_ui(request: Request):
 async def get_type_names(
     request: Request,
     kind: str = Query("entity", description="Type kind: entity, classification, or relationship"),
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
 ):
     """Return a sorted list of type names for the given kind. Results are cached process-wide."""
     cache_key = kind.lower()
@@ -232,13 +262,17 @@ async def get_type_names(
         raise HTTPException(status_code=400, detail=f"Unknown kind '{kind}'. Use entity, classification, or relationship.")
 
     d = _env_defaults()
+    url      = url      or d["url"]
+    server   = server   or d["server"]
+    user_id  = user_id  or d["user_id"]
+    user_pwd = user_pwd or d["user_pwd"]
     egeria_token = _egeria_token_from_request(request)
 
     try:
         if egeria_token:
-            c = _get_client_from_token(d["url"], d["server"], d["user_id"], egeria_token)
+            c = _get_client_from_token(url, server, user_id, egeria_token)
         else:
-            c = _get_client(d["url"], d["server"], d["user_id"], d["user_pwd"])
+            c = _get_client(url, server, user_id, user_pwd)
         if cache_key == "entity":
             raw = _normalize_raw(c.get_all_entity_defs(), "Entity definitions")
         elif cache_key == "classification":
@@ -264,6 +298,10 @@ async def get_all_types(
         description="Filter entity types to a specific area (0–9). "
                     "Relationships and classifications are always returned in full.",
     ),
+    url:      Optional[str] = Query(None, description="Egeria platform URL (overrides env)"),
+    server:   Optional[str] = Query(None, description="Egeria view server name (overrides env)"),
+    user_id:  Optional[str] = Query(None, description="Egeria user id (overrides env)"),
+    user_pwd: Optional[str] = Query(None, description="Egeria user password (overrides env)"),
 ):
     """
     Return the complete Egeria open metadata type system.
@@ -274,36 +312,45 @@ async def get_all_types(
     containing only the *own* properties; the UI computes inherited
     properties by walking the ``supertype`` chain client-side.
 
-    Connection uses the logged-in user's Egeria bearer token in freshstart.
+    Connection: form/env credentials by default; under server-managed auth
+    (freshstart) the logged-in user's Egeria bearer token is used, falling back
+    to the env service account if that token is rejected (e.g. expired).
     """
     d = _env_defaults()
+    url      = url      or d["url"]
+    server   = server   or d["server"]
+    user_id  = user_id  or d["user_id"]
+    user_pwd = user_pwd or d["user_pwd"]
     egeria_token = _egeria_token_from_request(request)
 
     def _fetch_raw(c):
-        entity_raw       = _normalize_raw(c.get_all_entity_defs(),        "Entity definitions")
-        relationship_raw = _normalize_raw(c.get_all_relationship_defs(),  "Relationship definitions")
-        classification_raw = _normalize_raw(c.get_all_classification_defs(), "Classification definitions")
+        entity_raw         = _normalize_raw(c.get_all_entity_defs(),          "Entity definitions")
+        relationship_raw   = _normalize_raw(c.get_all_relationship_defs(),    "Relationship definitions")
+        classification_raw = _normalize_raw(c.get_all_classification_defs(),  "Classification definitions")
         c.close_session()
         return entity_raw, relationship_raw, classification_raw
 
     try:
         if egeria_token:
             try:
-                c = _get_client_from_token(d["url"], d["server"], d["user_id"], egeria_token)
+                c = _get_client_from_token(url, server, user_id, egeria_token)
                 entity_raw, relationship_raw, classification_raw = _fetch_raw(c)
             except (PyegeriaException, Exception) as token_exc:
                 # JWT egeria_token may have expired — fall back to service-account credentials
                 logger.warning(f"Token-based auth failed ({token_exc}); retrying with env-var credentials")
-                c = _get_client(d["url"], d["server"], d["user_id"], d["user_pwd"])
+                c = _get_client(url, server, user_id, user_pwd)
                 entity_raw, relationship_raw, classification_raw = _fetch_raw(c)
         else:
-            c = _get_client(d["url"], d["server"], d["user_id"], d["user_pwd"])
+            c = _get_client(url, server, user_id, user_pwd)
             entity_raw, relationship_raw, classification_raw = _fetch_raw(c)
         if entity_raw:
             sample = entity_raw[0]
             logger.info(f"Entity def sample wiki: {sample.get('descriptionWiki', '<missing>')}")
     except PyegeriaException as exc:
         logger.exception(f"Pyegeria error in get_all_types: {exc}")
+        exc_text = str(exc)
+        if "HTTP Code: 401" in exc_text or getattr(exc, "http_error_code", None) == 401:
+            raise HTTPException(status_code=401, detail="Not authorized — check credentials or user permissions")
         raise HTTPException(status_code=502, detail=f"Egeria error: {exc}")
     except Exception as exc:
         logger.exception(f"Unexpected error in get_all_types: {exc}")

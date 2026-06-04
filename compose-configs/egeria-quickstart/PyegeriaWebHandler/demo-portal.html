@@ -338,8 +338,8 @@ function applyPersonaUI(persona) {
 
 // ── App grid ──────────────────────────────────────────────────────────────────
 function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
-  var jupyterUrl = 'http://' + window.location.hostname + ':7888/?token=egeria';
-  advisorUrl = advisorUrl || ('http://' + window.location.hostname + ':8080/');
+  var jupyterUrl = 'http://' + window.location.hostname + ':8888/?token=egeria';
+  advisorUrl = advisorUrl || ('http://' + window.location.hostname + ':8880/');
   var apps = [
     { icon: '🔍', name: 'Egeria Explorer',
       desc: 'Browse Egeria metadata — types, glossary, lineage, governance blueprints, information supply chains, and more.',
@@ -355,6 +355,12 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
         ? 'Open the Coco Pharmaceuticals workbook vault in your local Obsidian install.'
         : 'Open the workbook vault in the shared browser-based Obsidian, or browse on GitHub.',
       enabled: true, obsidian: true },
+    { icon: '⚙️', name: 'Admin',
+      desc: 'Manage the Obsidian session lock, view audit log, and add reservations.',
+      url: '/admin', newTab: false, enabled: !demoMode },
+    { icon: '🖥️', name: 'My Egeria',
+      desc: 'Explore your Egeria profile, roles, teams, actions, and data catalog.',
+      url: '/my-egeria/', newTab: true, enabled: true },
     { icon: '🤖', name: 'Egeria Advisor',
       desc: advisorRunning ? 'AI-powered guidance for your Egeria environment.' : 'AI-powered guidance for your Egeria environment. (Not currently running)',
       url: advisorUrl, newTab: true, enabled: !demoMode, unavailable: !demoMode && !advisorRunning },
@@ -402,8 +408,8 @@ function _obsIsLocal() { return !!_obsidianUrl; }
 function _obsContainerUrl() {
   var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   return isLocal
-    ? 'http://' + location.hostname + ':3000'
-    : 'https://' + location.hostname + ':3001';
+    ? 'http://' + location.hostname + ':8860'
+    : 'https://' + location.hostname + ':8861';
 }
 
 function _obsLaunchTarget() {
@@ -455,7 +461,7 @@ function _renderObsTile(s) {
   // Lock disabled: show direct link with no state management
   if (s.state === 'DISABLED') {
     html = '<div class="obs-actions">'
-      + '<button class="btn btn-accent" onclick="window.open(\'http://\'+location.hostname+\':3000\',\'_blank\',\'noopener\')">Open Obsidian →</button>'
+      + '<button class="btn btn-accent" onclick="window.open(\'http://\'+location.hostname+\':8860\',\'_blank\',\'noopener\')">Open Obsidian →</button>'
       + _obsGhBtn()
       + '</div>';
     el.innerHTML = html;

@@ -11,6 +11,7 @@ POST   /api/egeria-feedback/{guid}/rating                 → set/update rating
 DELETE /api/egeria-feedback/{guid}/rating                 → remove rating
 GET    /api/egeria-feedback/{guid}/comments               → list comments
 POST   /api/egeria-feedback/{guid}/comments               → add comment
+PUT    /api/egeria-feedback/{guid}/comments/{comment_guid}→ update comment
 DELETE /api/egeria-feedback/{guid}/comments/{comment_guid}→ remove comment
 """
 

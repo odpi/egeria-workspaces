@@ -1,0 +1,154 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Always run from repo root
+cd "$(dirname "$0")"
+
+source compose-configs/shared-infra/detect-engine.sh
+source compose-configs/shared-infra/compose-build-flags.sh
+
+print_usage() {
+  cat <<'EOF'
+Usage: ./refresh-local [OPTIONS]
+
+Stops the Egeria stacks, removes locally-built images, pulls the latest
+egeria-workspaces, rebuilds images, and restarts everything.
+
+Options:
+  --demo            Pass --demo to quick-start-local (enables auth, HTTPS, SSL)
+  --no-freshstart   Skip the freshstart stack (bring down only quickstart)
+  --infra           Also cycle shared infrastructure (Kafka, Postgres, proxy)
+  --no-pull         Skip git pull (useful when testing local changes)
+  -h, --help        Show this help text.
+EOF
+}
+
+DEMO_FLAG=0
+SKIP_FRESHSTART=0
+REFRESH_INFRA=0
+SKIP_PULL=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --demo)          DEMO_FLAG=1;        shift ;;
+    --no-freshstart) SKIP_FRESHSTART=1; shift ;;
+    --infra)         REFRESH_INFRA=1;   shift ;;
+    --no-pull)       SKIP_PULL=1;       shift ;;
+    -h|--help)       print_usage; exit 0 ;;
+    *) echo "[refresh-local] Unknown option: $1" >&2; print_usage >&2; exit 1 ;;
+  esac
+done
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+remove_image() {
+  local img="$1"
+  if $CONTAINER_ENGINE image inspect "$img" >/dev/null 2>&1; then
+    $CONTAINER_ENGINE rmi "$img" && echo "[refresh-local]   Removed $img" || \
+      echo "[refresh-local]   WARNING: could not remove $img (may be in use)" >&2
+  fi
+}
+
+compose_down() {
+  local project="$1" yaml="$2"
+  echo "[refresh-local] Stopping ${project}..."
+  # Use the base yaml so compose can resolve service names; project name
+  # identifies which running containers belong to this stack.
+  if [[ "$CONTAINER_ENGINE" == "podman" ]]; then
+    # podman-compose down can block — force-remove known containers directly
+    local containers
+    containers=$($CONTAINER_ENGINE ps -a --format '{{.Names}}' \
+                  | grep -E "^${project}-|^${project}_" || true)
+    if [[ -n "$containers" ]]; then
+      # shellcheck disable=SC2086
+      $CONTAINER_ENGINE rm -f $containers >/dev/null 2>&1 || true
+    fi
+  else
+    $COMPOSE_CMD -p "$project" -f "$yaml" down --remove-orphans 2>/dev/null || true
+  fi
+}
+
+# ── 1. Stop stacks ────────────────────────────────────────────────────────────
+
+compose_down egeria-quickstart \
+  compose-configs/egeria-quickstart/egeria-quickstart.yaml
+
+# obsidian runs in the quickstart project but may have a separate container
+# name in some podman-compose versions — remove it explicitly to be safe
+$CONTAINER_ENGINE rm -f obsidian-quickstart >/dev/null 2>&1 || true
+
+if [[ "$SKIP_FRESHSTART" -eq 0 ]]; then
+  compose_down egeria-freshstart \
+    compose-configs/egeria-freshstart/egeria-freshstart.yaml
+fi
+
+if [[ "$REFRESH_INFRA" -eq 1 ]]; then
+  compose_down egeria-shared-infra \
+    compose-configs/shared-infra/shared-infra.yaml
+fi
+
+# ── 2. Remove locally-built images ───────────────────────────────────────────
+
+echo "[refresh-local] Removing locally-built images..."
+
+QUICKSTART_IMAGES=(
+  egeria-quickstart-platform:local
+  egeria-quickstart-pyegeria-web:latest
+  egeria-quickstart-jupyter:local
+  egeria-quickstart-apache-web:latest
+)
+FRESHSTART_IMAGES=(
+  egeria-freshstart-platform:local
+  egeria-freshstart-pyegeria-web:latest
+  egeria-freshstart-jupyter:local
+  egeria-freshstart-apache-web:latest
+)
+INFRA_IMAGES=(
+  egeria-shared-infra-proxy:latest
+)
+
+for img in "${QUICKSTART_IMAGES[@]}"; do
+  remove_image "$img"
+done
+
+if [[ "$SKIP_FRESHSTART" -eq 0 ]]; then
+  for img in "${FRESHSTART_IMAGES[@]}"; do
+    remove_image "$img"
+  done
+fi
+
+if [[ "$REFRESH_INFRA" -eq 1 ]]; then
+  for img in "${INFRA_IMAGES[@]}"; do
+    remove_image "$img"
+  done
+fi
+
+# ── 3. Pull latest egeria-workspaces ─────────────────────────────────────────
+
+if [[ "$SKIP_PULL" -eq 0 ]]; then
+  echo "[refresh-local] Pulling latest egeria-workspaces..."
+  git pull
+else
+  echo "[refresh-local] Skipping git pull (--no-pull)."
+fi
+
+# ── 4. Restart ────────────────────────────────────────────────────────────────
+
+echo "[refresh-local] Restarting quickstart stack..."
+if [[ "$DEMO_FLAG" -eq 1 ]]; then
+  ./quick-start-local --demo
+else
+  ./quick-start-local
+fi
+
+if [[ "$SKIP_FRESHSTART" -eq 0 ]]; then
+  # Only restart freshstart if its secrets directory already exists — that
+  # indicates it was previously configured. A brand-new clone has no secrets.
+  if [[ -d "runtime-volumes/freshstart-platform-data/secrets" ]]; then
+    echo "[refresh-local] Restarting freshstart stack..."
+    ./fresh-start-local
+  else
+    echo "[refresh-local] Skipping freshstart restart (no prior setup found)."
+    echo "[refresh-local]   Run ./fresh-start-local manually to set it up."
+  fi
+fi

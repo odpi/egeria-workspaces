@@ -12,6 +12,11 @@ import os
 
 DEMO_MODE: bool = os.environ.get("DEMO_MODE", "false").lower() in ("true", "1", "yes")
 
+# Auth model: Freshstart is Egeria-backed — shared handlers use the logged-in
+# user's Egeria bearer token (from the portal JWT) for Explorer queries,
+# falling back to the env service account if that token is rejected.
+SERVER_MANAGED_AUTH: bool = os.environ.get("SERVER_MANAGED_AUTH", "true").lower() in ("true", "1", "yes")
+
 # ── JWT ────────────────────────────────────────────────────────────────────────
 
 JWT_SECRET: str       = os.environ.get("JWT_SECRET", "change-me-before-going-public")
@@ -36,10 +41,10 @@ EGERIA_ADMIN_USERS: set[str] = {
 
 # ── URLs ───────────────────────────────────────────────────────────────────────
 
-SITE_URL: str = os.environ.get("SITE_URL", "http://localhost:8086").rstrip("/")
+SITE_URL: str = os.environ.get("SITE_URL", "http://localhost:7885").rstrip("/")
 
 # Optional integrations — set in .env, not in yaml
-EGERIA_ADVISOR_URL:  str = os.environ.get("EGERIA_ADVISOR_URL",  "http://localhost:8080/")
+EGERIA_ADVISOR_URL:  str = os.environ.get("EGERIA_ADVISOR_URL",  "http://localhost:7880/")
 OBSIDIAN_VAULT_URL:  str = os.environ.get("OBSIDIAN_VAULT_URL",  "")
 OBSIDIAN_GITHUB_URL: str = os.environ.get("OBSIDIAN_GITHUB_URL", "https://github.com/odpi/egeria-workspaces/tree/main/coco-workbooks")
 

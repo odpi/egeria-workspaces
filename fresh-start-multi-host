@@ -63,6 +63,6 @@ echo "  - Effective HOST_FQDN: ${HOST_FQDN_PRINT}"
 echo "  - Effective KAFKA_CLUSTER_ID: ${KAFKA_CLUSTER_ID_PRINT}"
 echo "  - Egeria (platform): https://${HOST_FQDN_PRINT:-localhost}:8443 (reachable from other hosts if DNS resolves)"
 echo "  - Kafka external:    ${HOST_FQDN_PRINT:-localhost}:9194"
-echo "  - Jupyter (local):   http://localhost:7889   (password: egeria)"
-echo "  - Web (local):       http://localhost:8086"
+echo "  - Jupyter (local):   http://localhost:7888   (password: egeria)"
+echo "  - Web (local):       http://localhost:7885"
 
