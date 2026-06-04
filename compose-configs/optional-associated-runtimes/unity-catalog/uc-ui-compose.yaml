@@ -42,11 +42,12 @@ services:
 
     command: ./bin/start-uc-server -p 8187
 
-  ui1:
+  unity-coco-ui:
 #    build:
 #      context: ui/
 #      dockerfile: Dockerfile
     image: dwolfson/egeria-uc-ui-8087:latest
+    container_name: uc-unity-coco-ui
     ports:
       - "3010:3010"
     depends_on:
