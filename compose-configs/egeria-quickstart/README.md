@@ -307,14 +307,21 @@ Apache returns this when it can't resolve a container hostname — almost always
 
 **Root cause:** `egeria_network` is declared `external: true` in both compose files. If the quickstart stack is brought up before `ensure-shared-infra.sh` runs (or after a hard stop that left the network empty), containers attach to the default Podman network instead.
 
-**Fix (Podman 3.x requires a container restart for network changes to take effect):**
+**Fix:** Podman 3.x requires a full stop/start cycle (not just restart) to activate a new network attachment, otherwise you get "address already in use" on the port rebind.
+
 ```bash
 for c in quickstart-egeria-main quickstart-pyegeria-web quickstart-web-server \
-          quickstart-jupyter-work-full obsidian-quickstart \
+          quickstart-jupyter-work-full obsidian-quickstart quickstart-my-profile \
           egeria-shared-postgres egeria-shared-kafka \
           egeria-shared-openlineage-proxy-backend; do
-  podman network connect egeria_network $c 2>/dev/null; podman restart $c && echo "restarted $c" || echo "failed $c"
+  podman network connect egeria_network $c 2>/dev/null
+  podman stop $c && podman start $c && echo "restarted $c" || echo "failed $c"
 done
+```
+
+After connecting a container to a new network, any container that proxies *to* it (e.g. `quickstart-web-server` → `quickstart-my-profile`) must also be restarted so its DNS resolver picks up the new peer:
+```bash
+podman stop quickstart-web-server && podman start quickstart-web-server
 ```
 
 **Prevention:** always start via `compose-configs/shared-infra/ensure-shared-infra.sh` before bringing up the quickstart stack — that script creates `egeria_network` if it doesn't exist.

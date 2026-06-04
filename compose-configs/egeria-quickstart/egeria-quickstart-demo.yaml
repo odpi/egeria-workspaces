@@ -25,6 +25,10 @@ services:
       - ./sites-available/fastapi-ssl.conf:/usr/local/apache2/conf/extra/fastapi-ssl.conf
       - ${CERT_DIR}:/etc/ssl/egeria:ro
 
+  my-profile:
+    environment:
+      MY_EGERIA_PUBLIC_URL: "${DEMO_SITE_URL}/my-egeria"
+
   obsidian:
     volumes:
       - ${CERT_DIR}/server.crt:/config/ssl/cert.pem:ro
