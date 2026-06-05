@@ -92,6 +92,27 @@ ensure_service_image() {
   return 2
 }
 
+# Podman 3.x: network connect on a running container doesn't take effect until the
+# container is stopped and restarted. podman-compose also silently skips external
+# networks on container creation. This function connects each container to
+# egeria_network and cycles any that weren't already on it.
+_podman_fix_network() {
+  local needs_cycle=()
+  for c in "$@"; do
+    if podman network connect egeria_network "$c" 2>/dev/null; then
+      needs_cycle+=("$c")
+    fi
+    # exit 125 = already connected — no restart needed
+  done
+  if [[ ${#needs_cycle[@]} -gt 0 ]]; then
+    echo "[quick-start-local] Cycling ${needs_cycle[*]} onto egeria_network (Podman 3.x workaround)..."
+    podman stop "${needs_cycle[@]}" 2>/dev/null || true
+    for c in "${needs_cycle[@]}"; do
+      podman start "$c" || echo "[quick-start-local] WARNING: failed to start $c"
+    done
+  fi
+}
+
 echo "[quick-start-local] Preparing environment (.env) and compose files..."
 echo "[quick-start-local] Quickstart uses image-provided secrets and mounts runtime data/logs only."
 
@@ -278,10 +299,11 @@ EOF
     COMPOSE_FILES+=(-f egeria-quickstart-demo.yaml)
   fi
 
-  echo "[quick-start-local] Ensuring core images are available (platform, pyegeria-web, jupyter)..."
+  echo "[quick-start-local] Ensuring core images are available (platform, pyegeria-web, jupyter, my-profile)..."
   ensure_service_image egeria-main egeria-quickstart-platform:local 1 "$REFRESH_PLATFORM"
   ensure_service_image pyegeria-web egeria-quickstart-pyegeria-web:latest 1
   ensure_service_image jupyter-hub egeria-quickstart-jupyter:local 1
+  ensure_service_image my-profile egeria-quickstart-my-profile:local 1
 
   APACHE_BUILD_OK=1
   echo "[quick-start-local] Ensuring apache-web image is available (optional)..."
@@ -295,7 +317,8 @@ EOF
     # podman-compose up -d can block indefinitely if prior containers are stuck stopping/starting.
     # Force-remove any leftover quickstart containers before starting fresh.
     for _cname in quickstart-egeria-main quickstart-pyegeria-web quickstart-jupyter-work-full \
-                  quickstart-web-server obsidian-quickstart egeria-quickstart_egeria-main_1; do
+                  quickstart-web-server obsidian-quickstart quickstart-my-profile \
+                  egeria-quickstart_egeria-main_1; do
       $CONTAINER_ENGINE rm -f "$_cname" >/dev/null 2>&1 || true
     done
     # podman-compose up -d still blocks while polling container state (v1.5.0 bug).
@@ -303,6 +326,8 @@ EOF
     timeout 60 $COMPOSE_CMD -p egeria-quickstart \
       "${COMPOSE_FILES[@]}" \
       up -d egeria-main pyegeria-web jupyter-hub obsidian 2>&1 || true
+    _podman_fix_network quickstart-egeria-main quickstart-pyegeria-web \
+                        quickstart-jupyter-work-full obsidian-quickstart
   else
     if ! $COMPOSE_CMD -p egeria-quickstart \
       "${COMPOSE_FILES[@]}" \
@@ -331,6 +356,7 @@ EOF
       timeout 30 $COMPOSE_CMD -p egeria-quickstart \
         "${COMPOSE_FILES[@]}" \
         up -d apache-web 2>&1 || _apache_hint
+      _podman_fix_network quickstart-web-server
     else
       if ! $COMPOSE_CMD -p egeria-quickstart \
         "${COMPOSE_FILES[@]}" \
@@ -363,6 +389,27 @@ if [[ $_egeria_healthy -eq 0 ]]; then
   echo "[quick-start-local]   Check logs: $CONTAINER_ENGINE logs quickstart-egeria-main" >&2
 fi
 
+echo "[quick-start-local] Starting my-profile (Textual TUI)..."
+pushd compose-configs/egeria-quickstart >/dev/null
+if [[ "$CONTAINER_ENGINE" == "podman" ]]; then
+  timeout 30 $COMPOSE_CMD -p egeria-quickstart \
+    "${COMPOSE_FILES[@]}" \
+    up -d my-profile 2>&1 || echo "[quick-start-local] WARNING: my-profile did not start."
+  # Connect my-profile to egeria_network; if it was newly connected, apache-web must
+  # also be cycled so its DNS resolver picks up the new peer.
+  _podman_fix_network quickstart-my-profile
+  _podman_fix_network quickstart-web-server
+else
+  $COMPOSE_CMD -p egeria-quickstart \
+    "${COMPOSE_FILES[@]}" \
+    up -d ${COMPOSE_PULL_FLAGS} my-profile \
+  || $COMPOSE_CMD -p egeria-quickstart \
+    "${COMPOSE_FILES[@]}" \
+    up -d --no-build my-profile \
+  || echo "[quick-start-local] WARNING: my-profile did not start."
+fi
+popd >/dev/null
+
 echo "[quick-start-local] Done. Useful URLs:"
 HOST_FQDN_PRINT=$(grep '^HOST_FQDN=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "localhost")
 KAFKA_CLUSTER_ID_PRINT=$(grep '^KAFKA_CLUSTER_ID=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "42")
@@ -380,4 +427,5 @@ if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
   echo "  - Login:             ${_site_url_final}/login"
 else
   echo "  - Web:               http://${HOST_FQDN_PRINT:-localhost}:8885"
+  echo "  - My Profile:        http://${HOST_FQDN_PRINT:-localhost}:8885/my-egeria/"
 fi

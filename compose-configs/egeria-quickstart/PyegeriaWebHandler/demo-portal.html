@@ -216,6 +216,9 @@
   <div class="section-label" style="margin-top:32px">Documentation</div>
   <div class="app-grid" id="doc-grid"></div>
 
+  <div class="section-label" style="margin-top:16px">API Reference</div>
+  <div class="app-grid" id="api-grid"></div>
+
 </main>
 
 <!-- ── Footer ─────────────────────────────────────────────────────────────── -->
@@ -369,7 +372,13 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
       url: 'https://egeria.ai', newTab: true, enabled: true, isDoc: true },
     { icon: '📚', name: 'Egeria JavaDocs',
       desc: 'Java API reference documentation for the Egeria platform and connectors.',
-      url: 'https://odpi.github.io/egeria/index.html', newTab: true, enabled: true, isDoc: true },
+      url: 'https://odpi.github.io/egeria/index.html', newTab: true, enabled: true, isDoc: true, isApi: true },
+    { icon: '🐍', name: 'Python API',
+      desc: 'pyegeria Python client reference — classes, methods, and docstrings grouped by functional domain.',
+      url: '/egeria-explorer#python-api', newTab: false, enabled: true, isDoc: true, isApi: true },
+    { icon: '🔌', name: 'REST APIs',
+      desc: 'Live Egeria REST API browser — all open metadata services with endpoints and parameters.',
+      url: '/egeria-explorer#rest-apis', newTab: false, enabled: true, isDoc: true, isApi: true },
   ];
   function _renderTile(a) {
     var action;
@@ -389,7 +398,8 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
       action + '</div>';
   }
   document.getElementById('app-grid').innerHTML = apps.filter(function(a) { return !a.isDoc; }).map(_renderTile).join('');
-  document.getElementById('doc-grid').innerHTML  = apps.filter(function(a) { return  a.isDoc; }).map(_renderTile).join('');
+  document.getElementById('doc-grid').innerHTML  = apps.filter(function(a) { return a.isDoc && !a.isApi; }).map(_renderTile).join('');
+  document.getElementById('api-grid').innerHTML  = apps.filter(function(a) { return a.isApi; }).map(_renderTile).join('');
 }
 
 function launch(url, newTab) {
