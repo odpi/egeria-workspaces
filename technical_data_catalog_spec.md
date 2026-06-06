@@ -1,8 +1,8 @@
 # Technical Asset Catalog — Specification
 
-The **Technical Catalog** is a new tile on the portals for quickstart and freshstart. It is aimed at technical users that are used to working with assets.
+The **The Catalog** is a new tile on the portals for quickstart and freshstart. It is aimed at technical users that are used to working with assets.
 
-When you launch the **Technical Catalog**, there are 4 tiles:
+When you launch the **The Catalog**, there are 4 tiles:
 
 - Infrastructure Assets — For working with servers, storage and networks.
 - Data Assets — For working with your data stores, data feeds and data sets.
@@ -137,13 +137,13 @@ In this initial implementation it is sufficient to display the properties of the
 
 **1. Standalone SPA, not an extension of Egeria Explorer.**
 
-`type-explorer.html` is already ~7,600 lines. Adding 9 more asset-type panels there would make it unmaintainable and slow to load. A separate `tech-catalog.html` (~2,500–3,000 lines estimated) keeps concerns clean and makes modularization tractable later. The two tools share the same visual language (dark theme, CSS variables, sidebar+detail layout) but are independently deployable.
+`type-explorer.html` is already ~7,600 lines. Adding 9 more asset-type panels there would make it unmaintainable and slow to load. A separate `the-catalog.html` (~2,500–3,000 lines estimated) keeps concerns clean and makes modularization tractable later. The two tools share the same visual language (dark theme, CSS variables, sidebar+detail layout) but are independently deployable.
 
 **2. Same URL-routing model as Explorer.**
 
-The tool lives at `/tech-catalog` (served by the existing Apache proxy → FastAPI). Deep-linking via `window.location.hash` is supported from launch, so portal cards and bookmarks can land directly on a section (e.g., `/tech-catalog#data-stores`). This follows the hash-navigation pattern already in place for Explorer.
+The tool lives at `/the-catalog` (served by the existing Apache proxy → FastAPI). Deep-linking via `window.location.hash` is supported from launch, so portal cards and bookmarks can land directly on a section (e.g., `/tech-catalog#data-stores`). This follows the hash-navigation pattern already in place for Explorer.
 
-**3. Single backend handler file: `tech_catalog_handler.py`.**
+**3. Single backend handler file: `the_catalog_handler.py`.**
 
 All nine asset-type endpoints live in one file. The handler uses `AssetMaker` (from pyegeria) for infrastructure, data assets, APIs, software components, and actions; and `ConnectionMaker` for endpoints. All calls pass `sequencing_order="PROPERTY_ASCENDING"` and `sequencing_property="displayName"` — the established pattern across all existing handlers.
 
