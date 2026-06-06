@@ -876,22 +876,27 @@ function SidebarDetail({ items, loading, error, selected, onSelect, renderDetail
 }
 
 // ── Generic detail panel ──────────────────────────────────────────────────────
-function AssetDetail({ item }) {
+function AssetDetail({ item, detailLoading }) {
   if (!item) return null;
   var sectionHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
-  var skipProps = new Set(['displayName','qualifiedName','description']);
+  var cardStyle  = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px', marginBottom: 6 };
+  var skipKeys   = new Set(['guid','typeName','displayName','qualifiedName','description','classifications','relationships']);
   var extraProps = Object.entries(item).filter(function(e) {
-    return !skipProps.has(e[0]) && !['guid','typeName','classifications'].includes(e[0]) && e[1] && typeof e[1] === 'string';
+    return !skipKeys.has(e[0]) && e[1] && typeof e[1] === 'string';
   });
+  var rels = item.relationships || [];
+
   return React.createElement('div', null,
     // Header
     React.createElement('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 12 } },
       React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--text)', flex: 1 } },
         item.displayName || item.qualifiedName || item.guid),
+      detailLoading && React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Loading detail…'),
       React.createElement(EgeriaFeedbackWidget, { guid: item.guid })
     ),
     item.typeName && React.createElement('div', { style: { display: 'inline-block', fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: 'rgba(96,165,250,0.12)', color: 'var(--accent)', marginBottom: 12 } }, item.typeName),
     item.description && React.createElement('p', { style: { fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, margin: '0 0 16px' } }, item.description),
+
     // Properties table
     extraProps.length > 0 && React.createElement('div', null,
       React.createElement('div', { style: sectionHdr }, 'Properties'),
@@ -906,21 +911,46 @@ function AssetDetail({ item }) {
         )
       )
     ),
+
     // Classifications
     (item.classifications || []).length > 0 && React.createElement('div', null,
       React.createElement('div', { style: sectionHdr }, 'Classifications'),
       item.classifications.map(function(c) {
-        return React.createElement('div', { key: c.typeName, style: { background: 'var(--card)', border: '1px solid var(--border)', borderLeft: '3px solid var(--classif)', borderRadius: 6, padding: '8px 12px', marginBottom: 6 } },
+        return React.createElement('div', { key: c.typeName, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--classif)' }) },
           React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
           Object.entries(c.properties || {}).map(function(e) {
-            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } }, e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
+            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
+              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
           })
         );
       })
     ),
+
+    // Relationships
+    rels.length > 0 && React.createElement('div', null,
+      React.createElement('div', { style: sectionHdr }, 'Relationships'),
+      rels.map(function(r, i) {
+        var el = r.relatedElement || {};
+        var relProps = Object.entries(r.relationshipProperties || {});
+        return React.createElement('div', { key: i, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--rel)' }) },
+          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: relProps.length ? 4 : 0 } },
+            React.createElement('span', { style: { fontSize: 10, fontWeight: 700, color: 'var(--rel)', letterSpacing: '0.05em' } }, r.relationshipType),
+            React.createElement('span', { style: { fontSize: 12, color: 'var(--text)' } }, el.displayName || el.guid || ''),
+            el.typeName && React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)' } }, '· ' + el.typeName)
+          ),
+          el.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginBottom: relProps.length ? 4 : 0 } }, el.description),
+          relProps.map(function(e) {
+            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
+              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
+          })
+        );
+      })
+    ),
+
     // Mermaid diagrams
     React.createElement(AvailableMermaidDiagrams, { data: item }),
     React.createElement(MermaidSection, { guid: item.guid }),
+
     // Comments
     React.createElement(EgeriaCommentsSection, { guid: item.guid })
   );
@@ -928,20 +958,32 @@ function AssetDetail({ item }) {
 
 // ── Generic tab view ──────────────────────────────────────────────────────────
 function AssetTabView({ endpoint, creds }) {
-  var _items    = useState([]),    items    = _items[0],    setItems    = _items[1];
-  var _loading  = useState(true),  loading  = _loading[0],  setLoading  = _loading[1];
-  var _error    = useState(''),    error    = _error[0],    setError    = _error[1];
-  var _selected = useState(null),  selected = _selected[0], setSelected = _selected[1];
-  var _q        = useState(''),    q        = _q[0],        setQ        = _q[1];
+  var _items      = useState([]),    items      = _items[0],      setItems      = _items[1];
+  var _loading    = useState(true),  loading    = _loading[0],    setLoading    = _loading[1];
+  var _error      = useState(''),    error      = _error[0],      setError      = _error[1];
+  var _selected   = useState(null),  selected   = _selected[0],   setSelected   = _selected[1];
+  var _detail     = useState(null),  detail     = _detail[0],     setDetail     = _detail[1];
+  var _detailLoad = useState(false), detailLoad = _detailLoad[0], setDetailLoad = _detailLoad[1];
+  var _q          = useState(''),    q          = _q[0],          setQ          = _q[1];
   var _typeFilter = useState('all'), typeFilter = _typeFilter[0], setTypeFilter = _typeFilter[1];
 
   useEffect(function() {
-    setLoading(true); setError(''); setSelected(null);
+    setLoading(true); setError(''); setSelected(null); setDetail(null);
     fetch(credAppend(endpoint, creds))
       .then(function(r) { return r.json(); })
       .then(function(d) { setItems(Array.isArray(d) ? d : (d.items || [])); setLoading(false); })
       .catch(function(e) { setError(String(e)); setLoading(false); });
   }, [endpoint]);
+
+  function handleSelect(item) {
+    setSelected(item);
+    setDetail(item); // show summary immediately while detail loads
+    setDetailLoad(true);
+    fetch(credAppend('/api/tech-catalog/assets/' + encodeURIComponent(item.guid), creds))
+      .then(function(r) { return r.json(); })
+      .then(function(d) { setDetail(d); setDetailLoad(false); })
+      .catch(function() { setDetailLoad(false); }); // fall back to summary on error
+  }
 
   var filtered = items.filter(function(item) {
     var matchQ = !q.trim() || (item.displayName || item.qualifiedName || '').toLowerCase().includes(q.trim().toLowerCase());
@@ -963,9 +1005,9 @@ function AssetTabView({ endpoint, creds }) {
   );
 
   return React.createElement(SidebarDetail, {
-    items: filtered, loading: loading, error: error, selected: selected, onSelect: setSelected,
+    items: filtered, loading: loading, error: error, selected: selected, onSelect: handleSelect,
     filterBar: filterBar,
-    renderDetail: function(item) { return React.createElement(AssetDetail, { item: item }); },
+    renderDetail: function() { return React.createElement(AssetDetail, { item: detail, detailLoading: detailLoad }); },
   });
 }
 

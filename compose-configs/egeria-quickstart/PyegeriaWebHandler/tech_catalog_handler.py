@@ -99,22 +99,77 @@ def _extract_classifications(header):
     return result
 
 
-def _serialize(el):
-    """Minimal common serialisation for any asset/element."""
+def _flat_props(props_dict: dict) -> dict:
+    """Flatten a properties dict that may use propertyValueMap encoding."""
+    flat = {}
+    prop_map = props_dict.get("propertyValueMap") or {}
+    if prop_map:
+        for k, v in prop_map.items():
+            flat[k] = v.get("primitiveValue", "") if isinstance(v, dict) else str(v)
+    else:
+        for k, v in props_dict.items():
+            if k not in ("class", "propertyValueMap", "propertiesAsStrings"):
+                flat[k] = str(v) if not isinstance(v, (dict, list)) else ""
+    return {k: v for k, v in flat.items() if v}
+
+
+def _extract_relationships(el: dict) -> list:
+    """
+    Extract peer relationships from a graph-queried element.
+    Egeria embeds related elements as list-valued keys where each item
+    carries a 'relationshipHeader' dict describing the link type.
+    """
+    _SKIP_KEYS = {"elementHeader", "properties", "classifications", "class"}
+    result = []
+    for key, val in el.items():
+        if key in _SKIP_KEYS or not isinstance(val, list):
+            continue
+        for item in val:
+            if not isinstance(item, dict):
+                continue
+            rel_hdr = item.get("relationshipHeader")
+            if not isinstance(rel_hdr, dict):
+                continue
+            rel_type = (rel_hdr.get("type") or {}).get("typeName") or key
+            rel_props_raw = item.get("relationshipProperties") or item.get("properties") or {}
+            rel_props = _flat_props(rel_props_raw) if rel_props_raw else {}
+            # Related element is the remainder of the item dict
+            elem = {k: v for k, v in item.items()
+                    if k not in ("relationshipHeader", "relationshipProperties")}
+            elem_hdr   = _header(elem)
+            elem_props = _props(elem)
+            result.append({
+                "relationshipType": rel_type,
+                "relationshipProperties": rel_props,
+                "relatedElement": {
+                    "guid":        elem_hdr.get("guid", ""),
+                    "typeName":    _type_name(elem),
+                    "displayName": elem_props.get("displayName") or elem_props.get("name") or elem_hdr.get("guid", ""),
+                    "description": elem_props.get("description") or "",
+                },
+            })
+    return result
+
+
+def _serialize(el, include_relationships: bool = False):
+    """Common serialisation for any asset/element."""
     hdr   = _header(el)
     props = _props(el)
-    return {
-        "guid":                      hdr.get("guid", ""),
-        "typeName":                  _type_name(el),
-        "displayName":               props.get("displayName") or props.get("name") or "",
-        "qualifiedName":             props.get("qualifiedName") or "",
-        "description":               props.get("description") or "",
+    out = {
+        "guid":                       hdr.get("guid", ""),
+        "typeName":                   _type_name(el),
+        "displayName":                props.get("displayName") or props.get("name") or "",
+        "qualifiedName":              props.get("qualifiedName") or "",
+        "description":                props.get("description") or "",
         "deployedImplementationType": props.get("deployedImplementationType") or "",
-        "deploymentStatus":          props.get("deploymentStatus") or "",
-        "activityStatus":            props.get("activityStatus") or "",
-        "networkAddress":            props.get("networkAddress") or "",
-        "classifications":           _extract_classifications(hdr),
+        "deploymentStatus":           props.get("deploymentStatus") or "",
+        "activityStatus":             props.get("activityStatus") or "",
+        "networkAddress":             props.get("networkAddress") or "",
+        "classifications":            _extract_classifications(hdr),
     }
+    if include_relationships:
+        out["relationships"] = _extract_relationships(el)
+    return out
 
 
 def _safe_list(raw):
@@ -416,15 +471,20 @@ def get_asset_detail(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
     try:
-        raw = mgr.find_assets(
-            search_string="*",
+        raw = mgr.get_asset_by_guid(
+            asset_guid=guid,
             output_format="JSON",
-            graph_query_depth=1,
+            body={
+                "class": "GetRequestBody",
+                "graphQueryDepth": 1,
+                "relationshipsPageSize": 50,
+            },
         )
-        el = next((e for e in _safe_list(raw) if _header(e).get("guid") == guid), None)
-        if el is None:
+        if not raw:
             raise HTTPException(status_code=404, detail=f"Asset {guid!r} not found")
-        return JSONResponse(_serialize(el))
+        # get_asset_by_guid may return a list (single-item) or a dict
+        el = raw[0] if isinstance(raw, list) else raw
+        return JSONResponse(_serialize(el, include_relationships=True))
     except HTTPException:
         raise
     except Exception as exc:
