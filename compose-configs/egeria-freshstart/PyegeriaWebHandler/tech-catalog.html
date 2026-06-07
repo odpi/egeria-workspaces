@@ -1101,9 +1101,21 @@ function App() {
     fetch('/api/auth/me').then(function(r) { return r.json(); }).then(function(d) {
       setDemoMode(!!d.demo_mode);
       setSrvManaged(!!d.server_managed_auth);
-      // If already authenticated via the portal, skip the connection form —
-      // the backend will use its environment credentials.
-      if (d.authenticated) setCreds({});
+      if (d.authenticated) {
+        // Use the persona selected at the portal if available (demo mode).
+        // Falls back to empty creds so the backend uses its env credentials.
+        var personaCreds = {};
+        try {
+          var stored = localStorage.getItem('egeria-persona');
+          if (stored) {
+            var p = JSON.parse(stored);
+            if (p.egeria_user) {
+              personaCreds = { server: 'qs-view-server', userId: p.egeria_user, password: p.egeria_password || '' };
+            }
+          }
+        } catch(e) {}
+        setCreds(personaCreds);
+      }
       setReady(true);
     }).catch(function() { setReady(true); });
   }, []);
