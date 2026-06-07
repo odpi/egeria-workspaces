@@ -15,6 +15,7 @@ exploration. Items can run concurrently when they touch different files; watch t
 |------------|-------|:------:|:--------:|------------------|
 | Shared codebase unification | SHARE-1 ✅ done · SHARE-2 ✅ done | **H** |          | Both backend handlers and SPA `type-explorer.html` now byte-identical across quickstart/freshstart. Auth model runtime-gated via `srvManaged` + `demoMode` flags. |
 | pyegeria comment-update bug | PY-4 ✅ done | **H** |    H     | Workaround already in `egeria_feedback_handler.py`. |
+| **Technical Asset Catalog** | TC-0 → TC-8 | **H** |    H     | New tool; spec in `technical_data_catalog_spec.md`. TC-0/TC-1 unblock all tabs. |
 | Report rendering | RR-1 → RR-5 | **H** |          | Core demo value; RR-1/RR-2 unblock RR-3/4/5. Sequential within the group. |
 | Data preview polish | DP-2 ✅ · DP-3 ✅ · DP-4 ✅ done | **M** |    H     | Filter bar, column sort, search all done. |
 | my-egeria additional apps | ME-8, ME-9 | **M** |    L     | TUI now renders end-to-end — momentum is here. Follows the proven ME-2..6 pattern. |
@@ -27,6 +28,7 @@ exploration. Items can run concurrently when they touch different files; watch t
 | Demo analytics / extras | QS-5, QS-6, QS-7 | **L** |    M     | Nice-to-have; QS-7 already deferred. |
 | my-egeria V2 (multi-user) | ME-10, ME-11, ME-12 | **L** |    L     | Deferred until single-persona path is fully proven. |
 | pyegeria DataDesigner/SA bugs | PY-1, PY-2, PY-3 | **L** |    H     | Have working local workarounds; fix upstream opportunistically. |
+| **Modularization** | MOD-1 → MOD-3 | **M** |          | Extract shared UI components after Tech Catalog ships; unblocks future tools (Data Catalog etc). |
 
 **Concurrency advice:** SHARE-1/2 first (or you fight merge pain on everything after). PY-4, DP-*,
 and ME-8/9 are independent and safe to interleave. RR-* must go in order. Avoid starting RS-* and
@@ -148,11 +150,11 @@ Jupyter runs on the host.
 | FB-2 | Likes + ratings on remaining detail panes | done | `EgeriaFeedbackWidget` on all property detail panes. ReportSpecDetail excluded — pyegeria format specs have no Egeria GUID. |
 | FB-3 | Comments (`EgeriaCommentsSection`) on remaining detail panes | done | `EgeriaCommentsSection` on all property detail panes. ReportSpecDetail excluded — same reason as FB-2. |
 | FB-4 | Journals — persistent per-element notes/log separate from Egeria comments | open | Exploratory; may be local storage or a separate Egeria NoteLog |
-| FB-5 | **User Feedback → Postgres** — move per-page feedback from current `/api/demo-feedback` store to a `feedback` table in the `demo` schema (port 5442). One schema, all envs. | open | Replaces/augments `demo_feedback_handler.py`'s current store. |
-| FB-6 | **Env-specific user identity** on User Feedback (the one intentional per-env difference) | open | Demo: logged-in demo user id. Local Quickstart: email the user supplies. Freshstart: logged-in Egeria user id. Resolve via a single `AUTH_MODE`-aware helper. |
-| FB-7 | **Capture schema** for each submission | open | Fields: user id, page/route (+ element GUID if any), environment, persona (demo), timestamp, email, rating/sentiment, category, free-text message, wants-response flag, tool/build version, user-agent+viewport, session/correlation id, locale, consent-to-contact. See note below. |
-| FB-8 | **Admin review tab** in each env's admin panel | open | List/filter/triage submissions; per-env admin UIs differ but all expose a Feedback review tab. |
-| FB-9 | **Analyst docs** — how to query the raw `feedback` table | open | Document SQL recipes (by page, by env, by date, response-requested queue) against Postgres `demo.feedback`. |
+| FB-5 | **User Feedback → Postgres** — move per-page feedback from current `/api/demo-feedback` store to a `feedback` table in the `demo` schema (port 5442). One schema, all envs. | done | `demo_feedback_handler.py` rewrites to Postgres via `DEMO_DB_URL`; `demo` schema created on startup. Freshstart `demo_config.py` gets `DEMO_DB_*` vars. |
+| FB-6 | **Env-specific user identity** on User Feedback (the one intentional per-env difference) | done | `_resolve_user_id()`: JWT `sub` (demo/freshstart) or supplied email (local). `_resolve_env()` sets `env` field. |
+| FB-7 | **Capture schema** for each submission | done | Full schema: id, session_id, user_id, env, persona, page, element_guid, rating, category, message, email, wants_response, consent_to_contact, build_version, user_agent, viewport, locale, triage_status, created_at. FeedbackButton updated with category dropdown + wants_response + consent checkboxes. |
+| FB-8 | **Admin review tab** in each env's admin panel | done | Feedback tab added to both admin panels: stats row (total/new/wants-response), filter by status+env, triage dropdown (new→triaged→actioned), PATCH `/api/demo-feedback/{id}`. |
+| FB-9 | **Analyst docs** — how to query the raw `feedback` table | done | `feedback-analyst-guide.md` — schema reference + 12 SQL recipes (volume/day, by page, by env, category breakdown, avg rating, response queue, bugs, persona, triage). |
 
 **FB-7 recommended capture fields** (your list + additions):
 *Your list:* user id · page · environment · timestamp · email · wants-response.
@@ -311,6 +313,44 @@ Design doc: `my-egeria-integration.md` (in session). Architecture: `textual serv
 | ME-10 | my-egeria integration in freshstart (Option A — app handles login) | deferred | After quickstart smoke test passes; freshstart omits `EGERIA_USER`/`EGERIA_USER_PASSWORD` so app prompts user |
 | ME-11 | V2 per-persona credential routing (one container per Coco persona) | deferred | Zero app changes; Apache routes `/my-egeria/{persona}/` to right container; all passwords `secret` in quickstart |
 | ME-12 | V2 per-session process spawning for freshstart multi-user | deferred | Integration doc Option B; needs process manager service + dynamic port allocation |
+
+---
+
+## Technical Asset Catalog
+
+Spec: `technical_data_catalog_spec.md`
+
+New standalone SPA (`tech-catalog.html`) + backend handler (`tech_catalog_handler.py`). Served at `/tech-catalog` via the existing Apache proxy — no new container or port needed. Uses `AssetMaker` and `ConnectionMaker` from pyegeria. Portal tile added to both quickstart and freshstart.
+
+**Dependency order:** TC-0 (scaffolding) → TC-1 (backend) → TC-2 (shell) → TC-3/TC-4/TC-5/TC-6 (sections, parallel) → TC-7 (detail polish) → TC-8 (cross-navigation, post-MVP).
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| TC-0 | Scaffolding: `tech-catalog.html` skeleton, `tech_catalog_handler.py` stub, router registration, Apache proxy block, portal tile in both envs | done | Portal tile 🐱, Apache proxy, router registered in both envs; SPA loads and shows 4-tile splash |
+| TC-1 | Backend: all 9 list endpoints + `/{guid}` detail — `find_infrastructure`, `find_software_capabilities`, `find_endpoints`, `find_data_assets` (×3), `find_assets` (DeployedAPI), `find_processes` (×2) | done | All pass `sequencing_order="PROPERTY_ASCENDING"`; consistent `{ items, total }` JSON shape |
+| TC-2 | SPA shell: auth seam (srvManaged/demoMode), hash-based section routing, 4-tile splash screen, FeedbackButton | done | Mirrors Explorer App structure; hash nav so portal can deep-link to sections |
+| TC-3 | Infrastructure section: 3 sub-tabs (IT Infrastructure / Software Capabilities / Endpoints), sidebar search + type-group filter, detail panel | done | Implemented via generic `SectionView` + `AssetTabView` with `SECTION_TABS` config |
+| TC-4 | Data Assets section: 3 sub-tabs (Data Stores / Data Feeds / Data Sets), sidebar + detail | done | Same generic components |
+| TC-5 | APIs section: single list + detail (DeployedAPI) | done | Single-tab section |
+| TC-6 | Processes section: 2 sub-tabs (Software Components / Actions), sidebar + detail | done | `find_processes` with `metadata_element_type` filter |
+| TC-7 | Detail panel polish: full property table, mermaid graphs (`AvailableMermaidDiagrams` + `MermaidSection`), classifications with properties, relationships with related element | done | `AssetTabView` fetches full detail via `get_asset_by_guid` on selection; `_extract_relationships` in backend; relationships card in `AssetDetail` (type · name · description · rel properties); summary shown immediately, detail overlaid on load |
+| TC-8 | Cross-navigation links: Infrastructure ↔ Software Capabilities, Software Capability ↔ IT Asset, Endpoint → server, Data Store → Data Sets | open | Post-MVP; implement after all sections verified against live Egeria |
+
+---
+
+## Modularization
+
+Spec notes in `technical_data_catalog_spec.md` (Modularization strategy section).
+
+Goal: extract the shared UI components that appear verbatim in both Explorer and Tech Catalog into a served static file (`egeria-shared-ui.js`), so changes propagate automatically. Run this workstream **after** Tech Catalog Phase 4 ships — we need both consumers to exist before we can define the stable extraction boundary.
+
+**Short-term mitigation:** Mark shared blocks in Tech Catalog with `// SHARED — keep in sync with type-explorer.html` comments so drift is visible in code review.
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| MOD-1 | Audit: list all components copied verbatim from Explorer into Tech Catalog; confirm boundary (what to share vs what stays per-tool) | open | Run after TC-6 ships — need both consumers to identify true shared set |
+| MOD-2 | Extract shared components to `egeria-shared-ui.js`: `MermaidDiagram`, `DiagramPanel`, `MermaidSection`, `AvailableMermaidDiagrams`, `EgeriaFeedbackWidget`, `EgeriaCommentsSection`, property-table renderer | open | Served as FastAPI static; imported by both SPAs via `<script>` tag |
+| MOD-3 | Refactor Explorer + Tech Catalog to import from shared module; remove duplicated blocks | open | Shrinks both files ~25–30%; future tools (Data Catalog etc.) start from shared base |
 
 ---
 

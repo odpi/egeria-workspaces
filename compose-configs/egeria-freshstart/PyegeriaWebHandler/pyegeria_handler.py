@@ -190,6 +190,8 @@ from demo_feedback_handler import router as demo_feedback_router
 app.include_router(demo_feedback_router)
 from egeria_feedback_handler import router as egeria_feedback_router
 app.include_router(egeria_feedback_router)
+from tech_catalog_handler import router as tech_catalog_router
+app.include_router(tech_catalog_router)
 
 # ── Auth (Egeria-backed — always active in freshstart) ─────────────────────────
 from demo_config import DEMO_MODE, EGERIA_ADVISOR_URL, OBSIDIAN_VAULT_URL, OBSIDIAN_GITHUB_URL
