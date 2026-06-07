@@ -57,14 +57,6 @@ def _asset_maker(url, server, user_id, user_pwd):
     return mgr
 
 
-def _connection_maker(url, server, user_id, user_pwd):
-    from pyegeria.omvs.connection_maker import ConnectionMaker
-    u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
-    mgr = ConnectionMaker(server_name=s, platform_url=u, user_id=uid, user_pwd=pwd)
-    mgr.create_egeria_bearer_token()
-    return mgr
-
-
 # ── Serialisation ─────────────────────────────────────────────────────────────
 
 def _header(el):
