@@ -1101,6 +1101,9 @@ function App() {
     fetch('/api/auth/me').then(function(r) { return r.json(); }).then(function(d) {
       setDemoMode(!!d.demo_mode);
       setSrvManaged(!!d.server_managed_auth);
+      // If already authenticated via the portal, skip the connection form —
+      // the backend will use its environment credentials.
+      if (d.authenticated) setCreds({});
       setReady(true);
     }).catch(function() { setReady(true); });
   }, []);
