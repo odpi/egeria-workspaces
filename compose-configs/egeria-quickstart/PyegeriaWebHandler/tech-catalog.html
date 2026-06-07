@@ -793,7 +793,7 @@ function ConnectionForm({ saveCreds }) {
 }
 
 // ── FeedbackButton ────────────────────────────────────────────────────────────
-function FeedbackButton({ section }) {
+function FeedbackButton({ section, persona, demoMode, srvManaged }) {
   var _o = useState(false), open = _o[0], setOpen = _o[1];
   var _r = useState(0), rating = _r[0], setRating = _r[1];
   var _h = useState(0), hover = _h[0], setHover = _h[1];
@@ -806,7 +806,7 @@ function FeedbackButton({ section }) {
     if (!rating && !comment) return;
     setSubmitting(true);
     fetch('/api/demo-feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: _SESSION_ID, section: 'tech-catalog/' + (section || 'splash'), star_rating: rating || null, comment: comment || null, contact_email: email || null }),
+      body: JSON.stringify({ session_id: _SESSION_ID, page: 'tech-catalog/' + (section || 'splash'), rating: rating || null, message: comment || null, email: email || null, env: demoMode ? 'quickstart-demo' : srvManaged ? 'freshstart' : 'quickstart-local', persona: persona || null, viewport: window.innerWidth + 'x' + window.innerHeight, locale: navigator.language || null }),
     }).then(function() { setSubmitted(true); setTimeout(close, 2000); }).finally(function() { setSubmitting(false); });
   }
   var floatingBtn = React.createElement('button', {
@@ -1132,7 +1132,7 @@ function App() {
       : section
         ? React.createElement(SectionView, { sectionId: section, creds: creds })
         : React.createElement(Splash, { onSelect: setSection }),
-    React.createElement(FeedbackButton, { section: section })
+    React.createElement(FeedbackButton, { section: section, persona: null, demoMode: demoMode, srvManaged: srvManaged })
   );
 }
 

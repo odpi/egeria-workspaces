@@ -114,6 +114,7 @@
 <div class="tabs">
   <div class="tab active" onclick="showTab('users')">Users</div>
   <div class="tab" onclick="showTab('events')">Events</div>
+  <div class="tab" onclick="showTab('feedback')">Feedback</div>
   <div class="tab" onclick="showTab('config')">Config</div>
   <div class="tab" onclick="showTab('reset')">Reset</div>
   <div class="tab" onclick="showTab('obsidian')">Obsidian</div>
@@ -144,6 +145,35 @@
     <table>
       <thead><tr><th>Time</th><th>User ID</th><th>Event</th><th>Detail</th></tr></thead>
       <tbody id="eventsBody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- Feedback panel -->
+  <div class="panel" id="panel-feedback">
+    <button class="refresh-btn" onclick="loadFeedback()">↻ Refresh</button>
+    <div class="section-title">User Feedback</div>
+    <div class="stats-row">
+      <div class="stat-card"><div class="num" id="fbTotal">—</div><div class="label">Total</div></div>
+      <div class="stat-card"><div class="num" id="fbNew">—</div><div class="label">New</div></div>
+      <div class="stat-card"><div class="num" id="fbWantsResp">—</div><div class="label">Wants response</div></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
+      <select id="fbFilterStatus" onchange="loadFeedback()" style="padding:4px 8px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:0.82rem">
+        <option value="">All statuses</option>
+        <option value="new">New</option>
+        <option value="triaged">Triaged</option>
+        <option value="actioned">Actioned</option>
+      </select>
+      <select id="fbFilterEnv" onchange="loadFeedback()" style="padding:4px 8px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:0.82rem">
+        <option value="">All environments</option>
+        <option value="quickstart-demo">quickstart-demo</option>
+        <option value="quickstart-local">quickstart-local</option>
+        <option value="freshstart">freshstart</option>
+      </select>
+    </div>
+    <table id="fbTable">
+      <thead><tr><th>Time</th><th>User</th><th>Env</th><th>Page</th><th>Rating</th><th>Category</th><th>Message</th><th>Resp?</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody id="fbBody"><tr><td colspan="10" class="empty">Loading…</td></tr></tbody>
     </table>
   </div>
 
@@ -287,7 +317,7 @@
   function showTab(name) {
     activeTab = name;
     document.querySelectorAll('.tab').forEach(function(t, i) {
-      t.classList.toggle('active', ['users','events','config','reset','obsidian'][i] === name);
+      t.classList.toggle('active', ['users','events','feedback','config','reset','obsidian'][i] === name);
     });
     document.querySelectorAll('.panel').forEach(function(p) {
       p.classList.remove('active');
@@ -295,9 +325,64 @@
     document.getElementById('panel-' + name).classList.add('active');
     if (name === 'users')    loadUsers();
     if (name === 'events')   loadEvents();
+    if (name === 'feedback') loadFeedback();
     if (name === 'config')   loadConfig();
     if (name === 'reset')    loadResetStatus();
     if (name === 'obsidian') loadObsidian();
+  }
+
+  function loadFeedback() {
+    var status = document.getElementById('fbFilterStatus').value;
+    var env    = document.getElementById('fbFilterEnv').value;
+    var qs = '?limit=200' + (status ? '&triage_status=' + status : '') + (env ? '&env=' + env : '');
+    fetch('/api/demo-feedback/stats').then(function(r) { return r.json(); }).then(function(s) {
+      document.getElementById('fbTotal').textContent    = s.total    != null ? s.total    : '—';
+      document.getElementById('fbNew').textContent      = s.new      != null ? s.new      : '—';
+      document.getElementById('fbWantsResp').textContent = s.wants_response != null ? s.wants_response : '—';
+    }).catch(function() {});
+    fetch('/api/demo-feedback' + qs).then(function(r) { return r.json(); }).then(function(rows) {
+      var tbody = document.getElementById('fbBody');
+      if (!Array.isArray(rows) || rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="empty">No submissions.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rows.map(function(r) {
+        var time = r.created_at ? r.created_at.slice(0,16).replace('T',' ') : '—';
+        var stars = r.rating ? '★'.repeat(r.rating) : '—';
+        var msg   = r.message ? (r.message.length > 60 ? r.message.slice(0,60) + '…' : r.message) : '—';
+        var statusBadge = { new: 'badge-ok', triaged: 'badge-admin', actioned: 'badge-user' }[r.triage_status] || 'badge-user';
+        return '<tr>' +
+          '<td style="white-space:nowrap">' + time + '</td>' +
+          '<td>' + esc(r.user_id || '—') + '</td>' +
+          '<td><span style="font-size:0.72rem">' + esc(r.env || '—') + '</span></td>' +
+          '<td style="font-size:0.72rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(r.page || '—') + '</td>' +
+          '<td style="color:#f59e0b">' + stars + '</td>' +
+          '<td>' + esc(r.category || '—') + '</td>' +
+          '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.message || '') + '">' + esc(msg) + '</td>' +
+          '<td>' + (r.wants_response ? '✓' : '') + '</td>' +
+          '<td><span class="badge ' + statusBadge + '">' + esc(r.triage_status || '—') + '</span></td>' +
+          '<td><select onchange="triageFeedback(\'' + r.id + '\',this.value)" style="padding:2px 4px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:0.72rem">' +
+            '<option value="">Set status…</option>' +
+            ['new','triaged','actioned'].map(function(s) { return '<option value="' + s + '"' + (s === r.triage_status ? ' selected' : '') + '>' + s + '</option>'; }).join('') +
+          '</select></td>' +
+        '</tr>';
+      }).join('');
+    }).catch(function(e) {
+      document.getElementById('fbBody').innerHTML = '<tr><td colspan="10" class="empty">Error: ' + e + '</td></tr>';
+    });
+  }
+
+  function triageFeedback(id, status) {
+    if (!status) return;
+    fetch('/api/demo-feedback/' + id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ triage_status: status }),
+    }).then(function() { loadFeedback(); }).catch(function(e) { showGlobalMsg('error', 'Triage failed: ' + e); });
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
   function showGlobalMsg(type, text) {

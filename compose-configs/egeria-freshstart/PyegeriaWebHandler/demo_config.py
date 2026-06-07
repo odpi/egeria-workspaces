@@ -17,6 +17,19 @@ DEMO_MODE: bool = os.environ.get("DEMO_MODE", "false").lower() in ("true", "1", 
 # falling back to the env service account if that token is rejected.
 SERVER_MANAGED_AUTH: bool = os.environ.get("SERVER_MANAGED_AUTH", "true").lower() in ("true", "1", "yes")
 
+# ── Database (PostgreSQL on egeria-shared-postgres:5442, demo schema) ──────────
+# Shared with quickstart — same coco_pharma DB, same demo.feedback table.
+
+DEMO_DB_HOST:     str = os.environ.get("DEMO_DB_HOST",     "egeria-shared-postgres")
+DEMO_DB_PORT:     int = int(os.environ.get("DEMO_DB_PORT", "5442"))
+DEMO_DB_NAME:     str = os.environ.get("DEMO_DB_NAME",     "coco_pharma")
+DEMO_DB_USER:     str = os.environ.get("DEMO_DB_USER",     "demo_user")
+DEMO_DB_PASSWORD: str = os.environ.get("DEMO_DB_PASSWORD", "demo4egeria")
+DEMO_DB_URL:      str = (
+    f"postgresql://{DEMO_DB_USER}:{DEMO_DB_PASSWORD}"
+    f"@{DEMO_DB_HOST}:{DEMO_DB_PORT}/{DEMO_DB_NAME}"
+)
+
 # ── JWT ────────────────────────────────────────────────────────────────────────
 
 JWT_SECRET: str       = os.environ.get("JWT_SECRET", "change-me-before-going-public")
