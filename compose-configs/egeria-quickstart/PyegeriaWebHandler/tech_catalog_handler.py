@@ -58,9 +58,9 @@ def _asset_maker(url, server, user_id, user_pwd):
 
 
 def _connection_maker(url, server, user_id, user_pwd):
-    from pyegeria import ConnectionMaker
+    from pyegeria.omvs.connection_maker import ConnectionMaker
     u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
-    mgr = ConnectionMaker(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
+    mgr = ConnectionMaker(server_name=s, platform_url=u, user_id=uid, user_pwd=pwd)
     mgr.create_egeria_bearer_token()
     return mgr
 
@@ -250,8 +250,6 @@ def list_software_capabilities(
             start_from=start_from,
             page_size=page_size,
             output_format="JSON",
-            sequencing_order=_SEQ_ORDER,
-            sequencing_property=_SEQ_PROP,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -269,17 +267,20 @@ def list_endpoints(
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     try:
-        mgr = _connection_maker(url, server, user_id, user_pwd)
+        mgr = _asset_maker(url, server, user_id, user_pwd)
     except Exception as exc:
-        logger.exception("tech-catalog: ConnectionMaker connection failed")
         raise HTTPException(status_code=500, detail=str(exc))
     try:
-        from pyegeria.omvs.connection_maker import SearchStringRequestBody
-        body = SearchStringRequestBody()
-        body.search_string = q or "*"
-        raw = mgr.find_endpoints(body=body.to_dict() if hasattr(body, 'to_dict') else {"class": "SearchStringRequestBody", "searchString": q or "*"})
+        raw = mgr.find_assets(
+            search_string=q or "*",
+            metadata_element_type="Endpoint",
+            start_from=start_from,
+            page_size=page_size,
+            output_format="JSON",
+            sequencing_order=_SEQ_ORDER,
+            sequencing_property=_SEQ_PROP,
+        )
         items = [_serialize(e) for e in _safe_list(raw)]
-        items.sort(key=lambda x: (x.get("displayName") or "").lower())
         return JSONResponse({"items": items, "total": len(items)})
     except Exception as exc:
         logger.exception("list_endpoints failed")
@@ -463,6 +464,8 @@ def list_actions(
 @router.get("/api/tech-catalog/assets/{guid}")
 def get_asset_detail(
     guid: str,
+    # section tells us which find_* to use for non-Asset types
+    section: Optional[str] = Query(None),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
@@ -470,23 +473,74 @@ def get_asset_detail(
         mgr = _asset_maker(url, server, user_id, user_pwd)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+
     try:
-        raw = mgr.get_asset_by_guid(
-            asset_guid=guid,
-            output_format="JSON",
-            body={
-                "class": "GetRequestBody",
-                "graphQueryDepth": 1,
-                "relationshipsPageSize": 50,
-            },
-        )
-        if not raw:
-            raise HTTPException(status_code=404, detail=f"Asset {guid!r} not found")
-        # get_asset_by_guid may return a list (single-item) or a dict
-        el = raw[0] if isinstance(raw, list) else raw
+        el = _fetch_detail(mgr, guid, section)
+        if not el:
+            raise HTTPException(status_code=404, detail=f"Element {guid!r} not found")
         return JSONResponse(_serialize(el, include_relationships=True))
     except HTTPException:
         raise
     except Exception as exc:
         logger.exception("get_asset_detail failed")
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+# Map from section id → targeted find_* with graph_query_depth=1
+_SECTION_FINDERS = {
+    "software-capabilities": lambda m: m.find_software_capabilities(
+        search_string="*", output_format="JSON", graph_query_depth=1),
+    "endpoints": lambda m: m.find_assets(
+        search_string="*", metadata_element_type="Endpoint",
+        output_format="JSON", graph_query_depth=1,
+        sequencing_order=_SEQ_ORDER, sequencing_property=_SEQ_PROP),
+    "infrastructure": lambda m: m.find_infrastructure(
+        search_string="*", output_format="JSON", graph_query_depth=1,
+        sequencing_order=_SEQ_ORDER, sequencing_property=_SEQ_PROP),
+}
+
+
+def _fetch_detail(mgr, guid: str, section: Optional[str]):
+    """
+    Fetch a single element with graph_query_depth=1.
+    If section is known we use the targeted finder directly.
+    Otherwise tries get_asset_by_guid first, then find_software_capabilities.
+    """
+    # Known non-Asset section — use targeted find and filter by GUID
+    finder = _SECTION_FINDERS.get(section or "")
+    if finder:
+        try:
+            return _find_by_guid(finder(mgr), guid)
+        except Exception:
+            pass
+
+    # Asset subtypes — direct GUID lookup (fast)
+    try:
+        raw = mgr.get_asset_by_guid(
+            asset_guid=guid,
+            output_format="JSON",
+            body={"class": "GetRequestBody", "graphQueryDepth": 1, "relationshipsPageSize": 50},
+        )
+        el = raw[0] if isinstance(raw, list) else raw
+        if el:
+            return el
+    except Exception:
+        pass
+
+    # Fallback: SoftwareCapability subtypes (catches any missed non-Asset type)
+    try:
+        return _find_by_guid(
+            mgr.find_software_capabilities(search_string="*", output_format="JSON", graph_query_depth=1),
+            guid)
+    except Exception:
+        pass
+
+    return None
+
+
+def _find_by_guid(raw, guid: str):
+    """Filter a list result from find_* to return the single element matching guid."""
+    for el in _safe_list(raw):
+        if _header(el).get("guid") == guid:
+            return el
+    return None

@@ -957,7 +957,7 @@ function AssetDetail({ item, detailLoading }) {
 }
 
 // ── Generic tab view ──────────────────────────────────────────────────────────
-function AssetTabView({ endpoint, creds }) {
+function AssetTabView({ endpoint, sectionId, creds }) {
   var _items      = useState([]),    items      = _items[0],      setItems      = _items[1];
   var _loading    = useState(true),  loading    = _loading[0],    setLoading    = _loading[1];
   var _error      = useState(''),    error      = _error[0],      setError      = _error[1];
@@ -979,7 +979,9 @@ function AssetTabView({ endpoint, creds }) {
     setSelected(item);
     setDetail(item); // show summary immediately while detail loads
     setDetailLoad(true);
-    fetch(credAppend('/api/tech-catalog/assets/' + encodeURIComponent(item.guid), creds))
+    var detailUrl = '/api/tech-catalog/assets/' + encodeURIComponent(item.guid) +
+      (sectionId ? '?section=' + encodeURIComponent(sectionId) : '');
+    fetch(credAppend(detailUrl, creds))
       .then(function(r) { return r.json(); })
       .then(function(d) { setDetail(d); setDetailLoad(false); })
       .catch(function() { setDetailLoad(false); }); // fall back to summary on error
@@ -1048,7 +1050,7 @@ function SectionView({ sectionId, creds }) {
           t.label);
       })
     ),
-    currentTab && React.createElement(AssetTabView, { key: currentTab.id, endpoint: currentTab.endpoint, creds: creds })
+    currentTab && React.createElement(AssetTabView, { key: currentTab.id, endpoint: currentTab.endpoint, sectionId: currentTab.id, creds: creds })
   );
 }
 
