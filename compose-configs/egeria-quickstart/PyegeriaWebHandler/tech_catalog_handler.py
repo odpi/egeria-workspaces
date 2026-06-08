@@ -37,6 +37,18 @@ _HTML = _HERE / "tech-catalog.html"
 _SEQ_ORDER = "PROPERTY_ASCENDING"
 _SEQ_PROP  = "displayName"
 
+# Mermaid graph fields Egeria may embed in an element response.
+# Must stay in sync with _ALL_MERMAID_FIELDS in tech-catalog.html and mermaid_handler.py.
+_MERMAID_FIELDS = {
+    "mermaidGraph", "anchorMermaidGraph", "edgeMermaidGraph",
+    "localLineageGraph", "fieldLevelLineageGraph",
+    "informationSupplyChainMermaidGraph", "iscImplementationMermaidGraph",
+    "actionMermaidGraph", "specificationMermaidGraph",
+    "solutionBlueprintMermaidGraph", "solutionSubcomponentMermaidGraph",
+    "governanceActionProcessMermaidGraph", "organizationTreeMermaidGraph",
+    "collectionMermaidMindMap",
+}
+
 
 # ── Credential helpers ────────────────────────────────────────────────────────
 
@@ -53,6 +65,14 @@ def _asset_maker(url, server, user_id, user_pwd):
     from pyegeria import AssetMaker
     u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
     mgr = AssetMaker(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
+    mgr.create_egeria_bearer_token()
+    return mgr
+
+
+def _connection_maker(url, server, user_id, user_pwd):
+    from pyegeria import ConnectionMaker
+    u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
+    mgr = ConnectionMaker(server_name=s, platform_url=u, user_id=uid, user_pwd=pwd)
     mgr.create_egeria_bearer_token()
     return mgr
 
@@ -108,10 +128,16 @@ def _flat_props(props_dict: dict) -> dict:
 def _extract_relationships(el: dict) -> list:
     """
     Extract peer relationships from a graph-queried element.
-    Egeria embeds related elements as list-valued keys where each item
-    carries a 'relationshipHeader' dict describing the link type.
+
+    pyegeria wraps the related element in a nested 'relatedElement' sub-dict
+    (class RelatedMetadataElementSummary). The top-level item only contains
+    'relationshipHeader', 'relationshipProperties', 'relatedElement', and
+    optionally 'relatedElementAtEnd1'. We must unwrap 'relatedElement' to
+    reach the actual elementHeader / properties.
     """
     _SKIP_KEYS = {"elementHeader", "properties", "classifications", "class"}
+    _ITEM_META  = {"relationshipHeader", "relationshipProperties",
+                   "relatedElement", "relatedElementAtEnd1", "class"}
     result = []
     for key, val in el.items():
         if key in _SKIP_KEYS or not isinstance(val, list):
@@ -123,19 +149,31 @@ def _extract_relationships(el: dict) -> list:
             if not isinstance(rel_hdr, dict):
                 continue
             rel_type = (rel_hdr.get("type") or {}).get("typeName") or key
-            rel_props_raw = item.get("relationshipProperties") or item.get("properties") or {}
+            rel_props_raw = item.get("relationshipProperties") or {}
             rel_props = _flat_props(rel_props_raw) if rel_props_raw else {}
-            # Related element is the remainder of the item dict
-            elem = {k: v for k, v in item.items()
-                    if k not in ("relationshipHeader", "relationshipProperties")}
+
+            # Prefer the nested 'relatedElement' wrapper (standard pyegeria format).
+            nested = item.get("relatedElement")
+            if isinstance(nested, dict) and "elementHeader" in nested:
+                elem = nested
+            else:
+                # Fallback for older / flat formats
+                elem = {k: v for k, v in item.items() if k not in _ITEM_META}
+
             elem_hdr   = _header(elem)
             elem_props = _props(elem)
+            type_info  = elem_hdr.get("type") or {}
+            type_name  = type_info.get("typeName", "")
+            # superTypeNames lets the frontend find a nav target for subtypes
+            super_types = type_info.get("superTypeNames") or []
+
             result.append({
                 "relationshipType": rel_type,
                 "relationshipProperties": rel_props,
                 "relatedElement": {
                     "guid":        elem_hdr.get("guid", ""),
-                    "typeName":    _type_name(elem),
+                    "typeName":    type_name,
+                    "superTypes":  super_types,
                     "displayName": elem_props.get("displayName") or elem_props.get("name") or elem_hdr.get("guid", ""),
                     "description": elem_props.get("description") or "",
                 },
@@ -161,6 +199,12 @@ def _serialize(el, include_relationships: bool = False):
     }
     if include_relationships:
         out["relationships"] = _extract_relationships(el)
+    # Pass through any mermaid graph fields present in the element or its properties.
+    # These are only populated when graph_query_depth > 0 and Egeria has diagram data.
+    for field in _MERMAID_FIELDS:
+        val = el.get(field) or props.get(field)
+        if val and isinstance(val, str) and not val.lower().startswith("no "):
+            out[field] = val
     return out
 
 
@@ -210,11 +254,13 @@ def list_infrastructure(
         raw = mgr.find_infrastructure(
             search_string=q or "*",
             metadata_element_type="ITInfrastructure",
+            deployment_status_list=[],
             start_from=start_from,
             page_size=page_size,
             output_format="JSON",
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
+            graph_query_depth=0,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -242,6 +288,7 @@ def list_software_capabilities(
             start_from=start_from,
             page_size=page_size,
             output_format="JSON",
+            graph_query_depth=0,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -259,18 +306,16 @@ def list_endpoints(
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     try:
-        mgr = _asset_maker(url, server, user_id, user_pwd)
+        mgr = _connection_maker(url, server, user_id, user_pwd)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
     try:
-        raw = mgr.find_assets(
+        raw = mgr.find_endpoints(
             search_string=q or "*",
-            metadata_element_type="Endpoint",
+            output_format="JSON",
             start_from=start_from,
             page_size=page_size,
-            output_format="JSON",
-            sequencing_order=_SEQ_ORDER,
-            sequencing_property=_SEQ_PROP,
+            graph_query_depth=0,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -295,11 +340,13 @@ def list_data_stores(
         raw = mgr.find_data_assets(
             search_string=q or "*",
             metadata_element_type="DataStore",
+            content_status_list=[],
             start_from=start_from,
             page_size=page_size,
             output_format="JSON",
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
+            graph_query_depth=0,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -324,11 +371,13 @@ def list_data_feeds(
         raw = mgr.find_data_assets(
             search_string=q or "*",
             metadata_element_type="DataFeed",
+            content_status_list=[],
             start_from=start_from,
             page_size=page_size,
             output_format="JSON",
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
+            graph_query_depth=0,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -353,11 +402,13 @@ def list_data_sets(
         raw = mgr.find_data_assets(
             search_string=q or "*",
             metadata_element_type="DataSet",
+            content_status_list=[],
             start_from=start_from,
             page_size=page_size,
             output_format="JSON",
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
+            graph_query_depth=0,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -387,6 +438,7 @@ def list_apis(
             output_format="JSON",
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
+            graph_query_depth=0,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -411,11 +463,13 @@ def list_software_components(
         raw = mgr.find_processes(
             search_string=q or "*",
             metadata_element_type="DeployedSoftwareComponent",
+            activity_status_list=[],
             start_from=start_from,
             page_size=page_size,
             output_format="JSON",
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
+            graph_query_depth=0,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -440,11 +494,13 @@ def list_actions(
         raw = mgr.find_processes(
             search_string=q or "*",
             metadata_element_type="Action",
+            activity_status_list=[],
             start_from=start_from,
             page_size=page_size,
             output_format="JSON",
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
+            graph_query_depth=0,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -478,26 +534,40 @@ def get_asset_detail(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-# Map from section id → targeted find_* with graph_query_depth=1
+# Map from section id → targeted find_* with graph_query_depth=3 for full property/relationship detail
 _SECTION_FINDERS = {
     "software-capabilities": lambda m: m.find_software_capabilities(
-        search_string="*", output_format="JSON", graph_query_depth=1),
-    "endpoints": lambda m: m.find_assets(
-        search_string="*", metadata_element_type="Endpoint",
-        output_format="JSON", graph_query_depth=1,
-        sequencing_order=_SEQ_ORDER, sequencing_property=_SEQ_PROP),
+        search_string="*", output_format="JSON", graph_query_depth=3),
     "infrastructure": lambda m: m.find_infrastructure(
-        search_string="*", output_format="JSON", graph_query_depth=1,
+        search_string="*", output_format="JSON", graph_query_depth=3,
+        deployment_status_list=[],
         sequencing_order=_SEQ_ORDER, sequencing_property=_SEQ_PROP),
 }
 
 
 def _fetch_detail(mgr, guid: str, section: Optional[str]):
     """
-    Fetch a single element with graph_query_depth=1.
-    If section is known we use the targeted finder directly.
-    Otherwise tries get_asset_by_guid first, then find_software_capabilities.
+    Fetch a single element with graph_query_depth=3 to expose full property/relationship detail.
+    Endpoints use ConnectionMaker.get_endpoint_by_guid (not an Asset subtype).
+    Other non-Asset sections use the targeted finder.
+    Asset subtypes fall through to get_asset_by_guid.
     """
+    # Endpoints: direct GUID lookup via ConnectionMaker
+    if section == "endpoints":
+        try:
+            cm = _connection_maker_from_asset_maker(mgr)
+            raw = cm.get_endpoint_by_guid(
+                endpoint_guid=guid,
+                output_format="JSON",
+                body={"class": "GetRequestBody", "graphQueryDepth": 3},
+            )
+            el = raw[0] if isinstance(raw, list) else raw
+            if el:
+                return el
+        except Exception:
+            pass
+        return None
+
     # Known non-Asset section — use targeted find and filter by GUID
     finder = _SECTION_FINDERS.get(section or "")
     if finder:
@@ -511,7 +581,7 @@ def _fetch_detail(mgr, guid: str, section: Optional[str]):
         raw = mgr.get_asset_by_guid(
             asset_guid=guid,
             output_format="JSON",
-            body={"class": "GetRequestBody", "graphQueryDepth": 1, "relationshipsPageSize": 50},
+            body={"class": "GetRequestBody", "graphQueryDepth": 3, "relationshipsPageSize": 50},
         )
         el = raw[0] if isinstance(raw, list) else raw
         if el:
@@ -522,12 +592,30 @@ def _fetch_detail(mgr, guid: str, section: Optional[str]):
     # Fallback: SoftwareCapability subtypes (catches any missed non-Asset type)
     try:
         return _find_by_guid(
-            mgr.find_software_capabilities(search_string="*", output_format="JSON", graph_query_depth=1),
+            mgr.find_software_capabilities(search_string="*", output_format="JSON", graph_query_depth=3),
             guid)
     except Exception:
         pass
 
     return None
+
+
+def _connection_maker_from_asset_maker(mgr):
+    """Create a ConnectionMaker sharing credentials from an existing AssetMaker.
+
+    NOTE: Do NOT pass token= here. ConnectionMaker.__init__ calls check_connection()
+    immediately, and the Bearer token format from AssetMaker causes a 401 on that
+    handshake. A fresh create_egeria_bearer_token() call is required instead.
+    """
+    from pyegeria import ConnectionMaker
+    cm = ConnectionMaker(
+        server_name=mgr.server_name,
+        platform_url=mgr.platform_url,
+        user_id=mgr.user_id,
+        user_pwd=mgr.user_pwd,
+    )
+    cm.create_egeria_bearer_token()
+    return cm
 
 
 def _find_by_guid(raw, guid: str):
