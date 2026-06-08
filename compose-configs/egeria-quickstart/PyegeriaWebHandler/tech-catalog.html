@@ -946,6 +946,110 @@ function SidebarDetail({ items, loading, error, selected, onSelect, renderDetail
   );
 }
 
+// ── Sub-pane pattern — lazy-loading collapsible panels in the detail view ────
+//
+// SubPane: generic container. Fetches fetchUrl on first open, then renders via
+// renderContent(data). Stays open/closed independently. Reused for Schema and Lineage.
+//
+function SubPane({ title, fetchUrl, creds, renderContent }) {
+  var _open    = useState(false), open    = _open[0],    setOpen    = _open[1];
+  var _data    = useState(null),  data    = _data[0],    setData    = _data[1];
+  var _loading = useState(false), loading = _loading[0], setLoading = _loading[1];
+  var _err     = useState(''),    err     = _err[0],     setErr     = _err[1];
+
+  function toggle() {
+    var nowOpen = !open;
+    setOpen(nowOpen);
+    if (nowOpen && !data && !loading) {
+      setLoading(true); setErr('');
+      fetch(credAppend(fetchUrl, creds))
+        .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function(d) { setData(d); setLoading(false); })
+        .catch(function(e) { setErr(String(e)); setLoading(false); });
+    }
+  }
+
+  var hdrStyle = { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 0', cursor: 'pointer', borderTop: '1px solid var(--border)', marginTop: 16, userSelect: 'none' };
+  var labelStyle = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', flex: 1 };
+  var chevron = open ? '▲' : '▼';
+  return React.createElement('div', null,
+    React.createElement('div', { style: hdrStyle, onClick: toggle },
+      React.createElement('span', { style: labelStyle }, title),
+      React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)' } }, chevron)
+    ),
+    open && React.createElement('div', { style: { paddingBottom: 12 } },
+      loading
+        ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '8px 0' } }, 'Loading…')
+        : err
+          ? React.createElement('div', { style: { fontSize: 12, color: 'var(--muted)', padding: '8px 0' } }, 'Error: ' + err)
+          : data ? renderContent(data) : null
+    )
+  );
+}
+
+// SchemaPane: renders schemaType + sorted attribute table
+function SchemaPane({ guid, creds }) {
+  function renderSchema(data) {
+    var st = data.schemaType;
+    var attrs = data.attributes || [];
+    var tblHdr = { fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 8px 4px 0', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' };
+    var tdStyle = { fontSize: 11, padding: '3px 8px 3px 0', color: 'var(--text)', verticalAlign: 'top', borderBottom: '1px solid var(--border)' };
+    var tdDim   = Object.assign({}, tdStyle, { color: 'var(--dim)', whiteSpace: 'nowrap' });
+    return React.createElement('div', null,
+      st && React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 } },
+        React.createElement('span', { style: { fontSize: 12, color: 'var(--muted)' } }, 'Schema type:'),
+        React.createElement('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--text)' } }, st.typeName || ''),
+        st.displayName && React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, st.displayName)
+      ),
+      attrs.length === 0
+        ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'No attributes found.')
+        : React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 } },
+            React.createElement('thead', null,
+              React.createElement('tr', null,
+                React.createElement('th', { style: tblHdr }, '#'),
+                React.createElement('th', { style: tblHdr }, 'Name'),
+                React.createElement('th', { style: tblHdr }, 'Type'),
+                React.createElement('th', { style: tblHdr }, 'Required'),
+                React.createElement('th', { style: tblHdr }, 'Description')
+              )
+            ),
+            React.createElement('tbody', null,
+              attrs.map(function(a, i) {
+                return React.createElement('tr', { key: a.guid || i },
+                  React.createElement('td', { style: tdDim }, a.position != null ? a.position : i + 1),
+                  React.createElement('td', { style: tdStyle }, a.displayName),
+                  React.createElement('td', { style: tdDim }, a.dataType || a.typeName || ''),
+                  React.createElement('td', { style: tdDim }, a.required ? 'Yes' : ''),
+                  React.createElement('td', { style: Object.assign({}, tdStyle, { color: 'var(--muted)' }) }, a.description || '')
+                );
+              })
+            )
+          )
+    );
+  }
+  return React.createElement(SubPane, {
+    title: 'Schema',
+    fetchUrl: '/api/tech-catalog/assets/' + encodeURIComponent(guid) + '/schema',
+    creds: creds,
+    renderContent: renderSchema,
+  });
+}
+
+// LineagePane: renders the mermaid lineage graph returned by get_asset_lineage_mermaid_graph
+function LineagePane({ guid, creds }) {
+  function renderLineage(data) {
+    var graph = data.mermaidGraph || '';
+    if (!graph) return React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'No lineage graph available for this element.');
+    return React.createElement(MermaidDiagram, { code: graph });
+  }
+  return React.createElement(SubPane, {
+    title: 'Lineage',
+    fetchUrl: '/api/tech-catalog/assets/' + encodeURIComponent(guid) + '/lineage',
+    creds: creds,
+    renderContent: renderLineage,
+  });
+}
+
 // ── Glossary components (ported from type-explorer.html) ─────────────────────
 
 var _glsItemStyle    = { display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', fontSize: 12, cursor: 'pointer', borderLeft: '2px solid transparent', userSelect: 'none' };
@@ -1329,11 +1433,12 @@ var TYPE_TO_NAV = (function() {
 }());
 
 // ── Generic detail panel ──────────────────────────────────────────────────────
-function AssetDetail({ item, detailLoading, onNavigate }) {
+function AssetDetail({ item, detailLoading, onNavigate, creds }) {
   if (!item) return null;
   var sectionHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
   var cardStyle  = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px', marginBottom: 6 };
-  var skipKeys   = new Set(['guid','typeName','displayName','qualifiedName','description','classifications','relationships'].concat(_ALL_MERMAID_FIELDS));
+  // hasSchema / hasLineage are signalled by the backend; exclude them from the property table
+  var skipKeys   = new Set(['guid','typeName','displayName','qualifiedName','description','classifications','relationships','hasSchema','hasLineage'].concat(_ALL_MERMAID_FIELDS));
   var extraProps = Object.entries(item).filter(function(e) {
     return !skipKeys.has(e[0]) && e[1] && typeof e[1] === 'string';
   });
@@ -1419,6 +1524,10 @@ function AssetDetail({ item, detailLoading, onNavigate }) {
       })
     ),
 
+    // Sub-panes: Schema and Lineage (lazy-loaded on first open)
+    item.hasSchema  && React.createElement(SchemaPane,  { guid: item.guid, creds: creds }),
+    item.hasLineage && React.createElement(LineagePane, { guid: item.guid, creds: creds }),
+
     // Comments
     React.createElement(EgeriaCommentsSection, { guid: item.guid })
   );
@@ -1486,7 +1595,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   return React.createElement(SidebarDetail, {
     items: filtered, loading: loading, error: error, selected: selected, onSelect: handleSelect,
     filterBar: filterBar,
-    renderDetail: function() { return React.createElement(AssetDetail, { item: detail, detailLoading: detailLoad, onNavigate: onNavigate }); },
+    renderDetail: function() { return React.createElement(AssetDetail, { item: detail, detailLoading: detailLoad, onNavigate: onNavigate, creds: creds }); },
   });
 }
 
