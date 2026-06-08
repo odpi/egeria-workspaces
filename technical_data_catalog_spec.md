@@ -1,270 +1,222 @@
 # Technical Asset Catalog — Specification
 
-The **The Catalog** is a new tile on the portals for quickstart and freshstart. It is aimed at technical users that are used to working with assets.
+**The Catalog** is a tile on the quickstart (and freshstart) portal. It is aimed at technical users who work directly with assets: infrastructure engineers, data engineers, API developers, and architects browsing the governed vocabulary.
 
-When you launch the **The Catalog**, there are 4 tiles:
+When you launch The Catalog, there are **five tiles** (Glossary is first):
 
-- Infrastructure Assets — For working with servers, storage and networks.
-- Data Assets — For working with your data stores, data feeds and data sets.
-- APIs — For working with your APIs
-- Processes — For working with your software processes and actions
-
----
-
-## General features for each tile/tab
-
-When a tile is selected, it opens up a page with two panels. A left-hand panel for a tree-view of elements and a right-hand detail panel.
-
-The left-hand tree view under each tile should include a search box to restrict the elements listed. The elements displayed are of a specific type (detailed in the description of each tile). They are organized alphabetically unless the description of the tile specifies otherwise.
-
-When an element in the left-hand pane is selected, the details pane is populated.
-On the detail pane, the properties of the element are displayed with a link to display each mermaid graph, along with any classifications and relationships (like egeria explorer).
-
-For each classification displayed, it should be possible to see the properties of the classification.
-
-For each relationship displayed, it should be possible to see the properties of the relationship and the related element.
+| Tile | Description |
+|---|---|
+| **Glossary** | Browse glossaries, categories, and terms; cross-link to data assets |
+| **Infrastructure Assets** | Servers, storage, networks, software capabilities, and endpoints |
+| **Data Assets** | Data stores, data feeds, and data sets |
+| **APIs** | Deployed APIs and their endpoints |
+| **Processes** | Software components and actions |
 
 ---
 
-## Under the Infrastructure Assets tile
+## General features
 
-In the left-hand tree-view, there are 3 tabs:
+When a tile is selected, it opens a page with a left-hand navigation panel and a right-hand detail panel. The Glossary tile has a three-column layout (glossary list → categories/terms → term detail); all other tiles have a two-panel layout (item list → item detail).
 
-1. Infrastructure Assets
-2. Software Capabilities
-3. Endpoints
+**Left-hand panel (all asset tiles):**
+- Search box to filter the displayed elements
+- Type filter dropdown when multiple `deployedImplementationType` values are present
+- Items are sorted alphabetically by display name (client-side)
+- Sub-tabs within a tile (e.g., Data Stores / Data Feeds / Data Sets) are shown as a tab bar above the list
 
-### Infrastructure Assets tab
+**Right-hand detail panel (all asset tiles):**
+- Header: element display name, type badge, Egeria feedback widget
+- Qualified name and description
+- Properties table (all scalar properties not in the header)
+- Classifications with their properties
+- Mermaid diagrams: embedded graphs (rendered immediately) + on-demand "Load Context Diagram" / "Load Anchored Graph" buttons
+- Relationships: each relationship card shows the relationship type, related element name and type, relationship properties, and a **"View →"** button when the related element's type maps to a known catalog tab
+- Egeria comments section
 
-The infrastructure assets are accessed using the Asset Maker API. They inherit from ITInfrastructure (metadataElementTypeName="ITInfrastructure").
-They should be organized by type. It should be possible to filter by deployedImplementationType and deploymentStatus attributes.
+**Cross-navigation (implemented):** The "View →" button in any relationship card navigates the SPA to the appropriate section and tab, auto-fetching the related element's detail. Navigation resolves subtypes via the `superTypeNames` hierarchy (e.g., `SecretsCollection` navigates to the Data Sets tab because it inherits from `DataSet`).
 
-When an asset is selected, the detail panel is displayed.
-In this initial implementation it is sufficient to display the properties of the asset and its mermaid graphs, along with any classifications and relationships (like egeria explorer). If possible, linking to the related software capabilities (getCapabilities) from the software capabilities tab would be good.
+---
+
+## Glossary tile
+
+The Glossary tile uses a three-column layout:
+
+1. **Left column** — glossary list, plus an "All Terms (search)" entry for cross-glossary search
+2. **Middle column** — folder tree and terms for the selected glossary; or search results in global search mode
+3. **Right column** — term detail, folder detail, or glossary detail
+
+### Glossary detail
+Shows the glossary display name, description, language, usage, and a mermaid context diagram button.
+
+### Folder (GlossaryCategory) detail
+Shows folder name, type, status, description, and property table.
+
+### Term detail
+Shows term display name, abbreviation, summary, examples, usage, status, content status, description (rendered as markdown), classifications (with badges), folder assignments, mermaid diagram, full property table, all relationship types with their related elements, and an Egeria comments section.
+
+**Term cross-navigation:** Related elements in a term's relationship list (e.g., other terms linked via `SynonymRelationship`) show a "View →" button that navigates within the Glossary section. Non-glossary related elements (e.g., `DataAsset` linked via semantic assignment) show "View →" buttons that navigate to the appropriate asset tab.
+
+**Template substitutes:** Template terms are hidden by default. A "Show template substitutes" checkbox is available in the filter bar.
+
+### Backend
+All glossary calls are served by `glossary_handler.py` (shared with Egeria Explorer):
+- `GET /api/glossary` → list of glossaries
+- `GET /api/glossary/{guid}/folders` → categories for a glossary or category
+- `GET /api/glossary/{guid}/terms` → terms for a glossary or category
+- `GET /api/glossary-terms?q=` → cross-glossary term search
+- `GET /api/glossary/term/{guid}` → full term detail (`graph_query_depth=3`)
+
+---
+
+## Infrastructure Assets tile
+
+Three sub-tabs:
+
+### IT Infrastructure tab
+- **API:** `AssetMaker.find_infrastructure(search_string, deployment_status_list=[], graph_query_depth=0)`
+- **Type:** `ITInfrastructure` and all subtypes (SoftwareServer, Host, VirtualMachine, HostCluster, etc.)
+- **Filter:** `deployedImplementationType` (client-side dropdown)
+- **Cross-nav:** `SupportedSoftwareCapability` relationships navigate to the Software Capabilities tab
 
 ### Software Capabilities tab
-
-The software capabilities are accessed using the Asset Maker API. They inherit from SoftwareCapability and have their own methods.
-They should be organized by type. It should be possible to filter by the deployedImplementationType and deploymentStatus attributes.
-
-When a software capability is selected, the detail panel is displayed.
-In this initial implementation it is sufficient to display the properties of the software capability and its mermaid graphs, along with any classifications and relationships (like egeria explorer). If possible, linking to the related infrastructure asset (getHostedByDeployedITInfrastructure) from the infrastructure assets tab would be good.
+- **API:** `AssetMaker.find_software_capabilities(search_string, graph_query_depth=0)`
+- **Type:** `SoftwareCapability` and all subtypes (APIManager, DatabaseManager, EventBroker, etc.)
+- **Filter:** `deployedImplementationType` (client-side dropdown)
+- **Cross-nav:** `SoftwareCapabilityDependency` relationships navigate within this tab; hosting infrastructure relationships navigate to the IT Infrastructure tab
 
 ### Endpoints tab
-
-The endpoints are accessed using the Connection Maker API. They inherit from Endpoint and there are specialized methods for working with endpoints.
-They should be organized by display name.
-
-When an endpoint is selected, the detail panel is displayed.
-In this initial implementation it is sufficient to display the properties of the endpoint and its mermaid graphs, along with any classifications and relationships (like egeria explorer). If possible, linking to the related infrastructure asset (getServers) from the infrastructure assets tab would be good.
+- **API:** `ConnectionMaker.find_endpoints(search_string, output_format="JSON", graph_query_depth=0)`
+- **Type:** `Endpoint` (not an Asset subtype — requires `ConnectionMaker`)
+- **Detail:** `ConnectionMaker.get_endpoint_by_guid(guid, body={graphQueryDepth:3})` — a fresh `create_egeria_bearer_token()` call is required (passing a reused token causes a 401 in the constructor)
+- **Cross-nav:** Connected server/asset relationships navigate to the IT Infrastructure tab
 
 ---
 
-## Under the Data Assets tile
+## Data Assets tile
 
-In the left-hand tree-view, there are 3 tabs:
-
-1. Data Stores
-2. Data Feeds
-3. Data Sets
+Three sub-tabs:
 
 ### Data Stores tab
-
-The data stores are accessed using the Asset Maker API. They inherit from DataStore (metadataElementTypeName="DataStore").
-They should be organized by type. It should be possible to filter by the deployedImplementationType attribute.
-
-When a data store is selected, the detail panel is displayed.
-In this initial implementation it is sufficient to display the properties of the data store and its mermaid graphs, along with any classifications and relationships (like egeria explorer). If possible, linking to the related data sets (getSupportedDataSets) from the data sets tab would be good.
+- **API:** `AssetMaker.find_data_assets(search_string, metadata_element_type="DataStore", content_status_list=[], graph_query_depth=0)`
+- **Type:** `DataStore` and all subtypes (Database, CSVFile, DataFile, RelationalDatabase, FileFolder, etc.)
+- **Filter:** `deployedImplementationType` (client-side)
+- **Cross-nav:** `DataSetContent` relationships (key: `supportedDataSets`) navigate to the Data Sets tab
 
 ### Data Feeds tab
-
-The data feeds are accessed using the Asset Maker API. They inherit from DataFeed (metadataElementTypeName="DataFeed").
-They should be organized by type. It should be possible to filter by the deployedImplementationType attribute.
-
-When a data feed is selected, the detail panel is displayed.
-In this initial implementation it is sufficient to display the properties of the data feed and its mermaid graphs, along with any classifications and relationships (like egeria explorer).
+- **API:** `AssetMaker.find_data_assets(search_string, metadata_element_type="DataFeed", content_status_list=[], graph_query_depth=0)`
+- **Type:** `DataFeed` and all subtypes (Topic, KafkaTopic, etc.)
+- **Note:** Coco data feeds are primarily Kafka topics
 
 ### Data Sets tab
-
-The data sets are accessed using the Asset Maker API. They inherit from DataSet (metadataElementTypeName="DataSet").
-They should be organized by type. It should be possible to filter by the deployedImplementationType attribute.
-
-When a data set is selected, the detail panel is displayed.
-In this initial implementation it is sufficient to display the properties of the data set and its mermaid graphs, along with any classifications and relationships (like egeria explorer). If possible, linking to the related data stores (getDataContent) from the data stores tab would be good.
+- **API:** `AssetMaker.find_data_assets(search_string, metadata_element_type="DataSet", content_status_list=[], graph_query_depth=0)`
+- **Type:** `DataSet` and all subtypes (SecretsCollection, VirtualRelationalTable, etc.)
+- **Cross-nav:** `DataSetContent` relationships navigate to the Data Stores tab
 
 ---
 
-## Under the APIs tile
+## APIs tile
 
-The APIs are accessed using the Asset Maker API. They inherit from DeployedAPI (metadataElementTypeName="DeployedAPI").
-They should be organized by type. It should be possible to filter by the deployedImplementationType attribute.
+Single list (no sub-tabs):
 
-When an API is selected, the detail panel is displayed.
-In this initial implementation it is sufficient to display the properties of the API and its mermaid graphs, along with any classifications and relationships (like egeria explorer). If possible, linking to the related endpoints (getEndpoints) from the endpoints tab would be good.
+- **API:** `AssetMaker.find_assets(search_string, metadata_element_type="DeployedAPI", graph_query_depth=0)`
+- **Type:** `DeployedAPI` (inherits from DeployedSoftwareComponent → Process → Asset)
+- **Filter:** `deployedImplementationType` (client-side)
+- **Cross-nav:** `APIEndpoint` relationships navigate to the Endpoints tab
 
 ---
 
-## Under the Processes tile
+## Processes tile
 
-In the left-hand tree-view, there are 2 tabs:
-
-1. Software Components
-2. Actions
+Two sub-tabs:
 
 ### Software Components tab
-
-The software components are accessed using the Asset Maker API. They inherit from DeployedSoftwareComponent (metadataElementTypeName="DeployedSoftwareComponent").
-They should be organized by type. It should be possible to filter by the deployedImplementationType and activityStatus attributes.
-
-When a software component is selected, the detail panel is displayed.
-In this initial implementation it is sufficient to display the properties of the software component and its mermaid graphs, along with any classifications and relationships (like egeria explorer).
+- **API:** `AssetMaker.find_processes(search_string, metadata_element_type="DeployedSoftwareComponent", activity_status_list=[], graph_query_depth=0)`
+- **Type:** `DeployedSoftwareComponent` and subtypes
+- **Note:** `activity_status_list` defaults to `["IN_PROGRESS"]` — must pass `[]` to see all connectors in Coco
 
 ### Actions tab
-
-The actions are accessed using the Asset Maker API. They inherit from Action (metadataElementTypeName="Action").
-They should be organized by type. It should be possible to filter by the deployedImplementationType and activityStatus attributes.
-
-When an action is selected, the detail panel is displayed.
-In this initial implementation it is sufficient to display the properties of the action and its mermaid graphs, along with any classifications and relationships (like egeria explorer).
+- **API:** `AssetMaker.find_processes(search_string, metadata_element_type="Action", activity_status_list=[], graph_query_depth=0)`
+- **Type:** `Action` and subtypes
 
 ---
 
-## Design Notes and Implementation Plan
+## Backend API surface (`tech_catalog_handler.py`)
 
-*Added 2026-06-06.*
+```
+GET /api/tech-catalog/infrastructure          find_infrastructure (ITInfrastructure)
+GET /api/tech-catalog/software-capabilities   find_software_capabilities
+GET /api/tech-catalog/endpoints               ConnectionMaker.find_endpoints
+GET /api/tech-catalog/data-stores             find_data_assets (DataStore)
+GET /api/tech-catalog/data-feeds              find_data_assets (DataFeed)
+GET /api/tech-catalog/data-sets               find_data_assets (DataSet)
+GET /api/tech-catalog/apis                    find_assets (DeployedAPI)
+GET /api/tech-catalog/software-components     find_processes (DeployedSoftwareComponent)
+GET /api/tech-catalog/actions                 find_processes (Action)
+GET /api/tech-catalog/assets/{guid}           detail for any element by GUID + section hint
+```
+
+All list endpoints accept: `q` (search string), `start_from`, `page_size`, `url`, `server`, `user_id`, `user_pwd`.
+
+Glossary endpoints are served by `glossary_handler.py` (shared with Egeria Explorer).
+
+---
+
+## Design Notes
+
+*Initial design: 2026-06-06. Updated to reflect implementation: 2026-06-08.*
 
 ### Key design decisions
 
 **1. Standalone SPA, not an extension of Egeria Explorer.**
+`type-explorer.html` is already ~7,600 lines. A separate `tech-catalog.html` keeps concerns clean. The two tools share the same visual language (dark theme, CSS variables, sidebar+detail layout) but are independently deployable.
 
-`type-explorer.html` is already ~7,600 lines. Adding 9 more asset-type panels there would make it unmaintainable and slow to load. A separate `the-catalog.html` (~2,500–3,000 lines estimated) keeps concerns clean and makes modularization tractable later. The two tools share the same visual language (dark theme, CSS variables, sidebar+detail layout) but are independently deployable.
+**2. Glossary is shared with Egeria Explorer.**
+`glossary_handler.py` is used by both SPAs without modification. The `GlossaryView` component was ported from `type-explorer.html` with inline styles replacing CSS class dependencies and `creds` prop replacing `CredContext`. When MOD-1 extracts shared components, GlossaryView is the top candidate.
 
-**2. Same URL-routing model as Explorer.**
+**3. Hash-based section routing.**
+`window.location.hash` enables deep-linking from portal cards and bookmarks (e.g., `/tech-catalog#glossary`). Valid section IDs: `glossary`, `infrastructure`, `data-assets`, `apis`, `processes`.
 
-The tool lives at `/the-catalog` (served by the existing Apache proxy → FastAPI). Deep-linking via `window.location.hash` is supported from launch, so portal cards and bookmarks can land directly on a section (e.g., `/tech-catalog#data-stores`). This follows the hash-navigation pattern already in place for Explorer.
+**4. `deployedImplementationType` filtering is client-side.**
+pyegeria `find_*` calls don't expose `deployedImplementationType` as a server-side filter. The sidebar shows a type-grouping dropdown that filters the already-loaded list.
 
-**3. Single backend handler file: `the_catalog_handler.py`.**
+**5. Status filters must always be overridden to `[]`.**
+Every find method defaults to a status that filters out most Coco demo data. The rule: always pass `<status_param>=[]` unless the user explicitly requests filtering. See `cat_calls.md` for the per-method defaults.
 
-All nine asset-type endpoints live in one file. The handler uses `AssetMaker` (from pyegeria) for infrastructure, data assets, APIs, software components, and actions; and `ConnectionMaker` for endpoints. All calls pass `sequencing_order="PROPERTY_ASCENDING"` and `sequencing_property="displayName"` — the established pattern across all existing handlers.
+**6. Detail panel uses `graph_query_depth=3`.**
+List calls use `graph_query_depth=0` for performance. Detail calls use `graph_query_depth=3` to expose nested schema links, lineage anchors, multi-hop relationships, and embedded mermaid diagram fields.
 
-**4. `deployedImplementationType` filtering is client-side in Phase 1.**
+**7. Relationship data is nested in `relatedElement`.**
+pyegeria wraps related elements in `RelatedMetadataElementSummary`. The actual `elementHeader` and `properties` are inside a `relatedElement` sub-dict, not at the item top level. `_extract_relationships()` unwraps this and also extracts `superTypeNames` for subtype-aware navigation.
 
-The pyegeria `find_*` calls do not expose `deployedImplementationType` as a direct server-side filter parameter — it is a property on the returned element. In Phase 1 the sidebar will show a type-grouping dropdown that filters the already-loaded list client-side. Phase 2 can add a `property_names` body parameter if Egeria adds support.
-
-**5. Status filters use the pyegeria-native params.**
-
-- `find_infrastructure` → `deployment_status_list` (default `["ACTIVE"]`)
-- `find_data_assets` → `content_status_list` (default `["ACTIVE"]`)
-- `find_processes` → `activity_status_list`
-- `find_software_capabilities` → no status filter; client-side grouping by type
-
-**6. Detail panel reuses the same component patterns as Explorer.**
-
-`AvailableMermaidDiagrams`, `MermaidSection`, `EgeriaFeedbackWidget`, `EgeriaCommentsSection`, and the property-table layout are copy-initialised from Explorer. When the Modularization workstream (MOD-1→3) runs, these will be extracted to a shared static include so changes propagate automatically. Building the catalog first gives us concrete evidence of which components are truly shared.
-
-**7. Port allocation.**
-
-The Technical Catalog is served by the existing `quickstart-pyegeria-web` FastAPI container via a new Apache `<Location /tech-catalog>` proxy block — same pattern as `/egeria-explorer`. No new container or host port is required.
+**8. Cross-navigation uses a `navTarget` state threaded from App to leaf components.**
+`App` holds `{ navTarget, handleNavigate }`. `SectionView` switches sub-tabs via `useEffect` on `navTarget`. `AssetTabView` detects a new nav target via `useRef` deduplication and calls `handleSelect` directly. This avoids a global store while keeping the component tree clean.
 
 ---
 
-### pyegeria API mapping
+## Implementation status (as of 2026-06-08)
 
-| Section / Tab | pyegeria class | Method | `metadata_element_type` |
-|---|---|---|---|
-| Infrastructure Assets | `AssetMaker` | `find_infrastructure` | `"ITInfrastructure"` |
-| Software Capabilities | `AssetMaker` | `find_software_capabilities` | *(all, filter client-side)* |
-| Endpoints | `ConnectionMaker` | `find_endpoints` | *(body-based search)* |
-| Data Stores | `AssetMaker` | `find_data_assets` | `"DataStore"` |
-| Data Feeds | `AssetMaker` | `find_data_assets` | `"DataFeed"` |
-| Data Sets | `AssetMaker` | `find_data_assets` | `"DataSet"` |
-| APIs | `AssetMaker` | `find_assets` | `"DeployedAPI"` |
-| Software Components | `AssetMaker` | `find_processes` | `"DeployedSoftwareComponent"` |
-| Actions | `AssetMaker` | `find_processes` | `"Action"` |
+| Phase | Items | Status |
+|---|---|---|
+| TC-0 | Scaffolding (SPA shell, handler stub, Apache proxy, portal tile) | ✅ Complete |
+| TC-1 | All list + detail backend endpoints | ✅ Complete |
+| TC-2 | SPA shell + auth seam + splash screen | ✅ Complete |
+| TC-3 | Infrastructure section (3 sub-tabs) | ✅ Complete |
+| TC-4 | Data Assets section (3 sub-tabs) | ✅ Complete |
+| TC-5 | APIs section | ✅ Complete |
+| TC-6 | Processes section (2 sub-tabs) | ✅ Complete |
+| TC-7 | Glossary tile (3-column browser, full term detail) | ✅ Complete |
+| TC-8 | Cross-navigation links via "View →" in relationship cards | ✅ Complete |
+| MOD-1→3 | Extract shared components to `egeria-shared-ui.js` | 🔲 Post-MVP |
 
-Detail panel (any type): `AssetMaker.get_asset_by_guid()` or `find_assets` with GUID filter. Mermaid: existing `/api/mermaid/{guid}` endpoint already works for any Egeria element.
+### Outstanding work
 
----
+See `CATALOG_ISSUES.md` for detailed tracking. Remaining open issues:
+- **O-1/O-2:** Confirm list response key format and whether result-set mermaid graphs are returned
+- **O-3:** Pre-populate "Load Context Diagram" from embedded `mermaidGraph` to avoid redundant fetch
+- **O-8:** Replace O(n) scan for SoftwareCapability detail with `get_software_capability_by_guid`
+- **O-9:** Forward user credentials to mermaid diagram fetch URLs
+- **O-10:** Confirm whether `DeployedAPI` elements in Coco have mermaid graph data
 
-### Backend API endpoints (`tech_catalog_handler.py`)
+### Modularization strategy
 
-```
-GET /api/tech-catalog/infrastructure          find_infrastructure(type=ITInfrastructure)
-GET /api/tech-catalog/software-capabilities   find_software_capabilities()
-GET /api/tech-catalog/endpoints               find_endpoints() via ConnectionMaker
-GET /api/tech-catalog/data-stores             find_data_assets(type=DataStore)
-GET /api/tech-catalog/data-feeds              find_data_assets(type=DataFeed)
-GET /api/tech-catalog/data-sets               find_data_assets(type=DataSet)
-GET /api/tech-catalog/apis                    find_assets(type=DeployedAPI)
-GET /api/tech-catalog/software-components     find_processes(type=DeployedSoftwareComponent)
-GET /api/tech-catalog/actions                 find_processes(type=Action)
-GET /api/tech-catalog/assets/{guid}           get detail for any element by GUID
-```
-
-All list endpoints accept `q` (search string), `start_from`, `page_size`, and credential query params (`url`, `server`, `user_id`, `user_pwd`) — same FastAPI query-param pattern as all other handlers.
-
----
-
-### Phased implementation plan
-
-#### Phase 0 — Scaffolding (TC-0) — *start here*
-
-- Create `tech-catalog.html` skeleton (HTML boilerplate, React/CDN imports, empty `App` component)
-- Create `tech_catalog_handler.py` with one stub endpoint (`/api/tech-catalog/ping`)
-- Register handler in `pyegeria_handler.py` (both quickstart + freshstart)
-- Add Apache `<Location /tech-catalog>` proxy block to `fastapi-proxy.conf` (both envs)
-- Add portal tile "Technical Catalog" to `demo-portal.html` (both portals)
-- Confirm the tile renders and the page loads
-
-#### Phase 1 — Full backend (TC-1)
-
-- Implement all 9 list endpoints + the `/{guid}` detail endpoint
-- Wire in `sequencing_order` / `sequencing_property` on every call
-- Return consistent JSON shape: `{ items: [...], total: N }` with serialized element objects (guid, displayName, qualifiedName, typeName, deployedImplementationType, description, classifications, properties)
-- Manual smoke-test each endpoint against live Egeria
-
-#### Phase 2 — SPA shell + Infrastructure section (TC-2, TC-3)
-
-- App shell: auth seam (reads `/api/auth/me`, gates connection form on `srvManaged`), hash-based section routing, top-level 4-tile splash screen
-- Infrastructure section: 3 sub-tabs (Assets / Capabilities / Endpoints), sidebar with search + type-group filter, detail panel with property table + mermaid buttons + feedback widgets
-
-#### Phase 3 — Data Assets section (TC-4)
-
-- 3 sub-tabs: Data Stores / Data Feeds / Data Sets
-- Same sidebar + detail pattern as Phase 2; add `deployedImplementationType` filter dropdown
-
-#### Phase 4 — APIs and Processes sections (TC-5, TC-6)
-
-- APIs: single list + detail (no sub-tabs needed)
-- Processes: 2 sub-tabs (Software Components / Actions)
-
-#### Phase 5 — Cross-navigation links (TC-8)
-
-- Infrastructure Asset detail → "View Software Capabilities" link that switches sub-tab and pre-selects
-- Software Capability detail → linked Infrastructure Asset
-- Endpoint detail → linked server/asset
-- Data Store detail → linked Data Sets
-
-#### Phase 6 (post-MVP) — Modularization (MOD-1→3)
-
-After both Explorer and Tech Catalog are stable, extract the genuinely shared components:
-- `MermaidDiagram`, `DiagramPanel`, `MermaidSection`, `AvailableMermaidDiagrams`
-- `EgeriaFeedbackWidget`, `EgeriaCommentsSection`
-- Property table renderer
-- Auth seam helpers
-
-Target: a `egeria-shared-ui.js` static file served by FastAPI, imported by both SPAs via `<script>` tag. Both files become ~30% shorter and changes to shared components propagate automatically.
-
----
-
-### Modularization strategy (item #1)
-
-The immediate risk of copy-paste duplication is real — the Mermaid + feedback components are ~350 lines of the Explorer, and the auth seam is ~80 lines. If we change them in one tool and forget the other, they drift.
-
-**Short-term mitigation (now):** When building Tech Catalog, copy the components verbatim from Explorer. Add a `// SHARED — keep in sync with type-explorer.html` comment on each block so drift is visible in code review.
-
-**Medium-term fix (MOD phase):** Once both tools exist and usage patterns are clear, extract to a shared module. The extraction boundary will be obvious from the `// SHARED` markers.
-
-**What NOT to share:** Auth portal HTML, connection forms, persona picker, section routing — these differ enough between tools that sharing would create coupling without benefit.
-
-The Glossary panel is the first candidate for reuse across tools (Explorer → future Data Catalog). Its backend is already a standalone handler (`glossary_handler.py`). The frontend `GlossaryView` component in Explorer (~400 lines) can be extracted to `egeria-shared-ui.js` and embedded in other tools with minimal adaptation — the only coupling is the `onNavigate*` callback props, which the host tool provides.
+Both Explorer and The Catalog share: `MermaidDiagram`, `DiagramPanel`, `MermaidSection`, `AvailableMermaidDiagrams`, `EgeriaFeedbackWidget`, `EgeriaCommentsSection`, the auth seam, and `GlossaryView`. The target for MOD-1 is an `egeria-shared-ui.js` static file served by FastAPI and imported by both SPAs. The Glossary backend (`glossary_handler.py`) is already shared at the API level.
