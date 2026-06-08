@@ -18,7 +18,7 @@ exploration. Items can run concurrently when they touch different files; watch t
 | **Technical Asset Catalog** | TC-0 → TC-8 | **H** |    H     | New tool; spec in `technical_data_catalog_spec.md`. TC-0/TC-1 unblock all tabs. |
 | Report rendering | RR-1 → RR-5 | **H** |          | Core demo value; RR-1/RR-2 unblock RR-3/4/5. Sequential within the group. |
 | Data preview polish | DP-2 ✅ · DP-3 ✅ · DP-4 ✅ done | **M** |    H     | Filter bar, column sort, search all done. |
-| my-egeria additional apps | ME-8, ME-9 | **M** |    L     | TUI now renders end-to-end — momentum is here. Follows the proven ME-2..6 pattern. |
+| my-egeria additional apps | ME-8, ME-9 | **M** |    L     | TUI confirmed rendering end-to-end in demo (HTTPS). Follows proven ME-2..6 pattern. ME-7a (401 for some personas) still open. |
 | ProjectExplorer integration | PORT-7, LF-1 → LF-4 | **M** |    M     | Needs the LF-AI service stood up first; port `8830` already reserved. |
 | QuickStart demo polish | QS-1 ✅ · QS-3 ✅ done · QS-4 | **M** |    H     | QS-1/QS-3 already in portal; QS-4 (reset scheduler) still open. |
 | Performance | PERF-1, PERF-2 | **M** |    M     | Real pain on deep catalog trees; investigate after correctness work. |
@@ -306,7 +306,7 @@ Design doc: `my-egeria-integration.md` (in session). Architecture: `textual serv
 | ME-4 | `mod_proxy_wstunnel` in quickstart `httpd.conf` | done | Required for `upgrade=websocket`. (mod_substitute hack removed — superseded by ME-7's public_url fix.) |
 | ME-5 | WebSocket proxy route `/my-egeria/` in quickstart `fastapi-proxy.conf` | done | `http://quickstart-my-profile:8020/` with `upgrade=websocket`; container name not host.docker.internal. `/my-egeria/static/...` and `/my-egeria/ws` both route through this Location. |
 | ME-6 | "My Egeria" portal tile in quickstart `demo-portal.html` | done | Opens in new tab |
-| ME-7 | End-to-end smoke test: browser → Apache WS proxy → Textual app | done | Two fixes were needed: (1) `*.tcss` missing from pyegeria `package_data` (StylesheetError crashed every session) — fixed upstream + Dockerfile bridge; (2) CSP blocked cross-origin `0.0.0.0:8020` assets — fixed by passing `public_url` to `textual_serve.Server` so it emits same-origin `/my-egeria/...` URLs. Verified: assets 200, WS 101 through proxy, no StylesheetError. |
+| ME-7 | End-to-end smoke test: browser → Apache WS proxy → Textual app | done | Two fixes were needed: (1) `*.tcss` missing from pyegeria `package_data` (StylesheetError crashed every session) — fixed upstream + Dockerfile bridge; (2) CSP blocked cross-origin `0.0.0.0:8020` assets — fixed by passing `public_url` to `textual_serve.Server` so it emits same-origin `/my-egeria/...` URLs. Verified: assets 200, WS 101 through proxy, no StylesheetError. **Demo deployment fixes (2026-06-04, `577fc9b2`):** (3) `my-profile` was not started by `quick-start-local` — added to build + startup; (4) `/my-egeria/` route missing from `fastapi-ssl.conf` (only existed in HTTP vhost) — caused 404 on HTTPS; (5) `MY_EGERIA_PUBLIC_URL` was `http://` — overridden to `${DEMO_SITE_URL}/my-egeria` in demo overlay to avoid browser mixed-content block on WebSocket; (6) Podman 3.x silently skips external networks at container creation — `_podman_fix_network` helper added to `quick-start-local` to connect + cycle containers onto `egeria_network` after each `up -d`. |
 | ME-7a | `/my-profile` returns 401 for some personas (erinoverview, garygeeke) despite valid token | open | peterprofile loads fine and is now the quickstart default. erinoverview/garygeeke get a bearer token (`TOKEN OK`) but the `/my-profile` GET returns 401, so the TUI exits before first paint. Likely related to the known my-profile/type-query 401 (pyegeria). Investigate token scope or account state. |
 | ME-8 | `serve_*` entry points for additional apps (Data Products, Tech Types, Reports, Journals) | open | Apps exist in `DemoCode/` but no `serve_*` functions or `pyproject.toml` entries yet |
 | ME-9 | Additional app compose services + proxy routes + portal tiles | open | Follow ME-2/3/4/5/6 pattern; ports 8021–8024 |
@@ -358,6 +358,10 @@ Goal: extract the shared UI components that appear verbatim in both Explorer and
 
 | Item | Commit |
 |------|--------|
+| my-profile: wire into quick-start-local + fix Podman networking + SSL vhost + HTTPS public URL | `577fc9b2` |
+| Portal layout aligned with quickstart + Workspaces docs tile added (freshstart) | `c0fd2afc` |
+| Type System Explorer unified SPA + portal link fix (SHARE-1) | `5958dd03` |
+| Converge trivial handler drift (SHARE-2) | `04c9be2d` |
 | Type System Explorer ported to freshstart | — |
 | Egeria Explorer login loop in Freshstart — token expiry + erinoverview defaults | `85341fb6` |
 | Admin edit modal — givenName/surname pre-population | `85341fb6` |
