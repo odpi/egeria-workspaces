@@ -19,6 +19,8 @@ Endpoints:
   GET /api/tech-catalog/software-components  → DeployedSoftwareComponent processes
   GET /api/tech-catalog/actions              → Action processes
   GET /api/tech-catalog/assets/{guid}        → detail for any element by GUID
+  GET /api/tech-catalog/assets/{guid}/schema  → schema type + attribute tree (depth=5)
+  GET /api/tech-catalog/assets/{guid}/lineage → lineage graph via AssetCatalog
 """
 
 import os
@@ -125,59 +127,68 @@ def _flat_props(props_dict: dict) -> dict:
     return {k: v for k, v in flat.items() if v}
 
 
+def _unwrap_rel_item(item: dict, key: str) -> Optional[dict]:
+    """
+    Convert one RelatedMetadataElementSummary into a normalised relationship dict,
+    or return None if the item doesn't look like a relationship.
+    """
+    _ITEM_META = {"relationshipHeader", "relationshipProperties",
+                  "relatedElement", "relatedElementAtEnd1", "class"}
+    rel_hdr = item.get("relationshipHeader")
+    if not isinstance(rel_hdr, dict):
+        return None
+    rel_type = (rel_hdr.get("type") or {}).get("typeName") or key
+    rel_props_raw = item.get("relationshipProperties") or {}
+    rel_props = _flat_props(rel_props_raw) if rel_props_raw else {}
+    nested = item.get("relatedElement")
+    if isinstance(nested, dict) and "elementHeader" in nested:
+        elem = nested
+    else:
+        elem = {k: v for k, v in item.items() if k not in _ITEM_META}
+    elem_hdr  = _header(elem)
+    elem_props = _props(elem)
+    type_info  = elem_hdr.get("type") or {}
+    return {
+        "relationshipType": rel_type,
+        "relationshipProperties": rel_props,
+        "relatedElement": {
+            "guid":        elem_hdr.get("guid", ""),
+            "typeName":    type_info.get("typeName", ""),
+            "superTypes":  type_info.get("superTypeNames") or [],
+            "displayName": elem_props.get("displayName") or elem_props.get("name") or elem_hdr.get("guid", ""),
+            "description": elem_props.get("description") or "",
+        },
+    }
+
+
 def _extract_relationships(el: dict) -> list:
     """
     Extract peer relationships from a graph-queried element.
 
-    pyegeria wraps the related element in a nested 'relatedElement' sub-dict
-    (class RelatedMetadataElementSummary). The top-level item only contains
-    'relationshipHeader', 'relationshipProperties', 'relatedElement', and
-    optionally 'relatedElementAtEnd1'. We must unwrap 'relatedElement' to
-    reach the actual elementHeader / properties.
+    Handles both:
+    - List-valued keys: each item is a RelatedMetadataElementSummary
+    - Single-dict keys: e.g. 'schemaType' which is a single RelatedMetadataElementSummary
     """
     _SKIP_KEYS = {"elementHeader", "properties", "classifications", "class"}
-    _ITEM_META  = {"relationshipHeader", "relationshipProperties",
-                   "relatedElement", "relatedElementAtEnd1", "class"}
     result = []
     for key, val in el.items():
-        if key in _SKIP_KEYS or not isinstance(val, list):
+        if key in _SKIP_KEYS:
+            continue
+        # Single-dict relationship (e.g. schemaType)
+        if isinstance(val, dict):
+            if val.get("relationshipHeader"):
+                r = _unwrap_rel_item(val, key)
+                if r:
+                    result.append(r)
+            continue
+        if not isinstance(val, list):
             continue
         for item in val:
             if not isinstance(item, dict):
                 continue
-            rel_hdr = item.get("relationshipHeader")
-            if not isinstance(rel_hdr, dict):
-                continue
-            rel_type = (rel_hdr.get("type") or {}).get("typeName") or key
-            rel_props_raw = item.get("relationshipProperties") or {}
-            rel_props = _flat_props(rel_props_raw) if rel_props_raw else {}
-
-            # Prefer the nested 'relatedElement' wrapper (standard pyegeria format).
-            nested = item.get("relatedElement")
-            if isinstance(nested, dict) and "elementHeader" in nested:
-                elem = nested
-            else:
-                # Fallback for older / flat formats
-                elem = {k: v for k, v in item.items() if k not in _ITEM_META}
-
-            elem_hdr   = _header(elem)
-            elem_props = _props(elem)
-            type_info  = elem_hdr.get("type") or {}
-            type_name  = type_info.get("typeName", "")
-            # superTypeNames lets the frontend find a nav target for subtypes
-            super_types = type_info.get("superTypeNames") or []
-
-            result.append({
-                "relationshipType": rel_type,
-                "relationshipProperties": rel_props,
-                "relatedElement": {
-                    "guid":        elem_hdr.get("guid", ""),
-                    "typeName":    type_name,
-                    "superTypes":  super_types,
-                    "displayName": elem_props.get("displayName") or elem_props.get("name") or elem_hdr.get("guid", ""),
-                    "description": elem_props.get("description") or "",
-                },
-            })
+            r = _unwrap_rel_item(item, key)
+            if r:
+                result.append(r)
     return result
 
 
@@ -199,6 +210,9 @@ def _serialize(el, include_relationships: bool = False):
     }
     if include_relationships:
         out["relationships"] = _extract_relationships(el)
+    # Signal sub-panes available in the detail view
+    out["hasSchema"]  = isinstance(el.get("schemaType"), dict) and "relatedElement" in el.get("schemaType", {})
+    out["hasLineage"] = bool(el.get("lineageLinkage")) or bool(el.get("lineageRelationships"))
     # Pass through any mermaid graph fields present in the element or its properties.
     # These are only populated when graph_query_depth > 0 and Egeria has diagram data.
     for field in _MERMAID_FIELDS:
@@ -214,6 +228,77 @@ def _safe_list(raw):
     if isinstance(raw, dict) and "items" in raw:
         return raw["items"]
     return []
+
+
+def _asset_catalog(url, server, user_id, user_pwd):
+    from pyegeria import AssetCatalog
+    u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
+    ac = AssetCatalog(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
+    ac.create_egeria_bearer_token()
+    return ac
+
+
+def _serialize_schema(el: dict) -> dict:
+    """Flatten the schemaType + nested attribute tree into a UI-friendly structure."""
+    if not el:
+        return {"schemaType": None, "attributes": []}
+    st = el.get("schemaType")
+    if not isinstance(st, dict):
+        return {"schemaType": None, "attributes": []}
+    re = st.get("relatedElement", {})
+    rehdr = re.get("elementHeader", {})
+    reprops = re.get("properties", {})
+    type_info = rehdr.get("type") or {}
+    schema_type = {
+        "guid":        rehdr.get("guid", ""),
+        "typeName":    type_info.get("typeName", ""),
+        "displayName": reprops.get("displayName") or reprops.get("qualifiedName", ""),
+        "description": reprops.get("description", ""),
+    }
+    attributes = []
+    _SCHEMA_META = {"elementHeader", "properties", "class"}
+    for key, arr in re.items():
+        if key in _SCHEMA_META or not isinstance(arr, list):
+            continue
+        for item in arr:
+            if not isinstance(item, dict):
+                continue
+            r = _unwrap_rel_item(item, key)
+            if not r:
+                continue
+            ri = r["relatedElement"]
+            # Also fetch inner scalar props from the relatedElement directly
+            nested_elem = item.get("relatedElement", {})
+            p = _props(nested_elem)
+            flat = _flat_props(p)
+            attributes.append({
+                "guid":        ri["guid"],
+                "typeName":    ri["typeName"],
+                "displayName": ri["displayName"],
+                "description": ri["description"],
+                "dataType":    flat.get("dataType") or p.get("dataType", ""),
+                "position":    flat.get("position") or p.get("position"),
+                "required":    flat.get("required") or p.get("isNullable") == "false",
+                "extraProps":  {k: v for k, v in flat.items()
+                                if k not in ("displayName","qualifiedName","description","dataType","position","required","isNullable")},
+            })
+    attributes.sort(key=lambda a: (a.get("position") is None, a.get("position") or 0))
+    return {"schemaType": schema_type, "attributes": attributes}
+
+
+def _serialize_lineage(lin: dict) -> dict:
+    """Flatten an AssetCatalog lineage graph response into a UI-friendly list."""
+    if not lin:
+        return {"relationships": []}
+    result = []
+    for key in ("lineageLinkage", "lineageRelationships"):
+        for item in (lin.get(key) or []):
+            if not isinstance(item, dict):
+                continue
+            r = _unwrap_rel_item(item, key)
+            if r:
+                result.append(r)
+    return {"relationships": result}
 
 
 # ── SPA route ─────────────────────────────────────────────────────────────────
@@ -531,6 +616,48 @@ def get_asset_detail(
         raise
     except Exception as exc:
         logger.exception("get_asset_detail failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/api/tech-catalog/assets/{guid}/schema")
+def get_asset_schema(
+    guid: str,
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    """Return the schema type + attribute tree for any asset with a Schema relationship."""
+    try:
+        mgr = _asset_maker(url, server, user_id, user_pwd)
+        raw = mgr.get_asset_by_guid(
+            asset_guid=guid,
+            output_format="JSON",
+            body={
+                "class": "GetRequestBody",
+                "graphQueryDepth": 5,
+                "relationshipsPageSize": 200,
+                "includeOnlyRelationships": ["Schema", "AttributeForType", "TypeEmbeddedAttribute"],
+            },
+        )
+        el = raw[0] if isinstance(raw, list) else raw
+        return JSONResponse(_serialize_schema(el or {}))
+    except Exception as exc:
+        logger.exception("get_asset_schema failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/api/tech-catalog/assets/{guid}/lineage")
+def get_asset_lineage(
+    guid: str,
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    """Return the lineage graph for any asset via AssetCatalog.get_asset_lineage_graph."""
+    try:
+        ac = _asset_catalog(url, server, user_id, user_pwd)
+        lin = ac.get_asset_lineage_graph(asset_guid=guid, output_format="JSON")
+        return JSONResponse(_serialize_lineage(lin if isinstance(lin, dict) else {}))
+    except Exception as exc:
+        logger.exception("get_asset_lineage failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
 
