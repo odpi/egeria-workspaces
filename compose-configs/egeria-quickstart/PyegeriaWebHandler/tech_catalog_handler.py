@@ -212,7 +212,7 @@ def _serialize(el, include_relationships: bool = False):
         out["relationships"] = _extract_relationships(el)
     # Signal sub-panes available in the detail view
     out["hasSchema"]  = isinstance(el.get("schemaType"), dict) and "relatedElement" in el.get("schemaType", {})
-    out["hasLineage"] = bool(el.get("lineageLinkage")) or bool(el.get("lineageRelationships"))
+    out["hasLineage"] = True  # always offer lineage pane; empty graph shows graceful message
     # Pass through any mermaid graph fields present in the element or its properties.
     # These are only populated when graph_query_depth > 0 and Egeria has diagram data.
     for field in _MERMAID_FIELDS:
@@ -635,7 +635,7 @@ def get_asset_schema(
                 "class": "GetRequestBody",
                 "graphQueryDepth": 5,
                 "relationshipsPageSize": 200,
-                "includeOnlyRelationships": ["Schema", "AttributeForType", "TypeEmbeddedAttribute"],
+                "includeOnlyRelationships": ["Schema", "AttributeForSchema"],
             },
         )
         el = raw[0] if isinstance(raw, list) else raw
@@ -651,14 +651,21 @@ def get_asset_lineage(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
-    """Return the lineage graph for any asset via AssetCatalog.get_asset_lineage_graph."""
+    """Return the mermaid lineage graph string for any asset via AssetCatalog.
+
+    Returns {"mermaidGraph": ""} when the asset has no lineage data (Egeria returns 400).
+    """
     try:
         ac = _asset_catalog(url, server, user_id, user_pwd)
-        lin = ac.get_asset_lineage_graph(asset_guid=guid, output_format="JSON")
-        return JSONResponse(_serialize_lineage(lin if isinstance(lin, dict) else {}))
+        mermaid_str = ac.get_asset_lineage_mermaid_graph(asset_guid=guid)
+        return JSONResponse({"mermaidGraph": mermaid_str or ""})
     except Exception as exc:
+        exc_str = str(exc)
+        # Egeria returns 400 when no lineage data exists for the asset; treat as empty
+        if "400" in exc_str or "CLIENT_ERROR_400" in exc_str:
+            return JSONResponse({"mermaidGraph": ""})
         logger.exception("get_asset_lineage failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=exc_str)
 
 
 # Map from section id → targeted find_* with graph_query_depth=3 for full property/relationship detail

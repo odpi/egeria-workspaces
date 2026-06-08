@@ -1035,38 +1035,12 @@ function SchemaPane({ guid, creds }) {
   });
 }
 
-// LineagePane: renders lineage relationships with View → nav buttons
-function LineagePane({ guid, creds, onNavigate }) {
+// LineagePane: renders the mermaid lineage graph returned by get_asset_lineage_mermaid_graph
+function LineagePane({ guid, creds }) {
   function renderLineage(data) {
-    var rels = data.relationships || [];
-    if (rels.length === 0) return React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'No lineage relationships found.');
-    var cardStyle = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', marginBottom: 5, borderLeft: '3px solid rgba(99,102,241,.5)' };
-    return React.createElement('div', null,
-      rels.map(function(r, i) {
-        var el = r.relatedElement || {};
-        var nav = null;
-        if (el.guid) {
-          nav = el.typeName ? TYPE_TO_NAV[el.typeName] : null;
-          if (!nav && el.superTypes) {
-            for (var si = 0; si < el.superTypes.length; si++) {
-              nav = TYPE_TO_NAV[el.superTypes[si]];
-              if (nav) break;
-            }
-          }
-        }
-        return React.createElement('div', { key: i, style: cardStyle },
-          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-            React.createElement('span', { style: { fontSize: 10, fontWeight: 700, color: 'rgba(99,102,241,.9)', letterSpacing: '0.05em' } }, r.relationshipType),
-            React.createElement('span', { style: { fontSize: 12, color: 'var(--text)', flex: 1 } }, el.displayName || el.guid || ''),
-            el.typeName && React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)' } }, '· ' + el.typeName),
-            nav && onNavigate && React.createElement('button', {
-              onClick: function() { onNavigate({ guid: el.guid, section: nav.section, tab: nav.tab, displayName: el.displayName || el.guid }); },
-              style: { fontSize: 10, padding: '2px 7px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer', flexShrink: 0 }
-            }, 'View →')
-          )
-        );
-      })
-    );
+    var graph = data.mermaidGraph || '';
+    if (!graph) return React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'No lineage graph available for this element.');
+    return React.createElement(MermaidDiagram, { code: graph });
   }
   return React.createElement(SubPane, {
     title: 'Lineage',
@@ -1552,7 +1526,7 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
 
     // Sub-panes: Schema and Lineage (lazy-loaded on first open)
     item.hasSchema  && React.createElement(SchemaPane,  { guid: item.guid, creds: creds }),
-    item.hasLineage && React.createElement(LineagePane, { guid: item.guid, creds: creds, onNavigate: onNavigate }),
+    item.hasLineage && React.createElement(LineagePane, { guid: item.guid, creds: creds }),
 
     // Comments
     React.createElement(EgeriaCommentsSection, { guid: item.guid })
