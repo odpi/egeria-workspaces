@@ -869,13 +869,18 @@ function TechTable(headers, rows, emptyMsg) {
 }
 
 function TechResourceBadge(resourceUse) {
+  var key = (resourceUse || '').toLowerCase();
   var colours = {
-    'create-catalog-entry': { bg: 'rgba(16,185,129,.14)', fg: '#34d399' },
-    'survey':               { bg: 'rgba(245,158,11,.14)', fg: '#fbbf24' },
-    'catalog':              { bg: 'rgba(99,102,241,.14)', fg: '#818cf8' },
-    'provision':            { bg: 'rgba(236,72,153,.14)', fg: '#f472b6' },
+    'create catalog entry':  { bg: 'rgba(16,185,129,.14)', fg: '#34d399' },
+    'create-catalog-entry':  { bg: 'rgba(16,185,129,.14)', fg: '#34d399' },
+    'survey resource':       { bg: 'rgba(245,158,11,.14)', fg: '#fbbf24' },
+    'survey':                { bg: 'rgba(245,158,11,.14)', fg: '#fbbf24' },
+    'catalog resource':      { bg: 'rgba(99,102,241,.14)', fg: '#818cf8' },
+    'catalog':               { bg: 'rgba(99,102,241,.14)', fg: '#818cf8' },
+    'configure connector':   { bg: 'rgba(59,130,246,.14)', fg: '#60a5fa' },
+    'provision':             { bg: 'rgba(236,72,153,.14)', fg: '#f472b6' },
   };
-  var c = colours[resourceUse] || { bg: 'rgba(107,114,128,.12)', fg: 'var(--dim)' };
+  var c = colours[key] || { bg: 'rgba(107,114,128,.12)', fg: 'var(--dim)' };
   return React.createElement('span', {
     style: { fontSize: 10, fontWeight: 600, padding: '1px 8px', borderRadius: 10,
              background: c.bg, color: c.fg, flexShrink: 0, marginLeft: 8 }
@@ -924,12 +929,12 @@ function TechTypeDetail({ item, detailLoading, creds }) {
     );
   }
 
-  // --- Governance Processes ---
+  // --- Governance Action Processes ---
   var processesEl = null;
-  if (item.governanceProcesses && item.governanceProcesses.length > 0) {
+  if (item.governanceActionProcesses && item.governanceActionProcesses.length > 0) {
     processesEl = React.createElement('div', null,
-      React.createElement('div', { style: sHdr }, 'Governance Processes'),
-      item.governanceProcesses.map(function(gp, gi) {
+      React.createElement('div', { style: sHdr }, 'Governance Action Processes'),
+      item.governanceActionProcesses.map(function(gp, gi) {
         var rows = (gp.parameters || []).map(function(p) {
           return [
             React.createElement('span', { style: { fontWeight: p.required ? 700 : 400, color: p.required ? 'var(--text)' : 'var(--muted)' } }, p.name),
@@ -1009,85 +1014,177 @@ function TechTypeDetail({ item, detailLoading, creds }) {
   );
 }
 
+// ── Recursive hierarchy tree node ────────────────────────────────────────────
+function TechTypeNode({ node, depth, selQN, onSelect, expanded, onToggle }) {
+  var hasChildren = node.subTypes && node.subTypes.length > 0;
+  var key = node.qualifiedName || node.displayName;
+  var isExpanded = expanded.has(key);
+  var isSelected = selQN === key;
+  var indent = depth * 14 + 8;
+  return React.createElement('div', null,
+    React.createElement('div', {
+      style: { display: 'flex', alignItems: 'center', gap: 0, padding: '3px 8px 3px ' + indent + 'px',
+               cursor: 'pointer', userSelect: 'none',
+               background: isSelected ? 'var(--hover)' : 'transparent',
+               borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent' }
+    },
+      React.createElement('span', {
+        onClick: function(e) { e.stopPropagation(); if (hasChildren) onToggle(key); },
+        style: { width: 14, flexShrink: 0, fontSize: 9, color: 'var(--dim)',
+                 visibility: hasChildren ? 'visible' : 'hidden', textAlign: 'center' }
+      }, isExpanded ? '▼' : '▶'),
+      React.createElement('span', {
+        onClick: function() { onSelect(node); },
+        style: { fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                 color: isSelected ? 'var(--accent)' : 'var(--text)',
+                 fontWeight: isSelected ? 700 : 400, paddingLeft: 2 }
+      }, node.displayName)
+    ),
+    isExpanded && hasChildren && node.subTypes.map(function(child) {
+      return React.createElement(TechTypeNode, {
+        key: child.qualifiedName || child.displayName,
+        node: child, depth: depth + 1, selQN: selQN,
+        onSelect: onSelect, expanded: expanded, onToggle: onToggle
+      });
+    })
+  );
+}
+
 function TechTypesView({ creds }) {
-  var _items   = useState([]),    items   = _items[0],   setItems   = _items[1];
-  var _loading = useState(true),  loading = _loading[0], setLoading = _loading[1];
-  var _error   = useState(''),    error   = _error[0],   setError   = _error[1];
-  var _query   = useState('*'),   query   = _query[0],   setQuery   = _query[1];
+  // Hierarchy state
+  var _hier    = useState(null),  hier    = _hier[0],    setHier    = _hier[1];
+  var _hierErr = useState(''),    hierErr = _hierErr[0], setHierErr = _hierErr[1];
+  var _exp     = useState(new Set()), exp = _exp[0], setExp = _exp[1];
+
+  // Search / flat list state
   var _input   = useState(''),    input   = _input[0],   setInput   = _input[1];
+  var _srItems = useState([]),    srItems = _srItems[0], setSrItems = _srItems[1];
+  var _srLoad  = useState(false), srLoad  = _srLoad[0],  setSrLoad  = _srLoad[1];
+  var _srErr   = useState(''),    srErr   = _srErr[0],   setSrErr   = _srErr[1];
+  var searchMode = input.trim().length > 0;
+
+  // Selection + detail state
   var _sel     = useState(null),  sel     = _sel[0],     setSel     = _sel[1];
   var _detail  = useState(null),  detail  = _detail[0],  setDetail  = _detail[1];
   var _detLoad = useState(false), detLoad = _detLoad[0], setDetLoad = _detLoad[1];
 
+  // Load hierarchy on mount
   useEffect(function() {
-    setLoading(true); setError('');
-    fetch(credAppend('/api/tech-catalog/tech-types?q=' + encodeURIComponent(query || '*'), creds))
+    fetch(credAppend('/api/tech-catalog/tech-types/hierarchy', creds))
       .then(function(r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
-      .then(function(d) { setItems(d.items || []); setLoading(false); })
-      .catch(function(e) { setError(String(e)); setLoading(false); });
-  }, [query]);
+      .then(function(d) {
+        var root = d.hierarchy || d;
+        setHier(root);
+        // Auto-expand first level (root's direct children)
+        var firstLevel = new Set();
+        if (root && root.subTypes) {
+          root.subTypes.forEach(function(n) {
+            firstLevel.add(n.qualifiedName || n.displayName);
+          });
+        }
+        setExp(firstLevel);
+      })
+      .catch(function(e) { setHierErr(String(e)); });
+  }, []);
 
+  // Search when input changes (debounced via Enter or after brief pause)
+  var _searchTimer = useRef(null);
+  useEffect(function() {
+    var q = input.trim();
+    if (!q) { setSrItems([]); return; }
+    clearTimeout(_searchTimer.current);
+    _searchTimer.current = setTimeout(function() {
+      setSrLoad(true); setSrErr('');
+      fetch(credAppend('/api/tech-catalog/tech-types?q=' + encodeURIComponent(q), creds))
+        .then(function(r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
+        .then(function(d) { setSrItems(d.items || []); setSrLoad(false); })
+        .catch(function(e) { setSrErr(String(e)); setSrLoad(false); });
+    }, 350);
+    return function() { clearTimeout(_searchTimer.current); };
+  }, [input]);
+
+  // Load detail on selection
   useEffect(function() {
     if (!sel) { setDetail(null); return; }
     setDetLoad(true); setDetail(null);
-    var url = '/api/tech-catalog/tech-types/' + encodeURIComponent(sel.qualifiedName) +
+    var url = '/api/tech-catalog/tech-types/' + encodeURIComponent(sel.qualifiedName || sel.displayName) +
               '?display_name=' + encodeURIComponent(sel.displayName || '');
     fetch(credAppend(url, creds))
       .then(function(r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
       .then(function(d) { setDetail(d); setDetLoad(false); })
       .catch(function(e) { console.error('TechType detail fetch failed:', e); setDetLoad(false); });
-  }, [sel && sel.qualifiedName]);
+  }, [sel && (sel.qualifiedName || sel.displayName)]);
 
-  var filterBar = React.createElement('div', { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
-    React.createElement('div', { style: { display: 'flex', gap: 6 } },
-      React.createElement('input', {
-        value: input,
-        onChange: function(e) { setInput(e.target.value); },
-        onKeyDown: function(e) { if (e.key === 'Enter') setQuery(input.trim() || '*'); },
-        placeholder: 'Search technology types…',
-        style: { flex: 1, fontSize: 12, padding: '4px 9px', borderRadius: 4,
-                 border: '1px solid var(--border)', background: 'var(--card)',
-                 color: 'var(--text)', outline: 'none' }
-      }),
-      React.createElement('button', {
-        onClick: function() { setQuery(input.trim() || '*'); },
-        style: { fontSize: 11, padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)',
-                 background: 'var(--panel)', color: 'var(--muted)', cursor: 'pointer' }
-      }, 'Search')
-    )
-  );
+  function handleSelect(node) {
+    setSel({ qualifiedName: node.qualifiedName || '', displayName: node.displayName || '' });
+  }
+
+  function toggleNode(key) {
+    setExp(function(prev) {
+      var next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  var selQN = sel ? (sel.qualifiedName || sel.displayName) : null;
+
+  // Sidebar content
+  var sidebarContent;
+  if (searchMode) {
+    // Flat search results list
+    sidebarContent = srLoad
+      ? React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'Searching…')
+      : srErr
+        ? React.createElement('div', { style: { padding: 16, color: '#f87171', fontSize: 12 } }, srErr)
+        : srItems.length === 0
+          ? React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'No results.')
+          : React.createElement('div', null, srItems.map(function(item) {
+              var active = selQN === (item.qualifiedName || item.displayName);
+              return React.createElement('div', { key: item.qualifiedName || item.displayName,
+                onClick: function() { handleSelect(item); },
+                style: { padding: '6px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)',
+                         background: active ? 'var(--hover)' : 'transparent',
+                         borderLeft: active ? '3px solid var(--accent)' : '3px solid transparent' } },
+                React.createElement('span', { style: { fontSize: 12, fontWeight: active ? 700 : 400,
+                  color: active ? 'var(--accent)' : 'var(--text)' } }, item.displayName)
+              );
+            }));
+  } else {
+    // Hierarchy tree
+    sidebarContent = !hier
+      ? (hierErr
+          ? React.createElement('div', { style: { padding: 16, color: '#f87171', fontSize: 12 } }, hierErr)
+          : React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'Loading…'))
+      : React.createElement('div', null,
+          (hier.subTypes || []).map(function(topNode) {
+            return React.createElement(TechTypeNode, {
+              key: topNode.qualifiedName || topNode.displayName,
+              node: topNode, depth: 0, selQN: selQN,
+              onSelect: handleSelect, expanded: exp, onToggle: toggleNode
+            });
+          })
+        );
+  }
 
   return React.createElement('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
-    React.createElement('div', { style: { width: 280, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden' } },
-      filterBar,
-      React.createElement('div', { style: { overflowY: 'auto', flex: 1 } },
-        loading ? React.createElement('div', { style: { padding: 24, color: 'var(--dim)', fontSize: 12 } }, 'Loading…')
-        : error ? React.createElement('div', { style: { padding: 16, color: '#f87171', fontSize: 12 } }, error)
-        : items.length === 0 ? React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'No technology types found.')
-        : items.map(function(item) {
-          var active = sel && sel.qualifiedName === item.qualifiedName;
-          return React.createElement('div', { key: item.qualifiedName, onClick: function() { setSel(item); },
-            style: { padding: '8px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)',
-                     background: active ? 'var(--hover)' : 'transparent',
-                     borderLeft: active ? '3px solid var(--accent)' : '3px solid transparent' } },
-            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 4 } },
-              React.createElement('span', { style: { fontSize: 12, fontWeight: active ? 700 : 400,
-                color: active ? 'var(--accent)' : 'var(--text)', flex: 1,
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, item.displayName),
-              item.templateCount > 0 && React.createElement('span', {
-                style: { fontSize: 9, fontWeight: 600, padding: '1px 5px', borderRadius: 8,
-                         background: 'rgba(16,185,129,.14)', color: '#34d399', flexShrink: 0 }
-              }, item.templateCount + ' tmpl')
-            ),
-            item.category && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, item.category)
-          );
+    React.createElement('div', { style: { width: 290, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden' } },
+      // Search bar
+      React.createElement('div', { style: { padding: '7px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
+        React.createElement('input', {
+          value: input,
+          onChange: function(e) { setInput(e.target.value); },
+          placeholder: 'Search… (or browse tree below)',
+          style: { width: '100%', boxSizing: 'border-box', fontSize: 12, padding: '4px 9px', borderRadius: 4,
+                   border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--text)', outline: 'none' }
         })
-      )
+      ),
+      React.createElement('div', { style: { overflowY: 'auto', flex: 1, padding: '4px 0' } }, sidebarContent)
     ),
     React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: sel ? '20px 24px' : 0 } },
       sel
         ? React.createElement(TechTypeDetail, { item: detail || sel, detailLoading: detLoad, creds: creds })
-        : React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--dim)', fontSize: 13 } }, 'Select a technology type')
+        : React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--dim)', fontSize: 13 } }, 'Select a technology type from the tree')
     )
   );
 }

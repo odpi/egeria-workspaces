@@ -396,13 +396,14 @@ def _serialize_tech_type_detail(el: dict) -> dict:
         params = [_normalize_request_param(p) for p in raw_params if isinstance(p, dict)]
         params.sort(key=lambda p: (not p["required"], p["name"].lower()))
         processes.append({
-            "displayName": gp.get("displayName") or rel_props.get("displayName") or "",
+            # rel_props.displayName is the actual process name; gp.displayName is the resourceUse label
+            "displayName": rel_props.get("displayName") or gp.get("displayName") or "",
             "description": gp.get("description") or rel_props.get("description") or "",
             "guid":        rel_hdr.get("guid") or rel_el.get("guid") or gp.get("guid") or "",
             "resourceUse": gp.get("resourceUse") or "",
             "parameters":  params,
         })
-    base["governanceProcesses"] = processes
+    base["governanceActionProcesses"] = processes
 
     # --- External References ---
     raw_refs = el.get("externalReferences") or []
@@ -828,8 +829,15 @@ def list_tech_types(
             page_size=page_size,
             output_format="JSON",
         )
-        items = [_serialize_tech_type(e) for e in _safe_list(raw)]
-        items.sort(key=lambda x: x.get("displayName", "").lower())
+        # Deduplicate by qualifiedName (some content packs register the same type twice).
+        # Keep the entry with more catalogTemplates when there's a conflict.
+        seen: dict = {}
+        for e in _safe_list(raw):
+            item = _serialize_tech_type(e)
+            qn = item.get("qualifiedName", "")
+            if qn not in seen or item.get("templateCount", 0) > seen[qn].get("templateCount", 0):
+                seen[qn] = item
+        items = sorted(seen.values(), key=lambda x: x.get("displayName", "").lower())
         return JSONResponse({"items": items, "total": len(items)})
     except Exception as exc:
         logger.exception("list_tech_types failed")
