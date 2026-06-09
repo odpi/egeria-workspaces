@@ -752,6 +752,7 @@ var _MERMAID_SECTION_FIELDS = new Set(['mermaidGraph','anchorMermaidGraph']);
 var _MERMAID_FIELD_LABELS = {
   mermaidGraph: 'Context Diagram', edgeMermaidGraph: 'Asset Edge Graph',
   localLineageGraph: 'Local Lineage', fieldLevelLineageGraph: 'Field-Level Lineage',
+  specificationMermaidGraph: 'Specification Diagram',
 };
 
 function AvailableMermaidDiagrams({ data }) {
@@ -837,6 +838,254 @@ function EgeriaCommentsSection({ guid }) {
           React.createElement('div', { style: { color: 'var(--text)' } }, c.description || c.text || '')
         );
       })
+  );
+}
+
+// ── Technology Types ──────────────────────────────────────────────────────────
+
+function TechTable(headers, rows, emptyMsg) {
+  if (!rows || rows.length === 0) {
+    return emptyMsg
+      ? React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '4px 0' } }, emptyMsg)
+      : null;
+  }
+  var thSt = { padding: '5px 10px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--dim)', borderBottom: '1px solid var(--border)', background: 'var(--panel)', whiteSpace: 'nowrap' };
+  var tdSt = { padding: '5px 10px', fontSize: 11, borderBottom: '1px solid var(--border)', verticalAlign: 'top', lineHeight: 1.5 };
+  return React.createElement('div', { style: { overflowX: 'auto', borderRadius: 4, border: '1px solid var(--border)', marginTop: 8 } },
+    React.createElement('table', { style: { borderCollapse: 'collapse', width: '100%' } },
+      React.createElement('thead', null,
+        React.createElement('tr', null, headers.map(function(h, i) {
+          return React.createElement('th', { key: i, style: thSt }, h);
+        }))
+      ),
+      React.createElement('tbody', null, rows.map(function(row, ri) {
+        return React.createElement('tr', { key: ri }, row.map(function(cell, ci) {
+          return React.createElement('td', { key: ci, style: tdSt }, cell);
+        }));
+      }))
+    )
+  );
+}
+
+function TechResourceBadge(resourceUse) {
+  var colours = {
+    'create-catalog-entry': { bg: 'rgba(16,185,129,.14)', fg: '#34d399' },
+    'survey':               { bg: 'rgba(245,158,11,.14)', fg: '#fbbf24' },
+    'catalog':              { bg: 'rgba(99,102,241,.14)', fg: '#818cf8' },
+    'provision':            { bg: 'rgba(236,72,153,.14)', fg: '#f472b6' },
+  };
+  var c = colours[resourceUse] || { bg: 'rgba(107,114,128,.12)', fg: 'var(--dim)' };
+  return React.createElement('span', {
+    style: { fontSize: 10, fontWeight: 600, padding: '1px 8px', borderRadius: 10,
+             background: c.bg, color: c.fg, flexShrink: 0, marginLeft: 8 }
+  }, resourceUse || 'resource');
+}
+
+function TechTypeDetail({ item, detailLoading, creds }) {
+  if (!item) return null;
+  var sHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
+  var card = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 10 };
+
+  // Loading shimmer while detail fetch is in flight
+  if (detailLoading) {
+    return React.createElement('div', null,
+      React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)', margin: '0 0 16px 0' } }, item.displayName),
+      React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12 } }, 'Loading detail…')
+    );
+  }
+
+  // --- Catalog Templates ---
+  var templatesEl = null;
+  if (item.catalogTemplates && item.catalogTemplates.length > 0) {
+    templatesEl = React.createElement('div', null,
+      React.createElement('div', { style: sHdr }, 'Catalog Templates'),
+      item.catalogTemplates.map(function(t, ti) {
+        var rows = (t.placeholders || []).map(function(p) {
+          return [
+            React.createElement('span', { style: { fontWeight: p.required ? 700 : 400, color: p.required ? 'var(--text)' : 'var(--muted)' } }, p.name),
+            p.dataType || '',
+            p.required ? React.createElement('span', { style: { color: '#34d399', fontWeight: 700 } }, '✓') : '',
+            React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)' } }, p.example || ''),
+            p.description || '',
+          ];
+        });
+        return React.createElement('div', { key: ti, style: card },
+          React.createElement('div', { style: { display: 'flex', alignItems: 'center', marginBottom: 6 } },
+            React.createElement('span', { style: { fontWeight: 700, fontSize: 13, flex: 1, color: 'var(--text)' } }, t.displayName || '(template)'),
+            t.resourceUse && TechResourceBadge(t.resourceUse)
+          ),
+          t.description && React.createElement('div', { style: { fontSize: 12, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.5 } }, t.description),
+          rows.length > 0
+            ? TechTable(['Name','Type','Required','Example','Description'], rows, null)
+            : React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, 'No placeholder properties.')
+        );
+      })
+    );
+  }
+
+  // --- Governance Processes ---
+  var processesEl = null;
+  if (item.governanceProcesses && item.governanceProcesses.length > 0) {
+    processesEl = React.createElement('div', null,
+      React.createElement('div', { style: sHdr }, 'Governance Processes'),
+      item.governanceProcesses.map(function(gp, gi) {
+        var rows = (gp.parameters || []).map(function(p) {
+          return [
+            React.createElement('span', { style: { fontWeight: p.required ? 700 : 400, color: p.required ? 'var(--text)' : 'var(--muted)' } }, p.name),
+            p.dataType || '',
+            p.required ? React.createElement('span', { style: { color: '#34d399', fontWeight: 700 } }, '✓') : '',
+            p.description || '',
+            React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)' } }, p.example || ''),
+          ];
+        });
+        return React.createElement('div', { key: gi, style: card },
+          React.createElement('div', { style: { display: 'flex', alignItems: 'center', marginBottom: 6 } },
+            React.createElement('span', { style: { fontWeight: 700, fontSize: 13, flex: 1, color: 'var(--text)' } }, gp.displayName || '(process)'),
+            gp.resourceUse && TechResourceBadge(gp.resourceUse)
+          ),
+          gp.description && React.createElement('div', { style: { fontSize: 12, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.5 } }, gp.description),
+          rows.length > 0
+            ? TechTable(['Name','Type','Required','Description','Example'], rows, null)
+            : React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, 'No request parameters.')
+        );
+      })
+    );
+  }
+
+  // --- External References ---
+  var extRefsEl = null;
+  if (item.externalReferences && item.externalReferences.length > 0) {
+    extRefsEl = React.createElement('div', null,
+      React.createElement('div', { style: sHdr }, 'External References'),
+      React.createElement('div', { style: card },
+        item.externalReferences.map(function(ref, ri) {
+          return React.createElement('div', { key: ri, style: { marginBottom: 8 } },
+            ref.url
+              ? React.createElement('a', { href: ref.url, target: '_blank', rel: 'noopener noreferrer',
+                  style: { fontSize: 13, color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' } },
+                  '↗ ' + (ref.displayName || ref.url))
+              : React.createElement('span', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)' } }, ref.displayName || ''),
+            ref.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginTop: 2, lineHeight: 1.5 } }, ref.description)
+          );
+        })
+      )
+    );
+  }
+
+  // --- Live instances sub-pane ---
+  var elementsUrl = '/api/tech-catalog/tech-types/' + encodeURIComponent(item.qualifiedName) + '/elements' +
+    (item.displayName ? '?display_name=' + encodeURIComponent(item.displayName) : '');
+  var instancesEl = React.createElement(SubPane, {
+    title: 'Catalog Instances',
+    fetchUrl: elementsUrl,
+    creds: creds,
+    renderContent: function(data) {
+      var its = data.items || [];
+      if (its.length === 0) return React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '6px 0' } }, 'No catalog entries of this type yet.');
+      return React.createElement('div', null, its.map(function(it) {
+        return React.createElement('div', { key: it.guid, style: { borderBottom: '1px solid var(--border)', padding: '6px 0', fontSize: 12 } },
+          React.createElement('div', { style: { fontWeight: 600, color: 'var(--text)' } }, it.displayName || it.qualifiedName || it.guid),
+          React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 2 } }, it.typeName || '')
+        );
+      }));
+    }
+  });
+
+  return React.createElement('div', null,
+    React.createElement('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 4 } },
+      React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)', margin: 0, flex: 1 } }, item.displayName),
+      React.createElement(EgeriaFeedbackWidget, { guid: item.guid })
+    ),
+    React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginBottom: item.description ? 12 : 4 } }, item.qualifiedName),
+    item.description && React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 12 },
+      dangerouslySetInnerHTML: { __html: renderMd(item.description) } }),
+    React.createElement(AvailableMermaidDiagrams, { data: item }),
+    templatesEl,
+    processesEl,
+    extRefsEl,
+    instancesEl,
+    React.createElement(EgeriaCommentsSection, { guid: item.guid })
+  );
+}
+
+function TechTypesView({ creds }) {
+  var _items   = useState([]),    items   = _items[0],   setItems   = _items[1];
+  var _loading = useState(true),  loading = _loading[0], setLoading = _loading[1];
+  var _error   = useState(''),    error   = _error[0],   setError   = _error[1];
+  var _query   = useState('*'),   query   = _query[0],   setQuery   = _query[1];
+  var _input   = useState(''),    input   = _input[0],   setInput   = _input[1];
+  var _sel     = useState(null),  sel     = _sel[0],     setSel     = _sel[1];
+  var _detail  = useState(null),  detail  = _detail[0],  setDetail  = _detail[1];
+  var _detLoad = useState(false), detLoad = _detLoad[0], setDetLoad = _detLoad[1];
+
+  useEffect(function() {
+    setLoading(true); setError('');
+    fetch(credAppend('/api/tech-catalog/tech-types?q=' + encodeURIComponent(query || '*'), creds))
+      .then(function(r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
+      .then(function(d) { setItems(d.items || []); setLoading(false); })
+      .catch(function(e) { setError(String(e)); setLoading(false); });
+  }, [query]);
+
+  useEffect(function() {
+    if (!sel) { setDetail(null); return; }
+    setDetLoad(true); setDetail(null);
+    fetch(credAppend('/api/tech-catalog/tech-types/' + encodeURIComponent(sel.qualifiedName), creds))
+      .then(function(r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
+      .then(function(d) { setDetail(d); setDetLoad(false); })
+      .catch(function() { setDetLoad(false); });
+  }, [sel && sel.qualifiedName]);
+
+  var filterBar = React.createElement('div', { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
+    React.createElement('div', { style: { display: 'flex', gap: 6 } },
+      React.createElement('input', {
+        value: input,
+        onChange: function(e) { setInput(e.target.value); },
+        onKeyDown: function(e) { if (e.key === 'Enter') setQuery(input.trim() || '*'); },
+        placeholder: 'Search technology types…',
+        style: { flex: 1, fontSize: 12, padding: '4px 9px', borderRadius: 4,
+                 border: '1px solid var(--border)', background: 'var(--card)',
+                 color: 'var(--text)', outline: 'none' }
+      }),
+      React.createElement('button', {
+        onClick: function() { setQuery(input.trim() || '*'); },
+        style: { fontSize: 11, padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)',
+                 background: 'var(--panel)', color: 'var(--muted)', cursor: 'pointer' }
+      }, 'Search')
+    )
+  );
+
+  return React.createElement('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
+    React.createElement('div', { style: { width: 280, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden' } },
+      filterBar,
+      React.createElement('div', { style: { overflowY: 'auto', flex: 1 } },
+        loading ? React.createElement('div', { style: { padding: 24, color: 'var(--dim)', fontSize: 12 } }, 'Loading…')
+        : error ? React.createElement('div', { style: { padding: 16, color: '#f87171', fontSize: 12 } }, error)
+        : items.length === 0 ? React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'No technology types found.')
+        : items.map(function(item) {
+          var active = sel && sel.qualifiedName === item.qualifiedName;
+          return React.createElement('div', { key: item.qualifiedName, onClick: function() { setSel(item); },
+            style: { padding: '8px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)',
+                     background: active ? 'var(--hover)' : 'transparent',
+                     borderLeft: active ? '3px solid var(--accent)' : '3px solid transparent' } },
+            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 4 } },
+              React.createElement('span', { style: { fontSize: 12, fontWeight: active ? 700 : 400,
+                color: active ? 'var(--accent)' : 'var(--text)', flex: 1,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, item.displayName),
+              item.templateCount > 0 && React.createElement('span', {
+                style: { fontSize: 9, fontWeight: 600, padding: '1px 5px', borderRadius: 8,
+                         background: 'rgba(16,185,129,.14)', color: '#34d399', flexShrink: 0 }
+              }, item.templateCount + ' tmpl')
+            ),
+            item.category && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, item.category)
+          );
+        })
+      )
+    ),
+    React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: sel ? '20px 24px' : 0 } },
+      sel
+        ? React.createElement(TechTypeDetail, { item: detail || sel, detailLoading: detLoad, creds: creds })
+        : React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--dim)', fontSize: 13 } }, 'Select a technology type')
+    )
   );
 }
 
@@ -1627,6 +1876,9 @@ function SectionView({ sectionId, creds, navTarget, onNavigate }) {
       React.createElement(GlossaryView, { creds: creds })
     );
   }
+  if (sectionId === 'tech-types') {
+    return React.createElement(TechTypesView, { creds: creds });
+  }
   var tabs = SECTION_TABS[sectionId] || [];
   var _tab = useState(tabs[0] ? tabs[0].id : ''), activeTab = _tab[0], setActiveTab = _tab[1];
 
@@ -1667,6 +1919,7 @@ var SECTIONS = [
   { id: 'data-assets',    icon: '🗄️', label: 'Data Assets',          desc: 'Data stores, data feeds, and data sets.' },
   { id: 'apis',           icon: '🔗', label: 'APIs',                   desc: 'Deployed APIs and their endpoints.' },
   { id: 'processes',      icon: '⚙️', label: 'Processes',              desc: 'Software components and actions.' },
+  { id: 'tech-types',     icon: '🔧', label: 'Technology Types',       desc: 'Technology type definitions, catalog templates, and governance processes.' },
 ];
 
 function Splash({ onSelect }) {
@@ -1695,7 +1948,7 @@ function Splash({ onSelect }) {
 function App() {
   var _section   = useState(function() {
     var hash  = window.location.hash.slice(1);
-    var valid = new Set(['glossary','infrastructure','data-assets','apis','processes']);
+    var valid = new Set(['glossary','infrastructure','data-assets','apis','processes','tech-types']);
     return valid.has(hash) ? hash : '';
   }), section = _section[0], setSection = _section[1];
 
