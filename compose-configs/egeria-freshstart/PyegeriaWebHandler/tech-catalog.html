@@ -606,7 +606,8 @@ function credAppend(url, creds) {
   if (creds.server)   p.set('server',   creds.server);
   if (creds.userId)   p.set('user_id',  creds.userId);
   if (creds.password) p.set('user_pwd', creds.password);
-  return url + '?' + p.toString();
+  var sep = url.indexOf('?') === -1 ? '?' : '&';
+  return url + sep + p.toString();
 }
 
 // ── Markdown renderer (shared with type-explorer.html) ───────────────────────
@@ -1029,10 +1030,12 @@ function TechTypesView({ creds }) {
   useEffect(function() {
     if (!sel) { setDetail(null); return; }
     setDetLoad(true); setDetail(null);
-    fetch(credAppend('/api/tech-catalog/tech-types/' + encodeURIComponent(sel.qualifiedName), creds))
+    var url = '/api/tech-catalog/tech-types/' + encodeURIComponent(sel.qualifiedName) +
+              '?display_name=' + encodeURIComponent(sel.displayName || '');
+    fetch(credAppend(url, creds))
       .then(function(r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
       .then(function(d) { setDetail(d); setDetLoad(false); })
-      .catch(function() { setDetLoad(false); });
+      .catch(function(e) { console.error('TechType detail fetch failed:', e); setDetLoad(false); });
   }, [sel && sel.qualifiedName]);
 
   var filterBar = React.createElement('div', { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },

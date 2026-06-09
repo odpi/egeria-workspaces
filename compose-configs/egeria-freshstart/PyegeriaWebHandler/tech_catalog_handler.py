@@ -870,16 +870,24 @@ def get_tech_type_elements(
 @router.get("/api/tech-catalog/tech-types/{qualified_name:path}")
 def get_tech_type_detail(
     qualified_name: str,
+    display_name: Optional[str] = Query(None),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
-    """Return full detail for a technology type looked up by qualifiedName."""
+    """Return full detail for a technology type.
+
+    get_tech_type_detail (the underlying /technology-types/by-name call) matches
+    by displayName only.  The frontend must pass ?display_name= alongside the
+    qualifiedName path param so the lookup uses the correct display name.
+    Falls back to qualified_name if display_name is not supplied.
+    """
+    filter_str = display_name or qualified_name
     try:
         ac = _automated_curation(url, server, user_id, user_pwd)
-        raw = ac.get_tech_type_detail(filter_string=qualified_name, output_format="JSON")
+        raw = ac.get_tech_type_detail(filter_string=filter_str, output_format="JSON")
         el = raw[0] if isinstance(raw, list) else raw
-        if not el:
-            raise HTTPException(status_code=404, detail=f"Technology type {qualified_name!r} not found")
+        if not isinstance(el, dict):
+            raise HTTPException(status_code=404, detail=f"Technology type {filter_str!r} not found")
         return JSONResponse(_serialize_tech_type_detail(el))
     except HTTPException:
         raise
