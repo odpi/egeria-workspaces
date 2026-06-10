@@ -117,26 +117,42 @@ def _props(el):
 def _type_name(el):
     return (_header(el).get("type") or {}).get("typeName", "")
 
-def _extract_classifications(header):
+# Classifications that are internal infrastructure — never shown in the UI.
+_SKIP_CLASSIFICATIONS = frozenset([
+    "Anchors", "LatestChange", "Memento", "TemplateSubstitute", "SpineObject",
+    "SpineAttribute", "ObjectIdentifier",
+])
+
+def _extract_classifications(header: dict) -> list:
+    """Extract governance/business classifications from an elementHeader dict.
+
+    In pyegeria's JSON output, each classification is a named key directly on
+    elementHeader (e.g. "dataAssetEncoding", "zoneMembership"), not in a
+    "classifications" list.  Every such value has class="ElementClassification"
+    and carries classificationName + classificationProperties.
+    """
     result = []
-    for cls in (header.get("classifications") or []):
-        if not isinstance(cls, dict):
+    for key, val in header.items():
+        if not isinstance(val, dict):
             continue
-        cls_header = cls.get("classificationHeader") or cls.get("header") or cls
-        type_name  = (cls_header.get("type") or {}).get("typeName") or cls_header.get("classificationName") or ""
-        if not type_name or type_name == "TemplateSubstitute":
+        if val.get("class") != "ElementClassification":
             continue
-        cls_props = cls.get("classificationProperties") or cls.get("properties") or {}
+        cls_name = (val.get("classificationName")
+                    or (val.get("type") or {}).get("typeName")
+                    or (key[0].upper() + key[1:]))
+        if not cls_name or cls_name in _SKIP_CLASSIFICATIONS:
+            continue
+        cls_props_raw = val.get("classificationProperties") or {}
         flat = {}
-        if isinstance(cls_props, dict):
-            prop_map = cls_props.get("propertyValueMap") or {}
-            for k, v in prop_map.items():
-                flat[k] = v.get("primitiveValue", "") if isinstance(v, dict) else str(v)
-            if not flat:
-                for k, v in cls_props.items():
-                    if k not in ("class", "propertyValueMap", "propertiesAsStrings"):
-                        flat[k] = str(v)
-        result.append({"typeName": type_name, "properties": flat})
+        if isinstance(cls_props_raw, dict):
+            for k, v in cls_props_raw.items():
+                if k in ("class", "typeName"):
+                    continue
+                if isinstance(v, list):
+                    flat[k] = ", ".join(str(i) for i in v)
+                elif not isinstance(v, (dict,)):
+                    flat[k] = str(v)
+        result.append({"typeName": cls_name, "properties": flat})
     return result
 
 
