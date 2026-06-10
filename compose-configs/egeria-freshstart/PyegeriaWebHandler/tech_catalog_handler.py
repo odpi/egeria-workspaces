@@ -76,7 +76,7 @@ def _token_from_request(request: Request) -> Optional[str]:
 def _apply_token(client, token: Optional[str]):
     """Set a pre-obtained bearer token on a pyegeria client, or obtain a fresh one."""
     if token:
-        client.egeria_bearer_token = token
+        client.set_bearer_token(token)
     else:
         client.create_egeria_bearer_token()
 
@@ -290,8 +290,8 @@ async def get_egeria_bearer_token(request: Request):
     try:
         from pyegeria import AssetMaker
         mgr = AssetMaker(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
-        mgr.create_egeria_bearer_token()
-        return JSONResponse({"token": mgr.egeria_bearer_token, "user_id": user_id})
+        token = mgr.create_egeria_bearer_token()
+        return JSONResponse({"token": token, "user_id": user_id})
     except Exception as exc:
         logger.exception("get_egeria_bearer_token failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -1075,7 +1075,9 @@ def _asset_catalog_from_asset_maker(mgr):
         user_id=mgr.user_id,
         user_pwd=mgr.user_pwd,
     )
-    _apply_token(ac, getattr(mgr, "egeria_bearer_token", None))
+    auth = (getattr(mgr, "headers", None) or {}).get("Authorization", "")
+    token = auth[len("Bearer "):] if auth.startswith("Bearer ") else None
+    _apply_token(ac, token)
     return ac
 
 
