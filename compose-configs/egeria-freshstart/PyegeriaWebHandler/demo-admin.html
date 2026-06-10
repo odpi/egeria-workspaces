@@ -156,6 +156,7 @@
       <div class="stat-card"><div class="num" id="fbTotal">—</div><div class="label">Total</div></div>
       <div class="stat-card"><div class="num" id="fbNew">—</div><div class="label">New</div></div>
       <div class="stat-card"><div class="num" id="fbWantsResp">—</div><div class="label">Wants response</div></div>
+      <div class="stat-card"><div class="num" id="fbAvgRating">—</div><div class="label">Avg rating</div></div>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
       <select id="fbFilterStatus" onchange="loadFeedback()" style="padding:4px 8px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:0.82rem">
@@ -336,9 +337,10 @@
     var env    = document.getElementById('fbFilterEnv').value;
     var qs = '?limit=200' + (status ? '&triage_status=' + status : '') + (env ? '&env=' + env : '');
     fetch('/api/demo-feedback/stats').then(function(r) { return r.json(); }).then(function(s) {
-      document.getElementById('fbTotal').textContent    = s.total    != null ? s.total    : '—';
-      document.getElementById('fbNew').textContent      = s.new      != null ? s.new      : '—';
+      document.getElementById('fbTotal').textContent     = s.total          != null ? s.total          : '—';
+      document.getElementById('fbNew').textContent       = s.new            != null ? s.new            : '—';
       document.getElementById('fbWantsResp').textContent = s.wants_response != null ? s.wants_response : '—';
+      document.getElementById('fbAvgRating').textContent = s.avg_rating     != null ? '★ ' + s.avg_rating : '—';
     }).catch(function() {});
     fetch('/api/demo-feedback' + qs).then(function(r) { return r.json(); }).then(function(rows) {
       var tbody = document.getElementById('fbBody');

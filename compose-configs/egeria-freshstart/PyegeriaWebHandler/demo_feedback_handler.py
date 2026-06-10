@@ -120,6 +120,9 @@ def _resolve_env() -> str:
 
 
 def _is_admin(request: Request) -> bool:
+    # Local quickstart has no auth at all — admin page is served without a gate
+    if not DEMO_MODE and not SERVER_MANAGED_AUTH:
+        return True
     payload = _jwt_payload(request)
     if payload.get("role") == "admin":
         return True
@@ -242,11 +245,14 @@ def get_feedback_stats(request: Request):
     if not _is_admin(request):
         raise HTTPException(status_code=403, detail="Admin access required")
     try:
+        from sqlalchemy import func
         with Session(_get_engine()) as db:
-            total     = db.query(UserFeedback).count()
-            new_count = db.query(UserFeedback).filter(UserFeedback.triage_status == "new").count()
+            total      = db.query(UserFeedback).count()
+            new_count  = db.query(UserFeedback).filter(UserFeedback.triage_status == "new").count()
             wants_resp = db.query(UserFeedback).filter(UserFeedback.wants_response == True).count()
-            return {"total": total, "new": new_count, "wants_response": wants_resp}
+            avg_raw    = db.query(func.avg(UserFeedback.rating)).filter(UserFeedback.rating != None).scalar()
+            avg_rating = round(float(avg_raw), 1) if avg_raw is not None else None
+            return {"total": total, "new": new_count, "wants_response": wants_resp, "avg_rating": avg_rating}
     except Exception as exc:
         logger.exception("get_feedback_stats failed")
         raise HTTPException(status_code=500, detail=str(exc))

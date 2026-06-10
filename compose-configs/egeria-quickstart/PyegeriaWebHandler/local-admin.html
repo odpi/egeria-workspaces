@@ -175,6 +175,7 @@
       <div class="stat-card"><div class="lbl">Total</div><div class="val" id="fbTotal">—</div></div>
       <div class="stat-card"><div class="lbl">New</div><div class="val" id="fbNew">—</div></div>
       <div class="stat-card"><div class="lbl">Wants Response</div><div class="val" id="fbWantsResp">—</div></div>
+      <div class="stat-card"><div class="lbl">Avg Rating</div><div class="val" id="fbAvgRating">—</div></div>
     </div>
 
     <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
@@ -367,6 +368,7 @@
       document.getElementById('fbTotal').textContent     = s.total          != null ? s.total          : '—';
       document.getElementById('fbNew').textContent       = s.new            != null ? s.new            : '—';
       document.getElementById('fbWantsResp').textContent = s.wants_response != null ? s.wants_response : '—';
+      document.getElementById('fbAvgRating').textContent = s.avg_rating     != null ? '★ ' + s.avg_rating : '—';
     }).catch(function() {});
     fetch('/api/demo-feedback' + qs).then(function(r) { return r.json(); }).then(function(rows) {
       var tbody = document.getElementById('fbBody');
