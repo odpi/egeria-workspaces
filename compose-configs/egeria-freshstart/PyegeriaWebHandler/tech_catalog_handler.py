@@ -922,21 +922,19 @@ def _fetch_detail(mgr, guid: str, section: Optional[str]):
     All Asset subtypes use AssetCatalog.get_asset_graph for richer mermaid graphs,
     with fallback to get_asset_by_guid for types the graph endpoint can't serve.
     """
-    # Endpoints: direct GUID lookup via ConnectionMaker
+    # Endpoints: try direct GUID lookup via ConnectionMaker first, fall through to
+    # get_asset_graph on any failure (Endpoint is an Asset subtype so the graph
+    # endpoint handles it fine).
     if section == "endpoints":
         try:
             cm = _connection_maker_from_asset_maker(mgr)
-            raw = cm.get_endpoint_by_guid(
-                endpoint_guid=guid,
-                output_format="JSON",
-                body={"class": "GetRequestBody", "graphQueryDepth": 5},
-            )
+            raw = cm.get_endpoint_by_guid(endpoint_guid=guid, output_format="JSON")
             el = raw[0] if isinstance(raw, list) else raw
             if el:
                 return el
         except Exception:
             pass
-        return None
+        # fall through to get_asset_graph below
 
     # All Asset types: use get_asset_graph with graphQueryDepth=5.
     try:
