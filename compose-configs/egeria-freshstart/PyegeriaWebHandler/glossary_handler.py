@@ -105,13 +105,14 @@ def _serialize_glossary(element: dict) -> dict:
     props  = _props(element)
     header = _header(element)
     return {
-        "guid":          header.get("guid", ""),
-        "displayName":   props.get("displayName", "") or props.get("name", "") or "",
-        "qualifiedName": props.get("qualifiedName", "") or "",
-        "description":   props.get("description", "") or "",
-        "language":      props.get("language", "") or "",
-        "usage":         props.get("usage", "") or "",
-        "status":        header.get("status", "") or "",
+        "guid":            header.get("guid", ""),
+        "displayName":     props.get("displayName", "") or props.get("name", "") or "",
+        "qualifiedName":   props.get("qualifiedName", "") or "",
+        "description":     props.get("description", "") or "",
+        "language":        props.get("language", "") or "",
+        "usage":           props.get("usage", "") or "",
+        "status":          header.get("status", "") or "",
+        "classifications": _extract_classifications(header),
     }
 
 
@@ -120,13 +121,14 @@ def _serialize_folder(element: dict) -> dict:
     props  = _props(element)
     header = _header(element)
     return {
-        "guid":          header.get("guid", ""),
-        "typeName":      _type_name(element),
-        "displayName":   props.get("displayName", "") or props.get("name", "") or "",
-        "qualifiedName": props.get("qualifiedName", "") or "",
-        "description":   props.get("description", "") or "",
-        "status":        header.get("status", "") or "",
-        "contentStatus": props.get("contentStatus", "") or "",
+        "guid":            header.get("guid", ""),
+        "typeName":        _type_name(element),
+        "displayName":     props.get("displayName", "") or props.get("name", "") or "",
+        "qualifiedName":   props.get("qualifiedName", "") or "",
+        "description":     props.get("description", "") or "",
+        "status":          header.get("status", "") or "",
+        "contentStatus":   props.get("contentStatus", "") or "",
+        "classifications": _extract_classifications(header),
     }
 
 

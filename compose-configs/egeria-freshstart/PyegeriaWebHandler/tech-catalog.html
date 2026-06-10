@@ -599,10 +599,15 @@ var _SESSION_ID = (function() {
 })();
 
 // ── Credential helpers ────────────────────────────────────────────────────────
+// Holds the token-refresh callback registered by the App component.
+var _tokenRefresher = { refresh: null };
+
 // fetchWithToken: replaces credAppend. Passes server/url/user_id as query params
 // (non-secret) and the Egeria bearer token as X-Egeria-Token header.
+// On HTTP 401 (token expired) retries once after refreshing the token.
 // user_pwd is never sent in the URL.
 function fetchWithToken(url, creds, opts) {
+  var _isRetry = !!(opts && opts._isRetry);
   var headers = Object.assign({}, (opts && opts.headers) || {});
   var queryUrl = url;
   if (creds) {
@@ -614,7 +619,17 @@ function fetchWithToken(url, creds, opts) {
     var qs = p.toString();
     if (qs) queryUrl = url + (url.indexOf('?') === -1 ? '?' : '&') + qs;
   }
-  return fetch(queryUrl, Object.assign({}, opts || {}, { headers: headers }));
+  var mergedOpts = Object.assign({}, opts || {});
+  delete mergedOpts._isRetry;
+  mergedOpts.headers = headers;
+  return fetch(queryUrl, mergedOpts).then(function(r) {
+    if (r.status === 401 && !_isRetry && _tokenRefresher.refresh && creds && creds.userId) {
+      return _tokenRefresher.refresh(creds).then(function(newCreds) {
+        return fetchWithToken(url, newCreds, Object.assign({}, opts || {}, { _isRetry: true }));
+      }).catch(function() { return r; });
+    }
+    return r;
+  });
 }
 
 // Kept for backwards compat with ConnectionForm manual credential entry.
@@ -1650,6 +1665,7 @@ function GlossaryFolderDetail({ folder }) {
   if (!folder) return null;
   var fields = [['Qualified Name', folder.qualifiedName],['GUID', folder.guid],['Type', folder.typeName],['Status', folder.status],['Description', folder.description]].filter(function(r){return r[1]&&String(r[1]).trim();});
   var sHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
+  var cardStyle = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 };
   return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 } },
       React.createElement('div', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)' } }, folder.displayName || folder.qualifiedName),
@@ -1668,6 +1684,18 @@ function GlossaryFolderDetail({ folder }) {
           })
         )
       )
+    ),
+    (folder.classifications || []).length > 0 && React.createElement('div', null,
+      React.createElement('div', { style: sHdr }, 'Classifications'),
+      folder.classifications.map(function(c) {
+        return React.createElement('div', { key: c.typeName, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--classif)' }) },
+          React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
+          Object.entries(c.properties || {}).map(function(e) {
+            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
+              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
+          })
+        );
+      })
     )
   );
 }
@@ -1675,6 +1703,7 @@ function GlossaryFolderDetail({ folder }) {
 function GlossaryDetail({ glossary }) {
   if (!glossary) return null;
   var sHdr   = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
+  var cardStyle = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 };
   var fields = [['Qualified Name', glossary.qualifiedName],['GUID', glossary.guid],['Language', glossary.language],['Usage', glossary.usage],['Status', glossary.status]].filter(function(r){return r[1];});
   return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 } },
@@ -1694,6 +1723,18 @@ function GlossaryDetail({ glossary }) {
           })
         )
       )
+    ),
+    (glossary.classifications || []).length > 0 && React.createElement('div', null,
+      React.createElement('div', { style: sHdr }, 'Classifications'),
+      glossary.classifications.map(function(c) {
+        return React.createElement('div', { key: c.typeName, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--classif)' }) },
+          React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
+          Object.entries(c.properties || {}).map(function(e) {
+            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
+              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
+          })
+        );
+      })
     ),
     React.createElement(MermaidSection, { guid: glossary.guid })
   );
@@ -1716,10 +1757,6 @@ function GlossaryTermDetail({ term, onNavigateToTerm }) {
       React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)', marginRight: 4 } }, 'Folders:'),
       folderList.map(function(f) { return React.createElement('span', { key: f.guid, style: Object.assign({}, _glsBadge, { background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)' }) }, f.displayName || f.guid); })
     ),
-    (term.classifications || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 } },
-      React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)', marginRight: 4 } }, 'Classifications:'),
-      term.classifications.map(function(c) { return React.createElement('span', { key: c.typeName, style: Object.assign({}, _glsBadge, { background: 'rgba(168,85,247,.1)', color: '#c084fc', border: '0.5px solid rgba(168,85,247,.25)' }) }, c.typeName); })
-    ),
     term.description && React.createElement('div', { style: { fontSize: 13, marginBottom: 16, color: 'var(--text)' } }, renderMd(term.description)),
     React.createElement(MermaidSection, { guid: term.guid }),
     fields.length > 0 && React.createElement('div', null,
@@ -1734,6 +1771,19 @@ function GlossaryTermDetail({ term, onNavigateToTerm }) {
           })
         )
       )
+    ),
+    (term.classifications || []).length > 0 && React.createElement('div', null,
+      React.createElement('div', { style: sHdr }, 'Classifications'),
+      term.classifications.map(function(c) {
+        var cardStyle = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 };
+        return React.createElement('div', { key: c.typeName, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--classif)' }) },
+          React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
+          Object.entries(c.properties || {}).map(function(e) {
+            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
+              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
+          })
+        );
+      })
     ),
     relGroups.length > 0 && React.createElement('div', { style: { marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' } },
       React.createElement('div', { style: sHdr }, 'Relationships'),
@@ -2139,6 +2189,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   var _selected   = useState(null),  selected   = _selected[0],   setSelected   = _selected[1];
   var _detail     = useState(null),  detail     = _detail[0],     setDetail     = _detail[1];
   var _detailLoad = useState(false), detailLoad = _detailLoad[0], setDetailLoad = _detailLoad[1];
+  var _detailErr  = useState(null),  detailErr  = _detailErr[0],  setDetailErr  = _detailErr[1];
   var _q          = useState(''),    q          = _q[0],          setQ          = _q[1];
   var _typeFilter = useState('all'), typeFilter = _typeFilter[0], setTypeFilter = _typeFilter[1];
 
@@ -2152,14 +2203,18 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
 
   function handleSelect(item) {
     setSelected(item);
-    setDetail(item); // show summary immediately while detail loads
+    setDetail(item);
     setDetailLoad(true);
+    setDetailErr(null);
     var detailUrl = '/api/tech-catalog/assets/' + encodeURIComponent(item.guid) +
       (sectionId ? '?section=' + encodeURIComponent(sectionId) : '');
     fetchWithToken(detailUrl, creds)
-      .then(function(r) { return r.json(); })
-      .then(function(d) { setDetail(d); setDetailLoad(false); })
-      .catch(function() { setDetailLoad(false); }); // fall back to summary on error
+      .then(function(r) {
+        if (r.status === 403) { setDetailErr('unauthorized'); setDetailLoad(false); return null; }
+        return r.json();
+      })
+      .then(function(d) { if (d) { setDetail(d); setDetailLoad(false); } })
+      .catch(function() { setDetailLoad(false); });
   }
 
   // Cross-navigation: when a navTarget arrives for this tab, fetch its detail directly
@@ -2193,7 +2248,15 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   return React.createElement(SidebarDetail, {
     items: filtered, loading: loading, error: error, selected: selected, onSelect: handleSelect,
     filterBar: filterBar,
-    renderDetail: function() { return React.createElement(AssetDetail, { item: detail, detailLoading: detailLoad, onNavigate: onNavigate, creds: creds }); },
+    renderDetail: function() {
+      if (detailErr === 'unauthorized') {
+        return React.createElement('div', { style: { padding: '32px 24px' } },
+          React.createElement('div', { style: { fontSize: 14, color: '#f87171', fontWeight: 600, marginBottom: 8 } }, '🔒 User Not Authorized'),
+          React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)' } }, 'You do not have permission to view this element.')
+        );
+      }
+      return React.createElement(AssetDetail, { item: detail, detailLoading: detailLoad, onNavigate: onNavigate, creds: creds });
+    },
   });
 }
 
@@ -2438,6 +2501,23 @@ function App() {
       }
       setReady(true);
     }).catch(function() { setReady(true); });
+  }, []);
+
+  // Register token-refresh callback so fetchWithToken can auto-refresh on 401
+  useEffect(function() {
+    _tokenRefresher.refresh = function(oldCreds) {
+      return fetch('/api/egeria-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: oldCreds.userId, url: oldCreds.url || '', server: oldCreds.server || '' })
+      }).then(function(r) { return r.json(); })
+        .then(function(t) {
+          var newCreds = Object.assign({}, oldCreds, { token: t.token || '' });
+          setCreds(newCreds);
+          return newCreds;
+        });
+    };
+    return function() { _tokenRefresher.refresh = null; };
   }, []);
 
   if (!ready) return null;

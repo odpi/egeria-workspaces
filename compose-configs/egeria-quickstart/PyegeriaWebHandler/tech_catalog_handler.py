@@ -81,6 +81,15 @@ def _apply_token(client, token: Optional[str]):
         client.create_egeria_bearer_token()
 
 
+def _is_auth_error(exc: Exception) -> bool:
+    """Return True if exc represents a 401/403 from Egeria (token expired or access denied)."""
+    http_code = getattr(exc, "response_code", None) or getattr(exc, "http_status_code", None)
+    if http_code in (401, 403):
+        return True
+    s = str(exc).upper()
+    return "USER_NOT_AUTHORIZED" in s or "NOT_AUTHORIZED" in s or "AUTHORIZATION_ERROR" in s
+
+
 def _asset_maker(url, server, user_id, user_pwd, token: Optional[str] = None):
     from pyegeria import AssetMaker
     u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
@@ -785,6 +794,8 @@ def get_asset_detail(
     except HTTPException:
         raise
     except Exception as exc:
+        if _is_auth_error(exc):
+            raise HTTPException(status_code=403, detail=f"User not authorized to view element {guid!r}")
         logger.exception("get_asset_detail failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
