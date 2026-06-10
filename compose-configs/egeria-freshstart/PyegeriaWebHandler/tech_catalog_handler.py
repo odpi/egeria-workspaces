@@ -217,7 +217,11 @@ def _serialize(el, include_relationships: bool = False):
         out["relationships"] = _extract_relationships(el)
     # Signal sub-panes available in the detail view
     out["hasSchema"]  = isinstance(el.get("schemaType"), dict) and "relatedElement" in el.get("schemaType", {})
-    out["hasLineage"] = True  # always offer lineage pane; empty graph shows graceful message
+    # Lineage is only meaningful for Asset subtypes. Referenceable subtypes (Endpoint,
+    # SoftwareCapability) have no lineage graph endpoint.
+    _type_info   = (hdr.get("type") or {})
+    _super_types = _type_info.get("superTypeNames") or []
+    out["hasLineage"] = "Asset" in _super_types or _type_info.get("typeName") == "Asset"
     # Pass through any mermaid graph fields present in the element or its properties.
     # These are only populated when graph_query_depth > 0 and Egeria has diagram data.
     for field in _MERMAID_FIELDS:
