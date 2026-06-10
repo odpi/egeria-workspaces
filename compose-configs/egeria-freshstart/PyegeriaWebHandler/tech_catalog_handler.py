@@ -318,12 +318,13 @@ def _serialize_tech_type(el: dict) -> dict:
     """Serialise a technology type list element (flat ValidMetadataValue dict)."""
     templates = el.get("catalogTemplates") or []
     return {
-        "guid":          el.get("technologyTypeGUID") or el.get("guid") or "",
-        "qualifiedName": el.get("qualifiedName") or "",
-        "displayName":   el.get("displayName") or el.get("name") or "",
-        "description":   el.get("description") or "",
-        "category":      el.get("category") or "",
-        "templateCount": len(templates) if isinstance(templates, list) else 0,
+        "guid":                        el.get("technologyTypeGUID") or el.get("guid") or "",
+        "qualifiedName":               el.get("qualifiedName") or "",
+        "displayName":                 el.get("displayName") or el.get("name") or "",
+        "deployedImplementationType":  el.get("deployedImplementationType") or el.get("displayName") or el.get("name") or "",
+        "description":                 el.get("description") or "",
+        "category":                    el.get("category") or "",
+        "templateCount":               len(templates) if isinstance(templates, list) else 0,
     }
 
 
@@ -878,18 +879,17 @@ def get_tech_type_elements(
 @router.get("/api/tech-catalog/tech-types/{qualified_name:path}")
 def get_tech_type_detail(
     qualified_name: str,
+    deployed_implementation_type: Optional[str] = Query(None),
     display_name: Optional[str] = Query(None),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     """Return full detail for a technology type.
 
-    get_tech_type_detail (the underlying /technology-types/by-name call) matches
-    by displayName only.  The frontend must pass ?display_name= alongside the
-    qualifiedName path param so the lookup uses the correct display name.
-    Falls back to qualified_name if display_name is not supplied.
+    get_tech_type_detail matches by deployedImplementationType (the preferred lookup
+    field).  Falls back to display_name or qualified_name if not supplied.
     """
-    filter_str = display_name or qualified_name
+    filter_str = deployed_implementation_type or display_name or qualified_name
     try:
         ac = _automated_curation(url, server, user_id, user_pwd)
         raw = ac.get_tech_type_detail(filter_string=filter_str, output_format="JSON")
@@ -904,12 +904,12 @@ def get_tech_type_detail(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-# Map from section id → targeted find_* with graph_query_depth=3 for full property/relationship detail
+# Map from section id → targeted find_* with graph_query_depth=5
 _SECTION_FINDERS = {
     "software-capabilities": lambda m: m.find_software_capabilities(
-        search_string="*", output_format="JSON", graph_query_depth=3),
+        search_string="*", output_format="JSON", graph_query_depth=5),
     "infrastructure": lambda m: m.find_infrastructure(
-        search_string="*", output_format="JSON", graph_query_depth=3,
+        search_string="*", output_format="JSON", graph_query_depth=5,
         deployment_status_list=[],
         sequencing_order=_SEQ_ORDER, sequencing_property=_SEQ_PROP),
 }
@@ -929,7 +929,7 @@ def _fetch_detail(mgr, guid: str, section: Optional[str]):
             raw = cm.get_endpoint_by_guid(
                 endpoint_guid=guid,
                 output_format="JSON",
-                body={"class": "GetRequestBody", "graphQueryDepth": 3},
+                body={"class": "GetRequestBody", "graphQueryDepth": 5},
             )
             el = raw[0] if isinstance(raw, list) else raw
             if el:
@@ -938,16 +938,13 @@ def _fetch_detail(mgr, guid: str, section: Optional[str]):
             pass
         return None
 
-    # All Asset types: use get_asset_graph.
-    # Data assets use graphQueryDepth=5 to capture schema/column/lineage relationships.
-    # Other sections use default depth (no body).
+    # All Asset types: use get_asset_graph with graphQueryDepth=5.
     try:
         ac = _asset_catalog_from_asset_maker(mgr)
-        graph_body = (
-            {"class": "ResultsRequestBody", "graphQueryDepth": 5}
-            if section == "data-assets" else None
+        raw = ac.get_asset_graph(
+            asset_guid=guid, output_format="JSON",
+            body={"class": "ResultsRequestBody", "graphQueryDepth": 5}
         )
-        raw = ac.get_asset_graph(asset_guid=guid, output_format="JSON", body=graph_body)
         el = raw[0] if isinstance(raw, list) else raw
         if el and isinstance(el, dict):
             # Inject the dedicated asset mermaid graph if not already embedded in the element.
@@ -975,7 +972,7 @@ def _fetch_detail(mgr, guid: str, section: Optional[str]):
         raw = mgr.get_asset_by_guid(
             asset_guid=guid,
             output_format="JSON",
-            body={"class": "GetRequestBody", "graphQueryDepth": 3, "relationshipsPageSize": 50},
+            body={"class": "GetRequestBody", "graphQueryDepth": 5, "relationshipsPageSize": 50},
         )
         el = raw[0] if isinstance(raw, list) else raw
         if el:

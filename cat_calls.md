@@ -25,6 +25,7 @@ All catalog calls go through `AssetMaker` (imported from `pyegeria`) unless note
 | Tech Type elements exact-match | `get_technology_type_elements(filter_string)` requires exact displayName — no wildcards. |
 | `_safe_list` only handles `"items"` | `_safe_list(raw)` checks `isinstance(raw, list)` then `raw.get("items")`. Does NOT handle `"elements"` or `"elementList"` keys — may silently return empty list for some responses (O-2). |
 | Sequencing | List endpoints use `sequencing_order="PROPERTY_ASCENDING"`, `sequencing_property="displayName"`. `find_software_capabilities` does not support sequencing — sorted client-side. |
+==> on get_tech_type_detail, don't use the qualified name. Search on the deployed_implementation_type which is the name you should be passing in.
 
 ### Status filter defaults
 
@@ -85,6 +86,7 @@ Called when the user selects a section or sub-tab. Returns `{ items: [...], tota
 ---
 
 ## Detail endpoint — `GET /api/tech-catalog/assets/{guid}?section={tab-id}`
+==> Set the default `graphQueryDepth` to 5 for all detail calls.
 
 Called when a sidebar item is clicked. Returns the full serialised element with relationships, classifications, and mermaid fields.
 
@@ -106,6 +108,7 @@ Returns `None` (404) if this fails — no further fallback for endpoints.
 |---|---|---|
 | `AssetCatalog.get_asset_graph` | `AssetCatalog` | `asset_guid=guid`, `output_format="JSON"`, `body={"class": "ResultsRequestBody", "graphQueryDepth": 5}` |
 | `AssetCatalog.get_asset_mermaid_graph` _(injected if mermaidGraph absent)_ | `AssetCatalog` | `asset_guid=guid` |
+==> Don't use AssetCatalog.get_asset_mermaid_graph use AssetCatalog.get_asset_lineage_graph instead for the lineage section and the get_asset_graph for the rest of the details.
 
 Falls through to step 3 on exception.
 
@@ -115,6 +118,7 @@ Falls through to step 3 on exception.
 |---|---|---|
 | `AssetCatalog.get_asset_graph` | `AssetCatalog` | `asset_guid=guid`, `output_format="JSON"`, `body=None` _(server default depth)_ |
 | `AssetCatalog.get_asset_mermaid_graph` _(injected if mermaidGraph absent)_ | `AssetCatalog` | `asset_guid=guid` |
+==> Don't use AssetCatalog.get_asset_mermaid_graph use AssetCatalog.get_asset_lineage_graph instead for the lineage section and the get_asset_graph for the rest of the details.
 
 Falls through to step 4 on exception.
 
@@ -174,7 +178,7 @@ Returns `{"mermaidGraph": ""}` when Egeria returns 400 (asset has no lineage dat
 | `AutomatedCuration.get_tech_type_detail` | `AutomatedCuration` | `filter_string=display_name\|qualified_name`, `output_format="JSON"` |
 
 > **Critical:** `get_tech_type_detail` calls `/technology-types/by-name` which matches on **displayName only**. The frontend passes `?display_name=` query param alongside the qualifiedName path segment. If `display_name` is absent the backend falls back to `qualified_name` which may not match.
-
+==> This is not a display name match, it is a deployedImplementationType match. The frontend should be passing the deployedImplementationType as the display_name parameter.
 ## Technology Types instances — `GET /api/tech-catalog/tech-types/{qualifiedName}/elements`
 
 | Call | Class | Params |
