@@ -1629,22 +1629,24 @@ var _glsBadge        = { display: 'inline-block', fontSize: 10, fontWeight: 600,
 
 function GlossaryFolderDetail({ folder }) {
   if (!folder) return null;
-  var fields = [['Qualified Name', folder.qualifiedName],['Type', folder.typeName],['Status', folder.status],['Description', folder.description]].filter(function(r){return r[1]&&String(r[1]).trim();});
+  var fields = [['Qualified Name', folder.qualifiedName],['GUID', folder.guid],['Type', folder.typeName],['Status', folder.status],['Description', folder.description]].filter(function(r){return r[1]&&String(r[1]).trim();});
   var sHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
   return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 } },
       React.createElement('div', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)' } }, folder.displayName || folder.qualifiedName),
       React.createElement('span', { style: _glsBadge }, 'Folder')
     ),
-    React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, folder.guid),
     folder.description && React.createElement('p', { style: { fontSize: 13, lineHeight: 1.6, marginBottom: 16, color: 'var(--muted)' } }, folder.description),
     fields.length > 0 && React.createElement('div', null,
       React.createElement('div', { style: sHdr }, 'Properties'),
       React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 } },
         React.createElement('tbody', null,
-          fields.map(function(r) { return React.createElement('tr', { key: r[0], style: { borderTop: '1px solid var(--border)' } },
-            React.createElement('td', { style: { padding: '5px 12px 5px 0', color: 'var(--dim)', width: 140, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
-            React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-word' } }, r[1])); })
+          fields.map(function(r) {
+            var mono = r[0] === 'Qualified Name' || r[0] === 'GUID';
+            return React.createElement('tr', { key: r[0], style: { borderTop: '1px solid var(--border)' } },
+              React.createElement('td', { style: { padding: '5px 12px 5px 0', color: 'var(--dim)', width: 140, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
+              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: mono ? 'ui-monospace,monospace' : 'inherit', fontSize: mono ? 11 : 12 } }, r[1]));
+          })
         )
       )
     )
@@ -1654,7 +1656,7 @@ function GlossaryFolderDetail({ folder }) {
 function GlossaryDetail({ glossary }) {
   if (!glossary) return null;
   var sHdr   = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
-  var fields = [['Qualified Name', glossary.qualifiedName],['Language', glossary.language],['Usage', glossary.usage],['Status', glossary.status]].filter(function(r){return r[1];});
+  var fields = [['Qualified Name', glossary.qualifiedName],['GUID', glossary.guid],['Language', glossary.language],['Usage', glossary.usage],['Status', glossary.status]].filter(function(r){return r[1];});
   return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 } },
       React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--text)', flex: 1 } }, glossary.displayName || glossary.qualifiedName || glossary.guid),
@@ -1665,9 +1667,12 @@ function GlossaryDetail({ glossary }) {
       React.createElement('div', { style: sHdr }, 'Properties'),
       React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 } },
         React.createElement('tbody', null,
-          fields.map(function(r) { return React.createElement('tr', { key: r[0], style: { borderTop: '1px solid var(--border)' } },
-            React.createElement('td', { style: { padding: '5px 12px 5px 0', color: 'var(--dim)', width: 140, verticalAlign: 'top' } }, r[0]),
-            React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)' } }, r[1])); })
+          fields.map(function(r) {
+            var mono = r[0] === 'Qualified Name' || r[0] === 'GUID';
+            return React.createElement('tr', { key: r[0], style: { borderTop: '1px solid var(--border)' } },
+              React.createElement('td', { style: { padding: '5px 12px 5px 0', color: 'var(--dim)', width: 140, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
+              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: mono ? 'ui-monospace,monospace' : 'inherit', fontSize: mono ? 11 : 12 } }, r[1]));
+          })
         )
       )
     ),
@@ -1678,7 +1683,7 @@ function GlossaryDetail({ glossary }) {
 function GlossaryTermDetail({ term, onNavigateToTerm }) {
   if (!term) return null;
   var sHdr   = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
-  var fields = [['Qualified Name', term.qualifiedName],['Abbreviation', term.abbreviation],['Summary', term.summary],['Examples', term.examples],['Usage', term.usage],['Status', term.status],['Content Status', term.contentStatus],['Activity Status', term.activityStatus]].filter(function(r){return r[1]&&r[1].trim();});
+  var fields = [['Qualified Name', term.qualifiedName],['GUID', term.guid],['Abbreviation', term.abbreviation],['Summary', term.summary],['Examples', term.examples],['Usage', term.usage],['Status', term.status],['Content Status', term.contentStatus],['Activity Status', term.activityStatus]].filter(function(r){return r[1]&&String(r[1]).trim();});
   var folderList = term.folders || [];
   var relGroups  = Object.entries(term.relationships || {}).filter(function(e) { return e[1].length > 0; });
   var relBtnStyle = { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' };
@@ -1688,7 +1693,6 @@ function GlossaryTermDetail({ term, onNavigateToTerm }) {
       term.isTemplateSubstitute && React.createElement('span', { style: Object.assign({}, _glsBadge, { background: 'rgba(245,158,11,.15)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.4)' }) }, 'Template Substitute'),
       React.createElement('div', { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: term.guid }))
     ),
-    React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 4 } }, term.guid),
     folderList.length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8, marginTop: 6 } },
       React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)', marginRight: 4 } }, 'Folders:'),
       folderList.map(function(f) { return React.createElement('span', { key: f.guid, style: Object.assign({}, _glsBadge, { background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)' }) }, f.displayName || f.guid); })
@@ -1703,9 +1707,12 @@ function GlossaryTermDetail({ term, onNavigateToTerm }) {
       React.createElement('div', { style: sHdr }, 'Properties'),
       React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 } },
         React.createElement('tbody', null,
-          fields.map(function(r) { return React.createElement('tr', { key: r[0], style: { borderTop: '1px solid var(--border)' } },
-            React.createElement('td', { style: { padding: '5px 12px 5px 0', color: 'var(--dim)', width: 140, verticalAlign: 'top' } }, r[0]),
-            React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)' } }, renderMd(r[1]))); })
+          fields.map(function(r) {
+            var mono = r[0] === 'Qualified Name' || r[0] === 'GUID';
+            return React.createElement('tr', { key: r[0], style: { borderTop: '1px solid var(--border)' } },
+              React.createElement('td', { style: { padding: '5px 12px 5px 0', color: 'var(--dim)', width: 140, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
+              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: mono ? 'ui-monospace,monospace' : 'inherit', fontSize: mono ? 11 : 12 } }, mono ? r[1] : renderMd(r[1])));
+          })
         )
       )
     ),
@@ -2031,10 +2038,11 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
       React.createElement('div', { style: sectionHdr }, 'Properties'),
       React.createElement('table', { style: { borderCollapse: 'collapse', width: '100%', fontSize: 12 } },
         React.createElement('tbody', null,
-          [['Qualified Name', item.qualifiedName]].concat(extraProps).filter(function(r) { return r[1]; }).map(function(r) {
+          [['Qualified Name', item.qualifiedName], ['GUID', item.guid]].concat(extraProps).filter(function(r) { return r[1]; }).map(function(r) {
+            var mono = r[0] === 'Qualified Name' || r[0] === 'GUID';
             return React.createElement('tr', { key: r[0], style: { borderBottom: '1px solid var(--border)' } },
               React.createElement('td', { style: { padding: '5px 10px 5px 0', color: 'var(--dim)', width: 180, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
-              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: r[0] === 'Qualified Name' ? 'ui-monospace,monospace' : 'inherit', fontSize: r[0] === 'Qualified Name' ? 11 : 12 } }, r[1])
+              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: mono ? 'ui-monospace,monospace' : 'inherit', fontSize: mono ? 11 : 12 } }, r[1])
             );
           })
         )
