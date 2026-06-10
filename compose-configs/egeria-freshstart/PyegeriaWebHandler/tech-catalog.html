@@ -599,13 +599,32 @@ var _SESSION_ID = (function() {
 })();
 
 // ── Credential helpers ────────────────────────────────────────────────────────
+// fetchWithToken: replaces credAppend. Passes server/url/user_id as query params
+// (non-secret) and the Egeria bearer token as X-Egeria-Token header.
+// user_pwd is never sent in the URL.
+function fetchWithToken(url, creds, opts) {
+  var headers = Object.assign({}, (opts && opts.headers) || {});
+  var queryUrl = url;
+  if (creds) {
+    var p = new URLSearchParams();
+    if (creds.url)    p.set('url',     creds.url);
+    if (creds.server) p.set('server',  creds.server);
+    if (creds.userId) p.set('user_id', creds.userId);
+    if (creds.token)  headers['X-Egeria-Token'] = creds.token;
+    var qs = p.toString();
+    if (qs) queryUrl = url + (url.indexOf('?') === -1 ? '?' : '&') + qs;
+  }
+  return fetch(queryUrl, Object.assign({}, opts || {}, { headers: headers }));
+}
+
+// Kept for backwards compat with ConnectionForm manual credential entry.
+// When a token is available fetchWithToken is used instead.
 function credAppend(url, creds) {
   if (!creds || (!creds.url && !creds.userId)) return url;
   var p = new URLSearchParams();
-  if (creds.url)      p.set('url',      creds.url);
-  if (creds.server)   p.set('server',   creds.server);
-  if (creds.userId)   p.set('user_id',  creds.userId);
-  if (creds.password) p.set('user_pwd', creds.password);
+  if (creds.url)    p.set('url',    creds.url);
+  if (creds.server) p.set('server', creds.server);
+  if (creds.userId) p.set('user_id', creds.userId);
   var sep = url.indexOf('?') === -1 ? '?' : '&';
   return url + sep + p.toString();
 }
@@ -1271,7 +1290,7 @@ function TechTypesView({ creds }) {
 
   // Load hierarchy on mount
   useEffect(function() {
-    fetch(credAppend('/api/tech-catalog/tech-types/hierarchy', creds))
+    fetchWithToken('/api/tech-catalog/tech-types/hierarchy', creds)
       .then(function(r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
       .then(function(d) {
         var root = d.hierarchy || d;
@@ -1296,7 +1315,7 @@ function TechTypesView({ creds }) {
     clearTimeout(_searchTimer.current);
     _searchTimer.current = setTimeout(function() {
       setSrLoad(true); setSrErr('');
-      fetch(credAppend('/api/tech-catalog/tech-types?q=' + encodeURIComponent(q), creds))
+      fetchWithToken('/api/tech-catalog/tech-types?q=' + encodeURIComponent(q), creds)
         .then(function(r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
         .then(function(d) { setSrItems(d.items || []); setSrLoad(false); })
         .catch(function(e) { setSrErr(String(e)); setSrLoad(false); });
@@ -1310,7 +1329,7 @@ function TechTypesView({ creds }) {
     setDetLoad(true); setDetail(null);
     var url = '/api/tech-catalog/tech-types/' + encodeURIComponent(sel.qualifiedName || sel.displayName) +
               '?deployed_implementation_type=' + encodeURIComponent(sel.deployedImplementationType || sel.displayName || '');
-    fetch(credAppend(url, creds))
+    fetchWithToken(url, creds)
       .then(function(r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
       .then(function(d) { setDetail(d); setDetLoad(false); })
       .catch(function(e) { console.error('TechType detail fetch failed:', e); setDetLoad(false); });
@@ -1533,7 +1552,7 @@ function SubPane({ title, fetchUrl, creds, renderContent }) {
     setOpen(nowOpen);
     if (nowOpen && !data && !loading) {
       setLoading(true); setErr('');
-      fetch(credAppend(fetchUrl, creds))
+      fetchWithToken(fetchUrl, creds)
         .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(function(d) { setData(d); setLoading(false); })
         .catch(function(e) { setErr(String(e)); setLoading(false); });
@@ -1763,7 +1782,7 @@ function GlossaryView({ creds }) {
   // Load glossary list
   useEffect(function() {
     setGlossaryState('loading'); setGlossaryError('');
-    fetch(credAppend('/api/glossary', creds))
+    fetchWithToken('/api/glossary', creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) {
         var list = (data.glossaries || []).slice().sort(function(a,b){return (a.displayName||'').localeCompare(b.displayName||'');});
@@ -1784,8 +1803,8 @@ function GlossaryView({ creds }) {
     setScopeState('loading'); setScopeError(''); setFolders([]); setTerms([]);
     setSelectedItem(null); setTermDetail(null); setTermDetailState('idle'); setFilterText('');
     Promise.all([
-      fetch(credAppend('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/folders', creds)).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}),
-      fetch(credAppend('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/terms',   creds)).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+      fetchWithToken('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/folders', creds).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}),
+      fetchWithToken('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/terms',   creds).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
     ])
     .then(function(res) { setFolders(res[0].folders||[]); setTerms(res[1].terms||[]); setScopeState('ready'); })
     .catch(function(err){ setScopeError(err.message); setScopeState('error'); });
@@ -1795,7 +1814,7 @@ function GlossaryView({ creds }) {
     var sq = (q||'').trim() || '*';
     setSearchQuery(sq); setSearchInputValue(sq === '*' ? '' : sq);
     setSearchState('loading'); setSearchError(''); setSearchTerms([]); setSelectedItem(null); setTermDetail(null); setTermDetailState('idle');
-    fetch(credAppend('/api/glossary-terms?q=' + encodeURIComponent(sq), creds))
+    fetchWithToken('/api/glossary-terms?q=' + encodeURIComponent(sq), creds)
       .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
       .then(function(data){setSearchTerms(data.terms||[]);setSearchState('ready');})
       .catch(function(err){setSearchError(err.message);setSearchState('idle');});
@@ -1832,7 +1851,7 @@ function GlossaryView({ creds }) {
     if (!selectedItem) { setTermDetail(null); setTermDetailState('idle'); return; }
     if (folders.find(function(f){return f.guid===selectedItem;})) { setTermDetail(null); setTermDetailState('idle'); return; }
     setTermDetail(null); setTermDetailState('loading');
-    fetch(credAppend('/api/glossary/term/' + encodeURIComponent(selectedItem), creds))
+    fetchWithToken('/api/glossary/term/' + encodeURIComponent(selectedItem), creds)
       .then(function(r){return r.ok?r.json():null;})
       .then(function(data){setTermDetail(data||null);setTermDetailState(data?'ready':'error');})
       .catch(function(){setTermDetailState('error');});
@@ -2125,7 +2144,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
 
   useEffect(function() {
     setLoading(true); setError(''); setSelected(null); setDetail(null);
-    fetch(credAppend(endpoint, creds))
+    fetchWithToken(endpoint, creds)
       .then(function(r) { return r.json(); })
       .then(function(d) { setItems(Array.isArray(d) ? d : (d.items || [])); setLoading(false); })
       .catch(function(e) { setError(String(e)); setLoading(false); });
@@ -2137,7 +2156,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
     setDetailLoad(true);
     var detailUrl = '/api/tech-catalog/assets/' + encodeURIComponent(item.guid) +
       (sectionId ? '?section=' + encodeURIComponent(sectionId) : '');
-    fetch(credAppend(detailUrl, creds))
+    fetchWithToken(detailUrl, creds)
       .then(function(r) { return r.json(); })
       .then(function(d) { setDetail(d); setDetailLoad(false); })
       .catch(function() { setDetailLoad(false); }); // fall back to summary on error
@@ -2405,7 +2424,15 @@ function App() {
           body: JSON.stringify({ persona: storedPersona.id })
         }).then(function(r) { return r.json(); }).then(function(sel) {
           if (sel.egeria_user) {
-            setCreds({ url: '', server: 'qs-view-server', userId: sel.egeria_user, password: sel.egeria_password || '' });
+            // Exchange user/pwd for a bearer token so credentials never appear in URLs.
+            fetch('/api/egeria-token', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ user_id: sel.egeria_user, password: sel.egeria_password || '' })
+            }).then(function(r) { return r.json(); }).then(function(t) {
+              setCreds({ server: 'qs-view-server', userId: sel.egeria_user, token: t.token || '' });
+            }).catch(function() {
+              setCreds({ server: 'qs-view-server', userId: sel.egeria_user });
+            });
           }
         }).catch(function() {});
       }

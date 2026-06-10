@@ -32,7 +32,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
@@ -68,19 +68,32 @@ def _creds(url, server, user_id, user_pwd):
     )
 
 
-def _asset_maker(url, server, user_id, user_pwd):
+def _token_from_request(request: Request) -> Optional[str]:
+    """Extract pre-obtained Egeria bearer token from X-Egeria-Token header."""
+    return request.headers.get("X-Egeria-Token") or None
+
+
+def _apply_token(client, token: Optional[str]):
+    """Set a pre-obtained bearer token on a pyegeria client, or obtain a fresh one."""
+    if token:
+        client.egeria_bearer_token = token
+    else:
+        client.create_egeria_bearer_token()
+
+
+def _asset_maker(url, server, user_id, user_pwd, token: Optional[str] = None):
     from pyegeria import AssetMaker
     u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
     mgr = AssetMaker(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
-    mgr.create_egeria_bearer_token()
+    _apply_token(mgr, token)
     return mgr
 
 
-def _connection_maker(url, server, user_id, user_pwd):
+def _connection_maker(url, server, user_id, user_pwd, token: Optional[str] = None):
     from pyegeria import ConnectionMaker
     u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
     mgr = ConnectionMaker(server_name=s, platform_url=u, user_id=uid, user_pwd=pwd)
-    mgr.create_egeria_bearer_token()
+    _apply_token(mgr, token)
     return mgr
 
 
@@ -235,20 +248,44 @@ def _safe_list(raw):
     return []
 
 
-def _asset_catalog(url, server, user_id, user_pwd):
+def _asset_catalog(url, server, user_id, user_pwd, token: Optional[str] = None):
     from pyegeria import AssetCatalog
     u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
     ac = AssetCatalog(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
-    ac.create_egeria_bearer_token()
+    _apply_token(ac, token)
     return ac
 
 
-def _automated_curation(url, server, user_id, user_pwd):
+def _automated_curation(url, server, user_id, user_pwd, token: Optional[str] = None):
     from pyegeria import AutomatedCuration
     u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
     ac = AutomatedCuration(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
-    ac.create_egeria_bearer_token()
+    _apply_token(ac, token)
     return ac
+
+
+# ── Token exchange endpoint ───────────────────────────────────────────────────
+
+@router.post("/api/egeria-token", summary="Exchange Egeria credentials for a bearer token")
+async def get_egeria_bearer_token(request: Request):
+    """Called once at login. Returns a short-lived Egeria bearer token so that
+    subsequent catalog API calls can pass X-Egeria-Token instead of user_pwd."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    user_id  = body.get("user_id")  or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = body.get("password") or os.environ.get("EGERIA_USER_PASSWORD",  "secret")
+    url      = body.get("url")      or os.environ.get("EGERIA_PLATFORM_URL",   "https://localhost:9443")
+    server   = body.get("server")   or os.environ.get("EGERIA_VIEW_SERVER",    "qs-view-server")
+    try:
+        from pyegeria import AssetMaker
+        mgr = AssetMaker(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+        mgr.create_egeria_bearer_token()
+        return JSONResponse({"token": mgr.egeria_bearer_token, "user_id": user_id})
+    except Exception as exc:
+        logger.exception("get_egeria_bearer_token failed")
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 def _serialize_schema(el: dict) -> dict:
@@ -447,6 +484,7 @@ _CRED_PARAMS = dict(
 
 @router.get("/api/tech-catalog/infrastructure")
 def list_infrastructure(
+    request: Request,
     q:          str = Query("*"),
     start_from: int = Query(0, ge=0),
     page_size:  int = Query(100, ge=1, le=500),
@@ -454,7 +492,7 @@ def list_infrastructure(
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     try:
-        mgr = _asset_maker(url, server, user_id, user_pwd)
+        mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
         logger.exception("tech-catalog: AssetMaker connection failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -479,6 +517,7 @@ def list_infrastructure(
 
 @router.get("/api/tech-catalog/software-capabilities")
 def list_software_capabilities(
+    request: Request,
     q:          str = Query("*"),
     start_from: int = Query(0, ge=0),
     page_size:  int = Query(100, ge=1, le=500),
@@ -486,7 +525,7 @@ def list_software_capabilities(
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     try:
-        mgr = _asset_maker(url, server, user_id, user_pwd)
+        mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
         logger.exception("tech-catalog: AssetMaker connection failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -507,6 +546,7 @@ def list_software_capabilities(
 
 @router.get("/api/tech-catalog/endpoints")
 def list_endpoints(
+    request: Request,
     q:          str = Query("*"),
     start_from: int = Query(0, ge=0),
     page_size:  int = Query(100, ge=1, le=500),
@@ -514,7 +554,7 @@ def list_endpoints(
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     try:
-        mgr = _connection_maker(url, server, user_id, user_pwd)
+        mgr = _connection_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
     try:
@@ -534,6 +574,7 @@ def list_endpoints(
 
 @router.get("/api/tech-catalog/data-stores")
 def list_data_stores(
+    request: Request,
     q:          str = Query("*"),
     start_from: int = Query(0, ge=0),
     page_size:  int = Query(100, ge=1, le=500),
@@ -541,7 +582,7 @@ def list_data_stores(
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     try:
-        mgr = _asset_maker(url, server, user_id, user_pwd)
+        mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
     try:
@@ -565,6 +606,7 @@ def list_data_stores(
 
 @router.get("/api/tech-catalog/data-feeds")
 def list_data_feeds(
+    request: Request,
     q:          str = Query("*"),
     start_from: int = Query(0, ge=0),
     page_size:  int = Query(100, ge=1, le=500),
@@ -572,7 +614,7 @@ def list_data_feeds(
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     try:
-        mgr = _asset_maker(url, server, user_id, user_pwd)
+        mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
     try:
@@ -596,6 +638,7 @@ def list_data_feeds(
 
 @router.get("/api/tech-catalog/data-sets")
 def list_data_sets(
+    request: Request,
     q:          str = Query("*"),
     start_from: int = Query(0, ge=0),
     page_size:  int = Query(100, ge=1, le=500),
@@ -603,7 +646,7 @@ def list_data_sets(
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     try:
-        mgr = _asset_maker(url, server, user_id, user_pwd)
+        mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
     try:
@@ -627,6 +670,7 @@ def list_data_sets(
 
 @router.get("/api/tech-catalog/apis")
 def list_apis(
+    request: Request,
     q:          str = Query("*"),
     start_from: int = Query(0, ge=0),
     page_size:  int = Query(100, ge=1, le=500),
@@ -634,7 +678,7 @@ def list_apis(
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     try:
-        mgr = _asset_maker(url, server, user_id, user_pwd)
+        mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
     try:
@@ -657,6 +701,7 @@ def list_apis(
 
 @router.get("/api/tech-catalog/software-components")
 def list_software_components(
+    request: Request,
     q:          str = Query("*"),
     start_from: int = Query(0, ge=0),
     page_size:  int = Query(100, ge=1, le=500),
@@ -664,7 +709,7 @@ def list_software_components(
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     try:
-        mgr = _asset_maker(url, server, user_id, user_pwd)
+        mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
     try:
@@ -688,6 +733,7 @@ def list_software_components(
 
 @router.get("/api/tech-catalog/actions")
 def list_actions(
+    request: Request,
     q:          str = Query("*"),
     start_from: int = Query(0, ge=0),
     page_size:  int = Query(100, ge=1, le=500),
@@ -695,7 +741,7 @@ def list_actions(
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     try:
-        mgr = _asset_maker(url, server, user_id, user_pwd)
+        mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
     try:
@@ -719,6 +765,7 @@ def list_actions(
 
 @router.get("/api/tech-catalog/assets/{guid}")
 def get_asset_detail(
+    request: Request,
     guid: str,
     # section tells us which find_* to use for non-Asset types
     section: Optional[str] = Query(None),
@@ -726,7 +773,7 @@ def get_asset_detail(
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     try:
-        mgr = _asset_maker(url, server, user_id, user_pwd)
+        mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -744,13 +791,14 @@ def get_asset_detail(
 
 @router.get("/api/tech-catalog/assets/{guid}/schema")
 def get_asset_schema(
+    request: Request,
     guid: str,
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     """Return the schema type + attribute tree for any asset with a Schema relationship."""
     try:
-        mgr = _asset_maker(url, server, user_id, user_pwd)
+        mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
         raw = mgr.get_asset_by_guid(
             asset_guid=guid,
             output_format="JSON",
@@ -770,6 +818,7 @@ def get_asset_schema(
 
 @router.get("/api/tech-catalog/assets/{guid}/lineage")
 def get_asset_lineage(
+    request: Request,
     guid: str,
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
@@ -779,7 +828,7 @@ def get_asset_lineage(
     Returns {"mermaidGraph": ""} when the asset has no lineage data (Egeria returns 400).
     """
     try:
-        ac = _asset_catalog(url, server, user_id, user_pwd)
+        ac = _asset_catalog(url, server, user_id, user_pwd, token=_token_from_request(request))
         mermaid_str = ac.get_asset_lineage_graph(asset_guid=guid, output_format="MERMAID")
         if isinstance(mermaid_str, str):
             return JSONResponse({"mermaidGraph": mermaid_str or ""})
@@ -803,13 +852,14 @@ def get_asset_lineage(
 
 @router.get("/api/tech-catalog/tech-types/hierarchy")
 def get_tech_type_hierarchy(
+    request: Request,
     root: str = Query("Root Technology Type"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     """Return the technology type hierarchy tree starting from root."""
     try:
-        ac = _automated_curation(url, server, user_id, user_pwd)
+        ac = _automated_curation(url, server, user_id, user_pwd, token=_token_from_request(request))
         raw = ac.get_tech_type_hierarchy(filter_string=root or "Root Technology Type",
                                          output_format="JSON")
         return JSONResponse({"hierarchy": raw})
@@ -820,6 +870,7 @@ def get_tech_type_hierarchy(
 
 @router.get("/api/tech-catalog/tech-types")
 def list_tech_types(
+    request: Request,
     q: str = Query("*"),
     start_from: int = Query(0, ge=0),
     page_size:  int = Query(100, ge=1, le=500),
@@ -828,7 +879,7 @@ def list_tech_types(
 ):
     """List or search technology types."""
     try:
-        ac = _automated_curation(url, server, user_id, user_pwd)
+        ac = _automated_curation(url, server, user_id, user_pwd, token=_token_from_request(request))
         raw = ac.find_technology_types(
             search_string=q or "*",
             start_from=start_from,
@@ -852,6 +903,7 @@ def list_tech_types(
 
 @router.get("/api/tech-catalog/tech-types/{qualified_name:path}/elements")
 def get_tech_type_elements(
+    request: Request,
     qualified_name: str,
     display_name: str = Query(""),
     start_from: int = Query(0, ge=0),
@@ -866,7 +918,7 @@ def get_tech_type_elements(
     Falls back to qualifiedName if display_name is absent.
     """
     try:
-        ac = _automated_curation(url, server, user_id, user_pwd)
+        ac = _automated_curation(url, server, user_id, user_pwd, token=_token_from_request(request))
         filter_str = display_name or qualified_name.split(":")[-1] if ":" in qualified_name else qualified_name
         raw = ac.get_technology_type_elements(
             filter_string=filter_str,
@@ -883,6 +935,7 @@ def get_tech_type_elements(
 
 @router.get("/api/tech-catalog/tech-types/{qualified_name:path}")
 def get_tech_type_detail(
+    request: Request,
     qualified_name: str,
     deployed_implementation_type: Optional[str] = Query(None),
     display_name: Optional[str] = Query(None),
@@ -896,7 +949,7 @@ def get_tech_type_detail(
     """
     filter_str = deployed_implementation_type or display_name or qualified_name
     try:
-        ac = _automated_curation(url, server, user_id, user_pwd)
+        ac = _automated_curation(url, server, user_id, user_pwd, token=_token_from_request(request))
         raw = ac.get_tech_type_detail(filter_string=filter_str, output_format="JSON")
         el = raw[0] if isinstance(raw, list) else raw
         if not isinstance(el, dict):
@@ -987,9 +1040,9 @@ def _fetch_detail(mgr, guid: str, section: Optional[str]):
 def _connection_maker_from_asset_maker(mgr):
     """Create a ConnectionMaker sharing credentials from an existing AssetMaker.
 
-    NOTE: Do NOT pass token= here. ConnectionMaker.__init__ calls check_connection()
-    immediately, and the Bearer token format from AssetMaker causes a 401 on that
-    handshake. A fresh create_egeria_bearer_token() call is required instead.
+    NOTE: ConnectionMaker.__init__ calls check_connection() immediately, so we
+    must call create_egeria_bearer_token() (not set the token directly) to avoid
+    a 401 on that handshake.
     """
     from pyegeria import ConnectionMaker
     cm = ConnectionMaker(
@@ -1003,7 +1056,7 @@ def _connection_maker_from_asset_maker(mgr):
 
 
 def _asset_catalog_from_asset_maker(mgr):
-    """Create an AssetCatalog sharing credentials from an existing AssetMaker."""
+    """Create an AssetCatalog sharing credentials/token from an existing AssetMaker."""
     from pyegeria import AssetCatalog
     ac = AssetCatalog(
         view_server=mgr.server_name,
@@ -1011,7 +1064,7 @@ def _asset_catalog_from_asset_maker(mgr):
         user_id=mgr.user_id,
         user_pwd=mgr.user_pwd,
     )
-    ac.create_egeria_bearer_token()
+    _apply_token(ac, getattr(mgr, "egeria_bearer_token", None))
     return ac
 
 
