@@ -172,8 +172,8 @@
       </select>
     </div>
     <table id="fbTable">
-      <thead><tr><th>Time</th><th>User</th><th>Env</th><th>Page</th><th>Rating</th><th>Category</th><th>Message</th><th>Resp?</th><th>Status</th><th>Actions</th></tr></thead>
-      <tbody id="fbBody"><tr><td colspan="10" class="empty">Loading…</td></tr></tbody>
+      <thead><tr><th>Time</th><th>User</th><th>Email</th><th>Env</th><th>Page</th><th>Rating</th><th>Category</th><th>Message</th><th>Resp?</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody id="fbBody"><tr><td colspan="11" class="empty">Loading…</td></tr></tbody>
     </table>
   </div>
 
@@ -343,7 +343,7 @@
     fetch('/api/demo-feedback' + qs).then(function(r) { return r.json(); }).then(function(rows) {
       var tbody = document.getElementById('fbBody');
       if (!Array.isArray(rows) || rows.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="empty">No submissions.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" class="empty">No submissions.</td></tr>';
         return;
       }
       tbody.innerHTML = rows.map(function(r) {
@@ -354,6 +354,7 @@
         return '<tr>' +
           '<td style="white-space:nowrap">' + time + '</td>' +
           '<td>' + esc(r.user_id || '—') + '</td>' +
+          '<td style="font-size:0.72rem">' + esc(r.email || '—') + '</td>' +
           '<td><span style="font-size:0.72rem">' + esc(r.env || '—') + '</span></td>' +
           '<td style="font-size:0.72rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(r.page || '—') + '</td>' +
           '<td style="color:#f59e0b">' + stars + '</td>' +
@@ -368,7 +369,7 @@
         '</tr>';
       }).join('');
     }).catch(function(e) {
-      document.getElementById('fbBody').innerHTML = '<tr><td colspan="10" class="empty">Error: ' + e + '</td></tr>';
+      document.getElementById('fbBody').innerHTML = '<tr><td colspan="11" class="empty">Error: ' + e + '</td></tr>';
     });
   }
 

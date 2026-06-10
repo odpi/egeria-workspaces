@@ -164,6 +164,34 @@
     </div>
   </section>
 
+  <!-- ── User Feedback ────────────────────────────────────────────── -->
+  <section>
+    <div class="section-hdr">
+      <h2>User Feedback</h2>
+      <button class="btn-xs" onclick="loadFeedback()">↻ Refresh</button>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card"><div class="lbl">Total</div><div class="val" id="fbTotal">—</div></div>
+      <div class="stat-card"><div class="lbl">New</div><div class="val" id="fbNew">—</div></div>
+      <div class="stat-card"><div class="lbl">Wants Response</div><div class="val" id="fbWantsResp">—</div></div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
+      <select id="fbFilterStatus" onchange="loadFeedback()" style="padding:4px 8px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:0.82rem">
+        <option value="">All statuses</option>
+        <option value="new">New</option>
+        <option value="triaged">Triaged</option>
+        <option value="actioned">Actioned</option>
+      </select>
+    </div>
+
+    <table>
+      <thead><tr><th>Date / Time</th><th>Email</th><th>Page</th><th>Comment</th><th>Rating</th><th>Category</th><th>Wants Response?</th><th>Status</th><th></th></tr></thead>
+      <tbody id="fbBody"><tr><td colspan="9" class="empty">Loading…</td></tr></tbody>
+    </table>
+  </section>
+
   <!-- ── Platform Info ─────────────────────────────────────────────── -->
   <section>
     <div class="section-hdr"><h2>Platform</h2></div>
@@ -331,8 +359,62 @@
       .catch(function() { showBanner('error', 'Failed to delete reservation'); });
   }
 
+  // ── Feedback ───────────────────────────────────────────────────────
+  function loadFeedback() {
+    var status = document.getElementById('fbFilterStatus').value;
+    var qs = '?limit=200' + (status ? '&triage_status=' + status : '');
+    fetch('/api/demo-feedback/stats').then(function(r) { return r.json(); }).then(function(s) {
+      document.getElementById('fbTotal').textContent     = s.total          != null ? s.total          : '—';
+      document.getElementById('fbNew').textContent       = s.new            != null ? s.new            : '—';
+      document.getElementById('fbWantsResp').textContent = s.wants_response != null ? s.wants_response : '—';
+    }).catch(function() {});
+    fetch('/api/demo-feedback' + qs).then(function(r) { return r.json(); }).then(function(rows) {
+      var tbody = document.getElementById('fbBody');
+      if (!Array.isArray(rows) || rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="empty">No feedback submitted yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rows.map(function(r) {
+        var time = r.created_at ? r.created_at.slice(0,16).replace('T',' ') : '—';
+        var stars = r.rating ? '★'.repeat(r.rating) : '—';
+        var msg = r.message ? (r.message.length > 80 ? r.message.slice(0,80) + '…' : r.message) : '—';
+        var wantsResp = r.wants_response
+          ? '<span style="color:var(--success);font-weight:600">Yes</span>'
+          : '<span style="color:var(--muted)">No</span>';
+        var statusColors = { new: 'var(--success)', triaged: '#a5b4fc', actioned: 'var(--muted)' };
+        var statusColor = statusColors[r.triage_status] || 'var(--muted)';
+        return '<tr>' +
+          '<td style="white-space:nowrap;font-size:0.8rem">' + time + '</td>' +
+          '<td style="font-size:0.8rem">' + esc(r.email || '—') + '</td>' +
+          '<td style="font-size:0.78rem;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.page || '') + '">' + esc(r.page || '—') + '</td>' +
+          '<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.message || '') + '">' + esc(msg) + '</td>' +
+          '<td style="color:#f59e0b">' + stars + '</td>' +
+          '<td style="font-size:0.78rem">' + esc(r.category || '—') + '</td>' +
+          '<td>' + wantsResp + '</td>' +
+          '<td style="font-size:0.78rem;color:' + statusColor + '">' + esc(r.triage_status || '—') + '</td>' +
+          '<td><select onchange="triageFeedback(\'' + r.id + '\',this.value)" style="padding:2px 4px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:0.72rem">' +
+            '<option value="">Set…</option>' +
+            ['new','triaged','actioned'].map(function(s) { return '<option value="' + s + '"' + (s === r.triage_status ? ' selected' : '') + '>' + s + '</option>'; }).join('') +
+          '</select></td>' +
+        '</tr>';
+      }).join('');
+    }).catch(function(e) {
+      document.getElementById('fbBody').innerHTML = '<tr><td colspan="9" class="empty">Error loading feedback: ' + esc(String(e)) + '</td></tr>';
+    });
+  }
+
+  function triageFeedback(id, status) {
+    if (!status) return;
+    fetch('/api/demo-feedback/' + id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ triage_status: status }),
+    }).then(function() { loadFeedback(); }).catch(function(e) { showBanner('error', 'Triage failed: ' + e); });
+  }
+
   // ── Init ───────────────────────────────────────────────────────────
   loadLock();
+  loadFeedback();
 </script>
 </body>
 </html>
