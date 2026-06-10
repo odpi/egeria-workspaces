@@ -938,12 +938,16 @@ def _fetch_detail(mgr, guid: str, section: Optional[str]):
             pass
         return None
 
-    # All Asset types (infrastructure, software-capabilities, data assets, APIs, processes):
-    # use AssetCatalog.get_asset_graph — returns the full anchored-element graph plus
-    # more complete mermaid diagrams than get_asset_by_guid.
+    # All Asset types: use get_asset_graph.
+    # Data assets use graphQueryDepth=5 to capture schema/column/lineage relationships.
+    # Other sections use default depth (no body).
     try:
         ac = _asset_catalog_from_asset_maker(mgr)
-        raw = ac.get_asset_graph(asset_guid=guid, output_format="JSON")
+        graph_body = (
+            {"class": "ResultsRequestBody", "graphQueryDepth": 5}
+            if section == "data-assets" else None
+        )
+        raw = ac.get_asset_graph(asset_guid=guid, output_format="JSON", body=graph_body)
         el = raw[0] if isinstance(raw, list) else raw
         if el and isinstance(el, dict):
             # Inject the dedicated asset mermaid graph if not already embedded in the element.
