@@ -7326,8 +7326,8 @@ function App() {
         // personas, no connection form. Mark connected and capture the user identity.
         setSrvManaged(true);
         setConnected(true);
-        if (me.authenticated) {
-          setAuthUser({ userId: me.user_id, displayName: me.display_name || me.user_id, role: me.role });
+        if (me.authenticated && me.id) {
+          setAuthUser({ userId: me.id, displayName: me.display_name || me.id, role: me.role });
         }
         return;
       }
@@ -7594,6 +7594,9 @@ function App() {
         onClick: () => setTheme(t => t === 'dark' ? 'light' : 'dark'),
         title: theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
       }, theme === 'dark' ? "☀ Light" : "☾ Dark"),
+      !demoMode && (authUser || (creds && creds.userId)) && React.createElement('span', {
+        style: { fontSize: 11, color: '#34d399', background: 'rgba(52,211,153,.1)', padding: '2px 8px', borderRadius: 10, border: '1px solid rgba(52,211,153,.25)', marginRight: 4 }
+      }, '👤 ' + ((authUser && (authUser.displayName || authUser.userId)) || (creds && creds.userId) || '')),
       demoMode && activePersona && React.createElement(React.Fragment, null,
         React.createElement('span', { className: 'persona-badge-btn', title: activePersona.coco_title || '' }, '🎭 ' + activePersona.display_name),
         React.createElement('a', { className: 'theme-btn', style: { marginLeft: 4, textDecoration: 'none' }, href: '/portal' }, 'Portal')
