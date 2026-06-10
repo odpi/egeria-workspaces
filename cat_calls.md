@@ -25,6 +25,8 @@ All catalog calls go through `AssetMaker` (imported from `pyegeria`) unless note
 | Tech Type elements exact-match | `get_technology_type_elements(filter_string)` requires exact displayName — no wildcards. |
 | `_safe_list` only handles `"items"` | `_safe_list(raw)` checks `isinstance(raw, list)` then `raw.get("items")`. Does NOT handle `"elements"` or `"elementList"` keys — may silently return empty list for some responses (O-2). |
 | Sequencing | List endpoints use `sequencing_order="PROPERTY_ASCENDING"`, `sequencing_property="displayName"`. `find_software_capabilities` does not support sequencing — sorted client-side. |
+| Classification structure | pyegeria stores each classification as a **named key directly on `elementHeader`** (e.g. `header["zoneMembership"]`, `header["dataAssetEncoding"]`), not in a `classifications` list. Each value is a dict with `"class": "ElementClassification"`, optional `classificationName`, `type.typeName`, and `classificationProperties`. `_extract_classifications` iterates `header.items()` and filters by `class == "ElementClassification"`. Internal types are removed by `_SKIP_CLASSIFICATIONS` = `{Anchors, LatestChange, Memento, TemplateSubstitute, SpineObject, SpineAttribute, ObjectIdentifier}`. |
+| Bearer token API (container pyegeria) | `create_egeria_bearer_token()` — creates a token AND returns the raw token string (store the return value). `set_bearer_token(token)` — injects an existing token string into the client's `Authorization` header. `get_token()` — returns `"Bearer <token>"` from `text_headers`. There is **no** `egeria_bearer_token` attribute. |
 
 ### Status filter defaults
 
@@ -181,11 +183,11 @@ Returns `{"mermaidGraph": ""}` when Egeria returns 400 (asset has no lineage dat
 
 | Route | Call | Notes |
 |---|---|---|
-| `GET /api/glossary` | `GlossaryManager.get_glossaries()` | Returns `{ glossaries: [...] }` |
-| `GET /api/glossary/{guid}/folders` | `GlossaryManager.get_glossary_categories()` | Returns `{ folders: [...] }` |
-| `GET /api/glossary/{guid}/terms` | `GlossaryManager.get_terms_for_glossary()` | Returns `{ terms: [...] }` |
-| `GET /api/glossary-terms?q=` | `GlossaryManager.find_glossary_terms()` | Cross-glossary search, returns `{ terms: [...] }` |
-| `GET /api/glossary/term/{guid}` | `GlossaryManager.get_glossary_term_by_guid()` with depth=3 | Full term detail with relationships and classifications |
+| `GET /api/glossary` | `GlossaryManager.find_glossaries(search_string="*", graph_query_depth=0)` | Returns `{ glossaries: [...] }` |
+| `GET /api/glossary/{guid}/folders` | `GlossaryManager.get_collection_members(collection_guid)` | Returns `{ folders: [...] }`; filters by `CollectionFolder` type |
+| `GET /api/glossary/{guid}/terms` | `GlossaryManager.get_collection_members(collection_guid)` | Returns `{ terms: [...] }`; filters by `GlossaryTerm` type |
+| `GET /api/glossary-terms?q=` | `GlossaryManager.find_glossary_terms(graph_query_depth=1)` | Cross-glossary search, returns `{ terms: [...] }` |
+| `GET /api/glossary/term/{guid}` | `GlossaryManager.get_term_by_guid(graphQueryDepth=1)` | Full term detail with relationships and classifications |
 
 ---
 
@@ -256,11 +258,29 @@ Every list item and detail response is normalised through `_serialize(el, includ
 | `deploymentStatus` | `properties.deploymentStatus` |
 | `activityStatus` | `properties.activityStatus` |
 | `networkAddress` | `properties.networkAddress` |
-| `classifications` | parsed from `elementHeader.classifications` (skips `TemplateSubstitute`) |
+| `classifications` | named `ElementClassification` keys on `elementHeader`, iterated by `_extract_classifications`; internal types removed by `_SKIP_CLASSIFICATIONS` |
 | `relationships` | extracted via `_extract_relationships` (detail only, `include_relationships=True`) |
 | `hasSchema` | `True` if `schemaType` key is present and contains a `relatedElement` |
 | `hasLineage` | Currently always `True` — see TC-9 in backlog to determine which types genuinely support lineage. The lineage endpoint handles non-Asset GUIDs gracefully (returns empty graph). |
 | `mermaidGraph` et al. | any `_MERMAID_FIELDS` present in element or `properties` with non-empty, non-"no " value |
+
+---
+
+## Authentication endpoints
+
+| Route | Method | Purpose |
+|---|---|---|
+| `/api/egeria-token` | `POST` | Mint a new Egeria Bearer token. Body: `{ user_id, url, server }`. Returns `{ token, user_id }`. Frontend calls this on 401 to refresh an expired token before retrying the original request. |
+| `/api/debug/raw/{guid}` | `GET` | Diagnostic endpoint — returns raw pyegeria response for a GUID, including `raw_classifications`, `extracted` (output of `_extract_classifications`), `header_keys`, `element_type`, and `fetch_method`. Tries `get_asset_by_guid(depth=1)`, then `find_infrastructure`, then `get_term_by_guid`. |
+
+### Frontend token refresh flow
+
+`fetchWithToken` wraps every backend call. On HTTP 401 (token expired):
+1. Calls `_tokenRefresher.refresh(creds)` — POST to `/api/egeria-token`
+2. Updates `creds.token` state with new token
+3. Retries the original request once with `_isRetry=true` flag to prevent loops
+
+HTTP 403 (Egeria-level `USER_NOT_AUTHORIZED`) is not retried — the detail pane shows a lock icon instead. `_is_auth_error(exc)` in the backend detects both `response_code in (401, 403)` and string patterns `USER_NOT_AUTHORIZED`, `NOT_AUTHORIZED`, `AUTHORIZATION_ERROR`.
 
 ---
 
