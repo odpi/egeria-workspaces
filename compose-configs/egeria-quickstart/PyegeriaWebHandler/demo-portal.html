@@ -367,6 +367,9 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
     { icon: '🖥️', name: 'My Egeria',
       desc: 'Explore your Egeria profile, roles, teams, actions, and data catalog.',
       url: '/my-egeria/', newTab: true, enabled: true },
+    { icon: '🔭', name: 'Resource Explorer',
+      desc: 'Scout, Assess, Discover, Enrich Resources.',
+      url: '/resource-explorer', newTab: false, enabled: false, badge: 'Preview soon' },
     { icon: '🤖', name: 'Egeria Advisor',
       desc: advisorRunning ? 'AI-powered guidance for your Egeria environment.' : 'AI-powered guidance for your Egeria environment. (Not currently running)',
       url: advisorUrl, newTab: true, enabled: !demoMode, unavailable: !demoMode && !advisorRunning },
@@ -386,7 +389,7 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
   function _renderTile(a) {
     var action;
     if (!a.enabled) {
-      action = '<span class="soon-badge">Coming soon</span>';
+      action = '<span class="soon-badge">' + esc(a.badge || 'Coming soon') + '</span>';
     } else if (a.unavailable) {
       action = '<span class="soon-badge" style="background:var(--hover);color:var(--muted)">Not running</span>';
     } else if (a.obsidian) {

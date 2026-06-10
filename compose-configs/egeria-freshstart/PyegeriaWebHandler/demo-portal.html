@@ -193,6 +193,9 @@ function renderHub(isAdmin) {
     { icon: '🖥️', name: 'My Egeria',
       desc: 'Explore your Egeria profile, roles, teams, actions, and data catalog.',
       url: '/my-egeria/', newTab: true, enabled: false },
+    { icon: '🔭', name: 'Resource Explorer',
+      desc: 'Scout, Assess, Discover, Enrich Resources.',
+      url: '/resource-explorer', newTab: false, enabled: false, badge: 'Preview soon' },
     { icon: '🤖', name: 'Egeria Advisor',
       desc: advisorRunning
         ? 'AI-powered guidance for your Egeria environment.'
@@ -238,7 +241,7 @@ function renderHub(isAdmin) {
 function renderTile(a) {
   var action;
   if (!a.enabled) {
-    action = '<span class="soon-badge">Coming soon</span>';
+    action = '<span class="soon-badge">' + esc(a.badge || 'Coming soon') + '</span>';
   } else if (a.unavailable) {
     action = '<span class="soon-badge" style="background:var(--hover);color:var(--muted)">Not running</span>';
   } else {
