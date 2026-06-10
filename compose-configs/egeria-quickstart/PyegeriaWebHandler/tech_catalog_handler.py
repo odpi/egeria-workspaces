@@ -371,6 +371,7 @@ def _serialize_tech_type(el: dict) -> dict:
         "description":                 el.get("description") or "",
         "category":                    el.get("category") or "",
         "templateCount":               len(templates) if isinstance(templates, list) else 0,
+        "classifications":             _extract_classifications(_header(el)),
     }
 
 
@@ -468,6 +469,83 @@ def _serialize_tech_type_detail(el: dict) -> dict:
     base["externalReferences"] = ext_refs
 
     return base
+
+
+# ── Debug / diagnostic endpoints ─────────────────────────────────────────────
+
+@router.get("/api/debug/raw/{guid}")
+def debug_raw_element(
+    request: Request,
+    guid: str,
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    """Return raw pyegeria element response for a GUID — for classification structure diagnosis.
+
+    Shows:
+    - raw: the full element dict as returned by pyegeria
+    - header_keys: top-level keys in elementHeader
+    - raw_classifications: the raw classifications array from elementHeader
+    - extracted: what _extract_classifications() produced
+    """
+    import json as _json
+    try:
+        mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    el = None
+    fetch_method = "unknown"
+    # Try asset-graph fetch first
+    try:
+        raw = mgr.get_asset_by_guid(
+            asset_guid=guid,
+            output_format="JSON",
+            body={"class": "GetRequestBody", "graphQueryDepth": 1},
+        )
+        el = raw[0] if isinstance(raw, list) else raw
+        fetch_method = "get_asset_by_guid(depth=1)"
+    except Exception:
+        pass
+
+    # Fallback: find in broader search
+    if not el:
+        try:
+            raw = mgr.find_infrastructure(search_string="*", output_format="JSON", graph_query_depth=1)
+            el = _find_by_guid(raw, guid)
+            fetch_method = "find_infrastructure"
+        except Exception:
+            pass
+
+    if not el:
+        # Try GlossaryManager as fallback
+        try:
+            from pyegeria import GlossaryManager
+            u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
+            gm = GlossaryManager(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
+            _apply_token(gm, _token_from_request(request))
+            raw = gm.get_term_by_guid(guid, output_format="JSON", body={"class": "GetRequestBody", "graphQueryDepth": 1})
+            el = raw
+            fetch_method = "get_term_by_guid(depth=1)"
+        except Exception:
+            pass
+
+    if not el:
+        raise HTTPException(status_code=404, detail=f"Could not fetch element {guid!r} via any method")
+
+    hdr = _header(el)
+    raw_classifs = hdr.get("classifications") or []
+    extracted = _extract_classifications(hdr)
+
+    return JSONResponse({
+        "fetch_method":        fetch_method,
+        "header_keys":         list(hdr.keys()),
+        "raw_classifications": raw_classifs,
+        "extracted":           extracted,
+        "classification_count": len(raw_classifs),
+        "element_type":        _type_name(el),
+        "element_keys":        list(el.keys()),
+    })
 
 
 # ── SPA route ─────────────────────────────────────────────────────────────────
