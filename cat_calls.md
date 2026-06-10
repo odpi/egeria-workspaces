@@ -259,7 +259,7 @@ Every list item and detail response is normalised through `_serialize(el, includ
 | `classifications` | parsed from `elementHeader.classifications` (skips `TemplateSubstitute`) |
 | `relationships` | extracted via `_extract_relationships` (detail only, `include_relationships=True`) |
 | `hasSchema` | `True` if `schemaType` key is present and contains a `relatedElement` |
-| `hasLineage` | `True` only when `"Asset"` appears in `elementHeader.type.superTypeNames` (or typeName is `"Asset"`). `Endpoint` and `SoftwareCapability` are Referenceable subtypes — `hasLineage` is `False` for them. |
+| `hasLineage` | Currently always `True` — see TC-9 in backlog to determine which types genuinely support lineage. The lineage endpoint handles non-Asset GUIDs gracefully (returns empty graph). |
 | `mermaidGraph` et al. | any `_MERMAID_FIELDS` present in element or `properties` with non-empty, non-"no " value |
 
 ---
