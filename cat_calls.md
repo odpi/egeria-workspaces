@@ -1,16 +1,14 @@
 # The Catalog — pyegeria API Call Reference
 
-Documents the pyegeria calls made by `tech_catalog_handler.py`, `glossary_handler.py`, and the planned `tech_type_handler.py` for each section of The Catalog. Use this as the authoritative working reference for API call strategy, known quirks, and debugging guidance.
+Documents the pyegeria calls made by `tech_catalog_handler.py` and `glossary_handler.py` for each section of The Catalog. Use this as the authoritative working reference for API call strategy, known quirks, and debugging guidance.
 
-All catalog calls go through `AssetMaker` (imported from `pyegeria`) unless noted. Detail calls now go through `AssetCatalog.get_asset_graph` (see detail endpoint section). Technology Types use `AutomatedCuration`. Credential params (`url`, `server`, `user_id`, `user_pwd`) are passed from the SPA via query params; the backend falls back to env vars when absent.
+All catalog calls go through `AssetMaker` (imported from `pyegeria`) unless noted. Detail calls go through `AssetCatalog.get_asset_graph` (see detail endpoint section). Technology Types use `AutomatedCuration`. Credential params (`url`, `server`, `user_id`, `user_pwd`) are passed from the SPA via query params; the backend falls back to env vars when absent.
 
-**Container pyegeria version: 6.0.13.6** (installed via `pip install pyegeria --upgrade` in Dockerfile-fast-api)
+**Container pyegeria version: manually updated — see container pip list** (installed via `pip install pyegeria --upgrade` in Dockerfile-fast-api; recently updated in-container to pick up `get_asset_graph` body parameter support)
 
 ---
 
 ## Key pyegeria quirks (apply everywhere)
-
-> These were discovered by source inspection of pyegeria 6.0.13.6 in the container and confirmed against live Coco data.
 
 | Quirk | Detail |
 |---|---|
@@ -22,8 +20,11 @@ All catalog calls go through `AssetMaker` (imported from `pyegeria`) unless note
 | `Endpoint` is not an Asset | `AssetMaker.find_assets(metadata_element_type="Endpoint")` returns nothing. Must use `ConnectionMaker.find_endpoints()` and `ConnectionMaker.get_endpoint_by_guid()`. |
 | `find_endpoints` kwargs | Signature: `(search_string, output_format, report_spec, body, **kwargs)`. Pass `graph_query_depth`, `start_from`, `page_size` via `**kwargs`. |
 | Relationship data structure | pyegeria wraps related elements in `RelatedMetadataElementSummary` — the related element's header/properties are inside a nested `relatedElement` key, not at the top level of the relationship item. The `elementHeader.type.superTypeNames` list enables subtype nav resolution. |
-| Tech Type detail by qualifiedName | `AutomatedCuration.get_tech_type_detail(filter_string=...)` accepts `qualifiedName` (already supported by `get_tech_type_by_name`). Use `qualifiedName` as the URL key — unique, stable, no collision risk. `technologyTypeGUID` from the list is the feedback/comment anchor. `get_tech_type_by_guid()` is planned but not yet available. |
-| Tech Type elements exact-match | `get_technology_type_elements(filter_string)` requires exact type name — no wildcards. |
+| `get_asset_graph` body parameter | Updated in recent pyegeria: now accepts `body: Optional[dict \| ResultsRequestBody] = None`. Pass `{"class": "ResultsRequestBody", "graphQueryDepth": N}` to control traversal depth. Default (no body) uses Egeria server default depth. |
+| `get_tech_type_detail` lookup | The underlying `/technology-types/by-name` call matches by **displayName only**, not qualifiedName. The frontend must pass `?display_name=` alongside the qualifiedName path param. Falls back to qualifiedName if absent (may fail for types whose displayName ≠ last segment of qualifiedName). |
+| Tech Type elements exact-match | `get_technology_type_elements(filter_string)` requires exact displayName — no wildcards. |
+| `_safe_list` only handles `"items"` | `_safe_list(raw)` checks `isinstance(raw, list)` then `raw.get("items")`. Does NOT handle `"elements"` or `"elementList"` keys — may silently return empty list for some responses (O-2). |
+| Sequencing | List endpoints use `sequencing_order="PROPERTY_ASCENDING"`, `sequencing_property="displayName"`. `find_software_capabilities` does not support sequencing — sorted client-side. |
 
 ### Status filter defaults
 
@@ -39,52 +40,154 @@ All catalog calls go through `AssetMaker` (imported from `pyegeria`) unless note
 
 ## List endpoints — left-hand navigation
 
-Each called when the user selects a section or sub-tab. Returns `{ items: [...], total: N }`. All use `graph_query_depth=0` for performance.
+Called when the user selects a section or sub-tab. Returns `{ items: [...], total: N }`. All use `graph_query_depth=0` for performance.
 
-| Section | Sub-tab | Call | `metadata_element_type` | Status | Coco data |
-|---|---|---|---|---|---|
-| Glossary | _(whole section)_ | `GlossaryManager.get_glossaries()` | N/A | ✅ Working | ✅ Multiple glossaries |
-| Infrastructure | IT Infrastructure | `find_infrastructure(search_string="*", deployment_status_list=[], graph_query_depth=0)` | `"ITInfrastructure"` | ✅ Fixed | ✅ Confirmed |
-| Infrastructure | Software Capabilities | `find_software_capabilities(search_string="*", graph_query_depth=0)` | _(all)_ | ✅ Working | ✅ ~50 items |
-| Infrastructure | Endpoints | `ConnectionMaker.find_endpoints(search_string="*", output_format="JSON", graph_query_depth=0)` | _(all)_ | ✅ Fixed | ✅ ~232 items |
-| Data Assets | Data Stores | `find_data_assets(search_string="*", metadata_element_type="DataStore", content_status_list=[], graph_query_depth=0)` | `"DataStore"` | ✅ Fixed | ✅ ~95 items |
-| Data Assets | Data Feeds | `find_data_assets(search_string="*", metadata_element_type="DataFeed", content_status_list=[], graph_query_depth=0)` | `"DataFeed"` | ✅ Fixed | ✅ Confirmed |
-| Data Assets | Data Sets | `find_data_assets(search_string="*", metadata_element_type="DataSet", content_status_list=[], graph_query_depth=0)` | `"DataSet"` | ✅ Fixed | ✅ Confirmed |
-| APIs | APIs | `find_assets(search_string="*", metadata_element_type="DeployedAPI", graph_query_depth=0)` | `"DeployedAPI"` | ✅ Working | ✅ 58 items |
-| Processes | Software Components | `find_processes(search_string="*", metadata_element_type="DeployedSoftwareComponent", activity_status_list=[], graph_query_depth=0)` | `"DeployedSoftwareComponent"` | ✅ Fixed | ✅ Confirmed |
-| Processes | Actions | `find_processes(search_string="*", metadata_element_type="Action", activity_status_list=[], graph_query_depth=0)` | `"Action"` | ✅ Fixed | ✅ 3+ items |
+### Infrastructure
 
-> **Note on Software Capabilities sorting:** `find_software_capabilities` does not support `sequencing_order` — results are sorted client-side in `AssetTabView`.
+| Sub-tab | pyegeria call | Class | Key params |
+|---|---|---|---|
+| IT Infrastructure | `AssetMaker.find_infrastructure` | `AssetMaker` | `search_string=q\|"*"`, `metadata_element_type="ITInfrastructure"`, `deployment_status_list=[]`, `start_from`, `page_size`, `output_format="JSON"`, `sequencing_order="PROPERTY_ASCENDING"`, `sequencing_property="displayName"`, `graph_query_depth=0` |
+| Software Capabilities | `AssetMaker.find_software_capabilities` | `AssetMaker` | `search_string=q\|"*"`, `start_from`, `page_size`, `output_format="JSON"`, `graph_query_depth=0` _(no sequencing support)_ |
+| Endpoints | `ConnectionMaker.find_endpoints` | `ConnectionMaker` | `search_string=q\|"*"`, `output_format="JSON"`, `start_from`, `page_size`, `graph_query_depth=0` _(via **kwargs)_ |
 
-> **Note on DeployedAPI:** `find_assets` works because DeployedAPI → DeployedSoftwareComponent → Process → Asset. Switching to `find_processes(activity_status_list=[])` would allow status filtering but isn't needed currently.
+### Data Assets
+
+| Sub-tab | pyegeria call | Key params |
+|---|---|---|
+| Data Stores | `AssetMaker.find_data_assets` | `search_string=q\|"*"`, `metadata_element_type="DataStore"`, `content_status_list=[]`, `start_from`, `page_size`, `output_format="JSON"`, `sequencing_order="PROPERTY_ASCENDING"`, `sequencing_property="displayName"`, `graph_query_depth=0` |
+| Data Feeds | `AssetMaker.find_data_assets` | same as above with `metadata_element_type="DataFeed"` |
+| Data Sets | `AssetMaker.find_data_assets` | same as above with `metadata_element_type="DataSet"` |
+
+### APIs
+
+| Sub-tab | pyegeria call | Key params |
+|---|---|---|
+| APIs | `AssetMaker.find_assets` | `search_string=q\|"*"`, `metadata_element_type="DeployedAPI"`, `start_from`, `page_size`, `output_format="JSON"`, `sequencing_order="PROPERTY_ASCENDING"`, `sequencing_property="displayName"`, `graph_query_depth=0` |
+
+> `find_assets` is used (not `find_processes`) because DeployedAPI → DeployedSoftwareComponent → Process → Asset hierarchy makes it reachable. `find_processes(activity_status_list=[])` would also work if status filtering becomes needed.
+
+### Processes
+
+| Sub-tab | pyegeria call | Key params |
+|---|---|---|
+| Software Components | `AssetMaker.find_processes` | `search_string=q\|"*"`, `metadata_element_type="DeployedSoftwareComponent"`, `activity_status_list=[]`, `start_from`, `page_size`, `output_format="JSON"`, `sequencing_order="PROPERTY_ASCENDING"`, `sequencing_property="displayName"`, `graph_query_depth=0` |
+| Actions | `AssetMaker.find_processes` | same as above with `metadata_element_type="Action"` |
+
+### Technology Types
+
+| Sub-tab | pyegeria call | Key params |
+|---|---|---|
+| Technology Types (flat list) | `AutomatedCuration.find_technology_types` | `search_string=q\|"*"`, `start_from`, `page_size`, `output_format="JSON"` _(status defaults to `["ACTIVE"]` — correct)_ |
+| Technology Types (hierarchy) | `AutomatedCuration.get_tech_type_hierarchy` | `filter_string=root\|"Root Technology Type"`, `output_format="JSON"` |
+
+> List results are deduplicated by `qualifiedName` client-side in the backend — when duplicates exist (same type registered by multiple content packs), the entry with more `catalogTemplates` is kept.
 
 ---
 
-## Detail endpoint — right-hand panel
+## Detail endpoint — `GET /api/tech-catalog/assets/{guid}?section={tab-id}`
 
-Called when a sidebar item is clicked: `GET /api/tech-catalog/assets/{guid}?section={tab-id}`
+Called when a sidebar item is clicked. Returns the full serialised element with relationships, classifications, and mermaid fields.
 
-**Primary path: `AssetCatalog.get_asset_graph(asset_guid=guid, output_format="JSON")`** — returns the full anchored-element graph including all mermaid fields, richer than `get_asset_by_guid` with a depth limit. After fetching the JSON, `get_asset_mermaid_graph(guid)` is called and the result is injected as `mermaidGraph` if not already embedded. Fallbacks are retained for types that don't work with the graph endpoint.
+### `_fetch_detail` call sequence
 
-| Type family | `section` param | Primary call | Fallback |
-|---|---|---|---|
-| All Asset subtypes (DeployedAPI, DataStore, Action, ITInfrastructure, …) | any non-endpoint | `AssetCatalog.get_asset_graph(guid, output_format="JSON")` + `get_asset_mermaid_graph(guid)` | `AssetMaker.get_asset_by_guid(guid, body={graphQueryDepth:3})` |
-| SoftwareCapability subtypes | `software-capabilities` | Same `get_asset_graph` primary path | `find_software_capabilities(graph_query_depth=3)` filter by GUID |
-| Endpoint | `endpoints` | `ConnectionMaker.get_endpoint_by_guid(guid, body={graphQueryDepth:3})` | _(none — endpoints use a dedicated path)_ |
+The backend tries each path in order, returning on first success:
 
-**Notes:**
-- `AssetCatalog` is instantiated via `_asset_catalog_from_asset_maker(mgr)` which shares credentials from the already-constructed `AssetMaker` (fresh `create_egeria_bearer_token()` call required — same reason as ConnectionMaker).
-- `get_asset_graph` calls `/as-graph` on the Egeria platform, returning all elements anchored to the asset. The JSON structure is the same element format as `get_asset_by_guid`.
-- Schema sub-pane still uses `AssetMaker.get_asset_by_guid` with `includeOnlyRelationships: ["Schema", "AttributeForSchema"]` and depth=5 — no change needed there.
-- Lineage sub-pane uses `AssetCatalog.get_asset_lineage_mermaid_graph(guid)` — unchanged.
+#### 1. Endpoints (section = `"endpoints"`) — dedicated path
+
+| Call | Class | Params |
+|---|---|---|
+| `ConnectionMaker.get_endpoint_by_guid` | `ConnectionMaker` | `endpoint_guid=guid`, `output_format="JSON"`, `body={"class": "GetRequestBody", "graphQueryDepth": 3}` |
+
+Returns `None` (404) if this fails — no further fallback for endpoints.
+
+#### 2. Data Assets (section = `"data-assets"`) — graph with depth 5
+
+| Call | Class | Params |
+|---|---|---|
+| `AssetCatalog.get_asset_graph` | `AssetCatalog` | `asset_guid=guid`, `output_format="JSON"`, `body={"class": "ResultsRequestBody", "graphQueryDepth": 5}` |
+| `AssetCatalog.get_asset_mermaid_graph` _(injected if mermaidGraph absent)_ | `AssetCatalog` | `asset_guid=guid` |
+
+Falls through to step 3 on exception.
+
+#### 3. All other Asset types — graph with default depth
+
+| Call | Class | Params |
+|---|---|---|
+| `AssetCatalog.get_asset_graph` | `AssetCatalog` | `asset_guid=guid`, `output_format="JSON"`, `body=None` _(server default depth)_ |
+| `AssetCatalog.get_asset_mermaid_graph` _(injected if mermaidGraph absent)_ | `AssetCatalog` | `asset_guid=guid` |
+
+Falls through to step 4 on exception.
+
+#### 4. Fallback — targeted section finders (software-capabilities, infrastructure only)
+
+Defined in `_SECTION_FINDERS`:
+
+| section | Call | Params |
+|---|---|---|
+| `"software-capabilities"` | `AssetMaker.find_software_capabilities` | `search_string="*"`, `output_format="JSON"`, `graph_query_depth=3` |
+| `"infrastructure"` | `AssetMaker.find_infrastructure` | `search_string="*"`, `output_format="JSON"`, `graph_query_depth=3`, `deployment_status_list=[]`, `sequencing_order="PROPERTY_ASCENDING"`, `sequencing_property="displayName"` |
+
+Result filtered by GUID via `_find_by_guid`. Falls through to step 5 on exception.
+
+#### 5. Fallback — `get_asset_by_guid`
+
+| Call | Class | Params |
+|---|---|---|
+| `AssetMaker.get_asset_by_guid` | `AssetMaker` | `asset_guid=guid`, `output_format="JSON"`, `body={"class": "GetRequestBody", "graphQueryDepth": 3, "relationshipsPageSize": 50}` |
+
+Falls through to step 6 on exception.
+
+#### 6. Last resort — SoftwareCapability scan
+
+| Call | Class | Params |
+|---|---|---|
+| `AssetMaker.find_software_capabilities` | `AssetMaker` | `search_string="*"`, `output_format="JSON"`, `graph_query_depth=3` |
+
+Result filtered by GUID. Returns `None` if all paths fail → 404.
+
+---
+
+## Schema sub-pane — `GET /api/tech-catalog/assets/{guid}/schema`
+
+| Call | Class | Params |
+|---|---|---|
+| `AssetMaker.get_asset_by_guid` | `AssetMaker` | `asset_guid=guid`, `output_format="JSON"`, `body={"class": "GetRequestBody", "graphQueryDepth": 5, "relationshipsPageSize": 200, "includeOnlyRelationships": ["Schema", "AttributeForSchema"]}` |
+
+Result passed through `_serialize_schema` which extracts `schemaType` + nested attribute list. Attributes sorted by `position` ascending.
+
+---
+
+## Lineage sub-pane — `GET /api/tech-catalog/assets/{guid}/lineage`
+
+| Call | Class | Params |
+|---|---|---|
+| `AssetCatalog.get_asset_lineage_mermaid_graph` | `AssetCatalog` | `asset_guid=guid` |
+
+Returns `{"mermaidGraph": ""}` when Egeria returns 400 (asset has no lineage data). Other errors propagate as 500.
+
+---
+
+## Technology Types detail — `GET /api/tech-catalog/tech-types/{qualifiedName}`
+
+| Call | Class | Params |
+|---|---|---|
+| `AutomatedCuration.get_tech_type_detail` | `AutomatedCuration` | `filter_string=display_name\|qualified_name`, `output_format="JSON"` |
+
+> **Critical:** `get_tech_type_detail` calls `/technology-types/by-name` which matches on **displayName only**. The frontend passes `?display_name=` query param alongside the qualifiedName path segment. If `display_name` is absent the backend falls back to `qualified_name` which may not match.
+
+## Technology Types instances — `GET /api/tech-catalog/tech-types/{qualifiedName}/elements`
+
+| Call | Class | Params |
+|---|---|---|
+| `AutomatedCuration.get_technology_type_elements` | `AutomatedCuration` | `filter_string=display_name\|last segment of qualifiedName`, `start_from`, `page_size`, `output_format="JSON"` |
+
+> Exact displayName match required — no wildcards. `filter_string` prefers `?display_name=` query param; falls back to splitting `qualifiedName` on `:` and taking the last segment.
 
 ---
 
 ## Glossary endpoints (served by `glossary_handler.py`)
 
-The Glossary section is the first tile in The Catalog. It reuses `glossary_handler.py` which was built for Egeria Explorer.
-
-| Endpoint | Handler call | Notes |
+| Route | Call | Notes |
 |---|---|---|
 | `GET /api/glossary` | `GlossaryManager.get_glossaries()` | Returns `{ glossaries: [...] }` |
 | `GET /api/glossary/{guid}/folders` | `GlossaryManager.get_glossary_categories()` | Returns `{ folders: [...] }` |
@@ -94,13 +197,13 @@ The Glossary section is the first tile in The Catalog. It reuses `glossary_handl
 
 ---
 
-## Cross-navigation (implemented — TC-8)
+## Cross-navigation (TC-8 — implemented)
 
-Cross-navigation is fully implemented. Relationship cards in the detail pane show a **"View →"** button whenever the related element's type (or any of its `superTypeNames`) maps to a known section/tab. Clicking navigates the SPA: switches section, activates the correct sub-tab, and fetches the target element's detail directly (the list loads in the background).
+Relationship cards in the detail pane show a **"View →"** button whenever the related element's type (or any of its `superTypeNames`) maps to a known section/tab.
 
 ### TYPE_TO_NAV mapping (frontend `tech-catalog.html`)
 
-| Related element typeName (or supertype) | Navigates to section | Navigates to tab |
+| Related element typeName (or supertype) | Section | Tab |
 |---|---|---|
 | `ITInfrastructure` and subtypes (SoftwareServer, Host, …) | `infrastructure` | `infrastructure` |
 | `SoftwareCapability` and subtypes (APIManager, DatabaseManager, …) | `infrastructure` | `software-capabilities` |
@@ -112,42 +215,33 @@ Cross-navigation is fully implemented. Relationship cards in the detail pane sho
 | `DeployedSoftwareComponent` and subtypes | `processes` | `software-components` |
 | `GlossaryTerm`, `Glossary`, `GlossaryCategory` | `glossary` | `glossary` |
 
-> **Subtype fallback:** When the exact `typeName` is not in the map (e.g., `SecretsCollection`), the frontend walks `relatedElement.superTypes` (from `elementHeader.type.superTypeNames`) to find the first matching ancestor. This means most Egeria subtypes are automatically navigable without being explicitly listed.
-
-### Known navigable relationships in Coco data
-
-| Viewing | Relationship type | Related element type | Tab navigated to |
-|---|---|---|---|
-| DataStore | `DataSetContent` | DataSet subtypes (SecretsCollection, etc.) | `data-sets` |
-| DataStore | `AssetConnection` | Connection | _(not mapped — no catalog tab for Connections)_ |
-| ITInfrastructure | `SupportedSoftwareCapability` | SoftwareCapability subtypes | `software-capabilities` |
-| SoftwareCapability | `SoftwareCapabilityDependency` | SoftwareCapability subtypes | `software-capabilities` |
-| DeployedAPI | `APIEndpoint` | Endpoint | `endpoints` |
-| DataSet | `DataSetContent` | DataStore subtypes | `data-stores` |
+> Subtype fallback: when exact `typeName` is not in the map, the frontend walks `relatedElement.superTypes` (from `elementHeader.type.superTypeNames`) to find the first matching ancestor.
 
 ---
 
 ## Mermaid diagrams in the detail pane
 
-### Rendering order
-
-> **Properties → Classifications → Diagrams → Relationships → Comments**
-
-### Two diagram paths
+### Two rendering paths
 
 | Path | Component | Data source | Trigger |
 |---|---|---|---|
-| Embedded | `AvailableMermaidDiagrams` | Mermaid fields in the serialised `item` (passed through by `_serialize()` via `_MERMAID_FIELDS` set) | Renders immediately when field is present |
-| On-demand | `MermaidSection` → `DiagramPanel` | `GET /api/mermaid/{guid}` → `ClassificationExplorer.get_element_by_guid` | User clicks "Load Context Diagram" |
-| On-demand | `MermaidSection` → `DiagramPanel` | `GET /api/mermaid/{guid}/anchored` → `MetadataExpert.get_anchored_element_graph` | User clicks "Load Anchored Graph" |
+| Embedded | `AvailableMermaidDiagrams` | Mermaid fields in serialised `item` (passed through by `_serialize()` via `_MERMAID_FIELDS` set) | Renders immediately when field is present |
+| On-demand (context) | `MermaidSection` → `DiagramPanel` | `GET /api/mermaid/{guid}` → `ClassificationExplorer.get_element_by_guid` | User clicks "Load Context Diagram" |
+| On-demand (anchored) | `MermaidSection` → `DiagramPanel` | `GET /api/mermaid/{guid}/anchored` → `MetadataExpert.get_anchored_element_graph` | User clicks "Load Anchored Graph" |
 
-The fields `mermaidGraph` and `anchorMermaidGraph` are excluded from inline rendering (`_MERMAID_SECTION_FIELDS`) — they are served by the on-demand buttons.
+### `_MERMAID_FIELDS` (passed through by `_serialize`)
 
-### Bugs fixed
+```
+mermaidGraph, anchorMermaidGraph, edgeMermaidGraph,
+localLineageGraph, fieldLevelLineageGraph,
+informationSupplyChainMermaidGraph, iscImplementationMermaidGraph,
+actionMermaidGraph, specificationMermaidGraph,
+solutionBlueprintMermaidGraph, solutionSubcomponentMermaidGraph,
+governanceActionProcessMermaidGraph, organizationTreeMermaidGraph,
+collectionMermaidMindMap
+```
 
-- **Bug 1 (FIXED):** `_serialize()` stripped all mermaid fields. Now iterates `_MERMAID_FIELDS` and passes through non-empty values.
-- **Bug 2 (FIXED):** `DiagramPanel` called `.text()` on the JSON response and fed raw JSON to Mermaid.js. Now calls `.json()` and extracts `data.mermaidGraph`.
-- **Bug 3 (FIXED):** Mermaid field names appeared in the Properties table. Fixed by adding `_ALL_MERMAID_FIELDS` to `skipKeys` in `AssetDetail`.
+`mermaidGraph` and `anchorMermaidGraph` are excluded from inline `AvailableMermaidDiagrams` rendering (`_MERMAID_SECTION_FIELDS`) — they are served by on-demand buttons only.
 
 ### Known limitation
 
@@ -155,46 +249,26 @@ The fields `mermaidGraph` and `anchorMermaidGraph` are excluded from inline rend
 
 ---
 
-## Technology Types section (planned — `tech_type_handler.py`)
+## `_serialize` output fields
 
-Technology Types are **Valid Metadata Values** — recipes for how to deploy, catalog, and govern specific technologies. They live outside the Egeria Type System. All calls use `AutomatedCuration` (takes `view_server=`, same as `AssetMaker`).
+Every list item and detail response is normalised through `_serialize(el, include_relationships=False)`:
 
-See `tech_type_plan.md` for the full design, data model, and open questions.
-
-### List / search
-
-| Route | Call | Notes |
-|---|---|---|
-| `GET /api/tech-catalog/tech-types?q=` | `AutomatedCuration.find_technology_types(search_string=q)` | Default `limit_results_by_status=["ACTIVE"]` — no override needed. Returns list of summary dicts. |
-| `GET /api/tech-catalog/tech-types?q=*` | `AutomatedCuration.get_all_technology_types()` | Convenience wrapper for `find_technology_types("*")`. |
-| `GET /api/tech-catalog/tech-types/hierarchy?root=...` | `AutomatedCuration.get_tech_type_hierarchy(filter_string=root)` | Passing `"*"` or omitting root defaults to `"Root Technology Type"`. Shape of the hierarchy response (flat parent-child vs. recursive tree) needs live inspection (TT-Q1). |
-
-### Detail
-
-| Route | Call | Notes |
-|---|---|---|
-| `GET /api/tech-catalog/tech-types/{qualifiedName}` | `AutomatedCuration.get_tech_type_detail(filter_string=qualifiedName)` | `get_tech_type_detail` / `get_tech_type_by_name` already accepts qualifiedName. URL-decode before calling. `qualifiedName` is unique — no collision risk. Returns single `element` dict. |
-| `GET /api/tech-catalog/tech-types/{qualifiedName}/elements` | `AutomatedCuration.get_technology_type_elements(filter_string=displayName)` | Live instances. `get_technology_type_elements` needs `displayName` not qualifiedName — extract from the already-fetched detail response. Exact-match, no wildcards. |
-| `GET /api/tech-catalog/tech-types/by-guid/{guid}` _(planned)_ | `AutomatedCuration.get_tech_type_by_guid(guid)` _(planned pyegeria method)_ | Future GUID-keyed route. Add backend endpoint once pyegeria method is available (TT-8). |
-
-### Key fields in the detail response
-
-| Field | Type | Content |
-|---|---|---|
-| `technologyTypeGUID` | str | Use as GUID anchor for `EgeriaFeedbackWidget` / `EgeriaCommentsSection` |
-| `qualifiedName` | str | **Used as the detail lookup key** (URL-encoded in route). Unique and stable. |
-| `displayName` | str | Human-readable name. Required by `get_technology_type_elements` — pass this, not qualifiedName. |
-| `description` | str | Markdown-safe description |
-| `url` | str | External project/documentation URL (if present) |
-| `mermaidGraph` | str | Overview mermaid diagram (if present) |
-| `specificationMermaidGraph` | str | Structure diagram (if present) |
-| `catalogTemplates[]` | list | Parameterised blueprints; each has `placeholderProperty[]` — the key config surface |
-| `governanceActionProcesses[]` | list | Survey/integrate/govern workflows applicable to this type |
-| `externalReferences[]` | list | Doc links; each has `url` and `displayName` |
-
-### Status filter
-
-`find_technology_types` defaults to `limit_results_by_status=["ACTIVE"]` — correct behaviour, no override needed. Draft/inactive types are excluded by default.
+| Field | Source |
+|---|---|
+| `guid` | `elementHeader.guid` |
+| `typeName` | `elementHeader.type.typeName` |
+| `displayName` | `properties.displayName` \| `properties.name` |
+| `qualifiedName` | `properties.qualifiedName` |
+| `description` | `properties.description` |
+| `deployedImplementationType` | `properties.deployedImplementationType` |
+| `deploymentStatus` | `properties.deploymentStatus` |
+| `activityStatus` | `properties.activityStatus` |
+| `networkAddress` | `properties.networkAddress` |
+| `classifications` | parsed from `elementHeader.classifications` (skips `TemplateSubstitute`) |
+| `relationships` | extracted via `_extract_relationships` (detail only, `include_relationships=True`) |
+| `hasSchema` | `True` if `schemaType` key is present and contains a `relatedElement` |
+| `hasLineage` | always `True` (lineage pane always offered; empty graph shows graceful message) |
+| `mermaidGraph` et al. | any `_MERMAID_FIELDS` present in element or `properties` with non-empty, non-"no " value |
 
 ---
 
@@ -203,13 +277,14 @@ See `tech_type_plan.md` for the full design, data model, and open questions.
 | ID | Description | Status |
 |---|---|---|
 | O-1 | List-level `mermaidGraph` in `find_*` response root discarded by `_safe_list()` | Unconfirmed — needs live response inspection |
-| O-2 | `_safe_list` only handles `"items"` key; may miss `"elements"` or `"elementList"` | Unconfirmed — needs live response inspection |
+| O-2 | `_safe_list` only handles `"items"` key; may silently return empty list for responses using `"elements"` or `"elementList"` | Unconfirmed — monitor for unexpected empty panels |
 | O-3 | `MermaidSection` re-fetches context diagram even when embedded `mermaidGraph` already present in detail response | Low priority |
-| O-8 | Software Capabilities detail: O(n) scan via `find_software_capabilities` instead of `get_software_capability_by_guid` | Low priority — fast at ~50 items |
-| O-9 | `MermaidSection` fetch doesn't forward user credentials | Known limitation |
+| O-8 | Software Capabilities detail: O(n) scan via `find_software_capabilities` fallback instead of direct GUID lookup | Low priority — fast at ~50 items; primary `get_asset_graph` path should handle most cases |
+| O-9 | `MermaidSection` on-demand fetch doesn't forward user credentials — uses env-var defaults | Known limitation |
 | O-10 | `DeployedAPI` elements may have no `mermaidGraph` in Coco data | Under investigation |
+| O-11 | `get_asset_graph` with default depth (no body) may not return enough relationship levels for non-data-asset types producing sparse detail panels | Investigate if 500s or empty relationship sections appear for infrastructure/APIs/processes |
+| O-12 | `get_tech_type_detail` fallback to `qualified_name` when `display_name` absent may fail for types where displayName ≠ qualifiedName last segment | Monitor; ensure frontend always passes `?display_name=` |
 | TT-Q1 | Shape of `get_tech_type_hierarchy` response — flat parent-child list or recursive tree? | Needs live data inspection |
 | TT-Q2 | Is `category` field reliably populated in list results? | Needs live data inspection |
 | TT-Q3 | Confirm `get_technology_type_elements` is truly exact-match (no wildcards) | Needs live data test |
 | TT-Q4 | Is `specificationMermaidGraph` meaningfully different from `mermaidGraph`? | Needs live examples |
-| TT-Q7 | Does `technologyTypeGUID` refer to the `ValidMetadataValue` element GUID? (Safe to use as feedback anchor?) | Needs confirmation |
