@@ -28,8 +28,11 @@
     .panel { display: none; }
     .panel.active { display: block; }
     .section-title { font-size: 0.9rem; font-weight: 600; margin-bottom: 1rem; color: var(--text); }
-    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-    thead th { text-align: left; padding: 0.5rem 0.75rem; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 500; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; table-layout: fixed; }
+    thead th { text-align: left; padding: 0.5rem 0.75rem; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 500; position: relative; overflow: hidden; white-space: nowrap; }
+    thead th .col-resize { position: absolute; right: 0; top: 0; width: 5px; height: 100%; cursor: col-resize; z-index: 2; }
+    thead th .col-resize:hover, thead th .col-resize.dragging { background: var(--accent); opacity: 0.5; }
+    .col-wrap { white-space: normal; word-break: break-word; }
     tbody tr { border-bottom: 1px solid var(--border); }
     tbody tr:hover { background: var(--trow); }
     tbody td { padding: 0.55rem 0.75rem; vertical-align: middle; }
@@ -156,6 +159,7 @@
       <div class="stat-card"><div class="num" id="fbTotal">—</div><div class="label">Total</div></div>
       <div class="stat-card"><div class="num" id="fbNew">—</div><div class="label">New</div></div>
       <div class="stat-card"><div class="num" id="fbWantsResp">—</div><div class="label">Wants response</div></div>
+      <div class="stat-card"><div class="num" id="fbAvgRating">—</div><div class="label">Avg rating</div></div>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
       <select id="fbFilterStatus" onchange="loadFeedback()" style="padding:4px 8px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:0.82rem">
@@ -172,8 +176,8 @@
       </select>
     </div>
     <table id="fbTable">
-      <thead><tr><th>Time</th><th>User</th><th>Env</th><th>Page</th><th>Rating</th><th>Category</th><th>Message</th><th>Resp?</th><th>Status</th><th>Actions</th></tr></thead>
-      <tbody id="fbBody"><tr><td colspan="10" class="empty">Loading…</td></tr></tbody>
+      <thead><tr><th>Time</th><th>User</th><th>Email</th><th>Env</th><th>Page</th><th>Rating</th><th>Category</th><th>Message</th><th>Resp?</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody id="fbBody"><tr><td colspan="11" class="empty">Loading…</td></tr></tbody>
     </table>
   </div>
 
@@ -336,29 +340,30 @@
     var env    = document.getElementById('fbFilterEnv').value;
     var qs = '?limit=200' + (status ? '&triage_status=' + status : '') + (env ? '&env=' + env : '');
     fetch('/api/demo-feedback/stats').then(function(r) { return r.json(); }).then(function(s) {
-      document.getElementById('fbTotal').textContent    = s.total    != null ? s.total    : '—';
-      document.getElementById('fbNew').textContent      = s.new      != null ? s.new      : '—';
+      document.getElementById('fbTotal').textContent     = s.total          != null ? s.total          : '—';
+      document.getElementById('fbNew').textContent       = s.new            != null ? s.new            : '—';
       document.getElementById('fbWantsResp').textContent = s.wants_response != null ? s.wants_response : '—';
+      document.getElementById('fbAvgRating').textContent = s.avg_rating     != null ? '★ ' + s.avg_rating : '—';
     }).catch(function() {});
     fetch('/api/demo-feedback' + qs).then(function(r) { return r.json(); }).then(function(rows) {
       var tbody = document.getElementById('fbBody');
       if (!Array.isArray(rows) || rows.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="empty">No submissions.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" class="empty">No submissions.</td></tr>';
         return;
       }
       tbody.innerHTML = rows.map(function(r) {
         var time = r.created_at ? r.created_at.slice(0,16).replace('T',' ') : '—';
         var stars = r.rating ? '★'.repeat(r.rating) : '—';
-        var msg   = r.message ? (r.message.length > 60 ? r.message.slice(0,60) + '…' : r.message) : '—';
         var statusBadge = { new: 'badge-ok', triaged: 'badge-admin', actioned: 'badge-user' }[r.triage_status] || 'badge-user';
         return '<tr>' +
           '<td style="white-space:nowrap">' + time + '</td>' +
           '<td>' + esc(r.user_id || '—') + '</td>' +
+          '<td style="font-size:0.72rem">' + esc(r.email || '—') + '</td>' +
           '<td><span style="font-size:0.72rem">' + esc(r.env || '—') + '</span></td>' +
-          '<td style="font-size:0.72rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(r.page || '—') + '</td>' +
+          '<td class="col-wrap" style="font-size:0.72rem">' + esc(r.page || '—') + '</td>' +
           '<td style="color:#f59e0b">' + stars + '</td>' +
           '<td>' + esc(r.category || '—') + '</td>' +
-          '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.message || '') + '">' + esc(msg) + '</td>' +
+          '<td class="col-wrap">' + esc(r.message || '—') + '</td>' +
           '<td>' + (r.wants_response ? '✓' : '') + '</td>' +
           '<td><span class="badge ' + statusBadge + '">' + esc(r.triage_status || '—') + '</span></td>' +
           '<td><select onchange="triageFeedback(\'' + r.id + '\',this.value)" style="padding:2px 4px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:0.72rem">' +
@@ -368,7 +373,7 @@
         '</tr>';
       }).join('');
     }).catch(function(e) {
-      document.getElementById('fbBody').innerHTML = '<tr><td colspan="10" class="empty">Error: ' + e + '</td></tr>';
+      document.getElementById('fbBody').innerHTML = '<tr><td colspan="11" class="empty">Error: ' + e + '</td></tr>';
     });
   }
 
@@ -711,6 +716,32 @@
   function esc(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
+
+  // ── Resizable columns ─────────────────────────────────────────────────────
+  function makeResizable(tableId, colWidths) {
+    var table = document.getElementById(tableId);
+    if (!table || table._resizeDone) return;
+    table._resizeDone = true;
+    var ths = table.querySelectorAll('thead th');
+    ths.forEach(function(th, i) {
+      if (colWidths && colWidths[i]) th.style.width = colWidths[i];
+      var handle = document.createElement('div');
+      handle.className = 'col-resize';
+      th.appendChild(handle);
+      handle.addEventListener('mousedown', function(e) {
+        handle.classList.add('dragging');
+        var startX = e.pageX, startW = th.offsetWidth;
+        function onMove(e) { if (startW + e.pageX - startX > 30) th.style.width = (startW + e.pageX - startX) + 'px'; }
+        function onUp()   { handle.classList.remove('dragging'); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+        e.preventDefault();
+      });
+    });
+  }
+
+  // Set initial column widths for the feedback table: Time,User,Email,Env,Page,Rating,Category,Message,Resp,Status,Actions
+  makeResizable('fbTable', ['110px','110px','140px','90px','120px','60px','80px','220px','50px','80px','90px']);
 </script>
 </body>
 </html>

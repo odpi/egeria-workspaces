@@ -62,8 +62,11 @@
     .form-row input:focus, .form-row select:focus { border-color: var(--accent); outline: none; }
 
     /* ── Tables ── */
-    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 0.75rem; }
-    thead th { text-align: left; padding: 0.45rem 0.6rem; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 500; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 0.75rem; table-layout: fixed; }
+    thead th { text-align: left; padding: 0.45rem 0.6rem; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 500; position: relative; overflow: hidden; white-space: nowrap; }
+    thead th .col-resize { position: absolute; right: 0; top: 0; width: 5px; height: 100%; cursor: col-resize; z-index: 2; }
+    thead th .col-resize:hover, thead th .col-resize.dragging { background: var(--accent); opacity: 0.5; }
+    .col-wrap { white-space: normal; word-break: break-word; }
     tbody tr { border-bottom: 1px solid var(--border); }
     tbody tr:hover { background: var(--trow); }
     tbody td { padding: 0.5rem 0.6rem; vertical-align: middle; }
@@ -162,6 +165,35 @@
         <tbody id="auditBody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
       </table>
     </div>
+  </section>
+
+  <!-- ── User Feedback ────────────────────────────────────────────── -->
+  <section>
+    <div class="section-hdr">
+      <h2>User Feedback</h2>
+      <button class="btn-xs" onclick="loadFeedback()">↻ Refresh</button>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card"><div class="lbl">Total</div><div class="val" id="fbTotal">—</div></div>
+      <div class="stat-card"><div class="lbl">New</div><div class="val" id="fbNew">—</div></div>
+      <div class="stat-card"><div class="lbl">Wants Response</div><div class="val" id="fbWantsResp">—</div></div>
+      <div class="stat-card"><div class="lbl">Avg Rating</div><div class="val" id="fbAvgRating">—</div></div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
+      <select id="fbFilterStatus" onchange="loadFeedback()" style="padding:4px 8px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:0.82rem">
+        <option value="">All statuses</option>
+        <option value="new">New</option>
+        <option value="triaged">Triaged</option>
+        <option value="actioned">Actioned</option>
+      </select>
+    </div>
+
+    <table id="fbTable">
+      <thead><tr><th>Date / Time</th><th>Email</th><th>Page</th><th>Comment</th><th>Rating</th><th>Category</th><th>Wants Response?</th><th>Status</th><th></th></tr></thead>
+      <tbody id="fbBody"><tr><td colspan="9" class="empty">Loading…</td></tr></tbody>
+    </table>
   </section>
 
   <!-- ── Platform Info ─────────────────────────────────────────────── -->
@@ -331,8 +363,87 @@
       .catch(function() { showBanner('error', 'Failed to delete reservation'); });
   }
 
+  // ── Feedback ───────────────────────────────────────────────────────
+  function loadFeedback() {
+    var status = document.getElementById('fbFilterStatus').value;
+    var qs = '?limit=200' + (status ? '&triage_status=' + status : '');
+    fetch('/api/demo-feedback/stats').then(function(r) { return r.json(); }).then(function(s) {
+      document.getElementById('fbTotal').textContent     = s.total          != null ? s.total          : '—';
+      document.getElementById('fbNew').textContent       = s.new            != null ? s.new            : '—';
+      document.getElementById('fbWantsResp').textContent = s.wants_response != null ? s.wants_response : '—';
+      document.getElementById('fbAvgRating').textContent = s.avg_rating     != null ? '★ ' + s.avg_rating : '—';
+    }).catch(function() {});
+    fetch('/api/demo-feedback' + qs).then(function(r) { return r.json(); }).then(function(rows) {
+      var tbody = document.getElementById('fbBody');
+      if (!Array.isArray(rows) || rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="empty">No feedback submitted yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rows.map(function(r) {
+        var time = r.created_at ? r.created_at.slice(0,16).replace('T',' ') : '—';
+        var stars = r.rating ? '★'.repeat(r.rating) : '—';
+        var wantsResp = r.wants_response
+          ? '<span style="color:var(--success);font-weight:600">Yes</span>'
+          : '<span style="color:var(--muted)">No</span>';
+        var statusColors = { new: 'var(--success)', triaged: '#a5b4fc', actioned: 'var(--muted)' };
+        var statusColor = statusColors[r.triage_status] || 'var(--muted)';
+        return '<tr>' +
+          '<td style="white-space:nowrap;font-size:0.8rem">' + time + '</td>' +
+          '<td style="font-size:0.8rem">' + esc(r.email || '—') + '</td>' +
+          '<td class="col-wrap" style="font-size:0.78rem">' + esc(r.page || '—') + '</td>' +
+          '<td class="col-wrap">' + esc(r.message || '—') + '</td>' +
+          '<td style="color:#f59e0b">' + stars + '</td>' +
+          '<td style="font-size:0.78rem">' + esc(r.category || '—') + '</td>' +
+          '<td>' + wantsResp + '</td>' +
+          '<td style="font-size:0.78rem;color:' + statusColor + '">' + esc(r.triage_status || '—') + '</td>' +
+          '<td><select onchange="triageFeedback(\'' + r.id + '\',this.value)" style="padding:2px 4px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:0.72rem">' +
+            '<option value="">Set…</option>' +
+            ['new','triaged','actioned'].map(function(s) { return '<option value="' + s + '"' + (s === r.triage_status ? ' selected' : '') + '>' + s + '</option>'; }).join('') +
+          '</select></td>' +
+        '</tr>';
+      }).join('');
+    }).catch(function(e) {
+      document.getElementById('fbBody').innerHTML = '<tr><td colspan="9" class="empty">Error loading feedback: ' + esc(String(e)) + '</td></tr>';
+    });
+  }
+
+  function triageFeedback(id, status) {
+    if (!status) return;
+    fetch('/api/demo-feedback/' + id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ triage_status: status }),
+    }).then(function() { loadFeedback(); }).catch(function(e) { showBanner('error', 'Triage failed: ' + e); });
+  }
+
+  // ── Resizable columns ─────────────────────────────────────────────
+  function makeResizable(tableId, colWidths) {
+    var table = document.getElementById(tableId);
+    if (!table || table._resizeDone) return;
+    table._resizeDone = true;
+    var ths = table.querySelectorAll('thead th');
+    ths.forEach(function(th, i) {
+      if (colWidths && colWidths[i]) th.style.width = colWidths[i];
+      var handle = document.createElement('div');
+      handle.className = 'col-resize';
+      th.appendChild(handle);
+      handle.addEventListener('mousedown', function(e) {
+        handle.classList.add('dragging');
+        var startX = e.pageX, startW = th.offsetWidth;
+        function onMove(e) { if (startW + e.pageX - startX > 30) th.style.width = (startW + e.pageX - startX) + 'px'; }
+        function onUp()   { handle.classList.remove('dragging'); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+        e.preventDefault();
+      });
+    });
+  }
+
   // ── Init ───────────────────────────────────────────────────────────
   loadLock();
+  loadFeedback();
+  // Date/Time, Email, Page, Comment, Rating, Category, Wants Response?, Status, (triage)
+  makeResizable('fbTable', ['110px','150px','130px','260px','55px','80px','100px','75px','90px']);
 </script>
 </body>
 </html>

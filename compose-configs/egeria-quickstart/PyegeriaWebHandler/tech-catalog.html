@@ -606,7 +606,8 @@ function credAppend(url, creds) {
   if (creds.server)   p.set('server',   creds.server);
   if (creds.userId)   p.set('user_id',  creds.userId);
   if (creds.password) p.set('user_pwd', creds.password);
-  return url + '?' + p.toString();
+  var sep = url.indexOf('?') === -1 ? '?' : '&';
+  return url + sep + p.toString();
 }
 
 // ── Markdown renderer (shared with type-explorer.html) ───────────────────────
@@ -752,6 +753,7 @@ var _MERMAID_SECTION_FIELDS = new Set(['mermaidGraph','anchorMermaidGraph']);
 var _MERMAID_FIELD_LABELS = {
   mermaidGraph: 'Context Diagram', edgeMermaidGraph: 'Asset Edge Graph',
   localLineageGraph: 'Local Lineage', fieldLevelLineageGraph: 'Field-Level Lineage',
+  specificationMermaidGraph: 'Specification Diagram',
 };
 
 function AvailableMermaidDiagrams({ data }) {
@@ -840,26 +842,394 @@ function EgeriaCommentsSection({ guid }) {
   );
 }
 
+// ── Technology Types ──────────────────────────────────────────────────────────
+
+function TechTable(headers, rows, emptyMsg) {
+  if (!rows || rows.length === 0) {
+    return emptyMsg
+      ? React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '4px 0' } }, emptyMsg)
+      : null;
+  }
+  var thSt = { padding: '5px 10px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--dim)', borderBottom: '1px solid var(--border)', background: 'var(--panel)', whiteSpace: 'nowrap' };
+  var tdSt = { padding: '5px 10px', fontSize: 11, borderBottom: '1px solid var(--border)', verticalAlign: 'top', lineHeight: 1.5 };
+  return React.createElement('div', { style: { overflowX: 'auto', borderRadius: 4, border: '1px solid var(--border)', marginTop: 8 } },
+    React.createElement('table', { style: { borderCollapse: 'collapse', width: '100%' } },
+      React.createElement('thead', null,
+        React.createElement('tr', null, headers.map(function(h, i) {
+          return React.createElement('th', { key: i, style: thSt }, h);
+        }))
+      ),
+      React.createElement('tbody', null, rows.map(function(row, ri) {
+        return React.createElement('tr', { key: ri }, row.map(function(cell, ci) {
+          return React.createElement('td', { key: ci, style: tdSt }, cell);
+        }));
+      }))
+    )
+  );
+}
+
+function TechResourceBadge(resourceUse) {
+  var key = (resourceUse || '').toLowerCase();
+  var colours = {
+    'create catalog entry':  { bg: 'rgba(16,185,129,.14)', fg: '#34d399' },
+    'create-catalog-entry':  { bg: 'rgba(16,185,129,.14)', fg: '#34d399' },
+    'survey resource':       { bg: 'rgba(245,158,11,.14)', fg: '#fbbf24' },
+    'survey':                { bg: 'rgba(245,158,11,.14)', fg: '#fbbf24' },
+    'catalog resource':      { bg: 'rgba(99,102,241,.14)', fg: '#818cf8' },
+    'catalog':               { bg: 'rgba(99,102,241,.14)', fg: '#818cf8' },
+    'configure connector':   { bg: 'rgba(59,130,246,.14)', fg: '#60a5fa' },
+    'provision':             { bg: 'rgba(236,72,153,.14)', fg: '#f472b6' },
+  };
+  var c = colours[key] || { bg: 'rgba(107,114,128,.12)', fg: 'var(--dim)' };
+  return React.createElement('span', {
+    style: { fontSize: 10, fontWeight: 600, padding: '1px 8px', borderRadius: 10,
+             background: c.bg, color: c.fg, flexShrink: 0, marginLeft: 8 }
+  }, resourceUse || 'resource');
+}
+
+function TechTypeDetail({ item, detailLoading, creds }) {
+  if (!item) return null;
+  var sHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
+  var card = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 10 };
+
+  // Loading shimmer while detail fetch is in flight
+  if (detailLoading) {
+    return React.createElement('div', null,
+      React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)', margin: '0 0 16px 0' } }, item.displayName),
+      React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12 } }, 'Loading detail…')
+    );
+  }
+
+  // --- Catalog Templates ---
+  var templatesEl = null;
+  if (item.catalogTemplates && item.catalogTemplates.length > 0) {
+    templatesEl = React.createElement('div', null,
+      React.createElement('div', { style: sHdr }, 'Catalog Templates'),
+      item.catalogTemplates.map(function(t, ti) {
+        var rows = (t.placeholders || []).map(function(p) {
+          return [
+            React.createElement('span', { style: { fontWeight: p.required ? 700 : 400, color: p.required ? 'var(--text)' : 'var(--muted)' } }, p.name),
+            p.dataType || '',
+            p.required ? React.createElement('span', { style: { color: '#34d399', fontWeight: 700 } }, '✓') : '',
+            React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)' } }, p.example || ''),
+            p.description || '',
+          ];
+        });
+        return React.createElement('div', { key: ti, style: card },
+          React.createElement('div', { style: { display: 'flex', alignItems: 'center', marginBottom: 6 } },
+            React.createElement('span', { style: { fontWeight: 700, fontSize: 13, flex: 1, color: 'var(--text)' } }, t.displayName || '(template)'),
+            t.resourceUse && TechResourceBadge(t.resourceUse)
+          ),
+          t.description && React.createElement('div', { style: { fontSize: 12, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.5 } }, t.description),
+          rows.length > 0
+            ? TechTable(['Name','Type','Required','Example','Description'], rows, null)
+            : React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, 'No placeholder properties.')
+        );
+      })
+    );
+  }
+
+  // --- Governance Action Processes ---
+  var processesEl = null;
+  if (item.governanceActionProcesses && item.governanceActionProcesses.length > 0) {
+    processesEl = React.createElement('div', null,
+      React.createElement('div', { style: sHdr }, 'Governance Action Processes'),
+      item.governanceActionProcesses.map(function(gp, gi) {
+        var rows = (gp.parameters || []).map(function(p) {
+          return [
+            React.createElement('span', { style: { fontWeight: p.required ? 700 : 400, color: p.required ? 'var(--text)' : 'var(--muted)' } }, p.name),
+            p.dataType || '',
+            p.required ? React.createElement('span', { style: { color: '#34d399', fontWeight: 700 } }, '✓') : '',
+            p.description || '',
+            React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)' } }, p.example || ''),
+          ];
+        });
+        return React.createElement('div', { key: gi, style: card },
+          React.createElement('div', { style: { display: 'flex', alignItems: 'center', marginBottom: 6 } },
+            React.createElement('span', { style: { fontWeight: 700, fontSize: 13, flex: 1, color: 'var(--text)' } }, gp.displayName || '(process)'),
+            gp.resourceUse && TechResourceBadge(gp.resourceUse)
+          ),
+          gp.description && React.createElement('div', { style: { fontSize: 12, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.5 } }, gp.description),
+          rows.length > 0
+            ? TechTable(['Name','Type','Required','Description','Example'], rows, null)
+            : React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, 'No request parameters.')
+        );
+      })
+    );
+  }
+
+  // --- External References ---
+  var extRefsEl = null;
+  if (item.externalReferences && item.externalReferences.length > 0) {
+    extRefsEl = React.createElement('div', null,
+      React.createElement('div', { style: sHdr }, 'External References'),
+      React.createElement('div', { style: card },
+        item.externalReferences.map(function(ref, ri) {
+          return React.createElement('div', { key: ri, style: { marginBottom: 8 } },
+            ref.url
+              ? React.createElement('a', { href: ref.url, target: '_blank', rel: 'noopener noreferrer',
+                  style: { fontSize: 13, color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' } },
+                  '↗ ' + (ref.displayName || ref.url))
+              : React.createElement('span', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)' } }, ref.displayName || ''),
+            ref.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginTop: 2, lineHeight: 1.5 } }, ref.description)
+          );
+        })
+      )
+    );
+  }
+
+  // --- Live instances sub-pane ---
+  var elementsUrl = '/api/tech-catalog/tech-types/' + encodeURIComponent(item.qualifiedName) + '/elements' +
+    (item.displayName ? '?display_name=' + encodeURIComponent(item.displayName) : '');
+  var instancesEl = React.createElement(SubPane, {
+    title: 'Catalog Instances',
+    fetchUrl: elementsUrl,
+    creds: creds,
+    renderContent: function(data) {
+      var its = data.items || [];
+      if (its.length === 0) return React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '6px 0' } }, 'No catalog entries of this type yet.');
+      return React.createElement('div', null, its.map(function(it) {
+        return React.createElement('div', { key: it.guid, style: { borderBottom: '1px solid var(--border)', padding: '6px 0', fontSize: 12 } },
+          React.createElement('div', { style: { fontWeight: 600, color: 'var(--text)' } }, it.displayName || it.qualifiedName || it.guid),
+          React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 2 } }, it.typeName || '')
+        );
+      }));
+    }
+  });
+
+  return React.createElement('div', null,
+    React.createElement('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 4 } },
+      React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)', margin: 0, flex: 1 } }, item.displayName),
+      React.createElement(EgeriaFeedbackWidget, { guid: item.guid })
+    ),
+    React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginBottom: item.description ? 12 : 4 } }, item.qualifiedName),
+    item.description && React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 12 },
+      dangerouslySetInnerHTML: { __html: renderMd(item.description) } }),
+    React.createElement(AvailableMermaidDiagrams, { data: item }),
+    templatesEl,
+    processesEl,
+    extRefsEl,
+    instancesEl,
+    React.createElement(EgeriaCommentsSection, { guid: item.guid })
+  );
+}
+
+// ── Recursive hierarchy tree node ────────────────────────────────────────────
+function TechTypeNode({ node, depth, selQN, onSelect, expanded, onToggle }) {
+  var hasChildren = node.subTypes && node.subTypes.length > 0;
+  var key = node.qualifiedName || node.displayName;
+  var isExpanded = expanded.has(key);
+  var isSelected = selQN === key;
+  var indent = depth * 14 + 8;
+  return React.createElement('div', null,
+    React.createElement('div', {
+      style: { display: 'flex', alignItems: 'center', gap: 0, padding: '3px 8px 3px ' + indent + 'px',
+               cursor: 'pointer', userSelect: 'none',
+               background: isSelected ? 'var(--hover)' : 'transparent',
+               borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent' }
+    },
+      React.createElement('span', {
+        onClick: function(e) { e.stopPropagation(); if (hasChildren) onToggle(key); },
+        style: { width: 14, flexShrink: 0, fontSize: 9, color: 'var(--dim)',
+                 visibility: hasChildren ? 'visible' : 'hidden', textAlign: 'center' }
+      }, isExpanded ? '▼' : '▶'),
+      React.createElement('span', {
+        onClick: function() { onSelect(node); },
+        style: { fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                 color: isSelected ? 'var(--accent)' : 'var(--text)',
+                 fontWeight: isSelected ? 700 : 400, paddingLeft: 2 }
+      }, node.displayName)
+    ),
+    isExpanded && hasChildren && node.subTypes.map(function(child) {
+      return React.createElement(TechTypeNode, {
+        key: child.qualifiedName || child.displayName,
+        node: child, depth: depth + 1, selQN: selQN,
+        onSelect: onSelect, expanded: expanded, onToggle: onToggle
+      });
+    })
+  );
+}
+
+function TechTypesView({ creds }) {
+  // Hierarchy state
+  var _hier    = useState(null),  hier    = _hier[0],    setHier    = _hier[1];
+  var _hierErr = useState(''),    hierErr = _hierErr[0], setHierErr = _hierErr[1];
+  var _exp     = useState(new Set()), exp = _exp[0], setExp = _exp[1];
+
+  // Search / flat list state
+  var _input   = useState(''),    input   = _input[0],   setInput   = _input[1];
+  var _srItems = useState([]),    srItems = _srItems[0], setSrItems = _srItems[1];
+  var _srLoad  = useState(false), srLoad  = _srLoad[0],  setSrLoad  = _srLoad[1];
+  var _srErr   = useState(''),    srErr   = _srErr[0],   setSrErr   = _srErr[1];
+  var searchMode = input.trim().length > 0;
+
+  // Selection + detail state
+  var _sel     = useState(null),  sel     = _sel[0],     setSel     = _sel[1];
+  var _detail  = useState(null),  detail  = _detail[0],  setDetail  = _detail[1];
+  var _detLoad = useState(false), detLoad = _detLoad[0], setDetLoad = _detLoad[1];
+
+  // Load hierarchy on mount
+  useEffect(function() {
+    fetch(credAppend('/api/tech-catalog/tech-types/hierarchy', creds))
+      .then(function(r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
+      .then(function(d) {
+        var root = d.hierarchy || d;
+        setHier(root);
+        // Auto-expand first level (root's direct children)
+        var firstLevel = new Set();
+        if (root && root.subTypes) {
+          root.subTypes.forEach(function(n) {
+            firstLevel.add(n.qualifiedName || n.displayName);
+          });
+        }
+        setExp(firstLevel);
+      })
+      .catch(function(e) { setHierErr(String(e)); });
+  }, []);
+
+  // Search when input changes (debounced via Enter or after brief pause)
+  var _searchTimer = useRef(null);
+  useEffect(function() {
+    var q = input.trim();
+    if (!q) { setSrItems([]); return; }
+    clearTimeout(_searchTimer.current);
+    _searchTimer.current = setTimeout(function() {
+      setSrLoad(true); setSrErr('');
+      fetch(credAppend('/api/tech-catalog/tech-types?q=' + encodeURIComponent(q), creds))
+        .then(function(r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
+        .then(function(d) { setSrItems(d.items || []); setSrLoad(false); })
+        .catch(function(e) { setSrErr(String(e)); setSrLoad(false); });
+    }, 350);
+    return function() { clearTimeout(_searchTimer.current); };
+  }, [input]);
+
+  // Load detail on selection
+  useEffect(function() {
+    if (!sel) { setDetail(null); return; }
+    setDetLoad(true); setDetail(null);
+    var url = '/api/tech-catalog/tech-types/' + encodeURIComponent(sel.qualifiedName || sel.displayName) +
+              '?display_name=' + encodeURIComponent(sel.displayName || '');
+    fetch(credAppend(url, creds))
+      .then(function(r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
+      .then(function(d) { setDetail(d); setDetLoad(false); })
+      .catch(function(e) { console.error('TechType detail fetch failed:', e); setDetLoad(false); });
+  }, [sel && (sel.qualifiedName || sel.displayName)]);
+
+  function handleSelect(node) {
+    setSel({ qualifiedName: node.qualifiedName || '', displayName: node.displayName || '' });
+  }
+
+  function toggleNode(key) {
+    setExp(function(prev) {
+      var next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  var selQN = sel ? (sel.qualifiedName || sel.displayName) : null;
+
+  // Sidebar content
+  var sidebarContent;
+  if (searchMode) {
+    // Flat search results list
+    sidebarContent = srLoad
+      ? React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'Searching…')
+      : srErr
+        ? React.createElement('div', { style: { padding: 16, color: '#f87171', fontSize: 12 } }, srErr)
+        : srItems.length === 0
+          ? React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'No results.')
+          : React.createElement('div', null, srItems.map(function(item) {
+              var active = selQN === (item.qualifiedName || item.displayName);
+              return React.createElement('div', { key: item.qualifiedName || item.displayName,
+                onClick: function() { handleSelect(item); },
+                style: { padding: '6px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)',
+                         background: active ? 'var(--hover)' : 'transparent',
+                         borderLeft: active ? '3px solid var(--accent)' : '3px solid transparent' } },
+                React.createElement('span', { style: { fontSize: 12, fontWeight: active ? 700 : 400,
+                  color: active ? 'var(--accent)' : 'var(--text)' } }, item.displayName)
+              );
+            }));
+  } else {
+    // Hierarchy tree
+    sidebarContent = !hier
+      ? (hierErr
+          ? React.createElement('div', { style: { padding: 16, color: '#f87171', fontSize: 12 } }, hierErr)
+          : React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'Loading…'))
+      : React.createElement('div', null,
+          (hier.subTypes || []).map(function(topNode) {
+            return React.createElement(TechTypeNode, {
+              key: topNode.qualifiedName || topNode.displayName,
+              node: topNode, depth: 0, selQN: selQN,
+              onSelect: handleSelect, expanded: exp, onToggle: toggleNode
+            });
+          })
+        );
+  }
+
+  return React.createElement('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
+    React.createElement('div', { style: { width: 290, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden' } },
+      // Search bar
+      React.createElement('div', { style: { padding: '7px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
+        React.createElement('input', {
+          value: input,
+          onChange: function(e) { setInput(e.target.value); },
+          placeholder: 'Search… (or browse tree below)',
+          style: { width: '100%', boxSizing: 'border-box', fontSize: 12, padding: '4px 9px', borderRadius: 4,
+                   border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--text)', outline: 'none' }
+        })
+      ),
+      React.createElement('div', { style: { overflowY: 'auto', flex: 1, padding: '4px 0' } }, sidebarContent)
+    ),
+    React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: sel ? '20px 24px' : 0 } },
+      sel
+        ? React.createElement(TechTypeDetail, { item: detail || sel, detailLoading: detLoad, creds: creds })
+        : React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--dim)', fontSize: 13 } }, 'Select a technology type from the tree')
+    )
+  );
+}
+
 // ── Connection form (local quickstart only) ───────────────────────────────────
-function ConnectionForm({ saveCreds }) {
-  var _u = useState('https://localhost:9443'), url = _u[0], setUrl = _u[1];
-  var _s = useState('qs-view-server'), server = _s[0], setServer = _s[1];
-  var _i = useState('erinoverview'), userId = _i[0], setUserId = _i[1];
-  var _p = useState('secret'), pwd = _p[0], setPwd = _p[1];
-  var inp = { fontSize: 12, padding: '4px 8px', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 4, outline: 'none', width: '100%' };
-  return React.createElement('div', { style: { padding: '20px 24px', maxWidth: 420, margin: '0 auto' } },
-    React.createElement('div', { style: { fontWeight: 700, marginBottom: 16, color: 'var(--accent)' } }, 'Connect to Egeria'),
-    [['Platform URL', url, setUrl, 'text'], ['View Server', server, setServer, 'text'],
-     ['User ID', userId, setUserId, 'text'], ['Password', pwd, setPwd, 'password']].map(function(row) {
-       return React.createElement('div', { key: row[0], style: { marginBottom: 10 } },
-         React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginBottom: 3 } }, row[0]),
-         React.createElement('input', { type: row[3], value: row[1], onChange: function(e) { row[2](e.target.value); }, style: inp })
-       );
-     }),
-    React.createElement('button', {
-      onClick: function() { saveCreds({ url: url, server: server, userId: userId, password: pwd }); },
-      style: { marginTop: 8, width: '100%', padding: '7px', background: 'var(--accent)', border: 'none', borderRadius: 5, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }
-    }, 'Connect')
+function ConnectionForm({ saveCreds, initialCreds }) {
+  var ic = initialCreds || {};
+  var _f = useState({ url: ic.url || '', server: ic.server || 'qs-view-server', userId: ic.userId || '', password: ic.password || '' });
+  var form = _f[0], setForm = _f[1];
+  var _saved = useState(false), saved = _saved[0], setSaved = _saved[1];
+  function set(k, v) { setForm(function(f) { var n = {}; Object.keys(f).forEach(function(k2) { n[k2] = f[k2]; }); n[k] = v; return n; }); setSaved(false); }
+  function onSubmit(e) { e.preventDefault(); saveCreds(form); setSaved(true); }
+  var fieldStyle = { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' };
+  var labelStyle = { fontSize: 11, color: 'var(--dim)', marginBottom: 2, display: 'block' };
+  var colStyle   = { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 };
+  return React.createElement('div', {
+    style: { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: '16px 20px', marginBottom: 28 }
+  },
+    React.createElement('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 12 } }, 'Connection Settings'),
+    React.createElement('form', { onSubmit: onSubmit },
+      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: 8, alignItems: 'end' } },
+        React.createElement('div', { style: colStyle },
+          React.createElement('label', { style: labelStyle }, 'Platform URL'),
+          React.createElement('input', { style: fieldStyle, type: 'text', value: form.url, placeholder: 'https://localhost:9443', onChange: function(e) { set('url', e.target.value); } })
+        ),
+        React.createElement('div', { style: colStyle },
+          React.createElement('label', { style: labelStyle }, 'View Server'),
+          React.createElement('input', { style: fieldStyle, type: 'text', value: form.server, placeholder: 'qs-view-server', onChange: function(e) { set('server', e.target.value); } })
+        ),
+        React.createElement('div', { style: colStyle },
+          React.createElement('label', { style: labelStyle }, 'User ID'),
+          React.createElement('input', { style: fieldStyle, type: 'text', value: form.userId, placeholder: 'erinoverview', onChange: function(e) { set('userId', e.target.value); } })
+        ),
+        React.createElement('div', { style: colStyle },
+          React.createElement('label', { style: labelStyle }, 'Password'),
+          React.createElement('input', { style: fieldStyle, type: 'password', value: form.password, placeholder: '···', onChange: function(e) { set('password', e.target.value); } })
+        ),
+        React.createElement('button', {
+          type: 'submit',
+          style: { padding: '6px 14px', borderRadius: 5, border: '1px solid rgba(96,165,250,.4)', background: saved ? 'rgba(52,211,153,.12)' : 'rgba(96,165,250,.1)', color: saved ? '#34d399' : 'var(--accent)', cursor: 'pointer', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }
+        }, saved ? '✔ Saved' : 'Connect')
+      ),
+      React.createElement('p', { style: { margin: '8px 0 0', fontSize: 11, color: 'var(--dim)' } },
+        'Leave fields empty to use server defaults. Settings are saved for this session.')
+    )
   );
 }
 
@@ -1627,6 +1997,9 @@ function SectionView({ sectionId, creds, navTarget, onNavigate }) {
       React.createElement(GlossaryView, { creds: creds })
     );
   }
+  if (sectionId === 'tech-types') {
+    return React.createElement(TechTypesView, { creds: creds });
+  }
   var tabs = SECTION_TABS[sectionId] || [];
   var _tab = useState(tabs[0] ? tabs[0].id : ''), activeTab = _tab[0], setActiveTab = _tab[1];
 
@@ -1663,28 +2036,110 @@ function SectionView({ sectionId, creds, navTarget, onNavigate }) {
 // ── Splash / top-level tile selector ─────────────────────────────────────────
 var SECTIONS = [
   { id: 'glossary',       icon: '📖', label: 'Glossary',               desc: 'Browse glossaries, categories, and terms.' },
-  { id: 'infrastructure', icon: '🖧', label: 'Infrastructure Assets', desc: 'Servers, storage, networks, software capabilities, and endpoints.' },
-  { id: 'data-assets',    icon: '🗄️', label: 'Data Assets',          desc: 'Data stores, data feeds, and data sets.' },
-  { id: 'apis',           icon: '🔗', label: 'APIs',                   desc: 'Deployed APIs and their endpoints.' },
-  { id: 'processes',      icon: '⚙️', label: 'Processes',              desc: 'Software components and actions.' },
+  { id: 'tech-types',     icon: '🔧', label: 'Technology Types',       desc: 'Technology type definitions, catalog templates, and governance processes.' },
+  { id: 'infrastructure', icon: '🖧', label: 'Infrastructure Assets',  desc: 'Servers, storage, networks, software capabilities, and endpoints.' },
+  { id: 'data-assets',    icon: '🗄️', label: 'Data Assets',           desc: 'Data stores, data feeds, and data sets.' },
+  { id: 'apis',           icon: '🔗', label: 'APIs',                    desc: 'Deployed APIs and their endpoints.' },
+  { id: 'processes',      icon: '⚙️', label: 'Processes',               desc: 'Software components and actions.' },
 ];
 
-function Splash({ onSelect }) {
-  var cardStyle = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, padding: '28px 24px', cursor: 'pointer', transition: 'border-color 0.15s', textAlign: 'center' };
-  return React.createElement('div', { style: { overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 24px' } },
-    React.createElement('div', { style: { fontSize: 36, marginBottom: 8 } }, '🐱'),
-    React.createElement('h1', { style: { fontSize: 22, fontWeight: 700, color: 'var(--text)', marginBottom: 6 } }, 'The Catalog'),
-    React.createElement('p', { style: { fontSize: 13, color: 'var(--muted)', marginBottom: 36, maxWidth: 480, textAlign: 'center' } },
-      'Browse and explore technical assets registered in your Egeria metadata environment.'),
-    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, width: '100%', maxWidth: 800 } },
-      SECTIONS.map(function(s) {
-        return React.createElement('div', { key: s.id, style: cardStyle,
-          onClick: function() { onSelect(s.id); },
-          onMouseEnter: function(e) { e.currentTarget.style.borderColor = 'var(--accent)'; },
-          onMouseLeave: function(e) { e.currentTarget.style.borderColor = 'var(--border)'; } },
-          React.createElement('div', { style: { fontSize: 32, marginBottom: 10 } }, s.icon),
-          React.createElement('div', { style: { fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 6 } }, s.label),
-          React.createElement('div', { style: { fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 } }, s.desc)
+var SPLASH_GROUPS = [
+  {
+    key: 'definitions',
+    label: 'Definitions & Standards',
+    blurb: 'Business vocabulary and technology standards — what concepts exist and how systems are onboarded.',
+    sections: ['glossary', 'tech-types'],
+  },
+  {
+    key: 'assets',
+    label: 'Deployed Assets',
+    blurb: 'Technical resources registered in your environment — infrastructure, data, APIs, and processes.',
+    sections: ['infrastructure', 'data-assets', 'apis', 'processes'],
+  },
+];
+
+function Splash({ onSelect, authUser, activePersona, creds, demoMode, srvManaged, saveCreds }) {
+  var cardStyle = {
+    background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8,
+    padding: '20px 20px 16px', display: 'flex', flexDirection: 'column', gap: 8,
+  };
+  var openBtnStyle = {
+    marginTop: 8, padding: '5px 14px', background: 'rgba(96,165,250,.1)',
+    border: '1px solid rgba(96,165,250,.3)', color: 'var(--accent)', borderRadius: 5,
+    cursor: 'pointer', fontSize: 12, fontWeight: 600, alignSelf: 'flex-start',
+  };
+
+  var sectionById = {};
+  SECTIONS.forEach(function(s) { sectionById[s.id] = s; });
+
+  // Connection panel — persona takes precedence in both demo and local quickstart modes.
+  var connIdentity = activePersona
+    ? { label: activePersona.display_name || activePersona.id, sub: activePersona.id, switchHref: '/portal' }
+    : authUser
+      ? { label: authUser.displayName || authUser.userId, sub: authUser.role }
+      : null;
+
+  var connPanel;
+  if (connIdentity) {
+    connPanel = React.createElement('div', {
+        style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24, padding: '10px 16px',
+                 background: 'rgba(52,211,153,.07)', border: '1px solid rgba(52,211,153,.25)', borderRadius: 7 }
+      },
+        React.createElement('span', { style: { fontSize: 16, color: '#34d399' } }, '✓'),
+        React.createElement('span', { style: { fontSize: 13, color: 'var(--text)' } },
+          'Connected as ', React.createElement('strong', null, connIdentity.label)
+        ),
+        connIdentity.sub && React.createElement('span', { style: { marginLeft: 'auto', fontSize: 11, color: 'var(--muted)', textTransform: 'capitalize' } }, connIdentity.sub),
+        connIdentity.switchHref && React.createElement('a', { href: connIdentity.switchHref, style: { marginLeft: connIdentity.sub ? 8 : 'auto', fontSize: 11, color: 'var(--accent)', textDecoration: 'none' } }, 'Switch →')
+      );
+  } else if (srvManaged) {
+    connPanel = null;
+  } else {
+    connPanel = React.createElement('div', {
+        style: { marginBottom: 0 }
+      },
+        React.createElement('div', {
+          style: { marginBottom: 16, padding: '10px 16px', background: 'rgba(245,158,11,.07)',
+                   border: '1px solid rgba(245,158,11,.25)', borderRadius: 7, fontSize: 13, color: 'var(--text)' }
+        },
+          '⚠ No persona selected. ',
+          React.createElement('a', { href: '/portal', style: { color: 'var(--accent)' } }, 'Choose one at the Portal →')
+        ),
+        React.createElement(ConnectionForm, { saveCreds: saveCreds, initialCreds: creds })
+      );
+  }
+
+  return React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: '40px 48px', background: 'var(--bg)' } },
+    React.createElement('div', { style: { maxWidth: 900, margin: '0 auto' } },
+      React.createElement('h1', { style: { fontSize: 26, fontWeight: 700, margin: '0 0 8px', color: 'var(--text)' } }, '🐱 The Catalog'),
+      React.createElement('p', { style: { fontSize: 14, color: 'var(--muted)', margin: '0 0 28px', lineHeight: 1.65, maxWidth: 660 } },
+        'Browse and explore technical assets, definitions, and standards registered in your Egeria metadata environment.'),
+      connPanel,
+
+      // Section groups
+      SPLASH_GROUPS.map(function(grp) {
+        var caps = grp.sections.map(function(id) { return sectionById[id]; }).filter(Boolean);
+        return React.createElement('div', { key: grp.key, style: { marginBottom: 32 } },
+          React.createElement('div', {
+            style: { display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 14, paddingBottom: 6, borderBottom: '1px solid var(--border)' }
+          },
+            React.createElement('span', { style: { fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--accent)' } }, grp.label),
+            React.createElement('span', { style: { fontSize: 12, color: 'var(--muted)' } }, grp.blurb)
+          ),
+          React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(245px, 1fr))', gap: 14 } },
+            caps.map(function(s) {
+              return React.createElement('div', { key: s.id, style: cardStyle,
+                onMouseEnter: function(e) { e.currentTarget.style.borderColor = 'var(--accent)'; },
+                onMouseLeave: function(e) { e.currentTarget.style.borderColor = 'var(--border)'; } },
+                React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                  React.createElement('span', { style: { fontSize: 18, color: 'var(--accent)', minWidth: 22, textAlign: 'center' } }, s.icon),
+                  React.createElement('span', { style: { fontSize: 14, fontWeight: 600, color: 'var(--text)' } }, s.label)
+                ),
+                React.createElement('p', { style: { fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.55, flex: 1 } }, s.desc),
+                React.createElement('button', { onClick: function() { onSelect(s.id); }, style: openBtnStyle }, 'Open →')
+              );
+            })
+          )
         );
       })
     )
@@ -1695,7 +2150,7 @@ function Splash({ onSelect }) {
 function App() {
   var _section   = useState(function() {
     var hash  = window.location.hash.slice(1);
-    var valid = new Set(['glossary','infrastructure','data-assets','apis','processes']);
+    var valid = new Set(['glossary','infrastructure','data-assets','apis','processes','tech-types']);
     return valid.has(hash) ? hash : '';
   }), section = _section[0], setSection = _section[1];
 
@@ -1704,6 +2159,10 @@ function App() {
   var _demoMode  = useState(false), demoMode   = _demoMode[0],  setDemoMode   = _demoMode[1];
   var _ready     = useState(false), ready      = _ready[0],     setReady      = _ready[1];
   var _navTarget = useState(null),  navTarget  = _navTarget[0], setNavTarget  = _navTarget[1];
+  var _authUser  = useState(null),  authUser   = _authUser[0],  setAuthUser   = _authUser[1];
+  var _activePersona = useState(function() {
+    try { var s = localStorage.getItem('egeria-persona'); return s ? JSON.parse(s) : null; } catch(e) { return null; }
+  }), activePersona = _activePersona[0], setActivePersona = _activePersona[1];
 
   function handleNavigate(nav) {
     // nav = { guid, section, tab, displayName }
@@ -1713,30 +2172,39 @@ function App() {
 
   useEffect(function() {
     fetch('/api/auth/me').then(function(r) { return r.json(); }).then(function(d) {
-      setDemoMode(!!d.demo_mode);
       setSrvManaged(!!d.server_managed_auth);
-      if (d.authenticated) {
-        // Use the persona selected at the portal if available (demo mode).
-        // Falls back to empty creds so the backend uses its env credentials.
-        var personaCreds = {};
-        try {
-          var stored = localStorage.getItem('egeria-persona');
-          if (stored) {
-            var p = JSON.parse(stored);
-            if (p.egeria_user) {
-              personaCreds = { server: 'qs-view-server', userId: p.egeria_user, password: p.egeria_password || '' };
-            }
+      if (d.demo_mode) setDemoMode(true);
+
+      if (d.server_managed_auth) {
+        // Freshstart: connection is server-managed via portal JWT + env vars.
+        if (d.authenticated && d.id) {
+          setAuthUser({ userId: d.id, displayName: d.display_name || d.id, role: d.role });
+          setCreds({});
+        }
+        setReady(true);
+        return;
+      }
+
+      // Quickstart (demo or local): persona selection works the same in both modes.
+      // The portal stores display info; POST select-persona returns egeria credentials.
+      var storedPersona = null;
+      try { var s = localStorage.getItem('egeria-persona'); storedPersona = s ? JSON.parse(s) : null; } catch(e) {}
+      if (storedPersona && storedPersona.id) {
+        setActivePersona(storedPersona);
+        fetch('/api/demo/select-persona', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ persona: storedPersona.id })
+        }).then(function(r) { return r.json(); }).then(function(sel) {
+          if (sel.egeria_user) {
+            setCreds({ url: '', server: 'qs-view-server', userId: sel.egeria_user, password: sel.egeria_password || '' });
           }
-        } catch(e) {}
-        setCreds(personaCreds);
+        }).catch(function() {});
       }
       setReady(true);
     }).catch(function() { setReady(true); });
   }, []);
 
   if (!ready) return null;
-
-  var needsConnect = !srvManaged && !demoMode && !creds;
 
   return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', height: '100vh' } },
     // Nav bar
@@ -1752,15 +2220,24 @@ function App() {
                    color: s.id === section ? 'var(--accent)' : 'var(--muted)', cursor: 'pointer' } }, s.label);
       }),
       React.createElement('div', { style: { flex: 1 } }),
-      React.createElement('a', { href: '/portal', style: { fontSize: 11, color: 'var(--muted)', textDecoration: 'none' } }, 'Portal')
+      activePersona
+        ? React.createElement(React.Fragment, null,
+            React.createElement('span', { className: 'persona-badge-btn', title: activePersona.coco_title || '' }, '🎭 ' + (activePersona.display_name || activePersona.id)),
+            React.createElement('a', { className: 'theme-btn', style: { marginLeft: 4, textDecoration: 'none' }, href: '/portal' }, 'Portal')
+          )
+        : authUser
+          ? React.createElement(React.Fragment, null,
+              React.createElement('span', { style: { fontSize: 11, color: '#34d399', background: 'rgba(52,211,153,.1)', padding: '2px 8px', borderRadius: 10, border: '1px solid rgba(52,211,153,.25)', marginRight: 4 } },
+                '👤 ' + (authUser.displayName || authUser.userId)),
+              React.createElement('a', { href: '/portal', style: { fontSize: 11, color: 'var(--muted)', textDecoration: 'none' } }, 'Portal')
+            )
+          : React.createElement(React.Fragment, null,
+              React.createElement('a', { className: 'persona-badge-btn', href: '/portal' }, '🎭 Choose persona')
+            )
     ),
-    // Connect form if needed
-    needsConnect
-      ? React.createElement('div', { style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
-          React.createElement(ConnectionForm, { saveCreds: setCreds }))
-      : section
-        ? React.createElement(SectionView, { sectionId: section, creds: creds, navTarget: navTarget, onNavigate: handleNavigate })
-        : React.createElement(Splash, { onSelect: setSection }),
+    section
+      ? React.createElement(SectionView, { sectionId: section, creds: creds, navTarget: navTarget, onNavigate: handleNavigate })
+      : React.createElement(Splash, { onSelect: setSection, authUser: authUser, activePersona: activePersona, creds: creds, demoMode: demoMode, srvManaged: srvManaged, saveCreds: setCreds }),
     React.createElement(FeedbackButton, { section: section, persona: null, demoMode: demoMode, srvManaged: srvManaged })
   );
 }

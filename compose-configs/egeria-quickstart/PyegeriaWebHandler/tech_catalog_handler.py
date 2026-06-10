@@ -8,19 +8,24 @@ Serves the tech-catalog SPA and provides backend API endpoints for all
 nine asset-type sections defined in technical_data_catalog_spec.md.
 
 Endpoints:
-  GET /tech-catalog                          → serve tech-catalog.html SPA
-  GET /api/tech-catalog/infrastructure       → ITInfrastructure assets
-  GET /api/tech-catalog/software-capabilities → SoftwareCapability elements
-  GET /api/tech-catalog/endpoints            → Endpoint elements
-  GET /api/tech-catalog/data-stores          → DataStore assets
-  GET /api/tech-catalog/data-feeds           → DataFeed assets
-  GET /api/tech-catalog/data-sets            → DataSet assets
-  GET /api/tech-catalog/apis                 → DeployedAPI assets
-  GET /api/tech-catalog/software-components  → DeployedSoftwareComponent processes
-  GET /api/tech-catalog/actions              → Action processes
-  GET /api/tech-catalog/assets/{guid}        → detail for any element by GUID
-  GET /api/tech-catalog/assets/{guid}/schema  → schema type + attribute tree (depth=5)
-  GET /api/tech-catalog/assets/{guid}/lineage → lineage graph via AssetCatalog
+  GET /tech-catalog                              → serve tech-catalog.html SPA
+  GET /api/tech-catalog/infrastructure           → ITInfrastructure assets
+  GET /api/tech-catalog/software-capabilities    → SoftwareCapability elements
+  GET /api/tech-catalog/endpoints                → Endpoint elements
+  GET /api/tech-catalog/data-stores              → DataStore assets
+  GET /api/tech-catalog/data-feeds               → DataFeed assets
+  GET /api/tech-catalog/data-sets                → DataSet assets
+  GET /api/tech-catalog/apis                     → DeployedAPI assets
+  GET /api/tech-catalog/software-components      → DeployedSoftwareComponent processes
+  GET /api/tech-catalog/actions                  → Action processes
+  GET /api/tech-catalog/assets/{guid}            → detail for any element by GUID
+  GET /api/tech-catalog/assets/{guid}/schema     → schema type + attribute tree (depth=5)
+  GET /api/tech-catalog/assets/{guid}/lineage    → lineage graph via AssetCatalog
+
+  GET /api/tech-catalog/tech-types               → list / search technology types
+  GET /api/tech-catalog/tech-types/hierarchy     → hierarchy tree from root
+  GET /api/tech-catalog/tech-types/{qualifiedName}          → detail by qualifiedName
+  GET /api/tech-catalog/tech-types/{qualifiedName}/elements → catalog instances of this type
 """
 
 import os
@@ -238,6 +243,14 @@ def _asset_catalog(url, server, user_id, user_pwd):
     return ac
 
 
+def _automated_curation(url, server, user_id, user_pwd):
+    from pyegeria import AutomatedCuration
+    u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
+    ac = AutomatedCuration(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
+    ac.create_egeria_bearer_token()
+    return ac
+
+
 def _serialize_schema(el: dict) -> dict:
     """Flatten the schemaType + nested attribute tree into a UI-friendly structure."""
     if not el:
@@ -299,6 +312,115 @@ def _serialize_lineage(lin: dict) -> dict:
             if r:
                 result.append(r)
     return {"relationships": result}
+
+
+def _serialize_tech_type(el: dict) -> dict:
+    """Serialise a technology type list element (flat ValidMetadataValue dict)."""
+    templates = el.get("catalogTemplates") or []
+    return {
+        "guid":          el.get("technologyTypeGUID") or el.get("guid") or "",
+        "qualifiedName": el.get("qualifiedName") or "",
+        "displayName":   el.get("displayName") or el.get("name") or "",
+        "description":   el.get("description") or "",
+        "category":      el.get("category") or "",
+        "templateCount": len(templates) if isinstance(templates, list) else 0,
+    }
+
+
+def _normalize_placeholder(ph: dict) -> dict:
+    """Normalise a placeholder property dict — handles both naming conventions."""
+    return {
+        "name":        ph.get("placeholderPropertyName") or ph.get("name") or "",
+        "dataType":    ph.get("placeholderPropertyDataType") or ph.get("dataType") or "string",
+        "required":    ph.get("required") is True or ph.get("required") == "true",
+        "example":     ph.get("example") or ph.get("exampleValue") or "",
+        "description": ph.get("description") or "",
+    }
+
+
+def _normalize_request_param(p: dict) -> dict:
+    return {
+        "name":        p.get("name") or p.get("parameterName") or "",
+        "dataType":    p.get("dataType") or "string",
+        "required":    p.get("required") is True or p.get("required") == "true",
+        "description": p.get("description") or "",
+        "example":     p.get("example") or "",
+    }
+
+
+def _serialize_tech_type_detail(el: dict) -> dict:
+    """Serialise a technology type detail element for the UI."""
+    base = _serialize_tech_type(el)
+
+    # Mermaid graphs
+    for field in ("mermaidGraph", "specificationMermaidGraph"):
+        val = el.get(field)
+        if val and isinstance(val, str) and not val.lower().startswith("no "):
+            base[field] = val
+
+    # --- Catalog Templates ---
+    raw_templates = el.get("catalogTemplates") or []
+    templates = []
+    for t in raw_templates:
+        if not isinstance(t, dict):
+            continue
+        rel_el = (t.get("relatedElement") or {})
+        rel_props = rel_el.get("properties") or {}
+        rel_hdr   = rel_el.get("elementHeader") or {}
+        spec = t.get("specification") or {}
+        raw_placeholders = spec.get("placeholderProperty") or []
+        placeholders = [_normalize_placeholder(p) for p in raw_placeholders if isinstance(p, dict)]
+        # Sort: required first
+        placeholders.sort(key=lambda p: (not p["required"], p["name"].lower()))
+        templates.append({
+            "displayName": t.get("displayName") or rel_props.get("displayName") or "",
+            "description": t.get("description") or rel_props.get("description") or "",
+            "guid":        (rel_hdr.get("guid") or rel_el.get("guid") or
+                            t.get("guid") or ""),
+            "resourceUse": t.get("resourceUse") or "",
+            "placeholders": placeholders,
+        })
+    base["catalogTemplates"] = templates
+
+    # --- Governance Processes ---
+    raw_processes = el.get("governanceActionProcesses") or []
+    processes = []
+    for gp in raw_processes:
+        if not isinstance(gp, dict):
+            continue
+        rel_el    = (gp.get("relatedElement") or {})
+        rel_props = rel_el.get("properties") or {}
+        rel_hdr   = rel_el.get("elementHeader") or {}
+        spec = gp.get("specification") or {}
+        raw_params = spec.get("supportedRequestParameter") or []
+        params = [_normalize_request_param(p) for p in raw_params if isinstance(p, dict)]
+        params.sort(key=lambda p: (not p["required"], p["name"].lower()))
+        processes.append({
+            # rel_props.displayName is the actual process name; gp.displayName is the resourceUse label
+            "displayName": rel_props.get("displayName") or gp.get("displayName") or "",
+            "description": gp.get("description") or rel_props.get("description") or "",
+            "guid":        rel_hdr.get("guid") or rel_el.get("guid") or gp.get("guid") or "",
+            "resourceUse": gp.get("resourceUse") or "",
+            "parameters":  params,
+        })
+    base["governanceActionProcesses"] = processes
+
+    # --- External References ---
+    raw_refs = el.get("externalReferences") or []
+    ext_refs = []
+    for ref in raw_refs:
+        if not isinstance(ref, dict):
+            continue
+        rel_el    = (ref.get("relatedElement") or {})
+        rel_props = rel_el.get("properties") or {}
+        ext_refs.append({
+            "displayName": ref.get("displayName") or rel_props.get("displayName") or "",
+            "description": ref.get("description") or rel_props.get("description") or "",
+            "url":         ref.get("url") or rel_props.get("url") or "",
+        })
+    base["externalReferences"] = ext_refs
+
+    return base
 
 
 # ── SPA route ─────────────────────────────────────────────────────────────────
@@ -668,6 +790,120 @@ def get_asset_lineage(
         raise HTTPException(status_code=500, detail=exc_str)
 
 
+# ── Technology Types routes ───────────────────────────────────────────────────
+# IMPORTANT: register hierarchy and elements routes BEFORE the parametric
+# {qualified_name} route to avoid "hierarchy" or "{qn}/elements" being captured
+# as a qualifiedName value.
+
+@router.get("/api/tech-catalog/tech-types/hierarchy")
+def get_tech_type_hierarchy(
+    root: str = Query("Root Technology Type"),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    """Return the technology type hierarchy tree starting from root."""
+    try:
+        ac = _automated_curation(url, server, user_id, user_pwd)
+        raw = ac.get_tech_type_hierarchy(filter_string=root or "Root Technology Type",
+                                         output_format="JSON")
+        return JSONResponse({"hierarchy": raw})
+    except Exception as exc:
+        logger.exception("get_tech_type_hierarchy failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/api/tech-catalog/tech-types")
+def list_tech_types(
+    q: str = Query("*"),
+    start_from: int = Query(0, ge=0),
+    page_size:  int = Query(100, ge=1, le=500),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    """List or search technology types."""
+    try:
+        ac = _automated_curation(url, server, user_id, user_pwd)
+        raw = ac.find_technology_types(
+            search_string=q or "*",
+            start_from=start_from,
+            page_size=page_size,
+            output_format="JSON",
+        )
+        # Deduplicate by qualifiedName (some content packs register the same type twice).
+        # Keep the entry with more catalogTemplates when there's a conflict.
+        seen: dict = {}
+        for e in _safe_list(raw):
+            item = _serialize_tech_type(e)
+            qn = item.get("qualifiedName", "")
+            if qn not in seen or item.get("templateCount", 0) > seen[qn].get("templateCount", 0):
+                seen[qn] = item
+        items = sorted(seen.values(), key=lambda x: x.get("displayName", "").lower())
+        return JSONResponse({"items": items, "total": len(items)})
+    except Exception as exc:
+        logger.exception("list_tech_types failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/api/tech-catalog/tech-types/{qualified_name:path}/elements")
+def get_tech_type_elements(
+    qualified_name: str,
+    display_name: str = Query(""),
+    start_from: int = Query(0, ge=0),
+    page_size:  int = Query(100, ge=1, le=500),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    """Return catalog instances of the given technology type.
+
+    get_technology_type_elements requires the displayName (exact match, no wildcards).
+    Pass it via the ?display_name= query param, populated from the already-loaded detail.
+    Falls back to qualifiedName if display_name is absent.
+    """
+    try:
+        ac = _automated_curation(url, server, user_id, user_pwd)
+        filter_str = display_name or qualified_name.split(":")[-1] if ":" in qualified_name else qualified_name
+        raw = ac.get_technology_type_elements(
+            filter_string=filter_str,
+            start_from=start_from,
+            page_size=page_size,
+            output_format="JSON",
+        )
+        items = [_serialize(e) for e in _safe_list(raw)]
+        return JSONResponse({"items": items, "total": len(items)})
+    except Exception as exc:
+        logger.exception("get_tech_type_elements failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/api/tech-catalog/tech-types/{qualified_name:path}")
+def get_tech_type_detail(
+    qualified_name: str,
+    display_name: Optional[str] = Query(None),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    """Return full detail for a technology type.
+
+    get_tech_type_detail (the underlying /technology-types/by-name call) matches
+    by displayName only.  The frontend must pass ?display_name= alongside the
+    qualifiedName path param so the lookup uses the correct display name.
+    Falls back to qualified_name if display_name is not supplied.
+    """
+    filter_str = display_name or qualified_name
+    try:
+        ac = _automated_curation(url, server, user_id, user_pwd)
+        raw = ac.get_tech_type_detail(filter_string=filter_str, output_format="JSON")
+        el = raw[0] if isinstance(raw, list) else raw
+        if not isinstance(el, dict):
+            raise HTTPException(status_code=404, detail=f"Technology type {filter_str!r} not found")
+        return JSONResponse(_serialize_tech_type_detail(el))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("get_tech_type_detail failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 # Map from section id → targeted find_* with graph_query_depth=3 for full property/relationship detail
 _SECTION_FINDERS = {
     "software-capabilities": lambda m: m.find_software_capabilities(
@@ -681,10 +917,10 @@ _SECTION_FINDERS = {
 
 def _fetch_detail(mgr, guid: str, section: Optional[str]):
     """
-    Fetch a single element with graph_query_depth=3 to expose full property/relationship detail.
+    Fetch a single element with full property/relationship/mermaid detail.
     Endpoints use ConnectionMaker.get_endpoint_by_guid (not an Asset subtype).
-    Other non-Asset sections use the targeted finder.
-    Asset subtypes fall through to get_asset_by_guid.
+    All Asset subtypes use AssetCatalog.get_asset_graph for richer mermaid graphs,
+    with fallback to get_asset_by_guid for types the graph endpoint can't serve.
     """
     # Endpoints: direct GUID lookup via ConnectionMaker
     if section == "endpoints":
@@ -702,7 +938,27 @@ def _fetch_detail(mgr, guid: str, section: Optional[str]):
             pass
         return None
 
-    # Known non-Asset section — use targeted find and filter by GUID
+    # All Asset types (infrastructure, software-capabilities, data assets, APIs, processes):
+    # use AssetCatalog.get_asset_graph — returns the full anchored-element graph plus
+    # more complete mermaid diagrams than get_asset_by_guid.
+    try:
+        ac = _asset_catalog_from_asset_maker(mgr)
+        raw = ac.get_asset_graph(asset_guid=guid, output_format="JSON")
+        el = raw[0] if isinstance(raw, list) else raw
+        if el and isinstance(el, dict):
+            # Inject the dedicated asset mermaid graph if not already embedded in the element.
+            if not el.get("mermaidGraph") and not (el.get("properties") or {}).get("mermaidGraph"):
+                try:
+                    mermaid_str = ac.get_asset_mermaid_graph(guid)
+                    if mermaid_str and not str(mermaid_str).lower().startswith("no "):
+                        el["mermaidGraph"] = mermaid_str
+                except Exception:
+                    pass
+            return el
+    except Exception:
+        pass
+
+    # Fallback: targeted finders for non-standard Asset types
     finder = _SECTION_FINDERS.get(section or "")
     if finder:
         try:
@@ -710,7 +966,7 @@ def _fetch_detail(mgr, guid: str, section: Optional[str]):
         except Exception:
             pass
 
-    # Asset subtypes — direct GUID lookup (fast)
+    # Fallback: get_asset_by_guid
     try:
         raw = mgr.get_asset_by_guid(
             asset_guid=guid,
@@ -723,7 +979,7 @@ def _fetch_detail(mgr, guid: str, section: Optional[str]):
     except Exception:
         pass
 
-    # Fallback: SoftwareCapability subtypes (catches any missed non-Asset type)
+    # Last resort: SoftwareCapability finder
     try:
         return _find_by_guid(
             mgr.find_software_capabilities(search_string="*", output_format="JSON", graph_query_depth=3),
@@ -750,6 +1006,19 @@ def _connection_maker_from_asset_maker(mgr):
     )
     cm.create_egeria_bearer_token()
     return cm
+
+
+def _asset_catalog_from_asset_maker(mgr):
+    """Create an AssetCatalog sharing credentials from an existing AssetMaker."""
+    from pyegeria import AssetCatalog
+    ac = AssetCatalog(
+        view_server=mgr.server_name,
+        platform_url=mgr.platform_url,
+        user_id=mgr.user_id,
+        user_pwd=mgr.user_pwd,
+    )
+    ac.create_egeria_bearer_token()
+    return ac
 
 
 def _find_by_guid(raw, guid: str):
