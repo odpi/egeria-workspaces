@@ -781,13 +781,18 @@ def get_asset_lineage(
     try:
         ac = _asset_catalog(url, server, user_id, user_pwd)
         mermaid_str = ac.get_asset_lineage_graph(asset_guid=guid, output_format="MERMAID")
-        return JSONResponse({"mermaidGraph": mermaid_str or ""})
+        if isinstance(mermaid_str, str):
+            return JSONResponse({"mermaidGraph": mermaid_str or ""})
+        # Some pyegeria versions return a dict; extract mermaidGraph field if present
+        if isinstance(mermaid_str, dict):
+            return JSONResponse({"mermaidGraph": mermaid_str.get("mermaidGraph") or ""})
+        return JSONResponse({"mermaidGraph": ""})
     except Exception as exc:
         exc_str = str(exc)
-        # Egeria returns 400 when no lineage data exists for the asset; treat as empty
-        if "400" in exc_str or "CLIENT_ERROR_400" in exc_str:
+        # 400 = no lineage data; 404 = element not an Asset (e.g. Endpoint); treat both as empty
+        if any(code in exc_str for code in ("400", "404", "CLIENT_ERROR_400", "CLIENT_ERROR_404")):
             return JSONResponse({"mermaidGraph": ""})
-        logger.exception("get_asset_lineage failed")
+        logger.exception("get_asset_lineage failed for %s", guid)
         raise HTTPException(status_code=500, detail=exc_str)
 
 
