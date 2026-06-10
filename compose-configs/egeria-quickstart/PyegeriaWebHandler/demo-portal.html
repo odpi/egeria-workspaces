@@ -347,6 +347,9 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
     { icon: '🐱', name: 'The Catalog',
       desc: 'Browse infrastructure assets, data stores, APIs, and processes registered in Egeria.',
       url: '/tech-catalog', newTab: false, enabled: true },
+    { icon: '🔭', name: 'Resource Explorer',
+      desc: 'Scout, Assess, Discover, Enrich Resources.',
+      url: '/resource-explorer', newTab: false, enabled: false, badge: 'Preview soon' },
     { icon: '🔍', name: 'Egeria Explorer',
       desc: 'Browse Egeria metadata — types, glossary, lineage, governance blueprints, information supply chains, and more.',
       url: '/egeria-explorer', newTab: false, enabled: true },
@@ -386,7 +389,7 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
   function _renderTile(a) {
     var action;
     if (!a.enabled) {
-      action = '<span class="soon-badge">Coming soon</span>';
+      action = '<span class="soon-badge">' + esc(a.badge || 'Coming soon') + '</span>';
     } else if (a.unavailable) {
       action = '<span class="soon-badge" style="background:var(--hover);color:var(--muted)">Not running</span>';
     } else if (a.obsidian) {
