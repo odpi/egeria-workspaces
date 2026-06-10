@@ -343,6 +343,19 @@ New standalone SPA (`tech-catalog.html`) + backend handler (`tech_catalog_handle
 
 ---
 
+## Resource Explorer
+
+Portal card added (Preview soon). Credential pass-through and launch wiring needed before the tool can be enabled.
+
+The Catalog and Egeria Explorer both receive credentials at launch via query params (`url`, `server`, `user_id`) appended to the target URL by the portal. The same pattern must be applied to Resource Explorer and Egeria Advisor.
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| RE-1 | Pass Egeria credentials to Resource Explorer at launch — append `url`, `server`, `user_id` query params the same way the portal does for The Catalog and Egeria Explorer | open | Portal `launch()` call needs to read current creds state and append params; Resource Explorer SPA reads them on load |
+| RE-2 | Pass Egeria credentials to Egeria Advisor at launch — same credential pass-through pattern as RE-1 | open | Advisor is an external service (not in compose); confirm it accepts query-param credentials or needs a different mechanism |
+
+---
+
 ## Modularization
 
 Spec notes in `technical_data_catalog_spec.md` (Modularization strategy section).
