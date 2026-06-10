@@ -62,8 +62,11 @@
     .form-row input:focus, .form-row select:focus { border-color: var(--accent); outline: none; }
 
     /* ── Tables ── */
-    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 0.75rem; }
-    thead th { text-align: left; padding: 0.45rem 0.6rem; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 500; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 0.75rem; table-layout: fixed; }
+    thead th { text-align: left; padding: 0.45rem 0.6rem; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 500; position: relative; overflow: hidden; white-space: nowrap; }
+    thead th .col-resize { position: absolute; right: 0; top: 0; width: 5px; height: 100%; cursor: col-resize; z-index: 2; }
+    thead th .col-resize:hover, thead th .col-resize.dragging { background: var(--accent); opacity: 0.5; }
+    .col-wrap { white-space: normal; word-break: break-word; }
     tbody tr { border-bottom: 1px solid var(--border); }
     tbody tr:hover { background: var(--trow); }
     tbody td { padding: 0.5rem 0.6rem; vertical-align: middle; }
@@ -187,7 +190,7 @@
       </select>
     </div>
 
-    <table>
+    <table id="fbTable">
       <thead><tr><th>Date / Time</th><th>Email</th><th>Page</th><th>Comment</th><th>Rating</th><th>Category</th><th>Wants Response?</th><th>Status</th><th></th></tr></thead>
       <tbody id="fbBody"><tr><td colspan="9" class="empty">Loading…</td></tr></tbody>
     </table>
@@ -379,7 +382,6 @@
       tbody.innerHTML = rows.map(function(r) {
         var time = r.created_at ? r.created_at.slice(0,16).replace('T',' ') : '—';
         var stars = r.rating ? '★'.repeat(r.rating) : '—';
-        var msg = r.message ? (r.message.length > 80 ? r.message.slice(0,80) + '…' : r.message) : '—';
         var wantsResp = r.wants_response
           ? '<span style="color:var(--success);font-weight:600">Yes</span>'
           : '<span style="color:var(--muted)">No</span>';
@@ -388,8 +390,8 @@
         return '<tr>' +
           '<td style="white-space:nowrap;font-size:0.8rem">' + time + '</td>' +
           '<td style="font-size:0.8rem">' + esc(r.email || '—') + '</td>' +
-          '<td style="font-size:0.78rem;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.page || '') + '">' + esc(r.page || '—') + '</td>' +
-          '<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.message || '') + '">' + esc(msg) + '</td>' +
+          '<td class="col-wrap" style="font-size:0.78rem">' + esc(r.page || '—') + '</td>' +
+          '<td class="col-wrap">' + esc(r.message || '—') + '</td>' +
           '<td style="color:#f59e0b">' + stars + '</td>' +
           '<td style="font-size:0.78rem">' + esc(r.category || '—') + '</td>' +
           '<td>' + wantsResp + '</td>' +
@@ -414,9 +416,34 @@
     }).then(function() { loadFeedback(); }).catch(function(e) { showBanner('error', 'Triage failed: ' + e); });
   }
 
+  // ── Resizable columns ─────────────────────────────────────────────
+  function makeResizable(tableId, colWidths) {
+    var table = document.getElementById(tableId);
+    if (!table || table._resizeDone) return;
+    table._resizeDone = true;
+    var ths = table.querySelectorAll('thead th');
+    ths.forEach(function(th, i) {
+      if (colWidths && colWidths[i]) th.style.width = colWidths[i];
+      var handle = document.createElement('div');
+      handle.className = 'col-resize';
+      th.appendChild(handle);
+      handle.addEventListener('mousedown', function(e) {
+        handle.classList.add('dragging');
+        var startX = e.pageX, startW = th.offsetWidth;
+        function onMove(e) { if (startW + e.pageX - startX > 30) th.style.width = (startW + e.pageX - startX) + 'px'; }
+        function onUp()   { handle.classList.remove('dragging'); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+        e.preventDefault();
+      });
+    });
+  }
+
   // ── Init ───────────────────────────────────────────────────────────
   loadLock();
   loadFeedback();
+  // Date/Time, Email, Page, Comment, Rating, Category, Wants Response?, Status, (triage)
+  makeResizable('fbTable', ['110px','150px','130px','260px','55px','80px','100px','75px','90px']);
 </script>
 </body>
 </html>
