@@ -938,7 +938,29 @@ def _fetch_detail(mgr, guid: str, section: Optional[str]):
             pass
         return None
 
-    # All Asset types (infrastructure, software-capabilities, data assets, APIs, processes):
+    # Data assets: use get_asset_by_guid with graphQueryDepth=5 to capture the full
+    # schema and relationship graph (stores, schemas, columns, lineage anchors).
+    if section == "data-assets":
+        try:
+            raw = mgr.get_asset_by_guid(
+                asset_guid=guid,
+                output_format="JSON",
+                body={"class": "GetRequestBody", "graphQueryDepth": 5, "relationshipsPageSize": 200},
+            )
+            el = raw[0] if isinstance(raw, list) else raw
+            if el and isinstance(el, dict):
+                try:
+                    ac = _asset_catalog_from_asset_maker(mgr)
+                    mermaid_str = ac.get_asset_mermaid_graph(guid)
+                    if mermaid_str and not str(mermaid_str).lower().startswith("no "):
+                        el.setdefault("mermaidGraph", mermaid_str)
+                except Exception:
+                    pass
+                return el
+        except Exception:
+            pass
+
+    # All other Asset types (infrastructure, software-capabilities, APIs, processes):
     # use AssetCatalog.get_asset_graph — returns the full anchored-element graph plus
     # more complete mermaid diagrams than get_asset_by_guid.
     try:
