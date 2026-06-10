@@ -780,7 +780,7 @@ def get_asset_lineage(
     """
     try:
         ac = _asset_catalog(url, server, user_id, user_pwd)
-        mermaid_str = ac.get_asset_lineage_mermaid_graph(asset_guid=guid)
+        mermaid_str = ac.get_asset_lineage_graph(asset_guid=guid, output_format="MERMAID")
         return JSONResponse({"mermaidGraph": mermaid_str or ""})
     except Exception as exc:
         exc_str = str(exc)
@@ -926,7 +926,7 @@ def _fetch_detail(mgr, guid: str, section: Optional[str]):
     if section == "endpoints":
         try:
             cm = _connection_maker_from_asset_maker(mgr)
-            raw = cm.get_endpoint_by_guid(endpoint_guid=guid, output_format="JSON")
+            raw = cm.get_endpoint_by_guid(guid=guid, output_format="JSON", graph_query_depth=5)
             el = raw[0] if isinstance(raw, list) else raw
             if el:
                 return el
@@ -943,14 +943,6 @@ def _fetch_detail(mgr, guid: str, section: Optional[str]):
         )
         el = raw[0] if isinstance(raw, list) else raw
         if el and isinstance(el, dict):
-            # Inject the dedicated asset mermaid graph if not already embedded in the element.
-            if not el.get("mermaidGraph") and not (el.get("properties") or {}).get("mermaidGraph"):
-                try:
-                    mermaid_str = ac.get_asset_mermaid_graph(guid)
-                    if mermaid_str and not str(mermaid_str).lower().startswith("no "):
-                        el["mermaidGraph"] = mermaid_str
-                except Exception:
-                    pass
             return el
     except Exception:
         pass
