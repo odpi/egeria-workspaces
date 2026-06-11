@@ -911,7 +911,6 @@ def get_asset_schema(
                 "class": "GetRequestBody",
                 "graphQueryDepth": 5,
                 "relationshipsPageSize": 200,
-                "includeOnlyRelationships": ["Schema", "AttributeForSchema"],
             },
         )
         el = raw[0] if isinstance(raw, list) else raw
@@ -1024,7 +1023,7 @@ def get_tech_type_elements(
     """
     try:
         ac = _automated_curation(url, server, user_id, user_pwd, token=_token_from_request(request))
-        filter_str = display_name or qualified_name.split(":")[-1] if ":" in qualified_name else qualified_name
+        filter_str = display_name or (qualified_name.split(":")[-1] if ":" in qualified_name else qualified_name)
         raw = ac.get_technology_type_elements(
             filter_string=filter_str,
             start_from=start_from,
@@ -1034,8 +1033,12 @@ def get_tech_type_elements(
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
     except Exception as exc:
+        exc_str = str(exc)
+        # Egeria returns 400/404 when no elements match — treat as empty list
+        if any(code in exc_str for code in ("400", "404", "CLIENT_ERROR_400", "CLIENT_ERROR_404", "No elements")):
+            return JSONResponse({"items": [], "total": 0})
         logger.exception("get_tech_type_elements failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=exc_str)
 
 
 @router.get("/api/tech-catalog/tech-types/{qualified_name:path}")

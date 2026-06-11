@@ -2231,6 +2231,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
     fetchWithToken(detailUrl, creds)
       .then(function(r) {
         if (r.status === 403) { setDetailErr('unauthorized'); setDetailLoad(false); return null; }
+        if (!r.ok) { setDetailLoad(false); return null; }  // keep initial item data on any error
         return r.json();
       })
       .then(function(d) { if (d) { setDetail(d); setDetailLoad(false); } })
