@@ -163,7 +163,7 @@ def get_asset_graph(
     """
     try:
         ac = _asset_catalog(url, server, _token_from_request(request))
-        raw = ac.get_asset_graph(
+        raw = ac.get_asset_graph_by_guid(
             asset_guid=guid,
             as_of_time=as_of_time or None,
             output_format="JSON",
@@ -209,7 +209,7 @@ def get_asset_lineage_graph(
     _empty = {"mermaidGraph": "", "edgeMermaidGraph": "", "linkedAssets": []}
     try:
         ac = _asset_catalog(url, server, _token_from_request(request))
-        raw = ac.get_asset_lineage_graph(
+        raw = ac.get_asset_lineage_graph_by_guid(
             asset_guid=guid,
             as_of_time=as_of_time or None,
             limit_to_isc_q_name=limit_to_isc or None,
