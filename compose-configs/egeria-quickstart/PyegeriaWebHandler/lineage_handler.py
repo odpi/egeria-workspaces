@@ -168,7 +168,12 @@ def get_asset_graph(
             output_format="JSON",
             as_of_time=as_of_time or None,
         )
-        el = raw[0] if isinstance(raw, list) else raw
+        if isinstance(raw, list):
+            el = raw[0]
+        elif isinstance(raw, dict) and 'element' in raw:
+            el = raw['element']
+        else:
+            el = raw
         if not isinstance(el, dict):
             return JSONResponse({"error": "not_found"}, status_code=404)
         return JSONResponse(el)

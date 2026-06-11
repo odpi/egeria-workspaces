@@ -138,7 +138,7 @@
     .isc-opts label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
 
     /* Mermaid */
-    .mermaid-wrap { overflow-x: auto; margin: 8px 0; min-height: 40px; }
+    .mermaid-wrap { overflow-x: auto; margin: 8px 0; background: #fff; border-radius: 4px; padding: 4px; }
     .mermaid-wrap svg { max-width: 100%; }
 
     /* Loading / error */
@@ -170,7 +170,7 @@
     .welcome-text { font-size: 15px; }
     .welcome-hint { font-size: 12px; color: var(--dim); }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
   <script>/* React 18 production *//**
  * @license React
  * react.production.min.js
@@ -523,7 +523,7 @@ function MermaidDiagram({ code }) {
     try { window.mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' }); } catch(_) {}
     window.mermaid.render(id.current, code)
       .then(function(r) { if (ref.current) ref.current.innerHTML = r.svg; })
-      .catch(function() {});
+      .catch(function(e) { console.error('Mermaid render error:', e); if (ref.current) ref.current.innerHTML = '<pre style="color:red;font-size:10px">' + String(e) + '</pre>'; });
   }, [code]);
   return React.createElement('div', { ref: ref, className: 'mermaid-wrap' });
 }
@@ -674,7 +674,8 @@ function LineageLinkageTable({ linkage, onSetFocus }) {
             reSuperTypes.some(function(s) { return s && s.toUpperCase().includes('ASSET'); });
           var reGuid = rehdr.guid || '';
           var reDisp = reprop.displayName || reprop.qualifiedName || reGuid;
-          var relLabel = (relhdr.type && relhdr.type.typeName) || '';
+          var relLabel = (rel.relationshipProperties && rel.relationshipProperties.label)
+                      || (relhdr.type && relhdr.type.typeName) || '';
           return React.createElement('tr', { key: relhdr.guid || i },
             React.createElement('td', null, relLabel),
             React.createElement('td', { className: 'td-trunc' }, reDisp),
@@ -712,9 +713,8 @@ function ISCTable({ iscs, selectedISCGuid, onSelect }) {
       ),
       React.createElement('tbody', null,
         iscs.map(function(isc, i) {
-          var re    = isc.relatedElement || {};
-          var rehdr = re.elementHeader || {};
-          var props = re.properties    || {};
+          var rehdr = isc.elementHeader || {};
+          var props = isc.properties   || {};
           var guid  = rehdr.guid || '';
           var name  = props.displayName || props.qualifiedName || guid;
           var qn    = props.qualifiedName || '';
@@ -730,7 +730,7 @@ function ISCTable({ iscs, selectedISCGuid, onSelect }) {
             React.createElement('td', null,
               guid
                 ? React.createElement('a', {
-                    href: '/egeria-explorer?section=isc&guid=' + encodeURIComponent(guid),
+                    href: '/egeria-explorer?guid=' + encodeURIComponent(guid) + '#isc',
                     target: '_blank',
                     className: 'btn btn-view',
                     onClick: function(e) { e.stopPropagation(); }
@@ -745,7 +745,7 @@ function ISCTable({ iscs, selectedISCGuid, onSelect }) {
 }
 
 // ── LinkedAssetsTable ─────────────────────────────────────────────────────────
-function LinkedAssetsTable({ assets }) {
+function LinkedAssetsTable({ assets, onSetFocus }) {
   if (!assets || assets.length === 0) {
     return React.createElement('div', { className: 'section-empty' }, 'No linked assets found.');
   }
@@ -763,20 +763,34 @@ function LinkedAssetsTable({ assets }) {
           React.createElement('th', null, 'Qualified Name'),
           React.createElement('th', null, 'GUID'),
           React.createElement('th', null, 'Created'),
-          React.createElement('th', null, 'Updated')
+          React.createElement('th', null, 'Updated'),
+          React.createElement('th', null, 'Actions')
         )
       ),
       React.createElement('tbody', null,
         assets.map(function(asset, i) {
           var hdr  = asset.elementHeader || {};
           var prop = asset.properties    || {};
+          var superTypes = ((hdr.type || {}).superTypeNames || []);
+          var isAsset = superTypes.indexOf('Asset') !== -1 || (hdr.type || {}).typeName === 'Asset';
           return React.createElement('tr', { key: hdr.guid || i },
             React.createElement('td', null, prop.displayName || prop.qualifiedName || ''),
             React.createElement('td', { style: { color: 'var(--muted)', maxWidth: 200 } }, prop.description || ''),
             React.createElement('td', { className: 'mono td-trunc', title: prop.qualifiedName }, prop.qualifiedName || ''),
             React.createElement('td', { className: 'guid-cell', title: hdr.guid }, hdr.guid || ''),
             React.createElement('td', { style: { whiteSpace: 'nowrap' } }, fmtDate(hdr.createTime)),
-            React.createElement('td', { style: { whiteSpace: 'nowrap' } }, fmtDate(hdr.updateTime))
+            React.createElement('td', { style: { whiteSpace: 'nowrap' } }, fmtDate(hdr.updateTime)),
+            React.createElement('td', { style: { whiteSpace: 'nowrap' } },
+              isAsset && onSetFocus && React.createElement('button', {
+                className: 'btn btn-focus', style: { marginRight: 4 },
+                onClick: function() { onSetFocus({ guid: hdr.guid, displayName: prop.displayName || prop.qualifiedName || '', typeName: (hdr.type || {}).typeName || '', qualifiedName: prop.qualifiedName || '', description: prop.description || '' }); }
+              }, 'Set as Focus'),
+              hdr.guid && React.createElement('a', {
+                href: '/tech-catalog?guid=' + encodeURIComponent(hdr.guid),
+                target: '_blank',
+                className: 'btn btn-view', style: { textDecoration: 'none' }
+              }, 'View in Catalog')
+            )
           );
         })
       )
@@ -804,12 +818,18 @@ function MainPanel({ focusAsset, creds, onSetFocus }) {
 
   var guid = focusAsset ? focusAsset.guid : null;
 
-  // Fetch asset graph whenever guid or asOfTime changes
+  // Reset all state when the focused asset changes (keeps TimeSlider mounted during asOfTime re-fetches)
   useEffect(function() {
-    if (!guid || !creds) return;
-    setGraphData(null); setGraphErr(''); setGraphLoad(true);
+    if (!guid) return;
+    setGraphData(null); setGraphErr('');
     setLineageData(null); setLineageErr(''); setShowFull(false);
     setSelectedISC(null);
+  }, [guid]);
+
+  // Fetch asset graph whenever guid or asOfTime changes (does not clear graphData on asOfTime change)
+  useEffect(function() {
+    if (!guid || !creds) return;
+    setGraphErr(''); setGraphLoad(true);
     var url = '/api/lineage/asset/' + encodeURIComponent(guid) + '/graph';
     if (asOfTime) url += '?as_of_time=' + encodeURIComponent(asOfTime);
     fetchWithToken(url, creds)
@@ -867,9 +887,9 @@ function MainPanel({ focusAsset, creds, onSetFocus }) {
   var qName      = props.qualifiedName || focusAsset.qualifiedName || '';
   var desc       = props.description  || focusAsset.description  || '';
 
-  var localGraph   = graphData && (graphData.mermaidGraph || '');
+  var localGraph   = graphData && (graphData.localLineageGraph || '');
   var fieldGraph   = graphData && (graphData.anchorMermaidGraph || '');
-  var linkage      = graphData && (graphData.relationships || []);
+  var linkage      = graphData && (graphData.lineageLinkage || []);
   var iscList      = graphData && (graphData.partOfInformationSupplyChains || []);
   var hasLocalLineage = !!(localGraph && localGraph.trim());
 
@@ -1004,7 +1024,7 @@ function MainPanel({ focusAsset, creds, onSetFocus }) {
             'Linked Assets'),
           React.createElement('div', { className: 'section-desc', style: { marginBottom: 10 } },
             'All assets that appear in the full lineage graph above.'),
-          React.createElement(LinkedAssetsTable, { assets: linkedAssets })
+          React.createElement(LinkedAssetsTable, { assets: linkedAssets, onSetFocus: onSetFocus })
         )
       )
     )

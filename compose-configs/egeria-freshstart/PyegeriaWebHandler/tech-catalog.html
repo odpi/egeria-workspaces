@@ -1214,8 +1214,10 @@ function TechTypeDetail({ item, detailLoading, creds }) {
   }
 
   // --- Live instances sub-pane ---
+  var _elemParams = new URLSearchParams();
+  if (item.displayName) _elemParams.set('display_name', item.displayName);
   var elementsUrl = '/api/tech-catalog/tech-types/' + encodeURIComponent(item.qualifiedName) + '/elements' +
-    (item.deployedImplementationType ? '?deployed_implementation_type=' + encodeURIComponent(item.deployedImplementationType) : '');
+    (_elemParams.toString() ? '?' + _elemParams.toString() : '');
   var instancesEl = React.createElement(SubPane, {
     title: 'Catalog Instances',
     fetchUrl: elementsUrl,
@@ -1224,9 +1226,21 @@ function TechTypeDetail({ item, detailLoading, creds }) {
       var its = data.items || [];
       if (its.length === 0) return React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '6px 0' } }, 'No catalog entries of this type yet.');
       return React.createElement('div', null, its.map(function(it) {
-        return React.createElement('div', { key: it.guid, style: { borderBottom: '1px solid var(--border)', padding: '6px 0', fontSize: 12 } },
-          React.createElement('div', { style: { fontWeight: 600, color: 'var(--text)' } }, it.displayName || it.qualifiedName || it.guid),
-          React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 2 } }, it.typeName || '')
+        var rowStyle = { borderBottom: '1px solid var(--border)', padding: '8px 0', fontSize: 12 };
+        return React.createElement('div', { key: it.guid || it.qualifiedName, style: rowStyle },
+          React.createElement('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 2 } },
+            React.createElement('span', { style: { fontWeight: 600, color: 'var(--text)', flex: 1 } }, it.displayName || it.qualifiedName || it.guid),
+            it.guid && React.createElement('a', {
+              href: '/tech-catalog?guid=' + encodeURIComponent(it.guid),
+              target: '_blank',
+              style: { fontSize: 10, color: 'var(--accent)', textDecoration: 'none', border: '1px solid var(--border)',
+                       borderRadius: 4, padding: '1px 6px', whiteSpace: 'nowrap', flexShrink: 0 }
+            }, '↗ View')
+          ),
+          it.typeName && React.createElement('div', { style: { fontSize: 10, color: 'var(--muted)', marginBottom: 2 } }, it.typeName),
+          it.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginBottom: 2, lineHeight: 1.4 } }, it.description),
+          it.qualifiedName && React.createElement('code', { style: { fontSize: 9, color: 'var(--dim)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }, title: it.qualifiedName }, it.qualifiedName),
+          it.guid && React.createElement('div', { style: { fontSize: 9, color: 'var(--dim)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: it.guid }, it.guid)
         );
       }));
     }
@@ -1240,6 +1254,7 @@ function TechTypeDetail({ item, detailLoading, creds }) {
     React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginBottom: item.description ? 12 : 4 } }, item.qualifiedName),
     item.description && React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 12 },
       dangerouslySetInnerHTML: { __html: renderMd(item.description) } }),
+    item.mermaidGraph && React.createElement(DiagramPanelFromData, { code: item.mermaidGraph, label: 'Technology Context Diagram' }),
     React.createElement(AvailableMermaidDiagrams, { data: item }),
     templatesEl,
     processesEl,
@@ -2396,7 +2411,8 @@ function SectionView({ sectionId, creds, navTarget, onNavigate }) {
       endpoint: currentTab.endpoint,
       sectionId: currentTab.id,
       creds: creds,
-      navTarget: navTarget && navTarget.section === sectionId && navTarget.tab === currentTab.id ? navTarget : null,
+      navTarget: navTarget && navTarget.guid && (navTarget.section === sectionId || !navTarget.section)
+                   && (!navTarget.tab || navTarget.tab === currentTab.id) ? navTarget : null,
       onNavigate: onNavigate,
     })
   );
@@ -2520,14 +2536,21 @@ function App() {
   var _section   = useState(function() {
     var hash  = window.location.hash.slice(1);
     var valid = new Set(['glossary','infrastructure','data-assets','apis','processes','tech-types']);
-    return valid.has(hash) ? hash : '';
+    if (valid.has(hash)) return hash;
+    var params = new URLSearchParams(window.location.search);
+    if (params.get('guid')) return 'data-assets';
+    return '';
   }), section = _section[0], setSection = _section[1];
 
   var _creds     = useState(null),  creds      = _creds[0],     setCreds      = _creds[1];
   var _srvMgd    = useState(false), srvManaged = _srvMgd[0],    setSrvManaged = _srvMgd[1];
   var _demoMode  = useState(false), demoMode   = _demoMode[0],  setDemoMode   = _demoMode[1];
   var _ready     = useState(false), ready      = _ready[0],     setReady      = _ready[1];
-  var _navTarget = useState(null),  navTarget  = _navTarget[0], setNavTarget  = _navTarget[1];
+  var _navTarget = useState(function() {
+    var params = new URLSearchParams(window.location.search);
+    var guid = params.get('guid');
+    return guid ? { guid: guid, section: 'data-assets' } : null;
+  }), navTarget  = _navTarget[0], setNavTarget  = _navTarget[1];
   var _authUser  = useState(null),  authUser   = _authUser[0],  setAuthUser   = _authUser[1];
   var _activePersona = useState(function() {
     try { var s = localStorage.getItem('egeria-persona'); return s ? JSON.parse(s) : null; } catch(e) { return null; }

@@ -933,7 +933,7 @@ def get_asset_lineage(
     """
     try:
         ac = _asset_catalog(url, server, user_id, user_pwd, token=_token_from_request(request))
-        mermaid_str = ac.get_asset_lineage_graph(asset_guid=guid, output_format="MERMAID")
+        mermaid_str = ac.get_asset_lineage_graph_by_guid(guid, output_format="MERMAID")
         if isinstance(mermaid_str, str):
             return JSONResponse({"mermaidGraph": mermaid_str or ""})
         # Some pyegeria versions return a dict; extract mermaidGraph field if present
@@ -1028,6 +1028,7 @@ def get_tech_type_elements(
             filter_string=filter_str,
             start_from=start_from,
             page_size=page_size,
+            get_templates=True,
             output_format="JSON",
         )
         items = [_serialize(e) for e in _safe_list(raw)]
