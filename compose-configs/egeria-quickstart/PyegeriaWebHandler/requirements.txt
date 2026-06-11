@@ -5,6 +5,7 @@ requests
 httpx
 
 pyegeria>=5.4.8.10
+nest_asyncio
 email-validator
 loguru
 rich
