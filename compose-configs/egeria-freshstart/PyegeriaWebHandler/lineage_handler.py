@@ -166,6 +166,7 @@ def get_asset_graph(
         raw = ac.get_asset_graph_by_guid(
             guid,
             output_format="JSON",
+            as_of_time=as_of_time or None,
         )
         el = raw[0] if isinstance(raw, list) else raw
         if not isinstance(el, dict):
