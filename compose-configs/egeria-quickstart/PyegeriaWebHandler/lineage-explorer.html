@@ -655,8 +655,7 @@ function LineageLinkageTable({ linkage, onSetFocus }) {
     React.createElement('table', null,
       React.createElement('thead', null,
         React.createElement('tr', null,
-          React.createElement('th', null, 'Label'),
-          React.createElement('th', null, 'Description'),
+          React.createElement('th', null, 'Relationship'),
           React.createElement('th', null, 'Related Element'),
           React.createElement('th', null, 'Type'),
           React.createElement('th', null, '')
@@ -664,19 +663,20 @@ function LineageLinkageTable({ linkage, onSetFocus }) {
       ),
       React.createElement('tbody', null,
         linkage.map(function(rel, i) {
-          var re    = (rel.relatedElement || {});
-          var rehdr = re.elementHeader || {};
-          var reprop= re.properties   || {};
-          var retype= (rehdr.type || {});
+          var relhdr = rel.relationshipHeader || {};
+          var re     = (rel.relatedElement || {});
+          var rehdr  = re.elementHeader || {};
+          var reprop = re.properties   || {};
+          var retype = (rehdr.type || {});
           var reTypeName    = retype.typeName || '';
           var reSuperTypes  = retype.superTypeNames || [];
           var isAsset = reTypeName === 'Asset' ||
             reSuperTypes.some(function(s) { return s && s.toUpperCase().includes('ASSET'); });
           var reGuid = rehdr.guid || '';
           var reDisp = reprop.displayName || reprop.qualifiedName || reGuid;
-          return React.createElement('tr', { key: rel.guid || i },
-            React.createElement('td', null, rel.label || ''),
-            React.createElement('td', { style: { color: 'var(--muted)', maxWidth: 180 } }, rel.description || ''),
+          var relLabel = (relhdr.type && relhdr.type.typeName) || '';
+          return React.createElement('tr', { key: relhdr.guid || i },
+            React.createElement('td', null, relLabel),
             React.createElement('td', { className: 'td-trunc' }, reDisp),
             React.createElement('td', { className: 'mono' }, reTypeName),
             React.createElement('td', null,
@@ -861,15 +861,15 @@ function MainPanel({ focusAsset, creds, onSetFocus }) {
 
   var hdr   = (graphData && graphData.elementHeader) || {};
   var props = (graphData && graphData.properties)    || {};
-  var createTime = hdr.createTime || null;
-  var typeName   = focusAsset.typeName;
+  var createTime = (hdr.versions && hdr.versions.createTime) || null;
+  var typeName   = (hdr.type && hdr.type.typeName) || focusAsset.typeName;
   var dispName   = props.displayName || focusAsset.displayName || '';
   var qName      = props.qualifiedName || focusAsset.qualifiedName || '';
   var desc       = props.description  || focusAsset.description  || '';
 
-  var localGraph   = graphData && (graphData.localLineageGraph || '');
-  var fieldGraph   = graphData && (graphData.fieldLevelLineageGraph || '');
-  var linkage      = graphData && (graphData.lineageLinkage || []);
+  var localGraph   = graphData && (graphData.mermaidGraph || '');
+  var fieldGraph   = graphData && (graphData.anchorMermaidGraph || '');
+  var linkage      = graphData && (graphData.relationships || []);
   var iscList      = graphData && (graphData.partOfInformationSupplyChains || []);
   var hasLocalLineage = !!(localGraph && localGraph.trim());
 
