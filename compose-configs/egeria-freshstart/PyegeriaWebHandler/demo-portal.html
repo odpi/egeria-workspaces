@@ -146,6 +146,7 @@
 var _user = null;
 var _orgName = 'Egeria Freshstart';
 var _platformCfg = {};
+var _jupUrl = '';
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 Promise.all([
@@ -172,11 +173,14 @@ Promise.all([
   document.getElementById('loading-state').style.display = 'none';
 
   renderHub(me.role === 'admin');
+  refreshJupyterTile();
+  setInterval(refreshJupyterTile, 30000);
 }).catch(function() { window.location.href = '/login'; });
 
 // ── Hub ───────────────────────────────────────────────────────────────────────
 function renderHub(isAdmin) {
   var jupyterUrl = 'http://' + window.location.hostname + ':7888/?token=egeria';
+  _jupUrl = jupyterUrl;
   var advisorRunning = !!_platformCfg.advisor_running;
   var advisorUrl = _platformCfg.advisor_url || ('http://' + window.location.hostname + ':7880/');
 
@@ -189,7 +193,7 @@ function renderHub(isAdmin) {
       url: '/egeria-explorer', newTab: false, enabled: true },
     { icon: '📓', name: 'Jupyter Lab',
       desc: 'Interactive notebooks for data science and hands-on Egeria API exploration.',
-      url: jupyterUrl, newTab: true, enabled: true },
+      enabled: true, jupyter: true },
     { icon: '🖥️', name: 'My Egeria',
       desc: 'Explore your Egeria profile, roles, teams, actions, and data catalog.',
       url: '/my-egeria/', newTab: true, enabled: false },
@@ -244,6 +248,8 @@ function renderTile(a) {
     action = '<span class="soon-badge">' + esc(a.badge || 'Coming soon') + '</span>';
   } else if (a.unavailable) {
     action = '<span class="soon-badge" style="background:var(--hover);color:var(--muted)">Not running</span>';
+  } else if (a.jupyter) {
+    action = '<div id="jup-tile-action"><span style="color:var(--muted);font-size:0.8rem">Loading…</span></div>';
   } else {
     action = '<button class="btn btn-accent app-action" onclick="launch(' + JSON.stringify(a.url).replace(/"/g, '&quot;') + ',' + a.newTab + ')">' + (a.newTab ? 'Open ↗' : 'Open') + '</button>';
   }
@@ -258,6 +264,126 @@ function launch(url, newTab) {
   if (!url) return;
   if (newTab) { window.open(url, '_blank', 'noopener'); } else { window.location.href = url; }
 }
+
+// ── Jupyter lock management ───────────────────────────────────────────────────
+var _jupToken     = sessionStorage.getItem('jup-token') || null;
+var _jupKeepalive = null;
+var _jupStatus    = null;
+
+function refreshJupyterTile() {
+  fetch('/api/jupyter/status').then(function(r) { return r.json(); }).then(function(s) {
+    _jupStatus = s;
+    _renderJupTile(s);
+  }).catch(function() {
+    var el = document.getElementById('jup-tile-action');
+    if (el) el.innerHTML = '<span style="font-size:0.78rem;color:var(--muted)">Status unavailable</span>';
+  });
+}
+
+function _renderJupTile(s) {
+  var el = document.getElementById('jup-tile-action');
+  if (!el) return;
+  var isMine = !!_jupToken && s.state !== 'FREE';
+  if (_jupToken && s.state === 'FREE') { _clearJupToken(); isMine = false; }
+
+  var html = '';
+  if (s.state === 'DISABLED') {
+    html = '<button class="btn btn-accent" onclick="window.open(' + JSON.stringify(_jupUrl) + ',\'_blank\',\'noopener\')">Open ↗</button>';
+    el.innerHTML = html;
+    return;
+  }
+
+  var statusCss = 'font-size:0.78rem;padding:4px 8px;border-radius:4px;margin-bottom:6px;display:flex;align-items:center;gap:6px;';
+  var actionsCss = 'display:flex;flex-direction:column;gap:6px;margin-top:4px;';
+
+  if (s.state === 'FREE') {
+    html = '<div style="' + statusCss + 'background:#1a3a1a;color:#4caf50">● Available</div>'
+      + '<div style="' + actionsCss + '">'
+      + '<button class="btn btn-accent" onclick="acquireJupyter()">Use Jupyter →</button>'
+      + '</div>';
+  } else if (isMine) {
+    var mins = s.minutes_left !== null ? s.minutes_left : '?';
+    var idleWarn = s.idle_warning ? ' ⚠ idle' : '';
+    html = '<div style="' + statusCss + 'background:#0d2a3a;color:#69f0ae">● Your session · ' + mins + ' min left' + idleWarn + '</div>'
+      + '<div style="' + actionsCss + '">'
+      + '<button class="btn btn-accent" onclick="window.open(' + JSON.stringify(_jupUrl) + ',\'_blank\',\'noopener\')">Open Jupyter →</button>'
+      + '<button class="btn" onclick="extendJupyter()">Extend</button>'
+      + '<button class="btn" onclick="releaseJupyter()" style="color:var(--muted)">Release</button>'
+      + '</div>';
+  } else if (s.state === 'STUCK') {
+    html = '<div style="' + statusCss + 'background:#3a2a1a;color:#ffcc80">⚠ Session may be idle</div>'
+      + '<div style="font-size:0.74rem;color:var(--muted)">An admin can free it.</div>';
+  } else {
+    var who = s.holder_display ? ' by ' + esc(s.holder_display) : '';
+    var eta  = s.minutes_left ? ' · ~' + s.minutes_left + ' min remaining' : '';
+    html = '<div style="' + statusCss + 'background:#3a1a1a;color:#ef9a9a">● In use' + who + eta + '</div>'
+      + '<div style="font-size:0.74rem;color:var(--muted)">Check back later</div>';
+  }
+  el.innerHTML = html;
+}
+
+function acquireJupyter() {
+  var display = (_user && (_user.display_name || _user.user_id)) || 'User';
+  fetch('/api/jupyter/acquire', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ display_name: display })
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (!data.acquired) {
+      alert('Could not acquire Jupyter: ' + (data.reason || 'unavailable'));
+      refreshJupyterTile();
+      return;
+    }
+    _jupToken = data.token;
+    sessionStorage.setItem('jup-token', _jupToken);
+    _startJupKeepalive();
+    refreshJupyterTile();
+    window.open(_jupUrl, '_blank', 'noopener');
+  }).catch(function(e) { alert('Error: ' + e.message); });
+}
+
+function releaseJupyter() {
+  if (!_jupToken) return;
+  fetch('/api/jupyter/release', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: _jupToken })
+  }).then(function() { _clearJupToken(); refreshJupyterTile(); })
+    .catch(function() { _clearJupToken(); refreshJupyterTile(); });
+}
+
+function extendJupyter() {
+  if (!_jupToken) return;
+  fetch('/api/jupyter/extend', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: _jupToken })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (!d.extended) { alert('Could not extend: ' + (d.reason || 'blocked by reservation')); }
+    refreshJupyterTile();
+  });
+}
+
+function _startJupKeepalive() {
+  _stopJupKeepalive();
+  _jupKeepalive = setInterval(function() {
+    if (!_jupToken) { _stopJupKeepalive(); return; }
+    fetch('/api/jupyter/keepalive', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: _jupToken })
+    }).catch(function() {});
+    refreshJupyterTile();
+  }, 60000);
+}
+
+function _stopJupKeepalive() {
+  if (_jupKeepalive) { clearInterval(_jupKeepalive); _jupKeepalive = null; }
+}
+
+function _clearJupToken() {
+  _jupToken = null;
+  sessionStorage.removeItem('jup-token');
+  _stopJupKeepalive();
+}
+
+if (_jupToken) { _startJupKeepalive(); }
 
 // ── Logout ────────────────────────────────────────────────────────────────────
 function doLogout() {

@@ -5,7 +5,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Egeria Demo Environment · Coco Pharmaceuticals</title>
+  <title>Egeria Demo Sandbox · Coco Pharmaceuticals</title>
   <style>
     :root {
       --bg:      #1a1a2e;
@@ -131,7 +131,7 @@
   <div class="hdr-logos">
     <img src="/static/egeria-logo.png" alt="Egeria" style="height:26px">
   </div>
-  <div class="hdr-title" id="hdr-title">Egeria Demo Environment</div>
+  <div class="hdr-title" id="hdr-title">Egeria Demo Sandbox</div>
   <div class="hdr-right">
     <div id="persona-chip" class="persona-chip" style="display:none">
       <span>🎭</span>
@@ -146,7 +146,7 @@
 <div class="hero">
   <div class="hero-inner">
     <div class="hero-text">
-      <h1 id="hero-title">Welcome to the Egeria Demo Environment</h1>
+      <h1 id="hero-title">Welcome to the Egeria Demo Sandbox</h1>
       <p id="hero-sub">This environment showcases <strong>Egeria</strong> — the open metadata platform — using Coco Pharmaceuticals, a fictional company whose data landscape illustrates real-world governance, lineage, and cataloguing challenges. Register once, choose a persona, and explore the metadata environment from that character's perspective.</p>
     </div>
     <div class="hero-links">
@@ -262,6 +262,7 @@ function _saveStored(p) {
 // ── Boot ─────────────────────────────────────────────────────────────────────
 var _obsidianUrl = '';
 var _obsidianGithubUrl = '';
+var _jupUrl = '';
 
 Promise.all([
   fetch('/api/auth/me').then(function(r){ return r.json(); }),
@@ -283,6 +284,8 @@ Promise.all([
     renderAppGrid(me.demo_mode, advisorRunning, platformCfg.advisor_url || '');
     refreshObsidianTile();
     setInterval(refreshObsidianTile, 30000);
+    refreshJupyterTile();
+    setInterval(refreshJupyterTile, 30000);
     fetch('/api/demo/personas').then(function(r){ return r.json(); }).then(function(data) {
       _personas = data;
       var stored = _loadStored();
@@ -304,6 +307,8 @@ Promise.all([
     renderAppGrid(true, false, '');
     refreshObsidianTile();
     setInterval(refreshObsidianTile, 30000);
+    refreshJupyterTile();
+    setInterval(refreshJupyterTile, 30000);
     if (stored) {
       applyPersonaUI(stored);
     } else {
@@ -342,6 +347,7 @@ function applyPersonaUI(persona) {
 // ── App grid ──────────────────────────────────────────────────────────────────
 function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
   var jupyterUrl = 'http://' + window.location.hostname + ':8888/?token=egeria';
+  _jupUrl = jupyterUrl;
   advisorUrl = advisorUrl || ('http://' + window.location.hostname + ':8880/');
   var apps = [
     { icon: '🐱', name: 'The Catalog',
@@ -352,7 +358,7 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
       url: '/egeria-explorer', newTab: false, enabled: true },
     { icon: '📓', name: 'Jupyter Lab',
       desc: 'Interactive notebooks for data science and hands-on Egeria API exploration.',
-      url: jupyterUrl, newTab: true, enabled: true },
+      enabled: true, jupyter: true },
     { icon: '📚', name: 'Egeria Workspaces Documentation',
       desc: 'User guides, tool reference, Dr. Egeria templates, Coco Pharmaceuticals scenarios, and admin docs.',
       url: '/docs/', newTab: true, enabled: true, isDoc: true },
@@ -394,6 +400,8 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
       action = '<span class="soon-badge" style="background:var(--hover);color:var(--muted)">Not running</span>';
     } else if (a.obsidian) {
       action = '<div id="obs-tile-action"><span style="color:var(--muted);font-size:0.8rem">Loading…</span></div>';
+    } else if (a.jupyter) {
+      action = '<div id="jup-tile-action"><span style="color:var(--muted);font-size:0.8rem">Loading…</span></div>';
     } else {
       action = '<button class="btn btn-accent app-action" onclick="launch(' + JSON.stringify(a.url).replace(/"/g, '&quot;') + ',' + a.newTab + ')">' + (a.newTab ? 'Open ↗' : 'Open') + '</button>';
     }
@@ -592,6 +600,133 @@ function _clearObsToken() {
 
 // Restore keepalive if we already hold the lock (page reload)
 if (_obsToken) { _startObsKeepalive(); }
+
+// ── Jupyter lock management ───────────────────────────────────────────────────
+var _jupToken     = sessionStorage.getItem('jup-token') || null;
+var _jupKeepalive = null;
+var _jupStatus    = null;
+
+function refreshJupyterTile() {
+  fetch('/api/jupyter/status').then(function(r) { return r.json(); }).then(function(s) {
+    _jupStatus = s;
+    _renderJupTile(s);
+  }).catch(function() {
+    var el = document.getElementById('jup-tile-action');
+    if (el) el.innerHTML = '<span class="obs-hint">Status unavailable</span>';
+  });
+}
+
+function _renderJupTile(s) {
+  var el = document.getElementById('jup-tile-action');
+  if (!el) return;
+  var isMine = !!_jupToken && s.state !== 'FREE';
+  if (_jupToken && s.state === 'FREE') { _clearJupToken(); isMine = false; }
+
+  var html = '';
+  if (s.state === 'DISABLED') {
+    html = '<button class="btn btn-accent" onclick="window.open(' + JSON.stringify(_jupUrl) + ',\'_blank\',\'noopener\')">Open ↗</button>';
+    el.innerHTML = html;
+    return;
+  }
+
+  if (s.evicting && isMine) {
+    var deadline = new Date(s.evict_deadline + 'Z');
+    var secsLeft = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+    html += '<div class="obs-evict">⚠ Admin needs Jupyter in ~' + Math.ceil(secsLeft / 60) + ' min. Please save your work.</div>';
+  }
+
+  if (s.state === 'FREE') {
+    html += '<div class="obs-status obs-free">● Available</div>'
+      + '<div class="obs-actions">'
+      + '<button class="btn btn-accent" onclick="acquireJupyter()">Use Jupyter →</button>'
+      + '</div>';
+  } else if (isMine) {
+    var mins = s.minutes_left !== null ? s.minutes_left : '?';
+    var idleWarn = s.idle_warning ? ' ⚠ idle' : '';
+    html += '<div class="obs-status obs-mine">● Your session · ' + mins + ' min left' + idleWarn + '</div>'
+      + '<div class="obs-actions">'
+      + '<button class="btn btn-accent" onclick="window.open(' + JSON.stringify(_jupUrl) + ',\'_blank\',\'noopener\')">Open Jupyter →</button>'
+      + '<button class="btn" onclick="extendJupyter()">Extend</button>'
+      + '<button class="btn" onclick="releaseJupyter()" style="color:var(--muted)">Release</button>'
+      + '</div>';
+  } else if (s.state === 'STUCK') {
+    html += '<div class="obs-status obs-stuck">⚠ Session may be idle</div>'
+      + '<div class="obs-hint">An admin can free it using the admin panel.</div>';
+  } else {
+    var who = s.holder_display ? ' by ' + esc(s.holder_display) : '';
+    var eta  = s.minutes_left ? ' · ~' + s.minutes_left + ' min remaining' : '';
+    var ev   = (s.evicting && s.evict_deadline)
+      ? ' (eviction in ~' + Math.ceil(Math.max(0, new Date(s.evict_deadline + 'Z') - Date.now()) / 60000) + ' min)'
+      : '';
+    html += '<div class="obs-status obs-busy">● In use' + who + eta + ev + '</div>'
+      + '<div class="obs-hint">Check back later</div>';
+  }
+  el.innerHTML = html;
+}
+
+function acquireJupyter() {
+  var persona  = _currentPersonaId || '';
+  var display  = persona && _personas[persona] ? _personas[persona].display_name : 'User';
+  fetch('/api/jupyter/acquire', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ display_name: display })
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (!data.acquired) {
+      alert('Could not acquire Jupyter: ' + (data.reason || 'unavailable'));
+      refreshJupyterTile();
+      return;
+    }
+    _jupToken = data.token;
+    sessionStorage.setItem('jup-token', _jupToken);
+    _startJupKeepalive();
+    refreshJupyterTile();
+    window.open(_jupUrl, '_blank', 'noopener');
+  }).catch(function(e) { alert('Error: ' + e.message); });
+}
+
+function releaseJupyter() {
+  if (!_jupToken) return;
+  fetch('/api/jupyter/release', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: _jupToken })
+  }).then(function() { _clearJupToken(); refreshJupyterTile(); })
+    .catch(function() { _clearJupToken(); refreshJupyterTile(); });
+}
+
+function extendJupyter() {
+  if (!_jupToken) return;
+  fetch('/api/jupyter/extend', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: _jupToken })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (!d.extended) { alert('Could not extend: ' + (d.reason || 'blocked by reservation')); }
+    refreshJupyterTile();
+  });
+}
+
+function _startJupKeepalive() {
+  _stopJupKeepalive();
+  _jupKeepalive = setInterval(function() {
+    if (!_jupToken) { _stopJupKeepalive(); return; }
+    fetch('/api/jupyter/keepalive', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: _jupToken })
+    }).catch(function() {});
+    refreshJupyterTile();
+  }, 60000);
+}
+
+function _stopJupKeepalive() {
+  if (_jupKeepalive) { clearInterval(_jupKeepalive); _jupKeepalive = null; }
+}
+
+function _clearJupToken() {
+  _jupToken = null;
+  sessionStorage.removeItem('jup-token');
+  _stopJupKeepalive();
+}
+
+if (_jupToken) { _startJupKeepalive(); }
 
 // ── Picker ────────────────────────────────────────────────────────────────────
 var _pendingId = null;

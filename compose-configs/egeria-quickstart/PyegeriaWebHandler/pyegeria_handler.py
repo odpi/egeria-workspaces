@@ -70,7 +70,9 @@ from rate_limiter import limiter
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
     from obsidian_lock_handler import start_scheduler as obs_start, stop_scheduler as obs_stop
+    from jupyter_lock_handler import start_scheduler as jup_start, stop_scheduler as jup_stop
     await obs_start()
+    await jup_start()
     if DEMO_MODE:
         from demo_reset_handler import start_scheduler, stop_scheduler
         await start_scheduler()
@@ -78,6 +80,7 @@ async def _lifespan(app: FastAPI):
     if DEMO_MODE:
         from demo_reset_handler import stop_scheduler
         await stop_scheduler()
+    await jup_stop()
     await obs_stop()
 
 
@@ -218,6 +221,8 @@ from tech_catalog_handler import router as tech_catalog_router
 app.include_router(tech_catalog_router)
 from obsidian_lock_handler import router as obsidian_lock_router
 app.include_router(obsidian_lock_router)
+from jupyter_lock_handler import router as jupyter_lock_router
+app.include_router(jupyter_lock_router)
 
 # ── Demo mode ──────────────────────────────────────────────────────────────────
 
