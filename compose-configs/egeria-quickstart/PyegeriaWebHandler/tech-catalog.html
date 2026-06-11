@@ -1531,6 +1531,24 @@ function SidebarDetail({ items, loading, error, selected, onSelect, renderDetail
         : items.length === 0 ? React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'No items found.')
         : items.map(function(item) {
             var active = selected && selected.guid === item.guid;
+            // Sidebar classification badges: zones first, then other types (max 3 total)
+            var badges = [];
+            (item.classifications || []).forEach(function(cls) {
+              if (cls.typeName === 'ZoneMembership') {
+                var zones = (cls.properties && cls.properties.zoneMembershipList)
+                  ? cls.properties.zoneMembershipList.split(', ').filter(Boolean) : [];
+                zones.forEach(function(z) {
+                  badges.push(React.createElement('span', { key: 'zm:' + z,
+                    style: { fontSize: 9, background: 'rgba(20,83,45,.45)', color: '#4ade80', borderRadius: 8, padding: '1px 5px', border: '0.5px solid #166534', whiteSpace: 'nowrap' }
+                  }, z));
+                });
+              } else {
+                badges.push(React.createElement('span', { key: cls.typeName,
+                  style: { fontSize: 9, background: 'rgba(124,58,237,.12)', color: '#a78bfa', borderRadius: 8, padding: '1px 5px', border: '0.5px solid rgba(124,58,237,.3)', whiteSpace: 'nowrap' }
+                }, cls.typeName));
+              }
+            });
+            if (badges.length > 3) badges = badges.slice(0, 3);
             return React.createElement('div', { key: item.guid, onClick: function() { onSelect(item); },
               style: { padding: '8px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)',
                        background: active ? 'var(--hover)' : 'transparent',
@@ -1538,7 +1556,8 @@ function SidebarDetail({ items, loading, error, selected, onSelect, renderDetail
               React.createElement('div', { style: { fontSize: 12, fontWeight: active ? 700 : 400, color: active ? 'var(--accent)' : 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
                 item.displayName || item.qualifiedName || item.guid),
               item.deployedImplementationType && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 1 } }, item.deployedImplementationType),
-              item.typeName && !item.deployedImplementationType && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 1 } }, item.typeName)
+              item.typeName && !item.deployedImplementationType && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 1 } }, item.typeName),
+              badges.length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 2, marginTop: 3 } }, badges)
             );
           })
       )
@@ -2190,11 +2209,12 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   var _detail     = useState(null),  detail     = _detail[0],     setDetail     = _detail[1];
   var _detailLoad = useState(false), detailLoad = _detailLoad[0], setDetailLoad = _detailLoad[1];
   var _detailErr  = useState(null),  detailErr  = _detailErr[0],  setDetailErr  = _detailErr[1];
-  var _q          = useState(''),    q          = _q[0],          setQ          = _q[1];
-  var _typeFilter = useState('all'), typeFilter = _typeFilter[0], setTypeFilter = _typeFilter[1];
+  var _q             = useState(''),   q             = _q[0],             setQ             = _q[1];
+  var _typeFilter    = useState('all'), typeFilter    = _typeFilter[0],    setTypeFilter    = _typeFilter[1];
+  var _classifFilter = useState([]),   classifFilter = _classifFilter[0], setClassifFilter = _classifFilter[1];
 
   useEffect(function() {
-    setLoading(true); setError(''); setSelected(null); setDetail(null);
+    setLoading(true); setError(''); setSelected(null); setDetail(null); setClassifFilter([]);
     fetchWithToken(endpoint, creds)
       .then(function(r) { return r.json(); })
       .then(function(d) { setItems(Array.isArray(d) ? d : (d.items || [])); setLoading(false); })
@@ -2226,10 +2246,50 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
     handleSelect({ guid: navTarget.guid, displayName: navTarget.displayName || navTarget.guid });
   }, [navTarget]);
 
+  // Build classification filter options from the current item list
+  var classifOptions = [];
+  var _optsSeen = {};
+  items.forEach(function(item) {
+    (item.classifications || []).forEach(function(cls) {
+      if (cls.typeName === 'ZoneMembership') {
+        var zones = (cls.properties && cls.properties.zoneMembershipList)
+          ? cls.properties.zoneMembershipList.split(', ').filter(Boolean) : [];
+        zones.forEach(function(z) {
+          var k = 'ZoneMembership:' + z;
+          if (!_optsSeen[k]) { _optsSeen[k] = true; classifOptions.push({ key: k, label: z, zone: true }); }
+        });
+      } else {
+        var k = cls.typeName;
+        if (!_optsSeen[k]) { _optsSeen[k] = true; classifOptions.push({ key: k, label: cls.typeName, zone: false }); }
+      }
+    });
+  });
+  classifOptions.sort(function(a, b) { return a.label.localeCompare(b.label); });
+
+  function toggleClassif(key) {
+    if (classifFilter.indexOf(key) === -1) {
+      setClassifFilter(classifFilter.concat([key]));
+    } else {
+      setClassifFilter(classifFilter.filter(function(k) { return k !== key; }));
+    }
+  }
+
   var filtered = items.filter(function(item) {
     var matchQ = !q.trim() || (item.displayName || item.qualifiedName || '').toLowerCase().includes(q.trim().toLowerCase());
     var matchT = typeFilter === 'all' || item.deployedImplementationType === typeFilter || item.typeName === typeFilter;
-    return matchQ && matchT;
+    var matchC = classifFilter.length === 0 || classifFilter.every(function(key) {
+      var clsList = item.classifications || [];
+      if (key.indexOf('ZoneMembership:') === 0) {
+        var zone = key.slice('ZoneMembership:'.length);
+        var zm = clsList.find(function(c) { return c.typeName === 'ZoneMembership'; });
+        if (!zm) return false;
+        var zones = (zm.properties && zm.properties.zoneMembershipList)
+          ? zm.properties.zoneMembershipList.split(', ').filter(Boolean) : [];
+        return zones.indexOf(zone) !== -1;
+      }
+      return clsList.some(function(c) { return c.typeName === key; });
+    });
+    return matchQ && matchT && matchC;
   });
 
   var types = Array.from(new Set(items.map(function(i) { return i.deployedImplementationType || i.typeName || ''; }).filter(Boolean))).sort();
@@ -2242,6 +2302,23 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
       [React.createElement('option', { key: 'all', value: 'all' }, 'All types')].concat(
         types.map(function(t) { return React.createElement('option', { key: t, value: t }, t); })
       )
+    ),
+    classifOptions.length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 3, paddingTop: 2 } },
+      classifOptions.map(function(opt) {
+        var active = classifFilter.indexOf(opt.key) !== -1;
+        return React.createElement('button', {
+          key: opt.key,
+          onClick: function() { toggleClassif(opt.key); },
+          title: (opt.zone ? 'Zone: ' : 'Classification: ') + opt.label,
+          style: {
+            fontSize: 9, padding: '2px 6px', borderRadius: 10, cursor: 'pointer', lineHeight: 1.2,
+            border: '1px solid ' + (active ? (opt.zone ? '#166534' : 'var(--accent)') : 'var(--border)'),
+            background: active ? (opt.zone ? 'rgba(20,83,45,.5)' : 'rgba(233,69,96,.15)') : 'transparent',
+            color: active ? (opt.zone ? '#4ade80' : 'var(--accent)') : 'var(--dim)',
+            whiteSpace: 'nowrap',
+          }
+        }, (opt.zone ? '🌐 ' : '') + opt.label);
+      })
     )
   );
 
