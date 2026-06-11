@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<!--
+  SPDX-License-Identifier: Apache-2.0
+  Copyright Contributors to the ODPi Egeria project.
+
+  Lineage Explorer SPA.
+  Served by lineage_handler at /lineage
+  Spec: Lineage Explorer.md
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lineage Explorer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:      #080c14;
+      --panel:   #0b111c;
+      --card:    #0f1828;
+      --hover:   #131e30;
+      --border:  #1a2d48;
+      --text:    #c8d4e8;
+      --muted:   #7a96b0;
+      --dim:     #4a6278;
+      --accent:  #60a5fa;
+      --green:   #34d399;
+      --amber:   #fbbf24;
+      --red:     #f87171;
+      --purple:  #a78bfa;
+    }
+    body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif;
+           font-size: 14px; height: 100vh; overflow: hidden; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    input, select, button { font-family: inherit; outline: none; }
+    input::placeholder { color: var(--dim); }
+    a { color: var(--accent); }
+
+    #root { display: flex; flex-direction: column; height: 100vh; }
+
+    /* Nav bar */
+    .nav { background: var(--panel); border-bottom: 1px solid var(--border);
+           padding: 0 16px; height: 42px; display: flex; align-items: center;
+           gap: 10px; flex-shrink: 0; }
+    .nav-title { font-size: 14px; font-weight: 700; }
+
+    /* Two-column layout */
+    .body { display: flex; flex: 1; overflow: hidden; }
+    .sidebar { width: 300px; min-width: 180px; max-width: 500px; flex-shrink: 0;
+               background: var(--panel); border-right: 1px solid var(--border);
+               display: flex; flex-direction: column; overflow: hidden; }
+    .sidebar-head { padding: 10px; border-bottom: 1px solid var(--border); }
+    .sidebar-list { flex: 1; overflow-y: auto; }
+    .main { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+    /* Search */
+    .search-input { width: 100%; background: rgba(20,32,52,.8); border: 1px solid var(--border);
+                    border-radius: 5px; padding: 6px 10px; color: var(--text);
+                    font-size: 13px; }
+    .search-input:focus { border-color: var(--accent); }
+
+    /* Result list items */
+    .result-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid rgba(26,45,72,.4);
+                   display: flex; flex-direction: column; gap: 2px; }
+    .result-item:hover { background: var(--hover); }
+    .result-item.sel { background: rgba(96,165,250,.08); border-left: 2px solid var(--accent); }
+    .result-name { font-size: 13px; font-weight: 600; white-space: nowrap;
+                   overflow: hidden; text-overflow: ellipsis; }
+    .result-type { font-size: 10px; color: var(--dim); font-family: ui-monospace, monospace; }
+    .result-qn   { font-size: 10px; color: var(--dim); white-space: nowrap;
+                   overflow: hidden; text-overflow: ellipsis; }
+
+    /* Asset card */
+    .asset-card { background: var(--card); border: 1px solid var(--border);
+                  border-radius: 8px; padding: 16px 18px; margin-bottom: 18px; }
+    .asset-name { font-size: 18px; font-weight: 700; font-family: ui-monospace, monospace;
+                  word-break: break-all; }
+    .asset-type { font-size: 11px; color: var(--purple); font-family: ui-monospace, monospace;
+                  margin-top: 3px; }
+    .asset-qn   { font-size: 11px; color: var(--dim); font-family: ui-monospace, monospace;
+                  margin-top: 3px; word-break: break-all; }
+    .asset-desc { font-size: 13px; color: var(--muted); line-height: 1.5; margin-top: 8px; }
+    .asset-meta { display: flex; gap: 14px; margin-top: 8px; font-size: 11px; color: var(--dim); }
+    .asset-guid { font-family: ui-monospace, monospace; font-size: 10px; color: var(--dim);
+                  margin-top: 6px; word-break: break-all; }
+
+    /* Time slider */
+    .slider-wrap { background: var(--card); border: 1px solid var(--border);
+                   border-radius: 8px; padding: 14px 18px; margin-bottom: 18px; }
+    .slider-label { font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+                    text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+    .slider-row { display: flex; align-items: center; gap: 10px; }
+    .time-slider { flex: 1; accent-color: var(--accent); cursor: pointer; }
+    .slider-dates { display: flex; justify-content: space-between;
+                    font-size: 10px; color: var(--dim); margin-top: 4px; }
+    .slider-now { font-size: 11px; color: var(--accent); white-space: nowrap;
+                  min-width: 110px; text-align: right; }
+
+    /* Section blocks */
+    .section { background: var(--card); border: 1px solid var(--border);
+               border-radius: 8px; padding: 16px 18px; margin-bottom: 18px; }
+    .section-title { font-size: 12px; font-weight: 700; letter-spacing: 0.06em;
+                     text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+    .section-desc  { font-size: 12px; color: var(--muted); margin-bottom: 12px; line-height: 1.5; }
+    .section-empty { font-size: 12px; color: var(--dim); padding: 6px 0; }
+
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { text-align: left; padding: 6px 10px; font-size: 10px; color: var(--muted);
+         text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border);
+         font-weight: 500; }
+    td { padding: 7px 10px; border-bottom: 1px solid rgba(26,45,72,.35);
+         color: var(--text); vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    .mono { font-family: ui-monospace, monospace; font-size: 11px; }
+    .td-trunc { max-width: 220px; white-space: nowrap; overflow: hidden;
+                text-overflow: ellipsis; }
+
+    /* Buttons */
+    .btn { padding: 4px 12px; border-radius: 5px; border: 1px solid var(--border);
+           background: transparent; color: var(--accent); cursor: pointer;
+           font-size: 11px; white-space: nowrap; }
+    .btn:hover { background: var(--hover); }
+    .btn-focus { background: rgba(96,165,250,.1); border-color: var(--accent);
+                 color: var(--accent); }
+    .btn-load { color: var(--green); border-color: rgba(52,211,153,.4); }
+    .btn-load:hover { background: rgba(52,211,153,.06); }
+    .btn-toggle { color: var(--muted); }
+    .btn-toggle.on { color: var(--accent); border-color: var(--accent);
+                     background: rgba(96,165,250,.08); }
+    .btn-view { color: var(--purple); border-color: rgba(167,139,250,.4); font-size: 10px;
+                padding: 2px 8px; }
+    .btn-view:hover { background: rgba(167,139,250,.06); }
+
+    /* ISC selected highlight */
+    tr.isc-sel td { background: rgba(96,165,250,.06); }
+    .isc-opts { display: flex; gap: 14px; margin-top: 12px; font-size: 12px;
+                align-items: center; flex-wrap: wrap; }
+    .isc-opts label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+
+    /* Mermaid */
+    .mermaid-wrap { overflow-x: auto; margin: 8px 0; min-height: 40px; }
+    .mermaid-wrap svg { max-width: 100%; }
+
+    /* Loading / error */
+    .spinner { width: 28px; height: 28px; border: 3px solid var(--border);
+               border-top-color: var(--accent); border-radius: 50%;
+               animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .center { display: flex; align-items: center; justify-content: center;
+              gap: 10px; padding: 20px; color: var(--muted); font-size: 13px; }
+    .err-banner { background: rgba(248,113,113,.08); border: 1px solid rgba(248,113,113,.3);
+                  border-radius: 6px; padding: 8px 12px; font-size: 12px; color: var(--red);
+                  margin-bottom: 14px; }
+
+    /* Options row */
+    .opts-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+                margin-bottom: 14px; }
+    .opts-label { font-size: 11px; color: var(--dim); white-space: nowrap; }
+    .opts-check label { display: flex; align-items: center; gap: 5px; font-size: 12px;
+                        color: var(--muted); cursor: pointer; }
+
+    /* Linked assets table guid */
+    .guid-cell { font-family: ui-monospace, monospace; font-size: 10px; color: var(--dim);
+                 max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Welcome placeholder */
+    .welcome { display: flex; flex-direction: column; align-items: center;
+               justify-content: center; height: 60vh; gap: 14px; color: var(--muted); }
+    .welcome-icon { font-size: 48px; }
+    .welcome-text { font-size: 15px; }
+    .welcome-hint { font-size: 12px; color: var(--dim); }
+  </style>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+'use strict';
+var useState    = React.useState;
+var useEffect   = React.useEffect;
+var useRef      = React.useRef;
+var useCallback = React.useCallback;
+
+// ── Token refresher ────────────────────────────────────────────────────────────
+var _tokenRefresher = { refresh: null };
+
+// ── fetchWithToken ─────────────────────────────────────────────────────────────
+// Passes server/url as query params; token via X-Egeria-Token header.
+// On 401 retries once after refreshing the token.
+function fetchWithToken(url, creds, opts) {
+  var _isRetry = !!(opts && opts._isRetry);
+  var headers = Object.assign({}, (opts && opts.headers) || {});
+  var queryUrl = url;
+  if (creds) {
+    var p = new URLSearchParams();
+    if (creds.url)    p.set('url',    creds.url);
+    if (creds.server) p.set('server', creds.server);
+    if (creds.token)  headers['X-Egeria-Token'] = creds.token;
+    var qs = p.toString();
+    if (qs) queryUrl = url + (url.indexOf('?') === -1 ? '?' : '&') + qs;
+  }
+  var mergedOpts = Object.assign({}, opts || {});
+  delete mergedOpts._isRetry;
+  mergedOpts.headers = headers;
+  return fetch(queryUrl, mergedOpts).then(function(r) {
+    if (r.status === 401 && !_isRetry && _tokenRefresher.refresh && creds && creds.userId) {
+      return _tokenRefresher.refresh(creds).then(function(newCreds) {
+        return fetchWithToken(url, newCreds, Object.assign({}, opts || {}, { _isRetry: true }));
+      }).catch(function() { return r; });
+    }
+    return r;
+  });
+}
+
+// ── MermaidDiagram ─────────────────────────────────────────────────────────────
+function MermaidDiagram({ code }) {
+  var ref = useRef(null);
+  var id  = useRef('mermaid-' + Math.random().toString(36).slice(2));
+  useEffect(function() {
+    if (!ref.current || !code) return;
+    try { window.mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' }); } catch(_) {}
+    window.mermaid.render(id.current, code)
+      .then(function(r) { if (ref.current) ref.current.innerHTML = r.svg; })
+      .catch(function() {});
+  }, [code]);
+  return React.createElement('div', { ref: ref, className: 'mermaid-wrap' });
+}
+
+// ── Asset search sidebar ───────────────────────────────────────────────────────
+function AssetSearch({ onSelect, selected, creds }) {
+  var _q      = useState(''),      q       = _q[0],      setQ       = _q[1];
+  var _items  = useState([]),      items   = _items[0],  setItems   = _items[1];
+  var _load   = useState(false),   loading = _load[0],   setLoading = _load[1];
+  var _timer  = useRef(null);
+
+  function doSearch(val) {
+    if (_timer.current) clearTimeout(_timer.current);
+    _timer.current = setTimeout(function() {
+      setLoading(true);
+      fetchWithToken('/api/lineage/search?q=' + encodeURIComponent(val || '*'), creds)
+        .then(function(r) { return r.ok ? r.json() : { items: [] }; })
+        .then(function(d) { setItems(d.items || []); setLoading(false); })
+        .catch(function() { setLoading(false); });
+    }, 350);
+  }
+
+  // Trigger initial search on mount / creds change
+  useEffect(function() {
+    if (creds) doSearch(q);
+  }, [creds]);
+
+  function onChange(e) {
+    setQ(e.target.value);
+    doSearch(e.target.value);
+  }
+
+  return React.createElement(React.Fragment, null,
+    React.createElement('div', { className: 'sidebar-head' },
+      React.createElement('input', {
+        className: 'search-input',
+        placeholder: 'Search assets…',
+        value: q,
+        onChange: onChange,
+      }),
+      loading && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 4 } }, 'Searching…')
+    ),
+    React.createElement('div', { className: 'sidebar-list' },
+      items.length === 0 && !loading
+        ? React.createElement('div', { style: { padding: '14px 12px', fontSize: 12, color: 'var(--dim)' } }, 'No results.')
+        : items.map(function(item) {
+            return React.createElement('div', {
+              key: item.guid,
+              className: 'result-item' + (selected === item.guid ? ' sel' : ''),
+              onClick: function() { onSelect(item); },
+            },
+              React.createElement('div', { className: 'result-name' }, item.displayName || item.qualifiedName || item.guid),
+              React.createElement('div', { className: 'result-type' }, item.typeName),
+              React.createElement('div', { className: 'result-qn' }, item.qualifiedName)
+            );
+          })
+    )
+  );
+}
+
+// ── TimeSlider ─────────────────────────────────────────────────────────────────
+function TimeSlider({ createTime, onChange }) {
+  var nowMs   = Date.now();
+  var startMs = createTime ? new Date(createTime).getTime() : (nowMs - 30 * 24 * 3600 * 1000);
+  if (isNaN(startMs) || startMs >= nowMs) startMs = nowMs - 30 * 24 * 3600 * 1000;
+
+  var _val = useState(nowMs), val = _val[0], setVal = _val[1];
+
+  // Reset to now when the asset changes (createTime changes)
+  useEffect(function() { setVal(nowMs); }, [createTime]);
+
+  function fmt(ms) {
+    return new Date(ms).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' });
+  }
+
+  function onCommit(ms) {
+    var ms2 = parseInt(ms, 10);
+    setVal(ms2);
+    var isNow = ms2 >= nowMs - 60000; // within 1 min of now = "now"
+    onChange(isNow ? null : new Date(ms2).toISOString());
+  }
+
+  return React.createElement('div', { className: 'slider-wrap' },
+    React.createElement('div', { className: 'slider-label' }, 'Time Slider'),
+    React.createElement('div', { className: 'slider-row' },
+      React.createElement('input', {
+        type: 'range',
+        className: 'time-slider',
+        min: String(startMs),
+        max: String(nowMs),
+        value: String(val),
+        onChange: function(e) { setVal(parseInt(e.target.value, 10)); },
+        onMouseUp:   function(e) { onCommit(e.target.value); },
+        onTouchEnd:  function(e) { onCommit(e.target.value); },
+        onKeyUp:     function(e) { onCommit(e.target.value); },
+      }),
+      React.createElement('span', { className: 'slider-now' },
+        val >= nowMs - 60000 ? 'Now' : fmt(val)
+      )
+    ),
+    React.createElement('div', { className: 'slider-dates' },
+      React.createElement('span', null, fmt(startMs)),
+      React.createElement('span', null, 'Now')
+    )
+  );
+}
+
+// ── LineageLinkageTable ────────────────────────────────────────────────────────
+function LineageLinkageTable({ linkage, onSetFocus }) {
+  if (!linkage || linkage.length === 0) {
+    return React.createElement('div', { className: 'section-empty' }, 'No lineage relationships found.');
+  }
+  return React.createElement('div', { style: { overflowX: 'auto' } },
+    React.createElement('table', null,
+      React.createElement('thead', null,
+        React.createElement('tr', null,
+          React.createElement('th', null, 'Label'),
+          React.createElement('th', null, 'Description'),
+          React.createElement('th', null, 'Related Element'),
+          React.createElement('th', null, 'Type'),
+          React.createElement('th', null, '')
+        )
+      ),
+      React.createElement('tbody', null,
+        linkage.map(function(rel, i) {
+          var re    = (rel.relatedElement || {});
+          var rehdr = re.elementHeader || {};
+          var reprop= re.properties   || {};
+          var retype= (rehdr.type || {});
+          var reTypeName    = retype.typeName || '';
+          var reSuperTypes  = retype.superTypeNames || [];
+          var isAsset = reTypeName === 'Asset' ||
+            reSuperTypes.some(function(s) { return s && s.toUpperCase().includes('ASSET'); });
+          var reGuid = rehdr.guid || '';
+          var reDisp = reprop.displayName || reprop.qualifiedName || reGuid;
+          return React.createElement('tr', { key: rel.guid || i },
+            React.createElement('td', null, rel.label || ''),
+            React.createElement('td', { style: { color: 'var(--muted)', maxWidth: 180 } }, rel.description || ''),
+            React.createElement('td', { className: 'td-trunc' }, reDisp),
+            React.createElement('td', { className: 'mono' }, reTypeName),
+            React.createElement('td', null,
+              isAsset && reGuid
+                ? React.createElement('button', {
+                    className: 'btn btn-focus',
+                    onClick: function() { onSetFocus({ guid: reGuid, displayName: reDisp, typeName: reTypeName, qualifiedName: reprop.qualifiedName || '', description: reprop.description || '' }); }
+                  }, 'Set as Focus')
+                : null
+            )
+          );
+        })
+      )
+    )
+  );
+}
+
+// ── ISCTable ───────────────────────────────────────────────────────────────────
+function ISCTable({ iscs, selectedISCGuid, onSelect }) {
+  if (!iscs || iscs.length === 0) {
+    return React.createElement('div', { className: 'section-empty' },
+      'This asset is not part of any information supply chain.');
+  }
+  return React.createElement('div', { style: { overflowX: 'auto' } },
+    React.createElement('table', null,
+      React.createElement('thead', null,
+        React.createElement('tr', null,
+          React.createElement('th', null, 'Display Name'),
+          React.createElement('th', null, 'Description'),
+          React.createElement('th', null, 'Qualified Name'),
+          React.createElement('th', null, '')
+        )
+      ),
+      React.createElement('tbody', null,
+        iscs.map(function(isc, i) {
+          var re    = isc.relatedElement || {};
+          var rehdr = re.elementHeader || {};
+          var props = re.properties    || {};
+          var guid  = rehdr.guid || '';
+          var name  = props.displayName || props.qualifiedName || guid;
+          var qn    = props.qualifiedName || '';
+          var desc  = props.description  || '';
+          var isSel = guid === selectedISCGuid;
+          return React.createElement('tr', { key: guid || i, className: isSel ? 'isc-sel' : '',
+            style: { cursor: 'pointer' },
+            onClick: function() { onSelect(isSel ? null : { guid: guid, qualifiedName: qn, displayName: name }); }
+          },
+            React.createElement('td', { style: { fontWeight: isSel ? 600 : 400 } }, name),
+            React.createElement('td', { style: { color: 'var(--muted)' } }, desc),
+            React.createElement('td', { className: 'mono td-trunc', title: qn }, qn),
+            React.createElement('td', null,
+              guid
+                ? React.createElement('a', {
+                    href: '/egeria-explorer?section=isc&guid=' + encodeURIComponent(guid),
+                    target: '_blank',
+                    className: 'btn btn-view',
+                    onClick: function(e) { e.stopPropagation(); }
+                  }, 'View in Explorer')
+                : null
+            )
+          );
+        })
+      )
+    )
+  );
+}
+
+// ── LinkedAssetsTable ─────────────────────────────────────────────────────────
+function LinkedAssetsTable({ assets }) {
+  if (!assets || assets.length === 0) {
+    return React.createElement('div', { className: 'section-empty' }, 'No linked assets found.');
+  }
+  function fmtDate(v) {
+    if (!v) return '';
+    var d = new Date(v);
+    return isNaN(d.getTime()) ? String(v) : d.toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' });
+  }
+  return React.createElement('div', { style: { overflowX: 'auto' } },
+    React.createElement('table', null,
+      React.createElement('thead', null,
+        React.createElement('tr', null,
+          React.createElement('th', null, 'Display Name'),
+          React.createElement('th', null, 'Description'),
+          React.createElement('th', null, 'Qualified Name'),
+          React.createElement('th', null, 'GUID'),
+          React.createElement('th', null, 'Created'),
+          React.createElement('th', null, 'Updated')
+        )
+      ),
+      React.createElement('tbody', null,
+        assets.map(function(asset, i) {
+          var hdr  = asset.elementHeader || {};
+          var prop = asset.properties    || {};
+          return React.createElement('tr', { key: hdr.guid || i },
+            React.createElement('td', null, prop.displayName || prop.qualifiedName || ''),
+            React.createElement('td', { style: { color: 'var(--muted)', maxWidth: 200 } }, prop.description || ''),
+            React.createElement('td', { className: 'mono td-trunc', title: prop.qualifiedName }, prop.qualifiedName || ''),
+            React.createElement('td', { className: 'guid-cell', title: hdr.guid }, hdr.guid || ''),
+            React.createElement('td', { style: { whiteSpace: 'nowrap' } }, fmtDate(hdr.createTime)),
+            React.createElement('td', { style: { whiteSpace: 'nowrap' } }, fmtDate(hdr.updateTime))
+          );
+        })
+      )
+    )
+  );
+}
+
+// ── Main panel ─────────────────────────────────────────────────────────────────
+function MainPanel({ focusAsset, creds, onSetFocus }) {
+  var _graphData   = useState(null),  graphData  = _graphData[0],  setGraphData  = _graphData[1];
+  var _graphLoad   = useState(false), graphLoad  = _graphLoad[0],  setGraphLoad  = _graphLoad[1];
+  var _graphErr    = useState(''),    graphErr   = _graphErr[0],   setGraphErr   = _graphErr[1];
+  var _asOfTime    = useState(null),  asOfTime   = _asOfTime[0],   setAsOfTime   = _asOfTime[1];
+
+  var _lineageData = useState(null),  lineageData = _lineageData[0], setLineageData = _lineageData[1];
+  var _lineageLoad = useState(false), lineageLoad = _lineageLoad[0], setLineageLoad = _lineageLoad[1];
+  var _lineageErr  = useState(''),    lineageErr  = _lineageErr[0],  setLineageErr  = _lineageErr[1];
+
+  var _selectedISC = useState(null),  selectedISC = _selectedISC[0], setSelectedISC = _selectedISC[1];
+  var _iscMode     = useState('limit'),iscMode     = _iscMode[0],     setIscMode     = _iscMode[1];
+  var _allAnchors  = useState(false), allAnchors  = _allAnchors[0],  setAllAnchors  = _allAnchors[1];
+  var _showField   = useState(false), showField   = _showField[0],   setShowField   = _showField[1];
+  var _showFull    = useState(false), showFull    = _showFull[0],    setShowFull    = _showFull[1];
+  var _showEdge    = useState(false), showEdge    = _showEdge[0],    setShowEdge    = _showEdge[1];
+
+  var guid = focusAsset ? focusAsset.guid : null;
+
+  // Fetch asset graph whenever guid or asOfTime changes
+  useEffect(function() {
+    if (!guid || !creds) return;
+    setGraphData(null); setGraphErr(''); setGraphLoad(true);
+    setLineageData(null); setLineageErr(''); setShowFull(false);
+    setSelectedISC(null);
+    var url = '/api/lineage/asset/' + encodeURIComponent(guid) + '/graph';
+    if (asOfTime) url += '?as_of_time=' + encodeURIComponent(asOfTime);
+    fetchWithToken(url, creds)
+      .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.detail || d.error || 'HTTP ' + r.status); }); })
+      .then(function(d) { setGraphData(d); setGraphLoad(false); })
+      .catch(function(e) { setGraphErr(String(e)); setGraphLoad(false); });
+  }, [guid, asOfTime, creds]);
+
+  // Fetch full lineage graph (called on demand and when options change)
+  function loadLineage(opts) {
+    if (!guid || !creds) return;
+    setLineageErr(''); setLineageLoad(true);
+    var params = new URLSearchParams();
+    if (asOfTime)       params.set('as_of_time', asOfTime);
+    if (opts && opts.limitISC)     params.set('limit_to_isc', opts.limitISC);
+    if (opts && opts.highlightISC) params.set('highlight_isc', opts.highlightISC);
+    if (opts && opts.allAnchors)   params.set('all_anchors', 'true');
+    var url = '/api/lineage/asset/' + encodeURIComponent(guid) + '/lineage-graph';
+    var qs = params.toString();
+    if (qs) url += '?' + qs;
+    fetchWithToken(url, creds)
+      .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.detail || 'HTTP ' + r.status); }); })
+      .then(function(d) { setLineageData(d); setLineageLoad(false); })
+      .catch(function(e) { setLineageErr(String(e)); setLineageLoad(false); });
+  }
+
+  function buildLineageOpts() {
+    var opts = { allAnchors: allAnchors };
+    if (selectedISC) {
+      if (iscMode === 'limit')     opts.limitISC     = selectedISC.qualifiedName;
+      if (iscMode === 'highlight') opts.highlightISC = selectedISC.qualifiedName;
+    }
+    return opts;
+  }
+
+  function handleToggleFullLineage() {
+    if (showFull) { setShowFull(false); return; }
+    setShowFull(true);
+    if (!lineageData) loadLineage(buildLineageOpts());
+  }
+
+  // Re-fetch lineage when ISC or allAnchors changes (if already showing)
+  useEffect(function() {
+    if (!showFull || !guid || !creds) return;
+    loadLineage(buildLineageOpts());
+  }, [selectedISC, iscMode, allAnchors]);
+
+  if (!focusAsset) return null;
+
+  var hdr   = (graphData && graphData.elementHeader) || {};
+  var props = (graphData && graphData.properties)    || {};
+  var createTime = hdr.createTime || null;
+  var typeName   = focusAsset.typeName;
+  var dispName   = props.displayName || focusAsset.displayName || '';
+  var qName      = props.qualifiedName || focusAsset.qualifiedName || '';
+  var desc       = props.description  || focusAsset.description  || '';
+
+  var localGraph   = graphData && (graphData.localLineageGraph || '');
+  var fieldGraph   = graphData && (graphData.fieldLevelLineageGraph || '');
+  var linkage      = graphData && (graphData.lineageLinkage || []);
+  var iscList      = graphData && (graphData.partOfInformationSupplyChains || []);
+  var hasLocalLineage = !!(localGraph && localGraph.trim());
+
+  var fullGraph  = lineageData && (lineageData.mermaidGraph || lineageData.fullLineageMermaidGraph || '');
+  var edgeGraph  = lineageData && (lineageData.edgeMermaidGraph || '');
+  var linkedAssets = lineageData && (lineageData.linkedAssets || []);
+
+  return React.createElement('div', null,
+    // ── Focus Asset Card
+    React.createElement('div', { className: 'asset-card' },
+      React.createElement('div', { className: 'asset-name' }, dispName || focusAsset.guid),
+      React.createElement('div', { className: 'asset-type' }, typeName),
+      qName && React.createElement('div', { className: 'asset-qn' }, qName),
+      desc  && React.createElement('div', { className: 'asset-desc' }, desc),
+      graphLoad && React.createElement('div', { className: 'center' },
+        React.createElement('div', { className: 'spinner' }),
+        React.createElement('span', null, 'Loading…')
+      ),
+      React.createElement('div', { className: 'asset-guid' }, 'GUID: ' + focusAsset.guid),
+      createTime && React.createElement('div', { className: 'asset-meta' },
+        React.createElement('span', null, 'Created: ' + new Date(createTime).toLocaleString())
+      )
+    ),
+    graphErr && React.createElement('div', { className: 'err-banner' }, 'Error loading asset graph: ' + graphErr),
+
+    // ── Time Slider (show once we have graph data)
+    graphData && React.createElement(TimeSlider, { createTime: createTime, onChange: setAsOfTime }),
+
+    // ── Local Lineage Graph
+    graphData && React.createElement('div', { className: 'section' },
+      React.createElement('div', { className: 'section-title' }, 'Local Lineage Graph'),
+      React.createElement('div', { className: 'section-desc' },
+        'Shows elements directly connected to this asset by lineage relationships.'),
+      !hasLocalLineage
+        ? React.createElement('div', { className: 'section-empty' }, 'No local lineage graph available for this asset.')
+        : React.createElement(MermaidDiagram, { code: localGraph }),
+      fieldGraph && React.createElement('div', { style: { marginTop: 12 } },
+        React.createElement('button', {
+          className: 'btn btn-toggle' + (showField ? ' on' : ''),
+          onClick: function() { setShowField(function(v) { return !v; }); }
+        }, showField ? '▾ Hide Field-Level Lineage' : '▦ Show Field-Level Lineage'),
+        showField && React.createElement('div', { style: { marginTop: 10 } },
+          React.createElement('div', { className: 'section-desc', style: { marginBottom: 8 } },
+            'Shows field-to-field data mappings between this asset and its lineage neighbours.'),
+          React.createElement(MermaidDiagram, { code: fieldGraph })
+        )
+      ),
+      React.createElement('div', { style: { marginTop: 14 } },
+        React.createElement('div', { style: { fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 } }, 'Lineage Relationships'),
+        React.createElement(LineageLinkageTable, { linkage: linkage, onSetFocus: onSetFocus })
+      )
+    ),
+
+    // ── Information Supply Chains
+    graphData && React.createElement('div', { className: 'section' },
+      React.createElement('div', { className: 'section-title' }, 'Information Supply Chains'),
+      React.createElement('div', { className: 'section-desc' },
+        'Supply chains this asset belongs to. Click a row to select it for lineage filtering.'),
+      React.createElement(ISCTable, {
+        iscs: iscList,
+        selectedISCGuid: selectedISC ? selectedISC.guid : null,
+        onSelect: setSelectedISC,
+      }),
+      selectedISC && React.createElement('div', { className: 'isc-opts' },
+        React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Selected: ' + (selectedISC.displayName || selectedISC.qualifiedName)),
+        React.createElement('label', null,
+          React.createElement('input', { type: 'radio', name: 'isc-mode', value: 'limit',
+            checked: iscMode === 'limit', onChange: function() { setIscMode('limit'); } }),
+          ' Limit to ISC'
+        ),
+        React.createElement('label', null,
+          React.createElement('input', { type: 'radio', name: 'isc-mode', value: 'highlight',
+            checked: iscMode === 'highlight', onChange: function() { setIscMode('highlight'); } }),
+          ' Highlight ISC'
+        ),
+        React.createElement('button', {
+          className: 'btn',
+          style: { fontSize: 10, color: 'var(--dim)' },
+          onClick: function() { setSelectedISC(null); }
+        }, '✕ Clear')
+      )
+    ),
+
+    // ── Full Lineage (only if local lineage exists)
+    graphData && hasLocalLineage && React.createElement('div', { className: 'section' },
+      React.createElement('div', { className: 'section-title' }, 'Full Asset Lineage'),
+      React.createElement('div', { className: 'section-desc' },
+        'End-to-end data and control flow across the IT landscape through this asset. ' +
+        'Click to load — may be slow for large lineage graphs.'),
+      React.createElement('div', { className: 'opts-row' },
+        React.createElement('button', {
+          className: 'btn' + (showFull ? ' btn-toggle on' : ' btn-load'),
+          onClick: handleToggleFullLineage,
+        }, showFull ? '▾ Hide Full Lineage' : '▦ Load Full Lineage'),
+        React.createElement('div', { className: 'opts-check' },
+          React.createElement('label', null,
+            React.createElement('input', { type: 'checkbox', checked: allAnchors,
+              onChange: function(e) { setAllAnchors(e.target.checked); } }),
+            ' Show field-level detail'
+          )
+        )
+      ),
+      showFull && lineageLoad && React.createElement('div', { className: 'center' },
+        React.createElement('div', { className: 'spinner' }),
+        React.createElement('span', null, 'Loading lineage graph…')
+      ),
+      showFull && lineageErr && React.createElement('div', { className: 'err-banner' }, 'Error: ' + lineageErr),
+      showFull && lineageData && React.createElement('div', null,
+        // Full lineage mermaid
+        React.createElement('div', { className: 'section-desc', style: { marginBottom: 8 } },
+          'End-to-end data and control flow across the IT landscape through this asset.'),
+        fullGraph
+          ? React.createElement(MermaidDiagram, { code: fullGraph })
+          : React.createElement('div', { className: 'section-empty' }, 'No full lineage graph available.'),
+
+        // Edge graph toggle
+        edgeGraph && React.createElement('div', { style: { marginTop: 12 } },
+          React.createElement('button', {
+            className: 'btn btn-toggle' + (showEdge ? ' on' : ''),
+            onClick: function() { setShowEdge(function(v) { return !v; }); }
+          }, showEdge ? '▾ Hide Edge Graph' : '▦ Show Edge Graph'),
+          showEdge && React.createElement('div', { style: { marginTop: 8 } },
+            React.createElement('div', { className: 'section-desc', style: { marginBottom: 8 } },
+              'The ultimate sources and destinations — extreme edges of the full lineage graph.'),
+            React.createElement(MermaidDiagram, { code: edgeGraph })
+          )
+        ),
+
+        // Linked assets table
+        React.createElement('div', { style: { marginTop: 16 } },
+          React.createElement('div', { style: { fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 } },
+            'Linked Assets'),
+          React.createElement('div', { className: 'section-desc', style: { marginBottom: 10 } },
+            'All assets that appear in the full lineage graph above.'),
+          React.createElement(LinkedAssetsTable, { assets: linkedAssets })
+        )
+      )
+    )
+  );
+}
+
+// ── App ────────────────────────────────────────────────────────────────────────
+function App() {
+  var _creds      = useState(null),  creds      = _creds[0],      setCreds      = _creds[1];
+  var _srvMgd     = useState(false), srvManaged = _srvMgd[0],     setSrvManaged = _srvMgd[1];
+  var _demoMode   = useState(false), demoMode   = _demoMode[0];
+  var _ready      = useState(false), ready      = _ready[0],      setReady      = _ready[1];
+  var _authUser   = useState(null),  authUser   = _authUser[0],   setAuthUser   = _authUser[1];
+  var _activePersona = useState(function() {
+    try { var s = localStorage.getItem('egeria-persona'); return s ? JSON.parse(s) : null; } catch(e) { return null; }
+  }), activePersona = _activePersona[0], setActivePersona = _activePersona[1];
+
+  var _focusAsset = useState(null),  focusAsset = _focusAsset[0], setFocusAsset = _focusAsset[1];
+  var _selected   = useState(null),  selected   = _selected[0],   setSelected   = _selected[1];
+
+  // Boot: read auth + creds
+  useEffect(function() {
+    fetch('/api/auth/me').then(function(r) { return r.json(); }).then(function(d) {
+      setSrvManaged(!!d.server_managed_auth);
+      if (d.demo_mode) { /* demoMode handled below */ }
+
+      if (d.server_managed_auth) {
+        if (d.authenticated && d.id) {
+          setAuthUser({ userId: d.id, displayName: d.display_name || d.id });
+          setCreds({});
+        }
+        setReady(true);
+        return;
+      }
+
+      // Quickstart: persona-based token
+      var storedPersona = null;
+      try { var s = localStorage.getItem('egeria-persona'); storedPersona = s ? JSON.parse(s) : null; } catch(e) {}
+      if (storedPersona && storedPersona.id) {
+        setActivePersona(storedPersona);
+        fetch('/api/demo/select-persona', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ persona: storedPersona.id })
+        }).then(function(r) { return r.json(); }).then(function(sel) {
+          if (sel.egeria_user) {
+            fetch('/api/egeria-token', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ user_id: sel.egeria_user, password: sel.egeria_password || '' })
+            }).then(function(r) { return r.json(); }).then(function(t) {
+              setCreds({ server: 'qs-view-server', userId: sel.egeria_user, token: t.token || '' });
+            }).catch(function() {
+              setCreds({ server: 'qs-view-server', userId: sel.egeria_user });
+            });
+          }
+        }).catch(function() {});
+      }
+      setReady(true);
+    }).catch(function() { setReady(true); });
+  }, []);
+
+  // Register token refresh callback
+  useEffect(function() {
+    _tokenRefresher.refresh = function(oldCreds) {
+      return fetch('/api/egeria-token', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: oldCreds.userId, url: oldCreds.url || '', server: oldCreds.server || '' })
+      }).then(function(r) { return r.json(); })
+        .then(function(t) {
+          var newCreds = Object.assign({}, oldCreds, { token: t.token || '' });
+          setCreds(newCreds);
+          return newCreds;
+        });
+    };
+    return function() { _tokenRefresher.refresh = null; };
+  }, []);
+
+  // Deep-link: ?guid= pre-selects asset on load
+  useEffect(function() {
+    if (!ready || !creds) return;
+    var params = new URLSearchParams(location.search);
+    var guid = params.get('guid');
+    if (guid) {
+      var item = { guid: guid, displayName: guid, typeName: '', qualifiedName: '', description: '' };
+      setFocusAsset(item);
+      setSelected(guid);
+    }
+  }, [ready, creds]);
+
+  function handleSetFocus(item) {
+    setFocusAsset(item);
+    setSelected(item.guid);
+    history.pushState({}, '', '?guid=' + encodeURIComponent(item.guid));
+  }
+
+  // Back/forward navigation
+  useEffect(function() {
+    function onPop() {
+      var params = new URLSearchParams(location.search);
+      var guid = params.get('guid');
+      if (guid) {
+        var item = { guid: guid, displayName: guid, typeName: '', qualifiedName: '', description: '' };
+        setFocusAsset(item);
+        setSelected(guid);
+      } else {
+        setFocusAsset(null);
+        setSelected(null);
+      }
+    }
+    window.addEventListener('popstate', onPop);
+    return function() { window.removeEventListener('popstate', onPop); };
+  }, []);
+
+  if (!ready) return null;
+
+  return React.createElement('div', { id: 'root' },
+    // Nav bar
+    React.createElement('div', { className: 'nav' },
+      React.createElement('span', { style: { fontSize: 18 } }, '🔗'),
+      React.createElement('span', { className: 'nav-title' }, 'Lineage Explorer'),
+      React.createElement('div', { style: { flex: 1 } }),
+      activePersona
+        ? React.createElement(React.Fragment, null,
+            React.createElement('span', { style: { fontSize: 11, color: 'var(--muted)' } }, '🎭 ' + (activePersona.display_name || activePersona.id)),
+            React.createElement('a', { href: '/portal', style: { fontSize: 11, color: 'var(--accent)', textDecoration: 'none', marginLeft: 8 } }, 'Portal')
+          )
+        : authUser
+          ? React.createElement(React.Fragment, null,
+              React.createElement('span', { style: { fontSize: 11, color: 'var(--green)' } }, '👤 ' + (authUser.displayName || authUser.userId)),
+              React.createElement('a', { href: '/portal', style: { fontSize: 11, color: 'var(--muted)', textDecoration: 'none', marginLeft: 8 } }, 'Portal')
+            )
+          : React.createElement('a', { href: '/portal', style: { fontSize: 11, color: 'var(--accent)', textDecoration: 'none' } }, '🎭 Choose persona')
+    ),
+
+    // Body
+    React.createElement('div', { className: 'body' },
+      // Sidebar
+      React.createElement('div', { className: 'sidebar' },
+        creds !== null
+          ? React.createElement(AssetSearch, { onSelect: handleSetFocus, selected: selected, creds: creds })
+          : React.createElement('div', { style: { padding: '14px 12px', fontSize: 12, color: 'var(--dim)' } }, 'Loading…')
+      ),
+
+      // Main content
+      React.createElement('div', { className: 'main' },
+        focusAsset
+          ? React.createElement(MainPanel, { focusAsset: focusAsset, creds: creds, onSetFocus: handleSetFocus })
+          : React.createElement('div', { className: 'welcome' },
+              React.createElement('div', { className: 'welcome-icon' }, '🔗'),
+              React.createElement('div', { className: 'welcome-text' }, 'Lineage Explorer'),
+              React.createElement('div', { className: 'welcome-hint' }, 'Search for an asset in the sidebar to explore its data lineage.')
+            )
+      )
+    )
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App, null));
+</script>
+</body>
+</html>

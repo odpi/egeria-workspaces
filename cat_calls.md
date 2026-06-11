@@ -300,3 +300,66 @@ HTTP 403 (Egeria-level `USER_NOT_AUTHORIZED`) is not retried — the detail pane
 | TT-Q2 | Is `category` field reliably populated in list results? | Needs live data inspection |
 | TT-Q3 | Confirm `get_technology_type_elements` is truly exact-match (no wildcards) | Needs live data test |
 | TT-Q4 | Is `specificationMermaidGraph` meaningfully different from `mermaidGraph`? | Needs live examples |
+
+---
+
+## Lineage Explorer endpoints (`lineage_handler.py`)
+
+### pyegeria methods used
+
+| Method | Class | Purpose |
+|---|---|---|
+| `find_assets(search_string, graph_query_depth=0, output_format="JSON")` | `AssetMaker` | Asset search — returns list elements with `elementHeader` + `properties` |
+| `get_asset_graph(asset_guid, as_of_time, output_format="JSON")` | `AssetCatalog` | Full asset graph including lineage + ISC membership |
+| `get_asset_lineage_graph(asset_guid, as_of_time, limit_to_isc_q_name, hilight_isc_q_name, all_anchors, output_format="JSON")` | `AssetCatalog` | End-to-end lineage graph(s) + linked assets table |
+
+**Auth pattern**: Token only — no `user_id`/`user_pwd` query params. Bearer token via `X-Egeria-Token` header. Credentials for pyegeria client init come from env vars (`EGERIA_PLATFORM_URL`, `EGERIA_VIEW_SERVER`, `EGERIA_USER`, `EGERIA_USER_PASSWORD`).
+
+### `GET /api/lineage/search`
+
+**Query params**: `q` (search string, default `*`), `url`, `server`
+
+**Response**: `{"items": [{guid, typeName, displayName, qualifiedName, description}]}`
+
+Calls `AssetMaker.find_assets(search_string=q, graph_query_depth=0)`. Returns empty list on 400/404 (no results), raises 500 on other errors.
+
+### `GET /api/lineage/asset/{guid}/graph`
+
+**Query params**: `as_of_time` (ISO 8601 or absent = now), `url`, `server`
+
+**Response**: Raw JSON dict from `AssetCatalog.get_asset_graph`. Frontend extracts:
+
+| Key | Type | Description |
+|---|---|---|
+| `elementHeader` | dict | `guid`, `createTime`, `updateTime`, `type.typeName`, `type.superTypeNames` |
+| `properties` | dict | `displayName`, `qualifiedName`, `description`, and other asset properties |
+| `localLineageGraph` | string | Mermaid — direct lineage relationships (may be absent/null) |
+| `fieldLevelLineageGraph` | string | Mermaid — field-to-field mappings (may be absent/null) |
+| `lineageLinkage` | list | Lineage relationship objects; each has `guid`, `label`, `description`, `relatedElement.elementHeader`, `relatedElement.properties` |
+| `partOfInformationSupplyChains` | list | ISC membership; each has `relatedElement.elementHeader.guid` and `relatedElement.properties.{qualifiedName,displayName,description}` |
+
+Returns `{"error": "not_found"}` (404) when the asset is not found or Egeria returns 400/404.
+
+**Time travel**: Pass `as_of_time=<ISO 8601>` to query historical lineage state. The frontend derives the slider range from `elementHeader.createTime` (fallback: 30 days ago) to `Date.now()`. Slider fires on `mouseup`/`touchend` only to avoid flooding the API.
+
+### `GET /api/lineage/asset/{guid}/lineage-graph`
+
+**Query params**: `as_of_time`, `limit_to_isc` (qualifiedName), `highlight_isc` (qualifiedName), `all_anchors` (`"true"` or absent), `url`, `server`
+
+**Response**: Raw JSON dict from `AssetCatalog.get_asset_lineage_graph`. Frontend extracts:
+
+| Key | Type | Description |
+|---|---|---|
+| `mermaidGraph` / `fullLineageMermaidGraph` | string | Mermaid — end-to-end data and control flow |
+| `edgeMermaidGraph` | string | Mermaid — extreme source/destination nodes only |
+| `linkedAssets` | list | All nodes in the full lineage graph; each has `elementHeader` (guid, createTime, updateTime) and `properties` (displayName, qualifiedName, description) |
+
+Returns `{"mermaidGraph":"","edgeMermaidGraph":"","linkedAssets":[]}` on 400/404 (no lineage).
+
+**ISC filter options** (mutually exclusive):
+- `limit_to_isc=<qualifiedName>` → restrict graph to single ISC (`limitToISCQualifiedName`)
+- `highlight_isc=<qualifiedName>` → show full graph but highlight this ISC (`highlightISCQualifiedName`)
+
+**`all_anchors=true`** → pass `all_anchors=True` to pyegeria — includes field-level detail in graphs.
+
+This endpoint is only called when `localLineageGraph` from the `/graph` response is non-null.

@@ -356,6 +356,19 @@ The Catalog and Egeria Explorer both receive credentials at launch via query par
 
 ---
 
+## Lineage Explorer
+
+New standalone portal application for data lineage visualization centred on a "focus asset". Spec: `Lineage Explorer.md`.
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| LE-1 | Initial implementation — handler, SPA, portal tile, cat_calls docs | done | `lineage_handler.py` + `lineage-explorer.html`; both QS and FS |
+| LE-2 | Tech Catalog → add "Open in Lineage Explorer" deep-link button to the lineage sub-pane for all asset types | open | Add button to `tech-catalog.html` lineage pane that opens `/lineage?guid={guid}` |
+| LE-3 | Time slider — generalise as a shared component for Egeria Explorer and Tech Catalog pages | open | Spec notes: "expected to be a common feature added to each page"; blocked on MOD-2 modularization |
+| LE-4 | Audit all existing handler endpoints — remove `user_id`/`user_pwd` query params and replace with token-only pattern | open | New rule: credentials via env vars only; token via `X-Egeria-Token` header. Affects `tech_catalog_handler.py` and others |
+
+---
+
 ## Modularization
 
 Spec notes in `technical_data_catalog_spec.md` (Modularization strategy section).
