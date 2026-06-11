@@ -41,30 +41,28 @@
 
     /* Nav bar */
     .nav { background: var(--panel); border-bottom: 1px solid var(--border);
-           padding: 0 16px; height: 42px; display: flex; align-items: center;
+           padding: 0 16px; height: 48px; display: flex; align-items: center;
            gap: 10px; flex-shrink: 0; }
-    .nav-title { font-size: 14px; font-weight: 700; }
+    .nav-title { font-size: 14px; font-weight: 700; white-space: nowrap; }
 
-    /* Two-column layout */
-    .body { display: flex; flex: 1; overflow: hidden; }
-    .sidebar { width: 300px; min-width: 180px; max-width: 500px; flex-shrink: 0;
-               background: var(--panel); border-right: 1px solid var(--border);
-               display: flex; flex-direction: column; overflow: hidden; }
-    .sidebar-head { padding: 10px; border-bottom: 1px solid var(--border); }
-    .sidebar-list { flex: 1; overflow-y: auto; }
+    /* Full-width layout */
     .main { flex: 1; overflow-y: auto; padding: 20px 24px; }
 
-    /* Search */
+    /* Search bar in nav */
+    .search-wrap { position: relative; flex: 1; max-width: 560px; }
     .search-input { width: 100%; background: rgba(20,32,52,.8); border: 1px solid var(--border);
                     border-radius: 5px; padding: 6px 10px; color: var(--text);
                     font-size: 13px; }
-    .search-input:focus { border-color: var(--accent); }
+    .search-input:focus { border-color: var(--accent); outline: none; }
+    .search-dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+                       background: var(--card); border: 1px solid var(--border);
+                       border-radius: 6px; z-index: 100; max-height: 320px;
+                       overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,.5); }
 
     /* Result list items */
     .result-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid rgba(26,45,72,.4);
                    display: flex; flex-direction: column; gap: 2px; }
-    .result-item:hover { background: var(--hover); }
-    .result-item.sel { background: rgba(96,165,250,.08); border-left: 2px solid var(--accent); }
+    .result-item:hover, .result-item.hi { background: var(--hover); }
     .result-name { font-size: 13px; font-weight: 600; white-space: nowrap;
                    overflow: hidden; text-overflow: ellipsis; }
     .result-type { font-size: 10px; color: var(--dim); font-family: ui-monospace, monospace; }
@@ -530,58 +528,73 @@ function MermaidDiagram({ code }) {
   return React.createElement('div', { ref: ref, className: 'mermaid-wrap' });
 }
 
-// ── Asset search sidebar ───────────────────────────────────────────────────────
-function AssetSearch({ onSelect, selected, creds }) {
-  var _q      = useState(''),      q       = _q[0],      setQ       = _q[1];
-  var _items  = useState([]),      items   = _items[0],  setItems   = _items[1];
-  var _load   = useState(false),   loading = _load[0],   setLoading = _load[1];
+// ── Nav search (autocomplete dropdown) ────────────────────────────────────────
+function NavSearch({ onSelect, creds }) {
+  var _q      = useState(''),    q       = _q[0],      setQ       = _q[1];
+  var _items  = useState([]),    items   = _items[0],  setItems   = _items[1];
+  var _open   = useState(false), open    = _open[0],   setOpen    = _open[1];
+  var _load   = useState(false), loading = _load[0],   setLoading = _load[1];
+  var _hi     = useState(-1),    hi      = _hi[0],     setHi      = _hi[1];
   var _timer  = useRef(null);
+  var wrapRef = useRef(null);
 
   function doSearch(val) {
     if (_timer.current) clearTimeout(_timer.current);
+    if (!val.trim()) { setItems([]); setOpen(false); return; }
     _timer.current = setTimeout(function() {
       setLoading(true);
-      fetchWithToken('/api/lineage/search?q=' + encodeURIComponent(val || '*'), creds)
+      fetchWithToken('/api/lineage/search?q=' + encodeURIComponent(val), creds)
         .then(function(r) { return r.ok ? r.json() : { items: [] }; })
-        .then(function(d) { setItems(d.items || []); setLoading(false); })
+        .then(function(d) { setItems(d.items || []); setOpen(true); setLoading(false); setHi(-1); })
         .catch(function() { setLoading(false); });
-    }, 350);
+    }, 300);
   }
 
-  // Trigger initial search on mount / creds change
+  function select(item) {
+    setQ(item.displayName || item.qualifiedName || item.guid);
+    setOpen(false);
+    setItems([]);
+    onSelect(item);
+  }
+
+  function onKeyDown(e) {
+    if (!open) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHi(function(h) { return Math.min(h + 1, items.length - 1); }); }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); setHi(function(h) { return Math.max(h - 1, 0); }); }
+    if (e.key === 'Enter' && hi >= 0) { e.preventDefault(); select(items[hi]); }
+    if (e.key === 'Escape') { setOpen(false); }
+  }
+
+  // Close dropdown on outside click
   useEffect(function() {
-    if (creds) doSearch(q);
-  }, [creds]);
+    function onDown(e) { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); }
+    document.addEventListener('mousedown', onDown);
+    return function() { document.removeEventListener('mousedown', onDown); };
+  }, []);
 
-  function onChange(e) {
-    setQ(e.target.value);
-    doSearch(e.target.value);
-  }
-
-  return React.createElement(React.Fragment, null,
-    React.createElement('div', { className: 'sidebar-head' },
-      React.createElement('input', {
-        className: 'search-input',
-        placeholder: 'Search assets…',
-        value: q,
-        onChange: onChange,
-      }),
-      loading && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 4 } }, 'Searching…')
-    ),
-    React.createElement('div', { className: 'sidebar-list' },
-      items.length === 0 && !loading
-        ? React.createElement('div', { style: { padding: '14px 12px', fontSize: 12, color: 'var(--dim)' } }, 'No results.')
-        : items.map(function(item) {
-            return React.createElement('div', {
-              key: item.guid,
-              className: 'result-item' + (selected === item.guid ? ' sel' : ''),
-              onClick: function() { onSelect(item); },
-            },
-              React.createElement('div', { className: 'result-name' }, item.displayName || item.qualifiedName || item.guid),
-              React.createElement('div', { className: 'result-type' }, item.typeName),
-              React.createElement('div', { className: 'result-qn' }, item.qualifiedName)
-            );
-          })
+  return React.createElement('div', { className: 'search-wrap', ref: wrapRef },
+    React.createElement('input', {
+      className: 'search-input',
+      placeholder: loading ? 'Searching…' : 'Search assets…',
+      value: q,
+      onChange: function(e) { setQ(e.target.value); doSearch(e.target.value); },
+      onFocus: function() { if (items.length > 0) setOpen(true); },
+      onKeyDown: onKeyDown,
+      autoComplete: 'off',
+    }),
+    open && items.length > 0 && React.createElement('div', { className: 'search-dropdown' },
+      items.map(function(item, i) {
+        return React.createElement('div', {
+          key: item.guid,
+          className: 'result-item' + (i === hi ? ' hi' : ''),
+          onMouseDown: function(e) { e.preventDefault(); select(item); },
+          onMouseEnter: function() { setHi(i); },
+        },
+          React.createElement('div', { className: 'result-name' }, item.displayName || item.qualifiedName || item.guid),
+          React.createElement('div', { className: 'result-type' }, item.typeName),
+          React.createElement('div', { className: 'result-qn' }, item.qualifiedName)
+        );
+      })
     )
   );
 }
@@ -1111,39 +1124,31 @@ function App() {
     React.createElement('div', { className: 'nav' },
       React.createElement('span', { style: { fontSize: 18 } }, '🔗'),
       React.createElement('span', { className: 'nav-title' }, 'Lineage Explorer'),
-      React.createElement('div', { style: { flex: 1 } }),
+      creds !== null
+        ? React.createElement(NavSearch, { onSelect: handleSetFocus, creds: creds })
+        : React.createElement('div', { style: { flex: 1 } }),
       activePersona
         ? React.createElement(React.Fragment, null,
-            React.createElement('span', { style: { fontSize: 11, color: 'var(--muted)' } }, '🎭 ' + (activePersona.display_name || activePersona.id)),
-            React.createElement('a', { href: '/portal', style: { fontSize: 11, color: 'var(--accent)', textDecoration: 'none', marginLeft: 8 } }, 'Portal')
+            React.createElement('span', { style: { fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' } }, '🎭 ' + (activePersona.display_name || activePersona.id)),
+            React.createElement('a', { href: '/portal', style: { fontSize: 11, color: 'var(--accent)', textDecoration: 'none', marginLeft: 8, whiteSpace: 'nowrap' } }, 'Portal')
           )
         : authUser
           ? React.createElement(React.Fragment, null,
-              React.createElement('span', { style: { fontSize: 11, color: 'var(--green)' } }, '👤 ' + (authUser.displayName || authUser.userId)),
-              React.createElement('a', { href: '/portal', style: { fontSize: 11, color: 'var(--muted)', textDecoration: 'none', marginLeft: 8 } }, 'Portal')
+              React.createElement('span', { style: { fontSize: 11, color: 'var(--green)', whiteSpace: 'nowrap' } }, '👤 ' + (authUser.displayName || authUser.userId)),
+              React.createElement('a', { href: '/portal', style: { fontSize: 11, color: 'var(--muted)', textDecoration: 'none', marginLeft: 8, whiteSpace: 'nowrap' } }, 'Portal')
             )
-          : React.createElement('a', { href: '/portal', style: { fontSize: 11, color: 'var(--accent)', textDecoration: 'none' } }, '🎭 Choose persona')
+          : React.createElement('a', { href: '/portal', style: { fontSize: 11, color: 'var(--accent)', textDecoration: 'none', whiteSpace: 'nowrap' } }, '🎭 Choose persona')
     ),
 
-    // Body
-    React.createElement('div', { className: 'body' },
-      // Sidebar
-      React.createElement('div', { className: 'sidebar' },
-        creds !== null
-          ? React.createElement(AssetSearch, { onSelect: handleSetFocus, selected: selected, creds: creds })
-          : React.createElement('div', { style: { padding: '14px 12px', fontSize: 12, color: 'var(--dim)' } }, 'Loading…')
-      ),
-
-      // Main content
-      React.createElement('div', { className: 'main' },
-        focusAsset
-          ? React.createElement(MainPanel, { focusAsset: focusAsset, creds: creds, onSetFocus: handleSetFocus })
-          : React.createElement('div', { className: 'welcome' },
-              React.createElement('div', { className: 'welcome-icon' }, '🔗'),
-              React.createElement('div', { className: 'welcome-text' }, 'Lineage Explorer'),
-              React.createElement('div', { className: 'welcome-hint' }, 'Search for an asset in the sidebar to explore its data lineage.')
-            )
-      )
+    // Full-width main content
+    React.createElement('div', { className: 'main' },
+      focusAsset
+        ? React.createElement(MainPanel, { focusAsset: focusAsset, creds: creds, onSetFocus: handleSetFocus })
+        : React.createElement('div', { className: 'welcome' },
+            React.createElement('div', { className: 'welcome-icon' }, '🔗'),
+            React.createElement('div', { className: 'welcome-text' }, 'Lineage Explorer'),
+            React.createElement('div', { className: 'welcome-hint' }, 'Search for an asset using the bar above to explore its data lineage.')
+          )
     )
   );
 }
