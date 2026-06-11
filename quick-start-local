@@ -92,25 +92,26 @@ ensure_service_image() {
   return 2
 }
 
-# Podman 3.x: network connect on a running container doesn't take effect until the
-# container is stopped and restarted. podman-compose also silently skips external
-# networks on container creation. This function connects each container to
-# egeria_network and cycles any that weren't already on it.
+# Podman 3.x: podman-compose silently skips external networks at container creation.
+# Calling network connect on a running container takes effect immediately — the
+# container becomes resolvable on egeria_network without any restart. DO NOT
+# stop/start service containers after connecting; that reverts them to their
+# creation-time networks (podman only).
 _podman_fix_network() {
-  local needs_cycle=()
   for c in "$@"; do
     if podman network connect egeria_network "$c" 2>/dev/null; then
-      needs_cycle+=("$c")
+      echo "[quick-start-local] Connected $c to egeria_network"
     fi
-    # exit 125 = already connected — no restart needed
+    # exit 125 = already connected — nothing to do
   done
-  if [[ ${#needs_cycle[@]} -gt 0 ]]; then
-    echo "[quick-start-local] Cycling ${needs_cycle[*]} onto egeria_network (Podman 3.x workaround)..."
-    podman stop "${needs_cycle[@]}" 2>/dev/null || true
-    for c in "${needs_cycle[@]}"; do
-      podman start "$c" || echo "[quick-start-local] WARNING: failed to start $c"
-    done
-  fi
+}
+
+# Restart Apache so its DNS resolver picks up all containers now on egeria_network.
+# Apache retains egeria_network across a stop/start (unlike service containers).
+_podman_restart_apache() {
+  echo "[quick-start-local] Restarting apache-web to refresh DNS resolver..."
+  podman stop quickstart-web-server 2>/dev/null || true
+  podman start quickstart-web-server || echo "[quick-start-local] WARNING: apache-web failed to restart"
 }
 
 echo "[quick-start-local] Preparing environment (.env) and compose files..."
@@ -328,6 +329,7 @@ EOF
       up -d egeria-main pyegeria-web jupyter-hub obsidian 2>&1 || true
     _podman_fix_network quickstart-egeria-main quickstart-pyegeria-web \
                         quickstart-jupyter-work-full obsidian-quickstart
+    # Apache hasn't started yet — no DNS restart needed here
   else
     if ! $COMPOSE_CMD -p egeria-quickstart \
       "${COMPOSE_FILES[@]}" \
@@ -357,6 +359,7 @@ EOF
         "${COMPOSE_FILES[@]}" \
         up -d apache-web 2>&1 || _apache_hint
       _podman_fix_network quickstart-web-server
+      _podman_restart_apache
     else
       if ! $COMPOSE_CMD -p egeria-quickstart \
         "${COMPOSE_FILES[@]}" \
@@ -395,10 +398,8 @@ if [[ "$CONTAINER_ENGINE" == "podman" ]]; then
   timeout 30 $COMPOSE_CMD -p egeria-quickstart \
     "${COMPOSE_FILES[@]}" \
     up -d my-profile 2>&1 || echo "[quick-start-local] WARNING: my-profile did not start."
-  # Connect my-profile to egeria_network; if it was newly connected, apache-web must
-  # also be cycled so its DNS resolver picks up the new peer.
   _podman_fix_network quickstart-my-profile
-  _podman_fix_network quickstart-web-server
+  _podman_restart_apache  # refresh DNS so Apache sees the new my-profile peer
 else
   $COMPOSE_CMD -p egeria-quickstart \
     "${COMPOSE_FILES[@]}" \
