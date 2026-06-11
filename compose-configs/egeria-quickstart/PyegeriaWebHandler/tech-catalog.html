@@ -783,9 +783,11 @@ var _ALL_MERMAID_FIELDS = [
   'governanceActionProcessMermaidGraph','organizationTreeMermaidGraph',
   'collectionMermaidMindMap',
 ];
-var _MERMAID_SECTION_FIELDS = new Set(['mermaidGraph','anchorMermaidGraph']);
+var _MERMAID_SECTION_FIELDS = new Set(['mermaidGraph']);
 var _MERMAID_FIELD_LABELS = {
-  mermaidGraph: 'Context Diagram', edgeMermaidGraph: 'Asset Edge Graph',
+  mermaidGraph: 'Context Diagram', anchorMermaidGraph: 'Anchor Diagram',
+  informationSupplyChainMermaidGraph: 'Information Supply Chain', actionMermaidGraph: 'Action Diagram',
+  edgeMermaidGraph: 'Asset Edge Graph',
   localLineageGraph: 'Local Lineage', fieldLevelLineageGraph: 'Field-Level Lineage',
   specificationMermaidGraph: 'Specification Diagram',
 };
@@ -1674,19 +1676,20 @@ function SchemaPane({ guid, creds }) {
   });
 }
 
-// LineagePane: renders the mermaid lineage graph returned by get_asset_lineage_mermaid_graph
-function LineagePane({ guid, creds }) {
-  function renderLineage(data) {
-    var graph = data.mermaidGraph || '';
-    if (!graph) return React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'No lineage graph available for this element.');
-    return React.createElement(MermaidDiagram, { code: graph });
-  }
-  return React.createElement(SubPane, {
-    title: 'Lineage',
-    fetchUrl: '/api/tech-catalog/assets/' + encodeURIComponent(guid) + '/lineage',
-    creds: creds,
-    renderContent: renderLineage,
-  });
+// LineagePane: deep-link to the dedicated Lineage Explorer
+function LineagePane({ guid }) {
+  var wrapStyle = { padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 };
+  var descStyle = { fontSize: 12, color: 'var(--dim)', lineHeight: 1.5 };
+  var btnStyle  = { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600,
+                    color: 'var(--accent)', background: 'rgba(96,165,250,.1)', border: '1px solid rgba(96,165,250,.35)',
+                    borderRadius: 6, padding: '7px 16px', textDecoration: 'none', cursor: 'pointer' };
+  return React.createElement('div', { style: { borderTop: '1px solid var(--border)', marginTop: 12 } },
+    React.createElement('div', { style: wrapStyle },
+      React.createElement('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 2 } }, 'Lineage'),
+      React.createElement('p', { style: descStyle }, 'Full end-to-end lineage, time-travel queries, ISC filtering and field-level detail are available in the Lineage Explorer.'),
+      React.createElement('a', { href: '/lineage?guid=' + encodeURIComponent(guid), target: '_blank', style: btnStyle }, '🔗 Open in Lineage Explorer')
+    )
+  );
 }
 
 // ── Glossary components (ported from type-explorer.html) ─────────────────────
@@ -2208,7 +2211,7 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
 
     // Sub-panes: Schema and Lineage (lazy-loaded on first open)
     item.hasSchema  && React.createElement(SchemaPane,  { guid: item.guid, creds: creds }),
-    item.hasLineage && React.createElement(LineagePane, { guid: item.guid, creds: creds }),
+    item.hasLineage && React.createElement(LineagePane, { guid: item.guid }),
 
     // Comments
     React.createElement(EgeriaCommentsSection, { guid: item.guid })
