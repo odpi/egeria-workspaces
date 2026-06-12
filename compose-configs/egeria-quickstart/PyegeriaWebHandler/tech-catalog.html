@@ -1718,7 +1718,7 @@ function SchemaPane({ guid, creds }) {
 
 // LineagePane: deep-link to the dedicated Lineage Explorer
 function LineagePane({ guid }) {
-  var wrapStyle = { padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 };
+  var wrapStyle = { padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' };
   var descStyle = { fontSize: 12, color: 'var(--dim)', lineHeight: 1.5 };
   var btnStyle  = { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600,
                     color: 'var(--accent)', background: 'rgba(96,165,250,.1)', border: '1px solid rgba(96,165,250,.35)',
@@ -2210,6 +2210,7 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
     ),
 
     // Mermaid diagrams — between Properties and Relationships
+    item.mermaidGraph && React.createElement(DiagramPanelFromData, { code: item.mermaidGraph, label: 'Context Diagram' }),
     React.createElement(AvailableMermaidDiagrams, { data: item }),
     React.createElement(MermaidSection, { guid: item.guid }),
 
@@ -2288,7 +2289,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
       (sectionId ? '?section=' + encodeURIComponent(sectionId) : '');
     fetchWithToken(detailUrl, creds)
       .then(function(r) {
-        if (r.status === 403) { setDetailErr('unauthorized'); setDetailLoad(false); return null; }
+        if (r.status === 401 || r.status === 403) { setDetailErr('unauthorized'); setDetailLoad(false); return null; }
         if (!r.ok) { setDetailErr('http-' + r.status); setDetailLoad(false); return null; }
         return r.json();
       })
@@ -2589,20 +2590,20 @@ function App() {
     var hash  = window.location.hash.slice(1);
     var valid = new Set(['glossary','infrastructure','data-assets','apis','processes','tech-types']);
     if (valid.has(hash)) return hash;
-    var params = new URLSearchParams(window.location.search);
-    if (params.get('guid')) return 'data-assets';
-    return '';
+    return '';  // ?guid= section is resolved via element-nav after auth
   }), section = _section[0], setSection = _section[1];
 
   var _creds     = useState(null),  creds      = _creds[0],     setCreds      = _creds[1];
   var _srvMgd    = useState(false), srvManaged = _srvMgd[0],    setSrvManaged = _srvMgd[1];
   var _demoMode  = useState(false), demoMode   = _demoMode[0],  setDemoMode   = _demoMode[1];
   var _ready     = useState(false), ready      = _ready[0],     setReady      = _ready[1];
-  var _navTarget = useState(function() {
+  var _navTarget = useState(null), navTarget  = _navTarget[0], setNavTarget  = _navTarget[1];
+
+  // Deep-link: resolve ?guid= to the correct section+tab once creds are ready
+  var _deepLinkGuid = useRef((function() {
     var params = new URLSearchParams(window.location.search);
-    var guid = params.get('guid');
-    return guid ? { guid: guid, section: 'data-assets' } : null;
-  }), navTarget  = _navTarget[0], setNavTarget  = _navTarget[1];
+    return params.get('guid') || null;
+  })());
   var _authUser  = useState(null),  authUser   = _authUser[0],  setAuthUser   = _authUser[1];
   var _activePersona = useState(function() {
     try { var s = localStorage.getItem('egeria-persona'); return s ? JSON.parse(s) : null; } catch(e) { return null; }
@@ -2613,6 +2614,35 @@ function App() {
     setNavTarget(nav);
     setSection(nav.section);
   }
+
+  // Resolve deep-link ?guid= to the correct section/tab via element-nav
+  useEffect(function() {
+    if (!creds || !_deepLinkGuid.current) return;
+    var guid = _deepLinkGuid.current;
+    _deepLinkGuid.current = null;  // only fire once
+    fetchWithToken('/api/tech-catalog/element-nav?guid=' + encodeURIComponent(guid), creds)
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(d) {
+        var typeName   = d && d.typeName;
+        var superTypes = (d && d.superTypeNames) || [];
+        var nav = TYPE_TO_NAV[typeName];
+        if (!nav) {
+          for (var i = 0; i < superTypes.length; i++) {
+            nav = TYPE_TO_NAV[superTypes[i]];
+            if (nav) break;
+          }
+        }
+        var sec  = (nav && nav.section) || 'data-assets';
+        var tab  = nav && nav.tab;
+        var disp = (d && d.displayName) || guid;
+        setSection(sec);
+        setNavTarget({ guid: guid, section: sec, tab: tab, displayName: disp });
+      })
+      .catch(function() {
+        setSection('data-assets');
+        setNavTarget({ guid: guid, section: 'data-assets' });
+      });
+  }, [creds]);
 
   useEffect(function() {
     fetch('/api/auth/me').then(function(r) { return r.json(); }).then(function(d) {

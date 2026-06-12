@@ -38,5 +38,7 @@ Where documentation refers to a specific type or glossary term, you can explore 
 
 ## Further resources
 
+- [Tech Catalog](tech-catalog.md) — browse and search technical assets; includes schemas, lineage sub-pane, and context diagrams
+- [Lineage Explorer](lineage-explorer.md) — full-featured data lineage tracing tool
 - [Egeria project documentation](https://egeria-project.org) — full open metadata type reference
 - [Coco Pharmaceuticals scenarios](../quickstart/coco/scenarios.md) — guided Explorer walk-throughs
