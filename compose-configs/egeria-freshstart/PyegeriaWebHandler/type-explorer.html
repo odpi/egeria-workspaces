@@ -7339,29 +7339,6 @@ function App() {
         var storedPersona = null;
         try { var s = localStorage.getItem('egeria-persona'); storedPersona = s ? JSON.parse(s) : null; } catch(e) {}
         if (storedPersona) {
-          var hasCreds = false;
-          try { hasCreds = !!localStorage.getItem('egeria-creds'); } catch(e) {}
-          if (!hasCreds) {
-            fetch('/api/demo/select-persona', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ persona: storedPersona.id })
-            }).then(function(r) { return r.json(); }).then(function(sel) {
-              if (sel.egeria_user) {
-                saveCreds({ url: '', server: 'qs-view-server', userId: sel.egeria_user, password: sel.egeria_password });
-              }
-            }).catch(function() {});
-          }
-        }
-        return;
-      }
-      setDemoMode(true);
-        var storedPersona = null;
-        try { var s = localStorage.getItem('egeria-persona'); storedPersona = s ? JSON.parse(s) : null; } catch(e) {}
-        if (!storedPersona) { window.location.href = '/portal?pick-persona=1'; return; }
-        // Persona selected in portal but egeria-creds not yet set — derive them now so nav tabs unlock
-        var hasCreds = false;
-        try { hasCreds = !!localStorage.getItem('egeria-creds'); } catch(e) {}
-        if (!hasCreds) {
           fetch('/api/demo/select-persona', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ persona: storedPersona.id })
@@ -7371,6 +7348,22 @@ function App() {
             }
           }).catch(function() {});
         }
+        return;
+      }
+      setDemoMode(true);
+        var storedPersona = null;
+        try { var s = localStorage.getItem('egeria-persona'); storedPersona = s ? JSON.parse(s) : null; } catch(e) {}
+        if (!storedPersona) { window.location.href = '/portal?pick-persona=1'; return; }
+        // Always refresh credentials from the stored persona — ensures the correct identity
+        // is used even when egeria-creds is cached from a previous session.
+        fetch('/api/demo/select-persona', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ persona: storedPersona.id })
+        }).then(function(r) { return r.json(); }).then(function(sel) {
+          if (sel.egeria_user) {
+            saveCreds({ url: '', server: 'qs-view-server', userId: sel.egeria_user, password: sel.egeria_password });
+          }
+        }).catch(function() {});
     }).catch(function() {});
   }, []);
 
