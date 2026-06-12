@@ -783,9 +783,11 @@ var _ALL_MERMAID_FIELDS = [
   'governanceActionProcessMermaidGraph','organizationTreeMermaidGraph',
   'collectionMermaidMindMap',
 ];
-var _MERMAID_SECTION_FIELDS = new Set(['mermaidGraph','anchorMermaidGraph']);
+var _MERMAID_SECTION_FIELDS = new Set(['mermaidGraph']);
 var _MERMAID_FIELD_LABELS = {
-  mermaidGraph: 'Context Diagram', edgeMermaidGraph: 'Asset Edge Graph',
+  mermaidGraph: 'Context Diagram', anchorMermaidGraph: 'Anchor Diagram',
+  informationSupplyChainMermaidGraph: 'Information Supply Chain', actionMermaidGraph: 'Action Diagram',
+  edgeMermaidGraph: 'Asset Edge Graph',
   localLineageGraph: 'Local Lineage', fieldLevelLineageGraph: 'Field-Level Lineage',
   specificationMermaidGraph: 'Specification Diagram',
 };
@@ -1214,21 +1216,54 @@ function TechTypeDetail({ item, detailLoading, creds }) {
   }
 
   // --- Live instances sub-pane ---
+  var _elemParams = new URLSearchParams();
+  if (item.displayName) _elemParams.set('display_name', item.displayName);
   var elementsUrl = '/api/tech-catalog/tech-types/' + encodeURIComponent(item.qualifiedName) + '/elements' +
-    (item.deployedImplementationType ? '?deployed_implementation_type=' + encodeURIComponent(item.deployedImplementationType) : '');
+    (_elemParams.toString() ? '?' + _elemParams.toString() : '');
   var instancesEl = React.createElement(SubPane, {
     title: 'Catalog Instances',
     fetchUrl: elementsUrl,
     creds: creds,
+    prominent: true,
     renderContent: function(data) {
       var its = data.items || [];
       if (its.length === 0) return React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '6px 0' } }, 'No catalog entries of this type yet.');
-      return React.createElement('div', null, its.map(function(it) {
-        return React.createElement('div', { key: it.guid, style: { borderBottom: '1px solid var(--border)', padding: '6px 0', fontSize: 12 } },
-          React.createElement('div', { style: { fontWeight: 600, color: 'var(--text)' } }, it.displayName || it.qualifiedName || it.guid),
-          React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 2 } }, it.typeName || '')
-        );
-      }));
+      var thStyle = { fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 8px 4px 0', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', textAlign: 'left' };
+      var tdBase  = { fontSize: 11, padding: '5px 8px 5px 0', verticalAlign: 'top', borderBottom: '1px solid var(--border)' };
+      var tdMono  = Object.assign({}, tdBase, { fontFamily: 'ui-monospace,monospace', fontSize: 10, color: 'var(--dim)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+      var tdDesc  = Object.assign({}, tdBase, { color: 'var(--muted)', maxWidth: 200, lineHeight: 1.4 });
+      return React.createElement('div', { style: { overflowX: 'auto', marginTop: 6 } },
+        React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse' } },
+          React.createElement('thead', null,
+            React.createElement('tr', null,
+              React.createElement('th', { style: thStyle }, 'Name'),
+              React.createElement('th', { style: thStyle }, 'Type'),
+              React.createElement('th', { style: thStyle }, 'Description'),
+              React.createElement('th', { style: thStyle }, 'Qualified Name'),
+              React.createElement('th', { style: thStyle }, 'GUID'),
+              React.createElement('th', { style: thStyle }, '')
+            )
+          ),
+          React.createElement('tbody', null,
+            its.map(function(it) {
+              return React.createElement('tr', { key: it.guid || it.qualifiedName },
+                React.createElement('td', { style: Object.assign({}, tdBase, { fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap' }) }, it.displayName || it.qualifiedName || it.guid),
+                React.createElement('td', { style: Object.assign({}, tdBase, { color: 'var(--muted)', whiteSpace: 'nowrap' }) }, it.typeName || ''),
+                React.createElement('td', { style: tdDesc }, it.description || ''),
+                React.createElement('td', { style: tdMono, title: it.qualifiedName || '' }, it.qualifiedName || ''),
+                React.createElement('td', { style: tdMono, title: it.guid || '' }, it.guid || ''),
+                React.createElement('td', { style: Object.assign({}, tdBase, { whiteSpace: 'nowrap' }) },
+                  it.guid && React.createElement('a', {
+                    href: '/tech-catalog?guid=' + encodeURIComponent(it.guid),
+                    target: '_blank',
+                    style: { fontSize: 10, color: 'var(--accent)', textDecoration: 'none', border: '1px solid var(--border)', borderRadius: 4, padding: '2px 7px' }
+                  }, '↗ View')
+                )
+              );
+            })
+          )
+        )
+      );
     }
   });
 
@@ -1240,6 +1275,7 @@ function TechTypeDetail({ item, detailLoading, creds }) {
     React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginBottom: item.description ? 12 : 4 } }, item.qualifiedName),
     item.description && React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 12 },
       dangerouslySetInnerHTML: { __html: renderMd(item.description) } }),
+    item.mermaidGraph && React.createElement(DiagramPanelFromData, { code: item.mermaidGraph, label: 'Technology Context Diagram' }),
     React.createElement(AvailableMermaidDiagrams, { data: item }),
     templatesEl,
     processesEl,
@@ -1531,6 +1567,24 @@ function SidebarDetail({ items, loading, error, selected, onSelect, renderDetail
         : items.length === 0 ? React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'No items found.')
         : items.map(function(item) {
             var active = selected && selected.guid === item.guid;
+            // Sidebar classification badges: zones first, then other types (max 3 total)
+            var badges = [];
+            (item.classifications || []).forEach(function(cls) {
+              if (cls.typeName === 'ZoneMembership') {
+                var zones = (cls.properties && cls.properties.zoneMembershipList)
+                  ? cls.properties.zoneMembershipList.split(', ').filter(Boolean) : [];
+                zones.forEach(function(z) {
+                  badges.push(React.createElement('span', { key: 'zm:' + z,
+                    style: { fontSize: 9, background: 'rgba(20,83,45,.45)', color: '#4ade80', borderRadius: 8, padding: '1px 5px', border: '0.5px solid #166534', whiteSpace: 'nowrap' }
+                  }, z));
+                });
+              } else {
+                badges.push(React.createElement('span', { key: cls.typeName,
+                  style: { fontSize: 9, background: 'rgba(124,58,237,.12)', color: '#a78bfa', borderRadius: 8, padding: '1px 5px', border: '0.5px solid rgba(124,58,237,.3)', whiteSpace: 'nowrap' }
+                }, cls.typeName));
+              }
+            });
+            if (badges.length > 3) badges = badges.slice(0, 3);
             return React.createElement('div', { key: item.guid, onClick: function() { onSelect(item); },
               style: { padding: '8px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)',
                        background: active ? 'var(--hover)' : 'transparent',
@@ -1538,7 +1592,8 @@ function SidebarDetail({ items, loading, error, selected, onSelect, renderDetail
               React.createElement('div', { style: { fontSize: 12, fontWeight: active ? 700 : 400, color: active ? 'var(--accent)' : 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
                 item.displayName || item.qualifiedName || item.guid),
               item.deployedImplementationType && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 1 } }, item.deployedImplementationType),
-              item.typeName && !item.deployedImplementationType && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 1 } }, item.typeName)
+              item.typeName && !item.deployedImplementationType && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 1 } }, item.typeName),
+              badges.length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 2, marginTop: 3 } }, badges)
             );
           })
       )
@@ -1556,7 +1611,7 @@ function SidebarDetail({ items, loading, error, selected, onSelect, renderDetail
 // SubPane: generic container. Fetches fetchUrl on first open, then renders via
 // renderContent(data). Stays open/closed independently. Reused for Schema and Lineage.
 //
-function SubPane({ title, fetchUrl, creds, renderContent }) {
+function SubPane({ title, fetchUrl, creds, renderContent, prominent }) {
   var _open    = useState(false), open    = _open[0],    setOpen    = _open[1];
   var _data    = useState(null),  data    = _data[0],    setData    = _data[1];
   var _loading = useState(false), loading = _loading[0], setLoading = _loading[1];
@@ -1572,6 +1627,27 @@ function SubPane({ title, fetchUrl, creds, renderContent }) {
         .then(function(d) { setData(d); setLoading(false); })
         .catch(function(e) { setErr(String(e)); setLoading(false); });
     }
+  }
+
+  if (prominent) {
+    var btnStyle = { width: '100%', marginTop: 14, padding: '10px 16px', fontSize: 13, fontWeight: 700,
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer',
+      borderRadius: 6, border: '1px solid ' + (open ? 'rgba(96,165,250,.6)' : 'rgba(96,165,250,.35)'),
+      background: open ? 'rgba(96,165,250,.12)' : 'rgba(96,165,250,.06)',
+      color: 'var(--accent)', userSelect: 'none' };
+    return React.createElement('div', null,
+      React.createElement('div', { style: btnStyle, onClick: toggle },
+        React.createElement('span', null, title),
+        React.createElement('span', { style: { fontSize: 18, lineHeight: 1 } }, open ? '▲' : '▼')
+      ),
+      open && React.createElement('div', { style: { paddingBottom: 12 } },
+        loading
+          ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '8px 0' } }, 'Loading…')
+          : err
+            ? React.createElement('div', { style: { fontSize: 12, color: 'var(--muted)', padding: '8px 0' } }, 'Error: ' + err)
+            : data ? renderContent(data) : null
+      )
+    );
   }
 
   var hdrStyle = { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 0', cursor: 'pointer', borderTop: '1px solid var(--border)', marginTop: 16, userSelect: 'none' };
@@ -1640,19 +1716,20 @@ function SchemaPane({ guid, creds }) {
   });
 }
 
-// LineagePane: renders the mermaid lineage graph returned by get_asset_lineage_mermaid_graph
-function LineagePane({ guid, creds }) {
-  function renderLineage(data) {
-    var graph = data.mermaidGraph || '';
-    if (!graph) return React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'No lineage graph available for this element.');
-    return React.createElement(MermaidDiagram, { code: graph });
-  }
-  return React.createElement(SubPane, {
-    title: 'Lineage',
-    fetchUrl: '/api/tech-catalog/assets/' + encodeURIComponent(guid) + '/lineage',
-    creds: creds,
-    renderContent: renderLineage,
-  });
+// LineagePane: deep-link to the dedicated Lineage Explorer
+function LineagePane({ guid }) {
+  var wrapStyle = { padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 };
+  var descStyle = { fontSize: 12, color: 'var(--dim)', lineHeight: 1.5 };
+  var btnStyle  = { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600,
+                    color: 'var(--accent)', background: 'rgba(96,165,250,.1)', border: '1px solid rgba(96,165,250,.35)',
+                    borderRadius: 6, padding: '7px 16px', textDecoration: 'none', cursor: 'pointer' };
+  return React.createElement('div', { style: { borderTop: '1px solid var(--border)', marginTop: 12 } },
+    React.createElement('div', { style: wrapStyle },
+      React.createElement('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 2 } }, 'Lineage'),
+      React.createElement('p', { style: descStyle }, 'Full end-to-end lineage, time-travel queries, ISC filtering and field-level detail are available in the Lineage Explorer.'),
+      React.createElement('a', { href: '/lineage?guid=' + encodeURIComponent(guid), target: '_blank', style: btnStyle }, '🔗 Open in Lineage Explorer')
+    )
+  );
 }
 
 // ── Glossary components (ported from type-explorer.html) ─────────────────────
@@ -2107,7 +2184,7 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
       React.createElement('div', { style: sectionHdr }, 'Properties'),
       React.createElement('table', { style: { borderCollapse: 'collapse', width: '100%', fontSize: 12 } },
         React.createElement('tbody', null,
-          [['Qualified Name', item.qualifiedName], ['GUID', item.guid]].concat(extraProps).filter(function(r) { return r[1]; }).map(function(r) {
+          [['Qualified Name', item.qualifiedName || '—'], ['GUID', item.guid || '—']].concat(extraProps).map(function(r) {
             var mono = r[0] === 'Qualified Name' || r[0] === 'GUID';
             return React.createElement('tr', { key: r[0], style: { borderBottom: '1px solid var(--border)' } },
               React.createElement('td', { style: { padding: '5px 10px 5px 0', color: 'var(--dim)', width: 180, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
@@ -2164,7 +2241,7 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
             }, 'View →')
           ),
           el.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginBottom: relProps.length ? 4 : 0 } }, el.description),
-          relProps.map(function(e) {
+          relProps.filter(function(e) { return typeof e[1] !== 'object' || e[1] === null; }).map(function(e) {
             return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
               e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
           })
@@ -2174,7 +2251,7 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
 
     // Sub-panes: Schema and Lineage (lazy-loaded on first open)
     item.hasSchema  && React.createElement(SchemaPane,  { guid: item.guid, creds: creds }),
-    item.hasLineage && React.createElement(LineagePane, { guid: item.guid, creds: creds }),
+    item.hasLineage && React.createElement(LineagePane, { guid: item.guid }),
 
     // Comments
     React.createElement(EgeriaCommentsSection, { guid: item.guid })
@@ -2190,11 +2267,12 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   var _detail     = useState(null),  detail     = _detail[0],     setDetail     = _detail[1];
   var _detailLoad = useState(false), detailLoad = _detailLoad[0], setDetailLoad = _detailLoad[1];
   var _detailErr  = useState(null),  detailErr  = _detailErr[0],  setDetailErr  = _detailErr[1];
-  var _q          = useState(''),    q          = _q[0],          setQ          = _q[1];
-  var _typeFilter = useState('all'), typeFilter = _typeFilter[0], setTypeFilter = _typeFilter[1];
+  var _q             = useState(''),   q             = _q[0],             setQ             = _q[1];
+  var _typeFilter    = useState('all'), typeFilter    = _typeFilter[0],    setTypeFilter    = _typeFilter[1];
+  var _classifFilter = useState([]),   classifFilter = _classifFilter[0], setClassifFilter = _classifFilter[1];
 
   useEffect(function() {
-    setLoading(true); setError(''); setSelected(null); setDetail(null);
+    setLoading(true); setError(''); setSelected(null); setDetail(null); setClassifFilter([]);
     fetchWithToken(endpoint, creds)
       .then(function(r) { return r.json(); })
       .then(function(d) { setItems(Array.isArray(d) ? d : (d.items || [])); setLoading(false); })
@@ -2211,25 +2289,67 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
     fetchWithToken(detailUrl, creds)
       .then(function(r) {
         if (r.status === 403) { setDetailErr('unauthorized'); setDetailLoad(false); return null; }
+        if (!r.ok) { setDetailErr('http-' + r.status); setDetailLoad(false); return null; }
         return r.json();
       })
       .then(function(d) { if (d) { setDetail(d); setDetailLoad(false); } })
       .catch(function() { setDetailLoad(false); });
   }
 
-  // Cross-navigation: when a navTarget arrives for this tab, fetch its detail directly
+  // Cross-navigation: when a navTarget arrives for this tab, fetch its detail directly.
+  // Guard on creds so deep-links on fresh page load wait until auth is ready.
   var _lastNavGuid = useRef(null);
   useEffect(function() {
-    if (!navTarget || !navTarget.guid) return;
+    if (!navTarget || !navTarget.guid || !creds) return;
     if (navTarget.guid === _lastNavGuid.current) return; // already handled
     _lastNavGuid.current = navTarget.guid;
     handleSelect({ guid: navTarget.guid, displayName: navTarget.displayName || navTarget.guid });
-  }, [navTarget]);
+  }, [navTarget, creds]);
+
+  // Build classification filter options from the current item list
+  var classifOptions = [];
+  var _optsSeen = {};
+  items.forEach(function(item) {
+    (item.classifications || []).forEach(function(cls) {
+      if (cls.typeName === 'ZoneMembership') {
+        var zones = (cls.properties && cls.properties.zoneMembershipList)
+          ? cls.properties.zoneMembershipList.split(', ').filter(Boolean) : [];
+        zones.forEach(function(z) {
+          var k = 'ZoneMembership:' + z;
+          if (!_optsSeen[k]) { _optsSeen[k] = true; classifOptions.push({ key: k, label: z, zone: true }); }
+        });
+      } else {
+        var k = cls.typeName;
+        if (!_optsSeen[k]) { _optsSeen[k] = true; classifOptions.push({ key: k, label: cls.typeName, zone: false }); }
+      }
+    });
+  });
+  classifOptions.sort(function(a, b) { return a.label.localeCompare(b.label); });
+
+  function toggleClassif(key) {
+    if (classifFilter.indexOf(key) === -1) {
+      setClassifFilter(classifFilter.concat([key]));
+    } else {
+      setClassifFilter(classifFilter.filter(function(k) { return k !== key; }));
+    }
+  }
 
   var filtered = items.filter(function(item) {
     var matchQ = !q.trim() || (item.displayName || item.qualifiedName || '').toLowerCase().includes(q.trim().toLowerCase());
     var matchT = typeFilter === 'all' || item.deployedImplementationType === typeFilter || item.typeName === typeFilter;
-    return matchQ && matchT;
+    var matchC = classifFilter.length === 0 || classifFilter.every(function(key) {
+      var clsList = item.classifications || [];
+      if (key.indexOf('ZoneMembership:') === 0) {
+        var zone = key.slice('ZoneMembership:'.length);
+        var zm = clsList.find(function(c) { return c.typeName === 'ZoneMembership'; });
+        if (!zm) return false;
+        var zones = (zm.properties && zm.properties.zoneMembershipList)
+          ? zm.properties.zoneMembershipList.split(', ').filter(Boolean) : [];
+        return zones.indexOf(zone) !== -1;
+      }
+      return clsList.some(function(c) { return c.typeName === key; });
+    });
+    return matchQ && matchT && matchC;
   });
 
   var types = Array.from(new Set(items.map(function(i) { return i.deployedImplementationType || i.typeName || ''; }).filter(Boolean))).sort();
@@ -2242,6 +2362,23 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
       [React.createElement('option', { key: 'all', value: 'all' }, 'All types')].concat(
         types.map(function(t) { return React.createElement('option', { key: t, value: t }, t); })
       )
+    ),
+    classifOptions.length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 3, paddingTop: 2 } },
+      classifOptions.map(function(opt) {
+        var active = classifFilter.indexOf(opt.key) !== -1;
+        return React.createElement('button', {
+          key: opt.key,
+          onClick: function() { toggleClassif(opt.key); },
+          title: (opt.zone ? 'Zone: ' : 'Classification: ') + opt.label,
+          style: {
+            fontSize: 9, padding: '2px 6px', borderRadius: 10, cursor: 'pointer', lineHeight: 1.2,
+            border: '1px solid ' + (active ? (opt.zone ? '#166534' : 'var(--accent)') : 'var(--border)'),
+            background: active ? (opt.zone ? 'rgba(20,83,45,.5)' : 'rgba(233,69,96,.15)') : 'transparent',
+            color: active ? (opt.zone ? '#4ade80' : 'var(--accent)') : 'var(--dim)',
+            whiteSpace: 'nowrap',
+          }
+        }, (opt.zone ? '🌐 ' : '') + opt.label);
+      })
     )
   );
 
@@ -2253,6 +2390,14 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
         return React.createElement('div', { style: { padding: '32px 24px' } },
           React.createElement('div', { style: { fontSize: 14, color: '#f87171', fontWeight: 600, marginBottom: 8 } }, '🔒 User Not Authorized'),
           React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)' } }, 'You do not have permission to view this element.')
+        );
+      }
+      if (detailErr && detailErr.startsWith('http-')) {
+        var status = detailErr.slice(5);
+        return React.createElement('div', { style: { padding: '32px 24px' } },
+          React.createElement('div', { style: { fontSize: 14, color: '#f87171', fontWeight: 600, marginBottom: 8 } }, '⚠ Could not load element (HTTP ' + status + ')'),
+          React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)', marginBottom: 8 } }, 'The element with this GUID could not be retrieved. It may be a non-Asset type (schema attribute, technical element, etc.) or belong to a different catalog section.'),
+          detail && detail.guid && React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)' } }, detail.guid)
         );
       }
       return React.createElement(AssetDetail, { item: detail, detailLoading: detailLoad, onNavigate: onNavigate, creds: creds });
@@ -2318,7 +2463,8 @@ function SectionView({ sectionId, creds, navTarget, onNavigate }) {
       endpoint: currentTab.endpoint,
       sectionId: currentTab.id,
       creds: creds,
-      navTarget: navTarget && navTarget.section === sectionId && navTarget.tab === currentTab.id ? navTarget : null,
+      navTarget: navTarget && navTarget.guid && (navTarget.section === sectionId || !navTarget.section)
+                   && (!navTarget.tab || navTarget.tab === currentTab.id) ? navTarget : null,
       onNavigate: onNavigate,
     })
   );
@@ -2442,14 +2588,21 @@ function App() {
   var _section   = useState(function() {
     var hash  = window.location.hash.slice(1);
     var valid = new Set(['glossary','infrastructure','data-assets','apis','processes','tech-types']);
-    return valid.has(hash) ? hash : '';
+    if (valid.has(hash)) return hash;
+    var params = new URLSearchParams(window.location.search);
+    if (params.get('guid')) return 'data-assets';
+    return '';
   }), section = _section[0], setSection = _section[1];
 
   var _creds     = useState(null),  creds      = _creds[0],     setCreds      = _creds[1];
   var _srvMgd    = useState(false), srvManaged = _srvMgd[0],    setSrvManaged = _srvMgd[1];
   var _demoMode  = useState(false), demoMode   = _demoMode[0],  setDemoMode   = _demoMode[1];
   var _ready     = useState(false), ready      = _ready[0],     setReady      = _ready[1];
-  var _navTarget = useState(null),  navTarget  = _navTarget[0], setNavTarget  = _navTarget[1];
+  var _navTarget = useState(function() {
+    var params = new URLSearchParams(window.location.search);
+    var guid = params.get('guid');
+    return guid ? { guid: guid, section: 'data-assets' } : null;
+  }), navTarget  = _navTarget[0], setNavTarget  = _navTarget[1];
   var _authUser  = useState(null),  authUser   = _authUser[0],  setAuthUser   = _authUser[1];
   var _activePersona = useState(function() {
     try { var s = localStorage.getItem('egeria-persona'); return s ? JSON.parse(s) : null; } catch(e) { return null; }

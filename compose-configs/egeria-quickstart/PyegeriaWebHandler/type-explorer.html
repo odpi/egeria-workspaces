@@ -6042,7 +6042,10 @@ function InformationSupplyChainView() {
   const [attempt, setAttempt] = useState(0);
   const [items, setItems]   = useState([]);
   const [error, setError]   = useState('');
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState(function() {
+    var params = new URLSearchParams(window.location.search);
+    return params.get('guid') || null;
+  });
   const [detail, setDetail] = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter] = useState('');

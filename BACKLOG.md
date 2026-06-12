@@ -337,9 +337,9 @@ New standalone SPA (`tech-catalog.html`) + backend handler (`tech_catalog_handle
 | TC-7 | Detail panel polish: full property table, mermaid graphs (`AvailableMermaidDiagrams` + `MermaidSection`), classifications with properties, relationships with related element | done | `AssetTabView` fetches full detail via `get_asset_by_guid` on selection; `_extract_relationships` in backend; relationships card in `AssetDetail` (type · name · description · rel properties); summary shown immediately, detail overlaid on load |
 | TC-8 | Cross-navigation links: Infrastructure ↔ Software Capabilities, Software Capability ↔ IT Asset, Endpoint → server, Data Store → Data Sets | open | Post-MVP; implement after all sections verified against live Egeria |
 | TC-9 | Investigate which Catalog types genuinely support lineage — Endpoint and SoftwareCapability are Referenceable subtypes (not Asset); confirm whether lineage methods exist for them or if the lineage pane should be suppressed | open | Currently `hasLineage=True` for all types; lineage endpoint returns empty graph gracefully for non-Assets |
-| TC-10 | Zone-based sidebar filtering — `ZoneMembership` display is done (free from TC-11); remaining work: add zone membership as a sidebar filter option so users can narrow the list to elements in a specific zone; filter is client-side on the already-loaded items array using `item.classifications.find(c => c.typeName === 'ZoneMembership')`; part of TC-12 | open | Zone display confirmed working (globalCRM shows zoneMembership in IT Infrastructure detail panel) |
+| TC-10 | Zone-based sidebar filtering | done | Absorbed into TC-12 |
 | TC-11 | Classification ubiquity audit and fix | done | Root cause found and fixed: pyegeria stores each classification as a named key directly on `elementHeader` with `class="ElementClassification"`, not in a `classifications` array; rewrote `_extract_classifications` in both handlers to iterate `elementHeader` items; confirmed working — `ZoneMembership` and `DataAssetEncoding` visible in Catalog property panels; `_SKIP_CLASSIFICATIONS` skips internal types (Anchors, LatestChange, Memento, etc.) |
-| TC-12 | Classification-based sidebar filtering — add filter chips/panel in all catalog section sidebars; collect all classification type+value combinations present in the current item list; user selects one or more to narrow results (client-side); special treatment for `ZoneMembership.zoneMembershipList` (a list field); show classification badges on sidebar list items as quick overview | open | TC-11 done; can implement now |
+| TC-12 | Classification-based sidebar filtering | done | Filter chips below search bar: zone chips (🌐 zoneName, green) + classification type chips (purple); multi-select AND logic; `ZoneMembership.zoneMembershipList` split per zone; classification badges on each sidebar list item (zones green, others purple, max 3); filter resets on tab change |
 
 ---
 
@@ -353,6 +353,19 @@ The Catalog and Egeria Explorer both receive credentials at launch via query par
 |---|------|--------|-------|
 | RE-1 | Pass Egeria credentials to Resource Explorer at launch — append `url`, `server`, `user_id` query params the same way the portal does for The Catalog and Egeria Explorer | open | Portal `launch()` call needs to read current creds state and append params; Resource Explorer SPA reads them on load |
 | RE-2 | Pass Egeria credentials to Egeria Advisor at launch — same credential pass-through pattern as RE-1 | open | Advisor is an external service (not in compose); confirm it accepts query-param credentials or needs a different mechanism |
+
+---
+
+## Lineage Explorer
+
+New standalone portal application for data lineage visualization centred on a "focus asset". Spec: `Lineage Explorer.md`.
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| LE-1 | Initial implementation — handler, SPA, portal tile, cat_calls docs | done | `lineage_handler.py` + `lineage-explorer.html`; both QS and FS |
+| LE-2 | Tech Catalog → add "Open in Lineage Explorer" deep-link button to the lineage sub-pane for all asset types | open | Add button to `tech-catalog.html` lineage pane that opens `/lineage?guid={guid}` |
+| LE-3 | Time slider — generalise as a shared component for Egeria Explorer and Tech Catalog pages | open | Spec notes: "expected to be a common feature added to each page"; blocked on MOD-2 modularization |
+| LE-4 | Audit all existing handler endpoints — remove `user_id`/`user_pwd` query params and replace with token-only pattern | open | New rule: credentials via env vars only; token via `X-Egeria-Token` header. Affects `tech_catalog_handler.py` and others |
 
 ---
 

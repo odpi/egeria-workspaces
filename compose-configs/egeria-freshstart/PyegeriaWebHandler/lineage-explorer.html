@@ -3,280 +3,177 @@
   SPDX-License-Identifier: Apache-2.0
   Copyright Contributors to the ODPi Egeria project.
 
-  The Catalog — Technical Asset Catalog SPA.
-  Served by PyegeriaWebHandler at /tech-catalog
-  Spec: technical_data_catalog_spec.md
+  Lineage Explorer SPA.
+  Served by lineage_handler at /lineage
+  Spec: Lineage Explorer.md
 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>The Catalog</title>
+  <title>Lineage Explorer</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg:       #080c14;
-      --panel:    #0b111c;
-      --card:     #0f1828;
-      --hover:    #131e30;
-      --border:   #1a2d48;
-      --text:     #c8d4e8;
-      --muted:    #7a96b0;
-      --dim:      #4a6278;
-      --accent:   #60a5fa;
-      --abstract: #c4b5fd;
-      --classif:  #5eead4;
-      --rel:      #fbbf24;
-      --base:     #64748b;
+      --bg:      #080c14;
+      --panel:   #0b111c;
+      --card:    #0f1828;
+      --hover:   #131e30;
+      --border:  #1a2d48;
+      --text:    #c8d4e8;
+      --muted:   #7a96b0;
+      --dim:     #4a6278;
+      --accent:  #60a5fa;
+      --green:   #34d399;
+      --amber:   #fbbf24;
+      --red:     #f87171;
+      --purple:  #a78bfa;
     }
     body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif;
            font-size: 14px; height: 100vh; overflow: hidden; }
     ::-webkit-scrollbar { width: 4px; height: 4px; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-    input { outline: none; }
+    input, select, button { font-family: inherit; outline: none; }
     input::placeholder { color: var(--dim); }
-    button { font-family: inherit; }
     a { color: var(--accent); }
 
-    /* layout */
     #root { display: flex; flex-direction: column; height: 100vh; }
-    .header { background: var(--panel); border-bottom: 1px solid var(--border);
-              padding: 10px 20px; display: flex; align-items: center; gap: 14px;
-              flex-shrink: 0; }
-    .body   { display: flex; flex: 1; overflow: hidden; }
-    .sidebar { flex-shrink: 0; background: rgba(11,17,28,.85);
-               display: flex; flex-direction: column; overflow: hidden; }
-    .col-divider { width: 5px; flex-shrink: 0; cursor: col-resize; background: transparent;
-                   position: relative; z-index: 1; user-select: none; }
-    .col-divider::after { content: ''; position: absolute; top: 0; bottom: 0; left: 2px;
-                          width: 1px; background: var(--border); transition: background .15s; }
-    .col-divider:hover::after { background: var(--accent); }
-    .main    { flex: 1; overflow-y: auto; background: var(--bg); }
 
-    /* sidebar */
-    .search-wrap { padding: 10px; border-bottom: 1px solid var(--border);
-                   background: rgba(11,17,28,.95); position: sticky; top: 0; z-index: 1; }
+    /* Nav bar */
+    .nav { background: var(--panel); border-bottom: 1px solid var(--border);
+           padding: 0 16px; height: 48px; display: flex; align-items: center;
+           gap: 10px; flex-shrink: 0; }
+    .nav-title { font-size: 14px; font-weight: 700; white-space: nowrap; }
+
+    /* Full-width layout */
+    .main { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+    /* Search bar in nav */
+    .search-wrap { position: relative; flex: 0 0 auto; width: min(420px, 40%); }
     .search-input { width: 100%; background: rgba(20,32,52,.8); border: 1px solid var(--border);
-                    border-radius: 5px; padding: 5px 8px; color: var(--text);
-                    font-family: ui-monospace, monospace; font-size: 12px; }
-    .stats { padding: 5px 10px; border-bottom: 1px solid rgba(26,45,72,.5);
-             display: flex; gap: 14px; font-size: 10px; color: var(--dim); }
-    .tree-scroll { flex: 1; overflow-y: auto; overflow-x: auto; padding: 4px 0; }
-    .tree-item { display: flex; align-items: center; gap: 4px; padding: 3px 8px;
-                 cursor: pointer; border-radius: 3px; border-left: 2px solid transparent;
-                 min-width: max-content; }
-    .tree-item:hover { background: var(--hover); }
-    .tree-item.sel  { background: rgba(96,165,250,.1); border-left-color: var(--accent); }
-    .section-hdr { padding: 5px 10px; font-size: 10px; color: var(--muted);
-                   letter-spacing: 1px; cursor: pointer; display: flex; gap: 5px; }
-    .section-hdr:hover { background: var(--hover); }
-    .type-name { font-family: ui-monospace,monospace; font-size: 12px; flex-shrink: 0; white-space: nowrap; }
-    .badge { border-radius: 4px; padding: 1px 5px; font-size: 10px;
-             font-family: ui-monospace,monospace; font-weight: 500; flex-shrink: 0; white-space: nowrap; }
+                    border-radius: 5px; padding: 6px 10px; color: var(--text);
+                    font-size: 13px; }
+    .search-input:focus { border-color: var(--accent); outline: none; }
+    .search-dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+                       background: var(--card); border: 1px solid var(--border);
+                       border-radius: 6px; z-index: 100; max-height: 320px;
+                       overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,.5); }
 
-    /* main panel */
-    .detail { padding: 20px 24px; }
-    .detail-name { font-family: ui-monospace,monospace; font-size: 22px; font-weight: 700; }
-    .detail-desc { color: var(--muted); font-size: 13px; line-height: 1.5; margin-top: 6px; }
-    .chain { display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
-             margin: 12px 0; font-size: 12px; }
-    .subs  { display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-             margin-bottom: 14px; font-size: 12px; }
-    .tabs  { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
-    .tab   { background: none; border: none; padding: 8px 16px; cursor: pointer;
-             font-size: 13px; color: var(--muted); border-bottom: 2px solid transparent; }
-    .tab.on { color: var(--accent); font-weight: 600; border-bottom-color: var(--accent); }
-    table  { width: 100%; border-collapse: collapse; }
-    th { text-align: left; padding: 6px 10px; font-size: 11px; color: var(--muted);
+    /* Result list items */
+    .result-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid rgba(26,45,72,.4);
+                   display: flex; flex-direction: column; gap: 2px; }
+    .result-item:hover, .result-item.hi { background: var(--hover); }
+    .result-name { font-size: 13px; font-weight: 600; white-space: nowrap;
+                   overflow: hidden; text-overflow: ellipsis; }
+    .result-type { font-size: 10px; color: var(--dim); font-family: ui-monospace, monospace; }
+    .result-qn   { font-size: 10px; color: var(--dim); white-space: nowrap;
+                   overflow: hidden; text-overflow: ellipsis; }
+
+    /* Asset card */
+    .asset-card { background: var(--card); border: 1px solid var(--border);
+                  border-radius: 8px; padding: 16px 18px; margin-bottom: 18px; }
+    .asset-name { font-size: 18px; font-weight: 700; font-family: ui-monospace, monospace;
+                  word-break: break-all; }
+    .asset-type { font-size: 11px; color: var(--purple); font-family: ui-monospace, monospace;
+                  margin-top: 3px; }
+    .asset-qn   { font-size: 11px; color: var(--dim); font-family: ui-monospace, monospace;
+                  margin-top: 3px; word-break: break-all; }
+    .asset-desc { font-size: 13px; color: var(--muted); line-height: 1.5; margin-top: 8px; }
+    .asset-meta { display: flex; gap: 14px; margin-top: 8px; font-size: 11px; color: var(--dim); }
+    .asset-guid { font-family: ui-monospace, monospace; font-size: 10px; color: var(--dim);
+                  margin-top: 6px; word-break: break-all; }
+
+    /* Time slider */
+    .slider-wrap { background: var(--card); border: 1px solid var(--border);
+                   border-radius: 8px; padding: 14px 18px; margin-bottom: 18px; }
+    .slider-label { font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+                    text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+    .slider-row { display: flex; align-items: center; gap: 10px; }
+    .time-slider { flex: 1; accent-color: var(--accent); cursor: pointer; }
+    .slider-dates { display: flex; justify-content: space-between;
+                    font-size: 10px; color: var(--dim); margin-top: 4px; }
+    .slider-now { font-size: 11px; color: var(--accent); white-space: nowrap;
+                  min-width: 110px; text-align: right; }
+
+    /* Section blocks */
+    .section { background: var(--card); border: 1px solid var(--border);
+               border-radius: 8px; padding: 16px 18px; margin-bottom: 18px; }
+    .section-title { font-size: 12px; font-weight: 700; letter-spacing: 0.06em;
+                     text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+    .section-desc  { font-size: 12px; color: var(--muted); margin-bottom: 12px; line-height: 1.5; }
+    .section-empty { font-size: 12px; color: var(--dim); padding: 6px 0; }
+
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { text-align: left; padding: 6px 10px; font-size: 10px; color: var(--muted);
          text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border);
          font-weight: 500; }
-    td { padding: 7px 10px; border-bottom: 1px solid rgba(26,45,72,.4);
-         font-size: 12px; color: var(--text); vertical-align: top; }
-    tr.own-row td { background: rgba(96,165,250,.05); }
-    tr.depr-row td { opacity: 0.6; }
-    .depr { text-decoration: line-through; opacity: 0.7; }
-    .mono { font-family: ui-monospace,monospace; }
-    .rel-card { background: rgba(11,17,28,.6); border: 1px solid var(--border);
-                border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
-    .arrow-row { display: flex; align-items: center; gap: 10px; padding: 14px;
-                 background: rgba(11,17,28,.6); border: 1px solid var(--border);
-                 border-radius: 8px; margin-bottom: 16px; }
+    td { padding: 7px 10px; border-bottom: 1px solid rgba(26,45,72,.35);
+         color: var(--text); vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    .mono { font-family: ui-monospace, monospace; font-size: 11px; }
+    .td-trunc { max-width: 220px; white-space: nowrap; overflow: hidden;
+                text-overflow: ellipsis; }
 
-    /* loading / error */
-    .center { display: flex; flex-direction: column; align-items: center;
-              justify-content: center; height: 100%; gap: 12px; color: var(--muted); }
-    .spinner { width: 32px; height: 32px; border: 3px solid var(--border);
-               border-top-color: var(--accent); border-radius: 50%;
-               animation: spin .8s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    /* Buttons */
+    .btn { padding: 4px 12px; border-radius: 5px; border: 1px solid var(--border);
+           background: transparent; color: var(--accent); cursor: pointer;
+           font-size: 11px; white-space: nowrap; }
+    .btn:hover { background: var(--hover); }
+    .btn-focus { background: rgba(96,165,250,.1); border-color: var(--accent);
+                 color: var(--accent); }
+    .btn-load { color: var(--green); border-color: rgba(52,211,153,.4); }
+    .btn-load:hover { background: rgba(52,211,153,.06); }
+    .btn-expand-primary { color: var(--accent); border-color: rgba(96,165,250,.4); background: rgba(96,165,250,.06); }
+    .btn-expand-primary:hover { background: rgba(96,165,250,.12); }
+    .btn-expand-primary.on { background: rgba(96,165,250,.12); border-color: rgba(96,165,250,.6); }
+    .btn-toggle { color: var(--muted); }
+    .btn-toggle.on { color: var(--accent); border-color: var(--accent);
+                     background: rgba(96,165,250,.08); }
+    .btn-view { color: var(--purple); border-color: rgba(167,139,250,.4); font-size: 10px;
+                padding: 2px 8px; }
+    .btn-view:hover { background: rgba(167,139,250,.06); }
 
-    /* area selector */
-    .area-select { background: rgba(20,32,52,.8); border: 1px solid var(--border);
-                   border-radius: 5px; color: var(--text); padding: 3px 8px;
-                   font-size: 12px; cursor: pointer; }
-    .area-select option { background: #0b111c; }
+    /* ISC selected highlight */
+    tr.isc-sel td { background: rgba(96,165,250,.06); }
+    .isc-opts { display: flex; gap: 14px; margin-top: 12px; font-size: 12px;
+                align-items: center; flex-wrap: wrap; }
+    .isc-opts label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
 
-    /* type chips */
-    .chip { background: rgba(96,165,250,.08); border: 0.5px solid rgba(96,165,250,.3);
-            color: var(--accent); border-radius: 4px; padding: 2px 8px;
-            font-size: 12px; font-family: ui-monospace,monospace; cursor: pointer;
-            background: none; }
-    .chip:hover { background: rgba(96,165,250,.15); }
-
-    #root { display: flex; flex-direction: column; height: 100vh; }
-
-    /* ── Light theme ─────────────────────────────────────────────── */
-    :root.light {
-      --bg: #f8fafc; --panel: #ffffff; --card: #f1f5f9; --hover: #e2e8f0;
-      --border: #cbd5e1; --text: #1e293b; --muted: #475569; --dim: #64748b;
-      --accent: #2563eb; --abstract: #7c3aed; --classif: #0d9488; --rel: #d97706; --base: #475569;
-    }
-    :root.light .sidebar      { background: var(--panel); }
-    :root.light .search-wrap  { background: var(--panel); }
-    :root.light .search-input { background: var(--hover); }
-    :root.light .area-select option { background: var(--panel); }
-    :root.light tr.own-row td { background: rgba(37,99,235,.05); }
-    :root.light .rel-card     { background: var(--card); }
-    :root.light .arrow-row    { background: var(--card); }
-    body, .header, .sidebar, .main, td, .tree-item, .section-hdr, .rel-card, .arrow-row {
-      transition: background-color .2s, color .2s, border-color .2s;
-    }
-
-    /* ── Mermaid diagrams ────────────────────────────────────────── */
+    /* Mermaid */
     .mermaid-wrap { overflow-x: auto; margin: 8px 0; background: #fff; border-radius: 4px; padding: 4px; }
     .mermaid-wrap svg { max-width: 100%; }
 
-    /* ── View tabs & theme button ────────────────────────────────── */
-    .view-tab { background: none; border: none; border-bottom: 2px solid transparent;
-                padding: 4px 12px; cursor: pointer; font-size: 13px; color: var(--muted);
-                font-family: inherit; line-height: 1.5; }
-    .view-tab.on { color: var(--accent); font-weight: 600; border-bottom-color: var(--accent); }
-    .view-tab:disabled { opacity: 0.35; cursor: not-allowed; }
-    .theme-btn { background: var(--card); border: 1px solid var(--border); color: var(--muted);
-                 border-radius: 20px; padding: 3px 12px; cursor: pointer; font-size: 12px;
-                 font-family: inherit; }
-    .theme-btn:hover { background: var(--hover); color: var(--text); }
+    /* Loading / error */
+    .spinner { width: 28px; height: 28px; border: 3px solid var(--border);
+               border-top-color: var(--accent); border-radius: 50%;
+               animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .center { display: flex; align-items: center; justify-content: center;
+              gap: 10px; padding: 20px; color: var(--muted); font-size: 13px; }
+    .err-banner { background: rgba(248,113,113,.08); border: 1px solid rgba(248,113,113,.3);
+                  border-radius: 6px; padding: 8px 12px; font-size: 12px; color: var(--red);
+                  margin-bottom: 14px; }
 
-    /* ── Nav dropdown groups ──────────────────────────────────────────── */
-    .nav-group { position: relative; display: flex; align-items: stretch; }
-    .nav-group-btn { background: none; border: none; border-bottom: 2px solid transparent;
-                     padding: 4px 10px; cursor: pointer; font-size: 13px; color: var(--muted);
-                     font-family: inherit; line-height: 1.5; display: flex; align-items: center; gap: 3px; }
-    .nav-group-btn.on { color: var(--accent); font-weight: 600; border-bottom-color: var(--accent); }
-    .nav-group-menu { position: absolute; top: 100%; left: 0; background: var(--panel);
-                      border: 1px solid var(--border); border-radius: 6px; padding: 4px 0;
-                      min-width: 172px; z-index: 100;
-                      box-shadow: 0 8px 24px rgba(0,0,0,.4); }
-    .nav-group-item { display: block; width: 100%; text-align: left; background: none; border: none;
-                      padding: 7px 16px; font-size: 13px; color: var(--muted); font-family: inherit;
-                      cursor: pointer; white-space: nowrap; }
-    .nav-group-item:hover:not(:disabled) { background: var(--hover); color: var(--text); }
-    .nav-group-item.on { color: var(--accent); font-weight: 600; }
-    .nav-group-item:disabled { opacity: 0.35; cursor: not-allowed; }
-    :root.light .nav-group-menu { box-shadow: 0 4px 14px rgba(0,0,0,.15); }
+    /* Options row */
+    .opts-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+                margin-bottom: 14px; }
+    .opts-label { font-size: 11px; color: var(--dim); white-space: nowrap; }
+    .opts-check label { display: flex; align-items: center; gap: 5px; font-size: 12px;
+                        color: var(--muted); cursor: pointer; }
 
-    /* ── Type-system sub-toolbar ──────────────────────────────────────── */
-    .type-subbar { background: var(--panel); border-bottom: 1px solid var(--border);
-                   padding: 4px 20px; display: flex; align-items: center; gap: 12px;
-                   flex-shrink: 0; font-size: 12px; }
+    /* Linked assets table guid */
+    .guid-cell { font-family: ui-monospace, monospace; font-size: 10px; color: var(--dim);
+                 max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-    /* ── REST API Explorer ───────────────────────────────────────── */
-    .method-badge { border-radius: 3px; padding: 1px 6px; font-size: 10px; font-weight: 700;
-                    font-family: ui-monospace, monospace; letter-spacing: .5px; flex-shrink: 0; }
-    .method-GET    { background: rgba(34,197,94,.15);  color: #4ade80; }
-    .method-POST   { background: rgba(96,165,250,.15); color: var(--accent); }
-    .method-PUT    { background: rgba(251,191,36,.15); color: var(--rel); }
-    .method-PATCH  { background: rgba(251,146,60,.15); color: #fb923c; }
-    .method-DELETE { background: rgba(248,113,113,.15);color: #f87171; }
-    :root.light .method-GET    { background: rgba(22,163,74,.1);  color: #15803d; }
-    :root.light .method-POST   { background: rgba(37,99,235,.1);  color: #1d4ed8; }
-    :root.light .method-PUT    { background: rgba(217,119,6,.1);  color: #b45309; }
-    :root.light .method-PATCH  { background: rgba(234,88,12,.1);  color: #c2410c; }
-    :root.light .method-DELETE { background: rgba(220,38,38,.1);  color: #b91c1c; }
-    .api-three-col { display: flex; height: 100%; overflow: hidden; }
-    .api-col-1 { flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; }
-    .api-col-2 { flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; }
-    .api-col-3 { flex: 1; overflow-y: auto; }
-    .api-col-scroll { flex: 1; overflow-y: auto; }
-    .api-col-hdr { padding: 8px 12px; font-size: 10px; color: var(--muted); letter-spacing: 1px;
-                   border-bottom: 1px solid var(--border); font-weight: 600; text-transform: uppercase;
-                   flex-shrink: 0; }
-    .api-service-item { padding: 7px 12px; cursor: pointer; font-size: 12px; border-left: 2px solid transparent; }
-    .api-service-item:hover { background: var(--hover); }
-    .api-service-item.sel { background: rgba(96,165,250,.08); border-left-color: var(--accent); color: var(--accent); }
-    .api-ep-item { padding: 7px 10px; cursor: pointer; border-bottom: 1px solid rgba(26,45,72,.3);
-                   display: flex; align-items: flex-start; gap: 7px; }
-    .api-ep-item:hover { background: var(--hover); }
-    .api-ep-item.sel { background: rgba(96,165,250,.08); }
-    .api-ep-path { font-family: ui-monospace,monospace; font-size: 11px; color: var(--muted);
-                   word-break: break-all; line-height: 1.4; }
-    .api-ep-summary { font-size: 11px; color: var(--text); margin-top: 2px; }
-    .api-detail { padding: 20px 22px; }
-    .api-detail-path { font-family: ui-monospace,monospace; font-size: 13px; color: var(--muted);
-                       word-break: break-all; margin: 6px 0 14px; }
-    .api-section-title { font-size: 11px; color: var(--muted); text-transform: uppercase;
-                          letter-spacing: 1px; font-weight: 600; margin: 18px 0 8px; }
-    .api-body-card { background: var(--card); border: 1px solid var(--border); border-radius: 6px;
-                     padding: 12px 14px; margin-bottom: 12px; }
-    .api-body-name { font-family: ui-monospace,monospace; font-size: 13px; color: var(--accent);
-                     font-weight: 700; margin-bottom: 4px; }
-    .api-body-group { font-size: 10px; color: var(--muted); text-transform: uppercase;
-                      letter-spacing: .8px; margin-bottom: 8px; }
-    .api-field-row { display: flex; gap: 8px; padding: 4px 0;
-                     border-bottom: 1px solid rgba(26,45,72,.3); font-size: 11px; }
-    .api-field-name { font-family: ui-monospace,monospace; color: var(--accent); flex-shrink: 0; min-width: 180px; }
-    .api-field-note { color: var(--muted); }
-    .api-json-wrap { background: var(--panel); border: 1px solid var(--border); border-radius: 5px;
-                     padding: 10px 12px; font-family: ui-monospace,monospace; font-size: 11px;
-                     line-height: 1.6; overflow-x: auto; white-space: pre; color: var(--text); }
-    .copy-btn { background: var(--card); border: 1px solid var(--border); color: var(--muted);
-                border-radius: 4px; padding: 2px 8px; font-size: 10px; cursor: pointer;
-                font-family: inherit; float: right; }
-    .copy-btn:hover { background: var(--hover); color: var(--text); }
-    .api-props-type { font-family: ui-monospace,monospace; font-size: 12px; color: var(--classif);
-                      font-weight: 600; }
-
-    /* ── Persona picker overlay ──────────────────────────────── */
-    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.82); z-index: 1000;
-               display: flex; align-items: center; justify-content: center;
-               backdrop-filter: blur(4px); }
-    .persona-modal { background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
-                     padding: 28px 24px; width: min(860px,96vw); max-height: 90vh; overflow-y: auto; }
-    .persona-modal h2 { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; }
-    .persona-modal > p { font-size: 0.8rem; color: var(--muted); margin-bottom: 18px; }
-    .persona-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 10px; }
-    .persona-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px;
-                    padding: 13px; cursor: pointer; transition: border-color .15s, background .15s; }
-    .persona-card:hover { border-color: var(--accent); background: rgba(96,165,250,.06); }
-    .persona-card.pcActive { border-color: var(--accent); background: rgba(96,165,250,.1); }
-    .persona-name { font-size: 0.88rem; font-weight: 700; margin-bottom: 1px; }
-    .persona-title { font-size: 0.73rem; color: var(--muted); margin-bottom: 7px; }
-    .persona-bio { font-size: 0.73rem; color: var(--dim); line-height: 1.45; margin-bottom: 7px; }
-    .persona-hl { padding-left: 1rem; margin: 0; }
-    .persona-hl li { font-size: 0.7rem; color: var(--muted); margin-bottom: 2px; list-style: disc; }
-    .diff-badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 0.68rem;
-                  font-weight: 700; margin-bottom: 5px; letter-spacing: .3px; }
-    .diff-Starter   { background: rgba(52,211,153,.15);  color: #34d399; }
-    .diff-Business  { background: rgba(251,191,36,.15);  color: #fbbf24; }
-    .diff-Technical { background: rgba(167,139,250,.15); color: #c4b5fd; }
-    .persona-badge-btn { background: rgba(96,165,250,.1); border: 1px solid rgba(96,165,250,.3);
-                         color: var(--accent); border-radius: 20px; padding: 3px 10px; font-size: 11px;
-                         cursor: pointer; font-family: inherit; white-space: nowrap; }
-    .persona-badge-btn:hover { background: rgba(96,165,250,.2); }
-    :root.light .persona-card { background: var(--card); }
-    :root.light .persona-modal { background: var(--panel); }
+    /* Welcome placeholder */
+    .welcome { display: flex; flex-direction: column; align-items: center;
+               justify-content: center; height: 60vh; gap: 14px; color: var(--muted); }
+    .welcome-icon { font-size: 48px; }
+    .welcome-text { font-size: 15px; }
+    .welcome-hint { font-size: 12px; color: var(--dim); }
   </style>
-  <!-- Mermaid diagram rendering -->
   <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
-</head>
-<body>
-  <div id="root">
-    <div class="center">
-      <div class="spinner"></div>
-      <span>Loading The Catalog…</span>
-    </div>
-  </div>
-
   <script>/* React 18 production *//**
  * @license React
  * react.production.min.js
@@ -577,44 +474,32 @@ var d=null!=c&&c.hydratedSources||null,e=!1,f="",g=aj;null!==c&&void 0!==c&&(!0=
 function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmountComponentAtNode=function(a){if(!Vd(a))throw Error(m(40));return a._reactRootContainer?(yb(function(){Wd(null,null,a,!1,function(){a._reactRootContainer=null;a[Ja]=null})}),!0):!1};Q.unstable_batchedUpdates=Tf;Q.unstable_renderSubtreeIntoContainer=function(a,b,c,d){if(!Vd(c))throw Error(m(200));if(null==a||void 0===a._reactInternals)throw Error(m(38));return Wd(a,b,c,!1,d)};Q.version="18.3.1-next-f1338f8080-20240426"});
 })();
 </script>
+
+</head>
+<body>
+<div id="root"></div>
+
 <script>
 'use strict';
-// SHARED — keep in sync with type-explorer.html equivalents
 var useState    = React.useState;
 var useEffect   = React.useEffect;
 var useRef      = React.useRef;
 var useCallback = React.useCallback;
-var useMemo     = React.useMemo;
 
-// ── Session ID ────────────────────────────────────────────────────────────────
-var _SESSION_ID = (function() {
-  try {
-    var id = sessionStorage.getItem('_catalog_session_id');
-    if (!id) {
-      id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).substr(2));
-      sessionStorage.setItem('_catalog_session_id', id);
-    }
-    return id;
-  } catch(e) { return 'anon-' + Date.now(); }
-})();
-
-// ── Credential helpers ────────────────────────────────────────────────────────
-// Holds the token-refresh callback registered by the App component.
+// ── Token refresher ────────────────────────────────────────────────────────────
 var _tokenRefresher = { refresh: null };
 
-// fetchWithToken: replaces credAppend. Passes server/url/user_id as query params
-// (non-secret) and the Egeria bearer token as X-Egeria-Token header.
-// On HTTP 401 (token expired) retries once after refreshing the token.
-// user_pwd is never sent in the URL.
+// ── fetchWithToken ─────────────────────────────────────────────────────────────
+// Passes server/url as query params; token via X-Egeria-Token header.
+// On 401 retries once after refreshing the token.
 function fetchWithToken(url, creds, opts) {
   var _isRetry = !!(opts && opts._isRetry);
   var headers = Object.assign({}, (opts && opts.headers) || {});
   var queryUrl = url;
   if (creds) {
     var p = new URLSearchParams();
-    if (creds.url)    p.set('url',     creds.url);
-    if (creds.server) p.set('server',  creds.server);
-    if (creds.userId) p.set('user_id', creds.userId);
+    if (creds.url)    p.set('url',    creds.url);
+    if (creds.server) p.set('server', creds.server);
     if (creds.token)  headers['X-Egeria-Token'] = creds.token;
     var qs = p.toString();
     if (qs) queryUrl = url + (url.indexOf('?') === -1 ? '?' : '&') + qs;
@@ -632,90 +517,7 @@ function fetchWithToken(url, creds, opts) {
   });
 }
 
-// Kept for backwards compat with ConnectionForm manual credential entry.
-// When a token is available fetchWithToken is used instead.
-function credAppend(url, creds) {
-  if (!creds || (!creds.url && !creds.userId)) return url;
-  var p = new URLSearchParams();
-  if (creds.url)    p.set('url',    creds.url);
-  if (creds.server) p.set('server', creds.server);
-  if (creds.userId) p.set('user_id', creds.userId);
-  var sep = url.indexOf('?') === -1 ? '?' : '&';
-  return url + sep + p.toString();
-}
-
-// ── Markdown renderer (shared with type-explorer.html) ───────────────────────
-function _renderMdHtml(rawText) {
-  if (!rawText || !rawText.trim()) return '';
-  var esc = function(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
-  var inlineMarkup = function(s) { return s
-    .replace(/\*\*\*(.+?)\*\*\*/g,'<strong><em>$1</em></strong>')
-    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-    .replace(/\*([^*\n]+?)\*/g,'<em>$1</em>')
-    .replace(/`([^`\n]+)`/g,'<code style="background:rgba(0,0,0,.06);padding:1px 4px;border-radius:3px;font-size:.9em">$1</code>'); };
-  var lines = rawText.split('\n'), parts = [], i = 0;
-  while (i < lines.length) {
-    if (i+1 < lines.length && /^\|.+\|/.test(lines[i]) && /^\|[\s\-:|]+\|/.test(lines[i+1])) {
-      var tlines = [];
-      while (i < lines.length && /^\|/.test(lines[i].trim())) { tlines.push(lines[i]); i++; }
-      var headers = tlines[0].split('|').slice(1,-1).map(function(h){return h.trim();});
-      var seps = tlines[1].split('|').slice(1,-1).map(function(s){return s.trim();});
-      var aligns = seps.map(function(s){return s.startsWith(':')&&s.endsWith(':')? 'center':s.endsWith(':')? 'right':'left';});
-      var rows = tlines.slice(2).map(function(r){return r.split('|').slice(1,-1).map(function(c){return c.trim();});});
-      var t = '<div style="overflow-x:auto;margin:8px 0"><table style="border-collapse:collapse;font-size:12px"><thead><tr>';
-      headers.forEach(function(h,j){t+='<th style="text-align:'+(aligns[j]||'left')+';padding:5px 8px;border:1px solid var(--border);color:var(--muted)">'+inlineMarkup(esc(h))+'</th>';});
-      t+='</tr></thead><tbody>';
-      rows.forEach(function(row){t+='<tr>';headers.forEach(function(_,j){t+='<td style="text-align:'+(aligns[j]||'left')+';padding:5px 8px;border:1px solid var(--border)">'+inlineMarkup(esc(row[j]||''))+'</td>';});t+='</tr>';});
-      t+='</tbody></table></div>'; parts.push(t);
-    } else {
-      var nonTable = [];
-      while (i < lines.length && !(i+1 < lines.length && /^\|.+\|/.test(lines[i]) && /^\|[\s\-:|]+\|/.test(lines[i+1]))) { nonTable.push(lines[i]); i++; }
-      if (nonTable.length > 0) parts.push(inlineMarkup(esc(nonTable.join('\n')))
-        .replace(/^### (.+)$/gm,'<b style="font-size:12px;display:block;margin:8px 0 2px;color:var(--accent)">$1</b>')
-        .replace(/^## (.+)$/gm, '<b style="font-size:13px;display:block;margin:10px 0 2px;color:var(--accent)">$1</b>')
-        .replace(/^# (.+)$/gm,  '<b style="font-size:14px;display:block;margin:12px 0 4px;color:var(--accent)">$1</b>')
-        .replace(/^[-*] (.+)$/gm,'<span style="display:block;padding-left:12px">• $1</span>')
-        .replace(/^(\d+)\. (.+)$/gm,'<span style="display:block;padding-left:12px">$1. $2</span>')
-        .replace(/\n\n/g,'<br><br>').replace(/\n/g,'<br>'));
-    }
-  }
-  return parts.join('');
-}
-function renderMd(text) {
-  if (!text || !text.trim()) return null;
-  var html = _renderMdHtml(text);
-  if (!html) return null;
-  return React.createElement('div', { dangerouslySetInnerHTML: { __html: html }, style: { lineHeight: 1.6, wordBreak: 'break-word' } });
-}
-
-// ── Resizable divider (shared with type-explorer.html) ────────────────────────
-function useResizable(initialPx, min, max) {
-  min = (min === undefined) ? 100 : min;
-  max = (max === undefined) ? 900 : max;
-  var _w = useState(initialPx), width = _w[0], setWidth = _w[1];
-  var widthRef = useRef(width);
-  widthRef.current = width;
-  var onMouseDown = useCallback(function(e) {
-    e.preventDefault();
-    var startX = e.clientX, startW = widthRef.current;
-    function onMove(mv) { setWidth(Math.max(min, Math.min(max, startW + mv.clientX - startX))); }
-    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  }, [min, max]);
-  return [width, onMouseDown];
-}
-function ResizeDivider({ onMouseDown }) {
-  return React.createElement('div', {
-    onMouseDown: onMouseDown,
-    style: { width: 5, flexShrink: 0, cursor: 'col-resize', background: 'transparent', position: 'relative' }
-  });
-}
-
-// ── SHARED — Mermaid diagram components ──────────────────────────────────────
-// keep in sync with type-explorer.html: MermaidDiagram, DiagramPanel,
-// DiagramPanelFromData, MermaidSection, AvailableMermaidDiagrams
-
+// ── MermaidDiagram ─────────────────────────────────────────────────────────────
 function MermaidDiagram({ code }) {
   var ref = useRef(null);
   var id  = useRef('mermaid-' + Math.random().toString(36).slice(2));
@@ -724,1913 +526,545 @@ function MermaidDiagram({ code }) {
     try { window.mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' }); } catch(_) {}
     window.mermaid.render(id.current, code)
       .then(function(r) { if (ref.current) ref.current.innerHTML = r.svg; })
-      .catch(function() {});
+      .catch(function(e) { console.error('Mermaid render error:', e); if (ref.current) ref.current.innerHTML = '<pre style="color:red;font-size:10px">' + String(e) + '</pre>'; });
   }, [code]);
   return React.createElement('div', { ref: ref, className: 'mermaid-wrap' });
 }
 
-function DiagramPanel({ fetchUrl, label, buttonLabel }) {
-  var _v = useState(false), visible = _v[0], setVisible = _v[1];
-  var _l = useState(false), loading = _l[0], setLoading = _l[1];
-  var _c = useState(''),    code    = _c[0], setCode    = _c[1];
-  var _e = useState(''),    errMsg  = _e[0], setErrMsg  = _e[1];
-  function load() {
-    if (visible) { setVisible(false); return; }
-    setVisible(true); setLoading(true);
-    fetch(fetchUrl).then(function(r) { return r.json(); }).then(function(data) {
-      var graph = (data && data.mermaidGraph) ? data.mermaidGraph : '';
-      setCode(graph); setLoading(false);
-    }).catch(function(e) { setErrMsg(String(e)); setLoading(false); });
+// ── Nav search (autocomplete dropdown) ────────────────────────────────────────
+function NavSearch({ onSelect, creds }) {
+  var _q      = useState(''),    q       = _q[0],      setQ       = _q[1];
+  var _items  = useState([]),    items   = _items[0],  setItems   = _items[1];
+  var _open   = useState(false), open    = _open[0],   setOpen    = _open[1];
+  var _load   = useState(false), loading = _load[0],   setLoading = _load[1];
+  var _hi     = useState(-1),    hi      = _hi[0],     setHi      = _hi[1];
+  var _timer  = useRef(null);
+  var wrapRef = useRef(null);
+
+  function doSearch(val) {
+    if (_timer.current) clearTimeout(_timer.current);
+    if (!val.trim()) { setItems([]); setOpen(false); return; }
+    _timer.current = setTimeout(function() {
+      setLoading(true);
+      fetchWithToken('/api/lineage/search?q=' + encodeURIComponent(val), creds)
+        .then(function(r) { return r.ok ? r.json() : { items: [] }; })
+        .then(function(d) { setItems(d.items || []); setOpen(true); setLoading(false); setHi(-1); })
+        .catch(function() { setLoading(false); });
+    }, 300);
   }
-  return React.createElement('div', { style: { margin: '6px 0' } },
-    React.createElement('button', {
-      onClick: load,
-      style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)',
-               background: visible ? 'var(--hover)' : 'transparent', color: 'var(--accent)', cursor: 'pointer' }
-    }, visible ? '▾ Hide ' + label : (buttonLabel || '▦ Load ' + label)),
-    visible && loading && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: 8 } }, 'Loading diagram…'),
-    visible && errMsg  && React.createElement('div', { style: { fontSize: 11, color: '#f87171', padding: 8 } }, errMsg),
-    visible && !loading && code && React.createElement(MermaidDiagram, { code: code }),
-    visible && !loading && !code && !errMsg && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: 8 } }, 'No diagram available for this element.')
-  );
-}
 
-function DiagramPanelFromData({ code, label }) {
-  var _v = useState(false), visible = _v[0], setVisible = _v[1];
-  return React.createElement('div', { style: { margin: '6px 0' } },
-    React.createElement('button', {
-      onClick: function() { setVisible(function(v) { return !v; }); },
-      style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)',
-               background: visible ? 'var(--hover)' : 'transparent', color: 'var(--accent)', cursor: 'pointer' }
-    }, visible ? '▾ Hide ' + label : '▦ Show ' + label),
-    visible && React.createElement(MermaidDiagram, { code: code })
-  );
-}
+  function select(item) {
+    setQ(item.displayName || item.qualifiedName || item.guid);
+    setOpen(false);
+    setItems([]);
+    onSelect(item);
+  }
 
-function MermaidSection({ guid }) {
-  if (!guid) return null;
-  return React.createElement('div', { style: { margin: '8px 0' } },
-    React.createElement(DiagramPanel, { key: 'ctx:' + guid, fetchUrl: '/api/mermaid/' + encodeURIComponent(guid), label: 'Context Diagram', buttonLabel: '▦ Load Context Diagram' }),
-    React.createElement(DiagramPanel, { key: 'anc:' + guid, fetchUrl: '/api/mermaid/' + encodeURIComponent(guid) + '/anchored', label: 'Anchored Graph', buttonLabel: '▦ Load Anchored Graph' })
-  );
-}
+  function onKeyDown(e) {
+    if (!open) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHi(function(h) { return Math.min(h + 1, items.length - 1); }); }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); setHi(function(h) { return Math.max(h - 1, 0); }); }
+    if (e.key === 'Enter' && hi >= 0) { e.preventDefault(); select(items[hi]); }
+    if (e.key === 'Escape') { setOpen(false); }
+  }
 
-var _ALL_MERMAID_FIELDS = [
-  'mermaidGraph','iscImplementationMermaidGraph','informationSupplyChainMermaidGraph',
-  'edgeMermaidGraph','anchorMermaidGraph','specificationMermaidGraph',
-  'solutionBlueprintMermaidGraph','solutionSubcomponentMermaidGraph',
-  'actionMermaidGraph','localLineageGraph','fieldLevelLineageGraph',
-  'governanceActionProcessMermaidGraph','organizationTreeMermaidGraph',
-  'collectionMermaidMindMap',
-];
-var _MERMAID_SECTION_FIELDS = new Set(['mermaidGraph']);
-var _MERMAID_FIELD_LABELS = {
-  mermaidGraph: 'Context Diagram', anchorMermaidGraph: 'Anchor Diagram',
-  informationSupplyChainMermaidGraph: 'Information Supply Chain', actionMermaidGraph: 'Action Diagram',
-  edgeMermaidGraph: 'Asset Edge Graph',
-  localLineageGraph: 'Local Lineage', fieldLevelLineageGraph: 'Field-Level Lineage',
-  specificationMermaidGraph: 'Specification Diagram',
-};
-
-function AvailableMermaidDiagrams({ data }) {
-  if (!data) return null;
-  var lowerMap = {};
-  Object.keys(data).forEach(function(k) { lowerMap[k.toLowerCase()] = data[k]; });
-  var panels = [];
-  _ALL_MERMAID_FIELDS.forEach(function(field) {
-    if (_MERMAID_SECTION_FIELDS.has(field)) return;
-    var code = lowerMap[field.toLowerCase()];
-    if (code && typeof code === 'string' && !code.toLowerCase().startsWith('no ')) {
-      panels.push(React.createElement(DiagramPanelFromData, { key: field, code: code, label: _MERMAID_FIELD_LABELS[field] || field }));
-    }
-  });
-  if (panels.length === 0) return null;
-  return React.createElement('div', { style: { margin: '8px 0' } }, panels);
-}
-
-// ── SHARED — Egeria Feedback ──────────────────────────────────────────────────
-// keep in sync with type-explorer.html: EgeriaFeedbackWidget, EgeriaCommentsSection
-
-function EgeriaFeedbackWidget({ guid }) {
-  var _dataState       = useState(null),  feedbackData = _dataState[0],       setFeedbackData = _dataState[1];
-  var _loadState       = useState(true),  loading      = _loadState[0],       setLoading      = _loadState[1];
-  var _showRateState   = useState(false), showRate     = _showRateState[0],   setShowRate     = _showRateState[1];
-  var _hoverState      = useState(0),     hoverStar    = _hoverState[0],      setHoverStar    = _hoverState[1];
-  var _likeLoadState   = useState(false), likeLoading  = _likeLoadState[0],   setLikeLoading  = _likeLoadState[1];
-  var _rateLoadState   = useState(false), rateLoading  = _rateLoadState[0],   setRateLoading  = _rateLoadState[1];
-
+  // Close dropdown on outside click
   useEffect(function() {
-    if (!guid) return;
-    setLoading(true);
-    fetch('/api/egeria-feedback/' + encodeURIComponent(guid))
-      .then(function(r) { return r.ok ? r.json() : null; })
-      .then(function(d) { if (d) setFeedbackData(d); setLoading(false); })
-      .catch(function() { setLoading(false); });
-  }, [guid]);
+    function onDown(e) { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); }
+    document.addEventListener('mousedown', onDown);
+    return function() { document.removeEventListener('mousedown', onDown); };
+  }, []);
 
-  function handleLike() {
-    if (likeLoading || !feedbackData) return;
-    setLikeLoading(true);
-    fetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/like', { method: 'POST' })
-      .then(function(r) { return r.ok ? r.json() : null; })
-      .then(function(d) { if (d) setFeedbackData(function(p) { return Object.assign({}, p, d); }); })
-      .catch(function() {})
-      .finally(function() { setLikeLoading(false); });
-  }
-
-  function handleStar(n) {
-    if (rateLoading || !feedbackData) return;
-    setRateLoading(true);
-    var sameRating = n === feedbackData.my_rating;
-    var url = '/api/egeria-feedback/' + encodeURIComponent(guid) + '/rating';
-    var opts = sameRating
-      ? { method: 'DELETE' }
-      : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ star_rating: n }) };
-    fetch(url, opts)
-      .then(function(r) { return r.ok ? r.json() : null; })
-      .then(function(d) {
-        if (d) setFeedbackData(function(p) { return Object.assign({}, p, d); });
-        setShowRate(false); setHoverStar(0);
+  return React.createElement('div', { className: 'search-wrap', ref: wrapRef },
+    React.createElement('input', {
+      className: 'search-input',
+      placeholder: loading ? 'Searching…' : 'Search assets…',
+      value: q,
+      onChange: function(e) { setQ(e.target.value); doSearch(e.target.value); },
+      onFocus: function() { if (items.length > 0) setOpen(true); },
+      onKeyDown: onKeyDown,
+      autoComplete: 'off',
+    }),
+    open && items.length > 0 && React.createElement('div', { className: 'search-dropdown' },
+      items.map(function(item, i) {
+        return React.createElement('div', {
+          key: item.guid,
+          className: 'result-item' + (i === hi ? ' hi' : ''),
+          onMouseDown: function(e) { e.preventDefault(); select(item); },
+          onMouseEnter: function() { setHi(i); },
+        },
+          React.createElement('div', { className: 'result-name' }, item.displayName || item.qualifiedName || item.guid),
+          React.createElement('div', { className: 'result-type' }, item.typeName),
+          React.createElement('div', { className: 'result-qn' }, item.qualifiedName)
+        );
       })
-      .catch(function() {})
-      .finally(function() { setRateLoading(false); });
-  }
-
-  if (loading || !feedbackData) return null;
-
-  var liked = feedbackData.my_like;
-  var likeStyle = {
-    cursor: likeLoading ? 'default' : 'pointer',
-    color:  liked ? '#f87171' : 'var(--muted)',
-    opacity: likeLoading ? 0.5 : 1,
-    fontWeight: 600, fontSize: 13, letterSpacing: '0.02em',
-  };
-
-  var avgRating = feedbackData.avg_rating;
-  var avgStars = avgRating !== null
-    ? '★'.repeat(Math.round(avgRating)) + '☆'.repeat(5 - Math.round(avgRating))
-    : null;
-
-  var starPicker = showRate
-    ? React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 1, marginLeft: 4 } },
-        [1,2,3,4,5].map(function(n) {
-          var active = (hoverStar || feedbackData.my_rating || 0) >= n;
-          return React.createElement('span', {
-            key: n,
-            onClick: function(e) { e.stopPropagation(); handleStar(n); },
-            onMouseEnter: function() { setHoverStar(n); },
-            onMouseLeave: function() { setHoverStar(0); },
-            title: feedbackData.my_rating === n ? 'Remove your rating' : n + ' star' + (n > 1 ? 's' : ''),
-            style: {
-              fontSize: 16, cursor: rateLoading ? 'default' : 'pointer',
-              color: active ? '#f59e0b' : 'var(--dim)',
-              opacity: rateLoading ? 0.5 : 1,
-            }
-          }, active ? '★' : '☆');
-        }),
-        React.createElement('span', {
-          onClick: function(e) { e.stopPropagation(); setShowRate(false); setHoverStar(0); },
-          style: { fontSize: 10, color: 'var(--muted)', cursor: 'pointer', marginLeft: 4 }
-        }, '✕')
-      )
-    : null;
-
-  var ratingDisplay = !showRate
-    ? React.createElement('span', {
-        onClick: function() { setShowRate(true); },
-        title: feedbackData.my_rating ? 'Change your rating' : 'Rate this',
-        style: { cursor: 'pointer' }
-      },
-        avgStars
-        ? React.createElement(React.Fragment, null,
-            React.createElement('span', { style: { color: '#f59e0b', letterSpacing: '0.05em' } }, avgStars),
-            feedbackData.ratings_count > 1 && React.createElement('span', { style: { color: 'var(--dim)', fontSize: 10, marginLeft: 3 } }, '(' + feedbackData.ratings_count + ')')
-          )
-        : React.createElement('span', { style: { color: 'var(--muted)', fontSize: 11 } }, 'Rate ★')
-      )
-    : null;
-
-  return React.createElement('div', {
-    style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, marginBottom: 2, fontSize: 12, userSelect: 'none' }
-  },
-    React.createElement('span', { onClick: handleLike, title: liked ? 'Unlike' : 'Like', style: likeStyle },
-      '♥ ' + feedbackData.likes_count),
-    React.createElement('span', { style: { color: 'var(--border)' } }, '|'),
-    ratingDisplay,
-    starPicker
-  );
-}
-
-function EgeriaCommentsSection({ guid }) {
-  var TYPES = ['STANDARD_COMMENT','QUESTION','ANSWER','SUGGESTION','USAGE_EXPERIENCE','REQUIREMENT','OTHER'];
-  var TYPE_COLOR = {
-    STANDARD_COMMENT: 'var(--muted)', QUESTION: '#60a5fa', ANSWER: '#34d399',
-    SUGGESTION: '#a78bfa', USAGE_EXPERIENCE: '#fbbf24', REQUIREMENT: '#f87171', OTHER: 'var(--dim)'
-  };
-  var TYPE_LABEL = {
-    STANDARD_COMMENT: 'Comment', QUESTION: 'Question', ANSWER: 'Answer',
-    SUGGESTION: 'Suggestion', USAGE_EXPERIENCE: 'Usage', REQUIREMENT: 'Requirement', OTHER: 'Other'
-  };
-
-  var _cState  = useState([]),                 comments    = _cState[0],    setComments    = _cState[1];
-  var _lState  = useState(true),               loading     = _lState[0],    setLoading     = _lState[1];
-  var _tState  = useState(''),                 text        = _tState[0],    setText        = _tState[1];
-  var _ctState = useState('STANDARD_COMMENT'), commentType = _ctState[0],   setCommentType = _ctState[1];
-  var _sState  = useState(false),              submitting  = _sState[0],    setSubmitting  = _sState[1];
-  var _eState  = useState(''),                 errMsg      = _eState[0],    setErrMsg      = _eState[1];
-  var _edState = useState(null),               editing     = _edState[0],   setEditing     = _edState[1];
-  var _esState = useState(false),              editSaving  = _esState[0],   setEditSaving  = _esState[1];
-  var _eeState = useState(''),                 editErr     = _eeState[0],   setEditErr     = _eeState[1];
-
-  useEffect(function() {
-    if (!guid) return;
-    setLoading(true);
-    fetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments')
-      .then(function(r) { return r.ok ? r.json() : []; })
-      .then(function(d) { setComments(Array.isArray(d) ? d : []); setLoading(false); })
-      .catch(function() { setLoading(false); });
-  }, [guid]);
-
-  function handleSubmit() {
-    if (!text.trim() || submitting) return;
-    setSubmitting(true); setErrMsg('');
-    fetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ comment_type: commentType, text: text.trim() })
-    })
-      .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.detail || 'Error'); }); })
-      .then(function(d) { setComments(Array.isArray(d) ? d : []); setText(''); })
-      .catch(function(e) { setErrMsg(e.message || 'Failed to post comment'); })
-      .finally(function() { setSubmitting(false); });
-  }
-
-  function handleDelete(cguid) {
-    fetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments/' + encodeURIComponent(cguid), { method: 'DELETE' })
-      .then(function(r) { return r.ok ? r.json() : []; })
-      .then(function(d) { setComments(Array.isArray(d) ? d : []); if (editing && editing.guid === cguid) setEditing(null); })
-      .catch(function() {});
-  }
-
-  function startEdit(c) {
-    setEditing({ guid: c.guid, text: c.text, commentType: c.commentType || 'STANDARD_COMMENT' });
-    setEditErr('');
-  }
-
-  function handleEditSave() {
-    if (!editing || !editing.text.trim() || editSaving) return;
-    setEditSaving(true); setEditErr('');
-    fetch('/api/egeria-feedback/' + encodeURIComponent(guid) + '/comments/' + encodeURIComponent(editing.guid), {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ comment_type: editing.commentType, text: editing.text.trim() })
-    })
-      .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.detail || 'Error'); }); })
-      .then(function(d) { setComments(Array.isArray(d) ? d : []); setEditing(null); })
-      .catch(function(e) { setEditErr(e.message || 'Save failed'); })
-      .finally(function() { setEditSaving(false); });
-  }
-
-  var btnBase = { border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: 'pointer', padding: '3px 10px' };
-
-  function renderComment(c) {
-    var col = TYPE_COLOR[c.commentType] || 'var(--muted)';
-    var isEditing = editing && editing.guid === c.guid;
-    return React.createElement('div', { key: c.guid, style: { borderLeft: '3px solid ' + col, paddingLeft: 10, marginBottom: 12, fontSize: 12 } },
-      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' } },
-        React.createElement('span', { style: { fontSize: 10, fontWeight: 700, color: col, textTransform: 'uppercase' } }, TYPE_LABEL[c.commentType] || c.commentType),
-        React.createElement('span', { style: { color: 'var(--dim)', fontSize: 10 } }, c.createdBy || 'unknown'),
-        c.createTime && React.createElement('span', { style: { color: 'var(--dim)', fontSize: 10 } }, '· ' + new Date(c.createTime).toLocaleDateString()),
-        !isEditing && React.createElement('button', {
-          onClick: function() { startEdit(c); },
-          style: Object.assign({}, btnBase, { marginLeft: 'auto', background: 'var(--hover)', color: 'var(--muted)' })
-        }, 'Edit'),
-        !isEditing && React.createElement('button', {
-          onClick: function() { handleDelete(c.guid); },
-          style: Object.assign({}, btnBase, { background: 'rgba(248,113,113,.1)', color: '#f87171' })
-        }, 'Delete')
-      ),
-      isEditing
-        ? React.createElement('div', null,
-            React.createElement('div', { style: { marginBottom: 4 } },
-              React.createElement('select', {
-                value: editing.commentType,
-                onChange: function(e) { setEditing(Object.assign({}, editing, { commentType: e.target.value })); },
-                style: { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', fontSize: 11, padding: '3px 6px' }
-              },
-                TYPES.map(function(t) { return React.createElement('option', { key: t, value: t }, TYPE_LABEL[t]); })
-              )
-            ),
-            React.createElement('textarea', {
-              value: editing.text,
-              onChange: function(e) { setEditing(Object.assign({}, editing, { text: e.target.value })); },
-              onKeyDown: function(e) { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleEditSave(); },
-              rows: 3,
-              style: { width: '100%', background: 'var(--card)', border: '1px solid var(--accent)', borderRadius: 4, color: 'var(--text)', fontSize: 12, padding: '6px 8px', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5, outline: 'none', marginBottom: 4 }
-            }),
-            React.createElement('div', { style: { display: 'flex', gap: 6 } },
-              React.createElement('button', {
-                onClick: handleEditSave, disabled: editSaving || !editing.text.trim(),
-                style: Object.assign({}, btnBase, { background: 'var(--accent)', color: '#fff', padding: '4px 14px' })
-              }, editSaving ? '…' : 'Save'),
-              React.createElement('button', {
-                onClick: function() { setEditing(null); setEditErr(''); },
-                style: Object.assign({}, btnBase, { background: 'var(--hover)', color: 'var(--muted)', padding: '4px 14px' })
-              }, 'Cancel')
-            ),
-            editErr && React.createElement('div', { style: { color: '#f87171', fontSize: 11, marginTop: 4 } }, editErr)
-          )
-        : React.createElement('div', { style: { color: 'var(--text)', lineHeight: 1.55, whiteSpace: 'pre-wrap', wordBreak: 'break-word' } }, c.text)
-    );
-  }
-
-  return React.createElement('div', { style: { marginTop: 28, borderTop: '1px solid var(--border)', paddingTop: 16 } },
-    React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 } },
-      'Comments',
-      !loading && React.createElement('span', { style: { background: 'rgba(96,165,250,.12)', color: 'var(--accent)', borderRadius: 8, padding: '0 6px', fontSize: 10, fontWeight: 600 } }, comments.length)
-    ),
-    loading
-      ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', marginBottom: 12 } }, 'Loading…')
-      : comments.length === 0
-        ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', marginBottom: 12, fontStyle: 'italic' } }, 'No comments yet.')
-        : React.createElement('div', { style: { marginBottom: 12 } }, comments.map(renderComment)),
-    React.createElement('div', { style: { marginBottom: 6 } },
-      React.createElement('select', {
-        value: commentType,
-        onChange: function(e) { setCommentType(e.target.value); },
-        style: { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', fontSize: 11, padding: '3px 6px', cursor: 'pointer' }
-      },
-        TYPES.map(function(t) { return React.createElement('option', { key: t, value: t }, TYPE_LABEL[t]); })
-      )
-    ),
-    React.createElement('div', { style: { display: 'flex', gap: 6 } },
-      React.createElement('textarea', {
-        value: text,
-        onChange: function(e) { setText(e.target.value); },
-        onKeyDown: function(e) { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit(); },
-        placeholder: 'Write a comment… (Ctrl/Cmd+Enter to post)',
-        rows: 3,
-        style: { flex: 1, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', fontSize: 12, padding: '6px 8px', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5, outline: 'none' }
-      }),
-      React.createElement('button', {
-        onClick: handleSubmit, disabled: submitting || !text.trim(),
-        style: { alignSelf: 'flex-end', padding: '6px 14px', borderRadius: 4, border: 'none', background: (text.trim() && !submitting) ? 'var(--accent)' : 'var(--hover)', color: (text.trim() && !submitting) ? '#fff' : 'var(--dim)', cursor: (text.trim() && !submitting) ? 'pointer' : 'not-allowed', fontSize: 12, fontWeight: 600, flexShrink: 0 }
-      }, submitting ? '…' : 'Post')
-    ),
-    errMsg && React.createElement('div', { style: { color: '#f87171', fontSize: 11, marginTop: 4 } }, errMsg)
-  );
-}
-
-// ── Technology Types ──────────────────────────────────────────────────────────
-
-function TechTable(headers, rows, emptyMsg) {
-  if (!rows || rows.length === 0) {
-    return emptyMsg
-      ? React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '4px 0' } }, emptyMsg)
-      : null;
-  }
-  var thSt = { padding: '5px 10px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--dim)', borderBottom: '1px solid var(--border)', background: 'var(--panel)', whiteSpace: 'nowrap' };
-  var tdSt = { padding: '5px 10px', fontSize: 11, borderBottom: '1px solid var(--border)', verticalAlign: 'top', lineHeight: 1.5 };
-  return React.createElement('div', { style: { overflowX: 'auto', borderRadius: 4, border: '1px solid var(--border)', marginTop: 8 } },
-    React.createElement('table', { style: { borderCollapse: 'collapse', width: '100%' } },
-      React.createElement('thead', null,
-        React.createElement('tr', null, headers.map(function(h, i) {
-          return React.createElement('th', { key: i, style: thSt }, h);
-        }))
-      ),
-      React.createElement('tbody', null, rows.map(function(row, ri) {
-        return React.createElement('tr', { key: ri }, row.map(function(cell, ci) {
-          return React.createElement('td', { key: ci, style: tdSt }, cell);
-        }));
-      }))
     )
   );
 }
 
-function TechResourceBadge(resourceUse) {
-  var key = (resourceUse || '').toLowerCase();
-  var colours = {
-    'create catalog entry':  { bg: 'rgba(16,185,129,.14)', fg: '#34d399' },
-    'create-catalog-entry':  { bg: 'rgba(16,185,129,.14)', fg: '#34d399' },
-    'survey resource':       { bg: 'rgba(245,158,11,.14)', fg: '#fbbf24' },
-    'survey':                { bg: 'rgba(245,158,11,.14)', fg: '#fbbf24' },
-    'catalog resource':      { bg: 'rgba(99,102,241,.14)', fg: '#818cf8' },
-    'catalog':               { bg: 'rgba(99,102,241,.14)', fg: '#818cf8' },
-    'configure connector':   { bg: 'rgba(59,130,246,.14)', fg: '#60a5fa' },
-    'provision':             { bg: 'rgba(236,72,153,.14)', fg: '#f472b6' },
-  };
-  var c = colours[key] || { bg: 'rgba(107,114,128,.12)', fg: 'var(--dim)' };
-  return React.createElement('span', {
-    style: { fontSize: 10, fontWeight: 600, padding: '1px 8px', borderRadius: 10,
-             background: c.bg, color: c.fg, flexShrink: 0, marginLeft: 8 }
-  }, resourceUse || 'resource');
+// ── TimeSlider ─────────────────────────────────────────────────────────────────
+function TimeSlider({ createTime, onChange }) {
+  var nowMs   = Date.now();
+  var startMs = createTime ? new Date(createTime).getTime() : (nowMs - 30 * 24 * 3600 * 1000);
+  if (isNaN(startMs) || startMs >= nowMs) startMs = nowMs - 30 * 24 * 3600 * 1000;
+
+  var _val = useState(nowMs), val = _val[0], setVal = _val[1];
+
+  // Reset to now when the asset changes (createTime changes)
+  useEffect(function() { setVal(nowMs); }, [createTime]);
+
+  function fmt(ms) {
+    return new Date(ms).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' });
+  }
+
+  function onCommit(ms) {
+    var ms2 = parseInt(ms, 10);
+    setVal(ms2);
+    var isNow = ms2 >= nowMs - 60000; // within 1 min of now = "now"
+    onChange(isNow ? null : new Date(ms2).toISOString());
+  }
+
+  return React.createElement('div', { className: 'slider-wrap' },
+    React.createElement('div', { className: 'slider-label' }, 'Time Slider'),
+    React.createElement('div', { className: 'slider-row' },
+      React.createElement('input', {
+        type: 'range',
+        className: 'time-slider',
+        min: String(startMs),
+        max: String(nowMs),
+        value: String(val),
+        onChange: function(e) { setVal(parseInt(e.target.value, 10)); },
+        onMouseUp:   function(e) { onCommit(e.target.value); },
+        onTouchEnd:  function(e) { onCommit(e.target.value); },
+        onKeyUp:     function(e) { onCommit(e.target.value); },
+      }),
+      React.createElement('span', { className: 'slider-now' },
+        val >= nowMs - 60000 ? 'Now' : fmt(val)
+      )
+    ),
+    React.createElement('div', { className: 'slider-dates' },
+      React.createElement('span', null, fmt(startMs)),
+      React.createElement('span', null, 'Now')
+    )
+  );
 }
 
-function TechTypeDetail({ item, detailLoading, creds }) {
-  if (!item) return null;
-  var sHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
-  var card = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 10 };
-
-  // Loading shimmer while detail fetch is in flight
-  if (detailLoading) {
-    return React.createElement('div', null,
-      React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)', margin: '0 0 16px 0' } }, item.displayName),
-      React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12 } }, 'Loading detail…')
-    );
+// ── LineageLinkageTable ────────────────────────────────────────────────────────
+function LineageLinkageTable({ linkage, onSetFocus }) {
+  if (!linkage || linkage.length === 0) {
+    return React.createElement('div', { className: 'section-empty' }, 'No lineage relationships found.');
   }
-
-  // --- Catalog Templates ---
-  var templatesEl = null;
-  if (item.catalogTemplates && item.catalogTemplates.length > 0) {
-    templatesEl = React.createElement('div', null,
-      React.createElement('div', { style: sHdr }, 'Catalog Templates'),
-      item.catalogTemplates.map(function(t, ti) {
-        var rows = (t.placeholders || []).map(function(p) {
-          return [
-            React.createElement('span', { style: { fontWeight: p.required ? 700 : 400, color: p.required ? 'var(--text)' : 'var(--muted)' } }, p.name),
-            p.dataType || '',
-            p.required ? React.createElement('span', { style: { color: '#34d399', fontWeight: 700 } }, '✓') : '',
-            React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)' } }, p.example || ''),
-            p.description || '',
-          ];
-        });
-        return React.createElement('div', { key: ti, style: card },
-          React.createElement('div', { style: { display: 'flex', alignItems: 'center', marginBottom: 6 } },
-            React.createElement('span', { style: { fontWeight: 700, fontSize: 13, flex: 1, color: 'var(--text)' } }, t.displayName || '(template)'),
-            t.resourceUse && TechResourceBadge(t.resourceUse)
-          ),
-          t.description && React.createElement('div', { style: { fontSize: 12, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.5 } }, t.description),
-          rows.length > 0
-            ? TechTable(['Name','Type','Required','Example','Description'], rows, null)
-            : React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, 'No placeholder properties.')
-        );
-      })
-    );
-  }
-
-  // --- Governance Action Processes ---
-  var processesEl = null;
-  if (item.governanceActionProcesses && item.governanceActionProcesses.length > 0) {
-    processesEl = React.createElement('div', null,
-      React.createElement('div', { style: sHdr }, 'Governance Action Processes'),
-      item.governanceActionProcesses.map(function(gp, gi) {
-        var rows = (gp.parameters || []).map(function(p) {
-          return [
-            React.createElement('span', { style: { fontWeight: p.required ? 700 : 400, color: p.required ? 'var(--text)' : 'var(--muted)' } }, p.name),
-            p.dataType || '',
-            p.required ? React.createElement('span', { style: { color: '#34d399', fontWeight: 700 } }, '✓') : '',
-            p.description || '',
-            React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)' } }, p.example || ''),
-          ];
-        });
-        return React.createElement('div', { key: gi, style: card },
-          React.createElement('div', { style: { display: 'flex', alignItems: 'center', marginBottom: 6 } },
-            React.createElement('span', { style: { fontWeight: 700, fontSize: 13, flex: 1, color: 'var(--text)' } }, gp.displayName || '(process)'),
-            gp.resourceUse && TechResourceBadge(gp.resourceUse)
-          ),
-          gp.description && React.createElement('div', { style: { fontSize: 12, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.5 } }, gp.description),
-          rows.length > 0
-            ? TechTable(['Name','Type','Required','Description','Example'], rows, null)
-            : React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, 'No request parameters.')
-        );
-      })
-    );
-  }
-
-  // --- External References ---
-  var extRefsEl = null;
-  if (item.externalReferences && item.externalReferences.length > 0) {
-    extRefsEl = React.createElement('div', null,
-      React.createElement('div', { style: sHdr }, 'External References'),
-      React.createElement('div', { style: card },
-        item.externalReferences.map(function(ref, ri) {
-          return React.createElement('div', { key: ri, style: { marginBottom: 8 } },
-            ref.url
-              ? React.createElement('a', { href: ref.url, target: '_blank', rel: 'noopener noreferrer',
-                  style: { fontSize: 13, color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' } },
-                  '↗ ' + (ref.displayName || ref.url))
-              : React.createElement('span', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)' } }, ref.displayName || ''),
-            ref.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginTop: 2, lineHeight: 1.5 } }, ref.description)
+  return React.createElement('div', { style: { overflowX: 'auto' } },
+    React.createElement('table', null,
+      React.createElement('thead', null,
+        React.createElement('tr', null,
+          React.createElement('th', null, 'Relationship'),
+          React.createElement('th', null, 'Related Element'),
+          React.createElement('th', null, 'Type'),
+          React.createElement('th', null, '')
+        )
+      ),
+      React.createElement('tbody', null,
+        linkage.map(function(rel, i) {
+          var relhdr = rel.relationshipHeader || {};
+          var re     = (rel.relatedElement || {});
+          var rehdr  = re.elementHeader || {};
+          var reprop = re.properties   || {};
+          var retype = (rehdr.type || {});
+          var reTypeName    = retype.typeName || '';
+          var reSuperTypes  = retype.superTypeNames || [];
+          var isAsset = reTypeName === 'Asset' ||
+            reSuperTypes.some(function(s) { return s && s.toUpperCase().includes('ASSET'); });
+          var reGuid = rehdr.guid || '';
+          var reDisp = reprop.displayName || reprop.qualifiedName || reGuid;
+          var relLabel = (rel.relationshipProperties && rel.relationshipProperties.label)
+                      || (relhdr.type && relhdr.type.typeName) || '';
+          return React.createElement('tr', { key: relhdr.guid || i },
+            React.createElement('td', null, relLabel),
+            React.createElement('td', { className: 'td-trunc' }, reDisp),
+            React.createElement('td', { className: 'mono' }, reTypeName),
+            React.createElement('td', null,
+              isAsset && reGuid
+                ? React.createElement('button', {
+                    className: 'btn btn-focus',
+                    onClick: function() { onSetFocus({ guid: reGuid, displayName: reDisp, typeName: reTypeName, qualifiedName: reprop.qualifiedName || '', description: reprop.description || '' }); }
+                  }, 'Set as Focus')
+                : null
+            )
           );
         })
       )
-    );
-  }
-
-  // --- Live instances sub-pane ---
-  var _elemParams = new URLSearchParams();
-  if (item.displayName) _elemParams.set('display_name', item.displayName);
-  var elementsUrl = '/api/tech-catalog/tech-types/' + encodeURIComponent(item.qualifiedName) + '/elements' +
-    (_elemParams.toString() ? '?' + _elemParams.toString() : '');
-  var instancesEl = React.createElement(SubPane, {
-    title: 'Catalog Instances',
-    fetchUrl: elementsUrl,
-    creds: creds,
-    prominent: true,
-    renderContent: function(data) {
-      var its = data.items || [];
-      if (its.length === 0) return React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '6px 0' } }, 'No catalog entries of this type yet.');
-      var thStyle = { fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 8px 4px 0', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', textAlign: 'left' };
-      var tdBase  = { fontSize: 11, padding: '5px 8px 5px 0', verticalAlign: 'top', borderBottom: '1px solid var(--border)' };
-      var tdMono  = Object.assign({}, tdBase, { fontFamily: 'ui-monospace,monospace', fontSize: 10, color: 'var(--dim)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
-      var tdDesc  = Object.assign({}, tdBase, { color: 'var(--muted)', maxWidth: 200, lineHeight: 1.4 });
-      return React.createElement('div', { style: { overflowX: 'auto', marginTop: 6 } },
-        React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse' } },
-          React.createElement('thead', null,
-            React.createElement('tr', null,
-              React.createElement('th', { style: thStyle }, 'Name'),
-              React.createElement('th', { style: thStyle }, 'Type'),
-              React.createElement('th', { style: thStyle }, 'Description'),
-              React.createElement('th', { style: thStyle }, 'Qualified Name'),
-              React.createElement('th', { style: thStyle }, 'GUID'),
-              React.createElement('th', { style: thStyle }, '')
-            )
-          ),
-          React.createElement('tbody', null,
-            its.map(function(it) {
-              return React.createElement('tr', { key: it.guid || it.qualifiedName },
-                React.createElement('td', { style: Object.assign({}, tdBase, { fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap' }) }, it.displayName || it.qualifiedName || it.guid),
-                React.createElement('td', { style: Object.assign({}, tdBase, { color: 'var(--muted)', whiteSpace: 'nowrap' }) }, it.typeName || ''),
-                React.createElement('td', { style: tdDesc }, it.description || ''),
-                React.createElement('td', { style: tdMono, title: it.qualifiedName || '' }, it.qualifiedName || ''),
-                React.createElement('td', { style: tdMono, title: it.guid || '' }, it.guid || ''),
-                React.createElement('td', { style: Object.assign({}, tdBase, { whiteSpace: 'nowrap' }) },
-                  it.guid && React.createElement('a', {
-                    href: '/tech-catalog?guid=' + encodeURIComponent(it.guid),
-                    target: '_blank',
-                    style: { fontSize: 10, color: 'var(--accent)', textDecoration: 'none', border: '1px solid var(--border)', borderRadius: 4, padding: '2px 7px' }
-                  }, '↗ View')
-                )
-              );
-            })
-          )
-        )
-      );
-    }
-  });
-
-  return React.createElement('div', null,
-    React.createElement('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 4 } },
-      React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)', margin: 0, flex: 1 } }, item.displayName),
-      React.createElement(EgeriaFeedbackWidget, { guid: item.guid })
-    ),
-    React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginBottom: item.description ? 12 : 4 } }, item.qualifiedName),
-    item.description && React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 12 },
-      dangerouslySetInnerHTML: { __html: renderMd(item.description) } }),
-    item.mermaidGraph && React.createElement(DiagramPanelFromData, { code: item.mermaidGraph, label: 'Technology Context Diagram' }),
-    React.createElement(AvailableMermaidDiagrams, { data: item }),
-    templatesEl,
-    processesEl,
-    extRefsEl,
-    instancesEl,
-    React.createElement(EgeriaCommentsSection, { guid: item.guid })
-  );
-}
-
-// ── Recursive hierarchy tree node ────────────────────────────────────────────
-function TechTypeNode({ node, depth, selQN, onSelect, expanded, onToggle }) {
-  var hasChildren = node.subTypes && node.subTypes.length > 0;
-  var key = node.qualifiedName || node.displayName;
-  var isExpanded = expanded.has(key);
-  var isSelected = selQN === key;
-  var indent = depth * 14 + 8;
-  return React.createElement('div', null,
-    React.createElement('div', {
-      style: { display: 'flex', alignItems: 'center', gap: 0, padding: '3px 8px 3px ' + indent + 'px',
-               cursor: 'pointer', userSelect: 'none',
-               background: isSelected ? 'var(--hover)' : 'transparent',
-               borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent' }
-    },
-      React.createElement('span', {
-        onClick: function(e) { e.stopPropagation(); if (hasChildren) onToggle(key); },
-        style: { width: 14, flexShrink: 0, fontSize: 9, color: 'var(--dim)',
-                 visibility: hasChildren ? 'visible' : 'hidden', textAlign: 'center' }
-      }, isExpanded ? '▼' : '▶'),
-      React.createElement('span', {
-        onClick: function() { onSelect(node); },
-        style: { fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                 color: isSelected ? 'var(--accent)' : 'var(--text)',
-                 fontWeight: isSelected ? 700 : 400, paddingLeft: 2 }
-      }, node.displayName)
-    ),
-    isExpanded && hasChildren && node.subTypes.map(function(child) {
-      return React.createElement(TechTypeNode, {
-        key: child.qualifiedName || child.displayName,
-        node: child, depth: depth + 1, selQN: selQN,
-        onSelect: onSelect, expanded: expanded, onToggle: onToggle
-      });
-    })
-  );
-}
-
-function TechTypesView({ creds }) {
-  // Hierarchy state
-  var _hier    = useState(null),  hier    = _hier[0],    setHier    = _hier[1];
-  var _hierErr = useState(''),    hierErr = _hierErr[0], setHierErr = _hierErr[1];
-  var _exp     = useState(new Set()), exp = _exp[0], setExp = _exp[1];
-
-  // Search / flat list state
-  var _input   = useState(''),    input   = _input[0],   setInput   = _input[1];
-  var _srItems = useState([]),    srItems = _srItems[0], setSrItems = _srItems[1];
-  var _srLoad  = useState(false), srLoad  = _srLoad[0],  setSrLoad  = _srLoad[1];
-  var _srErr   = useState(''),    srErr   = _srErr[0],   setSrErr   = _srErr[1];
-  var searchMode = input.trim().length > 0;
-
-  // Selection + detail state
-  var _sel     = useState(null),  sel     = _sel[0],     setSel     = _sel[1];
-  var _detail  = useState(null),  detail  = _detail[0],  setDetail  = _detail[1];
-  var _detLoad = useState(false), detLoad = _detLoad[0], setDetLoad = _detLoad[1];
-
-  // Load hierarchy on mount
-  useEffect(function() {
-    fetchWithToken('/api/tech-catalog/tech-types/hierarchy', creds)
-      .then(function(r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
-      .then(function(d) {
-        var root = d.hierarchy || d;
-        setHier(root);
-        // Auto-expand first level (root's direct children)
-        var firstLevel = new Set();
-        if (root && root.subTypes) {
-          root.subTypes.forEach(function(n) {
-            firstLevel.add(n.qualifiedName || n.displayName);
-          });
-        }
-        setExp(firstLevel);
-      })
-      .catch(function(e) { setHierErr(String(e)); });
-  }, []);
-
-  // Search when input changes (debounced via Enter or after brief pause)
-  var _searchTimer = useRef(null);
-  useEffect(function() {
-    var q = input.trim();
-    if (!q) { setSrItems([]); return; }
-    clearTimeout(_searchTimer.current);
-    _searchTimer.current = setTimeout(function() {
-      setSrLoad(true); setSrErr('');
-      fetchWithToken('/api/tech-catalog/tech-types?q=' + encodeURIComponent(q), creds)
-        .then(function(r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
-        .then(function(d) { setSrItems(d.items || []); setSrLoad(false); })
-        .catch(function(e) { setSrErr(String(e)); setSrLoad(false); });
-    }, 350);
-    return function() { clearTimeout(_searchTimer.current); };
-  }, [input]);
-
-  // Load detail on selection
-  useEffect(function() {
-    if (!sel) { setDetail(null); return; }
-    setDetLoad(true); setDetail(null);
-    var url = '/api/tech-catalog/tech-types/' + encodeURIComponent(sel.qualifiedName || sel.displayName) +
-              '?deployed_implementation_type=' + encodeURIComponent(sel.deployedImplementationType || sel.displayName || '');
-    fetchWithToken(url, creds)
-      .then(function(r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
-      .then(function(d) { setDetail(d); setDetLoad(false); })
-      .catch(function(e) { console.error('TechType detail fetch failed:', e); setDetLoad(false); });
-  }, [sel && (sel.qualifiedName || sel.displayName)]);
-
-  function handleSelect(node) {
-    setSel({ qualifiedName: node.qualifiedName || '', displayName: node.displayName || '' });
-  }
-
-  function toggleNode(key) {
-    setExp(function(prev) {
-      var next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
-  }
-
-  var selQN = sel ? (sel.qualifiedName || sel.displayName) : null;
-
-  // Sidebar content
-  var sidebarContent;
-  if (searchMode) {
-    // Flat search results list
-    sidebarContent = srLoad
-      ? React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'Searching…')
-      : srErr
-        ? React.createElement('div', { style: { padding: 16, color: '#f87171', fontSize: 12 } }, srErr)
-        : srItems.length === 0
-          ? React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'No results.')
-          : React.createElement('div', null, srItems.map(function(item) {
-              var active = selQN === (item.qualifiedName || item.displayName);
-              return React.createElement('div', { key: item.qualifiedName || item.displayName,
-                onClick: function() { handleSelect(item); },
-                style: { padding: '6px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)',
-                         background: active ? 'var(--hover)' : 'transparent',
-                         borderLeft: active ? '3px solid var(--accent)' : '3px solid transparent' } },
-                React.createElement('span', { style: { fontSize: 12, fontWeight: active ? 700 : 400,
-                  color: active ? 'var(--accent)' : 'var(--text)' } }, item.displayName)
-              );
-            }));
-  } else {
-    // Hierarchy tree
-    sidebarContent = !hier
-      ? (hierErr
-          ? React.createElement('div', { style: { padding: 16, color: '#f87171', fontSize: 12 } }, hierErr)
-          : React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'Loading…'))
-      : React.createElement('div', null,
-          (hier.subTypes || []).map(function(topNode) {
-            return React.createElement(TechTypeNode, {
-              key: topNode.qualifiedName || topNode.displayName,
-              node: topNode, depth: 0, selQN: selQN,
-              onSelect: handleSelect, expanded: exp, onToggle: toggleNode
-            });
-          })
-        );
-  }
-
-  return React.createElement('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
-    React.createElement('div', { style: { width: 290, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden' } },
-      // Search bar
-      React.createElement('div', { style: { padding: '7px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
-        React.createElement('input', {
-          value: input,
-          onChange: function(e) { setInput(e.target.value); },
-          placeholder: 'Search… (or browse tree below)',
-          style: { width: '100%', boxSizing: 'border-box', fontSize: 12, padding: '4px 9px', borderRadius: 4,
-                   border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--text)', outline: 'none' }
-        })
-      ),
-      React.createElement('div', { style: { overflowY: 'auto', flex: 1, padding: '4px 0' } }, sidebarContent)
-    ),
-    React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: sel ? '20px 24px' : 0 } },
-      sel
-        ? React.createElement(TechTypeDetail, { item: detail || sel, detailLoading: detLoad, creds: creds })
-        : React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--dim)', fontSize: 13 } }, 'Select a technology type from the tree')
     )
   );
 }
 
-// ── Connection form (local quickstart only) ───────────────────────────────────
-function ConnectionForm({ saveCreds, initialCreds }) {
-  var ic = initialCreds || {};
-  var _f = useState({ url: ic.url || '', server: ic.server || 'qs-view-server', userId: ic.userId || '', password: ic.password || '' });
-  var form = _f[0], setForm = _f[1];
-  var _saved = useState(false), saved = _saved[0], setSaved = _saved[1];
-  function set(k, v) { setForm(function(f) { var n = {}; Object.keys(f).forEach(function(k2) { n[k2] = f[k2]; }); n[k] = v; return n; }); setSaved(false); }
-  function onSubmit(e) { e.preventDefault(); saveCreds(form); setSaved(true); }
-  var fieldStyle = { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' };
-  var labelStyle = { fontSize: 11, color: 'var(--dim)', marginBottom: 2, display: 'block' };
-  var colStyle   = { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 };
-  return React.createElement('div', {
-    style: { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: '16px 20px', marginBottom: 28 }
-  },
-    React.createElement('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 12 } }, 'Connection Settings'),
-    React.createElement('form', { onSubmit: onSubmit },
-      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: 8, alignItems: 'end' } },
-        React.createElement('div', { style: colStyle },
-          React.createElement('label', { style: labelStyle }, 'Platform URL'),
-          React.createElement('input', { style: fieldStyle, type: 'text', value: form.url, placeholder: 'https://localhost:9443', onChange: function(e) { set('url', e.target.value); } })
+// ── ISCTable ───────────────────────────────────────────────────────────────────
+function ISCTable({ iscs, selectedISCGuid, onSelect }) {
+  if (!iscs || iscs.length === 0) {
+    return React.createElement('div', { className: 'section-empty' },
+      'This asset is not part of any information supply chain.');
+  }
+  return React.createElement('div', { style: { overflowX: 'auto' } },
+    React.createElement('table', null,
+      React.createElement('thead', null,
+        React.createElement('tr', null,
+          React.createElement('th', null, 'Display Name'),
+          React.createElement('th', null, 'Description'),
+          React.createElement('th', null, 'Qualified Name'),
+          React.createElement('th', null, '')
+        )
+      ),
+      React.createElement('tbody', null,
+        iscs.map(function(isc, i) {
+          var rehdr = isc.elementHeader || {};
+          var props = isc.properties   || {};
+          var guid  = rehdr.guid || '';
+          var name  = props.displayName || props.qualifiedName || guid;
+          var qn    = props.qualifiedName || '';
+          var desc  = props.description  || '';
+          var isSel = guid === selectedISCGuid;
+          return React.createElement('tr', { key: guid || i, className: isSel ? 'isc-sel' : '',
+            style: { cursor: 'pointer' },
+            onClick: function() { onSelect(isSel ? null : { guid: guid, qualifiedName: qn, displayName: name }); }
+          },
+            React.createElement('td', { style: { fontWeight: isSel ? 600 : 400 } }, name),
+            React.createElement('td', { style: { color: 'var(--muted)' } }, desc),
+            React.createElement('td', { className: 'mono td-trunc', title: qn }, qn),
+            React.createElement('td', null,
+              guid
+                ? React.createElement('a', {
+                    href: '/egeria-explorer?guid=' + encodeURIComponent(guid) + '#isc',
+                    target: '_blank',
+                    className: 'btn btn-view',
+                    onClick: function(e) { e.stopPropagation(); }
+                  }, 'View in Explorer')
+                : null
+            )
+          );
+        })
+      )
+    )
+  );
+}
+
+// ── LinkedAssetsTable ─────────────────────────────────────────────────────────
+function LinkedAssetsTable({ assets, onSetFocus }) {
+  if (!assets || assets.length === 0) {
+    return React.createElement('div', { className: 'section-empty' }, 'No linked assets found.');
+  }
+  function fmtDate(v) {
+    if (!v) return '';
+    var d = new Date(v);
+    return isNaN(d.getTime()) ? String(v) : d.toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' });
+  }
+  return React.createElement('div', { style: { overflowX: 'auto' } },
+    React.createElement('table', null,
+      React.createElement('thead', null,
+        React.createElement('tr', null,
+          React.createElement('th', null, 'Display Name'),
+          React.createElement('th', null, 'Description'),
+          React.createElement('th', null, 'Qualified Name'),
+          React.createElement('th', null, 'GUID'),
+          React.createElement('th', null, 'Created'),
+          React.createElement('th', null, 'Updated'),
+          React.createElement('th', null, 'Actions')
+        )
+      ),
+      React.createElement('tbody', null,
+        assets.map(function(asset, i) {
+          var hdr  = asset.elementHeader || {};
+          var prop = asset.properties    || {};
+          var superTypes = ((hdr.type || {}).superTypeNames || []);
+          var isAsset = superTypes.indexOf('Asset') !== -1 || (hdr.type || {}).typeName === 'Asset';
+          return React.createElement('tr', { key: hdr.guid || i },
+            React.createElement('td', null, prop.displayName || prop.qualifiedName || ''),
+            React.createElement('td', { style: { color: 'var(--muted)', maxWidth: 200 } }, prop.description || ''),
+            React.createElement('td', { className: 'mono td-trunc', title: prop.qualifiedName }, prop.qualifiedName || ''),
+            React.createElement('td', { className: 'guid-cell', title: hdr.guid }, hdr.guid || ''),
+            React.createElement('td', { style: { whiteSpace: 'nowrap' } }, fmtDate(hdr.createTime)),
+            React.createElement('td', { style: { whiteSpace: 'nowrap' } }, fmtDate(hdr.updateTime)),
+            React.createElement('td', { style: { whiteSpace: 'nowrap' } },
+              isAsset && onSetFocus && React.createElement('button', {
+                className: 'btn btn-focus', style: { marginRight: 4 },
+                onClick: function() { onSetFocus({ guid: hdr.guid, displayName: prop.displayName || prop.qualifiedName || '', typeName: (hdr.type || {}).typeName || '', qualifiedName: prop.qualifiedName || '', description: prop.description || '' }); }
+              }, 'Set as Focus'),
+              hdr.guid && React.createElement('a', {
+                href: '/tech-catalog?guid=' + encodeURIComponent(hdr.guid),
+                target: '_blank',
+                className: 'btn btn-view', style: { textDecoration: 'none' }
+              }, 'View in Catalog')
+            )
+          );
+        })
+      )
+    )
+  );
+}
+
+// ── Main panel ─────────────────────────────────────────────────────────────────
+function MainPanel({ focusAsset, creds, onSetFocus }) {
+  var _graphData   = useState(null),  graphData  = _graphData[0],  setGraphData  = _graphData[1];
+  var _graphLoad   = useState(false), graphLoad  = _graphLoad[0],  setGraphLoad  = _graphLoad[1];
+  var _graphErr    = useState(''),    graphErr   = _graphErr[0],   setGraphErr   = _graphErr[1];
+  var _asOfTime    = useState(null),  asOfTime   = _asOfTime[0],   setAsOfTime   = _asOfTime[1];
+
+  var _lineageData = useState(null),  lineageData = _lineageData[0], setLineageData = _lineageData[1];
+  var _lineageLoad = useState(false), lineageLoad = _lineageLoad[0], setLineageLoad = _lineageLoad[1];
+  var _lineageErr  = useState(''),    lineageErr  = _lineageErr[0],  setLineageErr  = _lineageErr[1];
+
+  var _selectedISC = useState(null),  selectedISC = _selectedISC[0], setSelectedISC = _selectedISC[1];
+  var _iscMode     = useState('limit'),iscMode     = _iscMode[0],     setIscMode     = _iscMode[1];
+  var _allAnchors  = useState(false), allAnchors  = _allAnchors[0],  setAllAnchors  = _allAnchors[1];
+  var _showField   = useState(false), showField   = _showField[0],   setShowField   = _showField[1];
+  var _showFull    = useState(false), showFull    = _showFull[0],    setShowFull    = _showFull[1];
+  var _showEdge    = useState(false), showEdge    = _showEdge[0],    setShowEdge    = _showEdge[1];
+
+  var guid = focusAsset ? focusAsset.guid : null;
+
+  // Reset all state when the focused asset changes (keeps TimeSlider mounted during asOfTime re-fetches)
+  useEffect(function() {
+    if (!guid) return;
+    setGraphData(null); setGraphErr('');
+    setLineageData(null); setLineageErr(''); setShowFull(false);
+    setSelectedISC(null);
+  }, [guid]);
+
+  // Fetch asset graph whenever guid or asOfTime changes (does not clear graphData on asOfTime change)
+  useEffect(function() {
+    if (!guid || !creds) return;
+    setGraphErr(''); setGraphLoad(true);
+    var url = '/api/lineage/asset/' + encodeURIComponent(guid) + '/graph';
+    if (asOfTime) url += '?as_of_time=' + encodeURIComponent(asOfTime);
+    fetchWithToken(url, creds)
+      .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.detail || d.error || 'HTTP ' + r.status); }); })
+      .then(function(d) { setGraphData(d); setGraphLoad(false); })
+      .catch(function(e) { setGraphErr(String(e)); setGraphLoad(false); });
+  }, [guid, asOfTime, creds]);
+
+  // Fetch full lineage graph (called on demand and when options change)
+  function loadLineage(opts) {
+    if (!guid || !creds) return;
+    setLineageErr(''); setLineageLoad(true);
+    var params = new URLSearchParams();
+    if (asOfTime)       params.set('as_of_time', asOfTime);
+    if (opts && opts.limitISC)     params.set('limit_to_isc', opts.limitISC);
+    if (opts && opts.highlightISC) params.set('highlight_isc', opts.highlightISC);
+    if (opts && opts.allAnchors)   params.set('all_anchors', 'true');
+    var url = '/api/lineage/asset/' + encodeURIComponent(guid) + '/lineage-graph';
+    var qs = params.toString();
+    if (qs) url += '?' + qs;
+    fetchWithToken(url, creds)
+      .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.detail || 'HTTP ' + r.status); }); })
+      .then(function(d) { setLineageData(d); setLineageLoad(false); })
+      .catch(function(e) { setLineageErr(String(e)); setLineageLoad(false); });
+  }
+
+  function buildLineageOpts() {
+    var opts = { allAnchors: allAnchors };
+    if (selectedISC) {
+      if (iscMode === 'limit')     opts.limitISC     = selectedISC.qualifiedName;
+      if (iscMode === 'highlight') opts.highlightISC = selectedISC.qualifiedName;
+    }
+    return opts;
+  }
+
+  function handleToggleFullLineage() {
+    if (showFull) { setShowFull(false); return; }
+    setShowFull(true);
+    if (!lineageData) loadLineage(buildLineageOpts());
+  }
+
+  // Re-fetch lineage when ISC or allAnchors changes (if already showing)
+  useEffect(function() {
+    if (!showFull || !guid || !creds) return;
+    loadLineage(buildLineageOpts());
+  }, [selectedISC, iscMode, allAnchors]);
+
+  if (!focusAsset) return null;
+
+  var hdr   = (graphData && graphData.elementHeader) || {};
+  var props = (graphData && graphData.properties)    || {};
+  var createTime = (hdr.versions && hdr.versions.createTime) || null;
+  var typeName   = (hdr.type && hdr.type.typeName) || focusAsset.typeName;
+  var dispName   = props.displayName || focusAsset.displayName || '';
+  var qName      = props.qualifiedName || focusAsset.qualifiedName || '';
+  var desc       = props.description  || focusAsset.description  || '';
+
+  var localGraph   = graphData && (graphData.localLineageGraph || '');
+  var fieldGraph   = graphData && (graphData.anchorMermaidGraph || '');
+  var linkage      = graphData && (graphData.lineageLinkage || []);
+  var iscList      = graphData && (graphData.partOfInformationSupplyChains || []);
+  var hasLocalLineage = !!(localGraph && localGraph.trim());
+
+  var fullGraph  = lineageData && (lineageData.mermaidGraph || lineageData.fullLineageMermaidGraph || '');
+  var edgeGraph  = lineageData && (lineageData.edgeMermaidGraph || '');
+  var linkedAssets = lineageData && (lineageData.linkedAssets || []);
+
+  return React.createElement('div', null,
+    // ── Focus Asset Card
+    React.createElement('div', { className: 'asset-card' },
+      React.createElement('div', { className: 'asset-name' }, dispName || focusAsset.guid),
+      React.createElement('div', { className: 'asset-type' }, typeName),
+      qName && React.createElement('div', { className: 'asset-qn' }, qName),
+      desc  && React.createElement('div', { className: 'asset-desc' }, desc),
+      graphLoad && React.createElement('div', { className: 'center' },
+        React.createElement('div', { className: 'spinner' }),
+        React.createElement('span', null, 'Loading…')
+      ),
+      React.createElement('div', { className: 'asset-guid' }, 'GUID: ' + focusAsset.guid),
+      createTime && React.createElement('div', { className: 'asset-meta' },
+        React.createElement('span', null, 'Created: ' + new Date(createTime).toLocaleString())
+      )
+    ),
+    graphErr && React.createElement('div', { className: 'err-banner' }, 'Error loading asset graph: ' + graphErr),
+
+    // ── Time Slider (show once we have graph data)
+    graphData && React.createElement(TimeSlider, { createTime: createTime, onChange: setAsOfTime }),
+
+    // ── Local Lineage Graph
+    graphData && React.createElement('div', { className: 'section' },
+      React.createElement('div', { className: 'section-title' }, 'Local Lineage Graph'),
+      React.createElement('div', { className: 'section-desc' },
+        'Shows elements directly connected to this asset by lineage relationships.'),
+      !hasLocalLineage
+        ? React.createElement('div', { className: 'section-empty' }, 'No local lineage graph available for this asset.')
+        : React.createElement(MermaidDiagram, { code: localGraph }),
+      fieldGraph && React.createElement('div', { style: { marginTop: 12 } },
+        React.createElement('button', {
+          className: 'btn btn-toggle' + (showField ? ' on' : ''),
+          onClick: function() { setShowField(function(v) { return !v; }); }
+        }, showField ? '▾ Hide Field-Level Lineage' : '▦ Show Field-Level Lineage'),
+        showField && React.createElement('div', { style: { marginTop: 10 } },
+          React.createElement('div', { className: 'section-desc', style: { marginBottom: 8 } },
+            'Shows field-to-field data mappings between this asset and its lineage neighbours.'),
+          React.createElement(MermaidDiagram, { code: fieldGraph })
+        )
+      ),
+      React.createElement('div', { style: { marginTop: 14 } },
+        React.createElement('div', { style: { fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 } }, 'Lineage Relationships'),
+        React.createElement(LineageLinkageTable, { linkage: linkage, onSetFocus: onSetFocus })
+      )
+    ),
+
+    // ── Information Supply Chains
+    graphData && React.createElement('div', { className: 'section' },
+      React.createElement('div', { className: 'section-title' }, 'Information Supply Chains'),
+      React.createElement('div', { className: 'section-desc' },
+        'Supply chains this asset belongs to. Click a row to select it for lineage filtering.'),
+      React.createElement(ISCTable, {
+        iscs: iscList,
+        selectedISCGuid: selectedISC ? selectedISC.guid : null,
+        onSelect: setSelectedISC,
+      }),
+      selectedISC && React.createElement('div', { className: 'isc-opts' },
+        React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Selected: ' + (selectedISC.displayName || selectedISC.qualifiedName)),
+        React.createElement('label', null,
+          React.createElement('input', { type: 'radio', name: 'isc-mode', value: 'limit',
+            checked: iscMode === 'limit', onChange: function() { setIscMode('limit'); } }),
+          ' Limit to ISC'
         ),
-        React.createElement('div', { style: colStyle },
-          React.createElement('label', { style: labelStyle }, 'View Server'),
-          React.createElement('input', { style: fieldStyle, type: 'text', value: form.server, placeholder: 'qs-view-server', onChange: function(e) { set('server', e.target.value); } })
-        ),
-        React.createElement('div', { style: colStyle },
-          React.createElement('label', { style: labelStyle }, 'User ID'),
-          React.createElement('input', { style: fieldStyle, type: 'text', value: form.userId, placeholder: 'erinoverview', onChange: function(e) { set('userId', e.target.value); } })
-        ),
-        React.createElement('div', { style: colStyle },
-          React.createElement('label', { style: labelStyle }, 'Password'),
-          React.createElement('input', { style: fieldStyle, type: 'password', value: form.password, placeholder: '···', onChange: function(e) { set('password', e.target.value); } })
+        React.createElement('label', null,
+          React.createElement('input', { type: 'radio', name: 'isc-mode', value: 'highlight',
+            checked: iscMode === 'highlight', onChange: function() { setIscMode('highlight'); } }),
+          ' Highlight ISC'
         ),
         React.createElement('button', {
-          type: 'submit',
-          style: { padding: '6px 14px', borderRadius: 5, border: '1px solid rgba(96,165,250,.4)', background: saved ? 'rgba(52,211,153,.12)' : 'rgba(96,165,250,.1)', color: saved ? '#34d399' : 'var(--accent)', cursor: 'pointer', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }
-        }, saved ? '✔ Saved' : 'Connect')
-      ),
-      React.createElement('p', { style: { margin: '8px 0 0', fontSize: 11, color: 'var(--dim)' } },
-        'Leave fields empty to use server defaults. Settings are saved for this session.')
-    )
-  );
-}
-
-// ── FeedbackButton ────────────────────────────────────────────────────────────
-function FeedbackButton({ section, persona, demoMode, srvManaged }) {
-  var _o = useState(false), open = _o[0], setOpen = _o[1];
-  var _r = useState(0), rating = _r[0], setRating = _r[1];
-  var _h = useState(0), hover = _h[0], setHover = _h[1];
-  var _c = useState(''), comment = _c[0], setComment = _c[1];
-  var _e = useState(''), email = _e[0], setEmail = _e[1];
-  var _s = useState(false), submitted = _s[0], setSubmitted = _s[1];
-  var _g = useState(false), submitting = _g[0], setSubmitting = _g[1];
-  function close() { setOpen(false); setRating(0); setComment(''); setEmail(''); setSubmitted(false); setHover(0); }
-  function submit() {
-    if (!rating && !comment) return;
-    setSubmitting(true);
-    fetch('/api/demo-feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: _SESSION_ID, page: 'tech-catalog/' + (section || 'splash'), rating: rating || null, message: comment || null, email: email || null, env: demoMode ? 'quickstart-demo' : srvManaged ? 'freshstart' : 'quickstart-local', persona: persona || null, viewport: window.innerWidth + 'x' + window.innerHeight, locale: navigator.language || null }),
-    }).then(function() { setSubmitted(true); setTimeout(close, 2000); }).finally(function() { setSubmitting(false); });
-  }
-  var floatingBtn = React.createElement('button', {
-    onClick: function() { setOpen(true); setSubmitted(false); },
-    style: { position: 'fixed', bottom: 20, right: 20, zIndex: 900, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 20, padding: '7px 15px', fontSize: 12, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }
-  }, '💬 Feedback');
-  if (!open) return floatingBtn;
-  var canSubmit = !submitting && (rating > 0 || comment.trim().length > 0);
-  return React.createElement(React.Fragment, null, floatingBtn,
-    React.createElement('div', { onClick: function(e) { if (e.target === e.currentTarget) close(); },
-      style: { position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', padding: 24 } },
-      React.createElement('div', { style: { background: 'var(--surface, var(--card))', border: '1px solid var(--border)', borderRadius: 12, padding: '22px 26px', width: 340, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' } },
-        submitted
-          ? React.createElement('div', { style: { textAlign: 'center', padding: '16px 0', color: 'var(--accent)', fontSize: 15, fontWeight: 600 } }, '✓ Thank you for your feedback!')
-          : React.createElement(React.Fragment, null,
-              React.createElement('div', { style: { fontWeight: 700, fontSize: 14, marginBottom: 12 } }, 'Share your feedback'),
-              React.createElement('div', { style: { display: 'flex', gap: 3, marginBottom: 12 } },
-                [1,2,3,4,5].map(function(n) {
-                  return React.createElement('span', { key: n, onClick: function() { setRating(n); }, onMouseEnter: function() { setHover(n); }, onMouseLeave: function() { setHover(0); },
-                    style: { fontSize: 26, cursor: 'pointer', color: (hover || rating) >= n ? '#f59e0b' : 'var(--dim)' } }, (hover || rating) >= n ? '★' : '☆');
-                })
-              ),
-              React.createElement('textarea', { placeholder: "What's on your mind?", value: comment, onChange: function(e) { setComment(e.target.value); }, rows: 3,
-                style: { width: '100%', boxSizing: 'border-box', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 9px', color: 'var(--text)', fontSize: 12, resize: 'vertical', marginBottom: 8, outline: 'none', fontFamily: 'inherit' } }),
-              React.createElement('input', { type: 'email', placeholder: 'Email for follow-up (optional)', value: email, onChange: function(e) { setEmail(e.target.value); },
-                style: { width: '100%', boxSizing: 'border-box', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 9px', color: 'var(--text)', fontSize: 12, marginBottom: 14, outline: 'none', fontFamily: 'inherit' } }),
-              React.createElement('div', { style: { display: 'flex', gap: 8, justifyContent: 'flex-end' } },
-                React.createElement('button', { onClick: close, style: { padding: '6px 14px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 12 } }, 'Cancel'),
-                React.createElement('button', { onClick: submit, disabled: !canSubmit, style: { padding: '6px 14px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff', cursor: canSubmit ? 'pointer' : 'default', opacity: canSubmit ? 1 : 0.45, fontSize: 12, fontWeight: 600 } }, submitting ? 'Sending…' : 'Send')
-              )
-            )
-      )
-    )
-  );
-}
-
-// ── Sidebar + Detail shell ────────────────────────────────────────────────────
-function SidebarDetail({ items, loading, error, selected, onSelect, renderDetail, filterBar }) {
-  return React.createElement('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
-    // Sidebar
-    React.createElement('div', { style: { width: 280, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0 } },
-      filterBar,
-      React.createElement('div', { style: { overflowY: 'auto', flex: 1 } },
-        loading ? React.createElement('div', { style: { padding: 24, color: 'var(--dim)', fontSize: 12 } }, 'Loading…')
-        : error   ? React.createElement('div', { style: { padding: 16, color: '#f87171', fontSize: 12 } }, error)
-        : items.length === 0 ? React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'No items found.')
-        : items.map(function(item) {
-            var active = selected && selected.guid === item.guid;
-            // Sidebar classification badges: zones first, then other types (max 3 total)
-            var badges = [];
-            (item.classifications || []).forEach(function(cls) {
-              if (cls.typeName === 'ZoneMembership') {
-                var zones = (cls.properties && cls.properties.zoneMembershipList)
-                  ? cls.properties.zoneMembershipList.split(', ').filter(Boolean) : [];
-                zones.forEach(function(z) {
-                  badges.push(React.createElement('span', { key: 'zm:' + z,
-                    style: { fontSize: 9, background: 'rgba(20,83,45,.45)', color: '#4ade80', borderRadius: 8, padding: '1px 5px', border: '0.5px solid #166534', whiteSpace: 'nowrap' }
-                  }, z));
-                });
-              } else {
-                badges.push(React.createElement('span', { key: cls.typeName,
-                  style: { fontSize: 9, background: 'rgba(124,58,237,.12)', color: '#a78bfa', borderRadius: 8, padding: '1px 5px', border: '0.5px solid rgba(124,58,237,.3)', whiteSpace: 'nowrap' }
-                }, cls.typeName));
-              }
-            });
-            if (badges.length > 3) badges = badges.slice(0, 3);
-            return React.createElement('div', { key: item.guid, onClick: function() { onSelect(item); },
-              style: { padding: '8px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)',
-                       background: active ? 'var(--hover)' : 'transparent',
-                       borderLeft: active ? '3px solid var(--accent)' : '3px solid transparent' } },
-              React.createElement('div', { style: { fontSize: 12, fontWeight: active ? 700 : 400, color: active ? 'var(--accent)' : 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
-                item.displayName || item.qualifiedName || item.guid),
-              item.deployedImplementationType && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 1 } }, item.deployedImplementationType),
-              item.typeName && !item.deployedImplementationType && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 1 } }, item.typeName),
-              badges.length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 2, marginTop: 3 } }, badges)
-            );
-          })
+          className: 'btn',
+          style: { fontSize: 10, color: 'var(--dim)' },
+          onClick: function() { setSelectedISC(null); }
+        }, '✕ Clear')
       )
     ),
-    // Detail pane
-    React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: selected ? '20px 24px' : 0 } },
-      selected ? renderDetail(selected)
-      : React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--dim)', fontSize: 13 } }, 'Select an item from the list')
-    )
-  );
-}
 
-// ── Sub-pane pattern — lazy-loading collapsible panels in the detail view ────
-//
-// SubPane: generic container. Fetches fetchUrl on first open, then renders via
-// renderContent(data). Stays open/closed independently. Reused for Schema and Lineage.
-//
-function SubPane({ title, fetchUrl, creds, renderContent, prominent }) {
-  var _open    = useState(false), open    = _open[0],    setOpen    = _open[1];
-  var _data    = useState(null),  data    = _data[0],    setData    = _data[1];
-  var _loading = useState(false), loading = _loading[0], setLoading = _loading[1];
-  var _err     = useState(''),    err     = _err[0],     setErr     = _err[1];
-
-  function toggle() {
-    var nowOpen = !open;
-    setOpen(nowOpen);
-    if (nowOpen && !data && !loading) {
-      setLoading(true); setErr('');
-      fetchWithToken(fetchUrl, creds)
-        .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-        .then(function(d) { setData(d); setLoading(false); })
-        .catch(function(e) { setErr(String(e)); setLoading(false); });
-    }
-  }
-
-  if (prominent) {
-    var btnStyle = { width: '100%', marginTop: 14, padding: '10px 16px', fontSize: 13, fontWeight: 700,
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer',
-      borderRadius: 6, border: '1px solid ' + (open ? 'rgba(96,165,250,.6)' : 'rgba(96,165,250,.35)'),
-      background: open ? 'rgba(96,165,250,.12)' : 'rgba(96,165,250,.06)',
-      color: 'var(--accent)', userSelect: 'none' };
-    return React.createElement('div', null,
-      React.createElement('div', { style: btnStyle, onClick: toggle },
-        React.createElement('span', null, title),
-        React.createElement('span', { style: { fontSize: 18, lineHeight: 1 } }, open ? '▲' : '▼')
-      ),
-      open && React.createElement('div', { style: { paddingBottom: 12 } },
-        loading
-          ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '8px 0' } }, 'Loading…')
-          : err
-            ? React.createElement('div', { style: { fontSize: 12, color: 'var(--muted)', padding: '8px 0' } }, 'Error: ' + err)
-            : data ? renderContent(data) : null
-      )
-    );
-  }
-
-  var hdrStyle = { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 0', cursor: 'pointer', borderTop: '1px solid var(--border)', marginTop: 16, userSelect: 'none' };
-  var labelStyle = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', flex: 1 };
-  var chevron = open ? '▲' : '▼';
-  return React.createElement('div', null,
-    React.createElement('div', { style: hdrStyle, onClick: toggle },
-      React.createElement('span', { style: labelStyle }, title),
-      React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)' } }, chevron)
-    ),
-    open && React.createElement('div', { style: { paddingBottom: 12 } },
-      loading
-        ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '8px 0' } }, 'Loading…')
-        : err
-          ? React.createElement('div', { style: { fontSize: 12, color: 'var(--muted)', padding: '8px 0' } }, 'Error: ' + err)
-          : data ? renderContent(data) : null
-    )
-  );
-}
-
-// SchemaPane: renders schemaType + sorted attribute table
-function SchemaPane({ guid, creds }) {
-  function renderSchema(data) {
-    var st = data.schemaType;
-    var attrs = data.attributes || [];
-    var tblHdr = { fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 8px 4px 0', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' };
-    var tdStyle = { fontSize: 11, padding: '3px 8px 3px 0', color: 'var(--text)', verticalAlign: 'top', borderBottom: '1px solid var(--border)' };
-    var tdDim   = Object.assign({}, tdStyle, { color: 'var(--dim)', whiteSpace: 'nowrap' });
-    return React.createElement('div', null,
-      st && React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 } },
-        React.createElement('span', { style: { fontSize: 12, color: 'var(--muted)' } }, 'Schema type:'),
-        React.createElement('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--text)' } }, st.typeName || ''),
-        st.displayName && React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, st.displayName)
-      ),
-      attrs.length === 0
-        ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'No attributes found.')
-        : React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 } },
-            React.createElement('thead', null,
-              React.createElement('tr', null,
-                React.createElement('th', { style: tblHdr }, '#'),
-                React.createElement('th', { style: tblHdr }, 'Name'),
-                React.createElement('th', { style: tblHdr }, 'Type'),
-                React.createElement('th', { style: tblHdr }, 'Required'),
-                React.createElement('th', { style: tblHdr }, 'Description')
-              )
-            ),
-            React.createElement('tbody', null,
-              attrs.map(function(a, i) {
-                return React.createElement('tr', { key: a.guid || i },
-                  React.createElement('td', { style: tdDim }, a.position != null ? a.position : i + 1),
-                  React.createElement('td', { style: tdStyle }, a.displayName),
-                  React.createElement('td', { style: tdDim }, a.dataType || a.typeName || ''),
-                  React.createElement('td', { style: tdDim }, a.required ? 'Yes' : ''),
-                  React.createElement('td', { style: Object.assign({}, tdStyle, { color: 'var(--muted)' }) }, a.description || '')
-                );
-              })
-            )
+    // ── Full Lineage (only if local lineage exists)
+    graphData && hasLocalLineage && React.createElement('div', { className: 'section' },
+      React.createElement('div', { className: 'section-title' }, 'Full Asset Lineage'),
+      React.createElement('div', { className: 'section-desc' },
+        'End-to-end data and control flow across the IT landscape through this asset. ' +
+        'Click to load — may be slow for large lineage graphs.'),
+      React.createElement('button', {
+        className: 'btn btn-expand-primary' + (showFull ? ' on' : ''),
+        onClick: handleToggleFullLineage,
+        style: { marginBottom: 10, padding: '8px 18px', fontSize: 13, fontWeight: 600 },
+      }, (showFull ? '▲ Hide' : '▼ Load') + ' Full Asset Lineage'),
+      showFull && React.createElement('div', { className: 'opts-row' },
+        React.createElement('div', { className: 'opts-check' },
+          React.createElement('label', null,
+            React.createElement('input', { type: 'checkbox', checked: allAnchors,
+              onChange: function(e) { setAllAnchors(e.target.checked); } }),
+            ' Show field-level detail'
           )
-    );
-  }
-  return React.createElement(SubPane, {
-    title: 'Schema',
-    fetchUrl: '/api/tech-catalog/assets/' + encodeURIComponent(guid) + '/schema',
-    creds: creds,
-    renderContent: renderSchema,
-  });
-}
-
-// LineagePane: deep-link to the dedicated Lineage Explorer
-function LineagePane({ guid }) {
-  var wrapStyle = { padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 };
-  var descStyle = { fontSize: 12, color: 'var(--dim)', lineHeight: 1.5 };
-  var btnStyle  = { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600,
-                    color: 'var(--accent)', background: 'rgba(96,165,250,.1)', border: '1px solid rgba(96,165,250,.35)',
-                    borderRadius: 6, padding: '7px 16px', textDecoration: 'none', cursor: 'pointer' };
-  return React.createElement('div', { style: { borderTop: '1px solid var(--border)', marginTop: 12 } },
-    React.createElement('div', { style: wrapStyle },
-      React.createElement('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 2 } }, 'Lineage'),
-      React.createElement('p', { style: descStyle }, 'Full end-to-end lineage, time-travel queries, ISC filtering and field-level detail are available in the Lineage Explorer.'),
-      React.createElement('a', { href: '/lineage?guid=' + encodeURIComponent(guid), target: '_blank', style: btnStyle }, '🔗 Open in Lineage Explorer')
-    )
-  );
-}
-
-// ── Glossary components (ported from type-explorer.html) ─────────────────────
-
-var _glsItemStyle    = { display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', fontSize: 12, cursor: 'pointer', borderLeft: '2px solid transparent', userSelect: 'none' };
-var _glsItemSelStyle = Object.assign({}, _glsItemStyle, { background: 'rgba(96,165,250,.1)', borderLeftColor: 'var(--accent)', color: 'var(--text)' });
-var _glsBadge        = { display: 'inline-block', fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 10, border: '0.5px solid rgba(96,165,250,.3)', background: 'rgba(96,165,250,.1)', color: 'var(--accent)' };
-
-function GlossaryFolderDetail({ folder }) {
-  if (!folder) return null;
-  var fields = [['Qualified Name', folder.qualifiedName],['GUID', folder.guid],['Type', folder.typeName],['Status', folder.status],['Description', folder.description]].filter(function(r){return r[1]&&String(r[1]).trim();});
-  var sHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
-  var cardStyle = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 };
-  return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
-    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 } },
-      React.createElement('div', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)' } }, folder.displayName || folder.qualifiedName),
-      React.createElement('span', { style: _glsBadge }, 'Folder')
-    ),
-    folder.description && React.createElement('p', { style: { fontSize: 13, lineHeight: 1.6, marginBottom: 16, color: 'var(--muted)' } }, folder.description),
-    fields.length > 0 && React.createElement('div', null,
-      React.createElement('div', { style: sHdr }, 'Properties'),
-      React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 } },
-        React.createElement('tbody', null,
-          fields.map(function(r) {
-            var mono = r[0] === 'Qualified Name' || r[0] === 'GUID';
-            return React.createElement('tr', { key: r[0], style: { borderTop: '1px solid var(--border)' } },
-              React.createElement('td', { style: { padding: '5px 12px 5px 0', color: 'var(--dim)', width: 140, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
-              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: mono ? 'ui-monospace,monospace' : 'inherit', fontSize: mono ? 11 : 12 } }, r[1]));
-          })
-        )
-      )
-    ),
-    (folder.classifications || []).length > 0 && React.createElement('div', null,
-      React.createElement('div', { style: sHdr }, 'Classifications'),
-      folder.classifications.map(function(c) {
-        return React.createElement('div', { key: c.typeName, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--classif)' }) },
-          React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
-          Object.entries(c.properties || {}).map(function(e) {
-            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
-              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
-          })
-        );
-      })
-    )
-  );
-}
-
-function GlossaryDetail({ glossary }) {
-  if (!glossary) return null;
-  var sHdr   = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
-  var cardStyle = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 };
-  var fields = [['Qualified Name', glossary.qualifiedName],['GUID', glossary.guid],['Language', glossary.language],['Usage', glossary.usage],['Status', glossary.status]].filter(function(r){return r[1];});
-  return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
-    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 } },
-      React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--text)', flex: 1 } }, glossary.displayName || glossary.qualifiedName || glossary.guid),
-      React.createElement('span', { style: _glsBadge }, 'Glossary')
-    ),
-    glossary.description && React.createElement('p', { style: { fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, margin: '0 0 16px' } }, glossary.description),
-    fields.length > 0 && React.createElement('div', null,
-      React.createElement('div', { style: sHdr }, 'Properties'),
-      React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 } },
-        React.createElement('tbody', null,
-          fields.map(function(r) {
-            var mono = r[0] === 'Qualified Name' || r[0] === 'GUID';
-            return React.createElement('tr', { key: r[0], style: { borderTop: '1px solid var(--border)' } },
-              React.createElement('td', { style: { padding: '5px 12px 5px 0', color: 'var(--dim)', width: 140, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
-              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: mono ? 'ui-monospace,monospace' : 'inherit', fontSize: mono ? 11 : 12 } }, r[1]));
-          })
-        )
-      )
-    ),
-    (glossary.classifications || []).length > 0 && React.createElement('div', null,
-      React.createElement('div', { style: sHdr }, 'Classifications'),
-      glossary.classifications.map(function(c) {
-        return React.createElement('div', { key: c.typeName, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--classif)' }) },
-          React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
-          Object.entries(c.properties || {}).map(function(e) {
-            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
-              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
-          })
-        );
-      })
-    ),
-    React.createElement(MermaidSection, { guid: glossary.guid })
-  );
-}
-
-function GlossaryTermDetail({ term, onNavigateToTerm }) {
-  if (!term) return null;
-  var sHdr   = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
-  var fields = [['Qualified Name', term.qualifiedName],['GUID', term.guid],['Abbreviation', term.abbreviation],['Summary', term.summary],['Examples', term.examples],['Usage', term.usage],['Status', term.status],['Content Status', term.contentStatus],['Activity Status', term.activityStatus]].filter(function(r){return r[1]&&String(r[1]).trim();});
-  var folderList = term.folders || [];
-  var relGroups  = Object.entries(term.relationships || {}).filter(function(e) { return e[1].length > 0; });
-  var relBtnStyle = { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' };
-  return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
-    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' } },
-      React.createElement('div', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)' } }, term.displayName),
-      term.isTemplateSubstitute && React.createElement('span', { style: Object.assign({}, _glsBadge, { background: 'rgba(245,158,11,.15)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.4)' }) }, 'Template Substitute'),
-      React.createElement('div', { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: term.guid }))
-    ),
-    folderList.length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8, marginTop: 6 } },
-      React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)', marginRight: 4 } }, 'Folders:'),
-      folderList.map(function(f) { return React.createElement('span', { key: f.guid, style: Object.assign({}, _glsBadge, { background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)' }) }, f.displayName || f.guid); })
-    ),
-    term.description && React.createElement('div', { style: { fontSize: 13, marginBottom: 16, color: 'var(--text)' } }, renderMd(term.description)),
-    React.createElement(MermaidSection, { guid: term.guid }),
-    fields.length > 0 && React.createElement('div', null,
-      React.createElement('div', { style: sHdr }, 'Properties'),
-      React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 } },
-        React.createElement('tbody', null,
-          fields.map(function(r) {
-            var mono = r[0] === 'Qualified Name' || r[0] === 'GUID';
-            return React.createElement('tr', { key: r[0], style: { borderTop: '1px solid var(--border)' } },
-              React.createElement('td', { style: { padding: '5px 12px 5px 0', color: 'var(--dim)', width: 140, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
-              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: mono ? 'ui-monospace,monospace' : 'inherit', fontSize: mono ? 11 : 12 } }, mono ? r[1] : renderMd(r[1])));
-          })
-        )
-      )
-    ),
-    (term.classifications || []).length > 0 && React.createElement('div', null,
-      React.createElement('div', { style: sHdr }, 'Classifications'),
-      term.classifications.map(function(c) {
-        var cardStyle = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 };
-        return React.createElement('div', { key: c.typeName, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--classif)' }) },
-          React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
-          Object.entries(c.properties || {}).map(function(e) {
-            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
-              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
-          })
-        );
-      })
-    ),
-    relGroups.length > 0 && React.createElement('div', { style: { marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' } },
-      React.createElement('div', { style: sHdr }, 'Relationships'),
-      relGroups.map(function(entry) {
-        var label = entry[0], items = entry[1];
-        return React.createElement('div', { key: label, style: { marginBottom: 12 } },
-          React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', fontWeight: 600, marginBottom: 4 } }, label),
-          items.map(function(item) {
-            var isTerm = !item.typeName || item.typeName === 'GlossaryTerm';
-            return React.createElement('div', { key: item.guid, style: { display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0', borderTop: '1px solid var(--border)' } },
-              React.createElement('span', { style: { flex: 1, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: item.qualifiedName || item.guid }, item.displayName || item.qualifiedName || item.guid),
-              item.typeName && !isTerm && React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)', flexShrink: 0 } }, item.typeName),
-              isTerm && onNavigateToTerm && React.createElement('button', { onClick: function() { onNavigateToTerm(item.guid); }, style: relBtnStyle }, 'View →')
-            );
-          })
-        );
-      })
-    ),
-    React.createElement(EgeriaCommentsSection, { guid: term.guid })
-  );
-}
-
-function GlossaryView({ creds }) {
-  var _sideW = useResizable(220), sideW = _sideW[0], onDivDown = _sideW[1];
-  var _gs = useState('loading'), glossaryState = _gs[0], setGlossaryState = _gs[1];
-  var _ga = useState(0),         glossaryAttempt = _ga[0], setGlossaryAttempt = _ga[1];
-  var _gl = useState([]),         glossaries = _gl[0], setGlossaries = _gl[1];
-  var _sg = useState(null),       selectedGlossary = _sg[0], setSelectedGlossary = _sg[1];
-  var _fs = useState([]),         folderStack = _fs[0], setFolderStack = _fs[1];
-  var _fo = useState([]),         folders = _fo[0], setFolders = _fo[1];
-  var _te = useState([]),         terms = _te[0], setTerms = _te[1];
-  var _ss = useState('idle'),     scopeState = _ss[0], setScopeState = _ss[1];
-  var _se = useState(''),         scopeError = _se[0], setScopeError = _se[1];
-  var _sq = useState(''),         searchQuery = _sq[0], setSearchQuery = _sq[1];
-  var _si = useState(''),         searchInputValue = _si[0], setSearchInputValue = _si[1];
-  var _st = useState([]),         searchTerms = _st[0], setSearchTerms = _st[1];
-  var _ss2 = useState('idle'),    searchState = _ss2[0], setSearchState = _ss2[1];
-  var _se2 = useState(''),        searchError = _se2[0], setSearchError = _se2[1];
-  var _sel = useState(null),      selectedItem = _sel[0], setSelectedItem = _sel[1];
-  var _td = useState(null),       termDetail = _td[0], setTermDetail = _td[1];
-  var _tds = useState('idle'),    termDetailState = _tds[0], setTermDetailState = _tds[1];
-  var _ft = useState(''),         filterText = _ft[0], setFilterText = _ft[1];
-  var _sht = useState(false),     showTemplates = _sht[0], setShowTemplates = _sht[1];
-  var _ge = useState(''),         glossaryError = _ge[0], setGlossaryError = _ge[1];
-
-  // Load glossary list
-  useEffect(function() {
-    setGlossaryState('loading'); setGlossaryError('');
-    fetchWithToken('/api/glossary', creds)
-      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(function(data) {
-        var list = (data.glossaries || []).slice().sort(function(a,b){return (a.displayName||'').localeCompare(b.displayName||'');});
-        setGlossaries(list); setGlossaryState('ready');
-        if (list.length > 0) setSelectedGlossary(list[0].guid);
-      })
-      .catch(function(err) { setGlossaryError(err.message); setGlossaryState('error'); });
-  }, [glossaryAttempt]);
-
-  var currentScopeGuid = useMemo(function() {
-    if (!selectedGlossary) return null;
-    return folderStack.length > 0 ? folderStack[folderStack.length - 1].guid : selectedGlossary;
-  }, [selectedGlossary, folderStack]);
-
-  // Load folders + terms for current scope
-  useEffect(function() {
-    if (!currentScopeGuid) return;
-    setScopeState('loading'); setScopeError(''); setFolders([]); setTerms([]);
-    setSelectedItem(null); setTermDetail(null); setTermDetailState('idle'); setFilterText('');
-    Promise.all([
-      fetchWithToken('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/folders', creds).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}),
-      fetchWithToken('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/terms',   creds).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
-    ])
-    .then(function(res) { setFolders(res[0].folders||[]); setTerms(res[1].terms||[]); setScopeState('ready'); })
-    .catch(function(err){ setScopeError(err.message); setScopeState('error'); });
-  }, [currentScopeGuid]);
-
-  var runSearch = useCallback(function(q) {
-    var sq = (q||'').trim() || '*';
-    setSearchQuery(sq); setSearchInputValue(sq === '*' ? '' : sq);
-    setSearchState('loading'); setSearchError(''); setSearchTerms([]); setSelectedItem(null); setTermDetail(null); setTermDetailState('idle');
-    fetchWithToken('/api/glossary-terms?q=' + encodeURIComponent(sq), creds)
-      .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
-      .then(function(data){setSearchTerms(data.terms||[]);setSearchState('ready');})
-      .catch(function(err){setSearchError(err.message);setSearchState('idle');});
-  }, []);
-
-  var openFolder = useCallback(function(folder){ setFolderStack(function(s){return s.concat([{guid:folder.guid,displayName:folder.displayName}]);}); }, []);
-  var navigateTo = useCallback(function(idx){ if(idx<0){setFolderStack([]);}else{setFolderStack(function(s){return s.slice(0,idx+1);});} }, []);
-  var navigateToTerm = useCallback(function(guid){ setSelectedItem(guid); }, []);
-
-  var isSearchMode = selectedGlossary === null;
-
-  var filteredTerms = useMemo(function() {
-    var q = filterText.trim().toLowerCase();
-    return terms.filter(function(t){
-      if (!showTemplates && t.isTemplateSubstitute) return false;
-      if (!q) return true;
-      return (t.displayName||'').toLowerCase().includes(q)||(t.description||'').toLowerCase().includes(q)||(t.abbreviation||'').toLowerCase().includes(q);
-    }).slice().sort(function(a,b){return (a.displayName||'').localeCompare(b.displayName||'');});
-  }, [terms, filterText, showTemplates]);
-
-  var templateTermCount = useMemo(function(){ return terms.filter(function(t){return t.isTemplateSubstitute;}).length; }, [terms]);
-
-  var filteredSearchTerms = useMemo(function() {
-    var q = filterText.trim().toLowerCase();
-    return searchTerms.filter(function(t){
-      if (!showTemplates && t.isTemplateSubstitute) return false;
-      if (!q) return true;
-      return (t.displayName||'').toLowerCase().includes(q)||(t.description||'').toLowerCase().includes(q);
-    }).slice().sort(function(a,b){return (a.displayName||'').localeCompare(b.displayName||'');});
-  }, [searchTerms, filterText, showTemplates]);
-
-  // Lazy-fetch full term detail when a term is selected
-  useEffect(function() {
-    if (!selectedItem) { setTermDetail(null); setTermDetailState('idle'); return; }
-    if (folders.find(function(f){return f.guid===selectedItem;})) { setTermDetail(null); setTermDetailState('idle'); return; }
-    setTermDetail(null); setTermDetailState('loading');
-    fetchWithToken('/api/glossary/term/' + encodeURIComponent(selectedItem), creds)
-      .then(function(r){return r.ok?r.json():null;})
-      .then(function(data){setTermDetail(data||null);setTermDetailState(data?'ready':'error');})
-      .catch(function(){setTermDetailState('error');});
-  }, [selectedItem, folders]);
-
-  var selectedObj = useMemo(function() {
-    var pool = isSearchMode ? filteredSearchTerms : folders.map(function(f){return Object.assign({},f,{isFolder:true});}).concat(filteredTerms);
-    return selectedItem ? (pool.find(function(x){return x.guid===selectedItem;})||null) : null;
-  }, [selectedItem, isSearchMode, filteredSearchTerms, folders, filteredTerms]);
-
-  var selectedGlossaryName = selectedGlossary ? ((glossaries.find(function(g){return g.guid===selectedGlossary;})||{}).displayName||'') : '';
-  var middleLoading = isSearchMode ? searchState==='loading' : scopeState==='loading';
-  var middleError   = isSearchMode ? searchError : scopeError;
-  var templateHidden = !showTemplates && templateTermCount > 0 ? ' · ' + templateTermCount + ' template' + (templateTermCount!==1?'s':'')+' hidden' : '';
-  var middleCounts  = isSearchMode
-    ? 'Terms (' + filteredSearchTerms.length + (filteredSearchTerms.length!==searchTerms.length?'/'+searchTerms.length:'') + ')' + (searchTerms.length>=200?' ⚠ first 200 shown':'')
-    : (scopeState==='loading' ? 'Loading…' : folders.length+' folder'+(folders.length!==1?'s':'')+', '+filteredTerms.length+(filteredTerms.length!==(terms.length-templateTermCount)?'/'+(terms.length-templateTermCount):'')+' term'+((terms.length-templateTermCount)!==1?'s':'')+templateHidden+(terms.length>=500?' ⚠ first 500 shown':''));
-
-  var sidebarStyle  = { width: sideW, flexShrink: 0, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--panel)' };
-  var treeScrollSt  = { flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '4px 0' };
-  var mainStyle     = { flex: 1, overflowY: 'auto', background: 'var(--bg)' };
-
-  function treeItemSt(active) { return active ? _glsItemSelStyle : _glsItemStyle; }
-
-  if (glossaryState==='loading') return React.createElement('div', {style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--muted)'}}, 'Loading glossaries…');
-  if (glossaryState==='error')   return React.createElement('div', {style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,color:'var(--muted)'}},
-    React.createElement('div', null, 'Error: ' + glossaryError),
-    React.createElement('button', {style:{fontSize:12,padding:'4px 12px',borderRadius:4,border:'1px solid var(--border)',background:'transparent',color:'var(--accent)',cursor:'pointer'},onClick:function(){setGlossaryAttempt(function(a){return a+1;});}}, 'Retry')
-  );
-
-  return React.createElement('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
-    // Left: glossary list
-    React.createElement('div', { style: sidebarStyle },
-      React.createElement('div', { style: { padding: '8px 10px', fontWeight: 700, fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } }, 'Glossaries (' + glossaries.length + ')'),
-      React.createElement('div', { style: treeScrollSt },
-        React.createElement('div', { style: treeItemSt(isSearchMode), onClick: function(){setSelectedGlossary(null);setFolderStack([]);runSearch('*');}, title: 'Search terms across all glossaries' },
-          React.createElement('span', { style: { fontStyle: 'italic', color: 'var(--dim)', fontSize: 12 } }, 'All Terms (search)')
-        ),
-        glossaries.map(function(g) {
-          return React.createElement('div', { key: g.guid, style: treeItemSt(selectedGlossary===g.guid), onClick: function(){setSelectedGlossary(g.guid);setFolderStack([]);}, title: g.description||g.qualifiedName },
-            React.createElement('span', { style: { fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, g.displayName||g.qualifiedName||g.guid)
-          );
-        })
-      )
-    ),
-    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
-    // Middle: folders + terms / search results
-    React.createElement('div', { style: { width: 280, flexShrink: 0, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
-      React.createElement('div', { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 5 } },
-        // Breadcrumb
-        !isSearchMode && React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', fontSize: 11 } },
-          React.createElement('span', { style: { cursor: 'pointer', color: folderStack.length>0?'var(--accent)':'var(--dim)', fontWeight: 600 }, onClick: function(){navigateTo(-1);} }, selectedGlossaryName||'Glossary'),
-          folderStack.map(function(f,i) { return [
-            React.createElement('span', { key: 'sep'+i, style: { color: 'var(--dim)' } }, '›'),
-            React.createElement('span', { key: 'f'+i, style: { cursor: 'pointer', color: i===folderStack.length-1?'var(--dim)':'var(--accent)', fontWeight: i===folderStack.length-1?600:400 }, onClick: function(){navigateTo(i);} }, f.displayName)
-          ]; })
-        ),
-        React.createElement('div', { style: { fontWeight: 600, fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, middleCounts),
-        isSearchMode
-          ? React.createElement('form', { onSubmit: function(e){e.preventDefault();runSearch(searchInputValue);}, style: { display: 'flex', gap: 4 } },
-              React.createElement('input', { type: 'text', placeholder: 'Search all terms…', value: searchInputValue, onChange: function(e){setSearchInputValue(e.target.value);}, style: { flex: 1, fontSize: 12, padding: '3px 7px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' } }),
-              React.createElement('button', { type: 'submit', style: { padding: '3px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 12 } }, 'Go')
-            )
-          : React.createElement('input', { type: 'search', placeholder: 'Filter terms…', value: filterText, onChange: function(e){setFilterText(e.target.value);}, style: { width: '100%', boxSizing: 'border-box', fontSize: 12, padding: '3px 7px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' } }),
-        React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
-          React.createElement('input', { type: 'checkbox', checked: showTemplates, onChange: function(e){setShowTemplates(e.target.checked);}, style: { margin: 0, cursor: 'pointer' } }),
-          'Show template substitutes'
         )
       ),
-      middleError && React.createElement('div', { style: { padding: 10, color: 'var(--muted)', fontSize: 12 } }, 'Error: ' + middleError),
-      React.createElement('div', { style: treeScrollSt },
-        isSearchMode
-          ? filteredSearchTerms.map(function(t) {
-              return React.createElement('div', { key: t.guid, style: treeItemSt(selectedItem===t.guid), onClick: function(){setSelectedItem(t.guid);}, title: t.qualifiedName||t.guid },
-                React.createElement('div', { style: { flex: 1, minWidth: 0 } },
-                  React.createElement('div', { style: { fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, t.displayName||t.qualifiedName||t.guid),
-                  t.qualifiedName && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, t.qualifiedName)
-                )
-              );
-            })
-          : [
-              folders.map(function(f) {
-                return React.createElement('div', { key: f.guid, style: Object.assign({}, treeItemSt(selectedItem===f.guid), { cursor: 'pointer' }), title: f.description||f.qualifiedName },
-                  React.createElement('span', { style: { fontSize: 12, cursor: 'pointer', color: 'var(--dim)' }, onClick: function(){openFolder(f);} }, '📁'),
-                  React.createElement('span', { style: { flex: 1, fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, onClick: function(){setSelectedItem(f.guid);} }, f.displayName||f.qualifiedName||f.guid),
-                  React.createElement('span', { style: { fontSize: 16, padding: '0 4px', cursor: 'pointer', color: 'var(--accent)', lineHeight: 1 }, title: 'Open folder', onClick: function(){openFolder(f);} }, '›')
-                );
-              }),
-              filteredTerms.map(function(t) {
-                return React.createElement('div', { key: t.guid, style: treeItemSt(selectedItem===t.guid), onClick: function(){setSelectedItem(t.guid);}, title: t.qualifiedName||t.guid },
-                  React.createElement('div', { style: { flex: 1, minWidth: 0 } },
-                    React.createElement('div', { style: { fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, t.displayName||t.qualifiedName||t.guid),
-                    t.qualifiedName && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, t.qualifiedName)
-                  )
-                );
-              })
-            ]
-      )
-    ),
-    // Right: detail
-    React.createElement('div', { style: mainStyle },
-      selectedObj && selectedObj.isFolder
-        ? React.createElement(GlossaryFolderDetail, { folder: selectedObj })
-        : termDetailState==='loading'
-          ? React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--muted)', fontSize: 13 } }, 'Loading term…')
-          : termDetail
-            ? React.createElement(GlossaryTermDetail, { term: termDetail, onNavigateToTerm: navigateToTerm })
-            : !isSearchMode && selectedGlossary && !selectedItem
-              ? React.createElement(GlossaryDetail, { glossary: glossaries.find(function(g){return g.guid===selectedGlossary;})||null })
-              : React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--dim)', fontSize: 13 } },
-                  middleLoading ? 'Loading…' : 'Select a term or folder to view details'
-                )
-    )
-  );
-}
+      showFull && lineageLoad && React.createElement('div', { className: 'center' },
+        React.createElement('div', { className: 'spinner' }),
+        React.createElement('span', null, 'Loading lineage graph…')
+      ),
+      showFull && lineageErr && React.createElement('div', { className: 'err-banner' }, 'Error: ' + lineageErr),
+      showFull && lineageData && React.createElement('div', null,
+        // Full lineage mermaid
+        React.createElement('div', { className: 'section-desc', style: { marginBottom: 8 } },
+          'End-to-end data and control flow across the IT landscape through this asset.'),
+        fullGraph
+          ? React.createElement(MermaidDiagram, { code: fullGraph })
+          : React.createElement('div', { className: 'section-empty' }, 'No full lineage graph available.'),
 
-// ── Type → section/tab mapping for cross-navigation ──────────────────────────
-// Maps an Egeria typeName to the catalog section+tab that hosts it.
-// Subtypes not listed here won't get a "View →" button in the Relationships panel.
-var TYPE_TO_NAV = (function() {
-  var m = {};
-  // ITInfrastructure hierarchy
-  ['ITInfrastructure','SoftwareServer','SoftwareServerPlatform','Host',
-   'VirtualMachine','VirtualContainer','DockerContainer','HostCluster',
-   'BareMetalComputer','OperatingPlatform','StorageArray','StorageVolume',
-   'StorageVolumePair','SwitchFabric','NetworkGateway'].forEach(function(t) {
-    m[t] = { section: 'infrastructure', tab: 'infrastructure' };
-  });
-  // SoftwareCapability hierarchy
-  ['SoftwareCapability','APIManager','EventBroker','DatabaseManager','MetadataServer',
-   'GovernanceEngine','DataProcessingEngine','DataStoreManager','FileSystem',
-   'NetworkGateway','EnterpriseAccessLayer','CohortMember','CloudService',
-   'ContentManager','DirectoryService','InformationView','FormManager',
-   'RelationalDatabaseManager','WorkflowEngine','ReportingEngine',
-   'AnalyticsEngine','DataQualityEngine','MasterDataManager',
-   'NotificationManager','SearchEngine','GovernanceProgram',
-   'SecurityManager','AuthorizationManager','ReferenceDataManager',
-   'DigitalServiceManager'].forEach(function(t) {
-    m[t] = { section: 'infrastructure', tab: 'software-capabilities' };
-  });
-  // Endpoints
-  ['Endpoint'].forEach(function(t) {
-    m[t] = { section: 'infrastructure', tab: 'endpoints' };
-  });
-  // DataStore hierarchy
-  ['DataStore','Database','RelationalDatabase','ObjectStore','DocumentStore',
-   'GraphStore','DataFile','CSVFile','SpreadsheetFile','MediaFile','MediaCollection',
-   'DataFolder','FileFolder','DataObjectStore','KeyValueStore','GraphDatabase',
-   'DocumentDatabase','RelationalDatabaseSchema','DataStoreEncoding'].forEach(function(t) {
-    m[t] = { section: 'data-assets', tab: 'data-stores' };
-  });
-  // DataFeed hierarchy
-  ['DataFeed','Topic','KafkaTopic','SubscriberList','EventType','EventSet'].forEach(function(t) {
-    m[t] = { section: 'data-assets', tab: 'data-feeds' };
-  });
-  // DataSet hierarchy
-  ['DataSet','VirtualRelationalTable','DataCatalog','DataDesignArtifact',
-   'DataTable','DataSchemaAttribute'].forEach(function(t) {
-    m[t] = { section: 'data-assets', tab: 'data-sets' };
-  });
-  // APIs
-  ['DeployedAPI','APIOperation','APISchemaType'].forEach(function(t) {
-    m[t] = { section: 'apis', tab: 'apis' };
-  });
-  // Processes / software components
-  ['DeployedSoftwareComponent','DataMovementEngine','DataVirtualizationEngine',
-   'AnalyticsComponent','ReportingComponent','DashboardComponent',
-   'MLModel','MLModelDeployment'].forEach(function(t) {
-    m[t] = { section: 'processes', tab: 'software-components' };
-  });
-  // Glossary
-  ['GlossaryTerm','Glossary','GlossaryCategory'].forEach(function(t) {
-    m[t] = { section: 'glossary', tab: 'glossary' };
-  });
-  return m;
-}());
+        // Edge graph toggle
+        edgeGraph && React.createElement('div', { style: { marginTop: 12 } },
+          React.createElement('button', {
+            className: 'btn btn-toggle' + (showEdge ? ' on' : ''),
+            onClick: function() { setShowEdge(function(v) { return !v; }); }
+          }, showEdge ? '▾ Hide Edge Graph' : '▦ Show Edge Graph'),
+          showEdge && React.createElement('div', { style: { marginTop: 8 } },
+            React.createElement('div', { className: 'section-desc', style: { marginBottom: 8 } },
+              'The ultimate sources and destinations — extreme edges of the full lineage graph.'),
+            React.createElement(MermaidDiagram, { code: edgeGraph })
+          )
+        ),
 
-// ── Generic detail panel ──────────────────────────────────────────────────────
-function AssetDetail({ item, detailLoading, onNavigate, creds }) {
-  if (!item) return null;
-  var sectionHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
-  var cardStyle  = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px', marginBottom: 6 };
-  // hasSchema / hasLineage are signalled by the backend; exclude them from the property table
-  var skipKeys   = new Set(['guid','typeName','displayName','qualifiedName','description','classifications','relationships','hasSchema','hasLineage'].concat(_ALL_MERMAID_FIELDS));
-  var extraProps = Object.entries(item).filter(function(e) {
-    return !skipKeys.has(e[0]) && e[1] && typeof e[1] === 'string';
-  });
-  var rels = item.relationships || [];
-
-  return React.createElement('div', null,
-    // Header
-    React.createElement('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 12 } },
-      React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--text)', flex: 1 } },
-        item.displayName || item.qualifiedName || item.guid),
-      detailLoading && React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Loading detail…'),
-      React.createElement(EgeriaFeedbackWidget, { guid: item.guid })
-    ),
-    item.typeName && React.createElement('div', { style: { display: 'inline-block', fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: 'rgba(96,165,250,0.12)', color: 'var(--accent)', marginBottom: 12 } }, item.typeName),
-    item.description && React.createElement('p', { style: { fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, margin: '0 0 16px' } }, item.description),
-
-    // Properties table
-    extraProps.length > 0 && React.createElement('div', null,
-      React.createElement('div', { style: sectionHdr }, 'Properties'),
-      React.createElement('table', { style: { borderCollapse: 'collapse', width: '100%', fontSize: 12 } },
-        React.createElement('tbody', null,
-          [['Qualified Name', item.qualifiedName || '—'], ['GUID', item.guid || '—']].concat(extraProps).map(function(r) {
-            var mono = r[0] === 'Qualified Name' || r[0] === 'GUID';
-            return React.createElement('tr', { key: r[0], style: { borderBottom: '1px solid var(--border)' } },
-              React.createElement('td', { style: { padding: '5px 10px 5px 0', color: 'var(--dim)', width: 180, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
-              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: mono ? 'ui-monospace,monospace' : 'inherit', fontSize: mono ? 11 : 12 } }, r[1])
-            );
-          })
+        // Linked assets table
+        React.createElement('div', { style: { marginTop: 16 } },
+          React.createElement('div', { style: { fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 } },
+            'Linked Assets'),
+          React.createElement('div', { className: 'section-desc', style: { marginBottom: 10 } },
+            'All assets that appear in the full lineage graph above.'),
+          React.createElement(LinkedAssetsTable, { assets: linkedAssets, onSetFocus: onSetFocus })
         )
       )
-    ),
-
-    // Classifications
-    (item.classifications || []).length > 0 && React.createElement('div', null,
-      React.createElement('div', { style: sectionHdr }, 'Classifications'),
-      item.classifications.map(function(c) {
-        return React.createElement('div', { key: c.typeName, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--classif)' }) },
-          React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
-          Object.entries(c.properties || {}).map(function(e) {
-            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
-              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
-          })
-        );
-      })
-    ),
-
-    // Mermaid diagrams — between Properties and Relationships
-    React.createElement(AvailableMermaidDiagrams, { data: item }),
-    React.createElement(MermaidSection, { guid: item.guid }),
-
-    // Relationships
-    rels.length > 0 && React.createElement('div', null,
-      React.createElement('div', { style: sectionHdr }, 'Relationships'),
-      rels.map(function(r, i) {
-        var el = r.relatedElement || {};
-        var relProps = Object.entries(r.relationshipProperties || {});
-        // Resolve nav target: try exact typeName first, then walk superTypes
-        var nav = null;
-        if (el.guid) {
-          nav = el.typeName ? TYPE_TO_NAV[el.typeName] : null;
-          if (!nav && el.superTypes) {
-            for (var si = 0; si < el.superTypes.length; si++) {
-              nav = TYPE_TO_NAV[el.superTypes[si]];
-              if (nav) break;
-            }
-          }
-        }
-        return React.createElement('div', { key: i, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--rel)' }) },
-          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: relProps.length ? 4 : 0 } },
-            React.createElement('span', { style: { fontSize: 10, fontWeight: 700, color: 'var(--rel)', letterSpacing: '0.05em' } }, r.relationshipType),
-            React.createElement('span', { style: { fontSize: 12, color: 'var(--text)', flex: 1 } }, el.displayName || el.guid || ''),
-            el.typeName && React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)' } }, '· ' + el.typeName),
-            nav && onNavigate && React.createElement('button', {
-              onClick: function() { onNavigate({ guid: el.guid, section: nav.section, tab: nav.tab, displayName: el.displayName || el.guid }); },
-              style: { fontSize: 10, padding: '2px 7px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer', flexShrink: 0 }
-            }, 'View →')
-          ),
-          el.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginBottom: relProps.length ? 4 : 0 } }, el.description),
-          relProps.filter(function(e) { return typeof e[1] !== 'object' || e[1] === null; }).map(function(e) {
-            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
-              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
-          })
-        );
-      })
-    ),
-
-    // Sub-panes: Schema and Lineage (lazy-loaded on first open)
-    item.hasSchema  && React.createElement(SchemaPane,  { guid: item.guid, creds: creds }),
-    item.hasLineage && React.createElement(LineagePane, { guid: item.guid }),
-
-    // Comments
-    React.createElement(EgeriaCommentsSection, { guid: item.guid })
-  );
-}
-
-// ── Generic tab view ──────────────────────────────────────────────────────────
-function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
-  var _items      = useState([]),    items      = _items[0],      setItems      = _items[1];
-  var _loading    = useState(true),  loading    = _loading[0],    setLoading    = _loading[1];
-  var _error      = useState(''),    error      = _error[0],      setError      = _error[1];
-  var _selected   = useState(null),  selected   = _selected[0],   setSelected   = _selected[1];
-  var _detail     = useState(null),  detail     = _detail[0],     setDetail     = _detail[1];
-  var _detailLoad = useState(false), detailLoad = _detailLoad[0], setDetailLoad = _detailLoad[1];
-  var _detailErr  = useState(null),  detailErr  = _detailErr[0],  setDetailErr  = _detailErr[1];
-  var _q             = useState(''),   q             = _q[0],             setQ             = _q[1];
-  var _typeFilter    = useState('all'), typeFilter    = _typeFilter[0],    setTypeFilter    = _typeFilter[1];
-  var _classifFilter = useState([]),   classifFilter = _classifFilter[0], setClassifFilter = _classifFilter[1];
-
-  useEffect(function() {
-    setLoading(true); setError(''); setSelected(null); setDetail(null); setClassifFilter([]);
-    fetchWithToken(endpoint, creds)
-      .then(function(r) { return r.json(); })
-      .then(function(d) { setItems(Array.isArray(d) ? d : (d.items || [])); setLoading(false); })
-      .catch(function(e) { setError(String(e)); setLoading(false); });
-  }, [endpoint]);
-
-  function handleSelect(item) {
-    setSelected(item);
-    setDetail(item);
-    setDetailLoad(true);
-    setDetailErr(null);
-    var detailUrl = '/api/tech-catalog/assets/' + encodeURIComponent(item.guid) +
-      (sectionId ? '?section=' + encodeURIComponent(sectionId) : '');
-    fetchWithToken(detailUrl, creds)
-      .then(function(r) {
-        if (r.status === 403) { setDetailErr('unauthorized'); setDetailLoad(false); return null; }
-        if (!r.ok) { setDetailErr('http-' + r.status); setDetailLoad(false); return null; }
-        return r.json();
-      })
-      .then(function(d) { if (d) { setDetail(d); setDetailLoad(false); } })
-      .catch(function() { setDetailLoad(false); });
-  }
-
-  // Cross-navigation: when a navTarget arrives for this tab, fetch its detail directly.
-  // Guard on creds so deep-links on fresh page load wait until auth is ready.
-  var _lastNavGuid = useRef(null);
-  useEffect(function() {
-    if (!navTarget || !navTarget.guid || !creds) return;
-    if (navTarget.guid === _lastNavGuid.current) return; // already handled
-    _lastNavGuid.current = navTarget.guid;
-    handleSelect({ guid: navTarget.guid, displayName: navTarget.displayName || navTarget.guid });
-  }, [navTarget, creds]);
-
-  // Build classification filter options from the current item list
-  var classifOptions = [];
-  var _optsSeen = {};
-  items.forEach(function(item) {
-    (item.classifications || []).forEach(function(cls) {
-      if (cls.typeName === 'ZoneMembership') {
-        var zones = (cls.properties && cls.properties.zoneMembershipList)
-          ? cls.properties.zoneMembershipList.split(', ').filter(Boolean) : [];
-        zones.forEach(function(z) {
-          var k = 'ZoneMembership:' + z;
-          if (!_optsSeen[k]) { _optsSeen[k] = true; classifOptions.push({ key: k, label: z, zone: true }); }
-        });
-      } else {
-        var k = cls.typeName;
-        if (!_optsSeen[k]) { _optsSeen[k] = true; classifOptions.push({ key: k, label: cls.typeName, zone: false }); }
-      }
-    });
-  });
-  classifOptions.sort(function(a, b) { return a.label.localeCompare(b.label); });
-
-  function toggleClassif(key) {
-    if (classifFilter.indexOf(key) === -1) {
-      setClassifFilter(classifFilter.concat([key]));
-    } else {
-      setClassifFilter(classifFilter.filter(function(k) { return k !== key; }));
-    }
-  }
-
-  var filtered = items.filter(function(item) {
-    var matchQ = !q.trim() || (item.displayName || item.qualifiedName || '').toLowerCase().includes(q.trim().toLowerCase());
-    var matchT = typeFilter === 'all' || item.deployedImplementationType === typeFilter || item.typeName === typeFilter;
-    var matchC = classifFilter.length === 0 || classifFilter.every(function(key) {
-      var clsList = item.classifications || [];
-      if (key.indexOf('ZoneMembership:') === 0) {
-        var zone = key.slice('ZoneMembership:'.length);
-        var zm = clsList.find(function(c) { return c.typeName === 'ZoneMembership'; });
-        if (!zm) return false;
-        var zones = (zm.properties && zm.properties.zoneMembershipList)
-          ? zm.properties.zoneMembershipList.split(', ').filter(Boolean) : [];
-        return zones.indexOf(zone) !== -1;
-      }
-      return clsList.some(function(c) { return c.typeName === key; });
-    });
-    return matchQ && matchT && matchC;
-  });
-
-  var types = Array.from(new Set(items.map(function(i) { return i.deployedImplementationType || i.typeName || ''; }).filter(Boolean))).sort();
-
-  var filterBar = React.createElement('div', { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 5 } },
-    React.createElement('input', { type: 'search', placeholder: 'Filter…', value: q, onChange: function(e) { setQ(e.target.value); },
-      style: { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } }),
-    types.length > 1 && React.createElement('select', { value: typeFilter, onChange: function(e) { setTypeFilter(e.target.value); },
-      style: { fontSize: 11, padding: '3px 6px', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 4 } },
-      [React.createElement('option', { key: 'all', value: 'all' }, 'All types')].concat(
-        types.map(function(t) { return React.createElement('option', { key: t, value: t }, t); })
-      )
-    ),
-    classifOptions.length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 3, paddingTop: 2 } },
-      classifOptions.map(function(opt) {
-        var active = classifFilter.indexOf(opt.key) !== -1;
-        return React.createElement('button', {
-          key: opt.key,
-          onClick: function() { toggleClassif(opt.key); },
-          title: (opt.zone ? 'Zone: ' : 'Classification: ') + opt.label,
-          style: {
-            fontSize: 9, padding: '2px 6px', borderRadius: 10, cursor: 'pointer', lineHeight: 1.2,
-            border: '1px solid ' + (active ? (opt.zone ? '#166534' : 'var(--accent)') : 'var(--border)'),
-            background: active ? (opt.zone ? 'rgba(20,83,45,.5)' : 'rgba(233,69,96,.15)') : 'transparent',
-            color: active ? (opt.zone ? '#4ade80' : 'var(--accent)') : 'var(--dim)',
-            whiteSpace: 'nowrap',
-          }
-        }, (opt.zone ? '🌐 ' : '') + opt.label);
-      })
-    )
-  );
-
-  return React.createElement(SidebarDetail, {
-    items: filtered, loading: loading, error: error, selected: selected, onSelect: handleSelect,
-    filterBar: filterBar,
-    renderDetail: function() {
-      if (detailErr === 'unauthorized') {
-        return React.createElement('div', { style: { padding: '32px 24px' } },
-          React.createElement('div', { style: { fontSize: 14, color: '#f87171', fontWeight: 600, marginBottom: 8 } }, '🔒 User Not Authorized'),
-          React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)' } }, 'You do not have permission to view this element.')
-        );
-      }
-      if (detailErr && detailErr.startsWith('http-')) {
-        var status = detailErr.slice(5);
-        return React.createElement('div', { style: { padding: '32px 24px' } },
-          React.createElement('div', { style: { fontSize: 14, color: '#f87171', fontWeight: 600, marginBottom: 8 } }, '⚠ Could not load element (HTTP ' + status + ')'),
-          React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)', marginBottom: 8 } }, 'The element with this GUID could not be retrieved. It may be a non-Asset type (schema attribute, technical element, etc.) or belong to a different catalog section.'),
-          detail && detail.guid && React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)' } }, detail.guid)
-        );
-      }
-      return React.createElement(AssetDetail, { item: detail, detailLoading: detailLoad, onNavigate: onNavigate, creds: creds });
-    },
-  });
-}
-
-// ── Section views (each wraps AssetTabView for its sub-tabs) ─────────────────
-
-var SECTION_TABS = {
-  infrastructure: [
-    { id: 'infrastructure', label: 'IT Infrastructure', endpoint: '/api/tech-catalog/infrastructure' },
-    { id: 'software-capabilities', label: 'Software Capabilities', endpoint: '/api/tech-catalog/software-capabilities' },
-    { id: 'endpoints', label: 'Endpoints', endpoint: '/api/tech-catalog/endpoints' },
-  ],
-  'data-assets': [
-    { id: 'data-stores', label: 'Data Stores', endpoint: '/api/tech-catalog/data-stores' },
-    { id: 'data-feeds',  label: 'Data Feeds',  endpoint: '/api/tech-catalog/data-feeds' },
-    { id: 'data-sets',   label: 'Data Sets',   endpoint: '/api/tech-catalog/data-sets' },
-  ],
-  apis: [
-    { id: 'apis', label: 'APIs', endpoint: '/api/tech-catalog/apis' },
-  ],
-  processes: [
-    { id: 'software-components', label: 'Software Components', endpoint: '/api/tech-catalog/software-components' },
-    { id: 'actions', label: 'Actions', endpoint: '/api/tech-catalog/actions' },
-  ],
-};
-
-function SectionView({ sectionId, creds, navTarget, onNavigate }) {
-  if (sectionId === 'glossary') {
-    return React.createElement('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
-      React.createElement(GlossaryView, { creds: creds })
-    );
-  }
-  if (sectionId === 'tech-types') {
-    return React.createElement(TechTypesView, { creds: creds });
-  }
-  var tabs = SECTION_TABS[sectionId] || [];
-  var _tab = useState(tabs[0] ? tabs[0].id : ''), activeTab = _tab[0], setActiveTab = _tab[1];
-
-  // When a cross-nav target arrives for this section, switch to the right sub-tab
-  useEffect(function() {
-    if (navTarget && navTarget.section === sectionId && navTarget.tab) {
-      setActiveTab(navTarget.tab);
-    }
-  }, [navTarget]);
-
-  var currentTab = tabs.find(function(t) { return t.id === activeTab; }) || tabs[0];
-  return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' } },
-    // Sub-tab bar
-    tabs.length > 1 && React.createElement('div', { style: { display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--panel)', padding: '0 8px', flexShrink: 0 } },
-      tabs.map(function(t) {
-        var active = t.id === activeTab;
-        return React.createElement('button', { key: t.id, onClick: function() { setActiveTab(t.id); },
-          style: { padding: '8px 14px', fontSize: 12, border: 'none', borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
-                   background: 'transparent', color: active ? 'var(--accent)' : 'var(--muted)', cursor: 'pointer', whiteSpace: 'nowrap' } },
-          t.label);
-      })
-    ),
-    currentTab && React.createElement(AssetTabView, {
-      key: currentTab.id,
-      endpoint: currentTab.endpoint,
-      sectionId: currentTab.id,
-      creds: creds,
-      navTarget: navTarget && navTarget.guid && (navTarget.section === sectionId || !navTarget.section)
-                   && (!navTarget.tab || navTarget.tab === currentTab.id) ? navTarget : null,
-      onNavigate: onNavigate,
-    })
-  );
-}
-
-// ── Splash / top-level tile selector ─────────────────────────────────────────
-var SECTIONS = [
-  { id: 'glossary',       icon: '📖', label: 'Glossary',               desc: 'Browse glossaries, categories, and terms.' },
-  { id: 'tech-types',     icon: '🔧', label: 'Technology Types',       desc: 'Technology type definitions, catalog templates, and governance processes.' },
-  { id: 'infrastructure', icon: '🖧', label: 'Infrastructure Assets',  desc: 'Servers, storage, networks, software capabilities, and endpoints.' },
-  { id: 'data-assets',    icon: '🗄️', label: 'Data Assets',           desc: 'Data stores, data feeds, and data sets.' },
-  { id: 'apis',           icon: '🔗', label: 'APIs',                    desc: 'Deployed APIs and their endpoints.' },
-  { id: 'processes',      icon: '⚙️', label: 'Processes',               desc: 'Software components and actions.' },
-];
-
-var SPLASH_GROUPS = [
-  {
-    key: 'definitions',
-    label: 'Definitions & Standards',
-    blurb: 'Business vocabulary and technology standards — what concepts exist and how systems are onboarded.',
-    sections: ['glossary', 'tech-types'],
-  },
-  {
-    key: 'assets',
-    label: 'Deployed Assets',
-    blurb: 'Technical resources registered in your environment — infrastructure, data, APIs, and processes.',
-    sections: ['infrastructure', 'data-assets', 'apis', 'processes'],
-  },
-];
-
-function Splash({ onSelect, authUser, activePersona, creds, demoMode, srvManaged, saveCreds }) {
-  var cardStyle = {
-    background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8,
-    padding: '20px 20px 16px', display: 'flex', flexDirection: 'column', gap: 8,
-  };
-  var openBtnStyle = {
-    marginTop: 8, padding: '5px 14px', background: 'rgba(96,165,250,.1)',
-    border: '1px solid rgba(96,165,250,.3)', color: 'var(--accent)', borderRadius: 5,
-    cursor: 'pointer', fontSize: 12, fontWeight: 600, alignSelf: 'flex-start',
-  };
-
-  var sectionById = {};
-  SECTIONS.forEach(function(s) { sectionById[s.id] = s; });
-
-  // Connection panel — persona takes precedence in both demo and local quickstart modes.
-  var connIdentity = activePersona
-    ? { label: activePersona.display_name || activePersona.id, sub: activePersona.id, switchHref: '/portal' }
-    : authUser
-      ? { label: authUser.displayName || authUser.userId, sub: authUser.role }
-      : null;
-
-  var connPanel;
-  if (connIdentity) {
-    connPanel = React.createElement('div', {
-        style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24, padding: '10px 16px',
-                 background: 'rgba(52,211,153,.07)', border: '1px solid rgba(52,211,153,.25)', borderRadius: 7 }
-      },
-        React.createElement('span', { style: { fontSize: 16, color: '#34d399' } }, '✓'),
-        React.createElement('span', { style: { fontSize: 13, color: 'var(--text)' } },
-          'Connected as ', React.createElement('strong', null, connIdentity.label)
-        ),
-        connIdentity.sub && React.createElement('span', { style: { marginLeft: 'auto', fontSize: 11, color: 'var(--muted)', textTransform: 'capitalize' } }, connIdentity.sub),
-        connIdentity.switchHref && React.createElement('a', { href: connIdentity.switchHref, style: { marginLeft: connIdentity.sub ? 8 : 'auto', fontSize: 11, color: 'var(--accent)', textDecoration: 'none' } }, 'Switch →')
-      );
-  } else if (srvManaged) {
-    connPanel = null;
-  } else {
-    connPanel = React.createElement('div', {
-        style: { marginBottom: 0 }
-      },
-        React.createElement('div', {
-          style: { marginBottom: 16, padding: '10px 16px', background: 'rgba(245,158,11,.07)',
-                   border: '1px solid rgba(245,158,11,.25)', borderRadius: 7, fontSize: 13, color: 'var(--text)' }
-        },
-          '⚠ No persona selected. ',
-          React.createElement('a', { href: '/portal', style: { color: 'var(--accent)' } }, 'Choose one at the Portal →')
-        ),
-        React.createElement(ConnectionForm, { saveCreds: saveCreds, initialCreds: creds })
-      );
-  }
-
-  return React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: '40px 48px', background: 'var(--bg)' } },
-    React.createElement('div', { style: { maxWidth: 900, margin: '0 auto' } },
-      React.createElement('h1', { style: { fontSize: 26, fontWeight: 700, margin: '0 0 8px', color: 'var(--text)' } }, '🐱 The Catalog'),
-      React.createElement('p', { style: { fontSize: 14, color: 'var(--muted)', margin: '0 0 28px', lineHeight: 1.65, maxWidth: 660 } },
-        'Browse and explore technical assets, definitions, and standards registered in your Egeria metadata environment.'),
-      connPanel,
-
-      // Section groups
-      SPLASH_GROUPS.map(function(grp) {
-        var caps = grp.sections.map(function(id) { return sectionById[id]; }).filter(Boolean);
-        return React.createElement('div', { key: grp.key, style: { marginBottom: 32 } },
-          React.createElement('div', {
-            style: { display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 14, paddingBottom: 6, borderBottom: '1px solid var(--border)' }
-          },
-            React.createElement('span', { style: { fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--accent)' } }, grp.label),
-            React.createElement('span', { style: { fontSize: 12, color: 'var(--muted)' } }, grp.blurb)
-          ),
-          React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(245px, 1fr))', gap: 14 } },
-            caps.map(function(s) {
-              return React.createElement('div', { key: s.id, style: cardStyle,
-                onMouseEnter: function(e) { e.currentTarget.style.borderColor = 'var(--accent)'; },
-                onMouseLeave: function(e) { e.currentTarget.style.borderColor = 'var(--border)'; } },
-                React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                  React.createElement('span', { style: { fontSize: 18, color: 'var(--accent)', minWidth: 22, textAlign: 'center' } }, s.icon),
-                  React.createElement('span', { style: { fontSize: 14, fontWeight: 600, color: 'var(--text)' } }, s.label)
-                ),
-                React.createElement('p', { style: { fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.55, flex: 1 } }, s.desc),
-                React.createElement('button', { onClick: function() { onSelect(s.id); }, style: openBtnStyle }, 'Open →')
-              );
-            })
-          )
-        );
-      })
     )
   );
 }
 
-// ── App ───────────────────────────────────────────────────────────────────────
+// ── App ────────────────────────────────────────────────────────────────────────
 function App() {
-  var _section   = useState(function() {
-    var hash  = window.location.hash.slice(1);
-    var valid = new Set(['glossary','infrastructure','data-assets','apis','processes','tech-types']);
-    if (valid.has(hash)) return hash;
-    var params = new URLSearchParams(window.location.search);
-    if (params.get('guid')) return 'data-assets';
-    return '';
-  }), section = _section[0], setSection = _section[1];
-
-  var _creds     = useState(null),  creds      = _creds[0],     setCreds      = _creds[1];
-  var _srvMgd    = useState(false), srvManaged = _srvMgd[0],    setSrvManaged = _srvMgd[1];
-  var _demoMode  = useState(false), demoMode   = _demoMode[0],  setDemoMode   = _demoMode[1];
-  var _ready     = useState(false), ready      = _ready[0],     setReady      = _ready[1];
-  var _navTarget = useState(function() {
-    var params = new URLSearchParams(window.location.search);
-    var guid = params.get('guid');
-    return guid ? { guid: guid, section: 'data-assets' } : null;
-  }), navTarget  = _navTarget[0], setNavTarget  = _navTarget[1];
-  var _authUser  = useState(null),  authUser   = _authUser[0],  setAuthUser   = _authUser[1];
+  var _creds      = useState(null),  creds      = _creds[0],      setCreds      = _creds[1];
+  var _srvMgd     = useState(false), srvManaged = _srvMgd[0],     setSrvManaged = _srvMgd[1];
+  var _demoMode   = useState(false), demoMode   = _demoMode[0];
+  var _ready      = useState(false), ready      = _ready[0],      setReady      = _ready[1];
+  var _authUser   = useState(null),  authUser   = _authUser[0],   setAuthUser   = _authUser[1];
   var _activePersona = useState(function() {
     try { var s = localStorage.getItem('egeria-persona'); return s ? JSON.parse(s) : null; } catch(e) { return null; }
   }), activePersona = _activePersona[0], setActivePersona = _activePersona[1];
 
-  function handleNavigate(nav) {
-    // nav = { guid, section, tab, displayName }
-    setNavTarget(nav);
-    setSection(nav.section);
-  }
+  var _focusAsset = useState(null),  focusAsset = _focusAsset[0], setFocusAsset = _focusAsset[1];
+  var _selected   = useState(null),  selected   = _selected[0],   setSelected   = _selected[1];
 
+  // Boot: read auth + creds
   useEffect(function() {
     fetch('/api/auth/me').then(function(r) { return r.json(); }).then(function(d) {
       setSrvManaged(!!d.server_managed_auth);
-      if (d.demo_mode) setDemoMode(true);
+      if (d.demo_mode) { /* demoMode handled below */ }
 
       if (d.server_managed_auth) {
-        // Freshstart: connection is server-managed via portal JWT + env vars.
         if (d.authenticated && d.id) {
-          setAuthUser({ userId: d.id, displayName: d.display_name || d.id, role: d.role });
+          setAuthUser({ userId: d.id, displayName: d.display_name || d.id });
           setCreds({});
         }
         setReady(true);
         return;
       }
 
-      // Quickstart (demo or local): persona selection works the same in both modes.
-      // The portal stores display info; POST select-persona returns egeria credentials.
+      // Quickstart: persona-based token
       var storedPersona = null;
       try { var s = localStorage.getItem('egeria-persona'); storedPersona = s ? JSON.parse(s) : null; } catch(e) {}
       if (storedPersona && storedPersona.id) {
@@ -2640,7 +1074,6 @@ function App() {
           body: JSON.stringify({ persona: storedPersona.id })
         }).then(function(r) { return r.json(); }).then(function(sel) {
           if (sel.egeria_user) {
-            // Exchange user/pwd for a bearer token so credentials never appear in URLs.
             fetch('/api/egeria-token', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ user_id: sel.egeria_user, password: sel.egeria_password || '' })
@@ -2656,12 +1089,11 @@ function App() {
     }).catch(function() { setReady(true); });
   }, []);
 
-  // Register token-refresh callback so fetchWithToken can auto-refresh on 401
+  // Register token refresh callback
   useEffect(function() {
     _tokenRefresher.refresh = function(oldCreds) {
       return fetch('/api/egeria-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: oldCreds.userId, url: oldCreds.url || '', server: oldCreds.server || '' })
       }).then(function(r) { return r.json(); })
         .then(function(t) {
@@ -2673,41 +1105,74 @@ function App() {
     return function() { _tokenRefresher.refresh = null; };
   }, []);
 
+  // Deep-link: ?guid= pre-selects asset on load
+  useEffect(function() {
+    if (!ready || !creds) return;
+    var params = new URLSearchParams(location.search);
+    var guid = params.get('guid');
+    if (guid) {
+      var item = { guid: guid, displayName: guid, typeName: '', qualifiedName: '', description: '' };
+      setFocusAsset(item);
+      setSelected(guid);
+    }
+  }, [ready, creds]);
+
+  function handleSetFocus(item) {
+    setFocusAsset(item);
+    setSelected(item.guid);
+    history.pushState({}, '', '?guid=' + encodeURIComponent(item.guid));
+  }
+
+  // Back/forward navigation
+  useEffect(function() {
+    function onPop() {
+      var params = new URLSearchParams(location.search);
+      var guid = params.get('guid');
+      if (guid) {
+        var item = { guid: guid, displayName: guid, typeName: '', qualifiedName: '', description: '' };
+        setFocusAsset(item);
+        setSelected(guid);
+      } else {
+        setFocusAsset(null);
+        setSelected(null);
+      }
+    }
+    window.addEventListener('popstate', onPop);
+    return function() { window.removeEventListener('popstate', onPop); };
+  }, []);
+
   if (!ready) return null;
 
-  return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', height: '100vh' } },
+  return React.createElement('div', { id: 'root' },
     // Nav bar
-    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '0 14px', height: 42, borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0 } },
-      React.createElement('span', { style: { fontSize: 18 } }, '🐱'),
-      React.createElement('span', { style: { fontSize: 14, fontWeight: 700, color: 'var(--text)', marginRight: 8 } }, 'The Catalog'),
-      section && React.createElement('button', { onClick: function() { setSection(''); },
-        style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, '⌂ Home'),
-      section && SECTIONS.map(function(s) {
-        return React.createElement('button', { key: s.id, onClick: function() { setSection(s.id); },
-          style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: s.id === section ? '1px solid var(--accent)' : '1px solid var(--border)',
-                   background: s.id === section ? 'rgba(96,165,250,0.1)' : 'transparent',
-                   color: s.id === section ? 'var(--accent)' : 'var(--muted)', cursor: 'pointer' } }, s.label);
-      }),
+    React.createElement('div', { className: 'nav' },
+      React.createElement('span', { style: { fontSize: 18 } }, '🔗'),
+      React.createElement('span', { className: 'nav-title' }, 'Lineage Explorer'),
+      creds !== null && React.createElement(NavSearch, { onSelect: handleSetFocus, creds: creds }),
       React.createElement('div', { style: { flex: 1 } }),
       activePersona
         ? React.createElement(React.Fragment, null,
-            React.createElement('span', { className: 'persona-badge-btn', title: activePersona.coco_title || '' }, '🎭 ' + (activePersona.display_name || activePersona.id)),
-            React.createElement('a', { className: 'theme-btn', style: { marginLeft: 4, textDecoration: 'none' }, href: '/portal' }, 'Portal')
+            React.createElement('span', { style: { fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' } }, '🎭 ' + (activePersona.display_name || activePersona.id)),
+            React.createElement('a', { href: '/portal', style: { fontSize: 11, color: 'var(--accent)', textDecoration: 'none', marginLeft: 8, whiteSpace: 'nowrap' } }, 'Portal')
           )
         : authUser
           ? React.createElement(React.Fragment, null,
-              React.createElement('span', { style: { fontSize: 11, color: '#34d399', background: 'rgba(52,211,153,.1)', padding: '2px 8px', borderRadius: 10, border: '1px solid rgba(52,211,153,.25)', marginRight: 4 } },
-                '👤 ' + (authUser.displayName || authUser.userId)),
-              React.createElement('a', { href: '/portal', style: { fontSize: 11, color: 'var(--muted)', textDecoration: 'none' } }, 'Portal')
+              React.createElement('span', { style: { fontSize: 11, color: 'var(--green)', whiteSpace: 'nowrap' } }, '👤 ' + (authUser.displayName || authUser.userId)),
+              React.createElement('a', { href: '/portal', style: { fontSize: 11, color: 'var(--muted)', textDecoration: 'none', marginLeft: 8, whiteSpace: 'nowrap' } }, 'Portal')
             )
-          : React.createElement(React.Fragment, null,
-              React.createElement('a', { className: 'persona-badge-btn', href: '/portal' }, '🎭 Choose persona')
-            )
+          : React.createElement('a', { href: '/portal', style: { fontSize: 11, color: 'var(--accent)', textDecoration: 'none', whiteSpace: 'nowrap' } }, '🎭 Choose persona')
     ),
-    section
-      ? React.createElement(SectionView, { sectionId: section, creds: creds, navTarget: navTarget, onNavigate: handleNavigate })
-      : React.createElement(Splash, { onSelect: setSection, authUser: authUser, activePersona: activePersona, creds: creds, demoMode: demoMode, srvManaged: srvManaged, saveCreds: setCreds }),
-    React.createElement(FeedbackButton, { section: section, persona: null, demoMode: demoMode, srvManaged: srvManaged })
+
+    // Full-width main content
+    React.createElement('div', { className: 'main' },
+      focusAsset
+        ? React.createElement(MainPanel, { focusAsset: focusAsset, creds: creds, onSetFocus: handleSetFocus })
+        : React.createElement('div', { className: 'welcome' },
+            React.createElement('div', { className: 'welcome-icon' }, '🔗'),
+            React.createElement('div', { className: 'welcome-text' }, 'Lineage Explorer'),
+            React.createElement('div', { className: 'welcome-hint' }, 'Search for an asset using the bar above to explore its data lineage.')
+          )
+    )
   );
 }
 

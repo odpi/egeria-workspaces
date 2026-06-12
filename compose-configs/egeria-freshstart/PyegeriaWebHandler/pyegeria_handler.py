@@ -63,10 +63,18 @@ pyegeria.disable_ssl_warnings = True
 import dr_egeria_md
 
 
+async def _lifespan(app: FastAPI):
+    from jupyter_lock_handler import start_scheduler as jup_start, stop_scheduler as jup_stop
+    await jup_start()
+    yield
+    await jup_stop()
+
+
 app = FastAPI(
     title="Dr. Egeria Markdown Processor API",
     description="POST an instruction to process a Markdown file via dr_egeria_md.process_markdown_file and get structured command status back.",
     version="1.0.0",
+    lifespan=_lifespan,
 )
 
 # Security Token (Simplified for local use)
@@ -192,6 +200,10 @@ from egeria_feedback_handler import router as egeria_feedback_router
 app.include_router(egeria_feedback_router)
 from tech_catalog_handler import router as tech_catalog_router
 app.include_router(tech_catalog_router)
+from lineage_handler import router as lineage_router
+app.include_router(lineage_router)
+from jupyter_lock_handler import router as jupyter_lock_router
+app.include_router(jupyter_lock_router)
 
 # ── Auth (Egeria-backed — always active in freshstart) ─────────────────────────
 from demo_config import DEMO_MODE, EGERIA_ADVISOR_URL, OBSIDIAN_VAULT_URL, OBSIDIAN_GITHUB_URL

@@ -162,7 +162,9 @@ def _flat_props(props_dict: dict) -> dict:
     prop_map = props_dict.get("propertyValueMap") or {}
     if prop_map:
         for k, v in prop_map.items():
-            flat[k] = v.get("primitiveValue", "") if isinstance(v, dict) else str(v)
+            pv = v.get("primitiveValue", "") if isinstance(v, dict) else v
+            # primitiveValue can itself be a nested object — always stringify
+            flat[k] = str(pv) if not isinstance(pv, (dict, list)) else ", ".join(str(i) for i in pv) if isinstance(pv, list) else ""
     else:
         for k, v in props_dict.items():
             if k not in ("class", "propertyValueMap", "propertiesAsStrings"):
@@ -239,8 +241,12 @@ def _serialize(el, include_relationships: bool = False):
     """Common serialisation for any asset/element."""
     hdr   = _header(el)
     props = _props(el)
+    # Fallback: some element shapes return guid/properties at the top level
+    guid = hdr.get("guid") or el.get("guid", "")
+    if not props:
+        props = el  # treat top-level keys as properties when no nested 'properties' dict
     out = {
-        "guid":                       hdr.get("guid", ""),
+        "guid":                       guid,
         "typeName":                   _type_name(el),
         "displayName":                props.get("displayName") or props.get("name") or "",
         "qualifiedName":              props.get("qualifiedName") or "",
@@ -911,7 +917,6 @@ def get_asset_schema(
                 "class": "GetRequestBody",
                 "graphQueryDepth": 5,
                 "relationshipsPageSize": 200,
-                "includeOnlyRelationships": ["Schema", "AttributeForSchema"],
             },
         )
         el = raw[0] if isinstance(raw, list) else raw
@@ -934,7 +939,7 @@ def get_asset_lineage(
     """
     try:
         ac = _asset_catalog(url, server, user_id, user_pwd, token=_token_from_request(request))
-        mermaid_str = ac.get_asset_lineage_graph(asset_guid=guid, output_format="MERMAID")
+        mermaid_str = ac.get_asset_lineage_graph_by_guid(guid, output_format="MERMAID")
         if isinstance(mermaid_str, str):
             return JSONResponse({"mermaidGraph": mermaid_str or ""})
         # Some pyegeria versions return a dict; extract mermaidGraph field if present
@@ -1024,18 +1029,23 @@ def get_tech_type_elements(
     """
     try:
         ac = _automated_curation(url, server, user_id, user_pwd, token=_token_from_request(request))
-        filter_str = display_name or qualified_name.split(":")[-1] if ":" in qualified_name else qualified_name
+        filter_str = display_name or (qualified_name.split(":")[-1] if ":" in qualified_name else qualified_name)
         raw = ac.get_technology_type_elements(
             filter_string=filter_str,
             start_from=start_from,
             page_size=page_size,
+            get_templates=True,
             output_format="JSON",
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
     except Exception as exc:
+        exc_str = str(exc)
+        # Egeria returns 400/404 when no elements match — treat as empty list
+        if any(code in exc_str for code in ("400", "404", "CLIENT_ERROR_400", "CLIENT_ERROR_404", "No elements")):
+            return JSONResponse({"items": [], "total": 0})
         logger.exception("get_tech_type_elements failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=exc_str)
 
 
 @router.get("/api/tech-catalog/tech-types/{qualified_name:path}")
