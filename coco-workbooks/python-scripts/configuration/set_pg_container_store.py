@@ -21,7 +21,7 @@ from pyegeria import (
     PropertyServerException,
     UserNotAuthorizedException,
     Client,
-    ClassificationManager,
+    ClassificationExplorer,
 )
 
 
