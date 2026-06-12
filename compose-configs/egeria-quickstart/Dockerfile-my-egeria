@@ -2,7 +2,7 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 # pip install of textual does not install the `textual` console script;
 # use textual_serve.server.Server programmatically via serve_my_egeria.py instead.
-RUN pip install --no-cache-dir pyegeria --upgrade && \
+RUN pip install --no-cache-dir pyegeria --upgrade nest_asyncio && \
     pip install --no-cache-dir "textual==6.1.0"
 COPY serve_my_egeria.py /usr/local/bin/serve_my_egeria.py
 # my_profile.tcss is missing from pyegeria's package_data (fixed upstream);
