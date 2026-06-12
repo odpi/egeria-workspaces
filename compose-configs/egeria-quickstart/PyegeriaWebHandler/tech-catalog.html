@@ -1224,27 +1224,46 @@ function TechTypeDetail({ item, detailLoading, creds }) {
     title: 'Catalog Instances',
     fetchUrl: elementsUrl,
     creds: creds,
+    prominent: true,
     renderContent: function(data) {
       var its = data.items || [];
       if (its.length === 0) return React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '6px 0' } }, 'No catalog entries of this type yet.');
-      return React.createElement('div', null, its.map(function(it) {
-        var rowStyle = { borderBottom: '1px solid var(--border)', padding: '8px 0', fontSize: 12 };
-        return React.createElement('div', { key: it.guid || it.qualifiedName, style: rowStyle },
-          React.createElement('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 2 } },
-            React.createElement('span', { style: { fontWeight: 600, color: 'var(--text)', flex: 1 } }, it.displayName || it.qualifiedName || it.guid),
-            it.guid && React.createElement('a', {
-              href: '/tech-catalog?guid=' + encodeURIComponent(it.guid),
-              target: '_blank',
-              style: { fontSize: 10, color: 'var(--accent)', textDecoration: 'none', border: '1px solid var(--border)',
-                       borderRadius: 4, padding: '1px 6px', whiteSpace: 'nowrap', flexShrink: 0 }
-            }, '↗ View')
+      var thStyle = { fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 8px 4px 0', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', textAlign: 'left' };
+      var tdBase  = { fontSize: 11, padding: '5px 8px 5px 0', verticalAlign: 'top', borderBottom: '1px solid var(--border)' };
+      var tdMono  = Object.assign({}, tdBase, { fontFamily: 'ui-monospace,monospace', fontSize: 10, color: 'var(--dim)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+      var tdDesc  = Object.assign({}, tdBase, { color: 'var(--muted)', maxWidth: 200, lineHeight: 1.4 });
+      return React.createElement('div', { style: { overflowX: 'auto', marginTop: 6 } },
+        React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse' } },
+          React.createElement('thead', null,
+            React.createElement('tr', null,
+              React.createElement('th', { style: thStyle }, 'Name'),
+              React.createElement('th', { style: thStyle }, 'Type'),
+              React.createElement('th', { style: thStyle }, 'Description'),
+              React.createElement('th', { style: thStyle }, 'Qualified Name'),
+              React.createElement('th', { style: thStyle }, 'GUID'),
+              React.createElement('th', { style: thStyle }, '')
+            )
           ),
-          it.typeName && React.createElement('div', { style: { fontSize: 10, color: 'var(--muted)', marginBottom: 2 } }, it.typeName),
-          it.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginBottom: 2, lineHeight: 1.4 } }, it.description),
-          it.qualifiedName && React.createElement('code', { style: { fontSize: 9, color: 'var(--dim)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }, title: it.qualifiedName }, it.qualifiedName),
-          it.guid && React.createElement('div', { style: { fontSize: 9, color: 'var(--dim)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: it.guid }, it.guid)
-        );
-      }));
+          React.createElement('tbody', null,
+            its.map(function(it) {
+              return React.createElement('tr', { key: it.guid || it.qualifiedName },
+                React.createElement('td', { style: Object.assign({}, tdBase, { fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap' }) }, it.displayName || it.qualifiedName || it.guid),
+                React.createElement('td', { style: Object.assign({}, tdBase, { color: 'var(--muted)', whiteSpace: 'nowrap' }) }, it.typeName || ''),
+                React.createElement('td', { style: tdDesc }, it.description || ''),
+                React.createElement('td', { style: tdMono, title: it.qualifiedName || '' }, it.qualifiedName || ''),
+                React.createElement('td', { style: tdMono, title: it.guid || '' }, it.guid || ''),
+                React.createElement('td', { style: Object.assign({}, tdBase, { whiteSpace: 'nowrap' }) },
+                  it.guid && React.createElement('a', {
+                    href: '/tech-catalog?guid=' + encodeURIComponent(it.guid),
+                    target: '_blank',
+                    style: { fontSize: 10, color: 'var(--accent)', textDecoration: 'none', border: '1px solid var(--border)', borderRadius: 4, padding: '2px 7px' }
+                  }, '↗ View')
+                )
+              );
+            })
+          )
+        )
+      );
     }
   });
 
@@ -1592,7 +1611,7 @@ function SidebarDetail({ items, loading, error, selected, onSelect, renderDetail
 // SubPane: generic container. Fetches fetchUrl on first open, then renders via
 // renderContent(data). Stays open/closed independently. Reused for Schema and Lineage.
 //
-function SubPane({ title, fetchUrl, creds, renderContent }) {
+function SubPane({ title, fetchUrl, creds, renderContent, prominent }) {
   var _open    = useState(false), open    = _open[0],    setOpen    = _open[1];
   var _data    = useState(null),  data    = _data[0],    setData    = _data[1];
   var _loading = useState(false), loading = _loading[0], setLoading = _loading[1];
@@ -1608,6 +1627,27 @@ function SubPane({ title, fetchUrl, creds, renderContent }) {
         .then(function(d) { setData(d); setLoading(false); })
         .catch(function(e) { setErr(String(e)); setLoading(false); });
     }
+  }
+
+  if (prominent) {
+    var btnStyle = { width: '100%', marginTop: 14, padding: '10px 16px', fontSize: 13, fontWeight: 700,
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer',
+      borderRadius: 6, border: '1px solid ' + (open ? 'rgba(96,165,250,.6)' : 'rgba(96,165,250,.35)'),
+      background: open ? 'rgba(96,165,250,.12)' : 'rgba(96,165,250,.06)',
+      color: 'var(--accent)', userSelect: 'none' };
+    return React.createElement('div', null,
+      React.createElement('div', { style: btnStyle, onClick: toggle },
+        React.createElement('span', null, title),
+        React.createElement('span', { style: { fontSize: 18, lineHeight: 1 } }, open ? '▲' : '▼')
+      ),
+      open && React.createElement('div', { style: { paddingBottom: 12 } },
+        loading
+          ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '8px 0' } }, 'Loading…')
+          : err
+            ? React.createElement('div', { style: { fontSize: 12, color: 'var(--muted)', padding: '8px 0' } }, 'Error: ' + err)
+            : data ? renderContent(data) : null
+      )
+    );
   }
 
   var hdrStyle = { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 0', cursor: 'pointer', borderTop: '1px solid var(--border)', marginTop: 16, userSelect: 'none' };
@@ -2144,7 +2184,7 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
       React.createElement('div', { style: sectionHdr }, 'Properties'),
       React.createElement('table', { style: { borderCollapse: 'collapse', width: '100%', fontSize: 12 } },
         React.createElement('tbody', null,
-          [['Qualified Name', item.qualifiedName], ['GUID', item.guid]].concat(extraProps).filter(function(r) { return r[1]; }).map(function(r) {
+          [['Qualified Name', item.qualifiedName || '—'], ['GUID', item.guid || '—']].concat(extraProps).map(function(r) {
             var mono = r[0] === 'Qualified Name' || r[0] === 'GUID';
             return React.createElement('tr', { key: r[0], style: { borderBottom: '1px solid var(--border)' } },
               React.createElement('td', { style: { padding: '5px 10px 5px 0', color: 'var(--dim)', width: 180, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
@@ -2201,7 +2241,7 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
             }, 'View →')
           ),
           el.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginBottom: relProps.length ? 4 : 0 } }, el.description),
-          relProps.map(function(e) {
+          relProps.filter(function(e) { return typeof e[1] !== 'object' || e[1] === null; }).map(function(e) {
             return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
               e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
           })
@@ -2249,21 +2289,22 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
     fetchWithToken(detailUrl, creds)
       .then(function(r) {
         if (r.status === 403) { setDetailErr('unauthorized'); setDetailLoad(false); return null; }
-        if (!r.ok) { setDetailLoad(false); return null; }  // keep initial item data on any error
+        if (!r.ok) { setDetailErr('http-' + r.status); setDetailLoad(false); return null; }
         return r.json();
       })
       .then(function(d) { if (d) { setDetail(d); setDetailLoad(false); } })
       .catch(function() { setDetailLoad(false); });
   }
 
-  // Cross-navigation: when a navTarget arrives for this tab, fetch its detail directly
+  // Cross-navigation: when a navTarget arrives for this tab, fetch its detail directly.
+  // Guard on creds so deep-links on fresh page load wait until auth is ready.
   var _lastNavGuid = useRef(null);
   useEffect(function() {
-    if (!navTarget || !navTarget.guid) return;
+    if (!navTarget || !navTarget.guid || !creds) return;
     if (navTarget.guid === _lastNavGuid.current) return; // already handled
     _lastNavGuid.current = navTarget.guid;
     handleSelect({ guid: navTarget.guid, displayName: navTarget.displayName || navTarget.guid });
-  }, [navTarget]);
+  }, [navTarget, creds]);
 
   // Build classification filter options from the current item list
   var classifOptions = [];
@@ -2349,6 +2390,14 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
         return React.createElement('div', { style: { padding: '32px 24px' } },
           React.createElement('div', { style: { fontSize: 14, color: '#f87171', fontWeight: 600, marginBottom: 8 } }, '🔒 User Not Authorized'),
           React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)' } }, 'You do not have permission to view this element.')
+        );
+      }
+      if (detailErr && detailErr.startsWith('http-')) {
+        var status = detailErr.slice(5);
+        return React.createElement('div', { style: { padding: '32px 24px' } },
+          React.createElement('div', { style: { fontSize: 14, color: '#f87171', fontWeight: 600, marginBottom: 8 } }, '⚠ Could not load element (HTTP ' + status + ')'),
+          React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)', marginBottom: 8 } }, 'The element with this GUID could not be retrieved. It may be a non-Asset type (schema attribute, technical element, etc.) or belong to a different catalog section.'),
+          detail && detail.guid && React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)' } }, detail.guid)
         );
       }
       return React.createElement(AssetDetail, { item: detail, detailLoading: detailLoad, onNavigate: onNavigate, creds: creds });

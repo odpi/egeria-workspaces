@@ -162,7 +162,9 @@ def _flat_props(props_dict: dict) -> dict:
     prop_map = props_dict.get("propertyValueMap") or {}
     if prop_map:
         for k, v in prop_map.items():
-            flat[k] = v.get("primitiveValue", "") if isinstance(v, dict) else str(v)
+            pv = v.get("primitiveValue", "") if isinstance(v, dict) else v
+            # primitiveValue can itself be a nested object — always stringify
+            flat[k] = str(pv) if not isinstance(pv, (dict, list)) else ", ".join(str(i) for i in pv) if isinstance(pv, list) else ""
     else:
         for k, v in props_dict.items():
             if k not in ("class", "propertyValueMap", "propertiesAsStrings"):
@@ -239,8 +241,12 @@ def _serialize(el, include_relationships: bool = False):
     """Common serialisation for any asset/element."""
     hdr   = _header(el)
     props = _props(el)
+    # Fallback: some element shapes return guid/properties at the top level
+    guid = hdr.get("guid") or el.get("guid", "")
+    if not props:
+        props = el  # treat top-level keys as properties when no nested 'properties' dict
     out = {
-        "guid":                       hdr.get("guid", ""),
+        "guid":                       guid,
         "typeName":                   _type_name(el),
         "displayName":                props.get("displayName") or props.get("name") or "",
         "qualifiedName":              props.get("qualifiedName") or "",

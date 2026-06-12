@@ -49,7 +49,7 @@
     .main { flex: 1; overflow-y: auto; padding: 20px 24px; }
 
     /* Search bar in nav */
-    .search-wrap { position: relative; flex: 1; max-width: 560px; }
+    .search-wrap { position: relative; flex: 0 0 auto; width: min(420px, 40%); }
     .search-input { width: 100%; background: rgba(20,32,52,.8); border: 1px solid var(--border);
                     border-radius: 5px; padding: 6px 10px; color: var(--text);
                     font-size: 13px; }
@@ -124,6 +124,9 @@
                  color: var(--accent); }
     .btn-load { color: var(--green); border-color: rgba(52,211,153,.4); }
     .btn-load:hover { background: rgba(52,211,153,.06); }
+    .btn-expand-primary { color: var(--accent); border-color: rgba(96,165,250,.4); background: rgba(96,165,250,.06); }
+    .btn-expand-primary:hover { background: rgba(96,165,250,.12); }
+    .btn-expand-primary.on { background: rgba(96,165,250,.12); border-color: rgba(96,165,250,.6); }
     .btn-toggle { color: var(--muted); }
     .btn-toggle.on { color: var(--accent); border-color: var(--accent);
                      background: rgba(96,165,250,.08); }
@@ -979,11 +982,12 @@ function MainPanel({ focusAsset, creds, onSetFocus }) {
       React.createElement('div', { className: 'section-desc' },
         'End-to-end data and control flow across the IT landscape through this asset. ' +
         'Click to load — may be slow for large lineage graphs.'),
-      React.createElement('div', { className: 'opts-row' },
-        React.createElement('button', {
-          className: 'btn' + (showFull ? ' btn-toggle on' : ' btn-load'),
-          onClick: handleToggleFullLineage,
-        }, showFull ? '▾ Hide Full Lineage' : '▦ Load Full Lineage'),
+      React.createElement('button', {
+        className: 'btn btn-expand-primary' + (showFull ? ' on' : ''),
+        onClick: handleToggleFullLineage,
+        style: { marginBottom: 10, padding: '8px 18px', fontSize: 13, fontWeight: 600 },
+      }, (showFull ? '▲ Hide' : '▼ Load') + ' Full Asset Lineage'),
+      showFull && React.createElement('div', { className: 'opts-row' },
         React.createElement('div', { className: 'opts-check' },
           React.createElement('label', null,
             React.createElement('input', { type: 'checkbox', checked: allAnchors,
@@ -1144,9 +1148,8 @@ function App() {
     React.createElement('div', { className: 'nav' },
       React.createElement('span', { style: { fontSize: 18 } }, '🔗'),
       React.createElement('span', { className: 'nav-title' }, 'Lineage Explorer'),
-      creds !== null
-        ? React.createElement(NavSearch, { onSelect: handleSetFocus, creds: creds })
-        : React.createElement('div', { style: { flex: 1 } }),
+      creds !== null && React.createElement(NavSearch, { onSelect: handleSetFocus, creds: creds }),
+      React.createElement('div', { style: { flex: 1 } }),
       activePersona
         ? React.createElement(React.Fragment, null,
             React.createElement('span', { style: { fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' } }, '🎭 ' + (activePersona.display_name || activePersona.id)),
