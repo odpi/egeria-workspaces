@@ -699,7 +699,7 @@ function LineageLinkageTable({ linkage, onSetFocus }) {
 }
 
 // ── ISCTable ───────────────────────────────────────────────────────────────────
-function ISCTable({ iscs, selectedISCGuid, onSelect }) {
+function ISCTable({ iscs, selectedISCGuid, onSelect, activePersona }) {
   if (!iscs || iscs.length === 0) {
     return React.createElement('div', { className: 'section-empty' },
       'This asset is not part of any information supply chain.');
@@ -736,8 +736,13 @@ function ISCTable({ iscs, selectedISCGuid, onSelect }) {
                     href: '/egeria-explorer?guid=' + encodeURIComponent(guid) + '#isc',
                     target: '_blank',
                     className: 'btn btn-view',
-                    onClick: function(e) { e.stopPropagation(); }
-                  }, 'View in Explorer')
+                    onClick: function(e) {
+                      e.stopPropagation();
+                      if (activePersona) {
+                        try { localStorage.setItem('egeria-persona', JSON.stringify(activePersona)); } catch(_) {}
+                      }
+                    }
+                  }, 'View in Egeria Explorer')
                 : null
             )
           );
@@ -802,7 +807,7 @@ function LinkedAssetsTable({ assets, onSetFocus }) {
 }
 
 // ── Main panel ─────────────────────────────────────────────────────────────────
-function MainPanel({ focusAsset, creds, onSetFocus }) {
+function MainPanel({ focusAsset, creds, onSetFocus, activePersona }) {
   var _graphData   = useState(null),  graphData  = _graphData[0],  setGraphData  = _graphData[1];
   var _graphLoad   = useState(false), graphLoad  = _graphLoad[0],  setGraphLoad  = _graphLoad[1];
   var _graphErr    = useState(''),    graphErr   = _graphErr[0],   setGraphErr   = _graphErr[1];
@@ -896,7 +901,7 @@ function MainPanel({ focusAsset, creds, onSetFocus }) {
   var iscList      = graphData && (graphData.partOfInformationSupplyChains || []);
   var hasLocalLineage = !!(localGraph && localGraph.trim());
 
-  var fullGraph  = lineageData && (lineageData.mermaidGraph || lineageData.fullLineageMermaidGraph || '');
+  var fullGraph  = lineageData && (lineageData.fullLineageMermaidGraph || lineageData.mermaidGraph || '');
   var edgeGraph  = lineageData && (lineageData.edgeMermaidGraph || '');
   var linkedAssets = lineageData && (lineageData.linkedAssets || []);
 
@@ -955,6 +960,7 @@ function MainPanel({ focusAsset, creds, onSetFocus }) {
         iscs: iscList,
         selectedISCGuid: selectedISC ? selectedISC.guid : null,
         onSelect: setSelectedISC,
+        activePersona: activePersona,
       }),
       selectedISC && React.createElement('div', { className: 'isc-opts' },
         React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Selected: ' + (selectedISC.displayName || selectedISC.qualifiedName)),
@@ -1166,7 +1172,7 @@ function App() {
     // Full-width main content
     React.createElement('div', { className: 'main' },
       focusAsset
-        ? React.createElement(MainPanel, { focusAsset: focusAsset, creds: creds, onSetFocus: handleSetFocus })
+        ? React.createElement(MainPanel, { focusAsset: focusAsset, creds: creds, onSetFocus: handleSetFocus, activePersona: activePersona })
         : React.createElement('div', { className: 'welcome' },
             React.createElement('div', { className: 'welcome-icon' }, '🔗'),
             React.createElement('div', { className: 'welcome-text' }, 'Lineage Explorer'),
