@@ -1,6 +1,6 @@
 # Tech Catalog — Issues & Lessons Learned
 
-Tracks bugs fixed, lessons learned, and outstanding work for The Catalog (`tech_catalog_handler.py` + `tech-catalog.html`). Updated as of **2026-06-08**.
+Tracks bugs fixed, lessons learned, and outstanding work for The Catalog (`tech_catalog_handler.py` + `tech-catalog.html`). Updated as of **2026-06-11**.
 
 ---
 
@@ -82,6 +82,42 @@ Frontend `TYPE_TO_NAV` resolves Egeria types to `{ section, tab }`. A supertype 
 
 ---
 
+### L-7: pyegeria renamed `get_asset_graph` → `get_asset_graph_by_guid`
+
+`AssetCatalog.get_asset_graph` no longer exists in the current pyegeria version. The method was renamed to `get_asset_graph_by_guid` with a changed signature: the GUID is the first positional argument (not a keyword `asset_guid=`).
+
+The old name caused `_fetch_detail` to throw `AttributeError` on every call. Because the call was inside a `try/except Exception: pass` block, the failure was completely silent — the backend fell through to the `get_asset_by_guid` fallback (shallower response, no mermaid), making it appear as though the richer data was simply absent.
+
+**Rule:** After any pyegeria upgrade, verify method names directly: `python3 -c "from pyegeria import AssetCatalog; print([m for m in dir(AssetCatalog) if 'asset_graph' in m.lower()])"`.
+
+---
+
+### L-8: Silent exception swallowing in `_fetch_detail` masked auth errors as HTTP 404
+
+`_fetch_detail` had `except Exception: pass` blocks around every call. When an Egeria bearer token expired, pyegeria raised an auth exception (`USER_NOT_AUTHORIZED`, response_code 401/403). The pass block swallowed it, all fallbacks also failed silently, `_fetch_detail` returned `None`, and the endpoint raised HTTP 404.
+
+The symptom was a "brief flash then 404": the frontend immediately shows basic data from the list item, then fires the detail fetch which (after Egeria's HTTP timeout) fails and overwrites with the error banner. The 30-second delay matched the pyegeria HTTP timeout.
+
+**Fix:** Every `except Exception` block in `_fetch_detail` now calls `_is_auth_error(exc)` first and re-raises if true. The endpoint converts auth errors to HTTP 401 (not 403 or 404) so `fetchWithToken`'s auto-refresh logic fires and retries with a fresh token.
+
+---
+
+### L-9: Deep-link `?guid=` routing was hardcoded to `data-assets` section
+
+The SPA's initial-state function always set `section: 'data-assets'` when `?guid=` was present in the URL, regardless of the asset's actual type. Infrastructure assets (e.g. an `Application`) were routed to Data Stores, found nothing matching the GUID, and the detail pane showed an error.
+
+**Fix:** Section is now initialised to `''` when `?guid=` is present. A `useEffect` on `[creds]` calls the new `GET /api/tech-catalog/element-nav?guid=<id>` endpoint, which returns `{typeName, superTypeNames, displayName}`. The frontend walks `TYPE_TO_NAV` (with supertype fallback) to resolve the correct `{section, tab}`, then sets both `section` and `navTarget`. The effect is guarded by a `useRef` so it fires exactly once.
+
+---
+
+### L-10: `AssetDetail` was missing an explicit `mermaidGraph` render
+
+`TechTypeDetail` had a `DiagramPanelFromData` block that renders `item.mermaidGraph` immediately when present. `AssetDetail` did not — it relied on `AvailableMermaidDiagrams`, but `mermaidGraph` is in `_MERMAID_SECTION_FIELDS` which explicitly excludes it from that component. The result was that IT Infrastructure elements (and all Asset types) showed no context diagram even though `get_asset_graph_by_guid` returns one.
+
+**Fix:** Added the same explicit `item.mermaidGraph && React.createElement(DiagramPanelFromData, ...)` block to `AssetDetail`, matching the `TechTypeDetail` pattern.
+
+---
+
 ## Outstanding Issues
 
 ### O-1: List-level mermaid graph discarded
@@ -98,12 +134,9 @@ Some pyegeria responses may use `"elements"` or `"elementList"`. Unconfirmed.
 
 **Status:** Needs live response inspection to confirm.
 
-### O-3: Redundant mermaid fetch when embedded graph already present
-`mermaidGraph` is in `_MERMAID_SECTION_FIELDS` so it's excluded from inline rendering and reserved for the "Load Context Diagram" button. But `_serialize()` already passes through the embedded `mermaidGraph` from the detail response. The button triggers a second fetch to `/api/mermaid/{guid}` even when the data is already available.
+### O-3: ~~Redundant mermaid fetch when embedded graph already present~~ — RESOLVED
 
-**Fix options:** Pre-populate the button state from the embedded field, or remove `mermaidGraph` from `_MERMAID_SECTION_FIELDS` and render it inline.
-
-**Status:** Low priority.
+`AssetDetail` now renders `item.mermaidGraph` immediately via `DiagramPanelFromData` (labelled "Context Diagram") when the field is present in the detail response. The `MermaidSection` on-demand button still appears below as a fetch-from-server fallback for cases where the embedded graph is absent. `mermaidGraph` remains in `_MERMAID_SECTION_FIELDS` to keep it out of `AvailableMermaidDiagrams`.
 
 ### O-8: Software Capabilities detail uses O(n) scan
 The detail pane for Software Capabilities calls `find_software_capabilities(search_string="*", graph_query_depth=3)` then filters by GUID. `get_software_capability_by_guid(guid)` exists on `AssetMaker` (confirmed in 6.0.13.6) and could replace this with a direct lookup.

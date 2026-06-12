@@ -872,6 +872,43 @@ def list_actions(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@router.get("/api/tech-catalog/element-nav")
+def get_element_nav(
+    request: Request,
+    guid: str = Query(...),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    """Return typeName and superTypeNames for a GUID so the frontend can route to the correct section."""
+    try:
+        mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    try:
+        el = _fetch_detail(mgr, guid, None)
+        if not el:
+            raise HTTPException(status_code=404, detail=f"Element {guid!r} not found")
+        hdr = _header(el)
+        type_info = hdr.get("type") or {}
+        type_name = type_info.get("typeName") or _type_name(el)
+        super_types = type_info.get("superTypeNames") or []
+        props = _props(el) or {}
+        display_name = props.get("displayName") or props.get("name") or guid
+        return JSONResponse({
+            "guid": guid,
+            "typeName": type_name,
+            "superTypeNames": super_types,
+            "displayName": display_name,
+        })
+    except HTTPException:
+        raise
+    except Exception as exc:
+        if _is_auth_error(exc):
+            raise HTTPException(status_code=401, detail="Token expired or unauthorized")
+        logger.exception("get_element_nav failed for %s", guid)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @router.get("/api/tech-catalog/assets/{guid}")
 def get_asset_detail(
     request: Request,
@@ -895,7 +932,7 @@ def get_asset_detail(
         raise
     except Exception as exc:
         if _is_auth_error(exc):
-            raise HTTPException(status_code=403, detail=f"User not authorized to view element {guid!r}")
+            raise HTTPException(status_code=401, detail=f"Token expired or user not authorized for element {guid!r}")
         logger.exception("get_asset_detail failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -1092,7 +1129,7 @@ def _fetch_detail(mgr, guid: str, section: Optional[str]):
     """
     Fetch a single element with full property/relationship/mermaid detail.
     Endpoints use ConnectionMaker.get_endpoint_by_guid (not an Asset subtype).
-    All Asset subtypes use AssetCatalog.get_asset_graph for richer mermaid graphs,
+    All Asset subtypes use AssetCatalog.get_asset_graph_by_guid for richer mermaid graphs,
     with fallback to get_asset_by_guid for types the graph endpoint can't serve.
     """
     # Endpoints are Referenceable subtypes, not Assets — use ConnectionMaker directly.
@@ -1103,30 +1140,35 @@ def _fetch_detail(mgr, guid: str, section: Optional[str]):
             el = raw[0] if isinstance(raw, list) else raw
             if el:
                 return el
-        except Exception:
+        except Exception as exc:
+            if _is_auth_error(exc):
+                raise
             logger.exception("get_endpoint_by_guid failed for %s", guid)
         return None
 
-    # All Asset types: use get_asset_graph with graphQueryDepth=5.
+    # All Asset types: use get_asset_graph_by_guid with graphQueryDepth=5.
     try:
         ac = _asset_catalog_from_asset_maker(mgr)
-        raw = ac.get_asset_graph(
-            asset_guid=guid, output_format="JSON",
+        raw = ac.get_asset_graph_by_guid(
+            guid, output_format="JSON",
             body={"class": "ResultsRequestBody", "graphQueryDepth": 5}
         )
         el = raw[0] if isinstance(raw, list) else raw
         if el and isinstance(el, dict):
             return el
-    except Exception:
-        pass
+    except Exception as exc:
+        if _is_auth_error(exc):
+            raise
+        logger.debug("get_asset_graph_by_guid failed for %s, trying fallbacks: %s", guid, exc)
 
     # Fallback: targeted finders for non-standard Asset types
     finder = _SECTION_FINDERS.get(section or "")
     if finder:
         try:
             return _find_by_guid(finder(mgr), guid)
-        except Exception:
-            pass
+        except Exception as exc:
+            if _is_auth_error(exc):
+                raise
 
     # Fallback: get_asset_by_guid
     try:
@@ -1138,8 +1180,9 @@ def _fetch_detail(mgr, guid: str, section: Optional[str]):
         el = raw[0] if isinstance(raw, list) else raw
         if el:
             return el
-    except Exception:
-        pass
+    except Exception as exc:
+        if _is_auth_error(exc):
+            raise
 
     # Last resort: SoftwareCapability finder
     try:

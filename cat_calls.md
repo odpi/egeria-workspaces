@@ -2,9 +2,9 @@
 
 Documents the pyegeria calls made by `tech_catalog_handler.py` and `glossary_handler.py` for each section of The Catalog. Use this as the authoritative working reference for API call strategy, known quirks, and debugging guidance.
 
-All catalog calls go through `AssetMaker` (imported from `pyegeria`) unless noted. Detail calls go through `AssetCatalog.get_asset_graph` (see detail endpoint section). Technology Types use `AutomatedCuration`. Credential params (`url`, `server`, `user_id`, `user_pwd`) are passed from the SPA via query params; the backend falls back to env vars when absent.
+All catalog calls go through `AssetMaker` (imported from `pyegeria`) unless noted. Detail calls go through `AssetCatalog.get_asset_graph_by_guid` (see detail endpoint section). Technology Types use `AutomatedCuration`. Credential params (`url`, `server`) are passed from the SPA via query params; the backend falls back to env vars when absent. **Token-only auth:** new endpoints accept `X-Egeria-Token` header only — no `user_id`/`user_pwd` query params.
 
-**Container pyegeria version: manually updated — see container pip list** (installed via `pip install pyegeria --upgrade` in Dockerfile-fast-api; recently updated in-container to pick up `get_asset_graph` body parameter support)
+**Container pyegeria version: manually updated — see container pip list** (installed via `pip install pyegeria --upgrade` in Dockerfile-fast-api)
 
 ---
 
@@ -14,13 +14,13 @@ All catalog calls go through `AssetMaker` (imported from `pyegeria`) unless note
 |---|---|
 | `find_*` status defaults | Every find method silently applies a status filter. Must pass `[]` to see all elements in Coco (which sets no explicit status). See table below. |
 | `AssetMaker` constructor | Takes `view_server=` (not `server_name=`) |
-| `AssetCatalog` constructor | Takes `view_server=`. Used for `get_asset_graph` (detail) and `get_asset_lineage_mermaid_graph`. |
+| `AssetCatalog` constructor | Takes `view_server=`. Used for `get_asset_graph_by_guid` (detail) and `get_asset_lineage_graph`. |
 | `AutomatedCuration` constructor | Takes `view_server=`. Used for Technology Types. |
 | `ConnectionMaker` constructor | Takes `server_name=` (not `view_server=`). Also calls `check_connection()` immediately — do NOT pass a Bearer token; it causes a 401 on the check. Call `create_egeria_bearer_token()` after construction instead. |
 | `Endpoint` is not an Asset | `AssetMaker.find_assets(metadata_element_type="Endpoint")` returns nothing. Must use `ConnectionMaker.find_endpoints()` and `ConnectionMaker.get_endpoint_by_guid()`. |
 | `find_endpoints` kwargs | Signature: `(search_string, output_format, report_spec, body, **kwargs)`. Pass `graph_query_depth`, `start_from`, `page_size` via `**kwargs`. |
 | Relationship data structure | pyegeria wraps related elements in `RelatedMetadataElementSummary` — the related element's header/properties are inside a nested `relatedElement` key, not at the top level of the relationship item. The `elementHeader.type.superTypeNames` list enables subtype nav resolution. |
-| `get_asset_graph` body parameter | Updated in recent pyegeria: now accepts `body: Optional[dict \| ResultsRequestBody] = None`. Pass `{"class": "ResultsRequestBody", "graphQueryDepth": N}` to control traversal depth. Default (no body) uses Egeria server default depth. |
+| `get_asset_graph_by_guid` signature | `(self, guid: str, start_from, page_size, output_format, report_spec, body, **kwargs)`. The `guid` parameter is positional (not `asset_guid=`). Pass `{"class": "ResultsRequestBody", "graphQueryDepth": N}` as `body` to control traversal depth. ⚠ The old method name `get_asset_graph` no longer exists in pyegeria — calls to it fail silently if exceptions are swallowed. |
 | `get_tech_type_detail` lookup | The underlying `/technology-types/by-name` call matches by **`deployedImplementationType`**. The frontend passes `?deployed_implementation_type=` alongside the qualifiedName path param. Falls back to `display_name` then `qualified_name` if absent. |
 | Tech Type elements exact-match | `get_technology_type_elements(filter_string)` requires exact displayName — no wildcards. |
 | `_safe_list` only handles `"items"` | `_safe_list(raw)` checks `isinstance(raw, list)` then `raw.get("items")`. Does NOT handle `"elements"` or `"elementList"` keys — may silently return empty list for some responses (O-2). |
@@ -104,13 +104,13 @@ Returns `None` (404) if this fails — no further fallback for endpoints. Note: 
 
 #### 2 & 3. All Asset types — graph with depth 5
 
-All sections now use the same path. No `get_asset_mermaid_graph` injection — mermaid fields come from the `get_asset_graph` response directly.
+All sections now use the same path. No `get_asset_mermaid_graph` injection — mermaid fields come from the `get_asset_graph_by_guid` response directly.
 
 | Call | Class | Params |
 |---|---|---|
-| `AssetCatalog.get_asset_graph` | `AssetCatalog` | `asset_guid=guid`, `output_format="JSON"`, `body={"class": "ResultsRequestBody", "graphQueryDepth": 5}` |
+| `AssetCatalog.get_asset_graph_by_guid` | `AssetCatalog` | `guid` (positional), `output_format="JSON"`, `body={"class": "ResultsRequestBody", "graphQueryDepth": 5}` |
 
-Falls through to step 4 on exception.
+Auth errors (`_is_auth_error`) are re-raised; the endpoint returns HTTP 401 so `fetchWithToken` auto-refresh fires. Other exceptions fall through to step 4.
 
 #### 4. Fallback — targeted section finders (software-capabilities, infrastructure only)
 
@@ -138,6 +138,30 @@ Falls through to step 6 on exception.
 | `AssetMaker.find_software_capabilities` | `AssetMaker` | `search_string="*"`, `output_format="JSON"`, `graph_query_depth=5` |
 
 Result filtered by GUID. Returns `None` if all paths fail → 404.
+
+---
+
+## Element nav — `GET /api/tech-catalog/element-nav?guid={guid}`
+
+Returns the typeName, superTypeNames, and displayName for any GUID. Used by the frontend to resolve deep-link `?guid=` URLs to the correct section/tab before rendering.
+
+| Call | Class | Notes |
+|---|---|---|
+| `_fetch_detail(mgr, guid, None)` | (internal) | Delegates to full detail path; extracts `elementHeader.type` from result |
+
+**Response:**
+```json
+{
+  "guid": "...",
+  "typeName": "Application",
+  "superTypeNames": ["SoftwareCapability", "ITInfrastructure", "Asset", ...],
+  "displayName": "HR Application"
+}
+```
+
+Returns 404 if the GUID is not found, 401 if token expired/unauthorized, 500 on other errors.
+
+**Frontend use:** On initial page load with `?guid=<id>`, the SPA defers section selection until creds are available, then calls this endpoint, walks `TYPE_TO_NAV` with supertype fallback, sets `section` + `navTarget`, and navigates directly to the correct section and detail view.
 
 ---
 
@@ -215,13 +239,16 @@ Relationship cards in the detail pane show a **"View →"** button whenever the 
 
 ## Mermaid diagrams in the detail pane
 
-### Two rendering paths
+### Three rendering paths
 
 | Path | Component | Data source | Trigger |
 |---|---|---|---|
-| Embedded | `AvailableMermaidDiagrams` | Mermaid fields in serialised `item` (passed through by `_serialize()` via `_MERMAID_FIELDS` set) | Renders immediately when field is present |
-| On-demand (context) | `MermaidSection` → `DiagramPanel` | `GET /api/mermaid/{guid}` → `ClassificationExplorer.get_element_by_guid` | User clicks "Load Context Diagram" |
+| Immediate (context graph) | `DiagramPanelFromData` in `AssetDetail` | `item.mermaidGraph` from detail response | Renders immediately — no user action required |
+| Embedded (other mermaid fields) | `AvailableMermaidDiagrams` | Any `_MERMAID_FIELDS` except `mermaidGraph` in serialised `item` | Renders immediately when field is present |
+| On-demand (context) | `MermaidSection` → `DiagramPanel` | `GET /api/mermaid/{guid}` → `ClassificationExplorer.get_element_by_guid` | User clicks "Load Context Diagram" (fallback when `mermaidGraph` absent) |
 | On-demand (anchored) | `MermaidSection` → `DiagramPanel` | `GET /api/mermaid/{guid}/anchored` → `MetadataExpert.get_anchored_element_graph` | User clicks "Load Anchored Graph" |
+
+> `AssetDetail` renders `item.mermaidGraph` (when present in the response) via `DiagramPanelFromData` with label "Context Diagram" immediately above `AvailableMermaidDiagrams`. `TechTypeDetail` uses the same pattern. The `MermaidSection` on-demand button still appears below as a fetch-from-server fallback.
 
 ### `_MERMAID_FIELDS` (passed through by `_serialize`)
 
@@ -235,7 +262,7 @@ governanceActionProcessMermaidGraph, organizationTreeMermaidGraph,
 collectionMermaidMindMap
 ```
 
-`mermaidGraph` and `anchorMermaidGraph` are excluded from inline `AvailableMermaidDiagrams` rendering (`_MERMAID_SECTION_FIELDS`) — they are served by on-demand buttons only.
+`mermaidGraph` is in `_MERMAID_SECTION_FIELDS` so it is excluded from `AvailableMermaidDiagrams`. Instead, `AssetDetail` (and `TechTypeDetail`) render it explicitly via `DiagramPanelFromData` immediately above the available-diagrams list. `anchorMermaidGraph` is also excluded from `AvailableMermaidDiagrams` — it is served via the on-demand "Load Anchored Graph" button only.
 
 ### Known limitation
 
@@ -280,7 +307,7 @@ Every list item and detail response is normalised through `_serialize(el, includ
 2. Updates `creds.token` state with new token
 3. Retries the original request once with `_isRetry=true` flag to prevent loops
 
-HTTP 403 (Egeria-level `USER_NOT_AUTHORIZED`) is not retried — the detail pane shows a lock icon instead. `_is_auth_error(exc)` in the backend detects both `response_code in (401, 403)` and string patterns `USER_NOT_AUTHORIZED`, `NOT_AUTHORIZED`, `AUTHORIZATION_ERROR`.
+`_is_auth_error(exc)` in the backend detects both `response_code in (401, 403)` and string patterns `USER_NOT_AUTHORIZED`, `NOT_AUTHORIZED`, `AUTHORIZATION_ERROR`. When `_fetch_detail` detects an auth error it re-raises; the endpoint returns HTTP **401** (not 403) so `fetchWithToken`'s retry logic fires. HTTP 403 from `fetchWithToken` is treated as a permanent denial — the detail pane shows a lock icon rather than retrying.
 
 ---
 
@@ -290,8 +317,8 @@ HTTP 403 (Egeria-level `USER_NOT_AUTHORIZED`) is not retried — the detail pane
 |---|---|---|
 | O-1 | List-level `mermaidGraph` in `find_*` response root discarded by `_safe_list()` | Unconfirmed — needs live response inspection |
 | O-2 | `_safe_list` only handles `"items"` key; may silently return empty list for responses using `"elements"` or `"elementList"` | Unconfirmed — monitor for unexpected empty panels |
-| O-3 | `MermaidSection` re-fetches context diagram even when embedded `mermaidGraph` already present in detail response | Low priority |
-| O-8 | Software Capabilities detail: O(n) scan via `find_software_capabilities` fallback instead of direct GUID lookup | Low priority — fast at ~50 items; primary `get_asset_graph` path should handle most cases |
+| O-3 | ~~`MermaidSection` re-fetches context diagram even when embedded `mermaidGraph` already present~~ | **Resolved** — `AssetDetail` now renders `item.mermaidGraph` immediately via `DiagramPanelFromData`; `MermaidSection` button remains as a fetch-from-server fallback |
+| O-8 | Software Capabilities detail: O(n) scan via `find_software_capabilities` fallback instead of direct GUID lookup | Low priority — fast at ~50 items; primary `get_asset_graph_by_guid` path should handle most cases |
 | O-9 | `MermaidSection` on-demand fetch doesn't forward user credentials — uses env-var defaults | Known limitation |
 | O-10 | `DeployedAPI` elements may have no `mermaidGraph` in Coco data | Under investigation |
 | O-11 | `get_asset_graph` with default depth may return sparse detail for non-data-asset types | **Resolved** — all detail calls now use `graphQueryDepth=5` |
@@ -310,7 +337,7 @@ HTTP 403 (Egeria-level `USER_NOT_AUTHORIZED`) is not retried — the detail pane
 | Method | Class | Purpose |
 |---|---|---|
 | `find_assets(search_string, graph_query_depth=0, output_format="JSON")` | `AssetMaker` | Asset search — returns list elements with `elementHeader` + `properties` |
-| `get_asset_graph(asset_guid, as_of_time, output_format="JSON")` | `AssetCatalog` | Full asset graph including lineage + ISC membership |
+| `get_asset_graph_by_guid(guid, as_of_time, output_format="JSON")` | `AssetCatalog` | Full asset graph including lineage + ISC membership |
 | `get_asset_lineage_graph(asset_guid, as_of_time, limit_to_isc_q_name, hilight_isc_q_name, all_anchors, output_format="JSON")` | `AssetCatalog` | End-to-end lineage graph(s) + linked assets table |
 
 **Auth pattern**: Token only — no `user_id`/`user_pwd` query params. Bearer token via `X-Egeria-Token` header. Credentials for pyegeria client init come from env vars (`EGERIA_PLATFORM_URL`, `EGERIA_VIEW_SERVER`, `EGERIA_USER`, `EGERIA_USER_PASSWORD`).
@@ -327,7 +354,7 @@ Calls `AssetMaker.find_assets(search_string=q, graph_query_depth=0)`. Returns em
 
 **Query params**: `as_of_time` (ISO 8601 or absent = now), `url`, `server`
 
-**Response**: Raw JSON dict from `AssetCatalog.get_asset_graph`. Frontend extracts:
+**Response**: Raw JSON dict from `AssetCatalog.get_asset_graph_by_guid`. Frontend extracts:
 
 | Key | Type | Description |
 |---|---|---|

@@ -781,8 +781,8 @@ function LinkedAssetsTable({ assets, onSetFocus }) {
             React.createElement('td', { style: { color: 'var(--muted)', maxWidth: 200 } }, prop.description || ''),
             React.createElement('td', { className: 'mono td-trunc', title: prop.qualifiedName }, prop.qualifiedName || ''),
             React.createElement('td', { className: 'guid-cell', title: hdr.guid }, hdr.guid || ''),
-            React.createElement('td', { style: { whiteSpace: 'nowrap' } }, fmtDate(hdr.createTime)),
-            React.createElement('td', { style: { whiteSpace: 'nowrap' } }, fmtDate(hdr.updateTime)),
+            React.createElement('td', { style: { whiteSpace: 'nowrap' } }, fmtDate((hdr.versions && hdr.versions.createTime) || hdr.createTime)),
+            React.createElement('td', { style: { whiteSpace: 'nowrap' } }, fmtDate((hdr.versions && hdr.versions.updateTime) || hdr.updateTime)),
             React.createElement('td', { style: { whiteSpace: 'nowrap' } },
               isAsset && onSetFocus && React.createElement('button', {
                 className: 'btn btn-focus', style: { marginRight: 4 },
