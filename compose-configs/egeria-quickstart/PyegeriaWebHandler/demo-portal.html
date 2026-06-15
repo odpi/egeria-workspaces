@@ -406,7 +406,7 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
     } else if (a.jupyter) {
       action = '<div id="jup-tile-action"><span style="color:var(--muted);font-size:0.8rem">Loading…</span></div>';
     } else {
-      action = '<button class="btn btn-accent app-action" onclick="launch(' + JSON.stringify(a.url).replace(/"/g, '&quot;') + ',' + a.newTab + ')">' + (a.newTab ? 'Open ↗' : 'Open') + '</button>';
+      action = '<button class="btn btn-accent app-action" onclick="launch(' + JSON.stringify(a.url).replace(/"/g, '&quot;') + ',' + a.newTab + ',' + JSON.stringify(a.name).replace(/"/g, '&quot;') + ')">' + (a.newTab ? 'Open ↗' : 'Open') + '</button>';
     }
     return '<div class="app-tile' + (a.enabled ? '' : ' disabled') + '">' +
       '<div class="app-icon">' + a.icon + '</div>' +
@@ -419,8 +419,15 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
   document.getElementById('api-grid').innerHTML  = apps.filter(function(a) { return a.isApi; }).map(_renderTile).join('');
 }
 
-function launch(url, newTab) {
+function launch(url, newTab, toolName) {
   if (!url) return;
+  var personaDisplayName = (_currentPersonaId && _personas[_currentPersonaId])
+    ? _personas[_currentPersonaId].display_name : null;
+  fetch('/api/demo/log-event', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ event_type: 'tool_open', tool: toolName || url, persona_name: personaDisplayName }),
+  }).catch(function() {});  // fire-and-forget; never block navigation
   if (newTab) { window.open(url, '_blank', 'noopener'); } else { window.location.href = url; }
 }
 
