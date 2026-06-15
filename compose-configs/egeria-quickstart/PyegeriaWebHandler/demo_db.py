@@ -46,11 +46,15 @@ class Event(Base):
     __tablename__ = "events"
     __table_args__ = {"schema": DEMO_DB_SCHEMA}
 
-    id         = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id    = Column(String(36))
-    event_type = Column(String(50), nullable=False)
-    detail     = Column(Text)          # JSON-encoded dict
-    created_at = Column(DateTime, default=datetime.utcnow)
+    id                = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id           = Column(String(36))       # user UUID (kept for reference)
+    user_email        = Column(String(200))      # denormalised for fast admin display
+    user_display_name = Column(String(200))
+    persona_name      = Column(String(200))      # human-readable Coco persona, if selected
+    tool              = Column(String(100))      # tool that was opened (tool_open events)
+    event_type        = Column(String(50), nullable=False)
+    detail            = Column(Text)             # JSON-encoded dict
+    created_at        = Column(DateTime, default=datetime.utcnow)
 
 
 class Config(Base):
@@ -97,8 +101,25 @@ def get_engine():
             conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {DEMO_DB_SCHEMA}"))
             conn.commit()
         Base.metadata.create_all(_engine)
+        _migrate_events_table(_engine)
         _seed_config()
     return _engine
+
+
+def _migrate_events_table(engine) -> None:
+    """Add columns introduced after initial schema creation — safe for existing data."""
+    new_cols = [
+        ("user_email",        "VARCHAR(200)"),
+        ("user_display_name", "VARCHAR(200)"),
+        ("persona_name",      "VARCHAR(200)"),
+        ("tool",              "VARCHAR(100)"),
+    ]
+    with engine.connect() as conn:
+        for col, coltype in new_cols:
+            conn.execute(text(
+                f"ALTER TABLE {DEMO_DB_SCHEMA}.events ADD COLUMN IF NOT EXISTS {col} {coltype}"
+            ))
+        conn.commit()
 
 
 def _seed_config() -> None:
@@ -162,9 +183,23 @@ def bootstrap_admin() -> None:
 
 # ── Event helper ───────────────────────────────────────────────────────────────
 
-def log_event(db: Session, user_id: Optional[str], event_type: str, detail: Optional[dict] = None) -> None:
+def log_event(
+    db: Session,
+    user_id: Optional[str],
+    event_type: str,
+    detail: Optional[dict] = None,
+    *,
+    user_email: Optional[str] = None,
+    user_display_name: Optional[str] = None,
+    persona_name: Optional[str] = None,
+    tool: Optional[str] = None,
+) -> None:
     event = Event(
         user_id=user_id,
+        user_email=user_email,
+        user_display_name=user_display_name,
+        persona_name=persona_name,
+        tool=tool,
         event_type=event_type,
         detail=json.dumps(detail or {}),
     )

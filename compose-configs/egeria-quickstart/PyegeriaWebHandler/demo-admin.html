@@ -146,8 +146,8 @@
     <button class="refresh-btn" onclick="loadEvents()">↻ Refresh</button>
     <div class="section-title">Recent Events</div>
     <table>
-      <thead><tr><th>Time</th><th>User ID</th><th>Event</th><th>Detail</th></tr></thead>
-      <tbody id="eventsBody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+      <thead><tr><th>Time</th><th>Name</th><th>Email</th><th>Persona</th><th>Event</th><th>Detail</th></tr></thead>
+      <tbody id="eventsBody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
     </table>
   </div>
 
@@ -492,12 +492,21 @@
 
   function loadEvents() {
     fetch('/api/demo/events?limit=200').then(r => r.json()).then(function(events) {
-      if (!Array.isArray(events)) { document.getElementById('eventsBody').innerHTML = '<tr><td colspan="4" class="empty">Error loading events</td></tr>'; return; }
-      if (!events.length) { document.getElementById('eventsBody').innerHTML = '<tr><td colspan="4" class="empty">No events yet</td></tr>'; return; }
+      if (!Array.isArray(events)) { document.getElementById('eventsBody').innerHTML = '<tr><td colspan="6" class="empty">Error loading events</td></tr>'; return; }
+      if (!events.length) { document.getElementById('eventsBody').innerHTML = '<tr><td colspan="6" class="empty">No events yet</td></tr>'; return; }
       document.getElementById('eventsBody').innerHTML = events.map(function(e) {
-        return '<tr><td>'+fmt(e.created_at)+'</td><td style="font-size:0.74rem;font-family:monospace;color:var(--muted)">'+esc(e.user_id||'—')+'</td><td><span class="badge badge-user">'+esc(e.event_type)+'</span></td><td style="font-size:0.76rem;color:var(--muted)">'+JSON.stringify(e.detail)+'</td></tr>';
+        var persona = e.persona_name || (e.detail && e.detail.persona) || '—';
+        var detail  = e.tool ? ('tool: ' + e.tool) : JSON.stringify(e.detail || {});
+        return '<tr>' +
+          '<td style="white-space:nowrap">' + fmt(e.created_at) + '</td>' +
+          '<td>' + esc(e.user_display_name || '—') + '</td>' +
+          '<td style="font-size:0.78rem;color:var(--muted)">' + esc(e.user_email || '—') + '</td>' +
+          '<td style="font-size:0.82rem">' + esc(persona) + '</td>' +
+          '<td><span class="badge badge-user">' + esc(e.event_type) + '</span></td>' +
+          '<td style="font-size:0.76rem;color:var(--muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(JSON.stringify(e.detail||{})) + '">' + esc(detail) + '</td>' +
+        '</tr>';
       }).join('');
-    }).catch(function() { document.getElementById('eventsBody').innerHTML = '<tr><td colspan="4" class="empty">Failed to load events</td></tr>'; });
+    }).catch(function() { document.getElementById('eventsBody').innerHTML = '<tr><td colspan="6" class="empty">Failed to load events</td></tr>'; });
   }
 
   function loadConfig() {
