@@ -5872,19 +5872,32 @@ function DrEgeriaCommandsView() {
           var bannerBg, bannerBorder, bannerColor, bannerIcon, bannerTitle, bannerNote;
           if (success) {
             bannerBg = 'rgba(134,239,172,.08)'; bannerBorder = 'rgba(134,239,172,.2)'; bannerColor = '#86efac';
-            bannerIcon = "✓"; bannerTitle = "Completed";
-            bannerNote = total > 0 ? ok + " of " + total + " command" + (total !== 1 ? "s" : "") + " succeeded"
-              : directive === 'display' ? "— preview only, no changes made"
-              : directive === 'validate' ? "— validation complete" : "— metadata updated";
+            bannerIcon = "✓";
+            if (directive === 'validate') {
+              bannerTitle = "Validation Passed";
+              bannerNote = total > 0
+                ? "No errors found — " + total + " command" + (total !== 1 ? "s" : "") + " validated"
+                : "No errors found";
+            } else if (directive === 'display') {
+              bannerTitle = "Completed";
+              bannerNote = total > 0 ? ok + " of " + total + " command" + (total !== 1 ? "s" : "") + " succeeded"
+                : "— preview only, no changes made";
+            } else {
+              bannerTitle = "Completed";
+              bannerNote = total > 0 ? ok + " of " + total + " command" + (total !== 1 ? "s" : "") + " succeeded"
+                : "— metadata updated";
+            }
           } else if (partial) {
             bannerBg = 'rgba(251,191,36,.06)'; bannerBorder = 'rgba(251,191,36,.2)'; bannerColor = '#fbbf24';
-            bannerIcon = "⚠"; bannerTitle = "Partial";
+            bannerIcon = "⚠";
+            bannerTitle = directive === 'validate' ? "Validation Partial" : "Partial";
             bannerNote = ok + " of " + total + " commands succeeded — " + failed + " failed";
           } else {
             bannerBg = 'rgba(248,113,113,.08)'; bannerBorder = 'rgba(248,113,113,.2)'; bannerColor = '#f87171';
-            bannerIcon = "✗"; bannerTitle = "Failed";
+            bannerIcon = "✗";
+            bannerTitle = directive === 'validate' ? "Validation Failed" : "Failed";
             bannerNote = total > 0 ? failed + " of " + total + " command" + (total !== 1 ? "s" : "") + " failed"
-              : "No commands were executed";
+              : directive === 'validate' ? "Errors found — see details below" : "No commands were executed";
           }
 
           function errorList(errs, color, label) {
@@ -5914,7 +5927,42 @@ function DrEgeriaCommandsView() {
             ),
             errorList(valErrs,  '#fbbf24', 'Validation Errors'),
             errorList(execErrs, '#f87171', 'Execution Errors'),
-            execResult.output && React.createElement(SmartReportRenderer, { content: execResult.output })
+            execResult.created_elements && execResult.created_elements.length > 0 && React.createElement("div", { style: { marginTop: 10, marginBottom: 8 } },
+              React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: 'var(--dim)', marginBottom: 6 } },
+                execResult.directive === 'process' ? "Metadata Written" : "Elements"
+              ),
+              execResult.created_elements.map(function(el, i) {
+                return React.createElement("div", { key: i, style: { padding: '6px 10px', marginBottom: 4, borderRadius: 4,
+                    background: 'rgba(34,197,94,.06)', border: '1px solid rgba(34,197,94,.2)', fontSize: 11 } },
+                  React.createElement("div", { style: { fontWeight: 600, color: 'var(--fg)', marginBottom: 2 } }, el.command),
+                  el.guid && React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 } },
+                    React.createElement("span", { style: { color: 'var(--dim)', minWidth: 34 } }, "GUID:"),
+                    React.createElement("span", { title: "Click to copy", style: { fontFamily: 'monospace', color: '#22c55e', userSelect: 'all', cursor: 'copy' },
+                      onClick: function() { navigator.clipboard && navigator.clipboard.writeText(el.guid); } }, el.guid)
+                  ),
+                  el.qualified_name && React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 } },
+                    React.createElement("span", { style: { color: 'var(--dim)', minWidth: 34 } }, "QN:"),
+                    React.createElement("span", { title: "Click to copy", style: { fontFamily: 'monospace', fontSize: 10, color: 'var(--fg)', userSelect: 'all', cursor: 'copy', wordBreak: 'break-all' },
+                      onClick: function() { navigator.clipboard && navigator.clipboard.writeText(el.qualified_name); } }, el.qualified_name)
+                  )
+                );
+              })
+            ),
+            execResult.output_file && React.createElement("div", { style: { marginTop: 10, marginBottom: 8, padding: '6px 10px', borderRadius: 4,
+                background: 'rgba(99,102,241,.06)', border: '1px solid rgba(99,102,241,.2)', fontSize: 11, color: 'var(--dim)', display: 'flex', alignItems: 'center', gap: 8 } },
+              React.createElement("span", { style: { color: 'var(--accent)', fontWeight: 700 } }, "📄"),
+              React.createElement("span", null, "Saved to outbox: "),
+              React.createElement("span", { style: { fontFamily: 'monospace', color: 'var(--fg)' } }, execResult.output_file)
+            ),
+            execResult.output
+              ? React.createElement("div", { style: { marginTop: hasErrors ? 12 : 0 } },
+                  React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: 'var(--dim)', marginBottom: 6 } }, "Output"),
+                  React.createElement(SmartReportRenderer, { content: execResult.output })
+                )
+              : React.createElement("div", { style: { marginTop: 10, padding: '8px 12px', borderRadius: 4,
+                    background: 'rgba(0,0,0,.10)', border: '1px solid var(--border)', fontSize: 11, color: 'var(--dim)', fontStyle: 'italic' } },
+                  "No output returned by the processor."
+                )
           );
         })()
       )

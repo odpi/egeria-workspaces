@@ -279,6 +279,7 @@ def _build_execute_response(raw: dict, directive: str) -> dict:
 
     validation_errors = []
     execution_errors  = []
+    created_elements  = []
     commands_total = commands_succeeded = commands_failed = 0
 
     for step, res in enumerate(results, start=1):
@@ -302,6 +303,17 @@ def _build_execute_response(raw: dict, directive: str) -> dict:
                                          "message": message or res.get("error", "Unknown error")})
         else:
             commands_succeeded += 1
+            guid = res.get("guid")
+            qn   = res.get("qualified_name")
+            dn   = res.get("display_name")
+            if guid or qn:
+                created_elements.append({
+                    "step": step,
+                    "command": command,
+                    "guid": guid,
+                    "qualified_name": qn,
+                    "display_name": dn,
+                })
 
     resp = {
         "success": commands_failed == 0 and not raw.get("error"),
@@ -310,6 +322,7 @@ def _build_execute_response(raw: dict, directive: str) -> dict:
         "directive": directive,
         "validation_errors": validation_errors,
         "execution_errors": execution_errors,
+        "created_elements": created_elements,
         "commands_total": commands_total,
         "commands_succeeded": commands_succeeded,
         "commands_failed": commands_failed,

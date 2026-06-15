@@ -15,8 +15,9 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Use local md_processing
+import md_processing.md_processing_utils.md_processing_constants as _md_constants
 from md_processing.md_processing_utils.md_processing_constants import (
-    load_commands, get_command_spec, build_command_variants, 
+    load_commands, get_command_spec, build_command_variants,
     PROJECT_SUBTYPES, COLLECTION_SUBTYPES, COMMAND_DEFINITIONS
 )
 from md_processing.v2 import (
@@ -65,7 +66,7 @@ except ImportError as e:
     AttachDataValueSpecificationProcessor = globals().get('AttachDataValueSpecificationProcessor')
 
 def register_solution_architect_processors(register_processor_fn: Callable):
-    specs = COMMAND_DEFINITIONS.get("Command Specifications", {})
+    specs = _md_constants.COMMAND_DEFINITIONS.get("Command Specifications", {})
     link_verbs = {"Link", "Attach", "Add", "Detach", "Unlink", "Remove"}
     for base_name, spec in specs.items():
         if not isinstance(spec, dict) or spec.get("family") != "Solution Architect":
@@ -85,7 +86,7 @@ def register_solution_architect_processors(register_processor_fn: Callable):
         register_processor_fn(base_name, processor_cls)
 
 def register_governance_processors(register_processor_fn: Callable):
-    specs = COMMAND_DEFINITIONS.get("Command Specifications", {})
+    specs = _md_constants.COMMAND_DEFINITIONS.get("Command Specifications", {})
     for base_name, spec in specs.items():
         if not isinstance(spec, dict) or spec.get("family") != "Governance":
             continue
@@ -301,12 +302,45 @@ async def process_md_file_structured_async(
     if not commands:
         return {"output": "Warning: No valid Egeria commands found", "results": [], "error": "no_commands"}
 
-    results = await dispatcher.dispatch_batch(commands, context={"directive": directive})
+    # Capture stdout so we receive Rich console output written by V2 processors
+    import sys
+    from io import StringIO
+    _capture = StringIO()
+    _old_stdout = sys.stdout
+    sys.stdout = _capture
+    try:
+        results = await dispatcher.dispatch_batch(commands, context={"directive": directive})
+    finally:
+        sys.stdout = _old_stdout
+    captured_stdout = _capture.getvalue()
 
+    # Primary: aggregate per-command output strings (populated by some processor types)
     final_output = ""
     for res in results:
         if res.get("output"):
             final_output += res["output"] + "\n\n"
+
+    # Secondary: use captured stdout (Rich console output from processors)
+    if not final_output.strip() and captured_stdout.strip():
+        final_output = captured_stdout
+
+    # Fallback: synthesize human-readable output from result messages
+    if not final_output.strip():
+        parts = []
+        for res in results:
+            if not res.get("is_command", True):
+                continue
+            msg = res.get("message", "")
+            if not msg:
+                continue
+            status = res.get("status", "success")
+            verb   = res.get("verb", "")
+            obj    = res.get("object_type", "")
+            icon   = "✅" if status != "failure" else "❌"
+            cmd    = f"{verb} {obj}".strip()
+            parts.append(f"{icon} **{cmd}**: {msg}" if cmd else f"{icon} {msg}")
+        if parts:
+            final_output = "\n\n".join(parts)
 
     return {"output": final_output, "results": results}
 
