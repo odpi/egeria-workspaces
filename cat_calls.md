@@ -390,3 +390,112 @@ Returns `{"mermaidGraph":"","edgeMermaidGraph":"","linkedAssets":[]}` on 400/404
 **`all_anchors=true`** → pass `all_anchors=True` to pyegeria — includes field-level detail in graphs.
 
 This endpoint is only called when `localLineageGraph` from the `/graph` response is non-null.
+
+---
+
+## Dr. Egeria command endpoints (`dr_egeria_commands_handler.py`)
+
+### `GET /api/dr-egeria/commands`
+
+Returns all Dr. Egeria command templates grouped by level and family, parsed from the markdown templates directory (`TEMPLATES_PATH` env var, default `/app/templates`).
+
+**Response shape:**
+```json
+{
+  "basic": {
+    "Glossary": [
+      {
+        "title": "Create Glossary Term",
+        "description": "…",
+        "filename": "create-glossary-term",
+        "parameters": [
+          {"name": "Term", "required": true, "attribute_type": "string", "description": "…", "default_value": "", "alternative_labels": "", "valid_values": ""}
+        ],
+        "required_count": 1,
+        "optional_count": 4
+      }
+    ]
+  },
+  "advanced": { … }
+}
+```
+
+### `POST /api/dr-egeria/execute`
+
+Builds a single-command Dr. Egeria markdown block from the supplied title and parameters, writes it to a temporary inbox file, executes it via `process_markdown_file_structured`, and returns a structured result.
+
+**Request body:**
+```json
+{
+  "title": "Create Glossary Term",
+  "params": {"Term": "Customer", "Glossary": "Business Glossary"},
+  "directive": "process",
+  "url": null,
+  "server": null,
+  "user_id": null,
+  "user_pwd": null
+}
+```
+
+`url`, `server`, `user_id`, `user_pwd` fall back to env vars when absent. `directive` defaults to `"display"`.
+
+**Response — structured result contract:**
+```json
+{
+  "success": false,
+  "partial": true,
+  "output": "…augmented markdown…",
+  "directive": "process",
+  "validation_errors": [
+    {"step": 2, "command": "Create Glossary Term", "message": "Display Name is required"}
+  ],
+  "execution_errors": [
+    {"step": 4, "command": "Create Data Structure", "message": "Parent not found"}
+  ],
+  "commands_total": 6,
+  "commands_succeeded": 4,
+  "commands_failed": 2
+}
+```
+
+| Field | Description |
+|---|---|
+| `success` | `true` when all commands succeeded (or `commands_total == 0`) |
+| `partial` | `true` when at least one succeeded and at least one failed |
+| `output` | Full augmented plan document as markdown |
+| `directive` | Echo of the directive used |
+| `validation_errors` | Pre-flight failures (wrong/missing params) — safe to re-submit after fixing |
+| `execution_errors` | Runtime Egeria failures — metadata may be partially updated; investigate before retrying |
+| `commands_total` | Command blocks processed (non-command prose blocks excluded) |
+| `commands_succeeded` / `commands_failed` | Counts |
+
+**Error classification logic** (in `_build_execute_response`):
+- `status == "failure"` + `errors` list present, or `message.startswith("Validation failed")` → `validation_errors`
+- `status == "failure"` + neither of above → `execution_errors`
+- `is_command == False` on a result → skip (preserved prose block)
+
+**HTTP 500** on unhandled exception — response body follows the same shape with `success: false`, empty error lists, and the exception message in `output`.
+
+### `process_markdown_file_structured` (`dr_egeria_md.py`)
+
+Synchronous wrapper that invokes the async pipeline and returns both the aggregated output string and the raw per-command result list from `V2Dispatcher.dispatch_batch`:
+
+```python
+{
+  "output": "…",          # aggregated markdown from all command outputs
+  "results": [            # one entry per extracted command
+    {
+      "status": "success" | "failure",
+      "verb": "Create",
+      "object_type": "Glossary Term",
+      "errors": ["…"],    # present on validation failure
+      "message": "…",
+      "is_command": True,
+      "error": "…",       # present on runtime exception
+      "output": "…"       # markdown output for this command
+    }
+  ]
+}
+```
+
+`process_markdown_file` (original) is preserved for backward compatibility and still returns a plain string.
