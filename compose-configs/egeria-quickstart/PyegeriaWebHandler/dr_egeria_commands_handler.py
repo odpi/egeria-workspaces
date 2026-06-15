@@ -181,8 +181,8 @@ def _build_markdown_block(title: str, params: dict) -> str:
 
 
 def _write_and_execute(markdown_block: str, directive: str,
-                       url: str, server: str, user_id: str, user_pwd: str) -> str:
-    """Write block to temp inbox file, execute, return result markdown."""
+                       url: str, server: str, user_id: str, user_pwd: str) -> dict:
+    """Write block to temp inbox file, execute, return structured result dict."""
     import dr_egeria_md
 
     ts = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
@@ -197,25 +197,84 @@ def _write_and_execute(markdown_block: str, directive: str,
     os.environ["EGERIA_ROOT_PATH"]  = "/"
     os.environ["EGERIA_INBOX_PATH"] = "."
 
-    cmd  = dr_egeria_md.process_markdown_file
-    func = getattr(cmd, "callback", cmd)
+    structured_func = getattr(dr_egeria_md, "process_markdown_file_structured", None)
     try:
-        result = func(
-            input_file=file_path,
-            output_folder="",
-            directive=directive,
-            server=server,
-            url=url,
-            userid=user_id,
-            user_pass=user_pwd,
-            outbox_path=EGERIA_OUTBOX_PATH,
-        )
-        return result or "(no output generated)"
+        if structured_func:
+            return structured_func(
+                input_file=file_path,
+                output_folder="",
+                directive=directive,
+                server=server,
+                url=url,
+                userid=user_id,
+                user_pass=user_pwd,
+                outbox_path=EGERIA_OUTBOX_PATH,
+            )
+        else:
+            # Fallback: call plain function and wrap in minimal structure
+            func = getattr(dr_egeria_md.process_markdown_file, "callback", dr_egeria_md.process_markdown_file)
+            md = func(input_file=file_path, output_folder="", directive=directive,
+                      server=server, url=url, userid=user_id, user_pass=user_pwd,
+                      outbox_path=EGERIA_OUTBOX_PATH)
+            return {"output": md or "(no output generated)", "results": []}
     finally:
         try:
             os.remove(file_path)
         except OSError:
             pass
+
+
+def _build_execute_response(raw: dict, directive: str) -> dict:
+    """Convert per-command result list to the structured response contract."""
+    results = raw.get("results", [])
+    output  = raw.get("output", "")
+
+    if raw.get("error"):
+        return {
+            "success": False, "partial": False,
+            "output": output, "directive": directive,
+            "validation_errors": [],
+            "execution_errors": [{"step": 0, "command": "", "message": output}],
+            "commands_total": 0, "commands_succeeded": 0, "commands_failed": 0,
+        }
+
+    validation_errors = []
+    execution_errors  = []
+    commands_total = commands_succeeded = commands_failed = 0
+
+    for step, res in enumerate(results, start=1):
+        if not res.get("is_command", True):
+            continue
+        commands_total += 1
+        status  = res.get("status", "success")
+        verb    = res.get("verb", "")
+        obj     = res.get("object_type", "")
+        command = f"{verb} {obj}".strip() or "(unknown)"
+        message = res.get("message", "")
+
+        if status == "failure":
+            commands_failed += 1
+            errors = res.get("errors")
+            if errors or (message and message.startswith("Validation failed")):
+                for err in (errors or [message]):
+                    validation_errors.append({"step": step, "command": command, "message": err})
+            else:
+                execution_errors.append({"step": step, "command": command,
+                                         "message": message or res.get("error", "Unknown error")})
+        else:
+            commands_succeeded += 1
+
+    return {
+        "success": commands_failed == 0 and not raw.get("error"),
+        "partial": commands_succeeded > 0 and commands_failed > 0,
+        "output": output,
+        "directive": directive,
+        "validation_errors": validation_errors,
+        "execution_errors": execution_errors,
+        "commands_total": commands_total,
+        "commands_succeeded": commands_succeeded,
+        "commands_failed": commands_failed,
+    }
 
 
 @router.post("/api/dr-egeria/execute", summary="Execute a Dr. Egeria command block")
@@ -230,12 +289,14 @@ def execute_command(req: ExecuteRequest):
     logger.info(f"Dr. Egeria execute: title={req.title!r} directive={req.directive!r}")
 
     try:
-        result_md = _write_and_execute(block, req.directive, url, server, user_id, user_pwd)
+        raw = _write_and_execute(block, req.directive, url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("Dr. Egeria execute failed")
         return JSONResponse(
-            {"error": str(exc), "markdown": f"❌ Execution failed: {exc}"},
+            {"success": False, "partial": False, "output": f"❌ Execution failed: {exc}",
+             "directive": req.directive, "validation_errors": [], "execution_errors": [],
+             "commands_total": 0, "commands_succeeded": 0, "commands_failed": 0},
             status_code=500,
         )
 
-    return JSONResponse({"markdown": result_md, "directive": req.directive})
+    return JSONResponse(_build_execute_response(raw, req.directive))

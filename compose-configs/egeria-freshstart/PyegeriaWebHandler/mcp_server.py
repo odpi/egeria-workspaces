@@ -132,6 +132,69 @@ def _write_block_to_inbox(markdown_block: str) -> str:
     return file_name
 
 
+import json as _json
+
+def _build_structured_response(raw: dict, directive: str) -> str:
+    """Convert the per-command result list into the structured JSON response contract."""
+    results = raw.get("results", [])
+    output  = raw.get("output", "")
+
+    if raw.get("error"):
+        return _json.dumps({
+            "success": False,
+            "partial": False,
+            "output": output,
+            "validation_errors": [],
+            "execution_errors": [{"step": 0, "command": "", "message": output}],
+            "commands_total": 0,
+            "commands_succeeded": 0,
+            "commands_failed": 0,
+        })
+
+    validation_errors = []
+    execution_errors  = []
+    commands_total    = 0
+    commands_succeeded = 0
+    commands_failed   = 0
+
+    for step, res in enumerate(results, start=1):
+        if not res.get("is_command", True):
+            continue  # skip preserved non-command blocks
+        commands_total += 1
+        status  = res.get("status", "success")
+        verb    = res.get("verb", "")
+        obj     = res.get("object_type", "")
+        command = f"{verb} {obj}".strip() or "(unknown)"
+        message = res.get("message", "")
+
+        if status == "failure":
+            commands_failed += 1
+            errors = res.get("errors")
+            if errors or (message and message.startswith("Validation failed")):
+                # Pre-flight validation failure — safe to retry whole plan
+                for err in (errors or [message]):
+                    validation_errors.append({"step": step, "command": command, "message": err})
+            else:
+                # Runtime / Egeria execution error — plan may be partially applied
+                execution_errors.append({"step": step, "command": command, "message": message or res.get("error", "Unknown error")})
+        else:
+            commands_succeeded += 1
+
+    success = commands_failed == 0 and not raw.get("error")
+    partial = commands_succeeded > 0 and commands_failed > 0
+
+    return _json.dumps({
+        "success": success,
+        "partial": partial,
+        "output": output,
+        "validation_errors": validation_errors,
+        "execution_errors": execution_errors,
+        "commands_total": commands_total,
+        "commands_succeeded": commands_succeeded,
+        "commands_failed": commands_failed,
+    })
+
+
 @server.tool()
 async def dr_egeria_run_block(
     ctx: Context,
@@ -182,20 +245,32 @@ async def dr_egeria_run_block(
     os.environ["EGERIA_ROOT_PATH"] = "/"
     os.environ["EGERIA_INBOX_PATH"] = "."
     
-    cmd = dr_egeria_md.process_markdown_file
-    func = getattr(cmd, "callback", cmd)
+    structured_func = getattr(dr_egeria_md, "process_markdown_file_structured", None)
     try:
-        # In Content-First V3, the processor now returns the generated Markdown string
-        result_markdown = func(
-            input_file=effective_input_file,
-            output_folder=final_output_folder,
-            directive=directive,
-            server=actual_server,
-            url=actual_url,
-            userid=actual_user,
-            user_pass=actual_pass,
-            outbox_path=final_outbox_path,
-        )
+        if structured_func:
+            raw = structured_func(
+                input_file=effective_input_file,
+                output_folder=final_output_folder,
+                directive=directive,
+                server=actual_server,
+                url=actual_url,
+                userid=actual_user,
+                user_pass=actual_pass,
+                outbox_path=final_outbox_path,
+            )
+        else:
+            # Fallback if structured function not available
+            plain = dr_egeria_md.process_markdown_file(
+                input_file=effective_input_file,
+                output_folder=final_output_folder,
+                directive=directive,
+                server=actual_server,
+                url=actual_url,
+                userid=actual_user,
+                user_pass=actual_pass,
+                outbox_path=final_outbox_path,
+            )
+            return plain or "(no markdown generated)"
     except asyncio.CancelledError:
         logger.warning("MCP tool execution cancelled (timeout likely)")
         return "❌ Request timed out or was cancelled by the client."
@@ -203,8 +278,7 @@ async def dr_egeria_run_block(
         logger.error(f"MCP tool execution failed: {e}")
         return f"❌ Error during execution: {e}"
 
-    logger.info(f"Captured {len(result_markdown)} chars of markdown")
-    return result_markdown or "(no markdown generated)"
+    return _build_structured_response(raw, directive)
 
 
 def _build_simple_block(title: str) -> str:
