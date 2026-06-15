@@ -5657,7 +5657,7 @@ function DrEgeriaCommandsView() {
   const [execVerb, setExecVerb]       = useState(null); // null = use template verb; overrides to counterpart
   const [directive, setDirective]     = useState('display');
   const [execState, setExecState]     = useState('idle'); // 'idle' | 'running' | 'done' | 'error'
-  const [execResult, setExecResult]   = useState('');
+  const [execResult, setExecResult]   = useState(null);
   const creds = React.useContext(CredContext);
 
   useEffect(function() {
@@ -5680,7 +5680,7 @@ function DrEgeriaCommandsView() {
     setExecParams({});
     setExecVerb(null);
     setExecState('idle');
-    setExecResult('');
+    setExecResult(null);
     setDetailMode('reference');
   }, [selectedCmd]);
 
@@ -5744,7 +5744,7 @@ function DrEgeriaCommandsView() {
   function runExecute() {
     if (!activeItem) return;
     setExecState('running');
-    setExecResult('');
+    setExecResult(null);
     var titleParts = (activeItem.title || '').split(/\s+/);
     var effectiveTitle = execVerb
       ? execVerb + ' ' + titleParts.slice(1).join(' ')
@@ -5764,11 +5764,11 @@ function DrEgeriaCommandsView() {
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      setExecResult(data.markdown || data.error || '(no output)');
+      setExecResult(data);
       setExecState('done');
     })
     .catch(function(e) {
-      setExecResult('Network error: ' + e);
+      setExecResult({ networkError: String(e) });
       setExecState('error');
     });
   }
@@ -5820,14 +5820,14 @@ function DrEgeriaCommandsView() {
       ),
       counterVerb && React.createElement("div", { style: { display: 'flex', gap: 6, marginBottom: 14, alignItems: 'center' } },
         React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)', marginRight: 4 } }, "Verb:"),
-        React.createElement("button", { style: verbBtnStyle(canonVerb),  onClick: function() { setExecVerb(null);        setExecState('idle'); setExecResult(''); } }, canonVerb),
-        React.createElement("button", { style: verbBtnStyle(counterVerb), onClick: function() { setExecVerb(counterVerb); setExecState('idle'); setExecResult(''); } }, counterVerb)
+        React.createElement("button", { style: verbBtnStyle(canonVerb),  onClick: function() { setExecVerb(null);        setExecState('idle'); setExecResult(null); } }, canonVerb),
+        React.createElement("button", { style: verbBtnStyle(counterVerb), onClick: function() { setExecVerb(counterVerb); setExecState('idle'); setExecResult(null); } }, counterVerb)
       ),
       React.createElement("div", { style: { display: 'flex', gap: 6, marginBottom: 4, alignItems: 'center', flexWrap: 'wrap' } },
         React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)', marginRight: 4 } }, "Directive:"),
-        React.createElement("button", { style: dirBtnStyle('display'),  onClick: function() { setDirective('display');  setExecState('idle'); setExecResult(''); } }, "Display"),
-        React.createElement("button", { style: dirBtnStyle('validate'), onClick: function() { setDirective('validate'); setExecState('idle'); setExecResult(''); } }, "Validate"),
-        React.createElement("button", { style: dirBtnStyle('process'),  onClick: function() { setDirective('process');  setExecState('idle'); setExecResult(''); } }, "Process"),
+        React.createElement("button", { style: dirBtnStyle('display'),  onClick: function() { setDirective('display');  setExecState('idle'); setExecResult(null); } }, "Display"),
+        React.createElement("button", { style: dirBtnStyle('validate'), onClick: function() { setDirective('validate'); setExecState('idle'); setExecResult(null); } }, "Validate"),
+        React.createElement("button", { style: dirBtnStyle('process'),  onClick: function() { setDirective('process');  setExecState('idle'); setExecResult(null); } }, "Process"),
         React.createElement("span", { style: { flex: 1 } }),
         React.createElement("button", {
           onClick: runExecute,
@@ -5853,18 +5853,70 @@ function DrEgeriaCommandsView() {
         execState === 'running' && React.createElement("div", { style: { display: 'flex', gap: 8, alignItems: 'center', color: 'var(--dim)', fontSize: 12 } },
           React.createElement("div", { className: 'spinner', style: { width: 14, height: 14 } }), "Executing…"
         ),
-        execState === 'done' && React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, padding: '6px 10px', borderRadius: 4,
-            background: 'rgba(134,239,172,.08)', border: '1px solid rgba(134,239,172,.2)' } },
-          React.createElement("span", { style: { fontSize: 16 } }, "✓"),
-          React.createElement("span", { style: { fontSize: 12, color: '#86efac', fontWeight: 600 } }, "Completed"),
-          React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)', marginLeft: 4 } }, directive === 'display' ? "— preview only, no changes made" : directive === 'validate' ? "— validation complete" : "— metadata updated")
-        ),
         execState === 'error' && React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, padding: '6px 10px', borderRadius: 4,
             background: 'rgba(248,113,113,.08)', border: '1px solid rgba(248,113,113,.2)' } },
           React.createElement("span", { style: { fontSize: 16 } }, "✗"),
-          React.createElement("span", { style: { fontSize: 12, color: '#f87171', fontWeight: 600 } }, "Execution failed")
+          React.createElement("span", { style: { fontSize: 12, color: '#f87171', fontWeight: 600 } },
+            execResult && execResult.networkError ? "Network error: " + execResult.networkError : "Execution failed")
         ),
-        (execState === 'done' || execState === 'error') && React.createElement(SmartReportRenderer, { content: execResult })
+        execState === 'done' && execResult && (function() {
+          var success  = execResult.success;
+          var partial  = execResult.partial;
+          var total    = execResult.commands_total || 0;
+          var ok       = execResult.commands_succeeded || 0;
+          var failed   = execResult.commands_failed || 0;
+          var valErrs  = execResult.validation_errors || [];
+          var execErrs = execResult.execution_errors || [];
+          var hasErrors = valErrs.length > 0 || execErrs.length > 0;
+
+          var bannerBg, bannerBorder, bannerColor, bannerIcon, bannerTitle, bannerNote;
+          if (success) {
+            bannerBg = 'rgba(134,239,172,.08)'; bannerBorder = 'rgba(134,239,172,.2)'; bannerColor = '#86efac';
+            bannerIcon = "✓"; bannerTitle = "Completed";
+            bannerNote = total > 0 ? ok + " of " + total + " command" + (total !== 1 ? "s" : "") + " succeeded"
+              : directive === 'display' ? "— preview only, no changes made"
+              : directive === 'validate' ? "— validation complete" : "— metadata updated";
+          } else if (partial) {
+            bannerBg = 'rgba(251,191,36,.06)'; bannerBorder = 'rgba(251,191,36,.2)'; bannerColor = '#fbbf24';
+            bannerIcon = "⚠"; bannerTitle = "Partial";
+            bannerNote = ok + " of " + total + " commands succeeded — " + failed + " failed";
+          } else {
+            bannerBg = 'rgba(248,113,113,.08)'; bannerBorder = 'rgba(248,113,113,.2)'; bannerColor = '#f87171';
+            bannerIcon = "✗"; bannerTitle = "Failed";
+            bannerNote = total > 0 ? failed + " of " + total + " command" + (total !== 1 ? "s" : "") + " failed"
+              : "No commands were executed";
+          }
+
+          function errorList(errs, color, label) {
+            if (!errs.length) return null;
+            return React.createElement("div", { style: { marginBottom: 12, padding: '8px 12px', borderRadius: 4,
+                background: 'rgba(0,0,0,.15)', border: '1px solid ' + (color === '#fbbf24' ? 'rgba(251,191,36,.2)' : 'rgba(248,113,113,.2)') } },
+              React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: color, marginBottom: 6 } },
+                label + " (" + errs.length + ")"),
+              errs.map(function(e, i) {
+                return React.createElement("div", { key: i, style: { fontSize: 11, color: 'var(--fg)', padding: '3px 0',
+                    borderTop: i > 0 ? '1px solid var(--border)' : 'none' } },
+                  React.createElement("span", { style: { color: 'var(--dim)', marginRight: 6 } }, "Step " + e.step),
+                  React.createElement("span", { style: { color: color, fontWeight: 600, marginRight: 6 } }, e.command),
+                  e.message
+                );
+              })
+            );
+          }
+
+          return React.createElement(React.Fragment, null,
+            React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8,
+                marginBottom: hasErrors ? 10 : 12, padding: '6px 10px', borderRadius: 4,
+                background: bannerBg, border: '1px solid ' + bannerBorder } },
+              React.createElement("span", { style: { fontSize: 16 } }, bannerIcon),
+              React.createElement("span", { style: { fontSize: 12, color: bannerColor, fontWeight: 600 } }, bannerTitle),
+              React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)', marginLeft: 4 } }, bannerNote)
+            ),
+            errorList(valErrs,  '#fbbf24', 'Validation Errors'),
+            errorList(execErrs, '#f87171', 'Execution Errors'),
+            execResult.output && React.createElement(SmartReportRenderer, { content: execResult.output })
+          );
+        })()
       )
     );
   }
@@ -5895,7 +5947,7 @@ function DrEgeriaCommandsView() {
       activeItem.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 12, color: 'var(--fg)' } }, activeItem.description),
       React.createElement("div", { style: { display: 'flex', gap: 6, marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 10 } },
         React.createElement("button", { style: modeBtnStyle('reference'), onClick: function() { setDetailMode('reference'); } }, "Reference"),
-        React.createElement("button", { style: modeBtnStyle('execute'),   onClick: function() { setDetailMode('execute');   setExecState('idle'); setExecResult(''); } }, "Execute")
+        React.createElement("button", { style: modeBtnStyle('execute'),   onClick: function() { setDetailMode('execute');   setExecState('idle'); setExecResult(null); } }, "Execute")
       ),
       detailMode === 'reference' && React.createElement("div", null,
         React.createElement("div", { style: { display: 'flex', gap: 16, marginBottom: 16 } },
