@@ -68,9 +68,23 @@ File system volumes are mounted for:
 
 ## Postgresql - configured for Egeria
 
-PostgreSQL runs in the shared infra stack (port **5442**) and is initialised on first container creation by
-`docker-entrypoint-initdb.d/init_egeria.sql`.  Docker only runs this script once — when the container's
-data directory is brand new — so it has no effect on subsequent restarts.
+PostgreSQL runs in the shared infra stack (port **5442**). While standard Docker
+PostgreSQL containers only run initialization scripts once on brand new data volumes,
+Egeria Quickstart ensures the required roles and databases exist on every deployment
+using a migration runner.
+
+### Automatic Initialization
+
+The root startup scripts (`./quick-start-local` and `./quick-start-multi-host`) automatically
+execute `compose-configs/egeria-quickstart/bin/apply-postgres-init.sh` after the shared
+infrastructure is ready.
+
+This runner:
+1.  **Waits** for PostgreSQL to be ready to accept connections.
+2.  **Checks** a migration marker table (`quickstart_migrations.applied_migrations`) in the
+    default `postgres` database to see if the initialization has already run.
+3.  **Executes** `docker-entrypoint-initdb.d/init_egeria.sql` only if it hasn't been applied yet.
+4.  **Records** the migration as applied upon success.
 
 ### What `init_egeria.sql` does
 
@@ -92,8 +106,19 @@ The script:
 
 ### Adding schemas to an existing Postgres deployment
 
-If you already had PostgreSQL running before `coco_sus` / `coco_ods` were introduced, the init
-script will not re-run automatically.  Use the helper script to create and load the schemas manually:
+If you are using an existing PostgreSQL instance that was not initialized by the quickstart
+runner, you can trigger the initialization manually.
+
+**Using the migration runner (Recommended):**
+The runner is idempotent and will only apply the SQL if the migration marker is missing.
+
+```bash
+# From the repository root
+./compose-configs/egeria-quickstart/bin/apply-postgres-init.sh
+```
+
+**Using the legacy schema script:**
+Alternatively, if you only need the Coco Pharmaceuticals schemas:
 
 ```bash
 # From the repository root (defaults: localhost:5442, egeria_admin / admin4egeria)
