@@ -170,39 +170,57 @@ class ExecuteRequest(BaseModel):
     user_pwd:  Optional[str] = None
 
 
-def _build_markdown_block(title: str, params: dict) -> str:
-    """Build a Dr. Egeria markdown block from a command title and parameter dict."""
-    lines = [f"# Egeria Explorer\n", f"## {title}\n", "> \n"]
+def _build_markdown_block(title: str, params: dict, directive: str = "display") -> str:
+    """Build a Dr. Egeria markdown block from a command title and parameter dict.
+
+    The directive is passed to process_markdown_file_structured as a function arg;
+    YAML front matter is NOT parsed by UniversalExtractor (each --- line becomes its
+    own non-command block), so we omit it here.
+
+    Parameter values must be plain text (no leading "> ") — the V2 extractor treats
+    blockquote lines as provenance/metadata and strips them.
+    """
+    lines = [f"## {title}\n\n"]
     for name, value in params.items():
         if value is not None and str(value).strip():
-            lines.append(f"### {name}\n> {value}\n\n")
+            lines.append(f"### {name}\n{value}\n\n")
     lines.append("___\n")
     return "".join(lines)
 
 
 def _write_and_execute(markdown_block: str, directive: str,
                        url: str, server: str, user_id: str, user_pwd: str) -> dict:
-    """Write block to temp inbox file, execute, return structured result dict."""
+    """Write block to temp inbox file, execute, return structured result dict.
+
+    Captures output from two sources:
+    1. The outbox directory — V2 processors write the annotated document there.
+    2. The per-command result dicts from dispatch_batch (message field fallback).
+    """
     import dr_egeria_md
 
     ts = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-    inbox_dir = os.path.join(EGERIA_ROOT_PATH, EGERIA_INBOX_PATH)
-    os.makedirs(inbox_dir, exist_ok=True)
+    inbox_dir  = os.path.join(EGERIA_ROOT_PATH, EGERIA_INBOX_PATH)
+    outbox_dir = os.path.join(EGERIA_ROOT_PATH, EGERIA_OUTBOX_PATH)
+    os.makedirs(inbox_dir,  exist_ok=True)
+    os.makedirs(outbox_dir, exist_ok=True)
+
     file_path = os.path.join(inbox_dir, f"explorer-{ts}.md")
+
+    # Snapshot outbox before so we can detect the newly-written result file
+    try:
+        before_files = set(os.listdir(outbox_dir))
+    except OSError:
+        before_files = set()
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(markdown_block)
 
-    # Patch env so the processor resolves paths correctly
-    os.environ["EGERIA_ROOT_PATH"]  = "/"
-    os.environ["EGERIA_INBOX_PATH"] = "."
-
     structured_func = getattr(dr_egeria_md, "process_markdown_file_structured", None)
     try:
         if structured_func:
-            return structured_func(
+            raw = structured_func(
                 input_file=file_path,
-                output_folder="",
+                output_folder=outbox_dir,
                 directive=directive,
                 server=server,
                 url=url,
@@ -211,17 +229,38 @@ def _write_and_execute(markdown_block: str, directive: str,
                 outbox_path=EGERIA_OUTBOX_PATH,
             )
         else:
-            # Fallback: call plain function and wrap in minimal structure
             func = getattr(dr_egeria_md.process_markdown_file, "callback", dr_egeria_md.process_markdown_file)
-            md = func(input_file=file_path, output_folder="", directive=directive,
+            md = func(input_file=file_path, output_folder=outbox_dir, directive=directive,
                       server=server, url=url, userid=user_id, user_pass=user_pwd,
                       outbox_path=EGERIA_OUTBOX_PATH)
-            return {"output": md or "(no output generated)", "results": []}
+            raw = {"output": md or "", "results": []}
     finally:
         try:
             os.remove(file_path)
         except OSError:
             pass
+
+    # Detect newly-written outbox file (V2 processors write the annotated document there)
+    try:
+        after_files = set(os.listdir(outbox_dir))
+        new_files = after_files - before_files
+    except OSError:
+        new_files = set()
+
+    if new_files:
+        newest = max(new_files, key=lambda f: os.path.getmtime(os.path.join(outbox_dir, f)))
+        out_path = os.path.join(outbox_dir, newest)
+        raw["output_file"] = newest
+        raw["output_file_path"] = out_path
+        # If the in-memory output is empty or just the echoed input, prefer the outbox file
+        if not raw.get("output", "").strip():
+            try:
+                with open(out_path, encoding="utf-8") as fh:
+                    raw["output"] = fh.read()
+            except OSError:
+                pass
+
+    return raw
 
 
 def _build_execute_response(raw: dict, directive: str) -> dict:
@@ -264,7 +303,7 @@ def _build_execute_response(raw: dict, directive: str) -> dict:
         else:
             commands_succeeded += 1
 
-    return {
+    resp = {
         "success": commands_failed == 0 and not raw.get("error"),
         "partial": commands_succeeded > 0 and commands_failed > 0,
         "output": output,
@@ -275,6 +314,9 @@ def _build_execute_response(raw: dict, directive: str) -> dict:
         "commands_succeeded": commands_succeeded,
         "commands_failed": commands_failed,
     }
+    if raw.get("output_file"):
+        resp["output_file"] = raw["output_file"]
+    return resp
 
 
 @router.post("/api/dr-egeria/execute", summary="Execute a Dr. Egeria command block")
@@ -285,7 +327,7 @@ def execute_command(req: ExecuteRequest):
     user_id = req.user_id or os.environ.get("EGERIA_USER",          "erinoverview")
     user_pwd = req.user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
 
-    block = _build_markdown_block(req.title, req.params)
+    block = _build_markdown_block(req.title, req.params, directive=req.directive)
     logger.info(f"Dr. Egeria execute: title={req.title!r} directive={req.directive!r}")
 
     try:

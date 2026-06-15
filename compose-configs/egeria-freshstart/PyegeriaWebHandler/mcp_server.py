@@ -351,11 +351,14 @@ async def egeria_execute_command(
     outbox_path: Optional[str] = None
 ) -> str:
     """Execute any Dr. Egeria command by name.
-    - command_name: The name of the command (e.g., 'Create Glossary')
-    - attributes: The markdown content containing the attributes (## Label\nValue)
+    - command_name: The name of the command (e.g., 'Create Solution Component')
+    - attributes: Parameter values as '### Label\\nValue\\n\\n' blocks, e.g.:
+        '### Display Name\\nMy Component\\n\\n### Description\\nA test\\n\\n'
+      Values must be plain text — do NOT prefix them with '> ' (that format is
+      stripped as provenance by the V2 extractor).
     - outbox_path: optional path for outbox (relative to EGERIA_ROOT_PATH)
     """
-    block = f"# {command_name}\n{attributes}\n___\n"
+    block = f"## {command_name}\n\n{attributes}\n___\n"
     return await dr_egeria_run_block(ctx, block, url, server_name, user_id, user_pass, directive=directive, outbox_path=outbox_path)
 
 
