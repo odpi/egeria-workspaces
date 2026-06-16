@@ -64,6 +64,21 @@ wait_for_container_state egeria-shared-kafka
 wait_for_container_state egeria-shared-postgres
 wait_for_container_state egeria-shared-openlineage-proxy-backend
 
+# Extra safety: Wait for Postgres port to be reachable on localhost
+# Container 'healthy' (pg_isready) doesn't always mean the host-mapped port is fully bound/reachable yet.
+# Skip if nc is not found.
+if command -v nc &> /dev/null; then
+  echo "[shared-infra] Waiting for Postgres port 5442 to be reachable on localhost..."
+  for i in {1..20}; do
+    if nc -zv localhost 5442 >/dev/null 2>&1; then
+      echo "[shared-infra] Postgres port 5442 is reachable."
+      break
+    fi
+    [[ $i -eq 20 ]] && echo "[shared-infra] WARNING: Postgres port 5442 still not reachable on localhost."
+    sleep 1
+  done
+fi
+
 echo "[shared-infra] Shared Kafka, Postgres, and proxy are ready."
 popd >/dev/null
 
