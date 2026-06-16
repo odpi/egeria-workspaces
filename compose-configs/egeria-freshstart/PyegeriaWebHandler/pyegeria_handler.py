@@ -188,6 +188,8 @@ from dr_egeria_commands_handler import router as dr_egeria_commands_router
 app.include_router(dr_egeria_commands_router)
 from isc_handler import router as isc_router
 app.include_router(isc_router)
+from location_handler import router as location_router
+app.include_router(location_router)
 from governance_definitions_handler import router as governance_router
 app.include_router(governance_router)
 from project_handler import router as project_router

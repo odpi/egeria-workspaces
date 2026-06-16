@@ -3895,6 +3895,7 @@ const SECTION_LABELS = {
   'data-design':       'Data Design',
   'solution-architect':'Solution Architect',
   'isc':               'Information Supply Chains',
+  'locations':         'Locations',
   'perspectives':      'Perspectives',
   'governance':        'Governance Definitions',
   'report-specs':      'Report Specifications',
@@ -4278,6 +4279,14 @@ const _SPLASH_CAPABILITIES = [
     icon: '⇌',
     title: 'Information Supply Chains',
     description: 'Explore information supply chains and their implementation graphs. Each chain shows its scope, segments, and concrete technical implementations as mermaid diagrams.',
+    requiresConnection: true,
+  },
+  {
+    section: 'locations',
+    group: 'review',
+    icon: '⚲',
+    title: 'Locations',
+    description: 'Explore physical, cyber, and secure locations. Navigate parent/child location hierarchies, peer links, locally hosted assets, and the roles assigned to manage each location.',
     requiresConnection: true,
   },
   {
@@ -6213,6 +6222,165 @@ function InformationSupplyChainView() {
   );
 }
 
+var LOCATION_KIND_COLORS = {
+  'Fixed':  { bg: 'rgba(94,234,212,.1)',  fg: '#5eead4', border: 'rgba(94,234,212,.3)' },
+  'Cyber':  { bg: 'rgba(129,140,248,.1)', fg: '#818cf8', border: 'rgba(129,140,248,.3)' },
+  'Secure': { bg: 'rgba(248,113,113,.1)', fg: '#f87171', border: 'rgba(248,113,113,.3)' },
+  'Mobile': { bg: 'rgba(251,191,36,.1)',  fg: '#fbbf24', border: 'rgba(251,191,36,.3)' },
+};
+
+function LocationKindBadges({ kinds }) {
+  if (!kinds || !kinds.length) return null;
+  return React.createElement("span", { style: { display: 'inline-flex', gap: 4 } },
+    kinds.map(function(k) {
+      var c = LOCATION_KIND_COLORS[k.kind] || { bg: 'rgba(148,163,184,.1)', fg: '#94a3b8', border: 'rgba(148,163,184,.3)' };
+      return React.createElement("span", {
+        key: k.kind, className: "badge",
+        style: { fontSize: 9, background: c.bg, color: c.fg, border: '0.5px solid ' + c.border },
+      }, k.kind || 'Location');
+    })
+  );
+}
+
+function LocationDetail({ data, detail }) {
+  var src = detail || data;
+  if (!src) return null;
+  var fields = [['Identifier', src.identifier], ['Qualified Name', src.qualifiedName], ['Status', src.status]]
+    .filter(function(f) { return f[1] && String(f[1]).trim(); });
+
+  var kindFields = [];
+  (src.locationKinds || []).forEach(function(k) {
+    Object.keys(k.properties || {}).forEach(function(pk) {
+      if (pk === 'class') return;
+      kindFields.push([k.kind + ': ' + pk, k.properties[pk]]);
+    });
+  });
+
+  function relSection(title, items) {
+    if (!items || !items.length) return null;
+    return React.createElement("div", { style: { marginBottom: 16 } },
+      React.createElement("div", { style: { fontWeight: 600, fontSize: 13, marginBottom: 6, color: 'var(--accent)' } }, title + " (" + items.length + ")"),
+      items.map(function(item) {
+        return React.createElement("div", { key: item.guid, style: { display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, padding: '6px 0', borderTop: '1px solid var(--border)' } },
+          React.createElement("div", { style: { flex: 1 } },
+            React.createElement("div", null, item.displayName || item.qualifiedName),
+            item.description && React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', marginTop: 2 } }, item.description)
+          ),
+          item.typeName && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)' } }, item.typeName)
+        );
+      })
+    );
+  }
+
+  return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.displayName || src.qualifiedName),
+      React.createElement(LocationKindBadges, { kinds: src.locationKinds }),
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid }))
+    ),
+    React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, src.guid),
+    src.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(src.description)),
+    src.mermaidGraph && React.createElement("div", { style: { marginBottom: 8 } },
+      React.createElement(MermaidDiagram, { code: src.mermaidGraph })
+    ),
+    (fields.length > 0 || kindFields.length > 0) && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 20 } },
+      React.createElement("tbody", null,
+        fields.concat(kindFields).map(function(f, i) {
+          return React.createElement("tr", { key: f[0] + i, style: { borderTop: '1px solid var(--border)' } },
+            React.createElement("td", { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', width: 160, verticalAlign: 'top' } }, f[0]),
+            React.createElement("td", { style: { padding: '6px 0' } }, String(f[1]))
+          );
+        })
+      )
+    ),
+    relSection("Parent Locations", src.parentLocations),
+    relSection("Child Locations", src.childLocations),
+    relSection("Peer Locations", src.peerLocations),
+    relSection("Resources Hosted Here", src.localResources),
+    relSection("Assigned Actors", src.assignedActors),
+    relSection("Reference Values", src.referenceValues),
+    React.createElement(EgeriaCommentsSection, { guid: src.guid })
+  );
+}
+
+function LocationsView() {
+  const creds = React.useContext(CredContext);
+  const [sideW, onDivDown] = useResizable(280);
+  const [state, setState]   = useState('loading');
+  const [attempt, setAttempt] = useState(0);
+  const [items, setItems]   = useState([]);
+  const [error, setError]   = useState('');
+  const [selected, setSelected] = useState(function() {
+    var params = new URLSearchParams(window.location.search);
+    return params.get('guid') || null;
+  });
+  const [detail, setDetail] = useState(null);
+  const [detailState, setDetailState] = useState('idle');
+  const [filter, setFilter] = useState('');
+
+  useEffect(function() {
+    setState('loading'); setError('');
+    fetch(credAppend('/api/locations', creds))
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setItems(data.locations || []); setState('ready'); })
+      .catch(function(e) { setError(e.message); setState('error'); });
+  }, [attempt]);
+
+  useEffect(function() {
+    if (!selected) { setDetail(null); return; }
+    setDetailState('loading');
+    fetch(credAppend('/api/locations/' + selected, creds))
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setDetail(data); setDetailState('ready'); })
+      .catch(function() { setDetailState('error'); });
+  }, [selected]);
+
+  var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { padding: '10px 12px 6px', fontSize: 12, fontWeight: 700, color: 'var(--text)', borderBottom: '1px solid var(--border)' } }, "Locations"),
+    React.createElement("div", { className: "search-wrap" },
+      React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
+        onChange: function(e) { setFilter(e.target.value); } })
+    ),
+    state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
+    state === 'error' && React.createElement("div", { style: { padding: 16 } },
+      React.createElement("div", { style: { color: '#f87171', fontSize: 13, marginBottom: 8 } }, "Error: " + error),
+      React.createElement("button", { className: "view-tab on", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "Retry")
+    ),
+    state === 'ready' && React.createElement("div", { style: { overflowY: 'auto', flex: 1 } },
+      (function() {
+        var q = filter.toLowerCase();
+        var vis = items.filter(function(x) { return !q || (x.displayName || x.qualifiedName || '').toLowerCase().includes(q); });
+        if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, q ? "No matches" : "No locations found");
+        return vis.map(function(x) {
+          return React.createElement("div", {
+            key: x.guid, className: "tree-item" + (selected === x.guid ? " sel" : ""),
+            onClick: function() { setSelected(x.guid); }, title: x.qualifiedName || x.guid,
+          },
+            React.createElement("span", { className: "type-name" }, x.displayName || x.qualifiedName),
+            React.createElement(LocationKindBadges, { kinds: x.locationKinds })
+          );
+        });
+      })()
+    )
+  );
+
+  var selectedItem = selected ? items.find(function(x) { return x.guid === selected; }) : null;
+  var mainPanel = React.createElement("div", { className: "main", style: { flex: 1, overflowY: 'auto' } },
+    !selected && React.createElement("div", { className: "center" },
+      React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a location from the sidebar")
+    ),
+    selected && detailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
+    selected && detailState === 'error'   && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load location detail"),
+    selected && (detailState === 'ready' || selectedItem) && React.createElement(LocationDetail, { data: selectedItem, detail: detail })
+  );
+
+  return React.createElement("div", { className: "body" },
+    sidebar,
+    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
+    mainPanel
+  );
+}
+
 function SolutionArchitectView() {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(260);
@@ -7513,7 +7681,7 @@ function App() {
     var hash = window.location.hash.slice(1);
     var valid = new Set(['type-system','reference-data','digital-products','glossary',
       'report-specs','valid-values','rest-apis','python-api','solution-architect',
-      'data-design','perspectives','dr-egeria','isc','governance','projects']);
+      'data-design','perspectives','dr-egeria','isc','locations','governance','projects']);
     return valid.has(hash) ? hash : 'splash';
   });
   const [glossaryNavGuid, setGlossaryNavGuid] = useState(null);
@@ -7660,7 +7828,7 @@ function App() {
         }),
         React.createElement(NavGroup, {
           label: 'Review', connected: connected, currentSection: section,
-          isActive: ['glossary','reference-data','data-design','solution-architect','isc','perspectives','governance','projects'].includes(section),
+          isActive: ['glossary','reference-data','data-design','solution-architect','isc','locations','perspectives','governance','projects'].includes(section),
           onSelect: setSection,
           items: [
             { id: 'glossary',           label: 'Glossary',                needsConnect: true },
@@ -7668,6 +7836,7 @@ function App() {
             { id: 'data-design',        label: 'Data Design',             needsConnect: true },
             { id: 'solution-architect', label: 'Solution Architect',      needsConnect: true },
             { id: 'isc',                label: 'Supply Chains',           needsConnect: true },
+            { id: 'locations',          label: 'Locations',               needsConnect: true },
             { id: 'perspectives',       label: 'Perspectives',            needsConnect: true },
             { id: 'governance',         label: 'Governance Definitions',  needsConnect: true },
             { id: 'projects',           label: 'Projects',                needsConnect: true },
@@ -7745,6 +7914,8 @@ function App() {
       ? React.createElement(DrEgeriaCommandsView, null)
       : section === 'isc'
       ? React.createElement(InformationSupplyChainView, { key: credsKey })
+      : section === 'locations'
+      ? React.createElement(LocationsView, { key: credsKey })
       : section === 'governance'
       ? React.createElement(GovernanceView, { key: credsKey })
       : section === 'projects'
