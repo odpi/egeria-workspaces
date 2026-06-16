@@ -3240,7 +3240,7 @@ function RefDataTreeNode({ item, byGuid, depth, selected, onSelect, expanded, to
   );
 }
 
-function ReferenceDataView() {
+function ReferenceDataView({ navGuid }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(254);
   const [loadState, setLoadState] = useState('loading');
@@ -3296,6 +3296,26 @@ function ReferenceDataView() {
       return next;
     });
   }
+
+  // Cross-tab arrival: another tab called onNavigateToReferenceData(guid) — select
+  // it and expand its ancestor chain (parentSets) so it's visible in the tree.
+  useEffect(function() {
+    if (!navGuid || !byGuid[navGuid]) return;
+    setSelected(navGuid);
+    setExpanded(function(prev) {
+      const next = new Set(prev);
+      var cur = byGuid[navGuid];
+      var seen = new Set();
+      while (cur && cur.parentSets && cur.parentSets.length && !seen.has(cur.guid)) {
+        seen.add(cur.guid);
+        var parentRef = cur.parentSets[0];
+        if (!parentRef || !byGuid[parentRef.guid]) break;
+        next.add(parentRef.guid);
+        cur = byGuid[parentRef.guid];
+      }
+      return next;
+    });
+  }, [navGuid, byGuid]);
 
   const selectedItem = selected ? byGuid[selected] || null : null;
 
@@ -3578,7 +3598,7 @@ function DigitalProductDetail({ product, onNavigateToGlossary, onNavigateToDataS
             style: { flexShrink: 0, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(167,139,250,.4)', background: 'rgba(167,139,250,.1)', color: '#a78bfa', cursor: 'pointer', fontSize: 11 }
           }, "View →"),
           isGov && onNavigateToGovernance && React.createElement("button", {
-            onClick: function() { onNavigateToGovernance(item.guid); },
+            onClick: function() { onNavigateToGovernance(tn, item.guid); },
             style: { flexShrink: 0, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(251,191,36,.4)', background: 'rgba(251,191,36,.1)', color: '#fcd34d', cursor: 'pointer', fontSize: 11 }
           }, "View →")
         );
@@ -3896,6 +3916,7 @@ const SECTION_LABELS = {
   'solution-architect':'Solution Architect',
   'isc':               'Information Supply Chains',
   'locations':         'Locations',
+  'actors':            'Actors',
   'perspectives':      'Perspectives',
   'governance':        'Governance Definitions',
   'report-specs':      'Report Specifications',
@@ -4287,6 +4308,14 @@ const _SPLASH_CAPABILITIES = [
     icon: '⚲',
     title: 'Locations',
     description: 'Explore physical, cyber, and secure locations. Navigate parent/child location hierarchies, peer links, locally hosted assets, and the roles assigned to manage each location.',
+    requiresConnection: true,
+  },
+  {
+    section: 'actors',
+    group: 'review',
+    icon: '☻',
+    title: 'Actors',
+    description: 'Browse actor profiles (people, teams, organizations, IT profiles), the roles they perform, and their user identities. Cross-link to assigned locations and reference values.',
     requiresConnection: true,
   },
   {
@@ -6222,6 +6251,74 @@ function InformationSupplyChainView() {
   );
 }
 
+// ── Shared cross-link helpers ─────────────────────────────────────────────────
+// Any relationship list anywhere in the app (Locations, Actors, Digital
+// Products, ...) can reference a Location, ReferenceDataValue, ActorProfile/
+// ActorRole/UserIdentity, GovernanceDefinition subtype, GlossaryTerm,
+// DigitalProduct, or a Tech Catalog Asset. Rather than threading a separate
+// onNavigateToX callback through every detail component for every target
+// type, a single onNavigateToElement(item) dispatcher (defined once at the
+// App level) inspects item.typeName/superTypeNames and routes to the right
+// tab + selection. Adding a new linkable type only touches that one function.
+
+function _actorKindForType(typeName, superTypeNames) {
+  superTypeNames = superTypeNames || [];
+  if (typeName === 'UserIdentity') return 'identities';
+  if (superTypeNames.indexOf('ActorRole') !== -1) return 'roles';
+  if (superTypeNames.indexOf('ActorProfile') !== -1) return 'profiles';
+  return null;
+}
+
+// Returns true if onNavigateToElement (or the Tech Catalog external link)
+// has a known target for this item's type.
+function _elementIsLinkable(item) {
+  var superTypes = item.superTypeNames || [];
+  if (item.typeName === 'Location') return true;
+  if (item.typeName === 'ReferenceDataValue') return true;
+  if (item.typeName === 'GlossaryTerm') return true;
+  if (item.typeName === 'DigitalProduct') return true;
+  if (_actorKindForType(item.typeName, superTypes)) return true;
+  if (superTypes.indexOf('GovernanceDefinition') !== -1) return true;
+  if (superTypes.indexOf('Asset') !== -1) return true;
+  return false;
+}
+
+function RelatedElementRow({ item, onNavigateToElement }) {
+  var isAsset = (item.superTypeNames || []).indexOf('Asset') !== -1;
+  var clickable = !isAsset && !!onNavigateToElement && _elementIsLinkable(item);
+
+  return React.createElement("div", {
+      key: item.guid,
+      style: { display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, padding: '6px 0', borderTop: '1px solid var(--border)' },
+      title: item.description || '',
+    },
+    React.createElement("div", { style: { flex: 1 } },
+      React.createElement("div", null, item.displayName || item.qualifiedName),
+      item.contactMethodValue && React.createElement("div", { style: { fontSize: 12, color: 'var(--fg)', marginTop: 2, fontFamily: 'ui-monospace,monospace' } }, item.contactMethodValue),
+      item.description && React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', marginTop: 2 } }, item.description)
+    ),
+    item.typeName && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)', flexShrink: 0 } }, item.typeName),
+    clickable && React.createElement("button", {
+      onClick: function() { onNavigateToElement(item); },
+      style: { flexShrink: 0, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(94,234,212,.4)', background: 'rgba(94,234,212,.1)', color: '#5eead4', cursor: 'pointer', fontSize: 11 },
+    }, "View →"),
+    isAsset && React.createElement("a", {
+      href: '/tech-catalog?guid=' + encodeURIComponent(item.guid), target: '_blank', rel: 'noopener',
+      style: { flexShrink: 0, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(167,139,250,.4)', background: 'rgba(167,139,250,.1)', color: '#a78bfa', textDecoration: 'none', fontSize: 11 },
+    }, "↗ Tech Catalog")
+  );
+}
+
+function RelationshipSection({ title, items, onNavigateToElement }) {
+  if (!items || !items.length) return null;
+  return React.createElement("div", { style: { marginBottom: 16 } },
+    React.createElement("div", { style: { fontWeight: 600, fontSize: 13, marginBottom: 6, color: 'var(--accent)' } }, title + " (" + items.length + ")"),
+    items.map(function(item) {
+      return React.createElement(RelatedElementRow, { key: item.guid, item: item, onNavigateToElement: onNavigateToElement });
+    })
+  );
+}
+
 var LOCATION_KIND_COLORS = {
   'Fixed':  { bg: 'rgba(94,234,212,.1)',  fg: '#5eead4', border: 'rgba(94,234,212,.3)' },
   'Cyber':  { bg: 'rgba(129,140,248,.1)', fg: '#818cf8', border: 'rgba(129,140,248,.3)' },
@@ -6242,7 +6339,7 @@ function LocationKindBadges({ kinds }) {
   );
 }
 
-function LocationDetail({ data, detail, onSelectLocation }) {
+function LocationDetail({ data, detail, onNavigateToElement }) {
   var src = detail || data;
   if (!src) return null;
   var fields = [['Identifier', src.identifier], ['Qualified Name', src.qualifiedName], ['Status', src.status]]
@@ -6255,35 +6352,6 @@ function LocationDetail({ data, detail, onSelectLocation }) {
       kindFields.push([k.kind + ': ' + pk, k.properties[pk]]);
     });
   });
-
-  function relSection(title, items) {
-    if (!items || !items.length) return null;
-    return React.createElement("div", { style: { marginBottom: 16 } },
-      React.createElement("div", { style: { fontWeight: 600, fontSize: 13, marginBottom: 6, color: 'var(--accent)' } }, title + " (" + items.length + ")"),
-      items.map(function(item) {
-        var isLocation = item.typeName === 'Location';
-        var isAsset = (item.superTypeNames || []).indexOf('Asset') !== -1;
-        return React.createElement("div", {
-            key: item.guid,
-            style: { display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, padding: '6px 0',
-                     borderTop: '1px solid var(--border)', cursor: isLocation ? 'pointer' : 'default' },
-            onClick: isLocation ? function() { onSelectLocation && onSelectLocation(item.guid); } : undefined,
-            title: isLocation ? 'View this location' : (item.description || ''),
-          },
-          React.createElement("div", { style: { flex: 1 } },
-            React.createElement("div", { style: isLocation ? { color: 'var(--accent)', textDecoration: 'underline' } : null }, item.displayName || item.qualifiedName),
-            item.description && React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', marginTop: 2 } }, item.description)
-          ),
-          item.typeName && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)', flexShrink: 0 } }, item.typeName),
-          isAsset && React.createElement("a", {
-            href: '/tech-catalog?guid=' + encodeURIComponent(item.guid), target: '_blank', rel: 'noopener',
-            onClick: function(e) { e.stopPropagation(); },
-            style: { fontSize: 10, color: 'var(--accent)', textDecoration: 'none', whiteSpace: 'nowrap', border: '0.5px solid var(--accent)', borderRadius: 3, padding: '2px 6px', flexShrink: 0 },
-          }, "↗ Tech Catalog")
-        );
-      })
-    );
-  }
 
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
@@ -6306,12 +6374,12 @@ function LocationDetail({ data, detail, onSelectLocation }) {
         })
       )
     ),
-    relSection("Parent Locations", src.parentLocations),
-    relSection("Child Locations", src.childLocations),
-    relSection("Peer Locations", src.peerLocations),
-    relSection("Resources Hosted Here", src.localResources),
-    relSection("Assigned Actors", src.assignedActors),
-    relSection("Reference Values", src.referenceValues),
+    React.createElement(RelationshipSection, { title: "Parent Locations", items: src.parentLocations, onNavigateToElement: onNavigateToElement }),
+    React.createElement(RelationshipSection, { title: "Child Locations", items: src.childLocations, onNavigateToElement: onNavigateToElement }),
+    React.createElement(RelationshipSection, { title: "Peer Locations", items: src.peerLocations, onNavigateToElement: onNavigateToElement }),
+    React.createElement(RelationshipSection, { title: "Resources Hosted Here", items: src.localResources, onNavigateToElement: onNavigateToElement }),
+    React.createElement(RelationshipSection, { title: "Assigned Actors", items: src.assignedActors, onNavigateToElement: onNavigateToElement }),
+    React.createElement(RelationshipSection, { title: "Reference Values", items: src.referenceValues, onNavigateToElement: onNavigateToElement }),
     React.createElement(EgeriaCommentsSection, { guid: src.guid })
   );
 }
@@ -6362,7 +6430,7 @@ function LocationTreeNode({ item, byGuid, depth, selected, onSelect, expanded, t
   );
 }
 
-function LocationsView() {
+function LocationsView({ navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(280);
   const [state, setState]   = useState('loading');
@@ -6437,6 +6505,12 @@ function LocationsView() {
     });
   }
 
+  // Cross-tab arrival: another tab called onNavigateToLocation(guid) — select it
+  // and expand its ancestor chain once the list has loaded.
+  useEffect(function() {
+    if (navGuid && byGuid[navGuid]) revealLocation(navGuid);
+  }, [navGuid, byGuid]);
+
   const q = filter.trim().toLowerCase();
   const anyVisible = !q || rootNodes.some(function(r) { return _locationSubtreeMatches(r, byGuid, q); });
 
@@ -6471,7 +6545,206 @@ function LocationsView() {
     ),
     selected && detailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
     selected && detailState === 'error'   && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load location detail"),
-    selected && (detailState === 'ready' || selectedItem) && React.createElement(LocationDetail, { data: selectedItem, detail: detail, onSelectLocation: revealLocation })
+    selected && (detailState === 'ready' || selectedItem) && React.createElement(LocationDetail, {
+      data: selectedItem, detail: detail,
+      onNavigateToElement: onNavigateToElement,
+    })
+  );
+
+  return React.createElement("div", { className: "body" },
+    sidebar,
+    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
+    mainPanel
+  );
+}
+
+var ACTOR_TYPE_COLORS = {
+  'Person':           { bg: 'rgba(94,234,212,.1)',  fg: '#5eead4', border: 'rgba(94,234,212,.3)' },
+  'Team':              { bg: 'rgba(129,140,248,.1)', fg: '#818cf8', border: 'rgba(129,140,248,.3)' },
+  'Organization':      { bg: 'rgba(251,191,36,.1)',  fg: '#fbbf24', border: 'rgba(251,191,36,.3)' },
+  'ITProfile':         { bg: 'rgba(148,163,184,.1)', fg: '#94a3b8', border: 'rgba(148,163,184,.3)' },
+  'PersonRole':        { bg: 'rgba(94,234,212,.1)',  fg: '#5eead4', border: 'rgba(94,234,212,.3)' },
+  'GovernanceRole':    { bg: 'rgba(248,113,113,.1)', fg: '#f87171', border: 'rgba(248,113,113,.3)' },
+  'SolutionActorRole': { bg: 'rgba(129,140,248,.1)', fg: '#818cf8', border: 'rgba(129,140,248,.3)' },
+  'UserIdentity':      { bg: 'rgba(192,132,252,.1)', fg: '#c084fc', border: 'rgba(192,132,252,.3)' },
+};
+
+function ActorTypeBadge({ typeName }) {
+  if (!typeName) return null;
+  var c = ACTOR_TYPE_COLORS[typeName] || { bg: 'rgba(148,163,184,.1)', fg: '#94a3b8', border: 'rgba(148,163,184,.3)' };
+  return React.createElement("span", { className: "badge", style: { fontSize: 9, background: c.bg, color: c.fg, border: '0.5px solid ' + c.border, flexShrink: 0 } }, typeName);
+}
+
+var REL_KEY_LABELS = {
+  performsRoles: 'Performs Roles', rolePerformers: 'Performed By', contactDetails: 'Contact Details',
+  assignmentScope: 'Responsible For', governedBy: 'Governed By', memberOfCollections: 'Member Of',
+  subTeams: 'Sub Teams', superTeam: 'Parent Team', assetsUsingProfile: 'Assets Using Profile',
+  contributionRecord: 'Contribution Record', userIdentities: 'User Identities', profile: 'Profile',
+};
+
+function _prettyRelLabel(key) {
+  if (REL_KEY_LABELS[key]) return REL_KEY_LABELS[key];
+  return key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/^./, function(c) { return c.toUpperCase(); });
+}
+
+function ActorDetail({ data, detail, onNavigateToElement }) {
+  var src = detail || data;
+  if (!src) return null;
+  var fields = [
+    ['Qualified Name', src.qualifiedName], ['Status', src.status], ['Job Title', src.jobTitle],
+    ['Employee Number', src.employeeNumber], ['Employee Type', src.employeeType], ['Identifier', src.identifier],
+    ['Contact Type', src.contactType], ['Contact Method', src.contactMethodType], ['Contact Value', src.contactMethodValue],
+    ['User Id', src.userId], ['Distinguished Name', src.distinguishedName],
+    ['Head Count', src.headCount], ['Domain Identifier', src.domainIdentifier],
+  ].filter(function(f) { return f[1] !== undefined && f[1] !== null && String(f[1]).trim(); });
+
+  var relationships = src.relationships || {};
+  var relKeys = Object.keys(relationships).filter(function(k) { return relationships[k] && relationships[k].length; });
+
+  return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.displayName || src.qualifiedName),
+      React.createElement(ActorTypeBadge, { typeName: src.typeName }),
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid }))
+    ),
+    React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, src.guid),
+    src.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(src.description)),
+    src.mermaidGraph && React.createElement("div", { style: { marginBottom: 8 } },
+      React.createElement(MermaidDiagram, { code: src.mermaidGraph })
+    ),
+    fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 20 } },
+      React.createElement("tbody", null,
+        fields.map(function(f, i) {
+          return React.createElement("tr", { key: f[0] + i, style: { borderTop: '1px solid var(--border)' } },
+            React.createElement("td", { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', width: 160, verticalAlign: 'top' } }, f[0]),
+            React.createElement("td", { style: { padding: '6px 0' } }, String(f[1]))
+          );
+        })
+      )
+    ),
+    relKeys.map(function(k) {
+      return React.createElement(RelationshipSection, { key: k, title: _prettyRelLabel(k), items: relationships[k], onNavigateToElement: onNavigateToElement });
+    }),
+    React.createElement(EgeriaCommentsSection, { guid: src.guid })
+  );
+}
+
+var ACTOR_SUBNAV = {
+  profiles:   { list: '/api/actors/profiles',   key: 'profiles',   label: 'Profiles' },
+  roles:      { list: '/api/actors/roles',      key: 'roles',      label: 'Roles' },
+  identities: { list: '/api/actors/identities', key: 'identities', label: 'Identities' },
+};
+var ACTOR_SUBNAV_ORDER = ['profiles', 'roles', 'identities'];
+
+function ActorsView({ navKind, navGuid, onNavigateToElement }) {
+  const creds = React.useContext(CredContext);
+  const [sideW, onDivDown] = useResizable(280);
+  const [subNav, setSubNav] = useState(navKind || 'profiles');
+
+  const [state, setState]     = useState({ profiles: 'idle', roles: 'idle', identities: 'idle' });
+  const [items, setItems]     = useState({ profiles: [], roles: [], identities: [] });
+  const [error, setError]     = useState({ profiles: '', roles: '', identities: '' });
+  const [attempt, setAttempt] = useState({ profiles: 0, roles: 0, identities: 0 });
+  const [selected, setSelected] = useState({ profiles: null, roles: null, identities: null });
+  const [detail, setDetail]   = useState(null);
+  const [detailState, setDetailState] = useState('idle');
+  const [filter, setFilter]   = useState('');
+
+  // Load the active sub-tab's list lazily (only once per tab).
+  useEffect(function() {
+    var cfg = ACTOR_SUBNAV[subNav];
+    if (!cfg || state[subNav] === 'ready' || state[subNav] === 'loading') return;
+    setState(function(s) { return Object.assign({}, s, { [subNav]: 'loading' }); });
+    setError(function(s) { return Object.assign({}, s, { [subNav]: '' }); });
+    fetch(credAppend(cfg.list, creds))
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) {
+        setItems(function(s) { return Object.assign({}, s, { [subNav]: data[cfg.key] || [] }); });
+        setState(function(s) { return Object.assign({}, s, { [subNav]: 'ready' }); });
+      })
+      .catch(function(e) {
+        setError(function(s) { return Object.assign({}, s, { [subNav]: e.message }); });
+        setState(function(s) { return Object.assign({}, s, { [subNav]: 'error' }); });
+      });
+  }, [subNav, attempt.profiles, attempt.roles, attempt.identities]);
+
+  // Cross-tab / cross-section arrival: switch sub-nav and select once that tab's list loads.
+  useEffect(function() {
+    if (!navKind || !navGuid) return;
+    setSubNav(navKind);
+    setSelected(function(s) { return Object.assign({}, s, { [navKind]: navGuid }); });
+  }, [navKind, navGuid]);
+
+  const curSelected = selected[subNav];
+
+  useEffect(function() {
+    var cfg = ACTOR_SUBNAV[subNav];
+    if (!curSelected || !cfg) { setDetail(null); return; }
+    setDetailState('loading');
+    fetch(credAppend(cfg.list + '/' + curSelected, creds))
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setDetail(data); setDetailState('ready'); })
+      .catch(function() { setDetailState('error'); });
+  }, [subNav, curSelected]);
+
+  function retryCurrent() {
+    setAttempt(function(a) { return Object.assign({}, a, { [subNav]: a[subNav] + 1 }); });
+  }
+
+  const curItems = items[subNav] || [];
+  const curState = state[subNav];
+  const curError = error[subNav];
+
+  const sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
+      ACTOR_SUBNAV_ORDER.map(function(tab) {
+        return React.createElement("button", {
+          key: tab, onClick: function() { setSubNav(tab); setFilter(''); },
+          style: { flex: 1, padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer',
+                   fontWeight: subNav === tab ? 700 : 400, color: subNav === tab ? 'var(--accent)' : 'var(--fg)',
+                   borderBottom: subNav === tab ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 13 },
+        }, ACTOR_SUBNAV[tab].label);
+      })
+    ),
+    React.createElement("div", { className: "search-wrap" },
+      React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
+        onChange: function(e) { setFilter(e.target.value); } })
+    ),
+    curState === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
+    curState === 'error' && React.createElement("div", { style: { padding: 16 } },
+      React.createElement("div", { style: { color: '#f87171', fontSize: 13, marginBottom: 8 } }, "Error: " + curError),
+      React.createElement("button", { className: "view-tab on", onClick: retryCurrent }, "Retry")
+    ),
+    curState === 'ready' && React.createElement("div", { style: { overflowY: 'auto', flex: 1 } },
+      (function() {
+        var q = filter.trim().toLowerCase();
+        var vis = curItems.filter(function(x) { return !q || (x.displayName || x.qualifiedName || '').toLowerCase().includes(q); });
+        if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, q ? "No matches" : "No items found");
+        return vis.map(function(x) {
+          return React.createElement("div", {
+            key: x.guid, className: "tree-item" + (curSelected === x.guid ? " sel" : ""),
+            onClick: function() { setSelected(function(s) { return Object.assign({}, s, { [subNav]: x.guid }); }); },
+            title: x.qualifiedName || x.guid,
+          },
+            React.createElement("span", { className: "type-name" }, x.displayName || x.qualifiedName),
+            React.createElement(ActorTypeBadge, { typeName: x.typeName })
+          );
+        });
+      })()
+    )
+  );
+
+  var selectedItem = curSelected ? curItems.find(function(x) { return x.guid === curSelected; }) : null;
+  var mainPanel = React.createElement("div", { className: "main", style: { flex: 1, overflowY: 'auto' } },
+    !curSelected && React.createElement("div", { className: "center" },
+      React.createElement("span", { style: { color: 'var(--muted)' } }, "Select an item from the sidebar")
+    ),
+    curSelected && detailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
+    curSelected && detailState === 'error'   && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load detail"),
+    curSelected && (detailState === 'ready' || selectedItem) && React.createElement(ActorDetail, {
+      data: selectedItem, detail: detail,
+      onNavigateToElement: onNavigateToElement,
+    })
   );
 
   return React.createElement("div", { className: "body" },
@@ -7075,7 +7348,7 @@ function GovTypeNode({ node, depth, selectedType, onSelect, expanded, toggleExpa
   );
 }
 
-function GovernanceView() {
+function GovernanceView({ navTypeName, navGuid }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown]     = useResizable(220);
   const [listW, onListDivDown] = useResizable(280);
@@ -7173,6 +7446,17 @@ function GovernanceView() {
     setDetail(null);
     setListAttempt(function(a) { return a + 1; });
   }
+
+  // Cross-tab arrival: another tab called onNavigateToGovernance(typeName, guid) —
+  // switch to that definition type (if different) and select the element directly.
+  useEffect(function() {
+    if (!navGuid) return;
+    if (navTypeName && navTypeName !== selType) {
+      setSelType(navTypeName);
+      setListAttempt(function(a) { return a + 1; });
+    }
+    setSelGuid(navGuid);
+  }, [navTypeName, navGuid]);
 
   const colLabel = typeLabels[selType] || selType;
 
@@ -7781,7 +8065,7 @@ function App() {
     var hash = window.location.hash.slice(1);
     var valid = new Set(['type-system','reference-data','digital-products','glossary',
       'report-specs','valid-values','rest-apis','python-api','solution-architect',
-      'data-design','perspectives','dr-egeria','isc','locations','governance','projects']);
+      'data-design','perspectives','dr-egeria','isc','locations','actors','governance','projects']);
     return valid.has(hash) ? hash : 'splash';
   });
   const [glossaryNavGuid, setGlossaryNavGuid] = useState(null);
@@ -7815,11 +8099,48 @@ function App() {
     setSection('digital-products');
   }, []);
 
-  const [governanceNavGuid, setGovernanceNavGuid] = useState(null);
-  const onNavigateToGovernance = useCallback(function(guid) {
-    setGovernanceNavGuid(guid || null);
+  const [governanceNav, setGovernanceNav] = useState({ typeName: null, guid: null });
+  const onNavigateToGovernance = useCallback(function(typeNameOrGuid, maybeGuid) {
+    // Backward compatible: existing call sites pass just (guid); new ones pass (typeName, guid).
+    var typeName = maybeGuid !== undefined ? typeNameOrGuid : null;
+    var guid = maybeGuid !== undefined ? maybeGuid : typeNameOrGuid;
+    setGovernanceNav({ typeName: typeName || null, guid: guid || null });
     setSection('governance');
   }, []);
+
+  const [locationsNavGuid, setLocationsNavGuid] = useState(null);
+  const onNavigateToLocation = useCallback(function(guid) {
+    setLocationsNavGuid(guid || null);
+    setSection('locations');
+  }, []);
+
+  const [referenceDataNavGuid, setReferenceDataNavGuid] = useState(null);
+  const onNavigateToReferenceData = useCallback(function(guid) {
+    setReferenceDataNavGuid(guid || null);
+    setSection('reference-data');
+  }, []);
+
+  const [actorsNav, setActorsNav] = useState({ kind: null, guid: null });
+  const onNavigateToActor = useCallback(function(kind, guid) {
+    setActorsNav({ kind: kind, guid: guid });
+    setSection('actors');
+  }, []);
+
+  // Single dispatcher used by RelatedElementRow everywhere: decides the target
+  // tab purely from the related element's typeName/superTypeNames. Adding a
+  // new linkable type only requires a new branch here.
+  const onNavigateToElement = useCallback(function(item) {
+    var typeName = item.typeName || '';
+    var superTypes = item.superTypeNames || [];
+    var guid = item.guid;
+    if (typeName === 'Location') { onNavigateToLocation(guid); return; }
+    if (typeName === 'ReferenceDataValue') { onNavigateToReferenceData(guid); return; }
+    if (typeName === 'GlossaryTerm') { onNavigateToGlossary(guid); return; }
+    if (typeName === 'DigitalProduct') { onNavigateToDigitalProduct(guid); return; }
+    var actorKind = _actorKindForType(typeName, superTypes);
+    if (actorKind) { onNavigateToActor(actorKind, guid); return; }
+    if (superTypes.indexOf('GovernanceDefinition') !== -1) { onNavigateToGovernance(typeName, guid); return; }
+  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254);
 
@@ -7928,7 +8249,7 @@ function App() {
         }),
         React.createElement(NavGroup, {
           label: 'Review', connected: connected, currentSection: section,
-          isActive: ['glossary','reference-data','data-design','solution-architect','isc','locations','perspectives','governance','projects'].includes(section),
+          isActive: ['glossary','reference-data','data-design','solution-architect','isc','locations','actors','perspectives','governance','projects'].includes(section),
           onSelect: setSection,
           items: [
             { id: 'glossary',           label: 'Glossary',                needsConnect: true },
@@ -7937,6 +8258,7 @@ function App() {
             { id: 'solution-architect', label: 'Solution Architect',      needsConnect: true },
             { id: 'isc',                label: 'Supply Chains',           needsConnect: true },
             { id: 'locations',          label: 'Locations',               needsConnect: true },
+            { id: 'actors',             label: 'Actors',                  needsConnect: true },
             { id: 'perspectives',       label: 'Perspectives',            needsConnect: true },
             { id: 'governance',         label: 'Governance Definitions',  needsConnect: true },
             { id: 'projects',           label: 'Projects',                needsConnect: true },
@@ -7997,7 +8319,7 @@ function App() {
       : section === 'glossary'
       ? React.createElement(GlossaryView, { key: credsKey, navGuid: glossaryNavGuid, onNavigateToDataDesign: onNavigateToDataDesign })
       : section === 'reference-data'
-      ? React.createElement(ReferenceDataView, { key: credsKey })
+      ? React.createElement(ReferenceDataView, { key: credsKey, navGuid: referenceDataNavGuid })
       : section === 'digital-products'
       ? React.createElement(DigitalProductsView, { key: credsKey, navGuid: digitalProductNavGuid, onNavigateToGlossary: onNavigateToGlossary, onNavigateToDataSpec: onNavigateToDataSpec, onNavigateToDataDesign: onNavigateToDataDesign, onNavigateToDigitalProduct: onNavigateToDigitalProduct, onNavigateToGovernance: onNavigateToGovernance })
       : section === 'valid-values'
@@ -8015,9 +8337,11 @@ function App() {
       : section === 'isc'
       ? React.createElement(InformationSupplyChainView, { key: credsKey })
       : section === 'locations'
-      ? React.createElement(LocationsView, { key: credsKey })
+      ? React.createElement(LocationsView, { key: credsKey, navGuid: locationsNavGuid, onNavigateToElement: onNavigateToElement })
+      : section === 'actors'
+      ? React.createElement(ActorsView, { key: credsKey, navKind: actorsNav.kind, navGuid: actorsNav.guid, onNavigateToElement: onNavigateToElement })
       : section === 'governance'
-      ? React.createElement(GovernanceView, { key: credsKey })
+      ? React.createElement(GovernanceView, { key: credsKey, navTypeName: governanceNav.typeName, navGuid: governanceNav.guid })
       : section === 'projects'
       ? React.createElement(ProjectsView, { key: credsKey })
       : section === 'python-api'
