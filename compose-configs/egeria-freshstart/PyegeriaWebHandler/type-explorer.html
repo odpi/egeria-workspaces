@@ -3917,6 +3917,7 @@ const SECTION_LABELS = {
   'isc':               'Information Supply Chains',
   'locations':         'Locations',
   'actors':            'Actors',
+  'communities':       'Communities',
   'perspectives':      'Perspectives',
   'governance':        'Governance Definitions',
   'report-specs':      'Report Specifications',
@@ -4316,6 +4317,14 @@ const _SPLASH_CAPABILITIES = [
     icon: '☻',
     title: 'Actors',
     description: 'Browse actor profiles (people, teams, organizations, IT profiles), the roles they perform, and their user identities. Cross-link to assigned locations and reference values.',
+    requiresConnection: true,
+  },
+  {
+    section: 'communities',
+    group: 'review',
+    icon: '⚇',
+    title: 'Communities',
+    description: 'Browse communities of interest and the roles and people assigned to them. Cross-link to the actor profiles and roles that participate in each community.',
     requiresConnection: true,
   },
   {
@@ -6277,6 +6286,7 @@ function _elementIsLinkable(item) {
   if (item.typeName === 'ReferenceDataValue') return true;
   if (item.typeName === 'GlossaryTerm') return true;
   if (item.typeName === 'DigitalProduct') return true;
+  if (item.typeName === 'Community') return true;
   if (_actorKindForType(item.typeName, superTypes)) return true;
   if (superTypes.indexOf('GovernanceDefinition') !== -1) return true;
   if (superTypes.indexOf('Asset') !== -1) return true;
@@ -6745,6 +6755,125 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
       data: selectedItem, detail: detail,
       onNavigateToElement: onNavigateToElement,
     })
+  );
+
+  return React.createElement("div", { className: "body" },
+    sidebar,
+    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
+    mainPanel
+  );
+}
+
+function CommunityDetail({ data, detail, onNavigateToElement }) {
+  var src = detail || data;
+  if (!src) return null;
+  var fields = [['Qualified Name', src.qualifiedName], ['Mission', src.mission], ['Status', src.status]]
+    .filter(function(f) { return f[1] && String(f[1]).trim(); });
+
+  var relationships = src.relationships || {};
+  var relKeys = Object.keys(relationships).filter(function(k) { return relationships[k] && relationships[k].length; });
+
+  return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.displayName || src.qualifiedName),
+      React.createElement("span", { className: "badge", style: { background: 'rgba(192,132,252,.1)', color: '#c084fc', border: '0.5px solid rgba(192,132,252,.3)' } }, src.typeName || 'Community'),
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid }))
+    ),
+    React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, src.guid),
+    src.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(src.description)),
+    src.mermaidGraph && React.createElement("div", { style: { marginBottom: 8 } },
+      React.createElement(MermaidDiagram, { code: src.mermaidGraph })
+    ),
+    fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 20 } },
+      React.createElement("tbody", null,
+        fields.map(function(f, i) {
+          return React.createElement("tr", { key: f[0] + i, style: { borderTop: '1px solid var(--border)' } },
+            React.createElement("td", { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', width: 160, verticalAlign: 'top' } }, f[0]),
+            React.createElement("td", { style: { padding: '6px 0' } }, String(f[1]))
+          );
+        })
+      )
+    ),
+    relKeys.map(function(k) {
+      return React.createElement(RelationshipSection, { key: k, title: _prettyRelLabel(k), items: relationships[k], onNavigateToElement: onNavigateToElement });
+    }),
+    React.createElement(EgeriaCommentsSection, { guid: src.guid })
+  );
+}
+
+function CommunityView({ navGuid, onNavigateToElement }) {
+  const creds = React.useContext(CredContext);
+  const [sideW, onDivDown] = useResizable(280);
+  const [state, setState]   = useState('loading');
+  const [attempt, setAttempt] = useState(0);
+  const [items, setItems]   = useState([]);
+  const [error, setError]   = useState('');
+  const [selected, setSelected] = useState(function() {
+    var params = new URLSearchParams(window.location.search);
+    return params.get('guid') || null;
+  });
+  const [detail, setDetail] = useState(null);
+  const [detailState, setDetailState] = useState('idle');
+  const [filter, setFilter] = useState('');
+
+  useEffect(function() {
+    setState('loading'); setError('');
+    fetch(credAppend('/api/communities', creds))
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setItems(data.communities || []); setState('ready'); })
+      .catch(function(e) { setError(e.message); setState('error'); });
+  }, [attempt]);
+
+  useEffect(function() {
+    if (!selected) { setDetail(null); return; }
+    setDetailState('loading');
+    fetch(credAppend('/api/communities/' + selected, creds))
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setDetail(data); setDetailState('ready'); })
+      .catch(function() { setDetailState('error'); });
+  }, [selected]);
+
+  // Cross-tab arrival: another tab called onNavigateToElement on a Community item.
+  useEffect(function() {
+    if (navGuid) setSelected(navGuid);
+  }, [navGuid]);
+
+  var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { padding: '10px 12px 6px', fontSize: 12, fontWeight: 700, color: 'var(--text)', borderBottom: '1px solid var(--border)' } }, "Communities"),
+    React.createElement("div", { className: "search-wrap" },
+      React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
+        onChange: function(e) { setFilter(e.target.value); } })
+    ),
+    state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
+    state === 'error' && React.createElement("div", { style: { padding: 16 } },
+      React.createElement("div", { style: { color: '#f87171', fontSize: 13, marginBottom: 8 } }, "Error: " + error),
+      React.createElement("button", { className: "view-tab on", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "Retry")
+    ),
+    state === 'ready' && React.createElement("div", { style: { overflowY: 'auto', flex: 1 } },
+      (function() {
+        var q = filter.toLowerCase();
+        var vis = items.filter(function(x) { return !q || (x.displayName || x.qualifiedName || '').toLowerCase().includes(q); });
+        if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, q ? "No matches" : "No communities found");
+        return vis.map(function(x) {
+          return React.createElement("div", {
+            key: x.guid, className: "tree-item" + (selected === x.guid ? " sel" : ""),
+            onClick: function() { setSelected(x.guid); }, title: x.qualifiedName || x.guid,
+          },
+            React.createElement("span", { className: "type-name" }, x.displayName || x.qualifiedName)
+          );
+        });
+      })()
+    )
+  );
+
+  var selectedItem = selected ? items.find(function(x) { return x.guid === selected; }) : null;
+  var mainPanel = React.createElement("div", { className: "main", style: { flex: 1, overflowY: 'auto' } },
+    !selected && React.createElement("div", { className: "center" },
+      React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a community from the sidebar")
+    ),
+    selected && detailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
+    selected && detailState === 'error'   && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load community detail"),
+    selected && (detailState === 'ready' || selectedItem) && React.createElement(CommunityDetail, { data: selectedItem, detail: detail, onNavigateToElement: onNavigateToElement })
   );
 
   return React.createElement("div", { className: "body" },
@@ -8065,7 +8194,7 @@ function App() {
     var hash = window.location.hash.slice(1);
     var valid = new Set(['type-system','reference-data','digital-products','glossary',
       'report-specs','valid-values','rest-apis','python-api','solution-architect',
-      'data-design','perspectives','dr-egeria','isc','locations','actors','governance','projects']);
+      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','governance','projects']);
     return valid.has(hash) ? hash : 'splash';
   });
   const [glossaryNavGuid, setGlossaryNavGuid] = useState(null);
@@ -8126,6 +8255,12 @@ function App() {
     setSection('actors');
   }, []);
 
+  const [communitiesNavGuid, setCommunitiesNavGuid] = useState(null);
+  const onNavigateToCommunity = useCallback(function(guid) {
+    setCommunitiesNavGuid(guid || null);
+    setSection('communities');
+  }, []);
+
   // Single dispatcher used by RelatedElementRow everywhere: decides the target
   // tab purely from the related element's typeName/superTypeNames. Adding a
   // new linkable type only requires a new branch here.
@@ -8137,10 +8272,11 @@ function App() {
     if (typeName === 'ReferenceDataValue') { onNavigateToReferenceData(guid); return; }
     if (typeName === 'GlossaryTerm') { onNavigateToGlossary(guid); return; }
     if (typeName === 'DigitalProduct') { onNavigateToDigitalProduct(guid); return; }
+    if (typeName === 'Community') { onNavigateToCommunity(guid); return; }
     var actorKind = _actorKindForType(typeName, superTypes);
     if (actorKind) { onNavigateToActor(actorKind, guid); return; }
     if (superTypes.indexOf('GovernanceDefinition') !== -1) { onNavigateToGovernance(typeName, guid); return; }
-  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance]);
+  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254);
 
@@ -8249,7 +8385,7 @@ function App() {
         }),
         React.createElement(NavGroup, {
           label: 'Review', connected: connected, currentSection: section,
-          isActive: ['glossary','reference-data','data-design','solution-architect','isc','locations','actors','perspectives','governance','projects'].includes(section),
+          isActive: ['glossary','reference-data','data-design','solution-architect','isc','locations','actors','communities','perspectives','governance','projects'].includes(section),
           onSelect: setSection,
           items: [
             { id: 'glossary',           label: 'Glossary',                needsConnect: true },
@@ -8259,6 +8395,7 @@ function App() {
             { id: 'isc',                label: 'Supply Chains',           needsConnect: true },
             { id: 'locations',          label: 'Locations',               needsConnect: true },
             { id: 'actors',             label: 'Actors',                  needsConnect: true },
+            { id: 'communities',        label: 'Communities',             needsConnect: true },
             { id: 'perspectives',       label: 'Perspectives',            needsConnect: true },
             { id: 'governance',         label: 'Governance Definitions',  needsConnect: true },
             { id: 'projects',           label: 'Projects',                needsConnect: true },
@@ -8340,6 +8477,8 @@ function App() {
       ? React.createElement(LocationsView, { key: credsKey, navGuid: locationsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'actors'
       ? React.createElement(ActorsView, { key: credsKey, navKind: actorsNav.kind, navGuid: actorsNav.guid, onNavigateToElement: onNavigateToElement })
+      : section === 'communities'
+      ? React.createElement(CommunityView, { key: credsKey, navGuid: communitiesNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'governance'
       ? React.createElement(GovernanceView, { key: credsKey, navTypeName: governanceNav.typeName, navGuid: governanceNav.guid })
       : section === 'projects'
