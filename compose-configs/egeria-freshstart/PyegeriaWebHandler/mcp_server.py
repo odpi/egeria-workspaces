@@ -153,6 +153,7 @@ def _build_structured_response(raw: dict, directive: str) -> str:
 
     validation_errors = []
     execution_errors  = []
+    commands_detail   = []   # per-command: step, command, status, guid, qualified_name, display_name, message
     commands_total    = 0
     commands_succeeded = 0
     commands_failed   = 0
@@ -166,6 +167,20 @@ def _build_structured_response(raw: dict, directive: str) -> str:
         obj     = res.get("object_type", "")
         command = f"{verb} {obj}".strip() or "(unknown)"
         message = res.get("message", "")
+        guid    = res.get("guid") or ""
+        qn      = res.get("qualified_name") or ""
+        dn      = res.get("display_name") or ""
+
+        detail = {
+            "step": step,
+            "command": command,
+            "status": status,
+            "guid": guid,
+            "qualified_name": qn,
+            "display_name": dn,
+            "message": message,
+        }
+        commands_detail.append(detail)
 
         if status == "failure":
             commands_failed += 1
@@ -192,6 +207,7 @@ def _build_structured_response(raw: dict, directive: str) -> str:
         "commands_total": commands_total,
         "commands_succeeded": commands_succeeded,
         "commands_failed": commands_failed,
+        "commands_detail": commands_detail,
     })
 
 
