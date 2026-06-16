@@ -196,12 +196,14 @@ def _serialize_detail(element: dict) -> dict:
                 rp = entry.get("properties") or {}
                 g  = rh.get("guid") or ""
             if g:
+                rtype = rh.get("type") or {}
                 items.append({
-                    "guid":          g,
-                    "typeName":      (rh.get("type") or {}).get("typeName") or "",
-                    "displayName":   rp.get("displayName") or rp.get("name") or "",
-                    "qualifiedName": rp.get("qualifiedName") or "",
-                    "description":   rp.get("description") or "",
+                    "guid":           g,
+                    "typeName":       rtype.get("typeName") or "",
+                    "superTypeNames": rtype.get("superTypeNames") or [],
+                    "displayName":    rp.get("displayName") or rp.get("name") or "",
+                    "qualifiedName":  rp.get("qualifiedName") or "",
+                    "description":    rp.get("description") or "",
                 })
         if items:
             relationships[key] = items

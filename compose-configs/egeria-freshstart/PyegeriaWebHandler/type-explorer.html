@@ -3549,62 +3549,9 @@ function TabularPreviewModal({ guid, name, creds, onClose }) {
 
 // ── Digital Products Explorer ─────────────────────────────────────────────────
 
-function DigitalProductDetail({ product, onNavigateToGlossary, onNavigateToDataSpec, onNavigateToDataDesign, onNavigateToDigitalProduct, onNavigateToGovernance, creds }) {
+function DigitalProductDetail({ product, onNavigateToElement, creds }) {
   if (!product) return null;
   var _previewState = useState(null), previewDs = _previewState[0], setPreviewDs = _previewState[1];
-
-  const DD_TYPES = { DataField: 1, DataStructure: 1, DataSpec: 1, DataGrain: 1, DataClass: 1, DataSpecCollection: 1 };
-  const DP_TYPES = { DigitalProduct: 1, DigitalProductFamily: 1, DigitalProductCatalog: 1, TabularDataSetCollection: 1, Collection: 1 };
-  const GOV_DEF_SUPERS = { GovernanceDefinition: 1, GovernanceDriver: 1, GovernancePolicy: 1, GovernanceControl: 1,
-    GovernanceStrategy: 1, BusinessImperative: 1, Regulation: 1, RegulationArticle: 1, Threat: 1,
-    GovernanceApproach: 1, GovernanceObligation: 1, GovernancePrinciple: 1,
-    GovernanceRule: 1, GovernanceProcedure: 1, GovernanceMetric: 1, GovernanceResponsibility: 1,
-    NotificationType: 1, Requirement: 1, ResearchQuestion: 1, NamingStandardRule: 1, Methodology: 1,
-    SecurityAccessControl: 1, GovernanceZone: 1, ServiceAccessControl: 1,
-    TermsAndConditions: 1, CertificationType: 1, LicenseType: 1, ServiceLevelObjective: 1,
-    DataLens: 1, DataProcessingPurpose: 1, ExceptionType: 1,
-    GovernanceActionProcess: 1, GovernanceActionProcessStep: 1,
-    GovernanceActionType: 1, GovernanceEngine: 1, GovernanceService: 1 };
-
-  function camelToLabel(s) {
-    return s.replace(/([A-Z])/g, ' $1').replace(/^(.)/, function(c) { return c.toUpperCase(); }).trim();
-  }
-
-  function renderRelSection(key, items) {
-    if (!items || items.length === 0) return null;
-    return React.createElement("div", { key: key, style: { marginBottom: 16 } },
-      React.createElement("div", { style: { fontWeight: 600, fontSize: 13, marginBottom: 6, color: 'var(--accent)' } },
-        camelToLabel(key) + " (" + items.length + ")"
-      ),
-      items.map(function(item, i) {
-        var tn = item.typeName || '';
-        var isGlossary = tn === 'GlossaryTerm' || tn === 'Glossary' || tn === 'GlossaryCategory';
-        var isDD  = DD_TYPES[tn];
-        var isDP  = DP_TYPES[tn];
-        var isGov = GOV_DEF_SUPERS[tn];
-        return React.createElement("div", { key: item.guid || i, style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '4px 0', borderTop: '1px solid var(--border)' } },
-          React.createElement("span", { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, item.displayName || item.qualifiedName || item.guid),
-          tn && React.createElement("span", { style: { color: 'var(--dim)', fontSize: 10, flexShrink: 0 } }, tn),
-          isGlossary && onNavigateToGlossary && React.createElement("button", {
-            onClick: function() { onNavigateToGlossary(item.guid); },
-            style: { flexShrink: 0, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(134,239,172,.4)', background: 'rgba(134,239,172,.1)', color: '#86efac', cursor: 'pointer', fontSize: 11 }
-          }, "View →"),
-          isDD && onNavigateToDataDesign && React.createElement("button", {
-            onClick: function() { onNavigateToDataDesign(tn, item.guid); },
-            style: { flexShrink: 0, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(94,234,212,.4)', background: 'rgba(94,234,212,.1)', color: '#5eead4', cursor: 'pointer', fontSize: 11 }
-          }, "View →"),
-          isDP && onNavigateToDigitalProduct && React.createElement("button", {
-            onClick: function() { onNavigateToDigitalProduct(item.guid); },
-            style: { flexShrink: 0, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(167,139,250,.4)', background: 'rgba(167,139,250,.1)', color: '#a78bfa', cursor: 'pointer', fontSize: 11 }
-          }, "View →"),
-          isGov && onNavigateToGovernance && React.createElement("button", {
-            onClick: function() { onNavigateToGovernance(tn, item.guid); },
-            style: { flexShrink: 0, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(251,191,36,.4)', background: 'rgba(251,191,36,.1)', color: '#fcd34d', cursor: 'pointer', fontSize: 11 }
-          }, "View →")
-        );
-      })
-    );
-  }
 
   const fields = [
     ['Qualified Name',   product.qualifiedName],
@@ -3653,10 +3600,10 @@ function DigitalProductDetail({ product, onNavigateToGlossary, onNavigateToDataS
           React.createElement("span", { style: { flex: 1 } }, m.displayName || m.qualifiedName || m.guid),
           React.createElement("span", { className: "badge", style: Object.assign({ fontSize: 9 }, memberBadgeStyle(m.typeName || tn)) }, m.typeName || tn),
           isDataSpec && React.createElement("button", {
-            onClick: function() { onNavigateToDataSpec && onNavigateToDataSpec(m.guid); },
-            disabled: !onNavigateToDataSpec,
-            title: onNavigateToDataSpec ? 'View in Data Design tab' : 'Data Design tab coming in Phase 3',
-            style: { padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(74,222,128,.4)', background: onNavigateToDataSpec ? 'rgba(74,222,128,.1)' : 'transparent', color: onNavigateToDataSpec ? '#86efac' : 'var(--dim)', cursor: onNavigateToDataSpec ? 'pointer' : 'not-allowed', fontSize: 11, opacity: onNavigateToDataSpec ? 1 : 0.5 }
+            onClick: function() { onNavigateToElement && onNavigateToElement({ guid: m.guid, typeName: m.typeName || tn, superTypeNames: m.superTypeNames }); },
+            disabled: !onNavigateToElement,
+            title: onNavigateToElement ? 'View in Data Design tab' : 'Data Design tab coming in Phase 3',
+            style: { padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(74,222,128,.4)', background: onNavigateToElement ? 'rgba(74,222,128,.1)' : 'transparent', color: onNavigateToElement ? '#86efac' : 'var(--dim)', cursor: onNavigateToElement ? 'pointer' : 'not-allowed', fontSize: 11, opacity: onNavigateToElement ? 1 : 0.5 }
           }, "View Data Spec →"),
           isTabular && React.createElement("button", {
             onClick: function() { setPreviewDs({ guid: m.guid, name: m.displayName || m.qualifiedName || m.guid }); },
@@ -3706,7 +3653,9 @@ function DigitalProductDetail({ product, onNavigateToGlossary, onNavigateToDataS
     ),
     product.relationships && Object.keys(product.relationships).length > 0 && React.createElement("div", { style: { marginTop: memberTypeNames.length > 0 ? 24 : 0 } },
       React.createElement("div", { style: { fontWeight: 700, fontSize: 13, marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' } }, "Relationships"),
-      Object.entries(product.relationships).map(function(entry) { return renderRelSection(entry[0], entry[1]); })
+      Object.entries(product.relationships).map(function(entry) {
+        return React.createElement(RelationshipSection, { key: entry[0], title: _prettyRelLabel(entry[0]), items: entry[1], onNavigateToElement: onNavigateToElement });
+      })
     ),
     React.createElement(EgeriaCommentsSection, { guid: product.guid }),
     previewDs && React.createElement(TabularPreviewModal, { guid: previewDs.guid, name: previewDs.name, creds: creds, onClose: function() { setPreviewDs(null); } })
@@ -3751,7 +3700,7 @@ function DigitalTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggle
   );
 }
 
-function DigitalProductsView({ navGuid, onNavigateToGlossary, onNavigateToDataSpec, onNavigateToDataDesign, onNavigateToDigitalProduct, onNavigateToGovernance }) {
+function DigitalProductsView({ navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(254);
   const [treeW, onTreeDivDown] = useResizable(300);
@@ -3894,7 +3843,7 @@ function DigitalProductsView({ navGuid, onNavigateToGlossary, onNavigateToDataSp
     // Node detail (right)
     React.createElement("div", { className: "main" },
       (selectedNodeObj || nodeDetail)
-        ? React.createElement(DigitalProductDetail, { product: selectedNodeObj ? Object.assign({}, selectedNodeObj, { relationships: (nodeDetail || {}).relationships }) : nodeDetail, onNavigateToGlossary: onNavigateToGlossary, onNavigateToDataSpec: onNavigateToDataSpec, onNavigateToDataDesign: onNavigateToDataDesign, onNavigateToDigitalProduct: onNavigateToDigitalProduct, onNavigateToGovernance: onNavigateToGovernance, creds: creds })
+        ? React.createElement(DigitalProductDetail, { product: selectedNodeObj ? Object.assign({}, selectedNodeObj, { relationships: (nodeDetail || {}).relationships }) : nodeDetail, onNavigateToElement: onNavigateToElement, creds: creds })
         : selectedNode
         ? React.createElement("div", { className: "center" }, React.createElement("div", { className: "spinner" }))
         : React.createElement("div", { className: "center" },
@@ -5392,7 +5341,7 @@ function SolutionBlueprintDetail({ blueprint, onNavigateToComponent, onNavigateT
   );
 }
 
-function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateToComponent }) {
+function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateToComponent, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [implState, setImplState] = useState('idle');
   const [implementations, setImplementations] = useState([]);
@@ -5458,7 +5407,7 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
     relSection("Parent Blueprints", component.blueprints, onNavigateToBlueprint),
     relSection("Parent Components", component.parentComponents, onNavigateToComponent),
     relSection("Sub-components", component.subComponents, onNavigateToComponent),
-    relSection("Actors", component.actors, null),
+    React.createElement(RelationshipSection, { title: "Actors", items: component.actors, onNavigateToElement: onNavigateToElement }),
     relSection("Wired To", component.wiredTo, onNavigateToComponent),
     relSection("Wired From", component.wiredFrom, onNavigateToComponent),
     React.createElement("div", { style: { marginBottom: 16 } },
@@ -5473,10 +5422,7 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
       ),
       implState === 'done' && implementations.length === 0 && React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)' } }, "No implementations found"),
       implState === 'done' && implementations.map(function(impl) {
-        return React.createElement("div", { key: impl.guid, style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '4px 0', borderTop: '1px solid var(--border)' } },
-          React.createElement("span", { style: { flex: 1 } }, impl.displayName || impl.qualifiedName),
-          impl.typeName && React.createElement("span", { className: "badge", style: { fontSize: 10, background: 'rgba(74,222,128,.1)', color: '#86efac', border: '0.5px solid rgba(74,222,128,.25)' } }, impl.typeName)
-        );
+        return React.createElement(RelatedElementRow, { key: impl.guid, item: impl, onNavigateToElement: onNavigateToElement });
       })
     ),
     React.createElement(EgeriaCommentsSection, { guid: component.guid })
@@ -5485,7 +5431,7 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
 
 // ── Perspectives & Questions ───────────────────────────────────────────────────
 
-function PerspectivesView({ onNavigateToGlossary }) {
+function PerspectivesView({ onNavigateToGlossary, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(260);
   const [subNav, setSubNav]   = useState('perspectives');
@@ -5567,6 +5513,8 @@ function PerspectivesView({ onNavigateToGlossary }) {
           btnLabel = 'View in Questions →'; btnClick = function() { navigateToQuestion(item.guid); }; btnColor = '#fde68a';
         } else if (isGlossaryTerm) {
           btnLabel = 'View in Glossary →'; btnClick = function() { onNavigateToGlossary && onNavigateToGlossary(item.guid); }; btnColor = '#86efac';
+        } else if (onNavigateToElement && _elementIsLinkable(item)) {
+          btnLabel = 'View →'; btnClick = function() { onNavigateToElement(item); }; btnColor = '#5eead4';
         }
         return React.createElement("div", { key: item.guid || i, style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '4px 0', borderTop: '1px solid var(--border)' } },
           React.createElement("span", { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, item.displayName || item.qualifiedName || item.guid),
@@ -6124,7 +6072,7 @@ function DrEgeriaCommandsView() {
 
 // ── Information Supply Chain View ─────────────────────────────────────────────
 
-function ISCDetail({ data, detail }) {
+function ISCDetail({ data, detail, onNavigateToElement }) {
   // data = list item (has mermaid fields from add_implementation=True)
   // detail = full detail from /api/isc/{guid} (has segments, implementations)
   var src = data || detail;
@@ -6136,22 +6084,6 @@ function ISCDetail({ data, detail }) {
     ['Lifecycle Status',   src.lifecycleStatus],
     ['Status',             src.status],
   ].filter(function(f) { return f[1] && String(f[1]).trim(); });
-
-  function relSection(title, items) {
-    if (!items || !items.length) return null;
-    return React.createElement("div", { style: { marginBottom: 16 } },
-      React.createElement("div", { style: { fontWeight: 600, fontSize: 13, marginBottom: 6, color: 'var(--accent)' } }, title + " (" + items.length + ")"),
-      items.map(function(item) {
-        return React.createElement("div", { key: item.guid, style: { display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, padding: '6px 0', borderTop: '1px solid var(--border)' } },
-          React.createElement("div", { style: { flex: 1 } },
-            React.createElement("div", null, item.displayName || item.qualifiedName),
-            item.description && React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', marginTop: 2 } }, item.description)
-          ),
-          item.typeName && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)' } }, item.typeName)
-        );
-      })
-    );
-  }
 
   var structural = detail || data;
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
@@ -6176,13 +6108,13 @@ function ISCDetail({ data, detail }) {
         })
       )
     ),
-    relSection("Segments", structural.segments),
-    relSection("Implementations", structural.implementations),
+    React.createElement(RelationshipSection, { title: "Segments", items: structural.segments, onNavigateToElement: onNavigateToElement }),
+    React.createElement(RelationshipSection, { title: "Implementations", items: structural.implementations, onNavigateToElement: onNavigateToElement }),
     React.createElement(EgeriaCommentsSection, { guid: src.guid })
   );
 }
 
-function InformationSupplyChainView() {
+function InformationSupplyChainView({ onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(280);
   const [state, setState]   = useState('loading');
@@ -6250,7 +6182,7 @@ function InformationSupplyChainView() {
     ),
     selected && detailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
     selected && detailState === 'error'   && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load ISC detail"),
-    selected && (detailState === 'ready' || selectedItem) && React.createElement(ISCDetail, { data: selectedItem, detail: detail })
+    selected && (detailState === 'ready' || selectedItem) && React.createElement(ISCDetail, { data: selectedItem, detail: detail, onNavigateToElement: onNavigateToElement })
   );
 
   return React.createElement("div", { className: "body" },
@@ -6278,6 +6210,10 @@ function _actorKindForType(typeName, superTypeNames) {
   return null;
 }
 
+// Data Design sub-tab types — routed via onNavigateToDataDesign(typeName, guid)
+// rather than the generic Collection fallback below, since they have their own tab.
+var DD_TYPES_SET = { DataField: 1, DataStructure: 1, DataSpec: 1, DataGrain: 1, DataClass: 1, DataSpecCollection: 1 };
+
 // Returns true if onNavigateToElement (or the Tech Catalog external link)
 // has a known target for this item's type.
 function _elementIsLinkable(item) {
@@ -6287,9 +6223,13 @@ function _elementIsLinkable(item) {
   if (item.typeName === 'GlossaryTerm') return true;
   if (item.typeName === 'DigitalProduct') return true;
   if (item.typeName === 'Community') return true;
+  if (DD_TYPES_SET[item.typeName]) return true;
   if (_actorKindForType(item.typeName, superTypes)) return true;
   if (superTypes.indexOf('GovernanceDefinition') !== -1) return true;
   if (superTypes.indexOf('Asset') !== -1) return true;
+  // Generic Collection fallback (e.g. Folio) — opens via the Digital Products
+  // tab's by-guid lookup, which works for any Collection subtype.
+  if (superTypes.indexOf('Collection') !== -1) return true;
   return false;
 }
 
@@ -6883,7 +6823,7 @@ function CommunityView({ navGuid, onNavigateToElement }) {
   );
 }
 
-function SolutionArchitectView() {
+function SolutionArchitectView({ onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(260);
   const [subNav, setSubNav] = useState('blueprints'); // 'blueprints' | 'components'
@@ -7031,7 +6971,8 @@ function SolutionArchitectView() {
       selectedComp && compDetailState === 'ready' && compDetail && React.createElement(SolutionComponentDetail, {
         component: compDetail,
         onNavigateToBlueprint: onNavigateToBlueprint,
-        onNavigateToComponent: onNavigateToComponent
+        onNavigateToComponent: onNavigateToComponent,
+        onNavigateToElement: onNavigateToElement
       })
     )
   );
@@ -7364,27 +7305,8 @@ const _GOV_DOMAIN_NAMES = {
   '7':   'Domain 7 — Asset Management',
 };
 
-function GovDefDetail({ definition, onSelectGuid }) {
+function GovDefDetail({ definition, onNavigateToElement }) {
   if (!definition) return null;
-
-  const GOV_TYPES = new Set([
-    'GovernanceDefinition','GovernanceDriver','GovernancePolicy','GovernanceControl',
-    // GovernanceDriver subtypes
-    'BusinessImperative','GovernanceStrategy','Regulation','RegulationArticle','Threat',
-    // GovernancePolicy subtypes
-    'GovernanceApproach','GovernanceObligation','GovernancePrinciple',
-    // GovernanceControl subtypes
-    'DataLens','DataProcessingPurpose','ExceptionType','GovernanceMetric',
-    'GovernanceProcedure','Methodology','GovernanceResponsibility',
-    'GovernanceRule','NamingStandardRule','NotificationType',
-    'Requirement','ResearchQuestion',
-    'SecurityAccessControl','GovernanceZone','ServiceAccessControl',
-    'TermsAndConditions','CertificationType','LicenseType','ServiceLevelObjective',
-  ]);
-
-  function camelToLabel(s) {
-    return s.replace(/([A-Z])/g, ' $1').replace(/^(.)/, function(c) { return c.toUpperCase(); }).trim();
-  }
 
   const SCALAR_FIELDS = [
     ['Qualified Name',    definition.qualifiedName],
@@ -7399,26 +7321,6 @@ function GovDefDetail({ definition, onSelectGuid }) {
     ['Outcomes',          definition.outcomes],
     ['Results',           definition.results],
   ].filter(([, v]) => v && String(v).trim());
-
-  function relSection(key, items) {
-    if (!items || !items.length) return null;
-    return React.createElement('div', { key: key, style: { marginBottom: 16 } },
-      React.createElement('div', { style: { fontWeight: 600, fontSize: 13, marginBottom: 6, color: 'var(--accent)' } },
-        camelToLabel(key) + ' (' + items.length + ')'
-      ),
-      items.map(function(item) {
-        const isGov = GOV_TYPES.has(item.typeName);
-        return React.createElement('div', { key: item.guid, style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '4px 0', borderTop: '1px solid var(--border)' } },
-          React.createElement('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, item.displayName || item.qualifiedName || item.guid),
-          item.typeName && React.createElement('span', { className: 'badge', style: { fontSize: 10, background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)', flexShrink: 0 } }, item.typeName),
-          isGov && React.createElement('button', {
-            onClick: function() { onSelectGuid && onSelectGuid(item.guid); },
-            style: { flexShrink: 0, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(167,139,250,.4)', background: 'rgba(167,139,250,.1)', color: '#c4b5fd', cursor: 'pointer', fontSize: 11 }
-          }, 'View →')
-        );
-      })
-    );
-  }
 
   return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
@@ -7444,7 +7346,9 @@ function GovDefDetail({ definition, onSelectGuid }) {
     ),
     definition.relationships && Object.keys(definition.relationships).length > 0 && React.createElement('div', null,
       React.createElement('div', { style: { fontWeight: 700, fontSize: 13, marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' } }, 'Relationships'),
-      Object.entries(definition.relationships).map(function(pair) { return relSection(pair[0], pair[1]); })
+      Object.entries(definition.relationships).map(function(pair) {
+        return React.createElement(RelationshipSection, { key: pair[0], title: _prettyRelLabel(pair[0]), items: pair[1], onNavigateToElement: onNavigateToElement });
+      })
     ),
     React.createElement(EgeriaCommentsSection, { guid: definition.guid })
   );
@@ -7477,7 +7381,7 @@ function GovTypeNode({ node, depth, selectedType, onSelect, expanded, toggleExpa
   );
 }
 
-function GovernanceView({ navTypeName, navGuid }) {
+function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown]     = useResizable(220);
   const [listW, onListDivDown] = useResizable(280);
@@ -7662,7 +7566,7 @@ function GovernanceView({ navTypeName, navGuid }) {
       detailLoading
         ? React.createElement('div', { className: 'center' }, React.createElement('div', { className: 'spinner' }))
         : detail
-        ? React.createElement(GovDefDetail, { definition: detail, onSelectGuid: function(g) { setSelGuid(g); } })
+        ? React.createElement(GovDefDetail, { definition: detail, onNavigateToElement: onNavigateToElement })
         : React.createElement('div', { className: 'center' },
             React.createElement('span', { style: { color: 'var(--muted)' } }, definitions.length === 0 && listState === 'ready' ? 'No definitions found' : 'Select a definition to view details')
           )
@@ -8271,12 +8175,20 @@ function App() {
     if (typeName === 'Location') { onNavigateToLocation(guid); return; }
     if (typeName === 'ReferenceDataValue') { onNavigateToReferenceData(guid); return; }
     if (typeName === 'GlossaryTerm') { onNavigateToGlossary(guid); return; }
-    if (typeName === 'DigitalProduct') { onNavigateToDigitalProduct(guid); return; }
     if (typeName === 'Community') { onNavigateToCommunity(guid); return; }
+    if (DD_TYPES_SET[typeName]) { onNavigateToDataDesign(typeName, guid); return; }
+    if (typeName === 'DigitalProduct') { onNavigateToDigitalProduct(guid); return; }
     var actorKind = _actorKindForType(typeName, superTypes);
     if (actorKind) { onNavigateToActor(actorKind, guid); return; }
     if (superTypes.indexOf('GovernanceDefinition') !== -1) { onNavigateToGovernance(typeName, guid); return; }
-  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity]);
+    // Generic Collection fallback (e.g. Folio) — Digital Products' by-guid lookup
+    // works for any Collection subtype even though it isn't in the catalog tree.
+    if (superTypes.indexOf('Collection') !== -1) { onNavigateToDigitalProduct(guid); return; }
+    // Tech Catalog asset — open externally (mirrors RelatedElementRow's dedicated
+    // "↗ Tech Catalog" link, for callers that route everything through this
+    // single dispatcher instead of rendering that link separately).
+    if (superTypes.indexOf('Asset') !== -1) { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
+  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToDataDesign]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254);
 
@@ -8458,21 +8370,21 @@ function App() {
       : section === 'reference-data'
       ? React.createElement(ReferenceDataView, { key: credsKey, navGuid: referenceDataNavGuid })
       : section === 'digital-products'
-      ? React.createElement(DigitalProductsView, { key: credsKey, navGuid: digitalProductNavGuid, onNavigateToGlossary: onNavigateToGlossary, onNavigateToDataSpec: onNavigateToDataSpec, onNavigateToDataDesign: onNavigateToDataDesign, onNavigateToDigitalProduct: onNavigateToDigitalProduct, onNavigateToGovernance: onNavigateToGovernance })
+      ? React.createElement(DigitalProductsView, { key: credsKey, navGuid: digitalProductNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'valid-values'
       ? React.createElement(ValidValuesView, { key: credsKey, navProp: validValuesNavProp })
       : section === 'rest-apis'
       ? React.createElement(RestApiView, { key: credsKey })
       : section === 'solution-architect'
-      ? React.createElement(SolutionArchitectView, { key: credsKey })
+      ? React.createElement(SolutionArchitectView, { key: credsKey, onNavigateToElement: onNavigateToElement })
       : section === 'data-design'
       ? React.createElement(DataDesignView, { key: credsKey, navGuid: dataDesignNav.guid, navType: dataDesignNav.type, onNavigateToGlossary: onNavigateToGlossary, onNavigateToDigitalProduct: onNavigateToDigitalProduct })
       : section === 'perspectives'
-      ? React.createElement(PerspectivesView, { key: credsKey, onNavigateToGlossary: onNavigateToGlossary })
+      ? React.createElement(PerspectivesView, { key: credsKey, onNavigateToGlossary: onNavigateToGlossary, onNavigateToElement: onNavigateToElement })
       : section === 'dr-egeria'
       ? React.createElement(DrEgeriaCommandsView, null)
       : section === 'isc'
-      ? React.createElement(InformationSupplyChainView, { key: credsKey })
+      ? React.createElement(InformationSupplyChainView, { key: credsKey, onNavigateToElement: onNavigateToElement })
       : section === 'locations'
       ? React.createElement(LocationsView, { key: credsKey, navGuid: locationsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'actors'
@@ -8480,7 +8392,7 @@ function App() {
       : section === 'communities'
       ? React.createElement(CommunityView, { key: credsKey, navGuid: communitiesNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'governance'
-      ? React.createElement(GovernanceView, { key: credsKey, navTypeName: governanceNav.typeName, navGuid: governanceNav.guid })
+      ? React.createElement(GovernanceView, { key: credsKey, navTypeName: governanceNav.typeName, navGuid: governanceNav.guid, onNavigateToElement: onNavigateToElement })
       : section === 'projects'
       ? React.createElement(ProjectsView, { key: credsKey })
       : section === 'python-api'
