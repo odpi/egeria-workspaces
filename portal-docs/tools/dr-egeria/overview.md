@@ -6,6 +6,8 @@ Dr. Egeria is a markdown-driven command interface for Egeria. You write commands
 
 ## How it works
 
+### Via Obsidian (primary workflow)
+
 ```mermaid
 sequenceDiagram
     participant You
@@ -18,10 +20,18 @@ sequenceDiagram
     Obsidian->>Backend: Send note content (MCP)
     Backend->>Egeria: Execute command
     Egeria-->>Backend: Results
-    Backend-->>Obsidian: Markdown result
-    Obsidian->>Obsidian: Save to outbox
+    Backend-->>Obsidian: Structured JSON response
+    Obsidian->>Obsidian: Save output to outbox
     Obsidian->>You: Show results modal
 ```
+
+The MCP tool `dr_egeria_run_block` returns a **structured JSON response** (not plain text) containing `success`, `partial`, per-step `validation_errors` and `execution_errors`, command counts, and the full output document. See [Using MCP in Egeria-Workspaces](../../Using MCP in Egeria-Workspaces.md) for the full response schema.
+
+### Via Egeria Explorer (browser testing)
+
+The **Egeria Explorer** has a built-in Execute panel for running individual commands directly in the browser — no Obsidian required. It shows the same structured result: success/partial/failure banner, validation and execution error lists, and the output document.
+
+Use the Execute panel for testing individual commands. Use Obsidian for production workflows with multi-command sequences and narrative prose.
 
 ---
 

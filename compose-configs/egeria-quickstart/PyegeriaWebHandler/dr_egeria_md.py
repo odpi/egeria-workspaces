@@ -15,8 +15,9 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Use local md_processing
+import md_processing.md_processing_utils.md_processing_constants as _md_constants
 from md_processing.md_processing_utils.md_processing_constants import (
-    load_commands, get_command_spec, build_command_variants, 
+    load_commands, get_command_spec, build_command_variants,
     PROJECT_SUBTYPES, COLLECTION_SUBTYPES, COMMAND_DEFINITIONS
 )
 from md_processing.v2 import (
@@ -65,7 +66,7 @@ except ImportError as e:
     AttachDataValueSpecificationProcessor = globals().get('AttachDataValueSpecificationProcessor')
 
 def register_solution_architect_processors(register_processor_fn: Callable):
-    specs = COMMAND_DEFINITIONS.get("Command Specifications", {})
+    specs = _md_constants.COMMAND_DEFINITIONS.get("Command Specifications", {})
     link_verbs = {"Link", "Attach", "Add", "Detach", "Unlink", "Remove"}
     for base_name, spec in specs.items():
         if not isinstance(spec, dict) or spec.get("family") != "Solution Architect":
@@ -85,7 +86,7 @@ def register_solution_architect_processors(register_processor_fn: Callable):
         register_processor_fn(base_name, processor_cls)
 
 def register_governance_processors(register_processor_fn: Callable):
-    specs = COMMAND_DEFINITIONS.get("Command Specifications", {})
+    specs = _md_constants.COMMAND_DEFINITIONS.get("Command Specifications", {})
     for base_name, spec in specs.items():
         if not isinstance(spec, dict) or spec.get("family") != "Governance":
             continue
@@ -248,16 +249,117 @@ async def process_md_file_async(input_file: str, output_folder: str, directive: 
         return f"Warning: No valid Egeria commands found in {input_file}"
 
     results = await dispatcher.dispatch_batch(commands, context={"directive": directive})
-    
+
     # Aggregate output
     final_output = ""
     for res in results:
         if res.get("output"):
             final_output += res["output"] + "\n\n"
-    
+
     return final_output
 
-def process_markdown_file(input_file: str, output_folder: str, directive: str, 
+
+async def process_md_file_structured_async(
+    input_file: str, output_folder: str, directive: str,
+    server: str, url: str, userid: str, user_pass: str,
+    outbox_path: Optional[str] = None,
+) -> dict:
+    """Like process_md_file_async but returns the full per-command result list alongside aggregated output."""
+    width = int(os.environ.get("EGERIA_WIDTH", "100"))
+    root_path = os.environ.get("EGERIA_ROOT_PATH", "/")
+    inbox_path = os.environ.get("EGERIA_INBOX_PATH", "dr-egeria-inbox")
+
+    Console(width=width, force_terminal=False)
+    client = EgeriaTech(server, url, user_id=userid)
+    client.create_egeria_bearer_token(userid, user_pass)
+
+    dispatcher = setup_dispatcher(client)
+
+    if os.path.isabs(input_file):
+        full_file_path = os.path.normpath(input_file)
+    else:
+        full_file_path = os.path.normpath(os.path.join(root_path, inbox_path, input_file))
+
+    if not os.path.exists(full_file_path):
+        for mp in ["/work", "/coco-workbooks", "/work/Work-Obsidian"]:
+            fallback = os.path.normpath(os.path.join(mp, input_file.lstrip("/")))
+            if os.path.exists(fallback):
+                full_file_path = fallback
+                break
+
+    if not os.path.exists(full_file_path):
+        return {"output": f"Error: File not found at {full_file_path}", "results": [], "error": "file_not_found"}
+
+    try:
+        with open(full_file_path, 'r') as f:
+            content = f.read()
+    except Exception as e:
+        return {"output": f"Error: Failed to read {full_file_path}: {e}", "results": [], "error": "read_error"}
+
+    extractor = UniversalExtractor(content)
+    commands = extractor.extract_commands()
+
+    if not commands:
+        return {"output": "Warning: No valid Egeria commands found", "results": [], "error": "no_commands"}
+
+    # Capture stdout so we receive Rich console output written by V2 processors
+    import sys
+    from io import StringIO
+    _capture = StringIO()
+    _old_stdout = sys.stdout
+    sys.stdout = _capture
+    try:
+        results = await dispatcher.dispatch_batch(commands, context={"directive": directive})
+    finally:
+        sys.stdout = _old_stdout
+    captured_stdout = _capture.getvalue()
+
+    # Primary: aggregate per-command output strings (populated by some processor types)
+    final_output = ""
+    for res in results:
+        if res.get("output"):
+            final_output += res["output"] + "\n\n"
+
+    # Secondary: use captured stdout (Rich console output from processors)
+    if not final_output.strip() and captured_stdout.strip():
+        final_output = captured_stdout
+
+    # Fallback: synthesize human-readable output from result messages
+    if not final_output.strip():
+        parts = []
+        for res in results:
+            if not res.get("is_command", True):
+                continue
+            msg = res.get("message", "")
+            if not msg:
+                continue
+            status = res.get("status", "success")
+            verb   = res.get("verb", "")
+            obj    = res.get("object_type", "")
+            icon   = "✅" if status != "failure" else "❌"
+            cmd    = f"{verb} {obj}".strip()
+            parts.append(f"{icon} **{cmd}**: {msg}" if cmd else f"{icon} {msg}")
+        if parts:
+            final_output = "\n\n".join(parts)
+
+    return {"output": final_output, "results": results}
+
+
+def process_markdown_file_structured(
+    input_file: str, output_folder: str, directive: str,
+    server: str, url: str, userid: str, user_pass: str,
+    outbox_path: Optional[str] = None,
+) -> dict:
+    """Synchronous wrapper returning per-command result metadata alongside aggregated output."""
+    try:
+        return asyncio.run(process_md_file_structured_async(
+            input_file, output_folder, directive, server, url, userid, user_pass, outbox_path
+        ))
+    except Exception as e:
+        return {"output": f"Error: Async processing failed: {e}", "results": [], "error": str(e)}
+
+
+def process_markdown_file(input_file: str, output_folder: str, directive: str,
                         server: str, url: str, userid: str, user_pass: str,
                         outbox_path: Optional[str] = None) -> str:
     """Synchronous wrapper for backward compatibility with existing pyegeria_handler.py and mcp_server.py"""

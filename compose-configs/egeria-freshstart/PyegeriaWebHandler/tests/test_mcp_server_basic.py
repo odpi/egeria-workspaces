@@ -73,6 +73,8 @@ def test_run_block_unknown_command_returns_message(tmp_path, monkeypatch):
     # Provide a block that is very likely NOT a known command so the processor prints a no-op message
     block = "# Totally Unknown Command\nSome text\n___\n"
 
+    import json as _json
+
     text = asyncio.run(
         mcp_server.dr_egeria_run_block(
             ctx=None,
@@ -86,10 +88,12 @@ def test_run_block_unknown_command_returns_message(tmp_path, monkeypatch):
         )
     )
 
-    # The underlying processor will report that no updates were detected
-    assert "No updates detected" in text or "Unknown command" in text or text != "", (
-        f"Unexpected output: {text!r}"
-    )
+    # dr_egeria_run_block now returns a structured JSON string
+    assert text, "Expected non-empty response"
+    parsed = _json.loads(text)
+    assert "success" in parsed, f"Missing 'success' key: {parsed}"
+    assert "output" in parsed, f"Missing 'output' key: {parsed}"
+    assert "validation_errors" in parsed and "execution_errors" in parsed, f"Missing error lists: {parsed}"
 
 
 def test_wrapper_tools_delegate_to_run_block(tmp_path, monkeypatch):

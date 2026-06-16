@@ -28,6 +28,7 @@ mkdir -p "$RUNTIME_SECRETS_DIR"
 cp compose-configs/egeria-quickstart/secrets/*.omsecrets "$RUNTIME_SECRETS_DIR"/
 
 compose-configs/shared-infra/ensure-shared-infra.sh
+compose-configs/egeria-quickstart/bin/apply-postgres-init.sh
 
 pushd compose-configs/egeria-quickstart >/dev/null
   # Generate/update .env and normalize exchange-quickstart/config/config.json

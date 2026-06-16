@@ -27,6 +27,44 @@ The persona you select in the portal determines which Egeria user ID is used for
 
 ---
 
+## Dr. Egeria Execute panel
+
+Every command template in Egeria Explorer has an **Execute** tab alongside the parameter reference. It lets you run individual Dr. Egeria commands directly from the browser without needing Obsidian or a markdown file.
+
+### Using it
+
+1. Select a command family and template from the left-hand list.
+2. Switch to the **Execute** tab in the detail panel.
+3. Choose a **directive**:
+   - **Display** — preview current metadata; no changes made.
+   - **Validate** — check parameters without writing anything.
+   - **Process** — create or update metadata in Egeria. ⚠ Irreversible.
+4. For Create/Update/Link commands, a **Verb** toggle lets you switch to the counterpart verb (e.g. Create ↔ Update, Link ↔ Unlink) without leaving the template.
+5. Fill in the required parameters (highlighted in green) and any optional ones you need.
+6. Click **▶ Run**.
+
+### Reading the result
+
+After execution the panel shows a status banner, then any errors, then the full output document:
+
+| Banner | Meaning |
+|---|---|
+| ✓ **Completed** — *N of N commands succeeded* | All commands ran without errors |
+| ⚠ **Partial** — *X of N commands succeeded — Y failed* | Mixed outcome; metadata may be partially updated |
+| ✗ **Failed** — *N of N commands failed* | Nothing was written; safe to retry after fixing inputs |
+
+**Validation Errors** (amber) — parameter problems caught before any Egeria call. Fix the inputs and re-run; no metadata was changed.
+
+**Execution Errors** (red) — Egeria returned an error mid-run. The plan may be partially applied; investigate before retrying.
+
+The output document below the error lists is the full augmented plan markdown — the same content that would be saved to the Dr. Egeria outbox in Obsidian.
+
+### When to use Obsidian instead
+
+The Execute panel is designed for testing individual commands. For production workflows — especially multi-command sequences with narrative prose — write a Dr. Egeria markdown document in Obsidian and send it via the **Call Dr. Egeria** plugin. See [Dr. Egeria overview](dr-egeria/overview.md) for details.
+
+---
+
 ## Links from documentation
 
 Where documentation refers to a specific type or glossary term, you can explore it directly:

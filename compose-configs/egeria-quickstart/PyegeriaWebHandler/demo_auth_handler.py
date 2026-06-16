@@ -215,7 +215,8 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
         """,
         text=f"Verify your Egeria Demo account: {verify_url}",
     )
-    log_event(db, user.id, "register", {"email": user.email, "org": user.org})
+    log_event(db, user.id, "register", {"email": user.email, "org": user.org},
+              user_email=user.email, user_display_name=user.display_name)
     return {"message": "Registration successful — check your email to verify your account"}
 
 
@@ -241,7 +242,8 @@ def resend_verification(req: ForgotPasswordRequest, db: Session = Depends(get_db
         """,
         text=f"Verify your Egeria Demo account: {verify_url}",
     )
-    log_event(db, user.id, "resend_verification", {"email": user.email})
+    log_event(db, user.id, "resend_verification", {"email": user.email},
+              user_email=user.email, user_display_name=user.display_name)
     return {"message": "If that address is registered and unverified, a new link has been sent"}
 
 
@@ -253,7 +255,8 @@ def verify_email(token: str, db: Session = Depends(get_db)):
     user.verified = True
     user.verify_token = None
     db.commit()
-    log_event(db, user.id, "verify", {})
+    log_event(db, user.id, "verify", {},
+              user_email=user.email, user_display_name=user.display_name)
 
     demo_token = _make_jwt(user.id, user.role)
     exp = JWT_EXPIRY_ADMIN_SEC if user.role == "admin" else JWT_EXPIRY_USER_SEC
@@ -274,7 +277,8 @@ def login(req: LoginRequest, response: Response, db: Session = Depends(get_db)):
 
     user.last_login = datetime.utcnow()
     db.commit()
-    log_event(db, user.id, "login", {})
+    log_event(db, user.id, "login", {},
+              user_email=user.email, user_display_name=user.display_name)
 
     exp = JWT_EXPIRY_ADMIN_SEC if user.role == "admin" else JWT_EXPIRY_USER_SEC
     response.set_cookie("demo_token", _make_jwt(user.id, user.role),
@@ -382,7 +386,9 @@ def select_persona(
     if not persona:
         raise HTTPException(status_code=404, detail=f"Persona {req.persona!r} not found")
 
-    log_event(db, user.id, "persona_select", {"persona": req.persona})
+    log_event(db, user.id, "persona_select", {"persona": req.persona},
+              user_email=user.email, user_display_name=user.display_name,
+              persona_name=persona.get("display_name", req.persona))
 
     # Return credentials so the browser CredContext can use them for Egeria API calls.
     # The password is the well-known Coco demo default ("secret") — not a security risk.
@@ -501,7 +507,8 @@ def admin_resend_verification(
         """,
         text=f"Verify your Egeria Demo account: {verify_url}",
     )
-    log_event(db, target.id, "admin_resend_verification", {"by": admin.email})
+    log_event(db, target.id, "admin_resend_verification", {"by": admin.email},
+              user_email=target.email, user_display_name=target.display_name)
     return {"id": user_id, "status": "verification_sent", "verify_url": verify_url}
 
 
@@ -533,11 +540,42 @@ def admin_list_events(
     events = db.query(Event).order_by(Event.created_at.desc()).limit(limit).all()
     return [
         {
-            "id":         e.id,
-            "user_id":    e.user_id,
-            "event_type": e.event_type,
-            "detail":     json.loads(e.detail) if e.detail else {},
-            "created_at": e.created_at.isoformat() if e.created_at else None,
+            "id":                e.id,
+            "user_id":           e.user_id,
+            "user_email":        e.user_email,
+            "user_display_name": e.user_display_name,
+            "persona_name":      e.persona_name,
+            "tool":              e.tool,
+            "event_type":        e.event_type,
+            "detail":            json.loads(e.detail) if e.detail else {},
+            "created_at":        e.created_at.isoformat() if e.created_at else None,
         }
         for e in events
     ]
+
+
+class LogEventRequest(BaseModel):
+    event_type: str
+    tool: Optional[str] = None
+    persona_name: Optional[str] = None
+    detail: Optional[dict] = None
+
+
+@router.post("/api/demo/log-event", summary="Log a client-side event (authenticated users)")
+def client_log_event(
+    req: LogEventRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(request, db)
+    log_event(
+        db,
+        user.id if user else None,
+        req.event_type,
+        req.detail or {},
+        user_email=user.email if user else None,
+        user_display_name=user.display_name if user else None,
+        persona_name=req.persona_name,
+        tool=req.tool,
+    )
+    return {"ok": True}
