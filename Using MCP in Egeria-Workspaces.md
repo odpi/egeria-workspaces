@@ -41,16 +41,54 @@ To use the Egeria MCP server in Claude Desktop, add the following to your `claud
 The Egeria MCP server implements a "Content-First" strategy for the `dr_egeria_run_block` tool. When a client sends a markdown block:
 1.  The server saves the content to a temporary file in the container's inbox.
 2.  The backend processor is invoked using this temporary file.
-3.  The results are returned as a raw markdown string to the client.
+3.  The results are returned as a structured JSON string to the client.
 
 This approach ensures that the MCP server can process commands from remote clients (like Obsidian) even if the client's local files are not accessible or mounted into the Docker container.
+
+#### Structured Response Format
+
+`dr_egeria_run_block` returns a JSON string (not plain text) with the following contract:
+
+```json
+{
+  "success": true,
+  "partial": false,
+  "output": "…augmented plan document as markdown…",
+  "validation_errors": [],
+  "execution_errors": [],
+  "commands_total": 3,
+  "commands_succeeded": 3,
+  "commands_failed": 0
+}
+```
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `success` | bool | `true` if all commands succeeded (or there were none) |
+| `partial` | bool | `true` if at least one command succeeded **and** at least one failed |
+| `output` | string | Full augmented plan document — suitable for display or saving to vault |
+| `validation_errors` | array | Pre-flight failures safe to retry; each `{step, command, message}` |
+| `execution_errors` | array | Runtime failures that may have partially applied; each `{step, command, message}` |
+| `commands_total` | int | Count of command blocks processed |
+| `commands_succeeded` | int | Commands that completed without error |
+| `commands_failed` | int | Commands that failed (validation + execution combined) |
+
+**Outcome states:**
+
+| `success` | `partial` | Meaning |
+| :--- | :--- | :--- |
+| `true` | `false` | All commands succeeded — safe to proceed |
+| `false` | `true` | Mixed — some succeeded, some failed; metadata may be partially updated |
+| `false` | `false` | All commands failed — no metadata was changed |
+
+AI agents should check `success` first, then inspect `validation_errors` (safe to re-submit after fixing inputs) vs `execution_errors` (may require investigation before retrying).
 
 #### Architecture Overview
 
 The Egeria MCP server supports two primary transport modes:
 
 1.  **SSE (Server-Sent Events)**:
-    - **URL**: `http://localhost:8000/sse`
+    - **URL**: `http://localhost:8800/sse` (quickstart host port; container-internal port is 8000)
     - **Usage**: Primarily used by the "Calling the Dr." Obsidian plugin and web-based MCP clients.
     - **Remote Access**: Replace `localhost` with the Host machine's IP address or hostname (e.g., `http://cray:8000/sse`).
     - **Binding**: The server binds to `::` (all interfaces, IPv4 and IPv6) to ensure reachability via mDNS names like `cray.local`.
@@ -76,7 +114,7 @@ npx @modelcontextprotocol/inspector http://localhost:8000/sse
 While Claude Desktop typically uses `stdio`, some custom Claude implementations or other AI agents may support SSE. Ensure you include the security token if required (see Security section).
 
 ```
-URL: http://<host-ip>:8000/sse?token=egeria-secret-mcp-token
+URL: http://<host-ip>:8800/sse?token=egeria-secret-mcp-token
 ```
 
 #### Visual Architecture
