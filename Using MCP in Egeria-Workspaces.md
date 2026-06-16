@@ -1,20 +1,33 @@
-### Using MCP in Egeria-Workspaces
+# Using MCP in Egeria-Workspaces
 
-The Egeria-Workspaces environment provides a unified Model Context Protocol (MCP) server that supports both Dr. Egeria markdown commands and core Pyegeria reporting capabilities.
+The Egeria-Workspaces environment exposes a Model Context Protocol (MCP) server that gives AI agents and external tools direct access to Dr. Egeria command processing and pyegeria reporting. The same server process supports two transport modes simultaneously: **stdio** (for Claude Desktop and CLI tools) and **SSE** (for Obsidian, web clients, and remote agents).
 
-#### Available Tools
+---
 
-| Tool Name | Description |
-| :--- | :--- |
-| `dr_egeria_run_block` | Executes a Dr. Egeria H1 markdown command block. |
-| `list_reports` | Lists all available structured report templates. |
-| `find_report_specs` | Searches for reports by perspective. |
-| `describe_report` | Returns the technical schema/parameters for a report. |
-| `run_report` | Executes a structured report and returns results. |
+## Available Tools
 
-#### Claude Desktop Configuration
+| Tool | Purpose |
+|---|---|
+| `dr_egeria_run_block` | Execute one or more Dr. Egeria commands from a full markdown document |
+| `egeria_execute_command` | Execute a single named command with individual parameter values |
+| `egeria_list_commands` | List all available Dr. Egeria command names |
+| `egeria_list_glossaries` | Convenience wrapper: view all glossaries |
+| `egeria_list_collections` | Convenience wrapper: view all collections |
+| `egeria_refresh_specs` | Reload command specifications without restarting the container |
+| `list_reports` | List available structured report templates |
+| `find_report_specs` | Search report templates by perspective |
+| `describe_report` | Return the parameter schema for a specific report |
+| `run_report` | Execute a structured report and return results |
 
-To use the Egeria MCP server in Claude Desktop, add the following to your `claude_desktop_config.json` file. You can optionally include environment variables for your Egeria credentials to avoid being prompted for them during tool calls:
+---
+
+## Transport Modes
+
+### stdio — Claude Desktop and CLI tools
+
+The MCP server runs as a subprocess launched by the client via `docker exec`. This is the standard mode for Claude Desktop.
+
+**Claude Desktop configuration** (`claude_desktop_config.json`):
 
 ```json
 {
@@ -22,8 +35,7 @@ To use the Egeria MCP server in Claude Desktop, add the following to your `claud
     "egeria": {
       "command": "docker",
       "args": [
-        "exec",
-        "-i",
+        "exec", "-i",
         "-e", "EGERIA_USER=erinoverview",
         "-e", "EGERIA_USER_PASSWORD=secret",
         "-e", "EGERIA_PLATFORM_URL=https://host.docker.internal:9443",
@@ -36,124 +48,198 @@ To use the Egeria MCP server in Claude Desktop, add the following to your `claud
 }
 ```
 
-#### Content-First Processing
+Credentials in the `args` override the container's environment. Omit them to use the defaults set at container start.
 
-The Egeria MCP server implements a "Content-First" strategy for the `dr_egeria_run_block` tool. When a client sends a markdown block:
-1.  The server saves the content to a temporary file in the container's inbox.
-2.  The backend processor is invoked using this temporary file.
-3.  The results are returned as a structured JSON string to the client.
+### SSE — Obsidian plugin and remote HTTP clients
 
-This approach ensures that the MCP server can process commands from remote clients (like Obsidian) even if the client's local files are not accessible or mounted into the Docker container.
+The FastAPI application (`pyegeria_handler.py`) bridges SSE connections to the same MCP server. No separate process is needed — the endpoint is always available when the container is running.
 
-#### Structured Response Format
+| Environment | SSE URL |
+|---|---|
+| quickstart (host) | `http://localhost:8800/sse` |
+| freshstart (host) | `http://localhost:7800/sse` |
+| Remote access | `http://<hostname>:8800/sse` |
 
-`dr_egeria_run_block` returns a JSON string (not plain text) with the following contract:
+The server binds to all interfaces (`::`) so it is reachable via mDNS names (e.g. `http://cray.local:8800/sse`).
+
+**Obsidian "Call Dr. Egeria" plugin settings:**
+- Transport: `SSE`
+- URL: `http://localhost:8800/sse` (or the remote hostname)
+- Token: value of `MCP_API_KEY` in the container environment (default: `egeria-secret-mcp-token`)
+
+**MCP Inspector (for debugging):**
+```bash
+npx @modelcontextprotocol/inspector http://localhost:8800/sse
+```
+
+---
+
+## Writing Dr. Egeria Command Blocks
+
+### Using `egeria_execute_command` — single command
+
+This is the simplest way for an AI agent to create or update a single Egeria element. Pass the command name and individual parameter values:
+
+```
+command_name: "Create Solution Component"
+attributes:   "### Display Name\nMy Component\n\n### Description\nA reusable building block\n\n"
+directive:    "process"
+```
+
+**Format rules for `attributes`:**
+- Each parameter is a `### Parameter Name` heading followed by the value on the next line.
+- Values are **plain text** — do NOT prefix them with `> `. Lines starting with `>` are treated as template metadata/provenance and stripped by the processor.
+- Separate parameters with a blank line.
+
+Example (Python string):
+```python
+attributes = "### Display Name\nMy Component\n\n### Description\nA reusable building block\n\n"
+```
+
+### Using `dr_egeria_run_block` — multi-command document
+
+This tool accepts a full Dr. Egeria markdown document containing one or more commands. It is what the Obsidian plugin uses when processing a note.
+
+**Format rules:**
+
+```markdown
+## Create Solution Component
+
+### Display Name
+My Component
+
+### Description
+A reusable building block
+
+### Solution Component Type
+Service
+
+___
+## Create Solution Blueprint
+
+### Display Name
+My Blueprint
+
+___
+```
+
+- Commands are introduced by `## Verb ObjectType` (H2).
+- Parameters are `### Parameter Name` (H3) followed by the value as plain text.
+- Each command block ends with `___` (three underscores), or a new `## ` line starts the next command.
+- The `directive` parameter controls what happens: `display` (read-only preview), `validate` (check inputs without writing), or `process` (create/update metadata — default).
+
+### Checking available commands
+
+Use `egeria_list_commands` to get the full list of supported command names before composing a block:
+
+```
+egeria_list_commands()
+→ "Available commands:\n- Add Member to Collection\n- Attach ...\n- Create Data Class\n..."
+```
+
+---
+
+## Structured Response Format
+
+Both `dr_egeria_run_block` and `egeria_execute_command` return a **JSON string** (not plain text). Parse it to inspect results.
 
 ```json
 {
   "success": true,
   "partial": false,
-  "output": "…augmented plan document as markdown…",
+  "output": "## Update Solution Component\n\n### Display Name\nMy Component\n...",
   "validation_errors": [],
   "execution_errors": [],
-  "commands_total": 3,
-  "commands_succeeded": 3,
-  "commands_failed": 0
+  "commands_total": 1,
+  "commands_succeeded": 1,
+  "commands_failed": 0,
+  "commands_detail": [
+    {
+      "step": 1,
+      "command": "Create Solution Component",
+      "status": "success",
+      "guid": "b4d63847-2785-48fa-8f91-82d6567103bb",
+      "qualified_name": "My Component::1.0",
+      "display_name": "My Component",
+      "message": "Executed Create Solution Component (GUID: b4d63847-2785-48fa-8f91-82d6567103bb)"
+    }
+  ]
 }
 ```
 
 | Field | Type | Description |
-| :--- | :--- | :--- |
-| `success` | bool | `true` if all commands succeeded (or there were none) |
-| `partial` | bool | `true` if at least one command succeeded **and** at least one failed |
-| `output` | string | Full augmented plan document — suitable for display or saving to vault |
-| `validation_errors` | array | Pre-flight failures safe to retry; each `{step, command, message}` |
-| `execution_errors` | array | Runtime failures that may have partially applied; each `{step, command, message}` |
-| `commands_total` | int | Count of command blocks processed |
+|---|---|---|
+| `success` | bool | `true` if all commands succeeded |
+| `partial` | bool | `true` if some succeeded and some failed |
+| `output` | string | Full augmented plan document as markdown |
+| `validation_errors` | array | Pre-flight failures; safe to retry after fixing inputs — each `{step, command, message}` |
+| `execution_errors` | array | Runtime failures; metadata may be partially applied — each `{step, command, message}` |
+| `commands_total` | int | Number of commands processed |
 | `commands_succeeded` | int | Commands that completed without error |
 | `commands_failed` | int | Commands that failed (validation + execution combined) |
+| `commands_detail` | array | Per-command result including `guid`, `qualified_name`, `display_name`, `message` |
+
+**Reading `commands_detail`:** For each successfully processed `Create` or `Update` command, the `guid` and `qualified_name` fields carry the Egeria identifiers of the element that was written. Use these to chain commands (e.g. link a component to a blueprint using its GUID) or to confirm the result.
 
 **Outcome states:**
 
 | `success` | `partial` | Meaning |
-| :--- | :--- | :--- |
+|---|---|---|
 | `true` | `false` | All commands succeeded — safe to proceed |
-| `false` | `true` | Mixed — some succeeded, some failed; metadata may be partially updated |
-| `false` | `false` | All commands failed — no metadata was changed |
+| `false` | `true` | Mixed — some succeeded, some failed |
+| `false` | `false` | Nothing was written — safe to retry after fixing |
 
-AI agents should check `success` first, then inspect `validation_errors` (safe to re-submit after fixing inputs) vs `execution_errors` (may require investigation before retrying).
+**AI agent pattern:**
+1. Call `egeria_list_commands` to confirm the command exists.
+2. Call `egeria_execute_command` with `directive="validate"` to check inputs.
+3. If `success` is true, call again with `directive="process"`.
+4. Read `commands_detail[0].guid` and `commands_detail[0].qualified_name` from the result.
 
-#### Architecture Overview
+---
 
-The Egeria MCP server supports two primary transport modes:
-
-1.  **SSE (Server-Sent Events)**:
-    - **URL**: `http://localhost:8800/sse` (quickstart host port; container-internal port is 8000)
-    - **Usage**: Primarily used by the "Calling the Dr." Obsidian plugin and web-based MCP clients.
-    - **Remote Access**: Replace `localhost` with the Host machine's IP address or hostname (e.g., `http://cray:8000/sse`).
-    - **Binding**: The server binds to `::` (all interfaces, IPv4 and IPv6) to ensure reachability via mDNS names like `cray.local`.
-
-2.  **stdio**:
-    - **Command**: `python /app/mcp_server.py` (inside the container)
-    - **Usage**: Used by Claude Desktop, CLI tools, and IDEs that launch MCP servers as subprocesses.
-
-#### Using the SSE Transport
-
-The SSE transport allows clients to connect to the Egeria MCP server over HTTP. This is useful for browser-based tools or environments where the client cannot launch a local subprocess.
-
-**Example: Connecting with MCP Inspector**
-
-To debug or explore the Egeria tools via SSE, you can use the [MCP Inspector](https://github.com/modelcontextprotocol/inspector):
-
-```bash
-npx @modelcontextprotocol/inspector http://localhost:8000/sse
-```
-
-**Example: Remote Claude (SSE)**
-
-While Claude Desktop typically uses `stdio`, some custom Claude implementations or other AI agents may support SSE. Ensure you include the security token if required (see Security section).
-
-```
-URL: http://<host-ip>:8800/sse?token=egeria-secret-mcp-token
-```
-
-#### Visual Architecture
+## Architecture Overview
 
 ```mermaid
 graph TD
-    User([User])
     Obsidian[Obsidian Plugin]
-    Claude[Claude Desktop]
-    
+    Claude[Claude Desktop / AI Agent]
+    WebClient[Web / Remote Client]
+
     subgraph "Host Machine"
         Obsidian
         Claude
+        WebClient
     end
-    
-    subgraph "Docker Container: quickstart-pyegeria-web"
-        MCP_Server[MCP Server /app/mcp_server.py]
-        FastAPI[FastAPI /app/pyegeria_handler.py]
-        Egeria_Processor[Dr. Egeria Processor]
-        Pyegeria_Adapter[Pyegeria MCP Adapter]
+
+    subgraph "Docker Container: quickstart-pyegeria-web :8800"
+        FastAPI[FastAPI pyegeria_handler.py]
+        MCP[MCP Server mcp_server.py]
+        Processor[Dr. Egeria Processor dr_egeria_md.py]
+        Adapter[Pyegeria MCP Adapter]
     end
-    
-    subgraph "Egeria Platform"
-        Platform[Egeria View Server]
+
+    subgraph "Egeria Platform :9443"
+        ViewServer[qs-view-server]
     end
-    
-    Obsidian -- "SSE (HTTP:8000)" --> FastAPI
-    FastAPI -- "SSE Bridge" --> MCP_Server
-    Claude -- "stdio (docker exec)" --> MCP_Server
-    
-    MCP_Server -- "dr_egeria_run_block" --> Egeria_Processor
-    MCP_Server -- "run_report" --> Pyegeria_Adapter
-    
-    Egeria_Processor -- "API Calls" --> Platform
-    Pyegeria_Adapter -- "API Calls" --> Platform
+
+    Obsidian -- "SSE HTTP :8800/sse" --> FastAPI
+    WebClient -- "SSE HTTP :8800/sse" --> FastAPI
+    FastAPI -- "SSE bridge" --> MCP
+    Claude -- "stdio docker exec" --> MCP
+
+    MCP -- "dr_egeria_run_block\negeria_execute_command" --> Processor
+    MCP -- "run_report\nlist_reports" --> Adapter
+    Processor -- "REST API calls" --> ViewServer
+    Adapter -- "REST API calls" --> ViewServer
 ```
 
-#### Configuration Security
+---
 
-The MCP SSE endpoint is protected by:
-- **CORS**: Configured to allow all origins (`*`) to facilitate remote access and Obsidian integration.
-- **Token Authentication**: Requires an `X-API-Key` or `token` query parameter (default: `egeria-secret-mcp-token`). This is configured as an environment variable for the `PyegeriaWebHandler` container. **If you are running multiple containers, you can set a unique token for each container.**
+## Security
+
+The SSE endpoint is protected at two levels:
+
+- **Token authentication**: Requests must include the `MCP_API_KEY` value as either an `X-API-Key` header or a `?token=` query parameter. Default: `egeria-secret-mcp-token`. Set a unique value per environment via the container environment variable.
+- **CORS**: Configured to allow all origins (`*`) to accommodate Obsidian (`app://obsidian.md`) and remote HTTP clients.
+
+For stdio transport (Claude Desktop), no token is required — the connection is secured by the `docker exec` process boundary.
