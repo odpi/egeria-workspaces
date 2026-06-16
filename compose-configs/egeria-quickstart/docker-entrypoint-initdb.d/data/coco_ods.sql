@@ -1,10 +1,10 @@
 
 
-DROP SEQUENCE IF EXISTS supplier_invoices_supplier_id_seq;
+DROP SEQUENCE IF EXISTS supplier_invoices_supplier_id_seq CASCADE;
 CREATE SEQUENCE supplier_invoices_supplier_id_seq INCREMENT BY 1 MINVALUE 1 MAXVALUE 32767 START WITH 1  NO CYCLE;
-DROP SEQUENCE IF EXISTS supplier_invoices_supplier_id_seq1;
+DROP SEQUENCE IF EXISTS supplier_invoices_supplier_id_seq1 CASCADE;
 CREATE SEQUENCE supplier_invoices_supplier_id_seq1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 32767 START WITH 1  NO CYCLE;
-DROP TABLE IF EXISTS categories;
+DROP TABLE IF EXISTS categories CASCADE;
 CREATE TABLE categories (category_id SMALLINT NOT NULL, category_name CHARACTER VARYING(15) NOT NULL, description TEXT, picture BYTEA, CONSTRAINT pk_categories PRIMARY KEY (category_id));
 INSERT INTO categories (category_id, category_name, description, picture) VALUES 
 (1000, 'OTC Pain', 'Over the counter pain medications', null),
@@ -15,7 +15,7 @@ INSERT INTO categories (category_id, category_name, description, picture) VALUES
 (6000, 'PresBThin', 'Prescription Blood Thinners', null),
 (7000, 'BonDen', 'Prescription Hormone Replacement Therapies', null),
 (9000, 'TRIAL', 'Clinical Trial Controlled Prescriptions', null);
-DROP TABLE IF EXISTS coco_locations;
+DROP TABLE IF EXISTS coco_locations CASCADE;
 CREATE TABLE coco_locations (location_id NUMERIC DEFAULT 0 NOT NULL, location_name CHARACTER VARYING(50) NOT NULL, building_name CHARACTER VARYING(50), street_number NUMERIC, street_name CHARACTER VARYING(50), district CHARACTER VARYING(50), city CHARACTER VARYING(50), area CHARACTER VARYING(30), country CHARACTER VARYING(50));
 INSERT INTO coco_locations (location_id, location_name, building_name, street_number, street_name, district, city, area, country) VALUES 
 (1, 'Amsterdam', null, 1833, 'Wilhelmdreef', 'Amsterdam-Zuidoost', 'Amsterdam', 'North Holland', 'Netherlands'),
@@ -27,11 +27,11 @@ INSERT INTO coco_locations (location_id, location_name, building_name, street_nu
 (7, 'Kansas City', 'Coco Distribution Center', 1200, 'Industrial Parkway', 'Industrial Park', 'Kansas City', 'KS', 'United States'),
 (8, 'Edmonton', null, 10828, '102 Ave NW', null, 'Edmonton', 'Alberta', 'Canada'),
 (9, 'Bucharest', null, 500, 'Calea Victoriei', 'Sector 1', 'Bucharest', 'Bucharest', 'Romania');
-DROP TABLE IF EXISTS customer_customer_demo;
+DROP TABLE IF EXISTS customer_customer_demo CASCADE;
 CREATE TABLE customer_customer_demo (customer_id CHARACTER(1) NOT NULL, customer_type_id CHARACTER(1) NOT NULL, CONSTRAINT pk_customer_customer_demo PRIMARY KEY (customer_id, customer_type_id));
-DROP TABLE IF EXISTS customer_demographics;
+DROP TABLE IF EXISTS customer_demographics CASCADE;
 CREATE TABLE customer_demographics (customer_type_id CHARACTER(1) NOT NULL, customer_desc TEXT, CONSTRAINT pk_customer_demographics PRIMARY KEY (customer_type_id));
-DROP TABLE IF EXISTS customer_travel;
+DROP TABLE IF EXISTS customer_travel CASCADE;
 CREATE TABLE customer_travel (company_name CHARACTER VARYING(40), customer_city CHARACTER VARYING(15), ofc CHARACTER VARYING(15), last_name CHARACTER VARYING(20), distance NUMERIC, travel_type TEXT, emissions NUMERIC, "date" DATE);
 INSERT INTO customer_travel (company_name, customer_city, ofc, last_name, distance, travel_type, emissions, date) VALUES 
 ('Around the Horn', 'London', 'Corterville', 'Salle', null, 'Public', null, '2022-03-11'),
@@ -54,7 +54,7 @@ INSERT INTO customer_travel (company_name, customer_city, ofc, last_name, distan
 ('The Crack Box', 'Butte', 'Harlem', 'Deal', null, 'Air', 289, '2022-07-25'),
 ('Trail''s Head Gourmet Drugs', 'Kirkland', 'Harlem', 'Deal', null, 'Air', 230, '2022-08-01'),
 ('White Clover Medicinals', 'Seattle', 'Harlem', 'Hopeful', null, 'AIr', 245, '2022-08-15');
-DROP TABLE IF EXISTS customers;
+DROP TABLE IF EXISTS customers CASCADE;
 CREATE TABLE customers (customer_id CHARACTER VARYING(20) NOT NULL, company_name CHARACTER VARYING(40) NOT NULL, contact_name CHARACTER VARYING(30), contact_title CHARACTER VARYING(30), address CHARACTER VARYING(60), city CHARACTER VARYING(15), region CHARACTER VARYING(15), postal_code CHARACTER VARYING(10), country CHARACTER VARYING(15), phone CHARACTER VARYING(24), fax CHARACTER VARYING(24), CONSTRAINT pk_customers PRIMARY KEY (customer_id));
 INSERT INTO customers (customer_id, company_name, contact_name, contact_title, address, city, region, postal_code, country, phone, fax) VALUES 
 ('AROUT', 'Around the Horn', 'Julian and Sandy', 'Sales Representative', '120 Hanover Sq.', 'London', null, 'WA1 1DP', 'UK', '(171) 555-7788', '(171) 555-6750'),
@@ -77,9 +77,9 @@ INSERT INTO customers (customer_id, company_name, contact_name, contact_title, a
 ('THECR', 'The Crack Box', 'Liu Wong', 'Pharmacist', '55 Grizzly Peak Rd.', 'Butte', 'MT', '59801', 'USA', '(406) 555-5834', '(406) 555-8083'),
 ('TRAIH', 'Trail''s Head Gourmet Drugs', 'Helvetius Nagy', 'Customer Service Manager', '722 DaVinci Blvd.', 'Kirkland', 'WA', '98034', 'USA', '(206) 555-8257', '(206) 555-2174'),
 ('WHITC', 'White Clover Medicinals', 'Karl Jablonski', 'Owner', '305 - 14th Ave. S. Suite 3B', 'Seattle', 'WA', '98128', 'USA', '(206) 555-4112', '(206) 555-4115');
-DROP TABLE IF EXISTS employee_territories;
+DROP TABLE IF EXISTS employee_territories CASCADE;
 CREATE TABLE employee_territories (employee_id SMALLINT NOT NULL, territory_id CHARACTER VARYING(20) NOT NULL, CONSTRAINT pk_employee_territories PRIMARY KEY (employee_id, territory_id));
-DROP TABLE IF EXISTS employees;
+DROP TABLE IF EXISTS employees CASCADE;
 CREATE TABLE employees (employee_id NUMERIC NOT NULL, last_name CHARACTER VARYING(20) NOT NULL, first_name CHARACTER VARYING(10) NOT NULL, title CHARACTER VARYING(30), title_of_courtesy CHARACTER VARYING(25), birth_date DATE, hire_date DATE, address CHARACTER VARYING(60), city CHARACTER VARYING(15), region CHARACTER VARYING(15), postal_code CHARACTER VARYING(10), country CHARACTER VARYING(15), home_phone CHARACTER VARYING(24), extension CHARACTER VARYING(4), photo BYTEA, notes TEXT, reports_to SMALLINT, photo_path CHARACTER VARYING(255), job_description CHARACTER VARYING(20), location_code INTEGER, mobile_phone CHARACTER VARYING(20), work_phone CHARACTER VARYING(20), employee_status CHARACTER VARYING(2), employee_level INTEGER, department INTEGER, leaving_date DATE, rehire CHARACTER VARYING(2), prior_service_credit NUMERIC, CONSTRAINT pk_employees PRIMARY KEY (employee_id));
 INSERT INTO employees (employee_id, last_name, first_name, title, title_of_courtesy, birth_date, hire_date, address, city, region, postal_code, country, home_phone, extension, photo, notes, reports_to, photo_path, job_description, location_code, mobile_phone, work_phone, employee_status, employee_level, department, leaving_date, rehire, prior_service_credit) VALUES 
 (921848, 'Leftie', 'Reddy', 'Procurement Manager', 'Mr', '1968-09-02', '2021-01-01', '32 Wibble Rd', 'Corterville', '1', null, 'UK', null, null, null, null, null, null, 'Procurement', 2, null, null, 'L', 3, 6877, '2021-05-15', 'N', null),
@@ -103,7 +103,7 @@ INSERT INTO employees (employee_id, last_name, first_name, title, title_of_court
 (549922, 'Zeller', 'Maura', 'Sales', 'Dr', '1985-02-14', '2012-01-01', '1833 Wilhelmdreef', 'Amsterdam', '1', null, 'Netherland', null, null, null, null, null, null, 'Sales', 1, null, null, 'A', 7, 7432, null, null, null),
 (254678, 'Salle', 'Hugo', 'Sales', 'Mr', '1989-06-10', '2013-02-01', '32 Wibble Rd', 'Corterville', '1', null, 'UK', null, null, null, null, null, null, 'Sales', 1, null, null, 'A', 7, 7432, null, null, null),
 (549032, 'Deal', 'Margo', 'Sales', 'Ms', '1995-09-14', '2016-01-01', '27 Code St.', 'Harlem', '2', null, 'USA', null, null, null, null, null, null, 'Sales', 2, null, null, 'A', 7, 7432, null, null, null);
-DROP TABLE IF EXISTS order_details;
+DROP TABLE IF EXISTS order_details CASCADE;
 CREATE TABLE order_details (order_id SMALLINT NOT NULL, product_id SMALLINT NOT NULL, unit_price REAL NOT NULL, quantity SMALLINT NOT NULL, discount REAL NOT NULL, CONSTRAINT pk_order_details PRIMARY KEY (order_id, product_id));
 INSERT INTO order_details (order_id, product_id, unit_price, quantity, discount) VALUES 
 (10, 2050, 30.0, 5, 5.0),
@@ -111,12 +111,12 @@ INSERT INTO order_details (order_id, product_id, unit_price, quantity, discount)
 (10, 1000, 10.0, 100, 7.0),
 (90, 1010, 25.0, 25, 7.0),
 (90, 1000, 25.0, 10, 2.5);
-DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS orders CASCADE;
 CREATE TABLE orders (order_id SMALLINT NOT NULL, customer_id CHARACTER VARYING(20), employee_id NUMERIC, order_date DATE, required_date DATE, shipped_date DATE, ship_via SMALLINT, freight REAL, ship_name CHARACTER VARYING(40), ship_address CHARACTER VARYING(60), ship_city CHARACTER VARYING(15), ship_region CHARACTER VARYING(15), ship_postal_code CHARACTER VARYING(10), ship_country CHARACTER VARYING(15), CONSTRAINT pk_orders PRIMARY KEY (order_id));
 INSERT INTO orders (order_id, customer_id, employee_id, order_date, required_date, shipped_date, ship_via, freight, ship_name, ship_address, ship_city, ship_region, ship_postal_code, ship_country) VALUES 
 (10, 'AROUT', 144994, '2022-06-01', '2022-06-10', '2022-06-06', 4, null, 'Julian', '120 Hanover Square', 'London', '1', 'WA1 1DP', 'UK'),
 (90, 'THECR', 144994, '2022-05-22', '2022-07-01', null, 2, null, 'Liu Wong', '55 Grizzly Peak Rd.', 'Butte', '2', '59801', 'USA');
-DROP TABLE IF EXISTS products;
+DROP TABLE IF EXISTS products CASCADE;
 CREATE TABLE products (product_id SMALLINT NOT NULL, product_name CHARACTER VARYING(40) NOT NULL, supplier_id SMALLINT, category_id SMALLINT, quantity_per_unit CHARACTER VARYING(20), unit_price REAL, units_in_stock SMALLINT, units_on_order SMALLINT, reorder_level SMALLINT, discontinued INTEGER NOT NULL, unit_dosage CHARACTER VARYING(10), replacement CHARACTER VARYING(40), CONSTRAINT pk_products PRIMARY KEY (product_id));
 INSERT INTO products (product_id, product_name, supplier_id, category_id, quantity_per_unit, unit_price, units_in_stock, units_on_order, reorder_level, discontinued, unit_dosage, replacement) VALUES 
 (4010, 'Toprol-XL', 3000, 6000, '30', 40.0, 0, 10, 8, 0, '25mg', null),
@@ -129,7 +129,7 @@ INSERT INTO products (product_id, product_name, supplier_id, category_id, quanti
 (4000, 'Toprol-XL', 3000, 6000, '30', 65.0, 20, 5, 5, 0, '50mg', null),
 (5000, 'Crestor', 1000, 5000, '30', 15.0, 250, 0, 20, 0, '5mg', null),
 (9000, 'Cisplatin', 2000, 9000, '25', 120.0, 50, 0, 2, 0, '50mg', null);
-DROP TABLE IF EXISTS region;
+DROP TABLE IF EXISTS region CASCADE;
 CREATE TABLE region (region_id SMALLINT NOT NULL, region_description CHARACTER VARYING(30) NOT NULL, CONSTRAINT pk_region PRIMARY KEY (region_id));
 INSERT INTO region (region_id, region_description) VALUES 
 (1, 'Europe, Middle East'),
@@ -138,7 +138,7 @@ INSERT INTO region (region_id, region_description) VALUES
 (4, 'South and Central America'),
 (5, 'Africa'),
 (6, 'India Region');
-DROP TABLE IF EXISTS shippers;
+DROP TABLE IF EXISTS shippers CASCADE;
 CREATE TABLE shippers (shipper_id SMALLINT NOT NULL, company_name CHARACTER VARYING(40) NOT NULL, phone CHARACTER VARYING(24), CONSTRAINT pk_shippers PRIMARY KEY (shipper_id));
 INSERT INTO shippers (shipper_id, company_name, phone) VALUES 
 (1, 'Speedy Express', '(503) 555-9831'),
@@ -147,7 +147,7 @@ INSERT INTO shippers (shipper_id, company_name, phone) VALUES
 (4, 'Alliance Shippers', '1-800-222-0451'),
 (5, 'UPS', '1-800-782-7892'),
 (6, 'DHL', '1-800-225-5345');
-DROP TABLE IF EXISTS sites;
+DROP TABLE IF EXISTS sites CASCADE;
 CREATE TABLE sites (site_id SMALLINT NOT NULL, site_name CHARACTER VARYING(50) NOT NULL, country CHARACTER VARYING(25) NOT NULL, mfg_area NUMERIC, mfg_kwh NUMERIC, rsch_area NUMERIC, rsch_kwh NUMERIC, ofc_area NUMERIC, ofc_kwh NUMERIC, dat_area NUMERIC, data_kwh NUMERIC, dep_area NUMERIC, dep_kwh NUMERIC, total_area NUMERIC, num_workers SMALLINT, num_vehicles SMALLINT, region CHARACTER VARYING(25));
 COMMENT ON TABLE sites IS 'Information about each site';
 COMMENT ON COLUMN sites.site_id IS 'Unique ID of a site';
@@ -167,9 +167,9 @@ INSERT INTO sites (site_id, site_name, country, mfg_area, mfg_kwh, rsch_area, rs
 (8, 'Edmonton', 'CA', 20000, 1400000, 0, 0, 6000, 90000, 1000, 600000, 13000, 156000, 30000, 30, null, 'Alberta'),
 (9, 'Bucharest', 'RO', 6000, 420000, 0, 0, 6000, 70000, 0, 0, 0, 0, 12000, 25, null, 'Romania'),
 (5, 'Austin', 'US', 4500, 315000, 0, 0, 5000, 75000, 500, 300000, 0, 0, 10000, 30, null, 'ERCOT');
-DROP TABLE IF EXISTS supplier_invoice_details;
+DROP TABLE IF EXISTS supplier_invoice_details CASCADE;
 CREATE TABLE supplier_invoice_details (invoice_number NUMERIC NOT NULL, line_number NUMERIC NOT NULL, product_id NUMERIC, dedlivery_date DATE NOT NULL, quantity_received NUMERIC NOT NULL, item_amount MONEY NOT NULL);
-DROP TABLE IF EXISTS supplier_invoices;
+DROP TABLE IF EXISTS supplier_invoices CASCADE;
 CREATE TABLE supplier_invoices (supplier_id SMALLINT DEFAULT nextval('supplier_invoices_supplier_id_seq1'::regclass) NOT NULL, supply_order_number NUMERIC NOT NULL, invoice_amount MONEY NOT NULL, invoice_number NUMERIC NOT NULL, invoice_date DATE NOT NULL);
 INSERT INTO supplier_invoices (supplier_id, supply_order_number, invoice_amount, invoice_number, invoice_date) VALUES 
 (4000, 1234, '$100,000.00', 10, '2022-06-01'),
@@ -177,7 +177,7 @@ INSERT INTO supplier_invoices (supplier_id, supply_order_number, invoice_amount,
 (4000, 1236, '$98,000.00', 10, '2022-08-01'),
 (4000, 1001, '$80,000.00', 10, '2022-05-01'),
 (4000, 1000, '$50,000.00', 10, '2022-04-01');
-DROP TABLE IF EXISTS suppliers;
+DROP TABLE IF EXISTS suppliers CASCADE;
 CREATE TABLE suppliers (supplier_id SMALLINT NOT NULL, company_name CHARACTER VARYING(40) NOT NULL, contact_name CHARACTER VARYING(30), contact_title CHARACTER VARYING(30), address CHARACTER VARYING(60), city CHARACTER VARYING(15), region CHARACTER VARYING(15), postal_code CHARACTER VARYING(10), country CHARACTER VARYING(15), phone CHARACTER VARYING(24), fax CHARACTER VARYING(24), homepage TEXT, CONSTRAINT pk_suppliers PRIMARY KEY (supplier_id));
 INSERT INTO suppliers (supplier_id, company_name, contact_name, contact_title, address, city, region, postal_code, country, phone, fax, homepage) VALUES 
 (7000, 'BASE', 'Gretta Grunt', 'Sales Biologist', 'Am Wiesenhang 30,', 'Berlin', '1', '82396', 'Germany', '49-30-77-461-5846', null, null),
@@ -192,7 +192,7 @@ INSERT INTO suppliers (supplier_id, company_name, contact_name, contact_title, a
 (6001, 'NLE', 'Piet Power', 'Client Sales', 'Reguliersdwarstraat', 'Amsterdam', '1', '1017 BM', 'Netherland', '31-88-730-67307', null, null),
 (6002, 'Austin Energy', 'Tex Power', 'Commercial Accounts Executive', '2 Kramer Lane', 'Austin', '2', '78758', 'USA', '1-512-494-9400', null, null),
 (10000, 'Petes Office Supplies', 'Peter Piper', 'Commercial Sales Manager', 'Hamnterinalen 58a', 'Nynashamn', '1', '149 30', 'Sweden', '08-670-29-41', null, null);
-DROP TABLE IF EXISTS supplies;
+DROP TABLE IF EXISTS supplies CASCADE;
 CREATE TABLE supplies (supply_id NUMERIC, supply_name CHARACTER VARYING(40), supplier_id NUMERIC, volume_units NUMERIC, units_on_hand NUMERIC, reorder_level NUMERIC, unit_type CHARACTER VARYING(20));
 INSERT INTO supplies (supply_id, supply_name, supplier_id, volume_units, units_on_hand, reorder_level, unit_type) VALUES 
 (20, 'Plastic Pill Bottles', 1000, 100, 2000, 2000, 'Cases'),
@@ -214,17 +214,17 @@ INSERT INTO supplies (supply_id, supply_name, supplier_id, volume_units, units_o
 (12, 'Petroleum Netherland', 4000, 1, 1000, 1000, 'Liters'),
 (13, 'Diesel Netherland', 4000, 1, 800, 800, 'Liters'),
 (70, 'Computer Paper', 10000, 10, 200, 250, 'Boxes');
-DROP TABLE IF EXISTS supply_order_details;
+DROP TABLE IF EXISTS supply_order_details CASCADE;
 CREATE TABLE supply_order_details (supply_order_number NUMERIC NOT NULL, product_id NUMERIC NOT NULL, unit_price MONEY NOT NULL, supply_order_qty NUMERIC NOT NULL, item_total_price MONEY NOT NULL);
 INSERT INTO supply_order_details (supply_order_number, product_id, unit_price, supply_order_qty, item_total_price) VALUES 
 (9001, 10, '$3.00', 5000, '$15,000.00'),
 (9001, 11, '$3.50', 2000, '$7,000.00');
-DROP TABLE IF EXISTS supply_orders;
+DROP TABLE IF EXISTS supply_orders CASCADE;
 CREATE TABLE supply_orders (supply_order_number NUMERIC, supply_id NUMERIC, employee_id NUMERIC, order_date DATE, requested_delivery_date DATE, ship_to_address CHARACTER VARYING(32), supplier_reference CHARACTER VARYING(20));
 INSERT INTO supply_orders (supply_order_number, supply_id, employee_id, order_date, requested_delivery_date, ship_to_address, supplier_reference) VALUES 
 (1001, 10, 896552, '2022-04-01', '2022-04-15', '1200 Industrial Parkway', 'Monthly_Gasoline'),
 (1000, 10, 896552, '2022-03-01', '2022-03-15', '1200 Industrial Parkway', 'Monthly_Gasoline');
-DROP TABLE IF EXISTS territories;
+DROP TABLE IF EXISTS territories CASCADE;
 CREATE TABLE territories (territory_id CHARACTER VARYING(20) NOT NULL, territory_description CHARACTER VARYING(40) NOT NULL, region_id SMALLINT NOT NULL, CONSTRAINT pk_territories PRIMARY KEY (territory_id));
 INSERT INTO territories (territory_id, territory_description, region_id) VALUES 
 ('01730', 'Bedford', 1),
@@ -280,7 +280,7 @@ INSERT INTO territories (territory_id, territory_description, region_id) VALUES
 ('72716', 'Bentonville', 2),
 ('75234', 'Dallas', 2),
 ('78759', 'Austin', 2);
-DROP TABLE IF EXISTS units_by_location;
+DROP TABLE IF EXISTS units_by_location CASCADE;
 CREATE TABLE units_by_location (location_id NUMERIC, department_name CHARACTER VARYING(32), department_number NUMERIC);
 INSERT INTO units_by_location (location_id, department_name, department_number) VALUES 
 (8, 'Hazardous_Waste_Managemnt', 9999),
@@ -304,7 +304,7 @@ INSERT INTO units_by_location (location_id, department_name, department_number) 
 (1, 'Executive', 9986),
 (1, 'Sustainability', 9987),
 (1, 'Distribution', 9988);
-DROP TABLE IF EXISTS us_states;
+DROP TABLE IF EXISTS us_states CASCADE;
 CREATE TABLE us_states (state_id SMALLINT NOT NULL, state_name CHARACTER VARYING(100), state_abbr CHARACTER VARYING(2), state_region CHARACTER VARYING(50), CONSTRAINT pk_usstates PRIMARY KEY (state_id));
 INSERT INTO us_states (state_id, state_name, state_abbr, state_region) VALUES 
 (1, 'Alabama', 'AL', 'south'),

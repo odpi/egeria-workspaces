@@ -17,15 +17,15 @@ sequenceDiagram
 
     You->>Obsidian: Write command in a note
     You->>Obsidian: Click Briefcase icon
-    Obsidian->>Backend: Send note content (MCP)
-    Backend->>Egeria: Execute command
+    Obsidian->>Backend: Send note content via MCP SSE
+    Backend->>Egeria: Execute command (dr_egeria_run_block)
     Egeria-->>Backend: Results
     Backend-->>Obsidian: Structured JSON response
     Obsidian->>Obsidian: Save output to outbox
     Obsidian->>You: Show results modal
 ```
 
-The MCP tool `dr_egeria_run_block` returns a **structured JSON response** (not plain text) containing `success`, `partial`, per-step `validation_errors` and `execution_errors`, command counts, and the full output document. See [Using MCP in Egeria-Workspaces](../../Using MCP in Egeria-Workspaces.md) for the full response schema.
+The `dr_egeria_run_block` MCP tool processes the full note content and returns a **structured JSON response** containing `success`, `partial`, per-step `validation_errors`, `execution_errors`, command counts, per-command GUIDs, and the full output document. See [Using MCP in Egeria-Workspaces](../../Using MCP in Egeria-Workspaces.md) for the full tool reference and response schema.
 
 ### Via Egeria Explorer (browser testing)
 

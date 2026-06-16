@@ -452,6 +452,15 @@ Builds a single-command Dr. Egeria markdown block from the supplied title and pa
   "execution_errors": [
     {"step": 4, "command": "Create Data Structure", "message": "Parent not found"}
   ],
+  "created_elements": [
+    {
+      "step": 1,
+      "command": "Create Glossary Term",
+      "guid": "b4d63847-2785-48fa-8f91-82d6567103bb",
+      "qualified_name": "Customer::1.0",
+      "display_name": "Customer"
+    }
+  ],
   "commands_total": 6,
   "commands_succeeded": 4,
   "commands_failed": 2
@@ -466,6 +475,7 @@ Builds a single-command Dr. Egeria markdown block from the supplied title and pa
 | `directive` | Echo of the directive used |
 | `validation_errors` | Pre-flight failures (wrong/missing params) — safe to re-submit after fixing |
 | `execution_errors` | Runtime Egeria failures — metadata may be partially updated; investigate before retrying |
+| `created_elements` | Per-command element identifiers for successful `process` commands: `{step, command, guid, qualified_name, display_name}` |
 | `commands_total` | Command blocks processed (non-command prose blocks excluded) |
 | `commands_succeeded` / `commands_failed` | Counts |
 
@@ -488,14 +498,107 @@ Synchronous wrapper that invokes the async pipeline and returns both the aggrega
       "status": "success" | "failure",
       "verb": "Create",
       "object_type": "Glossary Term",
-      "errors": ["…"],    # present on validation failure
-      "message": "…",
+      "errors": ["…"],       # present on validation failure
+      "message": "…",        # includes GUID on success: "Executed Create ... (GUID: xxxx)"
       "is_command": True,
-      "error": "…",       # present on runtime exception
-      "output": "…"       # markdown output for this command
+      "error": "…",          # present on runtime exception
+      "output": "…",         # markdown output for this command
+      "guid": "…",           # Egeria GUID of the written element (process directive only)
+      "qualified_name": "…", # qualified name of the written element
+      "display_name": "…"    # display name of the written element
     }
   ]
 }
 ```
 
 `process_markdown_file` (original) is preserved for backward compatibility and still returns a plain string.
+
+---
+
+## MCP tools (`mcp_server.py`)
+
+The MCP server exposes the same Dr. Egeria processing via the Model Context Protocol in both stdio and SSE transport modes. See [Using MCP in Egeria-Workspaces](Using%20MCP%20in%20Egeria-Workspaces.md) for connection details.
+
+### `dr_egeria_run_block`
+
+Execute a full Dr. Egeria markdown document containing one or more `## Verb ObjectType` command blocks.
+
+**Parameters:**
+- `markdown_block` — Dr. Egeria markdown (see format rules below)
+- `url` — Egeria platform URL (falls back to `EGERIA_PLATFORM_URL` env var)
+- `server_name` — view server name (falls back to `EGERIA_VIEW_SERVER`)
+- `user_id` / `user_pass` — credentials (fall back to env vars)
+- `directive` — `display` | `validate` | `process` (default: `process`)
+- `outbox_path` — optional outbox path relative to `EGERIA_ROOT_PATH`
+- `input_file` — optional source filename for output naming
+
+Returns the same structured JSON as `POST /api/dr-egeria/execute` plus a `commands_detail` array. See [structured response](#post-apidr-egeriaexecute) above.
+
+### `egeria_execute_command`
+
+Execute a single named Dr. Egeria command.
+
+**Parameters:**
+- `command_name` — e.g. `"Create Solution Component"`
+- `attributes` — `### Param\nValue\n\n` formatted string; values must be **plain text** (no `> ` prefix)
+- `directive`, `url`, `server_name`, `user_id`, `user_pass`, `outbox_path` — same as above
+
+```
+## {command_name}
+
+{attributes}
+___
+```
+
+### `egeria_list_commands`
+
+Returns a newline-separated list of all registered Dr. Egeria command names. Call this before composing a block to verify the exact command name.
+
+### `egeria_refresh_specs`
+
+Reloads command specifications from the pyegeria package without restarting the container. Use after updating `md_processing` to pick up new command definitions.
+
+### `egeria_list_glossaries` / `egeria_list_collections`
+
+Convenience wrappers that run `View Glossaries` / `View Collections` with `directive="display"` and return the structured response.
+
+### Report tools
+
+| Tool | Parameters | Description |
+|---|---|---|
+| `list_reports` | — | List available report template names |
+| `find_report_specs` | `perspective` (optional) | Filter reports by perspective |
+| `describe_report` | `name` | Return parameter schema for a report |
+| `run_report` | `report_name`, `url`, `server_name`, `user_id`, `user_pass`, `search_string`, `page_size`, `start_from` | Execute a report and return results |
+
+---
+
+### Dr. Egeria block format reference
+
+```markdown
+## Create Solution Component
+
+### Display Name
+My Component
+
+### Description
+A reusable building block
+
+### Solution Component Type
+Service
+
+___
+## Create Solution Blueprint
+
+### Display Name
+My Blueprint
+
+___
+```
+
+**Rules:**
+- Command header: `## Verb ObjectType` (H2, standard verb + Egeria type name)
+- Parameter header: `### Parameter Name` (H3)
+- Parameter value: plain text on the line(s) after the H3 — **no `> ` prefix**
+- Command terminator: `___` (three underscores on its own line), or start of next `## ` block
+- Standard verbs: `Create`, `Update`, `Delete`, `Link`, `Attach`, `Add`, `Unlink`, `Detach`, `Remove`, `Display`, `View`, `Find`, `Search`, `Validate`, `Process`, `Run`, `Provenance`
