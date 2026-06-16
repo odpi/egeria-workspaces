@@ -2153,6 +2153,19 @@ var TYPE_TO_NAV = (function() {
   ['GlossaryTerm','Glossary','GlossaryCategory'].forEach(function(t) {
     m[t] = { section: 'glossary', tab: 'glossary' };
   });
+  // Cross-app: Egeria Explorer. Single entries for the abstract supertype are
+  // enough — the caller falls back to walking el.superTypes when there's no
+  // exact match, so e.g. PersonRole/GovernanceRole both resolve via 'ActorRole'.
+  m['SolutionComponent'] = { external: 'egeria-explorer', hash: 'solution-architect', kind: 'components' };
+  m['SolutionBlueprint']  = { external: 'egeria-explorer', hash: 'solution-architect', kind: 'blueprints' };
+  m['InformationSupplyChain'] = { external: 'egeria-explorer', hash: 'isc' };
+  m['ActorRole']      = { external: 'egeria-explorer', hash: 'actors', kind: 'roles' };
+  m['ActorProfile']   = { external: 'egeria-explorer', hash: 'actors', kind: 'profiles' };
+  m['UserIdentity']   = { external: 'egeria-explorer', hash: 'actors', kind: 'identities' };
+  m['Location']       = { external: 'egeria-explorer', hash: 'locations' };
+  m['Community']      = { external: 'egeria-explorer', hash: 'communities' };
+  m['GovernanceDefinition'] = { external: 'egeria-explorer', hash: 'governance' };
+  m['ReferenceDataValue']   = { external: 'egeria-explorer', hash: 'reference-data' };
   return m;
 }());
 
@@ -2237,9 +2250,9 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
             React.createElement('span', { style: { fontSize: 12, color: 'var(--text)', flex: 1 } }, el.displayName || el.guid || ''),
             el.typeName && React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)' } }, '· ' + el.typeName),
             nav && onNavigate && React.createElement('button', {
-              onClick: function() { onNavigate({ guid: el.guid, section: nav.section, tab: nav.tab, displayName: el.displayName || el.guid }); },
+              onClick: function() { onNavigate(Object.assign({ guid: el.guid, displayName: el.displayName || el.guid }, nav)); },
               style: { fontSize: 10, padding: '2px 7px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer', flexShrink: 0 }
-            }, 'View →')
+            }, nav.external ? '↗ Egeria Explorer' : 'View →')
           ),
           el.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginBottom: relProps.length ? 4 : 0 } }, el.description),
           relProps.filter(function(e) { return typeof e[1] !== 'object' || e[1] === null; }).map(function(e) {
@@ -2610,7 +2623,15 @@ function App() {
   }), activePersona = _activePersona[0], setActivePersona = _activePersona[1];
 
   function handleNavigate(nav) {
-    // nav = { guid, section, tab, displayName }
+    // Internal: { guid, section, tab, displayName } — switches Tech Catalog's own section.
+    // Cross-app: { guid, external, hash, kind, displayName } — opens Egeria Explorer
+    // in a new tab, deep-linked to the right tab (and sub-tab via ?kind=, for Actors).
+    if (nav.external) {
+      var url = '/' + nav.external + '?guid=' + encodeURIComponent(nav.guid) +
+        (nav.kind ? '&kind=' + encodeURIComponent(nav.kind) : '') + '#' + nav.hash;
+      window.open(url, '_blank');
+      return;
+    }
     setNavTarget(nav);
     setSection(nav.section);
   }

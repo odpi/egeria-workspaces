@@ -3242,6 +3242,11 @@ function RefDataTreeNode({ item, byGuid, depth, selected, onSelect, expanded, to
 
 function ReferenceDataView({ navGuid }) {
   const creds = React.useContext(CredContext);
+  // Captures ?guid= once on mount for a cross-app deep link (e.g. from Tech Catalog).
+  const _urlGuidRef = React.useRef((function() {
+    var params = new URLSearchParams(window.location.search);
+    return params.get('guid') || null;
+  })());
   const [sideW, onDivDown] = useResizable(254);
   const [loadState, setLoadState] = useState('loading');
   const [attempt, setAttempt]     = useState(0);
@@ -3297,14 +3302,17 @@ function ReferenceDataView({ navGuid }) {
     });
   }
 
-  // Cross-tab arrival: another tab called onNavigateToReferenceData(guid) — select
-  // it and expand its ancestor chain (parentSets) so it's visible in the tree.
+  // Cross-tab arrival: another tab called onNavigateToReferenceData(guid), or a
+  // cross-app link (e.g. Tech Catalog) landed here via ?guid= on page load —
+  // select it and expand its ancestor chain (parentSets) so it's visible in the tree.
   useEffect(function() {
-    if (!navGuid || !byGuid[navGuid]) return;
-    setSelected(navGuid);
+    var targetGuid = navGuid || _urlGuidRef.current;
+    if (!targetGuid || !byGuid[targetGuid]) return;
+    _urlGuidRef.current = null;
+    setSelected(targetGuid);
     setExpanded(function(prev) {
       const next = new Set(prev);
-      var cur = byGuid[navGuid];
+      var cur = byGuid[targetGuid];
       var seen = new Set();
       while (cur && cur.parentSets && cur.parentSets.length && !seen.has(cur.guid)) {
         seen.add(cur.guid);
@@ -6589,13 +6597,27 @@ var ACTOR_SUBNAV_ORDER = ['profiles', 'roles', 'identities'];
 function ActorsView({ navKind, navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(280);
-  const [subNav, setSubNav] = useState(navKind || 'profiles');
+  // Initial sub-tab + selection: in-app nav (navKind/navGuid props) takes
+  // priority; falls back to ?kind=&guid= for a cross-app deep link landing
+  // directly on this page (e.g. from Tech Catalog's "↗ Egeria Explorer" link).
+  const [subNav, setSubNav] = useState(function() {
+    if (navKind) return navKind;
+    var params = new URLSearchParams(window.location.search);
+    return params.get('kind') || 'profiles';
+  });
 
   const [state, setState]     = useState({ profiles: 'idle', roles: 'idle', identities: 'idle' });
   const [items, setItems]     = useState({ profiles: [], roles: [], identities: [] });
   const [error, setError]     = useState({ profiles: '', roles: '', identities: '' });
   const [attempt, setAttempt] = useState({ profiles: 0, roles: 0, identities: 0 });
-  const [selected, setSelected] = useState({ profiles: null, roles: null, identities: null });
+  const [selected, setSelected] = useState(function() {
+    var s = { profiles: null, roles: null, identities: null };
+    var params = new URLSearchParams(window.location.search);
+    var guid = navGuid || params.get('guid');
+    var kind = navKind || params.get('kind') || 'profiles';
+    if (guid) s[kind] = guid;
+    return s;
+  });
   const [detail, setDetail]   = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter]   = useState('');
@@ -6826,13 +6848,21 @@ function CommunityView({ navGuid, onNavigateToElement }) {
 function SolutionArchitectView({ onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(260);
-  const [subNav, setSubNav] = useState('blueprints'); // 'blueprints' | 'components'
+  // ?kind=components&guid=... supports a cross-app deep link landing directly
+  // here (e.g. from Tech Catalog's "↗ Egeria Explorer" link on a SolutionComponent).
+  const [subNav, setSubNav] = useState(function() {
+    var params = new URLSearchParams(window.location.search);
+    return params.get('kind') === 'components' ? 'components' : 'blueprints';
+  }); // 'blueprints' | 'components'
 
   const [bpState, setBpState]   = useState('loading');
   const [bpAttempt, setBpAttempt] = useState(0);
   const [blueprints, setBlueprints] = useState([]);
   const [bpError, setBpError]   = useState('');
-  const [selectedBp, setSelectedBp] = useState(null);
+  const [selectedBp, setSelectedBp] = useState(function() {
+    var params = new URLSearchParams(window.location.search);
+    return (params.get('kind') || 'blueprints') === 'blueprints' ? (params.get('guid') || null) : null;
+  });
   const [bpDetail, setBpDetail] = useState(null);
   const [bpDetailState, setBpDetailState] = useState('idle');
 
@@ -6840,7 +6870,10 @@ function SolutionArchitectView({ onNavigateToElement }) {
   const [compAttempt, setCompAttempt] = useState(0);
   const [components, setComponents] = useState([]);
   const [compError, setCompError]   = useState('');
-  const [selectedComp, setSelectedComp] = useState(null);
+  const [selectedComp, setSelectedComp] = useState(function() {
+    var params = new URLSearchParams(window.location.search);
+    return params.get('kind') === 'components' ? (params.get('guid') || null) : null;
+  });
   const [compDetail, setCompDetail] = useState(null);
   const [compDetailState, setCompDetailState] = useState('idle');
 
@@ -7463,13 +7496,22 @@ function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
     searchTimer.current = setTimeout(function() { setListAttempt(function(a) { return a + 1; }); }, 400);
   }
 
-  // Load detail when guid selected
+  // Load detail when guid selected. The response carries typeName, so this also
+  // syncs the left type-tree selection — needed when selGuid was set from a
+  // cross-app deep link (?guid= with no known type ahead of time).
   useEffect(function() {
     if (!selGuid) { setDetail(null); return; }
     setDetailLoading(true);
     fetch(credAppend('/api/governance/definitions/' + encodeURIComponent(selGuid), creds))
       .then(function(r) { return r.ok ? r.json() : null; })
-      .then(function(d) { setDetail(d); setDetailLoading(false); })
+      .then(function(d) {
+        setDetail(d);
+        setDetailLoading(false);
+        if (d && d.typeName && d.typeName !== selType) {
+          setSelType(d.typeName);
+          setListAttempt(function(a) { return a + 1; });
+        }
+      })
       .catch(function() { setDetailLoading(false); });
   }, [selGuid]);
 
@@ -7490,6 +7532,16 @@ function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
     }
     setSelGuid(navGuid);
   }, [navTypeName, navGuid]);
+
+  // Cross-app deep link (e.g. Tech Catalog's "↗ Egeria Explorer" link) — only
+  // ?guid= is known, no type; the detail-fetch effect above resolves typeName
+  // from the response and syncs the tree selection itself.
+  React.useEffect(function() {
+    if (navGuid) return; // prop-based nav (above) already handles this case
+    var params = new URLSearchParams(window.location.search);
+    var guid = params.get('guid');
+    if (guid) setSelGuid(guid);
+  }, []);
 
   const colLabel = typeLabels[selType] || selType;
 
