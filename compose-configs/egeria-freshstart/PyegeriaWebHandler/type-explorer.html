@@ -6586,6 +6586,12 @@ function LocationsView({ navGuid, onNavigateToElement }) {
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter] = useState('');
   const [expanded, setExpanded] = useState(function() { return new Set(); });
+  // 'geo' = geographic nesting · 'kind' = grouped by location kind
+  const [locView, setLocView] = useState('geo');
+  const [expandedLocKinds, setExpandedLocKinds] = useState(function() { return new Set(); });
+  const toggleLocKind = useCallback(function(k) {
+    setExpandedLocKinds(function(prev) { var n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n; });
+  }, []);
 
   useEffect(function() {
     setState('loading'); setError('');
@@ -6657,6 +6663,16 @@ function LocationsView({ navGuid, onNavigateToElement }) {
 
   var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { padding: '10px 12px 6px', fontSize: 12, fontWeight: 700, color: 'var(--text)', borderBottom: '1px solid var(--border)' } }, "Locations"),
+    React.createElement("div", { style: { display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
+      [['geo', 'Geographic'], ['kind', 'By Kind']].map(function(t) {
+        return React.createElement("button", {
+          key: t[0], onClick: function() { setLocView(t[0]); },
+          style: { flex: 1, padding: '7px 0', background: 'none', border: 'none', cursor: 'pointer',
+                   fontWeight: locView === t[0] ? 700 : 400, color: locView === t[0] ? 'var(--accent)' : 'var(--fg)',
+                   borderBottom: locView === t[0] ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 12 },
+        }, t[1]);
+      })
+    ),
     React.createElement("div", { className: "search-wrap" },
       React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
         onChange: function(e) { setFilter(e.target.value); } })
@@ -6667,15 +6683,53 @@ function LocationsView({ navGuid, onNavigateToElement }) {
       React.createElement("button", { className: "view-tab on", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "Retry")
     ),
     state === 'ready' && React.createElement("div", { style: { overflowY: 'auto', flex: 1 } },
-      !anyVisible
-        ? React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, items.length === 0 ? "No locations found" : "No matches")
-        : rootNodes.map(function(root) {
-            return React.createElement(LocationTreeNode, {
-              key: root.guid, item: root, byGuid: byGuid, depth: 0,
-              selected: selected, onSelect: setSelected,
-              expanded: expanded, toggleExpanded: toggleExpanded, search: filter,
+      locView === 'geo'
+        // Geographic: nested-location tree (starts collapsed)
+        ? (!anyVisible
+            ? React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, items.length === 0 ? "No locations found" : "No matches")
+            : rootNodes.map(function(root) {
+                return React.createElement(LocationTreeNode, {
+                  key: root.guid, item: root, byGuid: byGuid, depth: 0,
+                  selected: selected, onSelect: setSelected,
+                  expanded: expanded, toggleExpanded: toggleExpanded, search: filter,
+                });
+              }))
+        // By Kind: collapsible groups by location kind classification (starts collapsed)
+        : (function() {
+            var q = filter.trim().toLowerCase();
+            var vis = items.filter(function(x) { return !q || (x.displayName || x.qualifiedName || '').toLowerCase().includes(q); });
+            if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, items.length === 0 ? "No locations found" : "No matches");
+            function locRow(x) {
+              return React.createElement("div", {
+                key: x.guid, className: "tree-item" + (selected === x.guid ? " sel" : ""),
+                onClick: function() { setSelected(x.guid); }, title: x.qualifiedName || x.guid,
+              },
+                React.createElement("span", { className: "type-name", style: { flex: 1 } }, x.displayName || x.qualifiedName),
+                React.createElement(LocationKindBadges, { kinds: x.locationKinds })
+              );
+            }
+            var groups = {};
+            vis.forEach(function(x) {
+              var ks = (x.locationKinds || []).map(function(k) { return k.kind; }).filter(Boolean);
+              if (!ks.length) ks = ['Unclassified'];
+              ks.forEach(function(k) { (groups[k] = groups[k] || []).push(x); });
             });
-          })
+            var names = Object.keys(groups).sort();
+            if (names.length <= 1) return vis.map(locRow);
+            return names.map(function(k) {
+              var collapsed = !q && !expandedLocKinds.has(k);  // closed by default; search opens all
+              return React.createElement(React.Fragment, { key: k },
+                React.createElement("div", {
+                  onClick: function() { toggleLocKind(k); },
+                  style: { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--dim)', background: 'var(--panel)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' } },
+                  React.createElement("span", { style: { width: 10, fontSize: 9, flexShrink: 0 } }, collapsed ? '▶' : '▼'),
+                  React.createElement("span", { style: { flex: 1 } }, k),
+                  React.createElement("span", { style: { color: 'var(--muted)', fontWeight: 400 } }, groups[k].length)
+                ),
+                !collapsed && groups[k].map(locRow)
+              );
+            });
+          })()
     )
   );
 
@@ -6804,11 +6858,11 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
   const [detail, setDetail]   = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter]   = useState('');
-  // Collapsed kind-group headers, keyed "subNav::typeName".
-  const [collapsedKinds, setCollapsedKinds] = useState(new Set());
+  // Expanded kind-group headers, keyed "subNav::typeName". Groups start collapsed.
+  const [expandedKinds, setExpandedKinds] = useState(new Set());
 
   const toggleKind = useCallback(function(key) {
-    setCollapsedKinds(function(prev) { var n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
+    setExpandedKinds(function(prev) { var n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
   }, []);
 
   // Load the active sub-tab's list lazily (only once per tab).
@@ -6901,7 +6955,7 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
 
         return kinds.map(function(tn) {
           var key = subNav + '::' + tn;
-          var collapsed = !q && collapsedKinds.has(key);  // searching forces all groups open
+          var collapsed = !q && !expandedKinds.has(key);  // collapsed by default; searching forces all groups open
           return React.createElement(React.Fragment, { key: key },
             React.createElement("div", {
               onClick: function() { toggleKind(key); },
@@ -7567,9 +7621,12 @@ function ProjectsView() {
   const [detail, setDetail]     = React.useState(null);
   const [detailState, setDetailState] = React.useState('idle');
   const [search, setSearch] = React.useState('');
-  // Management hierarchy (shown when not searching)
+  // Two left-nav views: 'hierarchy' (managed sub-projects) | 'dependencies'
+  const [projSubNav, setProjSubNav] = React.useState('hierarchy');
   const [projTree, setProjTree] = React.useState(null);
   const [projTreeState, setProjTreeState] = React.useState('loading');
+  const [depTree, setDepTree] = React.useState(null);
+  const [depTreeState, setDepTreeState] = React.useState('loading');
   const [expandedProjs, setExpandedProjs] = React.useState(new Set());
 
   React.useEffect(function() {
@@ -7589,6 +7646,14 @@ function ProjectsView() {
       .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function(data) { setProjTree(data.roots || []); setProjTreeState('ready'); })
       .catch(function() { setProjTreeState('error'); });
+  }, []);
+
+  React.useEffect(function() {
+    setDepTreeState('loading');
+    fetch(credAppend('/api/projects/dependencies', creds))
+      .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function(data) { setDepTree(data.roots || []); setDepTreeState('ready'); })
+      .catch(function() { setDepTreeState('error'); });
   }, []);
 
   const toggleProj = React.useCallback(function(guid) {
@@ -7627,9 +7692,24 @@ function ProjectsView() {
     React.createElement('div', { className: 'center' }, 'Error: ' + error)
   );
 
+  var activeForest = projSubNav === 'dependencies' ? depTree : projTree;
+  var activeForestState = projSubNav === 'dependencies' ? depTreeState : projTreeState;
+  var emptyForestMsg = projSubNav === 'dependencies' ? 'No project dependencies defined.' : 'No projects found.';
+
   return React.createElement('div', { className: 'body' },
     // Sidebar
     React.createElement('div', { style: sidebarStyle },
+      // Sub-nav: Hierarchy | Dependencies
+      React.createElement('div', { style: { display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
+        [['hierarchy', 'Hierarchy'], ['dependencies', 'Dependencies']].map(function(t) {
+          return React.createElement('button', {
+            key: t[0], onClick: function() { setProjSubNav(t[0]); },
+            style: { flex: 1, padding: '7px 0', background: 'none', border: 'none', cursor: 'pointer',
+                     fontWeight: projSubNav === t[0] ? 700 : 400, color: projSubNav === t[0] ? 'var(--accent)' : 'var(--fg)',
+                     borderBottom: projSubNav === t[0] ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 12 },
+          }, t[1]);
+        })
+      ),
       React.createElement('div', { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
         React.createElement('input', {
           type: 'text', placeholder: 'Search projects…',
@@ -7656,14 +7736,14 @@ function ProjectsView() {
                     )
                   );
                 }))
-          // No search → management hierarchy tree
-          : (projTreeState === 'loading'
-              ? React.createElement('div', { style: { padding: 16, fontSize: 12, color: 'var(--dim)' } }, 'Loading hierarchy…')
-              : (projTree && projTree.length
-                  ? projTree.map(function(node) {
+          // No search → active forest (hierarchy or dependencies), starts collapsed
+          : (activeForestState === 'loading'
+              ? React.createElement('div', { style: { padding: 16, fontSize: 12, color: 'var(--dim)' } }, 'Loading…')
+              : (activeForest && activeForest.length
+                  ? activeForest.map(function(node) {
                       return React.createElement(ProjectTreeNode, { key: node.guid, node: node, depth: 0, selectedGuid: selected && selected.guid, onSelect: setSelected, expanded: expandedProjs, toggle: toggleProj });
                     })
-                  : React.createElement('div', { style: { padding: 16, fontSize: 12, color: 'var(--dim)' } }, 'No projects found.')))
+                  : React.createElement('div', { style: { padding: 16, fontSize: 12, color: 'var(--dim)' } }, emptyForestMsg)))
       )
     ),
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
