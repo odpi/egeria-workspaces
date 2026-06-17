@@ -7284,6 +7284,14 @@ function SolutionArchitectView({ onNavigateToElement }) {
   const [bpDetail, setBpDetail] = useState(null);
   const [bpDetailState, setBpDetailState] = useState('idle');
 
+  // Blueprints grouped by Folio (shown when not filtering); groups start collapsed.
+  const [bpFolios, setBpFolios] = useState(null);
+  const [bpFoliosState, setBpFoliosState] = useState('loading');
+  const [expandedFolios, setExpandedFolios] = useState(new Set());
+  const toggleFolio = useCallback(function(guid) {
+    setExpandedFolios(function(prev) { var n = new Set(prev); if (n.has(guid)) n.delete(guid); else n.add(guid); return n; });
+  }, []);
+
   const [compState, setCompState]   = useState('idle');
   const [compAttempt, setCompAttempt] = useState(0);
   const [components, setComponents] = useState([]);
@@ -7309,6 +7317,15 @@ function SolutionArchitectView({ onNavigateToElement }) {
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setBlueprints(data.blueprints || []); setBpState('ready'); })
       .catch(function(e) { setBpError(e.message); setBpState('error'); });
+  }, [bpAttempt]);
+
+  // Load blueprint→folio grouping
+  useEffect(function() {
+    setBpFoliosState('loading');
+    fetch(credAppend('/api/solution/blueprints/folios', creds))
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setBpFolios(data); setBpFoliosState('ready'); })
+      .catch(function() { setBpFoliosState('error'); });
   }, [bpAttempt]);
 
   // Load components when sub-nav switches to components (lazy)
@@ -7386,17 +7403,51 @@ function SolutionArchitectView({ onNavigateToElement }) {
       ),
       bpState === 'ready' && (function() {
         var q = filter.toLowerCase();
-        var vis = blueprints.filter(function(b) { return !q || (b.displayName || b.qualifiedName || '').toLowerCase().includes(q); });
-        if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, q ? "No matches" : "No blueprints found");
-        return vis.map(function(bp) {
+        function bpRow(bp, indent) {
           return React.createElement("div", {
             key: bp.guid, className: "tree-item" + (selectedBp === bp.guid ? " sel" : ""),
+            style: indent ? { paddingLeft: 26 } : null,
             onClick: function() { setSelectedBp(bp.guid); }, title: bp.qualifiedName || bp.guid,
           },
             React.createElement("span", { className: "type-name" }, bp.displayName || bp.qualifiedName),
             bp.lifecycleStatus && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)', marginLeft: 4 } }, bp.lifecycleStatus)
           );
+        }
+        // Filtering → flat match list across all blueprints.
+        if (q) {
+          var vis = blueprints.filter(function(b) { return (b.displayName || b.qualifiedName || '').toLowerCase().includes(q); });
+          if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "No matches");
+          return vis.map(function(bp) { return bpRow(bp, false); });
+        }
+        // No filter → Folios (collapsible, collapsed by default) then ungrouped blueprints.
+        if (bpFoliosState === 'loading') return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…");
+        var fg = bpFolios || { folios: [], ungrouped: blueprints };
+        var folios = fg.folios || [];
+        var ungrouped = fg.ungrouped || [];
+        if (!folios.length && !ungrouped.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "No blueprints found");
+        var out = [];
+        folios.forEach(function(folio) {
+          var isExp = expandedFolios.has(folio.guid);
+          out.push(React.createElement("div", {
+            key: 'folio-' + folio.guid, onClick: function() { toggleFolio(folio.guid); },
+            style: { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: 'var(--text)', background: 'var(--panel)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' },
+            title: folio.qualifiedName || folio.guid,
+          },
+            React.createElement("span", { style: { width: 10, fontSize: 9, flexShrink: 0, color: isExp ? 'var(--accent)' : 'var(--muted)' } }, isExp ? '▼' : '▶'),
+            React.createElement("span", { className: "badge", style: { fontSize: 8, background: 'rgba(251,191,36,.12)', color: '#fbbf24', border: '0.5px solid rgba(251,191,36,.3)' } }, "Folio"),
+            React.createElement("span", { style: { flex: 1 } }, folio.displayName || folio.qualifiedName),
+            React.createElement("span", { style: { color: 'var(--muted)', fontWeight: 400 } }, (folio.blueprints || []).length)
+          ));
+          if (isExp) (folio.blueprints || []).forEach(function(bp) { out.push(bpRow(bp, true)); });
         });
+        if (folios.length && ungrouped.length) {
+          out.push(React.createElement("div", {
+            key: 'ungrouped-hdr',
+            style: { padding: '6px 10px', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--dim)', background: 'var(--panel)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' },
+          }, "Not in a folio (" + ungrouped.length + ")"));
+        }
+        ungrouped.forEach(function(bp) { out.push(bpRow(bp, false)); });
+        return out;
       })()
     ),
     // Components list
