@@ -4375,6 +4375,13 @@ const _SPLASH_CAPABILITIES = [
     description: 'Browse Data Specs, Data Structures, Data Fields, and Data Grains. Navigate the full data design hierarchy and cross-reference glossary terms and data value specifications.',
   },
   {
+    section: 'collections',
+    group: 'review',
+    icon: '🗂',
+    title: 'Collections',
+    description: 'Start from the root collections and navigate the collection hierarchy — digital products, families, blueprints, folios, dictionaries, and more — regardless of collection type.',
+  },
+  {
     section: 'solution-architect',
     group: 'review',
     icon: '◫',
@@ -8662,12 +8669,13 @@ function App() {
         }),
         React.createElement(NavGroup, {
           label: 'Review', connected: connected, currentSection: section,
-          isActive: ['glossary','reference-data','data-design','solution-architect','isc','locations','actors','communities','notelogs','perspectives','governance','projects'].includes(section),
+          isActive: ['glossary','reference-data','data-design','collections','solution-architect','isc','locations','actors','communities','notelogs','perspectives','governance','projects'].includes(section),
           onSelect: setSection,
           items: [
             { id: 'glossary',           label: 'Glossary',                needsConnect: true },
             { id: 'reference-data',     label: 'Reference Data',          needsConnect: true },
             { id: 'data-design',        label: 'Data Design',             needsConnect: true },
+            { id: 'collections',        label: 'Collections',             needsConnect: true },
             { id: 'solution-architect', label: 'Solution Architect',      needsConnect: true },
             { id: 'isc',                label: 'Supply Chains',           needsConnect: true },
             { id: 'locations',          label: 'Locations',               needsConnect: true },
@@ -8681,12 +8689,11 @@ function App() {
         }),
         React.createElement(NavGroup, {
           label: 'Act', connected: connected, currentSection: section,
-          isActive: ['report-specs','digital-products','collections','dr-egeria'].includes(section),
+          isActive: ['report-specs','digital-products','dr-egeria'].includes(section),
           onSelect: setSection,
           items: [
             { id: 'report-specs',     label: 'Report Specs',     needsConnect: true },
             { id: 'digital-products', label: 'Digital Products', needsConnect: true },
-            { id: 'collections',      label: 'Collections',      needsConnect: true },
             { id: 'dr-egeria',        label: 'Dr. Egeria' },
           ]
         })
