@@ -6296,6 +6296,11 @@ function InformationSupplyChainView({ onNavigateToElement }) {
   const [detail, setDetail] = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter] = useState('');
+  const [expandedISC, setExpandedISC] = useState(new Set());
+
+  const toggleISC = useCallback(function(guid) {
+    setExpandedISC(function(prev) { var n = new Set(prev); if (n.has(guid)) n.delete(guid); else n.add(guid); return n; });
+  }, []);
 
   useEffect(function() {
     setState('loading'); setError('');
@@ -6331,12 +6336,29 @@ function InformationSupplyChainView({ onNavigateToElement }) {
         var vis = items.filter(function(x) { return !q || (x.displayName || x.qualifiedName || '').toLowerCase().includes(q); });
         if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, q ? "No matches" : "No information supply chains found");
         return vis.map(function(x) {
-          return React.createElement("div", {
-            key: x.guid, className: "tree-item" + (selected === x.guid ? " sel" : ""),
-            onClick: function() { setSelected(x.guid); }, title: x.qualifiedName || x.guid,
-          },
-            React.createElement("span", { className: "type-name" }, x.displayName || x.qualifiedName),
-            x.lifecycleStatus && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(94,234,212,.1)', color: '#5eead4', border: '0.5px solid rgba(94,234,212,.3)', marginLeft: 4 } }, x.lifecycleStatus)
+          var segs = x.segments || [];
+          var hasSegs = segs.length > 0;
+          var isExp = expandedISC.has(x.guid);
+          return React.createElement(React.Fragment, { key: x.guid },
+            React.createElement("div", {
+              className: "tree-item" + (selected === x.guid ? " sel" : ""),
+              onClick: function() { setSelected(x.guid); if (hasSegs) toggleISC(x.guid); }, title: x.qualifiedName || x.guid,
+            },
+              hasSegs
+                ? React.createElement("span", { style: { color: isExp ? 'var(--accent)' : 'var(--muted)', width: 14, display: 'inline-block', flexShrink: 0, fontSize: 10, fontWeight: 700, textAlign: 'center' } }, isExp ? '▼' : '▶')
+                : React.createElement("span", { style: { width: 14, display: 'inline-block', flexShrink: 0 } }),
+              React.createElement("span", { className: "type-name" }, x.displayName || x.qualifiedName),
+              x.lifecycleStatus && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(94,234,212,.1)', color: '#5eead4', border: '0.5px solid rgba(94,234,212,.3)', marginLeft: 4 } }, x.lifecycleStatus)
+            ),
+            isExp && segs.map(function(s) {
+              return React.createElement("div", {
+                key: s.guid, className: "tree-item" + (selected === s.guid ? " sel" : ""),
+                style: { paddingLeft: 30 }, onClick: function() { setSelected(s.guid); }, title: s.qualifiedName || s.guid,
+              },
+                React.createElement("span", { className: "type-name" }, s.displayName || s.qualifiedName),
+                s.typeName && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(99,102,241,.1)', color: '#93c5fd', border: '0.5px solid rgba(99,102,241,.3)', marginLeft: 4 } }, s.typeName)
+              );
+            })
           );
         });
       })()
