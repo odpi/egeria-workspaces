@@ -4758,10 +4758,26 @@ function RestApiView() {
     setEpFilter('');
   }
 
+  // The catalog example is per outer body type, so every endpoint sharing a body
+  // (e.g. the ~35 create endpoints on NewElementRequestBody) would otherwise show
+  // the same canned properties.class. Reconcile the nested Layer-2 properties.class
+  // to THIS endpoint's inferred type so the example matches the endpoint instead of
+  // an arbitrary first match from the http-client collections.
+  function exampleForEndpoint(ep, example) {
+    if (!example || typeof example !== 'object') return example;
+    if (!ep || !ep.propertiesType) return example;
+    var clone = JSON.parse(JSON.stringify(example));
+    var props = clone.properties;
+    if (props && typeof props === 'object' && !Array.isArray(props)) {
+      props.class = ep.propertiesType + 'Properties';
+    }
+    return clone;
+  }
+
   function buildCurlSnippet(ep) {
     if (!ep) return '';
     var body = catalog && ep.outerBodyType && catalog.bodies[ep.outerBodyType]
-      ? JSON.stringify(catalog.bodies[ep.outerBodyType].example, null, 2)
+      ? JSON.stringify(exampleForEndpoint(ep, catalog.bodies[ep.outerBodyType].example), null, 2)
       : null;
     var lines = ['curl -k -X ' + ep.method + ' \\'];
     lines.push('  "https://localhost:9443' + ep.path + '" \\');
@@ -4849,7 +4865,7 @@ function RestApiView() {
     }
     var ep = selEp;
     var bodyDef = catalog && ep.outerBodyType ? (catalog.bodies || {})[ep.outerBodyType] : null;
-    var exJson = bodyDef ? JSON.stringify(bodyDef.example, null, 2) : null;
+    var exJson = bodyDef ? JSON.stringify(exampleForEndpoint(ep, bodyDef.example), null, 2) : null;
     var curlSnippet = buildCurlSnippet(ep);
 
     return React.createElement("div", { className: "api-detail" },

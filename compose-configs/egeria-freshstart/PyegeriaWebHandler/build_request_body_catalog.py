@@ -271,13 +271,24 @@ def extract_from_directory(http_dir: Path) -> tuple[dict[str, set], dict[str, di
 
 # ── Catalog assembly ───────────────────────────────────────────────────────────
 
+def _source_label(http_dir: Path) -> str:
+    """A machine-independent source label for _meta — the Egeria distribution
+    version (if discoverable from the path) plus the collection dir name, so the
+    committed catalog doesn't bake in someone's absolute home path."""
+    version = next(
+        (p for p in http_dir.parts if p.startswith("egeria-platform-")),
+        "",
+    )
+    return f"{version}/{http_dir.name}" if version else http_dir.name
+
+
 def build_catalog(http_dir: Path) -> dict:
     body_fields, body_examples = extract_from_directory(http_dir)
 
     catalog: dict = {
         "_meta": {
             "description":  "Egeria REST API outer request body catalog.",
-            "source":       str(http_dir),
+            "source":       _source_label(http_dir),
             "howToRebuild": "python3 build_request_body_catalog.py [/path/to/http-client-collections]",
             "bodyCount":    len(body_fields),
         },
