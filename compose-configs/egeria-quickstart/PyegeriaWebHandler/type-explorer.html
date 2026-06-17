@@ -6804,6 +6804,12 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
   const [detail, setDetail]   = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter]   = useState('');
+  // Collapsed kind-group headers, keyed "subNav::typeName".
+  const [collapsedKinds, setCollapsedKinds] = useState(new Set());
+
+  const toggleKind = useCallback(function(key) {
+    setCollapsedKinds(function(prev) { var n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
+  }, []);
 
   // Load the active sub-tab's list lazily (only once per tab).
   useEffect(function() {
@@ -6875,14 +6881,37 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
         var q = filter.trim().toLowerCase();
         var vis = curItems.filter(function(x) { return !q || (x.displayName || x.qualifiedName || '').toLowerCase().includes(q); });
         if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, q ? "No matches" : "No items found");
-        return vis.map(function(x) {
+
+        function itemRow(x, showBadge) {
           return React.createElement("div", {
             key: x.guid, className: "tree-item" + (curSelected === x.guid ? " sel" : ""),
             onClick: function() { setSelected(function(s) { return Object.assign({}, s, { [subNav]: x.guid }); }); },
             title: x.qualifiedName || x.guid,
           },
             React.createElement("span", { className: "type-name" }, x.displayName || x.qualifiedName),
-            React.createElement(ActorTypeBadge, { typeName: x.typeName })
+            showBadge && React.createElement(ActorTypeBadge, { typeName: x.typeName })
+          );
+        }
+
+        // Group by kind (typeName). A single-kind tab renders flat (no header noise).
+        var groups = {};
+        vis.forEach(function(x) { var k = x.typeName || 'Other'; (groups[k] = groups[k] || []).push(x); });
+        var kinds = Object.keys(groups).sort();
+        if (kinds.length <= 1) return vis.map(function(x) { return itemRow(x, true); });
+
+        return kinds.map(function(tn) {
+          var key = subNav + '::' + tn;
+          var collapsed = !q && collapsedKinds.has(key);  // searching forces all groups open
+          return React.createElement(React.Fragment, { key: key },
+            React.createElement("div", {
+              onClick: function() { toggleKind(key); },
+              style: { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--dim)', background: 'var(--panel)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0 },
+            },
+              React.createElement("span", { style: { width: 10, fontSize: 9, flexShrink: 0 } }, collapsed ? '▶' : '▼'),
+              React.createElement("span", { style: { flex: 1 } }, tn),
+              React.createElement("span", { style: { color: 'var(--muted)', fontWeight: 400 } }, groups[tn].length)
+            ),
+            !collapsed && groups[tn].map(function(x) { return itemRow(x, false); })
           );
         });
       })()
