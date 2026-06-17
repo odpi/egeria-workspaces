@@ -3875,6 +3875,7 @@ const SECTION_LABELS = {
   'locations':         'Locations',
   'actors':            'Actors',
   'communities':       'Communities',
+  'notelogs':          'Note Logs',
   'perspectives':      'Perspectives',
   'governance':        'Governance Definitions',
   'report-specs':      'Report Specifications',
@@ -4282,6 +4283,14 @@ const _SPLASH_CAPABILITIES = [
     icon: '⚇',
     title: 'Communities',
     description: 'Browse communities of interest and the roles and people assigned to them. Cross-link to the actor profiles and roles that participate in each community.',
+    requiresConnection: true,
+  },
+  {
+    section: 'notelogs',
+    group: 'review',
+    icon: '🗒',
+    title: 'Note Logs',
+    description: 'Browse note logs and their dated note entries. Each log is attached to a subject element — cross-link to the people, communities, or assets the notes are about.',
     requiresConnection: true,
   },
   {
@@ -6231,6 +6240,7 @@ function _elementIsLinkable(item) {
   if (item.typeName === 'GlossaryTerm') return true;
   if (item.typeName === 'DigitalProduct') return true;
   if (item.typeName === 'Community') return true;
+  if (item.typeName === 'NoteLog') return true;
   if (DD_TYPES_SET[item.typeName]) return true;
   if (_actorKindForType(item.typeName, superTypes)) return true;
   if (superTypes.indexOf('GovernanceDefinition') !== -1) return true;
@@ -6836,6 +6846,158 @@ function CommunityView({ navGuid, onNavigateToElement }) {
     selected && detailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
     selected && detailState === 'error'   && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load community detail"),
     selected && (detailState === 'ready' || selectedItem) && React.createElement(CommunityDetail, { data: selectedItem, detail: detail, onNavigateToElement: onNavigateToElement })
+  );
+
+  return React.createElement("div", { className: "body" },
+    sidebar,
+    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
+    mainPanel
+  );
+}
+
+function _fmtNoteDate(s) {
+  if (!s) return '';
+  var d = new Date(s);
+  if (isNaN(d.getTime())) return s;
+  return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function NoteEntryCard({ entry }) {
+  var created = _fmtNoteDate(entry.createTime);
+  var updated = entry.updateTime && entry.updateTime !== entry.createTime ? _fmtNoteDate(entry.updateTime) : '';
+  var meta = [];
+  if (entry.createdBy) meta.push('by ' + entry.createdBy);
+  if (created) meta.push(created);
+  if (updated) meta.push('edited ' + updated);
+  return React.createElement("div", { style: { border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px', marginBottom: 10, background: 'var(--panel)' } },
+    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' } },
+      entry.title && React.createElement("div", { style: { fontWeight: 600, fontSize: 13 } }, entry.title),
+      entry.typeName && entry.typeName !== 'NoteEntry' && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(148,163,184,.1)', color: '#94a3b8', border: '0.5px solid rgba(148,163,184,.3)' } }, entry.typeName)
+    ),
+    entry.situation && React.createElement("div", { style: { fontSize: 12, color: 'var(--dim)', fontStyle: 'italic', marginBottom: 6 } }, entry.situation),
+    entry.text && React.createElement("div", { style: { fontSize: 13, lineHeight: 1.5 } }, renderMd(entry.text)),
+    meta.length > 0 && React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', marginTop: 8 } }, meta.join(' · '))
+  );
+}
+
+function NoteLogDetail({ data, detail, onNavigateToElement }) {
+  var src = detail || data;
+  if (!src) return null;
+  var fields = [['Qualified Name', src.qualifiedName], ['Status', src.status]]
+    .filter(function(f) { return f[1] && String(f[1]).trim(); });
+  var entries = src.entries || [];
+  var subjects = src.subjects || [];
+
+  return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.displayName || src.qualifiedName),
+      React.createElement("span", { className: "badge", style: { background: 'rgba(192,132,252,.1)', color: '#c084fc', border: '0.5px solid rgba(192,132,252,.3)' } }, src.typeName || 'NoteLog'),
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid }))
+    ),
+    React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, src.guid),
+    src.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(src.description)),
+    src.mermaidGraph && React.createElement("div", { style: { marginBottom: 8 } },
+      React.createElement(MermaidDiagram, { code: src.mermaidGraph })
+    ),
+    fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 20 } },
+      React.createElement("tbody", null,
+        fields.map(function(f, i) {
+          return React.createElement("tr", { key: f[0] + i, style: { borderTop: '1px solid var(--border)' } },
+            React.createElement("td", { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', width: 160, verticalAlign: 'top' } }, f[0]),
+            React.createElement("td", { style: { padding: '6px 0' } }, String(f[1]))
+          );
+        })
+      )
+    ),
+    subjects.length > 0 && React.createElement(RelationshipSection, { title: "About", items: subjects, onNavigateToElement: onNavigateToElement }),
+    React.createElement("div", { style: { fontWeight: 600, fontSize: 13, marginBottom: 8, marginTop: 4, color: 'var(--accent)' } },
+      "Notes" + (typeof src.entryCount === 'number' ? " (" + src.entryCount + ")" : "")),
+    src.entriesUnavailable
+      ? React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)', marginBottom: 16 } }, "This note log is too large to display its entries here.")
+      : entries.length === 0
+      ? React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)', marginBottom: 16 } }, "No notes in this log.")
+      : React.createElement(React.Fragment, null,
+          src.entriesTruncated && React.createElement("div", { style: { fontSize: 12, color: 'var(--dim)', marginBottom: 8 } },
+            "Showing the " + entries.length + " most recent of " + src.entryCount + " notes."),
+          entries.map(function(e) { return React.createElement(NoteEntryCard, { key: e.guid, entry: e }); })
+        ),
+    React.createElement(EgeriaCommentsSection, { guid: src.guid })
+  );
+}
+
+function NoteLogView({ navGuid, onNavigateToElement }) {
+  const creds = React.useContext(CredContext);
+  const [sideW, onDivDown] = useResizable(280);
+  const [state, setState]   = useState('loading');
+  const [attempt, setAttempt] = useState(0);
+  const [items, setItems]   = useState([]);
+  const [error, setError]   = useState('');
+  const [selected, setSelected] = useState(function() {
+    var params = new URLSearchParams(window.location.search);
+    return params.get('guid') || null;
+  });
+  const [detail, setDetail] = useState(null);
+  const [detailState, setDetailState] = useState('idle');
+  const [filter, setFilter] = useState('');
+
+  useEffect(function() {
+    setState('loading'); setError('');
+    fetch(credAppend('/api/notelogs', creds))
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setItems(data.notelogs || []); setState('ready'); })
+      .catch(function(e) { setError(e.message); setState('error'); });
+  }, [attempt]);
+
+  useEffect(function() {
+    if (!selected) { setDetail(null); return; }
+    setDetailState('loading');
+    fetch(credAppend('/api/notelogs/' + selected, creds))
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setDetail(data); setDetailState('ready'); })
+      .catch(function() { setDetailState('error'); });
+  }, [selected]);
+
+  // Cross-tab arrival: another tab called onNavigateToElement on a NoteLog item.
+  useEffect(function() {
+    if (navGuid) setSelected(navGuid);
+  }, [navGuid]);
+
+  var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { padding: '10px 12px 6px', fontSize: 12, fontWeight: 700, color: 'var(--text)', borderBottom: '1px solid var(--border)' } }, "Note Logs"),
+    React.createElement("div", { className: "search-wrap" },
+      React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
+        onChange: function(e) { setFilter(e.target.value); } })
+    ),
+    state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
+    state === 'error' && React.createElement("div", { style: { padding: 16 } },
+      React.createElement("div", { style: { color: '#f87171', fontSize: 13, marginBottom: 8 } }, "Error: " + error),
+      React.createElement("button", { className: "view-tab on", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "Retry")
+    ),
+    state === 'ready' && React.createElement("div", { style: { overflowY: 'auto', flex: 1 } },
+      (function() {
+        var q = filter.toLowerCase();
+        var vis = items.filter(function(x) { return !q || (x.displayName || x.qualifiedName || '').toLowerCase().includes(q); });
+        if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, q ? "No matches" : "No note logs found");
+        return vis.map(function(x) {
+          return React.createElement("div", {
+            key: x.guid, className: "tree-item" + (selected === x.guid ? " sel" : ""),
+            onClick: function() { setSelected(x.guid); }, title: x.qualifiedName || x.guid,
+          },
+            React.createElement("span", { className: "type-name" }, x.displayName || x.qualifiedName)
+          );
+        });
+      })()
+    )
+  );
+
+  var selectedItem = selected ? items.find(function(x) { return x.guid === selected; }) : null;
+  var mainPanel = React.createElement("div", { className: "main", style: { flex: 1, overflowY: 'auto' } },
+    !selected && React.createElement("div", { className: "center" },
+      React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a note log from the sidebar")
+    ),
+    selected && detailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
+    selected && detailState === 'error'   && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load note log detail"),
+    selected && (detailState === 'ready' || selectedItem) && React.createElement(NoteLogDetail, { data: selectedItem, detail: detail, onNavigateToElement: onNavigateToElement })
   );
 
   return React.createElement("div", { className: "body" },
@@ -8150,7 +8312,7 @@ function App() {
     var hash = window.location.hash.slice(1);
     var valid = new Set(['type-system','reference-data','digital-products','glossary',
       'report-specs','valid-values','rest-apis','python-api','solution-architect',
-      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','governance','projects']);
+      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','notelogs','governance','projects']);
     return valid.has(hash) ? hash : 'splash';
   });
   const [glossaryNavGuid, setGlossaryNavGuid] = useState(null);
@@ -8217,6 +8379,12 @@ function App() {
     setSection('communities');
   }, []);
 
+  const [noteLogsNavGuid, setNoteLogsNavGuid] = useState(null);
+  const onNavigateToNoteLog = useCallback(function(guid) {
+    setNoteLogsNavGuid(guid || null);
+    setSection('notelogs');
+  }, []);
+
   // Single dispatcher used by RelatedElementRow everywhere: decides the target
   // tab purely from the related element's typeName/superTypeNames. Adding a
   // new linkable type only requires a new branch here.
@@ -8228,6 +8396,7 @@ function App() {
     if (typeName === 'ReferenceDataValue') { onNavigateToReferenceData(guid); return; }
     if (typeName === 'GlossaryTerm') { onNavigateToGlossary(guid); return; }
     if (typeName === 'Community') { onNavigateToCommunity(guid); return; }
+    if (typeName === 'NoteLog') { onNavigateToNoteLog(guid); return; }
     if (DD_TYPES_SET[typeName]) { onNavigateToDataDesign(typeName, guid); return; }
     if (typeName === 'DigitalProduct') { onNavigateToDigitalProduct(guid); return; }
     var actorKind = _actorKindForType(typeName, superTypes);
@@ -8240,7 +8409,7 @@ function App() {
     // "↗ Tech Catalog" link, for callers that route everything through this
     // single dispatcher instead of rendering that link separately).
     if (superTypes.indexOf('Asset') !== -1) { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
-  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToDataDesign]);
+  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToNoteLog, onNavigateToDataDesign]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254);
 
@@ -8349,7 +8518,7 @@ function App() {
         }),
         React.createElement(NavGroup, {
           label: 'Review', connected: connected, currentSection: section,
-          isActive: ['glossary','reference-data','data-design','solution-architect','isc','locations','actors','communities','perspectives','governance','projects'].includes(section),
+          isActive: ['glossary','reference-data','data-design','solution-architect','isc','locations','actors','communities','notelogs','perspectives','governance','projects'].includes(section),
           onSelect: setSection,
           items: [
             { id: 'glossary',           label: 'Glossary',                needsConnect: true },
@@ -8360,6 +8529,7 @@ function App() {
             { id: 'locations',          label: 'Locations',               needsConnect: true },
             { id: 'actors',             label: 'Actors',                  needsConnect: true },
             { id: 'communities',        label: 'Communities',             needsConnect: true },
+            { id: 'notelogs',           label: 'Note Logs',               needsConnect: true },
             { id: 'perspectives',       label: 'Perspectives',            needsConnect: true },
             { id: 'governance',         label: 'Governance Definitions',  needsConnect: true },
             { id: 'projects',           label: 'Projects',                needsConnect: true },
@@ -8443,6 +8613,8 @@ function App() {
       ? React.createElement(ActorsView, { key: credsKey, navKind: actorsNav.kind, navGuid: actorsNav.guid, onNavigateToElement: onNavigateToElement })
       : section === 'communities'
       ? React.createElement(CommunityView, { key: credsKey, navGuid: communitiesNavGuid, onNavigateToElement: onNavigateToElement })
+      : section === 'notelogs'
+      ? React.createElement(NoteLogView, { key: credsKey, navGuid: noteLogsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'governance'
       ? React.createElement(GovernanceView, { key: credsKey, navTypeName: governanceNav.typeName, navGuid: governanceNav.guid, onNavigateToElement: onNavigateToElement })
       : section === 'projects'
