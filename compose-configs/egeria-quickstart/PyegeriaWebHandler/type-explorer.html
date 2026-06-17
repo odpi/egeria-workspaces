@@ -7190,6 +7190,11 @@ function SolutionArchitectView({ onNavigateToElement }) {
   const [compDetail, setCompDetail] = useState(null);
   const [compDetailState, setCompDetailState] = useState('idle');
 
+  // Composition hierarchy for the components sub-nav (shown when not filtering)
+  const [compTree, setCompTree] = useState(null);
+  const [compTreeState, setCompTreeState] = useState('idle');
+  const [expandedComps, setExpandedComps] = useState(new Set());
+
   const [filter, setFilter] = useState('');
 
   // Load blueprints
@@ -7210,6 +7215,20 @@ function SolutionArchitectView({ onNavigateToElement }) {
       .then(function(data) { setComponents(data.components || []); setCompState('ready'); })
       .catch(function(e) { setCompError(e.message); setCompState('error'); });
   }, [subNav, compAttempt]);
+
+  // Load the composition hierarchy (used when no filter is active)
+  useEffect(function() {
+    if (subNav !== 'components') return;
+    setCompTreeState('loading');
+    fetch(credAppend('/api/solution/components/tree', creds))
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setCompTree(data.roots || []); setCompTreeState('ready'); })
+      .catch(function() { setCompTreeState('error'); });
+  }, [subNav, compAttempt]);
+
+  const toggleComp = useCallback(function(guid) {
+    setExpandedComps(function(prev) { var n = new Set(prev); if (n.has(guid)) n.delete(guid); else n.add(guid); return n; });
+  }, []);
 
   // Fetch blueprint detail when selection changes
   useEffect(function() {
@@ -7284,16 +7303,30 @@ function SolutionArchitectView({ onNavigateToElement }) {
       ),
       compState === 'ready' && (function() {
         var q = filter.toLowerCase();
-        var vis = components.filter(function(c) { return !q || (c.displayName || c.qualifiedName || '').toLowerCase().includes(q); });
-        if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, q ? "No matches" : "No components found");
-        return vis.map(function(c) {
-          return React.createElement("div", {
-            key: c.guid, className: "tree-item" + (selectedComp === c.guid ? " sel" : ""),
-            onClick: function() { setSelectedComp(c.guid); }, title: c.qualifiedName || c.guid,
-          },
-            React.createElement("span", { className: "type-name" }, c.displayName || c.qualifiedName),
-            c.componentType && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(96,165,250,.1)', color: '#93c5fd', border: '0.5px solid rgba(96,165,250,.3)', marginLeft: 4 } }, c.componentType)
-          );
+        // Filtering → flat matches across all components. No filter → composition tree.
+        if (q) {
+          var vis = components.filter(function(c) { return (c.displayName || c.qualifiedName || '').toLowerCase().includes(q); });
+          if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "No matches");
+          return vis.map(function(c) {
+            return React.createElement("div", {
+              key: c.guid, className: "tree-item" + (selectedComp === c.guid ? " sel" : ""),
+              onClick: function() { setSelectedComp(c.guid); }, title: c.qualifiedName || c.guid,
+            },
+              React.createElement("span", { className: "type-name" }, c.displayName || c.qualifiedName),
+              c.componentType && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(96,165,250,.1)', color: '#93c5fd', border: '0.5px solid rgba(96,165,250,.3)', marginLeft: 4 } }, c.componentType)
+            );
+          });
+        }
+        if (compTreeState === 'loading' || compTreeState === 'idle') return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading hierarchy…");
+        var roots = compTree || [];
+        if (!roots.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "No components found");
+        return roots.map(function(node) {
+          return React.createElement(DigitalTreeNode, {
+            key: node.guid, node: node, depth: 0,
+            selectedGuid: selectedComp,
+            onSelect: function(guid) { setSelectedComp(guid); },
+            expanded: expandedComps, toggleNode: toggleComp,
+          });
         });
       })()
     )

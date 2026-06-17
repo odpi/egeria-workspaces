@@ -13,6 +13,7 @@ Endpoints:
 """
 
 import os
+import time
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
@@ -274,6 +275,84 @@ def list_components(
     components = [_serialize_component_summary(c) for c in raw]
     components.sort(key=lambda c: (c.get("displayName") or "").lower())
     return JSONResponse({"components": components, "total": len(components)})
+
+
+# Component tree cache: cache_key → (timestamp, result). The depth-1 find is ~5s.
+_COMP_TREE_CACHE: dict = {}
+_COMP_TREE_TTL = 120  # seconds
+
+
+def _rel_guids(element: dict, key: str) -> list:
+    """GUIDs of the related elements under a relationship key."""
+    out = []
+    for entry in _rel_list(element, key):
+        re = entry.get("relatedElement") or entry
+        g = (re.get("elementHeader") or {}).get("guid") or re.get("guid")
+        if g:
+            out.append(g)
+    return out
+
+
+@router.get("/api/solution/components/tree", summary="Solution component composition hierarchy")
+def list_components_tree(
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
+    """Return the solution-component composition forest: roots (components not nested
+    in any other) with recursively nested children. Built from a single depth-1 find
+    that inlines nestedSolutionComponents (children) and usedInSolutionComponents
+    (parents)."""
+    cache_key = f"{url or ''}|{server or ''}|{user_id or ''}"
+    cached = _COMP_TREE_CACHE.get(cache_key)
+    if cached and (time.time() - cached[0]) < _COMP_TREE_TTL:
+        return JSONResponse(cached[1])
+
+    try:
+        mgr = _get_manager(url, server, user_id, user_pwd)
+    except Exception as exc:
+        logger.exception("Failed to create SolutionArchitect manager")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+    try:
+        raw = mgr.find_solution_components(
+            search_string="*", output_format="JSON",
+            start_from=0, page_size=500, graph_query_depth=1,
+            sequencing_order="PROPERTY_ASCENDING", sequencing_property="displayName",
+        )
+    except Exception as exc:
+        logger.exception("find_solution_components (tree) failed")
+        raise HTTPException(status_code=500, detail=f"Component tree retrieval failed: {exc}")
+    if not isinstance(raw, list):
+        raw = []
+
+    summary = {}      # guid → node
+    children = {}     # guid → [child guid]
+    has_parent = set()
+    for el in raw:
+        g = (el.get("elementHeader") or {}).get("guid")
+        if not g:
+            continue
+        summary[g] = _serialize_component_summary(el)
+        kids = _rel_guids(el, "nestedSolutionComponents")
+        children[g] = kids
+        has_parent.update(kids)                       # nested children have a parent
+        if _rel_guids(el, "usedInSolutionComponents"):
+            has_parent.add(g)                          # this component is used by another
+
+    def build(guid: str, visited: set) -> dict:
+        node = dict(summary.get(guid, {"guid": guid}))
+        kids = [k for k in children.get(guid, []) if k in summary and k not in visited]
+        node["children"] = [build(k, visited | {guid}) for k in kids]
+        node["isContainer"] = bool(node["children"])
+        return node
+
+    roots = [build(g, set()) for g in summary if g not in has_parent]
+    roots.sort(key=lambda n: (n.get("displayName") or "").lower())
+    result = {"roots": roots, "total": len(summary)}
+    _COMP_TREE_CACHE[cache_key] = (time.time(), result)
+    return JSONResponse(result)
 
 
 @router.get("/api/solution/components/{guid}", summary="Get a single solution component by GUID")
