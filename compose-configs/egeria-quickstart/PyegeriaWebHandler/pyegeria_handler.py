@@ -191,6 +191,8 @@ from reference_data_handler import router as reference_data_router
 app.include_router(reference_data_router)
 from digital_products_handler import router as digital_products_router
 app.include_router(digital_products_router)
+from collections_handler import router as collections_router
+app.include_router(collections_router)
 from valid_values_handler import router as valid_values_router
 app.include_router(valid_values_router)
 from mermaid_handler import router as mermaid_router
