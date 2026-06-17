@@ -196,12 +196,24 @@ def _infer_properties_type(
     ]
     if segments:
         raw = segments[-1].replace("-", " ").title().replace(" ", "")
-        # Strip trailing plural 's' to get type name
-        if raw.endswith("s") and len(raw) > 4:
-            raw = raw[:-1]
-        return raw
+        return _singularize(raw)
 
     return ""
+
+
+def _singularize(word: str) -> str:
+    """Best-effort English singular for a URL-derived type name, e.g.
+    'Communities' → 'Community', 'UserIdentities' → 'UserIdentity',
+    'Assets' → 'Asset'. Leaves short or non-plural words untouched."""
+    if len(word) <= 4:
+        return word
+    if word.endswith("ies"):
+        return word[:-3] + "y"
+    if word.endswith(("ses", "xes", "zes", "ches", "shes")):
+        return word[:-2]
+    if word.endswith("s") and not word.endswith("ss"):
+        return word[:-1]
+    return word
 
 
 def _extract_parameters(operation: dict) -> tuple[list, list]:
