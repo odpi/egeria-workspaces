@@ -79,13 +79,15 @@ def _serialize_rel_entries(rel_list: list) -> list:
         re = rel.get("relatedElement") or {}
         rh = re.get("elementHeader") or {}
         rp = re.get("properties") or {}
+        rtype = rh.get("type") or {}
         g  = rh.get("guid", "")
         if g:
             result.append({
-                "guid":          g,
-                "displayName":   rp.get("displayName") or rp.get("name") or "",
-                "qualifiedName": rp.get("qualifiedName") or "",
-                "typeName":      (rh.get("type") or {}).get("typeName") or "",
+                "guid":           g,
+                "displayName":    rp.get("displayName") or rp.get("name") or "",
+                "qualifiedName":  rp.get("qualifiedName") or "",
+                "typeName":       rtype.get("typeName") or "",
+                "superTypeNames": rtype.get("superTypeNames") or [],
             })
     return result
 
@@ -162,12 +164,13 @@ def _serialize_implementation(element: dict) -> dict:
     props  = _props(element)
     header = _header(element)
     return {
-        "guid":          header.get("guid", ""),
-        "displayName":   props.get("displayName") or props.get("name") or "",
-        "qualifiedName": props.get("qualifiedName") or "",
-        "description":   props.get("description") or "",
-        "typeName":      _type_name(element),
-        "status":        header.get("status") or "",
+        "guid":           header.get("guid", ""),
+        "displayName":    props.get("displayName") or props.get("name") or "",
+        "qualifiedName":  props.get("qualifiedName") or "",
+        "description":    props.get("description") or "",
+        "typeName":       _type_name(element),
+        "superTypeNames": (header.get("type") or {}).get("superTypeNames") or [],
+        "status":         header.get("status") or "",
     }
 
 

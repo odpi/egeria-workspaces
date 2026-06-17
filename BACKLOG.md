@@ -149,7 +149,7 @@ Jupyter runs on the host.
 | FB-1 | Egeria comments on property sheets | done | Glossary Term + Digital Product detail panes; type dropdown; history list |
 | FB-2 | Likes + ratings on remaining detail panes | done | `EgeriaFeedbackWidget` on all property detail panes. ReportSpecDetail excluded — pyegeria format specs have no Egeria GUID. |
 | FB-3 | Comments (`EgeriaCommentsSection`) on remaining detail panes | done | `EgeriaCommentsSection` on all property detail panes. ReportSpecDetail excluded — same reason as FB-2. |
-| FB-4 | Journals — persistent per-element notes/log separate from Egeria comments | open | Exploratory; may be local storage or a separate Egeria NoteLog |
+| FB-4 | Journals — persistent per-element notes/log separate from Egeria comments | open | Exploratory; may be local storage or a separate Egeria NoteLog. **Read-only NoteLog viewer now shipped** (Note Logs tab, see Done-recent); FB-4 remains for the *write* side. |
 | FB-5 | **User Feedback → Postgres** — move per-page feedback from current `/api/demo-feedback` store to a `feedback` table in the `demo` schema (port 5442). One schema, all envs. | done | `demo_feedback_handler.py` rewrites to Postgres via `DEMO_DB_URL`; `demo` schema created on startup. Freshstart `demo_config.py` gets `DEMO_DB_*` vars. |
 | FB-6 | **Env-specific user identity** on User Feedback (the one intentional per-env difference) | done | `_resolve_user_id()`: JWT `sub` (demo/freshstart) or supplied email (local). `_resolve_env()` sets `env` field. |
 | FB-7 | **Capture schema** for each submission | done | Full schema: id, session_id, user_id, env, persona, page, element_guid, rating, category, message, email, wants_response, consent_to_contact, build_version, user_agent, viewport, locale, triage_status, created_at. FeedbackButton updated with category dropdown + wants_response + consent checkboxes. |
@@ -274,6 +274,8 @@ Spec: `demo_plan.md`
 | PY-2 | `get_data_value_specifications_by_name("*")` rejects wildcard | open | Same workaround as PY-1 |
 | PY-3 | `find_all_solution_blueprints/components` missing in 6.0.12.2 | open | Use `find_*(search_string="*")` |
 | PY-4 | `ServerClient.update_comment` defaults `merge_update=True` and sets `mergeUpdate: true` in body, but Egeria still rejects the request with `OPEN-METADATA-400-004` requiring `qualifiedName` | done | Workaround already in `egeria_feedback_handler.py`: fetches comment first via `get_comment_by_guid`, extracts `qualifiedName`, builds body manually |
+| PY-5 | `get_notes_for_note_log` was unusable in 6.0.14.5 (default `metadata_element_type_name="Action"` → `OMAG-…-404-001` on the NoteLog guid; `="NoteLog"` returned the log not the notes; timed out on big logs) | **fixed in 6.0.14.6** | Default kwargs now return the notes, `page_size`-bounded. **Gotcha:** do *not* pass `metadata_element_type_name="NoteLog"` — now returns 0. `notelog_handler.py` uses the default. |
+| PY-6 | `find_note_logs('*')` at default graph depth is O(total notes) — inlines every log's entries (~30s on qs; `page_size` bounds logs, not per-log expansion) | open | List uses `graph_query_depth=0` (≈0.3s, accepted via `**kwargs`); subjects via the depth-0 `Anchors` classification |
 
 ---
 
@@ -389,6 +391,7 @@ Goal: extract the shared UI components that appear verbatim in both Explorer and
 
 | Item | Commit |
 |------|--------|
+| Note Logs tab — read-only NoteLog viewer (both envs); entries via fixed `get_notes_for_note_log` (PY-5), subjects via `Anchors` classification | `4fdf09df` |
 | my-profile: wire into quick-start-local + fix Podman networking + SSL vhost + HTTPS public URL | `577fc9b2` |
 | Portal layout aligned with quickstart + Workspaces docs tile added (freshstart) | `c0fd2afc` |
 | Type System Explorer unified SPA + portal link fix (SHARE-1) | `5958dd03` |

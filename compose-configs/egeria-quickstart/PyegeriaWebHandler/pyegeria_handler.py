@@ -213,6 +213,8 @@ from actor_handler import router as actor_router
 app.include_router(actor_router)
 from community_handler import router as community_router
 app.include_router(community_router)
+from notelog_handler import router as notelog_router
+app.include_router(notelog_router)
 from governance_definitions_handler import router as governance_router
 app.include_router(governance_router)
 from project_handler import router as project_router

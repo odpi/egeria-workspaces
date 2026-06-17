@@ -97,11 +97,13 @@ def _extract_all_rels(element: dict) -> dict:
             rp = re.get("properties") or {}
             g  = rh.get("guid") or re.get("guid") or ""
             if g:
+                rtype = rh.get("type") or {}
                 items.append({
-                    "guid":          g,
-                    "displayName":   rp.get("displayName") or rp.get("name") or "",
-                    "qualifiedName": rp.get("qualifiedName") or "",
-                    "typeName":      (rh.get("type") or {}).get("typeName") or "",
+                    "guid":           g,
+                    "displayName":    rp.get("displayName") or rp.get("name") or "",
+                    "qualifiedName":  rp.get("qualifiedName") or "",
+                    "typeName":       rtype.get("typeName") or "",
+                    "superTypeNames": rtype.get("superTypeNames") or [],
                 })
         if items:
             result[key] = items
@@ -115,6 +117,7 @@ def _serialize_node(element: dict) -> dict:
     node = {
         "guid":             header.get("guid", ""),
         "typeName":         tn,
+        "superTypeNames":   (header.get("type") or {}).get("superTypeNames") or [],
         "displayName":      props.get("displayName", "") or props.get("name", "") or "",
         "qualifiedName":    props.get("qualifiedName", "") or "",
         "description":      props.get("description", "") or "",
