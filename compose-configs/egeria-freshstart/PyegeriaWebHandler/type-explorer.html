@@ -7481,6 +7481,31 @@ function ProjectKindBadge({ typeName, properties }) {
   }, typeName);
 }
 
+function ProjectTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggle }) {
+  var isExp = expanded.has(node.guid);
+  var isSel = selectedGuid === node.guid;
+  var pad = 8 + depth * 16;
+  return React.createElement(React.Fragment, null,
+    React.createElement('div', {
+      style: { padding: '8px 12px 8px ' + pad + 'px', cursor: 'pointer', borderBottom: '1px solid var(--border)', background: isSel ? 'rgba(96,165,250,.1)' : 'transparent', borderLeft: isSel ? '2px solid var(--accent)' : '2px solid transparent', display: 'flex', alignItems: 'flex-start', gap: 6 },
+      onClick: function() { onSelect(node); if (node.isContainer) toggle(node.guid); }
+    },
+      node.isContainer
+        ? React.createElement('span', { style: { color: isExp ? 'var(--accent)' : 'var(--muted)', width: 14, flexShrink: 0, fontSize: 10, fontWeight: 700, marginTop: 2, textAlign: 'center' } }, isExp ? '▼' : '▶')
+        : React.createElement('span', { style: { width: 14, flexShrink: 0 } }),
+      React.createElement('div', { style: { flex: 1, minWidth: 0 } },
+        React.createElement('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: (node.classifications || []).length ? 4 : 0, lineHeight: 1.3 } }, node.displayName || node.qualifiedName || node.guid),
+        (node.classifications || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 3 } },
+          node.classifications.map(function(c) { return React.createElement(ProjectKindBadge, { key: c.typeName, typeName: c.typeName, properties: c.properties }); })
+        )
+      )
+    ),
+    isExp && (node.children || []).map(function(ch) {
+      return React.createElement(ProjectTreeNode, { key: ch.guid, node: ch, depth: depth + 1, selectedGuid: selectedGuid, onSelect: onSelect, expanded: expanded, toggle: toggle });
+    })
+  );
+}
+
 function ProjectsView() {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(280);
@@ -7491,6 +7516,10 @@ function ProjectsView() {
   const [detail, setDetail]     = React.useState(null);
   const [detailState, setDetailState] = React.useState('idle');
   const [search, setSearch] = React.useState('');
+  // Management hierarchy (shown when not searching)
+  const [projTree, setProjTree] = React.useState(null);
+  const [projTreeState, setProjTreeState] = React.useState('loading');
+  const [expandedProjs, setExpandedProjs] = React.useState(new Set());
 
   React.useEffect(function() {
     setState('loading');
@@ -7501,6 +7530,18 @@ function ProjectsView() {
         setState('ready');
       })
       .catch(function(e) { setError(String(e)); setState('error'); });
+  }, []);
+
+  React.useEffect(function() {
+    setProjTreeState('loading');
+    fetch(credAppend('/api/projects/tree', creds))
+      .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function(data) { setProjTree(data.roots || []); setProjTreeState('ready'); })
+      .catch(function() { setProjTreeState('error'); });
+  }, []);
+
+  const toggleProj = React.useCallback(function(guid) {
+    setExpandedProjs(function(prev) { var n = new Set(prev); if (n.has(guid)) n.delete(guid); else n.add(guid); return n; });
   }, []);
 
   React.useEffect(function() {
@@ -7549,19 +7590,29 @@ function ProjectsView() {
         )
       ),
       React.createElement('div', { style: listStyle },
-        filtered.length === 0
-          ? React.createElement('div', { style: { padding: 16, fontSize: 12, color: 'var(--dim)' } }, 'No projects found.')
-          : filtered.map(function(p) {
-              var isActive = selected && selected.guid === p.guid;
-              return React.createElement('div', { key: p.guid, style: itemStyle(isActive), onClick: function() { setSelected(p); } },
-                React.createElement('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4, lineHeight: 1.3 } }, p.displayName || p.qualifiedName || p.guid),
-                (p.classifications || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 3 } },
-                  p.classifications.map(function(c) {
-                    return React.createElement(ProjectKindBadge, { key: c.typeName, typeName: c.typeName, properties: c.properties });
-                  })
-                )
-              );
-            })
+        search
+          // Searching → flat filtered list across all projects
+          ? (filtered.length === 0
+              ? React.createElement('div', { style: { padding: 16, fontSize: 12, color: 'var(--dim)' } }, 'No projects found.')
+              : filtered.map(function(p) {
+                  var isActive = selected && selected.guid === p.guid;
+                  return React.createElement('div', { key: p.guid, style: itemStyle(isActive), onClick: function() { setSelected(p); } },
+                    React.createElement('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4, lineHeight: 1.3 } }, p.displayName || p.qualifiedName || p.guid),
+                    (p.classifications || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 3 } },
+                      p.classifications.map(function(c) {
+                        return React.createElement(ProjectKindBadge, { key: c.typeName, typeName: c.typeName, properties: c.properties });
+                      })
+                    )
+                  );
+                }))
+          // No search → management hierarchy tree
+          : (projTreeState === 'loading'
+              ? React.createElement('div', { style: { padding: 16, fontSize: 12, color: 'var(--dim)' } }, 'Loading hierarchy…')
+              : (projTree && projTree.length
+                  ? projTree.map(function(node) {
+                      return React.createElement(ProjectTreeNode, { key: node.guid, node: node, depth: 0, selectedGuid: selected && selected.guid, onSelect: setSelected, expanded: expandedProjs, toggle: toggleProj });
+                    })
+                  : React.createElement('div', { style: { padding: 16, fontSize: 12, color: 'var(--dim)' } }, 'No projects found.')))
       )
     ),
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
