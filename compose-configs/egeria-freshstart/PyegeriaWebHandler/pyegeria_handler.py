@@ -13,11 +13,8 @@ def _bootstrap_runtime_defaults() -> None:
     log_directory = os.environ.setdefault("PYEGERIA_LOG_DIRECTORY", str(SCRIPT_DIR / "logs"))
     os.makedirs(log_directory, exist_ok=True)
 
-    # Freshstart uses Egeria-backed security; the coco persona 'erinoverview' does
-    # not exist in a fresh user directory.  Default to the admin service account so
-    # all handlers that fall back to EGERIA_USER credentials can actually authenticate.
-    os.environ.setdefault("EGERIA_USER",          os.environ.get("EGERIA_ADMIN_CALLER_ID",       "bootstrap"))
-    os.environ.setdefault("EGERIA_USER_PASSWORD",  os.environ.get("EGERIA_ADMIN_CALLER_PASSWORD", "secret"))
+    os.environ.setdefault("EGERIA_USER", "erinoverview")
+    os.environ.setdefault("EGERIA_USER_PASSWORD", "secret")
     os.environ.setdefault("EGERIA_WIDTH", "100")
 
     root_default: str
@@ -47,7 +44,8 @@ _bootstrap_runtime_defaults()
 import asyncio
 import concurrent.futures
 import io
-from contextlib import redirect_stderr, redirect_stdout
+import threading
+from contextlib import asynccontextmanager, redirect_stderr, redirect_stdout
 from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException, Request
@@ -55,19 +53,35 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from loguru import logger
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from pyegeria import print_basic_exception
 import pyegeria
 pyegeria.enable_ssl_check = False
 pyegeria.disable_ssl_warnings = True
 
 import dr_egeria_md
+from demo_config import DEMO_MODE, OBSIDIAN_VAULT_URL, OBSIDIAN_GITHUB_URL, EGERIA_ADVISOR_URL
+from rate_limiter import limiter
 
 
+@asynccontextmanager
 async def _lifespan(app: FastAPI):
+    from obsidian_lock_handler import start_scheduler as obs_start, stop_scheduler as obs_stop
     from jupyter_lock_handler import start_scheduler as jup_start, stop_scheduler as jup_stop
+    await obs_start()
     await jup_start()
+    if DEMO_MODE:
+        from demo_reset_handler import start_scheduler, stop_scheduler
+        await start_scheduler()
     yield
+    if DEMO_MODE:
+        from demo_reset_handler import stop_scheduler
+        await stop_scheduler()
     await jup_stop()
+    await obs_stop()
 
 
 app = FastAPI(
@@ -76,6 +90,8 @@ app = FastAPI(
     version="1.0.0",
     lifespan=_lifespan,
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Security Token (Simplified for local use)
 MCP_ACCESS_TOKEN = os.environ.get("MCP_ACCESS_TOKEN", "egeria-secret-mcp-token")
@@ -119,6 +135,7 @@ class MCPTokenMiddleware:
         await self.app(scope, receive, send)
 
 app.add_middleware(MCPTokenMiddleware)
+app.add_middleware(SlowAPIMiddleware)
 
 # CORS configuration for Obsidian security
 # CORSMiddleware is added AFTER other middlewares so it wraps them
@@ -131,6 +148,8 @@ app.add_middleware(
 )
 
 executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+# Serialises _invoke_processor calls because _apply_request_configuration mutates os.environ
+_processor_lock = threading.Lock()
 
 
 class ProcessRequest(BaseModel):
@@ -172,6 +191,8 @@ from reference_data_handler import router as reference_data_router
 app.include_router(reference_data_router)
 from digital_products_handler import router as digital_products_router
 app.include_router(digital_products_router)
+from collections_handler import router as collections_router
+app.include_router(collections_router)
 from valid_values_handler import router as valid_values_router
 app.include_router(valid_values_router)
 from mermaid_handler import router as mermaid_router
@@ -210,13 +231,46 @@ from tech_catalog_handler import router as tech_catalog_router
 app.include_router(tech_catalog_router)
 from lineage_handler import router as lineage_router
 app.include_router(lineage_router)
+from obsidian_lock_handler import router as obsidian_lock_router
+app.include_router(obsidian_lock_router)
 from jupyter_lock_handler import router as jupyter_lock_router
 app.include_router(jupyter_lock_router)
 
-# ── Auth (Egeria-backed — always active in freshstart) ─────────────────────────
-from demo_config import DEMO_MODE, EGERIA_ADVISOR_URL, OBSIDIAN_VAULT_URL, OBSIDIAN_GITHUB_URL
-from demo_auth_handler import router as demo_auth_router
-app.include_router(demo_auth_router)
+# ── Demo mode ──────────────────────────────────────────────────────────────────
+
+if DEMO_MODE:
+    from demo_auth_handler import router as demo_auth_router
+    app.include_router(demo_auth_router)
+    from demo_reset_handler import router as demo_reset_router
+    app.include_router(demo_reset_router)
+else:
+    @app.get("/api/auth/me", include_in_schema=False)
+    async def auth_me_non_demo():
+        return {"authenticated": True, "demo_mode": False, "server_managed_auth": False}
+
+    class _PersonaSelectReq(BaseModel):
+        persona: str
+
+    @app.get("/api/demo/personas", include_in_schema=False)
+    async def personas_non_demo():
+        from demo_auth_handler import _load_personas
+        ps = _load_personas()
+        return {pid: {k: v for k, v in p.items() if k != "password"} for pid, p in ps.items()}
+
+    @app.post("/api/demo/select-persona", include_in_schema=False)
+    async def select_persona_non_demo(req: _PersonaSelectReq):
+        from demo_auth_handler import _load_personas
+        ps = _load_personas()
+        persona = ps.get(req.persona)
+        if not persona:
+            raise HTTPException(status_code=404, detail=f"Persona {req.persona!r} not found")
+        return {
+            "persona":          req.persona,
+            "display_name":     persona.get("display_name", req.persona),
+            "coco_title":       persona.get("coco_title", ""),
+            "egeria_user":      req.persona,
+            "egeria_password":  persona["password"],
+        }
 
 @app.get("/")
 async def health():
@@ -235,6 +289,9 @@ async def platform_portal_config():
     advisor_running = False
     if EGERIA_ADVISOR_URL:
         check_urls = [EGERIA_ADVISOR_URL]
+        # Inside Docker, localhost resolves to the container, not the host.
+        # Add host.docker.internal as a fallback so the health check reaches
+        # a service running on the host machine.
         if "localhost" in EGERIA_ADVISOR_URL:
             check_urls.append(EGERIA_ADVISOR_URL.replace("localhost", "host.docker.internal"))
         for check_url in check_urls:
@@ -257,34 +314,41 @@ async def platform_portal_config():
 
 @app.get("/login", include_in_schema=False)
 async def login_page():
+    if not DEMO_MODE:
+        return RedirectResponse(url="/egeria-explorer")
     html_path = SCRIPT_DIR / "demo-login.html"
     if not html_path.exists():
         raise HTTPException(status_code=404, detail="Login page not found")
     return FileResponse(str(html_path), media_type="text/html")
 
 
+@app.get("/register", include_in_schema=False)
+async def register_page():
+    if not DEMO_MODE:
+        return RedirectResponse(url="/egeria-explorer")
+    html_path = SCRIPT_DIR / "demo-register.html"
+    if not html_path.exists():
+        raise HTTPException(status_code=404, detail="Register page not found")
+    return FileResponse(str(html_path), media_type="text/html")
+
 
 @app.get("/admin", include_in_schema=False)
 async def admin_page(request: Request):
+    if not DEMO_MODE:
+        html_path = SCRIPT_DIR / "local-admin.html"
+        if not html_path.exists():
+            raise HTTPException(status_code=404, detail="Local admin page not found")
+        return FileResponse(str(html_path), media_type="text/html")
     from demo_auth_handler import get_current_user
-    user = get_current_user(request)
-    if not user or user.role != "admin":
+    from demo_db import get_engine
+    from sqlalchemy.orm import Session
+    with Session(get_engine()) as db:
+        user = get_current_user(request, db)
+    if not user or not user.verified or user.role != "admin":
         return RedirectResponse(url="/login", status_code=302)
     html_path = SCRIPT_DIR / "demo-admin.html"
     if not html_path.exists():
         raise HTTPException(status_code=404, detail="Admin page not found")
-    return FileResponse(str(html_path), media_type="text/html")
-
-
-@app.get("/profile", include_in_schema=False)
-async def profile_page(request: Request):
-    from demo_auth_handler import get_current_user
-    user = get_current_user(request)
-    if not user:
-        return RedirectResponse(url="/login", status_code=302)
-    html_path = SCRIPT_DIR / "demo-profile.html"
-    if not html_path.exists():
-        raise HTTPException(status_code=404, detail="Profile page not found")
     return FileResponse(str(html_path), media_type="text/html")
 
 
@@ -296,12 +360,26 @@ async def privacy_page():
     return FileResponse(str(html_path), media_type="text/html")
 
 
+@app.get("/reset-password", include_in_schema=False)
+async def reset_password_page():
+    if not DEMO_MODE:
+        return RedirectResponse(url="/login")
+    html_path = SCRIPT_DIR / "demo-reset-password.html"
+    if not html_path.exists():
+        raise HTTPException(status_code=404, detail="Reset password page not found")
+    return FileResponse(str(html_path), media_type="text/html")
+
+
 @app.get("/portal", include_in_schema=False)
 async def portal_page(request: Request):
-    from demo_auth_handler import get_current_user
-    user = get_current_user(request)
-    if not user:
-        return RedirectResponse(url="/login", status_code=302)
+    if DEMO_MODE:
+        from demo_auth_handler import get_current_user
+        from demo_db import get_engine
+        from sqlalchemy.orm import Session
+        with Session(get_engine()) as db:
+            user = get_current_user(request, db)
+        if not user or not user.verified:
+            return RedirectResponse(url="/login", status_code=302)
     html_path = SCRIPT_DIR / "demo-portal.html"
     if not html_path.exists():
         raise HTTPException(status_code=404, detail="Portal page not found")
@@ -320,7 +398,7 @@ def _apply_request_configuration(req: ProcessRequest) -> tuple[str, str]:
     environment = req.environment or {}
     user_profile = req.user_profile or {}
 
-    print(f"DEBUG: Request environment: {environment}")
+    logger.debug(f"Request environment: {environment}")
 
     platform_url = str(
         environment.get("Egeria Platform URL")
@@ -378,47 +456,46 @@ def _apply_request_configuration(req: ProcessRequest) -> tuple[str, str]:
         os.environ["EGERIA_INBOX_PATH"] = _stringify_env_value(environment["Dr.Egeria Inbox"])
 
     # Log values after configuration application
-    print(f"DEBUG: Configured EGERIA_ROOT_PATH: {os.environ.get('EGERIA_ROOT_PATH')}")
-    print(f"DEBUG: Configured EGERIA_INBOX_PATH: {os.environ.get('EGERIA_INBOX_PATH')}")
+    logger.debug(f"Configured EGERIA_ROOT_PATH: {os.environ.get('EGERIA_ROOT_PATH')}")
+    logger.debug(f"Configured EGERIA_INBOX_PATH: {os.environ.get('EGERIA_INBOX_PATH')}")
 
     # Special handling for absolute paths sent from plugin
     if req.input_file.startswith("/"):
         # If the file path is already absolute, we don't need to prepend anything,
         # but we do want to check fallbacks if it's not found at the literal path.
-        print(f"DEBUG: Absolute path detected in request: {req.input_file}")
+        logger.debug(f"Absolute path detected in request: {req.input_file}")
     
     for config_key, env_key in profile_mappings.items():
         if config_key in user_profile:
             os.environ[env_key] = _stringify_env_value(user_profile[config_key])
 
-    os.environ["EGERIA_USER"] = req.user_id
-    os.environ["EGERIA_USER_PASSWORD"] = req.user_pass
+
 
     # Check if the file actually exists using the combination
     current_root = os.environ.get("EGERIA_ROOT_PATH", "/")
     current_inbox = os.environ.get("EGERIA_INBOX_PATH", ".")
     combined_path = Path(current_root) / current_inbox / req.input_file
     resolved_path = combined_path.resolve()
-    print(f"DEBUG: Combined absolute path check: {resolved_path}")
+    logger.debug(f"Combined absolute path check: {resolved_path}")
     
     # List of possible mount points to check if not found at the primary path
     mount_points = ["/work", "/coco-workbooks", "/work/Work-Obsidian"]
     
     if resolved_path.exists():
-        print(f"DEBUG: FILE FOUND at {resolved_path}. Using absolute path for processor.")
+        logger.debug(f"FILE FOUND at {resolved_path}. Using absolute path for processor.")
     else:
-        print(f"DEBUG: FILE NOT FOUND at {resolved_path}. Checking fallback mount points...")
+        logger.debug(f"FILE NOT FOUND at {resolved_path}. Checking fallback mount points...")
         found_fallback = False
         for mp in mount_points:
             fallback_path = Path(mp) / req.input_file.lstrip("/")
             if fallback_path.exists():
                 resolved_path = fallback_path.resolve()
-                print(f"DEBUG: FILE FOUND at fallback {resolved_path}")
+                logger.debug(f"FILE FOUND at fallback {resolved_path}")
                 found_fallback = True
                 break
         
         if not found_fallback:
-            print(f"DEBUG: FILE NOT FOUND in any common location.")
+            logger.debug(f"FILE NOT FOUND in any common location.")
             return req.input_file, view_server, platform_url
 
     # If found, use the absolute path to bypass internal library resolution issues.
@@ -436,7 +513,7 @@ def _apply_request_configuration(req: ProcessRequest) -> tuple[str, str]:
         # Force outbox to be absolute relative to the discovered root
         absolute_outbox = str(Path(discovered_root) / outbox)
         os.environ["EGERIA_OUTBOX_PATH"] = absolute_outbox
-        print(f"DEBUG: Forced absolute EGERIA_OUTBOX_PATH: {absolute_outbox}")
+        logger.debug(f"Forced absolute EGERIA_OUTBOX_PATH: {absolute_outbox}")
 
     os.environ["EGERIA_ROOT_PATH"] = "/"
     os.environ["EGERIA_INBOX_PATH"] = "."
@@ -503,6 +580,11 @@ def _console_output_indicates_error(console_output: str) -> bool:
 
 
 def _invoke_processor(req: ProcessRequest) -> ProcessResponse:
+    with _processor_lock:
+        return _invoke_processor_locked(req)
+
+
+def _invoke_processor_locked(req: ProcessRequest) -> ProcessResponse:
     input_file, server, url = _apply_request_configuration(req)
 
     cmd = dr_egeria_md.process_md_file
@@ -520,8 +602,8 @@ def _invoke_processor(req: ProcessRequest) -> ProcessResponse:
         elif input_file.startswith("/work"):
              output_folder = str(Path("/work") / output_folder)
 
-    print(f"DEBUG: Invoking processor with input_file: {input_file}")
-    print(f"DEBUG: Invoking processor with output_folder: {output_folder}")
+    logger.debug(f"Invoking processor with input_file: {input_file}")
+    logger.debug(f"Invoking processor with output_folder: {output_folder}")
 
     console_output = _run_and_capture(
         func,
@@ -565,7 +647,7 @@ def _invoke_processor(req: ProcessRequest) -> ProcessResponse:
 @app.post("/dr-egeria/process", response_model=ProcessResponse)
 async def process_markdown(request: ProcessRequest):
     try:
-        print(f"DEBUG: Received request for input_file: {request.input_file}")
+        logger.debug(f"Received request for input_file: {request.input_file}")
         loop = asyncio.get_event_loop()
         result: ProcessResponse = await loop.run_in_executor(executor, _invoke_processor, request)
         return JSONResponse(content=result.model_dump())
@@ -606,7 +688,10 @@ async def refresh_commands():
 
 @app.on_event("startup")
 async def on_startup():
-    pass  # Egeria is the user store — no local bootstrap needed
+    from demo_config import DEMO_MODE
+    if DEMO_MODE:
+        from demo_db import bootstrap_admin
+        bootstrap_admin()
 
 
 @app.on_event("shutdown")

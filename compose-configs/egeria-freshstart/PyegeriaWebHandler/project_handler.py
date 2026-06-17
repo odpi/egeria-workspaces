@@ -10,6 +10,7 @@ Endpoints:
 """
 
 import os
+import time
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
@@ -117,6 +118,107 @@ def get_projects(
     projects = [_serialize_project(p) for p in raw if _type_name(p) == "Project"]
     projects.sort(key=lambda p: (p.get("displayName") or "").lower())
     return JSONResponse({"projects": projects, "total": len(projects)})
+
+
+# Project hierarchy cache: cache_key → (timestamp, result).
+_PROJ_TREE_CACHE: dict = {}
+_PROJ_TREE_TTL = 120  # seconds
+
+
+def _rel_guids(element: dict, key: str) -> list:
+    """GUIDs of related elements under a relationship key (depth-1 form)."""
+    out = []
+    for entry in (element.get(key) or []):
+        if not isinstance(entry, dict):
+            continue
+        re = entry.get("relatedElement") or entry
+        g = (re.get("elementHeader") or {}).get("guid") or re.get("guid")
+        if g:
+            out.append(g)
+    return out
+
+
+def _project_forest(mgr, child_key: str, parent_key: str) -> dict:
+    """Build a project forest from a single depth-1 find. child_key/parent_key are
+    the downward/upward relationship attribute names (e.g. managedProjects /
+    managingProjects for hierarchy, or dependsOnProjects / dependentProject for
+    dependencies). Roots are projects with no parent edge; cycles are guarded."""
+    raw = mgr.find_projects(
+        search_string="*", starts_with=True, output_format="JSON",
+        start_from=0, page_size=500, graph_query_depth=1,
+        sequencing_order="PROPERTY_ASCENDING", sequencing_property="displayName",
+    )
+    if not isinstance(raw, list):
+        raw = []
+
+    summary, children, has_parent = {}, {}, set()
+    for el in raw:
+        if _type_name(el) != "Project":
+            continue
+        g = _header(el).get("guid")
+        if not g:
+            continue
+        summary[g] = _serialize_project(el)
+        kids = _rel_guids(el, child_key)
+        children[g] = kids
+        has_parent.update(kids)
+        if _rel_guids(el, parent_key):
+            has_parent.add(g)
+
+    def build(guid: str, visited: set) -> dict:
+        node = dict(summary.get(guid, {"guid": guid}))
+        kids = [k for k in children.get(guid, []) if k in summary and k not in visited]
+        node["children"] = [build(k, visited | {guid}) for k in kids]
+        node["isContainer"] = bool(node["children"])
+        return node
+
+    roots = [build(g, set()) for g in summary if g not in has_parent]
+    roots.sort(key=lambda n: (n.get("displayName") or "").lower())
+    return {"roots": roots, "total": len(summary)}
+
+
+def _cached_forest(kind: str, child_key: str, parent_key: str, url, server, user_id, user_pwd):
+    cache_key = f"{kind}|{url or ''}|{server or ''}|{user_id or ''}"
+    cached = _PROJ_TREE_CACHE.get(cache_key)
+    if cached and (time.time() - cached[0]) < _PROJ_TREE_TTL:
+        return JSONResponse(cached[1])
+    try:
+        mgr = _get_manager(url, server, user_id, user_pwd)
+    except Exception as exc:
+        logger.exception("Failed to create ProjectManager")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+    try:
+        result = _project_forest(mgr, child_key, parent_key)
+    except Exception as exc:
+        logger.exception(f"project {kind} forest failed")
+        raise HTTPException(status_code=500, detail=f"Project {kind} retrieval failed: {exc}")
+    _PROJ_TREE_CACHE[cache_key] = (time.time(), result)
+    return JSONResponse(result)
+
+
+@router.get("/api/projects/tree", summary="Project management hierarchy")
+def get_projects_tree(
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
+    """Project hierarchy forest: roots (not managed by another) with nested
+    sub-projects (managedProjects children / managingProjects parents)."""
+    return _cached_forest("hierarchy", "managedProjects", "managingProjects", url, server, user_id, user_pwd)
+
+
+@router.get("/api/projects/dependencies", summary="Project dependency forest")
+def get_projects_dependencies(
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
+    """Project dependency forest: roots (projects nothing depends on) expanding to
+    the projects they depend on (dependsOnProjects children / dependentProject
+    parents, per the ProjectDependency relationship)."""
+    return _cached_forest("dependencies", "dependsOnProjects", "dependentProject", url, server, user_id, user_pwd)
 
 
 @router.get("/api/projects/{guid}", summary="Single project detail with child projects")

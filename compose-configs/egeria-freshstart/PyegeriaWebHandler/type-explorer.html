@@ -3861,6 +3861,133 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
   );
 }
 
+// ── Collections (root collections → type-agnostic hierarchy) ─────────────────
+
+function CollectionsView({ onNavigateToElement }) {
+  const creds = React.useContext(CredContext);
+  const [sideW, onDivDown] = useResizable(254);
+  const [treeW, onTreeDivDown] = useResizable(300);
+  const [rootState, setRootState]   = useState('loading');
+  const [rootAttempt, setRootAttempt] = useState(0);
+  const [roots, setRoots]           = useState([]);
+  const [selectedRoot, setSelectedRoot] = useState(null);
+  const [rootError, setRootError]   = useState('');
+
+  const [treeState, setTreeState]   = useState('idle');
+  const [treeData, setTreeData]     = useState(null);
+  const [treeError, setTreeError]   = useState('');
+  const [selectedNode, setSelectedNode] = useState(null);
+  const [selectedNodeObj, setSelectedNodeObj] = useState(null);
+  const [nodeDetail, setNodeDetail] = useState(null);
+  const [expanded, setExpanded]     = useState(new Set());
+
+  // Load root collections on mount
+  useEffect(() => {
+    setRootState('loading'); setRootError('');
+    fetch(credAppend('/api/collections/roots', creds))
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(data => {
+        const list = (data.roots || []).slice().sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
+        setRoots(list);
+        setRootState('ready');
+        if (list.length > 0) setSelectedRoot(list[0].guid);
+      })
+      .catch(err => { setRootError(err.message); setRootState('error'); });
+  }, [rootAttempt]);
+
+  // Load hierarchy for the selected root
+  useEffect(() => {
+    if (!selectedRoot) return;
+    setTreeState('loading'); setTreeError(''); setTreeData(null);
+    setSelectedNode(null); setSelectedNodeObj(null);
+    fetch(credAppend('/api/collections/' + encodeURIComponent(selectedRoot) + '/tree', creds))
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(data => { setTreeData(data); setTreeState('ready'); setExpanded(new Set()); })
+      .catch(err => { setTreeError(err.message); setTreeState('error'); });
+  }, [selectedRoot]);
+
+  const toggleNode = useCallback(guid => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(guid)) next.delete(guid); else next.add(guid);
+      return next;
+    });
+  }, []);
+
+  const handleSelect = useCallback((guid, nodeObj) => {
+    setSelectedNode(guid); setSelectedNodeObj(nodeObj); setNodeDetail(null);
+  }, []);
+
+  // Fetch full detail (members + relationships) for the selected node
+  useEffect(() => {
+    if (!selectedNode) { setNodeDetail(null); return; }
+    fetch(credAppend('/api/collections/' + encodeURIComponent(selectedNode), creds))
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setNodeDetail(data); })
+      .catch(() => {});
+  }, [selectedNode]);
+
+  if (rootState === 'loading') return React.createElement("div", { className: "body", style: { alignItems: 'center', justifyContent: 'center' } },
+    React.createElement("div", { className: "center" }, "Loading collections…")
+  );
+  if (rootState === 'error') return React.createElement("div", { className: "body", style: { alignItems: 'center', justifyContent: 'center' } },
+    React.createElement("div", { className: "center" },
+      React.createElement("div", { style: { color: 'var(--muted)', marginBottom: 8 } }, "Error: " + rootError),
+      React.createElement("button", { className: "view-tab on", onClick: () => setRootAttempt(a => a + 1) }, "Retry")
+    )
+  );
+
+  return React.createElement("div", { className: "body" },
+    // Root collections (left)
+    React.createElement("div", { className: "sidebar", style: { width: sideW } },
+      React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } }, "Root Collections (" + roots.length + ")"),
+      React.createElement("div", { className: "tree-scroll" },
+        roots.length === 0
+          ? React.createElement("div", { style: { padding: '12px 10px', fontSize: 12, color: 'var(--dim)' } }, "No root collections found")
+          : roots.map(c =>
+            React.createElement("div", {
+              key: c.guid,
+              className: "tree-item" + (selectedRoot === c.guid ? " sel" : ""),
+              onClick: () => setSelectedRoot(c.guid),
+              title: c.description || c.qualifiedName,
+            },
+              React.createElement("span", { className: "type-name" }, c.displayName || c.qualifiedName || c.guid)
+            )
+          )
+      )
+    ),
+    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
+    // Hierarchy tree (middle)
+    React.createElement("div", { style: { width: treeW, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
+      React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } },
+        treeState === 'loading' ? 'Loading hierarchy…' : 'Hierarchy'
+      ),
+      treeState === 'error' && React.createElement("div", { style: { padding: 12, color: 'var(--muted)', fontSize: 12 } }, "Error: " + treeError),
+      treeState === 'ready' && React.createElement("div", { className: "tree-scroll" },
+        treeData && (treeData.children || []).length === 0
+          ? React.createElement("div", { style: { padding: '12px 10px', fontSize: 12, color: 'var(--dim)' } }, "No members in this collection")
+          : (treeData ? (treeData.children || []) : []).map(node =>
+              React.createElement(DigitalTreeNode, {
+                key: node.guid, node, depth: 0,
+                selectedGuid: selectedNode, onSelect: handleSelect, expanded, toggleNode,
+              })
+            )
+      )
+    ),
+    React.createElement(ResizeDivider, { onMouseDown: onTreeDivDown }),
+    // Node detail (right)
+    React.createElement("div", { className: "main" },
+      (selectedNodeObj || nodeDetail)
+        ? React.createElement(DigitalProductDetail, { product: selectedNodeObj ? Object.assign({}, selectedNodeObj, { relationships: (nodeDetail || {}).relationships }) : nodeDetail, onNavigateToElement: onNavigateToElement, creds: creds })
+        : selectedNode
+        ? React.createElement("div", { className: "center" }, React.createElement("div", { className: "spinner" }))
+        : React.createElement("div", { className: "center" },
+            React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a node to view details")
+          )
+    )
+  );
+}
+
 // ── Placeholder (shown for sections not yet implemented) ─────────────────────
 
 const SECTION_LABELS = {
@@ -3880,6 +4007,7 @@ const SECTION_LABELS = {
   'governance':        'Governance Definitions',
   'report-specs':      'Report Specifications',
   'digital-products':  'Digital Products',
+  'collections':       'Collections',
   'projects':          'Projects',
   'dr-egeria':         'Dr. Egeria',
   'python-api':        'Python API',
@@ -4245,6 +4373,13 @@ const _SPLASH_CAPABILITIES = [
     icon: '⊞',
     title: 'Data Design',
     description: 'Browse Data Specs, Data Structures, Data Fields, and Data Grains. Navigate the full data design hierarchy and cross-reference glossary terms and data value specifications.',
+  },
+  {
+    section: 'collections',
+    group: 'review',
+    icon: '🗂',
+    title: 'Collections',
+    description: 'Start from the root collections and navigate the collection hierarchy — digital products, families, blueprints, folios, dictionaries, and more — regardless of collection type.',
   },
   {
     section: 'solution-architect',
@@ -6161,6 +6296,11 @@ function InformationSupplyChainView({ onNavigateToElement }) {
   const [detail, setDetail] = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter] = useState('');
+  const [expandedISC, setExpandedISC] = useState(new Set());
+
+  const toggleISC = useCallback(function(guid) {
+    setExpandedISC(function(prev) { var n = new Set(prev); if (n.has(guid)) n.delete(guid); else n.add(guid); return n; });
+  }, []);
 
   useEffect(function() {
     setState('loading'); setError('');
@@ -6196,12 +6336,29 @@ function InformationSupplyChainView({ onNavigateToElement }) {
         var vis = items.filter(function(x) { return !q || (x.displayName || x.qualifiedName || '').toLowerCase().includes(q); });
         if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, q ? "No matches" : "No information supply chains found");
         return vis.map(function(x) {
-          return React.createElement("div", {
-            key: x.guid, className: "tree-item" + (selected === x.guid ? " sel" : ""),
-            onClick: function() { setSelected(x.guid); }, title: x.qualifiedName || x.guid,
-          },
-            React.createElement("span", { className: "type-name" }, x.displayName || x.qualifiedName),
-            x.lifecycleStatus && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(94,234,212,.1)', color: '#5eead4', border: '0.5px solid rgba(94,234,212,.3)', marginLeft: 4 } }, x.lifecycleStatus)
+          var segs = x.segments || [];
+          var hasSegs = segs.length > 0;
+          var isExp = expandedISC.has(x.guid);
+          return React.createElement(React.Fragment, { key: x.guid },
+            React.createElement("div", {
+              className: "tree-item" + (selected === x.guid ? " sel" : ""),
+              onClick: function() { setSelected(x.guid); if (hasSegs) toggleISC(x.guid); }, title: x.qualifiedName || x.guid,
+            },
+              hasSegs
+                ? React.createElement("span", { style: { color: isExp ? 'var(--accent)' : 'var(--muted)', width: 14, display: 'inline-block', flexShrink: 0, fontSize: 10, fontWeight: 700, textAlign: 'center' } }, isExp ? '▼' : '▶')
+                : React.createElement("span", { style: { width: 14, display: 'inline-block', flexShrink: 0 } }),
+              React.createElement("span", { className: "type-name" }, x.displayName || x.qualifiedName),
+              x.lifecycleStatus && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(94,234,212,.1)', color: '#5eead4', border: '0.5px solid rgba(94,234,212,.3)', marginLeft: 4 } }, x.lifecycleStatus)
+            ),
+            isExp && segs.map(function(s) {
+              return React.createElement("div", {
+                key: s.guid, className: "tree-item" + (selected === s.guid ? " sel" : ""),
+                style: { paddingLeft: 30 }, onClick: function() { setSelected(s.guid); }, title: s.qualifiedName || s.guid,
+              },
+                React.createElement("span", { className: "type-name" }, s.displayName || s.qualifiedName),
+                s.typeName && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(99,102,241,.1)', color: '#93c5fd', border: '0.5px solid rgba(99,102,241,.3)', marginLeft: 4 } }, s.typeName)
+              );
+            })
           );
         });
       })()
@@ -6429,6 +6586,12 @@ function LocationsView({ navGuid, onNavigateToElement }) {
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter] = useState('');
   const [expanded, setExpanded] = useState(function() { return new Set(); });
+  // 'geo' = geographic nesting · 'kind' = grouped by location kind
+  const [locView, setLocView] = useState('geo');
+  const [expandedLocKinds, setExpandedLocKinds] = useState(function() { return new Set(); });
+  const toggleLocKind = useCallback(function(k) {
+    setExpandedLocKinds(function(prev) { var n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n; });
+  }, []);
 
   useEffect(function() {
     setState('loading'); setError('');
@@ -6500,6 +6663,16 @@ function LocationsView({ navGuid, onNavigateToElement }) {
 
   var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { padding: '10px 12px 6px', fontSize: 12, fontWeight: 700, color: 'var(--text)', borderBottom: '1px solid var(--border)' } }, "Locations"),
+    React.createElement("div", { style: { display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
+      [['geo', 'Geographic'], ['kind', 'By Kind']].map(function(t) {
+        return React.createElement("button", {
+          key: t[0], onClick: function() { setLocView(t[0]); },
+          style: { flex: 1, padding: '7px 0', background: 'none', border: 'none', cursor: 'pointer',
+                   fontWeight: locView === t[0] ? 700 : 400, color: locView === t[0] ? 'var(--accent)' : 'var(--fg)',
+                   borderBottom: locView === t[0] ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 12 },
+        }, t[1]);
+      })
+    ),
     React.createElement("div", { className: "search-wrap" },
       React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
         onChange: function(e) { setFilter(e.target.value); } })
@@ -6510,15 +6683,53 @@ function LocationsView({ navGuid, onNavigateToElement }) {
       React.createElement("button", { className: "view-tab on", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "Retry")
     ),
     state === 'ready' && React.createElement("div", { style: { overflowY: 'auto', flex: 1 } },
-      !anyVisible
-        ? React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, items.length === 0 ? "No locations found" : "No matches")
-        : rootNodes.map(function(root) {
-            return React.createElement(LocationTreeNode, {
-              key: root.guid, item: root, byGuid: byGuid, depth: 0,
-              selected: selected, onSelect: setSelected,
-              expanded: expanded, toggleExpanded: toggleExpanded, search: filter,
+      locView === 'geo'
+        // Geographic: nested-location tree (starts collapsed)
+        ? (!anyVisible
+            ? React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, items.length === 0 ? "No locations found" : "No matches")
+            : rootNodes.map(function(root) {
+                return React.createElement(LocationTreeNode, {
+                  key: root.guid, item: root, byGuid: byGuid, depth: 0,
+                  selected: selected, onSelect: setSelected,
+                  expanded: expanded, toggleExpanded: toggleExpanded, search: filter,
+                });
+              }))
+        // By Kind: collapsible groups by location kind classification (starts collapsed)
+        : (function() {
+            var q = filter.trim().toLowerCase();
+            var vis = items.filter(function(x) { return !q || (x.displayName || x.qualifiedName || '').toLowerCase().includes(q); });
+            if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, items.length === 0 ? "No locations found" : "No matches");
+            function locRow(x) {
+              return React.createElement("div", {
+                key: x.guid, className: "tree-item" + (selected === x.guid ? " sel" : ""),
+                onClick: function() { setSelected(x.guid); }, title: x.qualifiedName || x.guid,
+              },
+                React.createElement("span", { className: "type-name", style: { flex: 1 } }, x.displayName || x.qualifiedName),
+                React.createElement(LocationKindBadges, { kinds: x.locationKinds })
+              );
+            }
+            var groups = {};
+            vis.forEach(function(x) {
+              var ks = (x.locationKinds || []).map(function(k) { return k.kind; }).filter(Boolean);
+              if (!ks.length) ks = ['Unclassified'];
+              ks.forEach(function(k) { (groups[k] = groups[k] || []).push(x); });
             });
-          })
+            var names = Object.keys(groups).sort();
+            if (names.length <= 1) return vis.map(locRow);
+            return names.map(function(k) {
+              var collapsed = !q && !expandedLocKinds.has(k);  // closed by default; search opens all
+              return React.createElement(React.Fragment, { key: k },
+                React.createElement("div", {
+                  onClick: function() { toggleLocKind(k); },
+                  style: { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--dim)', background: 'var(--panel)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' } },
+                  React.createElement("span", { style: { width: 10, fontSize: 9, flexShrink: 0 } }, collapsed ? '▶' : '▼'),
+                  React.createElement("span", { style: { flex: 1 } }, k),
+                  React.createElement("span", { style: { color: 'var(--muted)', fontWeight: 400 } }, groups[k].length)
+                ),
+                !collapsed && groups[k].map(locRow)
+              );
+            });
+          })()
     )
   );
 
@@ -6647,6 +6858,12 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
   const [detail, setDetail]   = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter]   = useState('');
+  // Expanded kind-group headers, keyed "subNav::typeName". Groups start collapsed.
+  const [expandedKinds, setExpandedKinds] = useState(new Set());
+
+  const toggleKind = useCallback(function(key) {
+    setExpandedKinds(function(prev) { var n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
+  }, []);
 
   // Load the active sub-tab's list lazily (only once per tab).
   useEffect(function() {
@@ -6718,14 +6935,37 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
         var q = filter.trim().toLowerCase();
         var vis = curItems.filter(function(x) { return !q || (x.displayName || x.qualifiedName || '').toLowerCase().includes(q); });
         if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, q ? "No matches" : "No items found");
-        return vis.map(function(x) {
+
+        function itemRow(x, showBadge) {
           return React.createElement("div", {
             key: x.guid, className: "tree-item" + (curSelected === x.guid ? " sel" : ""),
             onClick: function() { setSelected(function(s) { return Object.assign({}, s, { [subNav]: x.guid }); }); },
             title: x.qualifiedName || x.guid,
           },
             React.createElement("span", { className: "type-name" }, x.displayName || x.qualifiedName),
-            React.createElement(ActorTypeBadge, { typeName: x.typeName })
+            showBadge && React.createElement(ActorTypeBadge, { typeName: x.typeName })
+          );
+        }
+
+        // Group by kind (typeName). A single-kind tab renders flat (no header noise).
+        var groups = {};
+        vis.forEach(function(x) { var k = x.typeName || 'Other'; (groups[k] = groups[k] || []).push(x); });
+        var kinds = Object.keys(groups).sort();
+        if (kinds.length <= 1) return vis.map(function(x) { return itemRow(x, true); });
+
+        return kinds.map(function(tn) {
+          var key = subNav + '::' + tn;
+          var collapsed = !q && !expandedKinds.has(key);  // collapsed by default; searching forces all groups open
+          return React.createElement(React.Fragment, { key: key },
+            React.createElement("div", {
+              onClick: function() { toggleKind(key); },
+              style: { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--dim)', background: 'var(--panel)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0 },
+            },
+              React.createElement("span", { style: { width: 10, fontSize: 9, flexShrink: 0 } }, collapsed ? '▶' : '▼'),
+              React.createElement("span", { style: { flex: 1 } }, tn),
+              React.createElement("span", { style: { color: 'var(--muted)', fontWeight: 400 } }, groups[tn].length)
+            ),
+            !collapsed && groups[tn].map(function(x) { return itemRow(x, false); })
           );
         });
       })()
@@ -7044,6 +7284,14 @@ function SolutionArchitectView({ onNavigateToElement }) {
   const [bpDetail, setBpDetail] = useState(null);
   const [bpDetailState, setBpDetailState] = useState('idle');
 
+  // Blueprints grouped by Folio (shown when not filtering); groups start collapsed.
+  const [bpFolios, setBpFolios] = useState(null);
+  const [bpFoliosState, setBpFoliosState] = useState('loading');
+  const [expandedFolios, setExpandedFolios] = useState(new Set());
+  const toggleFolio = useCallback(function(guid) {
+    setExpandedFolios(function(prev) { var n = new Set(prev); if (n.has(guid)) n.delete(guid); else n.add(guid); return n; });
+  }, []);
+
   const [compState, setCompState]   = useState('idle');
   const [compAttempt, setCompAttempt] = useState(0);
   const [components, setComponents] = useState([]);
@@ -7054,6 +7302,11 @@ function SolutionArchitectView({ onNavigateToElement }) {
   });
   const [compDetail, setCompDetail] = useState(null);
   const [compDetailState, setCompDetailState] = useState('idle');
+
+  // Composition hierarchy for the components sub-nav (shown when not filtering)
+  const [compTree, setCompTree] = useState(null);
+  const [compTreeState, setCompTreeState] = useState('idle');
+  const [expandedComps, setExpandedComps] = useState(new Set());
 
   const [filter, setFilter] = useState('');
 
@@ -7066,6 +7319,15 @@ function SolutionArchitectView({ onNavigateToElement }) {
       .catch(function(e) { setBpError(e.message); setBpState('error'); });
   }, [bpAttempt]);
 
+  // Load blueprint→folio grouping
+  useEffect(function() {
+    setBpFoliosState('loading');
+    fetch(credAppend('/api/solution/blueprints/folios', creds))
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setBpFolios(data); setBpFoliosState('ready'); })
+      .catch(function() { setBpFoliosState('error'); });
+  }, [bpAttempt]);
+
   // Load components when sub-nav switches to components (lazy)
   useEffect(function() {
     if (subNav !== 'components' || compState !== 'idle') return;
@@ -7075,6 +7337,20 @@ function SolutionArchitectView({ onNavigateToElement }) {
       .then(function(data) { setComponents(data.components || []); setCompState('ready'); })
       .catch(function(e) { setCompError(e.message); setCompState('error'); });
   }, [subNav, compAttempt]);
+
+  // Load the composition hierarchy (used when no filter is active)
+  useEffect(function() {
+    if (subNav !== 'components') return;
+    setCompTreeState('loading');
+    fetch(credAppend('/api/solution/components/tree', creds))
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setCompTree(data.roots || []); setCompTreeState('ready'); })
+      .catch(function() { setCompTreeState('error'); });
+  }, [subNav, compAttempt]);
+
+  const toggleComp = useCallback(function(guid) {
+    setExpandedComps(function(prev) { var n = new Set(prev); if (n.has(guid)) n.delete(guid); else n.add(guid); return n; });
+  }, []);
 
   // Fetch blueprint detail when selection changes
   useEffect(function() {
@@ -7127,17 +7403,51 @@ function SolutionArchitectView({ onNavigateToElement }) {
       ),
       bpState === 'ready' && (function() {
         var q = filter.toLowerCase();
-        var vis = blueprints.filter(function(b) { return !q || (b.displayName || b.qualifiedName || '').toLowerCase().includes(q); });
-        if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, q ? "No matches" : "No blueprints found");
-        return vis.map(function(bp) {
+        function bpRow(bp, indent) {
           return React.createElement("div", {
             key: bp.guid, className: "tree-item" + (selectedBp === bp.guid ? " sel" : ""),
+            style: indent ? { paddingLeft: 26 } : null,
             onClick: function() { setSelectedBp(bp.guid); }, title: bp.qualifiedName || bp.guid,
           },
             React.createElement("span", { className: "type-name" }, bp.displayName || bp.qualifiedName),
             bp.lifecycleStatus && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)', marginLeft: 4 } }, bp.lifecycleStatus)
           );
+        }
+        // Filtering → flat match list across all blueprints.
+        if (q) {
+          var vis = blueprints.filter(function(b) { return (b.displayName || b.qualifiedName || '').toLowerCase().includes(q); });
+          if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "No matches");
+          return vis.map(function(bp) { return bpRow(bp, false); });
+        }
+        // No filter → Folios (collapsible, collapsed by default) then ungrouped blueprints.
+        if (bpFoliosState === 'loading') return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…");
+        var fg = bpFolios || { folios: [], ungrouped: blueprints };
+        var folios = fg.folios || [];
+        var ungrouped = fg.ungrouped || [];
+        if (!folios.length && !ungrouped.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "No blueprints found");
+        var out = [];
+        folios.forEach(function(folio) {
+          var isExp = expandedFolios.has(folio.guid);
+          out.push(React.createElement("div", {
+            key: 'folio-' + folio.guid, onClick: function() { toggleFolio(folio.guid); },
+            style: { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: 'var(--text)', background: 'var(--panel)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' },
+            title: folio.qualifiedName || folio.guid,
+          },
+            React.createElement("span", { style: { width: 10, fontSize: 9, flexShrink: 0, color: isExp ? 'var(--accent)' : 'var(--muted)' } }, isExp ? '▼' : '▶'),
+            React.createElement("span", { className: "badge", style: { fontSize: 8, background: 'rgba(251,191,36,.12)', color: '#fbbf24', border: '0.5px solid rgba(251,191,36,.3)' } }, "Folio"),
+            React.createElement("span", { style: { flex: 1 } }, folio.displayName || folio.qualifiedName),
+            React.createElement("span", { style: { color: 'var(--muted)', fontWeight: 400 } }, (folio.blueprints || []).length)
+          ));
+          if (isExp) (folio.blueprints || []).forEach(function(bp) { out.push(bpRow(bp, true)); });
         });
+        if (folios.length && ungrouped.length) {
+          out.push(React.createElement("div", {
+            key: 'ungrouped-hdr',
+            style: { padding: '6px 10px', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--dim)', background: 'var(--panel)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' },
+          }, "Not in a folio (" + ungrouped.length + ")"));
+        }
+        ungrouped.forEach(function(bp) { out.push(bpRow(bp, false)); });
+        return out;
       })()
     ),
     // Components list
@@ -7149,16 +7459,30 @@ function SolutionArchitectView({ onNavigateToElement }) {
       ),
       compState === 'ready' && (function() {
         var q = filter.toLowerCase();
-        var vis = components.filter(function(c) { return !q || (c.displayName || c.qualifiedName || '').toLowerCase().includes(q); });
-        if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, q ? "No matches" : "No components found");
-        return vis.map(function(c) {
-          return React.createElement("div", {
-            key: c.guid, className: "tree-item" + (selectedComp === c.guid ? " sel" : ""),
-            onClick: function() { setSelectedComp(c.guid); }, title: c.qualifiedName || c.guid,
-          },
-            React.createElement("span", { className: "type-name" }, c.displayName || c.qualifiedName),
-            c.componentType && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(96,165,250,.1)', color: '#93c5fd', border: '0.5px solid rgba(96,165,250,.3)', marginLeft: 4 } }, c.componentType)
-          );
+        // Filtering → flat matches across all components. No filter → composition tree.
+        if (q) {
+          var vis = components.filter(function(c) { return (c.displayName || c.qualifiedName || '').toLowerCase().includes(q); });
+          if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "No matches");
+          return vis.map(function(c) {
+            return React.createElement("div", {
+              key: c.guid, className: "tree-item" + (selectedComp === c.guid ? " sel" : ""),
+              onClick: function() { setSelectedComp(c.guid); }, title: c.qualifiedName || c.guid,
+            },
+              React.createElement("span", { className: "type-name" }, c.displayName || c.qualifiedName),
+              c.componentType && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(96,165,250,.1)', color: '#93c5fd', border: '0.5px solid rgba(96,165,250,.3)', marginLeft: 4 } }, c.componentType)
+            );
+          });
+        }
+        if (compTreeState === 'loading' || compTreeState === 'idle') return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading hierarchy…");
+        var roots = compTree || [];
+        if (!roots.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "No components found");
+        return roots.map(function(node) {
+          return React.createElement(DigitalTreeNode, {
+            key: node.guid, node: node, depth: 0,
+            selectedGuid: selectedComp,
+            onSelect: function(guid) { setSelectedComp(guid); },
+            expanded: expandedComps, toggleNode: toggleComp,
+          });
         });
       })()
     )
@@ -7313,6 +7637,31 @@ function ProjectKindBadge({ typeName, properties }) {
   }, typeName);
 }
 
+function ProjectTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggle }) {
+  var isExp = expanded.has(node.guid);
+  var isSel = selectedGuid === node.guid;
+  var pad = 8 + depth * 16;
+  return React.createElement(React.Fragment, null,
+    React.createElement('div', {
+      style: { padding: '8px 12px 8px ' + pad + 'px', cursor: 'pointer', borderBottom: '1px solid var(--border)', background: isSel ? 'rgba(96,165,250,.1)' : 'transparent', borderLeft: isSel ? '2px solid var(--accent)' : '2px solid transparent', display: 'flex', alignItems: 'flex-start', gap: 6 },
+      onClick: function() { onSelect(node); if (node.isContainer) toggle(node.guid); }
+    },
+      node.isContainer
+        ? React.createElement('span', { style: { color: isExp ? 'var(--accent)' : 'var(--muted)', width: 14, flexShrink: 0, fontSize: 10, fontWeight: 700, marginTop: 2, textAlign: 'center' } }, isExp ? '▼' : '▶')
+        : React.createElement('span', { style: { width: 14, flexShrink: 0 } }),
+      React.createElement('div', { style: { flex: 1, minWidth: 0 } },
+        React.createElement('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: (node.classifications || []).length ? 4 : 0, lineHeight: 1.3 } }, node.displayName || node.qualifiedName || node.guid),
+        (node.classifications || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 3 } },
+          node.classifications.map(function(c) { return React.createElement(ProjectKindBadge, { key: c.typeName, typeName: c.typeName, properties: c.properties }); })
+        )
+      )
+    ),
+    isExp && (node.children || []).map(function(ch) {
+      return React.createElement(ProjectTreeNode, { key: ch.guid, node: ch, depth: depth + 1, selectedGuid: selectedGuid, onSelect: onSelect, expanded: expanded, toggle: toggle });
+    })
+  );
+}
+
 function ProjectsView() {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(280);
@@ -7323,6 +7672,13 @@ function ProjectsView() {
   const [detail, setDetail]     = React.useState(null);
   const [detailState, setDetailState] = React.useState('idle');
   const [search, setSearch] = React.useState('');
+  // Two left-nav views: 'hierarchy' (managed sub-projects) | 'dependencies'
+  const [projSubNav, setProjSubNav] = React.useState('hierarchy');
+  const [projTree, setProjTree] = React.useState(null);
+  const [projTreeState, setProjTreeState] = React.useState('loading');
+  const [depTree, setDepTree] = React.useState(null);
+  const [depTreeState, setDepTreeState] = React.useState('loading');
+  const [expandedProjs, setExpandedProjs] = React.useState(new Set());
 
   React.useEffect(function() {
     setState('loading');
@@ -7333,6 +7689,26 @@ function ProjectsView() {
         setState('ready');
       })
       .catch(function(e) { setError(String(e)); setState('error'); });
+  }, []);
+
+  React.useEffect(function() {
+    setProjTreeState('loading');
+    fetch(credAppend('/api/projects/tree', creds))
+      .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function(data) { setProjTree(data.roots || []); setProjTreeState('ready'); })
+      .catch(function() { setProjTreeState('error'); });
+  }, []);
+
+  React.useEffect(function() {
+    setDepTreeState('loading');
+    fetch(credAppend('/api/projects/dependencies', creds))
+      .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function(data) { setDepTree(data.roots || []); setDepTreeState('ready'); })
+      .catch(function() { setDepTreeState('error'); });
+  }, []);
+
+  const toggleProj = React.useCallback(function(guid) {
+    setExpandedProjs(function(prev) { var n = new Set(prev); if (n.has(guid)) n.delete(guid); else n.add(guid); return n; });
   }, []);
 
   React.useEffect(function() {
@@ -7367,9 +7743,24 @@ function ProjectsView() {
     React.createElement('div', { className: 'center' }, 'Error: ' + error)
   );
 
+  var activeForest = projSubNav === 'dependencies' ? depTree : projTree;
+  var activeForestState = projSubNav === 'dependencies' ? depTreeState : projTreeState;
+  var emptyForestMsg = projSubNav === 'dependencies' ? 'No project dependencies defined.' : 'No projects found.';
+
   return React.createElement('div', { className: 'body' },
     // Sidebar
     React.createElement('div', { style: sidebarStyle },
+      // Sub-nav: Hierarchy | Dependencies
+      React.createElement('div', { style: { display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
+        [['hierarchy', 'Hierarchy'], ['dependencies', 'Dependencies']].map(function(t) {
+          return React.createElement('button', {
+            key: t[0], onClick: function() { setProjSubNav(t[0]); },
+            style: { flex: 1, padding: '7px 0', background: 'none', border: 'none', cursor: 'pointer',
+                     fontWeight: projSubNav === t[0] ? 700 : 400, color: projSubNav === t[0] ? 'var(--accent)' : 'var(--fg)',
+                     borderBottom: projSubNav === t[0] ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 12 },
+          }, t[1]);
+        })
+      ),
       React.createElement('div', { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
         React.createElement('input', {
           type: 'text', placeholder: 'Search projects…',
@@ -7381,19 +7772,29 @@ function ProjectsView() {
         )
       ),
       React.createElement('div', { style: listStyle },
-        filtered.length === 0
-          ? React.createElement('div', { style: { padding: 16, fontSize: 12, color: 'var(--dim)' } }, 'No projects found.')
-          : filtered.map(function(p) {
-              var isActive = selected && selected.guid === p.guid;
-              return React.createElement('div', { key: p.guid, style: itemStyle(isActive), onClick: function() { setSelected(p); } },
-                React.createElement('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4, lineHeight: 1.3 } }, p.displayName || p.qualifiedName || p.guid),
-                (p.classifications || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 3 } },
-                  p.classifications.map(function(c) {
-                    return React.createElement(ProjectKindBadge, { key: c.typeName, typeName: c.typeName, properties: c.properties });
-                  })
-                )
-              );
-            })
+        search
+          // Searching → flat filtered list across all projects
+          ? (filtered.length === 0
+              ? React.createElement('div', { style: { padding: 16, fontSize: 12, color: 'var(--dim)' } }, 'No projects found.')
+              : filtered.map(function(p) {
+                  var isActive = selected && selected.guid === p.guid;
+                  return React.createElement('div', { key: p.guid, style: itemStyle(isActive), onClick: function() { setSelected(p); } },
+                    React.createElement('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4, lineHeight: 1.3 } }, p.displayName || p.qualifiedName || p.guid),
+                    (p.classifications || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 3 } },
+                      p.classifications.map(function(c) {
+                        return React.createElement(ProjectKindBadge, { key: c.typeName, typeName: c.typeName, properties: c.properties });
+                      })
+                    )
+                  );
+                }))
+          // No search → active forest (hierarchy or dependencies), starts collapsed
+          : (activeForestState === 'loading'
+              ? React.createElement('div', { style: { padding: 16, fontSize: 12, color: 'var(--dim)' } }, 'Loading…')
+              : (activeForest && activeForest.length
+                  ? activeForest.map(function(node) {
+                      return React.createElement(ProjectTreeNode, { key: node.guid, node: node, depth: 0, selectedGuid: selected && selected.guid, onSelect: setSelected, expanded: expandedProjs, toggle: toggleProj });
+                    })
+                  : React.createElement('div', { style: { padding: 16, fontSize: 12, color: 'var(--dim)' } }, emptyForestMsg)))
       )
     ),
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
@@ -8326,7 +8727,7 @@ function App() {
   const [view, setView]           = useState('types'); // 'types' | 'attrs'
   const [section, setSection]     = useState(function() {
     var hash = window.location.hash.slice(1);
-    var valid = new Set(['type-system','reference-data','digital-products','glossary',
+    var valid = new Set(['type-system','reference-data','digital-products','collections','glossary',
       'report-specs','valid-values','rest-apis','python-api','solution-architect',
       'data-design','perspectives','dr-egeria','isc','locations','actors','communities','notelogs','governance','projects']);
     return valid.has(hash) ? hash : 'splash';
@@ -8534,12 +8935,13 @@ function App() {
         }),
         React.createElement(NavGroup, {
           label: 'Review', connected: connected, currentSection: section,
-          isActive: ['glossary','reference-data','data-design','solution-architect','isc','locations','actors','communities','notelogs','perspectives','governance','projects'].includes(section),
+          isActive: ['glossary','reference-data','data-design','collections','solution-architect','isc','locations','actors','communities','notelogs','perspectives','governance','projects'].includes(section),
           onSelect: setSection,
           items: [
             { id: 'glossary',           label: 'Glossary',                needsConnect: true },
             { id: 'reference-data',     label: 'Reference Data',          needsConnect: true },
             { id: 'data-design',        label: 'Data Design',             needsConnect: true },
+            { id: 'collections',        label: 'Collections',             needsConnect: true },
             { id: 'solution-architect', label: 'Solution Architect',      needsConnect: true },
             { id: 'isc',                label: 'Supply Chains',           needsConnect: true },
             { id: 'locations',          label: 'Locations',               needsConnect: true },
@@ -8609,6 +9011,8 @@ function App() {
       ? React.createElement(ReferenceDataView, { key: credsKey, navGuid: referenceDataNavGuid })
       : section === 'digital-products'
       ? React.createElement(DigitalProductsView, { key: credsKey, navGuid: digitalProductNavGuid, onNavigateToElement: onNavigateToElement })
+      : section === 'collections'
+      ? React.createElement(CollectionsView, { key: credsKey, onNavigateToElement: onNavigateToElement })
       : section === 'valid-values'
       ? React.createElement(ValidValuesView, { key: credsKey, navProp: validValuesNavProp })
       : section === 'rest-apis'

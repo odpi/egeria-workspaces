@@ -13,6 +13,7 @@ Endpoints:
 """
 
 import os
+import time
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
@@ -213,6 +214,80 @@ def list_blueprints(
     return JSONResponse({"blueprints": blueprints, "total": len(blueprints)})
 
 
+_BP_FOLIO_CACHE: dict = {}
+_BP_FOLIO_TTL = 120  # seconds
+
+
+@router.get("/api/solution/blueprints/folios", summary="Blueprints grouped by their Folios")
+def list_blueprints_by_folio(
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
+    """Group solution blueprints under the Folios that curate them. A blueprint's
+    folios are its memberOfCollections entries whose type is Folio; blueprints in
+    no folio are returned under `ungrouped`. Built from one depth-1 find."""
+    cache_key = f"{url or ''}|{server or ''}|{user_id or ''}"
+    cached = _BP_FOLIO_CACHE.get(cache_key)
+    if cached and (time.time() - cached[0]) < _BP_FOLIO_TTL:
+        return JSONResponse(cached[1])
+
+    try:
+        mgr = _get_manager(url, server, user_id, user_pwd)
+    except Exception as exc:
+        logger.exception("Failed to create SolutionArchitect manager")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+    try:
+        raw = mgr.find_solution_blueprints(
+            search_string="*", output_format="JSON", start_from=0, page_size=500,
+            graph_query_depth=1, sequencing_order="PROPERTY_ASCENDING",
+            sequencing_property="displayName",
+        )
+    except Exception as exc:
+        logger.exception("find_solution_blueprints (folios) failed")
+        raise HTTPException(status_code=500, detail=f"Blueprint retrieval failed: {exc}")
+    if not isinstance(raw, list):
+        raw = []
+
+    folios: dict = {}   # folio guid → {folio fields, blueprints: [...]}
+    ungrouped: list = []
+    for bp in raw:
+        summary = _serialize_blueprint_summary(bp)
+        parent_folios = [
+            (m.get("relatedElement") or {})
+            for m in _rel_list(bp, "memberOfCollections")
+            if (m.get("relatedElement") or {}).get("elementHeader", {}).get("type", {}).get("typeName") == "Folio"
+        ]
+        if not parent_folios:
+            ungrouped.append(summary)
+            continue
+        for f in parent_folios:
+            fg = (f.get("elementHeader") or {}).get("guid")
+            if not fg:
+                continue
+            if fg not in folios:
+                fp = f.get("properties") or {}
+                folios[fg] = {
+                    "guid": fg,
+                    "displayName": fp.get("displayName") or fp.get("name") or fp.get("qualifiedName") or "",
+                    "qualifiedName": fp.get("qualifiedName") or "",
+                    "typeName": "Folio",
+                    "blueprints": [],
+                }
+            folios[fg]["blueprints"].append(summary)
+
+    folio_list = sorted(folios.values(), key=lambda f: (f.get("displayName") or "").lower())
+    for f in folio_list:
+        f["blueprints"].sort(key=lambda b: (b.get("displayName") or "").lower())
+    ungrouped.sort(key=lambda b: (b.get("displayName") or "").lower())
+
+    result = {"folios": folio_list, "ungrouped": ungrouped, "total": len(raw)}
+    _BP_FOLIO_CACHE[cache_key] = (time.time(), result)
+    return JSONResponse(result)
+
+
 @router.get("/api/solution/blueprints/{guid}", summary="Get a single solution blueprint by GUID")
 def get_blueprint(
     guid: str,
@@ -274,6 +349,84 @@ def list_components(
     components = [_serialize_component_summary(c) for c in raw]
     components.sort(key=lambda c: (c.get("displayName") or "").lower())
     return JSONResponse({"components": components, "total": len(components)})
+
+
+# Component tree cache: cache_key → (timestamp, result). The depth-1 find is ~5s.
+_COMP_TREE_CACHE: dict = {}
+_COMP_TREE_TTL = 120  # seconds
+
+
+def _rel_guids(element: dict, key: str) -> list:
+    """GUIDs of the related elements under a relationship key."""
+    out = []
+    for entry in _rel_list(element, key):
+        re = entry.get("relatedElement") or entry
+        g = (re.get("elementHeader") or {}).get("guid") or re.get("guid")
+        if g:
+            out.append(g)
+    return out
+
+
+@router.get("/api/solution/components/tree", summary="Solution component composition hierarchy")
+def list_components_tree(
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
+    """Return the solution-component composition forest: roots (components not nested
+    in any other) with recursively nested children. Built from a single depth-1 find
+    that inlines nestedSolutionComponents (children) and usedInSolutionComponents
+    (parents)."""
+    cache_key = f"{url or ''}|{server or ''}|{user_id or ''}"
+    cached = _COMP_TREE_CACHE.get(cache_key)
+    if cached and (time.time() - cached[0]) < _COMP_TREE_TTL:
+        return JSONResponse(cached[1])
+
+    try:
+        mgr = _get_manager(url, server, user_id, user_pwd)
+    except Exception as exc:
+        logger.exception("Failed to create SolutionArchitect manager")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+    try:
+        raw = mgr.find_solution_components(
+            search_string="*", output_format="JSON",
+            start_from=0, page_size=500, graph_query_depth=1,
+            sequencing_order="PROPERTY_ASCENDING", sequencing_property="displayName",
+        )
+    except Exception as exc:
+        logger.exception("find_solution_components (tree) failed")
+        raise HTTPException(status_code=500, detail=f"Component tree retrieval failed: {exc}")
+    if not isinstance(raw, list):
+        raw = []
+
+    summary = {}      # guid → node
+    children = {}     # guid → [child guid]
+    has_parent = set()
+    for el in raw:
+        g = (el.get("elementHeader") or {}).get("guid")
+        if not g:
+            continue
+        summary[g] = _serialize_component_summary(el)
+        kids = _rel_guids(el, "nestedSolutionComponents")
+        children[g] = kids
+        has_parent.update(kids)                       # nested children have a parent
+        if _rel_guids(el, "usedInSolutionComponents"):
+            has_parent.add(g)                          # this component is used by another
+
+    def build(guid: str, visited: set) -> dict:
+        node = dict(summary.get(guid, {"guid": guid}))
+        kids = [k for k in children.get(guid, []) if k in summary and k not in visited]
+        node["children"] = [build(k, visited | {guid}) for k in kids]
+        node["isContainer"] = bool(node["children"])
+        return node
+
+    roots = [build(g, set()) for g in summary if g not in has_parent]
+    roots.sort(key=lambda n: (n.get("displayName") or "").lower())
+    result = {"roots": roots, "total": len(summary)}
+    _COMP_TREE_CACHE[cache_key] = (time.time(), result)
+    return JSONResponse(result)
 
 
 @router.get("/api/solution/components/{guid}", summary="Get a single solution component by GUID")
