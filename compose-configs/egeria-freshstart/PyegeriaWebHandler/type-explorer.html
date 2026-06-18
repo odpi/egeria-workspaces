@@ -2678,7 +2678,10 @@ function GlossaryFolderDetail({ folder }) {
           )
         )
       )
-    )
+    ),
+    // A CollectionFolder is a Collection — surface its context/anchored graphs
+    // (lazy-loaded by guid) so folders behave like collections elsewhere.
+    React.createElement(MermaidSection, { guid: folder.guid })
   );
 }
 
@@ -5531,7 +5534,7 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
 
 // ── Perspectives & Questions ───────────────────────────────────────────────────
 
-function PerspectivesView({ onNavigateToGlossary, onNavigateToElement }) {
+function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(260);
   const [subNav, setSubNav]   = useState('perspectives');
@@ -5565,6 +5568,11 @@ function PerspectivesView({ onNavigateToGlossary, onNavigateToElement }) {
       .then(data => { setPerspList(data.perspectives || []); setPerspState('ready'); })
       .catch(() => setPerspState('error'));
   }, []);
+
+  // Cross-tab arrival: another tab called onNavigateToPerspective(guid) — select it.
+  useEffect(() => {
+    if (navGuid) { setSubNav('perspectives'); setFilter(''); setSelectedPersp(navGuid); }
+  }, [navGuid]);
 
   // Load questions lazily (first time Questions sub-nav is activated)
   useEffect(() => {
@@ -6372,6 +6380,11 @@ function _elementIsLinkable(item) {
   if (item.typeName === 'InformationSupplyChain') return true;
   if (item.typeName === 'SolutionComponent' || superTypes.indexOf('SolutionComponent') !== -1) return true;
   if (item.typeName === 'SolutionBlueprint' || superTypes.indexOf('SolutionBlueprint') !== -1) return true;
+  if (item.typeName === 'Perspective') return true;
+  // Explicit subtype checks so linkability does not depend on superTypeNames being
+  // present on the relationship item (some serializers omit them).
+  if (item.typeName === 'CollectionFolder') return true;
+  if (item.typeName === 'GovernanceActionProcess') return true;
   if (DD_TYPES_SET[item.typeName]) return true;
   if (_actorKindForType(item.typeName, superTypes)) return true;
   if (superTypes.indexOf('GovernanceDefinition') !== -1) return true;
@@ -8881,6 +8894,12 @@ function App() {
     setSection('solution-architect');
   }, []);
 
+  const [perspectiveNav, setPerspectiveNav] = useState(null);
+  const onNavigateToPerspective = useCallback(function(guid) {
+    setPerspectiveNav(guid || null);
+    setSection('perspectives');
+  }, []);
+
   // Single dispatcher used by RelatedElementRow everywhere: decides the target
   // tab purely from the related element's typeName/superTypeNames. Adding a
   // new linkable type only requires a new branch here.
@@ -8898,6 +8917,10 @@ function App() {
     if (typeName === 'SolutionComponent' || superTypes.indexOf('SolutionComponent') !== -1) { onNavigateToSolutionComponent(guid); return; }
     if (DD_TYPES_SET[typeName]) { onNavigateToDataDesign(typeName, guid); return; }
     if (typeName === 'DigitalProduct') { onNavigateToDigitalProduct(guid); return; }
+    if (typeName === 'Perspective') { onNavigateToPerspective(guid); return; }
+    // Explicit subtype routing — fires even when the item omits superTypeNames.
+    if (typeName === 'CollectionFolder') { onNavigateToDigitalProduct(guid); return; }
+    if (typeName === 'GovernanceActionProcess') { onNavigateToGovernance(typeName, guid); return; }
     var actorKind = _actorKindForType(typeName, superTypes);
     if (actorKind) { onNavigateToActor(actorKind, guid); return; }
     if (superTypes.indexOf('GovernanceDefinition') !== -1) { onNavigateToGovernance(typeName, guid); return; }
@@ -8908,7 +8931,7 @@ function App() {
     // "↗ Tech Catalog" link, for callers that route everything through this
     // single dispatcher instead of rendering that link separately).
     if (superTypes.indexOf('Asset') !== -1) { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
-  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDataDesign]);
+  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDataDesign, onNavigateToPerspective]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254);
 
@@ -9104,7 +9127,7 @@ function App() {
       : section === 'data-design'
       ? React.createElement(DataDesignView, { key: credsKey, navGuid: dataDesignNav.guid, navType: dataDesignNav.type, onNavigateToGlossary: onNavigateToGlossary, onNavigateToDigitalProduct: onNavigateToDigitalProduct })
       : section === 'perspectives'
-      ? React.createElement(PerspectivesView, { key: credsKey, onNavigateToGlossary: onNavigateToGlossary, onNavigateToElement: onNavigateToElement })
+      ? React.createElement(PerspectivesView, { key: credsKey, navGuid: perspectiveNav, onNavigateToGlossary: onNavigateToGlossary, onNavigateToElement: onNavigateToElement })
       : section === 'dr-egeria'
       ? React.createElement(DrEgeriaCommandsView, null)
       : section === 'isc'
