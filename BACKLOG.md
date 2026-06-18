@@ -240,6 +240,20 @@ app-wiring) and the legitimately env-specific `config_workspaces.json` publishin
 
 ---
 
+## Egeria Explorer — Hierarchy & Grouping (built; awaiting data to verify)
+
+These left-nav hierarchy/grouping features are implemented and verified to render
+correctly, but the QuickStart/Freshstart demo data doesn't currently populate the
+underlying relationship, so they show flat. **Re-verify once the data is seeded.**
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| HV-1 | **ISC segment hierarchy** in the Supply Chains left nav | built; no data | Each ISC row expands to its `segments`. All 16 ISCs have 0 segments today (structure is the `supplyTo` flow, a graph, surfaced in the detail). Verify when ISCs are given nested segments. |
+| HV-2 | **Project dependency forest** (Projects → Dependencies sub-tab) | built; no data | `GET /api/projects/dependencies` builds the forest from `dependsOnProjects`/`dependentProject` (ProjectDependency). No dependencies defined in demo data → renders flat. Hierarchy sub-tab works (real data). Verify after `set_project_dependency` is used. |
+| HV-3 | **Folio grouping for Blueprints** (Solution Architect → Blueprints) | built; no data | `GET /api/solution/blueprints/folios` groups blueprints under member Folios. The one Folio holds governance defs, not blueprints, so all 31 are "Not in a folio". Verify after blueprints are added to a Folio. |
+
+---
+
 ## Egeria Explorer — Report Specs & Subscriptions
 
 | # | Item | Status | Notes |
