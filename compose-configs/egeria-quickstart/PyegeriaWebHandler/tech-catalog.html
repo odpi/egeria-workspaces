@@ -716,10 +716,31 @@ function ResizeDivider({ onMouseDown }) {
 // keep in sync with type-explorer.html: MermaidDiagram, DiagramPanel,
 // DiagramPanelFromData, MermaidSection, AvailableMermaidDiagrams
 
+// Copy text robustly — navigator.clipboard only works in a secure context
+// (https:// or localhost). Over plain http:// to a hostname/IP it is undefined,
+// so fall back to a hidden-textarea execCommand. Returns Promise<boolean>.
+function _execCopyFallback(text) {
+  try {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed'; ta.style.top = '-9999px'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, ta.value.length);
+    var ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch (e) { return false; }
+}
+function copyTextToClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text).then(function() { return true; }).catch(function() { return _execCopyFallback(text); });
+  }
+  return Promise.resolve(_execCopyFallback(text));
+}
+
 function MermaidDiagram({ code }) {
   var ref = useRef(null);
   var id  = useRef('mermaid-' + Math.random().toString(36).slice(2));
-  var _cp = useState(false), copied = _cp[0], setCopied = _cp[1];
+  var _cp = useState(''), copyState = _cp[0], setCopyState = _cp[1];  // '' | 'ok' | 'fail'
   useEffect(function() {
     if (!ref.current || !code) return;
     try { window.mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' }); } catch(_) {}
@@ -731,14 +752,16 @@ function MermaidDiagram({ code }) {
     code && React.createElement('button', {
       onClick: function(e) {
         e.stopPropagation();
-        try { navigator.clipboard.writeText(code); } catch (_) {}
-        setCopied(true); setTimeout(function() { setCopied(false); }, 1500);
+        Promise.resolve(copyTextToClipboard(code)).then(function(ok) {
+          setCopyState(ok ? 'ok' : 'fail');
+          setTimeout(function() { setCopyState(''); }, 2000);
+        });
       },
-      title: 'Copy Mermaid source to clipboard',
+      title: copyState === 'fail' ? 'Copy needs https:// or localhost' : 'Copy Mermaid source to clipboard',
       style: { position: 'absolute', top: 4, right: 4, zIndex: 2, fontSize: 10, padding: '2px 8px',
                borderRadius: 4, border: '1px solid var(--border)', background: 'var(--panel)',
-               color: copied ? '#34d399' : 'var(--accent)', cursor: 'pointer', opacity: 0.9 }
-    }, copied ? '✓ Copied' : '⧉ Copy source'),
+               color: copyState === 'ok' ? '#34d399' : copyState === 'fail' ? '#f87171' : 'var(--accent)', cursor: 'pointer', opacity: 0.9 }
+    }, copyState === 'ok' ? '✓ Copied' : copyState === 'fail' ? '✕ Copy failed' : '⧉ Copy source'),
     React.createElement('div', { ref: ref, className: 'mermaid-wrap' })
   );
 }
