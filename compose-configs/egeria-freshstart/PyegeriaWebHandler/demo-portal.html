@@ -185,24 +185,26 @@ function renderHub(isAdmin) {
   var advisorUrl = _platformCfg.advisor_url || ('http://' + window.location.hostname + ':7880/');
 
   var apps = [
+    // Row 1 — primary tools
     { icon: '🐱', name: 'The Catalog',
       desc: 'Browse infrastructure assets, data stores, APIs, and processes registered in Egeria.',
       url: '/tech-catalog', newTab: false, enabled: true },
     { icon: '🔍', name: 'Egeria Explorer',
       desc: 'Browse Egeria metadata — types, glossary, lineage, governance blueprints, information supply chains, and more.',
       url: '/egeria-explorer', newTab: false, enabled: true },
+    { icon: '🔗', name: 'Lineage Explorer',
+      desc: 'Trace data flow and dependencies across the metadata landscape.',
+      url: '/lineage', newTab: false, enabled: true },
+    { icon: '🔭', name: 'Resource Explorer',
+      desc: 'Scout, Assess, Discover, Enrich Resources.',
+      url: '/resource-explorer', newTab: false, enabled: false, badge: 'Preview soon' },
+    // Row 2 — workspaces & assistants (freshstart has no Obsidian tile)
     { icon: '📓', name: 'Jupyter Lab',
       desc: 'Interactive notebooks for data science and hands-on Egeria API exploration.',
       enabled: true, jupyter: true },
     { icon: '🖥️', name: 'My Egeria',
       desc: 'Explore your Egeria profile, roles, teams, actions, and data catalog.',
       url: '/my-egeria/', newTab: true, enabled: false },
-    { icon: '🔭', name: 'Resource Explorer',
-      desc: 'Scout, Assess, Discover, Enrich Resources.',
-      url: '/resource-explorer', newTab: false, enabled: false, badge: 'Preview soon' },
-    { icon: '🔗', name: 'Lineage Explorer',
-      desc: 'Trace data flow and dependencies across the metadata landscape.',
-      url: '/lineage', newTab: false, enabled: true },
     { icon: '🤖', name: 'Egeria Advisor',
       desc: advisorRunning
         ? 'AI-powered guidance for your Egeria environment.'

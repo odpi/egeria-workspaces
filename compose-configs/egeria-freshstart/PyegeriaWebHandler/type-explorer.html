@@ -618,6 +618,7 @@ function credAppend(base, creds) {
 function MermaidDiagram({ code }) {
   const ref = React.useRef(null);
   const [errMsg, setErrMsg] = React.useState('');
+  const [copied, setCopied] = React.useState(false);
 
   React.useEffect(function() {
     if (!code) return;
@@ -653,12 +654,28 @@ function MermaidDiagram({ code }) {
     }
   }, [code]);
 
-  return errMsg
-    ? React.createElement('div', null,
-        React.createElement('div', { style: { fontSize: 11, color: '#f87171', padding: '4px 0 6px' } }, '⚠ ' + errMsg),
-        React.createElement('pre', { style: { fontSize: 11, color: 'var(--muted)', background: 'rgba(255,255,255,.04)', padding: '8px 12px', borderRadius: 4, overflowX: 'auto', whiteSpace: 'pre-wrap', margin: 0, border: '1px solid var(--border)' } }, code)
-      )
-    : React.createElement('div', { ref: ref, className: 'mermaid-wrap' });
+  var copyBtn = code && React.createElement('button', {
+    onClick: function(e) {
+      e.stopPropagation();
+      copyToClipboard(code);
+      setCopied(true);
+      setTimeout(function() { setCopied(false); }, 1500);
+    },
+    title: 'Copy Mermaid source to clipboard',
+    style: { position: 'absolute', top: 4, right: 4, zIndex: 2, fontSize: 10, padding: '2px 8px',
+             borderRadius: 4, border: '1px solid var(--border)', background: 'var(--panel)',
+             color: copied ? '#34d399' : 'var(--accent)', cursor: 'pointer', opacity: 0.9 }
+  }, copied ? '✓ Copied' : '⧉ Copy source');
+
+  return React.createElement('div', { style: { position: 'relative' } },
+    copyBtn,
+    errMsg
+      ? React.createElement('div', null,
+          React.createElement('div', { style: { fontSize: 11, color: '#f87171', padding: '4px 0 6px' } }, '⚠ ' + errMsg),
+          React.createElement('pre', { style: { fontSize: 11, color: 'var(--muted)', background: 'rgba(255,255,255,.04)', padding: '8px 12px', borderRadius: 4, overflowX: 'auto', whiteSpace: 'pre-wrap', margin: 0, border: '1px solid var(--border)' } }, code)
+        )
+      : React.createElement('div', { ref: ref, className: 'mermaid-wrap' })
+  );
 }
 
 // Single lazy-loading diagram panel. fetchUrl is called on first open; label appears in the header.
@@ -4399,7 +4416,7 @@ const _SPLASH_CAPABILITIES = [
   {
     section: 'collections',
     group: 'review',
-    icon: '🗂',
+    icon: '❐',
     title: 'Collections',
     description: 'Start from the root collections and navigate the collection hierarchy — digital products, families, blueprints, folios, dictionaries, and more — regardless of collection type.',
   },
@@ -6710,7 +6727,6 @@ function LocationsView({ navGuid, onNavigateToElement }) {
   const anyVisible = !q || rootNodes.some(function(r) { return _locationSubtreeMatches(r, byGuid, q); });
 
   var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
-    React.createElement("div", { style: { padding: '10px 12px 6px', fontSize: 12, fontWeight: 700, color: 'var(--text)', borderBottom: '1px solid var(--border)' } }, "Locations"),
     React.createElement("div", { style: { display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
       [['geo', 'Geographic'], ['kind', 'By Kind']].map(function(t) {
         return React.createElement("button", {
@@ -7115,7 +7131,6 @@ function CommunityView({ navGuid, onNavigateToElement }) {
   }, [navGuid]);
 
   var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
-    React.createElement("div", { style: { padding: '10px 12px 6px', fontSize: 12, fontWeight: 700, color: 'var(--text)', borderBottom: '1px solid var(--border)' } }, "Communities"),
     React.createElement("div", { className: "search-wrap" },
       React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
         onChange: function(e) { setFilter(e.target.value); } })
@@ -7368,7 +7383,6 @@ function NoteLogView({ navGuid, onNavigateToElement }) {
   }, [navGuid]);
 
   var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
-    React.createElement("div", { style: { padding: '10px 12px 6px', fontSize: 12, fontWeight: 700, color: 'var(--text)', borderBottom: '1px solid var(--border)' } }, "Note Logs"),
     React.createElement("div", { className: "search-wrap" },
       React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
         onChange: function(e) { setFilter(e.target.value); } })

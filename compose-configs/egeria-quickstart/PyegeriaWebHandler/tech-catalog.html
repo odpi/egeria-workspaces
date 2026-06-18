@@ -719,6 +719,7 @@ function ResizeDivider({ onMouseDown }) {
 function MermaidDiagram({ code }) {
   var ref = useRef(null);
   var id  = useRef('mermaid-' + Math.random().toString(36).slice(2));
+  var _cp = useState(false), copied = _cp[0], setCopied = _cp[1];
   useEffect(function() {
     if (!ref.current || !code) return;
     try { window.mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' }); } catch(_) {}
@@ -726,7 +727,20 @@ function MermaidDiagram({ code }) {
       .then(function(r) { if (ref.current) ref.current.innerHTML = r.svg; })
       .catch(function() {});
   }, [code]);
-  return React.createElement('div', { ref: ref, className: 'mermaid-wrap' });
+  return React.createElement('div', { style: { position: 'relative' } },
+    code && React.createElement('button', {
+      onClick: function(e) {
+        e.stopPropagation();
+        try { navigator.clipboard.writeText(code); } catch (_) {}
+        setCopied(true); setTimeout(function() { setCopied(false); }, 1500);
+      },
+      title: 'Copy Mermaid source to clipboard',
+      style: { position: 'absolute', top: 4, right: 4, zIndex: 2, fontSize: 10, padding: '2px 8px',
+               borderRadius: 4, border: '1px solid var(--border)', background: 'var(--panel)',
+               color: copied ? '#34d399' : 'var(--accent)', cursor: 'pointer', opacity: 0.9 }
+    }, copied ? '✓ Copied' : '⧉ Copy source'),
+    React.createElement('div', { ref: ref, className: 'mermaid-wrap' })
+  );
 }
 
 function DiagramPanel({ fetchUrl, label, buttonLabel }) {
