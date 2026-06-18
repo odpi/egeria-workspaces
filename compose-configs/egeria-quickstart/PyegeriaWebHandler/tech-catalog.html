@@ -1234,7 +1234,6 @@ function TechTypeDetail({ item, detailLoading, creds }) {
     React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginBottom: item.description ? 12 : 4 } }, item.qualifiedName),
     item.description && React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 12 },
       dangerouslySetInnerHTML: { __html: renderMd(item.description) } }),
-    item.mermaidGraph && React.createElement(DiagramPanelFromData, { code: item.mermaidGraph, label: 'Technology Context Diagram' }),
     React.createElement(AvailableMermaidDiagrams, { data: item, skip: new Set() }),
     templatesEl,
     processesEl,

@@ -385,6 +385,7 @@ New standalone SPA (`tech-catalog.html`) + backend handler (`tech_catalog_handle
 | TC-10 | Zone-based sidebar filtering | done | Absorbed into TC-12 |
 | TC-11 | Classification ubiquity audit and fix | done | Root cause found and fixed: pyegeria stores each classification as a named key directly on `elementHeader` with `class="ElementClassification"`, not in a `classifications` array; rewrote `_extract_classifications` in both handlers to iterate `elementHeader` items; confirmed working — `ZoneMembership` and `DataAssetEncoding` visible in Catalog property panels; `_SKIP_CLASSIFICATIONS` skips internal types (Anchors, LatestChange, Memento, etc.) |
 | TC-12 | Classification-based sidebar filtering | done | Filter chips below search bar: zone chips (🌐 zoneName, green) + classification type chips (purple); multi-select AND logic; `ZoneMembership.zoneMembershipList` split per zone; classification badges on each sidebar list item (zones green, others purple, max 3); filter resets on tab change |
+| TC-13 | Preview data for file Data Assets (when accessible), ideally formatted by type | open | Mirror the Explorer Digital-Products `TabularPreviewModal` pattern: a "Preview Data 📊" action on file assets (CSV/JSON/Parquet/…) that fetches a bounded page of rows from the file's backing store and renders a table; format by file type (CSV→table, JSON→tree, etc.). Needs a backend preview endpoint for file assets (vs the existing TabularDataSet preview). Surfaced 2026-06-18 from Tech Catalog Data Assets. |
 
 ---
 
