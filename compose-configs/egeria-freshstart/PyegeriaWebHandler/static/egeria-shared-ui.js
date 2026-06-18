@@ -184,3 +184,63 @@ function useResizable(initialPx, min, max) {
   }, [min, max]);
   return [width, onMouseDown];
 }
+
+/* ── Glossary tree (shared by Egeria Explorer + Tech Catalog) ────────────────
+ * One twistie-tree implementation for both SPAs. GlossaryTreeNode lazy-loads
+ * its child folders + terms via the injected fetchJson(path) -> Promise<json>,
+ * so each SPA supplies its own auth wrapper (Explorer: fetch+credAppend;
+ * Catalog: fetchWithToken). onSelect(obj, isFolder) fires on row click.
+ * Depends on host CSS classes .tree-item / .badge / .type-name and CSS vars
+ * --accent --muted --dim. */
+function GlossaryTermRow({ term, depth, selected, onSelect }) {
+  return React.createElement("div", {
+    className: "tree-item" + (selected === term.guid ? " sel" : ""),
+    style: { paddingLeft: 8 + depth * 16 },
+    onClick: function() { onSelect(term, false); }, title: term.qualifiedName || term.guid,
+  },
+    React.createElement("span", { style: { width: 14, display: 'inline-block', flexShrink: 0 } }),
+    React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+      React.createElement("div", { className: "type-name" }, term.displayName || term.qualifiedName || term.guid),
+      term.qualifiedName && React.createElement("div", { style: { fontSize: 10, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, term.qualifiedName)
+    ),
+    term.isTemplateSubstitute && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(245,158,11,.12)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.35)', flexShrink: 0 } }, "template")
+  );
+}
+
+// A folder node in the glossary tree — expanding the twistie lazily loads its
+// child folders + terms (consistent with the Collections / Digital Products trees).
+function GlossaryTreeNode({ folder, depth, selected, onSelect, showTemplates, fetchJson }) {
+  const [expanded, setExpanded] = React.useState(false);
+  const [children, setChildren] = React.useState(null); // null = unfetched; {folders, terms}
+  const [loading, setLoading] = React.useState(false);
+  function toggle() {
+    var next = !expanded;
+    setExpanded(next);
+    if (next && children === null && !loading) {
+      setLoading(true);
+      Promise.all([
+        Promise.resolve(fetchJson('/api/glossary/' + encodeURIComponent(folder.guid) + '/folders')).catch(function() { return {}; }),
+        Promise.resolve(fetchJson('/api/glossary/' + encodeURIComponent(folder.guid) + '/terms')).catch(function() { return {}; }),
+      ]).then(function(res) { setChildren({ folders: (res[0] || {}).folders || [], terms: (res[1] || {}).terms || [] }); setLoading(false); })
+        .catch(function() { setChildren({ folders: [], terms: [] }); setLoading(false); });
+    }
+  }
+  var pad = 8 + depth * 16;
+  var subTerms = children ? (showTemplates ? children.terms : children.terms.filter(function(t) { return !t.isTemplateSubstitute; })) : [];
+  return React.createElement(React.Fragment, null,
+    React.createElement("div", {
+      className: "tree-item" + (selected === folder.guid ? " sel" : ""),
+      style: { display: 'flex', alignItems: 'center', gap: 6, paddingLeft: pad, cursor: 'pointer' },
+      title: folder.description || folder.qualifiedName,
+    },
+      React.createElement("span", { onClick: function(e) { e.stopPropagation(); toggle(); }, style: { width: 14, textAlign: 'center', flexShrink: 0, color: expanded ? 'var(--accent)' : 'var(--muted)', fontSize: 10, fontWeight: 700 } }, expanded ? '▼' : '▶'),
+      React.createElement("span", { style: { fontSize: 12, flexShrink: 0 }, onClick: function(e) { e.stopPropagation(); toggle(); } }, "📁"),
+      React.createElement("span", { className: "type-name", style: { flex: 1 }, onClick: function() { onSelect(folder, true); } }, folder.displayName || folder.qualifiedName || folder.guid)
+    ),
+    expanded && loading && React.createElement("div", { style: { paddingLeft: pad + 20, fontSize: 11, color: 'var(--dim)', padding: '2px 0' } }, "Loading…"),
+    expanded && children && React.createElement(React.Fragment, null,
+      children.folders.map(function(cf) { return React.createElement(GlossaryTreeNode, { key: cf.guid, folder: cf, depth: depth + 1, selected: selected, onSelect: onSelect, showTemplates: showTemplates, fetchJson: fetchJson }); }),
+      subTerms.map(function(t) { return React.createElement(GlossaryTermRow, { key: t.guid, term: t, depth: depth + 1, selected: selected, onSelect: onSelect }); })
+    )
+  );
+}
