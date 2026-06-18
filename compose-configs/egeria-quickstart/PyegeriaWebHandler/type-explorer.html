@@ -2788,6 +2788,61 @@ function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign }) 
   );
 }
 
+// One term row in the glossary tree (leaf), indented by depth.
+function GlossaryTermRow({ term, depth, selected, onSelect }) {
+  return React.createElement("div", {
+    className: "tree-item" + (selected === term.guid ? " sel" : ""),
+    style: { paddingLeft: 8 + depth * 16 },
+    onClick: function() { onSelect(term, false); }, title: term.qualifiedName || term.guid,
+  },
+    React.createElement("span", { style: { width: 14, display: 'inline-block', flexShrink: 0 } }),
+    React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+      React.createElement("div", { className: "type-name" }, term.displayName || term.qualifiedName || term.guid),
+      term.qualifiedName && React.createElement("div", { style: { fontSize: 10, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, term.qualifiedName)
+    ),
+    term.isTemplateSubstitute && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(245,158,11,.12)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.35)', flexShrink: 0 } }, "template")
+  );
+}
+
+// A folder node in the glossary tree — expand twistie lazily loads its child
+// folders + terms (consistent with the Collections / Digital Products trees).
+function GlossaryTreeNode({ folder, depth, selected, onSelect, showTemplates }) {
+  const creds = React.useContext(CredContext);
+  const [expanded, setExpanded] = React.useState(false);
+  const [children, setChildren] = React.useState(null); // null = unfetched; {folders, terms}
+  const [loading, setLoading] = React.useState(false);
+  function toggle() {
+    var next = !expanded;
+    setExpanded(next);
+    if (next && children === null && !loading) {
+      setLoading(true);
+      Promise.all([
+        fetch(credAppend('/api/glossary/' + encodeURIComponent(folder.guid) + '/folders', creds)).then(function(r) { return r.ok ? r.json() : { folders: [] }; }),
+        fetch(credAppend('/api/glossary/' + encodeURIComponent(folder.guid) + '/terms', creds)).then(function(r) { return r.ok ? r.json() : { terms: [] }; }),
+      ]).then(function(res) { setChildren({ folders: res[0].folders || [], terms: res[1].terms || [] }); setLoading(false); })
+        .catch(function() { setChildren({ folders: [], terms: [] }); setLoading(false); });
+    }
+  }
+  var pad = 8 + depth * 16;
+  var subTerms = children ? (showTemplates ? children.terms : children.terms.filter(function(t) { return !t.isTemplateSubstitute; })) : [];
+  return React.createElement(React.Fragment, null,
+    React.createElement("div", {
+      className: "tree-item" + (selected === folder.guid ? " sel" : ""),
+      style: { display: 'flex', alignItems: 'center', gap: 6, paddingLeft: pad, cursor: 'pointer' },
+      title: folder.description || folder.qualifiedName,
+    },
+      React.createElement("span", { onClick: function(e) { e.stopPropagation(); toggle(); }, style: { width: 14, textAlign: 'center', flexShrink: 0, color: expanded ? 'var(--accent)' : 'var(--muted)', fontSize: 10, fontWeight: 700 } }, expanded ? '▼' : '▶'),
+      React.createElement("span", { style: { fontSize: 12, flexShrink: 0 }, onClick: function(e) { e.stopPropagation(); toggle(); } }, "📁"),
+      React.createElement("span", { className: "type-name", style: { flex: 1 }, onClick: function() { onSelect(folder, true); } }, folder.displayName || folder.qualifiedName || folder.guid)
+    ),
+    expanded && loading && React.createElement("div", { style: { paddingLeft: pad + 20, fontSize: 11, color: 'var(--dim)', padding: '2px 0' } }, "Loading…"),
+    expanded && children && React.createElement(React.Fragment, null,
+      children.folders.map(function(cf) { return React.createElement(GlossaryTreeNode, { key: cf.guid, folder: cf, depth: depth + 1, selected: selected, onSelect: onSelect, showTemplates: showTemplates }); }),
+      subTerms.map(function(t) { return React.createElement(GlossaryTermRow, { key: t.guid, term: t, depth: depth + 1, selected: selected, onSelect: onSelect }); })
+    )
+  );
+}
+
 function GlossaryView({ navGuid, onNavigateToDataDesign }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(254);
@@ -2815,6 +2870,13 @@ function GlossaryView({ navGuid, onNavigateToDataDesign }) {
   const [searchError, setSearchError] = useState('');
 
   const [selectedItem, setSelectedItem] = useState(null);
+  // The selected node object (folder or term) — carried so nested tree items
+  // resolve without being present in the flat top-level scope arrays.
+  const [selectedData, setSelectedData] = useState(null);
+  const selectItem = useCallback(function(obj, isFolder) {
+    setSelectedItem(obj.guid);
+    setSelectedData(Object.assign({}, obj, { isFolder: !!isFolder }));
+  }, []);
   const [termDetail, setTermDetail] = useState(null);
   const [termDetailState, setTermDetailState] = useState('idle');
   const [filterText, setFilterText] = useState('');
@@ -2859,6 +2921,7 @@ function GlossaryView({ navGuid, onNavigateToDataDesign }) {
     setFolders([]);
     setTerms([]);
     setSelectedItem(null);
+    setSelectedData(null);
     setTermDetail(null);
     setTermDetailState('idle');
     setFilterText('');
@@ -2935,14 +2998,13 @@ function GlossaryView({ navGuid, onNavigateToDataDesign }) {
   const selectedObj = useMemo(() => {
     // Cross-navigation target takes priority when it matches selectedItem
     if (navTerm && selectedItem === navTerm.guid) return navTerm;
-    const pool = isSearchMode ? filteredSearchTerms : [...folders.map(f => ({...f, isFolder: true})), ...filteredTerms];
-    return selectedItem ? pool.find(x => x.guid === selectedItem) || null : null;
-  }, [selectedItem, isSearchMode, filteredSearchTerms, folders, filteredTerms, navTerm]);
+    return selectedData;  // the clicked folder/term object (carries isFolder)
+  }, [selectedItem, selectedData, navTerm]);
 
   // Lazy-fetch full term detail whenever a term is selected
   useEffect(() => {
     if (!selectedItem) { setTermDetail(null); setTermDetailState('idle'); return; }
-    if (folders.find(f => f.guid === selectedItem)) { setTermDetail(null); setTermDetailState('idle'); return; }
+    if (selectedData && selectedData.isFolder) { setTermDetail(null); setTermDetailState('idle'); return; }
     // Reuse navTerm if it already matches (avoids duplicate fetch)
     if (navTerm && navTerm.guid === selectedItem) { setTermDetail(navTerm); setTermDetailState('ready'); return; }
     setTermDetail(null);
@@ -2951,7 +3013,7 @@ function GlossaryView({ navGuid, onNavigateToDataDesign }) {
       .then(r => r.ok ? r.json() : null)
       .then(data => { setTermDetail(data || null); setTermDetailState(data ? 'ready' : 'error'); })
       .catch(() => setTermDetailState('error'));
-  }, [selectedItem, navTerm, folders]);
+  }, [selectedItem, selectedData, navTerm]);
 
   const navigateToTerm = useCallback(function(guid) {
     setSelectedItem(guid);
@@ -3003,14 +3065,8 @@ function GlossaryView({ navGuid, onNavigateToDataDesign }) {
     React.createElement("div", { style: { width: 300, flexShrink: 0, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
       // Header
       React.createElement("div", { style: { padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 5 } },
-        // Breadcrumb (glossary mode only)
-        !isSearchMode && React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', fontSize: 11 } },
-          React.createElement("span", { style: { cursor: 'pointer', color: folderStack.length > 0 ? 'var(--accent)' : 'var(--dim)', fontWeight: 600 }, onClick: () => navigateTo(-1) }, selectedGlossaryName || 'Glossary'),
-          folderStack.map((f, i) => [
-            React.createElement("span", { key: 'sep' + i, style: { color: 'var(--dim)' } }, "›"),
-            React.createElement("span", { key: 'f' + i, style: { cursor: 'pointer', color: i === folderStack.length - 1 ? 'var(--dim)' : 'var(--accent)', fontWeight: i === folderStack.length - 1 ? 600 : 400 }, onClick: () => navigateTo(i) }, f.displayName)
-          ])
-        ),
+        // Glossary name (folders are now expandable inline in the tree below)
+        !isSearchMode && React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', fontWeight: 600 } }, selectedGlossaryName || 'Glossary'),
         React.createElement("div", { style: { fontWeight: 600, fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, middleCounts),
         isSearchMode
           ? React.createElement("form", { onSubmit: e => { e.preventDefault(); runSearch(searchInputValue); }, style: { display: 'flex', gap: 4 } },
@@ -3026,39 +3082,13 @@ function GlossaryView({ navGuid, onNavigateToDataDesign }) {
       middleError && React.createElement("div", { style: { padding: 10, color: 'var(--muted)', fontSize: 12 } }, "Error: " + middleError),
       React.createElement("div", { className: "tree-scroll" },
         isSearchMode
-          // All-Terms search results
-          ? filteredSearchTerms.map(t => React.createElement("div", {
-              key: t.guid, className: "tree-item" + (selectedItem === t.guid ? " sel" : ""),
-              onClick: () => setSelectedItem(t.guid), title: t.qualifiedName || t.guid,
-            },
-              React.createElement("div", { style: { flex: 1, minWidth: 0 } },
-                React.createElement("div", { className: "type-name" }, t.displayName || t.qualifiedName || t.guid),
-                t.qualifiedName && React.createElement("div", { style: { fontSize: 10, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, t.qualifiedName)
-              ),
-              t.isTemplateSubstitute && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(245,158,11,.12)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.35)', flexShrink: 0 } }, "template")
-            ))
-          // Glossary/folder scope: folders first, then terms
-          : [
-              ...folders.map(f => React.createElement("div", {
-                key: f.guid, className: "tree-item" + (selectedItem === f.guid ? " sel" : ""),
-                title: f.description || f.qualifiedName,
-                style: { display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' },
-              },
-                React.createElement("span", { style: { fontSize: 12, cursor: 'pointer', color: 'var(--dim)' }, onClick: () => openFolder(f) }, "📁"),
-                React.createElement("span", { className: "type-name", style: { flex: 1 }, onClick: () => setSelectedItem(f.guid) }, f.displayName || f.qualifiedName || f.guid),
-                React.createElement("span", { style: { fontSize: 18, padding: '0 4px', cursor: 'pointer', color: 'var(--accent)', lineHeight: 1 }, title: "Open folder", onClick: () => openFolder(f) }, "›")
-              )),
-              ...filteredTerms.map(t => React.createElement("div", {
-                key: t.guid, className: "tree-item" + (selectedItem === t.guid ? " sel" : ""),
-                onClick: () => setSelectedItem(t.guid), title: t.qualifiedName || t.guid,
-              },
-                React.createElement("div", { style: { flex: 1, minWidth: 0 } },
-                  React.createElement("div", { className: "type-name" }, t.displayName || t.qualifiedName || t.guid),
-                  t.qualifiedName && React.createElement("div", { style: { fontSize: 10, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, t.qualifiedName)
-                ),
-                t.isTemplateSubstitute && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(245,158,11,.12)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.35)', flexShrink: 0 } }, "template")
-              ))
-            ]
+          // All-Terms search results (flat)
+          ? filteredSearchTerms.map(function(t) { return React.createElement(GlossaryTermRow, { key: t.guid, term: t, depth: 0, selected: selectedItem, onSelect: selectItem }); })
+          // Glossary scope: expandable folder tree, then top-level terms
+          : React.createElement(React.Fragment, null,
+              folders.map(function(f) { return React.createElement(GlossaryTreeNode, { key: f.guid, folder: f, depth: 0, selected: selectedItem, onSelect: selectItem, showTemplates: showTemplates }); }),
+              filteredTerms.map(function(t) { return React.createElement(GlossaryTermRow, { key: t.guid, term: t, depth: 0, selected: selectedItem, onSelect: selectItem }); })
+            )
       )
     ),
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
