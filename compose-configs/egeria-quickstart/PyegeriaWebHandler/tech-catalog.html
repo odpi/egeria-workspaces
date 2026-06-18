@@ -2185,9 +2185,7 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
     ),
 
     // Mermaid diagrams — between Properties and Relationships
-    item.mermaidGraph && React.createElement(DiagramPanelFromData, { code: item.mermaidGraph, label: 'Context Diagram' }),
     React.createElement(AvailableMermaidDiagrams, { data: item, skip: new Set() }),
-    React.createElement(MermaidSection, { guid: item.guid }),
 
     // Relationships
     rels.length > 0 && React.createElement('div', null,
