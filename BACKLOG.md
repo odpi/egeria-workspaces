@@ -7,15 +7,15 @@ Status: `open` · `in-progress` · `done` · `deferred`
     
     | # | Item | Status | Notes |
     |---|------|--------|-------|
-    | UI-1 | Collections home-page card icon should match the others (blue outline, not emoji) | open | `_SPLASH_CAPABILITIES` Collections entry uses `icon: '🗂'`, a multicolor emoji that ignores the acent styling. Swap for a monochrome line glyph (e.g. `▤`, `▦`, `❐`, or `⧉` — avoid `⊞`, already used by Data
-    Design) so it inherits `color: var(--accent)` like the rest. |
-    | UI-2 | Remove duplicate sidebar titles that double the page header bar | open | Same pattern fixed for ISC: a view's sidebar hardcodes a title equal to its `SECTION_LABELS` value, so it shows twice (page header bar + sidebar div). Confirmed on **Note Logs** (`NoteLogView` "Note Logs" div). Sweep
-    `type-explorer.html` for the `fontWeight: 700 … borderBottom` sidebar-title block and remove any that duplicate their `SECTION_LABELS` entry (check Locations/Communities too). ProjectsView/ActorsView are unaffected (search box / sub-nav tabs lead their sidebars). |
+    | UI-1 | Collections home-page card icon should match the others (blue outline, not emoji) | done | `_SPLASH_CAPABILITIES` Collections icon changed `'🗂'` → `'❐'` (monochrome, inherits `var(--accent)`). |
+    | UI-2 | Remove duplicate sidebar titles that double the page header bar | done | Removed the hardcoded sidebar-title divs in `NoteLogView`, `LocationsView`, `CommunityView` (ISC already done). ProjectsView/ActorsView unaffected. |
   
-## Mermaid Graphs copyable
+## Mermaid Graphs copyable — ✅ done
   add a button/gesture to mermaid graphs to allow the raw mermaid text to be copied to the clipboard.
+  **Done:** `MermaidDiagram` (type-explorer.html + tech-catalog.html) now shows a "⧉ Copy source" button that copies the raw mermaid text with a "✓ Copied" confirmation.
 
-## Change Tile ordering for portal
+## Change Tile ordering for portal — ✅ done
+    **Done:** reordered the `apps` array in both `demo-portal.html` files. Quickstart row 2 is Jupyter · Obsidian · My Egeria · Egeria Advisor; freshstart has no Obsidian tile, so its row 2 is Jupyter · My Egeria · Egeria Advisor · My Profile. Docs/Admin/API tiles follow.
     Row 1: The Catalog · Egeria Explorer · Lineage Explorer · Resource Explorer
     Row 2: Jupyter Lab · Obsidian · My Egeria · Egeria Advisor
     
