@@ -106,6 +106,43 @@ def _extract_mermaid(element: dict) -> dict:
     return result
 
 
+# Relationship keys rendered as their own named sections; everything else falls
+# into the generic "relationships" map so new keys surface automatically.
+_ISC_NAMED_RELS = {"segments", "implementations"}
+_ISC_SKIP_KEYS = {"elementHeader", "properties", "class"}
+
+
+def _extract_all_rels(element: dict) -> dict:
+    """All other relationship lists on the element → {key: [serialized entries]}.
+    Excludes the keys rendered as their own sections and non-relationship fields."""
+    result = {}
+    for key, val in element.items():
+        if key in _ISC_SKIP_KEYS or key in _ISC_NAMED_RELS:
+            continue
+        if not isinstance(val, list) or not val or not isinstance(val[0], dict):
+            continue
+        entries = _serialize_rel_entries(val)
+        if entries:
+            result[key] = entries
+    return result
+
+
+def _owner_ref(element: dict) -> dict | None:
+    """The Ownership classification's owner as a cross-linkable reference."""
+    own = _header(element).get("ownership") or {}
+    cp = own.get("classificationProperties") or {}
+    g = cp.get("owner")
+    if not g:
+        return None
+    return {
+        "guid":           g,
+        "displayName":    "",                       # filled in by the detail route
+        "typeName":       cp.get("ownerTypeName") or "",
+        "superTypeNames": [],
+        "ownerPropertyName": cp.get("ownerPropertyName") or "",
+    }
+
+
 def _serialize_isc(element: dict) -> dict:
     """Full serializer — used for both list and detail; includes mermaid fields and relationships."""
     props  = _props(element)
@@ -122,6 +159,8 @@ def _serialize_isc(element: dict) -> dict:
         "typeName":          _type_name(element),
         "segments":          _serialize_rel_entries(_rel_list(element, "segments")),
         "implementations":   _serialize_rel_entries(_rel_list(element, "implementations")),
+        "relationships":     _extract_all_rels(element),
+        "owner":             _owner_ref(element),
     }
     d.update(_extract_mermaid(element))
     return d
@@ -187,4 +226,20 @@ def get_isc(
     if not isinstance(element, dict):
         raise HTTPException(status_code=404, detail=f"ISC {guid!r} not found")
 
-    return JSONResponse(_serialize_isc(element))
+    serialized = _serialize_isc(element)
+
+    # Resolve the owner's display name + supertypes so the detail can cross-link it.
+    owner = serialized.get("owner")
+    if owner and owner.get("guid"):
+        try:
+            owner_el = exp.get_element_by_guid(owner["guid"], output_format="JSON")
+            if isinstance(owner_el, dict):
+                op = owner_el.get("properties") or {}
+                oh = (owner_el.get("elementHeader") or {}).get("type") or {}
+                owner["displayName"]    = op.get("displayName") or op.get("name") or op.get("qualifiedName") or ""
+                owner["typeName"]       = oh.get("typeName") or owner.get("typeName") or ""
+                owner["superTypeNames"] = oh.get("superTypeNames") or []
+        except Exception:
+            logger.debug(f"could not resolve ISC owner {owner.get('guid')}")
+
+    return JSONResponse(serialized)

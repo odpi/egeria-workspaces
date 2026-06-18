@@ -14,7 +14,9 @@ WORKDIR /app
 # This step is often done first to leverage Docker's build cache
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir pyegeria --upgrade
+# Floor at 6.0.14.6: 6.0.14.4/.5 ship a broken get_notes_for_note_log
+# (sends an unrecognized type "Note" → 500), which empties the Note Logs tab.
+RUN pip install --no-cache-dir 'pyegeria>=6.0.14.6' --upgrade
 
 # Copy your application code
 # Assuming your FastAPI app is in 'main.py' at the root of your app directory

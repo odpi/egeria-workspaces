@@ -2175,7 +2175,7 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
   var sectionHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
   var cardStyle  = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px', marginBottom: 6 };
   // hasSchema / hasLineage are signalled by the backend; exclude them from the property table
-  var skipKeys   = new Set(['guid','typeName','displayName','qualifiedName','description','classifications','relationships','hasSchema','hasLineage'].concat(_ALL_MERMAID_FIELDS));
+  var skipKeys   = new Set(['guid','typeName','superTypeNames','displayName','qualifiedName','description','classifications','relationships','hasSchema','hasLineage'].concat(_ALL_MERMAID_FIELDS));
   var extraProps = Object.entries(item).filter(function(e) {
     return !skipKeys.has(e[0]) && e[1] && typeof e[1] === 'string';
   });
