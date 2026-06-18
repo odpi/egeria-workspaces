@@ -4,7 +4,7 @@ pydantic
 requests
 httpx
 
-pyegeria>=5.4.8.10
+pyegeria>=6.0.14.6  # 6.0.14.4/.5 break get_notes_for_note_log (Note Logs tab)
 nest_asyncio
 email-validator
 loguru

@@ -7142,25 +7142,24 @@ function _fmtNoteDate(s) {
   return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-function NoteEntryCard({ entry, expanded, onToggle }) {
+function NoteEntryCard({ entry, expanded, onToggle, colW }) {
   var created = _fmtNoteDate(entry.createTime);
   var updated = entry.updateTime && entry.updateTime !== entry.createTime ? _fmtNoteDate(entry.updateTime) : '';
-  var meta = [];
-  if (entry.createdBy) meta.push(entry.createdBy);
-  if (created) meta.push(created);
   var title = entry.title || '(untitled note)';
-  return React.createElement("div", { style: { border: '1px solid var(--border)', borderRadius: 8, marginBottom: 6, background: 'var(--panel)', overflow: 'hidden' } },
-    // Inbox-style header row — click to expand/collapse the note body
+  var cell = function(w) { return { width: w, flexShrink: 0, fontSize: 12, color: 'var(--dim)', padding: '0 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', boxSizing: 'border-box' }; };
+  return React.createElement("div", { style: { borderBottom: '1px solid var(--border)' } },
+    // Columnar row — click to expand/collapse the note body
     React.createElement("div", {
       onClick: onToggle,
-      style: { display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', cursor: 'pointer' },
+      style: { display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '7px 4px', background: expanded ? 'var(--panel)' : 'transparent' },
     },
-      React.createElement("span", { style: { width: 12, fontSize: 10, color: expanded ? 'var(--accent)' : 'var(--muted)', flexShrink: 0, fontWeight: 700 } }, expanded ? '▼' : '▶'),
-      React.createElement("span", { style: { fontWeight: expanded ? 700 : 600, fontSize: 13, flex: 1, minWidth: 0, whiteSpace: expanded ? 'normal' : 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, title),
-      entry.typeName && entry.typeName !== 'NoteEntry' && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(148,163,184,.1)', color: '#94a3b8', border: '0.5px solid rgba(148,163,184,.3)', flexShrink: 0 } }, entry.typeName),
-      React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)', flexShrink: 0, whiteSpace: 'nowrap' } }, meta.join(' · '))
+      React.createElement("span", { style: { width: 18, textAlign: 'center', fontSize: 10, color: expanded ? 'var(--accent)' : 'var(--muted)', flexShrink: 0, fontWeight: 700 } }, expanded ? '▼' : '▶'),
+      React.createElement("span", { style: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: expanded ? 700 : 600, padding: '0 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, title),
+      React.createElement("span", { style: cell(colW.type) }, entry.typeName || ''),
+      React.createElement("span", { style: cell(colW.author) }, entry.createdBy || ''),
+      React.createElement("span", { style: cell(colW.date) }, created)
     ),
-    expanded && React.createElement("div", { style: { padding: '0 14px 12px 32px' } },
+    expanded && React.createElement("div", { style: { padding: '4px 14px 12px 30px' } },
       entry.situation && React.createElement("div", { style: { fontSize: 12, color: 'var(--dim)', fontStyle: 'italic', marginBottom: 6 } }, entry.situation),
       entry.text && React.createElement("div", { style: { fontSize: 13, lineHeight: 1.5 } }, renderMd(entry.text)),
       updated && React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', marginTop: 8 } }, 'edited ' + updated)
@@ -7174,8 +7173,22 @@ function NoteLogDetail({ data, detail, onNavigateToElement }) {
   const [dateFrom, setDateFrom]     = useState('');
   const [dateTo, setDateTo]         = useState('');
   const [expandedNotes, setExpandedNotes] = useState(function() { return new Set(); });
+  const [colW, setColW]             = useState({ type: 90, author: 150, date: 160 });
   const toggleNote = useCallback(function(guid) {
     setExpandedNotes(function(prev) { var n = new Set(prev); if (n.has(guid)) n.delete(guid); else n.add(guid); return n; });
+  }, []);
+  // Drag a column's left-edge handle to resize it (drag left = wider).
+  const startColResize = useCallback(function(key, e) {
+    e.preventDefault(); e.stopPropagation();
+    var startX = e.clientX;
+    var startW = 0;
+    setColW(function(p) { startW = p[key]; return p; });
+    function onMove(ev) {
+      var d = startX - ev.clientX;
+      setColW(function(p) { var n = Object.assign({}, p); n[key] = Math.max(50, Math.min(400, startW + d)); return n; });
+    }
+    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
   }, []);
 
   var src = detail || data;
@@ -7205,6 +7218,21 @@ function NoteLogDetail({ data, detail, onNavigateToElement }) {
   });
   var noteFilterActive = !!(q || dateFrom || dateTo);
   var dateInputStyle = { fontSize: 11, padding: '3px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', outline: 'none' };
+
+  // A resizable column header cell (drag the left-edge handle to resize).
+  function colHeaderCell(key, label) {
+    return React.createElement("div", { key: key, style: { width: colW[key], flexShrink: 0, display: 'flex', alignItems: 'center', boxSizing: 'border-box' } },
+      React.createElement("div", { onMouseDown: function(e) { startColResize(key, e); }, title: "Drag to resize", style: { width: 6, alignSelf: 'stretch', cursor: 'col-resize', borderLeft: '1px solid var(--border)' } }),
+      React.createElement("span", { style: { flex: 1, minWidth: 0, padding: '6px 8px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, label)
+    );
+  }
+  var noteHeaderRow = React.createElement("div", { style: { display: 'flex', alignItems: 'stretch', background: 'var(--panel)', borderBottom: '1px solid var(--border)' } },
+    React.createElement("span", { style: { width: 18, flexShrink: 0 } }),
+    React.createElement("span", { style: { flex: 1, minWidth: 0, padding: '6px 8px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--dim)' } }, "Subject"),
+    colHeaderCell('type', 'Type'),
+    colHeaderCell('author', 'Author'),
+    colHeaderCell('date', 'Date')
+  );
 
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
@@ -7266,7 +7294,10 @@ function NoteLogDetail({ data, detail, onNavigateToElement }) {
             visibleNotes.length + " of " + entries.length + " notes match"),
           visibleNotes.length === 0
             ? React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)', marginBottom: 16 } }, "No notes match the filter.")
-            : visibleNotes.map(function(e) { return React.createElement(NoteEntryCard, { key: e.guid, entry: e, expanded: expandedNotes.has(e.guid), onToggle: function() { toggleNote(e.guid); } }); })
+            : React.createElement("div", { style: { border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', marginBottom: 16 } },
+                noteHeaderRow,
+                visibleNotes.map(function(e) { return React.createElement(NoteEntryCard, { key: e.guid, entry: e, colW: colW, expanded: expandedNotes.has(e.guid), onToggle: function() { toggleNote(e.guid); } }); })
+              )
         ),
     React.createElement(EgeriaCommentsSection, { guid: src.guid })
   );
