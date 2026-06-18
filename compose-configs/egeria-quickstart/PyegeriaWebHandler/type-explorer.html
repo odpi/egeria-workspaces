@@ -6276,13 +6276,34 @@ function ISCDetail({ data, detail, onNavigateToElement }) {
         })
       )
     ),
+    structural.owner && structural.owner.guid && React.createElement(RelationshipSection, { title: "Owner", items: [structural.owner], onNavigateToElement: onNavigateToElement }),
     React.createElement(RelationshipSection, { title: "Segments", items: structural.segments, onNavigateToElement: onNavigateToElement }),
     React.createElement(RelationshipSection, { title: "Implementations", items: structural.implementations, onNavigateToElement: onNavigateToElement }),
+    // All other relationships (CollectionMembership, SupplyTo, …) with cross-links.
+    Object.keys(structural.relationships || {}).sort().map(function(key) {
+      return React.createElement(RelationshipSection, {
+        key: key, title: _ISC_REL_LABELS[key] || _humanizeKey(key),
+        items: structural.relationships[key], onNavigateToElement: onNavigateToElement,
+      });
+    }),
     React.createElement(EgeriaCommentsSection, { guid: src.guid })
   );
 }
 
-function InformationSupplyChainView({ onNavigateToElement }) {
+var _ISC_REL_LABELS = {
+  memberOfCollections: 'Member of Collections',
+  collectionMembers:   'Collection Members',
+  supplyTo:            'Supplies To',
+  supplyFrom:          'Supplied From',
+  nestedInformationSupplyChains: 'Nested Supply Chains',
+};
+
+// camelCase relationship key → "Title Case" label.
+function _humanizeKey(key) {
+  return key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/^./, function(c) { return c.toUpperCase(); });
+}
+
+function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(280);
   const [state, setState]   = useState('loading');
@@ -6291,8 +6312,11 @@ function InformationSupplyChainView({ onNavigateToElement }) {
   const [error, setError]   = useState('');
   const [selected, setSelected] = useState(function() {
     var params = new URLSearchParams(window.location.search);
-    return params.get('guid') || null;
+    return navGuid || params.get('guid') || null;
   });
+
+  // Cross-link arrival: another tab (or an ISC→ISC link) selected an ISC.
+  useEffect(function() { if (navGuid) setSelected(navGuid); }, [navGuid]);
   const [detail, setDetail] = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter] = useState('');
@@ -6320,7 +6344,6 @@ function InformationSupplyChainView({ onNavigateToElement }) {
   }, [selected]);
 
   var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
-    React.createElement("div", { style: { padding: '10px 12px 6px', fontSize: 12, fontWeight: 700, color: 'var(--text)', borderBottom: '1px solid var(--border)' } }, "Information Supply Chains"),
     React.createElement("div", { className: "search-wrap" },
       React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
         onChange: function(e) { setFilter(e.target.value); } })
@@ -6414,6 +6437,7 @@ function _elementIsLinkable(item) {
   if (item.typeName === 'DigitalProduct') return true;
   if (item.typeName === 'Community') return true;
   if (item.typeName === 'NoteLog') return true;
+  if (item.typeName === 'InformationSupplyChain') return true;
   if (DD_TYPES_SET[item.typeName]) return true;
   if (_actorKindForType(item.typeName, superTypes)) return true;
   if (superTypes.indexOf('GovernanceDefinition') !== -1) return true;
@@ -7118,31 +7142,69 @@ function _fmtNoteDate(s) {
   return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-function NoteEntryCard({ entry }) {
+function NoteEntryCard({ entry, expanded, onToggle }) {
   var created = _fmtNoteDate(entry.createTime);
   var updated = entry.updateTime && entry.updateTime !== entry.createTime ? _fmtNoteDate(entry.updateTime) : '';
   var meta = [];
-  if (entry.createdBy) meta.push('by ' + entry.createdBy);
+  if (entry.createdBy) meta.push(entry.createdBy);
   if (created) meta.push(created);
-  if (updated) meta.push('edited ' + updated);
-  return React.createElement("div", { style: { border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px', marginBottom: 10, background: 'var(--panel)' } },
-    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' } },
-      entry.title && React.createElement("div", { style: { fontWeight: 600, fontSize: 13 } }, entry.title),
-      entry.typeName && entry.typeName !== 'NoteEntry' && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(148,163,184,.1)', color: '#94a3b8', border: '0.5px solid rgba(148,163,184,.3)' } }, entry.typeName)
+  var title = entry.title || '(untitled note)';
+  return React.createElement("div", { style: { border: '1px solid var(--border)', borderRadius: 8, marginBottom: 6, background: 'var(--panel)', overflow: 'hidden' } },
+    // Inbox-style header row — click to expand/collapse the note body
+    React.createElement("div", {
+      onClick: onToggle,
+      style: { display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', cursor: 'pointer' },
+    },
+      React.createElement("span", { style: { width: 12, fontSize: 10, color: expanded ? 'var(--accent)' : 'var(--muted)', flexShrink: 0, fontWeight: 700 } }, expanded ? '▼' : '▶'),
+      React.createElement("span", { style: { fontWeight: expanded ? 700 : 600, fontSize: 13, flex: 1, minWidth: 0, whiteSpace: expanded ? 'normal' : 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, title),
+      entry.typeName && entry.typeName !== 'NoteEntry' && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(148,163,184,.1)', color: '#94a3b8', border: '0.5px solid rgba(148,163,184,.3)', flexShrink: 0 } }, entry.typeName),
+      React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)', flexShrink: 0, whiteSpace: 'nowrap' } }, meta.join(' · '))
     ),
-    entry.situation && React.createElement("div", { style: { fontSize: 12, color: 'var(--dim)', fontStyle: 'italic', marginBottom: 6 } }, entry.situation),
-    entry.text && React.createElement("div", { style: { fontSize: 13, lineHeight: 1.5 } }, renderMd(entry.text)),
-    meta.length > 0 && React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', marginTop: 8 } }, meta.join(' · '))
+    expanded && React.createElement("div", { style: { padding: '0 14px 12px 32px' } },
+      entry.situation && React.createElement("div", { style: { fontSize: 12, color: 'var(--dim)', fontStyle: 'italic', marginBottom: 6 } }, entry.situation),
+      entry.text && React.createElement("div", { style: { fontSize: 13, lineHeight: 1.5 } }, renderMd(entry.text)),
+      updated && React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', marginTop: 8 } }, 'edited ' + updated)
+    )
   );
 }
 
 function NoteLogDetail({ data, detail, onNavigateToElement }) {
+  const [noteSearch, setNoteSearch] = useState('');
+  const [noteSort, setNoteSort]     = useState('newest');
+  const [dateFrom, setDateFrom]     = useState('');
+  const [dateTo, setDateTo]         = useState('');
+  const [expandedNotes, setExpandedNotes] = useState(function() { return new Set(); });
+  const toggleNote = useCallback(function(guid) {
+    setExpandedNotes(function(prev) { var n = new Set(prev); if (n.has(guid)) n.delete(guid); else n.add(guid); return n; });
+  }, []);
+
   var src = detail || data;
   if (!src) return null;
   var fields = [['Qualified Name', src.qualifiedName], ['Status', src.status]]
     .filter(function(f) { return f[1] && String(f[1]).trim(); });
   var entries = src.entries || [];
   var subjects = src.subjects || [];
+
+  // Inbox-style filtering: search text + date range, then sort.
+  var q = noteSearch.trim().toLowerCase();
+  var fromTs = dateFrom ? new Date(dateFrom).getTime() : null;
+  var toTs   = dateTo ? new Date(dateTo).getTime() + 86400000 : null;  // inclusive end-of-day
+  var visibleNotes = entries.filter(function(e) {
+    if (q) {
+      var hay = ((e.title || '') + ' ' + (e.text || '') + ' ' + (e.situation || '') + ' ' + (e.createdBy || '')).toLowerCase();
+      if (hay.indexOf(q) === -1) return false;
+    }
+    var t = e.createTime ? new Date(e.createTime).getTime() : null;
+    if (fromTs !== null && (t === null || t < fromTs)) return false;
+    if (toTs !== null && (t === null || t >= toTs)) return false;
+    return true;
+  });
+  visibleNotes.sort(function(a, b) {
+    var ta = a.createTime || '', tb = b.createTime || '';
+    return noteSort === 'newest' ? (ta < tb ? 1 : ta > tb ? -1 : 0) : (ta < tb ? -1 : ta > tb ? 1 : 0);
+  });
+  var noteFilterActive = !!(q || dateFrom || dateTo);
+  var dateInputStyle = { fontSize: 11, padding: '3px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', outline: 'none' };
 
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
@@ -7166,8 +7228,33 @@ function NoteLogDetail({ data, detail, onNavigateToElement }) {
       )
     ),
     subjects.length > 0 && React.createElement(RelationshipSection, { title: "About", items: subjects, onNavigateToElement: onNavigateToElement }),
-    React.createElement("div", { style: { fontWeight: 600, fontSize: 13, marginBottom: 8, marginTop: 4, color: 'var(--accent)' } },
-      "Notes" + (typeof src.entryCount === 'number' ? " (" + src.entryCount + ")" : "")),
+    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, marginTop: 4, flexWrap: 'wrap' } },
+      React.createElement("span", { style: { fontWeight: 600, fontSize: 13, color: 'var(--accent)' } },
+        "Notes" + (typeof src.entryCount === 'number' ? " (" + src.entryCount + ")" : "")),
+      entries.length > 0 && React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', gap: 6 } },
+        React.createElement("button", { className: "view-tab", style: { fontSize: 11, padding: '2px 8px' }, onClick: function() { setExpandedNotes(new Set(visibleNotes.map(function(e) { return e.guid; }))); } }, "Expand all"),
+        React.createElement("button", { className: "view-tab", style: { fontSize: 11, padding: '2px 8px' }, onClick: function() { setExpandedNotes(new Set()); } }, "Collapse all")
+      )
+    ),
+    entries.length > 0 && React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' } },
+      React.createElement("input", {
+        type: 'text', placeholder: 'Search notes…', value: noteSearch,
+        onChange: function(e) { setNoteSearch(e.target.value); },
+        style: { flex: '1 1 160px', minWidth: 120, fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', outline: 'none' }
+      }),
+      React.createElement("label", { style: { fontSize: 11, color: 'var(--dim)' } }, "From ",
+        React.createElement("input", { type: 'date', value: dateFrom, onChange: function(e) { setDateFrom(e.target.value); }, style: dateInputStyle })),
+      React.createElement("label", { style: { fontSize: 11, color: 'var(--dim)' } }, "To ",
+        React.createElement("input", { type: 'date', value: dateTo, onChange: function(e) { setDateTo(e.target.value); }, style: dateInputStyle })),
+      React.createElement("select", {
+        value: noteSort, onChange: function(e) { setNoteSort(e.target.value); },
+        style: { fontSize: 11, padding: '3px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', outline: 'none' }
+      },
+        React.createElement("option", { value: 'newest' }, 'Newest first'),
+        React.createElement("option", { value: 'oldest' }, 'Oldest first')
+      ),
+      noteFilterActive && React.createElement("button", { className: "view-tab", style: { fontSize: 11, padding: '2px 8px' }, onClick: function() { setNoteSearch(''); setDateFrom(''); setDateTo(''); } }, "Clear")
+    ),
     src.entriesUnavailable
       ? React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)', marginBottom: 16 } }, "This note log is too large to display its entries here.")
       : entries.length === 0
@@ -7175,7 +7262,11 @@ function NoteLogDetail({ data, detail, onNavigateToElement }) {
       : React.createElement(React.Fragment, null,
           src.entriesTruncated && React.createElement("div", { style: { fontSize: 12, color: 'var(--dim)', marginBottom: 8 } },
             "Showing the " + entries.length + " most recent of " + src.entryCount + " notes."),
-          entries.map(function(e) { return React.createElement(NoteEntryCard, { key: e.guid, entry: e }); })
+          noteFilterActive && React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', marginBottom: 8 } },
+            visibleNotes.length + " of " + entries.length + " notes match"),
+          visibleNotes.length === 0
+            ? React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)', marginBottom: 16 } }, "No notes match the filter.")
+            : visibleNotes.map(function(e) { return React.createElement(NoteEntryCard, { key: e.guid, entry: e, expanded: expandedNotes.has(e.guid), onToggle: function() { toggleNote(e.guid); } }); })
         ),
     React.createElement(EgeriaCommentsSection, { guid: src.guid })
   );
@@ -8802,6 +8893,12 @@ function App() {
     setSection('notelogs');
   }, []);
 
+  const [iscNavGuid, setIscNavGuid] = useState(null);
+  const onNavigateToISC = useCallback(function(guid) {
+    setIscNavGuid(guid || null);
+    setSection('isc');
+  }, []);
+
   // Single dispatcher used by RelatedElementRow everywhere: decides the target
   // tab purely from the related element's typeName/superTypeNames. Adding a
   // new linkable type only requires a new branch here.
@@ -8814,6 +8911,7 @@ function App() {
     if (typeName === 'GlossaryTerm') { onNavigateToGlossary(guid); return; }
     if (typeName === 'Community') { onNavigateToCommunity(guid); return; }
     if (typeName === 'NoteLog') { onNavigateToNoteLog(guid); return; }
+    if (typeName === 'InformationSupplyChain') { onNavigateToISC(guid); return; }
     if (DD_TYPES_SET[typeName]) { onNavigateToDataDesign(typeName, guid); return; }
     if (typeName === 'DigitalProduct') { onNavigateToDigitalProduct(guid); return; }
     var actorKind = _actorKindForType(typeName, superTypes);
@@ -8826,7 +8924,7 @@ function App() {
     // "↗ Tech Catalog" link, for callers that route everything through this
     // single dispatcher instead of rendering that link separately).
     if (superTypes.indexOf('Asset') !== -1) { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
-  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToNoteLog, onNavigateToDataDesign]);
+  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToNoteLog, onNavigateToISC, onNavigateToDataDesign]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254);
 
@@ -9026,7 +9124,7 @@ function App() {
       : section === 'dr-egeria'
       ? React.createElement(DrEgeriaCommandsView, null)
       : section === 'isc'
-      ? React.createElement(InformationSupplyChainView, { key: credsKey, onNavigateToElement: onNavigateToElement })
+      ? React.createElement(InformationSupplyChainView, { key: credsKey, navGuid: iscNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'locations'
       ? React.createElement(LocationsView, { key: credsKey, navGuid: locationsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'actors'
