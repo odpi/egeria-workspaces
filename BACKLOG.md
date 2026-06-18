@@ -12,6 +12,21 @@ Status: `open` · `in-progress` · `done` · `deferred`
     | UI-2 | Remove duplicate sidebar titles that double the page header bar | open | Same pattern fixed for ISC: a view's sidebar hardcodes a title equal to its `SECTION_LABELS` value, so it shows twice (page header bar + sidebar div). Confirmed on **Note Logs** (`NoteLogView` "Note Logs" div). Sweep
     `type-explorer.html` for the `fontWeight: 700 … borderBottom` sidebar-title block and remove any that duplicate their `SECTION_LABELS` entry (check Locations/Communities too). ProjectsView/ActorsView are unaffected (search box / sub-nav tabs lead their sidebars). |
   
+## Mermaid Graphs copyable
+  add a button/gesture to mermaid graphs to allow the raw mermaid text to be copied to the clipboard.
+
+## Change Tile ordering for portal
+    Row 1: The Catalog · Egeria Explorer · Lineage Explorer · Resource Explorer
+    Row 2: Jupyter Lab · Obsidian · My Egeria · Egeria Advisor
+    
+    This is a reordering of the existing portal tiles in demo-portal.html (and the freshstart equivalent — keep both envs in sync, per the shared-codebase convention). The change is purely the order the tile elements appear in the markup; the grid/flex container already wraps four-per-row, so listing them in this
+    sequence produces the two rows you want.
+    
+    A couple of things to watch when making the edit:
+    - Resource Explorer and Lineage Explorer are noted as "Preview/soon" / not-yet-fully-wired in the backlog (RE-1/RE-2 credential pass-through is still open, and Lineage Explorer is net-new). They'll still render as tiles in row 1, but their launch wiring may be incomplete — that's fine for layout, just be aware
+    the tiles may be placeholders.
+    - Apply the same ordering to both the quickstart and freshstart portal pages so they don't diverge.
+    - If the tiles are generated from an array/config rather than hardcoded markup, reorder the array entries rather than moving DOM blocks.
 ---
 
 ## Prioritization (workstream level)
@@ -180,20 +195,18 @@ consent-to-contact** flag (separate from wants-response, for privacy basis) · s
 
 Spec: `report-rendering-plan.md`
 
-**Note (2026-06-18):** the RR components were implemented earlier (commit history)
-without updating these rows — `SmartReportRenderer`, `VegaChart`, `AvailableCharts`,
-`DictResultView` all exist and vega/vega-lite/vega-embed are loaded. RR-1 verified
-end-to-end and a real chart-detection bug fixed. RR-2/RR-5 components exist but
-their full behaviour (master-detail anchors, expand rows) is not yet re-verified
-against live output.
+**Note (2026-06-18):** the RR components were implemented earlier without updating
+these rows. All verified against live report output; **two real bugs found and
+fixed** — RR-4 chart detection (camelCase-only key regex) and RR-5 master-detail
+(column key/name mismatch). RR-1..RR-5 all done.
 
 | # | Phase | Item | Status | Notes |
 |---|-------|------|--------|-------|
 | RR-1 | 1 | GRAPH format → send DICT/JSON fallback (no unembeddable HTML) | done | Verified: selecting GRAPH sends DICT (or JSON) client-side; backend returns `kind: json`. The 3 GRAPH specs (Governance-Zones, Governance-Zone-Overview-Charts, Secrets-Collection-User-Profile-Charts) return Vega-Lite chart specs in the DICT data. |
 | RR-4 | 3b | `AvailableCharts` — detect Vega-Lite chart specs in DICT results | done | **Bug fixed:** matched only camelCase `*BarGraph`/`*PieGraph` keys, but real pyegeria DICT keys are spaced ("Zone Profile All Bar Chart"). Rewrote to detect charts by *value* (any `$schema: vega-lite` dict/JSON-string) — now finds all 6 zone charts (was 0). |
 | RR-3 | 3a | `VegaChart` component + vega-embed load | done | Renders dict or JSON-string specs via vegaEmbed (dark theme), with deferred-load polling; wrapped by `CollapsibleChartPanel`. |
-| RR-2 | 2 | `SmartReportRenderer` — tokenize output; render Mermaid/Vega-Lite fences; master-detail anchors | implemented; verify | Component exists and is used for text-kind results; re-verify anchor/bi-di nav against live LIST/REPORT output. |
-| RR-5 | 4 | `DictResultView` — spec-driven master-detail table with expand rows + auto-charts | implemented; verify | Component exists and renders json-kind results with `AvailableCharts`; re-verify master-detail expand against specs with `detailSpec` columns. |
+| RR-2 | 2 | `SmartReportRenderer` — tokenize output; render Mermaid/Vega-Lite fences; master-detail anchors | done | Verified against a MERMAID spec (Org-Chart) — the ` ```mermaid ` fence tokenizes to `MermaidDiagram`. Tokenizer also handles `vega-lite`/`json` fences; `<a id>` anchors get "↑ back" links and `[text](#anchor)` becomes clickable. |
+| RR-5 | 4 | `DictResultView` — spec-driven master-detail table with expand rows + auto-charts | done | **Bug fixed:** indexed `row[c.key]` (snake_case spec key) but pyegeria DICT rows are keyed by display name, so spec-driven scalar cells were empty and master-detail never expanded. Now resolves each column to whichever identifier exists in the data (`key` or `name`). Verified on Team-Members → Members detail (Team-Member-Role-Detail) now expands. |
 
 ---
 

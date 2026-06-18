@@ -2210,24 +2210,31 @@ function DictResultView({ rows, columns, depth }) {
     return React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12, fontStyle: 'italic', padding: '8px 0' } }, 'No data.');
   }
 
+  var sample0 = rows[0] || {};
   var cols = columns && columns.length > 0 ? columns : null;
   var scalarCols, detailCols;
   if (cols) {
-    scalarCols = cols.filter(function(c) { return !c.detailSpec; });
-    detailCols  = cols.filter(function(c) { return !!c.detailSpec; });
+    // pyegeria DICT rows are keyed by display name ("Members"), while spec columns
+    // carry snake_case `key` ("assigned_actors"). Resolve each column to whichever
+    // identifier actually exists in the data so cells/detail rows aren't empty.
+    var resolved = cols.map(function(c) {
+      var dk = (c.key in sample0) ? c.key : ((c.name in sample0) ? c.name : c.key);
+      return { key: c.key, name: c.name, detailSpec: c.detailSpec, dataKey: dk };
+    });
+    scalarCols = resolved.filter(function(c) { return !c.detailSpec; });
+    detailCols  = resolved.filter(function(c) { return !!c.detailSpec; });
   } else {
-    var sample = rows[0] || {};
-    scalarCols = Object.keys(sample)
-      .filter(function(k) { var v = sample[k]; return v === null || v === undefined || typeof v !== 'object'; })
+    scalarCols = Object.keys(sample0)
+      .filter(function(k) { var v = sample0[k]; return v === null || v === undefined || typeof v !== 'object'; })
       .slice(0, 8)
-      .map(function(k) { return { key: k, name: k }; });
+      .map(function(k) { return { key: k, name: k, dataKey: k }; });
     detailCols = [];
   }
 
-  var filterCol = scalarCols.find(function(c) { return typeof ((rows[0] || {})[c.key]) === 'string'; });
+  var filterCol = scalarCols.find(function(c) { return typeof (sample0[c.dataKey]) === 'string'; });
   var visRows = filter.trim()
     ? rows.filter(function(r) {
-        var v = filterCol ? String(r[filterCol.key] || '') : JSON.stringify(r);
+        var v = filterCol ? String(r[filterCol.dataKey] || '') : JSON.stringify(r);
         return v.toLowerCase().includes(filter.toLowerCase());
       })
     : rows;
@@ -2253,7 +2260,7 @@ function DictResultView({ rows, columns, depth }) {
       }, isExp ? '▾' : '▸'));
     }
     scalarCols.forEach(function(c) {
-      var val = row[c.key];
+      var val = row[c.dataKey];
       if (c.key.toLowerCase() === 'guid' && val) {
         cells.push(React.createElement('td', { key: c.key, style: _DV_TD },
           React.createElement('code', { style: { fontSize: 10, fontFamily: 'ui-monospace,monospace', userSelect: 'all' } },
@@ -2273,7 +2280,7 @@ function DictResultView({ rows, columns, depth }) {
       detailContent.push(React.createElement(AvailableCharts, { key: '__charts', data: row }));
       detailContent.push(React.createElement(AvailableMermaidDiagrams, { key: '__mermaid', data: row }));
       detailCols.forEach(function(c) {
-        var sub = row[c.key];
+        var sub = row[c.dataKey];
         if (!sub) return;
         var subRows = Array.isArray(sub) ? sub : [sub];
         detailContent.push(React.createElement('div', { key: c.key, style: { marginTop: 8 } },
