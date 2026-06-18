@@ -7,11 +7,26 @@ Status: `open` · `in-progress` · `done` · `deferred`
     
     | # | Item | Status | Notes |
     |---|------|--------|-------|
-    | UI-1 | Collections home-page card icon should match the others (blue outline, not emoji) | open | `_SPLASH_CAPABILITIES` Collections entry uses `icon: '🗂'`, a multicolor emoji that ignores the acent styling. Swap for a monochrome line glyph (e.g. `▤`, `▦`, `❐`, or `⧉` — avoid `⊞`, already used by Data
-    Design) so it inherits `color: var(--accent)` like the rest. |
-    | UI-2 | Remove duplicate sidebar titles that double the page header bar | open | Same pattern fixed for ISC: a view's sidebar hardcodes a title equal to its `SECTION_LABELS` value, so it shows twice (page header bar + sidebar div). Confirmed on **Note Logs** (`NoteLogView` "Note Logs" div). Sweep
-    `type-explorer.html` for the `fontWeight: 700 … borderBottom` sidebar-title block and remove any that duplicate their `SECTION_LABELS` entry (check Locations/Communities too). ProjectsView/ActorsView are unaffected (search box / sub-nav tabs lead their sidebars). |
+    | UI-1 | Collections home-page card icon should match the others (blue outline, not emoji) | done | `_SPLASH_CAPABILITIES` Collections icon changed `'🗂'` → `'❐'` (monochrome, inherits `var(--accent)`). |
+    | UI-2 | Remove duplicate sidebar titles that double the page header bar | done | Removed the hardcoded sidebar-title divs in `NoteLogView`, `LocationsView`, `CommunityView` (ISC already done). ProjectsView/ActorsView unaffected. |
   
+## Mermaid Graphs copyable — ✅ done
+  add a button/gesture to mermaid graphs to allow the raw mermaid text to be copied to the clipboard.
+  **Done:** `MermaidDiagram` (type-explorer.html + tech-catalog.html) now shows a "⧉ Copy source" button that copies the raw mermaid text with a "✓ Copied" confirmation.
+
+## Change Tile ordering for portal — ✅ done
+    **Done:** reordered the `apps` array in both `demo-portal.html` files. Quickstart row 2 is Jupyter · Obsidian · My Egeria · Egeria Advisor; freshstart has no Obsidian tile, so its row 2 is Jupyter · My Egeria · Egeria Advisor · My Profile. Docs/Admin/API tiles follow.
+    Row 1: The Catalog · Egeria Explorer · Lineage Explorer · Resource Explorer
+    Row 2: Jupyter Lab · Obsidian · My Egeria · Egeria Advisor
+    
+    This is a reordering of the existing portal tiles in demo-portal.html (and the freshstart equivalent — keep both envs in sync, per the shared-codebase convention). The change is purely the order the tile elements appear in the markup; the grid/flex container already wraps four-per-row, so listing them in this
+    sequence produces the two rows you want.
+    
+    A couple of things to watch when making the edit:
+    - Resource Explorer and Lineage Explorer are noted as "Preview/soon" / not-yet-fully-wired in the backlog (RE-1/RE-2 credential pass-through is still open, and Lineage Explorer is net-new). They'll still render as tiles in row 1, but their launch wiring may be incomplete — that's fine for layout, just be aware
+    the tiles may be placeholders.
+    - Apply the same ordering to both the quickstart and freshstart portal pages so they don't diverge.
+    - If the tiles are generated from an array/config rather than hardcoded markup, reorder the array entries rather than moving DOM blocks.
 ---
 
 ## Prioritization (workstream level)
@@ -180,13 +195,18 @@ consent-to-contact** flag (separate from wants-response, for privacy basis) · s
 
 Spec: `report-rendering-plan.md`
 
-| # | Phase | Item | Status |
-|---|-------|------|--------|
-| RR-1 | 1 | GRAPH format → send DICT/JSON fallback (no unembeddable HTML) | open |
-| RR-2 | 2 | `SmartReportRenderer` — tokenize output; render Mermaid/Vega-Lite fences; fix master-detail anchor links + bi-di nav | open |
-| RR-3 | 3a | `VegaChart` component + unconditional vega-embed load | open |
-| RR-4 | 3b | `AvailableCharts` — scan DICT results for `*BarGraph`/`*PieGraph` keys | open |
-| RR-5 | 4 | `DictResultView` — spec-driven master-detail table with expand rows + auto-charts | open |
+**Note (2026-06-18):** the RR components were implemented earlier without updating
+these rows. All verified against live report output; **two real bugs found and
+fixed** — RR-4 chart detection (camelCase-only key regex) and RR-5 master-detail
+(column key/name mismatch). RR-1..RR-5 all done.
+
+| # | Phase | Item | Status | Notes |
+|---|-------|------|--------|-------|
+| RR-1 | 1 | GRAPH format → send DICT/JSON fallback (no unembeddable HTML) | done | Verified: selecting GRAPH sends DICT (or JSON) client-side; backend returns `kind: json`. The 3 GRAPH specs (Governance-Zones, Governance-Zone-Overview-Charts, Secrets-Collection-User-Profile-Charts) return Vega-Lite chart specs in the DICT data. |
+| RR-4 | 3b | `AvailableCharts` — detect Vega-Lite chart specs in DICT results | done | **Bug fixed:** matched only camelCase `*BarGraph`/`*PieGraph` keys, but real pyegeria DICT keys are spaced ("Zone Profile All Bar Chart"). Rewrote to detect charts by *value* (any `$schema: vega-lite` dict/JSON-string) — now finds all 6 zone charts (was 0). |
+| RR-3 | 3a | `VegaChart` component + vega-embed load | done | Renders dict or JSON-string specs via vegaEmbed (dark theme), with deferred-load polling; wrapped by `CollapsibleChartPanel`. |
+| RR-2 | 2 | `SmartReportRenderer` — tokenize output; render Mermaid/Vega-Lite fences; master-detail anchors | done | Verified against a MERMAID spec (Org-Chart) — the ` ```mermaid ` fence tokenizes to `MermaidDiagram`. Tokenizer also handles `vega-lite`/`json` fences; `<a id>` anchors get "↑ back" links and `[text](#anchor)` becomes clickable. |
+| RR-5 | 4 | `DictResultView` — spec-driven master-detail table with expand rows + auto-charts | done | **Bug fixed:** indexed `row[c.key]` (snake_case spec key) but pyegeria DICT rows are keyed by display name, so spec-driven scalar cells were empty and master-detail never expanded. Now resolves each column to whichever identifier exists in the data (`key` or `name`). Verified on Team-Members → Members detail (Team-Member-Role-Detail) now expands. |
 
 ---
 
