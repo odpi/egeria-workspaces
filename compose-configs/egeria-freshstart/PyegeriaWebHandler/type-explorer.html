@@ -584,6 +584,7 @@ var d=null!=c&&c.hydratedSources||null,e=!1,f="",g=aj;null!==c&&void 0!==c&&(!0=
 function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmountComponentAtNode=function(a){if(!Vd(a))throw Error(m(40));return a._reactRootContainer?(yb(function(){Wd(null,null,a,!1,function(){a._reactRootContainer=null;a[Ja]=null})}),!0):!1};Q.unstable_batchedUpdates=Tf;Q.unstable_renderSubtreeIntoContainer=function(a,b,c,d){if(!Vd(c))throw Error(m(200));if(null==a||void 0===a._reactInternals)throw Error(m(38));return Wd(a,b,c,!1,d)};Q.version="18.3.1-next-f1338f8080-20240426"});
 })();
 </script>
+  <script src="/static/egeria-shared-ui.js"></script>
   <script>"use strict";
 
 const {
@@ -614,70 +615,6 @@ function credAppend(base, creds) {
   return base + (base.includes('?') ? '&' + qs.slice(1) : qs);
 }
 
-// ── Markdown renderer ─────────────────────────────────────────────────────────
-function MermaidDiagram({ code }) {
-  const ref = React.useRef(null);
-  const [errMsg, setErrMsg] = React.useState('');
-  const [copyState, setCopyState] = React.useState('');  // '' | 'ok' | 'fail'
-
-  React.useEffect(function() {
-    if (!code) return;
-    setErrMsg('');
-    if (ref.current) ref.current.innerHTML = '';
-
-    function doRender() {
-      try { window.mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' }); } catch(_) {}
-      var id = 'mmd' + Math.random().toString(36).slice(2);
-      window.mermaid.render(id, code)
-        .then(function(result) {
-          if (ref.current) ref.current.innerHTML = result.svg || '';
-        })
-        .catch(function(err) {
-          console.warn('Mermaid render failed:', err);
-          setErrMsg(String(err));
-        });
-    }
-
-    if (window.mermaid && window.mermaid.render) {
-      doRender();
-    } else {
-      var attempts = 0;
-      var timer = setInterval(function() {
-        if (window.mermaid && window.mermaid.render) {
-          clearInterval(timer); doRender();
-        } else if (++attempts > 40) {
-          clearInterval(timer);
-          setErrMsg('Mermaid library not loaded — CDN may be unreachable');
-        }
-      }, 150);
-      return function() { clearInterval(timer); };
-    }
-  }, [code]);
-
-  var copyBtn = code && React.createElement('button', {
-    onClick: function(e) {
-      e.stopPropagation();
-      Promise.resolve(copyToClipboard(code)).then(function(ok) {
-        setCopyState(ok ? 'ok' : 'fail');
-        setTimeout(function() { setCopyState(''); }, 2000);
-      });
-    },
-    title: copyState === 'fail' ? 'Copy needs https:// or localhost' : 'Copy Mermaid source to clipboard',
-    style: { position: 'absolute', top: 4, right: 4, zIndex: 2, fontSize: 10, padding: '2px 8px',
-             borderRadius: 4, border: '1px solid var(--border)', background: 'var(--panel)',
-             color: copyState === 'ok' ? '#34d399' : copyState === 'fail' ? '#f87171' : 'var(--accent)', cursor: 'pointer', opacity: 0.9 }
-  }, copyState === 'ok' ? '✓ Copied' : copyState === 'fail' ? '✕ Copy failed' : '⧉ Copy source');
-
-  return React.createElement('div', { style: { position: 'relative' } },
-    copyBtn,
-    errMsg
-      ? React.createElement('div', null,
-          React.createElement('div', { style: { fontSize: 11, color: '#f87171', padding: '4px 0 6px' } }, '⚠ ' + errMsg),
-          React.createElement('pre', { style: { fontSize: 11, color: 'var(--muted)', background: 'rgba(255,255,255,.04)', padding: '8px 12px', borderRadius: 4, overflowX: 'auto', whiteSpace: 'pre-wrap', margin: 0, border: '1px solid var(--border)' } }, code)
-        )
-      : React.createElement('div', { ref: ref, className: 'mermaid-wrap' })
-  );
-}
 
 // Single lazy-loading diagram panel. fetchUrl is called on first open; label appears in the header.
 // field: which key to read from the JSON response (default: 'mermaidGraph').
@@ -717,18 +654,6 @@ function DiagramPanel({ fetchUrl, label, buttonLabel, field }) {
   );
 }
 
-// Diagram panel backed by pre-loaded code (no fetch). Used when detail endpoints already carry mermaid fields.
-function DiagramPanelFromData({ code, label }) {
-  const [visible, setVisible] = React.useState(false);
-  if (!code) return null;
-  var btnStyle = { fontSize: 12, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' };
-  return React.createElement('div', { style: { margin: '4px 0' } },
-    React.createElement('button', { onClick: function() { setVisible(function(v) { return !v; }); }, style: btnStyle },
-      visible ? ('▦ Hide ' + label) : ('▦ Show ' + label)
-    ),
-    visible && React.createElement(MermaidDiagram, { code: code })
-  );
-}
 
 // Renders a Vega-Lite spec (string or object) as an embedded chart.
 function VegaChart({ spec }) {
@@ -841,58 +766,8 @@ var _ALL_JS_MERMAID_FIELDS = [
   'userAccountTypeProfileMermaidPieChart', 'userAccountStatusMermaidPieChart',
 ];
 
-var _MERMAID_FIELD_LABELS = {
-  mermaidGraph:                          'Context Diagram',
-  iscImplementationMermaidGraph:         'ISC Implementation',
-  informationSupplyChainMermaidGraph:    'Supply Chain Graph',
-  edgeMermaidGraph:                      'Asset Edge Graph',
-  anchorMermaidGraph:                    'Anchored Graph',
-  specificationMermaidGraph:             'Specification Graph',
-  solutionBlueprintMermaidGraph:         'Blueprint Graph',
-  solutionSubcomponentMermaidGraph:      'Subcomponent Graph',
-  actionMermaidGraph:                    'Action Graph',
-  localLineageGraph:                     'Local Lineage',
-  fieldLevelLineageGraph:                'Field-Level Lineage',
-  governanceActionProcessMermaidGraph:   'Governance Action Process',
-  organizationTreeMermaidGraph:          'Organization Tree',
-  collectionMermaidMindMap:              'Collection Mind Map',
-  zoneProfileMermaidPieChart:            'Zone Profile',
-  zoneProfileAnchoredMermaidPieChart:    'Zone Anchored Profile',
-  zoneProfileAllPieChart:                'Zone All Assets',
-  userAccountTypeProfileMermaidPieChart: 'Account Type Profile',
-  userAccountStatusMermaidPieChart:      'Account Status',
-};
 
-// Fields handled by MermaidSection (lazy fetch) — skip in AvailableMermaidDiagrams to avoid duplicates.
-var _MERMAID_SECTION_FIELDS = new Set(['mermaidGraph', 'anchorMermaidGraph']);
 
-// True for any key naming a mermaid diagram field (generic — not a fixed list).
-function _isMermaidKey(k) {
-  var kl = k.toLowerCase();
-  return kl.indexOf('mermaid') !== -1 || /(?:graph|mindmap|piechart|chart)$/i.test(k);
-}
-function _mermaidLabel(k) {
-  return _MERMAID_FIELD_LABELS[k]
-    || k.replace(/Mermaid/g, '').replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/\s+/g, ' ').trim()
-        .replace(/^./, function(c) { return c.toUpperCase(); });
-}
-// Scan a data object for ANY non-empty mermaid field and render a collapsible
-// panel for each. By default skips the fields covered by MermaidSection
-// (context + anchored), but callers can pass skip:new Set() to show everything.
-function AvailableMermaidDiagrams({ data, skip }) {
-  if (!data) return null;
-  var skipSet = skip || _MERMAID_SECTION_FIELDS;
-  var panels = [];
-  Object.keys(data).forEach(function(k) {
-    if (skipSet.has(k)) return;
-    var code = data[k];
-    if (typeof code !== 'string' || !code.trim() || code.toLowerCase().indexOf('no ') === 0) return;
-    if (!_isMermaidKey(k)) return;
-    panels.push(React.createElement(DiagramPanelFromData, { key: k, code: code, label: _mermaidLabel(k) }));
-  });
-  if (panels.length === 0) return null;
-  return React.createElement('div', { style: { margin: '8px 0' } }, panels);
-}
 
 // Renders a context diagram button (depth=5) and a full anchored graph button for any element GUID.
 function MermaidSection({ guid }) {
@@ -4830,28 +4705,6 @@ function ValidValuesView({ navProp }) {
 
 // ── Resizable column splitter ─────────────────────────────────────────────────
 
-function useResizable(initialPx, min, max) {
-  min = (min === undefined) ? 100 : min;
-  max = (max === undefined) ? 900 : max;
-  const [width, setWidth] = React.useState(initialPx);
-  const widthRef = React.useRef(width);
-  widthRef.current = width;
-  const onMouseDown = React.useCallback(function(e) {
-    e.preventDefault();
-    var startX = e.clientX;
-    var startW = widthRef.current;
-    function onMove(mv) {
-      setWidth(Math.max(min, Math.min(max, startW + mv.clientX - startX)));
-    }
-    function onUp() {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-    }
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  }, [min, max]);
-  return [width, onMouseDown];
-}
 
 function ResizeDivider({ onMouseDown }) {
   return React.createElement('div', { className: 'col-divider', onMouseDown: onMouseDown });
@@ -4859,35 +4712,6 @@ function ResizeDivider({ onMouseDown }) {
 
 // ── REST API Explorer ─────────────────────────────────────────────────────────
 
-// Copy text to the clipboard, returning a Promise<boolean> that resolves true on
-// success. navigator.clipboard only exists in a secure context (https:// or
-// localhost); over plain http:// to a hostname/IP it is undefined, so fall back
-// to a hidden-textarea execCommand('copy'). Callers should reflect the real
-// result rather than assuming success.
-function _execCopyFallback(text) {
-  try {
-    var ta = document.createElement('textarea');
-    ta.value = text;
-    ta.setAttribute('readonly', '');
-    ta.style.position = 'fixed';
-    ta.style.top = '-9999px';
-    ta.style.left = '-9999px';
-    document.body.appendChild(ta);
-    ta.select();
-    ta.setSelectionRange(0, ta.value.length);
-    var ok = document.execCommand('copy');
-    document.body.removeChild(ta);
-    return ok;
-  } catch (e) { return false; }
-}
-function copyToClipboard(text) {
-  if (navigator.clipboard && window.isSecureContext) {
-    return navigator.clipboard.writeText(text)
-      .then(function() { return true; })
-      .catch(function() { return _execCopyFallback(text); });
-  }
-  return Promise.resolve(_execCopyFallback(text));
-}
 
 function MethodBadge({ method }) {
   return React.createElement("span", {
