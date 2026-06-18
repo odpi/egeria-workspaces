@@ -2713,7 +2713,7 @@ function GlossaryDetail({ glossary }) {
   );
 }
 
-function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign }) {
+function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign, onNavigateToElement }) {
   if (!term) return null;
   const fields = [
     ['Qualified Name', term.qualifiedName],
@@ -2773,6 +2773,10 @@ function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign }) 
           items.map(function(item) {
             var isDD   = DD_TYPES[item.typeName];
             var isTerm = !item.typeName || item.typeName === 'GlossaryTerm';
+            // Any other related element (e.g. CollectionFolder, GovernanceActionProcess
+            // under the semantic-assignment / Meaning groups) gets a generic link via
+            // the central dispatcher when it knows how to route the type.
+            var isGeneric = !isTerm && !isDD && onNavigateToElement && _elementIsLinkable(item);
             return React.createElement("div", {
               key: item.guid,
               style: { display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0', borderTop: '1px solid var(--border)' }
@@ -2780,8 +2784,9 @@ function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign }) 
               React.createElement("span", { style: { flex: 1, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: item.qualifiedName || item.guid },
                 item.displayName || item.qualifiedName || item.guid),
               item.typeName && !isTerm && React.createElement("span", { style: { fontSize: 10, color: 'var(--dim)', flexShrink: 0 } }, item.typeName),
-              isTerm  && onNavigateToTerm        && React.createElement("button", { onClick: function() { onNavigateToTerm(item.guid); },                          style: relBtnStyle }, "View →"),
-              isDD    && onNavigateToDataDesign  && React.createElement("button", { onClick: function() { onNavigateToDataDesign(item.typeName, item.guid); },     style: ddBtnStyle  }, "View in Data Design →")
+              isTerm    && onNavigateToTerm        && React.createElement("button", { onClick: function() { onNavigateToTerm(item.guid); },                          style: relBtnStyle }, "View →"),
+              isDD      && onNavigateToDataDesign  && React.createElement("button", { onClick: function() { onNavigateToDataDesign(item.typeName, item.guid); },     style: ddBtnStyle  }, "View in Data Design →"),
+              isGeneric                            && React.createElement("button", { onClick: function() { onNavigateToElement(item); },                            style: relBtnStyle }, "View →")
             );
           })
         );
@@ -2796,7 +2801,7 @@ function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign }) 
 // (shared with the Tech Catalog). The tree node takes a fetchJson(path) prop;
 // GlossaryView supplies one below.
 
-function GlossaryView({ navGuid, onNavigateToDataDesign }) {
+function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   // Auth wrapper handed to the shared GlossaryTreeNode for lazy child loads.
   const fetchJson = React.useCallback(function(path) {
@@ -3056,7 +3061,7 @@ function GlossaryView({ navGuid, onNavigateToDataDesign }) {
         : termDetailState === 'loading'
           ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "Loading term…"))
           : termDetail
-            ? React.createElement(GlossaryTermDetail, { term: termDetail, onNavigateToTerm: navigateToTerm, onNavigateToDataDesign: onNavigateToDataDesign })
+            ? React.createElement(GlossaryTermDetail, { term: termDetail, onNavigateToTerm: navigateToTerm, onNavigateToDataDesign: onNavigateToDataDesign, onNavigateToElement: onNavigateToElement })
             : !isSearchMode && selectedGlossary && !selectedItem
               ? React.createElement(GlossaryDetail, { glossary: glossaries.find(g => g.guid === selectedGlossary) || null })
               : React.createElement("div", { className: "center" },
@@ -9065,7 +9070,7 @@ function App() {
       : section === 'report-specs'
       ? React.createElement(ReportSpecView, { key: credsKey })
       : section === 'glossary'
-      ? React.createElement(GlossaryView, { key: credsKey, navGuid: glossaryNavGuid, onNavigateToDataDesign: onNavigateToDataDesign })
+      ? React.createElement(GlossaryView, { key: credsKey, navGuid: glossaryNavGuid, onNavigateToDataDesign: onNavigateToDataDesign, onNavigateToElement: onNavigateToElement })
       : section === 'reference-data'
       ? React.createElement(ReferenceDataView, { key: credsKey, navGuid: referenceDataNavGuid })
       : section === 'digital-products'

@@ -101,6 +101,7 @@ def _related_elements(raw_list: list) -> list:
                 "displayName":   rp.get("displayName") or rp.get("name") or "",
                 "qualifiedName": rp.get("qualifiedName") or "",
                 "typeName":      (rh.get("type") or {}).get("typeName") or "",
+                "superTypeNames": (rh.get("type") or {}).get("superTypeNames") or [],
             })
     return result
 
