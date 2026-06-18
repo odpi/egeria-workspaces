@@ -6438,6 +6438,8 @@ function _elementIsLinkable(item) {
   if (item.typeName === 'Community') return true;
   if (item.typeName === 'NoteLog') return true;
   if (item.typeName === 'InformationSupplyChain') return true;
+  if (item.typeName === 'SolutionComponent' || superTypes.indexOf('SolutionComponent') !== -1) return true;
+  if (item.typeName === 'SolutionBlueprint' || superTypes.indexOf('SolutionBlueprint') !== -1) return true;
   if (DD_TYPES_SET[item.typeName]) return true;
   if (_actorKindForType(item.typeName, superTypes)) return true;
   if (superTypes.indexOf('GovernanceDefinition') !== -1) return true;
@@ -7151,10 +7153,13 @@ function NoteEntryCard({ entry, expanded, onToggle, colW }) {
     // Columnar row — click to expand/collapse the note body
     React.createElement("div", {
       onClick: onToggle,
-      style: { display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '7px 4px', background: expanded ? 'var(--panel)' : 'transparent' },
+      style: { display: 'flex', alignItems: 'flex-start', cursor: 'pointer', padding: '7px 4px', background: expanded ? 'var(--panel)' : 'transparent' },
     },
-      React.createElement("span", { style: { width: 18, textAlign: 'center', fontSize: 10, color: expanded ? 'var(--accent)' : 'var(--muted)', flexShrink: 0, fontWeight: 700 } }, expanded ? '▼' : '▶'),
-      React.createElement("span", { style: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: expanded ? 700 : 600, padding: '0 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, title),
+      React.createElement("span", { style: { width: 18, textAlign: 'center', fontSize: 10, color: expanded ? 'var(--accent)' : 'var(--muted)', flexShrink: 0, fontWeight: 700, marginTop: 1 } }, expanded ? '▼' : '▶'),
+      // Collapsed: one line with ellipsis (+ hover tooltip). Expanded: wrap to show the full subject.
+      React.createElement("span", { title: title, style: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: expanded ? 700 : 600, padding: '0 8px',
+        overflow: expanded ? 'visible' : 'hidden', textOverflow: expanded ? 'clip' : 'ellipsis',
+        whiteSpace: expanded ? 'normal' : 'nowrap', wordBreak: expanded ? 'break-word' : 'normal' } }, title),
       React.createElement("span", { style: cell(colW.type) }, entry.typeName || ''),
       React.createElement("span", { style: cell(colW.author) }, entry.createdBy || ''),
       React.createElement("span", { style: cell(colW.date) }, created)
@@ -7385,7 +7390,7 @@ function NoteLogView({ navGuid, onNavigateToElement }) {
   );
 }
 
-function SolutionArchitectView({ onNavigateToElement }) {
+function SolutionArchitectView({ navProp, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(260);
   // ?kind=components&guid=... supports a cross-app deep link landing directly
@@ -7504,6 +7509,13 @@ function SolutionArchitectView({ onNavigateToElement }) {
     if (compState === 'idle') setCompAttempt(function(a) { return a + 1; });
     setSelectedComp(guid);
   }
+
+  // In-app cross-link arrival (e.g. from an ISC's collection members).
+  useEffect(function() {
+    if (!navProp || !navProp.guid) return;
+    if (navProp.kind === 'components') onNavigateToComponent(navProp.guid);
+    else onNavigateToBlueprint(navProp.guid);
+  }, [navProp]);
 
   const sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
     // Sub-nav toggle
@@ -8930,6 +8942,16 @@ function App() {
     setSection('isc');
   }, []);
 
+  const [solutionNav, setSolutionNav] = useState(null);
+  const onNavigateToSolutionComponent = useCallback(function(guid) {
+    setSolutionNav({ kind: 'components', guid: guid });
+    setSection('solution-architect');
+  }, []);
+  const onNavigateToSolutionBlueprint = useCallback(function(guid) {
+    setSolutionNav({ kind: 'blueprints', guid: guid });
+    setSection('solution-architect');
+  }, []);
+
   // Single dispatcher used by RelatedElementRow everywhere: decides the target
   // tab purely from the related element's typeName/superTypeNames. Adding a
   // new linkable type only requires a new branch here.
@@ -8943,6 +8965,8 @@ function App() {
     if (typeName === 'Community') { onNavigateToCommunity(guid); return; }
     if (typeName === 'NoteLog') { onNavigateToNoteLog(guid); return; }
     if (typeName === 'InformationSupplyChain') { onNavigateToISC(guid); return; }
+    if (typeName === 'SolutionBlueprint' || superTypes.indexOf('SolutionBlueprint') !== -1) { onNavigateToSolutionBlueprint(guid); return; }
+    if (typeName === 'SolutionComponent' || superTypes.indexOf('SolutionComponent') !== -1) { onNavigateToSolutionComponent(guid); return; }
     if (DD_TYPES_SET[typeName]) { onNavigateToDataDesign(typeName, guid); return; }
     if (typeName === 'DigitalProduct') { onNavigateToDigitalProduct(guid); return; }
     var actorKind = _actorKindForType(typeName, superTypes);
@@ -8955,7 +8979,7 @@ function App() {
     // "↗ Tech Catalog" link, for callers that route everything through this
     // single dispatcher instead of rendering that link separately).
     if (superTypes.indexOf('Asset') !== -1) { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
-  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToNoteLog, onNavigateToISC, onNavigateToDataDesign]);
+  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDataDesign]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254);
 
@@ -9147,7 +9171,7 @@ function App() {
       : section === 'rest-apis'
       ? React.createElement(RestApiView, { key: credsKey })
       : section === 'solution-architect'
-      ? React.createElement(SolutionArchitectView, { key: credsKey, onNavigateToElement: onNavigateToElement })
+      ? React.createElement(SolutionArchitectView, { key: credsKey, navProp: solutionNav, onNavigateToElement: onNavigateToElement })
       : section === 'data-design'
       ? React.createElement(DataDesignView, { key: credsKey, navGuid: dataDesignNav.guid, navType: dataDesignNav.type, onNavigateToGlossary: onNavigateToGlossary, onNavigateToDigitalProduct: onNavigateToDigitalProduct })
       : section === 'perspectives'
