@@ -199,7 +199,13 @@ def _build_tree(mgr, collection_guid: str, visited: set, depth: int = 0) -> list
     for element in raw:
         node = _serialize_node(element)
         tn = node["typeName"]
-        is_container = tn in _CONTAINER_TYPES or "Family" in tn or "Catalog" in tn
+        # Any Collection subtype is a container (Glossary, CollectionFolder, …),
+        # not just the explicitly-listed digital-product types — otherwise those
+        # nodes show no expand twistie and their members are never fetched.
+        is_container = (
+            tn in _CONTAINER_TYPES or "Family" in tn or "Catalog" in tn
+            or "Collection" in (node.get("superTypeNames") or [])
+        )
         if is_container:
             node["children"] = _build_tree(mgr, node["guid"], visited, depth + 1)
             node["isContainer"] = True
