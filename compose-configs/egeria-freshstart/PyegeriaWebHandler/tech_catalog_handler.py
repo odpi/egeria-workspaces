@@ -245,9 +245,11 @@ def _serialize(el, include_relationships: bool = False):
     guid = hdr.get("guid") or el.get("guid", "")
     if not props:
         props = el  # treat top-level keys as properties when no nested 'properties' dict
+    super_types = (hdr.get("type") or {}).get("superTypeNames") or []
     out = {
         "guid":                       guid,
         "typeName":                   _type_name(el),
+        "superTypeNames":             super_types,
         "displayName":                props.get("displayName") or props.get("name") or "",
         "qualifiedName":              props.get("qualifiedName") or "",
         "description":                props.get("description") or "",
@@ -261,7 +263,9 @@ def _serialize(el, include_relationships: bool = False):
         out["relationships"] = _extract_relationships(el)
     # Signal sub-panes available in the detail view
     out["hasSchema"]  = isinstance(el.get("schemaType"), dict) and "relatedElement" in el.get("schemaType", {})
-    out["hasLineage"] = True  # TC-9: determine which types genuinely support lineage
+    # TC-9: lineage only applies to Asset subtypes. Endpoint and SoftwareCapability
+    # are Referenceable (not Asset) and have no lineage graph, so suppress the pane.
+    out["hasLineage"] = "Asset" in super_types
     # Pass through any mermaid graph fields present in the element or its properties.
     # These are only populated when graph_query_depth > 0 and Egeria has diagram data.
     for field in _MERMAID_FIELDS:

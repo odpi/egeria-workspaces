@@ -2,7 +2,16 @@
 
 Consolidated work list. Update status when items start or finish.  
 Status: `open` · `in-progress` · `done` · `deferred`
-
+---
+## Egeria Explorer — UI polish
+    
+    | # | Item | Status | Notes |
+    |---|------|--------|-------|
+    | UI-1 | Collections home-page card icon should match the others (blue outline, not emoji) | open | `_SPLASH_CAPABILITIES` Collections entry uses `icon: '🗂'`, a multicolor emoji that ignores the acent styling. Swap for a monochrome line glyph (e.g. `▤`, `▦`, `❐`, or `⧉` — avoid `⊞`, already used by Data
+    Design) so it inherits `color: var(--accent)` like the rest. |
+    | UI-2 | Remove duplicate sidebar titles that double the page header bar | open | Same pattern fixed for ISC: a view's sidebar hardcodes a title equal to its `SECTION_LABELS` value, so it shows twice (page header bar + sidebar div). Confirmed on **Note Logs** (`NoteLogView` "Note Logs" div). Sweep
+    `type-explorer.html` for the `fontWeight: 700 … borderBottom` sidebar-title block and remove any that duplicate their `SECTION_LABELS` entry (check Locations/Communities too). ProjectsView/ActorsView are unaffected (search box / sub-nav tabs lead their sidebars). |
+  
 ---
 
 ## Prioritization (workstream level)
@@ -351,8 +360,8 @@ New standalone SPA (`tech-catalog.html`) + backend handler (`tech_catalog_handle
 | TC-5 | APIs section: single list + detail (DeployedAPI) | done | Single-tab section |
 | TC-6 | Processes section: 2 sub-tabs (Software Components / Actions), sidebar + detail | done | `find_processes` with `metadata_element_type` filter |
 | TC-7 | Detail panel polish: full property table, mermaid graphs (`AvailableMermaidDiagrams` + `MermaidSection`), classifications with properties, relationships with related element | done | `AssetTabView` fetches full detail via `get_asset_by_guid` on selection; `_extract_relationships` in backend; relationships card in `AssetDetail` (type · name · description · rel properties); summary shown immediately, detail overlaid on load |
-| TC-8 | Cross-navigation links: Infrastructure ↔ Software Capabilities, Software Capability ↔ IT Asset, Endpoint → server, Data Store → Data Sets | open | Post-MVP; implement after all sections verified against live Egeria |
-| TC-9 | Investigate which Catalog types genuinely support lineage — Endpoint and SoftwareCapability are Referenceable subtypes (not Asset); confirm whether lineage methods exist for them or if the lineage pane should be suppressed | open | Currently `hasLineage=True` for all types; lineage endpoint returns empty graph gracefully for non-Assets |
+| TC-8 | Cross-navigation links: Infrastructure ↔ Software Capabilities, Software Capability ↔ IT Asset, Endpoint → server, Data Store → Data Sets | done | Mechanism (navTarget + `TYPE_TO_NAV` + supertype fallback) built during L-6/L-9. Verified 2026-06-18 against live data: relationship `relatedElement` carries `typeName` + `superTypeNames`, so subtypes resolve via their abstract supertype (e.g. IntegrationGroup→SoftwareCapability). Working: Infra↔Capabilities, Capability↔Server, API↔Endpoint, DataStore↔Endpoint. **Limitation:** *Endpoint→server* and *DataStore→DataSets* reverse links aren't in the depth-5 graph from that element's side (only Connection internals appear). Connection/ConnectorType/VirtualConnection targets are correctly non-navigable. |
+| TC-9 | Investigate which Catalog types genuinely support lineage — Endpoint and SoftwareCapability are Referenceable subtypes (not Asset) | done | `_serialize` now sets `hasLineage = "Asset" in superTypeNames` (was always True); SPA already gates `LineagePane` on `hasLineage`. Endpoint/SoftwareCapability no longer show an empty lineage pane; Assets still do. `superTypeNames` added to serializer + property-table skip list. |
 | TC-10 | Zone-based sidebar filtering | done | Absorbed into TC-12 |
 | TC-11 | Classification ubiquity audit and fix | done | Root cause found and fixed: pyegeria stores each classification as a named key directly on `elementHeader` with `class="ElementClassification"`, not in a `classifications` array; rewrote `_extract_classifications` in both handlers to iterate `elementHeader` items; confirmed working — `ZoneMembership` and `DataAssetEncoding` visible in Catalog property panels; `_SKIP_CLASSIFICATIONS` skips internal types (Anchors, LatestChange, Memento, etc.) |
 | TC-12 | Classification-based sidebar filtering | done | Filter chips below search bar: zone chips (🌐 zoneName, green) + classification type chips (purple); multi-select AND logic; `ZoneMembership.zoneMembershipList` split per zone; classification badges on each sidebar list item (zones green, others purple, max 3); filter resets on tab change |
