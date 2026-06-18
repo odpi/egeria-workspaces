@@ -117,6 +117,11 @@ def _props(el):
 def _type_name(el):
     return (_header(el).get("type") or {}).get("typeName", "")
 
+def _is_mermaid_key(key: str) -> bool:
+    kl = key.lower()
+    return ("mermaid" in kl or kl.endswith("graph") or kl.endswith("mindmap")
+            or kl.endswith("piechart") or kl.endswith("chart"))
+
 # Classifications that are internal infrastructure — never shown in the UI.
 _SKIP_CLASSIFICATIONS = frozenset([
     "Anchors", "LatestChange", "Memento", "TemplateSubstitute", "SpineObject",
@@ -266,12 +271,22 @@ def _serialize(el, include_relationships: bool = False):
     # TC-9: lineage only applies to Asset subtypes. Endpoint and SoftwareCapability
     # are Referenceable (not Asset) and have no lineage graph, so suppress the pane.
     out["hasLineage"] = "Asset" in super_types
-    # Pass through any mermaid graph fields present in the element or its properties.
-    # These are only populated when graph_query_depth > 0 and Egeria has diagram data.
-    for field in _MERMAID_FIELDS:
-        val = el.get(field) or props.get(field)
-        if val and isinstance(val, str) and not val.lower().startswith("no "):
-            out[field] = val
+    # Pass through ANY non-empty mermaid graph field (generic — from the element or
+    # its properties), so all available diagrams surface, consistent with Explorer.
+    for src in (el, props):
+        for k, v in src.items():
+            if k not in out and isinstance(v, str) and v.strip() \
+                    and not v.lower().startswith("no ") and _is_mermaid_key(k):
+                out[k] = v
+    # Pass through every remaining scalar property so the detail shows the full
+    # property set, not a fixed subset. Skip header/mermaid keys already handled.
+    for k, v in props.items():
+        if k in out or k in {"displayName", "name", "qualifiedName", "description", "class"} or _is_mermaid_key(k):
+            continue
+        if isinstance(v, bool) or isinstance(v, (int, float)):
+            out[k] = v
+        elif isinstance(v, str) and v.strip():
+            out[k] = v
     return out
 
 

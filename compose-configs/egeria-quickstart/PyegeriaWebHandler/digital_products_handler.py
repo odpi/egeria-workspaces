@@ -74,14 +74,39 @@ _DP_MERMAID_FIELDS = [
 ]
 
 
+def _is_mermaid_key(key: str) -> bool:
+    kl = key.lower()
+    return ("mermaid" in kl or kl.endswith("graph") or kl.endswith("mindmap")
+            or kl.endswith("piechart") or kl.endswith("chart"))
+
+
 def _extract_mermaid_fields(element: dict) -> dict:
-    lower_map = {k.lower(): v for k, v in element.items()}
+    """Pass through ANY non-empty mermaid-graph string field (generic — not a
+    fixed allow-list), so new/rare diagram fields surface automatically."""
     result = {}
-    for f in _DP_MERMAID_FIELDS:
-        v = lower_map.get(f.lower()) or ""
-        if v and isinstance(v, str) and not v.lower().startswith("no "):
-            result[f] = v
+    for k, v in element.items():
+        if isinstance(v, str) and v.strip() and not v.lower().startswith("no ") and _is_mermaid_key(k):
+            result[k] = v
     return result
+
+
+# Scalar property keys already surfaced in the node header / as named fields —
+# excluded from the generic `props` pass-through to avoid duplication.
+_PROP_SKIP = {"displayName", "name", "qualifiedName", "description", "class", "typeName"}
+
+
+def _extract_props(props: dict) -> dict:
+    """All remaining scalar properties (str/num/bool), so the detail can show the
+    full property set rather than a curated product-specific subset."""
+    out = {}
+    for k, v in (props or {}).items():
+        if k in _PROP_SKIP:
+            continue
+        if isinstance(v, bool) or isinstance(v, (int, float)):
+            out[k] = v
+        elif isinstance(v, str) and v.strip():
+            out[k] = v
+    return out
 
 
 def _extract_all_rels(element: dict) -> dict:
@@ -131,6 +156,7 @@ def _serialize_node(element: dict) -> dict:
         "currentVersion":   props.get("currentVersion", "") or "",
         "deploymentStatus": props.get("deploymentStatus", "") or "",
         "status":           header.get("status", "") or "",
+        "props":            _extract_props(props),
     }
     node.update(_extract_mermaid_fields(element))
     return node
@@ -199,7 +225,13 @@ def _build_tree(mgr, collection_guid: str, visited: set, depth: int = 0) -> list
     for element in raw:
         node = _serialize_node(element)
         tn = node["typeName"]
-        is_container = tn in _CONTAINER_TYPES or "Family" in tn or "Catalog" in tn
+        # Any Collection subtype is a container (Glossary, CollectionFolder, …),
+        # not just the explicitly-listed digital-product types — otherwise those
+        # nodes show no expand twistie and their members are never fetched.
+        is_container = (
+            tn in _CONTAINER_TYPES or "Family" in tn or "Catalog" in tn
+            or "Collection" in (node.get("superTypeNames") or [])
+        )
         if is_container:
             node["children"] = _build_tree(mgr, node["guid"], visited, depth + 1)
             node["isContainer"] = True

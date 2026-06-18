@@ -577,6 +577,7 @@ var d=null!=c&&c.hydratedSources||null,e=!1,f="",g=aj;null!==c&&void 0!==c&&(!0=
 function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmountComponentAtNode=function(a){if(!Vd(a))throw Error(m(40));return a._reactRootContainer?(yb(function(){Wd(null,null,a,!1,function(){a._reactRootContainer=null;a[Ja]=null})}),!0):!1};Q.unstable_batchedUpdates=Tf;Q.unstable_renderSubtreeIntoContainer=function(a,b,c,d){if(!Vd(c))throw Error(m(200));if(null==a||void 0===a._reactInternals)throw Error(m(38));return Wd(a,b,c,!1,d)};Q.version="18.3.1-next-f1338f8080-20240426"});
 })();
 </script>
+<script src="/static/egeria-shared-ui.js"></script>
 <script>
 'use strict';
 // SHARED — keep in sync with type-explorer.html equivalents
@@ -688,23 +689,6 @@ function renderMd(text) {
   return React.createElement('div', { dangerouslySetInnerHTML: { __html: html }, style: { lineHeight: 1.6, wordBreak: 'break-word' } });
 }
 
-// ── Resizable divider (shared with type-explorer.html) ────────────────────────
-function useResizable(initialPx, min, max) {
-  min = (min === undefined) ? 100 : min;
-  max = (max === undefined) ? 900 : max;
-  var _w = useState(initialPx), width = _w[0], setWidth = _w[1];
-  var widthRef = useRef(width);
-  widthRef.current = width;
-  var onMouseDown = useCallback(function(e) {
-    e.preventDefault();
-    var startX = e.clientX, startW = widthRef.current;
-    function onMove(mv) { setWidth(Math.max(min, Math.min(max, startW + mv.clientX - startX))); }
-    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  }, [min, max]);
-  return [width, onMouseDown];
-}
 function ResizeDivider({ onMouseDown }) {
   return React.createElement('div', {
     onMouseDown: onMouseDown,
@@ -716,32 +700,27 @@ function ResizeDivider({ onMouseDown }) {
 // keep in sync with type-explorer.html: MermaidDiagram, DiagramPanel,
 // DiagramPanelFromData, MermaidSection, AvailableMermaidDiagrams
 
-function MermaidDiagram({ code }) {
-  var ref = useRef(null);
-  var id  = useRef('mermaid-' + Math.random().toString(36).slice(2));
-  var _cp = useState(false), copied = _cp[0], setCopied = _cp[1];
-  useEffect(function() {
-    if (!ref.current || !code) return;
-    try { window.mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' }); } catch(_) {}
-    window.mermaid.render(id.current, code)
-      .then(function(r) { if (ref.current) ref.current.innerHTML = r.svg; })
-      .catch(function() {});
-  }, [code]);
-  return React.createElement('div', { style: { position: 'relative' } },
-    code && React.createElement('button', {
-      onClick: function(e) {
-        e.stopPropagation();
-        try { navigator.clipboard.writeText(code); } catch (_) {}
-        setCopied(true); setTimeout(function() { setCopied(false); }, 1500);
-      },
-      title: 'Copy Mermaid source to clipboard',
-      style: { position: 'absolute', top: 4, right: 4, zIndex: 2, fontSize: 10, padding: '2px 8px',
-               borderRadius: 4, border: '1px solid var(--border)', background: 'var(--panel)',
-               color: copied ? '#34d399' : 'var(--accent)', cursor: 'pointer', opacity: 0.9 }
-    }, copied ? '✓ Copied' : '⧉ Copy source'),
-    React.createElement('div', { ref: ref, className: 'mermaid-wrap' })
-  );
+// Copy text robustly — navigator.clipboard only works in a secure context
+// (https:// or localhost). Over plain http:// to a hostname/IP it is undefined,
+// so fall back to a hidden-textarea execCommand. Returns Promise<boolean>.
+function _execCopyFallback(text) {
+  try {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed'; ta.style.top = '-9999px'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, ta.value.length);
+    var ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch (e) { return false; }
 }
+function copyTextToClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text).then(function() { return true; }).catch(function() { return _execCopyFallback(text); });
+  }
+  return Promise.resolve(_execCopyFallback(text));
+}
+
 
 function DiagramPanel({ fetchUrl, label, buttonLabel }) {
   var _v = useState(false), visible = _v[0], setVisible = _v[1];
@@ -769,17 +748,6 @@ function DiagramPanel({ fetchUrl, label, buttonLabel }) {
   );
 }
 
-function DiagramPanelFromData({ code, label }) {
-  var _v = useState(false), visible = _v[0], setVisible = _v[1];
-  return React.createElement('div', { style: { margin: '6px 0' } },
-    React.createElement('button', {
-      onClick: function() { setVisible(function(v) { return !v; }); },
-      style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)',
-               background: visible ? 'var(--hover)' : 'transparent', color: 'var(--accent)', cursor: 'pointer' }
-    }, visible ? '▾ Hide ' + label : '▦ Show ' + label),
-    visible && React.createElement(MermaidDiagram, { code: code })
-  );
-}
 
 function MermaidSection({ guid }) {
   if (!guid) return null;
@@ -797,30 +765,7 @@ var _ALL_MERMAID_FIELDS = [
   'governanceActionProcessMermaidGraph','organizationTreeMermaidGraph',
   'collectionMermaidMindMap',
 ];
-var _MERMAID_SECTION_FIELDS = new Set(['mermaidGraph']);
-var _MERMAID_FIELD_LABELS = {
-  mermaidGraph: 'Context Diagram', anchorMermaidGraph: 'Anchor Diagram',
-  informationSupplyChainMermaidGraph: 'Information Supply Chain', actionMermaidGraph: 'Action Diagram',
-  edgeMermaidGraph: 'Asset Edge Graph',
-  localLineageGraph: 'Local Lineage', fieldLevelLineageGraph: 'Field-Level Lineage',
-  specificationMermaidGraph: 'Specification Diagram',
-};
 
-function AvailableMermaidDiagrams({ data }) {
-  if (!data) return null;
-  var lowerMap = {};
-  Object.keys(data).forEach(function(k) { lowerMap[k.toLowerCase()] = data[k]; });
-  var panels = [];
-  _ALL_MERMAID_FIELDS.forEach(function(field) {
-    if (_MERMAID_SECTION_FIELDS.has(field)) return;
-    var code = lowerMap[field.toLowerCase()];
-    if (code && typeof code === 'string' && !code.toLowerCase().startsWith('no ')) {
-      panels.push(React.createElement(DiagramPanelFromData, { key: field, code: code, label: _MERMAID_FIELD_LABELS[field] || field }));
-    }
-  });
-  if (panels.length === 0) return null;
-  return React.createElement('div', { style: { margin: '8px 0' } }, panels);
-}
 
 // ── SHARED — Egeria Feedback ──────────────────────────────────────────────────
 // keep in sync with type-explorer.html: EgeriaFeedbackWidget, EgeriaCommentsSection
@@ -1290,7 +1235,7 @@ function TechTypeDetail({ item, detailLoading, creds }) {
     item.description && React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 12 },
       dangerouslySetInnerHTML: { __html: renderMd(item.description) } }),
     item.mermaidGraph && React.createElement(DiagramPanelFromData, { code: item.mermaidGraph, label: 'Technology Context Diagram' }),
-    React.createElement(AvailableMermaidDiagrams, { data: item }),
+    React.createElement(AvailableMermaidDiagrams, { data: item, skip: new Set() }),
     templatesEl,
     processesEl,
     extRefsEl,
@@ -1771,7 +1716,7 @@ function GlossaryFolderDetail({ folder }) {
             var mono = r[0] === 'Qualified Name' || r[0] === 'GUID';
             return React.createElement('tr', { key: r[0], style: { borderTop: '1px solid var(--border)' } },
               React.createElement('td', { style: { padding: '5px 12px 5px 0', color: 'var(--dim)', width: 140, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
-              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: mono ? 'ui-monospace,monospace' : 'inherit', fontSize: mono ? 11 : 12 } }, r[1]));
+              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: mono ? 'ui-monospace,monospace' : 'inherit', fontSize: mono ? 11 : 12 } }, String(r[1])));
           })
         )
       )
@@ -1810,7 +1755,7 @@ function GlossaryDetail({ glossary }) {
             var mono = r[0] === 'Qualified Name' || r[0] === 'GUID';
             return React.createElement('tr', { key: r[0], style: { borderTop: '1px solid var(--border)' } },
               React.createElement('td', { style: { padding: '5px 12px 5px 0', color: 'var(--dim)', width: 140, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
-              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: mono ? 'ui-monospace,monospace' : 'inherit', fontSize: mono ? 11 : 12 } }, r[1]));
+              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: mono ? 'ui-monospace,monospace' : 'inherit', fontSize: mono ? 11 : 12 } }, String(r[1])));
           })
         )
       )
@@ -2189,9 +2134,12 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
   var sectionHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
   var cardStyle  = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px', marginBottom: 6 };
   // hasSchema / hasLineage are signalled by the backend; exclude them from the property table
-  var skipKeys   = new Set(['guid','typeName','superTypeNames','displayName','qualifiedName','description','classifications','relationships','hasSchema','hasLineage'].concat(_ALL_MERMAID_FIELDS));
+  var skipKeys   = new Set(['guid','typeName','superTypeNames','displayName','qualifiedName','description','classifications','relationships','hasSchema','hasLineage','props']);
   var extraProps = Object.entries(item).filter(function(e) {
-    return !skipKeys.has(e[0]) && e[1] && typeof e[1] === 'string';
+    // show every scalar property except the header fields and any mermaid graph
+    // (mermaid is rendered as a diagram, not a property row).
+    if (skipKeys.has(e[0]) || _isMermaidKey(e[0])) return false;
+    return (typeof e[1] === 'string' && e[1].trim()) || typeof e[1] === 'number' || typeof e[1] === 'boolean';
   });
   var rels = item.relationships || [];
 
@@ -2215,7 +2163,7 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
             var mono = r[0] === 'Qualified Name' || r[0] === 'GUID';
             return React.createElement('tr', { key: r[0], style: { borderBottom: '1px solid var(--border)' } },
               React.createElement('td', { style: { padding: '5px 10px 5px 0', color: 'var(--dim)', width: 180, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
-              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: mono ? 'ui-monospace,monospace' : 'inherit', fontSize: mono ? 11 : 12 } }, r[1])
+              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: mono ? 'ui-monospace,monospace' : 'inherit', fontSize: mono ? 11 : 12 } }, String(r[1]))
             );
           })
         )
@@ -2237,9 +2185,7 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
     ),
 
     // Mermaid diagrams — between Properties and Relationships
-    item.mermaidGraph && React.createElement(DiagramPanelFromData, { code: item.mermaidGraph, label: 'Context Diagram' }),
-    React.createElement(AvailableMermaidDiagrams, { data: item }),
-    React.createElement(MermaidSection, { guid: item.guid }),
+    React.createElement(AvailableMermaidDiagrams, { data: item, skip: new Set() }),
 
     // Relationships
     rels.length > 0 && React.createElement('div', null,

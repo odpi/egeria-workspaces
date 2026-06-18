@@ -584,6 +584,7 @@ var d=null!=c&&c.hydratedSources||null,e=!1,f="",g=aj;null!==c&&void 0!==c&&(!0=
 function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmountComponentAtNode=function(a){if(!Vd(a))throw Error(m(40));return a._reactRootContainer?(yb(function(){Wd(null,null,a,!1,function(){a._reactRootContainer=null;a[Ja]=null})}),!0):!1};Q.unstable_batchedUpdates=Tf;Q.unstable_renderSubtreeIntoContainer=function(a,b,c,d){if(!Vd(c))throw Error(m(200));if(null==a||void 0===a._reactInternals)throw Error(m(38));return Wd(a,b,c,!1,d)};Q.version="18.3.1-next-f1338f8080-20240426"});
 })();
 </script>
+  <script src="/static/egeria-shared-ui.js"></script>
   <script>"use strict";
 
 const {
@@ -614,69 +615,6 @@ function credAppend(base, creds) {
   return base + (base.includes('?') ? '&' + qs.slice(1) : qs);
 }
 
-// ── Markdown renderer ─────────────────────────────────────────────────────────
-function MermaidDiagram({ code }) {
-  const ref = React.useRef(null);
-  const [errMsg, setErrMsg] = React.useState('');
-  const [copied, setCopied] = React.useState(false);
-
-  React.useEffect(function() {
-    if (!code) return;
-    setErrMsg('');
-    if (ref.current) ref.current.innerHTML = '';
-
-    function doRender() {
-      try { window.mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' }); } catch(_) {}
-      var id = 'mmd' + Math.random().toString(36).slice(2);
-      window.mermaid.render(id, code)
-        .then(function(result) {
-          if (ref.current) ref.current.innerHTML = result.svg || '';
-        })
-        .catch(function(err) {
-          console.warn('Mermaid render failed:', err);
-          setErrMsg(String(err));
-        });
-    }
-
-    if (window.mermaid && window.mermaid.render) {
-      doRender();
-    } else {
-      var attempts = 0;
-      var timer = setInterval(function() {
-        if (window.mermaid && window.mermaid.render) {
-          clearInterval(timer); doRender();
-        } else if (++attempts > 40) {
-          clearInterval(timer);
-          setErrMsg('Mermaid library not loaded — CDN may be unreachable');
-        }
-      }, 150);
-      return function() { clearInterval(timer); };
-    }
-  }, [code]);
-
-  var copyBtn = code && React.createElement('button', {
-    onClick: function(e) {
-      e.stopPropagation();
-      copyToClipboard(code);
-      setCopied(true);
-      setTimeout(function() { setCopied(false); }, 1500);
-    },
-    title: 'Copy Mermaid source to clipboard',
-    style: { position: 'absolute', top: 4, right: 4, zIndex: 2, fontSize: 10, padding: '2px 8px',
-             borderRadius: 4, border: '1px solid var(--border)', background: 'var(--panel)',
-             color: copied ? '#34d399' : 'var(--accent)', cursor: 'pointer', opacity: 0.9 }
-  }, copied ? '✓ Copied' : '⧉ Copy source');
-
-  return React.createElement('div', { style: { position: 'relative' } },
-    copyBtn,
-    errMsg
-      ? React.createElement('div', null,
-          React.createElement('div', { style: { fontSize: 11, color: '#f87171', padding: '4px 0 6px' } }, '⚠ ' + errMsg),
-          React.createElement('pre', { style: { fontSize: 11, color: 'var(--muted)', background: 'rgba(255,255,255,.04)', padding: '8px 12px', borderRadius: 4, overflowX: 'auto', whiteSpace: 'pre-wrap', margin: 0, border: '1px solid var(--border)' } }, code)
-        )
-      : React.createElement('div', { ref: ref, className: 'mermaid-wrap' })
-  );
-}
 
 // Single lazy-loading diagram panel. fetchUrl is called on first open; label appears in the header.
 // field: which key to read from the JSON response (default: 'mermaidGraph').
@@ -716,18 +654,6 @@ function DiagramPanel({ fetchUrl, label, buttonLabel, field }) {
   );
 }
 
-// Diagram panel backed by pre-loaded code (no fetch). Used when detail endpoints already carry mermaid fields.
-function DiagramPanelFromData({ code, label }) {
-  const [visible, setVisible] = React.useState(false);
-  if (!code) return null;
-  var btnStyle = { fontSize: 12, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' };
-  return React.createElement('div', { style: { margin: '4px 0' } },
-    React.createElement('button', { onClick: function() { setVisible(function(v) { return !v; }); }, style: btnStyle },
-      visible ? ('▦ Hide ' + label) : ('▦ Show ' + label)
-    ),
-    visible && React.createElement(MermaidDiagram, { code: code })
-  );
-}
 
 // Renders a Vega-Lite spec (string or object) as an embedded chart.
 function VegaChart({ spec }) {
@@ -840,50 +766,8 @@ var _ALL_JS_MERMAID_FIELDS = [
   'userAccountTypeProfileMermaidPieChart', 'userAccountStatusMermaidPieChart',
 ];
 
-var _MERMAID_FIELD_LABELS = {
-  mermaidGraph:                          'Context Diagram',
-  iscImplementationMermaidGraph:         'ISC Implementation',
-  informationSupplyChainMermaidGraph:    'Supply Chain Graph',
-  edgeMermaidGraph:                      'Asset Edge Graph',
-  anchorMermaidGraph:                    'Anchored Graph',
-  specificationMermaidGraph:             'Specification Graph',
-  solutionBlueprintMermaidGraph:         'Blueprint Graph',
-  solutionSubcomponentMermaidGraph:      'Subcomponent Graph',
-  actionMermaidGraph:                    'Action Graph',
-  localLineageGraph:                     'Local Lineage',
-  fieldLevelLineageGraph:                'Field-Level Lineage',
-  governanceActionProcessMermaidGraph:   'Governance Action Process',
-  organizationTreeMermaidGraph:          'Organization Tree',
-  collectionMermaidMindMap:              'Collection Mind Map',
-  zoneProfileMermaidPieChart:            'Zone Profile',
-  zoneProfileAnchoredMermaidPieChart:    'Zone Anchored Profile',
-  zoneProfileAllPieChart:                'Zone All Assets',
-  userAccountTypeProfileMermaidPieChart: 'Account Type Profile',
-  userAccountStatusMermaidPieChart:      'Account Status',
-};
 
-// Fields handled by MermaidSection (lazy fetch) — skip in AvailableMermaidDiagrams to avoid duplicates.
-var _MERMAID_SECTION_FIELDS = new Set(['mermaidGraph', 'anchorMermaidGraph']);
 
-// Generic component: scan a data object for any non-empty mermaid fields and render a panel for each.
-// Skips fields already covered by MermaidSection (context diagram + anchored graph).
-// Uses case-insensitive key matching for robustness against server-side capitalization variants.
-function AvailableMermaidDiagrams({ data }) {
-  if (!data) return null;
-  var lowerMap = {};
-  Object.keys(data).forEach(function(k) { lowerMap[k.toLowerCase()] = data[k]; });
-  var panels = [];
-  _ALL_JS_MERMAID_FIELDS.forEach(function(field) {
-    if (_MERMAID_SECTION_FIELDS.has(field)) return;
-    var code = lowerMap[field.toLowerCase()];
-    if (code && typeof code === 'string' && !code.toLowerCase().startsWith('no ')) {
-      var label = _MERMAID_FIELD_LABELS[field] || field;
-      panels.push(React.createElement(DiagramPanelFromData, { key: field, code: code, label: label }));
-    }
-  });
-  if (panels.length === 0) return null;
-  return React.createElement('div', { style: { margin: '8px 0' } }, panels);
-}
 
 // Renders a context diagram button (depth=5) and a full anchored graph button for any element GUID.
 function MermaidSection({ guid }) {
@@ -3600,19 +3484,13 @@ function DigitalProductDetail({ product, onNavigateToElement, creds }) {
   if (!product) return null;
   var _previewState = useState(null), previewDs = _previewState[0], setPreviewDs = _previewState[1];
 
-  const fields = [
-    ['Qualified Name',   product.qualifiedName],
-    ['Product Name',     product.productName],
-    ['Product Type',     product.productType],
-    ['Maturity',         product.maturity],
-    ['Service Life',     product.serviceLife],
-    ['Current Version',  product.currentVersion],
-    ['Deployment Status',product.deploymentStatus],
-    ['Introduction Date',product.introductionDate],
-    ['Next Version Date',product.nextVersionDate],
-    ['Withdrawal Date',  product.withdrawalDate],
-    ['Status',           product.status],
-  ].filter(([, v]) => v && String(v).trim());
+  // Show every scalar property the element carries (from the backend `props`
+  // pass-through), not just a fixed product-specific subset — Qualified Name
+  // first, then all properties (humanised, sorted), then Status.
+  const fields = [['Qualified Name', product.qualifiedName]]
+    .concat(Object.keys(product.props || {}).sort().map(function(k) { return [_humanizeKey(k), product.props[k]]; }))
+    .concat([['Status', product.status]])
+    .filter(([, v]) => v !== '' && v !== null && v !== undefined && String(v).trim());
 
   const isGlossaryType = product.typeName && (
     product.typeName === 'GlossaryTerm' || product.typeName === 'Glossary' || product.typeName === 'GlossaryCategory'
@@ -3656,7 +3534,12 @@ function DigitalProductDetail({ product, onNavigateToElement, creds }) {
             onClick: function() { setPreviewDs({ guid: m.guid, name: m.displayName || m.qualifiedName || m.guid }); },
             title: 'Preview tabular data',
             style: { padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(251,191,36,.4)', background: 'rgba(251,191,36,.1)', color: '#fcd34d', cursor: 'pointer', fontSize: 11 }
-          }, "Preview Data 📊")
+          }, "Preview Data 📊"),
+          !isDataSpec && !isTabular && onNavigateToElement && _elementIsLinkable(m) && React.createElement("button", {
+            onClick: function() { onNavigateToElement({ guid: m.guid, typeName: m.typeName || tn, superTypeNames: m.superTypeNames }); },
+            title: 'View this element',
+            style: { padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(94,234,212,.4)', background: 'rgba(94,234,212,.1)', color: '#5eead4', cursor: 'pointer', fontSize: 11 }
+          }, "View →")
         );
       })
     );
@@ -3670,8 +3553,8 @@ function DigitalProductDetail({ product, onNavigateToElement, creds }) {
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, product.displayName || product.qualifiedName),
       product.typeName && React.createElement("span", { className: "badge", style: { background: 'rgba(96,165,250,.1)', color: '#93c5fd', border: '0.5px solid rgba(96,165,250,.3)' } }, product.typeName),
-      isGlossaryType && onNavigateToGlossary && React.createElement("button", {
-        onClick: function() { onNavigateToGlossary(product.guid); },
+      isGlossaryType && onNavigateToElement && React.createElement("button", {
+        onClick: function() { onNavigateToElement({ guid: product.guid, typeName: product.typeName, superTypeNames: product.superTypeNames }); },
         style: { padding: '3px 10px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.1)', color: 'var(--accent)', cursor: 'pointer', fontSize: 12 }
       }, "View in Glossary →"),
       isTabularRoot && React.createElement("button", {
@@ -3682,8 +3565,7 @@ function DigitalProductDetail({ product, onNavigateToElement, creds }) {
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 4 } }, product.guid),
     product.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16, marginTop: 10 } }, renderMd(product.description)),
-    React.createElement(AvailableMermaidDiagrams, { data: product }),
-    React.createElement(MermaidSection, { guid: product.guid }),
+    React.createElement(AvailableMermaidDiagrams, { data: product, skip: new Set() }),
     fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 20 } },
       React.createElement("tbody", null,
         fields.map(function([label, value]) {
@@ -3698,12 +3580,18 @@ function DigitalProductDetail({ product, onNavigateToElement, creds }) {
       React.createElement("div", { style: { fontWeight: 700, fontSize: 13, marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' } }, "Members"),
       memberTypeNames.map(function(tn) { return renderMemberGroup(tn, memberGroups[tn]); })
     ),
-    product.relationships && Object.keys(product.relationships).length > 0 && React.createElement("div", { style: { marginTop: memberTypeNames.length > 0 ? 24 : 0 } },
-      React.createElement("div", { style: { fontWeight: 700, fontSize: 13, marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' } }, "Relationships"),
-      Object.entries(product.relationships).map(function(entry) {
-        return React.createElement(RelationshipSection, { key: entry[0], title: _prettyRelLabel(entry[0]), items: entry[1], onNavigateToElement: onNavigateToElement });
-      })
-    ),
+    (function() {
+      // collectionMembers duplicates the "Members" section above (same elements),
+      // so drop it here to avoid showing members twice.
+      var relEntries = Object.entries(product.relationships || {}).filter(function(e) { return e[0] !== 'collectionMembers'; });
+      if (relEntries.length === 0) return null;
+      return React.createElement("div", { style: { marginTop: memberTypeNames.length > 0 ? 24 : 0 } },
+        React.createElement("div", { style: { fontWeight: 700, fontSize: 13, marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' } }, "Relationships"),
+        relEntries.map(function(entry) {
+          return React.createElement(RelationshipSection, { key: entry[0], title: _prettyRelLabel(entry[0]), items: entry[1], onNavigateToElement: onNavigateToElement });
+        })
+      );
+    })(),
     React.createElement(EgeriaCommentsSection, { guid: product.guid }),
     previewDs && React.createElement(TabularPreviewModal, { guid: previewDs.guid, name: previewDs.name, creds: creds, onClose: function() { setPreviewDs(null); } })
   );
@@ -3890,7 +3778,7 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
     // Node detail (right)
     React.createElement("div", { className: "main" },
       (selectedNodeObj || nodeDetail)
-        ? React.createElement(DigitalProductDetail, { product: selectedNodeObj ? Object.assign({}, selectedNodeObj, { relationships: (nodeDetail || {}).relationships }) : nodeDetail, onNavigateToElement: onNavigateToElement, creds: creds })
+        ? React.createElement(DigitalProductDetail, { product: selectedNodeObj ? Object.assign({}, selectedNodeObj, nodeDetail || {}) : nodeDetail, onNavigateToElement: onNavigateToElement, creds: creds })
         : selectedNode
         ? React.createElement("div", { className: "center" }, React.createElement("div", { className: "spinner" }))
         : React.createElement("div", { className: "center" },
@@ -4017,7 +3905,7 @@ function CollectionsView({ onNavigateToElement }) {
     // Node detail (right)
     React.createElement("div", { className: "main" },
       (selectedNodeObj || nodeDetail)
-        ? React.createElement(DigitalProductDetail, { product: selectedNodeObj ? Object.assign({}, selectedNodeObj, { relationships: (nodeDetail || {}).relationships }) : nodeDetail, onNavigateToElement: onNavigateToElement, creds: creds })
+        ? React.createElement(DigitalProductDetail, { product: selectedNodeObj ? Object.assign({}, selectedNodeObj, nodeDetail || {}) : nodeDetail, onNavigateToElement: onNavigateToElement, creds: creds })
         : selectedNode
         ? React.createElement("div", { className: "center" }, React.createElement("div", { className: "spinner" }))
         : React.createElement("div", { className: "center" },
@@ -4817,28 +4705,6 @@ function ValidValuesView({ navProp }) {
 
 // ── Resizable column splitter ─────────────────────────────────────────────────
 
-function useResizable(initialPx, min, max) {
-  min = (min === undefined) ? 100 : min;
-  max = (max === undefined) ? 900 : max;
-  const [width, setWidth] = React.useState(initialPx);
-  const widthRef = React.useRef(width);
-  widthRef.current = width;
-  const onMouseDown = React.useCallback(function(e) {
-    e.preventDefault();
-    var startX = e.clientX;
-    var startW = widthRef.current;
-    function onMove(mv) {
-      setWidth(Math.max(min, Math.min(max, startW + mv.clientX - startX)));
-    }
-    function onUp() {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-    }
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  }, [min, max]);
-  return [width, onMouseDown];
-}
 
 function ResizeDivider({ onMouseDown }) {
   return React.createElement('div', { className: 'col-divider', onMouseDown: onMouseDown });
@@ -4846,9 +4712,6 @@ function ResizeDivider({ onMouseDown }) {
 
 // ── REST API Explorer ─────────────────────────────────────────────────────────
 
-function copyToClipboard(text) {
-  navigator.clipboard && navigator.clipboard.writeText(text).catch(() => {});
-}
 
 function MethodBadge({ method }) {
   return React.createElement("span", {
@@ -6472,7 +6335,7 @@ function _elementIsLinkable(item) {
   var superTypes = item.superTypeNames || [];
   if (item.typeName === 'Location') return true;
   if (item.typeName === 'ReferenceDataValue') return true;
-  if (item.typeName === 'GlossaryTerm') return true;
+  if (item.typeName === 'GlossaryTerm' || item.typeName === 'Glossary' || item.typeName === 'GlossaryCategory') return true;
   if (item.typeName === 'DigitalProduct') return true;
   if (item.typeName === 'Community') return true;
   if (item.typeName === 'NoteLog') return true;
@@ -8997,7 +8860,7 @@ function App() {
     var guid = item.guid;
     if (typeName === 'Location') { onNavigateToLocation(guid); return; }
     if (typeName === 'ReferenceDataValue') { onNavigateToReferenceData(guid); return; }
-    if (typeName === 'GlossaryTerm') { onNavigateToGlossary(guid); return; }
+    if (typeName === 'GlossaryTerm' || typeName === 'Glossary' || typeName === 'GlossaryCategory') { onNavigateToGlossary(guid); return; }
     if (typeName === 'Community') { onNavigateToCommunity(guid); return; }
     if (typeName === 'NoteLog') { onNavigateToNoteLog(guid); return; }
     if (typeName === 'InformationSupplyChain') { onNavigateToISC(guid); return; }
