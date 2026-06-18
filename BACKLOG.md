@@ -424,7 +424,7 @@ Goal: extract the shared UI components that appear verbatim in both Explorer and
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| MOD-1 | Audit: list all components copied verbatim from Explorer into Tech Catalog; confirm boundary (what to share vs what stays per-tool) | open | Run after TC-6 ships — need both consumers to identify true shared set |
+| MOD-1 | Audit: list all components copied verbatim from Explorer into Tech Catalog; confirm boundary (what to share vs what stays per-tool) | done | See `shared-ui-audit.md`. Boundary: **Tier 1 share-now** (Mermaid family + field constants, ResizeDivider, useResizable, renderMd/_renderMdHtml, VegaChart/AvailableCharts — canonical = richer Explorer version); **Tier 2 share-after-fetch-unification** (credAppend + feedback widgets — blocked by token vs query-param auth split, sequence with LE-4); **Tier 3 per-tool** (ConnectionForm, CredContext provider, tool views). |
 | MOD-2 | Extract shared components to `egeria-shared-ui.js`: `MermaidDiagram`, `DiagramPanel`, `MermaidSection`, `AvailableMermaidDiagrams`, `EgeriaFeedbackWidget`, `EgeriaCommentsSection`, property-table renderer | open | Served as FastAPI static; imported by both SPAs via `<script>` tag |
 | MOD-3 | Refactor Explorer + Tech Catalog to import from shared module; remove duplicated blocks | open | Shrinks both files ~25–30%; future tools (Data Catalog etc.) start from shared base |
 
