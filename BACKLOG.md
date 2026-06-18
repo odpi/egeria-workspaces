@@ -180,13 +180,20 @@ consent-to-contact** flag (separate from wants-response, for privacy basis) · s
 
 Spec: `report-rendering-plan.md`
 
-| # | Phase | Item | Status |
-|---|-------|------|--------|
-| RR-1 | 1 | GRAPH format → send DICT/JSON fallback (no unembeddable HTML) | open |
-| RR-2 | 2 | `SmartReportRenderer` — tokenize output; render Mermaid/Vega-Lite fences; fix master-detail anchor links + bi-di nav | open |
-| RR-3 | 3a | `VegaChart` component + unconditional vega-embed load | open |
-| RR-4 | 3b | `AvailableCharts` — scan DICT results for `*BarGraph`/`*PieGraph` keys | open |
-| RR-5 | 4 | `DictResultView` — spec-driven master-detail table with expand rows + auto-charts | open |
+**Note (2026-06-18):** the RR components were implemented earlier (commit history)
+without updating these rows — `SmartReportRenderer`, `VegaChart`, `AvailableCharts`,
+`DictResultView` all exist and vega/vega-lite/vega-embed are loaded. RR-1 verified
+end-to-end and a real chart-detection bug fixed. RR-2/RR-5 components exist but
+their full behaviour (master-detail anchors, expand rows) is not yet re-verified
+against live output.
+
+| # | Phase | Item | Status | Notes |
+|---|-------|------|--------|-------|
+| RR-1 | 1 | GRAPH format → send DICT/JSON fallback (no unembeddable HTML) | done | Verified: selecting GRAPH sends DICT (or JSON) client-side; backend returns `kind: json`. The 3 GRAPH specs (Governance-Zones, Governance-Zone-Overview-Charts, Secrets-Collection-User-Profile-Charts) return Vega-Lite chart specs in the DICT data. |
+| RR-4 | 3b | `AvailableCharts` — detect Vega-Lite chart specs in DICT results | done | **Bug fixed:** matched only camelCase `*BarGraph`/`*PieGraph` keys, but real pyegeria DICT keys are spaced ("Zone Profile All Bar Chart"). Rewrote to detect charts by *value* (any `$schema: vega-lite` dict/JSON-string) — now finds all 6 zone charts (was 0). |
+| RR-3 | 3a | `VegaChart` component + vega-embed load | done | Renders dict or JSON-string specs via vegaEmbed (dark theme), with deferred-load polling; wrapped by `CollapsibleChartPanel`. |
+| RR-2 | 2 | `SmartReportRenderer` — tokenize output; render Mermaid/Vega-Lite fences; master-detail anchors | implemented; verify | Component exists and is used for text-kind results; re-verify anchor/bi-di nav against live LIST/REPORT output. |
+| RR-5 | 4 | `DictResultView` — spec-driven master-detail table with expand rows + auto-charts | implemented; verify | Component exists and renders json-kind results with `AvailableCharts`; re-verify master-detail expand against specs with `detailSpec` columns. |
 
 ---
 

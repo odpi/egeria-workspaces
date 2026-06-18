@@ -770,27 +770,42 @@ function CollapsibleChartPanel({ label, spec }) {
   );
 }
 
-// Scans a data object (or array of objects) for Vega-Lite specs emitted by pyegeria (*BarGraph/*PieGraph keys).
-// When data is an array (DICT format results), each row is scanned and unique chart keys are surfaced once.
+// A value is a chart iff it is a Vega-Lite spec (dict or JSON string with a
+// vega-lite $schema). Returns the parsed spec, or null. Value-based detection is
+// robust to the varied key names pyegeria emits — camelCase "*BarGraph"/"*PieGraph"
+// as well as spaced "… Bar Chart"/"… Pie Chart".
+function _asVegaLiteSpec(v) {
+  var o = v;
+  if (typeof v === 'string') { try { o = JSON.parse(v); } catch (e) { return null; } }
+  if (o && typeof o === 'object' && !Array.isArray(o)
+      && typeof o['$schema'] === 'string' && o['$schema'].indexOf('vega-lite') !== -1) return o;
+  return null;
+}
+
+// Scans a data object (or array of objects) for Vega-Lite chart specs. When data
+// is an array (DICT format results), each row is scanned and unique chart keys
+// are surfaced once.
 function AvailableCharts({ data }) {
   if (!data) return null;
-  var chartRe = /(?:BarGraph|PieGraph)$/i;
   var sources = Array.isArray(data) ? data : [data];
   var seen = {};
   var entries = [];
   sources.forEach(function(row) {
     if (!row || typeof row !== 'object') return;
     Object.keys(row).forEach(function(k) {
-      if (chartRe.test(k) && row[k] && !seen[k]) {
-        seen[k] = true;
-        entries.push({ key: k, spec: row[k] });
-      }
+      if (seen[k]) return;
+      var vl = _asVegaLiteSpec(row[k]);
+      if (vl) { seen[k] = true; entries.push({ key: k, spec: row[k], title: vl.title || '' }); }
     });
   });
   if (entries.length === 0) return null;
   return React.createElement('div', { style: { margin: '8px 0' } },
     entries.map(function(e) {
-      var label = e.key.replace(/([A-Z])/g, ' $1').replace(/\s*(Bar|Pie)Graph$/i, ' Chart').trim();
+      // The key is usually the most descriptive ("Zone Profile Bar Chart"); for
+      // camelCase keys, humanise and normalise the *Graph suffix to "Chart".
+      var label = /\s/.test(e.key)
+        ? e.key
+        : e.key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/\s*(Bar|Pie)Graph$/i, ' Chart').trim();
       return React.createElement(CollapsibleChartPanel, { key: e.key, label: label, spec: e.spec });
     })
   );
