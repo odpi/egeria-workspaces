@@ -3659,7 +3659,12 @@ function DigitalProductDetail({ product, onNavigateToElement, creds }) {
             onClick: function() { setPreviewDs({ guid: m.guid, name: m.displayName || m.qualifiedName || m.guid }); },
             title: 'Preview tabular data',
             style: { padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(251,191,36,.4)', background: 'rgba(251,191,36,.1)', color: '#fcd34d', cursor: 'pointer', fontSize: 11 }
-          }, "Preview Data 📊")
+          }, "Preview Data 📊"),
+          !isDataSpec && !isTabular && onNavigateToElement && _elementIsLinkable(m) && React.createElement("button", {
+            onClick: function() { onNavigateToElement({ guid: m.guid, typeName: m.typeName || tn, superTypeNames: m.superTypeNames }); },
+            title: 'View this element',
+            style: { padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(94,234,212,.4)', background: 'rgba(94,234,212,.1)', color: '#5eead4', cursor: 'pointer', fontSize: 11 }
+          }, "View →")
         );
       })
     );
@@ -3700,12 +3705,18 @@ function DigitalProductDetail({ product, onNavigateToElement, creds }) {
       React.createElement("div", { style: { fontWeight: 700, fontSize: 13, marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' } }, "Members"),
       memberTypeNames.map(function(tn) { return renderMemberGroup(tn, memberGroups[tn]); })
     ),
-    product.relationships && Object.keys(product.relationships).length > 0 && React.createElement("div", { style: { marginTop: memberTypeNames.length > 0 ? 24 : 0 } },
-      React.createElement("div", { style: { fontWeight: 700, fontSize: 13, marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' } }, "Relationships"),
-      Object.entries(product.relationships).map(function(entry) {
-        return React.createElement(RelationshipSection, { key: entry[0], title: _prettyRelLabel(entry[0]), items: entry[1], onNavigateToElement: onNavigateToElement });
-      })
-    ),
+    (function() {
+      // collectionMembers duplicates the "Members" section above (same elements),
+      // so drop it here to avoid showing members twice.
+      var relEntries = Object.entries(product.relationships || {}).filter(function(e) { return e[0] !== 'collectionMembers'; });
+      if (relEntries.length === 0) return null;
+      return React.createElement("div", { style: { marginTop: memberTypeNames.length > 0 ? 24 : 0 } },
+        React.createElement("div", { style: { fontWeight: 700, fontSize: 13, marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' } }, "Relationships"),
+        relEntries.map(function(entry) {
+          return React.createElement(RelationshipSection, { key: entry[0], title: _prettyRelLabel(entry[0]), items: entry[1], onNavigateToElement: onNavigateToElement });
+        })
+      );
+    })(),
     React.createElement(EgeriaCommentsSection, { guid: product.guid }),
     previewDs && React.createElement(TabularPreviewModal, { guid: previewDs.guid, name: previewDs.name, creds: creds, onClose: function() { setPreviewDs(null); } })
   );
@@ -3892,7 +3903,7 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
     // Node detail (right)
     React.createElement("div", { className: "main" },
       (selectedNodeObj || nodeDetail)
-        ? React.createElement(DigitalProductDetail, { product: selectedNodeObj ? Object.assign({}, selectedNodeObj, { relationships: (nodeDetail || {}).relationships }) : nodeDetail, onNavigateToElement: onNavigateToElement, creds: creds })
+        ? React.createElement(DigitalProductDetail, { product: selectedNodeObj ? Object.assign({}, selectedNodeObj, nodeDetail || {}) : nodeDetail, onNavigateToElement: onNavigateToElement, creds: creds })
         : selectedNode
         ? React.createElement("div", { className: "center" }, React.createElement("div", { className: "spinner" }))
         : React.createElement("div", { className: "center" },
@@ -4019,7 +4030,7 @@ function CollectionsView({ onNavigateToElement }) {
     // Node detail (right)
     React.createElement("div", { className: "main" },
       (selectedNodeObj || nodeDetail)
-        ? React.createElement(DigitalProductDetail, { product: selectedNodeObj ? Object.assign({}, selectedNodeObj, { relationships: (nodeDetail || {}).relationships }) : nodeDetail, onNavigateToElement: onNavigateToElement, creds: creds })
+        ? React.createElement(DigitalProductDetail, { product: selectedNodeObj ? Object.assign({}, selectedNodeObj, nodeDetail || {}) : nodeDetail, onNavigateToElement: onNavigateToElement, creds: creds })
         : selectedNode
         ? React.createElement("div", { className: "center" }, React.createElement("div", { className: "spinner" }))
         : React.createElement("div", { className: "center" },
