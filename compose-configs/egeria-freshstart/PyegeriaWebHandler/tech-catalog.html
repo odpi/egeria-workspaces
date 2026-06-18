@@ -1863,6 +1863,17 @@ function GlossaryView({ creds }) {
   var _ft = useState(''),         filterText = _ft[0], setFilterText = _ft[1];
   var _sht = useState(false),     showTemplates = _sht[0], setShowTemplates = _sht[1];
   var _ge = useState(''),         glossaryError = _ge[0], setGlossaryError = _ge[1];
+  // The selected node object (folder or term) — carried so nested tree items
+  // resolve without being present in the flat top-level scope arrays.
+  var _sd = useState(null),       selectedData = _sd[0], setSelectedData = _sd[1];
+  var selectItem = useCallback(function(obj, isFolder) {
+    setSelectedItem(obj.guid);
+    setSelectedData(Object.assign({}, obj, { isFolder: !!isFolder }));
+  }, []);
+  // Auth wrapper handed to the shared GlossaryTreeNode for lazy child loads.
+  var fetchJson = useCallback(function(path) {
+    return fetchWithToken(path, creds).then(function(r) { return r.ok ? r.json() : {}; });
+  }, [creds]);
 
   // Load glossary list
   useEffect(function() {
@@ -1886,7 +1897,7 @@ function GlossaryView({ creds }) {
   useEffect(function() {
     if (!currentScopeGuid) return;
     setScopeState('loading'); setScopeError(''); setFolders([]); setTerms([]);
-    setSelectedItem(null); setTermDetail(null); setTermDetailState('idle'); setFilterText('');
+    setSelectedItem(null); setSelectedData(null); setTermDetail(null); setTermDetailState('idle'); setFilterText('');
     Promise.all([
       fetchWithToken('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/folders', creds).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}),
       fetchWithToken('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/terms',   creds).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
@@ -1898,15 +1909,13 @@ function GlossaryView({ creds }) {
   var runSearch = useCallback(function(q) {
     var sq = (q||'').trim() || '*';
     setSearchQuery(sq); setSearchInputValue(sq === '*' ? '' : sq);
-    setSearchState('loading'); setSearchError(''); setSearchTerms([]); setSelectedItem(null); setTermDetail(null); setTermDetailState('idle');
+    setSearchState('loading'); setSearchError(''); setSearchTerms([]); setSelectedItem(null); setSelectedData(null); setTermDetail(null); setTermDetailState('idle');
     fetchWithToken('/api/glossary-terms?q=' + encodeURIComponent(sq), creds)
       .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
       .then(function(data){setSearchTerms(data.terms||[]);setSearchState('ready');})
       .catch(function(err){setSearchError(err.message);setSearchState('idle');});
   }, []);
 
-  var openFolder = useCallback(function(folder){ setFolderStack(function(s){return s.concat([{guid:folder.guid,displayName:folder.displayName}]);}); }, []);
-  var navigateTo = useCallback(function(idx){ if(idx<0){setFolderStack([]);}else{setFolderStack(function(s){return s.slice(0,idx+1);});} }, []);
   var navigateToTerm = useCallback(function(guid){ setSelectedItem(guid); }, []);
 
   var isSearchMode = selectedGlossary === null;
@@ -1934,18 +1943,19 @@ function GlossaryView({ creds }) {
   // Lazy-fetch full term detail when a term is selected
   useEffect(function() {
     if (!selectedItem) { setTermDetail(null); setTermDetailState('idle'); return; }
-    if (folders.find(function(f){return f.guid===selectedItem;})) { setTermDetail(null); setTermDetailState('idle'); return; }
+    if (selectedData && selectedData.isFolder) { setTermDetail(null); setTermDetailState('idle'); return; }
     setTermDetail(null); setTermDetailState('loading');
     fetchWithToken('/api/glossary/term/' + encodeURIComponent(selectedItem), creds)
       .then(function(r){return r.ok?r.json():null;})
       .then(function(data){setTermDetail(data||null);setTermDetailState(data?'ready':'error');})
       .catch(function(){setTermDetailState('error');});
-  }, [selectedItem, folders]);
+  }, [selectedItem, selectedData]);
 
+  // The clicked folder/term object (carries isFolder); set by selectItem so
+  // nested tree rows resolve without being in the flat top-level scope arrays.
   var selectedObj = useMemo(function() {
-    var pool = isSearchMode ? filteredSearchTerms : folders.map(function(f){return Object.assign({},f,{isFolder:true});}).concat(filteredTerms);
-    return selectedItem ? (pool.find(function(x){return x.guid===selectedItem;})||null) : null;
-  }, [selectedItem, isSearchMode, filteredSearchTerms, folders, filteredTerms]);
+    return selectedData;
+  }, [selectedData]);
 
   var selectedGlossaryName = selectedGlossary ? ((glossaries.find(function(g){return g.guid===selectedGlossary;})||{}).displayName||'') : '';
   var middleLoading = isSearchMode ? searchState==='loading' : scopeState==='loading';
@@ -1986,14 +1996,8 @@ function GlossaryView({ creds }) {
     // Middle: folders + terms / search results
     React.createElement('div', { style: { width: 280, flexShrink: 0, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
       React.createElement('div', { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 5 } },
-        // Breadcrumb
-        !isSearchMode && React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', fontSize: 11 } },
-          React.createElement('span', { style: { cursor: 'pointer', color: folderStack.length>0?'var(--accent)':'var(--dim)', fontWeight: 600 }, onClick: function(){navigateTo(-1);} }, selectedGlossaryName||'Glossary'),
-          folderStack.map(function(f,i) { return [
-            React.createElement('span', { key: 'sep'+i, style: { color: 'var(--dim)' } }, '›'),
-            React.createElement('span', { key: 'f'+i, style: { cursor: 'pointer', color: i===folderStack.length-1?'var(--dim)':'var(--accent)', fontWeight: i===folderStack.length-1?600:400 }, onClick: function(){navigateTo(i);} }, f.displayName)
-          ]; })
-        ),
+        // Glossary name (folders are now expandable inline in the tree below)
+        !isSearchMode && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', fontWeight: 600 } }, selectedGlossaryName || 'Glossary'),
         React.createElement('div', { style: { fontWeight: 600, fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, middleCounts),
         isSearchMode
           ? React.createElement('form', { onSubmit: function(e){e.preventDefault();runSearch(searchInputValue);}, style: { display: 'flex', gap: 4 } },
@@ -2009,31 +2013,14 @@ function GlossaryView({ creds }) {
       middleError && React.createElement('div', { style: { padding: 10, color: 'var(--muted)', fontSize: 12 } }, 'Error: ' + middleError),
       React.createElement('div', { style: treeScrollSt },
         isSearchMode
-          ? filteredSearchTerms.map(function(t) {
-              return React.createElement('div', { key: t.guid, style: treeItemSt(selectedItem===t.guid), onClick: function(){setSelectedItem(t.guid);}, title: t.qualifiedName||t.guid },
-                React.createElement('div', { style: { flex: 1, minWidth: 0 } },
-                  React.createElement('div', { style: { fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, t.displayName||t.qualifiedName||t.guid),
-                  t.qualifiedName && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, t.qualifiedName)
-                )
-              );
-            })
-          : [
-              folders.map(function(f) {
-                return React.createElement('div', { key: f.guid, style: Object.assign({}, treeItemSt(selectedItem===f.guid), { cursor: 'pointer' }), title: f.description||f.qualifiedName },
-                  React.createElement('span', { style: { fontSize: 12, cursor: 'pointer', color: 'var(--dim)' }, onClick: function(){openFolder(f);} }, '📁'),
-                  React.createElement('span', { style: { flex: 1, fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, onClick: function(){setSelectedItem(f.guid);} }, f.displayName||f.qualifiedName||f.guid),
-                  React.createElement('span', { style: { fontSize: 16, padding: '0 4px', cursor: 'pointer', color: 'var(--accent)', lineHeight: 1 }, title: 'Open folder', onClick: function(){openFolder(f);} }, '›')
-                );
-              }),
-              filteredTerms.map(function(t) {
-                return React.createElement('div', { key: t.guid, style: treeItemSt(selectedItem===t.guid), onClick: function(){setSelectedItem(t.guid);}, title: t.qualifiedName||t.guid },
-                  React.createElement('div', { style: { flex: 1, minWidth: 0 } },
-                    React.createElement('div', { style: { fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, t.displayName||t.qualifiedName||t.guid),
-                    t.qualifiedName && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, t.qualifiedName)
-                  )
-                );
-              })
-            ]
+          // All-Terms search results (flat)
+          ? filteredSearchTerms.map(function(t) { return React.createElement(GlossaryTermRow, { key: t.guid, term: t, depth: 0, selected: selectedItem, onSelect: selectItem }); })
+          // Glossary scope: expandable folder tree, then top-level terms (shared
+          // GlossaryTreeNode lazy-loads each folder's children via fetchJson).
+          : React.createElement(React.Fragment, null,
+              folders.map(function(f) { return React.createElement(GlossaryTreeNode, { key: f.guid, folder: f, depth: 0, selected: selectedItem, onSelect: selectItem, showTemplates: showTemplates, fetchJson: fetchJson }); }),
+              filteredTerms.map(function(t) { return React.createElement(GlossaryTermRow, { key: t.guid, term: t, depth: 0, selected: selectedItem, onSelect: selectItem }); })
+            )
       )
     ),
     // Right: detail
