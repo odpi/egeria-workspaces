@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Egeria — Admin</title>
+  <title>Egeria Freshstart Demo Sandbox — Admin</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -30,6 +30,12 @@
     .section-title { font-size: 0.9rem; font-weight: 600; margin-bottom: 1rem; color: var(--text); }
     table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
     thead th { text-align: left; padding: 0.5rem 0.75rem; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 500; }
+    /* Resizable columns — scoped to the feedback table so other tables are unaffected. */
+    #fbTable { table-layout: fixed; }
+    #fbTable thead th { position: relative; overflow: hidden; white-space: nowrap; }
+    #fbTable thead th .col-resize { position: absolute; right: 0; top: 0; width: 5px; height: 100%; cursor: col-resize; z-index: 2; }
+    #fbTable thead th .col-resize:hover, #fbTable thead th .col-resize.dragging { background: var(--accent); opacity: 0.5; }
+    .col-wrap { white-space: normal; word-break: break-word; }
     tbody tr { border-bottom: 1px solid var(--border); }
     tbody tr:hover { background: var(--trow); }
     tbody td { padding: 0.55rem 0.75rem; vertical-align: middle; }
@@ -92,7 +98,7 @@
     <div style="display:flex;align-items:center;gap:10px">
       <img src="/static/egeria-logo.png" alt="Egeria" style="height:24px">
       <div>
-        <div class="title" id="adminTitle">Egeria Environment · Admin</div>
+        <div class="title" id="adminTitle">Egeria Freshstart Demo Sandbox · Admin</div>
         <div class="subtitle">Management Console</div>
       </div>
     </div>
@@ -131,6 +137,7 @@
       <div class="stat-card"><div class="num" id="fbTotal">—</div><div class="label">Total</div></div>
       <div class="stat-card"><div class="num" id="fbNew">—</div><div class="label">New</div></div>
       <div class="stat-card"><div class="num" id="fbWantsResp">—</div><div class="label">Wants response</div></div>
+      <div class="stat-card"><div class="num" id="fbAvgRating">—</div><div class="label">Avg rating</div></div>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
       <select id="fbFilterStatus" onchange="loadFeedback()" style="padding:4px 8px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:0.82rem">
@@ -282,6 +289,7 @@
       document.getElementById('fbTotal').textContent     = s.total    != null ? s.total    : '—';
       document.getElementById('fbNew').textContent       = s.new      != null ? s.new      : '—';
       document.getElementById('fbWantsResp').textContent = s.wants_response != null ? s.wants_response : '—';
+      document.getElementById('fbAvgRating').textContent = s.avg_rating     != null ? '★ ' + s.avg_rating : '—';
     }).catch(function() {});
     fetch('/api/demo-feedback' + qs).then(function(r) { return r.json(); }).then(function(rows) {
       var tbody = document.getElementById('fbBody');
@@ -292,16 +300,15 @@
       tbody.innerHTML = rows.map(function(r) {
         var time = r.created_at ? r.created_at.slice(0,16).replace('T',' ') : '—';
         var stars = r.rating ? '★'.repeat(r.rating) : '—';
-        var msg   = r.message ? (r.message.length > 60 ? r.message.slice(0,60) + '…' : r.message) : '—';
         var statusBadge = { new: 'badge-ok', triaged: 'badge-admin', actioned: 'badge-user' }[r.triage_status] || 'badge-user';
         return '<tr>' +
           '<td style="white-space:nowrap">' + time + '</td>' +
           '<td>' + esc(r.user_id || '—') + '</td>' +
           '<td><span style="font-size:0.72rem">' + esc(r.env || '—') + '</span></td>' +
-          '<td style="font-size:0.72rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(r.page || '—') + '</td>' +
+          '<td class="col-wrap" style="font-size:0.72rem">' + esc(r.page || '—') + '</td>' +
           '<td style="color:#f59e0b">' + stars + '</td>' +
           '<td>' + esc(r.category || '—') + '</td>' +
-          '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.message || '') + '">' + esc(msg) + '</td>' +
+          '<td class="col-wrap">' + esc(r.message || '—') + '</td>' +
           '<td>' + (r.wants_response ? '✓' : '') + '</td>' +
           '<td><span class="badge ' + statusBadge + '">' + esc(r.triage_status || '—') + '</span></td>' +
           '<td><select onchange="triageFeedback(\'' + r.id + '\',this.value)" style="padding:2px 4px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;font-size:0.72rem">' +
@@ -327,6 +334,32 @@
   function esc(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
+
+  // ── Resizable columns (feedback table) ────────────────────────────────────
+  function makeResizable(tableId, colWidths) {
+    var table = document.getElementById(tableId);
+    if (!table || table._resizeDone) return;
+    table._resizeDone = true;
+    var ths = table.querySelectorAll('thead th');
+    ths.forEach(function(th, i) {
+      if (colWidths && colWidths[i]) th.style.width = colWidths[i];
+      var handle = document.createElement('div');
+      handle.className = 'col-resize';
+      th.appendChild(handle);
+      handle.addEventListener('mousedown', function(e) {
+        handle.classList.add('dragging');
+        var startX = e.pageX, startW = th.offsetWidth;
+        function onMove(e) { if (startW + e.pageX - startX > 30) th.style.width = (startW + e.pageX - startX) + 'px'; }
+        function onUp()   { handle.classList.remove('dragging'); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+        e.preventDefault();
+      });
+    });
+  }
+
+  // Feedback table columns: Time, User, Env, Page, Rating, Category, Message, Resp?, Status, Actions
+  makeResizable('fbTable', ['110px','110px','90px','120px','60px','80px','220px','50px','80px','90px']);
 
   function statusBadge(status) {
     if (!status) return '<span class="badge badge-active">active</span>';
