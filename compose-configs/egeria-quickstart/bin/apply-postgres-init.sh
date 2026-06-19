@@ -15,7 +15,10 @@ INIT_SQL="${SQL_DIR}/init_egeria.sql"
 PGHOST="${PGHOST:-localhost}"
 PGPORT="${PGPORT:-5442}"
 PGUSER="${PGUSER:-egeria_admin}"
-PGPASSWORD="${PGPASSWORD:-admin4egeria}"
+# Exported so the local-psql branch of psql_cmd() (used when the host has psql
+# installed) picks it up via libpq instead of prompting interactively. The
+# default matches the egeria_admin role created by the postgres init SQL.
+export PGPASSWORD="${PGPASSWORD:-admin4egeria}"
 PGDATABASE="${PGDATABASE:-postgres}"
 
 MIGRATION_ID="egeria-quickstart-init-egeria-v1"
