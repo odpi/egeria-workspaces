@@ -13,6 +13,7 @@ Consumed by the type-explorer UI and can be called directly.
 """
 
 import os
+from egeria_auth import apply_token
 from pathlib import Path
 from typing import Optional
 
@@ -47,7 +48,7 @@ def _get_client(url: str, server: str, user_id: str, user_pwd: str) -> ValidMeta
     logger.debug(f"Initializing ValidMetadataManager with url={url}, server={server}, user_id={user_id}")
     try:
         c = ValidMetadataManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
-        c.create_egeria_bearer_token()
+        apply_token(c)
         return c
     except Exception as e:
         logger.error(f"Failed to initialize ValidMetadataManager: {e}")

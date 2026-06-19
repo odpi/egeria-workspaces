@@ -31,6 +31,7 @@ Performance notes (qs-view-server, pyegeria 6.0.14.6):
 """
 
 import os
+from egeria_auth import apply_token
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from typing import Optional
 
@@ -55,7 +56,7 @@ def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
     user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
     mgr = CollectionManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
-    mgr.create_egeria_bearer_token()
+    apply_token(mgr)
     return mgr
 
 

@@ -135,6 +135,10 @@ class MCPTokenMiddleware:
         await self.app(scope, receive, send)
 
 app.add_middleware(MCPTokenMiddleware)
+# Stash any X-Egeria-Token request header into a contextvar so token-capable
+# handlers (apply_token) reuse a pre-obtained bearer token (LE-4).
+from egeria_auth import EgeriaTokenMiddleware
+app.add_middleware(EgeriaTokenMiddleware)
 app.add_middleware(SlowAPIMiddleware)
 
 # CORS configuration for Obsidian security
