@@ -354,6 +354,16 @@ async def register_page():
 
 @app.get("/admin", include_in_schema=False)
 async def admin_page(request: Request):
+    if SERVER_MANAGED_AUTH and not DEMO_MODE:
+        # Freshstart: Egeria-backed admin (manages Egeria users). Require a
+        # logged-in user; the /api/admin/* endpoints enforce admin themselves.
+        from demo_auth_handler import get_current_user
+        if not get_current_user(request):
+            return RedirectResponse(url="/login", status_code=302)
+        html_path = SCRIPT_DIR / "demo-admin.html"
+        if not html_path.exists():
+            raise HTTPException(status_code=404, detail="Admin page not found")
+        return FileResponse(str(html_path), media_type="text/html")
     if not DEMO_MODE:
         html_path = SCRIPT_DIR / "local-admin.html"
         if not html_path.exists():
@@ -369,6 +379,28 @@ async def admin_page(request: Request):
     html_path = SCRIPT_DIR / "demo-admin.html"
     if not html_path.exists():
         raise HTTPException(status_code=404, detail="Admin page not found")
+    return FileResponse(str(html_path), media_type="text/html")
+
+
+@app.get("/profile", include_in_schema=False)
+async def profile_page(request: Request):
+    # Self-service "My Profile" page. Requires a logged-in user in demo /
+    # server-managed modes; pure local-quickstart has no per-user profile.
+    if not _LOGIN_REQUIRED:
+        return RedirectResponse(url="/egeria-explorer")
+    from demo_auth_handler import get_current_user
+    if DEMO_MODE:
+        from demo_db import get_engine
+        from sqlalchemy.orm import Session
+        with Session(get_engine()) as db:
+            user = get_current_user(request, db)
+    else:
+        user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+    html_path = SCRIPT_DIR / "demo-profile.html"
+    if not html_path.exists():
+        raise HTTPException(status_code=404, detail="Profile page not found")
     return FileResponse(str(html_path), media_type="text/html")
 
 
