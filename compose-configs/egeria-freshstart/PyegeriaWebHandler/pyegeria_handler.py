@@ -346,6 +346,10 @@ async def login_page():
 async def register_page():
     if not _LOGIN_REQUIRED:
         return RedirectResponse(url="/egeria-explorer")
+    if SERVER_MANAGED_AUTH and not DEMO_MODE:
+        # Freshstart: no self-registration — accounts are created by an admin via
+        # the Egeria user admin. Send would-be registrants to the login page.
+        return RedirectResponse(url="/login")
     html_path = SCRIPT_DIR / "demo-register.html"
     if not html_path.exists():
         raise HTTPException(status_code=404, detail="Register page not found")
