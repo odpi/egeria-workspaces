@@ -96,6 +96,7 @@ QUICKSTART_IMAGES=(
   egeria-quickstart-pyegeria-web:latest
   egeria-quickstart-jupyter:local
   egeria-quickstart-apache-web:latest
+  egeria-quickstart-my-profile:local
 )
 FRESHSTART_IMAGES=(
   egeria-freshstart-platform:local
