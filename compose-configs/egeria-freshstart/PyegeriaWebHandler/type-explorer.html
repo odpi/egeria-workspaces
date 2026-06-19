@@ -2678,7 +2678,10 @@ function GlossaryFolderDetail({ folder }) {
           )
         )
       )
-    )
+    ),
+    // A CollectionFolder is a Collection — surface its context/anchored graphs
+    // (lazy-loaded by guid) so folders behave like collections elsewhere.
+    React.createElement(MermaidSection, { guid: folder.guid })
   );
 }
 
@@ -2710,7 +2713,7 @@ function GlossaryDetail({ glossary }) {
   );
 }
 
-function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign }) {
+function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign, onNavigateToElement }) {
   if (!term) return null;
   const fields = [
     ['Qualified Name', term.qualifiedName],
@@ -2770,6 +2773,10 @@ function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign }) 
           items.map(function(item) {
             var isDD   = DD_TYPES[item.typeName];
             var isTerm = !item.typeName || item.typeName === 'GlossaryTerm';
+            // Any other related element (e.g. CollectionFolder, GovernanceActionProcess
+            // under the semantic-assignment / Meaning groups) gets a generic link via
+            // the central dispatcher when it knows how to route the type.
+            var isGeneric = !isTerm && !isDD && onNavigateToElement && _elementIsLinkable(item);
             return React.createElement("div", {
               key: item.guid,
               style: { display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0', borderTop: '1px solid var(--border)' }
@@ -2777,8 +2784,9 @@ function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign }) 
               React.createElement("span", { style: { flex: 1, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: item.qualifiedName || item.guid },
                 item.displayName || item.qualifiedName || item.guid),
               item.typeName && !isTerm && React.createElement("span", { style: { fontSize: 10, color: 'var(--dim)', flexShrink: 0 } }, item.typeName),
-              isTerm  && onNavigateToTerm        && React.createElement("button", { onClick: function() { onNavigateToTerm(item.guid); },                          style: relBtnStyle }, "View →"),
-              isDD    && onNavigateToDataDesign  && React.createElement("button", { onClick: function() { onNavigateToDataDesign(item.typeName, item.guid); },     style: ddBtnStyle  }, "View in Data Design →")
+              isTerm    && onNavigateToTerm        && React.createElement("button", { onClick: function() { onNavigateToTerm(item.guid); },                          style: relBtnStyle }, "View →"),
+              isDD      && onNavigateToDataDesign  && React.createElement("button", { onClick: function() { onNavigateToDataDesign(item.typeName, item.guid); },     style: ddBtnStyle  }, "View in Data Design →"),
+              isGeneric                            && React.createElement("button", { onClick: function() { onNavigateToElement(item); },                            style: relBtnStyle }, "View →")
             );
           })
         );
@@ -2788,8 +2796,17 @@ function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign }) 
   );
 }
 
-function GlossaryView({ navGuid, onNavigateToDataDesign }) {
+// One term row in the glossary tree (leaf), indented by depth.
+// GlossaryTermRow + GlossaryTreeNode now live in /static/egeria-shared-ui.js
+// (shared with the Tech Catalog). The tree node takes a fetchJson(path) prop;
+// GlossaryView supplies one below.
+
+function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
+  // Auth wrapper handed to the shared GlossaryTreeNode for lazy child loads.
+  const fetchJson = React.useCallback(function(path) {
+    return fetch(credAppend(path, creds)).then(function(r) { return r.ok ? r.json() : {}; });
+  }, [creds]);
   const [sideW, onDivDown] = useResizable(254);
   const [glossaryState, setGlossaryState] = useState('loading');
   const [glossaryAttempt, setGlossaryAttempt] = useState(0);
@@ -2815,6 +2832,13 @@ function GlossaryView({ navGuid, onNavigateToDataDesign }) {
   const [searchError, setSearchError] = useState('');
 
   const [selectedItem, setSelectedItem] = useState(null);
+  // The selected node object (folder or term) — carried so nested tree items
+  // resolve without being present in the flat top-level scope arrays.
+  const [selectedData, setSelectedData] = useState(null);
+  const selectItem = useCallback(function(obj, isFolder) {
+    setSelectedItem(obj.guid);
+    setSelectedData(Object.assign({}, obj, { isFolder: !!isFolder }));
+  }, []);
   const [termDetail, setTermDetail] = useState(null);
   const [termDetailState, setTermDetailState] = useState('idle');
   const [filterText, setFilterText] = useState('');
@@ -2859,6 +2883,7 @@ function GlossaryView({ navGuid, onNavigateToDataDesign }) {
     setFolders([]);
     setTerms([]);
     setSelectedItem(null);
+    setSelectedData(null);
     setTermDetail(null);
     setTermDetailState('idle');
     setFilterText('');
@@ -2935,14 +2960,13 @@ function GlossaryView({ navGuid, onNavigateToDataDesign }) {
   const selectedObj = useMemo(() => {
     // Cross-navigation target takes priority when it matches selectedItem
     if (navTerm && selectedItem === navTerm.guid) return navTerm;
-    const pool = isSearchMode ? filteredSearchTerms : [...folders.map(f => ({...f, isFolder: true})), ...filteredTerms];
-    return selectedItem ? pool.find(x => x.guid === selectedItem) || null : null;
-  }, [selectedItem, isSearchMode, filteredSearchTerms, folders, filteredTerms, navTerm]);
+    return selectedData;  // the clicked folder/term object (carries isFolder)
+  }, [selectedItem, selectedData, navTerm]);
 
   // Lazy-fetch full term detail whenever a term is selected
   useEffect(() => {
     if (!selectedItem) { setTermDetail(null); setTermDetailState('idle'); return; }
-    if (folders.find(f => f.guid === selectedItem)) { setTermDetail(null); setTermDetailState('idle'); return; }
+    if (selectedData && selectedData.isFolder) { setTermDetail(null); setTermDetailState('idle'); return; }
     // Reuse navTerm if it already matches (avoids duplicate fetch)
     if (navTerm && navTerm.guid === selectedItem) { setTermDetail(navTerm); setTermDetailState('ready'); return; }
     setTermDetail(null);
@@ -2951,7 +2975,7 @@ function GlossaryView({ navGuid, onNavigateToDataDesign }) {
       .then(r => r.ok ? r.json() : null)
       .then(data => { setTermDetail(data || null); setTermDetailState(data ? 'ready' : 'error'); })
       .catch(() => setTermDetailState('error'));
-  }, [selectedItem, navTerm, folders]);
+  }, [selectedItem, selectedData, navTerm]);
 
   const navigateToTerm = useCallback(function(guid) {
     setSelectedItem(guid);
@@ -3003,14 +3027,8 @@ function GlossaryView({ navGuid, onNavigateToDataDesign }) {
     React.createElement("div", { style: { width: 300, flexShrink: 0, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
       // Header
       React.createElement("div", { style: { padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 5 } },
-        // Breadcrumb (glossary mode only)
-        !isSearchMode && React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', fontSize: 11 } },
-          React.createElement("span", { style: { cursor: 'pointer', color: folderStack.length > 0 ? 'var(--accent)' : 'var(--dim)', fontWeight: 600 }, onClick: () => navigateTo(-1) }, selectedGlossaryName || 'Glossary'),
-          folderStack.map((f, i) => [
-            React.createElement("span", { key: 'sep' + i, style: { color: 'var(--dim)' } }, "›"),
-            React.createElement("span", { key: 'f' + i, style: { cursor: 'pointer', color: i === folderStack.length - 1 ? 'var(--dim)' : 'var(--accent)', fontWeight: i === folderStack.length - 1 ? 600 : 400 }, onClick: () => navigateTo(i) }, f.displayName)
-          ])
-        ),
+        // Glossary name (folders are now expandable inline in the tree below)
+        !isSearchMode && React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', fontWeight: 600 } }, selectedGlossaryName || 'Glossary'),
         React.createElement("div", { style: { fontWeight: 600, fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, middleCounts),
         isSearchMode
           ? React.createElement("form", { onSubmit: e => { e.preventDefault(); runSearch(searchInputValue); }, style: { display: 'flex', gap: 4 } },
@@ -3026,39 +3044,13 @@ function GlossaryView({ navGuid, onNavigateToDataDesign }) {
       middleError && React.createElement("div", { style: { padding: 10, color: 'var(--muted)', fontSize: 12 } }, "Error: " + middleError),
       React.createElement("div", { className: "tree-scroll" },
         isSearchMode
-          // All-Terms search results
-          ? filteredSearchTerms.map(t => React.createElement("div", {
-              key: t.guid, className: "tree-item" + (selectedItem === t.guid ? " sel" : ""),
-              onClick: () => setSelectedItem(t.guid), title: t.qualifiedName || t.guid,
-            },
-              React.createElement("div", { style: { flex: 1, minWidth: 0 } },
-                React.createElement("div", { className: "type-name" }, t.displayName || t.qualifiedName || t.guid),
-                t.qualifiedName && React.createElement("div", { style: { fontSize: 10, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, t.qualifiedName)
-              ),
-              t.isTemplateSubstitute && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(245,158,11,.12)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.35)', flexShrink: 0 } }, "template")
-            ))
-          // Glossary/folder scope: folders first, then terms
-          : [
-              ...folders.map(f => React.createElement("div", {
-                key: f.guid, className: "tree-item" + (selectedItem === f.guid ? " sel" : ""),
-                title: f.description || f.qualifiedName,
-                style: { display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' },
-              },
-                React.createElement("span", { style: { fontSize: 12, cursor: 'pointer', color: 'var(--dim)' }, onClick: () => openFolder(f) }, "📁"),
-                React.createElement("span", { className: "type-name", style: { flex: 1 }, onClick: () => setSelectedItem(f.guid) }, f.displayName || f.qualifiedName || f.guid),
-                React.createElement("span", { style: { fontSize: 18, padding: '0 4px', cursor: 'pointer', color: 'var(--accent)', lineHeight: 1 }, title: "Open folder", onClick: () => openFolder(f) }, "›")
-              )),
-              ...filteredTerms.map(t => React.createElement("div", {
-                key: t.guid, className: "tree-item" + (selectedItem === t.guid ? " sel" : ""),
-                onClick: () => setSelectedItem(t.guid), title: t.qualifiedName || t.guid,
-              },
-                React.createElement("div", { style: { flex: 1, minWidth: 0 } },
-                  React.createElement("div", { className: "type-name" }, t.displayName || t.qualifiedName || t.guid),
-                  t.qualifiedName && React.createElement("div", { style: { fontSize: 10, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, t.qualifiedName)
-                ),
-                t.isTemplateSubstitute && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(245,158,11,.12)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.35)', flexShrink: 0 } }, "template")
-              ))
-            ]
+          // All-Terms search results (flat)
+          ? filteredSearchTerms.map(function(t) { return React.createElement(GlossaryTermRow, { key: t.guid, term: t, depth: 0, selected: selectedItem, onSelect: selectItem }); })
+          // Glossary scope: expandable folder tree, then top-level terms
+          : React.createElement(React.Fragment, null,
+              folders.map(function(f) { return React.createElement(GlossaryTreeNode, { key: f.guid, folder: f, depth: 0, selected: selectedItem, onSelect: selectItem, showTemplates: showTemplates, fetchJson: fetchJson }); }),
+              filteredTerms.map(function(t) { return React.createElement(GlossaryTermRow, { key: t.guid, term: t, depth: 0, selected: selectedItem, onSelect: selectItem }); })
+            )
       )
     ),
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
@@ -3069,7 +3061,7 @@ function GlossaryView({ navGuid, onNavigateToDataDesign }) {
         : termDetailState === 'loading'
           ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "Loading term…"))
           : termDetail
-            ? React.createElement(GlossaryTermDetail, { term: termDetail, onNavigateToTerm: navigateToTerm, onNavigateToDataDesign: onNavigateToDataDesign })
+            ? React.createElement(GlossaryTermDetail, { term: termDetail, onNavigateToTerm: navigateToTerm, onNavigateToDataDesign: onNavigateToDataDesign, onNavigateToElement: onNavigateToElement })
             : !isSearchMode && selectedGlossary && !selectedItem
               ? React.createElement(GlossaryDetail, { glossary: glossaries.find(g => g.guid === selectedGlossary) || null })
               : React.createElement("div", { className: "center" },
@@ -5501,7 +5493,7 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
 
 // ── Perspectives & Questions ───────────────────────────────────────────────────
 
-function PerspectivesView({ onNavigateToGlossary, onNavigateToElement }) {
+function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(260);
   const [subNav, setSubNav]   = useState('perspectives');
@@ -5535,6 +5527,11 @@ function PerspectivesView({ onNavigateToGlossary, onNavigateToElement }) {
       .then(data => { setPerspList(data.perspectives || []); setPerspState('ready'); })
       .catch(() => setPerspState('error'));
   }, []);
+
+  // Cross-tab arrival: another tab called onNavigateToPerspective(guid) — select it.
+  useEffect(() => {
+    if (navGuid) { setSubNav('perspectives'); setFilter(''); setSelectedPersp(navGuid); }
+  }, [navGuid]);
 
   // Load questions lazily (first time Questions sub-nav is activated)
   useEffect(() => {
@@ -6342,6 +6339,11 @@ function _elementIsLinkable(item) {
   if (item.typeName === 'InformationSupplyChain') return true;
   if (item.typeName === 'SolutionComponent' || superTypes.indexOf('SolutionComponent') !== -1) return true;
   if (item.typeName === 'SolutionBlueprint' || superTypes.indexOf('SolutionBlueprint') !== -1) return true;
+  if (item.typeName === 'Perspective') return true;
+  // Explicit subtype checks so linkability does not depend on superTypeNames being
+  // present on the relationship item (some serializers omit them).
+  if (item.typeName === 'CollectionFolder') return true;
+  if (item.typeName === 'GovernanceActionProcess') return true;
   if (DD_TYPES_SET[item.typeName]) return true;
   if (_actorKindForType(item.typeName, superTypes)) return true;
   if (superTypes.indexOf('GovernanceDefinition') !== -1) return true;
@@ -8851,6 +8853,12 @@ function App() {
     setSection('solution-architect');
   }, []);
 
+  const [perspectiveNav, setPerspectiveNav] = useState(null);
+  const onNavigateToPerspective = useCallback(function(guid) {
+    setPerspectiveNav(guid || null);
+    setSection('perspectives');
+  }, []);
+
   // Single dispatcher used by RelatedElementRow everywhere: decides the target
   // tab purely from the related element's typeName/superTypeNames. Adding a
   // new linkable type only requires a new branch here.
@@ -8868,6 +8876,10 @@ function App() {
     if (typeName === 'SolutionComponent' || superTypes.indexOf('SolutionComponent') !== -1) { onNavigateToSolutionComponent(guid); return; }
     if (DD_TYPES_SET[typeName]) { onNavigateToDataDesign(typeName, guid); return; }
     if (typeName === 'DigitalProduct') { onNavigateToDigitalProduct(guid); return; }
+    if (typeName === 'Perspective') { onNavigateToPerspective(guid); return; }
+    // Explicit subtype routing — fires even when the item omits superTypeNames.
+    if (typeName === 'CollectionFolder') { onNavigateToDigitalProduct(guid); return; }
+    if (typeName === 'GovernanceActionProcess') { onNavigateToGovernance(typeName, guid); return; }
     var actorKind = _actorKindForType(typeName, superTypes);
     if (actorKind) { onNavigateToActor(actorKind, guid); return; }
     if (superTypes.indexOf('GovernanceDefinition') !== -1) { onNavigateToGovernance(typeName, guid); return; }
@@ -8878,7 +8890,7 @@ function App() {
     // "↗ Tech Catalog" link, for callers that route everything through this
     // single dispatcher instead of rendering that link separately).
     if (superTypes.indexOf('Asset') !== -1) { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
-  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDataDesign]);
+  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDataDesign, onNavigateToPerspective]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254);
 
@@ -9058,7 +9070,7 @@ function App() {
       : section === 'report-specs'
       ? React.createElement(ReportSpecView, { key: credsKey })
       : section === 'glossary'
-      ? React.createElement(GlossaryView, { key: credsKey, navGuid: glossaryNavGuid, onNavigateToDataDesign: onNavigateToDataDesign })
+      ? React.createElement(GlossaryView, { key: credsKey, navGuid: glossaryNavGuid, onNavigateToDataDesign: onNavigateToDataDesign, onNavigateToElement: onNavigateToElement })
       : section === 'reference-data'
       ? React.createElement(ReferenceDataView, { key: credsKey, navGuid: referenceDataNavGuid })
       : section === 'digital-products'
@@ -9074,7 +9086,7 @@ function App() {
       : section === 'data-design'
       ? React.createElement(DataDesignView, { key: credsKey, navGuid: dataDesignNav.guid, navType: dataDesignNav.type, onNavigateToGlossary: onNavigateToGlossary, onNavigateToDigitalProduct: onNavigateToDigitalProduct })
       : section === 'perspectives'
-      ? React.createElement(PerspectivesView, { key: credsKey, onNavigateToGlossary: onNavigateToGlossary, onNavigateToElement: onNavigateToElement })
+      ? React.createElement(PerspectivesView, { key: credsKey, navGuid: perspectiveNav, onNavigateToGlossary: onNavigateToGlossary, onNavigateToElement: onNavigateToElement })
       : section === 'dr-egeria'
       ? React.createElement(DrEgeriaCommandsView, null)
       : section === 'isc'

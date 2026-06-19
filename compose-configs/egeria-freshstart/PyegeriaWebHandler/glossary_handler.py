@@ -45,6 +45,10 @@ def _type_name(element: dict) -> str:
     return (_header(element).get("type") or {}).get("typeName", "") or ""
 
 
+def _super_type_names(element: dict) -> list:
+    return (_header(element).get("type") or {}).get("superTypeNames", []) or []
+
+
 # Semantic relationship keys returned by pyegeria on GlossaryTerm at graph_query_depth>=1.
 _TERM_REL_KEYS = [
     ("synonyms",       "Synonyms"),
@@ -97,6 +101,7 @@ def _related_elements(raw_list: list) -> list:
                 "displayName":   rp.get("displayName") or rp.get("name") or "",
                 "qualifiedName": rp.get("qualifiedName") or "",
                 "typeName":      (rh.get("type") or {}).get("typeName") or "",
+                "superTypeNames": (rh.get("type") or {}).get("superTypeNames") or [],
             })
     return result
 
@@ -123,6 +128,7 @@ def _serialize_folder(element: dict) -> dict:
     return {
         "guid":            header.get("guid", ""),
         "typeName":        _type_name(element),
+        "superTypeNames":  _super_type_names(element),
         "displayName":     props.get("displayName", "") or props.get("name", "") or "",
         "qualifiedName":   props.get("qualifiedName", "") or "",
         "description":     props.get("description", "") or "",
