@@ -4627,9 +4627,8 @@ function ValidValuesView({ navProp }) {
 // ── Resizable column splitter ─────────────────────────────────────────────────
 
 
-function ResizeDivider({ onMouseDown }) {
-  return React.createElement('div', { className: 'col-divider', onMouseDown: onMouseDown });
-}
+// ResizeDivider now lives in /static/egeria-shared-ui.js (uses the .col-divider
+// CSS class defined below).
 
 // ── REST API Explorer ─────────────────────────────────────────────────────────
 

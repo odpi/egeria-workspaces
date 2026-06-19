@@ -327,3 +327,11 @@ function renderMd(text) {
   if (els.length === 1) return els[0];
   return React.createElement('div', null, ...els);
 }
+
+/* ResizeDivider — drag handle for resizable side panes (shared by both SPAs).
+ * Uses the .col-divider CSS class (defined identically in both SPAs: a 5px
+ * hit area with a 1px ::after line that turns --accent on hover). Pair with
+ * useResizable for the width state. */
+function ResizeDivider({ onMouseDown }) {
+  return React.createElement('div', { className: 'col-divider', onMouseDown: onMouseDown });
+}
