@@ -633,7 +633,7 @@ function DiagramPanel({ fetchUrl, label, buttonLabel, field }) {
     if (code === null && !loading) {
       setLoading(true);
       setVisible(true);
-      fetch(credAppend(fetchUrl, creds))
+      egeriaFetch(fetchUrl, creds)
         .then(function(r) { return r.ok ? r.json() : null; })
         .then(function(data) {
           var val = data && (data.graphs && data.graphs[readField]) ? data.graphs[readField]
@@ -2734,7 +2734,7 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
   const creds = React.useContext(CredContext);
   // Auth wrapper handed to the shared GlossaryTreeNode for lazy child loads.
   const fetchJson = React.useCallback(function(path) {
-    return fetch(credAppend(path, creds)).then(function(r) { return r.ok ? r.json() : {}; });
+    return egeriaFetch(path, creds).then(function(r) { return r.ok ? r.json() : {}; });
   }, [creds]);
   const [sideW, onDivDown] = useResizable(254);
   const [glossaryState, setGlossaryState] = useState('loading');
@@ -2777,7 +2777,7 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
   // Fetch term when cross-navigated from Digital Products
   useEffect(() => {
     if (!navGuid) { setNavTerm(null); return; }
-    fetch(credAppend('/api/glossary/term/' + encodeURIComponent(navGuid), creds))
+    egeriaFetch('/api/glossary/term/' + encodeURIComponent(navGuid), creds)
       .then(function(r) { return r.ok ? r.json() : null; })
       .then(function(data) { if (data) { setNavTerm(data); setSelectedItem(data.guid); } })
       .catch(function() {});
@@ -2793,7 +2793,7 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
   useEffect(() => {
     setGlossaryState('loading');
     setGlossaryError('');
-    fetch(credAppend('/api/glossary', creds))
+    egeriaFetch('/api/glossary', creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
         const list = (data.glossaries || []).sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
@@ -2817,8 +2817,8 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
     setTermDetailState('idle');
     setFilterText('');
     Promise.all([
-      fetch(credAppend('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/folders', creds)).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
-      fetch(credAppend('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/terms', creds)).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+      egeriaFetch('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/folders', creds).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+      egeriaFetch('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/terms', creds).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
     ])
     .then(([fData, tData]) => {
       setFolders(fData.folders || []);
@@ -2839,7 +2839,7 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
     setSelectedItem(null);
     setTermDetail(null);
     setTermDetailState('idle');
-    fetch(credAppend('/api/glossary-terms?q=' + encodeURIComponent(sq), creds))
+    egeriaFetch('/api/glossary-terms?q=' + encodeURIComponent(sq), creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => { setSearchTerms(data.terms || []); setSearchState('ready'); })
       .catch(err => { setSearchError(err.message); setSearchState('idle'); });
@@ -2900,7 +2900,7 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
     if (navTerm && navTerm.guid === selectedItem) { setTermDetail(navTerm); setTermDetailState('ready'); return; }
     setTermDetail(null);
     setTermDetailState('loading');
-    fetch(credAppend('/api/glossary/term/' + encodeURIComponent(selectedItem), creds))
+    egeriaFetch('/api/glossary/term/' + encodeURIComponent(selectedItem), creds)
       .then(r => r.ok ? r.json() : null)
       .then(data => { setTermDetail(data || null); setTermDetailState(data ? 'ready' : 'error'); })
       .catch(() => setTermDetailState('error'));
@@ -3103,7 +3103,7 @@ function ReferenceDataView({ navGuid }) {
   useEffect(function() {
     setLoadState('loading');
     setError('');
-    fetch(credAppend('/api/reference-data?page_size=500', creds))
+    egeriaFetch('/api/reference-data?page_size=500', creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) {
         const list = data.definitions || [];
@@ -3582,7 +3582,7 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
   useEffect(() => {
     setCatState('loading');
     setCatError('');
-    fetch(credAppend('/api/digital-products/catalogs', creds))
+    egeriaFetch('/api/digital-products/catalogs', creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
         const list = (data.catalogs || []).slice().sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
@@ -3600,7 +3600,7 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
     setTreeError('');
     setTreeData(null);
     if (!navGuidRef.current) { setSelectedNode(null); setSelectedNodeObj(null); }
-    fetch(credAppend('/api/digital-products/catalogs/' + encodeURIComponent(selectedCat) + '/tree', creds))
+    egeriaFetch('/api/digital-products/catalogs/' + encodeURIComponent(selectedCat) + '/tree', creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
         setTreeData(data);
@@ -3629,7 +3629,7 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
   // Fetch full detail (including relationships) for the selected node
   useEffect(() => {
     if (!selectedNode) { setNodeDetail(null); return; }
-    fetch(credAppend('/api/digital-products/' + encodeURIComponent(selectedNode), creds))
+    egeriaFetch('/api/digital-products/' + encodeURIComponent(selectedNode), creds)
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data) setNodeDetail(data); })
       .catch(() => {});
@@ -3732,7 +3732,7 @@ function CollectionsView({ onNavigateToElement }) {
   // Load root collections on mount
   useEffect(() => {
     setRootState('loading'); setRootError('');
-    fetch(credAppend('/api/collections/roots', creds))
+    egeriaFetch('/api/collections/roots', creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
         const list = (data.roots || []).slice().sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
@@ -3748,7 +3748,7 @@ function CollectionsView({ onNavigateToElement }) {
     if (!selectedRoot) return;
     setTreeState('loading'); setTreeError(''); setTreeData(null);
     setSelectedNode(null); setSelectedNodeObj(null);
-    fetch(credAppend('/api/collections/' + encodeURIComponent(selectedRoot) + '/tree', creds))
+    egeriaFetch('/api/collections/' + encodeURIComponent(selectedRoot) + '/tree', creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => { setTreeData(data); setTreeState('ready'); setExpanded(new Set()); })
       .catch(err => { setTreeError(err.message); setTreeState('error'); });
@@ -3769,7 +3769,7 @@ function CollectionsView({ onNavigateToElement }) {
   // Fetch full detail (members + relationships) for the selected node
   useEffect(() => {
     if (!selectedNode) { setNodeDetail(null); return; }
-    fetch(credAppend('/api/collections/' + encodeURIComponent(selectedNode), creds))
+    egeriaFetch('/api/collections/' + encodeURIComponent(selectedNode), creds)
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data) setNodeDetail(data); })
       .catch(() => {});
@@ -4538,7 +4538,7 @@ function ValidValuesView({ navProp }) {
   useEffect(() => {
     setPropsState('loading');
     setPropsError('');
-    fetch(credAppend('/api/valid-values/properties', creds))
+    egeriaFetch('/api/valid-values/properties', creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
         if (data && Array.isArray(data.properties)) {
@@ -4559,7 +4559,7 @@ function ValidValuesView({ navProp }) {
     setLoadState('loading');
     setError('');
     setValues([]);
-    fetch(credAppend('/api/valid-values/lookup?property_name=' + encodeURIComponent(p), creds))
+    egeriaFetch('/api/valid-values/lookup?property_name=' + encodeURIComponent(p), creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
         const sorted = (data.values || []).slice().sort((a, b) => {
@@ -4677,14 +4677,14 @@ function RestApiView() {
   function loadOpenApi() {
     setApiLoading(true);
     setApiError('');
-    fetch(credAppend('/api/rest-apis', creds))
+    egeriaFetch('/api/rest-apis', creds)
       .then(function(r) { return r.json(); })
       .then(function(d) { setOpenapi(d); setApiLoading(false); })
       .catch(function(e) { setApiError(String(e)); setApiLoading(false); });
   }
 
   function refreshOpenApi() {
-    fetch(credAppend('/api/rest-apis/refresh', creds), { method: 'POST' })
+    egeriaFetch('/api/rest-apis/refresh', creds, { method: 'POST' })
       .then(function() { loadOpenApi(); });
   }
 
@@ -5077,7 +5077,7 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
 
   function loadItems(nav) {
     updateList(nav, { st: 'loading' });
-    fetch(credAppend('/api/data-design/' + nav, creds))
+    egeriaFetch('/api/data-design/' + nav, creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(d) { updateList(nav, { st: 'ready', items: d[nav] || [] }); })
       .catch(function(err) { updateList(nav, { st: 'error', items: [], error: err.message }); });
@@ -5087,7 +5087,7 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
     setSelGuid(guid);
     setDetailSt('loading');
     setDetail(null);
-    fetch(credAppend('/api/data-design/' + nav + '/' + guid, creds))
+    egeriaFetch('/api/data-design/' + nav + '/' + guid, creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(d) { setDetail(d); setDetailSt('ready'); })
       .catch(function() { setDetailSt('error'); });
@@ -5339,7 +5339,7 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
   function loadImplementations() {
     if (implState !== 'idle') return;
     setImplState('loading');
-    fetch(credAppend('/api/solution/components/' + component.guid + '/implementations', creds))
+    egeriaFetch('/api/solution/components/' + component.guid + '/implementations', creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => { setImplementations(data.implementations || []); setImplState('done'); })
       .catch(() => setImplState('error'));
@@ -5450,7 +5450,7 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
   // Load perspectives on mount
   useEffect(() => {
     setPerspState('loading');
-    fetch(credAppend('/api/perspectives', creds))
+    egeriaFetch('/api/perspectives', creds)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => { setPerspList(data.perspectives || []); setPerspState('ready'); })
       .catch(() => setPerspState('error'));
@@ -5465,7 +5465,7 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
   useEffect(() => {
     if (subNav !== 'questions' || qState !== 'idle') return;
     setQState('loading');
-    fetch(credAppend('/api/questions', creds))
+    egeriaFetch('/api/questions', creds)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => { setQList(data.questions || []); setQState('ready'); })
       .catch(() => setQState('error'));
@@ -5475,7 +5475,7 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
   useEffect(() => {
     if (!selectedPersp) { setPerspDetail(null); return; }
     setPerspDetailState('loading');
-    fetch(credAppend('/api/perspectives/' + encodeURIComponent(selectedPersp), creds))
+    egeriaFetch('/api/perspectives/' + encodeURIComponent(selectedPersp), creds)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => { setPerspDetail(data); setPerspDetailState('ready'); })
       .catch(() => setPerspDetailState('error'));
@@ -5485,7 +5485,7 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
   useEffect(() => {
     if (!selectedQ) { setQDetail(null); return; }
     setQDetailState('loading');
-    fetch(credAppend('/api/questions/' + encodeURIComponent(selectedQ), creds))
+    egeriaFetch('/api/questions/' + encodeURIComponent(selectedQ), creds)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => { setQDetail(data); setQDetailState('ready'); })
       .catch(() => setQDetailState('error'));
@@ -6155,7 +6155,7 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
 
   useEffect(function() {
     setState('loading'); setError('');
-    fetch(credAppend('/api/isc', creds))
+    egeriaFetch('/api/isc', creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setItems(data.supply_chains || []); setState('ready'); })
       .catch(function(e) { setError(e.message); setState('error'); });
@@ -6164,7 +6164,7 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
   useEffect(function() {
     if (!selected) { setDetail(null); return; }
     setDetailState('loading');
-    fetch(credAppend('/api/isc/' + selected, creds))
+    egeriaFetch('/api/isc/' + selected, creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setDetail(data); setDetailState('ready'); })
       .catch(function() { setDetailState('error'); });
@@ -6453,7 +6453,7 @@ function LocationsView({ navGuid, onNavigateToElement }) {
 
   useEffect(function() {
     setState('loading'); setError('');
-    fetch(credAppend('/api/locations', creds))
+    egeriaFetch('/api/locations', creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setItems(data.locations || []); setState('ready'); })
       .catch(function(e) { setError(e.message); setState('error'); });
@@ -6462,7 +6462,7 @@ function LocationsView({ navGuid, onNavigateToElement }) {
   useEffect(function() {
     if (!selected) { setDetail(null); return; }
     setDetailState('loading');
-    fetch(credAppend('/api/locations/' + selected, creds))
+    egeriaFetch('/api/locations/' + selected, creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setDetail(data); setDetailState('ready'); })
       .catch(function() { setDetailState('error'); });
@@ -6728,7 +6728,7 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
     if (!cfg || state[subNav] === 'ready' || state[subNav] === 'loading') return;
     setState(function(s) { return Object.assign({}, s, { [subNav]: 'loading' }); });
     setError(function(s) { return Object.assign({}, s, { [subNav]: '' }); });
-    fetch(credAppend(cfg.list, creds))
+    egeriaFetch(cfg.list, creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) {
         setItems(function(s) { return Object.assign({}, s, { [subNav]: data[cfg.key] || [] }); });
@@ -6753,7 +6753,7 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
     var cfg = ACTOR_SUBNAV[subNav];
     if (!curSelected || !cfg) { setDetail(null); return; }
     setDetailState('loading');
-    fetch(credAppend(cfg.list + '/' + curSelected, creds))
+    egeriaFetch(cfg.list + '/' + curSelected, creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setDetail(data); setDetailState('ready'); })
       .catch(function() { setDetailState('error'); });
@@ -6903,7 +6903,7 @@ function CommunityView({ navGuid, onNavigateToElement }) {
 
   useEffect(function() {
     setState('loading'); setError('');
-    fetch(credAppend('/api/communities', creds))
+    egeriaFetch('/api/communities', creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setItems(data.communities || []); setState('ready'); })
       .catch(function(e) { setError(e.message); setState('error'); });
@@ -6912,7 +6912,7 @@ function CommunityView({ navGuid, onNavigateToElement }) {
   useEffect(function() {
     if (!selected) { setDetail(null); return; }
     setDetailState('loading');
-    fetch(credAppend('/api/communities/' + selected, creds))
+    egeriaFetch('/api/communities/' + selected, creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setDetail(data); setDetailState('ready'); })
       .catch(function() { setDetailState('error'); });
@@ -7155,7 +7155,7 @@ function NoteLogView({ navGuid, onNavigateToElement }) {
 
   useEffect(function() {
     setState('loading'); setError('');
-    fetch(credAppend('/api/notelogs', creds))
+    egeriaFetch('/api/notelogs', creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setItems(data.notelogs || []); setState('ready'); })
       .catch(function(e) { setError(e.message); setState('error'); });
@@ -7164,7 +7164,7 @@ function NoteLogView({ navGuid, onNavigateToElement }) {
   useEffect(function() {
     if (!selected) { setDetail(null); return; }
     setDetailState('loading');
-    fetch(credAppend('/api/notelogs/' + selected, creds))
+    egeriaFetch('/api/notelogs/' + selected, creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setDetail(data); setDetailState('ready'); })
       .catch(function() { setDetailState('error'); });
@@ -7269,7 +7269,7 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   // Load blueprints
   useEffect(function() {
     setBpState('loading'); setBpError('');
-    fetch(credAppend('/api/solution/blueprints', creds))
+    egeriaFetch('/api/solution/blueprints', creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setBlueprints(data.blueprints || []); setBpState('ready'); })
       .catch(function(e) { setBpError(e.message); setBpState('error'); });
@@ -7278,7 +7278,7 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   // Load blueprint→folio grouping
   useEffect(function() {
     setBpFoliosState('loading');
-    fetch(credAppend('/api/solution/blueprints/folios', creds))
+    egeriaFetch('/api/solution/blueprints/folios', creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setBpFolios(data); setBpFoliosState('ready'); })
       .catch(function() { setBpFoliosState('error'); });
@@ -7288,7 +7288,7 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   useEffect(function() {
     if (subNav !== 'components' || compState !== 'idle') return;
     setCompState('loading'); setCompError('');
-    fetch(credAppend('/api/solution/components', creds))
+    egeriaFetch('/api/solution/components', creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setComponents(data.components || []); setCompState('ready'); })
       .catch(function(e) { setCompError(e.message); setCompState('error'); });
@@ -7298,7 +7298,7 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   useEffect(function() {
     if (subNav !== 'components') return;
     setCompTreeState('loading');
-    fetch(credAppend('/api/solution/components/tree', creds))
+    egeriaFetch('/api/solution/components/tree', creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setCompTree(data.roots || []); setCompTreeState('ready'); })
       .catch(function() { setCompTreeState('error'); });
@@ -7312,7 +7312,7 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   useEffect(function() {
     if (!selectedBp) { setBpDetail(null); return; }
     setBpDetailState('loading');
-    fetch(credAppend('/api/solution/blueprints/' + selectedBp, creds))
+    egeriaFetch('/api/solution/blueprints/' + selectedBp, creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setBpDetail(data); setBpDetailState('ready'); })
       .catch(function() { setBpDetailState('error'); });
@@ -7322,7 +7322,7 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   useEffect(function() {
     if (!selectedComp) { setCompDetail(null); return; }
     setCompDetailState('loading');
-    fetch(credAppend('/api/solution/components/' + selectedComp, creds))
+    egeriaFetch('/api/solution/components/' + selectedComp, creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setCompDetail(data); setCompDetailState('ready'); })
       .catch(function() { setCompDetailState('error'); });
@@ -7645,7 +7645,7 @@ function ProjectsView() {
 
   React.useEffect(function() {
     setState('loading');
-    fetch(credAppend('/api/projects?start_from=0&page_size=500', creds))
+    egeriaFetch('/api/projects?start_from=0&page_size=500', creds)
       .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function(data) {
         setProjects(data.projects || []);
@@ -7656,7 +7656,7 @@ function ProjectsView() {
 
   React.useEffect(function() {
     setProjTreeState('loading');
-    fetch(credAppend('/api/projects/tree', creds))
+    egeriaFetch('/api/projects/tree', creds)
       .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function(data) { setProjTree(data.roots || []); setProjTreeState('ready'); })
       .catch(function() { setProjTreeState('error'); });
@@ -7664,7 +7664,7 @@ function ProjectsView() {
 
   React.useEffect(function() {
     setDepTreeState('loading');
-    fetch(credAppend('/api/projects/dependencies', creds))
+    egeriaFetch('/api/projects/dependencies', creds)
       .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function(data) { setDepTree(data.roots || []); setDepTreeState('ready'); })
       .catch(function() { setDepTreeState('error'); });
@@ -7677,7 +7677,7 @@ function ProjectsView() {
   React.useEffect(function() {
     if (!selected) { setDetail(null); return; }
     setDetailState('loading');
-    fetch(credAppend('/api/projects/' + encodeURIComponent(selected.guid), creds))
+    egeriaFetch('/api/projects/' + encodeURIComponent(selected.guid), creds)
       .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function(data) { setDetail(data); setDetailState('ready'); })
       .catch(function(e) { setDetailState('error'); });
@@ -7980,7 +7980,7 @@ function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
 
   // Load governance domain options from valid metadata values
   useEffect(function() {
-    fetch(credAppend('/api/valid-values/lookup?property_name=domainIdentifier', creds))
+    egeriaFetch('/api/valid-values/lookup?property_name=domainIdentifier', creds)
       .then(function(r) { return r.ok ? r.json() : null; })
       .then(function(d) {
         if (!d || !Array.isArray(d.values) || !d.values.length) { setDomainOptions([]); return; }
@@ -8007,7 +8007,7 @@ function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
 
   // Load type tree once
   useEffect(function() {
-    fetch(credAppend('/api/governance/tree', creds))
+    egeriaFetch('/api/governance/tree', creds)
       .then(function(r) { return r.json(); })
       .then(function(d) {
         setTypeTree(d);
@@ -8025,7 +8025,7 @@ function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
     setListState('loading'); setListError('');
     const params = new URLSearchParams({ type_name: selType, page_size: '200' });
     if (search) params.set('search_string', search);
-    fetch(credAppend('/api/governance/definitions?' + params.toString(), creds))
+    egeriaFetch('/api/governance/definitions?' + params.toString(), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(d) { setDefinitions(d.definitions || []); setListState('ready'); })
       .catch(function(e) { setListError(e.message); setListState('error'); });
@@ -8044,7 +8044,7 @@ function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
   useEffect(function() {
     if (!selGuid) { setDetail(null); return; }
     setDetailLoading(true);
-    fetch(credAppend('/api/governance/definitions/' + encodeURIComponent(selGuid), creds))
+    egeriaFetch('/api/governance/definitions/' + encodeURIComponent(selGuid), creds)
       .then(function(r) { return r.ok ? r.json() : null; })
       .then(function(d) {
         setDetail(d);
@@ -8673,13 +8673,54 @@ function App() {
   const [credsKey, setCredsKey] = useState(0);
   // Bumped to retry the type-system fetch with the latest credentials (used after credential fixes).
   const [typeAttempt, setTypeAttempt] = useState(0);
-  const saveCreds = useCallback(function(c) {
-    setCreds(c);
-    setConnected(true);
-    setCredsKey(function(k) { return k + 1; });
-    setTypeAttempt(function(t) { return t + 1; });
-    try { localStorage.setItem('egeria-creds', JSON.stringify(c)); } catch(e) {}
+  // Exchange the current credentials for a short-lived Egeria bearer token so
+  // egeriaFetch can send it as X-Egeria-Token (LE-4). The password travels only
+  // in this POST body, never in a URL. Falls back to the unchanged creds on
+  // failure (the backend then uses its env service account).
+  const acquireToken = useCallback(function(c) {
+    // Only the explicit "browse as a specific user + password" case needs a
+    // token. Blank/persona/server-managed creds keep their existing auth path
+    // (env service account or portal JWT) — never mint a service-account token.
+    if (!c || !c.password) return Promise.resolve(c);
+    return fetch('/api/egeria-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url:      c.url      || undefined,
+        server:   c.server   || undefined,
+        user_id:  c.userId   || undefined,
+        password: c.password || undefined
+      })
+    }).then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(t) { return (t && t.token) ? Object.assign({}, c, { token: t.token }) : c; })
+      .catch(function() { return c; });
   }, []);
+
+  const saveCreds = useCallback(function(c) {
+    acquireToken(c).then(function(withTok) {
+      setCreds(withTok);
+      setConnected(true);
+      setCredsKey(function(k) { return k + 1; });
+      setTypeAttempt(function(t) { return t + 1; });
+      // Persist identity only — never the short-lived bearer token.
+      try { localStorage.setItem('egeria-creds', JSON.stringify({ url: withTok.url, server: withTok.server, userId: withTok.userId, password: withTok.password })); } catch(e) {}
+    });
+  }, [acquireToken]);
+
+  // On load (and whenever the identity changes) ensure we hold a token. The
+  // token field changing does not re-trigger this (guarded), avoiding loops.
+  useEffect(function() {
+    if (creds.token) return;
+    acquireToken(creds).then(function(withTok) { if (withTok.token) setCreds(withTok); });
+  }, [creds.url, creds.server, creds.userId, creds.password]);
+
+  // Let egeriaFetch refresh an expired token on a 401 and retry once.
+  useEffect(function() {
+    _tokenRefresher.refresh = function(oldCreds) {
+      return acquireToken(oldCreds).then(function(withTok) { setCreds(withTok); return withTok; });
+    };
+    return function() { _tokenRefresher.refresh = null; };
+  }, [acquireToken]);
 
   const [loadState, setLoadState] = useState('loading');
   const [error, setError]         = useState('');
@@ -8825,7 +8866,7 @@ function App() {
   // Fetch type data; re-runs when typeAttempt changes (triggered by saveCreds) so a credential fix retries.
   useEffect(() => {
     setLoadState('loading');
-    fetch(credAppend('/api/types', creds)).then(r => {
+    egeriaFetch('/api/types', creds).then(r => {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json();
     }).then(data => {
