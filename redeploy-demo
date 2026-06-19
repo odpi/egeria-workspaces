@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# redeploy-demo — full teardown and rebuild of the quickstart demo environment.
+#
+# Stops all quickstart containers, removes locally-built images, optionally
+# pulls the latest code, then restarts in demo mode with a platform refresh.
+# Shared-infra (Kafka, Postgres, proxy) is left running unless --infra is passed.
+#
+# Usage:
+#   ./redeploy-demo              # full rebuild, git pull, restart --demo
+#   ./redeploy-demo --no-pull    # same but skip git pull (use local changes)
+#   ./redeploy-demo --infra      # also cycle shared-infra containers + images
+set -euo pipefail
+cd "$(dirname "$0")"
+
+source compose-configs/shared-infra/detect-engine.sh
+source compose-configs/shared-infra/compose-build-flags.sh
+
+print_usage() {
+  cat <<'EOF'
+Usage: ./redeploy-demo [OPTIONS]
+
+Tears down the quickstart demo stack, removes all locally-built images,
+and restarts in demo mode with a forced platform refresh.
+
+Options:
+  --no-pull   Skip git pull (use current local files)
+  --infra     Also cycle shared-infra containers and images
+  -h, --help  Show this help text
+EOF
+}
+
+SKIP_PULL=0
+REFRESH_INFRA=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --no-pull)  SKIP_PULL=1;     shift ;;
+    --infra)    REFRESH_INFRA=1; shift ;;
+    -h|--help)  print_usage; exit 0 ;;
+    *) echo "[redeploy-demo] Unknown option: $1" >&2; print_usage >&2; exit 1 ;;
+  esac
+done
+
+# ── 1. Bring down the quickstart stack ────────────────────────────────────────
+
+echo "[redeploy-demo] Stopping quickstart containers..."
+if [[ "$CONTAINER_ENGINE" == "podman" ]]; then
+  # podman-compose down can block — force-remove by container name pattern
+  containers=$($CONTAINER_ENGINE ps -a --format '{{.Names}}' \
+                | grep -E "^quickstart-|^obsidian-quickstart" || true)
+  if [[ -n "$containers" ]]; then
+    # shellcheck disable=SC2086
+    $CONTAINER_ENGINE rm -f $containers >/dev/null 2>&1 || true
+    echo "[redeploy-demo]   Removed: $(echo "$containers" | tr '\n' ' ')"
+  else
+    echo "[redeploy-demo]   No quickstart containers running."
+  fi
+else
+  $COMPOSE_CMD -p egeria-quickstart \
+    -f compose-configs/egeria-quickstart/egeria-quickstart.yaml \
+    down --remove-orphans 2>/dev/null || true
+fi
+
+if [[ "$REFRESH_INFRA" -eq 1 ]]; then
+  echo "[redeploy-demo] Stopping shared-infra containers..."
+  if [[ "$CONTAINER_ENGINE" == "podman" ]]; then
+    containers=$($CONTAINER_ENGINE ps -a --format '{{.Names}}' \
+                  | grep -E "^egeria-shared-" || true)
+    if [[ -n "$containers" ]]; then
+      # shellcheck disable=SC2086
+      $CONTAINER_ENGINE rm -f $containers >/dev/null 2>&1 || true
+    fi
+  else
+    $COMPOSE_CMD -p egeria-shared-infra \
+      -f compose-configs/shared-infra/shared-infra.yaml \
+      down --remove-orphans 2>/dev/null || true
+  fi
+fi
+
+# ── 2. Remove locally-built images ────────────────────────────────────────────
+
+remove_image() {
+  local img="$1"
+  if $CONTAINER_ENGINE image inspect "$img" >/dev/null 2>&1; then
+    $CONTAINER_ENGINE rmi "$img" && echo "[redeploy-demo]   Removed $img" || \
+      echo "[redeploy-demo]   WARNING: could not remove $img" >&2
+  fi
+}
+
+echo "[redeploy-demo] Removing locally-built quickstart images..."
+for img in \
+  egeria-quickstart-platform:local \
+  egeria-quickstart-pyegeria-web:latest \
+  egeria-quickstart-jupyter:local \
+  egeria-quickstart-apache-web:latest \
+  egeria-quickstart-my-profile:local
+do
+  remove_image "$img"
+done
+
+if [[ "$REFRESH_INFRA" -eq 1 ]]; then
+  echo "[redeploy-demo] Removing shared-infra images..."
+  remove_image "egeria-shared-infra-proxy:latest"
+fi
+
+# ── 3. Pull latest code ───────────────────────────────────────────────────────
+
+if [[ "$SKIP_PULL" -eq 1 ]]; then
+  echo "[redeploy-demo] Skipping git pull (--no-pull)."
+else
+  echo "[redeploy-demo] Pulling latest egeria-workspaces..."
+  git pull
+fi
+
+# ── 4. Restart in demo mode with platform refresh ─────────────────────────────
+
+echo "[redeploy-demo] Starting demo environment (platform refresh + demo mode)..."
+./quick-start-local --demo --refresh-platform
