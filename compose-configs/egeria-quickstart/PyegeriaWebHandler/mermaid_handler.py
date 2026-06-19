@@ -10,6 +10,7 @@ Endpoints:
 """
 
 import os
+from egeria_auth import apply_token
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
@@ -28,7 +29,7 @@ def _get_classifier(url=None, server=None, user_id=None, user_pwd=None):
     user_id = user_id or os.environ.get("EGERIA_USER",          "erinoverview")
     user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
     mgr = ClassificationExplorer(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
-    mgr.create_egeria_bearer_token()
+    apply_token(mgr)
     return mgr
 
 
@@ -42,7 +43,7 @@ def _get_expert(url=None, server=None, user_id=None, user_pwd=None):
     user_id = user_id or os.environ.get("EGERIA_USER",          "erinoverview")
     user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
     mgr = MetadataExpert(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
-    mgr.create_egeria_bearer_token()
+    apply_token(mgr)
     return mgr
 
 
