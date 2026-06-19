@@ -405,6 +405,8 @@ def get_me(request: Request):
         "authenticated": True,
         "demo_mode": DEMO_MODE,
         "server_managed_auth": SERVER_MANAGED_AUTH,
+        # "id" is what the SPAs read (matches quickstart's get_me); keep user_id too.
+        "id": user.user_id,
         "user_id": user.user_id,
         "display_name": user.display_name,
         "role": user.role,

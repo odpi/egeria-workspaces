@@ -327,3 +327,44 @@ function renderMd(text) {
   if (els.length === 1) return els[0];
   return React.createElement('div', null, ...els);
 }
+
+/* ResizeDivider — drag handle for resizable side panes (shared by both SPAs).
+ * Uses the .col-divider CSS class (defined identically in both SPAs: a 5px
+ * hit area with a 1px ::after line that turns --accent on hover). Pair with
+ * useResizable for the width state. */
+function ResizeDivider({ onMouseDown }) {
+  return React.createElement('div', { className: 'col-divider', onMouseDown: onMouseDown });
+}
+
+/* ── Token-aware fetch (shared by Egeria Explorer + Tech Catalog) ────────────
+ * egeriaFetch passes url/server/user_id as (non-secret) query params and the
+ * Egeria bearer token as the X-Egeria-Token header — never user_pwd in the URL.
+ * On HTTP 401 it refreshes the token once via the callback an App registers in
+ * _tokenRefresher.refresh, then retries. Each SPA registers its own refresher. */
+var _tokenRefresher = { refresh: null };
+
+function egeriaFetch(url, creds, opts) {
+  var _isRetry = !!(opts && opts._isRetry);
+  var headers = Object.assign({}, (opts && opts.headers) || {});
+  var queryUrl = url;
+  if (creds) {
+    var p = new URLSearchParams();
+    if (creds.url)    p.set('url',     creds.url);
+    if (creds.server) p.set('server',  creds.server);
+    if (creds.userId) p.set('user_id', creds.userId);
+    if (creds.token)  headers['X-Egeria-Token'] = creds.token;
+    var qs = p.toString();
+    if (qs) queryUrl = url + (url.indexOf('?') === -1 ? '?' : '&') + qs;
+  }
+  var mergedOpts = Object.assign({}, opts || {});
+  delete mergedOpts._isRetry;
+  mergedOpts.headers = headers;
+  return fetch(queryUrl, mergedOpts).then(function(r) {
+    if (r.status === 401 && !_isRetry && _tokenRefresher.refresh && creds && creds.userId) {
+      return _tokenRefresher.refresh(creds).then(function(newCreds) {
+        return egeriaFetch(url, newCreds, Object.assign({}, opts || {}, { _isRetry: true }));
+      }).catch(function() { return r; });
+    }
+    return r;
+  });
+}

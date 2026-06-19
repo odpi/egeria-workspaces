@@ -14,6 +14,7 @@ Endpoints:
 """
 
 import os
+from egeria_auth import apply_token
 import time
 from typing import Optional
 
@@ -43,7 +44,7 @@ def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     user_id = user_id or os.environ.get("EGERIA_USER",          "erinoverview")
     user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
     mgr = CollectionManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
-    mgr.create_egeria_bearer_token()
+    apply_token(mgr)
     return mgr
 
 
@@ -350,7 +351,7 @@ def get_node(
         try:
             from pyegeria import AssetMaker
             am = AssetMaker(view_server=svr_val, platform_url=url_val, user_id=uid, user_pwd=pwd)
-            am.create_egeria_bearer_token()
+            apply_token(am)
             raw = am.get_asset_by_guid(node_guid, output_format="JSON")
         except Exception as exc:
             logger.exception("AssetMaker.get_asset_by_guid failed")
@@ -397,7 +398,7 @@ def get_tabular_data(
         uid         = user_id or os.environ.get("EGERIA_USER",          "erinoverview")
         pwd         = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
         de = DataEngineer(view_server=server_val, platform_url=url_val, user_id=uid, user_pwd=pwd)
-        de.create_egeria_bearer_token()
+        apply_token(de)
     except Exception as exc:
         logger.exception("Failed to create DataEngineer")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")

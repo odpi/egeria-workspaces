@@ -28,71 +28,67 @@
     .panel { display: none; }
     .panel.active { display: block; }
     .section-title { font-size: 0.9rem; font-weight: 600; margin-bottom: 1rem; color: var(--text); }
-    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; table-layout: fixed; }
-    thead th { text-align: left; padding: 0.5rem 0.75rem; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 500; position: relative; overflow: hidden; white-space: nowrap; }
-    thead th .col-resize { position: absolute; right: 0; top: 0; width: 5px; height: 100%; cursor: col-resize; z-index: 2; }
-    thead th .col-resize:hover, thead th .col-resize.dragging { background: var(--accent); opacity: 0.5; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    thead th { text-align: left; padding: 0.5rem 0.75rem; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 500; }
+    /* Resizable columns — scoped to the feedback table so other tables are unaffected. */
+    #fbTable { table-layout: fixed; }
+    #fbTable thead th { position: relative; overflow: hidden; white-space: nowrap; }
+    #fbTable thead th .col-resize { position: absolute; right: 0; top: 0; width: 5px; height: 100%; cursor: col-resize; z-index: 2; }
+    #fbTable thead th .col-resize:hover, #fbTable thead th .col-resize.dragging { background: var(--accent); opacity: 0.5; }
     .col-wrap { white-space: normal; word-break: break-word; }
     tbody tr { border-bottom: 1px solid var(--border); }
     tbody tr:hover { background: var(--trow); }
     tbody td { padding: 0.55rem 0.75rem; vertical-align: middle; }
     .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.73rem; font-weight: 600; }
-    .badge-admin { background: rgba(99,102,241,0.2); color: #a5b4fc; }
-    .badge-user { background: rgba(139,143,168,0.15); color: var(--muted); }
-    .badge-ok { background: rgba(52,211,153,0.15); color: var(--success); }
-    .badge-no { background: rgba(248,113,113,0.12); color: var(--error); }
+    .badge-active  { background: rgba(52,211,153,0.15);  color: var(--success); }
+    .badge-expired { background: rgba(251,191,36,0.15);  color: var(--warn); }
+    .badge-disabled{ background: rgba(248,113,113,0.12); color: var(--error); }
     .btn-xs { padding: 0.25rem 0.6rem; font-size: 0.72rem; border-radius: 4px; cursor: pointer; border: 1px solid var(--border); background: var(--bg); color: var(--text); transition: all 0.1s; }
     .btn-xs:hover { background: var(--accent-dim); border-color: var(--accent); }
     .btn-xs.danger:hover { background: rgba(248,113,113,0.15); border-color: var(--error); color: var(--error); }
     .msg-banner { padding: 0.6rem 0.9rem; border-radius: 6px; font-size: 0.82rem; margin-bottom: 1rem; display: none; }
-    .msg-banner.error { background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.35); color: var(--error); }
-    .msg-banner.success { background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.35); color: var(--success); }
+    .msg-banner.error   { background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.35); color: var(--error); }
+    .msg-banner.success { background: rgba(52,211,153,0.12);  border: 1px solid rgba(52,211,153,0.35);  color: var(--success); }
     .config-table { width: 100%; border-collapse: collapse; }
     .config-table tr { border-bottom: 1px solid var(--border); }
     .config-table td { padding: 0.6rem 0.75rem; font-size: 0.83rem; vertical-align: middle; }
     .config-table td:first-child { color: var(--muted); width: 42%; font-family: monospace; }
-    .config-table input { padding: 0.35rem 0.55rem; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 0.82rem; width: 160px; }
+    .config-table input { padding: 0.35rem 0.55rem; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 0.82rem; width: 220px; }
     .config-table input:focus { border-color: var(--accent); outline: none; }
     .empty { color: var(--muted); font-size: 0.84rem; padding: 2rem; text-align: center; }
-    .stats-row { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
-    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; flex: 1; min-width: 140px; }
-    .stat-card .num { font-size: 1.6rem; font-weight: 700; color: var(--accent); }
-    .stat-card .label { font-size: 0.76rem; color: var(--muted); margin-top: 0.25rem; }
     .refresh-btn { float: right; padding: 0.3rem 0.75rem; background: var(--accent-dim); border: 1px solid var(--border); color: var(--text); border-radius: 5px; font-size: 0.78rem; cursor: pointer; }
     .refresh-btn:hover { background: var(--accent); }
-    .reset-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem 1.5rem; margin-bottom: 1.25rem; }
-    .reset-card h3 { font-size: 0.88rem; font-weight: 600; margin-bottom: 0.75rem; }
-    .reset-status-row { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
-    .reset-stat { min-width: 160px; }
-    .reset-stat .label { font-size: 0.74rem; color: var(--muted); margin-bottom: 0.2rem; }
-    .reset-stat .val { font-size: 0.9rem; font-weight: 600; }
-    .state-ready { color: var(--success); }
-    .state-resetting { color: var(--warn); }
-    .schedule-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.5rem; }
-    select.interval-sel { padding: 0.35rem 0.55rem; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 0.82rem; }
-    select.interval-sel:focus { border-color: var(--accent); outline: none; }
-    .btn-primary { padding: 0.4rem 1rem; background: var(--accent); border: none; border-radius: 5px; color: #fff; font-size: 0.82rem; cursor: pointer; }
-    .btn-primary:hover { background: var(--accent-hover); }
-    .btn-danger { padding: 0.4rem 1rem; background: rgba(248,113,113,0.15); border: 1px solid var(--error); border-radius: 5px; color: var(--error); font-size: 0.82rem; cursor: pointer; }
-    .btn-danger:hover { background: rgba(248,113,113,0.3); }
-    .btn-danger:disabled { opacity: 0.4; cursor: not-allowed; }
-    .reset-note { font-size: 0.78rem; color: var(--muted); margin-top: 0.6rem; line-height: 1.5; }
-    .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--muted); border-top-color: var(--warn); border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 4px; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    /* Obsidian lock panel */
-    .obs-state-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
-    .obs-state-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; flex: 1; min-width: 140px; }
-    .obs-state-card .label { font-size: 0.74rem; color: var(--muted); margin-bottom: 0.25rem; }
-    .obs-state-card .val   { font-size: 0.95rem; font-weight: 600; }
-    .state-FREE   { color: var(--success); }
-    .state-IN_USE { color: #64b5f6; }
-    .state-ADMIN_IN_USE { color: #a5b4fc; }
-    .state-STUCK  { color: var(--warn); }
-    .obs-form-row { display: flex; gap: 0.6rem; align-items: flex-end; flex-wrap: wrap; margin-top: 0.75rem; }
-    .obs-form-row label { font-size: 0.78rem; color: var(--muted); display: flex; flex-direction: column; gap: 0.25rem; }
-    .obs-form-row input, .obs-form-row select { padding: 0.35rem 0.55rem; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 0.82rem; }
-    .obs-form-row input:focus, .obs-form-row select:focus { border-color: var(--accent); outline: none; }
-    .obs-actions-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.75rem; }
+    .create-btn { padding: 0.35rem 0.9rem; background: var(--accent); color: #fff; border: none; border-radius: 5px; font-size: 0.8rem; font-weight: 600; cursor: pointer; margin-bottom: 1rem; }
+    .create-btn:hover { background: var(--accent-hover); }
+
+    /* Modal */
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 100; }
+    .overlay.open { display: flex; }
+    .modal { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1.75rem 1.5rem; width: 100%; max-width: 540px; max-height: 90vh; overflow-y: auto; }
+    .modal-title { font-size: 1rem; font-weight: 700; margin-bottom: 1.25rem; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .form-group { margin-bottom: 0.85rem; }
+    .form-group label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 0.3rem; }
+    .form-group input::placeholder { font-style: italic; opacity: 0.6; }
+    .form-group input, .form-group select { width: 100%; padding: 0.5rem 0.65rem; background: var(--bg); border: 1px solid var(--border); border-radius: 5px; color: var(--text); font-size: 0.85rem; outline: none; }
+    .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+    .checkbox-list { height: 120px; overflow-y: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 5px; padding: 0.3rem 0.5rem; }
+    .checkbox-list label { display: block; padding: 0.2rem 0; font-size: 0.82rem; cursor: pointer; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .checkbox-list label:hover { color: var(--accent); }
+    .checkbox-list input[type="checkbox"] { width: auto; accent-color: var(--accent); cursor: pointer; margin-right: 0.3rem; vertical-align: middle; }
+    .form-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.25rem; }
+    .btn-cancel { padding: 0.5rem 1rem; background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 5px; cursor: pointer; font-size: 0.85rem; }
+    .btn-cancel:hover { border-color: var(--text); color: var(--text); }
+    .btn-save { padding: 0.5rem 1.25rem; background: var(--accent); color: #fff; border: none; border-radius: 5px; cursor: pointer; font-size: 0.85rem; font-weight: 600; }
+    .btn-save:hover { background: var(--accent-hover); }
+    .btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+    .modal-msg { margin-top: 0.75rem; padding: 0.5rem 0.65rem; border-radius: 5px; font-size: 0.8rem; display: none; }
+    .modal-msg.error   { background: rgba(248,113,113,0.12); color: var(--error); border: 1px solid rgba(248,113,113,0.35); }
+    .modal-msg.success { background: rgba(52,211,153,0.12);  color: var(--success); border: 1px solid rgba(52,211,153,0.35); }
+    .pw-reveal { position: relative; }
+    .pw-reveal input { padding-right: 2.2rem; }
+    .pw-reveal .eye { position: absolute; right: 0.6rem; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--muted); font-size: 0.85rem; user-select: none; }
+    .divider { height: 1px; background: var(--border); margin: 1rem 0; }
   </style>
 </head>
 <body>
@@ -101,53 +97,35 @@
   <div>
     <div style="display:flex;align-items:center;gap:10px">
       <img src="/static/egeria-logo.png" alt="Egeria" style="height:24px">
-      <img src="/static/pdr-logo.png"    alt="PDR"    style="height:24px">
       <div>
-        <div class="title">Egeria Freshstart Demo Sandbox · Admin</div>
-        <div class="subtitle">Coco Pharmaceuticals · Management Console</div>
+        <div class="title" id="adminTitle">Egeria Freshstart Demo Sandbox · Admin</div>
+        <div class="subtitle">Management Console</div>
       </div>
     </div>
   </div>
   <div class="spacer"></div>
   <span class="user" id="adminName"></span>
-  <a href="/egeria-explorer" class="btn-sm">Explorer ↗</a>
+  <a href="/portal" class="btn-sm">Portal ↗</a>
   <a href="#" class="btn-sm" onclick="doLogout()">Sign Out</a>
 </div>
 
 <div class="tabs">
-  <div class="tab active" onclick="showTab('users')">Users</div>
-  <div class="tab" onclick="showTab('events')">Events</div>
+  <div class="tab active" onclick="showTab('egeria-users')">Egeria Users</div>
   <div class="tab" onclick="showTab('feedback')">Feedback</div>
   <div class="tab" onclick="showTab('config')">Config</div>
-  <div class="tab" onclick="showTab('reset')">Reset</div>
-  <div class="tab" onclick="showTab('obsidian')">Obsidian</div>
 </div>
 
 <div class="content">
   <div class="msg-banner" id="globalMsg"></div>
 
-  <!-- Users panel -->
-  <div class="panel active" id="panel-users">
-    <button class="refresh-btn" onclick="loadUsers()">↻ Refresh</button>
-    <div class="section-title">Registered Users</div>
-    <div class="stats-row">
-      <div class="stat-card"><div class="num" id="statTotal">—</div><div class="label">Total users</div></div>
-      <div class="stat-card"><div class="num" id="statVerified">—</div><div class="label">Verified</div></div>
-      <div class="stat-card"><div class="num" id="statAdmins">—</div><div class="label">Admins</div></div>
-    </div>
-    <table id="usersTable">
-      <thead><tr><th>Name</th><th>Email</th><th>Org</th><th>Role</th><th>Verified</th><th>Last Login</th><th>Actions</th></tr></thead>
-      <tbody id="usersBody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
-    </table>
-  </div>
-
-  <!-- Events panel -->
-  <div class="panel" id="panel-events">
-    <button class="refresh-btn" onclick="loadEvents()">↻ Refresh</button>
-    <div class="section-title">Recent Events</div>
-    <table>
-      <thead><tr><th>Time</th><th>User ID</th><th>Event</th><th>Detail</th></tr></thead>
-      <tbody id="eventsBody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+  <!-- Egeria Users panel -->
+  <div class="panel active" id="panel-egeria-users">
+    <button class="refresh-btn" onclick="loadEgeriaUsers()">↻ Refresh</button>
+    <div class="section-title">Egeria User Accounts</div>
+    <button class="create-btn" onclick="openCreateModal()">+ Create User</button>
+    <table id="egeriaUsersTable">
+      <thead><tr><th>User ID</th><th>Display Name</th><th>Type</th><th>Status</th><th>Roles</th><th>Actions</th></tr></thead>
+      <tbody id="egeriaUsersBody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
     </table>
   </div>
 
@@ -176,163 +154,131 @@
       </select>
     </div>
     <table id="fbTable">
-      <thead><tr><th>Time</th><th>User</th><th>Email</th><th>Env</th><th>Page</th><th>Rating</th><th>Category</th><th>Message</th><th>Resp?</th><th>Status</th><th>Actions</th></tr></thead>
-      <tbody id="fbBody"><tr><td colspan="11" class="empty">Loading…</td></tr></tbody>
+      <thead><tr><th>Time</th><th>User</th><th>Env</th><th>Page</th><th>Rating</th><th>Category</th><th>Message</th><th>Resp?</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody id="fbBody"><tr><td colspan="10" class="empty">Loading…</td></tr></tbody>
     </table>
-  </div>
-
-  <!-- Reset panel -->
-  <div class="panel" id="panel-reset">
-
-    <!-- Status card -->
-    <div class="reset-card">
-      <h3>Environment Status</h3>
-      <div class="reset-status-row">
-        <div class="reset-stat">
-          <div class="label">State</div>
-          <div class="val" id="resetStateVal">—</div>
-        </div>
-        <div class="reset-stat">
-          <div class="label">Last Reset</div>
-          <div class="val" id="resetLastVal">—</div>
-        </div>
-        <div class="reset-stat">
-          <div class="label">Next Scheduled</div>
-          <div class="val" id="resetNextVal">—</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Schedule card -->
-    <div class="reset-card">
-      <h3>Auto-Reset Schedule</h3>
-      <div class="schedule-row">
-        <label for="intervalSel" style="font-size:0.82rem;color:var(--muted)">Reset every:</label>
-        <select class="interval-sel" id="intervalSel">
-          <option value="0">Disabled</option>
-          <option value="6">6 hours</option>
-          <option value="12">12 hours</option>
-          <option value="24">24 hours</option>
-          <option value="48">48 hours</option>
-          <option value="72">72 hours</option>
-        </select>
-        <button class="btn-primary" onclick="saveSchedule()">Save Schedule</button>
-      </div>
-      <p class="reset-note">The scheduler checks every 5 minutes. A reset restores the Egeria metadata store to its initial Coco Pharmaceuticals state. User accounts are not affected.</p>
-    </div>
-
-    <!-- Force reset card -->
-    <div class="reset-card">
-      <h3>Force Reset Now</h3>
-      <p style="font-size:0.83rem;color:var(--muted);margin-bottom:0.9rem">
-        Immediately stops the Egeria container, drops the metadata store schema, and restarts it.
-        Egeria takes approximately 5 minutes to fully reinitialize after restart.
-        User accounts are <strong style="color:var(--text)">not</strong> affected.
-      </p>
-      <button class="btn-danger" id="forceResetBtn" onclick="forceReset()">Reset Egeria Now</button>
-    </div>
-
-  </div>
-
-  <!-- Obsidian panel -->
-  <div class="panel" id="panel-obsidian">
-    <button class="refresh-btn" onclick="loadObsidian()">↻ Refresh</button>
-    <div class="section-title">Obsidian Session Lock</div>
-
-    <!-- Current status -->
-    <div class="obs-state-row" id="obsStateRow">
-      <div class="obs-state-card"><div class="label">State</div><div class="val" id="obsState">—</div></div>
-      <div class="obs-state-card"><div class="label">Held by</div><div class="val" id="obsHolder">—</div></div>
-      <div class="obs-state-card"><div class="label">Persona</div><div class="val" id="obsPersona">—</div></div>
-      <div class="obs-state-card"><div class="label">Time remaining</div><div class="val" id="obsMins">—</div></div>
-    </div>
-
-    <!-- Admin actions -->
-    <div class="reset-card">
-      <h3>Override Actions</h3>
-      <div class="obs-actions-row">
-        <div style="display:flex;align-items:center;gap:0.5rem">
-          <label for="graceSelect" style="font-size:0.82rem;color:var(--muted)">Grace period:</label>
-          <select class="obs-form-row" id="graceSelect" style="padding:0.35rem 0.55rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:0.82rem">
-            <option value="30">30 seconds</option>
-            <option value="60">1 minute</option>
-            <option value="120">2 minutes</option>
-            <option value="300" selected>5 minutes (default)</option>
-            <option value="600">10 minutes</option>
-          </select>
-        </div>
-        <button class="btn-danger" id="evictBtn" onclick="obsEvict()">Evict current holder</button>
-        <button class="btn-danger" id="unlockBtn" onclick="obsUnlock()">Force unlock</button>
-      </div>
-      <p class="reset-note" style="margin-top:0.6rem">
-        <strong>Evict</strong> starts a grace-period countdown — the holder sees a warning in the portal.
-        <strong>Force unlock</strong> releases the lock immediately (use for stuck sessions).
-      </p>
-    </div>
-
-    <!-- Reservations -->
-    <div class="reset-card">
-      <h3>Reserved Blocks</h3>
-      <table id="obsResTable">
-        <thead><tr><th>Label</th><th>Starts</th><th>Ends</th><th>Created</th><th></th></tr></thead>
-        <tbody id="obsResBody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
-      </table>
-      <div class="obs-form-row" style="margin-top:1rem">
-        <label>Label<input id="resLabel" placeholder="e.g. Product demo — Acme Corp" style="width:220px"></label>
-        <label>Starts<input type="datetime-local" id="resStart"></label>
-        <label>Ends<input type="datetime-local" id="resEnd"></label>
-        <button class="btn-primary" onclick="obsCreateRes()" style="margin-top:1.1rem">Reserve</button>
-      </div>
-    </div>
-
-    <!-- Audit log -->
-    <div class="reset-card">
-      <h3>Recent Lock Events</h3>
-      <table>
-        <thead><tr><th>Time</th><th>Action</th><th>Holder</th><th>Persona</th></tr></thead>
-        <tbody id="obsAuditBody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
-      </table>
-    </div>
   </div>
 
   <!-- Config panel -->
   <div class="panel" id="panel-config">
     <div class="section-title">Runtime Configuration</div>
-    <table class="config-table" id="configTable">
+    <table class="config-table">
       <tbody id="configBody"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody>
     </table>
   </div>
 </div>
 
-<script>
-  var activeTab = 'users';
-  var _resetPollTimer = null;
+<!-- Create / Edit User Modal -->
+<div class="overlay" id="userModal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">Create User</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>User ID *</label>
+        <input type="text" id="mUserId" placeholder="jsmith" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Account Type</label>
+        <select id="mAccountType">
+          <option value="EMPLOYEE">Employee</option>
+          <option value="CONTRACTOR">Contractor</option>
+          <option value="DIGITAL">Digital</option>
+          <option value="EXTERNAL">External</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Display Name</label>
+      <input type="text" id="mUserName" placeholder="Jane Smith">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Given Name</label>
+        <input type="text" id="mGivenName" placeholder="Jane">
+      </div>
+      <div class="form-group">
+        <label>Surname</label>
+        <input type="text" id="mSurname" placeholder="Smith">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Security Roles</label>
+        <div id="mRoles" class="checkbox-list"></div>
+      </div>
+      <div class="form-group">
+        <label>Security Groups</label>
+        <div id="mGroups" class="checkbox-list"></div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Default Zones <span style="color:var(--muted);font-size:0.72rem">(comma-separated)</span></label>
+        <input type="text" id="mDefaultZones" placeholder="general,public">
+      </div>
+      <div class="form-group">
+        <label>Publish Zones <span style="color:var(--muted);font-size:0.72rem">(comma-separated)</span></label>
+        <input type="text" id="mPublishZones" placeholder="general">
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="form-group pw-reveal" id="passwordRow">
+      <label>Temporary Password * <span style="color:var(--muted);font-size:0.72rem">— share with user out of band</span></label>
+      <input type="password" id="mPassword" placeholder="TempPass123!" autocomplete="new-password">
+      <span class="eye" onclick="togglePw()">👁</span>
+    </div>
+    <div class="modal-msg" id="modalMsg"></div>
+    <div class="form-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" id="modalSaveBtn" onclick="saveUser()">Create User</button>
+    </div>
+  </div>
+</div>
 
-  // Verify admin access on load
+<script>
+  var _tabs = ['egeria-users','feedback','config'];
+  var _roles = [];
+  var _groups = [];
+  var _editUserId = null; // null = create mode
+
+  // Auth check on load
   fetch('/api/auth/me').then(r => r.json()).then(function(d) {
-    if (!d.authenticated || d.role !== 'admin') {
-      window.location.href = '/login';
-      return;
-    }
-    document.getElementById('adminName').textContent = d.display_name;
-    loadUsers();
+    if (!d.authenticated || d.role !== 'admin') { window.location.href = '/login'; return; }
+    document.getElementById('adminName').textContent = d.user_id;
+    loadOrgName();
+    loadRolesAndGroups();
+    loadEgeriaUsers();
   });
 
+  function loadOrgName() {
+    fetch('/api/platform/org-name').then(r => r.json()).then(function(d) {
+      if (d.name) document.getElementById('adminTitle').textContent = d.name + ' · Admin';
+    }).catch(() => {});
+  }
+
   function showTab(name) {
-    activeTab = name;
-    document.querySelectorAll('.tab').forEach(function(t, i) {
-      t.classList.toggle('active', ['users','events','feedback','config','reset','obsidian'][i] === name);
+    _tabs.forEach(function(t, i) {
+      document.querySelectorAll('.tab')[i].classList.toggle('active', t === name);
+      document.getElementById('panel-' + t).classList.toggle('active', t === name);
     });
-    document.querySelectorAll('.panel').forEach(function(p) {
-      p.classList.remove('active');
-    });
-    document.getElementById('panel-' + name).classList.add('active');
-    if (name === 'users')    loadUsers();
-    if (name === 'events')   loadEvents();
+    if (name === 'egeria-users') loadEgeriaUsers();
     if (name === 'feedback') loadFeedback();
-    if (name === 'config')   loadConfig();
-    if (name === 'reset')    loadResetStatus();
-    if (name === 'obsidian') loadObsidian();
+    if (name === 'config') loadConfig();
+  }
+
+  function showGlobalMsg(type, text) {
+    var el = document.getElementById('globalMsg');
+    el.className = 'msg-banner ' + type;
+    el.textContent = text;
+    el.style.display = 'block';
+    setTimeout(function() { el.style.display = 'none'; }, 3500);
+  }
+
+  function showModalMsg(type, text) {
+    var el = document.getElementById('modalMsg');
+    el.className = 'modal-msg ' + type;
+    el.textContent = text;
+    el.style.display = 'block';
   }
 
   function loadFeedback() {
@@ -340,15 +286,15 @@
     var env    = document.getElementById('fbFilterEnv').value;
     var qs = '?limit=200' + (status ? '&triage_status=' + status : '') + (env ? '&env=' + env : '');
     fetch('/api/demo-feedback/stats').then(function(r) { return r.json(); }).then(function(s) {
-      document.getElementById('fbTotal').textContent     = s.total          != null ? s.total          : '—';
-      document.getElementById('fbNew').textContent       = s.new            != null ? s.new            : '—';
+      document.getElementById('fbTotal').textContent     = s.total    != null ? s.total    : '—';
+      document.getElementById('fbNew').textContent       = s.new      != null ? s.new      : '—';
       document.getElementById('fbWantsResp').textContent = s.wants_response != null ? s.wants_response : '—';
       document.getElementById('fbAvgRating').textContent = s.avg_rating     != null ? '★ ' + s.avg_rating : '—';
     }).catch(function() {});
     fetch('/api/demo-feedback' + qs).then(function(r) { return r.json(); }).then(function(rows) {
       var tbody = document.getElementById('fbBody');
       if (!Array.isArray(rows) || rows.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="11" class="empty">No submissions.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="empty">No submissions.</td></tr>';
         return;
       }
       tbody.innerHTML = rows.map(function(r) {
@@ -358,7 +304,6 @@
         return '<tr>' +
           '<td style="white-space:nowrap">' + time + '</td>' +
           '<td>' + esc(r.user_id || '—') + '</td>' +
-          '<td style="font-size:0.72rem">' + esc(r.email || '—') + '</td>' +
           '<td><span style="font-size:0.72rem">' + esc(r.env || '—') + '</span></td>' +
           '<td class="col-wrap" style="font-size:0.72rem">' + esc(r.page || '—') + '</td>' +
           '<td style="color:#f59e0b">' + stars + '</td>' +
@@ -373,7 +318,7 @@
         '</tr>';
       }).join('');
     }).catch(function(e) {
-      document.getElementById('fbBody').innerHTML = '<tr><td colspan="11" class="empty">Error: ' + e + '</td></tr>';
+      document.getElementById('fbBody').innerHTML = '<tr><td colspan="10" class="empty">Error: ' + e + '</td></tr>';
     });
   }
 
@@ -383,341 +328,14 @@
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ triage_status: status }),
-    }).then(function() { loadFeedback(); }).catch(function(e) { showGlobalMsg('error', 'Triage failed: ' + e); });
-  }
-
-  function esc(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-
-  function showGlobalMsg(type, text) {
-    var el = document.getElementById('globalMsg');
-    el.className = 'msg-banner ' + type;
-    el.textContent = text;
-    el.style.display = 'block';
-    setTimeout(function() { el.style.display = 'none'; }, 3500);
-  }
-
-  function fmt(iso) {
-    if (!iso) return '—';
-    return new Date(iso).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
-  }
-
-  function loadUsers() {
-    fetch('/api/demo/users').then(r => r.json()).then(function(users) {
-      if (!Array.isArray(users)) { document.getElementById('usersBody').innerHTML = '<tr><td colspan="7" class="empty">Error loading users</td></tr>'; return; }
-      document.getElementById('statTotal').textContent = users.length;
-      document.getElementById('statVerified').textContent = users.filter(u => u.verified).length;
-      document.getElementById('statAdmins').textContent = users.filter(u => u.role === 'admin').length;
-      if (!users.length) { document.getElementById('usersBody').innerHTML = '<tr><td colspan="7" class="empty">No users yet</td></tr>'; return; }
-      document.getElementById('usersBody').innerHTML = users.map(function(u) {
-        var roleBadge = u.role === 'admin' ? '<span class="badge badge-admin">admin</span>' : '<span class="badge badge-user">user</span>';
-        var verBadge = u.verified ? '<span class="badge badge-ok">✓</span>' : '<span class="badge badge-no">✗</span>';
-        var promoteBtn = u.role === 'admin'
-          ? '<button class="btn-xs" onclick="setRole(\''+u.id+'\',\'user\')">Demote</button>'
-          : '<button class="btn-xs" onclick="setRole(\''+u.id+'\',\'admin\')">Promote</button>';
-        var toggleBtn = u.verified
-          ? '<button class="btn-xs danger" onclick="disableUser(\''+u.id+'\')">Disable</button>'
-          : '<button class="btn-xs" style="color:var(--success);border-color:var(--success)" onclick="verifyUser(\''+u.id+'\')">Verify</button>';
-        var resendBtn = !u.verified
-          ? '<button class="btn-xs" onclick="adminResend(\''+u.id+'\',\''+esc(u.display_name)+'\')">Resend Email</button>'
-          : '';
-        var deleteBtn = '<button class="btn-xs danger" onclick="deleteUser(\''+u.id+'\',\''+esc(u.display_name)+'\')">Delete</button>';
-        return '<tr><td>'+esc(u.display_name)+'</td><td>'+esc(u.email)+'</td><td>'+(u.org ? esc(u.org) : '<span style="color:var(--muted)">—</span>')+'</td><td>'+roleBadge+'</td><td>'+verBadge+'</td><td>'+fmt(u.last_login)+'</td><td style="display:flex;gap:0.4rem;flex-wrap:wrap;padding:0.55rem 0.75rem">'+promoteBtn+' '+toggleBtn+' '+resendBtn+' '+deleteBtn+'</td></tr>';
-      }).join('');
-    }).catch(function() { document.getElementById('usersBody').innerHTML = '<tr><td colspan="7" class="empty">Failed to load users</td></tr>'; });
-  }
-
-  function setRole(userId, role) {
-    fetch('/api/demo/users/' + userId + '/role', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role: role })
-    }).then(r => r.json()).then(function(d) {
-      showGlobalMsg('success', 'Role updated to ' + role);
-      loadUsers();
-    }).catch(function() { showGlobalMsg('error', 'Failed to update role'); });
-  }
-
-  function disableUser(userId) {
-    if (!confirm('Disable this user? They will not be able to log in until re-enabled.')) return;
-    fetch('/api/demo/users/' + userId + '/disable', { method: 'POST' })
-    .then(r => r.json()).then(function() {
-      showGlobalMsg('success', 'User disabled');
-      loadUsers();
-    }).catch(function() { showGlobalMsg('error', 'Failed to disable user'); });
-  }
-
-  function enableUser(userId) {
-    fetch('/api/demo/users/' + userId + '/enable', { method: 'POST' })
-    .then(r => r.json()).then(function() {
-      showGlobalMsg('success', 'User enabled');
-      loadUsers();
-    }).catch(function() { showGlobalMsg('error', 'Failed to enable user'); });
-  }
-
-  function verifyUser(userId) {
-    fetch('/api/demo/users/' + userId + '/enable', { method: 'POST' })
-    .then(r => r.json()).then(function() {
-      showGlobalMsg('success', 'User verified — they can now log in');
-      loadUsers();
-    }).catch(function() { showGlobalMsg('error', 'Failed to verify user'); });
-  }
-
-  function adminResend(userId, name) {
-    fetch('/api/demo/users/' + userId + '/resend-verification', { method: 'POST' })
-    .then(function(r) { return r.json(); }).then(function(d) {
-      if (d.verify_url) {
-        // Show the link so admin can share it manually if email failed
-        var msg = 'Email sent (or use link): ' + d.verify_url;
-        showGlobalMsg('success', 'Verification email sent to ' + name);
-        // Also show the raw link in a prompt for easy copying
-        prompt('Verification link for ' + name + ' (copy and share if email failed):', d.verify_url);
-      } else {
-        showGlobalMsg('success', 'Verification email sent to ' + name);
-      }
-    }).catch(function() { showGlobalMsg('error', 'Failed to resend — check SMTP config'); });
-  }
-
-  function deleteUser(userId, name) {
-    if (!confirm('Permanently delete "' + name + '"? This cannot be undone and will also delete their event history.')) return;
-    fetch('/api/demo/users/' + userId, { method: 'DELETE' })
-    .then(function(r) {
-      if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || 'Delete failed'); });
-      return r.json();
-    }).then(function() {
-      showGlobalMsg('success', '"' + name + '" deleted');
-      loadUsers();
-    }).catch(function(e) { showGlobalMsg('error', e.message || 'Failed to delete user'); });
-  }
-
-  function loadEvents() {
-    fetch('/api/demo/events?limit=200').then(r => r.json()).then(function(events) {
-      if (!Array.isArray(events)) { document.getElementById('eventsBody').innerHTML = '<tr><td colspan="4" class="empty">Error loading events</td></tr>'; return; }
-      if (!events.length) { document.getElementById('eventsBody').innerHTML = '<tr><td colspan="4" class="empty">No events yet</td></tr>'; return; }
-      document.getElementById('eventsBody').innerHTML = events.map(function(e) {
-        return '<tr><td>'+fmt(e.created_at)+'</td><td style="font-size:0.74rem;font-family:monospace;color:var(--muted)">'+esc(e.user_id||'—')+'</td><td><span class="badge badge-user">'+esc(e.event_type)+'</span></td><td style="font-size:0.76rem;color:var(--muted)">'+JSON.stringify(e.detail)+'</td></tr>';
-      }).join('');
-    }).catch(function() { document.getElementById('eventsBody').innerHTML = '<tr><td colspan="4" class="empty">Failed to load events</td></tr>'; });
-  }
-
-  function loadConfig() {
-    fetch('/api/demo/config').then(r => r.json()).then(function(cfg) {
-      if (typeof cfg !== 'object') { document.getElementById('configBody').innerHTML = '<tr><td colspan="3" class="empty">Error loading config</td></tr>'; return; }
-      document.getElementById('configBody').innerHTML = Object.entries(cfg).map(function(kv) {
-        return '<tr><td>'+esc(kv[0])+'</td><td><input id="cfg_'+esc(kv[0])+'" value="'+esc(kv[1]||'')+'"></td><td><button class="btn-xs" onclick="saveConfig(\''+esc(kv[0])+'\')">Save</button></td></tr>';
-      }).join('');
-    }).catch(function() { document.getElementById('configBody').innerHTML = '<tr><td colspan="3" class="empty">Failed to load config</td></tr>'; });
-  }
-
-  function saveConfig(key) {
-    var val = document.getElementById('cfg_'+key).value;
-    fetch('/api/demo/config', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: key, value: val })
-    }).then(r => r.json()).then(function() {
-      showGlobalMsg('success', key + ' updated');
-    }).catch(function() { showGlobalMsg('error', 'Failed to save config'); });
-  }
-
-  // ── Reset tab ────────────────────────────────────────────────────────────────
-
-  function loadResetStatus() {
-    fetch('/api/demo/reset/status').then(function(r) { return r.json(); }).then(function(d) {
-      var state = d.state || 'ready';
-      var stateEl = document.getElementById('resetStateVal');
-      if (state === 'resetting') {
-        stateEl.innerHTML = '<span class="spinner"></span><span class="state-resetting">Resetting…</span>';
-        document.getElementById('forceResetBtn').disabled = true;
-        if (!_resetPollTimer) _resetPollTimer = setInterval(loadResetStatus, 10000);
-      } else {
-        stateEl.innerHTML = '<span class="state-ready">Ready</span>';
-        document.getElementById('forceResetBtn').disabled = false;
-        if (_resetPollTimer) { clearInterval(_resetPollTimer); _resetPollTimer = null; }
-      }
-
-      var lastEl = document.getElementById('resetLastVal');
-      lastEl.textContent = d.last_reset_at ? fmt(d.last_reset_at) : 'Never';
-
-      var intervalH = parseFloat(d.reset_interval_hours || '0');
-      var sel = document.getElementById('intervalSel');
-      if (sel) {
-        var opt = Array.from(sel.options).find(function(o) { return parseFloat(o.value) === intervalH; });
-        if (opt) sel.value = opt.value; else sel.value = '0';
-      }
-
-      var nextEl = document.getElementById('resetNextVal');
-      if (intervalH > 0 && d.last_reset_at) {
-        var next = new Date(new Date(d.last_reset_at).getTime() + intervalH * 3600000);
-        nextEl.textContent = next.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
-      } else if (intervalH > 0) {
-        nextEl.textContent = 'Soon';
-      } else {
-        nextEl.textContent = 'Disabled';
-      }
-    }).catch(function() { showGlobalMsg('error', 'Failed to load reset status'); });
-  }
-
-  function saveSchedule() {
-    var h = document.getElementById('intervalSel').value;
-    fetch('/api/demo/config', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: 'reset_interval_hours', value: h })
-    }).then(function(r) { return r.json(); }).then(function() {
-      showGlobalMsg('success', h === '0' ? 'Auto-reset disabled' : 'Schedule saved — resets every ' + h + 'h');
-      loadResetStatus();
-    }).catch(function() { showGlobalMsg('error', 'Failed to save schedule'); });
-  }
-
-  function forceReset() {
-    if (!confirm('This will stop Egeria, wipe all metadata, and restart it.\n\nEgeria takes ~5 minutes to reinitialize. User accounts are unaffected.\n\nProceed?')) return;
-    document.getElementById('forceResetBtn').disabled = true;
-    fetch('/api/demo/reset', { method: 'POST' })
-      .then(function(r) { return r.json(); })
-      .then(function(d) {
-        if (d.status === 'reset_started') {
-          showGlobalMsg('success', 'Reset started — Egeria will reinitialize in ~5 minutes');
-          loadResetStatus();
-        } else {
-          showGlobalMsg('error', d.detail || 'Unexpected response');
-          document.getElementById('forceResetBtn').disabled = false;
-        }
-      })
-      .catch(function() {
-        showGlobalMsg('error', 'Reset request failed');
-        document.getElementById('forceResetBtn').disabled = false;
-      });
-  }
-
-  // ── Obsidian lock tab ────────────────────────────────────────────────────────
-
-  var _obsPollTimer = null;
-
-  function loadObsidian() {
-    Promise.all([
-      fetch('/api/obsidian/status').then(function(r) { return r.json(); }),
-      fetch('/api/obsidian/reservations').then(function(r) { return r.json(); }),
-      fetch('/api/obsidian/audit').then(function(r) { return r.json(); }),
-    ]).then(function(results) {
-      _renderObsStatus(results[0]);
-      _renderObsReservations(results[1].reservations || []);
-      _renderObsAudit(results[2].audit || []);
-      // Auto-poll while this tab is open and the lock is active
-      if (!_obsPollTimer && results[0].state !== 'FREE') {
-        _obsPollTimer = setInterval(loadObsidian, 15000);
-      } else if (_obsPollTimer && results[0].state === 'FREE') {
-        clearInterval(_obsPollTimer); _obsPollTimer = null;
-      }
-    }).catch(function() { showGlobalMsg('error', 'Failed to load Obsidian lock status'); });
-  }
-
-  function _renderObsStatus(s) {
-    var stateEl = document.getElementById('obsState');
-    stateEl.textContent = s.state;
-    stateEl.className = 'val state-' + s.state;
-    document.getElementById('obsHolder').textContent  = s.holder_display || '—';
-    document.getElementById('obsPersona').textContent = s.holder_persona || '—';
-    var mins = s.minutes_left !== null && s.minutes_left !== undefined ? s.minutes_left + ' min' : '—';
-    if (s.evicting && s.evict_deadline) {
-      var secs = Math.max(0, Math.round((new Date(s.evict_deadline + 'Z') - Date.now()) / 1000));
-      mins += ' (evicting in ' + secs + 's)';
-    }
-    document.getElementById('obsMins').textContent = mins;
-    document.getElementById('evictBtn').disabled  = s.state === 'FREE';
-    document.getElementById('unlockBtn').disabled = s.state === 'FREE';
-  }
-
-  function _renderObsReservations(reservations) {
-    if (!reservations.length) {
-      document.getElementById('obsResBody').innerHTML = '<tr><td colspan="5" class="empty">No upcoming reservations</td></tr>';
-      return;
-    }
-    document.getElementById('obsResBody').innerHTML = reservations.map(function(r) {
-      return '<tr>'
-        + '<td>' + esc(r.label) + '</td>'
-        + '<td>' + fmt(r.starts_at) + '</td>'
-        + '<td>' + fmt(r.ends_at)   + '</td>'
-        + '<td>' + fmt(r.created_at)+ '</td>'
-        + '<td><button class="btn-xs danger" onclick="obsDeleteRes(' + r.id + ')">Delete</button></td>'
-        + '</tr>';
-    }).join('');
-  }
-
-  function _renderObsAudit(audit) {
-    if (!audit.length) {
-      document.getElementById('obsAuditBody').innerHTML = '<tr><td colspan="4" class="empty">No events yet</td></tr>';
-      return;
-    }
-    document.getElementById('obsAuditBody').innerHTML = audit.map(function(e) {
-      return '<tr>'
-        + '<td>' + fmt(e.at) + '</td>'
-        + '<td><span class="badge badge-user">' + esc(e.action) + '</span></td>'
-        + '<td>' + esc(e.display || '—') + '</td>'
-        + '<td>' + esc(e.persona || '—') + '</td>'
-        + '</tr>';
-    }).join('');
-  }
-
-  function obsEvict() {
-    var grace = parseInt(document.getElementById('graceSelect').value, 10);
-    if (!confirm('Start eviction with ' + grace + 's grace period?\nThe current holder will see a warning in the portal.')) return;
-    fetch('/api/obsidian/evict', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ grace_seconds: grace, message: '' })
-    }).then(function(r) { return r.json(); })
-      .then(function(d) {
-        showGlobalMsg('success', 'Eviction started — grace period: ' + grace + 's');
-        loadObsidian();
-      }).catch(function() { showGlobalMsg('error', 'Eviction request failed'); });
-  }
-
-  function obsUnlock() {
-    if (!confirm('Force-release the Obsidian lock immediately?')) return;
-    fetch('/api/obsidian/unlock', { method: 'POST' })
-      .then(function(r) { return r.json(); })
-      .then(function() { showGlobalMsg('success', 'Lock released'); loadObsidian(); })
-      .catch(function() { showGlobalMsg('error', 'Unlock request failed'); });
-  }
-
-  function obsCreateRes() {
-    var label = document.getElementById('resLabel').value.trim();
-    var start = document.getElementById('resStart').value;
-    var end   = document.getElementById('resEnd').value;
-    if (!label || !start || !end) { showGlobalMsg('error', 'Label, start, and end are all required'); return; }
-    // datetime-local gives local time without TZ; send as ISO with UTC assumption
-    fetch('/api/obsidian/reservations', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label: label, starts_at: start, ends_at: end })
-    }).then(function(r) {
-      if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || 'Error'); });
-      return r.json();
-    }).then(function() {
-      showGlobalMsg('success', 'Reservation created');
-      document.getElementById('resLabel').value = '';
-      document.getElementById('resStart').value = '';
-      document.getElementById('resEnd').value   = '';
-      loadObsidian();
-    }).catch(function(e) { showGlobalMsg('error', 'Could not create reservation: ' + e.message); });
-  }
-
-  function obsDeleteRes(id) {
-    if (!confirm('Delete this reservation?')) return;
-    fetch('/api/obsidian/reservations/' + id, { method: 'DELETE' })
-      .then(function(r) { return r.json(); })
-      .then(function() { showGlobalMsg('success', 'Reservation deleted'); loadObsidian(); })
-      .catch(function() { showGlobalMsg('error', 'Delete failed'); });
-  }
-
-  function doLogout() {
-    fetch('/api/auth/logout', { method: 'POST' }).then(function() {
-      window.location.href = '/login';
-    });
+    }).then(function() { loadFeedback(); }).catch(function(e) { alert('Triage failed: ' + e); });
   }
 
   function esc(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  // ── Resizable columns ─────────────────────────────────────────────────────
+  // ── Resizable columns (feedback table) ────────────────────────────────────
   function makeResizable(tableId, colWidths) {
     var table = document.getElementById(tableId);
     if (!table || table._resizeDone) return;
@@ -740,8 +358,283 @@
     });
   }
 
-  // Set initial column widths for the feedback table: Time,User,Email,Env,Page,Rating,Category,Message,Resp,Status,Actions
-  makeResizable('fbTable', ['110px','110px','140px','90px','120px','60px','80px','220px','50px','80px','90px']);
+  // Feedback table columns: Time, User, Env, Page, Rating, Category, Message, Resp?, Status, Actions
+  makeResizable('fbTable', ['110px','110px','90px','120px','60px','80px','220px','50px','80px','90px']);
+
+  function statusBadge(status) {
+    if (!status) return '<span class="badge badge-active">active</span>';
+    var s = status.toLowerCase();
+    if (s === 'credentials_expired') return '<span class="badge badge-expired">first login</span>';
+    if (s === 'disabled')            return '<span class="badge badge-disabled">disabled</span>';
+    return '<span class="badge badge-active">' + esc(status.toLowerCase()) + '</span>';
+  }
+
+  // ── Roles and Groups ──────────────────────────────────────────────────────
+
+  function loadRolesAndGroups() {
+    fetch('/api/admin/roles').then(r => r.json()).then(function(data) {
+      _roles = Array.isArray(data) ? data : [];
+    }).catch(() => {});
+    fetch('/api/admin/groups').then(r => r.json()).then(function(data) {
+      _groups = Array.isArray(data) ? data : [];
+    }).catch(() => {});
+  }
+
+  function populateSelect(id, items, selected) {
+    var container = document.getElementById(id);
+    var sel = selected || [];
+    container.innerHTML = items.map(function(it) {
+      var val = it.qualifiedName || it.displayName || it.name || '';
+      var lbl = it.displayName || it.qualifiedName || val;
+      var chk = sel.includes(val) ? ' checked' : '';
+      return '<label><input type="checkbox" value="' + esc(val) + '"' + chk + '>' + esc(lbl) + '</label>';
+    }).join('');
+  }
+
+  function getSelected(id) {
+    var container = document.getElementById(id);
+    return Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(function(cb) { return cb.value; });
+  }
+
+  function setSelected(id, values) {
+    var container = document.getElementById(id);
+    container.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+      cb.checked = values.includes(cb.value);
+    });
+  }
+
+  // ── Egeria Users ──────────────────────────────────────────────────────────
+
+  function loadEgeriaUsers() {
+    fetch('/api/admin/egeria-users').then(r => r.json()).then(function(users) {
+      if (!Array.isArray(users)) {
+        document.getElementById('egeriaUsersBody').innerHTML = '<tr><td colspan="6" class="empty">Error loading users</td></tr>';
+        return;
+      }
+      if (!users.length) {
+        document.getElementById('egeriaUsersBody').innerHTML = '<tr><td colspan="6" class="empty">No user accounts found</td></tr>';
+        return;
+      }
+      document.getElementById('egeriaUsersBody').innerHTML = users.map(function(u) {
+        var uid  = u.userId || '—';
+        var name = u.userName || uid;
+        var type = u.userAccountType || '—';
+        var status = u.userAccountStatus || 'ACTIVE';
+        var roles = (u.securityRoles || []).join(', ') || '—';
+        var disabled = status === 'DISABLED';
+        var editBtn   = '<button class="btn-xs" onclick="openEditModal(' + JSON.stringify(u).replace(/"/g,'&quot;') + ')">Edit</button>';
+        var disableBtn= !disabled
+          ? '<button class="btn-xs danger" onclick="disableUser(' + JSON.stringify(uid).replace(/"/g,'&quot;') + ')">Disable</button>'
+          : '<span class="badge badge-disabled" style="font-size:0.72rem">disabled</span>';
+        var resetBtn  = '<button class="btn-xs" onclick="openResetModal(' + JSON.stringify(uid).replace(/"/g,'&quot;') + ')">Reset Pw</button>';
+        var deleteBtn = '<button class="btn-xs danger" onclick="deleteUser(' + JSON.stringify(uid).replace(/"/g,'&quot;') + ',' + JSON.stringify(name).replace(/"/g,'&quot;') + ')">Delete</button>';
+        return '<tr><td style="font-family:monospace;font-size:0.78rem">'+esc(uid)+'</td><td>'+esc(name)+'</td><td>'+esc(type)+'</td><td>'+statusBadge(status)+'</td><td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.75rem;color:var(--muted)">'+esc(roles)+'</td><td style="display:flex;gap:0.35rem;flex-wrap:wrap;padding:0.55rem 0.75rem">'+editBtn+' '+disableBtn+' '+resetBtn+' '+deleteBtn+'</td></tr>';
+      }).join('');
+    }).catch(function() {
+      document.getElementById('egeriaUsersBody').innerHTML = '<tr><td colspan="6" class="empty">Failed to load users — check Egeria connection</td></tr>';
+    });
+  }
+
+  // ── Create/Edit modal ─────────────────────────────────────────────────────
+
+  function clearModal() {
+    ['mUserId','mUserName','mGivenName','mSurname','mPassword','mDefaultZones','mPublishZones'].forEach(function(id) {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('mAccountType').value = 'EMPLOYEE';
+    document.getElementById('modalMsg').style.display = 'none';
+    document.getElementById('modalSaveBtn').disabled = false;
+  }
+
+  function openCreateModal() {
+    _editUserId = null;
+    clearModal();
+    populateSelect('mRoles',  _roles,  []);
+    populateSelect('mGroups', _groups, []);
+    document.getElementById('mUserId').disabled = false;
+    document.getElementById('passwordRow').style.display = 'block';
+    document.getElementById('modalTitle').textContent = 'Create User';
+    document.getElementById('modalSaveBtn').textContent = 'Create User';
+    document.getElementById('userModal').classList.add('open');
+  }
+
+  function openEditModal(u) {
+    _editUserId = u.userId;
+    clearModal();
+    document.getElementById('mUserId').value = u.userId || '';
+    document.getElementById('mUserId').disabled = true;
+    document.getElementById('mUserName').value = u.userName || '';
+    document.getElementById('mGivenName').value = u.givenName || '';
+    document.getElementById('mSurname').value = u.surname || '';
+    document.getElementById('mAccountType').value = u.userAccountType || 'EMPLOYEE';
+    document.getElementById('passwordRow').style.display = 'none';
+    document.getElementById('modalTitle').textContent = 'Edit User — ' + (u.userId || '');
+    document.getElementById('modalSaveBtn').textContent = 'Save Changes';
+    // Populate checkboxes with YAML roles/groups pre-checked (synchronous, no race)
+    populateSelect('mRoles',  _roles,  u.securityRoles  || []);
+    populateSelect('mGroups', _groups, u.securityGroups || []);
+    document.getElementById('userModal').classList.add('open');
+    // Fetch full details from Egeria for zones and live account state
+    fetch('/api/admin/egeria-users/' + encodeURIComponent(u.userId))
+      .then(function(r) { return r.json(); })
+      .then(function(full) {
+        document.getElementById('mUserName').value = full.userName || u.userName || '';
+        document.getElementById('mGivenName').value = full.givenName || u.givenName || '';
+        document.getElementById('mSurname').value = full.surname || u.surname || '';
+        document.getElementById('mAccountType').value = full.userAccountType || u.userAccountType || 'EMPLOYEE';
+        var other = full.otherProperties || {};
+        document.getElementById('mDefaultZones').value = other.defaultZones || '';
+        document.getElementById('mPublishZones').value = other.publishZones || '';
+      })
+      .catch(function() { showModalMsg('warn', 'Could not refresh user details from Egeria — showing last saved state'); });
+  }
+
+  function closeModal() {
+    document.getElementById('userModal').classList.remove('open');
+    _editUserId = null;
+  }
+
+  function togglePw() {
+    var inp = document.getElementById('mPassword');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  }
+
+  function saveUser() {
+    var btn = document.getElementById('modalSaveBtn');
+    btn.disabled = true;
+    var defaultZonesRaw = document.getElementById('mDefaultZones').value.trim();
+    var publishZonesRaw = document.getElementById('mPublishZones').value.trim();
+    var defaultZones = defaultZonesRaw ? defaultZonesRaw.split(',').map(z => z.trim()).filter(Boolean) : [];
+    var publishZones = publishZonesRaw ? publishZonesRaw.split(',').map(z => z.trim()).filter(Boolean) : [];
+
+    if (_editUserId) {
+      // Edit mode
+      var body = {
+        userName:       document.getElementById('mUserName').value.trim() || undefined,
+        givenName:      document.getElementById('mGivenName').value.trim() || undefined,
+        surname:        document.getElementById('mSurname').value.trim() || undefined,
+        securityRoles:  getSelected('mRoles'),
+        securityGroups: getSelected('mGroups'),
+        defaultZones:   defaultZones,
+        publishZones:   publishZones,
+      };
+      fetch('/api/admin/egeria-users/' + encodeURIComponent(_editUserId), {
+        method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+      }).then(function(r) { return r.json().then(d => ({ok: r.ok, data: d})); })
+      .then(function(res) {
+        btn.disabled = false;
+        if (res.ok) { closeModal(); showGlobalMsg('success', 'User updated'); loadEgeriaUsers(); }
+        else showModalMsg('error', res.data.detail || 'Update failed');
+      }).catch(function() { btn.disabled = false; showModalMsg('error', 'Network error'); });
+    } else {
+      // Create mode
+      var userId = document.getElementById('mUserId').value.trim();
+      var clearPassword = document.getElementById('mPassword').value;
+      if (!userId)        { btn.disabled = false; showModalMsg('error', 'User ID is required'); return; }
+      if (!clearPassword) { btn.disabled = false; showModalMsg('error', 'Temporary password is required'); return; }
+      var body = {
+        userId: userId,
+        userName:        document.getElementById('mUserName').value.trim() || userId,
+        userAccountType: document.getElementById('mAccountType').value,
+        givenName:       document.getElementById('mGivenName').value.trim(),
+        surname:         document.getElementById('mSurname').value.trim(),
+        securityRoles:   getSelected('mRoles'),
+        securityGroups:  getSelected('mGroups'),
+        defaultZones:    defaultZones,
+        publishZones:    publishZones,
+        clearPassword:   clearPassword,
+      };
+      fetch('/api/admin/egeria-users', {
+        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+      }).then(function(r) { return r.json().then(d => ({ok: r.ok, data: d})); })
+      .then(function(res) {
+        btn.disabled = false;
+        if (res.ok) {
+          // Show password once before closing
+          if (clearPassword) {
+            prompt('User "' + userId + '" created. Share these credentials out of band:\nUser ID: ' + userId + '\nTemp password:', clearPassword);
+          }
+          closeModal(); showGlobalMsg('success', 'User "' + userId + '" created'); loadEgeriaUsers();
+        } else {
+          showModalMsg('error', res.data.detail || 'Create failed');
+        }
+      }).catch(function() { btn.disabled = false; showModalMsg('error', 'Network error'); });
+    }
+  }
+
+  // ── Disable ───────────────────────────────────────────────────────────────
+
+  function disableUser(userId) {
+    if (!confirm('Disable user "' + userId + '"? They will not be able to log in.')) return;
+    fetch('/api/admin/egeria-users/' + encodeURIComponent(userId) + '/disable', { method: 'POST' })
+    .then(r => r.json()).then(function() { showGlobalMsg('success', '"' + userId + '" disabled'); loadEgeriaUsers(); })
+    .catch(function() { showGlobalMsg('error', 'Failed to disable user'); });
+  }
+
+  // ── Reset password ────────────────────────────────────────────────────────
+
+  function openResetModal(userId) {
+    var pw = prompt('Enter a new temporary password for "' + userId + '":');
+    if (!pw) return;
+    fetch('/api/admin/egeria-users/' + encodeURIComponent(userId) + '/reset-password', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ clearPassword: pw })
+    }).then(r => r.json()).then(function(d) {
+      if (d.status === 'password_reset') {
+        prompt('Password reset for "' + userId + '". Share with the user out of band:', pw);
+        showGlobalMsg('success', 'Password reset for "' + userId + '"');
+        loadEgeriaUsers();
+      } else {
+        showGlobalMsg('error', d.detail || 'Reset failed');
+      }
+    }).catch(function() { showGlobalMsg('error', 'Network error'); });
+  }
+
+  // ── Delete ────────────────────────────────────────────────────────────────
+
+  function deleteUser(userId, name) {
+    if (!confirm('Permanently delete user "' + name + '" (' + userId + ')? This cannot be undone.')) return;
+    fetch('/api/admin/egeria-users/' + encodeURIComponent(userId), { method: 'DELETE' })
+    .then(function(r) {
+      if (!r.ok) return r.json().then(d => { throw new Error(d.detail || 'Delete failed'); });
+      return r.json();
+    }).then(function() { showGlobalMsg('success', '"' + name + '" deleted'); loadEgeriaUsers(); })
+    .catch(function(e) { showGlobalMsg('error', e.message || 'Failed to delete user'); });
+  }
+
+  // ── Config ────────────────────────────────────────────────────────────────
+
+  function loadConfig() {
+    fetch('/api/demo/config').then(r => r.json()).then(function(cfg) {
+      if (typeof cfg !== 'object' || !Object.keys(cfg).length) {
+        document.getElementById('configBody').innerHTML = '<tr><td colspan="3" class="empty">No config entries yet</td></tr>';
+        return;
+      }
+      document.getElementById('configBody').innerHTML = Object.entries(cfg).map(function(kv) {
+        return '<tr><td>'+esc(kv[0])+'</td><td><input id="cfg_'+esc(kv[0])+'" value="'+esc(kv[1]||'')+'"></td><td><button class="btn-xs" onclick="saveConfig(\''+esc(kv[0])+'\')">Save</button></td></tr>';
+      }).join('');
+    }).catch(function() { document.getElementById('configBody').innerHTML = '<tr><td colspan="3" class="empty">Failed to load config</td></tr>'; });
+  }
+
+  function saveConfig(key) {
+    var val = document.getElementById('cfg_' + key).value;
+    fetch('/api/demo/config', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ key: key, value: val })
+    }).then(r => r.json()).then(function() { showGlobalMsg('success', key + ' updated'); })
+    .catch(function() { showGlobalMsg('error', 'Failed to save config'); });
+  }
+
+  // ── Misc ──────────────────────────────────────────────────────────────────
+
+  function doLogout() {
+    fetch('/api/auth/logout', { method: 'POST' }).then(function() { window.location.href = '/login'; });
+  }
+
+  // Close modal on backdrop click
+  document.getElementById('userModal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
 </script>
 </body>
 </html>

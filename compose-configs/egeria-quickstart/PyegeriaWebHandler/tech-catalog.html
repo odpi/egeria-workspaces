@@ -602,38 +602,10 @@ var _SESSION_ID = (function() {
 })();
 
 // ── Credential helpers ────────────────────────────────────────────────────────
-// Holds the token-refresh callback registered by the App component.
-var _tokenRefresher = { refresh: null };
-
-// fetchWithToken: replaces credAppend. Passes server/url/user_id as query params
-// (non-secret) and the Egeria bearer token as X-Egeria-Token header.
-// On HTTP 401 (token expired) retries once after refreshing the token.
-// user_pwd is never sent in the URL.
-function fetchWithToken(url, creds, opts) {
-  var _isRetry = !!(opts && opts._isRetry);
-  var headers = Object.assign({}, (opts && opts.headers) || {});
-  var queryUrl = url;
-  if (creds) {
-    var p = new URLSearchParams();
-    if (creds.url)    p.set('url',     creds.url);
-    if (creds.server) p.set('server',  creds.server);
-    if (creds.userId) p.set('user_id', creds.userId);
-    if (creds.token)  headers['X-Egeria-Token'] = creds.token;
-    var qs = p.toString();
-    if (qs) queryUrl = url + (url.indexOf('?') === -1 ? '?' : '&') + qs;
-  }
-  var mergedOpts = Object.assign({}, opts || {});
-  delete mergedOpts._isRetry;
-  mergedOpts.headers = headers;
-  return fetch(queryUrl, mergedOpts).then(function(r) {
-    if (r.status === 401 && !_isRetry && _tokenRefresher.refresh && creds && creds.userId) {
-      return _tokenRefresher.refresh(creds).then(function(newCreds) {
-        return fetchWithToken(url, newCreds, Object.assign({}, opts || {}, { _isRetry: true }));
-      }).catch(function() { return r; });
-    }
-    return r;
-  });
-}
+// egeriaFetch + _tokenRefresher now live in /static/egeria-shared-ui.js (shared
+// with the Egeria Explorer). fetchWithToken is kept as a thin alias so existing
+// call sites are untouched; the App still registers _tokenRefresher.refresh.
+var fetchWithToken = egeriaFetch;
 
 // Kept for backwards compat with ConnectionForm manual credential entry.
 // When a token is available fetchWithToken is used instead.
@@ -652,12 +624,8 @@ function credAppend(url, creds) {
 // the Egeria Explorer). The shared renderMd also handles embedded ```mermaid
 // fences; inline-code background uses the --md-code-bg CSS var.
 
-function ResizeDivider({ onMouseDown }) {
-  return React.createElement('div', {
-    onMouseDown: onMouseDown,
-    style: { width: 5, flexShrink: 0, cursor: 'col-resize', background: 'transparent', position: 'relative' }
-  });
-}
+// ResizeDivider now lives in /static/egeria-shared-ui.js (uses the .col-divider
+// CSS class defined above — gains the hover affordance the inline version lacked).
 
 // ── SHARED — Mermaid diagram components ──────────────────────────────────────
 // keep in sync with type-explorer.html: MermaidDiagram, DiagramPanel,

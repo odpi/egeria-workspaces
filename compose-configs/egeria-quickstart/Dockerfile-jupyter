@@ -60,9 +60,12 @@ USER root
 
 ENV PATH="/home/${NB_USER}/.local/bin:${PATH}"
 
-USER root
+# Install as the notebook user (jovyan owns /opt/conda in the jupyter base
+# image) so the packages are user-owned and can be upgraded at runtime WITHOUT
+# permission errors — e.g. `pip install --upgrade pyegeria` from a JupyterLab
+# terminal, no rebuild needed.
+USER ${NB_UID}
 RUN python -m pip install --no-cache-dir \
-	pyegeria \
 	rich \
 	unitycatalog \
 	pipx \
@@ -74,9 +77,18 @@ RUN python -m pip install --no-cache-dir \
 	plotly \
 	dash
 
-USER ${NB_UID}
-RUN python -m pipx ensurepath
-RUN python -m pipx install pyegeria
+# pyegeria in its own layer. Docker caches this layer, so a plain rebuild keeps
+# the previously-installed version. To pull a fresh build, bump the cache key or
+# pin a version at build time:
+#   docker compose build --build-arg PYEGERIA_BUST=$(date +%s) jupyter            # latest
+#   docker compose build --build-arg PYEGERIA_VERSION=pyegeria==6.0.15.1 jupyter  # pinned
+ARG PYEGERIA_VERSION=pyegeria
+ARG PYEGERIA_BUST=0
+RUN echo "pyegeria layer ${PYEGERIA_BUST}" \
+	&& python -m pip install --no-cache-dir --upgrade ${PYEGERIA_VERSION}
+
+RUN python -m pipx ensurepath \
+	&& python -m pipx install --force ${PYEGERIA_VERSION}
 
 # RUN mkdir -p /home/jovyan/workbooks
 # RUN chmod +xrw /home/jovyan/workbooks

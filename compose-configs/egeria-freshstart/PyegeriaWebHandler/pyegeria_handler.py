@@ -64,6 +64,14 @@ pyegeria.disable_ssl_warnings = True
 
 import dr_egeria_md
 from demo_config import DEMO_MODE, OBSIDIAN_VAULT_URL, OBSIDIAN_GITHUB_URL, EGERIA_ADVISOR_URL
+try:
+    from demo_config import SERVER_MANAGED_AUTH
+except Exception:
+    SERVER_MANAGED_AUTH = False
+# Either mode requires a logged-in user before the portal/SPA pages are served
+# (demo = SQLite accounts; freshstart = Egeria-backed server-managed auth). Only
+# pure local-quickstart (neither flag) skips the login gate.
+_LOGIN_REQUIRED = DEMO_MODE or SERVER_MANAGED_AUTH
 from rate_limiter import limiter
 
 
@@ -135,6 +143,10 @@ class MCPTokenMiddleware:
         await self.app(scope, receive, send)
 
 app.add_middleware(MCPTokenMiddleware)
+# Stash any X-Egeria-Token request header into a contextvar so token-capable
+# handlers (apply_token) reuse a pre-obtained bearer token (LE-4).
+from egeria_auth import EgeriaTokenMiddleware
+app.add_middleware(EgeriaTokenMiddleware)
 app.add_middleware(SlowAPIMiddleware)
 
 # CORS configuration for Obsidian security
@@ -243,6 +255,14 @@ if DEMO_MODE:
     app.include_router(demo_auth_router)
     from demo_reset_handler import router as demo_reset_router
     app.include_router(demo_reset_router)
+elif SERVER_MANAGED_AUTH:
+    # Freshstart: Egeria-backed server-managed auth. Mount the real auth routes
+    # (/api/auth/me, /api/auth/login, change-password, admin, …) — but NOT the
+    # demo reset scheduler or the local-mode no-auth persona fallback below.
+    # Without this the fallback /api/auth/me answered authenticated:true and
+    # /api/auth/login was missing, causing a /login <-> /portal redirect loop.
+    from demo_auth_handler import router as demo_auth_router
+    app.include_router(demo_auth_router)
 else:
     @app.get("/api/auth/me", include_in_schema=False)
     async def auth_me_non_demo():
@@ -314,7 +334,7 @@ async def platform_portal_config():
 
 @app.get("/login", include_in_schema=False)
 async def login_page():
-    if not DEMO_MODE:
+    if not _LOGIN_REQUIRED:
         return RedirectResponse(url="/egeria-explorer")
     html_path = SCRIPT_DIR / "demo-login.html"
     if not html_path.exists():
@@ -324,7 +344,7 @@ async def login_page():
 
 @app.get("/register", include_in_schema=False)
 async def register_page():
-    if not DEMO_MODE:
+    if not _LOGIN_REQUIRED:
         return RedirectResponse(url="/egeria-explorer")
     html_path = SCRIPT_DIR / "demo-register.html"
     if not html_path.exists():
@@ -334,6 +354,16 @@ async def register_page():
 
 @app.get("/admin", include_in_schema=False)
 async def admin_page(request: Request):
+    if SERVER_MANAGED_AUTH and not DEMO_MODE:
+        # Freshstart: Egeria-backed admin (manages Egeria users). Require a
+        # logged-in user; the /api/admin/* endpoints enforce admin themselves.
+        from demo_auth_handler import get_current_user
+        if not get_current_user(request):
+            return RedirectResponse(url="/login", status_code=302)
+        html_path = SCRIPT_DIR / "demo-admin.html"
+        if not html_path.exists():
+            raise HTTPException(status_code=404, detail="Admin page not found")
+        return FileResponse(str(html_path), media_type="text/html")
     if not DEMO_MODE:
         html_path = SCRIPT_DIR / "local-admin.html"
         if not html_path.exists():
@@ -352,6 +382,28 @@ async def admin_page(request: Request):
     return FileResponse(str(html_path), media_type="text/html")
 
 
+@app.get("/profile", include_in_schema=False)
+async def profile_page(request: Request):
+    # Self-service "My Profile" page. Requires a logged-in user in demo /
+    # server-managed modes; pure local-quickstart has no per-user profile.
+    if not _LOGIN_REQUIRED:
+        return RedirectResponse(url="/egeria-explorer")
+    from demo_auth_handler import get_current_user
+    if DEMO_MODE:
+        from demo_db import get_engine
+        from sqlalchemy.orm import Session
+        with Session(get_engine()) as db:
+            user = get_current_user(request, db)
+    else:
+        user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+    html_path = SCRIPT_DIR / "demo-profile.html"
+    if not html_path.exists():
+        raise HTTPException(status_code=404, detail="Profile page not found")
+    return FileResponse(str(html_path), media_type="text/html")
+
+
 @app.get("/privacy", include_in_schema=False)
 async def privacy_page():
     html_path = SCRIPT_DIR / "demo-privacy.html"
@@ -362,7 +414,7 @@ async def privacy_page():
 
 @app.get("/reset-password", include_in_schema=False)
 async def reset_password_page():
-    if not DEMO_MODE:
+    if not _LOGIN_REQUIRED:
         return RedirectResponse(url="/login")
     html_path = SCRIPT_DIR / "demo-reset-password.html"
     if not html_path.exists():
@@ -379,6 +431,11 @@ async def portal_page(request: Request):
         with Session(get_engine()) as db:
             user = get_current_user(request, db)
         if not user or not user.verified:
+            return RedirectResponse(url="/login", status_code=302)
+    elif SERVER_MANAGED_AUTH:
+        # Freshstart: Egeria-backed auth — require a logged-in portal user.
+        from demo_auth_handler import get_current_user
+        if not get_current_user(request):
             return RedirectResponse(url="/login", status_code=302)
     html_path = SCRIPT_DIR / "demo-portal.html"
     if not html_path.exists():
