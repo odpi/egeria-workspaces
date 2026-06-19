@@ -601,21 +601,9 @@ const {
 // Provides Egeria connection params to all child components without prop-drilling.
 const CredContext = React.createContext({ url: '', server: '', userId: '', password: '' });
 
-function credQS(creds) {
-  var p = new URLSearchParams();
-  if (creds && creds.url)      p.set('url',      creds.url);
-  if (creds && creds.server)   p.set('server',   creds.server);
-  if (creds && creds.userId)   p.set('user_id',  creds.userId);
-  if (creds && creds.password) p.set('user_pwd', creds.password);
-  var s = p.toString();
-  return s ? '?' + s : '';
-}
-
-function credAppend(base, creds) {
-  var qs = credQS(creds);
-  if (!qs) return base;
-  return base + (base.includes('?') ? '&' + qs.slice(1) : qs);
-}
+// credQS/credAppend were removed in LE-4 phase 4 — all fetches go through the
+// shared egeriaFetch (url/server/user_id as query params + X-Egeria-Token
+// header; password never in a URL).
 
 
 // Single lazy-loading diagram panel. fetchUrl is called on first open; label appears in the header.
@@ -3234,8 +3222,8 @@ function TabularPreviewModal({ guid, name, creds, onClose }) {
   useEffect(function() {
     setLoading(true); setErrMsg(''); setColWidths(null);
     var params = new URLSearchParams({ start_from_row: page * PAGE_SIZE, max_row_count: PAGE_SIZE });
-    if (creds) { if (creds.url) params.set('url', creds.url); if (creds.server) params.set('server', creds.server); if (creds.userId) params.set('user_id', creds.userId); if (creds.password) params.set('user_pwd', creds.password); }
-    fetch('/api/digital-products/' + guid + '/tabular?' + params.toString())
+    // egeriaFetch adds url/server/user_id + the X-Egeria-Token header (no password in the URL).
+    egeriaFetch('/api/digital-products/' + guid + '/tabular?' + params.toString(), creds)
       .then(function(r) { return r.json(); })
       .then(function(d) {
         setTableData(d);
