@@ -255,6 +255,14 @@ if DEMO_MODE:
     app.include_router(demo_auth_router)
     from demo_reset_handler import router as demo_reset_router
     app.include_router(demo_reset_router)
+elif SERVER_MANAGED_AUTH:
+    # Freshstart: Egeria-backed server-managed auth. Mount the real auth routes
+    # (/api/auth/me, /api/auth/login, change-password, admin, …) — but NOT the
+    # demo reset scheduler or the local-mode no-auth persona fallback below.
+    # Without this the fallback /api/auth/me answered authenticated:true and
+    # /api/auth/login was missing, causing a /login <-> /portal redirect loop.
+    from demo_auth_handler import router as demo_auth_router
+    app.include_router(demo_auth_router)
 else:
     @app.get("/api/auth/me", include_in_schema=False)
     async def auth_me_non_demo():
