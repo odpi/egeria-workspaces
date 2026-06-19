@@ -20,6 +20,7 @@
       --card:     #0f1828;
       --hover:    #131e30;
       --border:   #1a2d48;
+      --md-code-bg: rgba(255,255,255,.08);
       --text:     #c8d4e8;
       --muted:    #7a96b0;
       --dim:      #4a6278;
@@ -130,6 +131,7 @@
       --bg: #f8fafc; --panel: #ffffff; --card: #f1f5f9; --hover: #e2e8f0;
       --border: #cbd5e1; --text: #1e293b; --muted: #475569; --dim: #64748b;
       --accent: #2563eb; --abstract: #7c3aed; --classif: #0d9488; --rel: #d97706; --base: #475569;
+      --md-code-bg: rgba(0,0,0,.06);
     }
     :root.light .sidebar      { background: var(--panel); }
     :root.light .search-wrap  { background: var(--panel); }
@@ -646,48 +648,9 @@ function credAppend(url, creds) {
 }
 
 // ── Markdown renderer (shared with type-explorer.html) ───────────────────────
-function _renderMdHtml(rawText) {
-  if (!rawText || !rawText.trim()) return '';
-  var esc = function(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
-  var inlineMarkup = function(s) { return s
-    .replace(/\*\*\*(.+?)\*\*\*/g,'<strong><em>$1</em></strong>')
-    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-    .replace(/\*([^*\n]+?)\*/g,'<em>$1</em>')
-    .replace(/`([^`\n]+)`/g,'<code style="background:rgba(0,0,0,.06);padding:1px 4px;border-radius:3px;font-size:.9em">$1</code>'); };
-  var lines = rawText.split('\n'), parts = [], i = 0;
-  while (i < lines.length) {
-    if (i+1 < lines.length && /^\|.+\|/.test(lines[i]) && /^\|[\s\-:|]+\|/.test(lines[i+1])) {
-      var tlines = [];
-      while (i < lines.length && /^\|/.test(lines[i].trim())) { tlines.push(lines[i]); i++; }
-      var headers = tlines[0].split('|').slice(1,-1).map(function(h){return h.trim();});
-      var seps = tlines[1].split('|').slice(1,-1).map(function(s){return s.trim();});
-      var aligns = seps.map(function(s){return s.startsWith(':')&&s.endsWith(':')? 'center':s.endsWith(':')? 'right':'left';});
-      var rows = tlines.slice(2).map(function(r){return r.split('|').slice(1,-1).map(function(c){return c.trim();});});
-      var t = '<div style="overflow-x:auto;margin:8px 0"><table style="border-collapse:collapse;font-size:12px"><thead><tr>';
-      headers.forEach(function(h,j){t+='<th style="text-align:'+(aligns[j]||'left')+';padding:5px 8px;border:1px solid var(--border);color:var(--muted)">'+inlineMarkup(esc(h))+'</th>';});
-      t+='</tr></thead><tbody>';
-      rows.forEach(function(row){t+='<tr>';headers.forEach(function(_,j){t+='<td style="text-align:'+(aligns[j]||'left')+';padding:5px 8px;border:1px solid var(--border)">'+inlineMarkup(esc(row[j]||''))+'</td>';});t+='</tr>';});
-      t+='</tbody></table></div>'; parts.push(t);
-    } else {
-      var nonTable = [];
-      while (i < lines.length && !(i+1 < lines.length && /^\|.+\|/.test(lines[i]) && /^\|[\s\-:|]+\|/.test(lines[i+1]))) { nonTable.push(lines[i]); i++; }
-      if (nonTable.length > 0) parts.push(inlineMarkup(esc(nonTable.join('\n')))
-        .replace(/^### (.+)$/gm,'<b style="font-size:12px;display:block;margin:8px 0 2px;color:var(--accent)">$1</b>')
-        .replace(/^## (.+)$/gm, '<b style="font-size:13px;display:block;margin:10px 0 2px;color:var(--accent)">$1</b>')
-        .replace(/^# (.+)$/gm,  '<b style="font-size:14px;display:block;margin:12px 0 4px;color:var(--accent)">$1</b>')
-        .replace(/^[-*] (.+)$/gm,'<span style="display:block;padding-left:12px">• $1</span>')
-        .replace(/^(\d+)\. (.+)$/gm,'<span style="display:block;padding-left:12px">$1. $2</span>')
-        .replace(/\n\n/g,'<br><br>').replace(/\n/g,'<br>'));
-    }
-  }
-  return parts.join('');
-}
-function renderMd(text) {
-  if (!text || !text.trim()) return null;
-  var html = _renderMdHtml(text);
-  if (!html) return null;
-  return React.createElement('div', { dangerouslySetInnerHTML: { __html: html }, style: { lineHeight: 1.6, wordBreak: 'break-word' } });
-}
+// renderMd + _renderMdHtml now live in /static/egeria-shared-ui.js (shared with
+// the Egeria Explorer). The shared renderMd also handles embedded ```mermaid
+// fences; inline-code background uses the --md-code-bg CSS var.
 
 function ResizeDivider({ onMouseDown }) {
   return React.createElement('div', {

@@ -244,3 +244,86 @@ function GlossaryTreeNode({ folder, depth, selected, onSelect, showTemplates, fe
     )
   );
 }
+
+/* ── Markdown renderer (shared by Egeria Explorer + Tech Catalog) ────────────
+ * renderMd(text) -> React element(s): splits on fenced ```mermaid blocks
+ * (rendering each via the shared MermaidDiagram) and renders the rest as a
+ * small markdown subset (headings, bold/italic/code, bullet/numbered lists,
+ * GitHub-style tables). Inline-code background uses the --md-code-bg CSS var so
+ * it adapts to each host SPA's light/dark theme. Depends on host globals React,
+ * MermaidDiagram and CSS vars --accent --border --muted --md-code-bg. */
+function _renderMdHtml(rawText) {
+  if (!rawText || !rawText.trim()) return '';
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const inlineMarkup = s => s
+    .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*\n]+?)\*/g, '<em>$1</em>')
+    .replace(/`([^`\n]+)`/g, '<code style="background:var(--md-code-bg);padding:1px 4px;border-radius:3px;font-size:.9em">$1</code>');
+
+  const lines = rawText.split('\n');
+  const parts = [];
+  let i = 0;
+  while (i < lines.length) {
+    // Detect markdown table: current line has pipes, next is separator row
+    if (i + 1 < lines.length && /^\|.+\|/.test(lines[i]) && /^\|[\s\-:|]+\|/.test(lines[i + 1])) {
+      const tlines = [];
+      while (i < lines.length && /^\|/.test(lines[i].trim())) { tlines.push(lines[i]); i++; }
+      const headers = tlines[0].split('|').slice(1, -1).map(h => h.trim());
+      const seps    = tlines[1].split('|').slice(1, -1).map(s => s.trim());
+      const aligns  = seps.map(s => s.startsWith(':') && s.endsWith(':') ? 'center' : s.endsWith(':') ? 'right' : 'left');
+      const rows    = tlines.slice(2).map(r => r.split('|').slice(1, -1).map(c => c.trim()));
+      let t = '<div style="overflow-x:auto;margin:8px 0"><table style="border-collapse:collapse;font-size:12px"><thead><tr>';
+      headers.forEach(function(h, j) { t += '<th style="text-align:' + (aligns[j]||'left') + ';padding:5px 8px;border:1px solid var(--border);color:var(--muted);white-space:nowrap">' + inlineMarkup(esc(h)) + '</th>'; });
+      t += '</tr></thead><tbody>';
+      rows.forEach(function(row) {
+        t += '<tr>';
+        headers.forEach(function(_, j) { t += '<td style="text-align:' + (aligns[j]||'left') + ';padding:5px 8px;border:1px solid var(--border)">' + inlineMarkup(esc(row[j] || '')) + '</td>'; });
+        t += '</tr>';
+      });
+      t += '</tbody></table></div>';
+      parts.push(t);
+    } else {
+      // Accumulate non-table lines until a table starts
+      const nonTable = [];
+      while (i < lines.length && !(i + 1 < lines.length && /^\|.+\|/.test(lines[i]) && /^\|[\s\-:|]+\|/.test(lines[i + 1]))) {
+        nonTable.push(lines[i]); i++;
+      }
+      if (nonTable.length > 0) {
+        parts.push(inlineMarkup(esc(nonTable.join('\n')))
+          .replace(/^### (.+)$/gm, '<b style="font-size:12px;display:block;margin:8px 0 2px;color:var(--accent)">$1</b>')
+          .replace(/^## (.+)$/gm,  '<b style="font-size:13px;display:block;margin:10px 0 2px;color:var(--accent)">$1</b>')
+          .replace(/^# (.+)$/gm,   '<b style="font-size:14px;display:block;margin:12px 0 4px;color:var(--accent)">$1</b>')
+          .replace(/^[-*] (.+)$/gm, '<span style="display:block;padding-left:12px">• $1</span>')
+          .replace(/^(\d+)\. (.+)$/gm, '<span style="display:block;padding-left:12px">$1. $2</span>')
+          .replace(/\n\n/g, '<br><br>')
+          .replace(/\n/g, '<br>'));
+      }
+    }
+  }
+  return parts.join('');
+}
+
+function renderMd(text) {
+  if (!text || !text.trim()) return null;
+  // Split on fenced mermaid code blocks
+  const segs = [];
+  const re = /```mermaid\n([\s\S]*?)```/g;
+  let last = 0, m;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) segs.push({ type: 'md', src: text.slice(last, m.index) });
+    segs.push({ type: 'mermaid', code: m[1].trim() });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) segs.push({ type: 'md', src: text.slice(last) });
+  if (segs.length === 0) return null;
+  const els = segs.map(function(seg, i) {
+    if (seg.type === 'mermaid') return React.createElement(MermaidDiagram, { key: i, code: seg.code });
+    const html = _renderMdHtml(seg.src);
+    if (!html) return null;
+    return React.createElement('div', { key: i, dangerouslySetInnerHTML: { __html: html }, style: { lineHeight: 1.6, wordBreak: 'break-word' } });
+  }).filter(Boolean);
+  if (els.length === 0) return null;
+  if (els.length === 1) return els[0];
+  return React.createElement('div', null, ...els);
+}
