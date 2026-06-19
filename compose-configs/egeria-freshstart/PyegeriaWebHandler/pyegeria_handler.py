@@ -64,6 +64,14 @@ pyegeria.disable_ssl_warnings = True
 
 import dr_egeria_md
 from demo_config import DEMO_MODE, OBSIDIAN_VAULT_URL, OBSIDIAN_GITHUB_URL, EGERIA_ADVISOR_URL
+try:
+    from demo_config import SERVER_MANAGED_AUTH
+except Exception:
+    SERVER_MANAGED_AUTH = False
+# Either mode requires a logged-in user before the portal/SPA pages are served
+# (demo = SQLite accounts; freshstart = Egeria-backed server-managed auth). Only
+# pure local-quickstart (neither flag) skips the login gate.
+_LOGIN_REQUIRED = DEMO_MODE or SERVER_MANAGED_AUTH
 from rate_limiter import limiter
 
 
@@ -318,7 +326,7 @@ async def platform_portal_config():
 
 @app.get("/login", include_in_schema=False)
 async def login_page():
-    if not DEMO_MODE:
+    if not _LOGIN_REQUIRED:
         return RedirectResponse(url="/egeria-explorer")
     html_path = SCRIPT_DIR / "demo-login.html"
     if not html_path.exists():
@@ -328,7 +336,7 @@ async def login_page():
 
 @app.get("/register", include_in_schema=False)
 async def register_page():
-    if not DEMO_MODE:
+    if not _LOGIN_REQUIRED:
         return RedirectResponse(url="/egeria-explorer")
     html_path = SCRIPT_DIR / "demo-register.html"
     if not html_path.exists():
@@ -366,7 +374,7 @@ async def privacy_page():
 
 @app.get("/reset-password", include_in_schema=False)
 async def reset_password_page():
-    if not DEMO_MODE:
+    if not _LOGIN_REQUIRED:
         return RedirectResponse(url="/login")
     html_path = SCRIPT_DIR / "demo-reset-password.html"
     if not html_path.exists():
@@ -383,6 +391,11 @@ async def portal_page(request: Request):
         with Session(get_engine()) as db:
             user = get_current_user(request, db)
         if not user or not user.verified:
+            return RedirectResponse(url="/login", status_code=302)
+    elif SERVER_MANAGED_AUTH:
+        # Freshstart: Egeria-backed auth — require a logged-in portal user.
+        from demo_auth_handler import get_current_user
+        if not get_current_user(request):
             return RedirectResponse(url="/login", status_code=302)
     html_path = SCRIPT_DIR / "demo-portal.html"
     if not html_path.exists():
