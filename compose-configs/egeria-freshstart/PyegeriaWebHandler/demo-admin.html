@@ -28,6 +28,10 @@
     .panel { display: none; }
     .panel.active { display: block; }
     .section-title { font-size: 0.9rem; font-weight: 600; margin-bottom: 1rem; color: var(--text); }
+    .stats-row { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; flex: 1; min-width: 140px; }
+    .stat-card .num { font-size: 1.6rem; font-weight: 700; color: var(--accent); }
+    .stat-card .label { font-size: 0.76rem; color: var(--muted); margin-top: 0.25rem; }
     table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
     thead th { text-align: left; padding: 0.5rem 0.75rem; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 500; }
     /* Resizable columns — scoped to the feedback table so other tables are unaffected. */
