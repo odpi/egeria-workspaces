@@ -50,7 +50,6 @@ services:
       - ../../work:/home/jovyan/work
       - ../../coco-workbooks:/home/jovyan/coco-workbooks
       - ../../templates:/home/jovyan/templates
-      - ../../workbooks:/home/jovyan/workbooks
       - ../../exchange-quickstart/distribution-hub:/home/jovyan/distribution-hub
       - ../../exchange-quickstart/loading-bay:/home/jovyan/loading-bay
       - ../../exchange-quickstart/landing-area:/home/jovyan/landing-area
