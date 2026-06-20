@@ -589,18 +589,6 @@ var useRef      = React.useRef;
 var useCallback = React.useCallback;
 var useMemo     = React.useMemo;
 
-// ── Session ID ────────────────────────────────────────────────────────────────
-var _SESSION_ID = (function() {
-  try {
-    var id = sessionStorage.getItem('_catalog_session_id');
-    if (!id) {
-      id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).substr(2));
-      sessionStorage.setItem('_catalog_session_id', id);
-    }
-    return id;
-  } catch(e) { return 'anon-' + Date.now(); }
-})();
-
 // ── Credential helpers ────────────────────────────────────────────────────────
 // egeriaFetch + _tokenRefresher now live in /static/egeria-shared-ui.js (shared
 // with the Egeria Explorer). fetchWithToken is kept as a thin alias so existing
@@ -1118,57 +1106,6 @@ function ConnectionForm({ saveCreds, initialCreds }) {
       ),
       React.createElement('p', { style: { margin: '8px 0 0', fontSize: 11, color: 'var(--dim)' } },
         'Leave fields empty to use server defaults. Settings are saved for this session.')
-    )
-  );
-}
-
-// ── FeedbackButton ────────────────────────────────────────────────────────────
-function FeedbackButton({ section, persona, demoMode, srvManaged }) {
-  var _o = useState(false), open = _o[0], setOpen = _o[1];
-  var _r = useState(0), rating = _r[0], setRating = _r[1];
-  var _h = useState(0), hover = _h[0], setHover = _h[1];
-  var _c = useState(''), comment = _c[0], setComment = _c[1];
-  var _e = useState(''), email = _e[0], setEmail = _e[1];
-  var _s = useState(false), submitted = _s[0], setSubmitted = _s[1];
-  var _g = useState(false), submitting = _g[0], setSubmitting = _g[1];
-  function close() { setOpen(false); setRating(0); setComment(''); setEmail(''); setSubmitted(false); setHover(0); }
-  function submit() {
-    if (!rating && !comment) return;
-    setSubmitting(true);
-    fetch('/api/demo-feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: _SESSION_ID, page: 'tech-catalog/' + (section || 'splash'), rating: rating || null, message: comment || null, email: email || null, env: demoMode ? 'quickstart-demo' : srvManaged ? 'freshstart' : 'quickstart-local', persona: persona || null, viewport: window.innerWidth + 'x' + window.innerHeight, locale: navigator.language || null }),
-    }).then(function() { setSubmitted(true); setTimeout(close, 2000); }).finally(function() { setSubmitting(false); });
-  }
-  var floatingBtn = React.createElement('button', {
-    onClick: function() { setOpen(true); setSubmitted(false); },
-    style: { position: 'fixed', bottom: 20, right: 20, zIndex: 900, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 20, padding: '7px 15px', fontSize: 12, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }
-  }, '💬 Feedback');
-  if (!open) return floatingBtn;
-  var canSubmit = !submitting && (rating > 0 || comment.trim().length > 0);
-  return React.createElement(React.Fragment, null, floatingBtn,
-    React.createElement('div', { onClick: function(e) { if (e.target === e.currentTarget) close(); },
-      style: { position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', padding: 24 } },
-      React.createElement('div', { style: { background: 'var(--surface, var(--card))', border: '1px solid var(--border)', borderRadius: 12, padding: '22px 26px', width: 340, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' } },
-        submitted
-          ? React.createElement('div', { style: { textAlign: 'center', padding: '16px 0', color: 'var(--accent)', fontSize: 15, fontWeight: 600 } }, '✓ Thank you for your feedback!')
-          : React.createElement(React.Fragment, null,
-              React.createElement('div', { style: { fontWeight: 700, fontSize: 14, marginBottom: 12 } }, 'Share your feedback'),
-              React.createElement('div', { style: { display: 'flex', gap: 3, marginBottom: 12 } },
-                [1,2,3,4,5].map(function(n) {
-                  return React.createElement('span', { key: n, onClick: function() { setRating(n); }, onMouseEnter: function() { setHover(n); }, onMouseLeave: function() { setHover(0); },
-                    style: { fontSize: 26, cursor: 'pointer', color: (hover || rating) >= n ? '#f59e0b' : 'var(--dim)' } }, (hover || rating) >= n ? '★' : '☆');
-                })
-              ),
-              React.createElement('textarea', { placeholder: "What's on your mind?", value: comment, onChange: function(e) { setComment(e.target.value); }, rows: 3,
-                style: { width: '100%', boxSizing: 'border-box', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 9px', color: 'var(--text)', fontSize: 12, resize: 'vertical', marginBottom: 8, outline: 'none', fontFamily: 'inherit' } }),
-              React.createElement('input', { type: 'email', placeholder: 'Email for follow-up (optional)', value: email, onChange: function(e) { setEmail(e.target.value); },
-                style: { width: '100%', boxSizing: 'border-box', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 9px', color: 'var(--text)', fontSize: 12, marginBottom: 14, outline: 'none', fontFamily: 'inherit' } }),
-              React.createElement('div', { style: { display: 'flex', gap: 8, justifyContent: 'flex-end' } },
-                React.createElement('button', { onClick: close, style: { padding: '6px 14px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 12 } }, 'Cancel'),
-                React.createElement('button', { onClick: submit, disabled: !canSubmit, style: { padding: '6px 14px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff', cursor: canSubmit ? 'pointer' : 'default', opacity: canSubmit ? 1 : 0.45, fontSize: 12, fontWeight: 600 } }, submitting ? 'Sending…' : 'Send')
-              )
-            )
-      )
     )
   );
 }
@@ -2364,7 +2301,7 @@ function App() {
     section
       ? React.createElement(SectionView, { sectionId: section, creds: creds, navTarget: navTarget, onNavigate: handleNavigate })
       : React.createElement(Splash, { onSelect: setSection, authUser: authUser, activePersona: activePersona, creds: creds, demoMode: demoMode, srvManaged: srvManaged, saveCreds: setCreds }),
-    React.createElement(FeedbackButton, { section: section, persona: null, demoMode: demoMode, srvManaged: srvManaged })
+    React.createElement(FeedbackButton, { section: section, persona: null, demoMode: demoMode, srvManaged: srvManaged, pagePrefix: 'tech-catalog/' })
   );
 }
 

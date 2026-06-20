@@ -49,15 +49,17 @@ Lift the **richer Explorer version** as canonical; zero auth/token dependency:
 These are the immediate win — e.g. the "Copy source" button I just had to add to
 **both** SPAs separately would be a one-line change in the shared module.
 
-### Tier 2 — share *after* unifying the fetch/auth model
-- `credAppend`, `EgeriaFeedbackWidget`, `EgeriaCommentsSection`, `FeedbackButton`.
-- **Blocker:** the two SPAs talk to the backend differently — Tech Catalog uses a
-  token wrapper (`fetchWithToken` + `X-Egeria-Token`, ~19 refs) while Egeria
-  Explorer uses query-param credentials (0 token refs). The feedback components
-  embed that difference. Sharing them cleanly needs a single shared fetch helper
-  (e.g. `egeriaFetch(url, creds)`) that handles both token and query-param modes.
-  This dovetails with **LE-4** (move handlers to token-only) — sequence MOD-2 Tier 2
-  with that migration.
+### Tier 2 — ✅ DONE (2026-06-19/20)
+- `EgeriaFeedbackWidget`, `EgeriaCommentsSection`, `FeedbackButton` (+ `_SESSION_ID`)
+  all now live in `egeria-shared-ui.js`.
+- **Resolution:** the feared blocker never bit. The Egeria-feedback widgets call
+  the cookie-authed `/api/egeria-feedback/*` with bare `fetch()` (no creds in the
+  call), and `FeedbackButton` posts to `/api/demo-feedback` the same way — so none
+  of them embed the token-vs-query-param seam. The `egeriaFetch` unification from
+  LE-4 phase 3 covered the data-fetching paths; the feedback components never
+  needed it. Canonical = the richer Egeria Explorer `FeedbackButton`; the Catalog's
+  stripped-down copy was retired in favour of a `pagePrefix="tech-catalog/"` prop.
+- `credAppend` was removed entirely in LE-4 phase 4 (dead after `egeriaFetch`).
 
 ### Tier 3 — stays per-tool
 - `ConnectionForm` (auth seam), the `CredContext` *provider* wiring, and every

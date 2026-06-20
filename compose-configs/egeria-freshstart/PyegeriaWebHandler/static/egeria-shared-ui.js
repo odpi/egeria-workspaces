@@ -652,3 +652,142 @@ function EgeriaCommentsSection({ guid }) {
     errMsg && React.createElement('div', { style: { color: '#f87171', fontSize: 11, marginTop: 4 } }, errMsg)
   );
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Demo "Share your feedback" floating button (per-page feedback → /api/demo-feedback).
+ * Canonical = the Egeria Explorer version (the richer superset: category +
+ * "want a response"/consent). Shared by both SPAs. The Tech Catalog used to
+ * carry a stripped-down copy that prefixed the page with "tech-catalog/"; pass
+ * pagePrefix="tech-catalog/" to reproduce that. _SESSION_ID is a per-tab id.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+var _SESSION_ID = (function() {
+  try {
+    var id = sessionStorage.getItem('_egeria_session_id');
+    if (!id) {
+      id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).substr(2));
+      sessionStorage.setItem('_egeria_session_id', id);
+    }
+    return id;
+  } catch(e) { return 'anon-' + Date.now(); }
+})();
+
+// Props: section, persona, demoMode, srvManaged, pagePrefix (optional)
+function FeedbackButton({ section, persona, demoMode, srvManaged, pagePrefix }) {
+  var _openState      = React.useState(false), open       = _openState[0],      setOpen       = _openState[1];
+  var _rateState      = React.useState(0),     rating     = _rateState[0],      setRating     = _rateState[1];
+  var _hoverState     = React.useState(0),     hover      = _hoverState[0],     setHover      = _hoverState[1];
+  var _commentState   = React.useState(''),    comment    = _commentState[0],   setComment    = _commentState[1];
+  var _emailState     = React.useState(''),    email      = _emailState[0],     setEmail      = _emailState[1];
+  var _catState       = React.useState(''),    category   = _catState[0],       setCategory   = _catState[1];
+  var _wantsState     = React.useState(false), wantsResp  = _wantsState[0],     setWantsResp  = _wantsState[1];
+  var _consentState   = React.useState(false), consent    = _consentState[0],   setConsent    = _consentState[1];
+  var _subState       = React.useState(false), submitted  = _subState[0],       setSubmitted  = _subState[1];
+  var _submitting     = React.useState(false), submitting = _submitting[0],     setSubmitting = _submitting[1];
+
+  var env = demoMode ? 'quickstart-demo' : srvManaged ? 'freshstart' : 'quickstart-local';
+
+  function handleClose() {
+    setOpen(false); setRating(0); setComment(''); setEmail('');
+    setCategory(''); setWantsResp(false); setConsent(false);
+    setSubmitted(false); setHover(0);
+  }
+
+  function handleSubmit() {
+    if (!rating && !comment.trim()) return;
+    setSubmitting(true);
+    fetch('/api/demo-feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id:         _SESSION_ID,
+        page:               (pagePrefix || '') + (section || 'splash'),
+        rating:             rating || null,
+        category:           category || null,
+        message:            comment.trim() || null,
+        email:              email.trim() || null,
+        wants_response:     wantsResp,
+        consent_to_contact: consent,
+        persona:            persona || null,
+        env:                env,
+        viewport:           window.innerWidth + 'x' + window.innerHeight,
+        locale:             navigator.language || null,
+      }),
+    }).then(function() {
+      setSubmitted(true);
+      setTimeout(handleClose, 2000);
+    }).catch(function() {
+      setSubmitting(false);
+    }).finally(function() {
+      setSubmitting(false);
+    });
+  }
+
+  var floatingBtn = React.createElement('button', {
+    onClick: function() { setOpen(true); setSubmitted(false); },
+    title: 'Share your feedback',
+    style: { position: 'fixed', bottom: 20, right: 20, zIndex: 900, background: 'var(--accent)', color: '#fff',
+             border: 'none', borderRadius: 20, padding: '7px 15px', fontSize: 12, fontWeight: 600,
+             cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.3)', letterSpacing: '0.02em' }
+  }, '💬 Feedback');
+
+  if (!open) return floatingBtn;
+
+  var stars = [1,2,3,4,5].map(function(n) {
+    var active = (hover || rating) >= n;
+    return React.createElement('span', { key: n,
+      onClick: function() { setRating(n); },
+      onMouseEnter: function() { setHover(n); }, onMouseLeave: function() { setHover(0); },
+      style: { fontSize: 26, cursor: 'pointer', color: active ? '#f59e0b' : 'var(--dim)', lineHeight: 1 }
+    }, active ? '★' : '☆');
+  });
+
+  var inp = { width: '100%', boxSizing: 'border-box', background: 'var(--bg)', border: '1px solid var(--border)',
+              borderRadius: 6, padding: '7px 9px', color: 'var(--text)', fontSize: 12, fontFamily: 'inherit', outline: 'none' };
+  var chkRow = { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)', marginBottom: 6 };
+  var canSubmit = !submitting && (rating > 0 || comment.trim().length > 0);
+
+  return React.createElement(React.Fragment, null, floatingBtn,
+    React.createElement('div', {
+      onClick: function(e) { if (e.target === e.currentTarget) handleClose(); },
+      style: { position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.45)',
+               display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', padding: 24 }
+    },
+      React.createElement('div', { style: { background: 'var(--surface,var(--card))', border: '1px solid var(--border)',
+          borderRadius: 12, padding: '22px 26px', width: 360, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' } },
+        submitted
+          ? React.createElement('div', { style: { textAlign: 'center', padding: '16px 0', color: 'var(--accent)', fontSize: 15, fontWeight: 600 } },
+              '✓ Thank you for your feedback!')
+          : React.createElement(React.Fragment, null,
+              React.createElement('div', { style: { fontWeight: 700, fontSize: 14, marginBottom: 4 } }, 'Share your feedback'),
+              React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginBottom: 12 } },
+                'Page: ', React.createElement('span', { style: { color: 'var(--text)', fontFamily: 'ui-monospace,monospace', fontSize: 10 } }, (pagePrefix || '') + (section || 'splash'))),
+              React.createElement('div', { style: { display: 'flex', gap: 3, marginBottom: 10 } }, ...stars),
+              React.createElement('select', { value: category, onChange: function(e) { setCategory(e.target.value); },
+                style: Object.assign({}, inp, { marginBottom: 8 }) },
+                React.createElement('option', { value: '' }, 'Category (optional)'),
+                ['Bug', 'Confusing', 'Suggestion', 'Praise'].map(function(c) {
+                  return React.createElement('option', { key: c, value: c.toLowerCase() }, c); })
+              ),
+              React.createElement('textarea', { placeholder: "What's on your mind?", value: comment,
+                onChange: function(e) { setComment(e.target.value); }, rows: 3,
+                style: Object.assign({}, inp, { resize: 'vertical', marginBottom: 8 }) }),
+              React.createElement('input', { type: 'email', placeholder: 'Email for follow-up (optional)',
+                value: email, onChange: function(e) { setEmail(e.target.value); },
+                style: Object.assign({}, inp, { marginBottom: 10 }) }),
+              React.createElement('div', { style: chkRow },
+                React.createElement('input', { type: 'checkbox', checked: wantsResp, onChange: function(e) { setWantsResp(e.target.checked); } }),
+                'I\'d like a response'),
+              React.createElement('div', { style: Object.assign({}, chkRow, { marginBottom: 14 }) },
+                React.createElement('input', { type: 'checkbox', checked: consent, onChange: function(e) { setConsent(e.target.checked); } }),
+                'OK to contact me about this feedback'),
+              React.createElement('div', { style: { display: 'flex', gap: 8, justifyContent: 'flex-end' } },
+                React.createElement('button', { onClick: handleClose, style: { padding: '6px 14px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 12 } }, 'Cancel'),
+                React.createElement('button', { onClick: handleSubmit, disabled: !canSubmit, style: { padding: '6px 14px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff', cursor: canSubmit ? 'pointer' : 'default', opacity: canSubmit ? 1 : 0.45, fontSize: 12, fontWeight: 600 } },
+                  submitting ? 'Sending…' : 'Send')
+              )
+            )
+      )
+    )
+  );
+}
