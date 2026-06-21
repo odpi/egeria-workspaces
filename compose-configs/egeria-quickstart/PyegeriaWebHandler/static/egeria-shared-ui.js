@@ -791,3 +791,71 @@ function FeedbackButton({ section, persona, demoMode, srvManaged, pagePrefix }) 
     )
   );
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Credential context — provides Egeria connection params (or a token) to all
+ * child components without prop-drilling. Both SPAs wrap their tree in
+ * CredContext.Provider value={creds}; shared components read it via useContext
+ * and pass it to egeriaFetch. (Was previously Explorer-only; the Tech Catalog
+ * prop-drilled instead — unified here so credential handling is identical.)
+ * ────────────────────────────────────────────────────────────────────────── */
+var CredContext = React.createContext({ url: '', server: '', userId: '', password: '' });
+
+/* Single lazy-loading diagram panel. fetchUrl is called on first open; label
+ * appears in the header. field: which key to read from the JSON response
+ * (default 'mermaidGraph'). Reads creds from CredContext + uses egeriaFetch so
+ * the call is token-aware in every auth mode. Canonical = the Explorer version. */
+function DiagramPanel({ fetchUrl, label, buttonLabel, field }) {
+  const [code, setCode]       = React.useState(null);   // null=unfetched, ''=empty, string=content
+  const [loading, setLoading] = React.useState(false);
+  const [visible, setVisible] = React.useState(false);
+  const creds = React.useContext(CredContext);
+
+  var btnStyle = { fontSize: 12, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' };
+  var readField = field || 'mermaidGraph';
+
+  function toggle() {
+    if (code === null && !loading) {
+      setLoading(true);
+      setVisible(true);
+      egeriaFetch(fetchUrl, creds)
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(data) {
+          var val = data && (data.graphs && data.graphs[readField]) ? data.graphs[readField]
+                  : data && data[readField] ? data[readField] : '';
+          setCode(val); setLoading(false);
+        })
+        .catch(function() { setCode(''); setLoading(false); });
+    } else {
+      setVisible(function(v) { return !v; });
+    }
+  }
+
+  var btnLabel = visible ? ('▦ Hide ' + label) : (code !== null ? ('▦ Show ' + label) : buttonLabel);
+
+  return React.createElement('div', { style: { margin: '4px 0' } },
+    React.createElement('button', { onClick: toggle, style: btnStyle }, btnLabel),
+    visible && loading && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '6px 0' } }, 'Loading diagram…'),
+    visible && !loading && code === '' && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '4px 0' } }, 'No diagram available for this element.'),
+    visible && !loading && code && React.createElement(MermaidDiagram, { code: code })
+  );
+}
+
+/* Context diagram + anchored graph buttons for any element GUID. */
+function MermaidSection({ guid }) {
+  if (!guid) return null;
+  return React.createElement('div', { style: { margin: '8px 0' } },
+    React.createElement(DiagramPanel, {
+      key: 'ctx:' + guid,
+      fetchUrl: '/api/mermaid/' + encodeURIComponent(guid),
+      label: 'Context Diagram',
+      buttonLabel: '▦ Load Context Diagram'
+    }),
+    React.createElement(DiagramPanel, {
+      key: 'anc:' + guid,
+      fetchUrl: '/api/mermaid/' + encodeURIComponent(guid) + '/anchored',
+      label: 'Anchored Graph',
+      buttonLabel: '▦ Load Anchored Graph'
+    })
+  );
+}

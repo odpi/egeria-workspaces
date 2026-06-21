@@ -582,7 +582,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 <script src="/static/egeria-shared-ui.js"></script>
 <script>
 'use strict';
-// SHARED — keep in sync with type-explorer.html equivalents
+// React hook aliases (mirror type-explorer.html)
 var useState    = React.useState;
 var useEffect   = React.useEffect;
 var useRef      = React.useRef;
@@ -615,66 +615,10 @@ function credAppend(url, creds) {
 // ResizeDivider now lives in /static/egeria-shared-ui.js (uses the .col-divider
 // CSS class defined above — gains the hover affordance the inline version lacked).
 
-// ── SHARED — Mermaid diagram components ──────────────────────────────────────
-// keep in sync with type-explorer.html: MermaidDiagram, DiagramPanel,
-// DiagramPanelFromData, MermaidSection, AvailableMermaidDiagrams
+// DiagramPanel + MermaidSection now live in /static/egeria-shared-ui.js
+// (shared with the Egeria Explorer; token-aware via CredContext + egeriaFetch).
+// The rest of the mermaid family + copyToClipboard are shared there too.
 
-// Copy text robustly — navigator.clipboard only works in a secure context
-// (https:// or localhost). Over plain http:// to a hostname/IP it is undefined,
-// so fall back to a hidden-textarea execCommand. Returns Promise<boolean>.
-function _execCopyFallback(text) {
-  try {
-    var ta = document.createElement('textarea');
-    ta.value = text; ta.setAttribute('readonly', '');
-    ta.style.position = 'fixed'; ta.style.top = '-9999px'; ta.style.left = '-9999px';
-    document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, ta.value.length);
-    var ok = document.execCommand('copy');
-    document.body.removeChild(ta);
-    return ok;
-  } catch (e) { return false; }
-}
-function copyTextToClipboard(text) {
-  if (navigator.clipboard && window.isSecureContext) {
-    return navigator.clipboard.writeText(text).then(function() { return true; }).catch(function() { return _execCopyFallback(text); });
-  }
-  return Promise.resolve(_execCopyFallback(text));
-}
-
-
-function DiagramPanel({ fetchUrl, label, buttonLabel }) {
-  var _v = useState(false), visible = _v[0], setVisible = _v[1];
-  var _l = useState(false), loading = _l[0], setLoading = _l[1];
-  var _c = useState(''),    code    = _c[0], setCode    = _c[1];
-  var _e = useState(''),    errMsg  = _e[0], setErrMsg  = _e[1];
-  function load() {
-    if (visible) { setVisible(false); return; }
-    setVisible(true); setLoading(true);
-    fetch(fetchUrl).then(function(r) { return r.json(); }).then(function(data) {
-      var graph = (data && data.mermaidGraph) ? data.mermaidGraph : '';
-      setCode(graph); setLoading(false);
-    }).catch(function(e) { setErrMsg(String(e)); setLoading(false); });
-  }
-  return React.createElement('div', { style: { margin: '6px 0' } },
-    React.createElement('button', {
-      onClick: load,
-      style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)',
-               background: visible ? 'var(--hover)' : 'transparent', color: 'var(--accent)', cursor: 'pointer' }
-    }, visible ? '▾ Hide ' + label : (buttonLabel || '▦ Load ' + label)),
-    visible && loading && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: 8 } }, 'Loading diagram…'),
-    visible && errMsg  && React.createElement('div', { style: { fontSize: 11, color: '#f87171', padding: 8 } }, errMsg),
-    visible && !loading && code && React.createElement(MermaidDiagram, { code: code }),
-    visible && !loading && !code && !errMsg && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: 8 } }, 'No diagram available for this element.')
-  );
-}
-
-
-function MermaidSection({ guid }) {
-  if (!guid) return null;
-  return React.createElement('div', { style: { margin: '8px 0' } },
-    React.createElement(DiagramPanel, { key: 'ctx:' + guid, fetchUrl: '/api/mermaid/' + encodeURIComponent(guid), label: 'Context Diagram', buttonLabel: '▦ Load Context Diagram' }),
-    React.createElement(DiagramPanel, { key: 'anc:' + guid, fetchUrl: '/api/mermaid/' + encodeURIComponent(guid) + '/anchored', label: 'Anchored Graph', buttonLabel: '▦ Load Anchored Graph' })
-  );
-}
 
 var _ALL_MERMAID_FIELDS = [
   'mermaidGraph','iscImplementationMermaidGraph','informationSupplyChainMermaidGraph',
@@ -2269,7 +2213,8 @@ function App() {
 
   if (!ready) return null;
 
-  return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', height: '100vh' } },
+  return React.createElement(CredContext.Provider, { value: creds },
+    React.createElement('div', { style: { display: 'flex', flexDirection: 'column', height: '100vh' } },
     // Nav bar
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '0 14px', height: 42, borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0 } },
       React.createElement('span', { style: { fontSize: 18 } }, '🐱'),
@@ -2302,7 +2247,7 @@ function App() {
       ? React.createElement(SectionView, { sectionId: section, creds: creds, navTarget: navTarget, onNavigate: handleNavigate })
       : React.createElement(Splash, { onSelect: setSection, authUser: authUser, activePersona: activePersona, creds: creds, demoMode: demoMode, srvManaged: srvManaged, saveCreds: setCreds }),
     React.createElement(FeedbackButton, { section: section, persona: null, demoMode: demoMode, srvManaged: srvManaged, pagePrefix: 'tech-catalog/' })
-  );
+  ));
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App, null));
