@@ -8039,7 +8039,7 @@ function App() {
   }
 
   const [creds, setCreds] = useState(function() {
-    // Empty defaults work in every mode: blank fields are omitted by credQS, so the backend
+    // Empty defaults work in every mode: blank fields are omitted by egeriaFetch, so the backend
     // handlers fall back to their env service account. local-Quickstart users may fill the
     // form to browse as a specific user; Freshstart uses the portal JWT; demo uses the persona.
     try {

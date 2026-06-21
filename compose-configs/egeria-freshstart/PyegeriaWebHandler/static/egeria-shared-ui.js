@@ -190,8 +190,8 @@ function useResizable(initialPx, min, max) {
 /* ── Glossary tree (shared by Egeria Explorer + Tech Catalog) ────────────────
  * One twistie-tree implementation for both SPAs. GlossaryTreeNode lazy-loads
  * its child folders + terms via the injected fetchJson(path) -> Promise<json>,
- * so each SPA supplies its own auth wrapper (Explorer: fetch+credAppend;
- * Catalog: fetchWithToken). onSelect(obj, isFolder) fires on row click.
+ * via the injected fetchJson(path) wrapper (both SPAs now use the shared
+ * token-aware egeriaFetch). onSelect(obj, isFolder) fires on row click.
  * Depends on host CSS classes .tree-item / .badge / .type-name and CSS vars
  * --accent --muted --dim. */
 function GlossaryTermRow({ term, depth, selected, onSelect }) {

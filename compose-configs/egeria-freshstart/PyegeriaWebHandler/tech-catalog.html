@@ -595,18 +595,6 @@ var useMemo     = React.useMemo;
 // call sites are untouched; the App still registers _tokenRefresher.refresh.
 var fetchWithToken = egeriaFetch;
 
-// Kept for backwards compat with ConnectionForm manual credential entry.
-// When a token is available fetchWithToken is used instead.
-function credAppend(url, creds) {
-  if (!creds || (!creds.url && !creds.userId)) return url;
-  var p = new URLSearchParams();
-  if (creds.url)    p.set('url',    creds.url);
-  if (creds.server) p.set('server', creds.server);
-  if (creds.userId) p.set('user_id', creds.userId);
-  var sep = url.indexOf('?') === -1 ? '?' : '&';
-  return url + sep + p.toString();
-}
-
 // ── Markdown renderer (shared with type-explorer.html) ───────────────────────
 // renderMd + _renderMdHtml now live in /static/egeria-shared-ui.js (shared with
 // the Egeria Explorer). The shared renderMd also handles embedded ```mermaid
