@@ -8143,7 +8143,12 @@ function App() {
     setSection('data-design');
   }, []);
 
-  const [digitalProductNavGuid, setDigitalProductNavGuid] = useState(null);
+  const [digitalProductNavGuid, setDigitalProductNavGuid] = useState(function() {
+    // Cold deep-link (e.g. a Tech Catalog CollectionFolder cross-link opening
+    // /egeria-explorer?guid=X#digital-products): seed the nav guid so the node is selected.
+    var p = new URLSearchParams(window.location.search);
+    return window.location.hash.slice(1) === 'digital-products' ? (p.get('guid') || null) : null;
+  });
   const onNavigateToDigitalProduct = useCallback(function(guid) {
     setDigitalProductNavGuid(guid || null);
     setSection('digital-products');

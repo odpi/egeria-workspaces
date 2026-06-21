@@ -1531,6 +1531,11 @@ var TYPE_TO_NAV = (function() {
   m['DataField']     = { external: 'egeria-explorer', hash: 'data-design', kind: 'fields' };
   m['DataGrain']     = { external: 'egeria-explorer', hash: 'data-design', kind: 'grains' };
   m['DataClass']     = { external: 'egeria-explorer', hash: 'data-design', kind: 'classes' };
+  // Collection family — Explorer routes these to its Digital Products tab
+  // (CollectionFolder/DigitalProduct + the generic Collection fallback for e.g. Folio).
+  m['CollectionFolder'] = { external: 'egeria-explorer', hash: 'digital-products' };
+  m['DigitalProduct']   = { external: 'egeria-explorer', hash: 'digital-products' };
+  m['Collection']       = { external: 'egeria-explorer', hash: 'digital-products' };
   return m;
 }());
 
