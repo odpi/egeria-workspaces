@@ -1661,14 +1661,20 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   var _q             = useState(''),   q             = _q[0],             setQ             = _q[1];
   var _typeFilter    = useState('all'), typeFilter    = _typeFilter[0],    setTypeFilter    = _typeFilter[1];
   var _classifFilter = useState([]),   classifFilter = _classifFilter[0], setClassifFilter = _classifFilter[1];
+  // LE-3: point-in-time browsing — only the data-asset endpoints accept as_of_time.
+  var _asOfTime = useState(null), asOfTime = _asOfTime[0], setAsOfTime = _asOfTime[1];
+  var supportsTime = /\/(data-stores|data-feeds|data-sets)\b/.test(endpoint);
 
   useEffect(function() {
     setLoading(true); setError(''); setSelected(null); setDetail(null); setClassifFilter([]);
-    fetchWithToken(endpoint, creds)
+    var listUrl = endpoint + (supportsTime && asOfTime
+      ? (endpoint.indexOf('?') === -1 ? '?' : '&') + 'as_of_time=' + encodeURIComponent(asOfTime)
+      : '');
+    fetchWithToken(listUrl, creds)
       .then(function(r) { return r.json(); })
       .then(function(d) { setItems(Array.isArray(d) ? d : (d.items || [])); setLoading(false); })
       .catch(function(e) { setError(String(e)); setLoading(false); });
-  }, [endpoint]);
+  }, [endpoint, asOfTime]);
 
   function handleSelect(item) {
     setSelected(item);
@@ -1746,6 +1752,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   var types = Array.from(new Set(items.map(function(i) { return i.deployedImplementationType || i.typeName || ''; }).filter(Boolean))).sort();
 
   var filterBar = React.createElement('div', { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 5 } },
+    supportsTime && React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' }),
     React.createElement('input', { type: 'search', placeholder: 'Filter…', value: q, onChange: function(e) { setQ(e.target.value); },
       style: { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } }),
     types.length > 1 && React.createElement('select', { value: typeFilter, onChange: function(e) { setTypeFilter(e.target.value); },

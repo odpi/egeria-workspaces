@@ -1214,3 +1214,51 @@ function TabularPreviewModal({ fetchUrl, name, creds, onClose }) {
     )
   );
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * Time slider — emits an as_of_time ISO string (or null = "now") for
+ * point-in-time / historical queries. Generalised from the Lineage Explorer
+ * (LE-3) with inline styles so it carries no CSS-class dependency. Props:
+ *   createTime — ISO string for the slider's left bound (default: 30 days ago)
+ *   onChange(asOfTimeOrNull) — fired on release; null means "now"
+ *   label — optional heading (default "Time Slider")
+ * ─────────────────────────────────────────────────────────────────────────── */
+function TimeSlider({ createTime, onChange, label }) {
+  var nowMs   = Date.now();
+  var startMs = createTime ? new Date(createTime).getTime() : (nowMs - 30 * 24 * 3600 * 1000);
+  if (isNaN(startMs) || startMs >= nowMs) startMs = nowMs - 30 * 24 * 3600 * 1000;
+
+  var _val = React.useState(nowMs), val = _val[0], setVal = _val[1];
+  React.useEffect(function() { setVal(nowMs); }, [createTime]);
+
+  function fmt(ms) {
+    return new Date(ms).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+  function onCommit(ms) {
+    var ms2 = parseInt(ms, 10);
+    setVal(ms2);
+    var isNow = ms2 >= nowMs - 60000; // within 1 min of now = "now"
+    onChange(isNow ? null : new Date(ms2).toISOString());
+  }
+
+  return React.createElement('div', { style: { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: '14px 18px', marginBottom: 18 } },
+    React.createElement('div', { style: { fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 10 } }, label || 'Time Slider'),
+    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+      React.createElement('input', {
+        type: 'range',
+        style: { flex: 1, accentColor: 'var(--accent)', cursor: 'pointer' },
+        min: String(startMs), max: String(nowMs), value: String(val),
+        onChange:   function(e) { setVal(parseInt(e.target.value, 10)); },
+        onMouseUp:  function(e) { onCommit(e.target.value); },
+        onTouchEnd: function(e) { onCommit(e.target.value); },
+        onKeyUp:    function(e) { onCommit(e.target.value); },
+      }),
+      React.createElement('span', { style: { fontSize: 11, color: 'var(--accent)', whiteSpace: 'nowrap', minWidth: 110, textAlign: 'right' } },
+        val >= nowMs - 60000 ? 'Now' : fmt(val))
+    ),
+    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--dim)', marginTop: 4 } },
+      React.createElement('span', null, fmt(startMs)),
+      React.createElement('span', null, 'Now')
+    )
+  );
+}

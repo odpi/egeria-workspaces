@@ -708,6 +708,7 @@ def list_data_stores(
     page_size:  int = Query(100, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -724,6 +725,7 @@ def list_data_stores(
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
             graph_query_depth=0,
+            as_of_time=as_of_time or None,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -740,6 +742,7 @@ def list_data_feeds(
     page_size:  int = Query(100, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -756,6 +759,7 @@ def list_data_feeds(
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
             graph_query_depth=0,
+            as_of_time=as_of_time or None,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -772,6 +776,7 @@ def list_data_sets(
     page_size:  int = Query(100, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -788,6 +793,7 @@ def list_data_sets(
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
             graph_query_depth=0,
+            as_of_time=as_of_time or None,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
