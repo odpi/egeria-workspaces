@@ -3153,16 +3153,20 @@ function DigitalTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggle
       node.typeName && React.createElement("span", { className: "badge", style: { background: 'rgba(99,102,241,.1)', color: typeColor, border: '0.5px solid rgba(99,102,241,.3)', fontSize: 9, marginLeft: 4 } }, node.typeName)
     ),
     isExp && (function() {
-      var kids = childrenByGuid[node.guid];
-      if (kids === undefined) {
-        return loadingGuids.has(node.guid)
+      // Lazy mode: caller supplies childrenByGuid (fetched on expand). Otherwise
+      // (e.g. the solution-components tree) fall back to a pre-materialised
+      // node.children so this shared node works for both.
+      var lazy = childrenByGuid != null;
+      var kids = lazy ? childrenByGuid[node.guid] : (node.children || []);
+      if (lazy && kids === undefined) {
+        return loadingGuids && loadingGuids.has(node.guid)
           ? React.createElement("div", { style: { marginLeft: paddingLeft + 26, fontSize: 11, color: 'var(--dim)', padding: '2px 0' } }, "Loading…")
-          : null;  // collapsed-then-expanded; load is kicked off by toggleNode
+          : null;
       }
-      if (kids.length === 0) {
+      if (lazy && kids.length === 0) {
         return React.createElement("div", { style: { marginLeft: paddingLeft + 26, fontSize: 11, color: 'var(--dim)', padding: '2px 0' } }, "(empty)");
       }
-      return kids.map(function(child) {
+      return (kids || []).map(function(child) {
         return React.createElement(DigitalTreeNode, {
           key: child.guid, node: child, depth: depth + 1,
           selectedGuid: selectedGuid, onSelect: onSelect,
