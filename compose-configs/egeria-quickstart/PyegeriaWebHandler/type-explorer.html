@@ -3128,7 +3128,7 @@ function DigitalProductDetail({ product, onNavigateToElement, creds }) {
   );
 }
 
-function DigitalTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggleNode }) {
+function DigitalTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggleNode, childrenByGuid, loadingGuids }) {
   const isExp = expanded.has(node.guid);
   const isSel = selectedGuid === node.guid;
   const paddingLeft = 8 + depth * 24;
@@ -3152,17 +3152,25 @@ function DigitalTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggle
       React.createElement("span", { className: "type-name" }, node.displayName || node.qualifiedName || node.guid),
       node.typeName && React.createElement("span", { className: "badge", style: { background: 'rgba(99,102,241,.1)', color: typeColor, border: '0.5px solid rgba(99,102,241,.3)', fontSize: 9, marginLeft: 4 } }, node.typeName)
     ),
-    isExp && (node.children || []).map(function(child) {
-      return React.createElement(DigitalTreeNode, {
-        key: child.guid,
-        node: child,
-        depth: depth + 1,
-        selectedGuid: selectedGuid,
-        onSelect: onSelect,
-        expanded: expanded,
-        toggleNode: toggleNode,
+    isExp && (function() {
+      var kids = childrenByGuid[node.guid];
+      if (kids === undefined) {
+        return loadingGuids.has(node.guid)
+          ? React.createElement("div", { style: { marginLeft: paddingLeft + 26, fontSize: 11, color: 'var(--dim)', padding: '2px 0' } }, "Loading…")
+          : null;  // collapsed-then-expanded; load is kicked off by toggleNode
+      }
+      if (kids.length === 0) {
+        return React.createElement("div", { style: { marginLeft: paddingLeft + 26, fontSize: 11, color: 'var(--dim)', padding: '2px 0' } }, "(empty)");
+      }
+      return kids.map(function(child) {
+        return React.createElement(DigitalTreeNode, {
+          key: child.guid, node: child, depth: depth + 1,
+          selectedGuid: selectedGuid, onSelect: onSelect,
+          expanded: expanded, toggleNode: toggleNode,
+          childrenByGuid: childrenByGuid, loadingGuids: loadingGuids,
+        });
       });
-    })
+    })()
   );
 }
 
@@ -3181,6 +3189,10 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
   const [selectedNodeObj, setSelectedNodeObj] = useState(null);
   const [nodeDetail, setNodeDetail] = useState(null);
   const [expanded, setExpanded]     = useState(new Set());
+  const [childrenByGuid, setChildrenByGuid] = useState({}); // guid -> [child nodes] (lazy)
+  const [loadingGuids, setLoadingGuids]     = useState(new Set());
+  const childrenRef = useRef({});
+  useEffect(() => { childrenRef.current = childrenByGuid; }, [childrenByGuid]);
   const [catError, setCatError]     = useState('');
   const [treeError, setTreeError]   = useState('');
 
@@ -3214,6 +3226,7 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
         setTreeData(data);
+        setChildrenByGuid({});
         setTreeState('ready');
         // Start with all nodes collapsed — user opens as needed
         setExpanded(new Set());
@@ -3221,14 +3234,24 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
       .catch(err => { setTreeError(err.message); setTreeState('error'); });
   }, [selectedCat]);
 
+  const loadChildren = useCallback(guid => {
+    if (childrenRef.current[guid] !== undefined) return;  // already loaded
+    setLoadingGuids(prev => { const n = new Set(prev); n.add(guid); return n; });
+    egeriaFetch('/api/digital-products/' + encodeURIComponent(guid) + '/children', creds)
+      .then(r => r.ok ? r.json() : { children: [] })
+      .then(d => { setChildrenByGuid(prev => Object.assign({}, prev, { [guid]: d.children || [] })); })
+      .catch(() => { setChildrenByGuid(prev => Object.assign({}, prev, { [guid]: [] })); })
+      .finally(() => { setLoadingGuids(prev => { const n = new Set(prev); n.delete(guid); return n; }); });
+  }, [creds]);
+
   const toggleNode = useCallback(guid => {
     setExpanded(prev => {
       const next = new Set(prev);
       if (next.has(guid)) next.delete(guid);
-      else next.add(guid);
+      else { next.add(guid); loadChildren(guid); }
       return next;
     });
-  }, []);
+  }, [loadChildren]);
 
   const handleSelect = useCallback((guid, nodeObj) => {
     setSelectedNode(guid);
@@ -3301,6 +3324,8 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
                 onSelect: handleSelect,
                 expanded,
                 toggleNode,
+                childrenByGuid,
+                loadingGuids,
               })
             )
       )

@@ -247,8 +247,8 @@ app-wiring) and the legitimately env-specific `config_workspaces.json` publishin
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| PERF-1 | Digital Product catalog tree load is slow — investigate query optimisation | open | `get_collection_members` called serially per container; `include_only_relationships` explored but not yet validated |
-| PERF-2 | Evaluate server-side lazy loading for deep catalog trees | open | Return top-level only; fetch children on expand click |
+| PERF-1 | Digital Product catalog tree load is slow — investigate query optimisation | **done (2026-06-21)** | Root cause was **not** the members fetch: `/tree` made an extra `get_collection_by_guid(catalog)` deep-graph call (~12 s) purely for catalog display metadata the frontend never reads — removed it (the frontend already has the catalog from the catalogs list). `get_collection_members(graphQueryDepth=0)` is ~0.25 s. |
+| PERF-2 | Evaluate server-side lazy loading for deep catalog trees | **done (2026-06-21)** | `/tree` now returns only the catalog's top level; `_build_tree`'s recursive serial walk replaced by `_children_level` (one level, no recursion). New `GET /api/digital-products/{guid}/children` fetches a node's members on expand. Frontend `DigitalProductsView`/`DigitalTreeNode` lazy-load via a `childrenByGuid` map + `loadingGuids` (one `get_collection_members` call per expand). **Result: 28.4 s → 0.42 s** initial load (432-node catalog), ~0.5 s per expand. **Optional follow-up:** `graphQueryDepth=1` to pre-load the 2nd level (instant top-level expands, heavier payload). **Note:** the same recursive pattern still exists in collections/solution/projects/governance tree endpoints — apply the same fix if they're felt to be slow. |
 
 ---
 
