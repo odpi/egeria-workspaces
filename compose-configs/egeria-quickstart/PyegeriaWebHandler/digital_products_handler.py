@@ -202,12 +202,14 @@ def _find_all_catalogs(mgr) -> list:
     return list(catalogs.values())
 
 
-def _build_tree(mgr, collection_guid: str, visited: set, depth: int = 0) -> list:
-    """Recursively fetch collection members, building a node tree. Max depth 5."""
-    if depth > 5 or collection_guid in visited:
-        return []
-    visited.add(collection_guid)
+def _children_level(mgr, collection_guid: str) -> list:
+    """Fetch ONE level of members (no recursion) for lazy tree loading (PERF-2).
 
+    Each node is flagged isContainer so the frontend shows an expand twistie; its
+    own children are left unfetched until the user expands it (one
+    get_collection_members call per expand, vs the old recursive O(containers)
+    serial walk that made a 432-node catalog take ~28 s to load).
+    """
     try:
         raw = mgr.get_collection_members(
             collection_guid=collection_guid,
@@ -229,16 +231,11 @@ def _build_tree(mgr, collection_guid: str, visited: set, depth: int = 0) -> list
         # Any Collection subtype is a container (Glossary, CollectionFolder, …),
         # not just the explicitly-listed digital-product types — otherwise those
         # nodes show no expand twistie and their members are never fetched.
-        is_container = (
+        node["isContainer"] = (
             tn in _CONTAINER_TYPES or "Family" in tn or "Catalog" in tn
             or "Collection" in (node.get("superTypeNames") or [])
         )
-        if is_container:
-            node["children"] = _build_tree(mgr, node["guid"], visited, depth + 1)
-            node["isContainer"] = True
-        else:
-            node["children"] = []
-            node["isContainer"] = False
+        node["children"] = []  # lazily fetched on expand via /children
         nodes.append(node)
 
     nodes.sort(key=lambda n: (not n["isContainer"], (n.get("displayName") or "").lower()))
@@ -284,9 +281,10 @@ def get_catalog_tree(
     user_pwd: Optional[str] = Query(None),
 ):
     """
-    Return the full recursive hierarchy tree for a DigitalProductCatalog.
+    Return the TOP LEVEL of a DigitalProductCatalog's hierarchy (lazy — PERF-2).
+    Deeper levels are fetched on demand via /api/digital-products/{guid}/children.
 
-    Tree nodes: {guid, typeName, displayName, ..., isContainer: bool, children: [node...]}
+    Tree nodes: {guid, typeName, displayName, ..., isContainer: bool, children: []}
     """
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
@@ -300,18 +298,40 @@ def get_catalog_tree(
         logger.debug(f"Tree cache hit for {catalog_guid}")
         return JSONResponse(cached[1])
 
-    try:
-        catalog_raw = mgr.get_collection_by_guid(catalog_guid, output_format="JSON")
-    except Exception as exc:
-        logger.warning(f"get_collection_by_guid failed for {catalog_guid}: {exc}")
-        catalog_raw = None
+    # The catalog's own metadata is already known to the client from the catalogs
+    # list, so skip get_collection_by_guid here — for this catalog root it runs a
+    # ~12 s graph query whose result the frontend never reads (PERF-1).
+    catalog = {"guid": catalog_guid}
 
-    catalog = _serialize_node(catalog_raw) if catalog_raw and isinstance(catalog_raw, dict) else {"guid": catalog_guid}
-
-    visited: set = set()
-    children = _build_tree(mgr, catalog_guid, visited)
+    children = _children_level(mgr, catalog_guid)
 
     result = {"catalog": catalog, "children": children}
+    _TREE_CACHE[cache_key] = (time.time(), result)
+    return JSONResponse(result)
+
+
+@router.get("/api/digital-products/{node_guid}/children",
+            summary="Direct members of a collection node (lazy tree loading, PERF-2)")
+def get_node_children(
+    node_guid: str,
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
+    """One level of children for a container node, fetched when the user expands it."""
+    try:
+        mgr = _get_manager(url, server, user_id, user_pwd)
+    except Exception as exc:
+        logger.exception("Failed to create CollectionManager")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+    cache_key = f"children|{node_guid}|{url or ''}|{server or ''}|{user_id or ''}"
+    cached = _TREE_CACHE.get(cache_key)
+    if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
+        return JSONResponse(cached[1])
+
+    result = {"children": _children_level(mgr, node_guid)}
     _TREE_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
 

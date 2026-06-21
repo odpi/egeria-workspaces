@@ -598,51 +598,16 @@ const {
 } = React;
 
 // ── Credential context ────────────────────────────────────────────────────────
-// Provides Egeria connection params to all child components without prop-drilling.
-const CredContext = React.createContext({ url: '', server: '', userId: '', password: '' });
+// CredContext now lives in /static/egeria-shared-ui.js (shared with the Tech
+// Catalog). This SPA still provides it via CredContext.Provider value={creds}.
 
 // credQS/credAppend were removed in LE-4 phase 4 — all fetches go through the
 // shared egeriaFetch (url/server/user_id as query params + X-Egeria-Token
 // header; password never in a URL).
 
 
-// Single lazy-loading diagram panel. fetchUrl is called on first open; label appears in the header.
-// field: which key to read from the JSON response (default: 'mermaidGraph').
-function DiagramPanel({ fetchUrl, label, buttonLabel, field }) {
-  const [code, setCode]       = React.useState(null);   // null=unfetched, ''=empty, string=content
-  const [loading, setLoading] = React.useState(false);
-  const [visible, setVisible] = React.useState(false);
-  const creds = React.useContext(CredContext);
-
-  var btnStyle = { fontSize: 12, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' };
-  var readField = field || 'mermaidGraph';
-
-  function toggle() {
-    if (code === null && !loading) {
-      setLoading(true);
-      setVisible(true);
-      egeriaFetch(fetchUrl, creds)
-        .then(function(r) { return r.ok ? r.json() : null; })
-        .then(function(data) {
-          var val = data && (data.graphs && data.graphs[readField]) ? data.graphs[readField]
-                  : data && data[readField] ? data[readField] : '';
-          setCode(val); setLoading(false);
-        })
-        .catch(function() { setCode(''); setLoading(false); });
-    } else {
-      setVisible(function(v) { return !v; });
-    }
-  }
-
-  var btnLabel = visible ? ('▦ Hide ' + label) : (code !== null ? ('▦ Show ' + label) : buttonLabel);
-
-  return React.createElement('div', { style: { margin: '4px 0' } },
-    React.createElement('button', { onClick: toggle, style: btnStyle }, btnLabel),
-    visible && loading && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '6px 0' } }, 'Loading diagram…'),
-    visible && !loading && code === '' && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '4px 0' } }, 'No diagram available for this element.'),
-    visible && !loading && code && React.createElement(MermaidDiagram, { code: code })
-  );
-}
+// DiagramPanel + MermaidSection now live in /static/egeria-shared-ui.js
+// (shared, token-aware via CredContext + egeriaFetch).
 
 
 // Renders a Vega-Lite spec (string or object) as an embedded chart.
@@ -759,24 +724,6 @@ var _ALL_JS_MERMAID_FIELDS = [
 
 
 
-// Renders a context diagram button (depth=5) and a full anchored graph button for any element GUID.
-function MermaidSection({ guid }) {
-  if (!guid) return null;
-  return React.createElement('div', { style: { margin: '8px 0' } },
-    React.createElement(DiagramPanel, {
-      key: 'ctx:' + guid,
-      fetchUrl: '/api/mermaid/' + encodeURIComponent(guid),
-      label: 'Context Diagram',
-      buttonLabel: '▦ Load Context Diagram'
-    }),
-    React.createElement(DiagramPanel, {
-      key: 'anc:' + guid,
-      fetchUrl: '/api/mermaid/' + encodeURIComponent(guid) + '/anchored',
-      label: 'Anchored Graph',
-      buttonLabel: '▦ Load Anchored Graph'
-    })
-  );
-}
 
 // renderMd + _renderMdHtml now live in /static/egeria-shared-ui.js (shared with
 // the Tech Catalog). Inline-code background uses the --md-code-bg CSS var.
@@ -2571,148 +2518,6 @@ function ReportSpecView() {
 
 // ── Glossary Explorer ─────────────────────────────────────────────────────────
 
-function GlossaryFolderDetail({ folder }) {
-  if (!folder) return null;
-  const fields = [
-    ['Qualified Name', folder.qualifiedName],
-    ['Type',           folder.typeName],
-    ['Status',         folder.status],
-    ['Description',    folder.description],
-  ].filter(([, v]) => v && String(v).trim());
-  return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
-    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 } },
-      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, folder.displayName || folder.qualifiedName),
-      React.createElement("span", { className: "badge", style: { background: 'rgba(99,102,241,.12)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)' } }, "Folder")
-    ),
-    React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, folder.guid),
-    folder.description && React.createElement("p", { style: { fontSize: 13, lineHeight: 1.6, marginBottom: 16 } }, folder.description),
-    fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
-      React.createElement("tbody", null,
-        fields.map(([label, value]) =>
-          React.createElement("tr", { key: label, style: { borderTop: '1px solid var(--border)' } },
-            React.createElement("td", { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', verticalAlign: 'top', width: 140 } }, label),
-            React.createElement("td", { style: { padding: '6px 0', wordBreak: 'break-word' } }, value)
-          )
-        )
-      )
-    ),
-    // A CollectionFolder is a Collection — surface its context/anchored graphs
-    // (lazy-loaded by guid) so folders behave like collections elsewhere.
-    React.createElement(MermaidSection, { guid: folder.guid })
-  );
-}
-
-function GlossaryDetail({ glossary }) {
-  if (!glossary) return null;
-  const fields = [
-    ['Qualified Name', glossary.qualifiedName],
-    ['Language',       glossary.language],
-    ['Usage',          glossary.usage],
-    ['Status',         glossary.status],
-  ];
-  return React.createElement('div', { className: 'detail-scroll' },
-    React.createElement('div', { className: 'detail-header' },
-      React.createElement('div', { className: 'detail-title' }, glossary.displayName || glossary.qualifiedName || glossary.guid),
-      React.createElement('div', { className: 'badge' }, 'Glossary')
-    ),
-    glossary.description && React.createElement('div', { style: { fontSize: 13, lineHeight: 1.5, marginBottom: 12, color: 'var(--fg)' } }, glossary.description),
-    React.createElement('table', { className: 'prop-table' },
-      React.createElement('tbody', null,
-        fields.filter(([, v]) => v).map(([k, v]) =>
-          React.createElement('tr', { key: k },
-            React.createElement('td', { className: 'prop-key' }, k),
-            React.createElement('td', { className: 'prop-val' }, v)
-          )
-        )
-      )
-    ),
-    React.createElement(MermaidSection, { guid: glossary.guid })
-  );
-}
-
-function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign, onNavigateToElement }) {
-  if (!term) return null;
-  const fields = [
-    ['Qualified Name', term.qualifiedName],
-    ['Abbreviation',   term.abbreviation],
-    ['Summary',        term.summary],
-    ['Examples',       term.examples],
-    ['Usage',          term.usage],
-    ['Status',         term.status],
-    ['Content Status', term.contentStatus],
-    ['Activity Status',term.activityStatus],
-  ].filter(([, v]) => v && v.trim());
-
-  const folderList = (term.folders || []);
-  const relGroups = Object.entries(term.relationships || {}).filter(([, items]) => items.length > 0);
-  var relBtnStyle  = { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)',  background: 'rgba(96,165,250,.08)',  color: 'var(--accent)', cursor: 'pointer' };
-  var ddBtnStyle   = { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(94,234,212,.4)',  background: 'rgba(94,234,212,.1)',   color: '#5eead4',       cursor: 'pointer' };
-  var DD_TYPES = { DataField: true, DataStructure: true, DataSpec: true, DataGrain: true, DataClass: true };
-
-  return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
-    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' } },
-      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, term.displayName),
-      term.isTemplateSubstitute && React.createElement("span", { className: "badge", style: { background: 'rgba(245,158,11,.15)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.4)', fontSize: 11 } }, "Template Substitute"),
-      !term.isTemplateSubstitute && term.isSourcedFromTemplate && React.createElement("span", { className: "badge", style: { background: 'rgba(245,158,11,.08)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.25)', fontSize: 11 } }, "From Template"),
-      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: term.guid }))
-    ),
-    React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 4 } }, term.guid),
-    folderList.length > 0 && React.createElement("div", { style: { display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8, marginTop: 6 } },
-      React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)', marginRight: 4 } }, "Folders:"),
-      folderList.map(f => React.createElement("span", { key: f.guid, className: "badge", style: { fontSize: 11, background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)' } }, f.displayName || f.guid))
-    ),
-    (term.classifications || []).length > 0 && React.createElement("div", { style: { display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 } },
-      React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)', marginRight: 4 } }, "Classifications:"),
-      term.classifications.map(function(c) {
-        var tip = Object.keys(c.properties || {}).length > 0 ? JSON.stringify(c.properties, null, 2) : '';
-        return React.createElement("span", { key: c.typeName, className: "badge", title: tip,
-          style: { fontSize: 11, background: 'rgba(168,85,247,.1)', color: '#c084fc', border: '0.5px solid rgba(168,85,247,.25)' }
-        }, c.typeName);
-      })
-    ),
-    term.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(term.description)),
-    React.createElement(MermaidSection, { guid: term.guid }),
-    fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
-      React.createElement("tbody", null,
-        fields.map(([label, value]) =>
-          React.createElement("tr", { key: label, style: { borderTop: '1px solid var(--border)' } },
-            React.createElement("td", { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', verticalAlign: 'top', width: 140 } }, label),
-            React.createElement("td", { style: { padding: '6px 0' } }, renderMd(value))
-          )
-        )
-      )
-    ),
-    relGroups.length > 0 && React.createElement("div", { style: { marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' } },
-      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 } }, "Relationships"),
-      relGroups.map(function([label, items]) {
-        return React.createElement("div", { key: label, style: { marginBottom: 12 } },
-          React.createElement("div", { style: { fontSize: 11, color: 'var(--muted)', fontWeight: 600, marginBottom: 4 } }, label),
-          items.map(function(item) {
-            var isDD   = DD_TYPES[item.typeName];
-            var isTerm = !item.typeName || item.typeName === 'GlossaryTerm';
-            // Any other related element (e.g. CollectionFolder, GovernanceActionProcess
-            // under the semantic-assignment / Meaning groups) gets a generic link via
-            // the central dispatcher when it knows how to route the type.
-            var isGeneric = !isTerm && !isDD && onNavigateToElement && _elementIsLinkable(item);
-            return React.createElement("div", {
-              key: item.guid,
-              style: { display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0', borderTop: '1px solid var(--border)' }
-            },
-              React.createElement("span", { style: { flex: 1, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: item.qualifiedName || item.guid },
-                item.displayName || item.qualifiedName || item.guid),
-              item.typeName && !isTerm && React.createElement("span", { style: { fontSize: 10, color: 'var(--dim)', flexShrink: 0 } }, item.typeName),
-              isTerm    && onNavigateToTerm        && React.createElement("button", { onClick: function() { onNavigateToTerm(item.guid); },                          style: relBtnStyle }, "View →"),
-              isDD      && onNavigateToDataDesign  && React.createElement("button", { onClick: function() { onNavigateToDataDesign(item.typeName, item.guid); },     style: ddBtnStyle  }, "View in Data Design →"),
-              isGeneric                            && React.createElement("button", { onClick: function() { onNavigateToElement(item); },                            style: relBtnStyle }, "View →")
-            );
-          })
-        );
-      })
-    ),
-    React.createElement(EgeriaCommentsSection, { guid: term.guid })
-  );
-}
-
 // One term row in the glossary tree (leaf), indented by depth.
 // GlossaryTermRow + GlossaryTreeNode now live in /static/egeria-shared-ui.js
 // (shared with the Tech Catalog). The tree node takes a fetchJson(path) prop;
@@ -2978,7 +2783,7 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
         : termDetailState === 'loading'
           ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "Loading term…"))
           : termDetail
-            ? React.createElement(GlossaryTermDetail, { term: termDetail, onNavigateToTerm: navigateToTerm, onNavigateToDataDesign: onNavigateToDataDesign, onNavigateToElement: onNavigateToElement })
+            ? React.createElement(GlossaryTermDetail, { term: termDetail, onNavigateToTerm: navigateToTerm, onNavigateToDataDesign: onNavigateToDataDesign, onNavigateToElement: onNavigateToElement, isElementLinkable: _elementIsLinkable })
             : !isSearchMode && selectedGlossary && !selectedItem
               ? React.createElement(GlossaryDetail, { glossary: glossaries.find(g => g.guid === selectedGlossary) || null })
               : React.createElement("div", { className: "center" },
@@ -3202,191 +3007,8 @@ function ReferenceDataView({ navGuid }) {
   );
 }
 
-// ── Tabular Data Preview Modal ────────────────────────────────────────────────
-
-function TabularPreviewModal({ guid, name, creds, onClose }) {
-  var PAGE_SIZE = 100;
-  var DEFAULT_COL_W = 150;
-  var MIN_COL_W = 40;
-
-  var _pageState     = useState(0),    page      = _pageState[0],     setPage      = _pageState[1];
-  var _dataState     = useState(null), tableData = _dataState[0],     setTableData = _dataState[1];
-  var _loadState     = useState(true), loading   = _loadState[0],     setLoading   = _loadState[1];
-  var _errState      = useState(''),   errMsg    = _errState[0],      setErrMsg    = _errState[1];
-  var _colWState     = useState(null), colWidths = _colWState[0],     setColWidths = _colWState[1];
-  var _draggingState = useState(false),isDragging= _draggingState[0], setIsDragging= _draggingState[1];
-  var dragRef = useRef(null); // { colIdx, startX, startW }
-  var _filterState = useState(''),   filterText = _filterState[0], setFilterText = _filterState[1];
-  var _sortState   = useState(null), sortState  = _sortState[0],   setSortState  = _sortState[1];
-
-  useEffect(function() {
-    setLoading(true); setErrMsg(''); setColWidths(null);
-    var params = new URLSearchParams({ start_from_row: page * PAGE_SIZE, max_row_count: PAGE_SIZE });
-    // egeriaFetch adds url/server/user_id + the X-Egeria-Token header (no password in the URL).
-    egeriaFetch('/api/digital-products/' + guid + '/tabular?' + params.toString(), creds)
-      .then(function(r) { return r.json(); })
-      .then(function(d) {
-        setTableData(d);
-        setLoading(false);
-        if (d && d.columns && d.columns.length) {
-          setColWidths(d.columns.map(function() { return DEFAULT_COL_W; }));
-        }
-      })
-      .catch(function(e) { setErrMsg('Failed to load data: ' + e); setLoading(false); });
-  }, [guid, page]);
-
-  var columns = (tableData && tableData.columns) || [];
-  var rows    = (tableData && tableData.rows)    || [];
-  var hasMore = tableData && tableData.has_more;
-
-  // Client-side filter + sort applied to the current page of rows
-  var visRows = rows;
-  if (filterText.trim()) {
-    var q = filterText.trim().toLowerCase();
-    visRows = visRows.filter(function(row) {
-      var cells = Array.isArray(row) ? row : columns.map(function(c) { return row[c]; });
-      return cells.some(function(cell) { return cell != null && String(cell).toLowerCase().indexOf(q) !== -1; });
-    });
-  }
-  if (sortState) {
-    var si = sortState.col, sd = sortState.dir;
-    visRows = visRows.slice().sort(function(a, b) {
-      var ca = Array.isArray(a) ? a[si] : a[columns[si]];
-      var cb = Array.isArray(b) ? b[si] : b[columns[si]];
-      var sa = ca == null ? '' : String(ca), sb = cb == null ? '' : String(cb);
-      var n = (!isNaN(sa) && !isNaN(sb)) ? Number(sa) - Number(sb) : sa.localeCompare(sb);
-      return sd === 'asc' ? n : -n;
-    });
-  }
-
-  function toggleSort(idx) {
-    setSortState(function(prev) {
-      if (!prev || prev.col !== idx) return { col: idx, dir: 'asc' };
-      if (prev.dir === 'asc') return { col: idx, dir: 'desc' };
-      return null;
-    });
-  }
-
-  var tableWidth = colWidths ? colWidths.reduce(function(s, w) { return s + w; }, 0) : undefined;
-
-  function onResizeMouseDown(e, idx) {
-    e.preventDefault();
-    var startW = colWidths ? colWidths[idx] : DEFAULT_COL_W;
-    dragRef.current = { colIdx: idx, startX: e.clientX, startW: startW };
-    setIsDragging(true);
-
-    function onMouseMove(ev) {
-      if (!dragRef.current) return;
-      var dx = ev.clientX - dragRef.current.startX;
-      var newW = Math.max(MIN_COL_W, dragRef.current.startW + dx);
-      setColWidths(function(prev) {
-        var next = (prev || columns.map(function() { return DEFAULT_COL_W; })).slice();
-        next[dragRef.current.colIdx] = newW;
-        return next;
-      });
-    }
-    function onMouseUp() {
-      dragRef.current = null;
-      setIsDragging(false);
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-    }
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-  }
-
-  var thBase = { padding: '6px 12px', textAlign: 'left', borderBottom: '2px solid var(--border)',
-                 color: 'var(--accent)', fontSize: 11, position: 'relative',
-                 overflow: 'hidden', whiteSpace: 'nowrap', userSelect: 'none' };
-  var tdBase = { padding: '4px 12px', borderBottom: '1px solid var(--border)',
-                 borderRight: '1px dotted var(--border)',
-                 overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' };
-  var handleStyle = { position: 'absolute', right: 0, top: 0, bottom: 0, width: 6,
-                      cursor: 'col-resize', zIndex: 1,
-                      borderRight: '2px dotted rgba(96,165,250,0.5)', boxSizing: 'border-box' };
-
-  return React.createElement('div', {
-    style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-             cursor: isDragging ? 'col-resize' : undefined },
-    onClick: function(e) { if (!isDragging && e.target === e.currentTarget) onClose(); }
-  },
-    React.createElement('div', { style: { background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 8, width: '90vw', minHeight: '60vh', maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
-      // Header
-      React.createElement('div', { style: { display: 'flex', alignItems: 'center', padding: '12px 20px', borderBottom: '1px solid var(--border)', gap: 12 } },
-        React.createElement('div', { style: { flex: 1, fontWeight: 700, fontSize: 15 } }, '📊 Data Preview — ' + (name || guid)),
-        React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Page ' + (page + 1) + (tableData ? ' · ' + rows.length + ' rows' : '')),
-        React.createElement('button', { onClick: onClose, style: { marginLeft: 8, padding: '4px 12px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' } }, 'Close')
-      ),
-      // Filter bar
-      !loading && columns.length > 0 && React.createElement('div', { style: { padding: '6px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 } },
-        React.createElement('input', {
-          type: 'search', placeholder: 'Filter / search rows…', value: filterText,
-          onChange: function(e) { setFilterText(e.target.value); },
-          style: { flex: 1, fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' }
-        }),
-        filterText && React.createElement('button', {
-          onClick: function() { setFilterText(''); },
-          style: { fontSize: 11, padding: '3px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--dim)', cursor: 'pointer' }
-        }, '✕ Clear')
-      ),
-      // Body
-      React.createElement('div', { style: { overflowY: 'auto', overflowX: 'auto', flex: 1 } },
-        loading ? React.createElement('div', { style: { padding: 40, textAlign: 'center', color: 'var(--dim)' } }, 'Loading…')
-        : errMsg ? React.createElement('div', { style: { padding: 24, color: '#f87171' } }, errMsg)
-        : columns.length === 0 ? React.createElement('div', { style: { padding: 24, color: 'var(--dim)' } }, 'No tabular data returned. The data set may be empty or the format unsupported.')
-        : React.createElement('table', { style: { tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 12, width: tableWidth ? tableWidth + 'px' : '100%', minWidth: '100%' } },
-            React.createElement('colgroup', null,
-              columns.map(function(col, i) {
-                return React.createElement('col', { key: col, style: { width: (colWidths ? colWidths[i] : DEFAULT_COL_W) + 'px' } });
-              })
-            ),
-            React.createElement('thead', { style: { position: 'sticky', top: 0, background: 'var(--panel)', zIndex: 2 } },
-              React.createElement('tr', null,
-                columns.map(function(col, i) {
-                  var isSorted = sortState && sortState.col === i;
-                  var sortIcon = isSorted ? (sortState.dir === 'asc' ? ' ↑' : ' ↓') : ' ↕';
-                  return React.createElement('th', { key: col, style: Object.assign({}, thBase, { cursor: 'pointer' }),
-                    onClick: function() { toggleSort(i); }
-                  },
-                    col + sortIcon,
-                    React.createElement('div', {
-                      style: handleStyle,
-                      onMouseDown: function(e) { e.stopPropagation(); onResizeMouseDown(e, i); },
-                      onMouseEnter: function(e) { e.currentTarget.style.borderRight = '2px solid var(--accent)'; },
-                      onMouseLeave: function(e) { e.currentTarget.style.borderRight = '2px dotted rgba(96,165,250,0.5)'; },
-                    })
-                  );
-                })
-              )
-            ),
-            React.createElement('tbody', null,
-              visRows.length === 0
-                ? React.createElement('tr', null, React.createElement('td', { colSpan: columns.length, style: { padding: 24, textAlign: 'center', color: 'var(--dim)' } }, filterText.trim() ? 'No rows match the filter.' : 'No rows returned from the server.'))
-                : visRows.map(function(row, i) {
-                    var cells = Array.isArray(row) ? row : columns.map(function(c) { return row[c]; });
-                    return React.createElement('tr', { key: i, style: { background: i % 2 ? 'rgba(255,255,255,0.02)' : 'transparent' } },
-                      cells.map(function(cell, j) {
-                        return React.createElement('td', { key: j, style: tdBase }, cell == null ? '' : String(cell));
-                      })
-                    );
-                  })
-            )
-          )
-      ),
-      // Footer / paging
-      React.createElement('div', { style: { display: 'flex', gap: 8, padding: '10px 20px', borderTop: '1px solid var(--border)', alignItems: 'center' } },
-        React.createElement('button', { disabled: page === 0 || loading, onClick: function() { setPage(page - 1); }, style: { padding: '4px 14px', borderRadius: 4, border: '1px solid var(--border)', background: page === 0 ? 'transparent' : 'var(--hover)', color: page === 0 ? 'var(--dim)' : 'var(--text)', cursor: page === 0 ? 'not-allowed' : 'pointer' } }, '← Prev'),
-        React.createElement('span', { style: { flex: 1, fontSize: 11, color: 'var(--dim)' } },
-          'Rows ' + (page * PAGE_SIZE + 1) + '–' + (page * PAGE_SIZE + rows.length) +
-          (filterText.trim() ? ' · ' + visRows.length + ' shown' : '') +
-          (colWidths ? ' · drag edges to resize · click header to sort' : '')
-        ),
-        React.createElement('button', { disabled: !hasMore || loading, onClick: function() { setPage(page + 1); }, style: { padding: '4px 14px', borderRadius: 4, border: '1px solid var(--border)', background: !hasMore ? 'transparent' : 'var(--hover)', color: !hasMore ? 'var(--dim)' : 'var(--text)', cursor: !hasMore ? 'not-allowed' : 'pointer' } }, 'Next →')
-      )
-    )
-  );
-}
-
+// TabularPreviewModal now lives in /static/egeria-shared-ui.js (shared with the
+// Tech Catalog file-asset preview, TC-13). Pass a fetchUrl returning {columns,rows,has_more}.
 // ── Digital Products Explorer ─────────────────────────────────────────────────
 
 function DigitalProductDetail({ product, onNavigateToElement, creds }) {
@@ -3502,11 +3124,11 @@ function DigitalProductDetail({ product, onNavigateToElement, creds }) {
       );
     })(),
     React.createElement(EgeriaCommentsSection, { guid: product.guid }),
-    previewDs && React.createElement(TabularPreviewModal, { guid: previewDs.guid, name: previewDs.name, creds: creds, onClose: function() { setPreviewDs(null); } })
+    previewDs && React.createElement(TabularPreviewModal, { fetchUrl: '/api/digital-products/' + previewDs.guid + '/tabular', name: previewDs.name, creds: creds, onClose: function() { setPreviewDs(null); } })
   );
 }
 
-function DigitalTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggleNode }) {
+function DigitalTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggleNode, childrenByGuid, loadingGuids }) {
   const isExp = expanded.has(node.guid);
   const isSel = selectedGuid === node.guid;
   const paddingLeft = 8 + depth * 24;
@@ -3530,17 +3152,29 @@ function DigitalTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggle
       React.createElement("span", { className: "type-name" }, node.displayName || node.qualifiedName || node.guid),
       node.typeName && React.createElement("span", { className: "badge", style: { background: 'rgba(99,102,241,.1)', color: typeColor, border: '0.5px solid rgba(99,102,241,.3)', fontSize: 9, marginLeft: 4 } }, node.typeName)
     ),
-    isExp && (node.children || []).map(function(child) {
-      return React.createElement(DigitalTreeNode, {
-        key: child.guid,
-        node: child,
-        depth: depth + 1,
-        selectedGuid: selectedGuid,
-        onSelect: onSelect,
-        expanded: expanded,
-        toggleNode: toggleNode,
+    isExp && (function() {
+      // Lazy mode: caller supplies childrenByGuid (fetched on expand). Otherwise
+      // (e.g. the solution-components tree) fall back to a pre-materialised
+      // node.children so this shared node works for both.
+      var lazy = childrenByGuid != null;
+      var kids = lazy ? childrenByGuid[node.guid] : (node.children || []);
+      if (lazy && kids === undefined) {
+        return loadingGuids && loadingGuids.has(node.guid)
+          ? React.createElement("div", { style: { marginLeft: paddingLeft + 26, fontSize: 11, color: 'var(--dim)', padding: '2px 0' } }, "Loading…")
+          : null;
+      }
+      if (lazy && kids.length === 0) {
+        return React.createElement("div", { style: { marginLeft: paddingLeft + 26, fontSize: 11, color: 'var(--dim)', padding: '2px 0' } }, "(empty)");
+      }
+      return (kids || []).map(function(child) {
+        return React.createElement(DigitalTreeNode, {
+          key: child.guid, node: child, depth: depth + 1,
+          selectedGuid: selectedGuid, onSelect: onSelect,
+          expanded: expanded, toggleNode: toggleNode,
+          childrenByGuid: childrenByGuid, loadingGuids: loadingGuids,
+        });
       });
-    })
+    })()
   );
 }
 
@@ -3559,6 +3193,10 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
   const [selectedNodeObj, setSelectedNodeObj] = useState(null);
   const [nodeDetail, setNodeDetail] = useState(null);
   const [expanded, setExpanded]     = useState(new Set());
+  const [childrenByGuid, setChildrenByGuid] = useState({}); // guid -> [child nodes] (lazy)
+  const [loadingGuids, setLoadingGuids]     = useState(new Set());
+  const childrenRef = useRef({});
+  useEffect(() => { childrenRef.current = childrenByGuid; }, [childrenByGuid]);
   const [catError, setCatError]     = useState('');
   const [treeError, setTreeError]   = useState('');
 
@@ -3592,6 +3230,7 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
         setTreeData(data);
+        setChildrenByGuid({});
         setTreeState('ready');
         // Start with all nodes collapsed — user opens as needed
         setExpanded(new Set());
@@ -3599,14 +3238,24 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
       .catch(err => { setTreeError(err.message); setTreeState('error'); });
   }, [selectedCat]);
 
+  const loadChildren = useCallback(guid => {
+    if (childrenRef.current[guid] !== undefined) return;  // already loaded
+    setLoadingGuids(prev => { const n = new Set(prev); n.add(guid); return n; });
+    egeriaFetch('/api/digital-products/' + encodeURIComponent(guid) + '/children', creds)
+      .then(r => r.ok ? r.json() : { children: [] })
+      .then(d => { setChildrenByGuid(prev => Object.assign({}, prev, { [guid]: d.children || [] })); })
+      .catch(() => { setChildrenByGuid(prev => Object.assign({}, prev, { [guid]: [] })); })
+      .finally(() => { setLoadingGuids(prev => { const n = new Set(prev); n.delete(guid); return n; }); });
+  }, [creds]);
+
   const toggleNode = useCallback(guid => {
     setExpanded(prev => {
       const next = new Set(prev);
       if (next.has(guid)) next.delete(guid);
-      else next.add(guid);
+      else { next.add(guid); loadChildren(guid); }
       return next;
     });
-  }, []);
+  }, [loadChildren]);
 
   const handleSelect = useCallback((guid, nodeObj) => {
     setSelectedNode(guid);
@@ -3679,6 +3328,8 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
                 onSelect: handleSelect,
                 expanded,
                 toggleNode,
+                childrenByGuid,
+                loadingGuids,
               })
             )
       )
@@ -3716,6 +3367,10 @@ function CollectionsView({ onNavigateToElement }) {
   const [selectedNodeObj, setSelectedNodeObj] = useState(null);
   const [nodeDetail, setNodeDetail] = useState(null);
   const [expanded, setExpanded]     = useState(new Set());
+  const [childrenByGuid, setChildrenByGuid] = useState({}); // guid -> [child nodes] (lazy)
+  const [loadingGuids, setLoadingGuids]     = useState(new Set());
+  const childrenRef = useRef({});
+  useEffect(() => { childrenRef.current = childrenByGuid; }, [childrenByGuid]);
 
   // Load root collections on mount
   useEffect(() => {
@@ -3738,17 +3393,27 @@ function CollectionsView({ onNavigateToElement }) {
     setSelectedNode(null); setSelectedNodeObj(null);
     egeriaFetch('/api/collections/' + encodeURIComponent(selectedRoot) + '/tree', creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(data => { setTreeData(data); setTreeState('ready'); setExpanded(new Set()); })
+      .then(data => { setTreeData(data); setChildrenByGuid({}); setTreeState('ready'); setExpanded(new Set()); })
       .catch(err => { setTreeError(err.message); setTreeState('error'); });
   }, [selectedRoot]);
+
+  const loadChildren = useCallback(guid => {
+    if (childrenRef.current[guid] !== undefined) return;
+    setLoadingGuids(prev => { const n = new Set(prev); n.add(guid); return n; });
+    egeriaFetch('/api/collections/' + encodeURIComponent(guid) + '/children', creds)
+      .then(r => r.ok ? r.json() : { children: [] })
+      .then(d => { setChildrenByGuid(prev => Object.assign({}, prev, { [guid]: d.children || [] })); })
+      .catch(() => { setChildrenByGuid(prev => Object.assign({}, prev, { [guid]: [] })); })
+      .finally(() => { setLoadingGuids(prev => { const n = new Set(prev); n.delete(guid); return n; }); });
+  }, [creds]);
 
   const toggleNode = useCallback(guid => {
     setExpanded(prev => {
       const next = new Set(prev);
-      if (next.has(guid)) next.delete(guid); else next.add(guid);
+      if (next.has(guid)) next.delete(guid); else { next.add(guid); loadChildren(guid); }
       return next;
     });
-  }, []);
+  }, [loadChildren]);
 
   const handleSelect = useCallback((guid, nodeObj) => {
     setSelectedNode(guid); setSelectedNodeObj(nodeObj); setNodeDetail(null);
@@ -3806,6 +3471,7 @@ function CollectionsView({ onNavigateToElement }) {
               React.createElement(DigitalTreeNode, {
                 key: node.guid, node, depth: 0,
                 selectedGuid: selectedNode, onSelect: handleSelect, expanded, toggleNode,
+                childrenByGuid, loadingGuids,
               })
             )
       )
@@ -5094,7 +4760,13 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
   }, [subNav]);
 
   React.useEffect(function() {
-    if (navGuid) switchAndSelect(navType || 'specs', navGuid);
+    // Fall back to ?guid=&kind= on a cold deep-link (e.g. a Tech Catalog
+    // cross-link opening /egeria-explorer?guid=X&kind=fields#data-design), so the
+    // target is actually selected — matches the ISC/Actors views' deep-link handling.
+    var params = new URLSearchParams(window.location.search);
+    var g = navGuid || params.get('guid');
+    var k = navType || params.get('kind');
+    if (g) switchAndSelect(k || 'specs', g);
   }, [navGuid, navType]);
 
   const SUB_NAVS = [
@@ -8156,147 +7828,6 @@ function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
   ));  // close .body + column wrapper
 }
 
-// ── Session ID (persists for browser tab lifetime) ────────────────────────────
-
-var _SESSION_ID = (function() {
-  try {
-    var id = sessionStorage.getItem('_demo_session_id');
-    if (!id) {
-      id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).substr(2));
-      sessionStorage.setItem('_demo_session_id', id);
-    }
-    return id;
-  } catch(e) { return 'anon-' + Date.now(); }
-})();
-
-// ── FeedbackButton ────────────────────────────────────────────────────────────
-// Props: section, persona, demoMode, srvManaged
-
-function FeedbackButton({ section, persona, demoMode, srvManaged }) {
-  var _openState      = useState(false), open       = _openState[0],      setOpen       = _openState[1];
-  var _rateState      = useState(0),     rating     = _rateState[0],      setRating     = _rateState[1];
-  var _hoverState     = useState(0),     hover      = _hoverState[0],     setHover      = _hoverState[1];
-  var _commentState   = useState(''),    comment    = _commentState[0],   setComment    = _commentState[1];
-  var _emailState     = useState(''),    email      = _emailState[0],     setEmail      = _emailState[1];
-  var _catState       = useState(''),    category   = _catState[0],       setCategory   = _catState[1];
-  var _wantsState     = useState(false), wantsResp  = _wantsState[0],     setWantsResp  = _wantsState[1];
-  var _consentState   = useState(false), consent    = _consentState[0],   setConsent    = _consentState[1];
-  var _subState       = useState(false), submitted  = _subState[0],       setSubmitted  = _subState[1];
-  var _submitting     = useState(false), submitting = _submitting[0],     setSubmitting = _submitting[1];
-
-  var env = demoMode ? 'quickstart-demo' : srvManaged ? 'freshstart' : 'quickstart-local';
-
-  function handleClose() {
-    setOpen(false); setRating(0); setComment(''); setEmail('');
-    setCategory(''); setWantsResp(false); setConsent(false);
-    setSubmitted(false); setHover(0);
-  }
-
-  function handleSubmit() {
-    if (!rating && !comment.trim()) return;
-    setSubmitting(true);
-    fetch('/api/demo-feedback', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        session_id:         _SESSION_ID,
-        page:               section || 'splash',
-        rating:             rating || null,
-        category:           category || null,
-        message:            comment.trim() || null,
-        email:              email.trim() || null,
-        wants_response:     wantsResp,
-        consent_to_contact: consent,
-        persona:            persona || null,
-        env:                env,
-        viewport:           window.innerWidth + 'x' + window.innerHeight,
-        locale:             navigator.language || null,
-      }),
-    }).then(function() {
-      setSubmitted(true);
-      setTimeout(handleClose, 2000);
-    }).catch(function() {
-      setSubmitting(false);
-    }).finally(function() {
-      setSubmitting(false);
-    });
-  }
-
-  var floatingBtn = React.createElement('button', {
-    onClick: function() { setOpen(true); setSubmitted(false); },
-    title: 'Share your feedback',
-    style: { position: 'fixed', bottom: 20, right: 20, zIndex: 900, background: 'var(--accent)', color: '#fff',
-             border: 'none', borderRadius: 20, padding: '7px 15px', fontSize: 12, fontWeight: 600,
-             cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.3)', letterSpacing: '0.02em' }
-  }, '💬 Feedback');
-
-  if (!open) return floatingBtn;
-
-  var stars = [1,2,3,4,5].map(function(n) {
-    var active = (hover || rating) >= n;
-    return React.createElement('span', { key: n,
-      onClick: function() { setRating(n); },
-      onMouseEnter: function() { setHover(n); }, onMouseLeave: function() { setHover(0); },
-      style: { fontSize: 26, cursor: 'pointer', color: active ? '#f59e0b' : 'var(--dim)', lineHeight: 1 }
-    }, active ? '★' : '☆');
-  });
-
-  var inp = { width: '100%', boxSizing: 'border-box', background: 'var(--bg)', border: '1px solid var(--border)',
-              borderRadius: 6, padding: '7px 9px', color: 'var(--text)', fontSize: 12, fontFamily: 'inherit', outline: 'none' };
-  var chkRow = { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)', marginBottom: 6 };
-  var canSubmit = !submitting && (rating > 0 || comment.trim().length > 0);
-
-  return React.createElement(React.Fragment, null, floatingBtn,
-    React.createElement('div', {
-      onClick: function(e) { if (e.target === e.currentTarget) handleClose(); },
-      style: { position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.45)',
-               display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', padding: 24 }
-    },
-      React.createElement('div', { style: { background: 'var(--surface,var(--card))', border: '1px solid var(--border)',
-          borderRadius: 12, padding: '22px 26px', width: 360, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' } },
-        submitted
-          ? React.createElement('div', { style: { textAlign: 'center', padding: '16px 0', color: 'var(--accent)', fontSize: 15, fontWeight: 600 } },
-              '✓ Thank you for your feedback!')
-          : React.createElement(React.Fragment, null,
-              React.createElement('div', { style: { fontWeight: 700, fontSize: 14, marginBottom: 4 } }, 'Share your feedback'),
-              React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginBottom: 12 } },
-                'Page: ', React.createElement('span', { style: { color: 'var(--text)', fontFamily: 'ui-monospace,monospace', fontSize: 10 } }, section || 'splash')),
-              // Stars
-              React.createElement('div', { style: { display: 'flex', gap: 3, marginBottom: 10 } }, ...stars),
-              // Category
-              React.createElement('select', { value: category, onChange: function(e) { setCategory(e.target.value); },
-                style: Object.assign({}, inp, { marginBottom: 8 }) },
-                React.createElement('option', { value: '' }, 'Category (optional)'),
-                ['Bug', 'Confusing', 'Suggestion', 'Praise'].map(function(c) {
-                  return React.createElement('option', { key: c, value: c.toLowerCase() }, c); })
-              ),
-              // Message
-              React.createElement('textarea', { placeholder: "What's on your mind?", value: comment,
-                onChange: function(e) { setComment(e.target.value); }, rows: 3,
-                style: Object.assign({}, inp, { resize: 'vertical', marginBottom: 8 }) }),
-              // Email
-              React.createElement('input', { type: 'email', placeholder: 'Email for follow-up (optional)',
-                value: email, onChange: function(e) { setEmail(e.target.value); },
-                style: Object.assign({}, inp, { marginBottom: 10 }) }),
-              // Checkboxes
-              React.createElement('div', { style: chkRow },
-                React.createElement('input', { type: 'checkbox', checked: wantsResp, onChange: function(e) { setWantsResp(e.target.checked); } }),
-                'I\'d like a response'),
-              React.createElement('div', { style: Object.assign({}, chkRow, { marginBottom: 14 }) },
-                React.createElement('input', { type: 'checkbox', checked: consent, onChange: function(e) { setConsent(e.target.checked); } }),
-                'OK to contact me about this feedback'),
-              // Buttons
-              React.createElement('div', { style: { display: 'flex', gap: 8, justifyContent: 'flex-end' } },
-                React.createElement('button', { onClick: handleClose, style: { padding: '6px 14px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 12 } }, 'Cancel'),
-                React.createElement('button', { onClick: handleSubmit, disabled: !canSubmit, style: { padding: '6px 14px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff', cursor: canSubmit ? 'pointer' : 'default', opacity: canSubmit ? 1 : 0.45, fontSize: 12, fontWeight: 600 } },
-                  submitting ? 'Sending…' : 'Send')
-              )
-            )
-      )
-    )
-  );
-}
-
 // ── App ───────────────────────────────────────────────────────────────────────
 
 function App() {
@@ -8369,7 +7900,7 @@ function App() {
   }
 
   const [creds, setCreds] = useState(function() {
-    // Empty defaults work in every mode: blank fields are omitted by credQS, so the backend
+    // Empty defaults work in every mode: blank fields are omitted by egeriaFetch, so the backend
     // handlers fall back to their env service account. local-Quickstart users may fill the
     // form to browse as a specific user; Freshstart uses the portal JWT; demo uses the persona.
     try {
@@ -8473,7 +8004,12 @@ function App() {
     setSection('data-design');
   }, []);
 
-  const [digitalProductNavGuid, setDigitalProductNavGuid] = useState(null);
+  const [digitalProductNavGuid, setDigitalProductNavGuid] = useState(function() {
+    // Cold deep-link (e.g. a Tech Catalog CollectionFolder cross-link opening
+    // /egeria-explorer?guid=X#digital-products): seed the nav guid so the node is selected.
+    var p = new URLSearchParams(window.location.search);
+    return window.location.hash.slice(1) === 'digital-products' ? (p.get('guid') || null) : null;
+  });
   const onNavigateToDigitalProduct = useCallback(function(guid) {
     setDigitalProductNavGuid(guid || null);
     setSection('digital-products');

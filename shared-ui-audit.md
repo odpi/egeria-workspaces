@@ -1,5 +1,41 @@
 # MOD-1 — Shared UI Audit (Egeria Explorer ↔ Tech Catalog)
 
+> ## ✅ Final state — MOD-1/2/3 complete (2026-06-20)
+>
+> `egeria-shared-ui.js` is loaded by both SPAs (served as a FastAPI static file,
+> `<script>` before each app script; the two env copies stay byte-identical).
+> Components are plain globals referenced by name, resolved at render time.
+>
+> **Shared module inventory** (`static/egeria-shared-ui.js`):
+> - **Mermaid family:** `_MERMAID_FIELD_LABELS`, `_MERMAID_SECTION_FIELDS`,
+>   `MermaidDiagram`, `DiagramPanelFromData`, `AvailableMermaidDiagrams`,
+>   `DiagramPanel`, `MermaidSection` (the last two token-aware via CredContext).
+> - **Markdown:** `renderMd` / `_renderMdHtml` (+ `--md-code-bg` CSS var).
+> - **Layout/util:** `useResizable`, `ResizeDivider`, `copyToClipboard`
+>   (execCommand fallback for non-secure http).
+> - **Glossary:** `GlossaryTermRow`, `GlossaryTreeNode` (tree, injected `fetchJson`);
+>   `GlossaryFolderDetail`, `GlossaryDetail`, `GlossaryTermDetail` + `_glsBadge`
+>   (detail panes, Catalog visual design; term pane takes optional cross-link
+>   callbacks + an injected `isElementLinkable` predicate).
+> - **Feedback:** `EgeriaFeedbackWidget`, `EgeriaCommentsSection`, `FeedbackButton`
+>   (+ `_SESSION_ID`).
+> - **Auth seam:** `CredContext` (shared context — **both** SPAs now provide it via
+>   `CredContext.Provider value={creds}`), `egeriaFetch` + `_tokenRefresher`
+>   (token-aware; `url`/`server`/`user_id` as query params, `X-Egeria-Token` header,
+>   password never in a URL).
+>
+> **Stays per-tool (Tier 3):** `ConnectionForm`, each App's `CredContext.Provider`
+> wiring + creds state, and all tool-specific views/sections/splash/nav. Note: the
+> `CredContext` *object* is shared; only the *provider value* is per-SPA.
+> `VegaChart`/`AvailableCharts` remain Explorer-only (not needed by the Catalog).
+>
+> **Cross-tool nav:** the Catalog has no Data Design / Digital Products tabs, so it
+> deep-links the Egeria Explorer via `TYPE_TO_NAV` + `handleNavigate`
+> (`/egeria-explorer?guid=&kind=#<tab>`); the Explorer's `DataDesignView` /
+> `DigitalProductsView` seed their selection from `?guid`/`?kind` on cold load.
+>
+> The original audit and recommendation below are retained for history.
+
 **Goal:** identify components/helpers duplicated between `type-explorer.html`
 (Egeria Explorer SPA) and `tech-catalog.html` (Tech Catalog SPA), and define the
 boundary for what moves into a shared `egeria-shared-ui.js` (MOD-2) vs what stays
@@ -49,15 +85,17 @@ Lift the **richer Explorer version** as canonical; zero auth/token dependency:
 These are the immediate win — e.g. the "Copy source" button I just had to add to
 **both** SPAs separately would be a one-line change in the shared module.
 
-### Tier 2 — share *after* unifying the fetch/auth model
-- `credAppend`, `EgeriaFeedbackWidget`, `EgeriaCommentsSection`, `FeedbackButton`.
-- **Blocker:** the two SPAs talk to the backend differently — Tech Catalog uses a
-  token wrapper (`fetchWithToken` + `X-Egeria-Token`, ~19 refs) while Egeria
-  Explorer uses query-param credentials (0 token refs). The feedback components
-  embed that difference. Sharing them cleanly needs a single shared fetch helper
-  (e.g. `egeriaFetch(url, creds)`) that handles both token and query-param modes.
-  This dovetails with **LE-4** (move handlers to token-only) — sequence MOD-2 Tier 2
-  with that migration.
+### Tier 2 — ✅ DONE (2026-06-19/20)
+- `EgeriaFeedbackWidget`, `EgeriaCommentsSection`, `FeedbackButton` (+ `_SESSION_ID`)
+  all now live in `egeria-shared-ui.js`.
+- **Resolution:** the feared blocker never bit. The Egeria-feedback widgets call
+  the cookie-authed `/api/egeria-feedback/*` with bare `fetch()` (no creds in the
+  call), and `FeedbackButton` posts to `/api/demo-feedback` the same way — so none
+  of them embed the token-vs-query-param seam. The `egeriaFetch` unification from
+  LE-4 phase 3 covered the data-fetching paths; the feedback components never
+  needed it. Canonical = the richer Egeria Explorer `FeedbackButton`; the Catalog's
+  stripped-down copy was retired in favour of a `pagePrefix="tech-catalog/"` prop.
+- `credAppend` was removed entirely in LE-4 phase 4 (dead after `egeriaFetch`).
 
 ### Tier 3 — stays per-tool
 - `ConnectionForm` (auth seam), the `CredContext` *provider* wiring, and every
