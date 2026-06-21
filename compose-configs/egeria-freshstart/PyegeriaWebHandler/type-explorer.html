@@ -2518,148 +2518,6 @@ function ReportSpecView() {
 
 // ── Glossary Explorer ─────────────────────────────────────────────────────────
 
-function GlossaryFolderDetail({ folder }) {
-  if (!folder) return null;
-  const fields = [
-    ['Qualified Name', folder.qualifiedName],
-    ['Type',           folder.typeName],
-    ['Status',         folder.status],
-    ['Description',    folder.description],
-  ].filter(([, v]) => v && String(v).trim());
-  return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
-    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 } },
-      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, folder.displayName || folder.qualifiedName),
-      React.createElement("span", { className: "badge", style: { background: 'rgba(99,102,241,.12)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)' } }, "Folder")
-    ),
-    React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, folder.guid),
-    folder.description && React.createElement("p", { style: { fontSize: 13, lineHeight: 1.6, marginBottom: 16 } }, folder.description),
-    fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
-      React.createElement("tbody", null,
-        fields.map(([label, value]) =>
-          React.createElement("tr", { key: label, style: { borderTop: '1px solid var(--border)' } },
-            React.createElement("td", { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', verticalAlign: 'top', width: 140 } }, label),
-            React.createElement("td", { style: { padding: '6px 0', wordBreak: 'break-word' } }, value)
-          )
-        )
-      )
-    ),
-    // A CollectionFolder is a Collection — surface its context/anchored graphs
-    // (lazy-loaded by guid) so folders behave like collections elsewhere.
-    React.createElement(MermaidSection, { guid: folder.guid })
-  );
-}
-
-function GlossaryDetail({ glossary }) {
-  if (!glossary) return null;
-  const fields = [
-    ['Qualified Name', glossary.qualifiedName],
-    ['Language',       glossary.language],
-    ['Usage',          glossary.usage],
-    ['Status',         glossary.status],
-  ];
-  return React.createElement('div', { className: 'detail-scroll' },
-    React.createElement('div', { className: 'detail-header' },
-      React.createElement('div', { className: 'detail-title' }, glossary.displayName || glossary.qualifiedName || glossary.guid),
-      React.createElement('div', { className: 'badge' }, 'Glossary')
-    ),
-    glossary.description && React.createElement('div', { style: { fontSize: 13, lineHeight: 1.5, marginBottom: 12, color: 'var(--fg)' } }, glossary.description),
-    React.createElement('table', { className: 'prop-table' },
-      React.createElement('tbody', null,
-        fields.filter(([, v]) => v).map(([k, v]) =>
-          React.createElement('tr', { key: k },
-            React.createElement('td', { className: 'prop-key' }, k),
-            React.createElement('td', { className: 'prop-val' }, v)
-          )
-        )
-      )
-    ),
-    React.createElement(MermaidSection, { guid: glossary.guid })
-  );
-}
-
-function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign, onNavigateToElement }) {
-  if (!term) return null;
-  const fields = [
-    ['Qualified Name', term.qualifiedName],
-    ['Abbreviation',   term.abbreviation],
-    ['Summary',        term.summary],
-    ['Examples',       term.examples],
-    ['Usage',          term.usage],
-    ['Status',         term.status],
-    ['Content Status', term.contentStatus],
-    ['Activity Status',term.activityStatus],
-  ].filter(([, v]) => v && v.trim());
-
-  const folderList = (term.folders || []);
-  const relGroups = Object.entries(term.relationships || {}).filter(([, items]) => items.length > 0);
-  var relBtnStyle  = { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)',  background: 'rgba(96,165,250,.08)',  color: 'var(--accent)', cursor: 'pointer' };
-  var ddBtnStyle   = { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(94,234,212,.4)',  background: 'rgba(94,234,212,.1)',   color: '#5eead4',       cursor: 'pointer' };
-  var DD_TYPES = { DataField: true, DataStructure: true, DataSpec: true, DataGrain: true, DataClass: true };
-
-  return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
-    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' } },
-      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, term.displayName),
-      term.isTemplateSubstitute && React.createElement("span", { className: "badge", style: { background: 'rgba(245,158,11,.15)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.4)', fontSize: 11 } }, "Template Substitute"),
-      !term.isTemplateSubstitute && term.isSourcedFromTemplate && React.createElement("span", { className: "badge", style: { background: 'rgba(245,158,11,.08)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.25)', fontSize: 11 } }, "From Template"),
-      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: term.guid }))
-    ),
-    React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 4 } }, term.guid),
-    folderList.length > 0 && React.createElement("div", { style: { display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8, marginTop: 6 } },
-      React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)', marginRight: 4 } }, "Folders:"),
-      folderList.map(f => React.createElement("span", { key: f.guid, className: "badge", style: { fontSize: 11, background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)' } }, f.displayName || f.guid))
-    ),
-    (term.classifications || []).length > 0 && React.createElement("div", { style: { display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 } },
-      React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)', marginRight: 4 } }, "Classifications:"),
-      term.classifications.map(function(c) {
-        var tip = Object.keys(c.properties || {}).length > 0 ? JSON.stringify(c.properties, null, 2) : '';
-        return React.createElement("span", { key: c.typeName, className: "badge", title: tip,
-          style: { fontSize: 11, background: 'rgba(168,85,247,.1)', color: '#c084fc', border: '0.5px solid rgba(168,85,247,.25)' }
-        }, c.typeName);
-      })
-    ),
-    term.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(term.description)),
-    React.createElement(MermaidSection, { guid: term.guid }),
-    fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
-      React.createElement("tbody", null,
-        fields.map(([label, value]) =>
-          React.createElement("tr", { key: label, style: { borderTop: '1px solid var(--border)' } },
-            React.createElement("td", { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', verticalAlign: 'top', width: 140 } }, label),
-            React.createElement("td", { style: { padding: '6px 0' } }, renderMd(value))
-          )
-        )
-      )
-    ),
-    relGroups.length > 0 && React.createElement("div", { style: { marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' } },
-      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 } }, "Relationships"),
-      relGroups.map(function([label, items]) {
-        return React.createElement("div", { key: label, style: { marginBottom: 12 } },
-          React.createElement("div", { style: { fontSize: 11, color: 'var(--muted)', fontWeight: 600, marginBottom: 4 } }, label),
-          items.map(function(item) {
-            var isDD   = DD_TYPES[item.typeName];
-            var isTerm = !item.typeName || item.typeName === 'GlossaryTerm';
-            // Any other related element (e.g. CollectionFolder, GovernanceActionProcess
-            // under the semantic-assignment / Meaning groups) gets a generic link via
-            // the central dispatcher when it knows how to route the type.
-            var isGeneric = !isTerm && !isDD && onNavigateToElement && _elementIsLinkable(item);
-            return React.createElement("div", {
-              key: item.guid,
-              style: { display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0', borderTop: '1px solid var(--border)' }
-            },
-              React.createElement("span", { style: { flex: 1, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: item.qualifiedName || item.guid },
-                item.displayName || item.qualifiedName || item.guid),
-              item.typeName && !isTerm && React.createElement("span", { style: { fontSize: 10, color: 'var(--dim)', flexShrink: 0 } }, item.typeName),
-              isTerm    && onNavigateToTerm        && React.createElement("button", { onClick: function() { onNavigateToTerm(item.guid); },                          style: relBtnStyle }, "View →"),
-              isDD      && onNavigateToDataDesign  && React.createElement("button", { onClick: function() { onNavigateToDataDesign(item.typeName, item.guid); },     style: ddBtnStyle  }, "View in Data Design →"),
-              isGeneric                            && React.createElement("button", { onClick: function() { onNavigateToElement(item); },                            style: relBtnStyle }, "View →")
-            );
-          })
-        );
-      })
-    ),
-    React.createElement(EgeriaCommentsSection, { guid: term.guid })
-  );
-}
-
 // One term row in the glossary tree (leaf), indented by depth.
 // GlossaryTermRow + GlossaryTreeNode now live in /static/egeria-shared-ui.js
 // (shared with the Tech Catalog). The tree node takes a fetchJson(path) prop;
@@ -2925,7 +2783,7 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
         : termDetailState === 'loading'
           ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "Loading term…"))
           : termDetail
-            ? React.createElement(GlossaryTermDetail, { term: termDetail, onNavigateToTerm: navigateToTerm, onNavigateToDataDesign: onNavigateToDataDesign, onNavigateToElement: onNavigateToElement })
+            ? React.createElement(GlossaryTermDetail, { term: termDetail, onNavigateToTerm: navigateToTerm, onNavigateToDataDesign: onNavigateToDataDesign, onNavigateToElement: onNavigateToElement, isElementLinkable: _elementIsLinkable })
             : !isSearchMode && selectedGlossary && !selectedItem
               ? React.createElement(GlossaryDetail, { glossary: glossaries.find(g => g.guid === selectedGlossary) || null })
               : React.createElement("div", { className: "center" },
@@ -5041,7 +4899,13 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
   }, [subNav]);
 
   React.useEffect(function() {
-    if (navGuid) switchAndSelect(navType || 'specs', navGuid);
+    // Fall back to ?guid=&kind= on a cold deep-link (e.g. a Tech Catalog
+    // cross-link opening /egeria-explorer?guid=X&kind=fields#data-design), so the
+    // target is actually selected — matches the ISC/Actors views' deep-link handling.
+    var params = new URLSearchParams(window.location.search);
+    var g = navGuid || params.get('guid');
+    var k = navType || params.get('kind');
+    if (g) switchAndSelect(k || 'specs', g);
   }, [navGuid, navType]);
 
   const SUB_NAVS = [

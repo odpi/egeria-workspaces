@@ -859,3 +859,169 @@ function MermaidSection({ guid }) {
     })
   );
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Glossary detail panes — shared by both SPAs. Visual design = the Tech
+ * Catalog's (Properties / Classifications section headers + cards). The folder
+ * pane carries the MermaidSection context graph (previously Explorer-only). The
+ * term pane takes optional cross-link callbacks — onNavigateToTerm always;
+ * onNavigateToDataDesign / onNavigateToElement render only when the host SPA
+ * provides them, plus an injected isElementLinkable(item) predicate (each SPA
+ * decides what it can route to). Depends on shared _glsBadge / MermaidSection /
+ * renderMd / EgeriaFeedbackWidget / EgeriaCommentsSection; CSS var --classif.
+ * ────────────────────────────────────────────────────────────────────────── */
+var _glsBadge = { display: 'inline-block', fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 10, border: '0.5px solid rgba(96,165,250,.3)', background: 'rgba(96,165,250,.1)', color: 'var(--accent)' };
+
+function GlossaryFolderDetail({ folder }) {
+  if (!folder) return null;
+  var fields = [['Qualified Name', folder.qualifiedName],['GUID', folder.guid],['Type', folder.typeName],['Status', folder.status],['Description', folder.description]].filter(function(r){return r[1]&&String(r[1]).trim();});
+  var sHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
+  var cardStyle = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 };
+  return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 } },
+      React.createElement('div', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)' } }, folder.displayName || folder.qualifiedName),
+      React.createElement('span', { style: _glsBadge }, 'Folder')
+    ),
+    folder.description && React.createElement('p', { style: { fontSize: 13, lineHeight: 1.6, marginBottom: 16, color: 'var(--muted)' } }, folder.description),
+    fields.length > 0 && React.createElement('div', null,
+      React.createElement('div', { style: sHdr }, 'Properties'),
+      React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 } },
+        React.createElement('tbody', null,
+          fields.map(function(r) {
+            var mono = r[0] === 'Qualified Name' || r[0] === 'GUID';
+            return React.createElement('tr', { key: r[0], style: { borderTop: '1px solid var(--border)' } },
+              React.createElement('td', { style: { padding: '5px 12px 5px 0', color: 'var(--dim)', width: 140, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
+              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: mono ? 'ui-monospace,monospace' : 'inherit', fontSize: mono ? 11 : 12 } }, String(r[1])));
+          })
+        )
+      )
+    ),
+    (folder.classifications || []).length > 0 && React.createElement('div', null,
+      React.createElement('div', { style: sHdr }, 'Classifications'),
+      folder.classifications.map(function(c) {
+        return React.createElement('div', { key: c.typeName, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--classif)' }) },
+          React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
+          Object.entries(c.properties || {}).map(function(e) {
+            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
+              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
+          })
+        );
+      })
+    ),
+    // A CollectionFolder is a Collection — surface its context/anchored graphs.
+    React.createElement(MermaidSection, { guid: folder.guid })
+  );
+}
+
+function GlossaryDetail({ glossary }) {
+  if (!glossary) return null;
+  var sHdr   = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
+  var cardStyle = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 };
+  var fields = [['Qualified Name', glossary.qualifiedName],['GUID', glossary.guid],['Language', glossary.language],['Usage', glossary.usage],['Status', glossary.status]].filter(function(r){return r[1];});
+  return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 } },
+      React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--text)', flex: 1 } }, glossary.displayName || glossary.qualifiedName || glossary.guid),
+      React.createElement('span', { style: _glsBadge }, 'Glossary')
+    ),
+    glossary.description && React.createElement('p', { style: { fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, margin: '0 0 16px' } }, glossary.description),
+    fields.length > 0 && React.createElement('div', null,
+      React.createElement('div', { style: sHdr }, 'Properties'),
+      React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 } },
+        React.createElement('tbody', null,
+          fields.map(function(r) {
+            var mono = r[0] === 'Qualified Name' || r[0] === 'GUID';
+            return React.createElement('tr', { key: r[0], style: { borderTop: '1px solid var(--border)' } },
+              React.createElement('td', { style: { padding: '5px 12px 5px 0', color: 'var(--dim)', width: 140, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
+              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: mono ? 'ui-monospace,monospace' : 'inherit', fontSize: mono ? 11 : 12 } }, String(r[1])));
+          })
+        )
+      )
+    ),
+    (glossary.classifications || []).length > 0 && React.createElement('div', null,
+      React.createElement('div', { style: sHdr }, 'Classifications'),
+      glossary.classifications.map(function(c) {
+        return React.createElement('div', { key: c.typeName, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--classif)' }) },
+          React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
+          Object.entries(c.properties || {}).map(function(e) {
+            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
+              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
+          })
+        );
+      })
+    ),
+    React.createElement(MermaidSection, { guid: glossary.guid })
+  );
+}
+
+function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign, onNavigateToElement, isElementLinkable }) {
+  if (!term) return null;
+  var sHdr   = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
+  var fields = [['Qualified Name', term.qualifiedName],['GUID', term.guid],['Abbreviation', term.abbreviation],['Summary', term.summary],['Examples', term.examples],['Usage', term.usage],['Status', term.status],['Content Status', term.contentStatus],['Activity Status', term.activityStatus]].filter(function(r){return r[1]&&String(r[1]).trim();});
+  var folderList = term.folders || [];
+  var relGroups  = Object.entries(term.relationships || {}).filter(function(e) { return e[1].length > 0; });
+  var relBtnStyle = { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' };
+  var ddBtnStyle  = { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(94,234,212,.4)', background: 'rgba(94,234,212,.1)', color: '#5eead4', cursor: 'pointer' };
+  var DD_TYPES = { DataField: true, DataStructure: true, DataSpec: true, DataGrain: true, DataClass: true };
+  return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' } },
+      React.createElement('div', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)' } }, term.displayName),
+      term.isTemplateSubstitute && React.createElement('span', { style: Object.assign({}, _glsBadge, { background: 'rgba(245,158,11,.15)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.4)' }) }, 'Template Substitute'),
+      !term.isTemplateSubstitute && term.isSourcedFromTemplate && React.createElement('span', { style: Object.assign({}, _glsBadge, { background: 'rgba(245,158,11,.08)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.25)' }) }, 'From Template'),
+      React.createElement('div', { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: term.guid }))
+    ),
+    folderList.length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8, marginTop: 6 } },
+      React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)', marginRight: 4 } }, 'Folders:'),
+      folderList.map(function(f) { return React.createElement('span', { key: f.guid, style: Object.assign({}, _glsBadge, { background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)' }) }, f.displayName || f.guid); })
+    ),
+    term.description && React.createElement('div', { style: { fontSize: 13, marginBottom: 16, color: 'var(--text)' } }, renderMd(term.description)),
+    React.createElement(MermaidSection, { guid: term.guid }),
+    fields.length > 0 && React.createElement('div', null,
+      React.createElement('div', { style: sHdr }, 'Properties'),
+      React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 } },
+        React.createElement('tbody', null,
+          fields.map(function(r) {
+            var mono = r[0] === 'Qualified Name' || r[0] === 'GUID';
+            return React.createElement('tr', { key: r[0], style: { borderTop: '1px solid var(--border)' } },
+              React.createElement('td', { style: { padding: '5px 12px 5px 0', color: 'var(--dim)', width: 140, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
+              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: mono ? 'ui-monospace,monospace' : 'inherit', fontSize: mono ? 11 : 12 } }, mono ? r[1] : renderMd(r[1])));
+          })
+        )
+      )
+    ),
+    (term.classifications || []).length > 0 && React.createElement('div', null,
+      React.createElement('div', { style: sHdr }, 'Classifications'),
+      term.classifications.map(function(c) {
+        var cardStyle = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 };
+        return React.createElement('div', { key: c.typeName, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--classif)' }) },
+          React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
+          Object.entries(c.properties || {}).map(function(e) {
+            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
+              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
+          })
+        );
+      })
+    ),
+    relGroups.length > 0 && React.createElement('div', { style: { marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' } },
+      React.createElement('div', { style: sHdr }, 'Relationships'),
+      relGroups.map(function(entry) {
+        var label = entry[0], items = entry[1];
+        return React.createElement('div', { key: label, style: { marginBottom: 12 } },
+          React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', fontWeight: 600, marginBottom: 4 } }, label),
+          items.map(function(item) {
+            var isDD   = DD_TYPES[item.typeName];
+            var isTerm = !item.typeName || item.typeName === 'GlossaryTerm';
+            var isGeneric = !isTerm && !isDD && onNavigateToElement && isElementLinkable && isElementLinkable(item);
+            return React.createElement('div', { key: item.guid, style: { display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0', borderTop: '1px solid var(--border)' } },
+              React.createElement('span', { style: { flex: 1, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: item.qualifiedName || item.guid }, item.displayName || item.qualifiedName || item.guid),
+              item.typeName && !isTerm && React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)', flexShrink: 0 } }, item.typeName),
+              isTerm    && onNavigateToTerm       && React.createElement('button', { onClick: function() { onNavigateToTerm(item.guid); },                       style: relBtnStyle }, 'View →'),
+              isDD      && onNavigateToDataDesign && React.createElement('button', { onClick: function() { onNavigateToDataDesign(item.typeName, item.guid); }, style: ddBtnStyle  }, 'View in Data Design →'),
+              isGeneric                           && React.createElement('button', { onClick: function() { onNavigateToElement(item); },                         style: relBtnStyle }, 'View →')
+            );
+          })
+        );
+      })
+    ),
+    React.createElement(EgeriaCommentsSection, { guid: term.guid })
+  );
+}
