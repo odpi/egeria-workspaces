@@ -3363,6 +3363,10 @@ function CollectionsView({ onNavigateToElement }) {
   const [selectedNodeObj, setSelectedNodeObj] = useState(null);
   const [nodeDetail, setNodeDetail] = useState(null);
   const [expanded, setExpanded]     = useState(new Set());
+  const [childrenByGuid, setChildrenByGuid] = useState({}); // guid -> [child nodes] (lazy)
+  const [loadingGuids, setLoadingGuids]     = useState(new Set());
+  const childrenRef = useRef({});
+  useEffect(() => { childrenRef.current = childrenByGuid; }, [childrenByGuid]);
 
   // Load root collections on mount
   useEffect(() => {
@@ -3385,17 +3389,27 @@ function CollectionsView({ onNavigateToElement }) {
     setSelectedNode(null); setSelectedNodeObj(null);
     egeriaFetch('/api/collections/' + encodeURIComponent(selectedRoot) + '/tree', creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(data => { setTreeData(data); setTreeState('ready'); setExpanded(new Set()); })
+      .then(data => { setTreeData(data); setChildrenByGuid({}); setTreeState('ready'); setExpanded(new Set()); })
       .catch(err => { setTreeError(err.message); setTreeState('error'); });
   }, [selectedRoot]);
+
+  const loadChildren = useCallback(guid => {
+    if (childrenRef.current[guid] !== undefined) return;
+    setLoadingGuids(prev => { const n = new Set(prev); n.add(guid); return n; });
+    egeriaFetch('/api/collections/' + encodeURIComponent(guid) + '/children', creds)
+      .then(r => r.ok ? r.json() : { children: [] })
+      .then(d => { setChildrenByGuid(prev => Object.assign({}, prev, { [guid]: d.children || [] })); })
+      .catch(() => { setChildrenByGuid(prev => Object.assign({}, prev, { [guid]: [] })); })
+      .finally(() => { setLoadingGuids(prev => { const n = new Set(prev); n.delete(guid); return n; }); });
+  }, [creds]);
 
   const toggleNode = useCallback(guid => {
     setExpanded(prev => {
       const next = new Set(prev);
-      if (next.has(guid)) next.delete(guid); else next.add(guid);
+      if (next.has(guid)) next.delete(guid); else { next.add(guid); loadChildren(guid); }
       return next;
     });
-  }, []);
+  }, [loadChildren]);
 
   const handleSelect = useCallback((guid, nodeObj) => {
     setSelectedNode(guid); setSelectedNodeObj(nodeObj); setNodeDetail(null);
@@ -3453,6 +3467,7 @@ function CollectionsView({ onNavigateToElement }) {
               React.createElement(DigitalTreeNode, {
                 key: node.guid, node, depth: 0,
                 selectedGuid: selectedNode, onSelect: handleSelect, expanded, toggleNode,
+                childrenByGuid, loadingGuids,
               })
             )
       )

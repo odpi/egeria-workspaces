@@ -46,13 +46,13 @@ def _is_collection(node: dict) -> bool:
     return tn == "Collection" or tn.endswith("Collection")
 
 
-def _build_tree(mgr, collection_guid: str, visited: set, depth: int = 0) -> list:
-    """Recursively fetch collection members, building a node tree. Max depth 6.
-    Any Collection subtype is treated as an expandable container."""
-    if depth > 6 or collection_guid in visited:
-        return []
-    visited.add(collection_guid)
+def _children_level(mgr, collection_guid: str) -> list:
+    """Fetch ONE level of members (no recursion) for lazy tree loading (PERF-2).
 
+    Each Collection subtype is flagged isContainer so the frontend shows an expand
+    twistie; its own children are fetched on demand via /children. Replaces the old
+    recursive serial walk that made deep collection trees slow to load.
+    """
     try:
         raw = mgr.get_collection_members(
             collection_guid=collection_guid,
@@ -70,12 +70,8 @@ def _build_tree(mgr, collection_guid: str, visited: set, depth: int = 0) -> list
     nodes = []
     for element in raw:
         node = _serialize_node(element)
-        if _is_collection(node):
-            node["children"] = _build_tree(mgr, node["guid"], visited, depth + 1)
-            node["isContainer"] = True
-        else:
-            node["children"] = []
-            node["isContainer"] = False
+        node["isContainer"] = _is_collection(node)
+        node["children"] = []  # lazily fetched on expand via /children
         nodes.append(node)
 
     nodes.sort(key=lambda n: (not n["isContainer"], (n.get("displayName") or "").lower()))
@@ -136,17 +132,38 @@ def get_tree(
     if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
         return JSONResponse(cached[1])
 
-    try:
-        root_raw = mgr.get_collection_by_guid(root_guid, output_format="JSON")
-    except Exception as exc:
-        logger.warning(f"get_collection_by_guid failed for {root_guid}: {exc}")
-        root_raw = None
-    root = _serialize_node(root_raw) if isinstance(root_raw, dict) else {"guid": root_guid}
-
-    visited: set = set()
-    children = _build_tree(mgr, root_guid, visited)
+    # The root's own metadata is already known to the client from the roots list,
+    # so skip the expensive get_collection_by_guid graph query here (PERF-1).
+    root = {"guid": root_guid}
+    children = _children_level(mgr, root_guid)
 
     result = {"root": root, "children": children}
+    _TREE_CACHE[cache_key] = (time.time(), result)
+    return JSONResponse(result)
+
+
+@router.get("/api/collections/{node_guid}/children",
+            summary="Direct members of a collection node (lazy tree loading, PERF-2)")
+def get_node_children(
+    node_guid: str,
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
+    """One level of children for a container node, fetched when the user expands it."""
+    try:
+        mgr = _get_manager(url, server, user_id, user_pwd)
+    except Exception as exc:
+        logger.exception("Failed to create CollectionManager")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+    cache_key = f"children|{node_guid}|{url or ''}|{server or ''}|{user_id or ''}"
+    cached = _TREE_CACHE.get(cache_key)
+    if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
+        return JSONResponse(cached[1])
+
+    result = {"children": _children_level(mgr, node_guid)}
     _TREE_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
 
