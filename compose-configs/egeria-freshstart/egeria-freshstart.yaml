@@ -122,6 +122,11 @@ services:
       - ../../templates:/app/templates
       - ../../runtime-volumes/freshstart-demo-data:/app/demo-data
       - ../../runtime-volumes/freshstart-platform-data/secrets/egeria-user-directory.omsecrets:/secrets/user-directory.omsecrets
+      # TC-13: read-only data dirs at the same /deployments/* paths the Egeria
+      # platform sees, so file Data Assets' pathName resolves for tabular preview.
+      - ../../exchange-freshstart/loading-bay:/deployments/loading-bay:ro
+      - ../../exchange-freshstart/landing-area:/deployments/landing-area:ro
+      - ../../exchange-freshstart/distribution-hub:/deployments/distribution-hub:ro
     depends_on:
       - freshstart-egeria-main
     command: "uvicorn pyegeria_handler:app --host '::' --port 8000 --reload --loop asyncio"

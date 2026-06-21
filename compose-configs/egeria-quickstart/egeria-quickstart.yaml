@@ -145,6 +145,13 @@ services:
       - ../../coco-workbooks:/coco-workbooks
       - ../../templates:/app/templates
       - ../../runtime-volumes/quickstart-demo-data:/app/demo-data
+      # TC-13: read-only data dirs at the same /deployments/* paths the Egeria
+      # platform sees, so file Data Assets' pathName resolves for tabular preview.
+      - ../../exchange-quickstart/loading-bay:/deployments/loading-bay:ro
+      - ../../exchange-quickstart/landing-area:/deployments/landing-area:ro
+      - ../../exchange-quickstart/coco-data-lake:/deployments/coco-data-lake:ro
+      - ../../exchange-quickstart/distribution-hub:/deployments/distribution-hub:ro
+      - ../../exchange-quickstart/treasury-dts-history:/deployments/treasury-dts-history:ro
 # Mount the dr-egeria-inbox directory
 #    environment:
       # Pass environment variables to the container

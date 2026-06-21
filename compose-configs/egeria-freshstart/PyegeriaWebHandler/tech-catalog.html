@@ -1530,6 +1530,11 @@ var TYPE_TO_NAV = (function() {
 // ── Generic detail panel ──────────────────────────────────────────────────────
 function AssetDetail({ item, detailLoading, onNavigate, creds }) {
   if (!item) return null;
+  var _previewState = useState(false), showPreview = _previewState[0], setShowPreview = _previewState[1];
+  // TC-13: file Data Assets (DataFile subtypes / anything with a file path) get a
+  // tabular Preview action backed by /api/tech-catalog/assets/{guid}/preview.
+  var isFileAsset = !!(item.fileExtension || item.pathName || item.resourceName ||
+                       (item.superTypeNames || []).indexOf('DataFile') !== -1);
   var sectionHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
   var cardStyle  = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px', marginBottom: 6 };
   // hasSchema / hasLineage are signalled by the backend; exclude them from the property table
@@ -1548,6 +1553,11 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
       React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--text)', flex: 1 } },
         item.displayName || item.qualifiedName || item.guid),
       detailLoading && React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Loading detail…'),
+      isFileAsset && React.createElement('button', {
+        onClick: function() { setShowPreview(true); },
+        title: 'Preview the rows of this file',
+        style: { fontSize: 12, padding: '4px 12px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer', whiteSpace: 'nowrap' }
+      }, 'Preview Data 📊'),
       React.createElement(EgeriaFeedbackWidget, { guid: item.guid })
     ),
     item.typeName && React.createElement('div', { style: { display: 'inline-block', fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: 'rgba(96,165,250,0.12)', color: 'var(--accent)', marginBottom: 12 } }, item.typeName),
@@ -1627,7 +1637,15 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
     item.hasLineage && React.createElement(LineagePane, { guid: item.guid }),
 
     // Comments
-    React.createElement(EgeriaCommentsSection, { guid: item.guid })
+    React.createElement(EgeriaCommentsSection, { guid: item.guid }),
+
+    // TC-13: tabular preview modal (shared component) for file assets
+    showPreview && React.createElement(TabularPreviewModal, {
+      fetchUrl: '/api/tech-catalog/assets/' + item.guid + '/preview',
+      name: item.fileName || item.displayName || item.guid,
+      creds: creds,
+      onClose: function() { setShowPreview(false); }
+    })
   );
 }
 

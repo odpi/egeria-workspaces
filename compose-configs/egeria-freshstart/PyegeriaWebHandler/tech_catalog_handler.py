@@ -1011,6 +1011,113 @@ def get_asset_lineage(
         raise HTTPException(status_code=500, detail=exc_str)
 
 
+# ── TC-13: file Data Asset preview ────────────────────────────────────────────
+# Backing files live under /deployments/* (mounted read-only into this container
+# to mirror the Egeria platform's view), so an asset's pathName resolves directly.
+# Only paths under these roots are previewable — realpath() defeats traversal.
+_PREVIEW_ROOTS = (
+    "/deployments/loading-bay",
+    "/deployments/landing-area",
+    "/deployments/coco-data-lake",
+    "/deployments/distribution-hub",
+    "/deployments/treasury-dts-history",
+    "/deployments/work",
+)
+_PREVIEW_MAX_BYTES = 50 * 1024 * 1024  # skip files larger than 50 MB
+
+
+def _resolve_preview_path(raw_path: str) -> Optional[str]:
+    """Return a safe absolute path under an allowed root, or None if disallowed."""
+    if not raw_path:
+        return None
+    p = raw_path
+    if p.startswith("file://"):
+        p = p[len("file://"):]
+        # strip a leading host component (file://host/abs/path)
+        if p and not p.startswith("/") and "/" in p:
+            p = "/" + p.split("/", 1)[1]
+    try:
+        real = os.path.realpath(p)
+    except Exception:
+        return None
+    for root in _PREVIEW_ROOTS:
+        root_real = os.path.realpath(root)
+        if real == root_real or real.startswith(root_real + os.sep):
+            return real
+    return None
+
+
+@router.get("/api/tech-catalog/assets/{guid}/preview",
+            summary="Preview a bounded page of rows from a file Data Asset (CSV/TSV/JSON)")
+def get_asset_preview(
+    request: Request,
+    guid: str,
+    start_from_row: int = Query(0,   ge=0),
+    max_row_count:  int = Query(100, ge=1, le=2000),
+    section: Optional[str] = Query(None),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    """Read a bounded page of rows from a file asset's backing store, normalised to
+    {columns, rows, has_more} for the tabular preview modal. The file must be under
+    an allowed /deployments root and reachable from this container ('when accessible')."""
+    try:
+        mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
+        el = _fetch_detail(mgr, guid, section)
+        if not el:
+            raise HTTPException(status_code=404, detail=f"Element {guid!r} not found")
+        d = _serialize(el)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        if _is_auth_error(exc):
+            raise HTTPException(status_code=401, detail="Token expired or not authorized")
+        logger.exception("get_asset_preview: detail fetch failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    raw_path = d.get("pathName") or d.get("resourceName") or d.get("networkAddress") or ""
+    ext = (d.get("fileExtension") or os.path.splitext(raw_path)[1].lstrip(".")).lower()
+    path = _resolve_preview_path(raw_path)
+
+    if not path:
+        raise HTTPException(status_code=422,
+            detail=f"This asset's file isn't previewable from here (path: {raw_path or 'unknown'}).")
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="The backing file isn't accessible from the server.")
+    try:
+        if os.path.getsize(path) > _PREVIEW_MAX_BYTES:
+            raise HTTPException(status_code=413, detail="File is too large to preview.")
+    except OSError:
+        pass
+
+    try:
+        import pandas as pd
+        if ext in ("csv", "tsv", "txt"):
+            sep = "\t" if ext == "tsv" else ","
+            df = pd.read_csv(path, sep=sep,
+                             skiprows=range(1, start_from_row + 1) if start_from_row else None,
+                             nrows=max_row_count + 1)
+        elif ext in ("json", "jsonl", "ndjson"):
+            df = pd.read_json(path, lines=ext in ("jsonl", "ndjson"))
+            df = df.iloc[start_from_row:start_from_row + max_row_count + 1]
+        else:
+            raise HTTPException(status_code=415, detail=f"Preview not supported for .{ext or '?'} files.")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("get_asset_preview: read failed for %s", path)
+        raise HTTPException(status_code=500, detail=f"Could not read file: {exc}")
+
+    has_more = len(df) > max_row_count
+    df = df.iloc[:max_row_count]
+    columns = [str(c) for c in df.columns]
+    safe = df.astype(object).where(pd.notnull(df), None)
+    rows = safe.values.tolist()
+    return JSONResponse({"columns": columns, "rows": rows, "has_more": bool(has_more),
+                         "start_from_row": start_from_row, "row_count": len(rows),
+                         "fileName": d.get("fileName") or os.path.basename(path)})
+
+
 # ── Technology Types routes ───────────────────────────────────────────────────
 # IMPORTANT: register hierarchy and elements routes BEFORE the parametric
 # {qualified_name} route to avoid "hierarchy" or "{qn}/elements" being captured
