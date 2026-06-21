@@ -1,5 +1,41 @@
 # MOD-1 — Shared UI Audit (Egeria Explorer ↔ Tech Catalog)
 
+> ## ✅ Final state — MOD-1/2/3 complete (2026-06-20)
+>
+> `egeria-shared-ui.js` is loaded by both SPAs (served as a FastAPI static file,
+> `<script>` before each app script; the two env copies stay byte-identical).
+> Components are plain globals referenced by name, resolved at render time.
+>
+> **Shared module inventory** (`static/egeria-shared-ui.js`):
+> - **Mermaid family:** `_MERMAID_FIELD_LABELS`, `_MERMAID_SECTION_FIELDS`,
+>   `MermaidDiagram`, `DiagramPanelFromData`, `AvailableMermaidDiagrams`,
+>   `DiagramPanel`, `MermaidSection` (the last two token-aware via CredContext).
+> - **Markdown:** `renderMd` / `_renderMdHtml` (+ `--md-code-bg` CSS var).
+> - **Layout/util:** `useResizable`, `ResizeDivider`, `copyToClipboard`
+>   (execCommand fallback for non-secure http).
+> - **Glossary:** `GlossaryTermRow`, `GlossaryTreeNode` (tree, injected `fetchJson`);
+>   `GlossaryFolderDetail`, `GlossaryDetail`, `GlossaryTermDetail` + `_glsBadge`
+>   (detail panes, Catalog visual design; term pane takes optional cross-link
+>   callbacks + an injected `isElementLinkable` predicate).
+> - **Feedback:** `EgeriaFeedbackWidget`, `EgeriaCommentsSection`, `FeedbackButton`
+>   (+ `_SESSION_ID`).
+> - **Auth seam:** `CredContext` (shared context — **both** SPAs now provide it via
+>   `CredContext.Provider value={creds}`), `egeriaFetch` + `_tokenRefresher`
+>   (token-aware; `url`/`server`/`user_id` as query params, `X-Egeria-Token` header,
+>   password never in a URL).
+>
+> **Stays per-tool (Tier 3):** `ConnectionForm`, each App's `CredContext.Provider`
+> wiring + creds state, and all tool-specific views/sections/splash/nav. Note: the
+> `CredContext` *object* is shared; only the *provider value* is per-SPA.
+> `VegaChart`/`AvailableCharts` remain Explorer-only (not needed by the Catalog).
+>
+> **Cross-tool nav:** the Catalog has no Data Design / Digital Products tabs, so it
+> deep-links the Egeria Explorer via `TYPE_TO_NAV` + `handleNavigate`
+> (`/egeria-explorer?guid=&kind=#<tab>`); the Explorer's `DataDesignView` /
+> `DigitalProductsView` seed their selection from `?guid`/`?kind` on cold load.
+>
+> The original audit and recommendation below are retained for history.
+
 **Goal:** identify components/helpers duplicated between `type-explorer.html`
 (Egeria Explorer SPA) and `tech-catalog.html` (Tech Catalog SPA), and define the
 boundary for what moves into a shared `egeria-shared-ui.js` (MOD-2) vs what stays
