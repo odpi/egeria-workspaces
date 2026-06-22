@@ -6566,14 +6566,15 @@ function CommunityView({ navGuid, onNavigateToElement }) {
   const [detail, setDetail] = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter] = useState('');
+  const [asOfTime, setAsOfTime] = useState(null);  // LE-3 point-in-time
 
   useEffect(function() {
     setState('loading'); setError('');
-    egeriaFetch('/api/communities', creds)
+    egeriaFetch('/api/communities' + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setItems(data.communities || []); setState('ready'); })
       .catch(function(e) { setError(e.message); setState('error'); });
-  }, [attempt]);
+  }, [attempt, asOfTime]);
 
   useEffect(function() {
     if (!selected) { setDetail(null); return; }
@@ -6590,6 +6591,7 @@ function CommunityView({ navGuid, onNavigateToElement }) {
   }, [navGuid]);
 
   var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { padding: '8px 10px' } }, React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' })),
     React.createElement("div", { className: "search-wrap" },
       React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
         onChange: function(e) { setFilter(e.target.value); } })
