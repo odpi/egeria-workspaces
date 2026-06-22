@@ -735,6 +735,11 @@ function App() {
   var _creds = useState(null),   creds   = _creds[0],   setCreds   = _creds[1];
   var _ready = useState(false),  ready   = _ready[0],   setReady   = _ready[1];
   var _who   = useState(null),   who     = _who[0],     setWho     = _who[1];   // { label, sub }
+  var _srv   = useState(false),  srvManaged = _srv[0],  setSrvManaged = _srv[1];
+  var _showC = useState(false),  showConn = _showC[0],  setShowConn = _showC[1];
+  var _fu = useState(''),  fu = _fu[0], setFu = _fu[1];
+  var _fp = useState(''),  fp = _fp[0], setFp = _fp[1];
+  var _ce = useState(''),  cerr = _ce[0], setCerr = _ce[1];
   var _focus = useState(params.get('guid') || null), focusGuid = _focus[0], setFocusGuid = _focus[1];
   var _t = useState(function() {
     var h = params.get('tab') || window.location.hash.slice(1);
@@ -743,10 +748,28 @@ function App() {
   function go(id){ setTab(id); try { window.location.hash = id; } catch(e){} }
   var active = TABS.find(function(t){ return t.id === tab; }) || TABS[0];
 
-  // Auth bootstrap — same identity/token flow as tech-catalog (portal JWT for
-  // freshstart; persona → /api/egeria-token for quickstart demo/local).
+  function applyConn(uid, token) {
+    setCreds({ server: 'qs-view-server', userId: uid, token: token || '' });
+    setWho({ label: uid, sub: 'connected' }); setShowConn(false);
+    try { sessionStorage.setItem('audit-creds', JSON.stringify({ userId: uid, token: token || '' })); } catch(e) {}
+  }
+  function connect() {
+    setCerr('');
+    fetch('/api/egeria-token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: fu, password: fp }) })
+      .then(function(r){ return r.ok ? r.json() : r.json().then(function(e){ throw new Error(e.detail || 'Failed'); }); })
+      .then(function(d){ applyConn(fu, d.token); setFp(''); })
+      .catch(function(e){ setCerr(e.message || 'Connection failed'); });
+  }
+  function disconnect() { setCreds(null); setWho(null); try { sessionStorage.removeItem('audit-creds'); } catch(e) {} setShowConn(true); }
+
+  // Auth bootstrap: restore a session connection, then /api/auth/me (portal JWT
+  // for freshstart; persona for quickstart demo). Local quickstart has no portal
+  // identity, so the user connects as a (privileged) Egeria user via the bar below
+  // — needed because listing platform users requires an admin like garygeeke.
   useEffect(function() {
+    try { var sc = JSON.parse(sessionStorage.getItem('audit-creds') || 'null'); if (sc && sc.userId) { setCreds({ server: 'qs-view-server', userId: sc.userId, token: sc.token || '' }); setWho({ label: sc.userId, sub: 'connected' }); } } catch(e) {}
     fetch('/api/auth/me').then(function(r){ return r.json(); }).then(function(d) {
+      setSrvManaged(!!d.server_managed_auth);
       if (d.server_managed_auth) {
         if (d.authenticated && d.id) { setWho({ label: d.display_name || d.id, sub: d.role || '' }); setCreds({}); }
         setReady(true); return;
@@ -764,7 +787,6 @@ function App() {
           }).catch(function(){ setReady(true); });
         return;
       }
-      if (d.id) setWho({ label: d.display_name || d.id, sub: d.role || '' });
       setReady(true);
     }).catch(function(){ setReady(true); });
   }, []);
@@ -776,13 +798,27 @@ function App() {
                color: on ? 'var(--accent)' : 'var(--muted)', borderBottom: on ? '2px solid var(--accent)' : '2px solid transparent', fontWeight: on ? 700 : 400 } }, t.label);
   };
 
+  // re-key on the connected identity so tabs re-fetch when you connect/switch
+  var credKey = (who ? who.label : 'anon');
   var content = !ready
     ? el('div', { style: pad }, 'Connecting…')
     : active.id === 'users'
-      ? el(UsersTab, { creds: creds })
-      : el(AuditRelationshipTab, { key: active.id, relType: active.relType, columns: COLS[active.relType],
+      ? el(UsersTab, { key: 'users@' + credKey, creds: creds })
+      : el(AuditRelationshipTab, { key: active.id + '@' + credKey, relType: active.relType, columns: COLS[active.relType],
           actorRoles: ACTOR_ROLES[active.relType], creds: creds,
           focusGuid: focusGuid, onClearFocus: function(){ setFocusGuid(null); } });
+
+  var inp = { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', outline: 'none' };
+  var showConnBar = ready && !srvManaged && (showConn || !who);
+  var connBar = showConnBar && el('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderBottom: '1px solid var(--border)', background: 'rgba(96,165,250,.06)' } },
+    el('span', { style: { fontSize: 12, color: 'var(--muted)' } }, 'Connect to Egeria as:'),
+    el('input', { placeholder: 'user id (e.g. garygeeke)', value: fu, onChange: function(e){ setFu(e.target.value); },
+      onKeyDown: function(e){ if (e.key === 'Enter') connect(); }, style: Object.assign({}, inp, { width: 200 }) }),
+    el('input', { type: 'password', placeholder: 'password', value: fp, onChange: function(e){ setFp(e.target.value); },
+      onKeyDown: function(e){ if (e.key === 'Enter') connect(); }, style: Object.assign({}, inp, { width: 150 }) }),
+    el('button', { onClick: connect, style: { fontSize: 12, padding: '4px 14px', borderRadius: 4, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: 600 } }, 'Connect'),
+    cerr && el('span', { style: { fontSize: 12, color: '#f87171' } }, cerr),
+    el('span', { style: { marginLeft: 'auto', fontSize: 11, color: 'var(--dim)' } }, 'Listing platform users requires an admin user.'));
 
   return el(CredContext.Provider, { value: creds },
     el('div', { style: { display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', color: 'var(--text)' } },
@@ -792,8 +828,11 @@ function App() {
         el('span', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Exceptions · Certifications · Licenses · Users'),
         el('div', { style: { flex: 1 } }),
         who && el('span', { title: who.sub || '', style: { fontSize: 12, color: 'var(--accent)', background: 'rgba(96,165,250,.1)', border: '1px solid rgba(96,165,250,.3)', borderRadius: 12, padding: '2px 10px' } }, who.label),
+        who && !srvManaged && el('button', { onClick: disconnect, title: 'Switch user', style: { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, 'Switch'),
+        !who && !srvManaged && el('button', { onClick: function(){ setShowConn(!showConn); }, style: { fontSize: 12, padding: '3px 10px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' } }, '🔌 Connect'),
         el('a', { href: '/portal', style: { fontSize: 12, color: 'var(--muted)', textDecoration: 'none' } }, '⌂ Portal')
       ),
+      connBar,
       el('div', { style: { display: 'flex', gap: 4, padding: '0 12px', borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0 } }, TABS.map(tabBtn)),
       el('div', { style: { flex: 1, overflow: 'hidden' } }, content)
     )
