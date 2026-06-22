@@ -241,6 +241,8 @@ from egeria_feedback_handler import router as egeria_feedback_router
 app.include_router(egeria_feedback_router)
 from tech_catalog_handler import router as tech_catalog_router
 app.include_router(tech_catalog_router)
+from audit_handler import router as audit_router
+app.include_router(audit_router)
 from lineage_handler import router as lineage_router
 app.include_router(lineage_router)
 from obsidian_lock_handler import router as obsidian_lock_router
