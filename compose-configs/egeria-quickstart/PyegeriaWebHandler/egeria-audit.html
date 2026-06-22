@@ -652,7 +652,16 @@ function UsersTab({ creds }) {
   var _ex = useState(null),      expand  = _ex[0], setExpand = _ex[1];   // expanded userName
   var _ad = useState(false),     isAdmin = _ad[0], setAdmin  = _ad[1];
   var _cf = useState(null),      confirm = _cf[0], setConfirm= _cf[1];   // {user, status}
+  var _pw = useState(360),       panelW  = _pw[0], setPanelW = _pw[1];   // detail-panel width (px)
   var rzu = useColumnResize(5, 180);
+  var selUser = users.find(function(u){ return u.userName === expand; });
+  function onPanelDown(e) {  // right-docked panel: drag-left widens (inverse of clientX)
+    e.preventDefault();
+    var w0 = panelW, x0 = e.clientX;
+    function mv(ev){ setPanelW(Math.max(240, Math.min(760, w0 - (ev.clientX - x0)))); }
+    function up(){ document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); }
+    document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+  }
 
   // platforms + am-I-admin on mount
   useEffect(function() {
@@ -693,31 +702,39 @@ function UsersTab({ creds }) {
     uState === 'loading' ? el('div', { style: pad }, 'Loading users…')
     : uState === 'error' ? el('div', { style: pad }, 'Failed to load users.')
     : users.length === 0 ? el('div', { style: pad }, plat ? ('No users registered in ' + plat.displayName + '’s security connector.') : 'Select a platform.')
-    : el('div', { style: { overflow: 'auto', flex: 1 } },
-        el('table', { style: { borderCollapse: 'collapse', tableLayout: 'fixed', width: rzu.tableWidth ? rzu.tableWidth + 'px' : '100%', minWidth: '100%' } },
-          el('colgroup', null, [0,1,2,3,4].map(function(i){ return el('col', { key: i, style: { width: ((rzu.widths && rzu.widths[i]) || rzu.defaultW) + 'px' } }); })),
-          el('thead', null, el('tr', null,
-            ['User Name', 'Account Type', 'Display Name', 'Account Status', ''].map(function(h, i){ return el('th', { key: i, style: th }, h, colResizeHandle(rzu.onResizeDown, i)); }))),
-          el('tbody', null, users.map(function(u){
-            var open = expand === u.userName;
-            var rows = [
-              el('tr', { key: u.userName, style: { cursor: 'pointer', background: open ? 'rgba(96,165,250,.1)' : 'transparent' }, onClick: function(){ setExpand(open ? null : u.userName); } },
-                el('td', { style: td }, (open ? '▾ ' : '▸ ') + u.userName),
+    : el('div', { style: { flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 } },
+        el('div', { style: { flex: 1, overflow: 'auto', minWidth: 0 } },
+          el('table', { style: { borderCollapse: 'collapse', tableLayout: 'fixed', width: rzu.tableWidth ? rzu.tableWidth + 'px' : '100%', minWidth: '100%' } },
+            el('colgroup', null, [0,1,2,3,4].map(function(i){ return el('col', { key: i, style: { width: ((rzu.widths && rzu.widths[i]) || rzu.defaultW) + 'px' } }); })),
+            el('thead', null, el('tr', null,
+              ['User Name', 'Account Type', 'Display Name', 'Account Status', ''].map(function(h, i){ return el('th', { key: i, style: th }, h, colResizeHandle(rzu.onResizeDown, i)); }))),
+            el('tbody', null, users.map(function(u){
+              var open = expand === u.userName;
+              return el('tr', { key: u.userName, style: { cursor: 'pointer', background: open ? 'rgba(96,165,250,.14)' : 'transparent' }, onClick: function(){ setExpand(open ? null : u.userName); } },
+                el('td', { style: td }, u.userName),
                 el('td', { style: td }, _typeLabel(u.userAccountType)),
                 el('td', { style: td }, u.displayName || ''),
                 el('td', { style: td }, _statusLabel(u.userAccountStatus)),
                 el('td', { style: td }, isAdmin && el('select', { value: '', onClick: function(e){ e.stopPropagation(); },
                     onChange: function(e){ if (e.target.value) setConfirm({ user: u, status: e.target.value }); },
                     style: { fontSize: 11, background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--accent)', borderRadius: 4, cursor: 'pointer' } },
-                    [el('option', { key: '_', value: '' }, 'Set status…')].concat(USER_STATUSES.filter(function(s){ return s !== u.userAccountStatus; }).map(function(s){ return el('option', { key: s, value: s }, _statusLabel(s)); })))))
-            ];
-            if (open) rows.push(el('tr', { key: u.userName + '_d' }, el('td', { colSpan: 5, style: { padding: '4px 24px 12px', background: 'rgba(255,255,255,0.02)' } },
-              el('table', { style: { borderCollapse: 'collapse' } }, el('tbody', null,
-                Object.keys(u.account || {}).filter(function(k){ return typeof u.account[k] !== 'object'; }).sort().map(function(k){
-                  return el('tr', { key: k }, el('td', { style: { padding: '2px 12px 2px 0', color: 'var(--dim)', fontSize: 11, verticalAlign: 'top' } }, k),
-                    el('td', { style: { padding: '2px 0', fontSize: 11, color: 'var(--text)' } }, String(u.account[k]))); }))))));
-            return rows;
-          }))
+                    [el('option', { key: '_', value: '' }, 'Set status…')].concat(USER_STATUSES.filter(function(s){ return s !== u.userAccountStatus; }).map(function(s){ return el('option', { key: s, value: s }, _statusLabel(s)); })))));
+            }))
+          )
+        ),
+        // Slide-in detail panel (docked right, resizable) — shows the selected user's full account
+        selUser && el('div', { onMouseDown: onPanelDown, title: 'Drag to resize', style: { width: 6, flexShrink: 0, cursor: 'col-resize', background: 'var(--border)' } }),
+        selUser && el('div', { style: { width: panelW + 'px', flexShrink: 0, overflow: 'auto', borderLeft: '1px solid var(--border)', background: 'var(--panel)' } },
+          el('div', { style: { padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, background: 'var(--panel)', zIndex: 1 } },
+            el('div', { style: { display: 'flex', flexDirection: 'column', minWidth: 0 } },
+              el('div', { style: { fontWeight: 700, fontSize: 13, color: 'var(--accent)' } }, selUser.userName),
+              el('div', { style: { fontSize: 11, color: 'var(--dim)' } }, _typeLabel(selUser.userAccountType) + ' · ' + _statusLabel(selUser.userAccountStatus))),
+            el('button', { onClick: function(){ setExpand(null); }, title: 'Close', style: { marginLeft: 'auto', background: 'transparent', border: 'none', color: 'var(--dim)', cursor: 'pointer', fontSize: 16, lineHeight: 1 } }, '✕')),
+          el('div', { style: { padding: '10px 14px' } },
+            el('table', { style: { borderCollapse: 'collapse', width: '100%' } }, el('tbody', null,
+              Object.keys(selUser.account || {}).filter(function(k){ return typeof selUser.account[k] !== 'object'; }).sort().map(function(k){
+                return el('tr', { key: k }, el('td', { style: { padding: '3px 12px 3px 0', color: 'var(--dim)', fontSize: 11, verticalAlign: 'top', whiteSpace: 'nowrap' } }, k),
+                  el('td', { style: { padding: '3px 0', fontSize: 11, color: 'var(--text)', wordBreak: 'break-word' } }, String(selUser.account[k]))); }))))
         )
       ),
     // Confirm dialog for the privileged status change
