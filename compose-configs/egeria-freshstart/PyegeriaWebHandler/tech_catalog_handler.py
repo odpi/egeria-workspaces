@@ -618,6 +618,7 @@ def list_infrastructure(
     page_size:  int = Query(100, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -635,6 +636,7 @@ def list_infrastructure(
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
             graph_query_depth=0,
+            as_of_time=as_of_time or None,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -651,6 +653,7 @@ def list_software_capabilities(
     page_size:  int = Query(100, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -664,6 +667,7 @@ def list_software_capabilities(
             page_size=page_size,
             output_format="JSON",
             graph_query_depth=0,
+            as_of_time=as_of_time or None,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -680,6 +684,7 @@ def list_endpoints(
     page_size:  int = Query(100, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _connection_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -692,6 +697,7 @@ def list_endpoints(
             start_from=start_from,
             page_size=page_size,
             graph_query_depth=0,
+            as_of_time=as_of_time or None,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -810,6 +816,7 @@ def list_apis(
     page_size:  int = Query(100, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -825,6 +832,7 @@ def list_apis(
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
             graph_query_depth=0,
+            as_of_time=as_of_time or None,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -841,6 +849,7 @@ def list_software_components(
     page_size:  int = Query(100, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -857,6 +866,7 @@ def list_software_components(
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
             graph_query_depth=0,
+            as_of_time=as_of_time or None,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -873,6 +883,7 @@ def list_actions(
     page_size:  int = Query(100, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -889,6 +900,7 @@ def list_actions(
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
             graph_query_depth=0,
+            as_of_time=as_of_time or None,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
