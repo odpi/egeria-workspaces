@@ -1682,7 +1682,8 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
     setDetailLoad(true);
     setDetailErr(null);
     var detailUrl = '/api/tech-catalog/assets/' + encodeURIComponent(item.guid) +
-      (sectionId ? '?section=' + encodeURIComponent(sectionId) : '');
+      (sectionId ? '?section=' + encodeURIComponent(sectionId) : '') +
+      (asOfTime ? (sectionId ? '&' : '?') + 'as_of_time=' + encodeURIComponent(asOfTime) : '');
     fetchWithToken(detailUrl, creds)
       .then(function(r) {
         if (r.status === 401 || r.status === 403) { setDetailErr('unauthorized'); setDetailLoad(false); return null; }
@@ -1792,6 +1793,12 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
       }
       if (detailErr && detailErr.startsWith('http-')) {
         var status = detailErr.slice(5);
+        if (asOfTime && status === '404') {
+          return React.createElement('div', { style: { padding: '32px 24px' } },
+            React.createElement('div', { style: { fontSize: 14, color: 'var(--accent)', fontWeight: 600, marginBottom: 8 } }, '🕐 Not present at the selected time'),
+            React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)' } }, 'This element did not exist as of ' + new Date(asOfTime).toLocaleString() + '. Move the slider toward "Now" to view it.')
+          );
+        }
         return React.createElement('div', { style: { padding: '32px 24px' } },
           React.createElement('div', { style: { fontSize: 14, color: '#f87171', fontWeight: 600, marginBottom: 8 } }, '⚠ Could not load element (HTTP ' + status + ')'),
           React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)', marginBottom: 8 } }, 'The element with this GUID could not be retrieved. It may be a non-Asset type (schema attribute, technical element, etc.) or belong to a different catalog section.'),
