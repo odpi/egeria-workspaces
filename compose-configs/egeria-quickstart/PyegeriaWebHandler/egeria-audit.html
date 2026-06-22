@@ -589,6 +589,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 // bidirectional cross-links: outgoing via the shared ElementPropertiesPane /
 // crossAppNavigate; incoming via ?guid=&tab= (focus-filter to one element).
 var useState = React.useState;
+var useEffect = React.useEffect;
 var el = React.createElement;
 var pad = { padding: '24px', color: 'var(--muted)', fontSize: 13 };
 
@@ -633,8 +634,98 @@ var TABS = [
   { id: 'users',          label: 'Users' },
 ];
 
-function UsersTab() {
-  return el('div', { style: pad }, 'Users tab — platform user accounts (coming next, task #16).');
+// Account-status values the change control offers. The exact Egeria
+// UserAccountStatus enum isn't introspectable here (demo connector is
+// unpopulated) — confirm + extend against a populated platform.
+var USER_STATUSES = ['ACTIVE', 'DISABLED', 'LOCKED', 'RETIRED'];
+
+function UsersTab({ creds }) {
+  var _p  = useState([]),        plats   = _p[0],  setPlats  = _p[1];
+  var _sp = useState(null),      plat    = _sp[0], setPlat   = _sp[1];   // {guid, displayName}
+  var _u  = useState([]),        users   = _u[0],  setUsers  = _u[1];
+  var _us = useState('idle'),    uState  = _us[0], setUState = _us[1];
+  var _ex = useState(null),      expand  = _ex[0], setExpand = _ex[1];   // expanded userName
+  var _ad = useState(false),     isAdmin = _ad[0], setAdmin  = _ad[1];
+  var _cf = useState(null),      confirm = _cf[0], setConfirm= _cf[1];   // {user, status}
+
+  // platforms + am-I-admin on mount
+  useEffect(function() {
+    egeriaFetch('/api/audit/platforms', creds).then(function(r){ return r.ok ? r.json() : { platforms: [] }; })
+      .then(function(d){ setPlats(d.platforms || []); if ((d.platforms || []).length) setPlat(d.platforms[0]); });
+    egeriaFetch('/api/auth/me', creds).then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){ setAdmin(!!(d && d.role === 'admin')); }).catch(function(){});
+  }, []);
+
+  useEffect(function() {
+    if (!plat) { setUsers([]); setUState('idle'); return; }
+    setUState('loading'); setExpand(null);
+    var u = '/api/audit/users?platform_guid=' + encodeURIComponent(plat.guid) + '&platform_name=' + encodeURIComponent(plat.displayName);
+    egeriaFetch(u, creds).then(function(r){ return r.ok ? r.json() : { users: [] }; })
+      .then(function(d){ setUsers(d.users || []); setUState('ready'); })
+      .catch(function(){ setUState('error'); });
+  }, [plat && plat.guid]);
+
+  function applyStatus(user, status) {
+    egeriaFetch('/api/audit/users/status', creds, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform_guid: plat.guid, platform_name: plat.displayName, user_id: user.userName, status: status }) })
+      .then(function(r){ return r.ok ? r.json() : r.json().then(function(e){ throw new Error(e.detail || 'Failed'); }); })
+      .then(function(){ setConfirm(null); setUsers(users.map(function(x){ return x.userName === user.userName ? Object.assign({}, x, { userAccountStatus: status }) : x; })); })
+      .catch(function(e){ setConfirm(Object.assign({}, confirm, { err: e.message })); });
+  }
+
+  var th = { textAlign: 'left', padding: '6px 12px', borderBottom: '2px solid var(--border)', color: 'var(--accent)', fontSize: 11, whiteSpace: 'nowrap' };
+  var td = { padding: '5px 12px', borderBottom: '1px solid var(--border)', fontSize: 12, verticalAlign: 'top' };
+
+  return el('div', { style: { display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' } },
+    el('div', { style: { padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--border)' } },
+      el('span', { style: { fontSize: 12, color: 'var(--dim)' } }, 'Platform:'),
+      el('select', { value: plat ? plat.guid : '', onChange: function(e){ setPlat(plats.find(function(p){ return p.guid === e.target.value; }) || null); },
+        style: { fontSize: 12, padding: '4px 8px', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 4 } },
+        plats.length === 0 ? el('option', { value: '' }, 'No platforms') : plats.map(function(p){ return el('option', { key: p.guid, value: p.guid }, p.displayName); })),
+      isAdmin && el('span', { style: { fontSize: 11, color: '#34d399', marginLeft: 'auto' } }, '🔓 Admin — account status is editable')
+    ),
+    uState === 'loading' ? el('div', { style: pad }, 'Loading users…')
+    : uState === 'error' ? el('div', { style: pad }, 'Failed to load users.')
+    : users.length === 0 ? el('div', { style: pad }, plat ? ('No user accounts on ' + plat.displayName + '.') : 'Select a platform.')
+    : el('div', { style: { overflow: 'auto', flex: 1 } },
+        el('table', { style: { borderCollapse: 'collapse', width: '100%' } },
+          el('thead', null, el('tr', null,
+            ['User Name', 'Account Type', 'Display Name', 'Account Status', ''].map(function(h, i){ return el('th', { key: i, style: th }, h); }))),
+          el('tbody', null, users.map(function(u){
+            var open = expand === u.userName;
+            var rows = [
+              el('tr', { key: u.userName, style: { cursor: 'pointer', background: open ? 'rgba(96,165,250,.1)' : 'transparent' }, onClick: function(){ setExpand(open ? null : u.userName); } },
+                el('td', { style: td }, (open ? '▾ ' : '▸ ') + u.userName),
+                el('td', { style: td }, u.userAccountType || ''),
+                el('td', { style: td }, u.displayName || ''),
+                el('td', { style: td }, u.userAccountStatus || ''),
+                el('td', { style: td }, isAdmin && el('select', { value: '', onClick: function(e){ e.stopPropagation(); },
+                    onChange: function(e){ if (e.target.value) setConfirm({ user: u, status: e.target.value }); },
+                    style: { fontSize: 11, background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--accent)', borderRadius: 4, cursor: 'pointer' } },
+                    [el('option', { key: '_', value: '' }, 'Set status…')].concat(USER_STATUSES.filter(function(s){ return s !== u.userAccountStatus; }).map(function(s){ return el('option', { key: s, value: s }, s); })))))
+            ];
+            if (open) rows.push(el('tr', { key: u.userName + '_d' }, el('td', { colSpan: 5, style: { padding: '4px 24px 12px', background: 'rgba(255,255,255,0.02)' } },
+              el('table', { style: { borderCollapse: 'collapse' } }, el('tbody', null,
+                Object.keys(u.account || {}).filter(function(k){ return typeof u.account[k] !== 'object'; }).sort().map(function(k){
+                  return el('tr', { key: k }, el('td', { style: { padding: '2px 12px 2px 0', color: 'var(--dim)', fontSize: 11, verticalAlign: 'top' } }, k),
+                    el('td', { style: { padding: '2px 0', fontSize: 11, color: 'var(--text)' } }, String(u.account[k]))); }))))));
+            return rows;
+          }))
+        )
+      ),
+    // Confirm dialog for the privileged status change
+    confirm && el('div', { style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
+        onClick: function(e){ if (e.target === e.currentTarget) setConfirm(null); } },
+      el('div', { style: { background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 8, padding: '20px 24px', width: 420 } },
+        el('div', { style: { fontWeight: 700, fontSize: 14, marginBottom: 10 } }, 'Change account status?'),
+        el('div', { style: { fontSize: 13, color: 'var(--muted)', marginBottom: 14, lineHeight: 1.5 } },
+          'Set ', el('b', { style: { color: 'var(--text)' } }, confirm.user.userName), ' to ',
+          el('b', { style: { color: 'var(--accent)' } }, confirm.status), ' on ', plat ? plat.displayName : '', '? This changes the user’s access.'),
+        confirm.err && el('div', { style: { fontSize: 12, color: '#f87171', marginBottom: 10 } }, confirm.err),
+        el('div', { style: { display: 'flex', gap: 8, justifyContent: 'flex-end' } },
+          el('button', { onClick: function(){ setConfirm(null); }, style: { padding: '6px 14px', borderRadius: 5, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 13 } }, 'Cancel'),
+          el('button', { onClick: function(){ applyStatus(confirm.user, confirm.status); }, style: { padding: '6px 16px', borderRadius: 5, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 } }, 'Change status'))))
+  );
 }
 
 function App() {
@@ -658,7 +749,7 @@ function App() {
   };
 
   var content = active.id === 'users'
-    ? el(UsersTab, null)
+    ? el(UsersTab, { creds: creds })
     : el(AuditRelationshipTab, { key: active.id, relType: active.relType, columns: COLS[active.relType],
         actorRoles: ACTOR_ROLES[active.relType], creds: creds,
         focusGuid: focusGuid, onClearFocus: function(){ setFocusGuid(null); } });

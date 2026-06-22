@@ -211,3 +211,123 @@ def resolve_audit_actor(
     if not el:
         raise HTTPException(status_code=404, detail="Actor not found")
     return JSONResponse(el)
+
+
+# ── Users tab (platforms + user accounts) ─────────────────────────────────────
+# RuntimeManager lists platforms; SecurityOfficer reads/writes user accounts.
+# NOTE: the status change mutates an account — it is admin-gated (_is_admin) and
+# the frontend confirms. The demo security connector is currently unpopulated
+# (0 users), so the mutation path needs verification against a populated platform.
+from pydantic import BaseModel
+
+
+def _runtime_manager(url=None, server=None, user_id=None, user_pwd=None):
+    from pyegeria import RuntimeManager
+    url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    mgr = RuntimeManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    apply_token(mgr)
+    return mgr
+
+
+def _security_officer(url=None, server=None, user_id=None, user_pwd=None):
+    from pyegeria.egeria_tech_client import SecurityOfficer
+    url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    mgr = SecurityOfficer(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    apply_token(mgr)
+    return mgr
+
+
+@router.get("/api/audit/platforms", summary="OMAG Server Platforms (Users tab dropdown)")
+def list_platforms(
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    try:
+        rm = _runtime_manager(url, server, user_id, user_pwd)
+        raw = rm.get_platforms_by_type(filter_string="OMAG Server Platform", output_format="JSON")
+    except Exception as exc:
+        logger.exception("audit: get_platforms_by_type failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+    out = []
+    for e in (raw if isinstance(raw, list) else []):
+        hdr = e.get("elementHeader") or {}
+        props = e.get("properties") or {}
+        out.append({"guid": hdr.get("guid") or "", "displayName": props.get("displayName") or props.get("qualifiedName") or hdr.get("guid") or ""})
+    out.sort(key=lambda p: (p.get("displayName") or "").lower())
+    return JSONResponse({"platforms": out})
+
+
+@router.get("/api/audit/users", summary="User accounts on a platform")
+def list_users(
+    platform_guid: str = Query(...),
+    platform_name: Optional[str] = Query(None),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    try:
+        so = _security_officer(url, server, user_id, user_pwd)
+        names = so.get_user_list(platform_name, None, None, platform_guid)
+    except Exception as exc:
+        logger.exception("audit: get_user_list failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+    if not isinstance(names, list):
+        names = []
+    # N+1: one get_user_account per user. Demo platforms are small; for large
+    # platforms consider lazy per-row loading (audit_plan.md review note).
+    rows = []
+    for nm in names:
+        try:
+            acc = so.get_user_account(platform_name, nm, platform_guid)
+        except Exception:
+            acc = None
+        if not isinstance(acc, dict):
+            acc = {"userName": nm}
+        rows.append({
+            "userName":          acc.get("userName") or nm,
+            "userAccountType":   acc.get("userAccountType") or "",
+            "displayName":       acc.get("displayName") or "",
+            "userAccountStatus": acc.get("userAccountStatus") or "",
+            "account":           acc,
+        })
+    rows.sort(key=lambda r: (r.get("userName") or "").lower())
+    return JSONResponse({"users": rows, "total": len(rows)})
+
+
+class _UserStatusBody(BaseModel):
+    platform_guid: str
+    platform_name: Optional[str] = None
+    user_id: str
+    status: str
+
+
+@router.post("/api/audit/users/status", summary="Change a user's account status (admin only)")
+def set_user_status(request: Request, body: _UserStatusBody):
+    # Privileged mutation — admin only. Reuse the demo/freshstart admin gate.
+    try:
+        from demo_feedback_handler import _is_admin
+    except Exception:
+        _is_admin = None
+    if _is_admin is not None and not _is_admin(request):
+        raise HTTPException(status_code=403, detail="Changing an account status requires an administrator.")
+    try:
+        so = _security_officer()
+        # get-modify-put: fetch the account, set the new status, write it back.
+        acc = so.get_user_account(body.platform_name, body.user_id, body.platform_guid)
+        if not isinstance(acc, dict):
+            raise HTTPException(status_code=404, detail=f"User {body.user_id!r} not found")
+        acc = dict(acc)
+        acc["userAccountStatus"] = body.status
+        so.set_user_account(body.platform_name, acc, body.platform_guid)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("audit: set_user_account failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+    logger.info("audit: user %s status set to %s on platform %s", body.user_id, body.status, body.platform_guid)
+    return JSONResponse({"ok": True, "userName": body.user_id, "userAccountStatus": body.status})
