@@ -637,7 +637,12 @@ var TABS = [
 // Account-status values the change control offers. The exact Egeria
 // UserAccountStatus enum isn't introspectable here (demo connector is
 // unpopulated) — confirm + extend against a populated platform.
-var USER_STATUSES = ['AVAILABLE', 'UNAVAILABLE'];  // confirm full UserAccountStatus enum
+// Real Egeria enums (UserAccountStatus / UserAccountType) → value: friendly label.
+var USER_STATUS_LABEL = { DISABLED: 'Disabled', LOCKED: 'Locked', CREDENTIALS_EXPIRED: 'Credentials expired', AVAILABLE: 'Available' };
+var USER_TYPE_LABEL   = { EMPLOYEE: 'Employee', CONTRACTOR: 'Contractor', EXTERNAL: 'External', DIGITAL: 'Digital' };
+var USER_STATUSES = ['AVAILABLE', 'DISABLED', 'LOCKED', 'CREDENTIALS_EXPIRED'];
+function _statusLabel(s){ return USER_STATUS_LABEL[s] || s || ''; }
+function _typeLabel(t){ return USER_TYPE_LABEL[t] || t || ''; }
 
 function UsersTab({ creds }) {
   var _p  = useState([]),        plats   = _p[0],  setPlats  = _p[1];
@@ -698,13 +703,13 @@ function UsersTab({ creds }) {
             var rows = [
               el('tr', { key: u.userName, style: { cursor: 'pointer', background: open ? 'rgba(96,165,250,.1)' : 'transparent' }, onClick: function(){ setExpand(open ? null : u.userName); } },
                 el('td', { style: td }, (open ? '▾ ' : '▸ ') + u.userName),
-                el('td', { style: td }, u.userAccountType || ''),
+                el('td', { style: td }, _typeLabel(u.userAccountType)),
                 el('td', { style: td }, u.displayName || ''),
-                el('td', { style: td }, u.userAccountStatus || ''),
+                el('td', { style: td }, _statusLabel(u.userAccountStatus)),
                 el('td', { style: td }, isAdmin && el('select', { value: '', onClick: function(e){ e.stopPropagation(); },
                     onChange: function(e){ if (e.target.value) setConfirm({ user: u, status: e.target.value }); },
                     style: { fontSize: 11, background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--accent)', borderRadius: 4, cursor: 'pointer' } },
-                    [el('option', { key: '_', value: '' }, 'Set status…')].concat(USER_STATUSES.filter(function(s){ return s !== u.userAccountStatus; }).map(function(s){ return el('option', { key: s, value: s }, s); })))))
+                    [el('option', { key: '_', value: '' }, 'Set status…')].concat(USER_STATUSES.filter(function(s){ return s !== u.userAccountStatus; }).map(function(s){ return el('option', { key: s, value: s }, _statusLabel(s)); })))))
             ];
             if (open) rows.push(el('tr', { key: u.userName + '_d' }, el('td', { colSpan: 5, style: { padding: '4px 24px 12px', background: 'rgba(255,255,255,0.02)' } },
               el('table', { style: { borderCollapse: 'collapse' } }, el('tbody', null,
@@ -722,7 +727,7 @@ function UsersTab({ creds }) {
         el('div', { style: { fontWeight: 700, fontSize: 14, marginBottom: 10 } }, 'Change account status?'),
         el('div', { style: { fontSize: 13, color: 'var(--muted)', marginBottom: 14, lineHeight: 1.5 } },
           'Set ', el('b', { style: { color: 'var(--text)' } }, confirm.user.userName), ' to ',
-          el('b', { style: { color: 'var(--accent)' } }, confirm.status), ' on ', plat ? plat.displayName : '', '? This changes the user’s access.'),
+          el('b', { style: { color: 'var(--accent)' } }, _statusLabel(confirm.status)), ' on ', plat ? plat.displayName : '', '? This changes the user’s access.'),
         confirm.err && el('div', { style: { fontSize: 12, color: '#f87171', marginBottom: 10 } }, confirm.err),
         el('div', { style: { display: 'flex', gap: 8, justifyContent: 'flex-end' } },
           el('button', { onClick: function(){ setConfirm(null); }, style: { padding: '6px 14px', borderRadius: 5, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 13 } }, 'Cancel'),

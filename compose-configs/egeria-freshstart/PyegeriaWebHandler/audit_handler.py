@@ -306,27 +306,39 @@ def list_users(
         raise HTTPException(status_code=500, detail=str(exc))
     if not isinstance(names, list):
         names = []
-    # N+1: one get_user_account per user. Demo platforms are small; for large
-    # platforms consider lazy per-row loading (audit_plan.md review note).
-    rows = []
-    for nm in names:
-        try:
-            acc = so.get_user_account(platform_name, nm, platform_guid)
-        except Exception:
-            acc = None
-        if not isinstance(acc, dict):
-            acc = {"userId": nm}
-        # The account carries userId (login, e.g. 'garygeeke') + userName (friendly,
-        # e.g. 'Gary Geeke') — there is no displayName field — so map User Name to
-        # the userId and Display Name to userName (the spec's literal field names
-        # predate the actual UserAccount shape).
-        rows.append({
-            "userName":          acc.get("userId") or nm,
-            "userAccountType":   acc.get("userAccountType") or "",
-            "displayName":       acc.get("userName") or "",
-            "userAccountStatus": acc.get("userAccountStatus") or "",
-            "account":           acc,
-        })
+    # One get_user_account per user is an N+1 fan-out — serial it took ~77s for 81
+    # users (browser/proxy timeout → empty tab). Fetch them concurrently (bounded).
+    import asyncio
+
+    async def _fetch_accounts(name_list):
+        sem = asyncio.Semaphore(40)
+
+        async def _one(nm):
+            async with sem:
+                try:
+                    a = await so._async_get_user_account(platform_name, nm, platform_guid)
+                    return a if isinstance(a, dict) else {"userId": nm}
+                except Exception:
+                    return {"userId": nm}
+        return await asyncio.gather(*[_one(n) for n in name_list])
+
+    try:
+        accounts = asyncio.get_event_loop().run_until_complete(_fetch_accounts(names))
+    except Exception:
+        logger.exception("audit: concurrent user-account fetch failed")
+        accounts = [{"userId": n} for n in names]
+
+    # The account carries userId (login, e.g. 'garygeeke') + userName (friendly,
+    # e.g. 'Gary Geeke') — there is no displayName field — so map User Name to the
+    # userId and Display Name to userName (the spec's literal field names predate
+    # the actual UserAccount shape).
+    rows = [{
+        "userName":          acc.get("userId") or "",
+        "userAccountType":   acc.get("userAccountType") or "",
+        "displayName":       acc.get("userName") or "",
+        "userAccountStatus": acc.get("userAccountStatus") or "",
+        "account":           acc,
+    } for acc in accounts]
     rows.sort(key=lambda r: (r.get("userName") or "").lower())
     return JSONResponse({"users": rows, "total": len(rows)})
 
