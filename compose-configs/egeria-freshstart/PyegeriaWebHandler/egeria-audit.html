@@ -647,6 +647,7 @@ function UsersTab({ creds }) {
   var _ex = useState(null),      expand  = _ex[0], setExpand = _ex[1];   // expanded userName
   var _ad = useState(false),     isAdmin = _ad[0], setAdmin  = _ad[1];
   var _cf = useState(null),      confirm = _cf[0], setConfirm= _cf[1];   // {user, status}
+  var rzu = useColumnResize(5, 180);
 
   // platforms + am-I-admin on mount
   useEffect(function() {
@@ -673,7 +674,7 @@ function UsersTab({ creds }) {
       .catch(function(e){ setConfirm(Object.assign({}, confirm, { err: e.message })); });
   }
 
-  var th = { textAlign: 'left', padding: '6px 12px', borderBottom: '2px solid var(--border)', color: 'var(--accent)', fontSize: 11, whiteSpace: 'nowrap' };
+  var th = { textAlign: 'left', padding: '6px 12px', borderBottom: '2px solid var(--border)', color: 'var(--accent)', fontSize: 11, whiteSpace: 'nowrap', position: 'relative', overflow: 'hidden' };
   var td = { padding: '5px 12px', borderBottom: '1px solid var(--border)', fontSize: 12, verticalAlign: 'top' };
 
   return el('div', { style: { display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' } },
@@ -686,11 +687,12 @@ function UsersTab({ creds }) {
     ),
     uState === 'loading' ? el('div', { style: pad }, 'Loading users…')
     : uState === 'error' ? el('div', { style: pad }, 'Failed to load users.')
-    : users.length === 0 ? el('div', { style: pad }, plat ? ('No user accounts on ' + plat.displayName + '.') : 'Select a platform.')
+    : users.length === 0 ? el('div', { style: pad }, plat ? ('No users registered in ' + plat.displayName + '’s security connector.') : 'Select a platform.')
     : el('div', { style: { overflow: 'auto', flex: 1 } },
-        el('table', { style: { borderCollapse: 'collapse', width: '100%' } },
+        el('table', { style: { borderCollapse: 'collapse', tableLayout: 'fixed', width: rzu.tableWidth ? rzu.tableWidth + 'px' : '100%', minWidth: '100%' } },
+          el('colgroup', null, [0,1,2,3,4].map(function(i){ return el('col', { key: i, style: { width: ((rzu.widths && rzu.widths[i]) || rzu.defaultW) + 'px' } }); })),
           el('thead', null, el('tr', null,
-            ['User Name', 'Account Type', 'Display Name', 'Account Status', ''].map(function(h, i){ return el('th', { key: i, style: th }, h); }))),
+            ['User Name', 'Account Type', 'Display Name', 'Account Status', ''].map(function(h, i){ return el('th', { key: i, style: th }, h, colResizeHandle(rzu.onResizeDown, i)); }))),
           el('tbody', null, users.map(function(u){
             var open = expand === u.userName;
             var rows = [
@@ -729,10 +731,10 @@ function UsersTab({ creds }) {
 }
 
 function App() {
-  // Scaffold auth: demo-mode cookie/env credentials (egeriaFetch with null creds).
-  // TODO: full connect bootstrap (persona / ConnectionForm / JWT) like tech-catalog.
-  var creds = null;
   var params = new URLSearchParams(window.location.search);
+  var _creds = useState(null),   creds   = _creds[0],   setCreds   = _creds[1];
+  var _ready = useState(false),  ready   = _ready[0],   setReady   = _ready[1];
+  var _who   = useState(null),   who     = _who[0],     setWho     = _who[1];   // { label, sub }
   var _focus = useState(params.get('guid') || null), focusGuid = _focus[0], setFocusGuid = _focus[1];
   var _t = useState(function() {
     var h = params.get('tab') || window.location.hash.slice(1);
@@ -741,6 +743,32 @@ function App() {
   function go(id){ setTab(id); try { window.location.hash = id; } catch(e){} }
   var active = TABS.find(function(t){ return t.id === tab; }) || TABS[0];
 
+  // Auth bootstrap — same identity/token flow as tech-catalog (portal JWT for
+  // freshstart; persona → /api/egeria-token for quickstart demo/local).
+  useEffect(function() {
+    fetch('/api/auth/me').then(function(r){ return r.json(); }).then(function(d) {
+      if (d.server_managed_auth) {
+        if (d.authenticated && d.id) { setWho({ label: d.display_name || d.id, sub: d.role || '' }); setCreds({}); }
+        setReady(true); return;
+      }
+      var sp = null; try { var s = localStorage.getItem('egeria-persona'); sp = s ? JSON.parse(s) : null; } catch(e) {}
+      if (sp && sp.id) {
+        setWho({ label: '🎭 ' + (sp.display_name || sp.id), sub: sp.id });
+        fetch('/api/demo/select-persona', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ persona: sp.id }) })
+          .then(function(r){ return r.json(); }).then(function(sel) {
+            if (sel.egeria_user) {
+              fetch('/api/egeria-token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: sel.egeria_user, password: sel.egeria_password || '' }) })
+                .then(function(r){ return r.json(); }).then(function(t){ setCreds({ server: 'qs-view-server', userId: sel.egeria_user, token: t.token || '' }); setReady(true); })
+                .catch(function(){ setCreds({ server: 'qs-view-server', userId: sel.egeria_user }); setReady(true); });
+            } else { setReady(true); }
+          }).catch(function(){ setReady(true); });
+        return;
+      }
+      if (d.id) setWho({ label: d.display_name || d.id, sub: d.role || '' });
+      setReady(true);
+    }).catch(function(){ setReady(true); });
+  }, []);
+
   var tabBtn = function(t){
     var on = t.id === tab;
     return el('button', { key: t.id, onClick: function(){ go(t.id); },
@@ -748,11 +776,13 @@ function App() {
                color: on ? 'var(--accent)' : 'var(--muted)', borderBottom: on ? '2px solid var(--accent)' : '2px solid transparent', fontWeight: on ? 700 : 400 } }, t.label);
   };
 
-  var content = active.id === 'users'
-    ? el(UsersTab, { creds: creds })
-    : el(AuditRelationshipTab, { key: active.id, relType: active.relType, columns: COLS[active.relType],
-        actorRoles: ACTOR_ROLES[active.relType], creds: creds,
-        focusGuid: focusGuid, onClearFocus: function(){ setFocusGuid(null); } });
+  var content = !ready
+    ? el('div', { style: pad }, 'Connecting…')
+    : active.id === 'users'
+      ? el(UsersTab, { creds: creds })
+      : el(AuditRelationshipTab, { key: active.id, relType: active.relType, columns: COLS[active.relType],
+          actorRoles: ACTOR_ROLES[active.relType], creds: creds,
+          focusGuid: focusGuid, onClearFocus: function(){ setFocusGuid(null); } });
 
   return el(CredContext.Provider, { value: creds },
     el('div', { style: { display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', color: 'var(--text)' } },
@@ -761,6 +791,7 @@ function App() {
         el('span', { style: { fontSize: 15, fontWeight: 700 } }, 'Egeria Audit'),
         el('span', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Exceptions · Certifications · Licenses · Users'),
         el('div', { style: { flex: 1 } }),
+        who && el('span', { title: who.sub || '', style: { fontSize: 12, color: 'var(--accent)', background: 'rgba(96,165,250,.1)', border: '1px solid rgba(96,165,250,.3)', borderRadius: 12, padding: '2px 10px' } }, who.label),
         el('a', { href: '/portal', style: { fontSize: 12, color: 'var(--muted)', textDecoration: 'none' } }, '⌂ Portal')
       ),
       el('div', { style: { display: 'flex', gap: 4, padding: '0 12px', borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0 } }, TABS.map(tabBtn)),

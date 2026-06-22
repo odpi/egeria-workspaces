@@ -1304,7 +1304,24 @@ function resolveExplorerNav(item) {
   return nav || null;
 }
 
-function isElementLinkable(item) { return !!resolveExplorerNav(item); }
+function _isCatalogType(item) {
+  // Types displayed in the Tech Catalog (resolves ?guid via its element-nav).
+  var st = item.superTypeNames || item.superTypes || [];
+  var tn = item.typeName || '';
+  return st.indexOf('Asset') !== -1 || tn === 'Endpoint' || tn === 'SoftwareCapability' || st.indexOf('SoftwareCapability') !== -1;
+}
+
+/* Unified element-nav: prefer an Explorer panel, else the Tech Catalog. Returns
+ * { app, hash?, kind? } or null. */
+function resolveElementNav(item) {
+  if (!item) return null;
+  var ex = resolveExplorerNav(item);
+  if (ex) return { app: 'egeria-explorer', hash: ex.hash, kind: ex.kind };
+  if (_isCatalogType(item)) return { app: 'tech-catalog' };
+  return null;
+}
+
+function isElementLinkable(item) { return !!resolveElementNav(item); }
 
 /* Open the Egeria Audit tab for an element (INCOMING cross-link target). */
 function auditNavigate(guid, tab) {
@@ -1314,8 +1331,12 @@ function auditNavigate(guid, tab) {
 }
 
 function crossAppNavigate(item, explicitNav) {
-  var nav = explicitNav || resolveExplorerNav(item);
+  var nav = explicitNav || resolveElementNav(item);
   if (!nav || !item || !item.guid) return false;
+  if (nav.app === 'tech-catalog') {
+    window.open('/tech-catalog?guid=' + encodeURIComponent(item.guid), '_blank');
+    return true;
+  }
   var url = '/egeria-explorer?guid=' + encodeURIComponent(item.guid)
           + (nav.kind ? '&kind=' + encodeURIComponent(nav.kind) : '')
           + '#' + nav.hash;
@@ -1370,11 +1391,13 @@ function ElementPropertiesPane({ element, onCrossLink }) {
 
   var th = { padding: '4px 12px 4px 0', color: 'var(--dim)', verticalAlign: 'top', whiteSpace: 'nowrap', width: 150, fontSize: 12 };
   var td = { padding: '4px 0', color: 'var(--text)', wordBreak: 'break-word', fontSize: 12 };
+  var _nav = resolveElementNav(item);
+  var _label = _nav && _nav.app === 'tech-catalog' ? 'Open in The Catalog ↗' : 'Open in Egeria Explorer ↗';
   return React.createElement('div', null,
-    isElementLinkable(item) && React.createElement('button', {
+    _nav && React.createElement('button', {
       onClick: function() { if (onCrossLink) onCrossLink(item); else crossAppNavigate(item); },
       style: { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer', marginBottom: 8 }
-    }, 'Open in Egeria Explorer ↗'),
+    }, _label),
     React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse' } },
       React.createElement('tbody', null,
         rows.map(function(r, i) {
@@ -1409,6 +1432,7 @@ function AuditRelationshipTab({ relType, columns, actorRoles, creds, focusGuid, 
   var _filter= React.useState(''),        filter= _filter[0],setFilter= _filter[1];
   var _sort  = React.useState(null),      sort  = _sort[0],  setSort  = _sort[1]; // {col, dir}
   var _sel   = React.useState(null),      sel   = _sel[0],   setSel   = _sel[1];  // selected row
+  var rz = useColumnResize(columns.length, 160);
 
   React.useEffect(function() {
     setState('loading'); setSel(null);
@@ -1440,19 +1464,22 @@ function AuditRelationshipTab({ relType, columns, actorRoles, creds, focusGuid, 
     setSort(function(p){ if (!p || p.col !== i) return { col: i, dir: 'asc' }; if (p.dir === 'asc') return { col: i, dir: 'desc' }; return null; });
   }
 
-  var th = { textAlign: 'left', padding: '6px 12px', borderBottom: '2px solid var(--border)', color: 'var(--accent)', fontSize: 11, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: 'var(--panel)', cursor: 'pointer', userSelect: 'none' };
-  var td = { padding: '5px 12px', borderBottom: '1px solid var(--border)', fontSize: 12, verticalAlign: 'top', maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+  var th = { textAlign: 'left', padding: '6px 12px', borderBottom: '2px solid var(--border)', color: 'var(--accent)', fontSize: 11, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: 'var(--panel)', cursor: 'pointer', userSelect: 'none', overflow: 'hidden' };
+  var td = { padding: '5px 12px', borderBottom: '1px solid var(--border)', fontSize: 12, verticalAlign: 'top', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
 
   var focusBanner = focusGuid && React.createElement('div', { style: { padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, background: 'rgba(96,165,250,.1)', borderBottom: '1px solid var(--border)', color: 'var(--accent)' } },
     '\uD83D\uDD0E Showing ' + relType.toLowerCase() + 's for the selected element',
     React.createElement('button', { onClick: function(){ if (onClearFocus) onClearFocus(); }, style: { marginLeft: 'auto', fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, 'Clear'));
 
   var table = React.createElement('div', { style: { overflow: 'auto', flex: sel ? '0 0 42%' : 1, borderBottom: sel ? '2px solid var(--border)' : 'none' } },
-    React.createElement('table', { style: { borderCollapse: 'collapse', width: '100%' } },
+    React.createElement('table', { style: { borderCollapse: 'collapse', tableLayout: 'fixed', width: rz.tableWidth ? rz.tableWidth + 'px' : '100%', minWidth: '100%' } },
+      React.createElement('colgroup', null, columns.map(function(c, i){
+        return React.createElement('col', { key: i, style: { width: ((rz.widths && rz.widths[i]) || rz.defaultW) + 'px' } });
+      })),
       React.createElement('thead', null, React.createElement('tr', null,
         columns.map(function(c, i){
           var arrow = sort && sort.col === i ? (sort.dir === 'asc' ? ' ↑' : ' ↓') : ' ↕';
-          return React.createElement('th', { key: i, style: th, onClick: function(){ toggleSort(i); } }, c[0] + arrow);
+          return React.createElement('th', { key: i, style: th, onClick: function(){ toggleSort(i); } }, c[0] + arrow, colResizeHandle(rz.onResizeDown, i));
         })
       )),
       React.createElement('tbody', null, vis.map(function(row, ri){
@@ -1546,4 +1573,39 @@ function AuditDetailPanel({ row, relType, actorRoles, creds, asOf }) {
     ),
     React.createElement(Collapsible, { title: (row.end2.typeName || relType + ' type'), defaultOpen: false }, paneFor(e2))
   );
+}
+
+/* ── useColumnResize — shared drag-to-resize for table columns. Returns
+ * { widths, onResizeDown(e, i), tableWidth }. Pair with table-layout:fixed + a
+ * <colgroup>, and put a colResizeHandle in each <th>. ─────────────────────── */
+function useColumnResize(count, defaultW) {
+  defaultW = defaultW || 150;
+  var _w = React.useState(null), widths = _w[0], setWidths = _w[1];
+  var dragRef = React.useRef(null);
+  React.useEffect(function() {
+    var a = []; for (var i = 0; i < count; i++) a.push(defaultW); setWidths(a);
+  }, [count]);
+  function onResizeDown(e, idx) {
+    e.preventDefault(); e.stopPropagation();
+    var startW = (widths && widths[idx]) || defaultW;
+    dragRef.current = { idx: idx, startX: e.clientX, startW: startW };
+    function mv(ev) {
+      if (!dragRef.current) return;
+      var dx = ev.clientX - dragRef.current.startX;
+      var nw = Math.max(40, dragRef.current.startW + dx);
+      setWidths(function(prev){ var n = (prev || []).slice(); n[dragRef.current.idx] = nw; return n; });
+    }
+    function up() { dragRef.current = null; document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); }
+    document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+  }
+  var tableWidth = widths ? widths.reduce(function(s, w){ return s + w; }, 0) : null;
+  return { widths: widths, onResizeDown: onResizeDown, tableWidth: tableWidth, defaultW: defaultW };
+}
+
+function colResizeHandle(onResizeDown, idx) {
+  return React.createElement('div', {
+    onMouseDown: function(e){ onResizeDown(e, idx); },
+    onClick: function(e){ e.stopPropagation(); },
+    style: { position: 'absolute', right: 0, top: 0, bottom: 0, width: 6, cursor: 'col-resize', zIndex: 2, borderRight: '2px dotted rgba(96,165,250,0.45)' }
+  });
 }
