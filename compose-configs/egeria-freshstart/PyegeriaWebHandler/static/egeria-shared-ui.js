@@ -1262,3 +1262,120 @@ function TimeSlider({ createTime, onChange, label }) {
     )
   );
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * Cross-app navigation resolver (shared). Single source of truth for "which
+ * Egeria Explorer panel displays element type X". Used for OUTGOING cross-links
+ * from any module (Audit, Catalog, …). resolveExplorerNav walks superTypeNames
+ * when there's no exact typeName match; crossAppNavigate opens the deep-link in a
+ * new tab (the target views read ?guid/?kind on cold load).
+ * ─────────────────────────────────────────────────────────────────────────── */
+var EGERIA_EXPLORER_NAV = {
+  SolutionComponent:     { hash: 'solution-architect', kind: 'components' },
+  SolutionBlueprint:     { hash: 'solution-architect', kind: 'blueprints' },
+  InformationSupplyChain:{ hash: 'isc' },
+  ActorRole:             { hash: 'actors', kind: 'roles' },
+  ActorProfile:          { hash: 'actors', kind: 'profiles' },
+  UserIdentity:          { hash: 'actors', kind: 'identities' },
+  Location:              { hash: 'locations' },
+  Community:             { hash: 'communities' },
+  GovernanceDefinition:  { hash: 'governance' },
+  ReferenceDataValue:    { hash: 'reference-data' },
+  DataSpec:              { hash: 'data-design', kind: 'specs' },
+  DataStructure:         { hash: 'data-design', kind: 'structures' },
+  DataField:             { hash: 'data-design', kind: 'fields' },
+  DataGrain:             { hash: 'data-design', kind: 'grains' },
+  DataClass:             { hash: 'data-design', kind: 'classes' },
+  CollectionFolder:      { hash: 'digital-products' },
+  DigitalProduct:        { hash: 'digital-products' },
+  Collection:            { hash: 'digital-products' },
+  GlossaryTerm:          { hash: 'glossary' },
+  Glossary:              { hash: 'glossary' },
+  GlossaryCategory:      { hash: 'glossary' },
+};
+
+function resolveExplorerNav(item) {
+  if (!item) return null;
+  var nav = item.typeName ? EGERIA_EXPLORER_NAV[item.typeName] : null;
+  if (!nav) {
+    var supers = item.superTypeNames || item.superTypes || [];
+    for (var i = 0; i < supers.length; i++) { nav = EGERIA_EXPLORER_NAV[supers[i]]; if (nav) break; }
+  }
+  return nav || null;
+}
+
+function isElementLinkable(item) { return !!resolveExplorerNav(item); }
+
+function crossAppNavigate(item, explicitNav) {
+  var nav = explicitNav || resolveExplorerNav(item);
+  if (!nav || !item || !item.guid) return false;
+  var url = '/egeria-explorer?guid=' + encodeURIComponent(item.guid)
+          + (nav.kind ? '&kind=' + encodeURIComponent(nav.kind) : '')
+          + '#' + nav.hash;
+  window.open(url, '_blank');
+  return true;
+}
+
+/* ── Collapsible — a foldable titled section. ─────────────────────────────── */
+function Collapsible({ title, defaultOpen, count, children }) {
+  var _o = React.useState(defaultOpen !== false), open = _o[0], setOpen = _o[1];
+  return React.createElement('div', { style: { borderTop: '1px solid var(--border)' } },
+    React.createElement('div', {
+      onClick: function() { setOpen(!open); },
+      style: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 4px', cursor: 'pointer', userSelect: 'none', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--accent)' }
+    },
+      React.createElement('span', { style: { width: 12, display: 'inline-block', color: 'var(--muted)' } }, open ? '▾' : '▸'),
+      title,
+      (count != null) && React.createElement('span', { style: { color: 'var(--dim)', fontWeight: 600 } }, '(' + count + ')')
+    ),
+    open && React.createElement('div', { style: { padding: '2px 4px 12px 18px' } }, children)
+  );
+}
+
+/* ── ElementPropertiesPane — render any Egeria element's header + properties
+ * generically (used by the Audit detail panes; reusable elsewhere). `element`
+ * is a get_element_by_guid JSON dict. Shows a cross-link button when the element
+ * type is displayable in the Explorer. onCrossLink(item) overrides the default
+ * crossAppNavigate (e.g. to add an audit deep-link). ─────────────────────── */
+function ElementPropertiesPane({ element, onCrossLink }) {
+  if (!element || typeof element !== 'object') {
+    return React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '6px 0' } }, 'No details available.');
+  }
+  var hdr  = element.elementHeader || element;
+  var type = (hdr.type || {});
+  var vers = (hdr.versions || {});
+  var props = element.properties || {};
+  var item = { guid: hdr.guid || element.guid, typeName: type.typeName, superTypeNames: type.superTypeNames || [] };
+
+  var rows = [];
+  function push(k, v) { if (v != null && String(v).trim() !== '') rows.push([k, String(v)]); }
+  push('GUID', item.guid);
+  push('Type', item.typeName);
+  push('Created by', vers.createdBy);
+  push('Create time', vers.createTime);
+  push('Updated by', vers.updatedBy);
+  push('Update time', vers.updateTime);
+  Object.keys(props).sort().forEach(function(k) {
+    if (k === 'class') return;
+    var v = props[k];
+    if (v != null && typeof v !== 'object') push(k, v);
+  });
+
+  var th = { padding: '4px 12px 4px 0', color: 'var(--dim)', verticalAlign: 'top', whiteSpace: 'nowrap', width: 150, fontSize: 12 };
+  var td = { padding: '4px 0', color: 'var(--text)', wordBreak: 'break-word', fontSize: 12 };
+  return React.createElement('div', null,
+    isElementLinkable(item) && React.createElement('button', {
+      onClick: function() { if (onCrossLink) onCrossLink(item); else crossAppNavigate(item); },
+      style: { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer', marginBottom: 8 }
+    }, 'Open in Egeria Explorer ↗'),
+    React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse' } },
+      React.createElement('tbody', null,
+        rows.map(function(r, i) {
+          return React.createElement('tr', { key: i },
+            React.createElement('td', { style: th }, r[0]),
+            React.createElement('td', { style: td }, r[1]));
+        })
+      )
+    )
+  );
+}

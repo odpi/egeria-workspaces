@@ -147,3 +147,67 @@ def list_relationships(
 
     rows = [_serialize_relationship(r) for r in _rel_list(raw)]
     return JSONResponse({"items": rows, "total": len(rows)})
+
+
+def _first_element(raw):
+    """get_element_by_* returns a dict, a 1-item list, or a 'not found' string."""
+    if isinstance(raw, list):
+        return raw[0] if raw and isinstance(raw[0], dict) else None
+    return raw if isinstance(raw, dict) else None
+
+
+@router.get("/api/audit/element/{guid}", summary="Full element properties (depth 0) for a detail pane")
+def get_audit_element(
+    guid: str,
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    """Resolve an element (end1, end2, or a GUID-form actor) for the detail panes."""
+    try:
+        mgr = _classifier(url, server, user_id, user_pwd)
+        body = {"class": "GetRequestBody", "graphQueryDepth": 0}
+        if as_of_time:
+            body["asOfTime"] = as_of_time
+        raw = mgr.get_element_by_guid(guid=guid, graph_query_depth=0, output_format="JSON", body=body)
+    except Exception as exc:
+        logger.exception("audit: get_element_by_guid(%s) failed", guid)
+        raise HTTPException(status_code=500, detail=str(exc))
+    el = _first_element(raw)
+    if not el:
+        raise HTTPException(status_code=404, detail=f"Element {guid!r} not found")
+    return JSONResponse(el)
+
+
+@router.get("/api/audit/actor", summary="Resolve a steward/certifiedBy/… actor (GUID or unique-name)")
+def resolve_audit_actor(
+    value:        str = Query(..., description="The xxx value: a GUID, or a property value when property_name is set"),
+    property_name: Optional[str] = Query(None, description="xxxPropertyName — when set, resolve by unique name"),
+    type_name:    Optional[str] = Query(None, description="xxxTypeName — metadataElementTypeName for the unique-name lookup"),
+    as_of_time:   Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    """Per the spec: if propertyName is set, resolve the actor by unique name
+    (get_element_by_unique_name); otherwise `value` is the actor GUID."""
+    try:
+        mgr = _classifier(url, server, user_id, user_pwd)
+        if property_name:
+            body = {"class": "GetRequestBody", "graphQueryDepth": 0}
+            if type_name:
+                body["metadataElementTypeName"] = type_name
+            if as_of_time:
+                body["asOfTime"] = as_of_time
+            raw = mgr.get_element_by_unique_name(name=value, property_name=property_name, output_format="JSON", body=body)
+        else:
+            body = {"class": "GetRequestBody", "graphQueryDepth": 0}
+            if as_of_time:
+                body["asOfTime"] = as_of_time
+            raw = mgr.get_element_by_guid(guid=value, graph_query_depth=0, output_format="JSON", body=body)
+    except Exception as exc:
+        logger.exception("audit: resolve_actor(%s) failed", value)
+        raise HTTPException(status_code=500, detail=str(exc))
+    el = _first_element(raw)
+    if not el:
+        raise HTTPException(status_code=404, detail="Actor not found")
+    return JSONResponse(el)
