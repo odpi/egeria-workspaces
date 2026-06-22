@@ -1561,6 +1561,15 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
       React.createElement(EgeriaFeedbackWidget, { guid: item.guid })
     ),
     item.typeName && React.createElement('div', { style: { display: 'inline-block', fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: 'rgba(96,165,250,0.12)', color: 'var(--accent)', marginBottom: 12 } }, item.typeName),
+    // Incoming audit cross-links (#17): jump to this element's exceptions /
+    // certifications / licenses via the shared auditNavigate helper.
+    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, fontSize: 11, color: 'var(--dim)', flexWrap: 'wrap' } },
+      React.createElement('span', null, '🛡️ Audit:'),
+      [['exceptions', 'Exceptions'], ['certifications', 'Certifications'], ['licenses', 'Licenses']].map(function(t) {
+        return React.createElement('button', { key: t[0], onClick: function() { auditNavigate(item.guid, t[0]); }, title: 'Show ' + t[1].toLowerCase() + ' for this element in Egeria Audit',
+          style: { fontSize: 11, padding: '2px 8px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer' } }, t[1] + ' \u2197');
+      })
+    ),
     item.description && React.createElement('p', { style: { fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, margin: '0 0 16px' } }, item.description),
 
     // Properties table
