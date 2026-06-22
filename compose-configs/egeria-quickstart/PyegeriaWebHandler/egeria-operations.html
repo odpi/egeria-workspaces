@@ -781,6 +781,137 @@ function ServersTab({ creds, platforms, platform, onPlatform, isAdmin }) {
       err: confirm.err, onCancel: function(){ setConfirm(null); }, onConfirm: function(){ doAction(confirm.row, confirm.action); } }));
 }
 
+// ── Reusable: server-report-driven tab (Connectors / Engines share this shell) ─
+// Selects a server (filtered by type) from the shared platform, loads rows, and
+// lays out a resizable table + docked detail panel with a confirm-gated action.
+function useServerTab({ creds, platform, serverType, endpoint, rowKey }) {
+  var _sv = useState(null),  server = _sv[0], setServer = _sv[1];
+  var _r  = useState([]),    rows   = _r[0],  setRows   = _r[1];
+  var _s  = useState('idle'),state  = _s[0],  setState  = _s[1];
+  var _b  = useState(false), busy   = _b[0],  setBusy   = _b[1];
+  var _sel= useState(null),  selKey = _sel[0],setSelKey = _sel[1];
+  var servers = (platform && platform.servers || []).filter(function(s){ return s.serverType === serverType; });
+  // default the server when the platform (or its matching servers) changes
+  useEffect(function(){ setSelKey(null); setServer(servers[0] || null); }, [platform && platform.guid, servers.length]);
+  function load() {
+    if (!server) { setRows([]); setState('idle'); return; }
+    setBusy(true); if (state !== 'ready') setState('loading');
+    egeriaFetch(endpoint + '?server_guid=' + encodeURIComponent(server.guid), creds)
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){ setRows((d && (d.connectors || d.engines)) || []); setState('ready'); setBusy(false); })
+      .catch(function(){ setState('error'); setBusy(false); });
+  }
+  useEffect(load, [server && server.guid]);
+  return { server:server, setServer:setServer, servers:servers, rows:rows, state:state, busy:busy, load:load,
+           selKey:selKey, setSelKey:setSelKey };
+}
+
+// docked resizable detail panel (shared by the report-driven tabs)
+function DetailPanel({ title, subtitle, onClose, onCatalog, width, onResize, children }) {
+  return el(React.Fragment, null,
+    el('div', { onMouseDown: onResize, title:'Drag to resize', style:{ width:6, flexShrink:0, cursor:'col-resize', background:'var(--border)' } }),
+    el('div', { style:{ width: width+'px', flexShrink:0, overflow:'auto', borderLeft:'1px solid var(--border)', background:'var(--panel)' } },
+      el('div', { style:{ padding:'10px 14px', display:'flex', alignItems:'center', gap:8, borderBottom:'1px solid var(--border)', position:'sticky', top:0, background:'var(--panel)', zIndex:1 } },
+        el('div', { style:{ minWidth:0 } },
+          el('div', { style:{ fontWeight:700, fontSize:13, color:'var(--accent)', wordBreak:'break-word' } }, title),
+          subtitle && el('div', { style:{ fontSize:11, color:'var(--dim)' } }, subtitle)),
+        onCatalog && el('button', { onClick: onCatalog, title:'Open in The Catalog', style:{ marginLeft:'auto', fontSize:11, padding:'2px 8px', borderRadius:4, border:'1px solid var(--border)', background:'transparent', color:'var(--accent)', cursor:'pointer', whiteSpace:'nowrap' } }, 'Catalog ↗'),
+        el('button', { onClick: onClose, title:'Close', style:{ marginLeft: onCatalog?0:'auto', background:'transparent', border:'none', color:'var(--dim)', cursor:'pointer', fontSize:16, lineHeight:1 } }, '✕')),
+      el('div', { style:{ padding:'10px 14px' } }, children)));
+}
+
+function usePanelWidth(initial) {
+  var _pw = useState(initial), w = _pw[0], setW = _pw[1];
+  function onDown(e){ e.preventDefault(); var w0=w, x0=e.clientX;
+    function mv(ev){ setW(Math.max(280, Math.min(860, w0 - (ev.clientX - x0)))); }
+    function up(){ document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up); }
+    document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up); }
+  return [w, onDown];
+}
+
+// ── Integration Connectors tab ────────────────────────────────────────────────
+function ConnectorsTab({ creds, platforms, platform, onPlatform, isAdmin }) {
+  var t = useServerTab({ creds:creds, platform:platform, serverType:'Integration Daemon', endpoint:'/api/operations/integration-connectors' });
+  var _cf = useState(null),  confirm = _cf[0], setConfirm = _cf[1];   // {row, action, err}
+  var _fg = useState('all'), fGroup  = _fg[0], setFGroup  = _fg[1];
+  var _ft = useState(''),    fText   = _ft[0], setFText   = _ft[1];
+  var pw = usePanelWidth(420), panelW = pw[0], onPanelDown = pw[1];
+  var rz = useColumnResize(8, 150);
+  var sel = t.rows.find(function(r){ return r.connectorName === t.selKey; });
+  var groupNames = Array.from(new Set(t.rows.map(function(r){ return r.integrationGroup; }).filter(Boolean))).sort();
+  var rows = t.rows.filter(function(r){
+    if (fGroup !== 'all' && r.integrationGroup !== fGroup) return false;
+    if (fText && (r.connectorName || '').toLowerCase().indexOf(fText.toLowerCase()) < 0) return false;
+    return true; });
+
+  function act(row, action) {
+    setConfirm(Object.assign({}, confirm, { busy:true }));
+    egeriaFetch('/api/operations/connector/' + action, creds, { method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ server_guid: t.server.guid, connector_name: row.connectorName }) })
+      .then(function(r){ return r.ok ? r.json() : r.json().then(function(e){ throw new Error(e.detail || 'Failed'); }); })
+      .then(function(){ setConfirm(null); setTimeout(t.load, 1200); })
+      .catch(function(e){ setConfirm(Object.assign({}, confirm, { err:e.message, busy:false })); });
+  }
+
+  var th = { textAlign:'left', padding:'6px 10px', borderBottom:'2px solid var(--border)', color:'var(--accent)', fontSize:11, whiteSpace:'nowrap', position:'relative', overflow:'hidden' };
+  var td = { padding:'5px 10px', borderBottom:'1px solid var(--border)', fontSize:12, verticalAlign:'top' };
+  var COLS = ['Connector','Status','Catalog Targets','Integration Group','Last Status Change','Last Refresh','Refresh (min)','Failing Message'];
+
+  function targetsCell(targets) {
+    if (!targets || !targets.length) return el('span', { style:{ color:'var(--dim)' } }, '—');
+    return el('div', null, targets.map(function(tg, i){
+      return el('div', { key:i, style:{ fontSize:11, marginBottom:2 } },
+        el('a', { onClick: function(e){ e.stopPropagation(); crossAppNavigate({ guid: tg.guid, typeName: tg.typeName }); }, style:{ cursor:'pointer' } }, tg.elementName || tg.catalogTargetName || tg.guid),
+        el('span', { style:{ color:'var(--dim)' } }, ' · ' + (tg.typeName || ''))); }));
+  }
+
+  var actionBtn = function(label, color, row, action){
+    return el('button', { onClick:function(e){ e.stopPropagation(); setConfirm({ row:row, action:action }); },
+      style:{ fontSize:10, padding:'1px 7px', borderRadius:4, border:'1px solid '+color+'55', background:'transparent', color:color, cursor:'pointer', marginRight:4 } }, label);
+  };
+
+  var table = el('div', { style:{ flex:1, overflow:'auto', minWidth:0 } },
+    t.state === 'loading' ? el('div', { style: pad }, 'Loading connectors…')
+    : t.state === 'error' ? el('div', { style: pad }, 'Failed to load connectors.')
+    : !t.server ? el('div', { style: pad }, 'No Integration Daemon on this platform.')
+    : rows.length === 0 ? el('div', { style: pad }, t.rows.length ? 'No connectors match the filter.' : 'No connectors on this daemon.')
+    : el('table', { style:{ borderCollapse:'collapse', tableLayout:'fixed', width: rz.tableWidth ? rz.tableWidth+'px' : '100%', minWidth:'100%' } },
+        el('colgroup', null, [0,1,2,3,4,5,6,7].map(function(i){ return el('col', { key:i, style:{ width: ((rz.widths && rz.widths[i]) || rz.defaultW)+'px' } }); })),
+        el('thead', null, el('tr', null, COLS.map(function(h,i){ return el('th', { key:i, style: th }, h, colResizeHandle(rz.onResizeDown, i)); })
+          .concat(isAdmin ? [el('th', { key:'a', style: th }, 'Actions')] : []))),
+        el('tbody', null, rows.map(function(r){
+          var on = r.connectorName === t.selKey;
+          return el('tr', { key:r.connectorName, style:{ cursor:'pointer', background: on ? 'rgba(96,165,250,.14)' : 'transparent' }, onClick:function(){ t.setSelKey(on ? null : r.connectorName); } },
+            el('td', { style: td }, r.connectorName),
+            el('td', { style: td }, el(StatusPill, { value:r.connectorStatus, map:CONNECTOR_STATUS })),
+            el('td', { style: td }, targetsCell(r.catalogTargets)),
+            el('td', { style: Object.assign({}, td, { color:'var(--muted)' }) }, r.integrationGroup || '—'),
+            el('td', { style: td }, r.lastStatusChange),
+            el('td', { style: td }, r.lastRefreshTime),
+            el('td', { style: td }, r.minMinutesBetweenRefresh == null ? '' : String(r.minMinutesBetweenRefresh)),
+            el('td', { style: Object.assign({}, td, { color: r.failingExceptionMessage ? '#f87171' : 'var(--dim)' }) }, r.failingExceptionMessage || '—'),
+            isAdmin && el('td', { style: td }, actionBtn('Start','#34d399',r,'start'), actionBtn('Stop','#f87171',r,'stop'), actionBtn('Refresh','#60a5fa',r,'refresh')));
+        }))));
+
+  var filters = el(React.Fragment, null,
+    el('select', { value:fGroup, onChange:function(e){ setFGroup(e.target.value); }, style:{ fontSize:11, padding:'4px 6px', background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:4, maxWidth:200 } },
+      [el('option', { key:'all', value:'all' }, 'All groups')].concat(groupNames.map(function(g){ return el('option', { key:g, value:g }, g); }))),
+    el('input', { placeholder:'filter connector…', value:fText, onChange:function(e){ setFText(e.target.value); }, style:{ fontSize:11, padding:'4px 8px', background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:4, width:150 } }));
+
+  return el('div', { style:{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' } },
+    el(OpsToolbar, { platforms:platforms, platform:platform, onPlatform:onPlatform, servers:t.servers, server:t.server, onServer:t.setServer, serverLabel:'Daemon', onRefresh:t.load, busy:t.busy, children:filters }),
+    el('div', { style:{ flex:1, display:'flex', overflow:'hidden', minHeight:0 } },
+      table,
+      sel && el(DetailPanel, { title: sel.connectorName, subtitle: sel.integrationGroup, width: panelW, onResize: onPanelDown,
+        onClose: function(){ t.setSelKey(null); }, onCatalog: function(){ crossAppNavigate({ guid: sel.connectorGUID, typeName: 'IntegrationConnector' }); } },
+        el(JsonView, { data: sel }))),
+    confirm && el(ConfirmDialog, {
+      title: confirm.action.charAt(0).toUpperCase() + confirm.action.slice(1) + ' connector?',
+      body: el('span', null, confirm.action + ' ', el('b', { style:{ color:'var(--text)' } }, confirm.row.connectorName), ' on ', t.server ? _shortName(t.server.displayName) : '', '?'),
+      confirmLabel: confirm.action.charAt(0).toUpperCase() + confirm.action.slice(1), err: confirm.err,
+      onCancel: function(){ setConfirm(null); }, onConfirm: function(){ act(confirm.row, confirm.action); } }));
+}
+
 // ── Placeholder tabs (scaffold — wired next) ──────────────────────────────────
 function ComingSoon({ name, note }) {
   return el('div', { style: { padding:'40px', color:'var(--muted)', fontSize:14 } },
@@ -874,7 +1005,7 @@ function App() {
   var shared = { creds: creds, platforms: platforms, platform: platform, onPlatform: setPlatform, isAdmin: isAdmin };
   var content = !ready ? el('div', { style: pad }, 'Connecting…')
     : active.id === 'servers'    ? el(ServersTab, Object.assign({ key:'servers@'+credKey }, shared))
-    : active.id === 'connectors' ? el(ComingSoon, { name:'Integration Connectors', note:'Connector table (status, catalog targets, integration group) + start/stop/refresh on the selected Integration Daemon. Backend driven by the daemon’s server report — wired next.' })
+    : active.id === 'connectors' ? el(ConnectorsTab, Object.assign({ key:'connectors@'+credKey }, shared))
     : active.id === 'engines'    ? el(ComingSoon, { name:'Governance Engines', note:'Engine table (status, request types, last refresh) + refresh-config on the selected Engine Host. Backend driven by governanceEngineSummaries — wired next.' })
     : el(ComingSoon, { name:'Engine Actions', note:'Ecosystem-wide engine-action search (status multi-select + search string) via find_processes, sortable, with cancel — wired next.' });
 

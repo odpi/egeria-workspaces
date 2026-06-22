@@ -213,6 +213,122 @@ def server_status_overview(
     return JSONResponse({"servers": rows, "total": len(rows)})
 
 
+# ── Integration Connectors tab ─────────────────────────────────────────────────
+
+def _asset_maker(url=None, server=None, user_id=None, user_pwd=None):
+    from pyegeria import AssetMaker
+    url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    mgr = AssetMaker(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    apply_token(mgr)
+    return mgr
+
+
+def _catalog_target(t: dict) -> dict:
+    """One catalog-target relationship → flat row. The related element (the
+    catalogued asset) is under `relatedElement`."""
+    t = t or {}
+    re_ = t.get("relatedElement") or {}
+    hdr = re_.get("elementHeader") or {}
+    props = re_.get("properties") or {}
+    return {
+        "catalogTargetName": t.get("catalogTargetName") or "",
+        "typeName":          (hdr.get("type") or {}).get("typeName") or "",
+        "guid":              hdr.get("guid") or "",
+        "elementName":       _name_of(props),
+    }
+
+
+def _target_list(raw) -> list:
+    return [t for t in raw if isinstance(t, dict)] if isinstance(raw, list) else []
+
+
+@router.get("/api/operations/integration-connectors", summary="Connectors on an Integration Daemon (Integration Connectors tab)")
+def list_integration_connectors(
+    server_guid: str = Query(...),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    try:
+        rm = _runtime_manager(url, server, user_id, user_pwd)
+        am = _asset_maker(url, server, user_id, user_pwd)
+        rep = _report_element(rm.get_server_report(server_guid=server_guid, output_format="JSON")) or {}
+    except Exception as exc:
+        logger.exception("operations: integration-connectors report failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    connectors = rep.get("integrationConnectorReports") or []
+    # integration-group lookup is by GUID (the connector carries integrationGroupGUID,
+    # not the name the spec assumed).
+    groups = {g.get("integrationGroupGUID"): g.get("integrationGroupName")
+              for g in (rep.get("integrationGroups") or []) if isinstance(g, dict)}
+
+    # One get_catalog_targets per connector — N+1 fan-out, run concurrently.
+    async def _fetch_targets(conns):
+        sem = asyncio.Semaphore(16)
+
+        async def _one(c):
+            guid = c.get("connectorGUID")
+            async with sem:
+                try:
+                    raw = await am._async_get_catalog_targets(integration_connector_guid=guid,
+                                                               graph_query_depth=1, page_size=200, output_format="JSON")
+                    targets = [_catalog_target(t) for t in _target_list(raw)]
+                except Exception:
+                    targets = []
+            return {
+                "connectorName":         c.get("connectorName") or "",
+                "connectorGUID":         guid or "",
+                "connectorStatus":       c.get("connectorStatus") or "",
+                "integrationGroup":      groups.get(c.get("integrationGroupGUID")) or "",
+                "lastStatusChange":      c.get("lastStatusChange") or "",
+                "lastRefreshTime":       c.get("lastRefreshTime") or "",
+                "minMinutesBetweenRefresh": c.get("minMinutesBetweenRefresh"),
+                "failingExceptionMessage":  c.get("failingExceptionMessage") or "",
+                "catalogTargets":        targets,
+            }
+        return await asyncio.gather(*[_one(c) for c in conns])
+
+    try:
+        rows = asyncio.get_event_loop().run_until_complete(_fetch_targets(connectors))
+    except Exception:
+        logger.exception("operations: concurrent catalog-target fetch failed")
+        rows = []
+    rows.sort(key=lambda r: (r.get("connectorName") or "").lower())
+    return JSONResponse({"connectors": rows, "total": len(rows)})
+
+
+class _ConnectorActionBody(BaseModel):
+    server_guid: str
+    connector_name: str
+
+
+@router.post("/api/operations/connector/{action}", summary="Start/stop/refresh a connector (admin only)")
+def connector_action(action: str, request: Request, body: _ConnectorActionBody):
+    if action not in ("start", "stop", "refresh"):
+        raise HTTPException(status_code=400, detail=f"Unsupported connector action {action!r}")
+    _admin_gate(request)
+    try:
+        rm = _runtime_manager()
+        if action == "start":
+            rm.start_connector(server_guid=body.server_guid, connector_name=body.connector_name)
+        elif action == "stop":
+            rm.stop_connector(server_guid=body.server_guid, connector_name=body.connector_name)
+        else:
+            # NOTE: pyegeria method is currently plural (refresh_integration_connectors);
+            # Dan is renaming to singular. Prefer the singular name when it lands.
+            fn = (getattr(rm, "refresh_integration_connector", None)
+                  or getattr(rm, "refresh_integration_connectors"))
+            fn(server_guid=body.server_guid, connector_name=body.connector_name)
+    except Exception as exc:
+        logger.exception("operations: connector %s(%s) failed", action, body.connector_name)
+        raise HTTPException(status_code=500, detail=str(exc))
+    logger.info("operations: connector %s %s on %s", action, body.connector_name, body.server_guid)
+    return JSONResponse({"ok": True, "action": action, "connector_name": body.connector_name})
+
+
 # ── Server lifecycle (admin-gated writes) ──────────────────────────────────────
 
 class _ServerActionBody(BaseModel):
