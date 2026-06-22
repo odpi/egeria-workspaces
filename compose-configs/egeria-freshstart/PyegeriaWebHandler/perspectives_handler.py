@@ -143,6 +143,7 @@ def get_perspectives(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Return all Perspective elements from the metadata repository."""
     try:
@@ -162,6 +163,7 @@ def get_perspectives(
             graph_query_depth=0,
             sequencing_order="PROPERTY_ASCENDING",
             sequencing_property="displayName",
+            as_of_time=as_of_time or None,
         )
     except Exception as exc:
         logger.exception("find_actor_profiles (Perspective) failed")

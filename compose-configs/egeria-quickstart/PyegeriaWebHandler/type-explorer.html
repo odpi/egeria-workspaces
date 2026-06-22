@@ -5090,6 +5090,7 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
   const [sideW, onDivDown] = useResizable(260);
   const [subNav, setSubNav]   = useState('perspectives');
   const [filter, setFilter]   = useState('');
+  const [asOfTime, setAsOfTime] = useState(null);  // LE-3 point-in-time
 
   const [perspList, setPerspList]   = useState([]);
   const [perspState, setPerspState] = useState('loading');
@@ -5114,11 +5115,11 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
   // Load perspectives on mount
   useEffect(() => {
     setPerspState('loading');
-    egeriaFetch('/api/perspectives', creds)
+    egeriaFetch('/api/perspectives' + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => { setPerspList(data.perspectives || []); setPerspState('ready'); })
       .catch(() => setPerspState('error'));
-  }, []);
+  }, [asOfTime]);
 
   // Cross-tab arrival: another tab called onNavigateToPerspective(guid) — select it.
   useEffect(() => {
@@ -5254,6 +5255,7 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
         React.createElement("button", { style: subNavStyle('perspectives'), onClick: function() { setSubNav('perspectives'); setFilter(''); } }, "Perspectives"),
         React.createElement("button", { style: subNavStyle('questions'), onClick: function() { setSubNav('questions'); setFilter(''); } }, "Questions")
       ),
+      React.createElement("div", { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)' } }, React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' })),
       React.createElement("div", { className: "search-wrap", style: { padding: '6px 10px', borderBottom: '1px solid var(--border)' } },
         React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter, onChange: function(e) { setFilter(e.target.value); } })
       ),
