@@ -583,17 +583,15 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 
 <script>
 'use strict';
-// ── Egeria Audit SPA (scaffold) ──────────────────────────────────────────────
-// Four tabs: Exceptions / Certifications / Licenses (governance relationships)
-// + Users. Reuses egeria-shared-ui.js globals: React, CredContext, egeriaFetch,
-// TimeSlider. Spec: audit_plan.md. This is the scaffold — the full
-// AuditRelationshipTab (sort/filter + 3-fold detail + cross-links) and the Users
-// tab land in follow-up tasks (#15/#16).
-var useState = React.useState, useEffect = React.useEffect;
+// ── Egeria Audit SPA ─────────────────────────────────────────────────────────
+// Four tabs: Exceptions / Certifications / Licenses (the shared, reusable
+// AuditRelationshipTab from egeria-shared-ui.js) + Users (next). Supports
+// bidirectional cross-links: outgoing via the shared ElementPropertiesPane /
+// crossAppNavigate; incoming via ?guid=&tab= (focus-filter to one element).
+var useState = React.useState;
 var el = React.createElement;
 var pad = { padding: '24px', color: 'var(--muted)', fontSize: 13 };
 
-// Column definitions per relationship type (from audit_plan.md).
 function name1(r){ return r.end1.uniqueName || r.end1.guid; }
 function type1(r){ return r.end1.typeName; }
 function name2(r){ return r.end2.uniqueName || r.end2.guid; }
@@ -622,49 +620,11 @@ var COLS = {
     ['License Type', name2],
   ],
 };
-
-// Scaffold relationship table. TODO(#15): sort, filter, row-select detail panel,
-// cross-links, and lift into a shared AuditRelationshipTab in egeria-shared-ui.js.
-function RelationshipTab({ relType, creds }) {
-  var _i = useState([]),        items   = _i[0], setItems   = _i[1];
-  var _s = useState('loading'), state   = _s[0], setState   = _s[1];
-  var _a = useState(null),      asOf    = _a[0], setAsOf    = _a[1];
-  useEffect(function() {
-    setState('loading');
-    var u = '/api/audit/relationships?type=' + encodeURIComponent(relType) + (asOf ? '&as_of_time=' + encodeURIComponent(asOf) : '');
-    egeriaFetch(u, creds)
-      .then(function(r){ return r.ok ? r.json() : { items: [] }; })
-      .then(function(d){ setItems(d.items || []); setState('ready'); })
-      .catch(function(){ setState('error'); });
-  }, [relType, asOf]);
-
-  var cols = COLS[relType] || [];
-  var th = { textAlign: 'left', padding: '6px 12px', borderBottom: '2px solid var(--border)', color: 'var(--accent)', fontSize: 11, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: 'var(--panel)' };
-  var td = { padding: '5px 12px', borderBottom: '1px solid var(--border)', fontSize: 12, verticalAlign: 'top', maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
-
-  return el('div', { style: { display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' } },
-    el('div', { style: { padding: '10px 12px' } }, el(TimeSlider, { onChange: setAsOf, label: 'As of' })),
-    state === 'loading' ? el('div', { style: pad }, 'Loading ' + relType + ' relationships…')
-    : state === 'error' ? el('div', { style: pad }, 'Failed to load.')
-    : items.length === 0 ? el('div', { style: pad }, 'No ' + relType + ' relationships found' + (asOf ? ' as of the selected time.' : '.'))
-    : el('div', { style: { overflow: 'auto', flex: 1 } },
-        el('table', { style: { borderCollapse: 'collapse', width: '100%' } },
-          el('thead', null, el('tr', null, cols.map(function(c, i){ return el('th', { key: i, style: th }, c[0]); }))),
-          el('tbody', null, items.map(function(row, ri){
-            return el('tr', { key: ri, style: { background: ri % 2 ? 'rgba(255,255,255,0.02)' : 'transparent' } },
-              cols.map(function(c, ci){
-                var v = c[1](row); v = (v == null || v === '') ? '' : String(v);
-                return el('td', { key: ci, style: td, title: v }, v);
-              }));
-          }))
-        )
-      )
-  );
-}
-
-function UsersTab() {
-  return el('div', { style: pad }, 'Users tab — platform user accounts (coming next, task #16).');
-}
+var ACTOR_ROLES = {
+  Exception:     ['steward'],
+  Certification: ['certifiedBy', 'custodian', 'recipient'],
+  License:       ['licensedBy', 'custodian', 'licensee'],
+};
 
 var TABS = [
   { id: 'exceptions',     label: 'Exceptions',     relType: 'Exception' },
@@ -673,12 +633,18 @@ var TABS = [
   { id: 'users',          label: 'Users' },
 ];
 
+function UsersTab() {
+  return el('div', { style: pad }, 'Users tab — platform user accounts (coming next, task #16).');
+}
+
 function App() {
   // Scaffold auth: demo-mode cookie/env credentials (egeriaFetch with null creds).
   // TODO: full connect bootstrap (persona / ConnectionForm / JWT) like tech-catalog.
   var creds = null;
+  var params = new URLSearchParams(window.location.search);
+  var _focus = useState(params.get('guid') || null), focusGuid = _focus[0], setFocusGuid = _focus[1];
   var _t = useState(function() {
-    var h = window.location.hash.slice(1);
+    var h = params.get('tab') || window.location.hash.slice(1);
     return TABS.some(function(t){ return t.id === h; }) ? h : 'exceptions';
   }), tab = _t[0], setTab = _t[1];
   function go(id){ setTab(id); try { window.location.hash = id; } catch(e){} }
@@ -691,6 +657,12 @@ function App() {
                color: on ? 'var(--accent)' : 'var(--muted)', borderBottom: on ? '2px solid var(--accent)' : '2px solid transparent', fontWeight: on ? 700 : 400 } }, t.label);
   };
 
+  var content = active.id === 'users'
+    ? el(UsersTab, null)
+    : el(AuditRelationshipTab, { key: active.id, relType: active.relType, columns: COLS[active.relType],
+        actorRoles: ACTOR_ROLES[active.relType], creds: creds,
+        focusGuid: focusGuid, onClearFocus: function(){ setFocusGuid(null); } });
+
   return el(CredContext.Provider, { value: creds },
     el('div', { style: { display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', color: 'var(--text)' } },
       el('div', { style: { display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px', height: 46, borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0 } },
@@ -701,9 +673,7 @@ function App() {
         el('a', { href: '/portal', style: { fontSize: 12, color: 'var(--muted)', textDecoration: 'none' } }, '⌂ Portal')
       ),
       el('div', { style: { display: 'flex', gap: 4, padding: '0 12px', borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0 } }, TABS.map(tabBtn)),
-      el('div', { style: { flex: 1, overflow: 'hidden' } },
-        active.id === 'users' ? el(UsersTab, null) : el(RelationshipTab, { key: active.id, relType: active.relType, creds: creds })
-      )
+      el('div', { style: { flex: 1, overflow: 'hidden' } }, content)
     )
   );
 }

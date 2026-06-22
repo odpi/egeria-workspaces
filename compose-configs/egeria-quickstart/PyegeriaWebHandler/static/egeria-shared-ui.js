@@ -1306,6 +1306,13 @@ function resolveExplorerNav(item) {
 
 function isElementLinkable(item) { return !!resolveExplorerNav(item); }
 
+/* Open the Egeria Audit tab for an element (INCOMING cross-link target). */
+function auditNavigate(guid, tab) {
+  if (!guid) return false;
+  window.open('/egeria-audit?guid=' + encodeURIComponent(guid) + (tab ? '&tab=' + encodeURIComponent(tab) : '') + '#' + (tab || 'exceptions'), '_blank');
+  return true;
+}
+
 function crossAppNavigate(item, explicitNav) {
   var nav = explicitNav || resolveExplorerNav(item);
   if (!nav || !item || !item.guid) return false;
@@ -1377,5 +1384,166 @@ function ElementPropertiesPane({ element, onCrossLink }) {
         })
       )
     )
+  );
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * AuditRelationshipTab — the shared, reusable pane behind the Egeria Audit
+ * Exceptions / Certifications / Licenses tabs. Driven by config so the three
+ * tabs are one component:
+ *   relType    : 'Exception' | 'Certification' | 'License'
+ *   columns    : [[label, row => value], …] table columns
+ *   actorRoles : ['steward'] | ['certifiedBy','custodian','recipient'] | …
+ *   creds      : passed to egeriaFetch
+ * Table is sortable + filterable; selecting a row lazy-loads a 3-section foldable
+ * detail (end1 element, relationship props + resolved actors, end2 type) using
+ * the shared ElementPropertiesPane / Collapsible / crossAppNavigate. Honours a
+ * point-in-time TimeSlider (asOfTime threaded into every fetch).
+ * ─────────────────────────────────────────────────────────────────────────── */
+function _titleCase(s) { return (s || '').replace(/([A-Z])/g, ' $1').replace(/^./, function(c){ return c.toUpperCase(); }).trim(); }
+
+function AuditRelationshipTab({ relType, columns, actorRoles, creds, focusGuid, onClearFocus }) {
+  var _rows  = React.useState([]),        rows  = _rows[0],  setRows  = _rows[1];
+  var _state = React.useState('loading'), state = _state[0], setState = _state[1];
+  var _asOf  = React.useState(null),      asOf  = _asOf[0],  setAsOf  = _asOf[1];
+  var _filter= React.useState(''),        filter= _filter[0],setFilter= _filter[1];
+  var _sort  = React.useState(null),      sort  = _sort[0],  setSort  = _sort[1]; // {col, dir}
+  var _sel   = React.useState(null),      sel   = _sel[0],   setSel   = _sel[1];  // selected row
+
+  React.useEffect(function() {
+    setState('loading'); setSel(null);
+    var u = '/api/audit/relationships?type=' + encodeURIComponent(relType) + (asOf ? '&as_of_time=' + encodeURIComponent(asOf) : '');
+    egeriaFetch(u, creds)
+      .then(function(r){ return r.ok ? r.json() : { items: [] }; })
+      .then(function(d){ setRows(d.items || []); setState('ready'); })
+      .catch(function(){ setState('error'); });
+  }, [relType, asOf]);
+
+  // incoming cross-link: restrict to relationships touching a focus element
+  var vis = rows;
+  if (focusGuid) vis = vis.filter(function(r){ return (r.end1 && r.end1.guid === focusGuid) || (r.end2 && r.end2.guid === focusGuid); });
+  if (filter.trim()) {
+    var q = filter.trim().toLowerCase();
+    vis = vis.filter(function(row) {
+      return columns.some(function(c){ var v = c[1](row); return v != null && String(v).toLowerCase().indexOf(q) !== -1; });
+    });
+  }
+  if (sort) {
+    var gi = columns[sort.col][1], dir = sort.dir;
+    vis = vis.slice().sort(function(a, b) {
+      var va = gi(a), vb = gi(b); va = va == null ? '' : String(va); vb = vb == null ? '' : String(vb);
+      var n = (!isNaN(va) && !isNaN(vb) && va !== '' && vb !== '') ? (Number(va) - Number(vb)) : va.localeCompare(vb);
+      return dir === 'asc' ? n : -n;
+    });
+  }
+  function toggleSort(i) {
+    setSort(function(p){ if (!p || p.col !== i) return { col: i, dir: 'asc' }; if (p.dir === 'asc') return { col: i, dir: 'desc' }; return null; });
+  }
+
+  var th = { textAlign: 'left', padding: '6px 12px', borderBottom: '2px solid var(--border)', color: 'var(--accent)', fontSize: 11, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: 'var(--panel)', cursor: 'pointer', userSelect: 'none' };
+  var td = { padding: '5px 12px', borderBottom: '1px solid var(--border)', fontSize: 12, verticalAlign: 'top', maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+
+  var focusBanner = focusGuid && React.createElement('div', { style: { padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, background: 'rgba(96,165,250,.1)', borderBottom: '1px solid var(--border)', color: 'var(--accent)' } },
+    '\uD83D\uDD0E Showing ' + relType.toLowerCase() + 's for the selected element',
+    React.createElement('button', { onClick: function(){ if (onClearFocus) onClearFocus(); }, style: { marginLeft: 'auto', fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, 'Clear'));
+
+  var table = React.createElement('div', { style: { overflow: 'auto', flex: sel ? '0 0 42%' : 1, borderBottom: sel ? '2px solid var(--border)' : 'none' } },
+    React.createElement('table', { style: { borderCollapse: 'collapse', width: '100%' } },
+      React.createElement('thead', null, React.createElement('tr', null,
+        columns.map(function(c, i){
+          var arrow = sort && sort.col === i ? (sort.dir === 'asc' ? ' ↑' : ' ↓') : ' ↕';
+          return React.createElement('th', { key: i, style: th, onClick: function(){ toggleSort(i); } }, c[0] + arrow);
+        })
+      )),
+      React.createElement('tbody', null, vis.map(function(row, ri){
+        var on = sel && sel.relationshipGuid === row.relationshipGuid;
+        return React.createElement('tr', { key: row.relationshipGuid || ri,
+          onClick: function(){ setSel(on ? null : row); },
+          style: { cursor: 'pointer', background: on ? 'rgba(96,165,250,.12)' : (ri % 2 ? 'rgba(255,255,255,0.02)' : 'transparent') } },
+          columns.map(function(c, ci){ var v = c[1](row); v = (v == null || v === '') ? '' : String(v);
+            return React.createElement('td', { key: ci, style: td, title: v }, v); }));
+      }))
+    )
+  );
+
+  return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' } },
+    React.createElement('div', { style: { padding: '8px 10px', display: 'flex', gap: 10, alignItems: 'flex-start' } },
+      React.createElement('div', { style: { flex: '0 0 320px' } }, React.createElement(TimeSlider, { onChange: setAsOf, label: 'As of' })),
+      React.createElement('input', { type: 'search', placeholder: 'Filter ' + relType.toLowerCase() + 's…', value: filter,
+        onChange: function(e){ setFilter(e.target.value); },
+        style: { flex: 1, alignSelf: 'center', fontSize: 12, padding: '5px 9px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } })
+    ),
+    state === 'loading' ? React.createElement('div', { style: { padding: 24, color: 'var(--muted)', fontSize: 13 } }, 'Loading ' + relType + ' relationships…')
+    : state === 'error' ? React.createElement('div', { style: { padding: 24, color: '#f87171', fontSize: 13 } }, 'Failed to load.')
+    : rows.length === 0 ? React.createElement('div', { style: { padding: 24, color: 'var(--muted)', fontSize: 13 } }, 'No ' + relType + ' relationships found' + (asOf ? ' as of the selected time.' : '.'))
+    : React.createElement(React.Fragment, null,
+        focusBanner,
+        table,
+        sel && React.createElement('div', { style: { flex: 1, overflow: 'auto', padding: '6px 14px' } },
+          React.createElement(AuditDetailPanel, { row: sel, relType: relType, actorRoles: actorRoles, creds: creds, asOf: asOf }))
+      )
+  );
+}
+
+/* The 3-section foldable detail for a selected audit relationship. */
+function AuditDetailPanel({ row, relType, actorRoles, creds, asOf }) {
+  var _e1 = React.useState({ st: 'idle', el: null }), e1 = _e1[0], setE1 = _e1[1];
+  var _e2 = React.useState({ st: 'idle', el: null }), e2 = _e2[0], setE2 = _e2[1];
+  var _ac = React.useState({}),                       actors = _ac[0], setActors = _ac[1]; // role -> {st, el}
+  var q = asOf ? '&as_of_time=' + encodeURIComponent(asOf) : '';
+
+  React.useEffect(function() {
+    setE1({ st: 'loading', el: null }); setE2({ st: 'loading', el: null }); setActors({});
+    function load(guid, set) {
+      if (!guid) { set({ st: 'none', el: null }); return; }
+      egeriaFetch('/api/audit/element/' + encodeURIComponent(guid) + '?_=1' + q, creds)
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(d){ set({ st: 'ready', el: d }); })
+        .catch(function(){ set({ st: 'error', el: null }); });
+    }
+    load(row.end1 && row.end1.guid, setE1);
+    load(row.end2 && row.end2.guid, setE2);
+    (actorRoles || []).forEach(function(role) {
+      var val = row.props[role]; if (!val) return;
+      var pname = row.props[role + 'PropertyName']; var tname = row.props[role + 'TypeName'];
+      setActors(function(p){ return Object.assign({}, p, { [role]: { st: 'loading', el: null } }); });
+      var u = '/api/audit/actor?value=' + encodeURIComponent(val)
+            + (pname ? '&property_name=' + encodeURIComponent(pname) : '')
+            + (tname ? '&type_name=' + encodeURIComponent(tname) : '') + q;
+      egeriaFetch(u, creds).then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(d){ setActors(function(p){ return Object.assign({}, p, { [role]: { st: 'ready', el: d } }); }); })
+        .catch(function(){ setActors(function(p){ return Object.assign({}, p, { [role]: { st: 'error', el: null } }); }); });
+    });
+  }, [row.relationshipGuid, asOf]);
+
+  function paneFor(s) {
+    if (!s || s.st === 'loading') return React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'Loading…');
+    if (s.st === 'error') return React.createElement('div', { style: { fontSize: 12, color: '#f87171' } }, 'Could not load.');
+    if (s.st === 'none') return React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'Not specified.');
+    return React.createElement(ElementPropertiesPane, { element: s.el });
+  }
+
+  var propRows = Object.keys(row.props || {}).filter(function(k){ return typeof row.props[k] !== 'object'; }).sort();
+  var pth = { padding: '3px 12px 3px 0', color: 'var(--dim)', verticalAlign: 'top', whiteSpace: 'nowrap', width: 160, fontSize: 12 };
+  var ptd = { padding: '3px 0', color: 'var(--text)', wordBreak: 'break-word', fontSize: 12 };
+
+  return React.createElement('div', null,
+    React.createElement(Collapsible, { title: (row.end1.typeName || 'Affected element'), defaultOpen: true }, paneFor(e1)),
+    React.createElement(Collapsible, { title: relType + ' properties & actors', defaultOpen: true },
+      React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', marginBottom: 8 } },
+        React.createElement('tbody', null, propRows.map(function(k){
+          return React.createElement('tr', { key: k },
+            React.createElement('td', { style: pth }, _titleCase(k)),
+            React.createElement('td', { style: ptd }, String(row.props[k])));
+        }))
+      ),
+      (actorRoles || []).map(function(role){
+        var st = actors[role]; if (!row.props[role]) return null;
+        return React.createElement('div', { key: role, style: { marginTop: 6 } },
+          React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 2 } }, _titleCase(role)),
+          paneFor(st));
+      })
+    ),
+    React.createElement(Collapsible, { title: (row.end2.typeName || relType + ' type'), defaultOpen: false }, paneFor(e2))
   );
 }
