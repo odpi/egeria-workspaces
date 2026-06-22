@@ -46,7 +46,7 @@ def _is_collection(node: dict) -> bool:
     return tn == "Collection" or tn.endswith("Collection")
 
 
-def _children_level(mgr, collection_guid: str) -> list:
+def _children_level(mgr, collection_guid: str, as_of_time: Optional[str] = None) -> list:
     """Fetch ONE level of members (no recursion) for lazy tree loading (PERF-2).
 
     Each Collection subtype is flagged isContainer so the frontend shows an expand
@@ -54,11 +54,14 @@ def _children_level(mgr, collection_guid: str) -> list:
     recursive serial walk that made deep collection trees slow to load.
     """
     try:
+        body = {"class": "ResultsRequestBody", "graphQueryDepth": 0}
+        if as_of_time:
+            body["asOfTime"] = as_of_time  # point-in-time (LE-3); Egeria filters members
         raw = mgr.get_collection_members(
             collection_guid=collection_guid,
             output_format="JSON",
             page_size=200,
-            body={"class": "ResultsRequestBody", "graphQueryDepth": 0},
+            body=body,
         )
     except Exception as exc:
         logger.warning(f"get_collection_members failed for {collection_guid}: {exc}")
@@ -119,6 +122,7 @@ def get_tree(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Recursive member hierarchy beneath a collection (any subtype is a container)."""
     try:
@@ -127,7 +131,7 @@ def get_tree(
         logger.exception("Failed to create CollectionManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
-    cache_key = f"{root_guid}|{url or ''}|{server or ''}|{user_id or ''}"
+    cache_key = f"{root_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}"
     cached = _TREE_CACHE.get(cache_key)
     if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
         return JSONResponse(cached[1])
@@ -135,7 +139,7 @@ def get_tree(
     # The root's own metadata is already known to the client from the roots list,
     # so skip the expensive get_collection_by_guid graph query here (PERF-1).
     root = {"guid": root_guid}
-    children = _children_level(mgr, root_guid)
+    children = _children_level(mgr, root_guid, as_of_time)
 
     result = {"root": root, "children": children}
     _TREE_CACHE[cache_key] = (time.time(), result)
@@ -150,6 +154,7 @@ def get_node_children(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """One level of children for a container node, fetched when the user expands it."""
     try:
@@ -158,12 +163,12 @@ def get_node_children(
         logger.exception("Failed to create CollectionManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
-    cache_key = f"children|{node_guid}|{url or ''}|{server or ''}|{user_id or ''}"
+    cache_key = f"children|{node_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}"
     cached = _TREE_CACHE.get(cache_key)
     if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
         return JSONResponse(cached[1])
 
-    result = {"children": _children_level(mgr, node_guid)}
+    result = {"children": _children_level(mgr, node_guid, as_of_time)}
     _TREE_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
 
