@@ -116,6 +116,7 @@ def list_locations(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
@@ -133,6 +134,7 @@ def list_locations(
             page_size=page_size,
             sequencing_order="PROPERTY_ASCENDING",
             sequencing_property="displayName",
+            as_of_time=as_of_time or None,
         )
     except Exception as exc:
         logger.exception("find_locations failed")
