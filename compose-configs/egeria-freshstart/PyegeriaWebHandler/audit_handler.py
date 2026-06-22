@@ -263,6 +263,34 @@ def list_platforms(
     return JSONResponse({"platforms": out})
 
 
+def _user_names(so, platform_name, platform_guid):
+    """Return the list of user IDs registered with a platform's security connector.
+
+    Robust against the pyegeria version where SecurityOfficer.get_user_list reads
+    the wrong response key: the server returns a NameListResponse with the IDs
+    under ``names``, but some versions read ``userIds`` → []. Try the library
+    method first, then fall back to the raw endpoint's ``names`` key.
+    """
+    try:
+        names = so.get_user_list(platform_name, None, None, platform_guid)
+        if isinstance(names, list) and names:
+            return names
+    except Exception:
+        logger.debug("audit: get_user_list raised; falling back to raw names")
+    try:
+        import asyncio
+        url = f"{so.security_officer_base_url}/platforms/{platform_guid}/user-accounts"
+
+        async def _go():
+            r = await so._async_make_request("GET", url, params={})
+            j = r.json()
+            return j.get("names") or j.get("userIds") or []
+        return asyncio.get_event_loop().run_until_complete(_go())
+    except Exception:
+        logger.exception("audit: raw user-accounts fetch failed")
+        return []
+
+
 @router.get("/api/audit/users", summary="User accounts on a platform")
 def list_users(
     platform_guid: str = Query(...),
@@ -272,7 +300,7 @@ def list_users(
 ):
     try:
         so = _security_officer(url, server, user_id, user_pwd)
-        names = so.get_user_list(platform_name, None, None, platform_guid)
+        names = _user_names(so, platform_name, platform_guid)
     except Exception as exc:
         logger.exception("audit: get_user_list failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -287,11 +315,15 @@ def list_users(
         except Exception:
             acc = None
         if not isinstance(acc, dict):
-            acc = {"userName": nm}
+            acc = {"userId": nm}
+        # The account carries userId (login, e.g. 'garygeeke') + userName (friendly,
+        # e.g. 'Gary Geeke') — there is no displayName field — so map User Name to
+        # the userId and Display Name to userName (the spec's literal field names
+        # predate the actual UserAccount shape).
         rows.append({
-            "userName":          acc.get("userName") or nm,
+            "userName":          acc.get("userId") or nm,
             "userAccountType":   acc.get("userAccountType") or "",
-            "displayName":       acc.get("displayName") or "",
+            "displayName":       acc.get("userName") or "",
             "userAccountStatus": acc.get("userAccountStatus") or "",
             "account":           acc,
         })

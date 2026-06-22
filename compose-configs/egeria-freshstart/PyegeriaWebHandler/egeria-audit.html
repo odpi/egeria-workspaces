@@ -637,7 +637,7 @@ var TABS = [
 // Account-status values the change control offers. The exact Egeria
 // UserAccountStatus enum isn't introspectable here (demo connector is
 // unpopulated) — confirm + extend against a populated platform.
-var USER_STATUSES = ['ACTIVE', 'DISABLED', 'LOCKED', 'RETIRED'];
+var USER_STATUSES = ['AVAILABLE', 'UNAVAILABLE'];  // confirm full UserAccountStatus enum
 
 function UsersTab({ creds }) {
   var _p  = useState([]),        plats   = _p[0],  setPlats  = _p[1];
