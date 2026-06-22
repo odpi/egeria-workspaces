@@ -618,6 +618,7 @@ def list_infrastructure(
     page_size:  int = Query(100, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -635,6 +636,7 @@ def list_infrastructure(
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
             graph_query_depth=0,
+            as_of_time=as_of_time or None,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -651,6 +653,7 @@ def list_software_capabilities(
     page_size:  int = Query(100, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -664,6 +667,7 @@ def list_software_capabilities(
             page_size=page_size,
             output_format="JSON",
             graph_query_depth=0,
+            as_of_time=as_of_time or None,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -680,6 +684,7 @@ def list_endpoints(
     page_size:  int = Query(100, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _connection_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -692,6 +697,7 @@ def list_endpoints(
             start_from=start_from,
             page_size=page_size,
             graph_query_depth=0,
+            as_of_time=as_of_time or None,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -810,6 +816,7 @@ def list_apis(
     page_size:  int = Query(100, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -825,6 +832,7 @@ def list_apis(
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
             graph_query_depth=0,
+            as_of_time=as_of_time or None,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -841,6 +849,7 @@ def list_software_components(
     page_size:  int = Query(100, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -857,6 +866,7 @@ def list_software_components(
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
             graph_query_depth=0,
+            as_of_time=as_of_time or None,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -873,6 +883,7 @@ def list_actions(
     page_size:  int = Query(100, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -889,6 +900,7 @@ def list_actions(
             sequencing_order=_SEQ_ORDER,
             sequencing_property=_SEQ_PROP,
             graph_query_depth=0,
+            as_of_time=as_of_time or None,
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -940,6 +952,7 @@ def get_asset_detail(
     guid: str,
     # section tells us which find_* to use for non-Asset types
     section: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
@@ -949,7 +962,7 @@ def get_asset_detail(
         raise HTTPException(status_code=500, detail=str(exc))
 
     try:
-        el = _fetch_detail(mgr, guid, section)
+        el = _fetch_detail(mgr, guid, section, as_of_time)
         if not el:
             raise HTTPException(status_code=404, detail=f"Element {guid!r} not found")
         return JSONResponse(_serialize(el, include_relationships=True))
@@ -1257,12 +1270,16 @@ _SECTION_FINDERS = {
 }
 
 
-def _fetch_detail(mgr, guid: str, section: Optional[str]):
+def _fetch_detail(mgr, guid: str, section: Optional[str], as_of_time: Optional[str] = None):
     """
     Fetch a single element with full property/relationship/mermaid detail.
     Endpoints use ConnectionMaker.get_endpoint_by_guid (not an Asset subtype).
     All Asset subtypes use AssetCatalog.get_asset_graph_by_guid for richer mermaid graphs,
     with fallback to get_asset_by_guid for types the graph endpoint can't serve.
+
+    as_of_time (ISO 8601) selects a point-in-time version (LE-3); injected as
+    ``asOfTime`` in the request body. If the element did not yet exist at that
+    time, Egeria reports "not found" and the caller surfaces a clean 404.
     """
     # Endpoints are Referenceable subtypes, not Assets — use ConnectionMaker directly.
     if section == "endpoints":
@@ -1281,10 +1298,10 @@ def _fetch_detail(mgr, guid: str, section: Optional[str]):
     # All Asset types: use get_asset_graph_by_guid with graphQueryDepth=5.
     try:
         ac = _asset_catalog_from_asset_maker(mgr)
-        raw = ac.get_asset_graph_by_guid(
-            guid, output_format="JSON",
-            body={"class": "ResultsRequestBody", "graphQueryDepth": 5}
-        )
+        graph_body = {"class": "ResultsRequestBody", "graphQueryDepth": 5}
+        if as_of_time:
+            graph_body["asOfTime"] = as_of_time
+        raw = ac.get_asset_graph_by_guid(guid, output_format="JSON", body=graph_body)
         el = raw[0] if isinstance(raw, list) else raw
         if el and isinstance(el, dict):
             return el

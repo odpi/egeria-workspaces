@@ -1561,6 +1561,15 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
       React.createElement(EgeriaFeedbackWidget, { guid: item.guid })
     ),
     item.typeName && React.createElement('div', { style: { display: 'inline-block', fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: 'rgba(96,165,250,0.12)', color: 'var(--accent)', marginBottom: 12 } }, item.typeName),
+    // Incoming audit cross-links (#17): jump to this element's exceptions /
+    // certifications / licenses via the shared auditNavigate helper.
+    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, fontSize: 11, color: 'var(--dim)', flexWrap: 'wrap' } },
+      React.createElement('span', null, '🛡️ Audit:'),
+      [['exceptions', 'Exceptions'], ['certifications', 'Certifications'], ['licenses', 'Licenses']].map(function(t) {
+        return React.createElement('button', { key: t[0], onClick: function() { auditNavigate(item.guid, t[0]); }, title: 'Show ' + t[1].toLowerCase() + ' for this element in Egeria Audit',
+          style: { fontSize: 11, padding: '2px 8px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer' } }, t[1] + ' \u2197');
+      })
+    ),
     item.description && React.createElement('p', { style: { fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, margin: '0 0 16px' } }, item.description),
 
     // Properties table
@@ -1663,7 +1672,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   var _classifFilter = useState([]),   classifFilter = _classifFilter[0], setClassifFilter = _classifFilter[1];
   // LE-3: point-in-time browsing — only the data-asset endpoints accept as_of_time.
   var _asOfTime = useState(null), asOfTime = _asOfTime[0], setAsOfTime = _asOfTime[1];
-  var supportsTime = /\/(data-stores|data-feeds|data-sets)\b/.test(endpoint);
+  var supportsTime = /\/(data-stores|data-feeds|data-sets|infrastructure|software-capabilities|endpoints|apis|software-components|actions)\b/.test(endpoint);
 
   useEffect(function() {
     setLoading(true); setError(''); setSelected(null); setDetail(null); setClassifFilter([]);
@@ -1682,7 +1691,8 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
     setDetailLoad(true);
     setDetailErr(null);
     var detailUrl = '/api/tech-catalog/assets/' + encodeURIComponent(item.guid) +
-      (sectionId ? '?section=' + encodeURIComponent(sectionId) : '');
+      (sectionId ? '?section=' + encodeURIComponent(sectionId) : '') +
+      (asOfTime ? (sectionId ? '&' : '?') + 'as_of_time=' + encodeURIComponent(asOfTime) : '');
     fetchWithToken(detailUrl, creds)
       .then(function(r) {
         if (r.status === 401 || r.status === 403) { setDetailErr('unauthorized'); setDetailLoad(false); return null; }
@@ -1792,6 +1802,12 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
       }
       if (detailErr && detailErr.startsWith('http-')) {
         var status = detailErr.slice(5);
+        if (asOfTime && status === '404') {
+          return React.createElement('div', { style: { padding: '32px 24px' } },
+            React.createElement('div', { style: { fontSize: 14, color: 'var(--accent)', fontWeight: 600, marginBottom: 8 } }, '🕐 Not present at the selected time'),
+            React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)' } }, 'This element did not exist as of ' + new Date(asOfTime).toLocaleString() + '. Move the slider toward "Now" to view it.')
+          );
+        }
         return React.createElement('div', { style: { padding: '32px 24px' } },
           React.createElement('div', { style: { fontSize: 14, color: '#f87171', fontWeight: 600, marginBottom: 8 } }, '⚠ Could not load element (HTTP ' + status + ')'),
           React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)', marginBottom: 8 } }, 'The element with this GUID could not be retrieved. It may be a non-Asset type (schema attribute, technical element, etc.) or belong to a different catalog section.'),

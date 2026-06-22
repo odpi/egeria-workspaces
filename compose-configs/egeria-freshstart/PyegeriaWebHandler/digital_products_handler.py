@@ -202,7 +202,7 @@ def _find_all_catalogs(mgr) -> list:
     return list(catalogs.values())
 
 
-def _children_level(mgr, collection_guid: str) -> list:
+def _children_level(mgr, collection_guid: str, as_of_time: Optional[str] = None) -> list:
     """Fetch ONE level of members (no recursion) for lazy tree loading (PERF-2).
 
     Each node is flagged isContainer so the frontend shows an expand twistie; its
@@ -211,11 +211,14 @@ def _children_level(mgr, collection_guid: str) -> list:
     serial walk that made a 432-node catalog take ~28 s to load).
     """
     try:
+        body = {"class": "ResultsRequestBody", "graphQueryDepth": 0}
+        if as_of_time:
+            body["asOfTime"] = as_of_time  # point-in-time (LE-3); Egeria filters members
         raw = mgr.get_collection_members(
             collection_guid=collection_guid,
             output_format="JSON",
             page_size=200,
-            body={"class": "ResultsRequestBody", "graphQueryDepth": 0},
+            body=body,
         )
     except Exception as exc:
         logger.warning(f"get_collection_members failed for {collection_guid}: {exc}")
@@ -279,6 +282,7 @@ def get_catalog_tree(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """
     Return the TOP LEVEL of a DigitalProductCatalog's hierarchy (lazy — PERF-2).
@@ -292,7 +296,7 @@ def get_catalog_tree(
         logger.exception("Failed to create CollectionManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
-    cache_key = f"{catalog_guid}|{url or ''}|{server or ''}|{user_id or ''}"
+    cache_key = f"{catalog_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}"
     cached = _TREE_CACHE.get(cache_key)
     if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
         logger.debug(f"Tree cache hit for {catalog_guid}")
@@ -303,7 +307,7 @@ def get_catalog_tree(
     # ~12 s graph query whose result the frontend never reads (PERF-1).
     catalog = {"guid": catalog_guid}
 
-    children = _children_level(mgr, catalog_guid)
+    children = _children_level(mgr, catalog_guid, as_of_time)
 
     result = {"catalog": catalog, "children": children}
     _TREE_CACHE[cache_key] = (time.time(), result)
@@ -318,6 +322,7 @@ def get_node_children(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """One level of children for a container node, fetched when the user expands it."""
     try:
@@ -326,12 +331,12 @@ def get_node_children(
         logger.exception("Failed to create CollectionManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
-    cache_key = f"children|{node_guid}|{url or ''}|{server or ''}|{user_id or ''}"
+    cache_key = f"children|{node_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}"
     cached = _TREE_CACHE.get(cache_key)
     if cached and (time.time() - cached[0]) < _TREE_CACHE_TTL:
         return JSONResponse(cached[1])
 
-    result = {"children": _children_level(mgr, node_guid)}
+    result = {"children": _children_level(mgr, node_guid, as_of_time)}
     _TREE_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
 

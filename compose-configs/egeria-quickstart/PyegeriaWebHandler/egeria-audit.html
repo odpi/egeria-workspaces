@@ -11,7 +11,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>The Catalog</title>
+  <title>Egeria Audit</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -580,1590 +580,227 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 })();
 </script>
 <script src="/static/egeria-shared-ui.js"></script>
+
 <script>
 'use strict';
-// React hook aliases (mirror type-explorer.html)
-var useState    = React.useState;
-var useEffect   = React.useEffect;
-var useRef      = React.useRef;
-var useCallback = React.useCallback;
-var useMemo     = React.useMemo;
-
-// ── Credential helpers ────────────────────────────────────────────────────────
-// egeriaFetch + _tokenRefresher now live in /static/egeria-shared-ui.js (shared
-// with the Egeria Explorer). fetchWithToken is kept as a thin alias so existing
-// call sites are untouched; the App still registers _tokenRefresher.refresh.
-var fetchWithToken = egeriaFetch;
-
-// ── Markdown renderer (shared with type-explorer.html) ───────────────────────
-// renderMd + _renderMdHtml now live in /static/egeria-shared-ui.js (shared with
-// the Egeria Explorer). The shared renderMd also handles embedded ```mermaid
-// fences; inline-code background uses the --md-code-bg CSS var.
-
-// ResizeDivider now lives in /static/egeria-shared-ui.js (uses the .col-divider
-// CSS class defined above — gains the hover affordance the inline version lacked).
-
-// DiagramPanel + MermaidSection now live in /static/egeria-shared-ui.js
-// (shared with the Egeria Explorer; token-aware via CredContext + egeriaFetch).
-// The rest of the mermaid family + copyToClipboard are shared there too.
-
-
-var _ALL_MERMAID_FIELDS = [
-  'mermaidGraph','iscImplementationMermaidGraph','informationSupplyChainMermaidGraph',
-  'edgeMermaidGraph','anchorMermaidGraph','specificationMermaidGraph',
-  'solutionBlueprintMermaidGraph','solutionSubcomponentMermaidGraph',
-  'actionMermaidGraph','localLineageGraph','fieldLevelLineageGraph',
-  'governanceActionProcessMermaidGraph','organizationTreeMermaidGraph',
-  'collectionMermaidMindMap',
-];
-
-
-// ── Technology Types ──────────────────────────────────────────────────────────
-
-function TechTable(headers, rows, emptyMsg) {
-  if (!rows || rows.length === 0) {
-    return emptyMsg
-      ? React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '4px 0' } }, emptyMsg)
-      : null;
-  }
-  var thSt = { padding: '5px 10px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--dim)', borderBottom: '1px solid var(--border)', background: 'var(--panel)', whiteSpace: 'nowrap' };
-  var tdSt = { padding: '5px 10px', fontSize: 11, borderBottom: '1px solid var(--border)', verticalAlign: 'top', lineHeight: 1.5 };
-  return React.createElement('div', { style: { overflowX: 'auto', borderRadius: 4, border: '1px solid var(--border)', marginTop: 8 } },
-    React.createElement('table', { style: { borderCollapse: 'collapse', width: '100%' } },
-      React.createElement('thead', null,
-        React.createElement('tr', null, headers.map(function(h, i) {
-          return React.createElement('th', { key: i, style: thSt }, h);
-        }))
-      ),
-      React.createElement('tbody', null, rows.map(function(row, ri) {
-        return React.createElement('tr', { key: ri }, row.map(function(cell, ci) {
-          return React.createElement('td', { key: ci, style: tdSt }, cell);
-        }));
-      }))
-    )
-  );
-}
-
-function TechResourceBadge(resourceUse) {
-  var key = (resourceUse || '').toLowerCase();
-  var colours = {
-    'create catalog entry':  { bg: 'rgba(16,185,129,.14)', fg: '#34d399' },
-    'create-catalog-entry':  { bg: 'rgba(16,185,129,.14)', fg: '#34d399' },
-    'survey resource':       { bg: 'rgba(245,158,11,.14)', fg: '#fbbf24' },
-    'survey':                { bg: 'rgba(245,158,11,.14)', fg: '#fbbf24' },
-    'catalog resource':      { bg: 'rgba(99,102,241,.14)', fg: '#818cf8' },
-    'catalog':               { bg: 'rgba(99,102,241,.14)', fg: '#818cf8' },
-    'configure connector':   { bg: 'rgba(59,130,246,.14)', fg: '#60a5fa' },
-    'provision':             { bg: 'rgba(236,72,153,.14)', fg: '#f472b6' },
-  };
-  var c = colours[key] || { bg: 'rgba(107,114,128,.12)', fg: 'var(--dim)' };
-  return React.createElement('span', {
-    style: { fontSize: 10, fontWeight: 600, padding: '1px 8px', borderRadius: 10,
-             background: c.bg, color: c.fg, flexShrink: 0, marginLeft: 8 }
-  }, resourceUse || 'resource');
-}
-
-function TechTypeDetail({ item, detailLoading, creds }) {
-  if (!item) return null;
-  var sHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
-  var card = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 10 };
-
-  // Loading shimmer while detail fetch is in flight
-  if (detailLoading) {
-    return React.createElement('div', null,
-      React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)', margin: '0 0 16px 0' } }, item.displayName),
-      React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12 } }, 'Loading detail…')
-    );
-  }
-
-  // --- Catalog Templates ---
-  var templatesEl = null;
-  if (item.catalogTemplates && item.catalogTemplates.length > 0) {
-    templatesEl = React.createElement('div', null,
-      React.createElement('div', { style: sHdr }, 'Catalog Templates'),
-      item.catalogTemplates.map(function(t, ti) {
-        var rows = (t.placeholders || []).map(function(p) {
-          return [
-            React.createElement('span', { style: { fontWeight: p.required ? 700 : 400, color: p.required ? 'var(--text)' : 'var(--muted)' } }, p.name),
-            p.dataType || '',
-            p.required ? React.createElement('span', { style: { color: '#34d399', fontWeight: 700 } }, '✓') : '',
-            React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)' } }, p.example || ''),
-            p.description || '',
-          ];
-        });
-        return React.createElement('div', { key: ti, style: card },
-          React.createElement('div', { style: { display: 'flex', alignItems: 'center', marginBottom: 6 } },
-            React.createElement('span', { style: { fontWeight: 700, fontSize: 13, flex: 1, color: 'var(--text)' } }, t.displayName || '(template)'),
-            t.resourceUse && TechResourceBadge(t.resourceUse)
-          ),
-          t.description && React.createElement('div', { style: { fontSize: 12, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.5 } }, t.description),
-          rows.length > 0
-            ? TechTable(['Name','Type','Required','Example','Description'], rows, null)
-            : React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, 'No placeholder properties.')
-        );
-      })
-    );
-  }
-
-  // --- Governance Action Processes ---
-  var processesEl = null;
-  if (item.governanceActionProcesses && item.governanceActionProcesses.length > 0) {
-    processesEl = React.createElement('div', null,
-      React.createElement('div', { style: sHdr }, 'Governance Action Processes'),
-      item.governanceActionProcesses.map(function(gp, gi) {
-        var rows = (gp.parameters || []).map(function(p) {
-          return [
-            React.createElement('span', { style: { fontWeight: p.required ? 700 : 400, color: p.required ? 'var(--text)' : 'var(--muted)' } }, p.name),
-            p.dataType || '',
-            p.required ? React.createElement('span', { style: { color: '#34d399', fontWeight: 700 } }, '✓') : '',
-            p.description || '',
-            React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)' } }, p.example || ''),
-          ];
-        });
-        return React.createElement('div', { key: gi, style: card },
-          React.createElement('div', { style: { display: 'flex', alignItems: 'center', marginBottom: 6 } },
-            React.createElement('span', { style: { fontWeight: 700, fontSize: 13, flex: 1, color: 'var(--text)' } }, gp.displayName || '(process)'),
-            gp.resourceUse && TechResourceBadge(gp.resourceUse)
-          ),
-          gp.description && React.createElement('div', { style: { fontSize: 12, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.5 } }, gp.description),
-          rows.length > 0
-            ? TechTable(['Name','Type','Required','Description','Example'], rows, null)
-            : React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, 'No request parameters.')
-        );
-      })
-    );
-  }
-
-  // --- External References ---
-  var extRefsEl = null;
-  if (item.externalReferences && item.externalReferences.length > 0) {
-    extRefsEl = React.createElement('div', null,
-      React.createElement('div', { style: sHdr }, 'External References'),
-      React.createElement('div', { style: card },
-        item.externalReferences.map(function(ref, ri) {
-          return React.createElement('div', { key: ri, style: { marginBottom: 8 } },
-            ref.url
-              ? React.createElement('a', { href: ref.url, target: '_blank', rel: 'noopener noreferrer',
-                  style: { fontSize: 13, color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' } },
-                  '↗ ' + (ref.displayName || ref.url))
-              : React.createElement('span', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)' } }, ref.displayName || ''),
-            ref.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginTop: 2, lineHeight: 1.5 } }, ref.description)
-          );
-        })
-      )
-    );
-  }
-
-  // --- Live instances sub-pane ---
-  var _elemParams = new URLSearchParams();
-  if (item.displayName) _elemParams.set('display_name', item.displayName);
-  var elementsUrl = '/api/tech-catalog/tech-types/' + encodeURIComponent(item.qualifiedName) + '/elements' +
-    (_elemParams.toString() ? '?' + _elemParams.toString() : '');
-  var instancesEl = React.createElement(SubPane, {
-    title: 'Catalog Instances',
-    fetchUrl: elementsUrl,
-    creds: creds,
-    prominent: true,
-    renderContent: function(data) {
-      var its = data.items || [];
-      if (its.length === 0) return React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '6px 0' } }, 'No catalog entries of this type yet.');
-      var thStyle = { fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 8px 4px 0', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', textAlign: 'left' };
-      var tdBase  = { fontSize: 11, padding: '5px 8px 5px 0', verticalAlign: 'top', borderBottom: '1px solid var(--border)' };
-      var tdMono  = Object.assign({}, tdBase, { fontFamily: 'ui-monospace,monospace', fontSize: 10, color: 'var(--dim)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
-      var tdDesc  = Object.assign({}, tdBase, { color: 'var(--muted)', maxWidth: 200, lineHeight: 1.4 });
-      return React.createElement('div', { style: { overflowX: 'auto', marginTop: 6 } },
-        React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse' } },
-          React.createElement('thead', null,
-            React.createElement('tr', null,
-              React.createElement('th', { style: thStyle }, 'Name'),
-              React.createElement('th', { style: thStyle }, 'Type'),
-              React.createElement('th', { style: thStyle }, 'Description'),
-              React.createElement('th', { style: thStyle }, 'Qualified Name'),
-              React.createElement('th', { style: thStyle }, 'GUID'),
-              React.createElement('th', { style: thStyle }, '')
-            )
-          ),
-          React.createElement('tbody', null,
-            its.map(function(it) {
-              return React.createElement('tr', { key: it.guid || it.qualifiedName },
-                React.createElement('td', { style: Object.assign({}, tdBase, { fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap' }) }, it.displayName || it.qualifiedName || it.guid),
-                React.createElement('td', { style: Object.assign({}, tdBase, { color: 'var(--muted)', whiteSpace: 'nowrap' }) }, it.typeName || ''),
-                React.createElement('td', { style: tdDesc }, it.description || ''),
-                React.createElement('td', { style: tdMono, title: it.qualifiedName || '' }, it.qualifiedName || ''),
-                React.createElement('td', { style: tdMono, title: it.guid || '' }, it.guid || ''),
-                React.createElement('td', { style: Object.assign({}, tdBase, { whiteSpace: 'nowrap' }) },
-                  it.guid && React.createElement('a', {
-                    href: '/tech-catalog?guid=' + encodeURIComponent(it.guid),
-                    target: '_blank',
-                    style: { fontSize: 10, color: 'var(--accent)', textDecoration: 'none', border: '1px solid var(--border)', borderRadius: 4, padding: '2px 7px' }
-                  }, '↗ View')
-                )
-              );
-            })
-          )
-        )
-      );
-    }
-  });
-
-  return React.createElement('div', null,
-    React.createElement('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 4 } },
-      React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)', margin: 0, flex: 1 } }, item.displayName),
-      React.createElement(EgeriaFeedbackWidget, { guid: item.guid })
-    ),
-    React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginBottom: item.description ? 12 : 4 } }, item.qualifiedName),
-    item.description && React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 12 },
-      dangerouslySetInnerHTML: { __html: renderMd(item.description) } }),
-    React.createElement(AvailableMermaidDiagrams, { data: item, skip: new Set() }),
-    templatesEl,
-    processesEl,
-    extRefsEl,
-    instancesEl,
-    React.createElement(EgeriaCommentsSection, { guid: item.guid })
-  );
-}
-
-// ── Recursive hierarchy tree node ────────────────────────────────────────────
-function TechTypeNode({ node, depth, selQN, onSelect, expanded, onToggle }) {
-  var hasChildren = node.subTypes && node.subTypes.length > 0;
-  var key = node.qualifiedName || node.displayName;
-  var isExpanded = expanded.has(key);
-  var isSelected = selQN === key;
-  var indent = depth * 14 + 8;
-  return React.createElement('div', null,
-    React.createElement('div', {
-      style: { display: 'flex', alignItems: 'center', gap: 0, padding: '3px 8px 3px ' + indent + 'px',
-               cursor: 'pointer', userSelect: 'none',
-               background: isSelected ? 'var(--hover)' : 'transparent',
-               borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent' }
-    },
-      React.createElement('span', {
-        onClick: function(e) { e.stopPropagation(); if (hasChildren) onToggle(key); },
-        style: { width: 14, flexShrink: 0, fontSize: 9, color: 'var(--dim)',
-                 visibility: hasChildren ? 'visible' : 'hidden', textAlign: 'center' }
-      }, isExpanded ? '▼' : '▶'),
-      React.createElement('span', {
-        onClick: function() { onSelect(node); },
-        style: { fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                 color: isSelected ? 'var(--accent)' : 'var(--text)',
-                 fontWeight: isSelected ? 700 : 400, paddingLeft: 2 }
-      }, node.displayName)
-    ),
-    isExpanded && hasChildren && node.subTypes.map(function(child) {
-      return React.createElement(TechTypeNode, {
-        key: child.qualifiedName || child.displayName,
-        node: child, depth: depth + 1, selQN: selQN,
-        onSelect: onSelect, expanded: expanded, onToggle: onToggle
-      });
-    })
-  );
-}
-
-function TechTypesView({ creds }) {
-  // Hierarchy state
-  var _hier    = useState(null),  hier    = _hier[0],    setHier    = _hier[1];
-  var _hierErr = useState(''),    hierErr = _hierErr[0], setHierErr = _hierErr[1];
-  var _exp     = useState(new Set()), exp = _exp[0], setExp = _exp[1];
-
-  // Search / flat list state
-  var _input   = useState(''),    input   = _input[0],   setInput   = _input[1];
-  var _srItems = useState([]),    srItems = _srItems[0], setSrItems = _srItems[1];
-  var _srLoad  = useState(false), srLoad  = _srLoad[0],  setSrLoad  = _srLoad[1];
-  var _srErr   = useState(''),    srErr   = _srErr[0],   setSrErr   = _srErr[1];
-  var searchMode = input.trim().length > 0;
-
-  // Selection + detail state
-  var _sel     = useState(null),  sel     = _sel[0],     setSel     = _sel[1];
-  var _detail  = useState(null),  detail  = _detail[0],  setDetail  = _detail[1];
-  var _detLoad = useState(false), detLoad = _detLoad[0], setDetLoad = _detLoad[1];
-
-  // Load hierarchy on mount
-  useEffect(function() {
-    fetchWithToken('/api/tech-catalog/tech-types/hierarchy', creds)
-      .then(function(r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
-      .then(function(d) {
-        var root = d.hierarchy || d;
-        setHier(root);
-        // Auto-expand first level (root's direct children)
-        var firstLevel = new Set();
-        if (root && root.subTypes) {
-          root.subTypes.forEach(function(n) {
-            firstLevel.add(n.qualifiedName || n.displayName);
-          });
-        }
-        setExp(firstLevel);
-      })
-      .catch(function(e) { setHierErr(String(e)); });
-  }, []);
-
-  // Search when input changes (debounced via Enter or after brief pause)
-  var _searchTimer = useRef(null);
-  useEffect(function() {
-    var q = input.trim();
-    if (!q) { setSrItems([]); return; }
-    clearTimeout(_searchTimer.current);
-    _searchTimer.current = setTimeout(function() {
-      setSrLoad(true); setSrErr('');
-      fetchWithToken('/api/tech-catalog/tech-types?q=' + encodeURIComponent(q), creds)
-        .then(function(r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
-        .then(function(d) { setSrItems(d.items || []); setSrLoad(false); })
-        .catch(function(e) { setSrErr(String(e)); setSrLoad(false); });
-    }, 350);
-    return function() { clearTimeout(_searchTimer.current); };
-  }, [input]);
-
-  // Load detail on selection
-  useEffect(function() {
-    if (!sel) { setDetail(null); return; }
-    setDetLoad(true); setDetail(null);
-    var url = '/api/tech-catalog/tech-types/' + encodeURIComponent(sel.qualifiedName || sel.displayName) +
-              '?deployed_implementation_type=' + encodeURIComponent(sel.deployedImplementationType || sel.displayName || '');
-    fetchWithToken(url, creds)
-      .then(function(r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
-      .then(function(d) { setDetail(d); setDetLoad(false); })
-      .catch(function(e) { console.error('TechType detail fetch failed:', e); setDetLoad(false); });
-  }, [sel && (sel.qualifiedName || sel.displayName)]);
-
-  function handleSelect(node) {
-    setSel({ qualifiedName: node.qualifiedName || '', displayName: node.displayName || '' });
-  }
-
-  function toggleNode(key) {
-    setExp(function(prev) {
-      var next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
-  }
-
-  var selQN = sel ? (sel.qualifiedName || sel.displayName) : null;
-
-  // Sidebar content
-  var sidebarContent;
-  if (searchMode) {
-    // Flat search results list
-    sidebarContent = srLoad
-      ? React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'Searching…')
-      : srErr
-        ? React.createElement('div', { style: { padding: 16, color: '#f87171', fontSize: 12 } }, srErr)
-        : srItems.length === 0
-          ? React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'No results.')
-          : React.createElement('div', null, srItems.map(function(item) {
-              var active = selQN === (item.qualifiedName || item.displayName);
-              return React.createElement('div', { key: item.qualifiedName || item.displayName,
-                onClick: function() { handleSelect(item); },
-                style: { padding: '6px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)',
-                         background: active ? 'var(--hover)' : 'transparent',
-                         borderLeft: active ? '3px solid var(--accent)' : '3px solid transparent' } },
-                React.createElement('span', { style: { fontSize: 12, fontWeight: active ? 700 : 400,
-                  color: active ? 'var(--accent)' : 'var(--text)' } }, item.displayName)
-              );
-            }));
-  } else {
-    // Hierarchy tree
-    sidebarContent = !hier
-      ? (hierErr
-          ? React.createElement('div', { style: { padding: 16, color: '#f87171', fontSize: 12 } }, hierErr)
-          : React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'Loading…'))
-      : React.createElement('div', null,
-          (hier.subTypes || []).map(function(topNode) {
-            return React.createElement(TechTypeNode, {
-              key: topNode.qualifiedName || topNode.displayName,
-              node: topNode, depth: 0, selQN: selQN,
-              onSelect: handleSelect, expanded: exp, onToggle: toggleNode
-            });
-          })
-        );
-  }
-
-  return React.createElement('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
-    React.createElement('div', { style: { width: 290, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden' } },
-      // Search bar
-      React.createElement('div', { style: { padding: '7px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
-        React.createElement('input', {
-          value: input,
-          onChange: function(e) { setInput(e.target.value); },
-          placeholder: 'Search… (or browse tree below)',
-          style: { width: '100%', boxSizing: 'border-box', fontSize: 12, padding: '4px 9px', borderRadius: 4,
-                   border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--text)', outline: 'none' }
-        })
-      ),
-      React.createElement('div', { style: { overflowY: 'auto', flex: 1, padding: '4px 0' } }, sidebarContent)
-    ),
-    React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: sel ? '20px 24px' : 0 } },
-      sel
-        ? React.createElement(TechTypeDetail, { item: detail || sel, detailLoading: detLoad, creds: creds })
-        : React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--dim)', fontSize: 13 } }, 'Select a technology type from the tree')
-    )
-  );
-}
-
-// ── Connection form (local quickstart only) ───────────────────────────────────
-function ConnectionForm({ saveCreds, initialCreds }) {
-  var ic = initialCreds || {};
-  var _f = useState({ url: ic.url || '', server: ic.server || 'qs-view-server', userId: ic.userId || '', password: ic.password || '' });
-  var form = _f[0], setForm = _f[1];
-  var _saved = useState(false), saved = _saved[0], setSaved = _saved[1];
-  function set(k, v) { setForm(function(f) { var n = {}; Object.keys(f).forEach(function(k2) { n[k2] = f[k2]; }); n[k] = v; return n; }); setSaved(false); }
-  function onSubmit(e) { e.preventDefault(); saveCreds(form); setSaved(true); }
-  var fieldStyle = { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' };
-  var labelStyle = { fontSize: 11, color: 'var(--dim)', marginBottom: 2, display: 'block' };
-  var colStyle   = { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 };
-  return React.createElement('div', {
-    style: { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: '16px 20px', marginBottom: 28 }
-  },
-    React.createElement('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 12 } }, 'Connection Settings'),
-    React.createElement('form', { onSubmit: onSubmit },
-      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: 8, alignItems: 'end' } },
-        React.createElement('div', { style: colStyle },
-          React.createElement('label', { style: labelStyle }, 'Platform URL'),
-          React.createElement('input', { style: fieldStyle, type: 'text', value: form.url, placeholder: 'https://localhost:9443', onChange: function(e) { set('url', e.target.value); } })
-        ),
-        React.createElement('div', { style: colStyle },
-          React.createElement('label', { style: labelStyle }, 'View Server'),
-          React.createElement('input', { style: fieldStyle, type: 'text', value: form.server, placeholder: 'qs-view-server', onChange: function(e) { set('server', e.target.value); } })
-        ),
-        React.createElement('div', { style: colStyle },
-          React.createElement('label', { style: labelStyle }, 'User ID'),
-          React.createElement('input', { style: fieldStyle, type: 'text', value: form.userId, placeholder: 'erinoverview', onChange: function(e) { set('userId', e.target.value); } })
-        ),
-        React.createElement('div', { style: colStyle },
-          React.createElement('label', { style: labelStyle }, 'Password'),
-          React.createElement('input', { style: fieldStyle, type: 'password', value: form.password, placeholder: '···', onChange: function(e) { set('password', e.target.value); } })
-        ),
-        React.createElement('button', {
-          type: 'submit',
-          style: { padding: '6px 14px', borderRadius: 5, border: '1px solid rgba(96,165,250,.4)', background: saved ? 'rgba(52,211,153,.12)' : 'rgba(96,165,250,.1)', color: saved ? '#34d399' : 'var(--accent)', cursor: 'pointer', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }
-        }, saved ? '✔ Saved' : 'Connect')
-      ),
-      React.createElement('p', { style: { margin: '8px 0 0', fontSize: 11, color: 'var(--dim)' } },
-        'Leave fields empty to use server defaults. Settings are saved for this session.')
-    )
-  );
-}
-
-// ── Sidebar + Detail shell ────────────────────────────────────────────────────
-function SidebarDetail({ items, loading, error, selected, onSelect, renderDetail, filterBar }) {
-  return React.createElement('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
-    // Sidebar
-    React.createElement('div', { style: { width: 280, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0 } },
-      filterBar,
-      React.createElement('div', { style: { overflowY: 'auto', flex: 1 } },
-        loading ? React.createElement('div', { style: { padding: 24, color: 'var(--dim)', fontSize: 12 } }, 'Loading…')
-        : error   ? React.createElement('div', { style: { padding: 16, color: '#f87171', fontSize: 12 } }, error)
-        : items.length === 0 ? React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'No items found.')
-        : items.map(function(item) {
-            var active = selected && selected.guid === item.guid;
-            // Sidebar classification badges: zones first, then other types (max 3 total)
-            var badges = [];
-            (item.classifications || []).forEach(function(cls) {
-              if (cls.typeName === 'ZoneMembership') {
-                var zones = (cls.properties && cls.properties.zoneMembershipList)
-                  ? cls.properties.zoneMembershipList.split(', ').filter(Boolean) : [];
-                zones.forEach(function(z) {
-                  badges.push(React.createElement('span', { key: 'zm:' + z,
-                    style: { fontSize: 9, background: 'rgba(20,83,45,.45)', color: '#4ade80', borderRadius: 8, padding: '1px 5px', border: '0.5px solid #166534', whiteSpace: 'nowrap' }
-                  }, z));
-                });
-              } else {
-                badges.push(React.createElement('span', { key: cls.typeName,
-                  style: { fontSize: 9, background: 'rgba(124,58,237,.12)', color: '#a78bfa', borderRadius: 8, padding: '1px 5px', border: '0.5px solid rgba(124,58,237,.3)', whiteSpace: 'nowrap' }
-                }, cls.typeName));
-              }
-            });
-            if (badges.length > 3) badges = badges.slice(0, 3);
-            return React.createElement('div', { key: item.guid, onClick: function() { onSelect(item); },
-              style: { padding: '8px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)',
-                       background: active ? 'var(--hover)' : 'transparent',
-                       borderLeft: active ? '3px solid var(--accent)' : '3px solid transparent' } },
-              React.createElement('div', { style: { fontSize: 12, fontWeight: active ? 700 : 400, color: active ? 'var(--accent)' : 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
-                item.displayName || item.qualifiedName || item.guid),
-              item.deployedImplementationType && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 1 } }, item.deployedImplementationType),
-              item.typeName && !item.deployedImplementationType && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 1 } }, item.typeName),
-              badges.length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 2, marginTop: 3 } }, badges)
-            );
-          })
-      )
-    ),
-    // Detail pane
-    React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: selected ? '20px 24px' : 0 } },
-      selected ? renderDetail(selected)
-      : React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--dim)', fontSize: 13 } }, 'Select an item from the list')
-    )
-  );
-}
-
-// ── Sub-pane pattern — lazy-loading collapsible panels in the detail view ────
-//
-// SubPane: generic container. Fetches fetchUrl on first open, then renders via
-// renderContent(data). Stays open/closed independently. Reused for Schema and Lineage.
-//
-function SubPane({ title, fetchUrl, creds, renderContent, prominent }) {
-  var _open    = useState(false), open    = _open[0],    setOpen    = _open[1];
-  var _data    = useState(null),  data    = _data[0],    setData    = _data[1];
-  var _loading = useState(false), loading = _loading[0], setLoading = _loading[1];
-  var _err     = useState(''),    err     = _err[0],     setErr     = _err[1];
-
-  function toggle() {
-    var nowOpen = !open;
-    setOpen(nowOpen);
-    if (nowOpen && !data && !loading) {
-      setLoading(true); setErr('');
-      fetchWithToken(fetchUrl, creds)
-        .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-        .then(function(d) { setData(d); setLoading(false); })
-        .catch(function(e) { setErr(String(e)); setLoading(false); });
-    }
-  }
-
-  if (prominent) {
-    var btnStyle = { width: '100%', marginTop: 14, padding: '10px 16px', fontSize: 13, fontWeight: 700,
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer',
-      borderRadius: 6, border: '1px solid ' + (open ? 'rgba(96,165,250,.6)' : 'rgba(96,165,250,.35)'),
-      background: open ? 'rgba(96,165,250,.12)' : 'rgba(96,165,250,.06)',
-      color: 'var(--accent)', userSelect: 'none' };
-    return React.createElement('div', null,
-      React.createElement('div', { style: btnStyle, onClick: toggle },
-        React.createElement('span', null, title),
-        React.createElement('span', { style: { fontSize: 18, lineHeight: 1 } }, open ? '▲' : '▼')
-      ),
-      open && React.createElement('div', { style: { paddingBottom: 12 } },
-        loading
-          ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '8px 0' } }, 'Loading…')
-          : err
-            ? React.createElement('div', { style: { fontSize: 12, color: 'var(--muted)', padding: '8px 0' } }, 'Error: ' + err)
-            : data ? renderContent(data) : null
-      )
-    );
-  }
-
-  var hdrStyle = { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 0', cursor: 'pointer', borderTop: '1px solid var(--border)', marginTop: 16, userSelect: 'none' };
-  var labelStyle = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', flex: 1 };
-  var chevron = open ? '▲' : '▼';
-  return React.createElement('div', null,
-    React.createElement('div', { style: hdrStyle, onClick: toggle },
-      React.createElement('span', { style: labelStyle }, title),
-      React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)' } }, chevron)
-    ),
-    open && React.createElement('div', { style: { paddingBottom: 12 } },
-      loading
-        ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '8px 0' } }, 'Loading…')
-        : err
-          ? React.createElement('div', { style: { fontSize: 12, color: 'var(--muted)', padding: '8px 0' } }, 'Error: ' + err)
-          : data ? renderContent(data) : null
-    )
-  );
-}
-
-// SchemaPane: renders schemaType + sorted attribute table
-function SchemaPane({ guid, creds }) {
-  function renderSchema(data) {
-    var st = data.schemaType;
-    var attrs = data.attributes || [];
-    var tblHdr = { fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 8px 4px 0', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' };
-    var tdStyle = { fontSize: 11, padding: '3px 8px 3px 0', color: 'var(--text)', verticalAlign: 'top', borderBottom: '1px solid var(--border)' };
-    var tdDim   = Object.assign({}, tdStyle, { color: 'var(--dim)', whiteSpace: 'nowrap' });
-    return React.createElement('div', null,
-      st && React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 } },
-        React.createElement('span', { style: { fontSize: 12, color: 'var(--muted)' } }, 'Schema type:'),
-        React.createElement('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--text)' } }, st.typeName || ''),
-        st.displayName && React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, st.displayName)
-      ),
-      attrs.length === 0
-        ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'No attributes found.')
-        : React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 } },
-            React.createElement('thead', null,
-              React.createElement('tr', null,
-                React.createElement('th', { style: tblHdr }, '#'),
-                React.createElement('th', { style: tblHdr }, 'Name'),
-                React.createElement('th', { style: tblHdr }, 'Type'),
-                React.createElement('th', { style: tblHdr }, 'Required'),
-                React.createElement('th', { style: tblHdr }, 'Description')
-              )
-            ),
-            React.createElement('tbody', null,
-              attrs.map(function(a, i) {
-                return React.createElement('tr', { key: a.guid || i },
-                  React.createElement('td', { style: tdDim }, a.position != null ? a.position : i + 1),
-                  React.createElement('td', { style: tdStyle }, a.displayName),
-                  React.createElement('td', { style: tdDim }, a.dataType || a.typeName || ''),
-                  React.createElement('td', { style: tdDim }, a.required ? 'Yes' : ''),
-                  React.createElement('td', { style: Object.assign({}, tdStyle, { color: 'var(--muted)' }) }, a.description || '')
-                );
-              })
-            )
-          )
-    );
-  }
-  return React.createElement(SubPane, {
-    title: 'Schema',
-    fetchUrl: '/api/tech-catalog/assets/' + encodeURIComponent(guid) + '/schema',
-    creds: creds,
-    renderContent: renderSchema,
-  });
-}
-
-// LineagePane: deep-link to the dedicated Lineage Explorer
-function LineagePane({ guid }) {
-  var wrapStyle = { padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' };
-  var descStyle = { fontSize: 12, color: 'var(--dim)', lineHeight: 1.5 };
-  var btnStyle  = { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600,
-                    color: 'var(--accent)', background: 'rgba(96,165,250,.1)', border: '1px solid rgba(96,165,250,.35)',
-                    borderRadius: 6, padding: '7px 16px', textDecoration: 'none', cursor: 'pointer' };
-  return React.createElement('div', { style: { borderTop: '1px solid var(--border)', marginTop: 12 } },
-    React.createElement('div', { style: wrapStyle },
-      React.createElement('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 2 } }, 'Lineage'),
-      React.createElement('p', { style: descStyle }, 'Full end-to-end lineage, time-travel queries, ISC filtering and field-level detail are available in the Lineage Explorer.'),
-      React.createElement('a', { href: '/lineage?guid=' + encodeURIComponent(guid), target: '_blank', style: btnStyle }, '🔗 Open in Lineage Explorer')
-    )
-  );
-}
-
-// Glossary detail panes (GlossaryFolderDetail/GlossaryDetail/GlossaryTermDetail)
-// + _glsBadge now live in /static/egeria-shared-ui.js (shared with the Explorer).
-
-var _glsItemStyle    = { display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', fontSize: 12, cursor: 'pointer', borderLeft: '2px solid transparent', userSelect: 'none' };
-var _glsItemSelStyle = Object.assign({}, _glsItemStyle, { background: 'rgba(96,165,250,.1)', borderLeftColor: 'var(--accent)', color: 'var(--text)' });
-
-function GlossaryView({ creds, onNavigate }) {
-  var _sideW = useResizable(220), sideW = _sideW[0], onDivDown = _sideW[1];
-  var _gs = useState('loading'), glossaryState = _gs[0], setGlossaryState = _gs[1];
-  var _ga = useState(0),         glossaryAttempt = _ga[0], setGlossaryAttempt = _ga[1];
-  var _gl = useState([]),         glossaries = _gl[0], setGlossaries = _gl[1];
-  var _sg = useState(null),       selectedGlossary = _sg[0], setSelectedGlossary = _sg[1];
-  var _fs = useState([]),         folderStack = _fs[0], setFolderStack = _fs[1];
-  var _fo = useState([]),         folders = _fo[0], setFolders = _fo[1];
-  var _te = useState([]),         terms = _te[0], setTerms = _te[1];
-  var _ss = useState('idle'),     scopeState = _ss[0], setScopeState = _ss[1];
-  var _se = useState(''),         scopeError = _se[0], setScopeError = _se[1];
-  var _sq = useState(''),         searchQuery = _sq[0], setSearchQuery = _sq[1];
-  var _si = useState(''),         searchInputValue = _si[0], setSearchInputValue = _si[1];
-  var _st = useState([]),         searchTerms = _st[0], setSearchTerms = _st[1];
-  var _ss2 = useState('idle'),    searchState = _ss2[0], setSearchState = _ss2[1];
-  var _se2 = useState(''),        searchError = _se2[0], setSearchError = _se2[1];
-  var _sel = useState(null),      selectedItem = _sel[0], setSelectedItem = _sel[1];
-  var _td = useState(null),       termDetail = _td[0], setTermDetail = _td[1];
-  var _tds = useState('idle'),    termDetailState = _tds[0], setTermDetailState = _tds[1];
-  var _ft = useState(''),         filterText = _ft[0], setFilterText = _ft[1];
-  var _sht = useState(false),     showTemplates = _sht[0], setShowTemplates = _sht[1];
-  var _ge = useState(''),         glossaryError = _ge[0], setGlossaryError = _ge[1];
-  // The selected node object (folder or term) — carried so nested tree items
-  // resolve without being present in the flat top-level scope arrays.
-  var _sd = useState(null),       selectedData = _sd[0], setSelectedData = _sd[1];
-  var selectItem = useCallback(function(obj, isFolder) {
-    setSelectedItem(obj.guid);
-    setSelectedData(Object.assign({}, obj, { isFolder: !!isFolder }));
-  }, []);
-  // Auth wrapper handed to the shared GlossaryTreeNode for lazy child loads.
-  var fetchJson = useCallback(function(path) {
-    return fetchWithToken(path, creds).then(function(r) { return r.ok ? r.json() : {}; });
-  }, [creds]);
-
-  // Load glossary list
-  useEffect(function() {
-    setGlossaryState('loading'); setGlossaryError('');
-    fetchWithToken('/api/glossary', creds)
-      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(function(data) {
-        var list = (data.glossaries || []).slice().sort(function(a,b){return (a.displayName||'').localeCompare(b.displayName||'');});
-        setGlossaries(list); setGlossaryState('ready');
-        if (list.length > 0) setSelectedGlossary(list[0].guid);
-      })
-      .catch(function(err) { setGlossaryError(err.message); setGlossaryState('error'); });
-  }, [glossaryAttempt]);
-
-  var currentScopeGuid = useMemo(function() {
-    if (!selectedGlossary) return null;
-    return folderStack.length > 0 ? folderStack[folderStack.length - 1].guid : selectedGlossary;
-  }, [selectedGlossary, folderStack]);
-
-  // Load folders + terms for current scope
-  useEffect(function() {
-    if (!currentScopeGuid) return;
-    setScopeState('loading'); setScopeError(''); setFolders([]); setTerms([]);
-    setSelectedItem(null); setSelectedData(null); setTermDetail(null); setTermDetailState('idle'); setFilterText('');
-    Promise.all([
-      fetchWithToken('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/folders', creds).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}),
-      fetchWithToken('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/terms',   creds).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
-    ])
-    .then(function(res) { setFolders(res[0].folders||[]); setTerms(res[1].terms||[]); setScopeState('ready'); })
-    .catch(function(err){ setScopeError(err.message); setScopeState('error'); });
-  }, [currentScopeGuid]);
-
-  var runSearch = useCallback(function(q) {
-    var sq = (q||'').trim() || '*';
-    setSearchQuery(sq); setSearchInputValue(sq === '*' ? '' : sq);
-    setSearchState('loading'); setSearchError(''); setSearchTerms([]); setSelectedItem(null); setSelectedData(null); setTermDetail(null); setTermDetailState('idle');
-    fetchWithToken('/api/glossary-terms?q=' + encodeURIComponent(sq), creds)
-      .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
-      .then(function(data){setSearchTerms(data.terms||[]);setSearchState('ready');})
-      .catch(function(err){setSearchError(err.message);setSearchState('idle');});
-  }, []);
-
-  var navigateToTerm = useCallback(function(guid){ setSelectedItem(guid); }, []);
-
-  // Cross-app navigation for term relationships. The Catalog has no Data Design
-  // tab of its own, so DataField/DataStructure/etc. (and any other element type
-  // in TYPE_TO_NAV) open the Egeria Explorer, deep-linked via handleNavigate.
-  function _resolveNav(item) {
-    var nav = item.typeName ? TYPE_TO_NAV[item.typeName] : null;
-    var supers = item.superTypeNames || item.superTypes || [];
-    if (!nav) { for (var i = 0; i < supers.length; i++) { nav = TYPE_TO_NAV[supers[i]]; if (nav) break; } }
-    return nav || null;
-  }
-  var navigateToElement = useCallback(function(item) {
-    var nav = _resolveNav(item);
-    if (nav && onNavigate) onNavigate(Object.assign({ guid: item.guid, displayName: item.displayName || item.qualifiedName || item.guid }, nav));
-  }, [onNavigate]);
-  var navigateToDataDesign = useCallback(function(typeName, guid) {
-    navigateToElement({ typeName: typeName, guid: guid });
-  }, [navigateToElement]);
-  function isElementLinkable(item) { return !!_resolveNav(item); }
-
-  var isSearchMode = selectedGlossary === null;
-
-  var filteredTerms = useMemo(function() {
-    var q = filterText.trim().toLowerCase();
-    return terms.filter(function(t){
-      if (!showTemplates && t.isTemplateSubstitute) return false;
-      if (!q) return true;
-      return (t.displayName||'').toLowerCase().includes(q)||(t.description||'').toLowerCase().includes(q)||(t.abbreviation||'').toLowerCase().includes(q);
-    }).slice().sort(function(a,b){return (a.displayName||'').localeCompare(b.displayName||'');});
-  }, [terms, filterText, showTemplates]);
-
-  var templateTermCount = useMemo(function(){ return terms.filter(function(t){return t.isTemplateSubstitute;}).length; }, [terms]);
-
-  var filteredSearchTerms = useMemo(function() {
-    var q = filterText.trim().toLowerCase();
-    return searchTerms.filter(function(t){
-      if (!showTemplates && t.isTemplateSubstitute) return false;
-      if (!q) return true;
-      return (t.displayName||'').toLowerCase().includes(q)||(t.description||'').toLowerCase().includes(q);
-    }).slice().sort(function(a,b){return (a.displayName||'').localeCompare(b.displayName||'');});
-  }, [searchTerms, filterText, showTemplates]);
-
-  // Lazy-fetch full term detail when a term is selected
-  useEffect(function() {
-    if (!selectedItem) { setTermDetail(null); setTermDetailState('idle'); return; }
-    if (selectedData && selectedData.isFolder) { setTermDetail(null); setTermDetailState('idle'); return; }
-    setTermDetail(null); setTermDetailState('loading');
-    fetchWithToken('/api/glossary/term/' + encodeURIComponent(selectedItem), creds)
-      .then(function(r){return r.ok?r.json():null;})
-      .then(function(data){setTermDetail(data||null);setTermDetailState(data?'ready':'error');})
-      .catch(function(){setTermDetailState('error');});
-  }, [selectedItem, selectedData]);
-
-  // The clicked folder/term object (carries isFolder); set by selectItem so
-  // nested tree rows resolve without being in the flat top-level scope arrays.
-  var selectedObj = useMemo(function() {
-    return selectedData;
-  }, [selectedData]);
-
-  var selectedGlossaryName = selectedGlossary ? ((glossaries.find(function(g){return g.guid===selectedGlossary;})||{}).displayName||'') : '';
-  var middleLoading = isSearchMode ? searchState==='loading' : scopeState==='loading';
-  var middleError   = isSearchMode ? searchError : scopeError;
-  var templateHidden = !showTemplates && templateTermCount > 0 ? ' · ' + templateTermCount + ' template' + (templateTermCount!==1?'s':'')+' hidden' : '';
-  var middleCounts  = isSearchMode
-    ? 'Terms (' + filteredSearchTerms.length + (filteredSearchTerms.length!==searchTerms.length?'/'+searchTerms.length:'') + ')' + (searchTerms.length>=200?' ⚠ first 200 shown':'')
-    : (scopeState==='loading' ? 'Loading…' : folders.length+' folder'+(folders.length!==1?'s':'')+', '+filteredTerms.length+(filteredTerms.length!==(terms.length-templateTermCount)?'/'+(terms.length-templateTermCount):'')+' term'+((terms.length-templateTermCount)!==1?'s':'')+templateHidden+(terms.length>=500?' ⚠ first 500 shown':''));
-
-  var sidebarStyle  = { width: sideW, flexShrink: 0, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--panel)' };
-  var treeScrollSt  = { flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '4px 0' };
-  var mainStyle     = { flex: 1, overflowY: 'auto', background: 'var(--bg)' };
-
-  function treeItemSt(active) { return active ? _glsItemSelStyle : _glsItemStyle; }
-
-  if (glossaryState==='loading') return React.createElement('div', {style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--muted)'}}, 'Loading glossaries…');
-  if (glossaryState==='error')   return React.createElement('div', {style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,color:'var(--muted)'}},
-    React.createElement('div', null, 'Error: ' + glossaryError),
-    React.createElement('button', {style:{fontSize:12,padding:'4px 12px',borderRadius:4,border:'1px solid var(--border)',background:'transparent',color:'var(--accent)',cursor:'pointer'},onClick:function(){setGlossaryAttempt(function(a){return a+1;});}}, 'Retry')
-  );
-
-  return React.createElement('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
-    // Left: glossary list
-    React.createElement('div', { style: sidebarStyle },
-      React.createElement('div', { style: { padding: '8px 10px', fontWeight: 700, fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } }, 'Glossaries (' + glossaries.length + ')'),
-      React.createElement('div', { style: treeScrollSt },
-        React.createElement('div', { style: treeItemSt(isSearchMode), onClick: function(){setSelectedGlossary(null);setFolderStack([]);runSearch('*');}, title: 'Search terms across all glossaries' },
-          React.createElement('span', { style: { fontStyle: 'italic', color: 'var(--dim)', fontSize: 12 } }, 'All Terms (search)')
-        ),
-        glossaries.map(function(g) {
-          return React.createElement('div', { key: g.guid, style: treeItemSt(selectedGlossary===g.guid), onClick: function(){setSelectedGlossary(g.guid);setFolderStack([]);}, title: g.description||g.qualifiedName },
-            React.createElement('span', { style: { fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, g.displayName||g.qualifiedName||g.guid)
-          );
-        })
-      )
-    ),
-    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
-    // Middle: folders + terms / search results
-    React.createElement('div', { style: { width: 280, flexShrink: 0, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
-      React.createElement('div', { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 5 } },
-        // Glossary name (folders are now expandable inline in the tree below)
-        !isSearchMode && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', fontWeight: 600 } }, selectedGlossaryName || 'Glossary'),
-        React.createElement('div', { style: { fontWeight: 600, fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, middleCounts),
-        isSearchMode
-          ? React.createElement('form', { onSubmit: function(e){e.preventDefault();runSearch(searchInputValue);}, style: { display: 'flex', gap: 4 } },
-              React.createElement('input', { type: 'text', placeholder: 'Search all terms…', value: searchInputValue, onChange: function(e){setSearchInputValue(e.target.value);}, style: { flex: 1, fontSize: 12, padding: '3px 7px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' } }),
-              React.createElement('button', { type: 'submit', style: { padding: '3px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'inherit', cursor: 'pointer', fontSize: 12 } }, 'Go')
-            )
-          : React.createElement('input', { type: 'search', placeholder: 'Filter terms…', value: filterText, onChange: function(e){setFilterText(e.target.value);}, style: { width: '100%', boxSizing: 'border-box', fontSize: 12, padding: '3px 7px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' } }),
-        React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
-          React.createElement('input', { type: 'checkbox', checked: showTemplates, onChange: function(e){setShowTemplates(e.target.checked);}, style: { margin: 0, cursor: 'pointer' } }),
-          'Show template substitutes'
-        )
-      ),
-      middleError && React.createElement('div', { style: { padding: 10, color: 'var(--muted)', fontSize: 12 } }, 'Error: ' + middleError),
-      React.createElement('div', { style: treeScrollSt },
-        isSearchMode
-          // All-Terms search results (flat)
-          ? filteredSearchTerms.map(function(t) { return React.createElement(GlossaryTermRow, { key: t.guid, term: t, depth: 0, selected: selectedItem, onSelect: selectItem }); })
-          // Glossary scope: expandable folder tree, then top-level terms (shared
-          // GlossaryTreeNode lazy-loads each folder's children via fetchJson).
-          : React.createElement(React.Fragment, null,
-              folders.map(function(f) { return React.createElement(GlossaryTreeNode, { key: f.guid, folder: f, depth: 0, selected: selectedItem, onSelect: selectItem, showTemplates: showTemplates, fetchJson: fetchJson }); }),
-              filteredTerms.map(function(t) { return React.createElement(GlossaryTermRow, { key: t.guid, term: t, depth: 0, selected: selectedItem, onSelect: selectItem }); })
-            )
-      )
-    ),
-    // Right: detail
-    React.createElement('div', { style: mainStyle },
-      selectedObj && selectedObj.isFolder
-        ? React.createElement(GlossaryFolderDetail, { folder: selectedObj })
-        : termDetailState==='loading'
-          ? React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--muted)', fontSize: 13 } }, 'Loading term…')
-          : termDetail
-            ? React.createElement(GlossaryTermDetail, { term: termDetail, onNavigateToTerm: navigateToTerm, onNavigateToDataDesign: navigateToDataDesign, onNavigateToElement: navigateToElement, isElementLinkable: isElementLinkable })
-            : !isSearchMode && selectedGlossary && !selectedItem
-              ? React.createElement(GlossaryDetail, { glossary: glossaries.find(function(g){return g.guid===selectedGlossary;})||null })
-              : React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--dim)', fontSize: 13 } },
-                  middleLoading ? 'Loading…' : 'Select a term or folder to view details'
-                )
-    )
-  );
-}
-
-// ── Type → section/tab mapping for cross-navigation ──────────────────────────
-// Maps an Egeria typeName to the catalog section+tab that hosts it.
-// Subtypes not listed here won't get a "View →" button in the Relationships panel.
-var TYPE_TO_NAV = (function() {
-  var m = {};
-  // ITInfrastructure hierarchy
-  ['ITInfrastructure','SoftwareServer','SoftwareServerPlatform','Host',
-   'VirtualMachine','VirtualContainer','DockerContainer','HostCluster',
-   'BareMetalComputer','OperatingPlatform','StorageArray','StorageVolume',
-   'StorageVolumePair','SwitchFabric','NetworkGateway'].forEach(function(t) {
-    m[t] = { section: 'infrastructure', tab: 'infrastructure' };
-  });
-  // SoftwareCapability hierarchy
-  ['SoftwareCapability','APIManager','EventBroker','DatabaseManager','MetadataServer',
-   'GovernanceEngine','DataProcessingEngine','DataStoreManager','FileSystem',
-   'NetworkGateway','EnterpriseAccessLayer','CohortMember','CloudService',
-   'ContentManager','DirectoryService','InformationView','FormManager',
-   'RelationalDatabaseManager','WorkflowEngine','ReportingEngine',
-   'AnalyticsEngine','DataQualityEngine','MasterDataManager',
-   'NotificationManager','SearchEngine','GovernanceProgram',
-   'SecurityManager','AuthorizationManager','ReferenceDataManager',
-   'DigitalServiceManager'].forEach(function(t) {
-    m[t] = { section: 'infrastructure', tab: 'software-capabilities' };
-  });
-  // Endpoints
-  ['Endpoint'].forEach(function(t) {
-    m[t] = { section: 'infrastructure', tab: 'endpoints' };
-  });
-  // DataStore hierarchy
-  ['DataStore','Database','RelationalDatabase','ObjectStore','DocumentStore',
-   'GraphStore','DataFile','CSVFile','SpreadsheetFile','MediaFile','MediaCollection',
-   'DataFolder','FileFolder','DataObjectStore','KeyValueStore','GraphDatabase',
-   'DocumentDatabase','RelationalDatabaseSchema','DataStoreEncoding'].forEach(function(t) {
-    m[t] = { section: 'data-assets', tab: 'data-stores' };
-  });
-  // DataFeed hierarchy
-  ['DataFeed','Topic','KafkaTopic','SubscriberList','EventType','EventSet'].forEach(function(t) {
-    m[t] = { section: 'data-assets', tab: 'data-feeds' };
-  });
-  // DataSet hierarchy
-  ['DataSet','VirtualRelationalTable','DataCatalog','DataDesignArtifact',
-   'DataTable','DataSchemaAttribute'].forEach(function(t) {
-    m[t] = { section: 'data-assets', tab: 'data-sets' };
-  });
-  // APIs
-  ['DeployedAPI','APIOperation','APISchemaType'].forEach(function(t) {
-    m[t] = { section: 'apis', tab: 'apis' };
-  });
-  // Processes / software components
-  ['DeployedSoftwareComponent','DataMovementEngine','DataVirtualizationEngine',
-   'AnalyticsComponent','ReportingComponent','DashboardComponent',
-   'MLModel','MLModelDeployment'].forEach(function(t) {
-    m[t] = { section: 'processes', tab: 'software-components' };
-  });
-  // Glossary
-  ['GlossaryTerm','Glossary','GlossaryCategory'].forEach(function(t) {
-    m[t] = { section: 'glossary', tab: 'glossary' };
-  });
-  // Cross-app: Egeria Explorer. Single entries for the abstract supertype are
-  // enough — the caller falls back to walking el.superTypes when there's no
-  // exact match, so e.g. PersonRole/GovernanceRole both resolve via 'ActorRole'.
-  m['SolutionComponent'] = { external: 'egeria-explorer', hash: 'solution-architect', kind: 'components' };
-  m['SolutionBlueprint']  = { external: 'egeria-explorer', hash: 'solution-architect', kind: 'blueprints' };
-  m['InformationSupplyChain'] = { external: 'egeria-explorer', hash: 'isc' };
-  m['ActorRole']      = { external: 'egeria-explorer', hash: 'actors', kind: 'roles' };
-  m['ActorProfile']   = { external: 'egeria-explorer', hash: 'actors', kind: 'profiles' };
-  m['UserIdentity']   = { external: 'egeria-explorer', hash: 'actors', kind: 'identities' };
-  m['Location']       = { external: 'egeria-explorer', hash: 'locations' };
-  m['Community']      = { external: 'egeria-explorer', hash: 'communities' };
-  m['GovernanceDefinition'] = { external: 'egeria-explorer', hash: 'governance' };
-  m['ReferenceDataValue']   = { external: 'egeria-explorer', hash: 'reference-data' };
-  // Data Design — Explorer's Data Design tab, sub-tab selected via ?kind=.
-  m['DataSpec']      = { external: 'egeria-explorer', hash: 'data-design', kind: 'specs' };
-  m['DataStructure'] = { external: 'egeria-explorer', hash: 'data-design', kind: 'structures' };
-  m['DataField']     = { external: 'egeria-explorer', hash: 'data-design', kind: 'fields' };
-  m['DataGrain']     = { external: 'egeria-explorer', hash: 'data-design', kind: 'grains' };
-  m['DataClass']     = { external: 'egeria-explorer', hash: 'data-design', kind: 'classes' };
-  // Collection family — Explorer routes these to its Digital Products tab
-  // (CollectionFolder/DigitalProduct + the generic Collection fallback for e.g. Folio).
-  m['CollectionFolder'] = { external: 'egeria-explorer', hash: 'digital-products' };
-  m['DigitalProduct']   = { external: 'egeria-explorer', hash: 'digital-products' };
-  m['Collection']       = { external: 'egeria-explorer', hash: 'digital-products' };
-  return m;
-}());
-
-// ── Generic detail panel ──────────────────────────────────────────────────────
-function AssetDetail({ item, detailLoading, onNavigate, creds }) {
-  if (!item) return null;
-  var _previewState = useState(false), showPreview = _previewState[0], setShowPreview = _previewState[1];
-  // TC-13: file Data Assets (DataFile subtypes / anything with a file path) get a
-  // tabular Preview action backed by /api/tech-catalog/assets/{guid}/preview.
-  var isFileAsset = !!(item.fileExtension || item.pathName || item.resourceName ||
-                       (item.superTypeNames || []).indexOf('DataFile') !== -1);
-  var sectionHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
-  var cardStyle  = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px', marginBottom: 6 };
-  // hasSchema / hasLineage are signalled by the backend; exclude them from the property table
-  var skipKeys   = new Set(['guid','typeName','superTypeNames','displayName','qualifiedName','description','classifications','relationships','hasSchema','hasLineage','props']);
-  var extraProps = Object.entries(item).filter(function(e) {
-    // show every scalar property except the header fields and any mermaid graph
-    // (mermaid is rendered as a diagram, not a property row).
-    if (skipKeys.has(e[0]) || _isMermaidKey(e[0])) return false;
-    return (typeof e[1] === 'string' && e[1].trim()) || typeof e[1] === 'number' || typeof e[1] === 'boolean';
-  });
-  var rels = item.relationships || [];
-
-  return React.createElement('div', null,
-    // Header
-    React.createElement('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 12 } },
-      React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--text)', flex: 1 } },
-        item.displayName || item.qualifiedName || item.guid),
-      detailLoading && React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Loading detail…'),
-      isFileAsset && React.createElement('button', {
-        onClick: function() { setShowPreview(true); },
-        title: 'Preview the rows of this file',
-        style: { fontSize: 12, padding: '4px 12px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer', whiteSpace: 'nowrap' }
-      }, 'Preview Data 📊'),
-      React.createElement(EgeriaFeedbackWidget, { guid: item.guid })
-    ),
-    item.typeName && React.createElement('div', { style: { display: 'inline-block', fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: 'rgba(96,165,250,0.12)', color: 'var(--accent)', marginBottom: 12 } }, item.typeName),
-    // Incoming audit cross-links (#17): jump to this element's exceptions /
-    // certifications / licenses via the shared auditNavigate helper.
-    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, fontSize: 11, color: 'var(--dim)', flexWrap: 'wrap' } },
-      React.createElement('span', null, '🛡️ Audit:'),
-      [['exceptions', 'Exceptions'], ['certifications', 'Certifications'], ['licenses', 'Licenses']].map(function(t) {
-        return React.createElement('button', { key: t[0], onClick: function() { auditNavigate(item.guid, t[0]); }, title: 'Show ' + t[1].toLowerCase() + ' for this element in Egeria Audit',
-          style: { fontSize: 11, padding: '2px 8px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer' } }, t[1] + ' \u2197');
-      })
-    ),
-    item.description && React.createElement('p', { style: { fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, margin: '0 0 16px' } }, item.description),
-
-    // Properties table
-    extraProps.length > 0 && React.createElement('div', null,
-      React.createElement('div', { style: sectionHdr }, 'Properties'),
-      React.createElement('table', { style: { borderCollapse: 'collapse', width: '100%', fontSize: 12 } },
-        React.createElement('tbody', null,
-          [['Qualified Name', item.qualifiedName || '—'], ['GUID', item.guid || '—']].concat(extraProps).map(function(r) {
-            var mono = r[0] === 'Qualified Name' || r[0] === 'GUID';
-            return React.createElement('tr', { key: r[0], style: { borderBottom: '1px solid var(--border)' } },
-              React.createElement('td', { style: { padding: '5px 10px 5px 0', color: 'var(--dim)', width: 180, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
-              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: mono ? 'ui-monospace,monospace' : 'inherit', fontSize: mono ? 11 : 12 } }, String(r[1]))
-            );
-          })
-        )
-      )
-    ),
-
-    // Classifications
-    (item.classifications || []).length > 0 && React.createElement('div', null,
-      React.createElement('div', { style: sectionHdr }, 'Classifications'),
-      item.classifications.map(function(c) {
-        return React.createElement('div', { key: c.typeName, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--classif)' }) },
-          React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
-          Object.entries(c.properties || {}).map(function(e) {
-            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
-              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
-          })
-        );
-      })
-    ),
-
-    // Mermaid diagrams — between Properties and Relationships
-    React.createElement(AvailableMermaidDiagrams, { data: item, skip: new Set() }),
-
-    // Relationships
-    rels.length > 0 && React.createElement('div', null,
-      React.createElement('div', { style: sectionHdr }, 'Relationships'),
-      rels.map(function(r, i) {
-        var el = r.relatedElement || {};
-        var relProps = Object.entries(r.relationshipProperties || {});
-        // Resolve nav target: try exact typeName first, then walk superTypes
-        var nav = null;
-        if (el.guid) {
-          nav = el.typeName ? TYPE_TO_NAV[el.typeName] : null;
-          if (!nav && el.superTypes) {
-            for (var si = 0; si < el.superTypes.length; si++) {
-              nav = TYPE_TO_NAV[el.superTypes[si]];
-              if (nav) break;
-            }
-          }
-        }
-        return React.createElement('div', { key: i, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--rel)' }) },
-          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: relProps.length ? 4 : 0 } },
-            React.createElement('span', { style: { fontSize: 10, fontWeight: 700, color: 'var(--rel)', letterSpacing: '0.05em' } }, r.relationshipType),
-            React.createElement('span', { style: { fontSize: 12, color: 'var(--text)', flex: 1 } }, el.displayName || el.guid || ''),
-            el.typeName && React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)' } }, '· ' + el.typeName),
-            nav && onNavigate && React.createElement('button', {
-              onClick: function() { onNavigate(Object.assign({ guid: el.guid, displayName: el.displayName || el.guid }, nav)); },
-              style: { fontSize: 10, padding: '2px 7px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer', flexShrink: 0 }
-            }, nav.external ? '↗ Egeria Explorer' : 'View →')
-          ),
-          el.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginBottom: relProps.length ? 4 : 0 } }, el.description),
-          relProps.filter(function(e) { return typeof e[1] !== 'object' || e[1] === null; }).map(function(e) {
-            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
-              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
-          })
-        );
-      })
-    ),
-
-    // Sub-panes: Schema and Lineage (lazy-loaded on first open)
-    item.hasSchema  && React.createElement(SchemaPane,  { guid: item.guid, creds: creds }),
-    item.hasLineage && React.createElement(LineagePane, { guid: item.guid }),
-
-    // Comments
-    React.createElement(EgeriaCommentsSection, { guid: item.guid }),
-
-    // TC-13: tabular preview modal (shared component) for file assets
-    showPreview && React.createElement(TabularPreviewModal, {
-      fetchUrl: '/api/tech-catalog/assets/' + item.guid + '/preview',
-      name: item.fileName || item.displayName || item.guid,
-      creds: creds,
-      onClose: function() { setShowPreview(false); }
-    })
-  );
-}
-
-// ── Generic tab view ──────────────────────────────────────────────────────────
-function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
-  var _items      = useState([]),    items      = _items[0],      setItems      = _items[1];
-  var _loading    = useState(true),  loading    = _loading[0],    setLoading    = _loading[1];
-  var _error      = useState(''),    error      = _error[0],      setError      = _error[1];
-  var _selected   = useState(null),  selected   = _selected[0],   setSelected   = _selected[1];
-  var _detail     = useState(null),  detail     = _detail[0],     setDetail     = _detail[1];
-  var _detailLoad = useState(false), detailLoad = _detailLoad[0], setDetailLoad = _detailLoad[1];
-  var _detailErr  = useState(null),  detailErr  = _detailErr[0],  setDetailErr  = _detailErr[1];
-  var _q             = useState(''),   q             = _q[0],             setQ             = _q[1];
-  var _typeFilter    = useState('all'), typeFilter    = _typeFilter[0],    setTypeFilter    = _typeFilter[1];
-  var _classifFilter = useState([]),   classifFilter = _classifFilter[0], setClassifFilter = _classifFilter[1];
-  // LE-3: point-in-time browsing — only the data-asset endpoints accept as_of_time.
-  var _asOfTime = useState(null), asOfTime = _asOfTime[0], setAsOfTime = _asOfTime[1];
-  var supportsTime = /\/(data-stores|data-feeds|data-sets|infrastructure|software-capabilities|endpoints|apis|software-components|actions)\b/.test(endpoint);
-
-  useEffect(function() {
-    setLoading(true); setError(''); setSelected(null); setDetail(null); setClassifFilter([]);
-    var listUrl = endpoint + (supportsTime && asOfTime
-      ? (endpoint.indexOf('?') === -1 ? '?' : '&') + 'as_of_time=' + encodeURIComponent(asOfTime)
-      : '');
-    fetchWithToken(listUrl, creds)
-      .then(function(r) { return r.json(); })
-      .then(function(d) { setItems(Array.isArray(d) ? d : (d.items || [])); setLoading(false); })
-      .catch(function(e) { setError(String(e)); setLoading(false); });
-  }, [endpoint, asOfTime]);
-
-  function handleSelect(item) {
-    setSelected(item);
-    setDetail(item);
-    setDetailLoad(true);
-    setDetailErr(null);
-    var detailUrl = '/api/tech-catalog/assets/' + encodeURIComponent(item.guid) +
-      (sectionId ? '?section=' + encodeURIComponent(sectionId) : '') +
-      (asOfTime ? (sectionId ? '&' : '?') + 'as_of_time=' + encodeURIComponent(asOfTime) : '');
-    fetchWithToken(detailUrl, creds)
-      .then(function(r) {
-        if (r.status === 401 || r.status === 403) { setDetailErr('unauthorized'); setDetailLoad(false); return null; }
-        if (!r.ok) { setDetailErr('http-' + r.status); setDetailLoad(false); return null; }
-        return r.json();
-      })
-      .then(function(d) { if (d) { setDetail(d); setDetailLoad(false); } })
-      .catch(function() { setDetailLoad(false); });
-  }
-
-  // Cross-navigation: when a navTarget arrives for this tab, fetch its detail directly.
-  // Guard on creds so deep-links on fresh page load wait until auth is ready.
-  var _lastNavGuid = useRef(null);
-  useEffect(function() {
-    if (!navTarget || !navTarget.guid || !creds) return;
-    if (navTarget.guid === _lastNavGuid.current) return; // already handled
-    _lastNavGuid.current = navTarget.guid;
-    handleSelect({ guid: navTarget.guid, displayName: navTarget.displayName || navTarget.guid });
-  }, [navTarget, creds]);
-
-  // Build classification filter options from the current item list
-  var classifOptions = [];
-  var _optsSeen = {};
-  items.forEach(function(item) {
-    (item.classifications || []).forEach(function(cls) {
-      if (cls.typeName === 'ZoneMembership') {
-        var zones = (cls.properties && cls.properties.zoneMembershipList)
-          ? cls.properties.zoneMembershipList.split(', ').filter(Boolean) : [];
-        zones.forEach(function(z) {
-          var k = 'ZoneMembership:' + z;
-          if (!_optsSeen[k]) { _optsSeen[k] = true; classifOptions.push({ key: k, label: z, zone: true }); }
-        });
-      } else {
-        var k = cls.typeName;
-        if (!_optsSeen[k]) { _optsSeen[k] = true; classifOptions.push({ key: k, label: cls.typeName, zone: false }); }
-      }
-    });
-  });
-  classifOptions.sort(function(a, b) { return a.label.localeCompare(b.label); });
-
-  function toggleClassif(key) {
-    if (classifFilter.indexOf(key) === -1) {
-      setClassifFilter(classifFilter.concat([key]));
-    } else {
-      setClassifFilter(classifFilter.filter(function(k) { return k !== key; }));
-    }
-  }
-
-  var filtered = items.filter(function(item) {
-    var matchQ = !q.trim() || (item.displayName || item.qualifiedName || '').toLowerCase().includes(q.trim().toLowerCase());
-    var matchT = typeFilter === 'all' || item.deployedImplementationType === typeFilter || item.typeName === typeFilter;
-    var matchC = classifFilter.length === 0 || classifFilter.every(function(key) {
-      var clsList = item.classifications || [];
-      if (key.indexOf('ZoneMembership:') === 0) {
-        var zone = key.slice('ZoneMembership:'.length);
-        var zm = clsList.find(function(c) { return c.typeName === 'ZoneMembership'; });
-        if (!zm) return false;
-        var zones = (zm.properties && zm.properties.zoneMembershipList)
-          ? zm.properties.zoneMembershipList.split(', ').filter(Boolean) : [];
-        return zones.indexOf(zone) !== -1;
-      }
-      return clsList.some(function(c) { return c.typeName === key; });
-    });
-    return matchQ && matchT && matchC;
-  });
-
-  var types = Array.from(new Set(items.map(function(i) { return i.deployedImplementationType || i.typeName || ''; }).filter(Boolean))).sort();
-
-  var filterBar = React.createElement('div', { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 5 } },
-    supportsTime && React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' }),
-    React.createElement('input', { type: 'search', placeholder: 'Filter…', value: q, onChange: function(e) { setQ(e.target.value); },
-      style: { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } }),
-    types.length > 1 && React.createElement('select', { value: typeFilter, onChange: function(e) { setTypeFilter(e.target.value); },
-      style: { fontSize: 11, padding: '3px 6px', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 4 } },
-      [React.createElement('option', { key: 'all', value: 'all' }, 'All types')].concat(
-        types.map(function(t) { return React.createElement('option', { key: t, value: t }, t); })
-      )
-    ),
-    classifOptions.length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 3, paddingTop: 2 } },
-      classifOptions.map(function(opt) {
-        var active = classifFilter.indexOf(opt.key) !== -1;
-        return React.createElement('button', {
-          key: opt.key,
-          onClick: function() { toggleClassif(opt.key); },
-          title: (opt.zone ? 'Zone: ' : 'Classification: ') + opt.label,
-          style: {
-            fontSize: 9, padding: '2px 6px', borderRadius: 10, cursor: 'pointer', lineHeight: 1.2,
-            border: '1px solid ' + (active ? (opt.zone ? '#166534' : 'var(--accent)') : 'var(--border)'),
-            background: active ? (opt.zone ? 'rgba(20,83,45,.5)' : 'rgba(233,69,96,.15)') : 'transparent',
-            color: active ? (opt.zone ? '#4ade80' : 'var(--accent)') : 'var(--dim)',
-            whiteSpace: 'nowrap',
-          }
-        }, (opt.zone ? '🌐 ' : '') + opt.label);
-      })
-    )
-  );
-
-  return React.createElement(SidebarDetail, {
-    items: filtered, loading: loading, error: error, selected: selected, onSelect: handleSelect,
-    filterBar: filterBar,
-    renderDetail: function() {
-      if (detailErr === 'unauthorized') {
-        return React.createElement('div', { style: { padding: '32px 24px' } },
-          React.createElement('div', { style: { fontSize: 14, color: '#f87171', fontWeight: 600, marginBottom: 8 } }, '🔒 User Not Authorized'),
-          React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)' } }, 'You do not have permission to view this element.')
-        );
-      }
-      if (detailErr && detailErr.startsWith('http-')) {
-        var status = detailErr.slice(5);
-        if (asOfTime && status === '404') {
-          return React.createElement('div', { style: { padding: '32px 24px' } },
-            React.createElement('div', { style: { fontSize: 14, color: 'var(--accent)', fontWeight: 600, marginBottom: 8 } }, '🕐 Not present at the selected time'),
-            React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)' } }, 'This element did not exist as of ' + new Date(asOfTime).toLocaleString() + '. Move the slider toward "Now" to view it.')
-          );
-        }
-        return React.createElement('div', { style: { padding: '32px 24px' } },
-          React.createElement('div', { style: { fontSize: 14, color: '#f87171', fontWeight: 600, marginBottom: 8 } }, '⚠ Could not load element (HTTP ' + status + ')'),
-          React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)', marginBottom: 8 } }, 'The element with this GUID could not be retrieved. It may be a non-Asset type (schema attribute, technical element, etc.) or belong to a different catalog section.'),
-          detail && detail.guid && React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)' } }, detail.guid)
-        );
-      }
-      return React.createElement(AssetDetail, { item: detail, detailLoading: detailLoad, onNavigate: onNavigate, creds: creds });
-    },
-  });
-}
-
-// ── Section views (each wraps AssetTabView for its sub-tabs) ─────────────────
-
-var SECTION_TABS = {
-  infrastructure: [
-    { id: 'infrastructure', label: 'IT Infrastructure', endpoint: '/api/tech-catalog/infrastructure' },
-    { id: 'software-capabilities', label: 'Software Capabilities', endpoint: '/api/tech-catalog/software-capabilities' },
-    { id: 'endpoints', label: 'Endpoints', endpoint: '/api/tech-catalog/endpoints' },
+// ── Egeria Audit SPA ─────────────────────────────────────────────────────────
+// Four tabs: Exceptions / Certifications / Licenses (the shared, reusable
+// AuditRelationshipTab from egeria-shared-ui.js) + Users (next). Supports
+// bidirectional cross-links: outgoing via the shared ElementPropertiesPane /
+// crossAppNavigate; incoming via ?guid=&tab= (focus-filter to one element).
+var useState = React.useState;
+var useEffect = React.useEffect;
+var el = React.createElement;
+var pad = { padding: '24px', color: 'var(--muted)', fontSize: 13 };
+
+function name1(r){ return r.end1.uniqueName || r.end1.guid; }
+function type1(r){ return r.end1.typeName; }
+function name2(r){ return r.end2.uniqueName || r.end2.guid; }
+var COLS = {
+  Exception: [
+    ['Affected Element Name', name1], ['Affected Element Type', type1],
+    ['Creation Time', function(r){return r.createTime;}], ['Created by', function(r){return r.createdBy;}],
+    ['Last Updated', function(r){return r.updateTime;}],
+    ['Label', function(r){return r.props.label;}], ['Description', function(r){return r.props.description;}],
+    ['Steward', function(r){return r.props.steward;}], ['Exception Type', name2],
   ],
-  'data-assets': [
-    { id: 'data-stores', label: 'Data Stores', endpoint: '/api/tech-catalog/data-stores' },
-    { id: 'data-feeds',  label: 'Data Feeds',  endpoint: '/api/tech-catalog/data-feeds' },
-    { id: 'data-sets',   label: 'Data Sets',   endpoint: '/api/tech-catalog/data-sets' },
+  Certification: [
+    ['Certified Element Name', name1], ['Certified Element Type', type1],
+    ['Creation Time', function(r){return r.createTime;}], ['Created by', function(r){return r.createdBy;}],
+    ['Last Updated', function(r){return r.updateTime;}],
+    ['Certificate Id', function(r){return r.props.certificateId;}], ['Certified By', function(r){return r.props.certifiedBy;}],
+    ['Coverage Start', function(r){return r.props.coverageStart;}], ['Coverage End', function(r){return r.props.coverageEnd;}],
+    ['Certification Type', name2],
   ],
-  apis: [
-    { id: 'apis', label: 'APIs', endpoint: '/api/tech-catalog/apis' },
-  ],
-  processes: [
-    { id: 'software-components', label: 'Software Components', endpoint: '/api/tech-catalog/software-components' },
-    { id: 'actions', label: 'Actions', endpoint: '/api/tech-catalog/actions' },
+  License: [
+    ['Licensed Element Name', name1], ['Licensed Element Type', type1],
+    ['Creation Time', function(r){return r.createTime;}], ['Created by', function(r){return r.createdBy;}],
+    ['Last Updated', function(r){return r.updateTime;}],
+    ['License Id', function(r){return r.props.licenseId;}], ['Licensed By', function(r){return r.props.licensedBy;}],
+    ['Coverage Start', function(r){return r.props.coverageStart;}], ['Coverage End', function(r){return r.props.coverageEnd;}],
+    ['License Type', name2],
   ],
 };
+var ACTOR_ROLES = {
+  Exception:     ['steward'],
+  Certification: ['certifiedBy', 'custodian', 'recipient'],
+  License:       ['licensedBy', 'custodian', 'licensee'],
+};
 
-function SectionView({ sectionId, creds, navTarget, onNavigate }) {
-  if (sectionId === 'glossary') {
-    return React.createElement('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
-      React.createElement(GlossaryView, { creds: creds, onNavigate: onNavigate })
-    );
-  }
-  if (sectionId === 'tech-types') {
-    return React.createElement(TechTypesView, { creds: creds });
-  }
-  var tabs = SECTION_TABS[sectionId] || [];
-  var _tab = useState(tabs[0] ? tabs[0].id : ''), activeTab = _tab[0], setActiveTab = _tab[1];
+var TABS = [
+  { id: 'exceptions',     label: 'Exceptions',     relType: 'Exception' },
+  { id: 'certifications', label: 'Certifications', relType: 'Certification' },
+  { id: 'licenses',       label: 'Licenses',       relType: 'License' },
+  { id: 'users',          label: 'Users' },
+];
 
-  // When a cross-nav target arrives for this section, switch to the right sub-tab
+// Account-status values the change control offers. The exact Egeria
+// UserAccountStatus enum isn't introspectable here (demo connector is
+// unpopulated) — confirm + extend against a populated platform.
+var USER_STATUSES = ['AVAILABLE', 'UNAVAILABLE'];  // confirm full UserAccountStatus enum
+
+function UsersTab({ creds }) {
+  var _p  = useState([]),        plats   = _p[0],  setPlats  = _p[1];
+  var _sp = useState(null),      plat    = _sp[0], setPlat   = _sp[1];   // {guid, displayName}
+  var _u  = useState([]),        users   = _u[0],  setUsers  = _u[1];
+  var _us = useState('idle'),    uState  = _us[0], setUState = _us[1];
+  var _ex = useState(null),      expand  = _ex[0], setExpand = _ex[1];   // expanded userName
+  var _ad = useState(false),     isAdmin = _ad[0], setAdmin  = _ad[1];
+  var _cf = useState(null),      confirm = _cf[0], setConfirm= _cf[1];   // {user, status}
+  var rzu = useColumnResize(5, 180);
+
+  // platforms + am-I-admin on mount
   useEffect(function() {
-    if (navTarget && navTarget.section === sectionId && navTarget.tab) {
-      setActiveTab(navTarget.tab);
-    }
-  }, [navTarget]);
+    egeriaFetch('/api/audit/platforms', creds).then(function(r){ return r.ok ? r.json() : { platforms: [] }; })
+      .then(function(d){ setPlats(d.platforms || []); if ((d.platforms || []).length) setPlat(d.platforms[0]); });
+    egeriaFetch('/api/auth/me', creds).then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){ setAdmin(!!(d && d.role === 'admin')); }).catch(function(){});
+  }, []);
 
-  var currentTab = tabs.find(function(t) { return t.id === activeTab; }) || tabs[0];
-  return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' } },
-    // Sub-tab bar
-    tabs.length > 1 && React.createElement('div', { style: { display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--panel)', padding: '0 8px', flexShrink: 0 } },
-      tabs.map(function(t) {
-        var active = t.id === activeTab;
-        return React.createElement('button', { key: t.id, onClick: function() { setActiveTab(t.id); },
-          style: { padding: '8px 14px', fontSize: 12, border: 'none', borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
-                   background: 'transparent', color: active ? 'var(--accent)' : 'var(--muted)', cursor: 'pointer', whiteSpace: 'nowrap' } },
-          t.label);
-      })
+  useEffect(function() {
+    if (!plat) { setUsers([]); setUState('idle'); return; }
+    setUState('loading'); setExpand(null);
+    var u = '/api/audit/users?platform_guid=' + encodeURIComponent(plat.guid) + '&platform_name=' + encodeURIComponent(plat.displayName);
+    egeriaFetch(u, creds).then(function(r){ return r.ok ? r.json() : { users: [] }; })
+      .then(function(d){ setUsers(d.users || []); setUState('ready'); })
+      .catch(function(){ setUState('error'); });
+  }, [plat && plat.guid]);
+
+  function applyStatus(user, status) {
+    egeriaFetch('/api/audit/users/status', creds, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform_guid: plat.guid, platform_name: plat.displayName, user_id: user.userName, status: status }) })
+      .then(function(r){ return r.ok ? r.json() : r.json().then(function(e){ throw new Error(e.detail || 'Failed'); }); })
+      .then(function(){ setConfirm(null); setUsers(users.map(function(x){ return x.userName === user.userName ? Object.assign({}, x, { userAccountStatus: status }) : x; })); })
+      .catch(function(e){ setConfirm(Object.assign({}, confirm, { err: e.message })); });
+  }
+
+  var th = { textAlign: 'left', padding: '6px 12px', borderBottom: '2px solid var(--border)', color: 'var(--accent)', fontSize: 11, whiteSpace: 'nowrap', position: 'relative', overflow: 'hidden' };
+  var td = { padding: '5px 12px', borderBottom: '1px solid var(--border)', fontSize: 12, verticalAlign: 'top' };
+
+  return el('div', { style: { display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' } },
+    el('div', { style: { padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--border)' } },
+      el('span', { style: { fontSize: 12, color: 'var(--dim)' } }, 'Platform:'),
+      el('select', { value: plat ? plat.guid : '', onChange: function(e){ setPlat(plats.find(function(p){ return p.guid === e.target.value; }) || null); },
+        style: { fontSize: 12, padding: '4px 8px', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 4 } },
+        plats.length === 0 ? el('option', { value: '' }, 'No platforms') : plats.map(function(p){ return el('option', { key: p.guid, value: p.guid }, p.displayName); })),
+      isAdmin && el('span', { style: { fontSize: 11, color: '#34d399', marginLeft: 'auto' } }, '🔓 Admin — account status is editable')
     ),
-    currentTab && React.createElement(AssetTabView, {
-      key: currentTab.id,
-      endpoint: currentTab.endpoint,
-      sectionId: currentTab.id,
-      creds: creds,
-      navTarget: navTarget && navTarget.guid && (navTarget.section === sectionId || !navTarget.section)
-                   && (!navTarget.tab || navTarget.tab === currentTab.id) ? navTarget : null,
-      onNavigate: onNavigate,
-    })
+    uState === 'loading' ? el('div', { style: pad }, 'Loading users…')
+    : uState === 'error' ? el('div', { style: pad }, 'Failed to load users.')
+    : users.length === 0 ? el('div', { style: pad }, plat ? ('No users registered in ' + plat.displayName + '’s security connector.') : 'Select a platform.')
+    : el('div', { style: { overflow: 'auto', flex: 1 } },
+        el('table', { style: { borderCollapse: 'collapse', tableLayout: 'fixed', width: rzu.tableWidth ? rzu.tableWidth + 'px' : '100%', minWidth: '100%' } },
+          el('colgroup', null, [0,1,2,3,4].map(function(i){ return el('col', { key: i, style: { width: ((rzu.widths && rzu.widths[i]) || rzu.defaultW) + 'px' } }); })),
+          el('thead', null, el('tr', null,
+            ['User Name', 'Account Type', 'Display Name', 'Account Status', ''].map(function(h, i){ return el('th', { key: i, style: th }, h, colResizeHandle(rzu.onResizeDown, i)); }))),
+          el('tbody', null, users.map(function(u){
+            var open = expand === u.userName;
+            var rows = [
+              el('tr', { key: u.userName, style: { cursor: 'pointer', background: open ? 'rgba(96,165,250,.1)' : 'transparent' }, onClick: function(){ setExpand(open ? null : u.userName); } },
+                el('td', { style: td }, (open ? '▾ ' : '▸ ') + u.userName),
+                el('td', { style: td }, u.userAccountType || ''),
+                el('td', { style: td }, u.displayName || ''),
+                el('td', { style: td }, u.userAccountStatus || ''),
+                el('td', { style: td }, isAdmin && el('select', { value: '', onClick: function(e){ e.stopPropagation(); },
+                    onChange: function(e){ if (e.target.value) setConfirm({ user: u, status: e.target.value }); },
+                    style: { fontSize: 11, background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--accent)', borderRadius: 4, cursor: 'pointer' } },
+                    [el('option', { key: '_', value: '' }, 'Set status…')].concat(USER_STATUSES.filter(function(s){ return s !== u.userAccountStatus; }).map(function(s){ return el('option', { key: s, value: s }, s); })))))
+            ];
+            if (open) rows.push(el('tr', { key: u.userName + '_d' }, el('td', { colSpan: 5, style: { padding: '4px 24px 12px', background: 'rgba(255,255,255,0.02)' } },
+              el('table', { style: { borderCollapse: 'collapse' } }, el('tbody', null,
+                Object.keys(u.account || {}).filter(function(k){ return typeof u.account[k] !== 'object'; }).sort().map(function(k){
+                  return el('tr', { key: k }, el('td', { style: { padding: '2px 12px 2px 0', color: 'var(--dim)', fontSize: 11, verticalAlign: 'top' } }, k),
+                    el('td', { style: { padding: '2px 0', fontSize: 11, color: 'var(--text)' } }, String(u.account[k]))); }))))));
+            return rows;
+          }))
+        )
+      ),
+    // Confirm dialog for the privileged status change
+    confirm && el('div', { style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
+        onClick: function(e){ if (e.target === e.currentTarget) setConfirm(null); } },
+      el('div', { style: { background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 8, padding: '20px 24px', width: 420 } },
+        el('div', { style: { fontWeight: 700, fontSize: 14, marginBottom: 10 } }, 'Change account status?'),
+        el('div', { style: { fontSize: 13, color: 'var(--muted)', marginBottom: 14, lineHeight: 1.5 } },
+          'Set ', el('b', { style: { color: 'var(--text)' } }, confirm.user.userName), ' to ',
+          el('b', { style: { color: 'var(--accent)' } }, confirm.status), ' on ', plat ? plat.displayName : '', '? This changes the user’s access.'),
+        confirm.err && el('div', { style: { fontSize: 12, color: '#f87171', marginBottom: 10 } }, confirm.err),
+        el('div', { style: { display: 'flex', gap: 8, justifyContent: 'flex-end' } },
+          el('button', { onClick: function(){ setConfirm(null); }, style: { padding: '6px 14px', borderRadius: 5, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 13 } }, 'Cancel'),
+          el('button', { onClick: function(){ applyStatus(confirm.user, confirm.status); }, style: { padding: '6px 16px', borderRadius: 5, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 } }, 'Change status'))))
   );
 }
 
-// ── Splash / top-level tile selector ─────────────────────────────────────────
-var SECTIONS = [
-  { id: 'glossary',       icon: '📖', label: 'Glossary',               desc: 'Browse glossaries, categories, and terms.' },
-  { id: 'tech-types',     icon: '🔧', label: 'Technology Types',       desc: 'Technology type definitions, catalog templates, and governance processes.' },
-  { id: 'infrastructure', icon: '🖧', label: 'Infrastructure Assets',  desc: 'Servers, storage, networks, software capabilities, and endpoints.' },
-  { id: 'data-assets',    icon: '🗄️', label: 'Data Assets',           desc: 'Data stores, data feeds, and data sets.' },
-  { id: 'apis',           icon: '🔗', label: 'APIs',                    desc: 'Deployed APIs and their endpoints.' },
-  { id: 'processes',      icon: '⚙️', label: 'Processes',               desc: 'Software components and actions.' },
-];
+function App() {
+  var params = new URLSearchParams(window.location.search);
+  var _creds = useState(null),   creds   = _creds[0],   setCreds   = _creds[1];
+  var _ready = useState(false),  ready   = _ready[0],   setReady   = _ready[1];
+  var _who   = useState(null),   who     = _who[0],     setWho     = _who[1];   // { label, sub }
+  var _focus = useState(params.get('guid') || null), focusGuid = _focus[0], setFocusGuid = _focus[1];
+  var _t = useState(function() {
+    var h = params.get('tab') || window.location.hash.slice(1);
+    return TABS.some(function(t){ return t.id === h; }) ? h : 'exceptions';
+  }), tab = _t[0], setTab = _t[1];
+  function go(id){ setTab(id); try { window.location.hash = id; } catch(e){} }
+  var active = TABS.find(function(t){ return t.id === tab; }) || TABS[0];
 
-var SPLASH_GROUPS = [
-  {
-    key: 'definitions',
-    label: 'Definitions & Standards',
-    blurb: 'Business vocabulary and technology standards — what concepts exist and how systems are onboarded.',
-    sections: ['glossary', 'tech-types'],
-  },
-  {
-    key: 'assets',
-    label: 'Deployed Assets',
-    blurb: 'Technical resources registered in your environment — infrastructure, data, APIs, and processes.',
-    sections: ['infrastructure', 'data-assets', 'apis', 'processes'],
-  },
-];
+  // Auth bootstrap — same identity/token flow as tech-catalog (portal JWT for
+  // freshstart; persona → /api/egeria-token for quickstart demo/local).
+  useEffect(function() {
+    fetch('/api/auth/me').then(function(r){ return r.json(); }).then(function(d) {
+      if (d.server_managed_auth) {
+        if (d.authenticated && d.id) { setWho({ label: d.display_name || d.id, sub: d.role || '' }); setCreds({}); }
+        setReady(true); return;
+      }
+      var sp = null; try { var s = localStorage.getItem('egeria-persona'); sp = s ? JSON.parse(s) : null; } catch(e) {}
+      if (sp && sp.id) {
+        setWho({ label: '🎭 ' + (sp.display_name || sp.id), sub: sp.id });
+        fetch('/api/demo/select-persona', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ persona: sp.id }) })
+          .then(function(r){ return r.json(); }).then(function(sel) {
+            if (sel.egeria_user) {
+              fetch('/api/egeria-token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: sel.egeria_user, password: sel.egeria_password || '' }) })
+                .then(function(r){ return r.json(); }).then(function(t){ setCreds({ server: 'qs-view-server', userId: sel.egeria_user, token: t.token || '' }); setReady(true); })
+                .catch(function(){ setCreds({ server: 'qs-view-server', userId: sel.egeria_user }); setReady(true); });
+            } else { setReady(true); }
+          }).catch(function(){ setReady(true); });
+        return;
+      }
+      if (d.id) setWho({ label: d.display_name || d.id, sub: d.role || '' });
+      setReady(true);
+    }).catch(function(){ setReady(true); });
+  }, []);
 
-function Splash({ onSelect, authUser, activePersona, creds, demoMode, srvManaged, saveCreds }) {
-  var cardStyle = {
-    background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8,
-    padding: '20px 20px 16px', display: 'flex', flexDirection: 'column', gap: 8,
+  var tabBtn = function(t){
+    var on = t.id === tab;
+    return el('button', { key: t.id, onClick: function(){ go(t.id); },
+      style: { padding: '6px 14px', fontSize: 13, cursor: 'pointer', border: 'none', background: 'transparent',
+               color: on ? 'var(--accent)' : 'var(--muted)', borderBottom: on ? '2px solid var(--accent)' : '2px solid transparent', fontWeight: on ? 700 : 400 } }, t.label);
   };
-  var openBtnStyle = {
-    marginTop: 8, padding: '5px 14px', background: 'rgba(96,165,250,.1)',
-    border: '1px solid rgba(96,165,250,.3)', color: 'var(--accent)', borderRadius: 5,
-    cursor: 'pointer', fontSize: 12, fontWeight: 600, alignSelf: 'flex-start',
-  };
 
-  var sectionById = {};
-  SECTIONS.forEach(function(s) { sectionById[s.id] = s; });
+  var content = !ready
+    ? el('div', { style: pad }, 'Connecting…')
+    : active.id === 'users'
+      ? el(UsersTab, { creds: creds })
+      : el(AuditRelationshipTab, { key: active.id, relType: active.relType, columns: COLS[active.relType],
+          actorRoles: ACTOR_ROLES[active.relType], creds: creds,
+          focusGuid: focusGuid, onClearFocus: function(){ setFocusGuid(null); } });
 
-  // Connection panel — persona takes precedence in both demo and local quickstart modes.
-  var connIdentity = activePersona
-    ? { label: activePersona.display_name || activePersona.id, sub: activePersona.id, switchHref: '/portal' }
-    : authUser
-      ? { label: authUser.displayName || authUser.userId, sub: authUser.role }
-      : null;
-
-  var connPanel;
-  if (connIdentity) {
-    connPanel = React.createElement('div', {
-        style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24, padding: '10px 16px',
-                 background: 'rgba(52,211,153,.07)', border: '1px solid rgba(52,211,153,.25)', borderRadius: 7 }
-      },
-        React.createElement('span', { style: { fontSize: 16, color: '#34d399' } }, '✓'),
-        React.createElement('span', { style: { fontSize: 13, color: 'var(--text)' } },
-          'Connected as ', React.createElement('strong', null, connIdentity.label)
-        ),
-        connIdentity.sub && React.createElement('span', { style: { marginLeft: 'auto', fontSize: 11, color: 'var(--muted)', textTransform: 'capitalize' } }, connIdentity.sub),
-        connIdentity.switchHref && React.createElement('a', { href: connIdentity.switchHref, style: { marginLeft: connIdentity.sub ? 8 : 'auto', fontSize: 11, color: 'var(--accent)', textDecoration: 'none' } }, 'Switch →')
-      );
-  } else if (srvManaged) {
-    connPanel = null;
-  } else {
-    connPanel = React.createElement('div', {
-        style: { marginBottom: 0 }
-      },
-        React.createElement('div', {
-          style: { marginBottom: 16, padding: '10px 16px', background: 'rgba(245,158,11,.07)',
-                   border: '1px solid rgba(245,158,11,.25)', borderRadius: 7, fontSize: 13, color: 'var(--text)' }
-        },
-          '⚠ No persona selected. ',
-          React.createElement('a', { href: '/portal', style: { color: 'var(--accent)' } }, 'Choose one at the Portal →')
-        ),
-        React.createElement(ConnectionForm, { saveCreds: saveCreds, initialCreds: creds })
-      );
-  }
-
-  return React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: '40px 48px', background: 'var(--bg)' } },
-    React.createElement('div', { style: { maxWidth: 900, margin: '0 auto' } },
-      React.createElement('h1', { style: { fontSize: 26, fontWeight: 700, margin: '0 0 8px', color: 'var(--text)' } }, '🐱 The Catalog'),
-      React.createElement('p', { style: { fontSize: 14, color: 'var(--muted)', margin: '0 0 28px', lineHeight: 1.65, maxWidth: 660 } },
-        'Browse and explore technical assets, definitions, and standards registered in your Egeria metadata environment.'),
-      connPanel,
-
-      // Section groups
-      SPLASH_GROUPS.map(function(grp) {
-        var caps = grp.sections.map(function(id) { return sectionById[id]; }).filter(Boolean);
-        return React.createElement('div', { key: grp.key, style: { marginBottom: 32 } },
-          React.createElement('div', {
-            style: { display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 14, paddingBottom: 6, borderBottom: '1px solid var(--border)' }
-          },
-            React.createElement('span', { style: { fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--accent)' } }, grp.label),
-            React.createElement('span', { style: { fontSize: 12, color: 'var(--muted)' } }, grp.blurb)
-          ),
-          React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(245px, 1fr))', gap: 14 } },
-            caps.map(function(s) {
-              return React.createElement('div', { key: s.id, style: cardStyle,
-                onMouseEnter: function(e) { e.currentTarget.style.borderColor = 'var(--accent)'; },
-                onMouseLeave: function(e) { e.currentTarget.style.borderColor = 'var(--border)'; } },
-                React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                  React.createElement('span', { style: { fontSize: 18, color: 'var(--accent)', minWidth: 22, textAlign: 'center' } }, s.icon),
-                  React.createElement('span', { style: { fontSize: 14, fontWeight: 600, color: 'var(--text)' } }, s.label)
-                ),
-                React.createElement('p', { style: { fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.55, flex: 1 } }, s.desc),
-                React.createElement('button', { onClick: function() { onSelect(s.id); }, style: openBtnStyle }, 'Open →')
-              );
-            })
-          )
-        );
-      })
+  return el(CredContext.Provider, { value: creds },
+    el('div', { style: { display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', color: 'var(--text)' } },
+      el('div', { style: { display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px', height: 46, borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0 } },
+        el('span', { style: { fontSize: 18 } }, '🛡️'),
+        el('span', { style: { fontSize: 15, fontWeight: 700 } }, 'Egeria Audit'),
+        el('span', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Exceptions · Certifications · Licenses · Users'),
+        el('div', { style: { flex: 1 } }),
+        who && el('span', { title: who.sub || '', style: { fontSize: 12, color: 'var(--accent)', background: 'rgba(96,165,250,.1)', border: '1px solid rgba(96,165,250,.3)', borderRadius: 12, padding: '2px 10px' } }, who.label),
+        el('a', { href: '/portal', style: { fontSize: 12, color: 'var(--muted)', textDecoration: 'none' } }, '⌂ Portal')
+      ),
+      el('div', { style: { display: 'flex', gap: 4, padding: '0 12px', borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0 } }, TABS.map(tabBtn)),
+      el('div', { style: { flex: 1, overflow: 'hidden' } }, content)
     )
   );
 }
 
-// ── App ───────────────────────────────────────────────────────────────────────
-function App() {
-  var _section   = useState(function() {
-    var hash  = window.location.hash.slice(1);
-    var valid = new Set(['glossary','infrastructure','data-assets','apis','processes','tech-types']);
-    if (valid.has(hash)) return hash;
-    return '';  // ?guid= section is resolved via element-nav after auth
-  }), section = _section[0], setSection = _section[1];
-
-  var _creds     = useState(null),  creds      = _creds[0],     setCreds      = _creds[1];
-  var _srvMgd    = useState(false), srvManaged = _srvMgd[0],    setSrvManaged = _srvMgd[1];
-  var _demoMode  = useState(false), demoMode   = _demoMode[0],  setDemoMode   = _demoMode[1];
-  var _ready     = useState(false), ready      = _ready[0],     setReady      = _ready[1];
-  var _navTarget = useState(null), navTarget  = _navTarget[0], setNavTarget  = _navTarget[1];
-
-  // Deep-link: resolve ?guid= to the correct section+tab once creds are ready
-  var _deepLinkGuid = useRef((function() {
-    var params = new URLSearchParams(window.location.search);
-    return params.get('guid') || null;
-  })());
-  var _authUser  = useState(null),  authUser   = _authUser[0],  setAuthUser   = _authUser[1];
-  var _activePersona = useState(function() {
-    try { var s = localStorage.getItem('egeria-persona'); return s ? JSON.parse(s) : null; } catch(e) { return null; }
-  }), activePersona = _activePersona[0], setActivePersona = _activePersona[1];
-
-  function handleNavigate(nav) {
-    // Internal: { guid, section, tab, displayName } — switches Tech Catalog's own section.
-    // Cross-app: { guid, external, hash, kind, displayName } — opens Egeria Explorer
-    // in a new tab, deep-linked to the right tab (and sub-tab via ?kind=, for Actors).
-    if (nav.external) {
-      var url = '/' + nav.external + '?guid=' + encodeURIComponent(nav.guid) +
-        (nav.kind ? '&kind=' + encodeURIComponent(nav.kind) : '') + '#' + nav.hash;
-      window.open(url, '_blank');
-      return;
-    }
-    setNavTarget(nav);
-    setSection(nav.section);
-  }
-
-  // Resolve deep-link ?guid= to the correct section/tab via element-nav
-  useEffect(function() {
-    if (!creds || !_deepLinkGuid.current) return;
-    var guid = _deepLinkGuid.current;
-    _deepLinkGuid.current = null;  // only fire once
-    fetchWithToken('/api/tech-catalog/element-nav?guid=' + encodeURIComponent(guid), creds)
-      .then(function(r) { return r.ok ? r.json() : null; })
-      .then(function(d) {
-        var typeName   = d && d.typeName;
-        var superTypes = (d && d.superTypeNames) || [];
-        var nav = TYPE_TO_NAV[typeName];
-        if (!nav) {
-          for (var i = 0; i < superTypes.length; i++) {
-            nav = TYPE_TO_NAV[superTypes[i]];
-            if (nav) break;
-          }
-        }
-        var sec  = (nav && nav.section) || 'data-assets';
-        var tab  = nav && nav.tab;
-        var disp = (d && d.displayName) || guid;
-        setSection(sec);
-        setNavTarget({ guid: guid, section: sec, tab: tab, displayName: disp });
-      })
-      .catch(function() {
-        setSection('data-assets');
-        setNavTarget({ guid: guid, section: 'data-assets' });
-      });
-  }, [creds]);
-
-  useEffect(function() {
-    fetch('/api/auth/me').then(function(r) { return r.json(); }).then(function(d) {
-      setSrvManaged(!!d.server_managed_auth);
-      if (d.demo_mode) setDemoMode(true);
-
-      if (d.server_managed_auth) {
-        // Freshstart: connection is server-managed via portal JWT + env vars.
-        if (d.authenticated && d.id) {
-          setAuthUser({ userId: d.id, displayName: d.display_name || d.id, role: d.role });
-          setCreds({});
-        }
-        setReady(true);
-        return;
-      }
-
-      // Quickstart (demo or local): persona selection works the same in both modes.
-      // The portal stores display info; POST select-persona returns egeria credentials.
-      var storedPersona = null;
-      try { var s = localStorage.getItem('egeria-persona'); storedPersona = s ? JSON.parse(s) : null; } catch(e) {}
-      if (storedPersona && storedPersona.id) {
-        setActivePersona(storedPersona);
-        fetch('/api/demo/select-persona', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ persona: storedPersona.id })
-        }).then(function(r) { return r.json(); }).then(function(sel) {
-          if (sel.egeria_user) {
-            // Exchange user/pwd for a bearer token so credentials never appear in URLs.
-            fetch('/api/egeria-token', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ user_id: sel.egeria_user, password: sel.egeria_password || '' })
-            }).then(function(r) { return r.json(); }).then(function(t) {
-              setCreds({ server: 'qs-view-server', userId: sel.egeria_user, token: t.token || '' });
-            }).catch(function() {
-              setCreds({ server: 'qs-view-server', userId: sel.egeria_user });
-            });
-          }
-        }).catch(function() {});
-      }
-      setReady(true);
-    }).catch(function() { setReady(true); });
-  }, []);
-
-  // Register token-refresh callback so fetchWithToken can auto-refresh on 401
-  useEffect(function() {
-    _tokenRefresher.refresh = function(oldCreds) {
-      return fetch('/api/egeria-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: oldCreds.userId, url: oldCreds.url || '', server: oldCreds.server || '' })
-      }).then(function(r) { return r.json(); })
-        .then(function(t) {
-          var newCreds = Object.assign({}, oldCreds, { token: t.token || '' });
-          setCreds(newCreds);
-          return newCreds;
-        });
-    };
-    return function() { _tokenRefresher.refresh = null; };
-  }, []);
-
-  if (!ready) return null;
-
-  return React.createElement(CredContext.Provider, { value: creds },
-    React.createElement('div', { style: { display: 'flex', flexDirection: 'column', height: '100vh' } },
-    // Nav bar
-    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '0 14px', height: 42, borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0 } },
-      React.createElement('span', { style: { fontSize: 18 } }, '🐱'),
-      React.createElement('span', { style: { fontSize: 14, fontWeight: 700, color: 'var(--text)', marginRight: 8 } }, 'The Catalog'),
-      section && React.createElement('button', { onClick: function() { setSection(''); },
-        style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, '⌂ Home'),
-      section && SECTIONS.map(function(s) {
-        return React.createElement('button', { key: s.id, onClick: function() { setSection(s.id); },
-          style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: s.id === section ? '1px solid var(--accent)' : '1px solid var(--border)',
-                   background: s.id === section ? 'rgba(96,165,250,0.1)' : 'transparent',
-                   color: s.id === section ? 'var(--accent)' : 'var(--muted)', cursor: 'pointer' } }, s.label);
-      }),
-      React.createElement('div', { style: { flex: 1 } }),
-      activePersona
-        ? React.createElement(React.Fragment, null,
-            React.createElement('span', { className: 'persona-badge-btn', title: activePersona.coco_title || '' }, '🎭 ' + (activePersona.display_name || activePersona.id)),
-            React.createElement('a', { className: 'theme-btn', style: { marginLeft: 4, textDecoration: 'none' }, href: '/portal' }, 'Portal')
-          )
-        : authUser
-          ? React.createElement(React.Fragment, null,
-              React.createElement('span', { style: { fontSize: 11, color: '#34d399', background: 'rgba(52,211,153,.1)', padding: '2px 8px', borderRadius: 10, border: '1px solid rgba(52,211,153,.25)', marginRight: 4 } },
-                '👤 ' + (authUser.displayName || authUser.userId)),
-              React.createElement('a', { href: '/portal', style: { fontSize: 11, color: 'var(--muted)', textDecoration: 'none' } }, 'Portal')
-            )
-          : React.createElement(React.Fragment, null,
-              React.createElement('a', { className: 'persona-badge-btn', href: '/portal' }, '🎭 Choose persona')
-            )
-    ),
-    section
-      ? React.createElement(SectionView, { sectionId: section, creds: creds, navTarget: navTarget, onNavigate: handleNavigate })
-      : React.createElement(Splash, { onSelect: setSection, authUser: authUser, activePersona: activePersona, creds: creds, demoMode: demoMode, srvManaged: srvManaged, saveCreds: setCreds }),
-    React.createElement(FeedbackButton, { section: section, persona: null, demoMode: demoMode, srvManaged: srvManaged, pagePrefix: 'tech-catalog/' })
-  ));
-}
-
-ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App, null));
+ReactDOM.createRoot(document.getElementById('root')).render(el(App));
 </script>
 </body>
 </html>

@@ -3195,6 +3195,7 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
   const [expanded, setExpanded]     = useState(new Set());
   const [childrenByGuid, setChildrenByGuid] = useState({}); // guid -> [child nodes] (lazy)
   const [loadingGuids, setLoadingGuids]     = useState(new Set());
+  const [asOfTime, setAsOfTime]             = useState(null);
   const childrenRef = useRef({});
   useEffect(() => { childrenRef.current = childrenByGuid; }, [childrenByGuid]);
   const [catError, setCatError]     = useState('');
@@ -3226,7 +3227,7 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
     setTreeError('');
     setTreeData(null);
     if (!navGuidRef.current) { setSelectedNode(null); setSelectedNodeObj(null); }
-    egeriaFetch('/api/digital-products/catalogs/' + encodeURIComponent(selectedCat) + '/tree', creds)
+    egeriaFetch('/api/digital-products/catalogs/' + encodeURIComponent(selectedCat) + '/tree' + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
         setTreeData(data);
@@ -3236,17 +3237,17 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
         setExpanded(new Set());
       })
       .catch(err => { setTreeError(err.message); setTreeState('error'); });
-  }, [selectedCat]);
+  }, [selectedCat, asOfTime]);
 
   const loadChildren = useCallback(guid => {
     if (childrenRef.current[guid] !== undefined) return;  // already loaded
     setLoadingGuids(prev => { const n = new Set(prev); n.add(guid); return n; });
-    egeriaFetch('/api/digital-products/' + encodeURIComponent(guid) + '/children', creds)
+    egeriaFetch('/api/digital-products/' + encodeURIComponent(guid) + '/children' + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
       .then(r => r.ok ? r.json() : { children: [] })
       .then(d => { setChildrenByGuid(prev => Object.assign({}, prev, { [guid]: d.children || [] })); })
       .catch(() => { setChildrenByGuid(prev => Object.assign({}, prev, { [guid]: [] })); })
       .finally(() => { setLoadingGuids(prev => { const n = new Set(prev); n.delete(guid); return n; }); });
-  }, [creds]);
+  }, [creds, asOfTime]);
 
   const toggleNode = useCallback(guid => {
     setExpanded(prev => {
@@ -3313,6 +3314,7 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
       React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } },
         treeState === 'loading' ? 'Loading hierarchy…' : 'Hierarchy'
       ),
+      React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' }),
       treeState === 'error' && React.createElement("div", { style: { padding: 12, color: 'var(--muted)', fontSize: 12 } },
         "Error: " + treeError
       ),
@@ -3369,6 +3371,7 @@ function CollectionsView({ onNavigateToElement }) {
   const [expanded, setExpanded]     = useState(new Set());
   const [childrenByGuid, setChildrenByGuid] = useState({}); // guid -> [child nodes] (lazy)
   const [loadingGuids, setLoadingGuids]     = useState(new Set());
+  const [asOfTime, setAsOfTime]             = useState(null);
   const childrenRef = useRef({});
   useEffect(() => { childrenRef.current = childrenByGuid; }, [childrenByGuid]);
 
@@ -3391,21 +3394,21 @@ function CollectionsView({ onNavigateToElement }) {
     if (!selectedRoot) return;
     setTreeState('loading'); setTreeError(''); setTreeData(null);
     setSelectedNode(null); setSelectedNodeObj(null);
-    egeriaFetch('/api/collections/' + encodeURIComponent(selectedRoot) + '/tree', creds)
+    egeriaFetch('/api/collections/' + encodeURIComponent(selectedRoot) + '/tree' + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => { setTreeData(data); setChildrenByGuid({}); setTreeState('ready'); setExpanded(new Set()); })
       .catch(err => { setTreeError(err.message); setTreeState('error'); });
-  }, [selectedRoot]);
+  }, [selectedRoot, asOfTime]);
 
   const loadChildren = useCallback(guid => {
     if (childrenRef.current[guid] !== undefined) return;
     setLoadingGuids(prev => { const n = new Set(prev); n.add(guid); return n; });
-    egeriaFetch('/api/collections/' + encodeURIComponent(guid) + '/children', creds)
+    egeriaFetch('/api/collections/' + encodeURIComponent(guid) + '/children' + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
       .then(r => r.ok ? r.json() : { children: [] })
       .then(d => { setChildrenByGuid(prev => Object.assign({}, prev, { [guid]: d.children || [] })); })
       .catch(() => { setChildrenByGuid(prev => Object.assign({}, prev, { [guid]: [] })); })
       .finally(() => { setLoadingGuids(prev => { const n = new Set(prev); n.delete(guid); return n; }); });
-  }, [creds]);
+  }, [creds, asOfTime]);
 
   const toggleNode = useCallback(guid => {
     setExpanded(prev => {
@@ -3463,6 +3466,7 @@ function CollectionsView({ onNavigateToElement }) {
       React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } },
         treeState === 'loading' ? 'Loading hierarchy…' : 'Hierarchy'
       ),
+      React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' }),
       treeState === 'error' && React.createElement("div", { style: { padding: 12, color: 'var(--muted)', fontSize: 12 } }, "Error: " + treeError),
       treeState === 'ready' && React.createElement("div", { className: "tree-scroll" },
         treeData && (treeData.children || []).length === 0
@@ -5086,6 +5090,7 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
   const [sideW, onDivDown] = useResizable(260);
   const [subNav, setSubNav]   = useState('perspectives');
   const [filter, setFilter]   = useState('');
+  const [asOfTime, setAsOfTime] = useState(null);  // LE-3 point-in-time
 
   const [perspList, setPerspList]   = useState([]);
   const [perspState, setPerspState] = useState('loading');
@@ -5110,11 +5115,11 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
   // Load perspectives on mount
   useEffect(() => {
     setPerspState('loading');
-    egeriaFetch('/api/perspectives', creds)
+    egeriaFetch('/api/perspectives' + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => { setPerspList(data.perspectives || []); setPerspState('ready'); })
       .catch(() => setPerspState('error'));
-  }, []);
+  }, [asOfTime]);
 
   // Cross-tab arrival: another tab called onNavigateToPerspective(guid) — select it.
   useEffect(() => {
@@ -5250,6 +5255,7 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
         React.createElement("button", { style: subNavStyle('perspectives'), onClick: function() { setSubNav('perspectives'); setFilter(''); } }, "Perspectives"),
         React.createElement("button", { style: subNavStyle('questions'), onClick: function() { setSubNav('questions'); setFilter(''); } }, "Questions")
       ),
+      React.createElement("div", { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)' } }, React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' })),
       React.createElement("div", { className: "search-wrap", style: { padding: '6px 10px', borderBottom: '1px solid var(--border)' } },
         React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter, onChange: function(e) { setFilter(e.target.value); } })
       ),
@@ -5831,6 +5837,7 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
   }, [selected]);
 
   var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { padding: '8px 10px' } }, React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' })),
     React.createElement("div", { className: "search-wrap" },
       React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
         onChange: function(e) { setFilter(e.target.value); } })
@@ -6106,6 +6113,7 @@ function LocationsView({ navGuid, onNavigateToElement }) {
   const [expanded, setExpanded] = useState(function() { return new Set(); });
   // 'geo' = geographic nesting · 'kind' = grouped by location kind
   const [locView, setLocView] = useState('geo');
+  const [asOfTime, setAsOfTime] = useState(null);  // LE-3 point-in-time
   const [expandedLocKinds, setExpandedLocKinds] = useState(function() { return new Set(); });
   const toggleLocKind = useCallback(function(k) {
     setExpandedLocKinds(function(prev) { var n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n; });
@@ -6113,11 +6121,11 @@ function LocationsView({ navGuid, onNavigateToElement }) {
 
   useEffect(function() {
     setState('loading'); setError('');
-    egeriaFetch('/api/locations', creds)
+    egeriaFetch('/api/locations' + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setItems(data.locations || []); setState('ready'); })
       .catch(function(e) { setError(e.message); setState('error'); });
-  }, [attempt]);
+  }, [attempt, asOfTime]);
 
   useEffect(function() {
     if (!selected) { setDetail(null); return; }
@@ -6560,14 +6568,15 @@ function CommunityView({ navGuid, onNavigateToElement }) {
   const [detail, setDetail] = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter] = useState('');
+  const [asOfTime, setAsOfTime] = useState(null);  // LE-3 point-in-time
 
   useEffect(function() {
     setState('loading'); setError('');
-    egeriaFetch('/api/communities', creds)
+    egeriaFetch('/api/communities' + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setItems(data.communities || []); setState('ready'); })
       .catch(function(e) { setError(e.message); setState('error'); });
-  }, [attempt]);
+  }, [attempt, asOfTime]);
 
   useEffect(function() {
     if (!selected) { setDetail(null); return; }
@@ -6584,6 +6593,7 @@ function CommunityView({ navGuid, onNavigateToElement }) {
   }, [navGuid]);
 
   var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { padding: '8px 10px' } }, React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' })),
     React.createElement("div", { className: "search-wrap" },
       React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
         onChange: function(e) { setFilter(e.target.value); } })
