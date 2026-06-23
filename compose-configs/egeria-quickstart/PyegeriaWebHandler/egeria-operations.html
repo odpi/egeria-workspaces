@@ -784,7 +784,7 @@ function ServersTab({ creds, platforms, platform, onPlatform, isAdmin }) {
     : el('table', { style: { borderCollapse:'collapse', tableLayout:'fixed', width: rz.tableWidth ? rz.tableWidth+'px' : '100%', minWidth:'100%' } },
         el('colgroup', null, [0,1,2,3,4].map(function(i){ return el('col', { key:i, style:{ width: ((rz.widths && rz.widths[i]) || rz.defaultW)+'px' } }); })),
         el('thead', null, el('tr', null, COLS.map(function(h,i){ return thSortable(sort, setSort, i, h, rz.onResizeDown, th); })
-          .concat(isAdmin ? [el('th', { key:'a', style: th }, '')] : []))),
+          .concat([el('th', { key:'a', style: th }, 'Actions')]))),
         el('tbody', null, sortedRows.map(function(r){
           var on = r.guid === selGuid;
           var running = r.serverActiveStatus === 'RUNNING';
@@ -794,7 +794,7 @@ function ServersTab({ creds, platforms, platform, onPlatform, isAdmin }) {
             el('td', { style: Object.assign({}, td, { color:'var(--muted)' }) }, r.description),
             el('td', { style: td }, r.organizationName),
             el('td', { style: td }, el(StatusPill, { value: r.serverActiveStatus, map: SERVER_STATUS })),
-            isAdmin && el('td', { style: td }, el('button', { onClick: function(e){ e.stopPropagation(); setConfirm({ row:r, action: running ? 'shutdown' : 'activate' }); },
+            el('td', { style: td }, el('button', { onClick: function(e){ e.stopPropagation(); setConfirm({ row:r, action: running ? 'shutdown' : 'activate' }); },
               style: { fontSize:11, padding:'2px 10px', borderRadius:4, border:'1px solid '+(running?'#f8717155':'#34d39955'), background:'transparent', color: running?'#f87171':'#34d399', cursor:'pointer' } }, running ? 'Stop' : 'Start')));
         }))));
 
@@ -921,7 +921,7 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform, isAdmin }) {
     : el('table', { style:{ borderCollapse:'collapse', tableLayout:'fixed', width: rz.tableWidth ? rz.tableWidth+'px' : '100%', minWidth:'100%' } },
         el('colgroup', null, [0,1,2,3,4,5,6,7].map(function(i){ return el('col', { key:i, style:{ width: ((rz.widths && rz.widths[i]) || rz.defaultW)+'px' } }); })),
         el('thead', null, el('tr', null, COLS.map(function(h,i){ return thSortable(sort, setSort, i, h, rz.onResizeDown, th); })
-          .concat(isAdmin ? [el('th', { key:'a', style: th }, 'Actions')] : []))),
+          .concat([el('th', { key:'a', style: th }, 'Actions')]))),
         el('tbody', null, rows.map(function(r){
           var on = r.connectorName === t.selKey;
           return el('tr', { key:r.connectorName, style:{ cursor:'pointer', background: on ? 'rgba(96,165,250,.14)' : 'transparent' }, onClick:function(){ t.setSelKey(on ? null : r.connectorName); } },
@@ -933,7 +933,7 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform, isAdmin }) {
             el('td', { style: td }, r.lastRefreshTime),
             el('td', { style: td }, r.minMinutesBetweenRefresh == null ? '' : String(r.minMinutesBetweenRefresh)),
             el('td', { style: Object.assign({}, td, { color: r.failingExceptionMessage ? '#f87171' : 'var(--dim)' }) }, r.failingExceptionMessage || '—'),
-            isAdmin && el('td', { style: td }, actionBtn('Start','#34d399',r,'start'), actionBtn('Stop','#f87171',r,'stop'), actionBtn('Refresh','#60a5fa',r,'refresh')));
+            el('td', { style: td }, actionBtn('Start','#34d399',r,'start'), actionBtn('Stop','#f87171',r,'stop'), actionBtn('Refresh','#60a5fa',r,'refresh')));
         }))));
 
   var filters = el(React.Fragment, null,
@@ -1010,7 +1010,7 @@ function EnginesTab({ creds, platforms, platform, onPlatform, isAdmin }) {
     : el('table', { style:{ borderCollapse:'collapse', tableLayout:'fixed', width: rz.tableWidth ? rz.tableWidth+'px' : '100%', minWidth:'100%' } },
         el('colgroup', null, [0,1,2,3,4,5,6].map(function(i){ return el('col', { key:i, style:{ width: ((rz.widths && rz.widths[i]) || rz.defaultW)+'px' } }); })),
         el('thead', null, el('tr', null, COLS.map(function(h,i){ return thSortable(sort, setSort, i, h, rz.onResizeDown, th); })
-          .concat(isAdmin ? [el('th', { key:'a', style: th }, 'Actions')] : []))),
+          .concat([el('th', { key:'a', style: th }, 'Actions')]))),
         el('tbody', null, rows.map(function(r){
           var on = r.governanceEngineName === t.selKey;
           return el('tr', { key:r.governanceEngineName, style:{ cursor:'pointer', background: on ? 'rgba(96,165,250,.14)' : 'transparent' }, onClick:function(){ t.setSelKey(on ? null : r.governanceEngineName); } },
@@ -1021,13 +1021,13 @@ function EnginesTab({ creds, platforms, platform, onPlatform, isAdmin }) {
             el('td', { style: td }, el(StatusPill, { value:r.governanceEngineStatus, map:GOV_ENGINE_STATUS })),
             el('td', { style: td }, chips(r.governanceRequestTypes)),
             el('td', { style: td }, r.lastRefreshTime || '—'),
-            isAdmin && el('td', { style: td }, el('button', { onClick:function(e){ e.stopPropagation(); setConfirm({ row:r }); },
+            el('td', { style: td }, el('button', { onClick:function(e){ e.stopPropagation(); setConfirm({ row:r }); },
               style:{ fontSize:10, padding:'1px 8px', borderRadius:4, border:'1px solid #60a5fa55', background:'transparent', color:'#60a5fa', cursor:'pointer' } }, 'Refresh config')));
         }))));
 
   var filters = el(React.Fragment, null,
     el('input', { placeholder:'filter engine…', value:fText, onChange:function(e){ setFText(e.target.value); }, style:{ fontSize:11, padding:'4px 8px', background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:4, width:150 } }),
-    isAdmin && t.server && el(React.Fragment, null,
+    t.server && el(React.Fragment, null,
       el('div', { style:{ width:1, height:20, background:'var(--border)', margin:'0 4px' } }),
       el('button', { onClick:function(){ setSrvConf({ action:'activate' }); },
         style:{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid #34d39955', background:'transparent', color:'#34d399', cursor:'pointer' } }, 'Start host'),
@@ -1133,7 +1133,7 @@ function ActionsTab({ creds, isAdmin }) {
     : el('table', { style:{ borderCollapse:'collapse', tableLayout:'fixed', width: rz.tableWidth ? rz.tableWidth+'px' : '100%', minWidth:'100%' } },
         el('colgroup', null, [0,1,2,3,4,5,6,7].map(function(i){ return el('col', { key:i, style:{ width:((rz.widths&&rz.widths[i])||rz.defaultW)+'px' } }); })),
         el('thead', null, el('tr', null, COLS.map(function(h,i){ return thSortable(sort, setSort, i, h, rz.onResizeDown, th); })
-          .concat(isAdmin ? [el('th', { key:'a', style: th }, 'Actions')] : []))),
+          .concat([el('th', { key:'a', style: th }, 'Actions')]))),
         el('tbody', null, visibleRows.map(function(r){
           var on = r.guid === selGuid;
           return el('tr', { key:r.guid, style:{ cursor:'pointer', background: on ? 'rgba(96,165,250,.14)' : 'transparent' },
@@ -1146,7 +1146,7 @@ function ActionsTab({ creds, isAdmin }) {
             el('td', { style: td }, fmtTime(r.startTime)),
             el('td', { style: td }, fmtTime(r.completionTime)),
             el('td', { style: td }, chips(r.completionGuards)),
-            isAdmin && el('td', { style: td },
+            el('td', { style: td },
               canCancel(r) && el('button', { onClick:function(e){ e.stopPropagation(); setConfirm({ row:r }); },
                 style:{ fontSize:10, padding:'1px 8px', borderRadius:4, border:'1px solid #f8717155', background:'transparent', color:'#f87171', cursor:'pointer' } }, 'Cancel')));
         }))));
@@ -1178,7 +1178,7 @@ function ActionsTab({ creds, isAdmin }) {
         width: panelW, onResize: onPanelDown,
         onClose: function(){ setSelGuid(null); },
         onCatalog: sel.executorEngineGUID ? function(){ crossAppNavigate({ guid: sel.executorEngineGUID, typeName: 'GovernanceEngine', superTypeNames: ['SoftwareCapability'] }); } : null },
-        isAdmin && canCancel(sel) && el('div', { style:{ marginBottom:10 } },
+        canCancel(sel) && el('div', { style:{ marginBottom:10 } },
           el('button', { onClick:function(){ setConfirm({ row: sel }); },
             style:{ fontSize:11, padding:'4px 14px', borderRadius:4, border:'1px solid #f8717155', background:'transparent', color:'#f87171', cursor:'pointer' } }, 'Cancel this action')),
         el(JsonView, { data: sel }))),
