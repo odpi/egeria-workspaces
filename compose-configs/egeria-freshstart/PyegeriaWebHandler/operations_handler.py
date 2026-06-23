@@ -328,7 +328,12 @@ def connector_action(action: str, request: Request, body: _ConnectorActionBody):
         elif action == "stop":
             rm.stop_connector(server_guid=body.server_guid, connector_name=body.connector_name)
         else:
-            rm.refresh_integration_connector(server_guid=body.server_guid, connector_name=body.connector_name)
+            # sync wrapper has wrong async name — call the async method directly
+            asyncio.get_event_loop().run_until_complete(
+                rm._async_refresh_integration_connector(
+                    connector_name=body.connector_name, server_guid=body.server_guid
+                )
+            )
     except Exception as exc:
         logger.exception("operations: connector %s(%s) failed", action, body.connector_name)
         raise HTTPException(status_code=500, detail=str(exc))
