@@ -388,6 +388,10 @@ def set_user_status(request: Request, body: _UserStatusBody):
     except HTTPException:
         raise
     except Exception as exc:
+        http_code = getattr(exc, "response_code", None) or getattr(exc, "http_status_code", None)
+        s = str(exc).upper()
+        if http_code in (401, 403) or "USER_NOT_AUTHORIZED" in s or "NOT_AUTHORIZED" in s or "AUTHORIZATION_ERROR" in s:
+            raise HTTPException(status_code=403, detail="Insufficient privilege — your Egeria user does not have permission to change account status.")
         logger.exception("audit: set_user_account failed")
         raise HTTPException(status_code=500, detail=str(exc))
     logger.info("audit: user %s status set to %s on platform %s", body.user_id, body.status, body.platform_guid)
