@@ -3,10 +3,18 @@
 
 # Egeria Workspaces
 
-A fully pre-configured, Docker Compose-based platform for learning, experimenting with, and operating [Egeria](https://egeria-project.org). Two isolated environments share a common infrastructure stack and expose a suite of browser-based tools, Jupyter notebooks, and AI-assistant integrations — no manual wiring required.
+A fully pre-configured, Docker Compose-based platform for learning, experimenting with, and operating [Egeria](https://egeria-project.org). It exposes a suite of browser-based tools, Jupyter notebooks, and AI-assistant integrations — no manual wiring required.
 
 > This environment is designed for learning and small-team use, not enterprise-wide production. For large-scale deployments see the [Planning Guide](https://egeria-project.org/guides/planning/).
 > Community help: [Egeria Slack](https://lfaifoundation.slack.com/join/shared_invite/zt-o65errpw-gMTbwNr7FnNbVXNVFkmyNA%E2%80%8B#/shared-invite/email)
+
+## Try it now — no installation required
+
+A live demo is running at **[egeria.pdr-associates.com](https://egeria.pdr-associates.com)**.
+
+Register for a free account, pick a [Coco Pharmaceuticals](https://egeria-project.org/practices/coco-pharmaceuticals/) persona, and explore a fully pre-loaded Egeria environment in your browser. No Docker, no setup.
+
+When you're ready to run your own copy, see [Getting started](#getting-started) below.
 
 ---
 
@@ -63,19 +71,47 @@ NO_CACHE=1 ./quick-start-local
 
 ---
 
-## Environments: Quickstart vs Freshstart
+## Environments
 
-Two isolated deployments share Kafka, PostgreSQL and the OpenLineage proxy. Run them side by side without port conflicts.
+Three deployment modes are available, all sharing the same Kafka, PostgreSQL and OpenLineage proxy infrastructure.
+
+### Egeria Demo — hosted, no setup needed
+
+> **[egeria.pdr-associates.com](https://egeria.pdr-associates.com)**
+
+The Quickstart environment running in `DEMO_MODE=true`, hosted publicly. Register for a free account, choose a Coco Pharmaceuticals persona, and explore. Includes scheduled data resets and an admin panel. No Docker required.
+
+### Egeria Quickstart — local, pre-loaded with Coco data
+
+The recommended starting point for learning Egeria. Pre-loaded with [Coco Pharmaceuticals](https://egeria-project.org/practices/coco-pharmaceuticals/) personas, data assets, governance metadata and scenario content. No authentication wall — opens directly to the portal.
+
+```bash
+./quick-start-local        # single machine
+./quick-start-multi-host   # accessible from other hosts on your network
+```
+
+Portal: `http://localhost:8885` · Platform: `https://localhost:9443` · Jupyter: `http://localhost:8888`
+
+### Egeria Freshstart — local, clean slate
+
+An empty Egeria environment for setting up your own metadata, governance policies and integrations. Suitable for a small team. Includes registration-gated access and a private data model.
+
+```bash
+./fresh-start-local        # single machine
+./fresh-start-multi-host   # accessible from other hosts on your network
+```
+
+Portal: `http://localhost:7885` · Platform: `https://localhost:8443` · Jupyter: `http://localhost:7888`
+
+### Quickstart vs Freshstart — detailed comparison
+
+Both scripts automatically bring up the shared infrastructure stack. Run them side by side without port conflicts.
 
 |                            | **egeria-quickstart**                                            | **egeria-freshstart**                                                                                                                   |
 |----------------------------|------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
-| Start script (single host) | `./quick-start-local`                                            | `./fresh-start-local`                                                                                                                   |
-| Start script (multi-host)  | `./quick-start-multi-host`                                       | `./fresh-start-multi-host`                                                                                                              |
-| Egeria platform            | `https://localhost:9443`                                         | `https://localhost:8443`                                                                                                                |
-| Jupyter                    | `http://localhost:8888` (password: `egeria`)                     | `http://localhost:7888` (password: `egeria`)                                                                                            |
-| Web portal                 | `http://localhost:8885`                                          | `http://localhost:7885`                                                                                                                 |
 | Pre-loaded content         | [Coco Pharmaceuticals](https://egeria-project.org/practices/coco-pharmaceuticals/) personas & data | Clean defaults — set up your own environment |
 | Server prefix              | `qs-*`                                                           | `fs-*`                                                                                                                                  |
+| Authentication             | None (direct portal access)                                      | Registration-gated                                                                                                                      |
 | Platform secrets           | Image-bundled (no host mount required)                           | Seeded from `compose-configs/egeria-freshstart/secrets/` templates into `runtime-volumes/freshstart-platform-data/secrets` on first run |
 | Exchange tree              | `exchange-quickstart/`                                           | `exchange-freshstart/`                                                                                                                  |
 | Runtime data               | `runtime-volumes/quickstart-platform-data/`                      | `runtime-volumes/freshstart-platform-data/`                                                                                             |
