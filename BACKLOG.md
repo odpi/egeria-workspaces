@@ -146,6 +146,14 @@ Jupyter runs on the host.
 
 ---
 
+## Platform Runtime / Infrastructure
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| INFRA-1 | Egeria metadata-store leaks PostgreSQL connections over time | open | The `qs-metadata-store` Postgres repository connector ("PostgreSQL JDBC Driver") accumulates `idle` and `idle in transaction` sessions on the shared `egeria` DB (port 5442) until the 1000-slot pool is exhausted → all metadata queries 500 with `POSTGRES-REPOSITORY-CONNECTOR-500-001 … FATAL: remaining connection slots are reserved for roles with the SUPERUSER attribute`. First hit 2026-06-23: 994/1000 used (833 idle + 161 idle-in-transaction stuck **20+ hrs** on `classification_attribute_value`). Surfaced as Operations-page 500s. **Stopgap:** `docker restart quickstart-egeria-main` (drops to 0; view servers auto-restart ~10s later). **Investigate:** Egeria Postgres connector pool config (max pool size / session release on the connector side). **Safety net to evaluate:** set `idle_in_transaction_session_timeout` (and possibly `idle_session_timeout`) on the `egeria` role/DB so leaked sessions self-reap; confirm it doesn't break long-running governance jobs. Watch `idle in transaction` count as the leading indicator (`SELECT state,count(*) FROM pg_stat_activity WHERE usename='egeria_user' GROUP BY state;`). |
+
+---
+
 ## Egeria Explorer — Data Preview
 
 | # | Item | Status | Notes |
