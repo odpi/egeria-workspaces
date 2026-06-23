@@ -1059,16 +1059,18 @@ function EnginesTab({ creds, platforms, platform, onPlatform, isAdmin }) {
 
 // ── Engine Actions tab (ecosystem-wide) ──────────────────────────────────────
 function ActionsTab({ creds, isAdmin }) {
-  var _rows = useState([]),    rows = _rows[0], setRows = _rows[1];
-  var _st   = useState('idle'), state = _st[0],   setState = _st[1];
-  var _busy = useState(false), busy = _busy[0],  setBusy = _busy[1];
-  var _ft   = useState(''),    fText = _ft[0],   setFText = _ft[1];
-  var _fs   = useState(new Set()), fStatus = _fs[0], setFStatus = _fs[1];
-  var _sel  = useState(null),  selGuid = _sel[0], setSelGuid = _sel[1];
-  var _cf   = useState(null),  confirm = _cf[0],  setConfirm = _cf[1];
+  var _rows = useState([]),        rows    = _rows[0], setRows    = _rows[1];
+  var _st   = useState('idle'),    state   = _st[0],   setState   = _st[1];
+  var _busy = useState(false),     busy    = _busy[0], setBusy    = _busy[1];
+  var _ft   = useState(''),        fText   = _ft[0],   setFText   = _ft[1];
+  var _fs   = useState(new Set()), fStatus = _fs[0],   setFStatus = _fs[1];
+  var _sel  = useState(null),      selGuid = _sel[0],  setSelGuid = _sel[1];
+  var _cf   = useState(null),      confirm = _cf[0],   setConfirm = _cf[1];
   var _so   = useState({ col:5, dir:'desc' }), sort = _so[0], setSort = _so[1];
-  var pw    = usePanelWidth(420), panelW = pw[0], onPanelDown = pw[1];
-  var rz    = useColumnResize(8, 140);
+  var _grp  = useState(false),     grouped = _grp[0],  setGrouped = _grp[1];
+  var _exp  = useState(new Set()), expanded = _exp[0], setExpanded = _exp[1];
+  var pw    = usePanelWidth(420),  panelW  = pw[0],    onPanelDown = pw[1];
+  var rz    = useColumnResize(9, 140);
   var SORT_KEYS = ['displayName','requestType','activityStatus','executorEngineName','requesterUserId','startTime','completionTime',''];
 
   var sel = rows.find(function(r){ return r.guid === selGuid; });
@@ -1087,8 +1089,11 @@ function ActionsTab({ creds, isAdmin }) {
   function toggleStatus(s) {
     setFStatus(function(prev){ var n = new Set(prev); if (n.has(s)) n.delete(s); else n.add(s); return n; });
   }
+  function toggleGroup(key) {
+    setExpanded(function(prev){ var n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
+  }
 
-  var visibleRows = applySort(rows.filter(function(r){
+  var filteredRows = rows.filter(function(r){
     if (fStatus.size > 0 && !fStatus.has(r.activityStatus)) return false;
     if (fText) {
       var q = fText.toLowerCase();
@@ -1097,7 +1102,8 @@ function ActionsTab({ creds, isAdmin }) {
              (r.executorEngineName||'').toLowerCase().indexOf(q) >= 0;
     }
     return true;
-  }), sort, SORT_KEYS);
+  });
+  var visibleRows = applySort(filteredRows, sort, SORT_KEYS);
 
   var canCancel = function(r){ return r && ['REQUESTED','APPROVED','WAITING','IN_PROGRESS'].indexOf(r.activityStatus) >= 0; };
 
@@ -1126,30 +1132,74 @@ function ActionsTab({ creds, isAdmin }) {
   var td = { padding:'5px 10px', borderBottom:'1px solid var(--border)', fontSize:12, verticalAlign:'top' };
   var COLS = ['Name','Request Type','Status','Engine','Requester','Start','Completion','Guards'];
 
+  function flatRow(r) {
+    var on = r.guid === selGuid;
+    return el('tr', { key:r.guid, style:{ cursor:'pointer', background: on ? 'rgba(96,165,250,.14)' : 'transparent' },
+      onClick: function(){ setSelGuid(on ? null : r.guid); } },
+      el('td', { style: td }, _shortName(r.displayName)),
+      el('td', { style: td }, r.requestType || '—'),
+      el('td', { style: td }, el(StatusPill, { value: r.activityStatus, map: ACTIVITY_STATUS })),
+      el('td', { style: td }, r.executorEngineName || '—'),
+      el('td', { style: td }, r.requesterUserId || '—'),
+      el('td', { style: td }, fmtTime(r.startTime)),
+      el('td', { style: td }, fmtTime(r.completionTime)),
+      el('td', { style: td }, chips(r.completionGuards)),
+      el('td', { style: td },
+        canCancel(r) && el('button', { onClick:function(e){ e.stopPropagation(); setConfirm({ row:r }); },
+          style:{ fontSize:10, padding:'1px 8px', borderRadius:4, border:'1px solid #f8717155', background:'transparent', color:'#f87171', cursor:'pointer' } }, 'Cancel')));
+  }
+
+  function groupedRows() {
+    var groups = {};
+    var order = [];
+    visibleRows.forEach(function(r) {
+      var key = (r.displayName || '') + '||' + (r.requestType || '');
+      if (!groups[key]) { groups[key] = []; order.push(key); }
+      groups[key].push(r);
+    });
+    var result = [];
+    order.forEach(function(key) {
+      var members = groups[key];
+      var first = members[0];
+      var isOpen = expanded.has(key);
+      var statusCounts = {};
+      members.forEach(function(r){ statusCounts[r.activityStatus] = (statusCounts[r.activityStatus]||0)+1; });
+      var countChips = Object.keys(statusCounts).map(function(s){
+        var c = STATUS_COLORS[(ACTIVITY_STATUS[s] || ['','grey'])[1]] || STATUS_COLORS.grey;
+        return el('span', { key:s, style:{ fontSize:10, padding:'1px 6px', borderRadius:8, fontWeight:600, background:c+'1f', border:'1px solid '+c+'55', color:c } }, statusCounts[s] + ' ' + (ACTIVITY_STATUS[s] ? ACTIVITY_STATUS[s][0] : s));
+      });
+      result.push(el('tr', { key:key, style:{ cursor:'pointer', background:'rgba(96,165,250,.05)', borderTop:'1px solid var(--border)' },
+        onClick: function(){ toggleGroup(key); } },
+        el('td', { style: Object.assign({}, td, { fontWeight:600 }) },
+          el('span', { style:{ marginRight:6, fontSize:11 } }, isOpen ? '▼' : '▶'),
+          _shortName(first.displayName),
+          el('span', { style:{ marginLeft:8, fontSize:11, color:'var(--dim)', fontWeight:400 } }, members.length + ' instances')),
+        el('td', { style: td }, first.requestType || '—'),
+        el('td', { style: Object.assign({}, td, { display:'flex', flexWrap:'wrap', gap:2 }) }, countChips),
+        el('td', { style: td }, first.executorEngineName || '—'),
+        el('td', { style: td }, ''),
+        el('td', { style: td }, fmtTime(first.startTime)),
+        el('td', { style: td }, ''),
+        el('td', { style: td }, ''),
+        el('td', { style: td }, '')));
+      if (isOpen) {
+        members.forEach(function(r){ result.push(flatRow(r)); });
+      }
+    });
+    return result;
+  }
+
+  var tbody = grouped ? groupedRows() : visibleRows.map(flatRow);
+
   var table = el('div', { style:{ flex:1, overflow:'auto', minWidth:0 } },
     state === 'loading' ? el('div', { style: pad }, 'Loading engine actions…')
     : state === 'error' ? el('div', { style: pad }, 'Failed to load engine actions.')
     : visibleRows.length === 0 ? el('div', { style: pad }, rows.length ? 'No actions match the filter.' : 'No engine actions found.')
     : el('table', { style:{ borderCollapse:'collapse', tableLayout:'fixed', width: rz.tableWidth ? rz.tableWidth+'px' : '100%', minWidth:'100%' } },
-        el('colgroup', null, [0,1,2,3,4,5,6,7].map(function(i){ return el('col', { key:i, style:{ width:((rz.widths&&rz.widths[i])||rz.defaultW)+'px' } }); })),
+        el('colgroup', null, [0,1,2,3,4,5,6,7,8].map(function(i){ return el('col', { key:i, style:{ width:((rz.widths&&rz.widths[i])||rz.defaultW)+'px' } }); })),
         el('thead', null, el('tr', null, COLS.map(function(h,i){ return thSortable(sort, setSort, i, h, rz.onResizeDown, th); })
           .concat([el('th', { key:'a', style: th }, 'Actions')]))),
-        el('tbody', null, visibleRows.map(function(r){
-          var on = r.guid === selGuid;
-          return el('tr', { key:r.guid, style:{ cursor:'pointer', background: on ? 'rgba(96,165,250,.14)' : 'transparent' },
-            onClick: function(){ setSelGuid(on ? null : r.guid); } },
-            el('td', { style: td }, _shortName(r.displayName)),
-            el('td', { style: td }, r.requestType || '—'),
-            el('td', { style: td }, el(StatusPill, { value: r.activityStatus, map: ACTIVITY_STATUS })),
-            el('td', { style: td }, r.executorEngineName || '—'),
-            el('td', { style: td }, r.requesterUserId || '—'),
-            el('td', { style: td }, fmtTime(r.startTime)),
-            el('td', { style: td }, fmtTime(r.completionTime)),
-            el('td', { style: td }, chips(r.completionGuards)),
-            el('td', { style: td },
-              canCancel(r) && el('button', { onClick:function(e){ e.stopPropagation(); setConfirm({ row:r }); },
-                style:{ fontSize:10, padding:'1px 8px', borderRadius:4, border:'1px solid #f8717155', background:'transparent', color:'#f87171', cursor:'pointer' } }, 'Cancel')));
-        }))));
+        el('tbody', null, tbody)));
 
   var statusPills = Object.keys(ACTIVITY_STATUS).map(function(s){
     var on = fStatus.has(s); var hex = STATUS_COLORS[ACTIVITY_STATUS[s][1]] || '#7a96b0';
@@ -1160,6 +1210,14 @@ function ActionsTab({ creds, isAdmin }) {
   });
 
   var toolbar = el('div', { style:{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderBottom:'1px solid var(--border)', flexWrap:'wrap' } },
+    el('button', { onClick:function(){ setGrouped(!grouped); setExpanded(new Set()); },
+      title: grouped ? 'Showing grouped by action name — click for flat list' : 'Group rows by action name',
+      style:{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, padding:'4px 11px', borderRadius:6, cursor:'pointer',
+              border: grouped ? '1.5px solid var(--accent)' : '1px solid var(--border)',
+              background: grouped ? 'rgba(96,165,250,.15)' : 'var(--bg)', color: grouped ? 'var(--accent)' : 'var(--muted)', fontWeight: grouped ? 700 : 500 } },
+      el('span', { style:{ fontSize:9, transition:'transform .15s', transform: grouped ? 'rotate(0deg)' : 'rotate(-90deg)', display:'inline-block' } }, '▼'),
+      el('span', { style:{ fontSize:13, lineHeight:1 } }, '☰'),
+      grouped ? 'Grouped' : 'Group'),
     el(RefreshControl, { onRefresh: load, busy: busy }),
     el('div', { style:{ width:1, height:20, background:'var(--border)', margin:'0 2px' } }),
     el('input', { placeholder:'search name / type / engine…', value: fText, onChange:function(e){ setFText(e.target.value); },
@@ -1178,9 +1236,11 @@ function ActionsTab({ creds, isAdmin }) {
         width: panelW, onResize: onPanelDown,
         onClose: function(){ setSelGuid(null); },
         onCatalog: sel.executorEngineGUID ? function(){ crossAppNavigate({ guid: sel.executorEngineGUID, typeName: 'GovernanceEngine', superTypeNames: ['SoftwareCapability'] }); } : null },
-        canCancel(sel) && el('div', { style:{ marginBottom:10 } },
-          el('button', { onClick:function(){ setConfirm({ row: sel }); },
-            style:{ fontSize:11, padding:'4px 14px', borderRadius:4, border:'1px solid #f8717155', background:'transparent', color:'#f87171', cursor:'pointer' } }, 'Cancel this action')),
+        el('div', { style:{ display:'flex', gap:6, marginBottom:10, flexWrap:'wrap' } },
+          sel.guid && el('button', { onClick:function(){ crossAppNavigate({ guid: sel.guid, typeName: 'EngineAction' }, { app: 'tech-catalog' }); },
+            style:{ fontSize:11, padding:'3px 10px', borderRadius:4, border:'1px solid rgba(96,165,250,.4)', background:'transparent', color:'var(--accent)', cursor:'pointer' } }, 'Engine Action ↗'),
+          canCancel(sel) && el('button', { onClick:function(){ setConfirm({ row: sel }); },
+            style:{ fontSize:11, padding:'3px 10px', borderRadius:4, border:'1px solid #f8717155', background:'transparent', color:'#f87171', cursor:'pointer' } }, 'Cancel this action')),
         el(JsonView, { data: sel }))),
     confirm && el(ConfirmDialog, {
       title: 'Cancel engine action?',

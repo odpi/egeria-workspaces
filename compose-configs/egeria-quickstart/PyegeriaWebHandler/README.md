@@ -732,3 +732,55 @@ If FastAPI returns `No updates detected. New File not created.`:
 - Verify the markdown block starts with a command H1 (`# <Command Name>`).
 - Check `debug_log.log` for warnings like `not found in command_list` or `Unknown command`.
 - Confirm your pyegeria version includes the command handler in `pyegeria.view.md_processing_utils`.
+
+---
+
+## Egeria Audit
+
+The **Egeria Audit** page (`🛡️` tile on the portal) is a single-page application for reviewing governance relationships and the user accounts known to the platform. Like the Explorer it is React 18 with the application JS inlined, sharing components from `static/egeria-shared-ui.js`. It is served by `audit_handler.py`.
+
+### Accessing the Audit page
+
+```
+http://localhost:8800/egeria-audit
+```
+
+Apache proxies the URL through to the `pyegeria-web` container. The page is also reachable from the portal's **Egeria Audit** tile.
+
+### Tabs
+
+Four tabs run across the top: **Exceptions · Certifications · Licenses · Users**.
+
+- **Exceptions / Certifications / Licenses** — three views over governance relationships, all driven by the shared `AuditRelationshipTab` component backed by `ClassificationExplorer.get_relationships`. Each is a sortable, filterable table; selecting a row opens a three-section foldable detail (end1 element, relationship properties + resolved actors, end2 type). A **point-in-time TimeSlider** ("As of") threads an `asOfTime` into every fetch so you can audit the graph as it stood at an earlier moment.
+- **Users** — platform user accounts for a selected OMAG Server Platform (via `RuntimeManager` + the platform's security connector). Full sort and text/status/type filter pills; admins can change a user's account status (confirmation-gated). The platform selector defaults to the last (most specific) platform in the list — the generic "Local OMAG Server Platform" typically has no users.
+
+### Governance-zone security (why counts differ per user)
+
+> **Important:** the relationship tabs are filtered by the **viewer's governance-zone access rights**, not by a privileged audit identity.
+
+`get_relationships` runs as the connected user (the demo persona, or the user you connect as via the bar). The platform's metadata security connector hides any relationship whose related element sits in a governance zone that user cannot access — so **two users can legitimately see different row counts from the same query**. This is by design: the audit view respects each viewer's access rather than elevating to a super-user.
+
+For example, in the Coco Pharmaceuticals sample the two **License** relationships attach to CSV files in the `landing-area` / `quarantine` zones, so `erinoverview`, `peterprofile` and `tanyatidie` see them while `garygeeke` and `calliequartile` see none. Exceptions, by contrast, are visible to everyone. The page surfaces this with a `🔒 filtered by your access` chip in the toolbar and an explanatory empty-state message ("No licenses are visible to you …"). If you expect rows that aren't there, connect as a steward with broader zone access.
+
+## Egeria Operations
+
+The **Egeria Operations** page (`🎛️` tile) monitors and operates the live Egeria runtime. Served by `operations_handler.py`, it shares the same React/`egeria-shared-ui.js` foundation as the Explorer and Audit pages.
+
+### Accessing the Operations page
+
+```
+http://localhost:8800/egeria-operations
+```
+
+### Tabs
+
+Four tabs: **Servers · Integration Connectors · Governance Engines · Engine Actions**.
+
+- **Servers** — OMAG servers reported by the platform, with status.
+- **Integration Connectors** — connectors on the Integration Daemon, with status filter pills and a manual **Refresh** that triggers a connector refresh. (Note: pyegeria's sync `refresh_integration_connector` wrapper has a name bug; the handler calls the singular async method directly as a workaround.)
+- **Governance Engines** — engines on the Engine Host servers, with status filter pills.
+- **Engine Actions** — every engine action in the ecosystem (`AutomatedCuration.find_engine_actions`). Sortable/filterable, with **activity-status filter pills** (colour-coded: green = completed/in-progress, amber = requested/waiting, red = failed, grey = cancelled/ignored). A **Group** toggle (leftmost in the toolbar, with a ▼/▶ twistie and `☰` icon) collapses repeated instances of the same action under one row showing a colour-coded status breakdown; expanding a group preserves the active filters. Selecting an action opens a detail panel that can cross-navigate to the executor Governance Engine, or to the action itself, in The Catalog.
+
+### Auto-refresh
+
+Both the connector and engine views include a `RefreshControl` — a manual refresh button plus an optional interval auto-poll — so operators can watch a long-running action progress without reloading the page.

@@ -1507,11 +1507,15 @@ function AuditRelationshipTab({ relType, columns, actorRoles, creds, focusGuid, 
       React.createElement('div', { style: { flex: '0 0 320px' } }, React.createElement(TimeSlider, { onChange: setAsOf, label: 'As of' })),
       React.createElement('input', { type: 'search', placeholder: 'Filter ' + relType.toLowerCase() + 's…', value: filter,
         onChange: function(e){ setFilter(e.target.value); },
-        style: { flex: 1, alignSelf: 'center', fontSize: 12, padding: '5px 9px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } })
+        style: { flex: 1, alignSelf: 'center', fontSize: 12, padding: '5px 9px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } }),
+      React.createElement('span', { title: 'Results are filtered by your governance-zone access rights — elements in zones you cannot access are hidden, so two users may see different counts.',
+        style: { alignSelf: 'center', fontSize: 11, color: 'var(--dim)', cursor: 'help', whiteSpace: 'nowrap', border: '1px solid var(--border)', borderRadius: 12, padding: '2px 9px' } }, '🔒 filtered by your access')
     ),
     state === 'loading' ? React.createElement('div', { style: { padding: 24, color: 'var(--muted)', fontSize: 13 } }, 'Loading ' + relType + ' relationships…')
     : state === 'error' ? React.createElement('div', { style: { padding: 24, color: '#f87171', fontSize: 13 } }, 'Failed to load.')
-    : rows.length === 0 ? React.createElement('div', { style: { padding: 24, color: 'var(--muted)', fontSize: 13 } }, 'No ' + relType + ' relationships found' + (asOf ? ' as of the selected time.' : '.'))
+    : rows.length === 0 ? React.createElement('div', { style: { padding: 24, color: 'var(--muted)', fontSize: 13, lineHeight: 1.6 } },
+        React.createElement('div', null, 'No ' + relType.toLowerCase() + 's are visible to you' + (asOf ? ' as of the selected time.' : '.')),
+        React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', marginTop: 6 } }, '🔒 Results are filtered by your governance-zone access rights — there may be ' + relType.toLowerCase() + 's in zones your user cannot access.'))
     : React.createElement(React.Fragment, null,
         focusBanner,
         table,
@@ -1618,4 +1622,45 @@ function colResizeHandle(onResizeDown, idx) {
     onClick: function(e){ e.stopPropagation(); },
     style: { position: 'absolute', right: 0, top: 0, bottom: 0, width: 6, cursor: 'col-resize', zIndex: 2, borderRight: '2px dotted rgba(96,165,250,0.45)' }
   });
+}
+
+/* ── Shared sort / filter / pill utilities ───────────────────────────────── */
+function applySort(rows, sort, keys) {
+  var key = sort.col != null ? keys[sort.col] : null;
+  if (!key) return rows;
+  return rows.slice().sort(function(a, b) {
+    var av = (a[key] == null ? '' : String(a[key])).toLowerCase();
+    var bv = (b[key] == null ? '' : String(b[key])).toLowerCase();
+    var r = av < bv ? -1 : av > bv ? 1 : 0;
+    return sort.dir === 'asc' ? r : -r;
+  });
+}
+
+function thSortable(sort, setSort, i, h, rzDown, thStyle) {
+  var el = React.createElement;
+  var isSorted = sort.col === i;
+  var indicator = isSorted
+    ? el('span', { style:{ fontSize:9, opacity:0.8 } }, sort.dir === 'asc' ? ' ↑' : ' ↓')
+    : el('span', { style:{ fontSize:9, opacity:0.2 } }, ' ⇅');
+  return el('th', { key:i, style: Object.assign({}, thStyle, { cursor:'pointer', userSelect:'none' }),
+    onClick: function(){ setSort(function(s){ return { col:i, dir: s.col===i ? (s.dir==='asc'?'desc':'asc') : 'asc' }; }); } },
+    h, indicator, rzDown ? colResizeHandle(rzDown, i) : null);
+}
+
+/* simplePillRow: filter pills without colour-coded status maps.
+   values    : array of string keys
+   labelFn   : key → display string
+   fSet      : current Set<string>
+   setFSet   : state setter */
+function simplePillRow(values, labelFn, fSet, setFSet) {
+  var el = React.createElement;
+  return el('div', { style:{ display:'flex', gap:3, flexWrap:'wrap', alignItems:'center' } },
+    values.map(function(v){
+      var on = fSet.has(v);
+      return el('button', { key:v, onClick:function(){ setFSet(function(prev){ var n=new Set(prev); if(n.has(v)) n.delete(v); else n.add(v); return n; }); },
+        style:{ fontSize:10, padding:'2px 8px', borderRadius:10, cursor:'pointer', fontWeight: on ? 700 : 400,
+                border: on ? '1.5px solid var(--accent)' : '1px solid var(--border)',
+                background: on ? 'rgba(96,165,250,.15)' : 'transparent', color: on ? 'var(--accent)' : 'var(--muted)' } }, labelFn(v)); }),
+    fSet.size > 0 && el('button', { onClick:function(){ setFSet(new Set()); },
+      style:{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid var(--border)', background:'transparent', color:'var(--dim)', cursor:'pointer' } }, 'clear'));
 }

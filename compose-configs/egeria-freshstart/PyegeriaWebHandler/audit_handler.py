@@ -8,6 +8,18 @@ Serves the egeria-audit SPA and the audit API. Four tabs:
     (ClassificationExplorer.get_relationships), point-in-time via asOfTime.
   - Users : platform user accounts (RuntimeManager + SecurityOfficer).
 
+Governance-zone security (important — explains "missing" rows):
+  Relationship visibility is filtered by the *requesting user's* governance-zone
+  access. get_relationships runs as the user passed in the query (the demo
+  persona / connected Egeria user), so the platform's metadata security
+  connector hides relationships whose end1 element sits in a zone that user
+  cannot access. This is by design — the audit view deliberately respects each
+  viewer's access rights rather than elevating to a privileged reader.
+    Example (Coco data): the two License relationships attach to CSVFiles in the
+    'landing-area' / 'quarantine' zones, so erinoverview / peterprofile / tanyatidie
+    see them but garygeeke / calliequartile see zero. Same query, different counts
+    by design. The SPA's empty state and a 🔒 toolbar chip surface this to users.
+
 Spec: audit_plan.md (review comments inline there).
 
 Routes:
@@ -94,9 +106,14 @@ def _serialize_relationship(rel: dict) -> dict:
 
 def _rel_list(raw) -> list:
     """get_relationships returns a list of dicts OR the string 'No relationships
-    found' (and similar) when empty — always normalise to a list of dicts."""
+    found' (and similar) when empty — always normalise to a list of dicts.
+    Some pyegeria versions wrap results in a dict with a 'relationships' key."""
     if isinstance(raw, list):
         return [r for r in raw if isinstance(r, dict)]
+    if isinstance(raw, dict):
+        for key in ('relationships', 'items', 'elements', 'list'):
+            if key in raw and isinstance(raw[key], list):
+                return [r for r in raw[key] if isinstance(r, dict)]
     return []
 
 
