@@ -651,7 +651,7 @@ function UsersTab({ creds }) {
   var _u  = useState([]),             users   = _u[0],   setUsers   = _u[1];
   var _us = useState('idle'),         uState  = _us[0],  setUState  = _us[1];
   var _ex = useState(null),           expand  = _ex[0],  setExpand  = _ex[1];
-  var _ad = useState(false),          isAdmin = _ad[0],  setAdmin   = _ad[1];
+  var _statusErr = useState(null),    statusErr = _statusErr[0], setStatusErr = _statusErr[1];
   var _cf = useState(null),           confirm = _cf[0],  setConfirm = _cf[1];
   var _pw = useState(360),            panelW  = _pw[0],  setPanelW  = _pw[1];
   var _so = useState({ col:0, dir:'asc' }), sort = _so[0], setSort = _so[1];
@@ -673,8 +673,6 @@ function UsersTab({ creds }) {
   useEffect(function() {
     egeriaFetch('/api/audit/platforms', creds).then(function(r){ return r.ok ? r.json() : { platforms: [] }; })
       .then(function(d){ var ps = d.platforms || []; setPlats(ps); if (ps.length) setPlat(ps[ps.length - 1]); });
-    egeriaFetch('/api/auth/me', creds).then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(d){ setAdmin(!!(d && d.role === 'admin')); }).catch(function(){});
   }, []);
 
   useEffect(function() {
@@ -687,11 +685,24 @@ function UsersTab({ creds }) {
   }, [plat && plat.guid]);
 
   function applyStatus(user, status) {
+    setStatusErr(null);
     egeriaFetch('/api/audit/users/status', creds, { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ platform_guid: plat.guid, platform_name: plat.displayName, user_id: user.userName, status: status }) })
-      .then(function(r){ return r.ok ? r.json() : r.json().then(function(e){ throw new Error(e.detail || 'Failed'); }); })
-      .then(function(){ setConfirm(null); setUsers(users.map(function(x){ return x.userName === user.userName ? Object.assign({}, x, { userAccountStatus: status }) : x; })); })
-      .catch(function(e){ setConfirm(Object.assign({}, confirm, { err: e.message })); });
+      .then(function(r) {
+        if (r.ok) return r.json();
+        var httpStatus = r.status;
+        return r.json().then(function(e) {
+          throw new Error(httpStatus === 403
+            ? 'Your account does not have permission to change user status. An admin account is required.'
+            : (e.detail || 'Failed to change status.'));
+        }, function() {
+          throw new Error(httpStatus === 403
+            ? 'Your account does not have permission to change user status. An admin account is required.'
+            : 'Failed to change status.');
+        });
+      })
+      .then(function(){ setConfirm(null); setStatusErr(null); setUsers(users.map(function(x){ return x.userName === user.userName ? Object.assign({}, x, { userAccountStatus: status }) : x; })); })
+      .catch(function(e){ setStatusErr(e.message); });
   }
 
   var visibleUsers = applySort(users.filter(function(u) {
@@ -715,7 +726,7 @@ function UsersTab({ creds }) {
       el('select', { value: plat ? plat.guid : '', onChange: function(e){ setPlat(plats.find(function(p){ return p.guid === e.target.value; }) || null); },
         style: { fontSize: 12, padding: '4px 8px', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 4 } },
         plats.length === 0 ? el('option', { value: '' }, 'No platforms') : plats.map(function(p){ return el('option', { key: p.guid, value: p.guid }, p.displayName); })),
-      isAdmin && el('span', { style: { fontSize: 11, color: '#34d399', marginLeft: 'auto' } }, '🔓 Admin — status editable')
+      el('span', { style: { fontSize: 11, color: 'var(--dim)', marginLeft: 'auto' } }, 'Status changes require an admin account')
     ),
     // Toolbar: search + status + type pills
     uState === 'ready' && users.length > 0 && el('div', { style: { padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid var(--border)', flexWrap: 'wrap', flexShrink: 0 } },
@@ -747,7 +758,7 @@ function UsersTab({ creds }) {
                 el('td', { style: td }, _typeLabel(u.userAccountType)),
                 el('td', { style: td }, u.displayName || ''),
                 el('td', { style: td }, _statusLabel(u.userAccountStatus)),
-                el('td', { style: td }, isAdmin && el('select', { value: '', onClick: function(e){ e.stopPropagation(); },
+                el('td', { style: td }, el('select', { value: '', onClick: function(e){ e.stopPropagation(); },
                     onChange: function(e){ if (e.target.value) setConfirm({ user: u, status: e.target.value }); },
                     style: { fontSize: 11, background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--accent)', borderRadius: 4, cursor: 'pointer' } },
                     [el('option', { key: '_', value: '' }, 'Set status…')].concat(USER_STATUSES.filter(function(s){ return s !== u.userAccountStatus; }).map(function(s){ return el('option', { key: s, value: s }, _statusLabel(s)); })))));
@@ -775,9 +786,9 @@ function UsersTab({ creds }) {
         el('div', { style: { fontSize: 13, color: 'var(--muted)', marginBottom: 14, lineHeight: 1.5 } },
           'Set ', el('b', { style: { color: 'var(--text)' } }, confirm.user.userName), ' to ',
           el('b', { style: { color: 'var(--accent)' } }, _statusLabel(confirm.status)), ' on ', plat ? plat.displayName : '', "? This changes the user's access."),
-        confirm.err && el('div', { style: { fontSize: 12, color: '#f87171', marginBottom: 10 } }, confirm.err),
+        statusErr && el('div', { style: { fontSize: 12, color: '#f87171', marginBottom: 10 } }, statusErr),
         el('div', { style: { display: 'flex', gap: 8, justifyContent: 'flex-end' } },
-          el('button', { onClick: function(){ setConfirm(null); }, style: { padding: '6px 14px', borderRadius: 5, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 13 } }, 'Cancel'),
+          el('button', { onClick: function(){ setConfirm(null); setStatusErr(null); }, style: { padding: '6px 14px', borderRadius: 5, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 13 } }, 'Cancel'),
           el('button', { onClick: function(){ applyStatus(confirm.user, confirm.status); }, style: { padding: '6px 16px', borderRadius: 5, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 } }, 'Change status'))))
   );
 }
@@ -864,13 +875,13 @@ function App() {
   var showConnBar = ready && !srvManaged && (showConn || !who);
   var connBar = showConnBar && el('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderBottom: '1px solid var(--border)', background: 'rgba(96,165,250,.06)' } },
     el('span', { style: { fontSize: 12, color: 'var(--muted)' } }, 'Connect to Egeria as:'),
-    el('input', { placeholder: 'user id (e.g. garygeeke)', value: fu, onChange: function(e){ setFu(e.target.value); },
+    el('input', { placeholder: 'Egeria user id', value: fu, onChange: function(e){ setFu(e.target.value); },
       onKeyDown: function(e){ if (e.key === 'Enter') connect(); }, style: Object.assign({}, inp, { width: 200 }) }),
     el('input', { type: 'password', placeholder: 'password', value: fp, onChange: function(e){ setFp(e.target.value); },
       onKeyDown: function(e){ if (e.key === 'Enter') connect(); }, style: Object.assign({}, inp, { width: 150 }) }),
     el('button', { onClick: connect, style: { fontSize: 12, padding: '4px 14px', borderRadius: 4, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: 600 } }, 'Connect'),
     cerr && el('span', { style: { fontSize: 12, color: '#f87171' } }, cerr),
-    el('span', { style: { marginLeft: 'auto', fontSize: 11, color: 'var(--dim)' } }, 'Listing platform users requires an admin user.'));
+    el('span', { style: { marginLeft: 'auto', fontSize: 11, color: 'var(--dim)' } }, 'Some operations may require elevated Egeria permissions.'));
 
   return el(CredContext.Provider, { value: creds },
     el('div', { style: { display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', color: 'var(--text)' } },

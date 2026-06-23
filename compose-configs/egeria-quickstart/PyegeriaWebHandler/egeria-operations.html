@@ -871,8 +871,9 @@ function usePanelWidth(initial) {
 // ── Integration Connectors tab ────────────────────────────────────────────────
 function ConnectorsTab({ creds, platforms, platform, onPlatform, isAdmin }) {
   var t = useServerTab({ creds:creds, platform:platform, serverType:'Integration Daemon', endpoint:'/api/operations/integration-connectors' });
-  var _cf = useState(null),  confirm = _cf[0], setConfirm = _cf[1];
-  var _fg = useState('all'), fGroup  = _fg[0], setFGroup  = _fg[1];
+  var _cf = useState(null),        confirm    = _cf[0], setConfirm    = _cf[1];
+  var _rfg = useState(new Set()),  refreshing = _rfg[0], setRefreshing = _rfg[1];
+  var _fg = useState('all'),       fGroup     = _fg[0], setFGroup     = _fg[1];
   var _ft = useState(''),    fText   = _ft[0], setFText   = _ft[1];
   var _fs = useState(new Set()), fStatus = _fs[0], setFStatus = _fs[1];
   var _so = useState({ col:0, dir:'asc' }), sort = _so[0], setSort = _so[1];
@@ -887,7 +888,19 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform, isAdmin }) {
     if (fText && (r.connectorName || '').toLowerCase().indexOf(fText.toLowerCase()) < 0) return false;
     return true; }), sort, SORT_KEYS);
 
+  function loadAndClear() { setRefreshing(new Set()); t.load(); }
+
   function act(row, action) {
+    if (action === 'refresh') {
+      // Refresh runs in background on server (can take several minutes) — close
+      // the modal immediately, mark the row, and fire-and-forget the request.
+      setConfirm(null);
+      setRefreshing(function(s){ var n = new Set(s); n.add(row.connectorName); return n; });
+      egeriaFetch('/api/operations/connector/refresh', creds, { method:'POST', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ server_guid: t.server.guid, connector_name: row.connectorName }) })
+        .catch(function(){}); // background — ignore timeouts and errors
+      return;
+    }
     setConfirm(Object.assign({}, confirm, { busy:true }));
     egeriaFetch('/api/operations/connector/' + action, creds, { method:'POST', headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({ server_guid: t.server.guid, connector_name: row.connectorName }) })
@@ -933,7 +946,9 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform, isAdmin }) {
             el('td', { style: td }, r.lastRefreshTime),
             el('td', { style: td }, r.minMinutesBetweenRefresh == null ? '' : String(r.minMinutesBetweenRefresh)),
             el('td', { style: Object.assign({}, td, { color: r.failingExceptionMessage ? '#f87171' : 'var(--dim)' }) }, r.failingExceptionMessage || '—'),
-            el('td', { style: td }, actionBtn('Start','#34d399',r,'start'), actionBtn('Stop','#f87171',r,'stop'), actionBtn('Refresh','#60a5fa',r,'refresh')));
+            el('td', { style: td }, refreshing.has(r.connectorName)
+              ? el('span', { style:{ fontSize:10, color:'#60a5fa' } }, '⟳ Refreshing…')
+              : [actionBtn('Start','#34d399',r,'start'), actionBtn('Stop','#f87171',r,'stop'), actionBtn('Refresh','#60a5fa',r,'refresh')]));
         }))));
 
   var filters = el(React.Fragment, null,
@@ -944,7 +959,7 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform, isAdmin }) {
     statusPillRow(CONNECTOR_STATUS, STATUS_COLORS, fStatus, setFStatus));
 
   return el('div', { style:{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' } },
-    el(OpsToolbar, { platforms:platforms, platform:platform, onPlatform:onPlatform, servers:t.servers, server:t.server, onServer:t.setServer, serverLabel:'Daemon', onRefresh:t.load, busy:t.busy, children:filters }),
+    el(OpsToolbar, { platforms:platforms, platform:platform, onPlatform:onPlatform, servers:t.servers, server:t.server, onServer:t.setServer, serverLabel:'Daemon', onRefresh:loadAndClear, busy:t.busy, children:filters }),
     el('div', { style:{ flex:1, display:'flex', overflow:'hidden', minHeight:0 } },
       table,
       sel && el(DetailPanel, { title: sel.connectorName, subtitle: sel.integrationGroup, width: panelW, onResize: onPanelDown,
