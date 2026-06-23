@@ -328,11 +328,7 @@ def connector_action(action: str, request: Request, body: _ConnectorActionBody):
         elif action == "stop":
             rm.stop_connector(server_guid=body.server_guid, connector_name=body.connector_name)
         else:
-            # NOTE: pyegeria method is currently plural (refresh_integration_connectors);
-            # Dan is renaming to singular. Prefer the singular name when it lands.
-            fn = (getattr(rm, "refresh_integration_connector", None)
-                  or getattr(rm, "refresh_integration_connectors"))
-            fn(server_guid=body.server_guid, connector_name=body.connector_name)
+            rm.refresh_integration_connector(server_guid=body.server_guid, connector_name=body.connector_name)
     except Exception as exc:
         logger.exception("operations: connector %s(%s) failed", action, body.connector_name)
         raise HTTPException(status_code=500, detail=str(exc))
