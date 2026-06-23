@@ -85,14 +85,38 @@ Two isolated deployments share Kafka, PostgreSQL and the OpenLineage proxy. Run 
 
 ## Web portal applications
 
-The portal at `http://localhost:8885` (quickstart) or `http://localhost:7885` (freshstart) tiles the following browser applications, all served by the `pyegeria-web` container:
+The portal at `http://localhost:8885` (quickstart) or `http://localhost:7885` (freshstart) groups tiles into three sections, all served by the `pyegeria-web` container:
+
+**Primary tools**
 
 | Tile | Path | What it does |
 |------|------|--------------|
-| Egeria Explorer | `/egeria-explorer` | Read-only browser for the type system, glossary, reference data, digital products, valid values and REST APIs |
-| 🛡️ Egeria Audit | `/egeria-audit` | Review governance relationships (exceptions, certifications, licenses) and platform user accounts. Relationship rows are **filtered by your governance-zone access** |
-| 🎛️ Egeria Operations | `/egeria-operations` | Monitor and operate the runtime — servers, integration connectors, governance engines and engine actions |
+| 🐱 The Catalog | `/tech-catalog` | Browse infrastructure assets, data stores, APIs and processes registered in Egeria |
+| 🔍 Egeria Explorer | `/egeria-explorer` | Browse metadata — types, glossary, lineage, governance blueprints, information supply chains and more |
 | 🔗 Lineage Explorer | `/lineage` | Trace data flow and dependencies across the metadata landscape |
+| 🛡️ Egeria Audit | `/egeria-audit` | Review exceptions, certifications and licenses; see who has access to Egeria. Rows **filtered by your governance-zone access** |
+| 🎛️ Egeria Operations | `/egeria-operations` | Monitor and operate the runtime — servers, integration connectors, governance engines and engine actions |
+| 🔭 Resource Explorer | `/resource-explorer` | Scout, assess, discover and enrich resources *(Preview — coming soon)* |
+
+**Workspaces & assistants**
+
+| Tile | What it does |
+|------|--------------|
+| 📓 Jupyter Lab | Interactive notebooks for data science and hands-on Egeria API exploration |
+| 🗒️ Obsidian Vault | Open the Coco Pharmaceuticals workbook vault in your local Obsidian (or the browser-based shared install) |
+| 🖥️ My Egeria | Explore your Egeria profile, roles, teams, actions and data catalog (TUI via `/my-egeria/`) |
+| 🤖 Egeria Advisor | AI-powered guidance for your Egeria environment (requires external `EGERIA_ADVISOR_URL`) |
+
+**Documentation & API references**
+
+| Tile | Path | What it does |
+|------|------|--------------|
+| 📚 Egeria Workspaces Docs | `/docs/` | User guides, Dr. Egeria templates, Coco scenario walkthroughs, admin docs |
+| ⚙️ Admin | `/admin` | Manage the Obsidian session lock, view audit log, add reservations *(freshstart only)* |
+| 📖 Egeria Documentation | `egeria.ai` ↗ | Official Egeria project documentation and community resources |
+| 📚 Egeria JavaDocs | external ↗ | Java API reference for the Egeria platform and connectors |
+| 🐍 Python API | `/egeria-explorer#python-api` | pyegeria client reference — classes and methods by domain |
+| 🔌 REST APIs | `/egeria-explorer#rest-apis` | Live REST API browser — all open metadata services |
 
 Full tab-by-tab documentation: [PyegeriaWebHandler README](compose-configs/egeria-quickstart/PyegeriaWebHandler/README.md)
 
