@@ -81,6 +81,9 @@ Three deployment modes are available, all sharing the same Kafka, PostgreSQL and
 
 The Quickstart environment running in `DEMO_MODE=true`, hosted publicly. Register for a free account, choose a Coco Pharmaceuticals persona, and explore. Includes scheduled data resets and an admin panel. No Docker required.
 
+<!-- screenshot: docs/images/demo-portal.png — portal tile page after login -->
+<!-- screenshot: docs/images/demo-persona-picker.png — persona selection modal -->
+
 ### Egeria Quickstart — local, pre-loaded with Coco data
 
 The recommended starting point for learning Egeria. Pre-loaded with [Coco Pharmaceuticals](https://egeria-project.org/practices/coco-pharmaceuticals/) personas, data assets, governance metadata and scenario content. No authentication wall — opens directly to the portal.
@@ -117,11 +120,47 @@ Both scripts automatically bring up the shared infrastructure stack. Run them si
 | Runtime data               | `runtime-volumes/quickstart-platform-data/`                      | `runtime-volumes/freshstart-platform-data/`                                                                                             |
 | Further information        | [Quickstart README](compose-configs/egeria-quickstart/README.md) | [Freshstart README](compose-configs/egeria-freshstart/README.md)                                                                        |
 
+### Container architecture
+
+```mermaid
+flowchart TB
+    Browser(["🌐 Browser / Client"])
+
+    subgraph QS["🚀 Egeria Quickstart  (ports 88xx)"]
+        QS_Apache["Apache  :8885"]
+        QS_API["pyegeria-web FastAPI  :8800"]
+        QS_Egeria["Egeria Platform  :9443"]
+        QS_Jupyter["Jupyter Lab  :8888"]
+    end
+
+    subgraph FS["🌱 Egeria Freshstart  (ports 78xx)"]
+        FS_Apache["Apache  :7885"]
+        FS_API["pyegeria-web FastAPI  :7800"]
+        FS_Egeria["Egeria Platform  :8443"]
+        FS_Jupyter["Jupyter Lab  :7888"]
+    end
+
+    subgraph SI["⚙️ Shared Infrastructure"]
+        Kafka[("Kafka  :9192")]
+        PG[("PostgreSQL  :5442")]
+    end
+
+    Browser --> QS_Apache & FS_Apache
+    Browser --> QS_Jupyter & FS_Jupyter
+    QS_Apache -->|reverse proxy| QS_API --> QS_Egeria
+    FS_Apache -->|reverse proxy| FS_API --> FS_Egeria
+    QS_Egeria & FS_Egeria --> Kafka & PG
+```
+
 ---
 
 ## Web portal applications
 
 The portal at `http://localhost:8885` (quickstart) or `http://localhost:7885` (freshstart) groups tiles into three sections, all served by the `pyegeria-web` container:
+
+<!-- screenshot: docs/images/portal-tiles.png — full portal tile grid -->
+
+
 
 **Primary tools**
 
@@ -153,6 +192,11 @@ The portal at `http://localhost:8885` (quickstart) or `http://localhost:7885` (f
 | 📚 Egeria JavaDocs | external ↗ | Java API reference for the Egeria platform and connectors |
 | 🐍 Python API | `/egeria-explorer#python-api` | pyegeria client reference — classes and methods by domain |
 | 🔌 REST APIs | `/egeria-explorer#rest-apis` | Live REST API browser — all open metadata services |
+
+<!-- screenshot: docs/images/egeria-explorer.png — Egeria Explorer glossary or type browser tab -->
+<!-- screenshot: docs/images/egeria-catalog.png — The Catalog asset browser -->
+<!-- screenshot: docs/images/egeria-audit.png — Egeria Audit governance relationships tab -->
+<!-- screenshot: docs/images/egeria-operations.png — Egeria Operations servers tab -->
 
 Full tab-by-tab documentation: [PyegeriaWebHandler README](compose-configs/egeria-quickstart/PyegeriaWebHandler/README.md)
 
@@ -207,6 +251,38 @@ Four [OMAG servers](https://egeria-project.org/concepts/omag-server/) run on the
 | [Integration Daemon](https://egeria-project.org/concepts/integration-daemon/) | `qs-integration-daemon` | `fs-integration-daemon` | Runs integration connectors that synchronize metadata between systems |
 | [Engine Host](https://egeria-project.org/concepts/engine-host/) | `qs-engine-host` | `fs-engine-host` | Runs governance services |
 | [Metadata Access Store](https://egeria-project.org/concepts/metadata-access-store/) | `qs-metadata-store` | `fs-metadata-store` | Hosts the metadata repository |
+
+### Egeria platform architecture
+
+```mermaid
+flowchart TB
+    subgraph Clients["Client Tools"]
+        direction LR
+        Web["Web SPAs\nExplorer · Audit · Operations\nCatalog · Lineage"]
+        Notebooks["Jupyter / pyegeria"]
+        AI["AI Assistants\nClaude / MCP"]
+        TUI["My Egeria TUI"]
+    end
+
+    VS["View Server\nREST API gateway\nqs-view-server"]
+
+    subgraph BackendServers["Backend Servers"]
+        direction LR
+        ID["Integration Daemon\nqs-integration-daemon\nMetadata sync connectors"]
+        EH["Engine Host\nqs-engine-host\nGovernance services"]
+        MAS["Metadata Access Store\nqs-metadata-store\nRepository"]
+    end
+
+    PG[("PostgreSQL\nMetadata repository")]
+    Kafka{{"Kafka\nEvent bus"}}
+    Ext(["External Systems\nfiles · databases · APIs"])
+
+    Clients --> VS
+    VS --> ID & EH & MAS
+    MAS --> PG
+    ID & EH & MAS <--> Kafka
+    ID <--> Ext
+```
 
 ---
 
