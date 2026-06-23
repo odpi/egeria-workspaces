@@ -686,6 +686,42 @@ function ConfirmDialog({ title, body, confirmLabel, err, onCancel, onConfirm }) 
         el('button', { onClick: onConfirm, style: { padding:'6px 16px', borderRadius:5, border:'none', background:'var(--accent)', color:'#fff', cursor:'pointer', fontSize:13, fontWeight:600 } }, confirmLabel || 'Confirm'))));
 }
 
+// ── Sort + error helpers ──────────────────────────────────────────────────────
+function applySort(rows, sort, keys) {
+  var key = sort.col != null ? keys[sort.col] : null;
+  if (!key) return rows;
+  return rows.slice().sort(function(a, b) {
+    var av = (a[key] == null ? '' : String(a[key])).toLowerCase();
+    var bv = (b[key] == null ? '' : String(b[key])).toLowerCase();
+    var r = av < bv ? -1 : av > bv ? 1 : 0;
+    return sort.dir === 'asc' ? r : -r;
+  });
+}
+function thSortable(sort, setSort, i, h, rzDown, thStyle) {
+  var isSorted = sort.col === i;
+  var indicator = isSorted
+    ? el('span', { style:{ fontSize:9, opacity:0.8 } }, sort.dir === 'asc' ? ' ↑' : ' ↓')
+    : el('span', { style:{ fontSize:9, opacity:0.2 } }, ' ⇅');
+  return el('th', { key:i, style: Object.assign({}, thStyle, { cursor:'pointer', userSelect:'none' }),
+    onClick: function(){ setSort(function(s){ return { col:i, dir: s.col===i ? (s.dir==='asc'?'desc':'asc') : 'asc' }; }); } },
+    h, indicator, rzDown ? colResizeHandle(rzDown, i) : null);
+}
+function statusPillRow(map, statusColors, fStatus, setFStatus) {
+  return el('div', { style:{ display:'flex', gap:3, flexWrap:'wrap', alignItems:'center' } },
+    Object.keys(map).map(function(s){
+      var on = fStatus.has(s); var hex = statusColors[map[s][1]] || '#7a96b0';
+      return el('button', { key:s, onClick:function(){ setFStatus(function(prev){ var n=new Set(prev); if(n.has(s)) n.delete(s); else n.add(s); return n; }); },
+        style:{ fontSize:10, padding:'2px 8px', borderRadius:10, cursor:'pointer', fontWeight: on ? 700 : 400,
+                border: on ? '1.5px solid '+hex : '1px solid var(--border)',
+                background: on ? hex+'22' : 'transparent', color: on ? hex : 'var(--muted)' } }, map[s][0]); }),
+    fStatus.size > 0 && el('button', { onClick:function(){ setFStatus(new Set()); },
+      style:{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid var(--border)', background:'transparent', color:'var(--dim)', cursor:'pointer' } }, 'clear'));
+}
+function errMsg(r) {
+  if (r.status === 403) return Promise.reject(new Error('You do not have permission for this operation.'));
+  return r.json().then(function(e){ throw new Error(e.detail || 'Failed'); });
+}
+
 // ── Servers tab ───────────────────────────────────────────────────────────────
 function ServersTab({ creds, platforms, platform, onPlatform, isAdmin }) {
   var _r = useState([]),       rows   = _r[0], setRows   = _r[1];
@@ -696,7 +732,10 @@ function ServersTab({ creds, platforms, platform, onPlatform, isAdmin }) {
   var _cf = useState(null),    confirm= _cf[0], setConfirm = _cf[1];   // {row, action, err}
   var _pw = useState(400),     panelW = _pw[0], setPanelW = _pw[1];
   var rz = useColumnResize(5, 180);
+  var _so = useState({ col:0, dir:'asc' }), sort = _so[0], setSort = _so[1];
+  var SORT_KEYS = ['serverName','serverType','description','organizationName','serverActiveStatus'];
   var sel = rows.find(function(r){ return r.guid === selGuid; });
+  var sortedRows = applySort(rows, sort, SORT_KEYS);
 
   function onPanelDown(e) {
     e.preventDefault();
@@ -728,7 +767,7 @@ function ServersTab({ creds, platforms, platform, onPlatform, isAdmin }) {
     setConfirm(Object.assign({}, confirm, { busy:true }));
     egeriaFetch('/api/operations/server/' + action, creds, { method:'POST', headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({ server_guid: row.guid }) })
-      .then(function(r){ return r.ok ? r.json() : r.json().then(function(e){ throw new Error(e.detail || 'Failed'); }); })
+      .then(function(r){ return r.ok ? r.json() : errMsg(r); })
       .then(function(){ setConfirm(null); setTimeout(load, 1500); })
       .catch(function(e){ setConfirm(Object.assign({}, confirm, { err: e.message, busy:false })); });
   }
@@ -744,9 +783,9 @@ function ServersTab({ creds, platforms, platform, onPlatform, isAdmin }) {
     : rows.length === 0 ? el('div', { style: pad }, 'No servers deployed on ' + platform.displayName + '.')
     : el('table', { style: { borderCollapse:'collapse', tableLayout:'fixed', width: rz.tableWidth ? rz.tableWidth+'px' : '100%', minWidth:'100%' } },
         el('colgroup', null, [0,1,2,3,4].map(function(i){ return el('col', { key:i, style:{ width: ((rz.widths && rz.widths[i]) || rz.defaultW)+'px' } }); })),
-        el('thead', null, el('tr', null, COLS.map(function(h,i){ return el('th', { key:i, style: th }, h, colResizeHandle(rz.onResizeDown, i)); })
+        el('thead', null, el('tr', null, COLS.map(function(h,i){ return thSortable(sort, setSort, i, h, rz.onResizeDown, th); })
           .concat(isAdmin ? [el('th', { key:'a', style: th }, '')] : []))),
-        el('tbody', null, rows.map(function(r){
+        el('tbody', null, sortedRows.map(function(r){
           var on = r.guid === selGuid;
           var running = r.serverActiveStatus === 'RUNNING';
           return el('tr', { key:r.guid, style: { cursor:'pointer', background: on ? 'rgba(96,165,250,.14)' : 'transparent' }, onClick: function(){ setSelGuid(on ? null : r.guid); } },
@@ -769,7 +808,7 @@ function ServersTab({ creds, platforms, platform, onPlatform, isAdmin }) {
           el('div', { style:{ minWidth:0 } },
             el('div', { style:{ fontWeight:700, fontSize:13, color:'var(--accent)' } }, sel.serverName),
             el('div', { style:{ fontSize:11, color:'var(--dim)' } }, sel.serverType)),
-          el('button', { onClick: function(){ crossAppNavigate({ guid: sel.guid, typeName: 'SoftwareServer' }); }, title:'Open in The Catalog',
+          el('button', { onClick: function(){ crossAppNavigate({ guid: sel.guid, typeName: 'SoftwareServer', superTypeNames: ['Asset'] }); }, title:'Open in The Catalog',
             style:{ marginLeft:'auto', fontSize:11, padding:'2px 8px', borderRadius:4, border:'1px solid var(--border)', background:'transparent', color:'var(--accent)', cursor:'pointer' } }, 'Catalog ↗'),
           el('button', { onClick: function(){ setSelGuid(null); }, title:'Close', style:{ background:'transparent', border:'none', color:'var(--dim)', cursor:'pointer', fontSize:16, lineHeight:1 } }, '✕')),
         el('div', { style:{ padding:'10px 14px' } }, report ? el(JsonView, { data: report }) : el('div', { style:{ color:'var(--dim)', fontSize:12 } }, 'Loading report…')))),
@@ -832,23 +871,27 @@ function usePanelWidth(initial) {
 // ── Integration Connectors tab ────────────────────────────────────────────────
 function ConnectorsTab({ creds, platforms, platform, onPlatform, isAdmin }) {
   var t = useServerTab({ creds:creds, platform:platform, serverType:'Integration Daemon', endpoint:'/api/operations/integration-connectors' });
-  var _cf = useState(null),  confirm = _cf[0], setConfirm = _cf[1];   // {row, action, err}
+  var _cf = useState(null),  confirm = _cf[0], setConfirm = _cf[1];
   var _fg = useState('all'), fGroup  = _fg[0], setFGroup  = _fg[1];
   var _ft = useState(''),    fText   = _ft[0], setFText   = _ft[1];
+  var _fs = useState(new Set()), fStatus = _fs[0], setFStatus = _fs[1];
+  var _so = useState({ col:0, dir:'asc' }), sort = _so[0], setSort = _so[1];
   var pw = usePanelWidth(420), panelW = pw[0], onPanelDown = pw[1];
   var rz = useColumnResize(8, 150);
+  var SORT_KEYS = ['connectorName','connectorStatus','','integrationGroup','lastStatusChange','lastRefreshTime','minMinutesBetweenRefresh','failingExceptionMessage'];
   var sel = t.rows.find(function(r){ return r.connectorName === t.selKey; });
   var groupNames = Array.from(new Set(t.rows.map(function(r){ return r.integrationGroup; }).filter(Boolean))).sort();
-  var rows = t.rows.filter(function(r){
+  var rows = applySort(t.rows.filter(function(r){
+    if (fStatus.size > 0 && !fStatus.has(r.connectorStatus)) return false;
     if (fGroup !== 'all' && r.integrationGroup !== fGroup) return false;
     if (fText && (r.connectorName || '').toLowerCase().indexOf(fText.toLowerCase()) < 0) return false;
-    return true; });
+    return true; }), sort, SORT_KEYS);
 
   function act(row, action) {
     setConfirm(Object.assign({}, confirm, { busy:true }));
     egeriaFetch('/api/operations/connector/' + action, creds, { method:'POST', headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({ server_guid: t.server.guid, connector_name: row.connectorName }) })
-      .then(function(r){ return r.ok ? r.json() : r.json().then(function(e){ throw new Error(e.detail || 'Failed'); }); })
+      .then(function(r){ return r.ok ? r.json() : errMsg(r); })
       .then(function(){ setConfirm(null); setTimeout(t.load, 1200); })
       .catch(function(e){ setConfirm(Object.assign({}, confirm, { err:e.message, busy:false })); });
   }
@@ -877,7 +920,7 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform, isAdmin }) {
     : rows.length === 0 ? el('div', { style: pad }, t.rows.length ? 'No connectors match the filter.' : 'No connectors on this daemon.')
     : el('table', { style:{ borderCollapse:'collapse', tableLayout:'fixed', width: rz.tableWidth ? rz.tableWidth+'px' : '100%', minWidth:'100%' } },
         el('colgroup', null, [0,1,2,3,4,5,6,7].map(function(i){ return el('col', { key:i, style:{ width: ((rz.widths && rz.widths[i]) || rz.defaultW)+'px' } }); })),
-        el('thead', null, el('tr', null, COLS.map(function(h,i){ return el('th', { key:i, style: th }, h, colResizeHandle(rz.onResizeDown, i)); })
+        el('thead', null, el('tr', null, COLS.map(function(h,i){ return thSortable(sort, setSort, i, h, rz.onResizeDown, th); })
           .concat(isAdmin ? [el('th', { key:'a', style: th }, 'Actions')] : []))),
         el('tbody', null, rows.map(function(r){
           var on = r.connectorName === t.selKey;
@@ -896,14 +939,16 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform, isAdmin }) {
   var filters = el(React.Fragment, null,
     el('select', { value:fGroup, onChange:function(e){ setFGroup(e.target.value); }, style:{ fontSize:11, padding:'4px 6px', background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:4, maxWidth:200 } },
       [el('option', { key:'all', value:'all' }, 'All groups')].concat(groupNames.map(function(g){ return el('option', { key:g, value:g }, g); }))),
-    el('input', { placeholder:'filter connector…', value:fText, onChange:function(e){ setFText(e.target.value); }, style:{ fontSize:11, padding:'4px 8px', background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:4, width:150 } }));
+    el('input', { placeholder:'filter connector…', value:fText, onChange:function(e){ setFText(e.target.value); }, style:{ fontSize:11, padding:'4px 8px', background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:4, width:150 } }),
+    el('div', { style:{ width:1, height:20, background:'var(--border)', margin:'0 4px' } }),
+    statusPillRow(CONNECTOR_STATUS, STATUS_COLORS, fStatus, setFStatus));
 
   return el('div', { style:{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' } },
     el(OpsToolbar, { platforms:platforms, platform:platform, onPlatform:onPlatform, servers:t.servers, server:t.server, onServer:t.setServer, serverLabel:'Daemon', onRefresh:t.load, busy:t.busy, children:filters }),
     el('div', { style:{ flex:1, display:'flex', overflow:'hidden', minHeight:0 } },
       table,
       sel && el(DetailPanel, { title: sel.connectorName, subtitle: sel.integrationGroup, width: panelW, onResize: onPanelDown,
-        onClose: function(){ t.setSelKey(null); }, onCatalog: function(){ crossAppNavigate({ guid: sel.connectorGUID, typeName: 'IntegrationConnector' }); } },
+        onClose: function(){ t.setSelKey(null); }, onCatalog: function(){ crossAppNavigate({ guid: sel.connectorGUID, typeName: 'IntegrationConnector', superTypeNames: ['SoftwareCapability'] }); } },
         el(JsonView, { data: sel }))),
     confirm && el(ConfirmDialog, {
       title: confirm.action.charAt(0).toUpperCase() + confirm.action.slice(1) + ' connector?',
@@ -915,20 +960,36 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform, isAdmin }) {
 // ── Governance Engines tab ──────────────────────────────────────────────────
 function EnginesTab({ creds, platforms, platform, onPlatform, isAdmin }) {
   var t = useServerTab({ creds:creds, platform:platform, serverType:'Engine Host Server', endpoint:'/api/operations/governance-engines' });
-  var _cf = useState(null),  confirm = _cf[0], setConfirm = _cf[1];
-  var _ft = useState(''),    fText   = _ft[0], setFText   = _ft[1];
+  var _cf  = useState(null),  confirm  = _cf[0],  setConfirm  = _cf[1];
+  var _scf = useState(null),  srvConf  = _scf[0], setSrvConf  = _scf[1];
+  var _ft  = useState(''),    fText    = _ft[0],   setFText    = _ft[1];
+  var _fs  = useState(new Set()), fStatus = _fs[0], setFStatus = _fs[1];
+  var _so  = useState({ col:0, dir:'asc' }), sort = _so[0], setSort = _so[1];
   var pw = usePanelWidth(420), panelW = pw[0], onPanelDown = pw[1];
   var rz = useColumnResize(7, 150);
+  var SORT_KEYS = ['governanceEngineName','governanceEngineTypeName','governanceEngineService','governanceEngineDescription','governanceEngineStatus','','lastRefreshTime'];
   var sel = t.rows.find(function(r){ return r.governanceEngineName === t.selKey; });
-  var rows = t.rows.filter(function(r){ return !fText || (r.governanceEngineName || '').toLowerCase().indexOf(fText.toLowerCase()) >= 0; });
+  var rows = applySort(t.rows.filter(function(r){
+    if (fStatus.size > 0 && !fStatus.has(r.governanceEngineStatus)) return false;
+    return !fText || (r.governanceEngineName || '').toLowerCase().indexOf(fText.toLowerCase()) >= 0;
+  }), sort, SORT_KEYS);
 
   function refresh(row) {
     setConfirm(Object.assign({}, confirm, { busy:true }));
     egeriaFetch('/api/operations/engine/refresh', creds, { method:'POST', headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({ server_guid: t.server.guid, engine_name: row.governanceEngineName }) })
-      .then(function(r){ return r.ok ? r.json() : r.json().then(function(e){ throw new Error(e.detail || 'Failed'); }); })
+      .then(function(r){ return r.ok ? r.json() : errMsg(r); })
       .then(function(){ setConfirm(null); setTimeout(t.load, 1200); })
       .catch(function(e){ setConfirm(Object.assign({}, confirm, { err:e.message, busy:false })); });
+  }
+
+  function doSrvAction(action) {
+    setSrvConf(Object.assign({}, srvConf, { busy:true }));
+    egeriaFetch('/api/operations/server/' + action, creds, { method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ server_guid: t.server.guid }) })
+      .then(function(r){ return r.ok ? r.json() : errMsg(r); })
+      .then(function(){ setSrvConf(null); setTimeout(t.load, 1500); })
+      .catch(function(e){ setSrvConf(Object.assign({}, srvConf, { err:e.message, busy:false })); });
   }
 
   var th = { textAlign:'left', padding:'6px 10px', borderBottom:'2px solid var(--border)', color:'var(--accent)', fontSize:11, whiteSpace:'nowrap', position:'relative', overflow:'hidden' };
@@ -948,7 +1009,7 @@ function EnginesTab({ creds, platforms, platform, onPlatform, isAdmin }) {
     : rows.length === 0 ? el('div', { style: pad }, t.rows.length ? 'No engines match the filter.' : 'No governance engines on this host.')
     : el('table', { style:{ borderCollapse:'collapse', tableLayout:'fixed', width: rz.tableWidth ? rz.tableWidth+'px' : '100%', minWidth:'100%' } },
         el('colgroup', null, [0,1,2,3,4,5,6].map(function(i){ return el('col', { key:i, style:{ width: ((rz.widths && rz.widths[i]) || rz.defaultW)+'px' } }); })),
-        el('thead', null, el('tr', null, COLS.map(function(h,i){ return el('th', { key:i, style: th }, h, colResizeHandle(rz.onResizeDown, i)); })
+        el('thead', null, el('tr', null, COLS.map(function(h,i){ return thSortable(sort, setSort, i, h, rz.onResizeDown, th); })
           .concat(isAdmin ? [el('th', { key:'a', style: th }, 'Actions')] : []))),
         el('tbody', null, rows.map(function(r){
           var on = r.governanceEngineName === t.selKey;
@@ -964,7 +1025,16 @@ function EnginesTab({ creds, platforms, platform, onPlatform, isAdmin }) {
               style:{ fontSize:10, padding:'1px 8px', borderRadius:4, border:'1px solid #60a5fa55', background:'transparent', color:'#60a5fa', cursor:'pointer' } }, 'Refresh config')));
         }))));
 
-  var filters = el('input', { placeholder:'filter engine…', value:fText, onChange:function(e){ setFText(e.target.value); }, style:{ fontSize:11, padding:'4px 8px', background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:4, width:150 } });
+  var filters = el(React.Fragment, null,
+    el('input', { placeholder:'filter engine…', value:fText, onChange:function(e){ setFText(e.target.value); }, style:{ fontSize:11, padding:'4px 8px', background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:4, width:150 } }),
+    isAdmin && t.server && el(React.Fragment, null,
+      el('div', { style:{ width:1, height:20, background:'var(--border)', margin:'0 4px' } }),
+      el('button', { onClick:function(){ setSrvConf({ action:'activate' }); },
+        style:{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid #34d39955', background:'transparent', color:'#34d399', cursor:'pointer' } }, 'Start host'),
+      el('button', { onClick:function(){ setSrvConf({ action:'shutdown' }); },
+        style:{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid #f8717155', background:'transparent', color:'#f87171', cursor:'pointer' } }, 'Stop host')),
+    el('div', { style:{ width:1, height:20, background:'var(--border)', margin:'0 4px' } }),
+    statusPillRow(GOV_ENGINE_STATUS, STATUS_COLORS, fStatus, setFStatus));
 
   return el('div', { style:{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' } },
     el(OpsToolbar, { platforms:platforms, platform:platform, onPlatform:onPlatform, servers:t.servers, server:t.server, onServer:t.setServer, serverLabel:'Engine Host', onRefresh:t.load, busy:t.busy, children:filters }),
@@ -972,13 +1042,19 @@ function EnginesTab({ creds, platforms, platform, onPlatform, isAdmin }) {
       table,
       sel && el(DetailPanel, { title: sel.governanceEngineName, subtitle: sel.governanceEngineTypeName, width: panelW, onResize: onPanelDown,
         onClose: function(){ t.setSelKey(null); },
-        onCatalog: sel.governanceEngineGUID ? function(){ crossAppNavigate({ guid: sel.governanceEngineGUID, typeName: 'GovernanceEngine' }); } : null },
+        onCatalog: sel.governanceEngineGUID ? function(){ crossAppNavigate({ guid: sel.governanceEngineGUID, typeName: 'GovernanceEngine', superTypeNames: ['SoftwareCapability'] }); } : null },
         el(JsonView, { data: sel }))),
     confirm && el(ConfirmDialog, {
       title: 'Refresh engine config?',
       body: el('span', null, 'Refresh the configuration of ', el('b', { style:{ color:'var(--text)' } }, confirm.row.governanceEngineName), ' from the metadata server?'),
       confirmLabel: 'Refresh config', err: confirm.err,
-      onCancel: function(){ setConfirm(null); }, onConfirm: function(){ refresh(confirm.row); } }));
+      onCancel: function(){ setConfirm(null); }, onConfirm: function(){ refresh(confirm.row); } }),
+    srvConf && el(ConfirmDialog, {
+      title: srvConf.action === 'shutdown' ? 'Stop Engine Host?' : 'Start Engine Host?',
+      body: el('span', null, srvConf.action === 'shutdown' ? 'Shut down ' : 'Start ',
+        el('b', { style:{ color:'var(--text)' } }, t.server ? _shortName(t.server.displayName) : 'this engine host'), '?'),
+      confirmLabel: srvConf.action === 'shutdown' ? 'Stop host' : 'Start host', err: srvConf.err,
+      onCancel: function(){ setSrvConf(null); }, onConfirm: function(){ doSrvAction(srvConf.action); } }));
 }
 
 // ── Engine Actions tab (ecosystem-wide) ──────────────────────────────────────
@@ -990,8 +1066,10 @@ function ActionsTab({ creds, isAdmin }) {
   var _fs   = useState(new Set()), fStatus = _fs[0], setFStatus = _fs[1];
   var _sel  = useState(null),  selGuid = _sel[0], setSelGuid = _sel[1];
   var _cf   = useState(null),  confirm = _cf[0],  setConfirm = _cf[1];
+  var _so   = useState({ col:5, dir:'desc' }), sort = _so[0], setSort = _so[1];
   var pw    = usePanelWidth(420), panelW = pw[0], onPanelDown = pw[1];
   var rz    = useColumnResize(8, 140);
+  var SORT_KEYS = ['displayName','requestType','activityStatus','executorEngineName','requesterUserId','startTime','completionTime',''];
 
   var sel = rows.find(function(r){ return r.guid === selGuid; });
 
@@ -999,7 +1077,7 @@ function ActionsTab({ creds, isAdmin }) {
     if (busy) return;
     setBusy(true); setState('loading');
     egeriaFetch('/api/operations/engine-actions', creds)
-      .then(function(r){ return r.ok ? r.json() : r.json().then(function(e){ throw new Error(e.detail || 'Failed'); }); })
+      .then(function(r){ return r.ok ? r.json() : errMsg(r); })
       .then(function(d){ setRows(d.actions || []); setState('ready'); setBusy(false); })
       .catch(function(){ setState('error'); setBusy(false); });
   }
@@ -1010,7 +1088,7 @@ function ActionsTab({ creds, isAdmin }) {
     setFStatus(function(prev){ var n = new Set(prev); if (n.has(s)) n.delete(s); else n.add(s); return n; });
   }
 
-  var visibleRows = rows.filter(function(r){
+  var visibleRows = applySort(rows.filter(function(r){
     if (fStatus.size > 0 && !fStatus.has(r.activityStatus)) return false;
     if (fText) {
       var q = fText.toLowerCase();
@@ -1019,7 +1097,7 @@ function ActionsTab({ creds, isAdmin }) {
              (r.executorEngineName||'').toLowerCase().indexOf(q) >= 0;
     }
     return true;
-  });
+  }), sort, SORT_KEYS);
 
   var canCancel = function(r){ return r && ['REQUESTED','APPROVED','WAITING','IN_PROGRESS'].indexOf(r.activityStatus) >= 0; };
 
@@ -1027,7 +1105,7 @@ function ActionsTab({ creds, isAdmin }) {
     setConfirm(Object.assign({}, confirm, { busy:true }));
     egeriaFetch('/api/operations/engine-action/cancel', creds, { method:'POST', headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({ engine_action_guid: row.guid }) })
-      .then(function(r){ return r.ok ? r.json() : r.json().then(function(e){ throw new Error(e.detail || 'Failed'); }); })
+      .then(function(r){ return r.ok ? r.json() : errMsg(r); })
       .then(function(){ setConfirm(null); setTimeout(load, 800); })
       .catch(function(e){ setConfirm(Object.assign({}, confirm, { err:e.message, busy:false })); });
   }
@@ -1054,7 +1132,7 @@ function ActionsTab({ creds, isAdmin }) {
     : visibleRows.length === 0 ? el('div', { style: pad }, rows.length ? 'No actions match the filter.' : 'No engine actions found.')
     : el('table', { style:{ borderCollapse:'collapse', tableLayout:'fixed', width: rz.tableWidth ? rz.tableWidth+'px' : '100%', minWidth:'100%' } },
         el('colgroup', null, [0,1,2,3,4,5,6,7].map(function(i){ return el('col', { key:i, style:{ width:((rz.widths&&rz.widths[i])||rz.defaultW)+'px' } }); })),
-        el('thead', null, el('tr', null, COLS.map(function(h,i){ return el('th', { key:i, style: th }, h, colResizeHandle(rz.onResizeDown, i)); })
+        el('thead', null, el('tr', null, COLS.map(function(h,i){ return thSortable(sort, setSort, i, h, rz.onResizeDown, th); })
           .concat(isAdmin ? [el('th', { key:'a', style: th }, 'Actions')] : []))),
         el('tbody', null, visibleRows.map(function(r){
           var on = r.guid === selGuid;
@@ -1099,7 +1177,7 @@ function ActionsTab({ creds, isAdmin }) {
         title: _shortName(sel.displayName), subtitle: sel.requestType,
         width: panelW, onResize: onPanelDown,
         onClose: function(){ setSelGuid(null); },
-        onCatalog: sel.executorEngineGUID ? function(){ crossAppNavigate({ guid: sel.executorEngineGUID, typeName: 'GovernanceEngine' }); } : null },
+        onCatalog: sel.executorEngineGUID ? function(){ crossAppNavigate({ guid: sel.executorEngineGUID, typeName: 'GovernanceEngine', superTypeNames: ['SoftwareCapability'] }); } : null },
         isAdmin && canCancel(sel) && el('div', { style:{ marginBottom:10 } },
           el('button', { onClick:function(){ setConfirm({ row: sel }); },
             style:{ fontSize:11, padding:'4px 14px', borderRadius:4, border:'1px solid #f8717155', background:'transparent', color:'#f87171', cursor:'pointer' } }, 'Cancel this action')),
@@ -1121,18 +1199,14 @@ function ComingSoon({ name, note }) {
 // ── App ───────────────────────────────────────────────────────────────────────
 function App() {
   var params = new URLSearchParams(window.location.search);
-  var _creds = useState(null),   creds   = _creds[0],   setCreds   = _creds[1];
-  var _ready = useState(false),  ready   = _ready[0],   setReady   = _ready[1];
-  var _who   = useState(null),   who     = _who[0],     setWho     = _who[1];
-  var _srv   = useState(false),  srvManaged = _srv[0],  setSrvManaged = _srv[1];
-  var _admin = useState(false),  isAdmin = _admin[0],   setAdmin   = _admin[1];
-  var _showC = useState(false),  showConn = _showC[0],  setShowConn = _showC[1];
-  var _fu = useState(''),  fu = _fu[0], setFu = _fu[1];
-  var _fp = useState(''),  fp = _fp[0], setFp = _fp[1];
-  var _ce = useState(''),  cerr = _ce[0], setCerr = _ce[1];
-  // shared platform state — selection carries across tabs
-  var _pl = useState([]),   platforms = _pl[0], setPlatforms = _pl[1];
-  var _pf = useState(null), platform  = _pf[0], setPlatform  = _pf[1];
+  var _creds = useState({}),     creds      = _creds[0],   setCreds      = _creds[1];
+  var _ready = useState(false),  ready      = _ready[0],   setReady      = _ready[1];
+  var _who   = useState(null),   who        = _who[0],     setWho        = _who[1];
+  var _srv   = useState(false),  srvManaged = _srv[0],     setSrvManaged = _srv[1];
+  var _admin = useState(false),  isAdmin    = _admin[0],   setAdmin      = _admin[1];
+  var _dm    = useState(false),  demoMode   = _dm[0],      setDemoMode   = _dm[1];
+  var _pl    = useState([]),     platforms  = _pl[0],      setPlatforms  = _pl[1];
+  var _pf    = useState(null),   platform   = _pf[0],      setPlatform   = _pf[1];
   var _t = useState(function() {
     var h = params.get('tab') || window.location.hash.slice(1);
     return TABS.some(function(t){ return t.id === h; }) ? h : 'servers';
@@ -1140,31 +1214,16 @@ function App() {
   function go(id){ setTab(id); try { window.location.hash = id; } catch(e){} }
   var active = TABS.find(function(t){ return t.id === tab; }) || TABS[0];
 
-  function applyConn(uid, token) {
-    setCreds({ server: 'qs-view-server', userId: uid, token: token || '' });
-    setWho({ label: uid, sub: 'connected' }); setShowConn(false);
-    try { sessionStorage.setItem('ops-creds', JSON.stringify({ userId: uid, token: token || '' })); } catch(e) {}
-  }
-  function connect() {
-    setCerr('');
-    fetch('/api/egeria-token', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ user_id: fu, password: fp }) })
-      .then(function(r){ return r.ok ? r.json() : r.json().then(function(e){ throw new Error(e.detail || 'Failed'); }); })
-      .then(function(d){ applyConn(fu, d.token); setFp(''); })
-      .catch(function(e){ setCerr(e.message || 'Connection failed'); });
-  }
-  function disconnect() { setCreds(null); setWho(null); try { sessionStorage.removeItem('ops-creds'); } catch(e) {} setShowConn(true); }
-
-  // Auth bootstrap (mirrors egeria-audit): restore session, then /api/auth/me
-  // (portal JWT for freshstart; persona for quickstart demo). Local quickstart
-  // has no portal identity → connect as a privileged Egeria user via the bar.
+  // Auth bootstrap: portal session identity (freshstart JWT or quickstart persona).
+  // To change user, go to the portal profile / persona selector.
   useEffect(function() {
-    try { var sc = JSON.parse(sessionStorage.getItem('ops-creds') || 'null'); if (sc && sc.userId) { setCreds({ server:'qs-view-server', userId: sc.userId, token: sc.token || '' }); setWho({ label: sc.userId, sub:'connected' }); } } catch(e) {}
     fetch('/api/auth/me').then(function(r){ return r.json(); }).then(function(d) {
       setSrvManaged(!!d.server_managed_auth);
       setAdmin(d.role === 'admin');
+      setDemoMode(!d.server_managed_auth);
       if (d.server_managed_auth) {
-        if (d.authenticated && d.id) { setWho({ label: d.display_name || d.id, sub: d.role || '' }); setCreds({}); }
-        setReady(true); return;
+        if (d.authenticated && d.id) setWho({ label: d.display_name || d.id, sub: d.role || '' });
+        setCreds({}); setReady(true); return;
       }
       var sp = null; try { var s = localStorage.getItem('egeria-persona'); sp = s ? JSON.parse(s) : null; } catch(e) {}
       if (sp && sp.id) {
@@ -1174,22 +1233,20 @@ function App() {
             if (sel.egeria_user) {
               fetch('/api/egeria-token', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ user_id: sel.egeria_user, password: sel.egeria_password || '' }) })
                 .then(function(r){ return r.json(); }).then(function(t){ setCreds({ server:'qs-view-server', userId: sel.egeria_user, token: t.token || '' }); setReady(true); })
-                .catch(function(){ setCreds({ server:'qs-view-server', userId: sel.egeria_user }); setReady(true); });
+                .catch(function(){ setCreds({}); setReady(true); });
             } else { setReady(true); }
           }).catch(function(){ setReady(true); });
         return;
       }
-      setReady(true);
-    }).catch(function(){ setReady(true); });
+      setCreds({}); setReady(true);
+    }).catch(function(){ setCreds({}); setReady(true); });
   }, []);
 
-  // load platforms once connected (shared across tabs; slowly changing)
-  var credKey = (who ? who.label : 'anon');
+  var credKey = who ? who.label : 'portal';
   useEffect(function() {
-    if (!ready || (!srvManaged && !who)) return;
+    if (!ready) return;
     egeriaFetch('/api/operations/platforms', creds).then(function(r){ return r.ok ? r.json() : { platforms: [] }; })
       .then(function(d){ var ps = d.platforms || []; setPlatforms(ps);
-        // default to the first platform that actually has servers
         setPlatform(function(cur){ if (cur) return cur; return ps.find(function(p){ return (p.servers||[]).length; }) || ps[0] || null; }); })
       .catch(function(){ setPlatforms([]); });
   }, [ready, credKey]);
@@ -1203,20 +1260,10 @@ function App() {
 
   var shared = { creds: creds, platforms: platforms, platform: platform, onPlatform: setPlatform, isAdmin: isAdmin };
   var content = !ready ? el('div', { style: pad }, 'Connecting…')
-    : active.id === 'servers'    ? el(ServersTab, Object.assign({ key:'servers@'+credKey }, shared))
+    : active.id === 'servers'    ? el(ServersTab,    Object.assign({ key:'servers@'+credKey },    shared))
     : active.id === 'connectors' ? el(ConnectorsTab, Object.assign({ key:'connectors@'+credKey }, shared))
-    : active.id === 'engines'    ? el(EnginesTab, Object.assign({ key:'engines@'+credKey }, shared))
+    : active.id === 'engines'    ? el(EnginesTab,    Object.assign({ key:'engines@'+credKey },    shared))
     : el(ActionsTab, Object.assign({ key:'actions@'+credKey }, shared));
-
-  var inp = { fontSize:12, padding:'4px 8px', borderRadius:4, border:'1px solid var(--border)', background:'var(--bg)', color:'var(--text)', outline:'none' };
-  var showConnBar = ready && !srvManaged && (showConn || !who);
-  var connBar = showConnBar && el('div', { style: { display:'flex', alignItems:'center', gap:8, padding:'8px 16px', borderBottom:'1px solid var(--border)', background:'rgba(96,165,250,.06)' } },
-    el('span', { style: { fontSize:12, color:'var(--muted)' } }, 'Connect to Egeria as:'),
-    el('input', { placeholder:'user id (e.g. garygeeke)', value: fu, onChange: function(e){ setFu(e.target.value); }, onKeyDown: function(e){ if (e.key==='Enter') connect(); }, style: Object.assign({}, inp, { width:200 }) }),
-    el('input', { type:'password', placeholder:'password', value: fp, onChange: function(e){ setFp(e.target.value); }, onKeyDown: function(e){ if (e.key==='Enter') connect(); }, style: Object.assign({}, inp, { width:150 }) }),
-    el('button', { onClick: connect, style: { fontSize:12, padding:'4px 14px', borderRadius:4, border:'none', background:'var(--accent)', color:'#fff', cursor:'pointer', fontWeight:600 } }, 'Connect'),
-    cerr && el('span', { style: { fontSize:12, color:'#f87171' } }, cerr),
-    el('span', { style: { marginLeft:'auto', fontSize:11, color:'var(--dim)' } }, 'Runtime operations require a privileged Egeria user.'));
 
   return el(CredContext.Provider, { value: creds },
     el('div', { style: { display:'flex', flexDirection:'column', height:'100vh', background:'var(--bg)', color:'var(--text)' } },
@@ -1225,12 +1272,10 @@ function App() {
         el('span', { style: { fontSize:15, fontWeight:700 } }, 'Egeria Operations'),
         el('span', { style: { fontSize:11, color:'var(--dim)' } }, 'Servers · Integration Connectors · Governance Engines · Engine Actions'),
         el('div', { style: { flex:1 } }),
-        isAdmin && el('span', { style: { fontSize:11, color:'#34d399' } }, '🔓 Admin'),
+        isAdmin && el('span', { style: { fontSize:11, color:'#34d399', marginRight:4 } }, '🔓 Admin'),
         who && el('span', { title: who.sub || '', style: { fontSize:12, color:'var(--accent)', background:'rgba(96,165,250,.1)', border:'1px solid rgba(96,165,250,.3)', borderRadius:12, padding:'2px 10px' } }, who.label),
-        who && !srvManaged && el('button', { onClick: disconnect, title:'Switch user', style: { fontSize:11, padding:'2px 8px', borderRadius:4, border:'1px solid var(--border)', background:'transparent', color:'var(--muted)', cursor:'pointer' } }, 'Switch'),
-        !who && !srvManaged && el('button', { onClick: function(){ setShowConn(!showConn); }, style: { fontSize:12, padding:'3px 10px', borderRadius:4, border:'1px solid rgba(96,165,250,.4)', background:'rgba(96,165,250,.08)', color:'var(--accent)', cursor:'pointer' } }, '🔌 Connect'),
-        el('a', { href:'/portal', style: { fontSize:12, color:'var(--muted)', textDecoration:'none' } }, '⌂ Portal')),
-      connBar,
+        el(FeedbackButton, { section: active.id, persona: who ? who.sub : null, demoMode: demoMode, srvManaged: srvManaged, pagePrefix: 'egeria-operations/' }),
+        el('a', { href:'/portal', style: { fontSize:12, color:'var(--muted)', textDecoration:'none', marginLeft:4 } }, '⌂ Portal')),
       el('div', { style: { display:'flex', gap:4, padding:'0 12px', borderBottom:'1px solid var(--border)', background:'var(--panel)', flexShrink:0 } }, TABS.map(tabBtn)),
       el('div', { style: { flex:1, overflow:'hidden' } }, content)));
 }
