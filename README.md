@@ -50,6 +50,19 @@ This shared stack provides Kafka, PostgreSQL, and the OpenLineage proxy used by 
 Shared-infra image references are pinned in `compose-configs/shared-infra/.env` by default, including the hardened
 Kafka image and a persistent host-side Kafka data path.
 
+### Web portal applications
+
+Opening the **Web** URL above (`8885` quickstart / `7885` freshstart) lands on the portal, which tiles a set of browser applications served by the `pyegeria-web` container:
+
+| Tile | Path | What it does |
+|------|------|--------------|
+| Egeria Explorer | `/egeria-explorer` | Read-only browser for the type system, glossary, reference data, digital products, valid values and REST APIs |
+| 🛡️ Egeria Audit | `/egeria-audit` | Review governance relationships (exceptions, certifications, licenses) and platform user accounts. Relationship rows are **filtered by your governance-zone access** — see the Audit section in the handler README |
+| 🎛️ Egeria Operations | `/egeria-operations` | Monitor and operate the runtime — servers, integration connectors, governance engines and engine actions |
+| 🔗 Lineage Explorer | `/lineage` | Trace data flow and dependencies across the metadata landscape |
+
+See the [PyegeriaWebHandler README](compose-configs/egeria-quickstart/PyegeriaWebHandler/README.md) for a full description of each application, its tabs, and its backing REST API.
+
 ## Host port allocation
 
 Host (published) ports follow a consistent scheme so the two environments can run side by side

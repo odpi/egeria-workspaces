@@ -1507,11 +1507,15 @@ function AuditRelationshipTab({ relType, columns, actorRoles, creds, focusGuid, 
       React.createElement('div', { style: { flex: '0 0 320px' } }, React.createElement(TimeSlider, { onChange: setAsOf, label: 'As of' })),
       React.createElement('input', { type: 'search', placeholder: 'Filter ' + relType.toLowerCase() + 's…', value: filter,
         onChange: function(e){ setFilter(e.target.value); },
-        style: { flex: 1, alignSelf: 'center', fontSize: 12, padding: '5px 9px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } })
+        style: { flex: 1, alignSelf: 'center', fontSize: 12, padding: '5px 9px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } }),
+      React.createElement('span', { title: 'Results are filtered by your governance-zone access rights — elements in zones you cannot access are hidden, so two users may see different counts.',
+        style: { alignSelf: 'center', fontSize: 11, color: 'var(--dim)', cursor: 'help', whiteSpace: 'nowrap', border: '1px solid var(--border)', borderRadius: 12, padding: '2px 9px' } }, '🔒 filtered by your access')
     ),
     state === 'loading' ? React.createElement('div', { style: { padding: 24, color: 'var(--muted)', fontSize: 13 } }, 'Loading ' + relType + ' relationships…')
     : state === 'error' ? React.createElement('div', { style: { padding: 24, color: '#f87171', fontSize: 13 } }, 'Failed to load.')
-    : rows.length === 0 ? React.createElement('div', { style: { padding: 24, color: 'var(--muted)', fontSize: 13 } }, 'No ' + relType + ' relationships found' + (asOf ? ' as of the selected time.' : '.'))
+    : rows.length === 0 ? React.createElement('div', { style: { padding: 24, color: 'var(--muted)', fontSize: 13, lineHeight: 1.6 } },
+        React.createElement('div', null, 'No ' + relType.toLowerCase() + 's are visible to you' + (asOf ? ' as of the selected time.' : '.')),
+        React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', marginTop: 6 } }, '🔒 Results are filtered by your governance-zone access rights — there may be ' + relType.toLowerCase() + 's in zones your user cannot access.'))
     : React.createElement(React.Fragment, null,
         focusBanner,
         table,
