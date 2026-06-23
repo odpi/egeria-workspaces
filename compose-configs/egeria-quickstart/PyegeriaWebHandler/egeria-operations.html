@@ -912,6 +912,75 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform, isAdmin }) {
       onCancel: function(){ setConfirm(null); }, onConfirm: function(){ act(confirm.row, confirm.action); } }));
 }
 
+// ── Governance Engines tab ──────────────────────────────────────────────────
+function EnginesTab({ creds, platforms, platform, onPlatform, isAdmin }) {
+  var t = useServerTab({ creds:creds, platform:platform, serverType:'Engine Host Server', endpoint:'/api/operations/governance-engines' });
+  var _cf = useState(null),  confirm = _cf[0], setConfirm = _cf[1];
+  var _ft = useState(''),    fText   = _ft[0], setFText   = _ft[1];
+  var pw = usePanelWidth(420), panelW = pw[0], onPanelDown = pw[1];
+  var rz = useColumnResize(7, 150);
+  var sel = t.rows.find(function(r){ return r.governanceEngineName === t.selKey; });
+  var rows = t.rows.filter(function(r){ return !fText || (r.governanceEngineName || '').toLowerCase().indexOf(fText.toLowerCase()) >= 0; });
+
+  function refresh(row) {
+    setConfirm(Object.assign({}, confirm, { busy:true }));
+    egeriaFetch('/api/operations/engine/refresh', creds, { method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ server_guid: t.server.guid, engine_name: row.governanceEngineName }) })
+      .then(function(r){ return r.ok ? r.json() : r.json().then(function(e){ throw new Error(e.detail || 'Failed'); }); })
+      .then(function(){ setConfirm(null); setTimeout(t.load, 1200); })
+      .catch(function(e){ setConfirm(Object.assign({}, confirm, { err:e.message, busy:false })); });
+  }
+
+  var th = { textAlign:'left', padding:'6px 10px', borderBottom:'2px solid var(--border)', color:'var(--accent)', fontSize:11, whiteSpace:'nowrap', position:'relative', overflow:'hidden' };
+  var td = { padding:'5px 10px', borderBottom:'1px solid var(--border)', fontSize:12, verticalAlign:'top' };
+  var COLS = ['Engine','Type','Service','Description','Status','Request Types','Last Refresh'];
+
+  function chips(list) {
+    if (!list || !list.length) return el('span', { style:{ color:'var(--dim)' } }, '—');
+    return el('div', { style:{ display:'flex', flexWrap:'wrap', gap:3 } }, list.map(function(rt,i){
+      return el('span', { key:i, style:{ fontSize:10, padding:'1px 6px', borderRadius:8, background:'rgba(96,165,250,.12)', border:'1px solid rgba(96,165,250,.3)', color:'var(--accent)' } }, rt); }));
+  }
+
+  var table = el('div', { style:{ flex:1, overflow:'auto', minWidth:0 } },
+    t.state === 'loading' ? el('div', { style: pad }, 'Loading governance engines…')
+    : t.state === 'error' ? el('div', { style: pad }, 'Failed to load governance engines.')
+    : !t.server ? el('div', { style: pad }, 'No Engine Host on this platform.')
+    : rows.length === 0 ? el('div', { style: pad }, t.rows.length ? 'No engines match the filter.' : 'No governance engines on this host.')
+    : el('table', { style:{ borderCollapse:'collapse', tableLayout:'fixed', width: rz.tableWidth ? rz.tableWidth+'px' : '100%', minWidth:'100%' } },
+        el('colgroup', null, [0,1,2,3,4,5,6].map(function(i){ return el('col', { key:i, style:{ width: ((rz.widths && rz.widths[i]) || rz.defaultW)+'px' } }); })),
+        el('thead', null, el('tr', null, COLS.map(function(h,i){ return el('th', { key:i, style: th }, h, colResizeHandle(rz.onResizeDown, i)); })
+          .concat(isAdmin ? [el('th', { key:'a', style: th }, 'Actions')] : []))),
+        el('tbody', null, rows.map(function(r){
+          var on = r.governanceEngineName === t.selKey;
+          return el('tr', { key:r.governanceEngineName, style:{ cursor:'pointer', background: on ? 'rgba(96,165,250,.14)' : 'transparent' }, onClick:function(){ t.setSelKey(on ? null : r.governanceEngineName); } },
+            el('td', { style: td }, r.governanceEngineName),
+            el('td', { style: td }, r.governanceEngineTypeName || '—'),
+            el('td', { style: td }, r.governanceEngineService || '—'),
+            el('td', { style: Object.assign({}, td, { color:'var(--muted)' }) }, r.governanceEngineDescription || '—'),
+            el('td', { style: td }, el(StatusPill, { value:r.governanceEngineStatus, map:GOV_ENGINE_STATUS })),
+            el('td', { style: td }, chips(r.governanceRequestTypes)),
+            el('td', { style: td }, r.lastRefreshTime || '—'),
+            isAdmin && el('td', { style: td }, el('button', { onClick:function(e){ e.stopPropagation(); setConfirm({ row:r }); },
+              style:{ fontSize:10, padding:'1px 8px', borderRadius:4, border:'1px solid #60a5fa55', background:'transparent', color:'#60a5fa', cursor:'pointer' } }, 'Refresh config')));
+        }))));
+
+  var filters = el('input', { placeholder:'filter engine…', value:fText, onChange:function(e){ setFText(e.target.value); }, style:{ fontSize:11, padding:'4px 8px', background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:4, width:150 } });
+
+  return el('div', { style:{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' } },
+    el(OpsToolbar, { platforms:platforms, platform:platform, onPlatform:onPlatform, servers:t.servers, server:t.server, onServer:t.setServer, serverLabel:'Engine Host', onRefresh:t.load, busy:t.busy, children:filters }),
+    el('div', { style:{ flex:1, display:'flex', overflow:'hidden', minHeight:0 } },
+      table,
+      sel && el(DetailPanel, { title: sel.governanceEngineName, subtitle: sel.governanceEngineTypeName, width: panelW, onResize: onPanelDown,
+        onClose: function(){ t.setSelKey(null); },
+        onCatalog: sel.governanceEngineGUID ? function(){ crossAppNavigate({ guid: sel.governanceEngineGUID, typeName: 'GovernanceEngine' }); } : null },
+        el(JsonView, { data: sel }))),
+    confirm && el(ConfirmDialog, {
+      title: 'Refresh engine config?',
+      body: el('span', null, 'Refresh the configuration of ', el('b', { style:{ color:'var(--text)' } }, confirm.row.governanceEngineName), ' from the metadata server?'),
+      confirmLabel: 'Refresh config', err: confirm.err,
+      onCancel: function(){ setConfirm(null); }, onConfirm: function(){ refresh(confirm.row); } }));
+}
+
 // ── Placeholder tabs (scaffold — wired next) ──────────────────────────────────
 function ComingSoon({ name, note }) {
   return el('div', { style: { padding:'40px', color:'var(--muted)', fontSize:14 } },
@@ -1006,7 +1075,7 @@ function App() {
   var content = !ready ? el('div', { style: pad }, 'Connecting…')
     : active.id === 'servers'    ? el(ServersTab, Object.assign({ key:'servers@'+credKey }, shared))
     : active.id === 'connectors' ? el(ConnectorsTab, Object.assign({ key:'connectors@'+credKey }, shared))
-    : active.id === 'engines'    ? el(ComingSoon, { name:'Governance Engines', note:'Engine table (status, request types, last refresh) + refresh-config on the selected Engine Host. Backend driven by governanceEngineSummaries — wired next.' })
+    : active.id === 'engines'    ? el(EnginesTab, Object.assign({ key:'engines@'+credKey }, shared))
     : el(ComingSoon, { name:'Engine Actions', note:'Ecosystem-wide engine-action search (status multi-select + search string) via find_processes, sortable, with cancel — wired next.' });
 
   var inp = { fontSize:12, padding:'4px 8px', borderRadius:4, border:'1px solid var(--border)', background:'var(--bg)', color:'var(--text)', outline:'none' };

@@ -329,6 +329,56 @@ def connector_action(action: str, request: Request, body: _ConnectorActionBody):
     return JSONResponse({"ok": True, "action": action, "connector_name": body.connector_name})
 
 
+# ── Governance Engines tab ──────────────────────────────────────────────────────
+
+@router.get("/api/operations/governance-engines", summary="Engines on an Engine Host (Governance Engines tab)")
+def list_governance_engines(
+    server_guid: str = Query(...),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    try:
+        rm = _runtime_manager(url, server, user_id, user_pwd)
+        rep = _report_element(rm.get_server_report(server_guid=server_guid, output_format="JSON")) or {}
+    except Exception as exc:
+        logger.exception("operations: governance-engines report failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+    rows = []
+    for g in (rep.get("governanceEngineSummaries") or []):
+        if not isinstance(g, dict):
+            continue
+        rows.append({
+            "governanceEngineName":        g.get("governanceEngineName") or "",
+            "governanceEngineTypeName":    g.get("governanceEngineTypeName") or "",
+            "governanceEngineService":     g.get("governanceEngineService") or "",
+            "governanceEngineDescription": g.get("governanceEngineDescription") or "",
+            "governanceEngineStatus":      g.get("governanceEngineStatus") or "",
+            "governanceRequestTypes":      g.get("governanceRequestTypes") or [],
+            "lastRefreshTime":             g.get("lastRefreshTime") or "",
+            "governanceEngineGUID":        g.get("governanceEngineGUID") or "",
+        })
+    rows.sort(key=lambda r: (r.get("governanceEngineName") or "").lower())
+    return JSONResponse({"engines": rows, "total": len(rows)})
+
+
+class _EngineActionBody(BaseModel):
+    server_guid: str
+    engine_name: str
+
+
+@router.post("/api/operations/engine/refresh", summary="Refresh a governance engine's config (admin only)")
+def engine_refresh(request: Request, body: _EngineActionBody):
+    _admin_gate(request)
+    try:
+        rm = _runtime_manager()
+        rm.refresh_governance_engine(gov_engine_name=body.engine_name, server_guid=body.server_guid)
+    except Exception as exc:
+        logger.exception("operations: refresh_governance_engine(%s) failed", body.engine_name)
+        raise HTTPException(status_code=500, detail=str(exc))
+    logger.info("operations: refreshed governance engine %s on %s", body.engine_name, body.server_guid)
+    return JSONResponse({"ok": True, "engine_name": body.engine_name})
+
+
 # ── Server lifecycle (admin-gated writes) ──────────────────────────────────────
 
 class _ServerActionBody(BaseModel):
