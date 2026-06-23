@@ -215,6 +215,17 @@ def server_status_overview(
 
 # ── Integration Connectors tab ─────────────────────────────────────────────────
 
+def _automated_curation(url=None, server=None, user_id=None, user_pwd=None):
+    from pyegeria import AutomatedCuration
+    url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    mgr = AutomatedCuration(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    apply_token(mgr)
+    return mgr
+
+
 def _asset_maker(url=None, server=None, user_id=None, user_pwd=None):
     from pyegeria import AssetMaker
     url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
@@ -377,6 +388,60 @@ def engine_refresh(request: Request, body: _EngineActionBody):
         raise HTTPException(status_code=500, detail=str(exc))
     logger.info("operations: refreshed governance engine %s on %s", body.engine_name, body.server_guid)
     return JSONResponse({"ok": True, "engine_name": body.engine_name})
+
+
+# ── Engine Actions tab (ecosystem-wide) ───────────────────────────────────────
+
+@router.get("/api/operations/engine-actions", summary="Ecosystem-wide engine actions (Engine Actions tab)")
+def list_engine_actions(
+    search_string: str = Query("*"),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    try:
+        ac = _automated_curation(url, server, user_id, user_pwd)
+        raw = ac.find_engine_actions(search_string=search_string, page_size=500, output_format="JSON")
+    except Exception as exc:
+        logger.exception("operations: find_engine_actions failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+    rows = []
+    for item in (raw if isinstance(raw, list) else []):
+        hdr   = item.get("elementHeader") or {}
+        props = item.get("properties") or {}
+        rows.append({
+            "guid":                     hdr.get("guid") or "",
+            "displayName":              props.get("displayName") or props.get("qualifiedName") or "",
+            "requestType":              props.get("requestType") or "",
+            "activityStatus":           props.get("activityStatus") or "",
+            "executorEngineGUID":       props.get("executorEngineGUID") or "",
+            "executorEngineName":       props.get("executorEngineName") or "",
+            "requesterUserId":          props.get("requesterUserId") or "",
+            "requestedStartTime":       props.get("requestedStartTime") or "",
+            "startTime":                props.get("startTime") or "",
+            "completionTime":           props.get("completionTime") or "",
+            "completionGuards":         props.get("completionGuards") or [],
+            "completionMessage":        props.get("completionMessage") or "",
+            "governanceActionTypeName": props.get("governanceActionTypeName") or "",
+        })
+    rows.sort(key=lambda r: r.get("requestedStartTime") or "", reverse=True)
+    return JSONResponse({"actions": rows, "total": len(rows)})
+
+
+class _CancelActionBody(BaseModel):
+    engine_action_guid: str
+
+
+@router.post("/api/operations/engine-action/cancel", summary="Cancel an engine action (admin only)")
+def cancel_engine_action_route(request: Request, body: _CancelActionBody):
+    _admin_gate(request)
+    try:
+        ac = _automated_curation()
+        ac.cancel_engine_action(engine_action_guid=body.engine_action_guid)
+    except Exception as exc:
+        logger.exception("operations: cancel_engine_action(%s) failed", body.engine_action_guid)
+        raise HTTPException(status_code=500, detail=str(exc))
+    logger.info("operations: cancelled engine action %s", body.engine_action_guid)
+    return JSONResponse({"ok": True, "engine_action_guid": body.engine_action_guid})
 
 
 # ── Server lifecycle (admin-gated writes) ──────────────────────────────────────

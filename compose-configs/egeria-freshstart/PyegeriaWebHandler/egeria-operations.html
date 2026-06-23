@@ -981,7 +981,137 @@ function EnginesTab({ creds, platforms, platform, onPlatform, isAdmin }) {
       onCancel: function(){ setConfirm(null); }, onConfirm: function(){ refresh(confirm.row); } }));
 }
 
-// ── Placeholder tabs (scaffold — wired next) ──────────────────────────────────
+// ── Engine Actions tab (ecosystem-wide) ──────────────────────────────────────
+function ActionsTab({ creds, isAdmin }) {
+  var _rows = useState([]),    rows = _rows[0], setRows = _rows[1];
+  var _st   = useState('idle'), state = _st[0],   setState = _st[1];
+  var _busy = useState(false), busy = _busy[0],  setBusy = _busy[1];
+  var _ft   = useState(''),    fText = _ft[0],   setFText = _ft[1];
+  var _fs   = useState(new Set()), fStatus = _fs[0], setFStatus = _fs[1];
+  var _sel  = useState(null),  selGuid = _sel[0], setSelGuid = _sel[1];
+  var _cf   = useState(null),  confirm = _cf[0],  setConfirm = _cf[1];
+  var pw    = usePanelWidth(420), panelW = pw[0], onPanelDown = pw[1];
+  var rz    = useColumnResize(8, 140);
+
+  var sel = rows.find(function(r){ return r.guid === selGuid; });
+
+  function load() {
+    if (busy) return;
+    setBusy(true); setState('loading');
+    egeriaFetch('/api/operations/engine-actions', creds)
+      .then(function(r){ return r.ok ? r.json() : r.json().then(function(e){ throw new Error(e.detail || 'Failed'); }); })
+      .then(function(d){ setRows(d.actions || []); setState('ready'); setBusy(false); })
+      .catch(function(){ setState('error'); setBusy(false); });
+  }
+
+  React.useEffect(function(){ load(); }, []);
+
+  function toggleStatus(s) {
+    setFStatus(function(prev){ var n = new Set(prev); if (n.has(s)) n.delete(s); else n.add(s); return n; });
+  }
+
+  var visibleRows = rows.filter(function(r){
+    if (fStatus.size > 0 && !fStatus.has(r.activityStatus)) return false;
+    if (fText) {
+      var q = fText.toLowerCase();
+      return (r.displayName||'').toLowerCase().indexOf(q) >= 0 ||
+             (r.requestType||'').toLowerCase().indexOf(q) >= 0 ||
+             (r.executorEngineName||'').toLowerCase().indexOf(q) >= 0;
+    }
+    return true;
+  });
+
+  var canCancel = function(r){ return r && ['REQUESTED','APPROVED','WAITING','IN_PROGRESS'].indexOf(r.activityStatus) >= 0; };
+
+  function doCancel(row) {
+    setConfirm(Object.assign({}, confirm, { busy:true }));
+    egeriaFetch('/api/operations/engine-action/cancel', creds, { method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ engine_action_guid: row.guid }) })
+      .then(function(r){ return r.ok ? r.json() : r.json().then(function(e){ throw new Error(e.detail || 'Failed'); }); })
+      .then(function(){ setConfirm(null); setTimeout(load, 800); })
+      .catch(function(e){ setConfirm(Object.assign({}, confirm, { err:e.message, busy:false })); });
+  }
+
+  function fmtTime(iso) {
+    if (!iso) return '—';
+    try { return new Date(iso).toLocaleString([], { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }); }
+    catch(e){ return iso; }
+  }
+
+  function chips(list) {
+    if (!list || !list.length) return el('span', { style:{ color:'var(--dim)' } }, '—');
+    return el('div', { style:{ display:'flex', flexWrap:'wrap', gap:3 } }, list.map(function(g,i){
+      return el('span', { key:i, style:{ fontSize:10, padding:'1px 6px', borderRadius:8, background:'rgba(96,165,250,.12)', border:'1px solid rgba(96,165,250,.3)', color:'var(--accent)' } }, g); }));
+  }
+
+  var th = { textAlign:'left', padding:'6px 10px', borderBottom:'2px solid var(--border)', color:'var(--accent)', fontSize:11, whiteSpace:'nowrap', position:'relative', overflow:'hidden' };
+  var td = { padding:'5px 10px', borderBottom:'1px solid var(--border)', fontSize:12, verticalAlign:'top' };
+  var COLS = ['Name','Request Type','Status','Engine','Requester','Start','Completion','Guards'];
+
+  var table = el('div', { style:{ flex:1, overflow:'auto', minWidth:0 } },
+    state === 'loading' ? el('div', { style: pad }, 'Loading engine actions…')
+    : state === 'error' ? el('div', { style: pad }, 'Failed to load engine actions.')
+    : visibleRows.length === 0 ? el('div', { style: pad }, rows.length ? 'No actions match the filter.' : 'No engine actions found.')
+    : el('table', { style:{ borderCollapse:'collapse', tableLayout:'fixed', width: rz.tableWidth ? rz.tableWidth+'px' : '100%', minWidth:'100%' } },
+        el('colgroup', null, [0,1,2,3,4,5,6,7].map(function(i){ return el('col', { key:i, style:{ width:((rz.widths&&rz.widths[i])||rz.defaultW)+'px' } }); })),
+        el('thead', null, el('tr', null, COLS.map(function(h,i){ return el('th', { key:i, style: th }, h, colResizeHandle(rz.onResizeDown, i)); })
+          .concat(isAdmin ? [el('th', { key:'a', style: th }, 'Actions')] : []))),
+        el('tbody', null, visibleRows.map(function(r){
+          var on = r.guid === selGuid;
+          return el('tr', { key:r.guid, style:{ cursor:'pointer', background: on ? 'rgba(96,165,250,.14)' : 'transparent' },
+            onClick: function(){ setSelGuid(on ? null : r.guid); } },
+            el('td', { style: td }, _shortName(r.displayName)),
+            el('td', { style: td }, r.requestType || '—'),
+            el('td', { style: td }, el(StatusPill, { value: r.activityStatus, map: ACTIVITY_STATUS })),
+            el('td', { style: td }, r.executorEngineName || '—'),
+            el('td', { style: td }, r.requesterUserId || '—'),
+            el('td', { style: td }, fmtTime(r.startTime)),
+            el('td', { style: td }, fmtTime(r.completionTime)),
+            el('td', { style: td }, chips(r.completionGuards)),
+            isAdmin && el('td', { style: td },
+              canCancel(r) && el('button', { onClick:function(e){ e.stopPropagation(); setConfirm({ row:r }); },
+                style:{ fontSize:10, padding:'1px 8px', borderRadius:4, border:'1px solid #f8717155', background:'transparent', color:'#f87171', cursor:'pointer' } }, 'Cancel')));
+        }))));
+
+  var statusPills = Object.keys(ACTIVITY_STATUS).map(function(s){
+    var on = fStatus.has(s); var hex = STATUS_COLORS[ACTIVITY_STATUS[s][1]] || '#7a96b0';
+    return el('button', { key:s, onClick:function(){ toggleStatus(s); },
+      style:{ fontSize:10, padding:'2px 8px', borderRadius:10, cursor:'pointer', fontWeight: on ? 700 : 400,
+              border: on ? '1.5px solid '+hex : '1px solid var(--border)',
+              background: on ? hex+'22' : 'transparent', color: on ? hex : 'var(--muted)' } }, ACTIVITY_STATUS[s][0]);
+  });
+
+  var toolbar = el('div', { style:{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderBottom:'1px solid var(--border)', flexWrap:'wrap' } },
+    el(RefreshControl, { onRefresh: load, busy: busy }),
+    el('div', { style:{ width:1, height:20, background:'var(--border)', margin:'0 2px' } }),
+    el('input', { placeholder:'search name / type / engine…', value: fText, onChange:function(e){ setFText(e.target.value); },
+      style:{ fontSize:11, padding:'4px 8px', background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:4, width:210 } }),
+    el('div', { style:{ display:'flex', gap:3, flexWrap:'wrap' } }, statusPills),
+    fStatus.size > 0 && el('button', { onClick:function(){ setFStatus(new Set()); },
+      style:{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid var(--border)', background:'transparent', color:'var(--dim)', cursor:'pointer' } }, 'clear'),
+    el('span', { style:{ marginLeft:'auto', fontSize:11, color:'var(--dim)' } }, visibleRows.length + ' / ' + rows.length + ' actions'));
+
+  return el('div', { style:{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' } },
+    toolbar,
+    el('div', { style:{ flex:1, display:'flex', overflow:'hidden', minHeight:0 } },
+      table,
+      sel && el(DetailPanel, {
+        title: _shortName(sel.displayName), subtitle: sel.requestType,
+        width: panelW, onResize: onPanelDown,
+        onClose: function(){ setSelGuid(null); },
+        onCatalog: sel.executorEngineGUID ? function(){ crossAppNavigate({ guid: sel.executorEngineGUID, typeName: 'GovernanceEngine' }); } : null },
+        isAdmin && canCancel(sel) && el('div', { style:{ marginBottom:10 } },
+          el('button', { onClick:function(){ setConfirm({ row: sel }); },
+            style:{ fontSize:11, padding:'4px 14px', borderRadius:4, border:'1px solid #f8717155', background:'transparent', color:'#f87171', cursor:'pointer' } }, 'Cancel this action')),
+        el(JsonView, { data: sel }))),
+    confirm && el(ConfirmDialog, {
+      title: 'Cancel engine action?',
+      body: el('span', null, 'Cancel ', el('b', { style:{ color:'var(--text)' } }, _shortName(confirm.row.displayName)), '? This cannot be undone.'),
+      confirmLabel: 'Cancel action', err: confirm.err,
+      onCancel: function(){ setConfirm(null); }, onConfirm: function(){ doCancel(confirm.row); } }));
+}
+
+// ── Placeholder (kept for future tabs) ───────────────────────────────────────
 function ComingSoon({ name, note }) {
   return el('div', { style: { padding:'40px', color:'var(--muted)', fontSize:14 } },
     el('div', { style:{ fontSize:18, marginBottom:8 } }, name),
@@ -1076,7 +1206,7 @@ function App() {
     : active.id === 'servers'    ? el(ServersTab, Object.assign({ key:'servers@'+credKey }, shared))
     : active.id === 'connectors' ? el(ConnectorsTab, Object.assign({ key:'connectors@'+credKey }, shared))
     : active.id === 'engines'    ? el(EnginesTab, Object.assign({ key:'engines@'+credKey }, shared))
-    : el(ComingSoon, { name:'Engine Actions', note:'Ecosystem-wide engine-action search (status multi-select + search string) via find_processes, sortable, with cancel — wired next.' });
+    : el(ActionsTab, Object.assign({ key:'actions@'+credKey }, shared));
 
   var inp = { fontSize:12, padding:'4px 8px', borderRadius:4, border:'1px solid var(--border)', background:'var(--bg)', color:'var(--text)', outline:'none' };
   var showConnBar = ready && !srvManaged && (showConn || !who);
