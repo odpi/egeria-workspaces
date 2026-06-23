@@ -1433,6 +1433,15 @@ function AuditRelationshipTab({ relType, columns, actorRoles, creds, focusGuid, 
   var _sort  = React.useState(null),      sort  = _sort[0],  setSort  = _sort[1]; // {col, dir}
   var _sel   = React.useState(null),      sel   = _sel[0],   setSel   = _sel[1];  // selected row
   var rz = useColumnResize(columns.length, 160);
+  var tableRef = React.useRef(null);
+  var _th = React.useState(null), tableH = _th[0], setTableH = _th[1];  // detail-split height (px)
+  function onSplitDown(e) {
+    e.preventDefault();
+    var h0 = tableRef.current ? tableRef.current.offsetHeight : 300, y0 = e.clientY;
+    function mv(ev){ setTableH(Math.max(80, h0 + (ev.clientY - y0))); }
+    function up(){ document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); }
+    document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+  }
 
   React.useEffect(function() {
     setState('loading'); setSel(null);
@@ -1471,7 +1480,7 @@ function AuditRelationshipTab({ relType, columns, actorRoles, creds, focusGuid, 
     '\uD83D\uDD0E Showing ' + relType.toLowerCase() + 's for the selected element',
     React.createElement('button', { onClick: function(){ if (onClearFocus) onClearFocus(); }, style: { marginLeft: 'auto', fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, 'Clear'));
 
-  var table = React.createElement('div', { style: { overflow: 'auto', flex: sel ? '0 0 42%' : 1, borderBottom: sel ? '2px solid var(--border)' : 'none' } },
+  var table = React.createElement('div', { ref: tableRef, style: { overflow: 'auto', flex: sel ? (tableH ? '0 0 ' + tableH + 'px' : '0 0 42%') : 1 } },
     React.createElement('table', { style: { borderCollapse: 'collapse', tableLayout: 'fixed', width: rz.tableWidth ? rz.tableWidth + 'px' : '100%', minWidth: '100%' } },
       React.createElement('colgroup', null, columns.map(function(c, i){
         return React.createElement('col', { key: i, style: { width: ((rz.widths && rz.widths[i]) || rz.defaultW) + 'px' } });
@@ -1506,6 +1515,7 @@ function AuditRelationshipTab({ relType, columns, actorRoles, creds, focusGuid, 
     : React.createElement(React.Fragment, null,
         focusBanner,
         table,
+        sel && React.createElement('div', { onMouseDown: onSplitDown, title: 'Drag to resize', style: { height: 6, flexShrink: 0, cursor: 'row-resize', background: 'var(--border)', borderTop: '1px solid var(--panel)', borderBottom: '1px solid var(--panel)' } }),
         sel && React.createElement('div', { style: { flex: 1, overflow: 'auto', padding: '6px 14px' } },
           React.createElement(AuditDetailPanel, { row: sel, relType: relType, actorRoles: actorRoles, creds: creds, asOf: asOf }))
       )

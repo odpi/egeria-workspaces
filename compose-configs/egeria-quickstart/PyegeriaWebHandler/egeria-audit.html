@@ -637,7 +637,12 @@ var TABS = [
 // Account-status values the change control offers. The exact Egeria
 // UserAccountStatus enum isn't introspectable here (demo connector is
 // unpopulated) — confirm + extend against a populated platform.
-var USER_STATUSES = ['AVAILABLE', 'UNAVAILABLE'];  // confirm full UserAccountStatus enum
+// Real Egeria enums (UserAccountStatus / UserAccountType) → value: friendly label.
+var USER_STATUS_LABEL = { DISABLED: 'Disabled', LOCKED: 'Locked', CREDENTIALS_EXPIRED: 'Credentials expired', AVAILABLE: 'Available' };
+var USER_TYPE_LABEL   = { EMPLOYEE: 'Employee', CONTRACTOR: 'Contractor', EXTERNAL: 'External', DIGITAL: 'Digital' };
+var USER_STATUSES = ['AVAILABLE', 'DISABLED', 'LOCKED', 'CREDENTIALS_EXPIRED'];
+function _statusLabel(s){ return USER_STATUS_LABEL[s] || s || ''; }
+function _typeLabel(t){ return USER_TYPE_LABEL[t] || t || ''; }
 
 function UsersTab({ creds }) {
   var _p  = useState([]),        plats   = _p[0],  setPlats  = _p[1];
@@ -647,7 +652,16 @@ function UsersTab({ creds }) {
   var _ex = useState(null),      expand  = _ex[0], setExpand = _ex[1];   // expanded userName
   var _ad = useState(false),     isAdmin = _ad[0], setAdmin  = _ad[1];
   var _cf = useState(null),      confirm = _cf[0], setConfirm= _cf[1];   // {user, status}
+  var _pw = useState(360),       panelW  = _pw[0], setPanelW = _pw[1];   // detail-panel width (px)
   var rzu = useColumnResize(5, 180);
+  var selUser = users.find(function(u){ return u.userName === expand; });
+  function onPanelDown(e) {  // right-docked panel: drag-left widens (inverse of clientX)
+    e.preventDefault();
+    var w0 = panelW, x0 = e.clientX;
+    function mv(ev){ setPanelW(Math.max(240, Math.min(760, w0 - (ev.clientX - x0)))); }
+    function up(){ document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); }
+    document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+  }
 
   // platforms + am-I-admin on mount
   useEffect(function() {
@@ -688,31 +702,39 @@ function UsersTab({ creds }) {
     uState === 'loading' ? el('div', { style: pad }, 'Loading users…')
     : uState === 'error' ? el('div', { style: pad }, 'Failed to load users.')
     : users.length === 0 ? el('div', { style: pad }, plat ? ('No users registered in ' + plat.displayName + '’s security connector.') : 'Select a platform.')
-    : el('div', { style: { overflow: 'auto', flex: 1 } },
-        el('table', { style: { borderCollapse: 'collapse', tableLayout: 'fixed', width: rzu.tableWidth ? rzu.tableWidth + 'px' : '100%', minWidth: '100%' } },
-          el('colgroup', null, [0,1,2,3,4].map(function(i){ return el('col', { key: i, style: { width: ((rzu.widths && rzu.widths[i]) || rzu.defaultW) + 'px' } }); })),
-          el('thead', null, el('tr', null,
-            ['User Name', 'Account Type', 'Display Name', 'Account Status', ''].map(function(h, i){ return el('th', { key: i, style: th }, h, colResizeHandle(rzu.onResizeDown, i)); }))),
-          el('tbody', null, users.map(function(u){
-            var open = expand === u.userName;
-            var rows = [
-              el('tr', { key: u.userName, style: { cursor: 'pointer', background: open ? 'rgba(96,165,250,.1)' : 'transparent' }, onClick: function(){ setExpand(open ? null : u.userName); } },
-                el('td', { style: td }, (open ? '▾ ' : '▸ ') + u.userName),
-                el('td', { style: td }, u.userAccountType || ''),
+    : el('div', { style: { flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 } },
+        el('div', { style: { flex: 1, overflow: 'auto', minWidth: 0 } },
+          el('table', { style: { borderCollapse: 'collapse', tableLayout: 'fixed', width: rzu.tableWidth ? rzu.tableWidth + 'px' : '100%', minWidth: '100%' } },
+            el('colgroup', null, [0,1,2,3,4].map(function(i){ return el('col', { key: i, style: { width: ((rzu.widths && rzu.widths[i]) || rzu.defaultW) + 'px' } }); })),
+            el('thead', null, el('tr', null,
+              ['User Name', 'Account Type', 'Display Name', 'Account Status', ''].map(function(h, i){ return el('th', { key: i, style: th }, h, colResizeHandle(rzu.onResizeDown, i)); }))),
+            el('tbody', null, users.map(function(u){
+              var open = expand === u.userName;
+              return el('tr', { key: u.userName, style: { cursor: 'pointer', background: open ? 'rgba(96,165,250,.14)' : 'transparent' }, onClick: function(){ setExpand(open ? null : u.userName); } },
+                el('td', { style: td }, u.userName),
+                el('td', { style: td }, _typeLabel(u.userAccountType)),
                 el('td', { style: td }, u.displayName || ''),
-                el('td', { style: td }, u.userAccountStatus || ''),
+                el('td', { style: td }, _statusLabel(u.userAccountStatus)),
                 el('td', { style: td }, isAdmin && el('select', { value: '', onClick: function(e){ e.stopPropagation(); },
                     onChange: function(e){ if (e.target.value) setConfirm({ user: u, status: e.target.value }); },
                     style: { fontSize: 11, background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--accent)', borderRadius: 4, cursor: 'pointer' } },
-                    [el('option', { key: '_', value: '' }, 'Set status…')].concat(USER_STATUSES.filter(function(s){ return s !== u.userAccountStatus; }).map(function(s){ return el('option', { key: s, value: s }, s); })))))
-            ];
-            if (open) rows.push(el('tr', { key: u.userName + '_d' }, el('td', { colSpan: 5, style: { padding: '4px 24px 12px', background: 'rgba(255,255,255,0.02)' } },
-              el('table', { style: { borderCollapse: 'collapse' } }, el('tbody', null,
-                Object.keys(u.account || {}).filter(function(k){ return typeof u.account[k] !== 'object'; }).sort().map(function(k){
-                  return el('tr', { key: k }, el('td', { style: { padding: '2px 12px 2px 0', color: 'var(--dim)', fontSize: 11, verticalAlign: 'top' } }, k),
-                    el('td', { style: { padding: '2px 0', fontSize: 11, color: 'var(--text)' } }, String(u.account[k]))); }))))));
-            return rows;
-          }))
+                    [el('option', { key: '_', value: '' }, 'Set status…')].concat(USER_STATUSES.filter(function(s){ return s !== u.userAccountStatus; }).map(function(s){ return el('option', { key: s, value: s }, _statusLabel(s)); })))));
+            }))
+          )
+        ),
+        // Slide-in detail panel (docked right, resizable) — shows the selected user's full account
+        selUser && el('div', { onMouseDown: onPanelDown, title: 'Drag to resize', style: { width: 6, flexShrink: 0, cursor: 'col-resize', background: 'var(--border)' } }),
+        selUser && el('div', { style: { width: panelW + 'px', flexShrink: 0, overflow: 'auto', borderLeft: '1px solid var(--border)', background: 'var(--panel)' } },
+          el('div', { style: { padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, background: 'var(--panel)', zIndex: 1 } },
+            el('div', { style: { display: 'flex', flexDirection: 'column', minWidth: 0 } },
+              el('div', { style: { fontWeight: 700, fontSize: 13, color: 'var(--accent)' } }, selUser.userName),
+              el('div', { style: { fontSize: 11, color: 'var(--dim)' } }, _typeLabel(selUser.userAccountType) + ' · ' + _statusLabel(selUser.userAccountStatus))),
+            el('button', { onClick: function(){ setExpand(null); }, title: 'Close', style: { marginLeft: 'auto', background: 'transparent', border: 'none', color: 'var(--dim)', cursor: 'pointer', fontSize: 16, lineHeight: 1 } }, '✕')),
+          el('div', { style: { padding: '10px 14px' } },
+            el('table', { style: { borderCollapse: 'collapse', width: '100%' } }, el('tbody', null,
+              Object.keys(selUser.account || {}).filter(function(k){ return typeof selUser.account[k] !== 'object'; }).sort().map(function(k){
+                return el('tr', { key: k }, el('td', { style: { padding: '3px 12px 3px 0', color: 'var(--dim)', fontSize: 11, verticalAlign: 'top', whiteSpace: 'nowrap' } }, k),
+                  el('td', { style: { padding: '3px 0', fontSize: 11, color: 'var(--text)', wordBreak: 'break-word' } }, String(selUser.account[k]))); }))))
         )
       ),
     // Confirm dialog for the privileged status change
@@ -722,7 +744,7 @@ function UsersTab({ creds }) {
         el('div', { style: { fontWeight: 700, fontSize: 14, marginBottom: 10 } }, 'Change account status?'),
         el('div', { style: { fontSize: 13, color: 'var(--muted)', marginBottom: 14, lineHeight: 1.5 } },
           'Set ', el('b', { style: { color: 'var(--text)' } }, confirm.user.userName), ' to ',
-          el('b', { style: { color: 'var(--accent)' } }, confirm.status), ' on ', plat ? plat.displayName : '', '? This changes the user’s access.'),
+          el('b', { style: { color: 'var(--accent)' } }, _statusLabel(confirm.status)), ' on ', plat ? plat.displayName : '', '? This changes the user’s access.'),
         confirm.err && el('div', { style: { fontSize: 12, color: '#f87171', marginBottom: 10 } }, confirm.err),
         el('div', { style: { display: 'flex', gap: 8, justifyContent: 'flex-end' } },
           el('button', { onClick: function(){ setConfirm(null); }, style: { padding: '6px 14px', borderRadius: 5, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 13 } }, 'Cancel'),
@@ -735,6 +757,11 @@ function App() {
   var _creds = useState(null),   creds   = _creds[0],   setCreds   = _creds[1];
   var _ready = useState(false),  ready   = _ready[0],   setReady   = _ready[1];
   var _who   = useState(null),   who     = _who[0],     setWho     = _who[1];   // { label, sub }
+  var _srv   = useState(false),  srvManaged = _srv[0],  setSrvManaged = _srv[1];
+  var _showC = useState(false),  showConn = _showC[0],  setShowConn = _showC[1];
+  var _fu = useState(''),  fu = _fu[0], setFu = _fu[1];
+  var _fp = useState(''),  fp = _fp[0], setFp = _fp[1];
+  var _ce = useState(''),  cerr = _ce[0], setCerr = _ce[1];
   var _focus = useState(params.get('guid') || null), focusGuid = _focus[0], setFocusGuid = _focus[1];
   var _t = useState(function() {
     var h = params.get('tab') || window.location.hash.slice(1);
@@ -743,10 +770,28 @@ function App() {
   function go(id){ setTab(id); try { window.location.hash = id; } catch(e){} }
   var active = TABS.find(function(t){ return t.id === tab; }) || TABS[0];
 
-  // Auth bootstrap — same identity/token flow as tech-catalog (portal JWT for
-  // freshstart; persona → /api/egeria-token for quickstart demo/local).
+  function applyConn(uid, token) {
+    setCreds({ server: 'qs-view-server', userId: uid, token: token || '' });
+    setWho({ label: uid, sub: 'connected' }); setShowConn(false);
+    try { sessionStorage.setItem('audit-creds', JSON.stringify({ userId: uid, token: token || '' })); } catch(e) {}
+  }
+  function connect() {
+    setCerr('');
+    fetch('/api/egeria-token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: fu, password: fp }) })
+      .then(function(r){ return r.ok ? r.json() : r.json().then(function(e){ throw new Error(e.detail || 'Failed'); }); })
+      .then(function(d){ applyConn(fu, d.token); setFp(''); })
+      .catch(function(e){ setCerr(e.message || 'Connection failed'); });
+  }
+  function disconnect() { setCreds(null); setWho(null); try { sessionStorage.removeItem('audit-creds'); } catch(e) {} setShowConn(true); }
+
+  // Auth bootstrap: restore a session connection, then /api/auth/me (portal JWT
+  // for freshstart; persona for quickstart demo). Local quickstart has no portal
+  // identity, so the user connects as a (privileged) Egeria user via the bar below
+  // — needed because listing platform users requires an admin like garygeeke.
   useEffect(function() {
+    try { var sc = JSON.parse(sessionStorage.getItem('audit-creds') || 'null'); if (sc && sc.userId) { setCreds({ server: 'qs-view-server', userId: sc.userId, token: sc.token || '' }); setWho({ label: sc.userId, sub: 'connected' }); } } catch(e) {}
     fetch('/api/auth/me').then(function(r){ return r.json(); }).then(function(d) {
+      setSrvManaged(!!d.server_managed_auth);
       if (d.server_managed_auth) {
         if (d.authenticated && d.id) { setWho({ label: d.display_name || d.id, sub: d.role || '' }); setCreds({}); }
         setReady(true); return;
@@ -764,7 +809,6 @@ function App() {
           }).catch(function(){ setReady(true); });
         return;
       }
-      if (d.id) setWho({ label: d.display_name || d.id, sub: d.role || '' });
       setReady(true);
     }).catch(function(){ setReady(true); });
   }, []);
@@ -776,13 +820,27 @@ function App() {
                color: on ? 'var(--accent)' : 'var(--muted)', borderBottom: on ? '2px solid var(--accent)' : '2px solid transparent', fontWeight: on ? 700 : 400 } }, t.label);
   };
 
+  // re-key on the connected identity so tabs re-fetch when you connect/switch
+  var credKey = (who ? who.label : 'anon');
   var content = !ready
     ? el('div', { style: pad }, 'Connecting…')
     : active.id === 'users'
-      ? el(UsersTab, { creds: creds })
-      : el(AuditRelationshipTab, { key: active.id, relType: active.relType, columns: COLS[active.relType],
+      ? el(UsersTab, { key: 'users@' + credKey, creds: creds })
+      : el(AuditRelationshipTab, { key: active.id + '@' + credKey, relType: active.relType, columns: COLS[active.relType],
           actorRoles: ACTOR_ROLES[active.relType], creds: creds,
           focusGuid: focusGuid, onClearFocus: function(){ setFocusGuid(null); } });
+
+  var inp = { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', outline: 'none' };
+  var showConnBar = ready && !srvManaged && (showConn || !who);
+  var connBar = showConnBar && el('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderBottom: '1px solid var(--border)', background: 'rgba(96,165,250,.06)' } },
+    el('span', { style: { fontSize: 12, color: 'var(--muted)' } }, 'Connect to Egeria as:'),
+    el('input', { placeholder: 'user id (e.g. garygeeke)', value: fu, onChange: function(e){ setFu(e.target.value); },
+      onKeyDown: function(e){ if (e.key === 'Enter') connect(); }, style: Object.assign({}, inp, { width: 200 }) }),
+    el('input', { type: 'password', placeholder: 'password', value: fp, onChange: function(e){ setFp(e.target.value); },
+      onKeyDown: function(e){ if (e.key === 'Enter') connect(); }, style: Object.assign({}, inp, { width: 150 }) }),
+    el('button', { onClick: connect, style: { fontSize: 12, padding: '4px 14px', borderRadius: 4, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: 600 } }, 'Connect'),
+    cerr && el('span', { style: { fontSize: 12, color: '#f87171' } }, cerr),
+    el('span', { style: { marginLeft: 'auto', fontSize: 11, color: 'var(--dim)' } }, 'Listing platform users requires an admin user.'));
 
   return el(CredContext.Provider, { value: creds },
     el('div', { style: { display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', color: 'var(--text)' } },
@@ -792,8 +850,11 @@ function App() {
         el('span', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Exceptions · Certifications · Licenses · Users'),
         el('div', { style: { flex: 1 } }),
         who && el('span', { title: who.sub || '', style: { fontSize: 12, color: 'var(--accent)', background: 'rgba(96,165,250,.1)', border: '1px solid rgba(96,165,250,.3)', borderRadius: 12, padding: '2px 10px' } }, who.label),
+        who && !srvManaged && el('button', { onClick: disconnect, title: 'Switch user', style: { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, 'Switch'),
+        !who && !srvManaged && el('button', { onClick: function(){ setShowConn(!showConn); }, style: { fontSize: 12, padding: '3px 10px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' } }, '🔌 Connect'),
         el('a', { href: '/portal', style: { fontSize: 12, color: 'var(--muted)', textDecoration: 'none' } }, '⌂ Portal')
       ),
+      connBar,
       el('div', { style: { display: 'flex', gap: 4, padding: '0 12px', borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0 } }, TABS.map(tabBtn)),
       el('div', { style: { flex: 1, overflow: 'hidden' } }, content)
     )
