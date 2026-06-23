@@ -641,21 +641,28 @@ var TABS = [
 var USER_STATUS_LABEL = { DISABLED: 'Disabled', LOCKED: 'Locked', CREDENTIALS_EXPIRED: 'Credentials expired', AVAILABLE: 'Available' };
 var USER_TYPE_LABEL   = { EMPLOYEE: 'Employee', CONTRACTOR: 'Contractor', EXTERNAL: 'External', DIGITAL: 'Digital' };
 var USER_STATUSES = ['AVAILABLE', 'DISABLED', 'LOCKED', 'CREDENTIALS_EXPIRED'];
+var USER_TYPES    = ['EMPLOYEE', 'CONTRACTOR', 'EXTERNAL', 'DIGITAL'];
 function _statusLabel(s){ return USER_STATUS_LABEL[s] || s || ''; }
 function _typeLabel(t){ return USER_TYPE_LABEL[t] || t || ''; }
 
 function UsersTab({ creds }) {
-  var _p  = useState([]),        plats   = _p[0],  setPlats  = _p[1];
-  var _sp = useState(null),      plat    = _sp[0], setPlat   = _sp[1];   // {guid, displayName}
-  var _u  = useState([]),        users   = _u[0],  setUsers  = _u[1];
-  var _us = useState('idle'),    uState  = _us[0], setUState = _us[1];
-  var _ex = useState(null),      expand  = _ex[0], setExpand = _ex[1];   // expanded userName
-  var _ad = useState(false),     isAdmin = _ad[0], setAdmin  = _ad[1];
-  var _cf = useState(null),      confirm = _cf[0], setConfirm= _cf[1];   // {user, status}
-  var _pw = useState(360),       panelW  = _pw[0], setPanelW = _pw[1];   // detail-panel width (px)
+  var _p  = useState([]),             plats   = _p[0],   setPlats   = _p[1];
+  var _sp = useState(null),           plat    = _sp[0],  setPlat    = _sp[1];
+  var _u  = useState([]),             users   = _u[0],   setUsers   = _u[1];
+  var _us = useState('idle'),         uState  = _us[0],  setUState  = _us[1];
+  var _ex = useState(null),           expand  = _ex[0],  setExpand  = _ex[1];
+  var _ad = useState(false),          isAdmin = _ad[0],  setAdmin   = _ad[1];
+  var _cf = useState(null),           confirm = _cf[0],  setConfirm = _cf[1];
+  var _pw = useState(360),            panelW  = _pw[0],  setPanelW  = _pw[1];
+  var _so = useState({ col:0, dir:'asc' }), sort = _so[0], setSort = _so[1];
+  var _ft = useState(''),             fText   = _ft[0],  setFText   = _ft[1];
+  var _fs = useState(new Set()),      fStatus = _fs[0],  setFStatus = _fs[1];
+  var _fy = useState(new Set()),      fType   = _fy[0],  setFType   = _fy[1];
   var rzu = useColumnResize(5, 180);
+  var SORT_KEYS = ['userName', 'userAccountType', 'displayName', 'userAccountStatus', ''];
+
   var selUser = users.find(function(u){ return u.userName === expand; });
-  function onPanelDown(e) {  // right-docked panel: drag-left widens (inverse of clientX)
+  function onPanelDown(e) {
     e.preventDefault();
     var w0 = panelW, x0 = e.clientX;
     function mv(ev){ setPanelW(Math.max(240, Math.min(760, w0 - (ev.clientX - x0)))); }
@@ -663,10 +670,9 @@ function UsersTab({ creds }) {
     document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
   }
 
-  // platforms + am-I-admin on mount
   useEffect(function() {
     egeriaFetch('/api/audit/platforms', creds).then(function(r){ return r.ok ? r.json() : { platforms: [] }; })
-      .then(function(d){ setPlats(d.platforms || []); if ((d.platforms || []).length) setPlat(d.platforms[0]); });
+      .then(function(d){ var ps = d.platforms || []; setPlats(ps); if (ps.length) setPlat(ps[ps.length - 1]); });
     egeriaFetch('/api/auth/me', creds).then(function(r){ return r.ok ? r.json() : null; })
       .then(function(d){ setAdmin(!!(d && d.role === 'admin')); }).catch(function(){});
   }, []);
@@ -688,27 +694,53 @@ function UsersTab({ creds }) {
       .catch(function(e){ setConfirm(Object.assign({}, confirm, { err: e.message })); });
   }
 
+  var visibleUsers = applySort(users.filter(function(u) {
+    if (fStatus.size > 0 && !fStatus.has(u.userAccountStatus)) return false;
+    if (fType.size > 0 && !fType.has(u.userAccountType)) return false;
+    if (fText) {
+      var q = fText.toLowerCase();
+      return (u.userName || '').toLowerCase().indexOf(q) >= 0 ||
+             (u.displayName || '').toLowerCase().indexOf(q) >= 0;
+    }
+    return true;
+  }), sort, SORT_KEYS);
+
   var th = { textAlign: 'left', padding: '6px 12px', borderBottom: '2px solid var(--border)', color: 'var(--accent)', fontSize: 11, whiteSpace: 'nowrap', position: 'relative', overflow: 'hidden' };
   var td = { padding: '5px 12px', borderBottom: '1px solid var(--border)', fontSize: 12, verticalAlign: 'top' };
 
   return el('div', { style: { display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' } },
-    el('div', { style: { padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--border)' } },
+    // Platform selector row
+    el('div', { style: { padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--border)', flexShrink: 0 } },
       el('span', { style: { fontSize: 12, color: 'var(--dim)' } }, 'Platform:'),
       el('select', { value: plat ? plat.guid : '', onChange: function(e){ setPlat(plats.find(function(p){ return p.guid === e.target.value; }) || null); },
         style: { fontSize: 12, padding: '4px 8px', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 4 } },
         plats.length === 0 ? el('option', { value: '' }, 'No platforms') : plats.map(function(p){ return el('option', { key: p.guid, value: p.guid }, p.displayName); })),
-      isAdmin && el('span', { style: { fontSize: 11, color: '#34d399', marginLeft: 'auto' } }, '🔓 Admin — account status is editable')
+      isAdmin && el('span', { style: { fontSize: 11, color: '#34d399', marginLeft: 'auto' } }, '🔓 Admin — status editable')
+    ),
+    // Toolbar: search + status + type pills
+    uState === 'ready' && users.length > 0 && el('div', { style: { padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid var(--border)', flexWrap: 'wrap', flexShrink: 0 } },
+      el('input', { placeholder: 'search users…', value: fText, onChange: function(e){ setFText(e.target.value); },
+        style: { fontSize: 11, padding: '4px 8px', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 4, width: 160 } }),
+      el('span', { style: { fontSize: 10, color: 'var(--dim)', marginLeft: 4 } }, 'Status:'),
+      simplePillRow(USER_STATUSES, _statusLabel, fStatus, setFStatus),
+      el('span', { style: { fontSize: 10, color: 'var(--dim)', marginLeft: 4 } }, 'Type:'),
+      simplePillRow(USER_TYPES, _typeLabel, fType, setFType),
+      el('span', { style: { marginLeft: 'auto', fontSize: 11, color: 'var(--dim)' } }, visibleUsers.length + ' / ' + users.length + ' users')
     ),
     uState === 'loading' ? el('div', { style: pad }, 'Loading users…')
     : uState === 'error' ? el('div', { style: pad }, 'Failed to load users.')
-    : users.length === 0 ? el('div', { style: pad }, plat ? ('No users registered in ' + plat.displayName + '’s security connector.') : 'Select a platform.')
+    : users.length === 0 ? el('div', { style: pad }, plat ? ('No users registered in ' + plat.displayName + "'s security connector.") : 'Select a platform.')
     : el('div', { style: { flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 } },
         el('div', { style: { flex: 1, overflow: 'auto', minWidth: 0 } },
           el('table', { style: { borderCollapse: 'collapse', tableLayout: 'fixed', width: rzu.tableWidth ? rzu.tableWidth + 'px' : '100%', minWidth: '100%' } },
             el('colgroup', null, [0,1,2,3,4].map(function(i){ return el('col', { key: i, style: { width: ((rzu.widths && rzu.widths[i]) || rzu.defaultW) + 'px' } }); })),
             el('thead', null, el('tr', null,
-              ['User Name', 'Account Type', 'Display Name', 'Account Status', ''].map(function(h, i){ return el('th', { key: i, style: th }, h, colResizeHandle(rzu.onResizeDown, i)); }))),
-            el('tbody', null, users.map(function(u){
+              ['User Name', 'Account Type', 'Display Name', 'Account Status', ''].map(function(h, i){
+                return i < 4
+                  ? thSortable(sort, setSort, i, h, rzu.onResizeDown, th)
+                  : el('th', { key: i, style: th }, h);
+              }))),
+            el('tbody', null, visibleUsers.map(function(u){
               var open = expand === u.userName;
               return el('tr', { key: u.userName, style: { cursor: 'pointer', background: open ? 'rgba(96,165,250,.14)' : 'transparent' }, onClick: function(){ setExpand(open ? null : u.userName); } },
                 el('td', { style: td }, u.userName),
@@ -722,7 +754,6 @@ function UsersTab({ creds }) {
             }))
           )
         ),
-        // Slide-in detail panel (docked right, resizable) — shows the selected user's full account
         selUser && el('div', { onMouseDown: onPanelDown, title: 'Drag to resize', style: { width: 6, flexShrink: 0, cursor: 'col-resize', background: 'var(--border)' } }),
         selUser && el('div', { style: { width: panelW + 'px', flexShrink: 0, overflow: 'auto', borderLeft: '1px solid var(--border)', background: 'var(--panel)' } },
           el('div', { style: { padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, background: 'var(--panel)', zIndex: 1 } },
@@ -737,14 +768,13 @@ function UsersTab({ creds }) {
                   el('td', { style: { padding: '3px 0', fontSize: 11, color: 'var(--text)', wordBreak: 'break-word' } }, String(selUser.account[k]))); }))))
         )
       ),
-    // Confirm dialog for the privileged status change
     confirm && el('div', { style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
         onClick: function(e){ if (e.target === e.currentTarget) setConfirm(null); } },
       el('div', { style: { background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 8, padding: '20px 24px', width: 420 } },
         el('div', { style: { fontWeight: 700, fontSize: 14, marginBottom: 10 } }, 'Change account status?'),
         el('div', { style: { fontSize: 13, color: 'var(--muted)', marginBottom: 14, lineHeight: 1.5 } },
           'Set ', el('b', { style: { color: 'var(--text)' } }, confirm.user.userName), ' to ',
-          el('b', { style: { color: 'var(--accent)' } }, _statusLabel(confirm.status)), ' on ', plat ? plat.displayName : '', '? This changes the user’s access.'),
+          el('b', { style: { color: 'var(--accent)' } }, _statusLabel(confirm.status)), ' on ', plat ? plat.displayName : '', "? This changes the user's access."),
         confirm.err && el('div', { style: { fontSize: 12, color: '#f87171', marginBottom: 10 } }, confirm.err),
         el('div', { style: { display: 'flex', gap: 8, justifyContent: 'flex-end' } },
           el('button', { onClick: function(){ setConfirm(null); }, style: { padding: '6px 14px', borderRadius: 5, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 13 } }, 'Cancel'),
@@ -852,6 +882,7 @@ function App() {
         who && el('span', { title: who.sub || '', style: { fontSize: 12, color: 'var(--accent)', background: 'rgba(96,165,250,.1)', border: '1px solid rgba(96,165,250,.3)', borderRadius: 12, padding: '2px 10px' } }, who.label),
         who && !srvManaged && el('button', { onClick: disconnect, title: 'Switch user', style: { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, 'Switch'),
         !who && !srvManaged && el('button', { onClick: function(){ setShowConn(!showConn); }, style: { fontSize: 12, padding: '3px 10px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' } }, '🔌 Connect'),
+        el(FeedbackButton, { section: active.id, persona: who ? who.sub : null, demoMode: !srvManaged, srvManaged: srvManaged, pagePrefix: 'egeria-audit/' }),
         el('a', { href: '/portal', style: { fontSize: 12, color: 'var(--muted)', textDecoration: 'none' } }, '⌂ Portal')
       ),
       connBar,

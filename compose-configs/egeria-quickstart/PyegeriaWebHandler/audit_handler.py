@@ -94,9 +94,14 @@ def _serialize_relationship(rel: dict) -> dict:
 
 def _rel_list(raw) -> list:
     """get_relationships returns a list of dicts OR the string 'No relationships
-    found' (and similar) when empty — always normalise to a list of dicts."""
+    found' (and similar) when empty — always normalise to a list of dicts.
+    Some pyegeria versions wrap results in a dict with a 'relationships' key."""
     if isinstance(raw, list):
         return [r for r in raw if isinstance(r, dict)]
+    if isinstance(raw, dict):
+        for key in ('relationships', 'items', 'elements', 'list'):
+            if key in raw and isinstance(raw[key], list):
+                return [r for r in raw[key] if isinstance(r, dict)]
     return []
 
 
