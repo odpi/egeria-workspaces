@@ -1524,6 +1524,8 @@ var TYPE_TO_NAV = (function() {
   m['CollectionFolder'] = { external: 'egeria-explorer', hash: 'digital-products' };
   m['DigitalProduct']   = { external: 'egeria-explorer', hash: 'digital-products' };
   m['Collection']       = { external: 'egeria-explorer', hash: 'digital-products' };
+  // Survey Reports
+  m['SurveyReport'] = { section: 'surveys', tab: 'survey-reports' };
   return m;
 }());
 
@@ -1642,8 +1644,9 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
     ),
 
     // Sub-panes: Schema and Lineage (lazy-loaded on first open)
-    item.hasSchema  && React.createElement(SchemaPane,  { guid: item.guid, creds: creds }),
-    item.hasLineage && React.createElement(LineagePane, { guid: item.guid }),
+    item.hasSchema      && React.createElement(SchemaPane,         { guid: item.guid, creds: creds }),
+    item.hasLineage     && React.createElement(LineagePane,        { guid: item.guid }),
+    item.hasAnnotations && React.createElement(AnnotationsSubPane, { guid: item.guid, creds: creds }),
 
     // Comments
     React.createElement(EgeriaCommentsSection, { guid: item.guid }),
@@ -1819,6 +1822,216 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   });
 }
 
+// ── Annotation components ─────────────────────────────────────────────────────
+
+var ANNOTATION_TYPES = [
+  { id: '', label: 'All Types' },
+  { id: 'SchemaAnalysisAnnotation',   label: 'Schema Analysis' },
+  { id: 'ResourceMeasureAnnotation',  label: 'Resource Measure' },
+  { id: 'DataFieldAnnotation',        label: 'Data Field' },
+  { id: 'ClassificationAnnotation',   label: 'Classification' },
+  { id: 'QualityAnnotation',          label: 'Quality' },
+  { id: 'RequestForAction',           label: 'Request for Action' },
+];
+
+function AnnotationCard({ ann, onNavigate }) {
+  var el = React.createElement;
+  var typeColor = {
+    SchemaAnalysisAnnotation:  '#818cf8',
+    ResourceMeasureAnnotation: '#34d399',
+    DataFieldAnnotation:       '#fb923c',
+    ClassificationAnnotation:  '#f472b6',
+    QualityAnnotation:         '#facc15',
+    RequestForAction:          '#f87171',
+  }[ann.typeName] || 'var(--accent)';
+  var cardStyle = {
+    background: 'var(--card)', border: '1px solid var(--border)', borderLeft: '3px solid ' + typeColor,
+    borderRadius: 6, padding: '10px 14px', marginBottom: 8,
+  };
+  var skipDisplay = new Set(['guid','typeName','superTypeNames','annotationType','surveyReportGuid','surveyReportDisplayName','qualifiedName']);
+  var extras = Object.entries(ann).filter(function(e) {
+    if (skipDisplay.has(e[0])) return false;
+    if (e[0] === 'summary') return false; // shown separately
+    return (typeof e[1] === 'string' && e[1].trim()) || typeof e[1] === 'number';
+  });
+  return el('div', { style: cardStyle },
+    el('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 } },
+      el('span', { style: { fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 10,
+                            background: 'rgba(255,255,255,.08)', color: typeColor, whiteSpace: 'nowrap' } }, ann.typeName || ''),
+      ann.analysisStep && el('span', { style: { fontSize: 10, color: 'var(--dim)' } }, '· ' + ann.analysisStep),
+      ann.confidence != null && el('span', { style: { fontSize: 10, color: 'var(--muted)', marginLeft: 'auto' } },
+        'confidence: ' + ann.confidence + '%'),
+      ann.surveyReportDisplayName && onNavigate && el('button', {
+        onClick: function() { onNavigate({ guid: ann.surveyReportGuid, displayName: ann.surveyReportDisplayName, section: 'surveys', tab: 'survey-reports' }); },
+        style: { fontSize: 10, padding: '2px 7px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)',
+                 background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer', flexShrink: 0 }
+      }, 'Report →')
+    ),
+    ann.summary && el('div', { style: { fontSize: 12, color: 'var(--text)', marginBottom: extras.length ? 6 : 0 } }, ann.summary),
+    extras.length > 0 && el('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '2px 12px' } },
+      extras.map(function(e) {
+        return el('span', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
+          e[0] + ': ', el('span', { style: { color: 'var(--text)' } }, String(e[1]).slice(0, 120)));
+      })
+    )
+  );
+}
+
+function AnnotationsSubPane({ guid, creds }) {
+  var _data = useState(null), data = _data[0], setData = _data[1];
+  var _err = useState(null), err = _err[0], setErr = _err[1];
+  var _open = useState(false), open = _open[0], setOpen = _open[1];
+  var _loaded = useState(false), loaded = _loaded[0], setLoaded = _loaded[1];
+  var _typeFilter = useState(''), typeFilter = _typeFilter[0], setTypeFilter = _typeFilter[1];
+  var el = React.createElement;
+
+  function load() {
+    setErr(null);
+    var url = '/api/tech-catalog/survey-reports/' + guid + '/annotations';
+    egeriaFetch(url, creds).then(function(r) {
+      return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || 'Failed'); });
+    }).then(function(d) {
+      setData(d.items || []);
+    }).catch(function(e) { setErr(e.message); });
+  }
+
+  function toggle() {
+    if (!open && !loaded) { setLoaded(true); load(); }
+    setOpen(function(o) { return !o; });
+  }
+
+  var items = (data || []).filter(function(a) {
+    return !typeFilter || a.typeName === typeFilter;
+  });
+
+  var grouped = {};
+  items.forEach(function(a) { var k = a.typeName || 'Other'; (grouped[k] = grouped[k] || []).push(a); });
+
+  return el('div', { style: { marginTop: 20 } },
+    el('div', { style: { display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginBottom: open ? 8 : 0 },
+        onClick: toggle },
+      el('div', { style: { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)' } },
+        (open ? '▾ ' : '▸ ') + 'Annotations' + (data ? ' (' + data.length + ')' : '')),
+      !loaded && el('span', { style: { fontSize: 10, color: 'var(--dim)' } }, '(click to load)')
+    ),
+    err && el('div', { style: { fontSize: 11, color: '#f87171', marginBottom: 8 } }, '⚠ ' + err),
+    open && data && el('div', null,
+      el('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 } },
+        ANNOTATION_TYPES.map(function(t) {
+          var active = typeFilter === t.id;
+          return el('button', { key: t.id, onClick: function() { setTypeFilter(t.id); },
+            style: { fontSize: 10, padding: '3px 10px', borderRadius: 10, cursor: 'pointer',
+                     border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
+                     background: active ? 'rgba(96,165,250,.12)' : 'transparent',
+                     color: active ? 'var(--accent)' : 'var(--muted)' } }, t.label);
+        })
+      ),
+      items.length === 0
+        ? el('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'No annotations' + (typeFilter ? ' of this type.' : '.'))
+        : Object.entries(grouped).map(function(entry) {
+            return el('div', { key: entry[0] },
+              el('div', { style: { fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginBottom: 4, marginTop: 8 } }, entry[0] + ' (' + entry[1].length + ')'),
+              entry[1].map(function(a) { return el(AnnotationCard, { key: a.guid, ann: a }); })
+            );
+          })
+    ),
+    open && !data && !err && el('div', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Loading annotations…')
+  );
+}
+
+function AnnotationsTabView({ creds, navTarget, onNavigate }) {
+  var _items = useState(null), items = _items[0], setItems = _items[1];
+  var _loading = useState(false), loading = _loading[0], setLoading = _loading[1];
+  var _err = useState(null), err = _err[0], setErr = _err[1];
+  var _q = useState(''), q = _q[0], setQ = _q[1];
+  var _typeFilter = useState(''), typeFilter = _typeFilter[0], setTypeFilter = _typeFilter[1];
+  var _selected = useState(null), selected = _selected[0], setSelected = _selected[1];
+  var el = React.createElement;
+
+  function load(search, atype) {
+    setLoading(true); setErr(null);
+    var url = '/api/tech-catalog/annotations?q=' + encodeURIComponent(search || '*') + '&page_size=500';
+    if (atype) url += '&annotation_type=' + encodeURIComponent(atype);
+    egeriaFetch(url, creds).then(function(r) {
+      return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || 'Failed'); });
+    }).then(function(d) {
+      setItems(d.items || []);
+      setLoading(false);
+    }).catch(function(e) { setErr(e.message); setLoading(false); });
+  }
+
+  useEffect(function() { load(q, typeFilter); }, []);
+
+  function handleSearch(e) {
+    if (e.key === 'Enter') { load(q, typeFilter); }
+  }
+
+  var grouped = {};
+  (items || []).forEach(function(a) { var k = a.typeName || 'Other'; (grouped[k] = grouped[k] || []).push(a); });
+
+  var listStyle = { flex: 1, overflowY: 'auto', padding: '0 12px 12px' };
+  var detailStyle = { width: 420, minWidth: 300, borderLeft: '1px solid var(--border)', overflowY: 'auto', padding: '0 16px 16px' };
+
+  return el('div', { style: { display: 'flex', flex: 1, overflow: 'hidden', flexDirection: 'column' } },
+    // Toolbar
+    el('div', { style: { display: 'flex', gap: 8, padding: '8px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' } },
+      el('input', { value: q, onChange: function(e) { setQ(e.target.value); }, onKeyDown: handleSearch,
+        placeholder: 'Search annotations… (Enter)', style: { flex: 1, minWidth: 180, padding: '5px 10px', fontSize: 12, borderRadius: 5, border: '1px solid var(--border)', background: 'var(--input)', color: 'var(--text)' } }),
+      el('button', { onClick: function() { load(q, typeFilter); },
+        style: { padding: '5px 14px', fontSize: 12, borderRadius: 5, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)', cursor: 'pointer' } }, 'Search'),
+      ANNOTATION_TYPES.map(function(t) {
+        var active = typeFilter === t.id;
+        return el('button', { key: t.id, onClick: function() { var nt = active ? '' : t.id; setTypeFilter(nt); load(q, nt); },
+          style: { fontSize: 10, padding: '3px 10px', borderRadius: 10, cursor: 'pointer',
+                   border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
+                   background: active ? 'rgba(96,165,250,.12)' : 'transparent',
+                   color: active ? 'var(--accent)' : 'var(--muted)' } }, t.label);
+      })
+    ),
+    el('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
+      // List
+      el('div', { style: listStyle },
+        loading && el('div', { style: { padding: '20px 0', textAlign: 'center', color: 'var(--dim)', fontSize: 12 } }, 'Loading…'),
+        err    && el('div', { style: { padding: 12, color: '#f87171', fontSize: 12 } }, '⚠ ' + err),
+        !loading && !err && items && items.length === 0 && el('div', { style: { padding: 20, color: 'var(--dim)', fontSize: 12 } }, 'No annotations found.'),
+        !loading && !err && Object.entries(grouped).map(function(entry) {
+          return el('div', { key: entry[0], style: { marginTop: 12 } },
+            el('div', { style: { fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+                                 color: 'var(--accent)', padding: '4px 0', borderBottom: '1px solid var(--border)', marginBottom: 6 } },
+              entry[0] + ' — ' + entry[1].length),
+            entry[1].map(function(a) {
+              var isSel = selected && selected.guid === a.guid;
+              return el('div', { key: a.guid, onClick: function() { setSelected(a); },
+                style: { padding: '6px 10px', borderRadius: 5, marginBottom: 3, cursor: 'pointer',
+                         background: isSel ? 'rgba(96,165,250,.12)' : 'transparent',
+                         border: isSel ? '1px solid rgba(96,165,250,.3)' : '1px solid transparent' } },
+                el('div', { style: { fontSize: 12, color: 'var(--text)', fontWeight: isSel ? 600 : 400 } },
+                  a.summary || a.annotationType || a.guid),
+                a.analysisStep && el('div', { style: { fontSize: 10, color: 'var(--dim)' } }, a.analysisStep),
+                a.surveyReportDisplayName && el('div', { style: { fontSize: 10, color: 'var(--muted)' } }, '📋 ' + a.surveyReportDisplayName)
+              );
+            })
+          );
+        })
+      ),
+      // Detail panel
+      selected && el('div', { style: detailStyle },
+        el('button', { onClick: function() { setSelected(null); },
+          style: { fontSize: 11, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer', marginTop: 12, marginBottom: 8 } }, '← Back'),
+        el(AnnotationCard, { ann: selected, onNavigate: onNavigate }),
+        el('div', { style: { marginTop: 12 } },
+          ['qualifiedName','guid'].map(function(k) {
+            return selected[k] ? el('div', { key: k, style: { fontSize: 11, color: 'var(--muted)', marginBottom: 4 } },
+              el('span', { style: { color: 'var(--dim)' } }, k + ': '),
+              el('span', { style: { fontFamily: 'monospace', wordBreak: 'break-all' } }, selected[k])
+            ) : null;
+          })
+        )
+      )
+    )
+  );
+}
+
 // ── Section views (each wraps AssetTabView for its sub-tabs) ─────────────────
 
 var SECTION_TABS = {
@@ -1838,6 +2051,10 @@ var SECTION_TABS = {
   processes: [
     { id: 'software-components', label: 'Software Components', endpoint: '/api/tech-catalog/software-components' },
     { id: 'actions', label: 'Actions', endpoint: '/api/tech-catalog/actions' },
+  ],
+  surveys: [
+    { id: 'survey-reports', label: 'Survey Reports', endpoint: '/api/tech-catalog/survey-reports' },
+    { id: 'annotations',    label: 'Annotations',    endpoint: '/api/tech-catalog/annotations', custom: true },
   ],
 };
 
@@ -1872,15 +2089,19 @@ function SectionView({ sectionId, creds, navTarget, onNavigate }) {
           t.label);
       })
     ),
-    currentTab && React.createElement(AssetTabView, {
-      key: currentTab.id,
-      endpoint: currentTab.endpoint,
-      sectionId: currentTab.id,
-      creds: creds,
-      navTarget: navTarget && navTarget.guid && (navTarget.section === sectionId || !navTarget.section)
-                   && (!navTarget.tab || navTarget.tab === currentTab.id) ? navTarget : null,
-      onNavigate: onNavigate,
-    })
+    currentTab && currentTab.custom
+      ? (currentTab.id === 'annotations'
+          ? React.createElement(AnnotationsTabView, { key: 'annotations', creds: creds, navTarget: navTarget, onNavigate: onNavigate })
+          : null)
+      : currentTab && React.createElement(AssetTabView, {
+          key: currentTab.id,
+          endpoint: currentTab.endpoint,
+          sectionId: currentTab.id,
+          creds: creds,
+          navTarget: navTarget && navTarget.guid && (navTarget.section === sectionId || !navTarget.section)
+                       && (!navTarget.tab || navTarget.tab === currentTab.id) ? navTarget : null,
+          onNavigate: onNavigate,
+        })
   );
 }
 
@@ -1892,6 +2113,7 @@ var SECTIONS = [
   { id: 'data-assets',    icon: '🗄️', label: 'Data Assets',           desc: 'Data stores, data feeds, and data sets.' },
   { id: 'apis',           icon: '🔗', label: 'APIs',                    desc: 'Deployed APIs and their endpoints.' },
   { id: 'processes',      icon: '⚙️', label: 'Processes',               desc: 'Software components and actions.' },
+  { id: 'surveys',        icon: '🔍', label: 'Surveys & Annotations',   desc: 'Survey reports and analysis annotations from discovery runs.' },
 ];
 
 var SPLASH_GROUPS = [
@@ -1906,6 +2128,12 @@ var SPLASH_GROUPS = [
     label: 'Deployed Assets',
     blurb: 'Technical resources registered in your environment — infrastructure, data, APIs, and processes.',
     sections: ['infrastructure', 'data-assets', 'apis', 'processes'],
+  },
+  {
+    key: 'discovery',
+    label: 'Discovery & Analysis',
+    blurb: 'Results from automated survey runs — survey reports and their analysis annotations.',
+    sections: ['surveys'],
   },
 ];
 
