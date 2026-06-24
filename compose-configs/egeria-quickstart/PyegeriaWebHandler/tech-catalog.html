@@ -1528,6 +1528,9 @@ var TYPE_TO_NAV = (function() {
   m['Collection']       = { external: 'egeria-explorer', hash: 'digital-products' };
   // Survey Reports
   m['SurveyReport'] = { section: 'surveys', tab: 'survey-reports' };
+  // Annotations — base type is enough; the relationship renderer walks superTypes
+  // so all subtypes (SchemaAnalysisAnnotation, DataFieldAnnotation, etc.) resolve here.
+  m['Annotation'] = { section: 'surveys', tab: 'annotations' };
   return m;
 }());
 
@@ -2022,30 +2025,51 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
   var tdSty = { padding: '5px 10px', borderBottom: '1px solid var(--border)', fontSize: 12,
                 verticalAlign: 'top', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
 
-  function load(search, atype, asOfTime) {
+  function load(search, atype, asOfTime, selectGuid) {
     setLoading(true); setErr(null);
     var url = '/api/tech-catalog/annotations?q=' + encodeURIComponent(search || '*') + '&page_size=500';
     if (atype)    url += '&annotation_type=' + encodeURIComponent(atype);
     if (asOfTime) url += '&as_of_time='      + encodeURIComponent(asOfTime);
     egeriaFetch(url, creds)
       .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || 'Failed'); }); })
-      .then(function(d) { setItems(d.items || []); setLoading(false); })
+      .then(function(d) {
+        var loaded = d.items || [];
+        setItems(loaded); setLoading(false);
+        if (selectGuid) {
+          var match = loaded.find(function(a) { return a.guid === selectGuid; });
+          if (match) setSel(match);
+        }
+      })
       .catch(function(e) { setErr(e.message); setLoading(false); });
   }
 
-  useEffect(function() { load('*', '', null); }, []);
+  useEffect(function() { load('*', '', null, null); }, []);
 
-  // Handle cross-navigation from AnnotationsSubPane: show annotation immediately,
-  // then load the full list so the table shows context and the row is highlighted.
-  // Gate on annotationItem (not annotationGuid) so empty GUIDs don't silently skip.
+  // Handle cross-navigation from two sources:
+  //   1. AnnotationsSubPane (View ↗): navTarget.annotationItem is the full object
+  //   2. AssetDetail Relationships (View →): navTarget.guid is the annotation GUID
   var _lastNav = useRef(null);
   useEffect(function() {
-    if (!navTarget || !navTarget.annotationItem) return;
-    var key = navTarget.annotationGuid || navTarget.annotationItem.qualifiedName || navTarget.annotationItem.summary || 'nav';
-    if (key === _lastNav.current) return;
-    _lastNav.current = key;
-    setSel(navTarget.annotationItem);
-    if (!items && !loading) load('*', '', null);
+    if (!navTarget) return;
+    if (navTarget.annotationItem) {
+      // Sub-pane path: full object available, show immediately
+      var key = navTarget.annotationGuid || navTarget.annotationItem.qualifiedName || navTarget.annotationItem.summary || 'nav';
+      if (key === _lastNav.current) return;
+      _lastNav.current = key;
+      setSel(navTarget.annotationItem);
+      if (!items && !loading) load('*', '', null, null);
+    } else if (navTarget.guid && navTarget.section === 'surveys' && navTarget.tab === 'annotations') {
+      // Relationships path: only GUID available, load list then select matching row
+      if (navTarget.guid === _lastNav.current) return;
+      _lastNav.current = navTarget.guid;
+      if (items) {
+        var match = items.find(function(a) { return a.guid === navTarget.guid; });
+        if (match) setSel(match);
+        else load('*', '', null, navTarget.guid);
+      } else if (!loading) {
+        load('*', '', null, navTarget.guid);
+      }
+    }
   }, [navTarget]);
 
   function toggleGroup(t) {
