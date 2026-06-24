@@ -28,7 +28,6 @@ When you're ready to run your own copy, see [Getting started](#getting-started) 
 | **Trace lineage** | `/lineage` | Trace data flow and dependencies across the metadata landscape |
 | **Run notebooks** | `http://localhost:8888` | Jupyter Lab pre-configured with `pyegeria`; password `egeria` |
 | **Interact via TUI** | `/my-egeria` | Terminal-UI portal for browsing your Egeria profile and metadata |
-| **Chat with Egeria** | Egeria Advisor tile | AI-powered assistant backed by the Egeria knowledge base |
 | **Author metadata with AI** | MCP servers | Connect Claude Desktop (or any MCP client) to the `dr-egeria` and `pyegeria` MCP servers to read and write metadata conversationally |
 | **Catalog files automatically** | `exchange-*/landing-area/` | Drop files here; the integration daemon classifies and catalogues them automatically |
 
@@ -170,7 +169,6 @@ The portal at `http://localhost:8885` (quickstart) or `http://localhost:7885` (f
 | 🔗 Lineage Explorer | `/lineage` | Trace data flow and dependencies across the metadata landscape |
 | 🛡️ Egeria Audit | `/egeria-audit` | Review exceptions, certifications and licenses; see who has access to Egeria. Rows **filtered by your governance-zone access** |
 | 🎛️ Egeria Operations | `/egeria-operations` | Monitor and operate the runtime — servers, integration connectors, governance engines and engine actions |
-| 🔭 Resource Explorer | `/resource-explorer` | Scout, assess, discover and enrich resources *(Preview — coming soon)* |
 
 **Workspaces & assistants**
 
@@ -179,7 +177,6 @@ The portal at `http://localhost:8885` (quickstart) or `http://localhost:7885` (f
 | 📓 Jupyter Lab | Interactive notebooks for data science and hands-on Egeria API exploration |
 | 🗒️ Obsidian Vault | Open the Coco Pharmaceuticals workbook vault in your local Obsidian (or the browser-based shared install) |
 | 🖥️ My Egeria | Explore your Egeria profile, roles, teams, actions and data catalog (TUI via `/my-egeria/`) |
-| 🤖 Egeria Advisor | AI-powered guidance for your Egeria environment (requires external `EGERIA_ADVISOR_URL`) |
 
 **Documentation & API references**
 
@@ -337,7 +334,6 @@ Ports follow a consistent scheme so both environments can run simultaneously wit
 | Jupyter (notebook / debug) | **`8888`** / `8889` | **`7888`** / `7889` | `7888` / `5678` | password `egeria` |
 | pyegeria-web (FastAPI/MCP) | **`8800`** | **`7800`** | `8000` | |
 | my-egeria (`my-profile` TUI) | **`8820`** | *`7820`* (reserved) | `8020` | via Apache `/my-egeria/` |
-| Egeria Advisor | **`8880`** | **`7880`** | external | portal links to `EGERIA_ADVISOR_URL` |
 | ProjectExplorer | *`8830`* (planned) | *`7830`* (reserved) | tbd | see BACKLOG `PORT-7` |
 | Obsidian (web / https) | **`8860`** / `8861` | — | `3000` / `3001` | optional |
 | Shared Kafka | `9192`–`9194` | `9192`–`9194` | same | **fixed — shared-infra** |
