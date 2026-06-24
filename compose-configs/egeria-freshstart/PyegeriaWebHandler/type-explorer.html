@@ -5799,6 +5799,7 @@ function _humanizeKey(key) {
 function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(280);
+  const [asOfTime, setAsOfTime] = useState(null);
   const [state, setState]   = useState('loading');
   const [attempt, setAttempt] = useState(0);
   const [items, setItems]   = useState([]);
