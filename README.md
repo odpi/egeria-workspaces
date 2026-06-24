@@ -79,7 +79,9 @@ Three deployment modes are available, all sharing the same Kafka, PostgreSQL and
 
 > **[egeria.pdr-associates.com](https://egeria.pdr-associates.com)**
 
-The Quickstart environment running in `DEMO_MODE=true`, hosted publicly. Register for a free account, choose a Coco Pharmaceuticals persona, and explore. Includes scheduled data resets and an admin panel. No Docker required.
+Enter the world of [Coco Pharmaceuticals](https://egeria-project.org/practices/coco-pharmaceuticals/) — a fictitious company whose rich metadata landscape brings Egeria's capabilities to life. Step into the shoes of one of their key employees by selecting a persona, then explore the platform from that person's perspective.
+
+Register for a free account, pick your persona, and start exploring. Includes scheduled data resets and an admin panel. No Docker required.
 
 ![Portal after login](docs/images/Portal%20Title%20Page.png)
 
