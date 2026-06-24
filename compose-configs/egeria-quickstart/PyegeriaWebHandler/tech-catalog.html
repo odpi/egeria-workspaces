@@ -2102,7 +2102,7 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
       el('td', { style: Object.assign({}, tdSty, { textAlign: 'right' }) }, a.confidence != null ? a.confidence + '%' : ''),
       el('td', { style: tdSty }, a.surveyReportDisplayName || ''),
       el('td', { style: Object.assign({}, tdSty, { color: 'var(--dim)', fontSize: 11 }) },
-        a.createTime ? new Date(a.createTime).toLocaleDateString() : '')
+        a.createTime ? new Date(a.createTime).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'medium' }) : '')
     );
   }
 
