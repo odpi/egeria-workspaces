@@ -17,6 +17,8 @@ Endpoints:
 """
 
 import os
+import re
+import time
 from egeria_auth import apply_token
 from typing import Optional
 
@@ -112,12 +114,122 @@ GOV_TYPE_TREE = [
 ]
 
 
+_TREE_CACHE: dict = {"value": None, "ts": 0.0}
+_TREE_TTL = 300  # seconds
+
+
+def _camel_to_label(name: str) -> str:
+    """Convert CamelCase type name to a pluralised display label.
+
+    GovernanceActionType  → "Governance Action Types"
+    SecurityAccessControl → "Security Access Controls"
+    """
+    words = re.sub(r"([A-Z])", r" \1", name).split()
+    if not words:
+        return name
+    last = words[-1]
+    if last.endswith("y") and not last[-2:] in ("ay", "ey", "oy", "uy"):
+        last = last[:-1] + "ies"
+    elif last.endswith(("s", "sh", "ch", "x", "z")):
+        last = last + "es"
+    else:
+        last = last + "s"
+    words[-1] = last
+    return " ".join(words)
+
+
+def _build_gov_tree() -> list:
+    """Build the GovernanceDefinition subtype tree from the live Egeria type system.
+
+    Returns a list of root-level nodes (children of GovernanceDefinition) where
+    each node is: {"typeName": str, "label": str, "isAbstract": bool, "children": [...]}.
+    Falls back to GOV_TYPE_TREE if the type system is unavailable.
+    """
+    now = time.monotonic()
+    if _TREE_CACHE["value"] is not None and (now - _TREE_CACHE["ts"]) < _TREE_TTL:
+        return _TREE_CACHE["value"]
+
+    try:
+        from pyegeria import ValidMetadataManager
+        d = _env_defaults()
+        c = ValidMetadataManager(
+            view_server=d["server"],
+            platform_url=d["url"],
+            user_id=d["user_id"],
+            user_pwd=d["user_pwd"],
+        )
+        apply_token(c)
+        raw = c.get_all_entity_defs()
+    except Exception as exc:
+        logger.warning(f"_build_gov_tree: could not fetch type defs ({exc}); using fallback")
+        return GOV_TYPE_TREE
+
+    if not isinstance(raw, list):
+        raw = []
+
+    type_meta: dict[str, dict] = {}
+    sup_map: dict[str, str | None] = {}
+    children_map: dict[str, list[str]] = {}
+
+    for td in raw:
+        if not isinstance(td, dict):
+            continue
+        name = td.get("name", "")
+        if not name:
+            continue
+        sup_raw = td.get("superType")
+        sup = sup_raw.get("name") if isinstance(sup_raw, dict) else (sup_raw or None)
+        sup_map[name] = sup
+        type_meta[name] = {
+            "isAbstract": bool(td.get("isAbstract", False)),
+        }
+
+    for name, sup in sup_map.items():
+        if sup:
+            children_map.setdefault(sup, []).append(name)
+
+    def _build_node(type_name: str) -> dict:
+        meta = type_meta.get(type_name, {})
+        children_names = sorted(children_map.get(type_name, []))
+        node: dict = {
+            "typeName": type_name,
+            "label": _camel_to_label(type_name),
+        }
+        if meta.get("isAbstract"):
+            node["isAbstract"] = True
+        if children_names:
+            node["children"] = [_build_node(c) for c in children_names]
+        return node
+
+    # GovernanceDefinition is abstract and the root; return its children as roots
+    gov_children = sorted(children_map.get("GovernanceDefinition", []))
+    if not gov_children:
+        logger.warning("_build_gov_tree: no subtypes of GovernanceDefinition found; using fallback")
+        return GOV_TYPE_TREE
+
+    tree = [_build_node(c) for c in gov_children]
+    _TREE_CACHE["value"] = tree
+    _TREE_CACHE["ts"] = now
+    logger.info(f"_build_gov_tree: built dynamic tree with {len(tree)} root nodes")
+    return tree
+
+
+def _env_defaults() -> dict:
+    return dict(
+        url     =os.environ.get("EGERIA_PLATFORM_URL",  "https://egeria-main:9443"),
+        server  =os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server"),
+        user_id =os.environ.get("EGERIA_USER",          "erinoverview"),
+        user_pwd=os.environ.get("EGERIA_USER_PASSWORD", "secret"),
+    )
+
+
 def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     from pyegeria import GovernanceOfficer
-    url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
-    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
-    user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
-    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    d = _env_defaults()
+    url      = url      or d["url"]
+    server   = server   or d["server"]
+    user_id  = user_id  or d["user_id"]
+    user_pwd = user_pwd or d["user_pwd"]
     mgr = GovernanceOfficer(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
     apply_token(mgr)
     return mgr
@@ -224,7 +336,7 @@ def _serialize_detail(element: dict) -> dict:
 
 @router.get("/api/governance/tree", summary="Governance definition type hierarchy")
 def get_tree():
-    return JSONResponse(GOV_TYPE_TREE)
+    return JSONResponse(_build_gov_tree())
 
 
 @router.get("/api/governance/definitions", summary="Search/list governance definitions")
