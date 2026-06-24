@@ -2013,6 +2013,7 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
   var _sort    = useState({ col: 1, dir: 'asc' }), sort = _sort[0], setSort  = _sort[1];
   var _coll    = useState(new Set()),   coll      = _coll[0],     setColl      = _coll[1];
   var _rzDetail = useResizable(400, 180, 700), detailW = _rzDetail[0], detailDown = _rzDetail[1];
+  var _selRowRef = useRef(null);
   var el = React.createElement;
 
   var COLS     = ['typeName', 'summary', 'analysisStep', 'confidence', 'surveyReportDisplayName'];
@@ -2044,6 +2045,11 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
   }
 
   useEffect(function() { load('*', '', null, null); }, []);
+
+  // Scroll the highlighted row into view whenever the selection changes
+  useEffect(function() {
+    if (_selRowRef.current) _selRowRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [sel]);
 
   // Handle cross-navigation from two sources:
   //   1. AnnotationsSubPane (View ↗): navTarget.annotationItem is the full object
@@ -2086,8 +2092,9 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
 
   function renderRow(a) {
     var isSel = sel && sel.guid === a.guid;
-    return el('tr', { key: a.guid, onClick: function() { setSel(a); },
-      style: { cursor: 'pointer', background: isSel ? 'rgba(96,165,250,.1)' : 'transparent' } },
+    return el('tr', { key: a.guid, ref: isSel ? _selRowRef : null, onClick: function() { setSel(a); },
+      style: { cursor: 'pointer', background: isSel ? 'rgba(96,165,250,.15)' : 'transparent',
+               outline: isSel ? '1px solid rgba(96,165,250,.4)' : 'none' } },
       el('td', { style: Object.assign({}, tdSty, { color: ANNOT_TYPE_COLOR[a.typeName] || 'var(--accent)', fontWeight: 600, fontSize: 11 }) },
         ANNOT_TYPE_LABEL[a.typeName] || a.typeName || ''),
       el('td', { style: tdSty, title: a.summary || '' }, a.summary || ''),
@@ -2163,15 +2170,15 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
         el('button', { onClick: function() { setSel(null); },
           style: { fontSize: 11, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer', marginTop: 12, marginBottom: 8 } },
           '← Back'),
-        el(AnnotationCard, { ann: sel, onNavigate: onNavigate }),
-        el('div', { style: { marginTop: 8 } },
+        el('div', { style: { marginBottom: 10 } },
           ['qualifiedName','guid'].map(function(k) {
-            return sel[k] ? el('div', { key: k, style: { fontSize: 11, color: 'var(--muted)', marginBottom: 4 } },
+            return sel[k] ? el('div', { key: k, style: { fontSize: 11, color: 'var(--muted)', marginBottom: 3 } },
               el('span', { style: { color: 'var(--dim)' } }, k + ': '),
               el('span', { style: { fontFamily: 'monospace', fontSize: 10, wordBreak: 'break-all' } }, sel[k])
             ) : null;
           })
-        )
+        ),
+        el(AnnotationCard, { ann: sel, onNavigate: onNavigate })
       )
     )
   );
