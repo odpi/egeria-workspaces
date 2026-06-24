@@ -2016,9 +2016,9 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
   var _selRowRef = useRef(null);
   var el = React.createElement;
 
-  var COLS     = ['typeName', 'summary', 'analysisStep', 'confidence', 'surveyReportDisplayName'];
-  var COL_HDRS = ['Type', 'Summary', 'Analysis Step', 'Conf%', 'Report'];
-  var COL_W    = [150, 300, 150, 70, 160];
+  var COLS     = ['typeName', 'summary', 'analysisStep', 'confidence', 'surveyReportDisplayName', 'createTime'];
+  var COL_HDRS = ['Type', 'Summary', 'Analysis Step', 'Conf%', 'Report', 'Created'];
+  var COL_W    = [150, 300, 150, 70, 160, 130];
   var rz = useColumnResize(COLS.length, 160);
   var thSty = { textAlign: 'left', padding: '5px 10px', borderBottom: '2px solid var(--border)',
                 color: 'var(--accent)', fontSize: 11, whiteSpace: 'nowrap', position: 'sticky', top: 0,
@@ -2100,7 +2100,9 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
       el('td', { style: tdSty, title: a.summary || '' }, a.summary || ''),
       el('td', { style: tdSty }, a.analysisStep || ''),
       el('td', { style: Object.assign({}, tdSty, { textAlign: 'right' }) }, a.confidence != null ? a.confidence + '%' : ''),
-      el('td', { style: tdSty }, a.surveyReportDisplayName || '')
+      el('td', { style: tdSty }, a.surveyReportDisplayName || ''),
+      el('td', { style: Object.assign({}, tdSty, { color: 'var(--dim)', fontSize: 11 }) },
+        a.createTime ? new Date(a.createTime).toLocaleDateString() : '')
     );
   }
 

@@ -312,6 +312,7 @@ def _serialize_annotation(ann: dict) -> dict:
     type_info = hdr.get("type") or {}
     type_name = type_info.get("typeName", "")
     super_types = type_info.get("superTypeNames") or []
+    versions = hdr.get("versions") or {}
     out = {
         "guid":           guid,
         "typeName":       type_name,
@@ -323,6 +324,7 @@ def _serialize_annotation(ann: dict) -> dict:
         "confidence":     props.get("confidence"),
         "explanation":    props.get("explanation") or "",
         "expression":     props.get("expression") or "",
+        "createTime":     versions.get("createTime") or "",
     }
     # Pass through remaining scalar properties
     skip = set(out.keys()) | {"class", "typeName"}
