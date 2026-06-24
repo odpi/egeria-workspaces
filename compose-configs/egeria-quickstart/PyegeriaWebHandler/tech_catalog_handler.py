@@ -26,6 +26,10 @@ Endpoints:
   GET /api/tech-catalog/tech-types/hierarchy     → hierarchy tree from root
   GET /api/tech-catalog/tech-types/{qualifiedName}          → detail by qualifiedName
   GET /api/tech-catalog/tech-types/{qualifiedName}/elements → catalog instances of this type
+
+  GET /api/tech-catalog/survey-reports                        → SurveyReport assets
+  GET /api/tech-catalog/survey-reports/{guid}/annotations     → Annotations for a report
+  GET /api/tech-catalog/annotations                           → All/searched Annotations
 """
 
 import os
@@ -271,6 +275,8 @@ def _serialize(el, include_relationships: bool = False):
     # TC-9: lineage only applies to Asset subtypes. Endpoint and SoftwareCapability
     # are Referenceable (not Asset) and have no lineage graph, so suppress the pane.
     out["hasLineage"] = "Asset" in super_types
+    # SurveyReports have annotations reachable via the survey-reports/{guid}/annotations endpoint.
+    out["hasAnnotations"] = (out["typeName"] == "SurveyReport" or "SurveyReport" in super_types)
     # Pass through ANY non-empty mermaid graph field (generic — from the element or
     # its properties), so all available diagrams surface, consistent with Explorer.
     for src in (el, props):
@@ -298,6 +304,53 @@ def _safe_list(raw):
     return []
 
 
+def _serialize_annotation(ann: dict) -> dict:
+    """Serialise a single Annotation element (any subtype) into a UI-friendly dict."""
+    hdr = _header(ann)
+    props = _props(ann)
+    guid = hdr.get("guid") or ann.get("guid", "")
+    type_info = hdr.get("type") or {}
+    type_name = type_info.get("typeName", "")
+    super_types = type_info.get("superTypeNames") or []
+    out = {
+        "guid":           guid,
+        "typeName":       type_name,
+        "superTypeNames": super_types,
+        "qualifiedName":  props.get("qualifiedName") or "",
+        "annotationType": props.get("annotationType") or type_name,
+        "summary":        props.get("summary") or "",
+        "analysisStep":   props.get("analysisStep") or "",
+        "confidence":     props.get("confidence"),
+        "explanation":    props.get("explanation") or "",
+        "expression":     props.get("expression") or "",
+    }
+    # Pass through remaining scalar properties
+    skip = set(out.keys()) | {"class", "typeName"}
+    for k, v in props.items():
+        if k in skip or _is_mermaid_key(k):
+            continue
+        if isinstance(v, bool) or isinstance(v, (int, float)):
+            out[k] = v
+        elif isinstance(v, str) and v.strip():
+            out[k] = v
+        elif isinstance(v, dict) and v:
+            # Flatten simple nested dicts (e.g. resourceProperties)
+            for nk, nv in v.items():
+                if isinstance(nv, str) and nv.strip():
+                    out[f"{k}.{nk}"] = nv
+    # Extract link to parent SurveyReport (present when graph_query_depth >= 1)
+    from_report = ann.get("fromSurveyReport")
+    if isinstance(from_report, dict):
+        rel_elem = from_report.get("relatedElement") or {}
+        rel_hdr = rel_elem.get("elementHeader") or {}
+        rel_props = rel_elem.get("properties") or {}
+        survey_guid = rel_hdr.get("guid", "")
+        if survey_guid:
+            out["surveyReportGuid"] = survey_guid
+            out["surveyReportDisplayName"] = rel_props.get("displayName") or ""
+    return out
+
+
 def _asset_catalog(url, server, user_id, user_pwd, token: Optional[str] = None):
     from pyegeria import AssetCatalog
     u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
@@ -312,6 +365,14 @@ def _automated_curation(url, server, user_id, user_pwd, token: Optional[str] = N
     ac = AutomatedCuration(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
     _apply_token(ac, token)
     return ac
+
+
+def _discovery_client(url, server, user_id, user_pwd, token: Optional[str] = None):
+    from pyegeria import DataDiscovery
+    u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
+    dd = DataDiscovery(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
+    _apply_token(dd, token)
+    return dd
 
 
 # ── Token exchange endpoint ───────────────────────────────────────────────────
@@ -595,7 +656,8 @@ def debug_raw_element(
 def serve_spa():
     if not _HTML.exists():
         raise HTTPException(status_code=404, detail="tech-catalog.html not found")
-    return FileResponse(_HTML, media_type="text/html")
+    return FileResponse(_HTML, media_type="text/html",
+                        headers={"Cache-Control": "no-store, must-revalidate"})
 
 
 # ── Common query params ───────────────────────────────────────────────────────
@@ -1135,6 +1197,132 @@ def get_asset_preview(
     return JSONResponse({"columns": columns, "rows": rows, "has_more": bool(has_more),
                          "start_from_row": start_from_row, "row_count": len(rows),
                          "fileName": d.get("fileName") or os.path.basename(path)})
+
+
+# ── Survey Reports & Annotations routes ──────────────────────────────────────
+
+@router.get("/api/tech-catalog/survey-reports")
+def list_survey_reports(
+    request: Request,
+    q:          str = Query("*"),
+    start_from: int = Query(0, ge=0),
+    page_size:  int = Query(100, ge=1, le=500),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None),
+):
+    """List SurveyReport elements. SurveyReports are DataAsset subtypes but use an
+    empty content_status_list because they are not given ACTIVE status by Egeria."""
+    try:
+        mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    try:
+        raw = mgr.find_data_assets(
+            search_string=q or "*",
+            metadata_element_type="SurveyReport",
+            content_status_list=[],
+            start_from=start_from,
+            page_size=page_size,
+            output_format="JSON",
+            graph_query_depth=0,
+            sequencing_order=_SEQ_ORDER,
+            sequencing_property=_SEQ_PROP,
+            as_of_time=as_of_time or None,
+        )
+        items = [_serialize(e) for e in _safe_list(raw)]
+        return JSONResponse({"items": items, "total": len(items)})
+    except Exception as exc:
+        if _is_auth_error(exc):
+            raise HTTPException(status_code=401, detail="Token expired or unauthorized")
+        logger.exception("list_survey_reports failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/api/tech-catalog/survey-reports/{guid}/annotations")
+def get_survey_annotations(
+    request: Request,
+    guid: str,
+    annotation_type: Optional[str] = Query(None, description="Filter by annotation subtype name"),
+    page_size: int = Query(500, ge=1, le=1000),
+    as_of_time: Optional[str] = Query(None),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    """Return all Annotation elements for a specific SurveyReport GUID.
+
+    Fetches annotations with graph_query_depth=1 (to get fromSurveyReport link)
+    then filters to those belonging to the requested report.
+    """
+    try:
+        dd = _discovery_client(url, server, user_id, user_pwd, token=_token_from_request(request))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    try:
+        kwargs = {}
+        if annotation_type:
+            kwargs["metadata_element_type"] = annotation_type
+        if as_of_time:
+            kwargs["as_of_time"] = as_of_time
+        raw = dd.find_annotations(
+            search_string="*",
+            page_size=page_size,
+            output_format="JSON",
+            graph_query_depth=1,
+            **kwargs,
+        )
+        items = []
+        for ann in _safe_list(raw):
+            from_report = ann.get("fromSurveyReport") or {}
+            rel_elem = from_report.get("relatedElement") or {}
+            rel_hdr = rel_elem.get("elementHeader") or {}
+            if rel_hdr.get("guid") == guid:
+                items.append(_serialize_annotation(ann))
+        return JSONResponse({"items": items, "total": len(items)})
+    except Exception as exc:
+        if _is_auth_error(exc):
+            raise HTTPException(status_code=401, detail="Token expired or unauthorized")
+        logger.exception("get_survey_annotations failed for %s", guid)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/api/tech-catalog/annotations")
+def list_annotations(
+    request: Request,
+    q:               str = Query("*"),
+    annotation_type: Optional[str] = Query(None, description="Filter by annotation subtype name"),
+    start_from:      int = Query(0, ge=0),
+    page_size:       int = Query(100, ge=1, le=500),
+    as_of_time:      Optional[str] = Query(None),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    """List or search Annotation elements across all survey reports."""
+    try:
+        dd = _discovery_client(url, server, user_id, user_pwd, token=_token_from_request(request))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    try:
+        kwargs = {}
+        if annotation_type:
+            kwargs["metadata_element_type"] = annotation_type
+        if as_of_time:
+            kwargs["as_of_time"] = as_of_time
+        raw = dd.find_annotations(
+            search_string=q or "*",
+            start_from=start_from,
+            page_size=page_size,
+            output_format="JSON",
+            graph_query_depth=1,
+            **kwargs,
+        )
+        items = [_serialize_annotation(ann) for ann in _safe_list(raw)]
+        return JSONResponse({"items": items, "total": len(items)})
+    except Exception as exc:
+        if _is_auth_error(exc):
+            raise HTTPException(status_code=401, detail="Token expired or unauthorized")
+        logger.exception("list_annotations failed")
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 # ── Technology Types routes ───────────────────────────────────────────────────

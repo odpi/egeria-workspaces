@@ -1044,9 +1044,10 @@ function ConnectionForm({ saveCreds, initialCreds }) {
 
 // ── Sidebar + Detail shell ────────────────────────────────────────────────────
 function SidebarDetail({ items, loading, error, selected, onSelect, renderDetail, filterBar }) {
+  var _rz = useResizable(280, 120, 600), sideW = _rz[0], sideDown = _rz[1];
   return React.createElement('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
-    // Sidebar
-    React.createElement('div', { style: { width: 280, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0 } },
+    // Sidebar (resizable)
+    React.createElement('div', { style: { width: sideW, minWidth: 120, borderRight: 'none', display: 'flex', flexDirection: 'column', flexShrink: 0 } },
       filterBar,
       React.createElement('div', { style: { overflowY: 'auto', flex: 1 } },
         loading ? React.createElement('div', { style: { padding: 24, color: 'var(--dim)', fontSize: 12 } }, 'Loading…')
@@ -1085,8 +1086,9 @@ function SidebarDetail({ items, loading, error, selected, onSelect, renderDetail
           })
       )
     ),
+    React.createElement(ResizeDivider, { onMouseDown: sideDown }),
     // Detail pane
-    React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: selected ? '20px 24px' : 0 } },
+    React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: selected ? '20px 24px' : 0, minWidth: 200 } },
       selected ? renderDetail(selected)
       : React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--dim)', fontSize: 13 } }, 'Select an item from the list')
     )
@@ -1524,6 +1526,11 @@ var TYPE_TO_NAV = (function() {
   m['CollectionFolder'] = { external: 'egeria-explorer', hash: 'digital-products' };
   m['DigitalProduct']   = { external: 'egeria-explorer', hash: 'digital-products' };
   m['Collection']       = { external: 'egeria-explorer', hash: 'digital-products' };
+  // Survey Reports
+  m['SurveyReport'] = { section: 'surveys', tab: 'survey-reports' };
+  // Annotations — base type is enough; the relationship renderer walks superTypes
+  // so all subtypes (SchemaAnalysisAnnotation, DataFieldAnnotation, etc.) resolve here.
+  m['Annotation'] = { section: 'surveys', tab: 'annotations' };
   return m;
 }());
 
@@ -1537,8 +1544,8 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
                        (item.superTypeNames || []).indexOf('DataFile') !== -1);
   var sectionHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
   var cardStyle  = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px', marginBottom: 6 };
-  // hasSchema / hasLineage are signalled by the backend; exclude them from the property table
-  var skipKeys   = new Set(['guid','typeName','superTypeNames','displayName','qualifiedName','description','classifications','relationships','hasSchema','hasLineage','props']);
+  // hasSchema / hasLineage / hasAnnotations are signalled by the backend; exclude from property table
+  var skipKeys   = new Set(['guid','typeName','superTypeNames','displayName','qualifiedName','description','classifications','relationships','hasSchema','hasLineage','hasAnnotations','props']);
   var extraProps = Object.entries(item).filter(function(e) {
     // show every scalar property except the header fields and any mermaid graph
     // (mermaid is rendered as a diagram, not a property row).
@@ -1561,9 +1568,8 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
       React.createElement(EgeriaFeedbackWidget, { guid: item.guid })
     ),
     item.typeName && React.createElement('div', { style: { display: 'inline-block', fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: 'rgba(96,165,250,0.12)', color: 'var(--accent)', marginBottom: 12 } }, item.typeName),
-    // Incoming audit cross-links (#17): jump to this element's exceptions /
-    // certifications / licenses via the shared auditNavigate helper.
-    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, fontSize: 11, color: 'var(--dim)', flexWrap: 'wrap' } },
+    // Audit cross-links: skip for SurveyReports (no governance exceptions/certifications/licenses)
+    item.typeName !== 'SurveyReport' && React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, fontSize: 11, color: 'var(--dim)', flexWrap: 'wrap' } },
       React.createElement('span', null, '🛡️ Audit:'),
       [['exceptions', 'Exceptions'], ['certifications', 'Certifications'], ['licenses', 'Licenses']].map(function(t) {
         return React.createElement('button', { key: t[0], onClick: function() { auditNavigate(item.guid, t[0]); }, title: 'Show ' + t[1].toLowerCase() + ' for this element in Egeria Audit',
@@ -1642,8 +1648,9 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
     ),
 
     // Sub-panes: Schema and Lineage (lazy-loaded on first open)
-    item.hasSchema  && React.createElement(SchemaPane,  { guid: item.guid, creds: creds }),
-    item.hasLineage && React.createElement(LineagePane, { guid: item.guid }),
+    item.hasSchema      && React.createElement(SchemaPane,         { guid: item.guid, creds: creds }),
+    item.hasLineage     && React.createElement(LineagePane,        { guid: item.guid }),
+    item.hasAnnotations && React.createElement(AnnotationsSubPane, { guid: item.guid, creds: creds, onNavigate: onNavigate }),
 
     // Comments
     React.createElement(EgeriaCommentsSection, { guid: item.guid }),
@@ -1672,7 +1679,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   var _classifFilter = useState([]),   classifFilter = _classifFilter[0], setClassifFilter = _classifFilter[1];
   // LE-3: point-in-time browsing — only the data-asset endpoints accept as_of_time.
   var _asOfTime = useState(null), asOfTime = _asOfTime[0], setAsOfTime = _asOfTime[1];
-  var supportsTime = /\/(data-stores|data-feeds|data-sets|infrastructure|software-capabilities|endpoints|apis|software-components|actions)\b/.test(endpoint);
+  var supportsTime = /\/(data-stores|data-feeds|data-sets|infrastructure|software-capabilities|endpoints|apis|software-components|actions|survey-reports)\b/.test(endpoint);
 
   useEffect(function() {
     setLoading(true); setError(''); setSelected(null); setDetail(null); setClassifFilter([]);
@@ -1819,6 +1826,365 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   });
 }
 
+// ── Annotation components ─────────────────────────────────────────────────────
+
+var ANNOTATION_TYPES = [
+  { id: '', label: 'All Types' },
+  { id: 'SchemaAnalysisAnnotation',   label: 'Schema Analysis' },
+  { id: 'ResourceMeasureAnnotation',  label: 'Resource Measure' },
+  { id: 'DataFieldAnnotation',        label: 'Data Field' },
+  { id: 'ClassificationAnnotation',   label: 'Classification' },
+  { id: 'QualityAnnotation',          label: 'Quality' },
+  { id: 'RequestForAction',           label: 'Request for Action' },
+];
+
+var ANNOT_TYPE_COLOR = {
+  SchemaAnalysisAnnotation:  '#818cf8',
+  ResourceMeasureAnnotation: '#34d399',
+  DataFieldAnnotation:       '#fb923c',
+  ClassificationAnnotation:  '#f472b6',
+  QualityAnnotation:         '#facc15',
+  RequestForAction:          '#f87171',
+};
+var ANNOT_TYPE_LABEL = {
+  SchemaAnalysisAnnotation:  'Schema Analysis',
+  ResourceMeasureAnnotation: 'Resource Measure',
+  DataFieldAnnotation:       'Data Field',
+  ClassificationAnnotation:  'Classification',
+  QualityAnnotation:         'Quality',
+  RequestForAction:          'Request for Action',
+};
+
+function _tryParseJson(v) {
+  if (typeof v !== 'string') return null;
+  var tr = v.trim();
+  if (tr[0] !== '{' && tr[0] !== '[') return null;
+  try { return JSON.parse(tr); } catch(e) { return null; }
+}
+
+function AnnotationPropValue({ label, value }) {
+  var el = React.createElement;
+  var parsed = _tryParseJson(value);
+  if (parsed !== null) {
+    return el('div', { style: { marginBottom: 8 } },
+      el('div', { style: { fontSize: 10, color: 'var(--dim)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.05em' } }, label),
+      el('pre', { style: { margin: 0, fontSize: 11, color: 'var(--text)', background: 'rgba(0,0,0,.25)',
+                           borderRadius: 4, padding: '6px 8px', overflowX: 'auto', whiteSpace: 'pre-wrap',
+                           wordBreak: 'break-word', fontFamily: 'ui-monospace,monospace', lineHeight: 1.5 } },
+        JSON.stringify(parsed, null, 2))
+    );
+  }
+  return el('div', { style: { fontSize: 11, color: 'var(--muted)', marginBottom: 4 } },
+    el('span', { style: { color: 'var(--dim)' } }, label + ': '),
+    el('span', { style: { color: 'var(--text)', wordBreak: 'break-all' } }, String(value))
+  );
+}
+
+function AnnotationCard({ ann, onNavigate, fromSubPane }) {
+  var el = React.createElement;
+  var typeColor = ANNOT_TYPE_COLOR[ann.typeName] || 'var(--accent)';
+  var skipDisplay = new Set(['guid','typeName','superTypeNames','annotationType',
+                             'surveyReportGuid','surveyReportDisplayName','qualifiedName']);
+  var extras = Object.entries(ann).filter(function(e) {
+    if (skipDisplay.has(e[0]) || e[0] === 'summary') return false;
+    return (typeof e[1] === 'string' && e[1].trim()) || typeof e[1] === 'number';
+  });
+  return el('div', { style: { background: 'var(--card)', border: '1px solid var(--border)',
+                               borderLeft: '3px solid ' + typeColor, borderRadius: 6,
+                               padding: '10px 14px', marginBottom: 8 } },
+    el('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' } },
+      el('span', { style: { fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 10,
+                            background: 'rgba(255,255,255,.08)', color: typeColor, whiteSpace: 'nowrap' } },
+        ANNOT_TYPE_LABEL[ann.typeName] || ann.typeName || ''),
+      ann.analysisStep && el('span', { style: { fontSize: 10, color: 'var(--dim)' } }, '\xb7 ' + ann.analysisStep),
+      ann.confidence != null && el('span', { style: { fontSize: 10, color: 'var(--muted)', marginLeft: 'auto' } },
+        'confidence: ' + ann.confidence + '%'),
+      // Sub-pane: link to Annotations tab for this specific annotation
+      fromSubPane && onNavigate && el('button', {
+        title: 'View in Annotations tab',
+        onClick: function(e) { e.stopPropagation();
+          onNavigate({ section: 'surveys', tab: 'annotations',
+                       annotationGuid: ann.guid, annotationItem: ann }); },
+        style: { fontSize: 10, padding: '2px 7px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)',
+                 background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer', flexShrink: 0 }
+      }, 'View ↗'),
+      // Annotations tab: link back to its Survey Report
+      !fromSubPane && ann.surveyReportDisplayName && onNavigate && el('button', {
+        title: 'Open Survey Report',
+        onClick: function(e) { e.stopPropagation();
+          onNavigate({ guid: ann.surveyReportGuid, displayName: ann.surveyReportDisplayName,
+                       section: 'surveys', tab: 'survey-reports' }); },
+        style: { fontSize: 10, padding: '2px 7px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)',
+                 background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer', flexShrink: 0 }
+      }, 'Report →')
+    ),
+    ann.summary && el('div', { style: { fontSize: 12, color: 'var(--text)', marginBottom: extras.length ? 8 : 0, lineHeight: 1.5 } }, ann.summary),
+    extras.length > 0 && el('div', null,
+      extras.map(function(e) { return el(AnnotationPropValue, { key: e[0], label: e[0], value: String(e[1]) }); })
+    )
+  );
+}
+
+function AnnotationsSubPane({ guid, creds, onNavigate }) {
+  var _data    = useState(null),        data      = _data[0],    setData      = _data[1];
+  var _err     = useState(null),        err       = _err[0],     setErr       = _err[1];
+  var _open    = useState(false),       open      = _open[0],    setOpen      = _open[1];
+  var _loaded  = useState(false),       loaded    = _loaded[0],  setLoaded    = _loaded[1];
+  var _filter  = useState(''),          filter    = _filter[0],  setFilter    = _filter[1];
+  var _coll    = useState(new Set()),   coll      = _coll[0],    setColl      = _coll[1];
+  var el = React.createElement;
+
+  function load() {
+    setErr(null);
+    egeriaFetch('/api/tech-catalog/survey-reports/' + guid + '/annotations', creds)
+      .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || 'Failed'); }); })
+      .then(function(d) { setData(d.items || []); })
+      .catch(function(e) { setErr(e.message); });
+  }
+
+  function toggle() {
+    if (!open && !loaded) { setLoaded(true); load(); }
+    setOpen(function(o) { return !o; });
+  }
+
+  function toggleGroup(t) {
+    setColl(function(prev) { var n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n; });
+  }
+
+  var items = (data || []).filter(function(a) { return !filter || a.typeName === filter; });
+  var grouped = {}, order = [];
+  items.forEach(function(a) {
+    var k = a.typeName || 'Other';
+    if (!grouped[k]) { grouped[k] = []; order.push(k); }
+    grouped[k].push(a);
+  });
+
+  return el('div', { style: { marginTop: 20 } },
+    el('div', { onClick: toggle, style: { display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginBottom: open ? 8 : 0 } },
+      el('div', { style: { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)' } },
+        (open ? '▾ ' : '▸ ') + 'Annotations' + (data ? ' (' + data.length + ')' : '')),
+      !loaded && el('span', { style: { fontSize: 10, color: 'var(--dim)' } }, '(click to load)')
+    ),
+    err && el('div', { style: { fontSize: 11, color: '#f87171', marginBottom: 8 } }, '⚠ ' + err),
+    open && data && el('div', null,
+      el('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 } },
+        ANNOTATION_TYPES.map(function(t) {
+          var active = filter === t.id;
+          return el('button', { key: t.id || '_all',
+            onClick: function(e) { e.stopPropagation(); setFilter(t.id); },
+            style: { fontSize: 10, padding: '3px 10px', borderRadius: 10, cursor: 'pointer',
+                     border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
+                     background: active ? 'rgba(96,165,250,.12)' : 'transparent',
+                     color: active ? 'var(--accent)' : 'var(--muted)' } }, t.label);
+        })
+      ),
+      items.length === 0
+        ? el('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'No annotations' + (filter ? ' of this type.' : '.'))
+        : order.map(function(typeName) {
+            var groupItems = grouped[typeName];
+            var isCollapsed = coll.has(typeName);
+            var typeColor = ANNOT_TYPE_COLOR[typeName] || 'var(--accent)';
+            return el('div', { key: typeName },
+              el('div', { onClick: function() { toggleGroup(typeName); },
+                style: { display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '5px 0',
+                         borderBottom: '1px solid var(--border)', marginTop: 8, marginBottom: isCollapsed ? 0 : 6 } },
+                el('span', { style: { color: typeColor, fontSize: 12 } }, isCollapsed ? '▸' : '▾'),
+                el('span', { style: { fontSize: 11, fontWeight: 600, color: 'var(--text)' } }, ANNOT_TYPE_LABEL[typeName] || typeName),
+                el('span', { style: { fontSize: 10, color: 'var(--dim)', marginLeft: 4 } }, '(' + groupItems.length + ')')
+              ),
+              !isCollapsed && groupItems.map(function(a) {
+                return el(AnnotationCard, { key: a.guid, ann: a, onNavigate: onNavigate, fromSubPane: true });
+              })
+            );
+          })
+    ),
+    open && !data && !err && el('div', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Loading annotations…')
+  );
+}
+
+function AnnotationsTabView({ creds, navTarget, onNavigate }) {
+  var _items   = useState(null),        items     = _items[0],    setItems     = _items[1];
+  var _loading = useState(false),       loading   = _loading[0],  setLoading   = _loading[1];
+  var _err     = useState(null),        err       = _err[0],      setErr       = _err[1];
+  var _q       = useState(''),          q         = _q[0],        setQ         = _q[1];
+  var _filter  = useState(''),          filter    = _filter[0],   setFilter    = _filter[1];
+  var _sel     = useState(null),        sel       = _sel[0],      setSel       = _sel[1];
+  var _asOf    = useState(null),        asOf      = _asOf[0],     setAsOf      = _asOf[1];
+  var _sort    = useState({ col: 1, dir: 'asc' }), sort = _sort[0], setSort  = _sort[1];
+  var _coll    = useState(new Set()),   coll      = _coll[0],     setColl      = _coll[1];
+  var _rzDetail = useResizable(400, 180, 700), detailW = _rzDetail[0], detailDown = _rzDetail[1];
+  var _selRowRef = useRef(null);
+  var el = React.createElement;
+
+  var COLS     = ['typeName', 'summary', 'analysisStep', 'confidence', 'surveyReportDisplayName'];
+  var COL_HDRS = ['Type', 'Summary', 'Analysis Step', 'Conf%', 'Report'];
+  var COL_W    = [150, 300, 150, 70, 160];
+  var rz = useColumnResize(COLS.length, 160);
+  var thSty = { textAlign: 'left', padding: '5px 10px', borderBottom: '2px solid var(--border)',
+                color: 'var(--accent)', fontSize: 11, whiteSpace: 'nowrap', position: 'sticky', top: 0,
+                background: 'var(--panel)', userSelect: 'none', overflow: 'hidden' };
+  var tdSty = { padding: '5px 10px', borderBottom: '1px solid var(--border)', fontSize: 12,
+                verticalAlign: 'top', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+
+  function load(search, atype, asOfTime, selectGuid) {
+    setLoading(true); setErr(null);
+    var url = '/api/tech-catalog/annotations?q=' + encodeURIComponent(search || '*') + '&page_size=500';
+    if (atype)    url += '&annotation_type=' + encodeURIComponent(atype);
+    if (asOfTime) url += '&as_of_time='      + encodeURIComponent(asOfTime);
+    egeriaFetch(url, creds)
+      .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || 'Failed'); }); })
+      .then(function(d) {
+        var loaded = d.items || [];
+        setItems(loaded); setLoading(false);
+        if (selectGuid) {
+          var match = loaded.find(function(a) { return a.guid === selectGuid; });
+          if (match) setSel(match);
+        }
+      })
+      .catch(function(e) { setErr(e.message); setLoading(false); });
+  }
+
+  useEffect(function() { load('*', '', null, null); }, []);
+
+  // Scroll the highlighted row into view whenever the selection changes
+  useEffect(function() {
+    if (_selRowRef.current) _selRowRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [sel]);
+
+  // Handle cross-navigation from two sources:
+  //   1. AnnotationsSubPane (View ↗): navTarget.annotationItem is the full object
+  //   2. AssetDetail Relationships (View →): navTarget.guid is the annotation GUID
+  var _lastNav = useRef(null);
+  useEffect(function() {
+    if (!navTarget) return;
+    if (navTarget.annotationItem) {
+      // Sub-pane path: full object available, show immediately
+      var key = navTarget.annotationGuid || navTarget.annotationItem.qualifiedName || navTarget.annotationItem.summary || 'nav';
+      if (key === _lastNav.current) return;
+      _lastNav.current = key;
+      setSel(navTarget.annotationItem);
+      if (!items && !loading) load('*', '', null, null);
+    } else if (navTarget.guid && navTarget.section === 'surveys' && navTarget.tab === 'annotations') {
+      // Relationships path: only GUID available, load list then select matching row
+      if (navTarget.guid === _lastNav.current) return;
+      _lastNav.current = navTarget.guid;
+      if (items) {
+        var match = items.find(function(a) { return a.guid === navTarget.guid; });
+        if (match) setSel(match);
+        else load('*', '', null, navTarget.guid);
+      } else if (!loading) {
+        load('*', '', null, navTarget.guid);
+      }
+    }
+  }, [navTarget]);
+
+  function toggleGroup(t) {
+    setColl(function(prev) { var n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n; });
+  }
+
+  var sorted = applySort(items || [], sort, COLS);
+  var grouped = {}, groupOrder = [];
+  sorted.forEach(function(a) {
+    var k = a.typeName || 'Other';
+    if (!grouped[k]) { grouped[k] = []; groupOrder.push(k); }
+    grouped[k].push(a);
+  });
+
+  function renderRow(a) {
+    var isSel = sel && sel.guid === a.guid;
+    return el('tr', { key: a.guid, ref: isSel ? _selRowRef : null, onClick: function() { setSel(a); },
+      style: { cursor: 'pointer', background: isSel ? 'rgba(96,165,250,.15)' : 'transparent',
+               outline: isSel ? '1px solid rgba(96,165,250,.4)' : 'none' } },
+      el('td', { style: Object.assign({}, tdSty, { color: ANNOT_TYPE_COLOR[a.typeName] || 'var(--accent)', fontWeight: 600, fontSize: 11 }) },
+        ANNOT_TYPE_LABEL[a.typeName] || a.typeName || ''),
+      el('td', { style: tdSty, title: a.summary || '' }, a.summary || ''),
+      el('td', { style: tdSty }, a.analysisStep || ''),
+      el('td', { style: Object.assign({}, tdSty, { textAlign: 'right' }) }, a.confidence != null ? a.confidence + '%' : ''),
+      el('td', { style: tdSty }, a.surveyReportDisplayName || '')
+    );
+  }
+
+  var hasItems = !loading && !err && items && items.length > 0;
+
+  return el('div', { style: { display: 'flex', flex: 1, overflow: 'hidden', flexDirection: 'column' } },
+    // Toolbar
+    el('div', { style: { padding: '6px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
+      el(TimeSlider, { onChange: function(t) { setAsOf(t); load(q, filter, t); }, label: 'As of' }),
+      el('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 6 } },
+        el('input', { value: q, onChange: function(e) { setQ(e.target.value); },
+          onKeyDown: function(e) { if (e.key === 'Enter') load(q, filter, asOf); },
+          placeholder: 'Search… (Enter)', style: { flex: 1, minWidth: 150, padding: '4px 8px', fontSize: 12,
+            borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } }),
+        el('button', { onClick: function() { load(q, filter, asOf); },
+          style: { padding: '4px 12px', fontSize: 12, borderRadius: 4, border: '1px solid var(--border)',
+                   background: 'var(--panel)', color: 'var(--text)', cursor: 'pointer' } }, 'Search'),
+        ANNOTATION_TYPES.slice(1).map(function(t) {
+          var active = filter === t.id;
+          return el('button', { key: t.id,
+            onClick: function() { var nt = active ? '' : t.id; setFilter(nt); load(q, nt, asOf); },
+            style: { fontSize: 10, padding: '3px 9px', borderRadius: 10, cursor: 'pointer',
+                     border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
+                     background: active ? 'rgba(96,165,250,.12)' : 'transparent',
+                     color: active ? 'var(--accent)' : 'var(--muted)' } }, t.label);
+        })
+      )
+    ),
+    el('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
+      // Table pane
+      el('div', { style: { flex: 1, overflowX: 'auto', overflowY: 'auto' } },
+        loading && el('div', { style: { padding: '20px 0', textAlign: 'center', color: 'var(--dim)', fontSize: 12 } }, 'Loading…'),
+        err     && el('div', { style: { padding: 12, color: '#f87171', fontSize: 12 } }, '⚠ ' + err),
+        !loading && !err && items && items.length === 0 && el('div', { style: { padding: 20, color: 'var(--dim)', fontSize: 12 } }, 'No annotations found.'),
+        hasItems && el('table', { style: { width: rz.tableWidth || '100%', tableLayout: rz.widths ? 'fixed' : 'auto', borderCollapse: 'collapse' } },
+          rz.widths && el('colgroup', null, rz.widths.map(function(w, i) { return el('col', { key: i, style: { width: w } }); })),
+          el('thead', null, el('tr', null, COL_HDRS.map(function(h, i) { return thSortable(sort, setSort, i, h, rz.onResizeDown, thSty); }))),
+          el('tbody', null,
+            (function() {
+              var rows = [];
+              groupOrder.forEach(function(typeName) {
+                var groupItems = grouped[typeName];
+                var isCollapsed = coll.has(typeName);
+                var typeColor = ANNOT_TYPE_COLOR[typeName] || 'var(--accent)';
+                rows.push(el('tr', { key: typeName + '-hdr',
+                  onClick: function() { toggleGroup(typeName); },
+                  style: { cursor: 'pointer', background: 'rgba(0,0,0,.15)' } },
+                  el('td', { colSpan: COLS.length,
+                    style: { padding: '4px 10px', fontSize: 11, fontWeight: 700, color: typeColor,
+                             borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' } },
+                    el('span', { style: { marginRight: 6 } }, isCollapsed ? '▸' : '▾'),
+                    ANNOT_TYPE_LABEL[typeName] || typeName,
+                    el('span', { style: { color: 'var(--dim)', fontWeight: 400, marginLeft: 6 } }, '(' + groupItems.length + ')')
+                  )
+                ));
+                if (!isCollapsed) groupItems.forEach(function(a) { rows.push(renderRow(a)); });
+              });
+              return rows;
+            })()
+          )
+        )
+      ),
+      // Detail panel (resizable — drag the left edge)
+      sel && el(ResizeDivider, { onMouseDown: detailDown }),
+      sel && el('div', { style: { width: detailW, minWidth: 180, borderLeft: 'none',
+                                   overflowY: 'auto', padding: '0 16px 16px', flexShrink: 0 } },
+        el('button', { onClick: function() { setSel(null); },
+          style: { fontSize: 11, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer', marginTop: 12, marginBottom: 8 } },
+          '← Back'),
+        el('div', { style: { marginBottom: 10 } },
+          ['qualifiedName','guid'].map(function(k) {
+            return sel[k] ? el('div', { key: k, style: { fontSize: 11, color: 'var(--muted)', marginBottom: 3 } },
+              el('span', { style: { color: 'var(--dim)' } }, k + ': '),
+              el('span', { style: { fontFamily: 'monospace', fontSize: 10, wordBreak: 'break-all' } }, sel[k])
+            ) : null;
+          })
+        ),
+        el(AnnotationCard, { ann: sel, onNavigate: onNavigate })
+      )
+    )
+  );
+}
+
+
 // ── Section views (each wraps AssetTabView for its sub-tabs) ─────────────────
 
 var SECTION_TABS = {
@@ -1838,6 +2204,10 @@ var SECTION_TABS = {
   processes: [
     { id: 'software-components', label: 'Software Components', endpoint: '/api/tech-catalog/software-components' },
     { id: 'actions', label: 'Actions', endpoint: '/api/tech-catalog/actions' },
+  ],
+  surveys: [
+    { id: 'survey-reports', label: 'Survey Reports', endpoint: '/api/tech-catalog/survey-reports' },
+    { id: 'annotations',    label: 'Annotations',    endpoint: '/api/tech-catalog/annotations', custom: true },
   ],
 };
 
@@ -1872,15 +2242,19 @@ function SectionView({ sectionId, creds, navTarget, onNavigate }) {
           t.label);
       })
     ),
-    currentTab && React.createElement(AssetTabView, {
-      key: currentTab.id,
-      endpoint: currentTab.endpoint,
-      sectionId: currentTab.id,
-      creds: creds,
-      navTarget: navTarget && navTarget.guid && (navTarget.section === sectionId || !navTarget.section)
-                   && (!navTarget.tab || navTarget.tab === currentTab.id) ? navTarget : null,
-      onNavigate: onNavigate,
-    })
+    currentTab && currentTab.custom
+      ? (currentTab.id === 'annotations'
+          ? React.createElement(AnnotationsTabView, { key: 'annotations', creds: creds, navTarget: navTarget, onNavigate: onNavigate })
+          : null)
+      : currentTab && React.createElement(AssetTabView, {
+          key: currentTab.id,
+          endpoint: currentTab.endpoint,
+          sectionId: currentTab.id,
+          creds: creds,
+          navTarget: navTarget && navTarget.guid && (navTarget.section === sectionId || !navTarget.section)
+                       && (!navTarget.tab || navTarget.tab === currentTab.id) ? navTarget : null,
+          onNavigate: onNavigate,
+        })
   );
 }
 
@@ -1892,6 +2266,7 @@ var SECTIONS = [
   { id: 'data-assets',    icon: '🗄️', label: 'Data Assets',           desc: 'Data stores, data feeds, and data sets.' },
   { id: 'apis',           icon: '🔗', label: 'APIs',                    desc: 'Deployed APIs and their endpoints.' },
   { id: 'processes',      icon: '⚙️', label: 'Processes',               desc: 'Software components and actions.' },
+  { id: 'surveys',        icon: '🔍', label: 'Surveys & Annotations',   desc: 'Survey reports and analysis annotations from discovery runs.' },
 ];
 
 var SPLASH_GROUPS = [
@@ -1906,6 +2281,12 @@ var SPLASH_GROUPS = [
     label: 'Deployed Assets',
     blurb: 'Technical resources registered in your environment — infrastructure, data, APIs, and processes.',
     sections: ['infrastructure', 'data-assets', 'apis', 'processes'],
+  },
+  {
+    key: 'discovery',
+    label: 'Discovery & Analysis',
+    blurb: 'Results from automated survey runs — survey reports and their analysis annotations.',
+    sections: ['surveys'],
   },
 ];
 

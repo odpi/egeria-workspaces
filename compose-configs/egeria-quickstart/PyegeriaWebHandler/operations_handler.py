@@ -28,6 +28,7 @@ Routes:
 """
 import os
 import asyncio
+import threading
 from pathlib import Path
 from typing import Optional
 
@@ -328,12 +329,20 @@ def connector_action(action: str, request: Request, body: _ConnectorActionBody):
         elif action == "stop":
             rm.stop_connector(server_guid=body.server_guid, connector_name=body.connector_name)
         else:
-            # sync wrapper has wrong async name — call the async method directly
-            asyncio.get_event_loop().run_until_complete(
-                rm._async_refresh_integration_connector(
-                    connector_name=body.connector_name, server_guid=body.server_guid
-                )
-            )
+            # Refresh can take several minutes (external actions, large surveys) — run in
+            # background thread and return 202 immediately so the request never times out.
+            connector_name = body.connector_name
+            server_guid = body.server_guid
+            def _bg_refresh():
+                try:
+                    asyncio.run(rm._async_refresh_integration_connector(
+                        connector_name=connector_name, server_guid=server_guid
+                    ))
+                    logger.info("operations: connector refresh %s on %s completed", connector_name, server_guid)
+                except Exception:
+                    logger.exception("operations: connector refresh %s on %s failed in background", connector_name, server_guid)
+            threading.Thread(target=_bg_refresh, daemon=True).start()
+            return JSONResponse({"ok": True, "action": "refresh", "refreshing": True}, status_code=202)
     except Exception as exc:
         logger.exception("operations: connector %s(%s) failed", action, body.connector_name)
         raise HTTPException(status_code=500, detail=str(exc))

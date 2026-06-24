@@ -1,264 +1,389 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 <!-- Copyright Contributors to the ODPi Egeria project 2024. -->
 
-# Overview
+# Egeria Workspaces
 
-This **egeria-workspaces** repository provides a runtime environment for learning, experimenting and using Egeria. 
-The default configuration sets up a full Egeria system and provides pre-built content to help you get started. 
+A fully pre-configured, Docker Compose-based platform for learning, experimenting with, and operating [Egeria](https://egeria-project.org). It exposes a suite of browser-based tools, Jupyter notebooks, and AI-assistant integrations — no manual wiring required.
 
-This environment is not designed for enterprise-wide use. Please see the [Planning Guide](https://egeria-project.org/guides/planning/)
-for more information about designing bespoke Egeria deployments, such as Cloud Native approaches and the use of
-Helm charts to configure Kubernetes clusters. 
-For further help and advice, please feel free to engage with the community on our [slack channel](https://lfaifoundation.slack.com/join/shared_invite/zt-o65errpw-gMTbwNr7FnNbVXNVFkmyNA%E2%80%8B#/shared-invite/email) - we'd love your feedback and participation.
+> This environment is designed for learning and small-team use, not enterprise-wide production. For large-scale deployments see the [Planning Guide](https://egeria-project.org/guides/planning/).
+> Community help: [Egeria Slack](https://lfaifoundation.slack.com/join/shared_invite/zt-o65errpw-gMTbwNr7FnNbVXNVFkmyNA%E2%80%8B#/shared-invite/email)
 
-## Requirements
+## Try it now — no installation required
 
-**Egeria Workspaces** uses Docker compose to deploy docker containers, creating a usable environment. So, at a minimum,
-you need to have docker and docker compose compatible software installed. We test **Egeria Workspaces** using
-[Docker Desktop](https://www.docker.com/get-started/) but **podman** and **podman-compose** should also work 
-[Podman](https://podman.io/). See [Monitoring Podman with PyCharm](Monitoring%20Podman%20with%20PyCharm.md) for IDE integration steps.
+Enter the world of [Coco Pharmaceuticals](https://egeria-project.org/practices/coco-pharmaceuticals/) — a fictitious company whose rich metadata landscape brings Egeria's capabilities to life. A live demo is running at **[egeria.pdr-associates.com](https://egeria.pdr-associates.com)**.
 
->Note: The minimum level of Egeria (egeria-platform) required is 6.0. If you have older images you should either remove these old images or modify 
- the docker compose yaml scripts to use the image tag 'stable' (referring to 6.0 production release) or a specific post 6.0 release.
+Register for a free account, step into the shoes of one of their key employees by selecting a persona, and explore a fully pre-loaded Egeria environment in your browser. No Docker, no setup.
 
+When you're ready to run your own copy, see [Getting started](#getting-started) below.
 
-## Quickstart and Freshstart
+---
 
-This repository provides two isolated flavors of Egeria deployment that share a common Kafka, PostgreSQL, and OpenLineage proxy infrastructure stack.
+## What you can do here
 
-[Egeria Quickstart](https://egeria-project.org/egeria-workspaces/quick-start/overview/) is a docker-based deployment that runs on port `9443` and provides a single [platform deployment of Egeria](https://egeria-project.org/guides/admin/configuring-the-omag-server-platform/).  It is populated with users and data for the [Coco Pharmaceuticals](https://egeria-project.org/practices/coco-pharmaceuticals/) training scenarios. This is the environment to use if you want to explore Egeria's capabilities and learn how to use them.
+| Capability | How to access | Description |
+|------------|---------------|-------------|
+| **Explore the asset catalog** | `/tech-catalog` | Browse infrastructure, data assets, APIs, processes, surveys and annotations registered in Egeria |
+| **Explore metadata** | `/egeria-explorer` | Browse the type system, glossary, reference data, digital products, valid values and REST APIs |
+| **Audit governance** | `/egeria-audit` | Review governance relationships (exceptions, certifications, licenses, users). Rows are filtered by your governance-zone access |
+| **Operate the platform** | `/egeria-operations` | Monitor servers, integration connectors, governance engines and engine actions with live auto-refresh |
+| **Trace lineage** | `/lineage` | Trace data flow and dependencies across the metadata landscape |
+| **Run notebooks** | `http://localhost:8888` | Jupyter Lab pre-configured with `pyegeria`; password `egeria` |
+| **Interact via TUI** | `/my-egeria` | Terminal-UI portal for browsing your Egeria profile and metadata |
+| **Author metadata with AI** | MCP servers | Connect Claude Desktop (or any MCP client) to the `dr-egeria` and `pyegeria` MCP servers to read and write metadata conversationally |
+| **Catalog files automatically** | `exchange-*/landing-area/` | Drop files here; the integration daemon classifies and catalogues them automatically |
 
-[Freshstart](https://egeria-project.org/egeria-workspaces/fresh-start/overview/) is also a docker-based deployment that runs on port `8443`, providing a single platform deployment of Egeria.  It is populated with clean defaults so you can set up your own environment.  This environment could support your own work, or a small team.  Freshstart is a secure environment that can host private data.  It does not have, however, the ability to scale to support a large organization.  This would require a different deployment architecture using multiple platforms and probably Kubernettes.  Details of setting up a larger company deployment can be found in Egeria's [planning guide](https://egeria-project.org/guides/planning/). 
+---
 
-The following table summarizes the differences between the two deployments.  The `local` scripts are for single-machine use, while the `multi-host` scripts enable Egeria to be called from other machines on your network (see [section on local vs multi-host](#local-vs-multi-host) below).
+## Getting started
+
+### Requirements
+
+- [Docker Desktop](https://www.docker.com/get-started/) (or podman + podman-compose; see [Monitoring Podman with PyCharm](Monitoring%20Podman%20with%20PyCharm.md))
+- Egeria platform image `6.0` or later (use tag `stable` or a specific post-6.0 tag if you have older cached images)
+
+### Start the platform
+
+```bash
+# Coco Pharmaceuticals demo environment (recommended for learning)
+./quick-start-local
+
+# Clean-slate environment (your own data)
+./fresh-start-local
+```
+
+Both scripts automatically bring up the shared Kafka / PostgreSQL / OpenLineage proxy stack before starting the environment-specific containers.
+
+Then open the web portal:
+- **Quickstart:** `http://localhost:8885`
+- **Freshstart:** `http://localhost:7885`
+
+#### Force a clean rebuild
+
+```bash
+# Pull latest images and rebuild from scratch
+NO_CACHE=1 ./quick-start-local
+
+# Force-refresh only the Egeria platform base image
+./quick-start-local --refresh-platform
+```
+
+`NO_CACHE` accepts `1 / true / yes / on`; unset or `0 / false / no / off` uses the cache.
+
+---
+
+## Environments
+
+Three deployment modes are available, all sharing the same Kafka, PostgreSQL and OpenLineage proxy infrastructure.
+
+### Egeria Demo — hosted, no setup needed
+
+> **[egeria.pdr-associates.com](https://egeria.pdr-associates.com)**
+
+Enter the world of [Coco Pharmaceuticals](https://egeria-project.org/practices/coco-pharmaceuticals/) — a fictitious company whose rich metadata landscape brings Egeria's capabilities to life. Step into the shoes of one of their key employees by selecting a persona, then explore the platform from that person's perspective.
+
+Register for a free account, pick your persona, and start exploring. Includes scheduled data resets and an admin panel. No Docker required.
+
+![Portal after login](docs/images/Portal%20Title%20Page.png)
+
+![Persona selection](docs/images/Persona%20selection.png)
+
+### Egeria Quickstart — local, pre-loaded with Coco data
+
+The recommended starting point for learning Egeria. Pre-loaded with [Coco Pharmaceuticals](https://egeria-project.org/practices/coco-pharmaceuticals/) personas, data assets, governance metadata and scenario content. No authentication wall — opens directly to the portal.
+
+```bash
+./quick-start-local        # single machine
+./quick-start-multi-host   # accessible from other hosts on your network
+```
+
+Portal: `http://localhost:8885` · Platform: `https://localhost:9443` · Jupyter: `http://localhost:8888`
+
+### Egeria Freshstart — local, clean slate
+
+An empty Egeria environment for setting up your own metadata, governance policies and integrations. Suitable for a small team. Includes registration-gated access and a private data model.
+
+```bash
+./fresh-start-local        # single machine
+./fresh-start-multi-host   # accessible from other hosts on your network
+```
+
+Portal: `http://localhost:7885` · Platform: `https://localhost:8443` · Jupyter: `http://localhost:7888`
+
+### Quickstart vs Freshstart — detailed comparison
+
+Both scripts automatically bring up the shared infrastructure stack. Run them side by side without port conflicts.
 
 |                            | **egeria-quickstart**                                            | **egeria-freshstart**                                                                                                                   |
 |----------------------------|------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
-| Start script (single host) | `./quick-start-local`                                            | `./fresh-start-local`                                                                                                                   |
-| Start script (multi-host)  | `./quick-start-multi-host`                                       | `./fresh-start-multi-host`                                                                                                              |
-| Egeria platform            | `https://localhost:9443`                                         | `https://localhost:8443`                                                                                                                |
-| Jupyter                    | `http://localhost:8888` (password: `egeria`)                     | `http://localhost:7888` (password: `egeria`)                                                                                            |
-| Web                        | `http://localhost:8885`                                          | `http://localhost:7885`                                                                                                                 |
-| Servers                    | `qs-*` (Coco Pharmaceuticals defaults)                           | `fs-*` (clean defaults)                                                                                                                 |
+| Pre-loaded content         | [Coco Pharmaceuticals](https://egeria-project.org/practices/coco-pharmaceuticals/) personas & data | Clean defaults — set up your own environment |
+| Server prefix              | `qs-*`                                                           | `fs-*`                                                                                                                                  |
+| Authentication             | None (direct portal access)                                      | Registration-gated                                                                                                                      |
 | Platform secrets           | Image-bundled (no host mount required)                           | Seeded from `compose-configs/egeria-freshstart/secrets/` templates into `runtime-volumes/freshstart-platform-data/secrets` on first run |
 | Exchange tree              | `exchange-quickstart/`                                           | `exchange-freshstart/`                                                                                                                  |
 | Runtime data               | `runtime-volumes/quickstart-platform-data/`                      | `runtime-volumes/freshstart-platform-data/`                                                                                             |
-| Further Information        | [Quickstart README](compose-configs/egeria-quickstart/README.md) | [Freshstart README](compose-configs/egeria-freshstart/README.md)                                                                        |
+| Further information        | [Quickstart README](compose-configs/egeria-quickstart/README.md) | [Freshstart README](compose-configs/egeria-freshstart/README.md)                                                                        |
 
-All four scripts automatically ensure the shared infrastructure stack in `compose-configs/shared-infra/` is running.
-This shared stack provides Kafka, PostgreSQL, and the OpenLineage proxy used by both deployments.
-Shared-infra image references are pinned in `compose-configs/shared-infra/.env` by default, including the hardened
-Kafka image and a persistent host-side Kafka data path.
+### Container architecture
 
-### Web portal applications
+```mermaid
+flowchart TB
+    Browser(["🌐 Browser / Client"])
 
-Opening the **Web** URL above (`8885` quickstart / `7885` freshstart) lands on the portal, which tiles a set of browser applications served by the `pyegeria-web` container:
+    subgraph QS["🚀 Egeria Quickstart  (ports 88xx)"]
+        QS_Apache["Apache  :8885"]
+        QS_API["pyegeria-web FastAPI  :8800"]
+        QS_Egeria["Egeria Platform  :9443"]
+        QS_Jupyter["Jupyter Lab  :8888"]
+    end
+
+    subgraph FS["🌱 Egeria Freshstart  (ports 78xx)"]
+        FS_Apache["Apache  :7885"]
+        FS_API["pyegeria-web FastAPI  :7800"]
+        FS_Egeria["Egeria Platform  :8443"]
+        FS_Jupyter["Jupyter Lab  :7888"]
+    end
+
+    subgraph SI["⚙️ Shared Infrastructure"]
+        Kafka[("Kafka  :9192")]
+        PG[("PostgreSQL  :5442")]
+    end
+
+    Browser --> QS_Apache & FS_Apache
+    Browser --> QS_Jupyter & FS_Jupyter
+    QS_Apache -->|reverse proxy| QS_API --> QS_Egeria
+    FS_Apache -->|reverse proxy| FS_API --> FS_Egeria
+    QS_Egeria & FS_Egeria --> Kafka & PG
+```
+
+---
+
+## Web portal applications
+
+The portal at `http://localhost:8885` (quickstart) or `http://localhost:7885` (freshstart) groups tiles into three sections, all served by the `pyegeria-web` container:
+
+![Full portal tile grid](docs/images/Full%20Portal%20Grid.png)
+
+**Primary tools**
 
 | Tile | Path | What it does |
 |------|------|--------------|
-| Egeria Explorer | `/egeria-explorer` | Read-only browser for the type system, glossary, reference data, digital products, valid values and REST APIs |
-| 🛡️ Egeria Audit | `/egeria-audit` | Review governance relationships (exceptions, certifications, licenses) and platform user accounts. Relationship rows are **filtered by your governance-zone access** — see the Audit section in the handler README |
-| 🎛️ Egeria Operations | `/egeria-operations` | Monitor and operate the runtime — servers, integration connectors, governance engines and engine actions |
+| 🐱 The Catalog | `/tech-catalog` | Browse infrastructure assets, data stores, APIs and processes registered in Egeria |
+| 🔍 Egeria Explorer | `/egeria-explorer` | Browse metadata — types, glossary, lineage, governance blueprints, information supply chains and more |
 | 🔗 Lineage Explorer | `/lineage` | Trace data flow and dependencies across the metadata landscape |
+| 🛡️ Egeria Audit | `/egeria-audit` | Review exceptions, certifications and licenses; see who has access to Egeria. Rows **filtered by your governance-zone access** |
+| 🎛️ Egeria Operations | `/egeria-operations` | Monitor and operate the runtime — servers, integration connectors, governance engines and engine actions |
 
-See the [PyegeriaWebHandler README](compose-configs/egeria-quickstart/PyegeriaWebHandler/README.md) for a full description of each application, its tabs, and its backing REST API.
+**Workspaces & assistants**
 
-## Host port allocation
+| Tile | What it does |
+|------|--------------|
+| 📓 Jupyter Lab | Interactive notebooks for data science and hands-on Egeria API exploration |
+| 🗒️ Obsidian Vault | Open the Coco Pharmaceuticals workbook vault in your local Obsidian (or the browser-based shared install) |
+| 🖥️ My Egeria | Explore your Egeria profile, roles, teams, actions and data catalog (TUI via `/my-egeria/`) |
 
-Host (published) ports follow a consistent scheme so the two environments can run side by side
-without colliding, and to keep clear of ports commonly used by other applications (notably `8000`):
+**Documentation & API references**
 
-- **Quickstart → `88xx`**, **Freshstart → `78xx`**, with the **same last two digits = same function**
-  in both environments.
-- Only the **published host port** follows this scheme; **container-internal ports are unchanged**
-  (the Apache reverse proxy reaches services container-to-container, so it is unaffected).
-- The platform, Kafka and PostgreSQL ports are intentionally **left as-is** (well-established defaults).
+| Tile | Path | What it does |
+|------|------|--------------|
+| 📚 Egeria Workspaces Docs | `/docs/` | User guides, Dr. Egeria templates, Coco scenario walkthroughs, admin docs |
+| ⚙️ Admin | `/admin` | Manage the Obsidian session lock, view audit log, add reservations *(freshstart only)* |
+| 📖 Egeria Documentation | `egeria.ai` ↗ | Official Egeria project documentation and community resources |
+| 📚 Egeria JavaDocs | external ↗ | Java API reference for the Egeria platform and connectors |
+| 🐍 Python API | `/egeria-explorer#python-api` | pyegeria client reference — classes and methods by domain |
+| 🔌 REST APIs | `/egeria-explorer#rest-apis` | Live REST API browser — all open metadata services |
+
+### Screenshots
+
+**The Catalog — Data Assets**
+
+![The Catalog data assets](docs/images/Data%20Assets.png)
+
+**The Catalog — Surveys & Annotations**
+
+![Surveys and Annotations](docs/images/Annotations.png)
+
+**Egeria Explorer — Glossary**
+
+![Egeria Explorer glossary](docs/images/Glossary.png)
+
+**Egeria Explorer — Type Explorer**
+
+![Egeria Explorer type browser](docs/images/Type%20Explorer.png)
+
+**Lineage Explorer**
+
+![Lineage Explorer](docs/images/Lineage.png)
+
+**Egeria Audit**
+
+![Egeria Audit](docs/images/Audit.png)
+
+**Egeria Operations — Servers**
+
+![Egeria Operations servers](docs/images/Servers.png)
+
+**Egeria Operations — Integration Connectors**
+
+![Egeria Operations integration connectors](docs/images/Integration%20Connectors.png)
+
+**Egeria Operations — Engine Actions**
+
+![Egeria Operations engine actions](docs/images/Engine%20Actions.png)
+
+**Workspaces**
+
+![Workspace reference](docs/images/Workspace%20Reference.png)
+
+Full tab-by-tab documentation: [PyegeriaWebHandler README](compose-configs/egeria-quickstart/PyegeriaWebHandler/README.md)
+
+---
+
+## AI and MCP integration
+
+### MCP servers
+
+Two MCP servers are available for connecting AI assistants (Claude Desktop or any MCP client) directly to Egeria:
+
+| Server | Alias | What it does |
+|--------|-------|--------------|
+| **Dr. Egeria MCP** | `dr-egeria` | Author metadata using Dr. Egeria notebook-style commands; dynamic tool discovery, hot-reloading |
+| **pyegeria MCP** | `pyegeria` | Lower-level metadata queries and operations via the pyegeria API |
+
+Configure both in `~/.config/Claude/claude_desktop_config.json` — see `exchange-quickstart/claude_desktop_config.json.md` for a combined example. The quickstart examples use `https://localhost:9443` and `qs-view-server`; switch to `https://localhost:8443` and `fs-view-server` for freshstart.
+
+**Example: author and verify a glossary entry**
+```
+User: "Using dr-egeria, create a glossary called 'Product Catalog', then list all glossaries."
+
+Claude: [dr_egeria_run_block → Create Glossary]
+        ✓ Glossary 'Product Catalog' created
+        [egeria_list_glossaries]
+        • Data Assets · Product Catalog (new) · Business Concepts
+```
+
+### Obsidian plugins
+
+Execute Dr. Egeria commands directly from your Obsidian vault:
+
+1. **Calling the Dr. (MCP) — recommended**: MCP-based; dynamic command discovery, hot-reload, content-first architecture (results written via Obsidian API, no Docker permission issues).
+   - Source: `obsidian-plugins/calling-the-dr/`
+   - Guide: [Calling the Dr. (MCP) Guide](Configuring%20and%20Using%20the%20Calling%20Dr.%20Egeria%20Obsidian%20Plug-in.md)
+
+2. **Call Dr. Egeria (legacy)**: original REST API plugin.
+   - Source: `obsidian-plugins/call-dr-egeria/`
+   - Guide: [Call Dr. Egeria README](obsidian-plugins/call-dr-egeria/README.md)
+
+For workspace-specific profiles (`work/Work-Obsidian`, `coco-workbooks`): [OBSIDIAN_PROFILES.md](compose-configs/egeria-quickstart/OBSIDIAN_PROFILES.md)
+
+---
+
+## Reference: Servers
+
+Four [OMAG servers](https://egeria-project.org/concepts/omag-server/) run on the platform:
+
+| Server type | Quickstart | Freshstart | Purpose |
+|-------------|------------|------------|---------|
+| [View Server](https://egeria-project.org/concepts/view-server/) | `qs-view-server` | `fs-view-server` | Egeria REST API — use this name when configuring `pyegeria` |
+| [Integration Daemon](https://egeria-project.org/concepts/integration-daemon/) | `qs-integration-daemon` | `fs-integration-daemon` | Runs integration connectors that synchronize metadata between systems |
+| [Engine Host](https://egeria-project.org/concepts/engine-host/) | `qs-engine-host` | `fs-engine-host` | Runs governance services |
+| [Metadata Access Store](https://egeria-project.org/concepts/metadata-access-store/) | `qs-metadata-store` | `fs-metadata-store` | Hosts the metadata repository |
+
+### Egeria platform architecture
+
+```mermaid
+flowchart TB
+    subgraph Clients["Client Tools"]
+        direction LR
+        Web["Web SPAs\nExplorer · Audit · Operations\nCatalog · Lineage"]
+        Notebooks["Jupyter / pyegeria"]
+        AI["AI Assistants\nClaude / MCP"]
+        TUI["My Egeria TUI"]
+    end
+
+    VS["View Server\nREST API gateway\nqs-view-server"]
+
+    subgraph BackendServers["Backend Servers"]
+        direction LR
+        ID["Integration Daemon\nqs-integration-daemon\nMetadata sync connectors"]
+        EH["Engine Host\nqs-engine-host\nGovernance services"]
+        MAS["Metadata Access Store\nqs-metadata-store\nRepository"]
+    end
+
+    PG[("PostgreSQL\nMetadata repository")]
+    Kafka{{"Kafka\nEvent bus"}}
+    Ext(["External Systems\nfiles · databases · APIs"])
+
+    Clients --> VS
+    VS --> ID & EH & MAS
+    MAS --> PG
+    ID & EH & MAS <--> Kafka
+    ID <--> Ext
+```
+
+---
+
+## Reference: Host ports
+
+Ports follow a consistent scheme so both environments can run simultaneously without collisions:
+
+- **Quickstart → `88xx`**, **Freshstart → `78xx`** — same last two digits = same function
+- Container-internal ports are unchanged; only host-published ports follow this scheme
+- Platform, Kafka and PostgreSQL ports are left at their well-established defaults
 
 | Function | Quickstart | Freshstart | Container | Notes |
 |----------|------------|------------|-----------|-------|
 | Egeria platform (+ JVM debug) | `9443` / `5005` | `8443` / `5006` | same | **fixed — not renumbered** |
 | Apache web portal | **`8885`** | **`7885`** | `8085` | main entry point |
 | Jupyter (notebook / debug) | **`8888`** / `8889` | **`7888`** / `7889` | `7888` / `5678` | password `egeria` |
-| pyegeria-web (FastAPI/MCP) | **`8800`** | **`7800`** | `8000` | moved off host `8000` |
-| my-egeria (`my-profile` TUI) | **`8820`** | *`7820`* (reserved) | `8020` | textual-serve via Apache `/my-egeria/` |
-| Egeria Advisor | **`8880`** | **`7880`** | external | not in compose; portal links to `EGERIA_ADVISOR_URL` (was `8080`) |
+| pyegeria-web (FastAPI/MCP) | **`8800`** | **`7800`** | `8000` | |
+| my-egeria (`my-profile` TUI) | **`8820`** | *`7820`* (reserved) | `8020` | via Apache `/my-egeria/` |
 | ProjectExplorer | *`8830`* (planned) | *`7830`* (reserved) | tbd | see BACKLOG `PORT-7` |
 | Obsidian (web / https) | **`8860`** / `8861` | — | `3000` / `3001` | optional |
 | Shared Kafka | `9192`–`9194` | `9192`–`9194` | same | **fixed — shared-infra** |
 | Shared PostgreSQL | `5442` | `5442` | same | **fixed — shared-infra** |
 | Shared OpenLineage proxy | `6000` / `6001` | `6000` / `6001` | same | shared-infra |
 
-> One caveat: quickstart Jupyter uses `8888`, which is also Jupyter's own default port — it will
-> collide only if you run another Jupyter server on the host. See `BACKLOG.md` → *Ports & Networking*
-> for the full rationale and the migration items (`PORT-1` … `PORT-8`).
+> Quickstart Jupyter uses `8888`, which is Jupyter's own default — it will collide only if you run another Jupyter server on the host. See `BACKLOG.md` → *Ports & Networking* for the full rationale.
 
-## Servers
+---
 
-There are four [servers](https://egeria-project.org/concepts/omag-server/) configured and running on Egeria's platform:
+## Reference: Networking (local vs multi-host)
 
-| Server Type                                                                         | Quickstart Server Name  | Freshstart Server Name  | Description                                                                                                                                                                                    |
-|-------------------------------------------------------------------------------------|-------------------------|-------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [View Server](https://egeria-project.org/concepts/view-server/)                     | `qs-view-server`        | `fs-view-server`        | The server that supports Egeria's REST API.  This is the name of the server to use when configuring `pyegeria`.                                                                                |
-| [Integration Daemon](https://egeria-project.org/concepts/integration-daemon/)       | `qs-integration-daemon` | `fs-integration-daemon` | The server that hosts the [integration connectors](https://egeria-project.org/concepts/integration-connector/).  This are the long-running services that synchronize metadata between systems. |
-| [Engine Host](https://egeria-project.org/concepts/engine-host/)                     | `qs-engine-host`        | `fs-engine-host`        | The server that runs [governance services](https://egeria-project.org/concepts/governance-service/).                                                                                           |
-| [Metadata Access Store](https://egeria-project.org/concepts/metadata-access-store/) | `qs-metadata-store`     | `fs-metadata-store`     | The server that hosts the metadata repository.                                                                                                                                                 |
-
-### Using the Dr. Egeria Obsidian Plugins
-
-Dr. Egeria commands can be executed directly from your Obsidian vault using one of the available plugins:
-
-1.  **Calling the Dr. (MCP) - RECOMMENDED**: A next-generation plugin using the Model Context Protocol (MCP). It features dynamic command discovery, hot-reloading of specifications, and rich diagnostic feedback. This plugin uses a "Content-First" architecture where note content is sent to the backend and the results are written directly to the vault via the Obsidian API, eliminating Docker permission issues.
-    - **Source**: `obsidian-plugins/calling-the-dr/`
-    - **Documentation**: [Calling the Dr. (MCP) Guide](Configuring and Using the Calling Dr. Egeria Obsidian Plug-in.md)
-
-2.  **Call Dr. Egeria (Legacy)**: The original plugin using a direct REST API.
-    - **Source**: `obsidian-plugins/call-dr-egeria/`
-    - **Documentation**: [Call Dr. Egeria README](obsidian-plugins/call-dr-egeria/README.md)
-
-- **Detailed Profiles**: For specific configuration profiles aligned with this workspace (e.g., for `work/Work-Obsidian` or `coco-workbooks`), see [OBSIDIAN_PROFILES.md](compose-configs/egeria-quickstart/OBSIDIAN_PROFILES.md).
-
-### Using both MCP servers together
-
-You can configure the `pyegeria` MCP server and the Dr. Egeria MCP server from `PyegeriaWebHandler` in the same MCP client configuration. The recommended client-side aliases are `pyegeria` for the pyegeria package server and `dr-egeria` for the Dr. Egeria server; these names only need to be unique within the `mcpServers` block.
-
-See `exchange-quickstart/claude_desktop_config.json.md` for a combined example configuration that includes both servers. For Dr. Egeria MCP details, tool descriptions, and environment settings, see `compose-configs/egeria-quickstart/PyegeriaWebHandler/README.md` or `compose-configs/egeria-freshstart/PyegeriaWebHandler/README.md`.
-
-The quickstart examples use `https://localhost:9443` and `qs-view-server`; if you are using freshstart, switch those values to the appropriate freshstart platform URL and server names.
-
-#### Quick Example
-
-After configuring both servers in `~/.config/Claude/claude_desktop_config.json`, you can interact with Egeria like this:
-
-```
-User: "Using the Dr. Egeria MCP server, create a new glossary called 'Product Catalog' 
-       and then list all glossaries to confirm it was created."
-
-Claude: I'll create the glossary using Dr. Egeria commands and then list all glossaries.
-
-[Calls dr_egeria_run_block with Create Glossary command]
-✓ Glossary 'Product Catalog' created successfully
-
-[Calls egeria_list_glossaries]
-Available glossaries:
-• Data Assets (id: glossary-001)
-• Product Catalog (id: glossary-002)  [newly created]
-• Business Concepts (id: glossary-003)
-```
-
-You can also switch to the `pyegeria` server for lower-level metadata queries:
-
-```
-User: "Using the pyegeria MCP server, what are the available metadata stores?"
-
-Claude: I'll query the available metadata stores.
-
-[Calls pyegeria tools]
-Available metadata stores:
-• qs-metadata-store (primary store, type: metaverse)
-• qs-archive-store (archive store, type: archive)
-```
-
-## Local vs multi-host
-
-The `-local` scripts add a synthetic `/etc/hosts` entry inside each container that maps your machine's hostname to Docker's `host-gateway` address, so containers can resolve the host by name without a real DNS entry. This is required on Linux (where `host.docker.internal` is not automatic) and the right choice for any single-machine setup.
+The `-local` scripts add a synthetic `/etc/hosts` entry inside each container mapping your machine's hostname to Docker's `host-gateway`. This is required on Linux (where `host.docker.internal` is not automatic) and is the right choice for any single-machine setup.
 
 The `-multi-host` scripts omit that mapping and expect `HOST_FQDN` to resolve via real DNS — use these only when Egeria needs to be reachable from other machines on your network.
 
-The startup scripts now always:
+---
 
-- rebuild local compose images with `docker compose build --pull`, so Docker checks for newer base images such as `quay.io/odpi/egeria-platform:latest`, and
-- start containers with `docker compose up -d --pull always`, so Docker checks for newer remote images before using cached ones.
+## Repository layout
 
-If you want a completely clean rebuild that ignores Docker's local build cache, set `NO_CACHE=1` when starting either deployment:
-
-```bash
-NO_CACHE=1 ./quick-start-local
-NO_CACHE=1 ./fresh-start-local
+```
+egeria-workspaces/
+├── compose-configs/
+│   ├── shared-infra/          # Shared Kafka, PostgreSQL, OpenLineage proxy
+│   ├── egeria-quickstart/     # Coco Pharmaceuticals demo environment
+│   │   └── PyegeriaWebHandler/  # FastAPI web app + MCP server + static SPA files
+│   ├── egeria-freshstart/     # Clean-slate environment
+│   │   └── PyegeriaWebHandler/
+│   └── optional-associated-runtimes/  # Airflow+Marquez, Superset, Unity Catalog,
+│                                      # DeltaLake/Spark, Milvus, MLflow
+├── exchange-quickstart/       # File exchange: Egeria ↔ Jupyter ↔ host (quickstart)
+│   ├── coco-data-lake/        # Coco Pharmaceuticals scenario files
+│   ├── distribution-hub/      # Egeria-generated output (logs, survey reports)
+│   ├── landing-area/          # Drop files here → auto-catalogued by integration daemon
+│   └── loading-bay/           # Bulk ingest: glossaries, open-metadata-archives, secrets
+├── exchange-freshstart/       # Same structure, isolated for freshstart
+├── runtime-volumes/           # Docker bind-mount data — never commit contents
+│   ├── quickstart-platform-data/
+│   ├── quickstart-apache-web/
+│   ├── freshstart-platform-data/
+│   └── freshstart-apache-web/
+├── obsidian-plugins/          # Obsidian vault plugins for Dr. Egeria
+│   ├── calling-the-dr/        # MCP-based plugin (recommended)
+│   └── call-dr-egeria/        # Legacy REST plugin
+└── work/                      # Your private working files (git-ignored)
 ```
 
-Accepted truthy values are `1`, `true`, `yes`, and `on`. Falsey values are unset, `0`, `false`, `no`, and `off`.
+---
 
-If you specifically want to force-refresh the quickstart or freshstart platform image base (even when a local platform
-image already exists), run:
-
-```bash
-./quick-start-local --refresh-platform
-./fresh-start-local --refresh-platform
-```
-
-## Contents of this repository
-
-**egeria-workspaces** consists of a number of artifacts reflected by the folder structure itself. Here is a quick tour:
-### compose-configs
-Subdirectories contain artifacts for different deployments of Egeria along with optional runtimes often used with Egeria.
-The deployments provide **docker compose** scripts to orchestrate the building, configuration and startup of the components needed.
-Here is the break-down of the configurations:
-
-#### shared-infra
-This compose stack provides the shared Kafka and PostgreSQL services used by both deployments. It is managed
-automatically by the start scripts, and can also be managed directly in `compose-configs/shared-infra/`.
-
-#### egeria-quickstart
-This provides the Coco Pharmaceuticals quickstart deployment and runs on port `9443`.
-
-#### egeria-freshstart
-This provides the freshstart deployment and runs on port `8443`.
-
-#### optional-associated-runtimes
-This folder contains some sample docker compose scripts to start some other runtimes
-that we often use with Egeria. Currently this includes:
-* airflow & marquez - Apache Airflow is a popular open source workflow runtime and marquez offers
-some very nice visualization of open lineage graphs.
-* superset - Apache Superset is an open source reporting and dashboard tool.
-* unity-catalog - Open source catalog for managing physical artifacts in a lakehouse environment.
-* deltalake-spark - Open source lakehouse runtime for managing data in a lakehouse environment.
-* milvus—Open source vector database for efficient similarity search and clustering of large datasets.
-* mlflow—Open source platform for managing the end-to-end machine learning lifecycle.
-
-### exchange-quickstart / exchange-freshstart
-These folders support file-based exchange between Egeria containers, Jupyter, and the host file-system for each deployment.
-Quickstart and freshstart each have an isolated exchange tree.
-#### coco-data-lake
-A file location supporting Coco Pharmaceuticals scenarios.
-#### distribution-hub
-The distribution hub is where Egeria can place information and results that it generates so that they are
-easily visible to the users and Jupyter, This information currently includes:
-- logs - Egeria audit logs (if file based event logging has been configured)
-- surveys - Survey reports generated by Egeria based on user request or automation.
-#### landing-area
-The *landing-area* directory (or any of its subdirectories) are monitored by the *qs-integration-daemon* server.
-If you add files under this directory, they will be automatically classified using their file name and file extension,
-and then catalogued into the *qs-metadata-store* metadata repository as [assets](https://egeria-project.org/concepts/asset/).
-
-#### loading-bay
-The *loading-bay* directory is where users place information to be ingested by Egeria.
-There are sub-directories for different kinds of information:
-
-- glossary - for importing and exporting glossary terms
-- open-metadata-archives - for importing open-metadata-archives
-- secrets - optional host-side secrets location for custom workflows in exchange trees.
-  Runtime platform secrets are resolved at `/deployments/secrets` inside the container:
-  - quickstart: image-bundled default secrets (no host secrets mount by default)
-  - freshstart: seeded from `compose-configs/egeria-freshstart/secrets/` templates into
-    `runtime-volumes/freshstart-platform-data/secrets` on first run; customise in place thereafter
-
-### runtime-volumes
-The information in these folders are used by the Runtimes. They are not for the general
-user to use. Externalizing runtime information here, rather than embedded within the containers,
-means that if containers are upgraded or destroyed, the environment can still be recovered.
-Currently there are sub-directories here for:
-* airflow-volumes
-* quickstart-platform-data
-* quickstart-apache-web
-* freshstart-platform-data
-* freshstart-apache-web
-* unity-coco
-* unitycatalog2
-
-### work
-This folder is meant for you to put your own private working files for use with Egeria and
-Jupyter. The directory is mounted and visible within both Egeria and Jupyter runtimes. 
-Your additions are ignored by Git.
-
-----
-License: CC BY 4.0, Copyright Contributors to the ODPi Egeria project. of of this 
+License: CC BY 4.0, Copyright Contributors to the ODPi Egeria project.
