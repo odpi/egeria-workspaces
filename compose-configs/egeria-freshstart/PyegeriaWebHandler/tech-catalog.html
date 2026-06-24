@@ -2035,15 +2035,16 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
 
   useEffect(function() { load('*', '', null); }, []);
 
-  // Handle cross-navigation from AnnotationsSubPane: load all items then highlight the annotation
+  // Handle cross-navigation from AnnotationsSubPane: show annotation immediately,
+  // then load the full list so the table shows context and the row is highlighted.
+  // Gate on annotationItem (not annotationGuid) so empty GUIDs don't silently skip.
   var _lastNav = useRef(null);
   useEffect(function() {
-    if (!navTarget || !navTarget.annotationGuid) return;
-    if (navTarget.annotationGuid === _lastNav.current) return;
-    _lastNav.current = navTarget.annotationGuid;
-    // Set the detail panel immediately from the passed item
-    if (navTarget.annotationItem) setSel(navTarget.annotationItem);
-    // Also load the full list (if not already loading) so the table shows context
+    if (!navTarget || !navTarget.annotationItem) return;
+    var key = navTarget.annotationGuid || navTarget.annotationItem.qualifiedName || navTarget.annotationItem.summary || 'nav';
+    if (key === _lastNav.current) return;
+    _lastNav.current = key;
+    setSel(navTarget.annotationItem);
     if (!items && !loading) load('*', '', null);
   }, [navTarget]);
 
