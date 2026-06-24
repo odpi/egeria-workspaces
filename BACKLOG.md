@@ -277,6 +277,17 @@ app-wiring) and the legitimately env-specific `config_workspaces.json` publishin
 
 ---
 
+## Egeria Explorer — Valid Values
+
+`/api/valid-values/properties` + `/api/valid-values/lookup` backed by `valid_values_handler.py` (both envs).
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| VV-1 | Valid Values Explorer tab in type-explorer.html | done | Left sidebar lists all property names that have registered valid values; click a name to load its values in the right pane; values sorted by ordinal; manual search box for arbitrary property names. |
+| VV-2 | Fix: type-scoped valid values not returned by lookup | **done (2026-06-24)** | **Root cause:** Egeria REST `/get-valid-metadata-values/{property}?typeName=` returns 0 elements when `typeName` is empty but the values are registered against specific Egeria types (e.g. `annotationType` → `ResourceProfileAnnotation`, `QualityAnnotation`, etc.). The primary `ReferenceDataManager.get_valid_metadata_values` call (which uses that REST endpoint) therefore returned nothing for 40 of the 70 registered properties. **Fix:** added `_fallback_lookup()` in `valid_values_handler.py` — called when the primary lookup returns empty with no `type_name` specified. It calls `MetadataExpert.find_metadata_elements` with `identifier = property_name` and filters out set-header entries (those without `preferredValue`), then normalises the nested `elementProperties.propertiesAsStrings` dict into the same flat format the frontend expects. Verified live: `annotationType` now returns 39 values (was 0). Applied to both envs. |
+
+---
+
 ## Egeria Explorer — Hierarchy & Grouping (built; awaiting data to verify)
 
 These left-nav hierarchy/grouping features are implemented and verified to render
@@ -399,6 +410,7 @@ New standalone SPA (`tech-catalog.html`) + backend handler (`tech_catalog_handle
 | TC-11 | Classification ubiquity audit and fix | done | Root cause found and fixed: pyegeria stores each classification as a named key directly on `elementHeader` with `class="ElementClassification"`, not in a `classifications` array; rewrote `_extract_classifications` in both handlers to iterate `elementHeader` items; confirmed working — `ZoneMembership` and `DataAssetEncoding` visible in Catalog property panels; `_SKIP_CLASSIFICATIONS` skips internal types (Anchors, LatestChange, Memento, etc.) |
 | TC-12 | Classification-based sidebar filtering | done | Filter chips below search bar: zone chips (🌐 zoneName, green) + classification type chips (purple); multi-select AND logic; `ZoneMembership.zoneMembershipList` split per zone; classification badges on each sidebar list item (zones green, others purple, max 3); filter resets on tab change |
 | TC-13 | Preview data for file Data Assets (when accessible), ideally formatted by type | **done (2026-06-21)** | New `GET /api/tech-catalog/assets/{guid}/preview`: resolves the asset's `pathName` (the Egeria-platform `/deployments/*` path), security-allowlists it under read-only roots (realpath defeats traversal), reads a bounded page via pandas (CSV/TSV/TXT + JSON/JSONL; Parquet unsupported — no pyarrow), returns `{columns, rows, has_more}`. Compose: data dirs mounted **read-only** into pyegeria-web at matching `/deployments/*` (both envs; freshstart mirrors its `exchange-freshstart` dirs). Frontend: the Explorer's `TabularPreviewModal` was generalised to a `fetchUrl` prop and moved into `egeria-shared-ui.js` (Explorer repointed; local copy removed); the Catalog's `AssetDetail` shows a "Preview Data 📊" action for file assets (DataFile subtypes / anything with a file path). Verified live: returns real rows for week7.csv. **Note:** previews only files reachable from the web container ("when accessible"); JSON renders as a flat table (not a tree). |
+| TC-14 | `annotationType` property in Annotations and Survey Reports panels | **done (2026-06-24)** | **Surveys → Annotations tab (`AnnotationsTabView`):** (1) loads `annotationType` valid values once on mount via `/api/valid-values/lookup?property_name=annotationType`; (2) derives unique `annotationType` values from the loaded annotation items; (3) renders a secondary filter chip row (indented, left-bordered) below the Egeria-type chips — "All" + one chip per value, toggling a client-side `atFilter` (no extra network request); (4) `annotationType` now appears as a small sub-label inside the Type column cell with the valid-values description as a tooltip. **Survey Report detail pane (`AnnotationsSubPane`):** same valid-values load + secondary filter chip row; chips have description tooltips. **`AnnotationCard`:** shows `annotationType` as a dim sub-line directly below the type badge; if valid values return a `displayName` different from the raw value it appends " — DisplayName"; description appears as a tooltip (`cursor: help`). The `annotationType` property was previously in `skipDisplay` (hidden). Applied to both envs. |
 
 ---
 

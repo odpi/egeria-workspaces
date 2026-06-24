@@ -1880,7 +1880,7 @@ function AnnotationPropValue({ label, value }) {
   );
 }
 
-function AnnotationCard({ ann, onNavigate, fromSubPane }) {
+function AnnotationCard({ ann, onNavigate, fromSubPane, annotTypeVals }) {
   var el = React.createElement;
   var typeColor = ANNOT_TYPE_COLOR[ann.typeName] || 'var(--accent)';
   var skipDisplay = new Set(['guid','typeName','superTypeNames','annotationType',
@@ -1889,10 +1889,12 @@ function AnnotationCard({ ann, onNavigate, fromSubPane }) {
     if (skipDisplay.has(e[0]) || e[0] === 'summary') return false;
     return (typeof e[1] === 'string' && e[1].trim()) || typeof e[1] === 'number';
   });
+  var atInfo = annotTypeVals && ann.annotationType ? annotTypeVals[ann.annotationType] : null;
+  var atTooltip = atInfo ? atInfo.description || ann.annotationType : ann.annotationType;
   return el('div', { style: { background: 'var(--card)', border: '1px solid var(--border)',
                                borderLeft: '3px solid ' + typeColor, borderRadius: 6,
                                padding: '10px 14px', marginBottom: 8 } },
-    el('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' } },
+    el('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: ann.annotationType ? 2 : 4, flexWrap: 'wrap' } },
       el('span', { style: { fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 10,
                             background: 'rgba(255,255,255,.08)', color: typeColor, whiteSpace: 'nowrap' } },
         ANNOT_TYPE_LABEL[ann.typeName] || ann.typeName || ''),
@@ -1918,6 +1920,13 @@ function AnnotationCard({ ann, onNavigate, fromSubPane }) {
                  background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer', flexShrink: 0 }
       }, 'Report →')
     ),
+    ann.annotationType && el('div', { title: atTooltip,
+      style: { fontSize: 10, color: 'var(--dim)', marginBottom: 4, paddingLeft: 2,
+               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+               cursor: atTooltip && atTooltip !== ann.annotationType ? 'help' : 'default' } },
+      ann.annotationType + (atInfo && atInfo.displayName && atInfo.displayName !== ann.annotationType
+        ? ' — ' + atInfo.displayName : '')
+    ),
     ann.summary && el('div', { style: { fontSize: 12, color: 'var(--text)', marginBottom: extras.length ? 8 : 0, lineHeight: 1.5 } }, ann.summary),
     extras.length > 0 && el('div', null,
       extras.map(function(e) { return el(AnnotationPropValue, { key: e[0], label: e[0], value: String(e[1]) }); })
@@ -1931,8 +1940,22 @@ function AnnotationsSubPane({ guid, creds, onNavigate }) {
   var _open    = useState(false),       open      = _open[0],    setOpen      = _open[1];
   var _loaded  = useState(false),       loaded    = _loaded[0],  setLoaded    = _loaded[1];
   var _filter  = useState(''),          filter    = _filter[0],  setFilter    = _filter[1];
+  var _atFilter = useState(''),         atFilter  = _atFilter[0], setAtFilter = _atFilter[1];
   var _coll    = useState(new Set()),   coll      = _coll[0],    setColl      = _coll[1];
+  var _atVals  = useState({}),          annotTypeVals = _atVals[0], setAtVals = _atVals[1];
   var el = React.createElement;
+
+  useEffect(function() {
+    egeriaFetch('/api/valid-values/lookup?property_name=annotationType', creds)
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(d) {
+        if (!d) return;
+        var map = {};
+        (d.values || []).forEach(function(v) { map[v.preferredValue] = v; });
+        setAtVals(map);
+      })
+      .catch(function() {});
+  }, [creds]);
 
   function load() {
     setErr(null);
@@ -1951,7 +1974,19 @@ function AnnotationsSubPane({ guid, creds, onNavigate }) {
     setColl(function(prev) { var n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n; });
   }
 
-  var items = (data || []).filter(function(a) { return !filter || a.typeName === filter; });
+  var allItems = data || [];
+  var uniqueAnnotTypes = [];
+  allItems.forEach(function(a) {
+    if (a.annotationType && uniqueAnnotTypes.indexOf(a.annotationType) === -1)
+      uniqueAnnotTypes.push(a.annotationType);
+  });
+  uniqueAnnotTypes.sort();
+
+  var items = allItems.filter(function(a) {
+    if (filter && a.typeName !== filter) return false;
+    if (atFilter && a.annotationType !== atFilter) return false;
+    return true;
+  });
   var grouped = {}, order = [];
   items.forEach(function(a) {
     var k = a.typeName || 'Other';
@@ -1967,7 +2002,7 @@ function AnnotationsSubPane({ guid, creds, onNavigate }) {
     ),
     err && el('div', { style: { fontSize: 11, color: '#f87171', marginBottom: 8 } }, '⚠ ' + err),
     open && data && el('div', null,
-      el('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 } },
+      el('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 } },
         ANNOTATION_TYPES.map(function(t) {
           var active = filter === t.id;
           return el('button', { key: t.id || '_all',
@@ -1978,8 +2013,27 @@ function AnnotationsSubPane({ guid, creds, onNavigate }) {
                      color: active ? 'var(--accent)' : 'var(--muted)' } }, t.label);
         })
       ),
+      uniqueAnnotTypes.length > 0 && el('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10, paddingLeft: 2, borderLeft: '2px solid var(--border)', marginLeft: 2 } },
+        el('span', { style: { fontSize: 10, color: 'var(--dim)', alignSelf: 'center', marginRight: 2 } }, 'annotationType:'),
+        el('button', { key: '_at_all',
+          onClick: function(e) { e.stopPropagation(); setAtFilter(''); },
+          style: { fontSize: 10, padding: '2px 8px', borderRadius: 10, cursor: 'pointer',
+                   border: !atFilter ? '1px solid var(--accent)' : '1px solid var(--border)',
+                   background: !atFilter ? 'rgba(96,165,250,.12)' : 'transparent',
+                   color: !atFilter ? 'var(--accent)' : 'var(--muted)' } }, 'All'),
+        uniqueAnnotTypes.map(function(at) {
+          var info = annotTypeVals[at];
+          return el('button', { key: at,
+            title: info ? (info.description || at) : at,
+            onClick: function(e) { e.stopPropagation(); setAtFilter(atFilter === at ? '' : at); },
+            style: { fontSize: 10, padding: '2px 8px', borderRadius: 10, cursor: 'pointer',
+                     border: atFilter === at ? '1px solid var(--accent)' : '1px solid var(--border)',
+                     background: atFilter === at ? 'rgba(96,165,250,.12)' : 'transparent',
+                     color: atFilter === at ? 'var(--accent)' : 'var(--muted)' } }, at);
+        })
+      ),
       items.length === 0
-        ? el('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'No annotations' + (filter ? ' of this type.' : '.'))
+        ? el('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'No annotations' + (filter || atFilter ? ' matching this filter.' : '.'))
         : order.map(function(typeName) {
             var groupItems = grouped[typeName];
             var isCollapsed = coll.has(typeName);
@@ -1993,7 +2047,7 @@ function AnnotationsSubPane({ guid, creds, onNavigate }) {
                 el('span', { style: { fontSize: 10, color: 'var(--dim)', marginLeft: 4 } }, '(' + groupItems.length + ')')
               ),
               !isCollapsed && groupItems.map(function(a) {
-                return el(AnnotationCard, { key: a.guid, ann: a, onNavigate: onNavigate, fromSubPane: true });
+                return el(AnnotationCard, { key: a.guid, ann: a, onNavigate: onNavigate, fromSubPane: true, annotTypeVals: annotTypeVals });
               })
             );
           })
@@ -2008,6 +2062,8 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
   var _err     = useState(null),        err       = _err[0],      setErr       = _err[1];
   var _q       = useState(''),          q         = _q[0],        setQ         = _q[1];
   var _filter  = useState(''),          filter    = _filter[0],   setFilter    = _filter[1];
+  var _atFilter = useState(''),         atFilter  = _atFilter[0], setAtFilter  = _atFilter[1];
+  var _atVals  = useState({}),          annotTypeVals = _atVals[0], setAtVals  = _atVals[1];
   var _sel     = useState(null),        sel       = _sel[0],      setSel       = _sel[1];
   var _asOf    = useState(null),        asOf      = _asOf[0],     setAsOf      = _asOf[1];
   var _sort    = useState({ col: 1, dir: 'asc' }), sort = _sort[0], setSort  = _sort[1];
@@ -2025,6 +2081,18 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
                 background: 'var(--panel)', userSelect: 'none', overflow: 'hidden' };
   var tdSty = { padding: '5px 10px', borderBottom: '1px solid var(--border)', fontSize: 12,
                 verticalAlign: 'top', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+
+  useEffect(function() {
+    egeriaFetch('/api/valid-values/lookup?property_name=annotationType', creds)
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(d) {
+        if (!d) return;
+        var map = {};
+        (d.values || []).forEach(function(v) { map[v.preferredValue] = v; });
+        setAtVals(map);
+      })
+      .catch(function() {});
+  }, [creds]);
 
   function load(search, atype, asOfTime, selectGuid) {
     setLoading(true); setErr(null);
@@ -2082,7 +2150,16 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
     setColl(function(prev) { var n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n; });
   }
 
-  var sorted = applySort(items || [], sort, COLS);
+  var allItems = items || [];
+  var uniqueAnnotTypes = [];
+  allItems.forEach(function(a) {
+    if (a.annotationType && uniqueAnnotTypes.indexOf(a.annotationType) === -1)
+      uniqueAnnotTypes.push(a.annotationType);
+  });
+  uniqueAnnotTypes.sort();
+
+  var filtered = atFilter ? allItems.filter(function(a) { return a.annotationType === atFilter; }) : allItems;
+  var sorted = applySort(filtered, sort, COLS);
   var grouped = {}, groupOrder = [];
   sorted.forEach(function(a) {
     var k = a.typeName || 'Other';
@@ -2092,11 +2169,14 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
 
   function renderRow(a) {
     var isSel = sel && sel.guid === a.guid;
+    var atInfo = annotTypeVals[a.annotationType];
     return el('tr', { key: a.guid, ref: isSel ? _selRowRef : null, onClick: function() { setSel(a); },
       style: { cursor: 'pointer', background: isSel ? 'rgba(96,165,250,.15)' : 'transparent',
                outline: isSel ? '1px solid rgba(96,165,250,.4)' : 'none' } },
       el('td', { style: Object.assign({}, tdSty, { color: ANNOT_TYPE_COLOR[a.typeName] || 'var(--accent)', fontWeight: 600, fontSize: 11 }) },
-        ANNOT_TYPE_LABEL[a.typeName] || a.typeName || ''),
+        ANNOT_TYPE_LABEL[a.typeName] || a.typeName || '',
+        a.annotationType && el('div', { title: atInfo ? (atInfo.description || a.annotationType) : a.annotationType,
+          style: { fontSize: 9, fontWeight: 400, color: 'var(--dim)', marginTop: 1 } }, a.annotationType)),
       el('td', { style: tdSty, title: a.summary || '' }, a.summary || ''),
       el('td', { style: tdSty }, a.analysisStep || ''),
       el('td', { style: Object.assign({}, tdSty, { textAlign: 'right' }) }, a.confidence != null ? a.confidence + '%' : ''),
@@ -2128,6 +2208,26 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
                      border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
                      background: active ? 'rgba(96,165,250,.12)' : 'transparent',
                      color: active ? 'var(--accent)' : 'var(--muted)' } }, t.label);
+        })
+      ),
+      uniqueAnnotTypes.length > 0 && el('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 4,
+                                                           paddingLeft: 4, borderLeft: '2px solid var(--border)' } },
+        el('span', { style: { fontSize: 10, color: 'var(--dim)' } }, 'annotationType:'),
+        el('button', { key: '_at_all',
+          onClick: function() { setAtFilter(''); },
+          style: { fontSize: 10, padding: '2px 8px', borderRadius: 10, cursor: 'pointer',
+                   border: !atFilter ? '1px solid var(--accent)' : '1px solid var(--border)',
+                   background: !atFilter ? 'rgba(96,165,250,.12)' : 'transparent',
+                   color: !atFilter ? 'var(--accent)' : 'var(--muted)' } }, 'All'),
+        uniqueAnnotTypes.map(function(at) {
+          var info = annotTypeVals[at];
+          return el('button', { key: at,
+            title: info ? (info.description || at) : at,
+            onClick: function() { setAtFilter(atFilter === at ? '' : at); },
+            style: { fontSize: 10, padding: '2px 8px', borderRadius: 10, cursor: 'pointer',
+                     border: atFilter === at ? '1px solid var(--accent)' : '1px solid var(--border)',
+                     background: atFilter === at ? 'rgba(96,165,250,.12)' : 'transparent',
+                     color: atFilter === at ? 'var(--accent)' : 'var(--muted)' } }, at);
         })
       )
     ),
@@ -2180,7 +2280,7 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
             ) : null;
           })
         ),
-        el(AnnotationCard, { ann: sel, onNavigate: onNavigate })
+        el(AnnotationCard, { ann: sel, onNavigate: onNavigate, annotTypeVals: annotTypeVals })
       )
     )
   );
