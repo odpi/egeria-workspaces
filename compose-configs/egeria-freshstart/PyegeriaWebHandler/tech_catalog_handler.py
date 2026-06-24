@@ -1244,6 +1244,7 @@ def get_survey_annotations(
     guid: str,
     annotation_type: Optional[str] = Query(None, description="Filter by annotation subtype name"),
     page_size: int = Query(500, ge=1, le=1000),
+    as_of_time: Optional[str] = Query(None),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
@@ -1260,6 +1261,8 @@ def get_survey_annotations(
         kwargs = {}
         if annotation_type:
             kwargs["metadata_element_type"] = annotation_type
+        if as_of_time:
+            kwargs["as_of_time"] = as_of_time
         raw = dd.find_annotations(
             search_string="*",
             page_size=page_size,
@@ -1289,6 +1292,7 @@ def list_annotations(
     annotation_type: Optional[str] = Query(None, description="Filter by annotation subtype name"),
     start_from:      int = Query(0, ge=0),
     page_size:       int = Query(100, ge=1, le=500),
+    as_of_time:      Optional[str] = Query(None),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
@@ -1301,6 +1305,8 @@ def list_annotations(
         kwargs = {}
         if annotation_type:
             kwargs["metadata_element_type"] = annotation_type
+        if as_of_time:
+            kwargs["as_of_time"] = as_of_time
         raw = dd.find_annotations(
             search_string=q or "*",
             start_from=start_from,
