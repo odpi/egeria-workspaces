@@ -1428,6 +1428,7 @@ function _titleCase(s) { return (s || '').replace(/([A-Z])/g, ' $1').replace(/^.
 function AuditRelationshipTab({ relType, columns, actorRoles, creds, focusGuid, onClearFocus }) {
   var _rows  = React.useState([]),        rows  = _rows[0],  setRows  = _rows[1];
   var _state = React.useState('loading'), state = _state[0], setState = _state[1];
+  var _emsg  = React.useState(''),        errMsg= _emsg[0],  setErrMsg= _emsg[1];
   var _asOf  = React.useState(null),      asOf  = _asOf[0],  setAsOf  = _asOf[1];
   var _filter= React.useState(''),        filter= _filter[0],setFilter= _filter[1];
   var _sort  = React.useState(null),      sort  = _sort[0],  setSort  = _sort[1]; // {col, dir}
@@ -1444,12 +1445,21 @@ function AuditRelationshipTab({ relType, columns, actorRoles, creds, focusGuid, 
   }
 
   React.useEffect(function() {
-    setState('loading'); setSel(null);
+    setState('loading'); setSel(null); setErrMsg('');
     var u = '/api/audit/relationships?type=' + encodeURIComponent(relType) + (asOf ? '&as_of_time=' + encodeURIComponent(asOf) : '');
     egeriaFetch(u, creds)
-      .then(function(r){ return r.ok ? r.json() : { items: [] }; })
+      .then(function(r) {
+        if (r.ok) return r.json();
+        var status = r.status;
+        return r.json().catch(function(){ return {}; }).then(function(e) {
+          var msg = e.detail || '';
+          if (status === 401) throw new Error('Your session has expired or credentials are invalid (HTTP 401). Please reconnect.' + (msg ? ' — ' + msg : ''));
+          if (status === 403) throw new Error('Your Egeria account does not have permission to view ' + relType.toLowerCase() + ' relationships (HTTP 403).' + (msg ? ' — ' + msg : ''));
+          throw new Error('Failed to load (HTTP ' + status + ').' + (msg ? ' ' + msg : ''));
+        });
+      })
       .then(function(d){ setRows(d.items || []); setState('ready'); })
-      .catch(function(){ setState('error'); });
+      .catch(function(e){ setErrMsg(e.message || 'Failed to load.'); setState('error'); });
   }, [relType, asOf]);
 
   // incoming cross-link: restrict to relationships touching a focus element
@@ -1512,7 +1522,7 @@ function AuditRelationshipTab({ relType, columns, actorRoles, creds, focusGuid, 
         style: { alignSelf: 'center', fontSize: 11, color: 'var(--dim)', cursor: 'help', whiteSpace: 'nowrap', border: '1px solid var(--border)', borderRadius: 12, padding: '2px 9px' } }, '🔒 filtered by your access')
     ),
     state === 'loading' ? React.createElement('div', { style: { padding: 24, color: 'var(--muted)', fontSize: 13 } }, 'Loading ' + relType + ' relationships…')
-    : state === 'error' ? React.createElement('div', { style: { padding: 24, color: '#f87171', fontSize: 13 } }, 'Failed to load.')
+    : state === 'error' ? React.createElement('div', { style: { padding: 24, color: '#f87171', fontSize: 13, lineHeight: 1.6 } }, errMsg || 'Failed to load.')
     : rows.length === 0 ? React.createElement('div', { style: { padding: 24, color: 'var(--muted)', fontSize: 13, lineHeight: 1.6 } },
         React.createElement('div', null, 'No ' + relType.toLowerCase() + 's are visible to you' + (asOf ? ' as of the selected time.' : '.')),
         React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', marginTop: 6 } }, '🔒 Results are filtered by your governance-zone access rights — there may be ' + relType.toLowerCase() + 's in zones your user cannot access.'))
@@ -1535,12 +1545,19 @@ function AuditDetailPanel({ row, relType, actorRoles, creds, asOf }) {
 
   React.useEffect(function() {
     setE1({ st: 'loading', el: null }); setE2({ st: 'loading', el: null }); setActors({});
+    function _authMsg(status) {
+      if (status === 401) return 'Session expired or credentials invalid (HTTP 401).';
+      if (status === 403) return 'Not authorized to view this element (HTTP 403).';
+      return 'Could not load (HTTP ' + status + ').';
+    }
     function load(guid, set) {
       if (!guid) { set({ st: 'none', el: null }); return; }
       egeriaFetch('/api/audit/element/' + encodeURIComponent(guid) + '?_=1' + q, creds)
-        .then(function(r){ return r.ok ? r.json() : null; })
-        .then(function(d){ set({ st: 'ready', el: d }); })
-        .catch(function(){ set({ st: 'error', el: null }); });
+        .then(function(r) {
+          if (r.ok) return r.json().then(function(d){ set({ st: 'ready', el: d }); });
+          set({ st: 'error', el: null, msg: _authMsg(r.status) });
+        })
+        .catch(function(){ set({ st: 'error', el: null, msg: 'Could not load.' }); });
     }
     load(row.end1 && row.end1.guid, setE1);
     load(row.end2 && row.end2.guid, setE2);
@@ -1551,15 +1568,18 @@ function AuditDetailPanel({ row, relType, actorRoles, creds, asOf }) {
       var u = '/api/audit/actor?value=' + encodeURIComponent(val)
             + (pname ? '&property_name=' + encodeURIComponent(pname) : '')
             + (tname ? '&type_name=' + encodeURIComponent(tname) : '') + q;
-      egeriaFetch(u, creds).then(function(r){ return r.ok ? r.json() : null; })
-        .then(function(d){ setActors(function(p){ return Object.assign({}, p, { [role]: { st: 'ready', el: d } }); }); })
-        .catch(function(){ setActors(function(p){ return Object.assign({}, p, { [role]: { st: 'error', el: null } }); }); });
+      egeriaFetch(u, creds)
+        .then(function(r) {
+          if (r.ok) return r.json().then(function(d){ setActors(function(p){ return Object.assign({}, p, { [role]: { st: 'ready', el: d } }); }); });
+          setActors(function(p){ return Object.assign({}, p, { [role]: { st: 'error', el: null, msg: _authMsg(r.status) } }); });
+        })
+        .catch(function(){ setActors(function(p){ return Object.assign({}, p, { [role]: { st: 'error', el: null, msg: 'Could not load.' } }); }); });
     });
   }, [row.relationshipGuid, asOf]);
 
   function paneFor(s) {
     if (!s || s.st === 'loading') return React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'Loading…');
-    if (s.st === 'error') return React.createElement('div', { style: { fontSize: 12, color: '#f87171' } }, 'Could not load.');
+    if (s.st === 'error') return React.createElement('div', { style: { fontSize: 12, color: '#f87171' } }, s.msg || 'Could not load.');
     if (s.st === 'none') return React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'Not specified.');
     return React.createElement(ElementPropertiesPane, { element: s.el });
   }
