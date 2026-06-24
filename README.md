@@ -10,9 +10,9 @@ A fully pre-configured, Docker Compose-based platform for learning, experimentin
 
 ## Try it now — no installation required
 
-A live demo is running at **[egeria.pdr-associates.com](https://egeria.pdr-associates.com)**.
+Enter the world of [Coco Pharmaceuticals](https://egeria-project.org/practices/coco-pharmaceuticals/) — a fictitious company whose rich metadata landscape brings Egeria's capabilities to life. A live demo is running at **[egeria.pdr-associates.com](https://egeria.pdr-associates.com)**.
 
-Register for a free account, pick a [Coco Pharmaceuticals](https://egeria-project.org/practices/coco-pharmaceuticals/) persona, and explore a fully pre-loaded Egeria environment in your browser. No Docker, no setup.
+Register for a free account, step into the shoes of one of their key employees by selecting a persona, and explore a fully pre-loaded Egeria environment in your browser. No Docker, no setup.
 
 When you're ready to run your own copy, see [Getting started](#getting-started) below.
 
