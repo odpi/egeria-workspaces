@@ -81,8 +81,9 @@ Three deployment modes are available, all sharing the same Kafka, PostgreSQL and
 
 The Quickstart environment running in `DEMO_MODE=true`, hosted publicly. Register for a free account, choose a Coco Pharmaceuticals persona, and explore. Includes scheduled data resets and an admin panel. No Docker required.
 
-<!-- screenshot: docs/images/demo-portal.png — portal tile page after login -->
-<!-- screenshot: docs/images/demo-persona-picker.png — persona selection modal -->
+![Portal after login](docs/images/Portal%20Title%20Page.png)
+
+![Persona selection](docs/images/Persona%20selection.png)
 
 ### Egeria Quickstart — local, pre-loaded with Coco data
 
@@ -158,9 +159,7 @@ flowchart TB
 
 The portal at `http://localhost:8885` (quickstart) or `http://localhost:7885` (freshstart) groups tiles into three sections, all served by the `pyegeria-web` container:
 
-<!-- screenshot: docs/images/portal-tiles.png — full portal tile grid -->
-
-
+![Full portal tile grid](docs/images/Full%20Portal%20Grid.png)
 
 **Primary tools**
 
@@ -193,10 +192,47 @@ The portal at `http://localhost:8885` (quickstart) or `http://localhost:7885` (f
 | 🐍 Python API | `/egeria-explorer#python-api` | pyegeria client reference — classes and methods by domain |
 | 🔌 REST APIs | `/egeria-explorer#rest-apis` | Live REST API browser — all open metadata services |
 
-<!-- screenshot: docs/images/egeria-explorer.png — Egeria Explorer glossary or type browser tab -->
-<!-- screenshot: docs/images/egeria-catalog.png — The Catalog asset browser -->
-<!-- screenshot: docs/images/egeria-audit.png — Egeria Audit governance relationships tab -->
-<!-- screenshot: docs/images/egeria-operations.png — Egeria Operations servers tab -->
+### Screenshots
+
+**The Catalog — Data Assets**
+
+![The Catalog data assets](docs/images/Data%20Assets.png)
+
+**The Catalog — Surveys & Annotations**
+
+![Surveys and Annotations](docs/images/Annotations.png)
+
+**Egeria Explorer — Glossary**
+
+![Egeria Explorer glossary](docs/images/Glossary.png)
+
+**Egeria Explorer — Type Explorer**
+
+![Egeria Explorer type browser](docs/images/Type%20Explorer.png)
+
+**Lineage Explorer**
+
+![Lineage Explorer](docs/images/Lineage.png)
+
+**Egeria Audit**
+
+![Egeria Audit](docs/images/Audit.png)
+
+**Egeria Operations — Servers**
+
+![Egeria Operations servers](docs/images/Servers.png)
+
+**Egeria Operations — Integration Connectors**
+
+![Egeria Operations integration connectors](docs/images/Integration%20Connectors.png)
+
+**Egeria Operations — Engine Actions**
+
+![Egeria Operations engine actions](docs/images/Engine%20Actions.png)
+
+**Workspaces**
+
+![Workspace reference](docs/images/Workspace%20Reference.png)
 
 Full tab-by-tab documentation: [PyegeriaWebHandler README](compose-configs/egeria-quickstart/PyegeriaWebHandler/README.md)
 

@@ -268,6 +268,10 @@ Output: Available glossaries:
 
 The PyegeriaWebHandler includes a built-in **Egeria Explorer** — an interactive browser for the live Egeria metadata ecosystem. It presents six sections in a single-page application, all read-only, all backed by live Egeria API calls.
 
+![Egeria Explorer — Glossary tab](../../../../docs/images/Glossary.png)
+
+![Egeria Explorer — Type Explorer tab](../../../../docs/images/Type%20Explorer.png)
+
 ### Accessing the Explorer
 
 Once the stack is running, open a browser and navigate to:
@@ -735,9 +739,37 @@ If FastAPI returns `No updates detected. New File not created.`:
 
 ---
 
+## The Catalog
+
+The **Catalog** (`🐱` tile) is a multi-section SPA for browsing all asset types registered in Egeria, served by `tech_catalog_handler.py`. It groups assets by domain and adds Surveys & Annotations support for discovery results.
+
+![The Catalog — Data Assets](../../../../docs/images/Data%20Assets.png)
+
+![The Catalog — Surveys & Annotations](../../../../docs/images/Annotations.png)
+
+### Sections
+
+| Section | What it shows |
+|---------|---------------|
+| Infrastructure Assets | Servers, storage, networks, software capabilities, endpoints |
+| Data Assets | Data stores, data feeds, data sets |
+| APIs | Deployed APIs and endpoints |
+| Processes | Software components and governance actions |
+| Surveys & Annotations | Survey reports from discovery runs and their analysis annotations |
+| Glossary | Glossaries, categories, and terms |
+| Technology Types | Open metadata type definitions, catalog templates, governance processes |
+
+Each section has a searchable list on the left and a detail panel on the right. The detail panel shows properties, classifications, relationships (with cross-links to other sections or Egeria Explorer), schema (if present), lineage (for asset types), and annotations (for survey reports).
+
+Point-in-time browsing (As-Of time slider) is supported on asset sections. Resizable columns in tables, resizable list/detail split panes throughout.
+
+---
+
 ## Egeria Audit
 
-The **Egeria Audit** page (`🛡️` tile on the portal) is a single-page application for reviewing governance relationships and the user accounts known to the platform. Like the Explorer it is React 18 with the application JS inlined, sharing components from `static/egeria-shared-ui.js`. It is served by `audit_handler.py`.
+The **Egeria Audit** page (`🛡️` tile on the portal) is a single-page application for reviewing governance relationships and the user accounts known to the platform.
+
+![Egeria Audit](../../../../docs/images/Audit.png) Like the Explorer it is React 18 with the application JS inlined, sharing components from `static/egeria-shared-ui.js`. It is served by `audit_handler.py`.
 
 ### Accessing the Audit page
 
@@ -765,6 +797,12 @@ For example, in the Coco Pharmaceuticals sample the two **License** relationship
 ## Egeria Operations
 
 The **Egeria Operations** page (`🎛️` tile) monitors and operates the live Egeria runtime. Served by `operations_handler.py`, it shares the same React/`egeria-shared-ui.js` foundation as the Explorer and Audit pages.
+
+![Egeria Operations — Servers](../../../../docs/images/Servers.png)
+
+![Egeria Operations — Integration Connectors](../../../../docs/images/Integration%20Connectors.png)
+
+![Egeria Operations — Engine Actions](../../../../docs/images/Engine%20Actions.png)
 
 ### Accessing the Operations page
 
