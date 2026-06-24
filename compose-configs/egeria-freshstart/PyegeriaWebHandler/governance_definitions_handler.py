@@ -64,6 +64,13 @@ GOV_TYPE_TREE = [
             {"typeName": "DataLens",              "label": "Data Lenses"},
             {"typeName": "DataProcessingPurpose", "label": "Data Processing Purposes"},
             {"typeName": "ExceptionType",         "label": "Exception Types"},
+            {
+                "typeName": "GovernanceActionType",
+                "label": "Governance Action Types",
+                "children": [
+                    {"typeName": "GovernanceActionProcess", "label": "Governance Action Processes"},
+                ],
+            },
             {"typeName": "GovernanceMetric",      "label": "Governance Metrics"},
             {
                 "typeName": "GovernanceProcedure",
