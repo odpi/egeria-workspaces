@@ -1525,11 +1525,29 @@ def _fetch_detail(mgr, guid: str, section: Optional[str], as_of_time: Optional[s
 
     # Last resort: SoftwareCapability finder
     try:
-        return _find_by_guid(
+        result = _find_by_guid(
             mgr.find_software_capabilities(search_string="*", output_format="JSON", graph_query_depth=3),
             guid)
+        if result:
+            return result
     except Exception:
         pass
+
+    # Final fallback: ClassificationExplorer.get_element_by_guid works for any
+    # metadata element type, including non-Assets (Referenceable subtypes, etc.)
+    try:
+        ce = _classification_explorer_from_asset_maker(mgr)
+        body = {"class": "GetRequestBody", "graphQueryDepth": 3}
+        if as_of_time:
+            body["asOfTime"] = as_of_time
+        raw = ce.get_element_by_guid(guid=guid, graph_query_depth=3, output_format="JSON", body=body)
+        el = raw[0] if isinstance(raw, list) and raw else (raw if isinstance(raw, dict) else None)
+        if el and isinstance(el, dict):
+            return el
+    except Exception as exc:
+        if _is_auth_error(exc):
+            raise
+        logger.debug("ClassificationExplorer.get_element_by_guid failed for %s: %s", guid, exc)
 
     return None
 
@@ -1565,6 +1583,25 @@ def _asset_catalog_from_asset_maker(mgr):
     token = auth[len("Bearer "):] if auth.startswith("Bearer ") else None
     _apply_token(ac, token)
     return ac
+
+
+def _classification_explorer_from_asset_maker(mgr):
+    """Create a ClassificationExplorer sharing credentials/token from an existing AssetMaker.
+
+    ClassificationExplorer.get_element_by_guid works for ANY metadata element type,
+    not just Assets — used as the final fallback in _fetch_detail.
+    """
+    from pyegeria import ClassificationExplorer
+    ce = ClassificationExplorer(
+        view_server=mgr.server_name,
+        platform_url=mgr.platform_url,
+        user_id=mgr.user_id,
+        user_pwd=mgr.user_pwd,
+    )
+    auth = (getattr(mgr, "headers", None) or {}).get("Authorization", "")
+    token = auth[len("Bearer "):] if auth.startswith("Bearer ") else None
+    _apply_token(ce, token)
+    return ce
 
 
 def _find_by_guid(raw, guid: str):
