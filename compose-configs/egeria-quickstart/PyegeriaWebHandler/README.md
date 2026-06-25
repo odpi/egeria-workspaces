@@ -266,7 +266,7 @@ Output: Available glossaries:
 
 ## Egeria Explorer
 
-The PyegeriaWebHandler includes a built-in **Egeria Explorer** — an interactive browser for the live Egeria metadata ecosystem. It presents six sections in a single-page application, all read-only, all backed by live Egeria API calls.
+The PyegeriaWebHandler includes a built-in **Egeria Explorer** — an interactive browser for the live Egeria metadata ecosystem. It is a single-page application, all read-only, all backed by live Egeria API calls. Tabs are grouped into three nav groups in the header bar: **Type System** (Type Explorer, Valid Values, REST APIs, Python API), **Review** (Glossary, Reference Data, Data Design, Solution Architect, Supply Chains, Actors, Perspectives, Governance Definitions, Projects), and **Act** (Digital Products, Report Specs, Dr. Egeria). Many sections include a **TimeSlider** ("As of date") for point-in-time browsing.
 
 ![Egeria Explorer — Glossary tab](../../../../docs/images/Glossary.png)
 
@@ -290,7 +290,7 @@ Apache proxies both URLs through to the `pyegeria-web` container, which serves t
 
 ### Sections
 
-The explorer opens to a **Home** splash screen on first load. Eight tabs run across the top, ordered left to right: **⌂ Home → Type Explorer → Glossary → Reference Data → Digital Products → Report Specs → Valid Values → REST APIs**. Each tab is independent; data is loaded lazily when the tab is first opened. All sections are read-only.
+The explorer opens to a **Home** splash screen on first load. Tabs are grouped into three drop-down nav groups (plus the **⌂ Home** tab always visible at the left): **Type System**, **Review**, and **Act**. Each tab is independent; data is loaded lazily when the tab is first opened. All sections are read-only.
 
 #### Home (Splash Screen)
 
@@ -336,6 +336,7 @@ Browses the digital product catalog hierarchy: Catalogs → Families → Product
 
 Browses glossaries, folders, and terms.
 
+- **TimeSlider** ("As of date") at the top of the glossary sidebar lets you browse the glossary as it existed at any past point in time. Moving the slider re-fetches the glossary list, folder tree, and term search results. Lazy folder expansion also uses the selected time.
 - Top panel: list of all glossaries.
 - When a glossary is selected: its folders and a cross-glossary term search appear.
 - Selecting a folder loads its terms in the right panel.
@@ -491,6 +492,34 @@ Abstract types are shown in italic. Selecting any node (abstract or concrete) lo
 
 Uses `GovernanceOfficer.find_governance_definitions` with `metadata_element_type` kwarg for type filtering, and `get_governance_definition_by_guid` for detail.
 
+#### Projects
+
+Browses Egeria project metadata in two tree views and a flat list.
+
+Three sub-navigations selectable from the left sidebar:
+
+- **Hierarchy** — project management tree: root projects (those not managed by another) expand to show sub-projects via the `ProjectManagement` / `managedProjects` relationship.
+- **Dependencies** — project dependency tree: roots are projects that nothing depends on; children are projects they depend on via the `ProjectDependency` / `dependsOnProjects` relationship.
+- **All Projects** — flat alphabetical list of all projects, with status and classification badges.
+
+Selecting a project in any view opens a detail panel showing all project properties (display name, description, status, start/planned-end dates, classifications) plus direct sub-projects.
+
+**TimeSlider** ("As of date") at the top of the sidebar time-travels all three views. Moving the slider re-fetches the project list and rebuilds the hierarchy and dependency trees using the Egeria repository snapshot at the selected time.
+
+#### Actors
+
+Browses Egeria actor entities across three sub-types.
+
+Three sub-navigations selectable from the left sidebar:
+
+- **Profiles** — all `ActorProfile` elements (Person, Team, Organization, ITProfile). Detail shows all profile properties (display name, job title, employee number, team details) plus relationship sections (roles performed, contact details, user identities, team memberships, assignment scopes, governance zones).
+- **Roles** — all `ActorRole` elements (PersonRole, GovernanceRole, SolutionActorRole, etc.). Detail shows role type, domain identifier, head count, and the actors assigned to the role.
+- **Identities** — all `UserIdentity` elements. Detail shows user ID, distinguished name, and linked profiles.
+
+All three sub-tabs load lazily and are independently searchable via their filter box. Selecting an element opens a full detail panel with relationship sections rendered as collapsible groups.
+
+**TimeSlider** ("As of date") at the top of the sidebar time-travels all three sub-tabs simultaneously. Moving the slider resets all three sub-tab caches and re-fetches the active sub-tab at the selected time.
+
 ---
 
 ### Context diagrams (all sections)
@@ -535,6 +564,8 @@ Response: `{ definitions, sets, values, total }`. Each definition includes `guid
 Query params: `property_name` (required), `type_name` (optional).
 
 #### Glossary
+
+All Glossary endpoints accept an optional `as_of_time` query param (ISO 8601 timestamp, e.g. `2024-01-01T00:00:00Z`) for point-in-time retrieval. Omit or pass `null` for current data.
 
 **`GET /api/glossary`** — All glossaries.
 
@@ -660,6 +691,52 @@ Response: `[{ guid, displayName, qualifiedName, description, scope, lifecycleSta
 
 **`GET /api/isc/{guid}`** — Full detail for a single information supply chain.
 
+#### Projects
+
+All Project endpoints accept an optional `as_of_time` query param (ISO 8601 timestamp) for point-in-time retrieval.
+
+**`GET /api/projects`** — Flat list of all projects, alphabetically sorted.
+
+Query params: `start_from` (default 0), `page_size` (default 200, max 500), plus standard connection params.
+
+Response: `{ projects: [{ guid, typeName, displayName, qualifiedName, description, projectStatus, startDate, plannedEndDate, status, classifications }], total }`.
+
+**`GET /api/projects/tree`** — Project management hierarchy forest (roots = projects not managed by another).
+
+Response: `{ roots: [{ ...projectFields, children: [...], isContainer: bool }], total }`.
+
+**`GET /api/projects/dependencies`** — Project dependency forest (roots = projects nothing depends on; children = projects they depend on).
+
+Response: same shape as `/api/projects/tree`.
+
+**`GET /api/projects/{guid}`** — Single project detail with direct child projects.
+
+Response: `{ project: { ...projectFields }, children: [{ ...projectFields }] }`.
+
+#### Actors
+
+All Actor endpoints accept an optional `as_of_time` query param (ISO 8601 timestamp) for point-in-time retrieval.
+
+**`GET /api/actors/profiles`** — All actor profiles (Person, Team, Organization, ITProfile).
+
+Query params: `start_from`, `page_size` (default 500, max 1000), plus standard connection params.
+
+Response: `{ profiles: [{ guid, displayName, qualifiedName, description, typeName, superTypeNames, relationships: { ... } }], total }`.
+
+**`GET /api/actors/profiles/{guid}`** — Full detail for a single actor profile (with relationships).
+
+**`GET /api/actors/roles`** — All actor roles (PersonRole, GovernanceRole, SolutionActorRole, …).
+
+Response: `{ roles: [...], total }`.
+
+**`GET /api/actors/roles/{guid}`** — Full detail for a single actor role.
+
+**`GET /api/actors/identities`** — All user identity elements.
+
+Response: `{ identities: [...], total }`.
+
+**`GET /api/actors/identities/{guid}`** — Full detail for a single user identity.
+
 #### Governance Definitions
 
 **`GET /api/governance/tree`** — The governance definition type hierarchy.
@@ -699,6 +776,8 @@ For the extension history and remaining open work, see [Extending the TypeExplor
 | `report_specs_handler.py` | `/api/report-specs`; reads local pyegeria report spec objects; no Egeria connection |
 | `rest_api_handler.py` | `/api/request-bodies`, `/api/rest-apis`; catalog + live OpenAPI endpoint discovery |
 | `governance_definitions_handler.py` | `/api/governance/tree`, `/api/governance/definitions`, `/api/governance/definitions/{guid}`; uses `GovernanceOfficer` |
+| `project_handler.py` | `/api/projects`, `/api/projects/tree`, `/api/projects/dependencies`, `/api/projects/{guid}`; uses `ProjectManager`; tree/deps results cached for 120 s (keyed by `as_of_time`) |
+| `actor_handler.py` | `/api/actors/profiles*`, `/api/actors/roles*`, `/api/actors/identities*`; uses `ActorManager`; generic relationship surface via any top-level list with `relatedElement` entries |
 | `pyegeria_handler.py` | FastAPI app entry point; mounts all routers |
 | `type-explorer.html` | Self-contained SPA (React 18 + Mermaid 11 via CDN, application JS inlined) |
 | `egeria_request_body_catalog.json` | Generated catalog of Layer 1 request body types; regenerate with `build_request_body_catalog.py` |
