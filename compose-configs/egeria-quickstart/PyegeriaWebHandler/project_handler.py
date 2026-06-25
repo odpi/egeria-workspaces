@@ -141,7 +141,7 @@ def _rel_guids(element: dict, key: str) -> list:
     return out
 
 
-def _project_forest(mgr, child_key: str, parent_key: str) -> dict:
+def _project_forest(mgr, child_key: str, parent_key: str, as_of_time=None) -> dict:
     """Build a project forest from a single depth-1 find. child_key/parent_key are
     the downward/upward relationship attribute names (e.g. managedProjects /
     managingProjects for hierarchy, or dependsOnProjects / dependentProject for
@@ -150,6 +150,7 @@ def _project_forest(mgr, child_key: str, parent_key: str) -> dict:
         search_string="*", starts_with=True, output_format="JSON",
         start_from=0, page_size=500, graph_query_depth=1,
         sequencing_order="PROPERTY_ASCENDING", sequencing_property="displayName",
+        as_of_time=as_of_time or None,
     )
     if not isinstance(raw, list):
         raw = []
@@ -180,8 +181,8 @@ def _project_forest(mgr, child_key: str, parent_key: str) -> dict:
     return {"roots": roots, "total": len(summary)}
 
 
-def _cached_forest(kind: str, child_key: str, parent_key: str, url, server, user_id, user_pwd):
-    cache_key = f"{kind}|{url or ''}|{server or ''}|{user_id or ''}"
+def _cached_forest(kind: str, child_key: str, parent_key: str, url, server, user_id, user_pwd, as_of_time=None):
+    cache_key = f"{kind}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}"
     cached = _PROJ_TREE_CACHE.get(cache_key)
     if cached and (time.time() - cached[0]) < _PROJ_TREE_TTL:
         return JSONResponse(cached[1])
@@ -191,7 +192,7 @@ def _cached_forest(kind: str, child_key: str, parent_key: str, url, server, user
         logger.exception("Failed to create ProjectManager")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
-        result = _project_forest(mgr, child_key, parent_key)
+        result = _project_forest(mgr, child_key, parent_key, as_of_time)
     except Exception as exc:
         logger.exception(f"project {kind} forest failed")
         raise HTTPException(status_code=500, detail=f"Project {kind} retrieval failed: {exc}")
@@ -205,10 +206,11 @@ def get_projects_tree(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Project hierarchy forest: roots (not managed by another) with nested
     sub-projects (managedProjects children / managingProjects parents)."""
-    return _cached_forest("hierarchy", "managedProjects", "managingProjects", url, server, user_id, user_pwd)
+    return _cached_forest("hierarchy", "managedProjects", "managingProjects", url, server, user_id, user_pwd, as_of_time)
 
 
 @router.get("/api/projects/dependencies", summary="Project dependency forest")
@@ -217,11 +219,12 @@ def get_projects_dependencies(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Project dependency forest: roots (projects nothing depends on) expanding to
     the projects they depend on (dependsOnProjects children / dependentProject
     parents, per the ProjectDependency relationship)."""
-    return _cached_forest("dependencies", "dependsOnProjects", "dependentProject", url, server, user_id, user_pwd)
+    return _cached_forest("dependencies", "dependsOnProjects", "dependentProject", url, server, user_id, user_pwd, as_of_time)
 
 
 @router.get("/api/projects/{guid}", summary="Single project detail with child projects")
@@ -231,6 +234,7 @@ def get_project(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
@@ -239,7 +243,10 @@ def get_project(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
-        raw = mgr.get_project_by_guid(guid, output_format="JSON")
+        body = {"class": "GetRequestBody"}
+        if as_of_time:
+            body["asOfTime"] = as_of_time
+        raw = mgr.get_project_by_guid(guid, output_format="JSON", body=body)
     except Exception as exc:
         logger.exception("get_project_by_guid failed")
         raise HTTPException(status_code=500, detail=f"Project detail failed: {exc}")
@@ -248,7 +255,10 @@ def get_project(
 
     children = []
     try:
-        raw_children = mgr.get_linked_projects(guid, output_format="JSON")
+        child_body = {"class": "RelationshipRequestBody"}
+        if as_of_time:
+            child_body["asOfTime"] = as_of_time
+        raw_children = mgr.get_linked_projects(guid, output_format="JSON", body=child_body)
         if isinstance(raw_children, list):
             children = [_serialize_project(c) for c in raw_children if _type_name(c) == "Project"]
             children.sort(key=lambda p: (p.get("displayName") or "").lower())

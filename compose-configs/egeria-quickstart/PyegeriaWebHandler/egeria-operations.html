@@ -726,9 +726,11 @@ function errMsg(r) {
 function ServersTab({ creds, platforms, platform, onPlatform, isAdmin }) {
   var _r = useState([]),       rows   = _r[0], setRows   = _r[1];
   var _s = useState('idle'),   state  = _s[0], setState  = _s[1];
+  var _em = useState(''),      errMsg = _em[0], setErrMsg = _em[1];
   var _b = useState(false),    busy   = _b[0], setBusy   = _b[1];
   var _sel = useState(null),   selGuid= _sel[0], setSelGuid = _sel[1];
   var _rep = useState(null),   report = _rep[0], setReport = _rep[1];
+  var _repErr = useState(''),  reportErr = _repErr[0], setReportErr = _repErr[1];
   var _cf = useState(null),    confirm= _cf[0], setConfirm = _cf[1];   // {row, action, err}
   var _pw = useState(400),     panelW = _pw[0], setPanelW = _pw[1];
   var rz = useColumnResize(5, 180);
@@ -747,19 +749,37 @@ function ServersTab({ creds, platforms, platform, onPlatform, isAdmin }) {
 
   function load() {
     if (!platform) { setRows([]); setState('idle'); return; }
-    setBusy(true); if (state !== 'ready') setState('loading');
+    setBusy(true); setErrMsg(''); if (state !== 'ready') setState('loading');
     egeriaFetch('/api/operations/server-status?platform_guid=' + encodeURIComponent(platform.guid), creds)
-      .then(function(r){ return r.ok ? r.json() : { servers: [] }; })
+      .then(function(r) {
+        if (r.ok) return r.json();
+        var status = r.status;
+        return r.json().catch(function(){ return {}; }).then(function(e) {
+          var detail = e.detail || '';
+          if (status === 401) throw new Error('Session expired or credentials invalid (HTTP 401).' + (detail ? ' ' + detail : ''));
+          if (status === 403) throw new Error('Your account does not have permission to view server status (HTTP 403).' + (detail ? ' ' + detail : ''));
+          throw new Error('Failed to load servers (HTTP ' + status + ').' + (detail ? ' ' + detail : ''));
+        });
+      })
       .then(function(d){ setRows(d.servers || []); setState('ready'); setBusy(false); })
-      .catch(function(){ setState('error'); setBusy(false); });
+      .catch(function(e){ setErrMsg(e.message || 'Failed to load.'); setState('error'); setBusy(false); });
   }
   useEffect(load, [platform && platform.guid]);
 
   // load the full report when a server is selected (and on refresh)
   function loadReport(guid) {
-    if (!guid) { setReport(null); return; }
+    if (!guid) { setReport(null); setReportErr(''); return; }
+    setReportErr('');
     egeriaFetch('/api/operations/server-report/' + encodeURIComponent(guid), creds)
-      .then(function(r){ return r.ok ? r.json() : null; }).then(setReport).catch(function(){ setReport(null); });
+      .then(function(r) {
+        if (r.ok) return r.json().then(setReport);
+        var status = r.status;
+        if (status === 401) setReportErr('Session expired — please reconnect (HTTP 401).');
+        else if (status === 403) setReportErr('Not authorized to view this server\'s report (HTTP 403).');
+        else setReportErr('Could not load report (HTTP ' + status + ').');
+        setReport(null);
+      })
+      .catch(function(){ setReportErr('Could not load report.'); setReport(null); });
   }
   useEffect(function(){ loadReport(selGuid); }, [selGuid]);
 
@@ -778,7 +798,7 @@ function ServersTab({ creds, platforms, platform, onPlatform, isAdmin }) {
 
   var table = el('div', { style: { flex:1, overflow:'auto', minWidth:0 } },
     state === 'loading' ? el('div', { style: pad }, 'Loading servers…')
-    : state === 'error' ? el('div', { style: pad }, 'Failed to load servers.')
+    : state === 'error' ? el('div', { style: Object.assign({}, pad, { color: '#f87171' }) }, errMsg || 'Failed to load servers.')
     : !platform ? el('div', { style: pad }, 'Select a platform.')
     : rows.length === 0 ? el('div', { style: pad }, 'No servers deployed on ' + platform.displayName + '.')
     : el('table', { style: { borderCollapse:'collapse', tableLayout:'fixed', width: rz.tableWidth ? rz.tableWidth+'px' : '100%', minWidth:'100%' } },
@@ -794,8 +814,10 @@ function ServersTab({ creds, platforms, platform, onPlatform, isAdmin }) {
             el('td', { style: Object.assign({}, td, { color:'var(--muted)' }) }, r.description),
             el('td', { style: td }, r.organizationName),
             el('td', { style: td }, el(StatusPill, { value: r.serverActiveStatus, map: SERVER_STATUS })),
-            el('td', { style: td }, el('button', { onClick: function(e){ e.stopPropagation(); setConfirm({ row:r, action: running ? 'shutdown' : 'activate' }); },
-              style: { fontSize:11, padding:'2px 10px', borderRadius:4, border:'1px solid '+(running?'#f8717155':'#34d39955'), background:'transparent', color: running?'#f87171':'#34d399', cursor:'pointer' } }, running ? 'Stop' : 'Start')));
+            el('td', { style: td }, isAdmin
+              ? el('button', { onClick: function(e){ e.stopPropagation(); setConfirm({ row:r, action: running ? 'shutdown' : 'activate' }); },
+                  style: { fontSize:11, padding:'2px 10px', borderRadius:4, border:'1px solid '+(running?'#f8717155':'#34d39955'), background:'transparent', color: running?'#f87171':'#34d399', cursor:'pointer' } }, running ? 'Stop' : 'Start')
+              : el('span', { style: { fontSize:10, color:'var(--dim)' } }, 'Admin only')));
         }))));
 
   return el('div', { style: { display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' } },
@@ -811,7 +833,10 @@ function ServersTab({ creds, platforms, platform, onPlatform, isAdmin }) {
           el('button', { onClick: function(){ crossAppNavigate({ guid: sel.guid, typeName: 'SoftwareServer', superTypeNames: ['Asset'] }); }, title:'Open in The Catalog',
             style:{ marginLeft:'auto', fontSize:11, padding:'2px 8px', borderRadius:4, border:'1px solid var(--border)', background:'transparent', color:'var(--accent)', cursor:'pointer' } }, 'Catalog ↗'),
           el('button', { onClick: function(){ setSelGuid(null); }, title:'Close', style:{ background:'transparent', border:'none', color:'var(--dim)', cursor:'pointer', fontSize:16, lineHeight:1 } }, '✕')),
-        el('div', { style:{ padding:'10px 14px' } }, report ? el(JsonView, { data: report }) : el('div', { style:{ color:'var(--dim)', fontSize:12 } }, 'Loading report…')))),
+        el('div', { style:{ padding:'10px 14px' } },
+          reportErr ? el('div', { style:{ color:'#f87171', fontSize:12 } }, reportErr)
+          : report ? el(JsonView, { data: report })
+          : el('div', { style:{ color:'var(--dim)', fontSize:12 } }, 'Loading report…')))),
     confirm && el(ConfirmDialog, {
       title: (confirm.action === 'shutdown' ? 'Stop' : 'Start') + ' server?',
       body: el('span', null, (confirm.action === 'shutdown' ? 'Shut down ' : 'Start '), el('b', { style:{ color:'var(--text)' } }, confirm.row.serverName),
@@ -827,6 +852,7 @@ function useServerTab({ creds, platform, serverType, endpoint, rowKey }) {
   var _sv = useState(null),  server = _sv[0], setServer = _sv[1];
   var _r  = useState([]),    rows   = _r[0],  setRows   = _r[1];
   var _s  = useState('idle'),state  = _s[0],  setState  = _s[1];
+  var _em = useState(''),    errMsg = _em[0],  setErrMsg = _em[1];
   var _b  = useState(false), busy   = _b[0],  setBusy   = _b[1];
   var _sel= useState(null),  selKey = _sel[0],setSelKey = _sel[1];
   var servers = (platform && platform.servers || []).filter(function(s){ return s.serverType === serverType; });
@@ -834,14 +860,23 @@ function useServerTab({ creds, platform, serverType, endpoint, rowKey }) {
   useEffect(function(){ setSelKey(null); setServer(servers[0] || null); }, [platform && platform.guid, servers.length]);
   function load() {
     if (!server) { setRows([]); setState('idle'); return; }
-    setBusy(true); if (state !== 'ready') setState('loading');
+    setBusy(true); setErrMsg(''); if (state !== 'ready') setState('loading');
     egeriaFetch(endpoint + '?server_guid=' + encodeURIComponent(server.guid), creds)
-      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(r) {
+        if (r.ok) return r.json();
+        var status = r.status;
+        return r.json().catch(function(){ return {}; }).then(function(e) {
+          var detail = e.detail || '';
+          if (status === 401) throw new Error('Session expired or credentials invalid (HTTP 401).' + (detail ? ' ' + detail : ''));
+          if (status === 403) throw new Error('Your account does not have permission to view this data (HTTP 403).' + (detail ? ' ' + detail : ''));
+          throw new Error('Failed to load (HTTP ' + status + ').' + (detail ? ' ' + detail : ''));
+        });
+      })
       .then(function(d){ setRows((d && (d.connectors || d.engines)) || []); setState('ready'); setBusy(false); })
-      .catch(function(){ setState('error'); setBusy(false); });
+      .catch(function(e){ setErrMsg(e.message || 'Failed to load.'); setState('error'); setBusy(false); });
   }
   useEffect(load, [server && server.guid]);
-  return { server:server, setServer:setServer, servers:servers, rows:rows, state:state, busy:busy, load:load,
+  return { server:server, setServer:setServer, servers:servers, rows:rows, state:state, errMsg:errMsg, busy:busy, load:load,
            selKey:selKey, setSelKey:setSelKey };
 }
 
@@ -928,7 +963,7 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform, isAdmin }) {
 
   var table = el('div', { style:{ flex:1, overflow:'auto', minWidth:0 } },
     t.state === 'loading' ? el('div', { style: pad }, 'Loading connectors…')
-    : t.state === 'error' ? el('div', { style: pad }, 'Failed to load connectors.')
+    : t.state === 'error' ? el('div', { style: Object.assign({}, pad, { color: '#f87171' }) }, t.errMsg || 'Failed to load connectors.')
     : !t.server ? el('div', { style: pad }, 'No Integration Daemon on this platform.')
     : rows.length === 0 ? el('div', { style: pad }, t.rows.length ? 'No connectors match the filter.' : 'No connectors on this daemon.')
     : el('table', { style:{ borderCollapse:'collapse', tableLayout:'fixed', width: rz.tableWidth ? rz.tableWidth+'px' : '100%', minWidth:'100%' } },
@@ -948,7 +983,9 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform, isAdmin }) {
             el('td', { style: Object.assign({}, td, { color: r.failingExceptionMessage ? '#f87171' : 'var(--dim)' }) }, r.failingExceptionMessage || '—'),
             el('td', { style: td }, refreshing.has(r.connectorName)
               ? el('span', { style:{ fontSize:10, color:'#60a5fa' } }, '⟳ Refreshing…')
-              : [actionBtn('Start','#34d399',r,'start'), actionBtn('Stop','#f87171',r,'stop'), actionBtn('Refresh','#60a5fa',r,'refresh')]));
+              : isAdmin
+                ? [actionBtn('Start','#34d399',r,'start'), actionBtn('Stop','#f87171',r,'stop'), actionBtn('Refresh','#60a5fa',r,'refresh')]
+                : el('span', { style:{ fontSize:10, color:'var(--dim)' } }, 'Admin only')));
         }))));
 
   var filters = el(React.Fragment, null,
@@ -1019,7 +1056,7 @@ function EnginesTab({ creds, platforms, platform, onPlatform, isAdmin }) {
 
   var table = el('div', { style:{ flex:1, overflow:'auto', minWidth:0 } },
     t.state === 'loading' ? el('div', { style: pad }, 'Loading governance engines…')
-    : t.state === 'error' ? el('div', { style: pad }, 'Failed to load governance engines.')
+    : t.state === 'error' ? el('div', { style: Object.assign({}, pad, { color: '#f87171' }) }, t.errMsg || 'Failed to load governance engines.')
     : !t.server ? el('div', { style: pad }, 'No Engine Host on this platform.')
     : rows.length === 0 ? el('div', { style: pad }, t.rows.length ? 'No engines match the filter.' : 'No governance engines on this host.')
     : el('table', { style:{ borderCollapse:'collapse', tableLayout:'fixed', width: rz.tableWidth ? rz.tableWidth+'px' : '100%', minWidth:'100%' } },
@@ -1036,13 +1073,15 @@ function EnginesTab({ creds, platforms, platform, onPlatform, isAdmin }) {
             el('td', { style: td }, el(StatusPill, { value:r.governanceEngineStatus, map:GOV_ENGINE_STATUS })),
             el('td', { style: td }, chips(r.governanceRequestTypes)),
             el('td', { style: td }, r.lastRefreshTime || '—'),
-            el('td', { style: td }, el('button', { onClick:function(e){ e.stopPropagation(); setConfirm({ row:r }); },
-              style:{ fontSize:10, padding:'1px 8px', borderRadius:4, border:'1px solid #60a5fa55', background:'transparent', color:'#60a5fa', cursor:'pointer' } }, 'Refresh config')));
+            el('td', { style: td }, isAdmin
+              ? el('button', { onClick:function(e){ e.stopPropagation(); setConfirm({ row:r }); },
+                  style:{ fontSize:10, padding:'1px 8px', borderRadius:4, border:'1px solid #60a5fa55', background:'transparent', color:'#60a5fa', cursor:'pointer' } }, 'Refresh config')
+              : el('span', { style:{ fontSize:10, color:'var(--dim)' } }, 'Admin only')));
         }))));
 
   var filters = el(React.Fragment, null,
     el('input', { placeholder:'filter engine…', value:fText, onChange:function(e){ setFText(e.target.value); }, style:{ fontSize:11, padding:'4px 8px', background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:4, width:150 } }),
-    t.server && el(React.Fragment, null,
+    t.server && isAdmin && el(React.Fragment, null,
       el('div', { style:{ width:1, height:20, background:'var(--border)', margin:'0 4px' } }),
       el('button', { onClick:function(){ setSrvConf({ action:'activate' }); },
         style:{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid #34d39955', background:'transparent', color:'#34d399', cursor:'pointer' } }, 'Start host'),

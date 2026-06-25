@@ -138,7 +138,7 @@ def _serialize_actor_element(element: dict) -> dict:
     return d
 
 
-def _list_route(mgr, find_fn, url, server, user_id, user_pwd, start_from, page_size, label):
+def _list_route(mgr, find_fn, url, server, user_id, user_pwd, start_from, page_size, label, as_of_time=None):
     try:
         raw = find_fn(
             search_string="*",
@@ -149,6 +149,7 @@ def _list_route(mgr, find_fn, url, server, user_id, user_pwd, start_from, page_s
             page_size=page_size,
             sequencing_order="PROPERTY_ASCENDING",
             sequencing_property="displayName",
+            as_of_time=as_of_time or None,
         )
     except Exception as exc:
         logger.exception(f"{label} list failed")
@@ -169,13 +170,14 @@ def list_actor_profiles(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("Failed to create ActorManager for profile list")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
-    items = _list_route(mgr, mgr.find_actor_profiles, url, server, user_id, user_pwd, start_from, page_size, "Actor profile")
+    items = _list_route(mgr, mgr.find_actor_profiles, url, server, user_id, user_pwd, start_from, page_size, "Actor profile", as_of_time)
     return JSONResponse({"profiles": items, "total": len(items)})
 
 
@@ -186,6 +188,7 @@ def get_actor_profile(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
@@ -193,7 +196,10 @@ def get_actor_profile(
         logger.exception("Failed to create ActorManager for profile detail")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
-        element = mgr.get_actor_profile_by_guid(guid, output_format="JSON", graph_query_depth=1)
+        body = {"class": "GetRequestBody"}
+        if as_of_time:
+            body["asOfTime"] = as_of_time
+        element = mgr.get_actor_profile_by_guid(guid, output_format="JSON", graph_query_depth=1, body=body)
     except Exception as exc:
         logger.exception(f"get_actor_profile_by_guid failed for {guid}")
         raise HTTPException(status_code=500, detail=f"Actor profile retrieval failed: {exc}")
@@ -212,13 +218,14 @@ def list_actor_roles(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("Failed to create ActorManager for role list")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
-    items = _list_route(mgr, mgr.find_actor_roles, url, server, user_id, user_pwd, start_from, page_size, "Actor role")
+    items = _list_route(mgr, mgr.find_actor_roles, url, server, user_id, user_pwd, start_from, page_size, "Actor role", as_of_time)
     return JSONResponse({"roles": items, "total": len(items)})
 
 
@@ -229,6 +236,7 @@ def get_actor_role(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
@@ -236,7 +244,10 @@ def get_actor_role(
         logger.exception("Failed to create ActorManager for role detail")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
-        element = mgr.get_actor_role_by_guid(guid, output_format="JSON", graph_query_depth=1)
+        body = {"class": "GetRequestBody"}
+        if as_of_time:
+            body["asOfTime"] = as_of_time
+        element = mgr.get_actor_role_by_guid(guid, output_format="JSON", graph_query_depth=1, body=body)
     except Exception as exc:
         logger.exception(f"get_actor_role_by_guid failed for {guid}")
         raise HTTPException(status_code=500, detail=f"Actor role retrieval failed: {exc}")
@@ -255,13 +266,14 @@ def list_user_identities(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("Failed to create ActorManager for identity list")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
-    items = _list_route(mgr, mgr.find_user_identities, url, server, user_id, user_pwd, start_from, page_size, "User identity")
+    items = _list_route(mgr, mgr.find_user_identities, url, server, user_id, user_pwd, start_from, page_size, "User identity", as_of_time)
     return JSONResponse({"identities": items, "total": len(items)})
 
 
@@ -272,6 +284,7 @@ def get_user_identity(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
@@ -279,7 +292,10 @@ def get_user_identity(
         logger.exception("Failed to create ActorManager for identity detail")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
-        element = mgr.get_user_identity_by_guid(guid, output_format="JSON", graph_query_depth=1)
+        body = {"class": "GetRequestBody"}
+        if as_of_time:
+            body["asOfTime"] = as_of_time
+        element = mgr.get_user_identity_by_guid(guid, output_format="JSON", graph_query_depth=1, body=body)
     except Exception as exc:
         logger.exception(f"get_user_identity_by_guid failed for {guid}")
         raise HTTPException(status_code=500, detail=f"User identity retrieval failed: {exc}")

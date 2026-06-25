@@ -156,6 +156,72 @@ def get_valid_value_properties(
     return JSONResponse({"properties": sorted(names), "total": len(names)})
 
 
+def _fallback_lookup(property_name: str, url=None, server=None, user_id=None, user_pwd=None) -> list:
+    """
+    Fall back to find_metadata_elements when the primary REST lookup returns nothing.
+    This handles properties whose valid values are registered against specific Egeria
+    types (e.g. annotationType → ResourceProfileAnnotation) rather than globally.
+    Returns a list of flat dicts matching the format the REST API normally produces.
+    """
+    expert = _get_expert(url, server, user_id, user_pwd)
+    find_body = {
+        "class": "FindRequestBody",
+        "metadataElementTypeName": "ValidMetadataValue",
+        "searchProperties": {
+            "class": "SearchProperties",
+            "conditions": [
+                {
+                    "property": "identifier",
+                    "operator": "EQ",
+                    "value": {
+                        "class": "PrimitiveTypePropertyValue",
+                        "typeName": "string",
+                        "primitiveValue": property_name,
+                    },
+                }
+            ],
+            "matchCriteria": "ALL",
+        },
+    }
+    try:
+        raw = expert.find_metadata_elements(find_body)
+    except Exception as exc:
+        logger.warning(f"fallback find_metadata_elements failed for {property_name}: {exc}")
+        return []
+
+    if not isinstance(raw, list):
+        return []
+
+    results = []
+    for el in raw:
+        props = (el.get("elementProperties") or {}).get("propertiesAsStrings") or {}
+        preferred = props.get("preferredValue", "")
+        if not preferred:
+            # Skip set-header entries (preferredValue absent = the containing set record)
+            continue
+        try:
+            ordinal = int(props.get("ordinal", 9999))
+        except (TypeError, ValueError):
+            ordinal = 9999
+        is_case = props.get("isCaseSensitive", "false").lower() == "true"
+        results.append({
+            "displayName":     props.get("displayName") or preferred,
+            "preferredValue":  preferred,
+            "description":     props.get("description", ""),
+            "category":        props.get("category", ""),
+            "dataType":        props.get("dataType", ""),
+            "usage":           props.get("usage", ""),
+            "scope":           props.get("scope", ""),
+            "qualifiedName":   props.get("qualifiedName", ""),
+            "isCaseSensitive": is_case,
+            "ordinal":         ordinal,
+            "propertyName":    property_name,
+            "guid":            el.get("elementGUID", ""),
+        })
+    logger.info(f"fallback lookup for {property_name!r}: {len(results)} values via find_metadata_elements")
+    return results
+
+
 @router.get("/api/valid-values/lookup", summary="Look up valid values for an Egeria property name")
 def lookup_valid_values(
     property_name: str           = Query(..., description="Egeria property name to look up"),
@@ -168,6 +234,8 @@ def lookup_valid_values(
     """
     Return valid metadata values registered for a given Egeria property name.
     Optionally restrict results to a specific open metadata type.
+    When the primary REST lookup returns nothing and no type_name was specified,
+    falls back to find_metadata_elements to catch type-scoped valid value sets.
     """
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
@@ -183,6 +251,11 @@ def lookup_valid_values(
 
     if not isinstance(raw, list):
         raw = []
+
+    # Primary lookup returned nothing and no type was scoped — use find_metadata_elements
+    # to pick up values registered against specific Egeria types (e.g. annotationType).
+    if not raw and not type_name:
+        raw = _fallback_lookup(property_name, url, server, user_id, user_pwd)
 
     return JSONResponse({
         "property_name": property_name,

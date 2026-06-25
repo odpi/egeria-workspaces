@@ -670,18 +670,42 @@ function UsersTab({ creds }) {
     document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
   }
 
+  var _platErr  = useState(''), platErr  = _platErr[0],  setPlatErr  = _platErr[1];
+  var _usersErr = useState(''), usersErr = _usersErr[0], setUsersErr = _usersErr[1];
+
   useEffect(function() {
-    egeriaFetch('/api/audit/platforms', creds).then(function(r){ return r.ok ? r.json() : { platforms: [] }; })
-      .then(function(d){ var ps = d.platforms || []; setPlats(ps); if (ps.length) setPlat(ps[ps.length - 1]); });
+    egeriaFetch('/api/audit/platforms', creds)
+      .then(function(r) {
+        if (r.ok) return r.json();
+        var status = r.status;
+        return r.json().catch(function(){ return {}; }).then(function(e) {
+          var msg = e.detail || '';
+          if (status === 401) throw new Error('Session expired — please reconnect (HTTP 401).' + (msg ? ' ' + msg : ''));
+          if (status === 403) throw new Error('Not authorized to list platforms (HTTP 403).' + (msg ? ' ' + msg : ''));
+          throw new Error('Failed to load platforms (HTTP ' + status + ').' + (msg ? ' ' + msg : ''));
+        });
+      })
+      .then(function(d){ var ps = d.platforms || []; setPlats(ps); if (ps.length) setPlat(ps[ps.length - 1]); })
+      .catch(function(e){ setPlatErr(e.message || 'Failed to load platforms.'); });
   }, []);
 
   useEffect(function() {
     if (!plat) { setUsers([]); setUState('idle'); return; }
-    setUState('loading'); setExpand(null);
+    setUState('loading'); setExpand(null); setUsersErr('');
     var u = '/api/audit/users?platform_guid=' + encodeURIComponent(plat.guid) + '&platform_name=' + encodeURIComponent(plat.displayName);
-    egeriaFetch(u, creds).then(function(r){ return r.ok ? r.json() : { users: [] }; })
+    egeriaFetch(u, creds)
+      .then(function(r) {
+        if (r.ok) return r.json();
+        var status = r.status;
+        return r.json().catch(function(){ return {}; }).then(function(e) {
+          var msg = e.detail || '';
+          if (status === 401) throw new Error('Session expired — please reconnect (HTTP 401).' + (msg ? ' ' + msg : ''));
+          if (status === 403) throw new Error('Not authorized to list users for this platform (HTTP 403).' + (msg ? ' ' + msg : ''));
+          throw new Error('Failed to load users (HTTP ' + status + ').' + (msg ? ' ' + msg : ''));
+        });
+      })
       .then(function(d){ setUsers(d.users || []); setUState('ready'); })
-      .catch(function(){ setUState('error'); });
+      .catch(function(e){ setUsersErr(e.message || 'Failed to load users.'); setUState('error'); });
   }, [plat && plat.guid]);
 
   function applyStatus(user, status) {
@@ -725,7 +749,8 @@ function UsersTab({ creds }) {
       el('span', { style: { fontSize: 12, color: 'var(--dim)' } }, 'Platform:'),
       el('select', { value: plat ? plat.guid : '', onChange: function(e){ setPlat(plats.find(function(p){ return p.guid === e.target.value; }) || null); },
         style: { fontSize: 12, padding: '4px 8px', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 4 } },
-        plats.length === 0 ? el('option', { value: '' }, 'No platforms') : plats.map(function(p){ return el('option', { key: p.guid, value: p.guid }, p.displayName); })),
+        plats.length === 0 ? el('option', { value: '' }, platErr ? 'Error loading platforms' : 'No platforms') : plats.map(function(p){ return el('option', { key: p.guid, value: p.guid }, p.displayName); })),
+      platErr && el('span', { style: { fontSize: 11, color: '#f87171', marginLeft: 8 } }, platErr),
       el('span', { style: { fontSize: 11, color: 'var(--dim)', marginLeft: 'auto' } }, 'Status changes require an admin account')
     ),
     // Toolbar: search + status + type pills
@@ -739,7 +764,7 @@ function UsersTab({ creds }) {
       el('span', { style: { marginLeft: 'auto', fontSize: 11, color: 'var(--dim)' } }, visibleUsers.length + ' / ' + users.length + ' users')
     ),
     uState === 'loading' ? el('div', { style: pad }, 'Loading users…')
-    : uState === 'error' ? el('div', { style: pad }, 'Failed to load users.')
+    : uState === 'error' ? el('div', { style: Object.assign({}, pad, { color: '#f87171' }) }, usersErr || 'Failed to load users.')
     : users.length === 0 ? el('div', { style: pad }, plat ? ('No users registered in ' + plat.displayName + "'s security connector.") : 'Select a platform.')
     : el('div', { style: { flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 } },
         el('div', { style: { flex: 1, overflow: 'auto', minWidth: 0 } },

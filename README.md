@@ -22,7 +22,7 @@ When you're ready to run your own copy, see [Getting started](#getting-started) 
 
 | Capability | How to access | Description |
 |------------|---------------|-------------|
-| **Explore the asset catalog** | `/tech-catalog` | Browse infrastructure, data assets, APIs, processes, surveys and annotations registered in Egeria |
+| **Explore the asset catalog** | `/tech-catalog` (The Catalog) | Browse infrastructure, data assets, APIs, processes, surveys and annotations registered in Egeria |
 | **Explore metadata** | `/egeria-explorer` | Browse the type system, glossary, reference data, digital products, valid values and REST APIs |
 | **Audit governance** | `/egeria-audit` | Review governance relationships (exceptions, certifications, licenses, users). Rows are filtered by your governance-zone access |
 | **Operate the platform** | `/egeria-operations` | Monitor servers, integration connectors, governance engines and engine actions with live auto-refresh |

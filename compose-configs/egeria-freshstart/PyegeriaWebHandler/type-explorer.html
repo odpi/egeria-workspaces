@@ -2525,10 +2525,6 @@ function ReportSpecView() {
 
 function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
-  // Auth wrapper handed to the shared GlossaryTreeNode for lazy child loads.
-  const fetchJson = React.useCallback(function(path) {
-    return egeriaFetch(path, creds).then(function(r) { return r.ok ? r.json() : {}; });
-  }, [creds]);
   const [sideW, onDivDown] = useResizable(254);
   const [glossaryState, setGlossaryState] = useState('loading');
   const [glossaryAttempt, setGlossaryAttempt] = useState(0);
@@ -2539,6 +2535,14 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
   const [folderStack, setFolderStack] = useState([]);
   // External navigation target (from Digital Products cross-link)
   const [navTerm, setNavTerm] = useState(null);
+  const [asOfTime, setAsOfTime] = useState(null);  // LE-3 point-in-time
+
+  // Auth wrapper handed to the shared GlossaryTreeNode for lazy child loads.
+  // Includes as_of_time so expanded folder children also reflect the chosen time.
+  const fetchJson = React.useCallback(function(path) {
+    var url = path + (asOfTime ? ((path.indexOf('?') !== -1 ? '&' : '?') + 'as_of_time=' + encodeURIComponent(asOfTime)) : '');
+    return egeriaFetch(url, creds).then(function(r) { return r.ok ? r.json() : {}; });
+  }, [creds, asOfTime]);
 
   // Content for current scope (glossary or folder): separate folders and terms
   const [folders, setFolders] = useState([]);
@@ -2567,14 +2571,29 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
   const [showTemplates, setShowTemplates] = useState(false);
   const [glossaryError, setGlossaryError] = useState('');
 
+  var atParam = asOfTime ? ('?as_of_time=' + encodeURIComponent(asOfTime)) : '';
+  var atAppend = asOfTime ? ('&as_of_time=' + encodeURIComponent(asOfTime)) : '';
+
+  // When asOfTime changes: clear search results (user must re-run search) and reset scope
+  useEffect(() => {
+    setSearchTerms([]);
+    setSearchState('idle');
+    setSearchQuery('');
+    setSearchInputValue('');
+    setSelectedItem(null);
+    setSelectedData(null);
+    setTermDetail(null);
+    setTermDetailState('idle');
+  }, [asOfTime]);
+
   // Fetch term when cross-navigated from Digital Products
   useEffect(() => {
     if (!navGuid) { setNavTerm(null); return; }
-    egeriaFetch('/api/glossary/term/' + encodeURIComponent(navGuid), creds)
+    egeriaFetch('/api/glossary/term/' + encodeURIComponent(navGuid) + atParam, creds)
       .then(function(r) { return r.ok ? r.json() : null; })
       .then(function(data) { if (data) { setNavTerm(data); setSelectedItem(data.guid); } })
       .catch(function() {});
-  }, [navGuid]);
+  }, [navGuid, asOfTime]);
 
   // Current scope guid: deepest folder or the glossary itself
   const currentScopeGuid = useMemo(() => {
@@ -2582,11 +2601,11 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
     return folderStack.length > 0 ? folderStack[folderStack.length - 1].guid : selectedGlossary;
   }, [selectedGlossary, folderStack]);
 
-  // Load glossary list once
+  // Load glossary list on mount/retry/asOfTime change
   useEffect(() => {
     setGlossaryState('loading');
     setGlossaryError('');
-    egeriaFetch('/api/glossary', creds)
+    egeriaFetch('/api/glossary' + atParam, creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
         const list = (data.glossaries || []).sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
@@ -2595,9 +2614,9 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
         if (list.length > 0) setSelectedGlossary(list[0].guid);
       })
       .catch(err => { setGlossaryError(err.message); setGlossaryState('error'); });
-  }, [glossaryAttempt]);
+  }, [glossaryAttempt, asOfTime]);
 
-  // Load folders + terms whenever scope changes
+  // Load folders + terms whenever scope or asOfTime changes
   useEffect(() => {
     if (!currentScopeGuid) return;
     setScopeState('loading');
@@ -2610,8 +2629,8 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
     setTermDetailState('idle');
     setFilterText('');
     Promise.all([
-      egeriaFetch('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/folders', creds).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
-      egeriaFetch('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/terms', creds).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+      egeriaFetch('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/folders' + atParam, creds).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+      egeriaFetch('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/terms' + atParam, creds).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
     ])
     .then(([fData, tData]) => {
       setFolders(fData.folders || []);
@@ -2619,9 +2638,9 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
       setScopeState('ready');
     })
     .catch(err => { setScopeError(err.message); setScopeState('error'); });
-  }, [currentScopeGuid]);
+  }, [currentScopeGuid, asOfTime]);
 
-  // Cross-glossary search
+  // Cross-glossary search (asOfTime-aware)
   const runSearch = useCallback((q) => {
     const sq = (q || '').trim() || '*';
     setSearchQuery(sq);
@@ -2632,11 +2651,11 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
     setSelectedItem(null);
     setTermDetail(null);
     setTermDetailState('idle');
-    egeriaFetch('/api/glossary-terms?q=' + encodeURIComponent(sq), creds)
+    egeriaFetch('/api/glossary-terms?q=' + encodeURIComponent(sq) + atAppend, creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => { setSearchTerms(data.terms || []); setSearchState('ready'); })
       .catch(err => { setSearchError(err.message); setSearchState('idle'); });
-  }, []);
+  }, [asOfTime]);
 
   const openFolder = useCallback((folder) => {
     setFolderStack(s => [...s, { guid: folder.guid, displayName: folder.displayName }]);
@@ -2685,19 +2704,19 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
     return selectedData;  // the clicked folder/term object (carries isFolder)
   }, [selectedItem, selectedData, navTerm]);
 
-  // Lazy-fetch full term detail whenever a term is selected
+  // Lazy-fetch full term detail whenever a term or asOfTime changes
   useEffect(() => {
     if (!selectedItem) { setTermDetail(null); setTermDetailState('idle'); return; }
     if (selectedData && selectedData.isFolder) { setTermDetail(null); setTermDetailState('idle'); return; }
-    // Reuse navTerm if it already matches (avoids duplicate fetch)
-    if (navTerm && navTerm.guid === selectedItem) { setTermDetail(navTerm); setTermDetailState('ready'); return; }
+    // Reuse navTerm if it already matches and time hasn't changed (no asOfTime)
+    if (!asOfTime && navTerm && navTerm.guid === selectedItem) { setTermDetail(navTerm); setTermDetailState('ready'); return; }
     setTermDetail(null);
     setTermDetailState('loading');
-    egeriaFetch('/api/glossary/term/' + encodeURIComponent(selectedItem), creds)
+    egeriaFetch('/api/glossary/term/' + encodeURIComponent(selectedItem) + atParam, creds)
       .then(r => r.ok ? r.json() : null)
       .then(data => { setTermDetail(data || null); setTermDetailState(data ? 'ready' : 'error'); })
       .catch(() => setTermDetailState('error'));
-  }, [selectedItem, selectedData, navTerm]);
+  }, [selectedItem, selectedData, navTerm, asOfTime]);
 
   const navigateToTerm = useCallback(function(guid) {
     setSelectedItem(guid);
@@ -2728,6 +2747,9 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
   return React.createElement("div", { className: "body" },
     // Left: glossary list
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
+      React.createElement("div", { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)' } },
+        React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' })
+      ),
       React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } }, "Glossaries (" + glossaries.length + ")"),
       React.createElement("div", { className: "tree-scroll" },
         React.createElement("div", {
@@ -6386,18 +6408,28 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
   const [filter, setFilter]   = useState('');
   // Expanded kind-group headers, keyed "subNav::typeName". Groups start collapsed.
   const [expandedKinds, setExpandedKinds] = useState(new Set());
+  const [asOfTime, setAsOfTime] = useState(null);  // LE-3 point-in-time
 
   const toggleKind = useCallback(function(key) {
     setExpandedKinds(function(prev) { var n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
   }, []);
 
-  // Load the active sub-tab's list lazily (only once per tab).
+  // When asOfTime changes, reset all tabs to idle so they re-fetch with the new time.
+  useEffect(function() {
+    setState({ profiles: 'idle', roles: 'idle', identities: 'idle' });
+    setItems({ profiles: [], roles: [], identities: [] });
+    setSelected({ profiles: null, roles: null, identities: null });
+  }, [asOfTime]);
+
+  var atSuffix = asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : '';
+
+  // Load the active sub-tab's list lazily (once per tab per asOfTime).
   useEffect(function() {
     var cfg = ACTOR_SUBNAV[subNav];
     if (!cfg || state[subNav] === 'ready' || state[subNav] === 'loading') return;
     setState(function(s) { return Object.assign({}, s, { [subNav]: 'loading' }); });
     setError(function(s) { return Object.assign({}, s, { [subNav]: '' }); });
-    egeriaFetch(cfg.list, creds)
+    egeriaFetch(cfg.list + atSuffix, creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) {
         setItems(function(s) { return Object.assign({}, s, { [subNav]: data[cfg.key] || [] }); });
@@ -6407,7 +6439,7 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
         setError(function(s) { return Object.assign({}, s, { [subNav]: e.message }); });
         setState(function(s) { return Object.assign({}, s, { [subNav]: 'error' }); });
       });
-  }, [subNav, attempt.profiles, attempt.roles, attempt.identities]);
+  }, [subNav, attempt.profiles, attempt.roles, attempt.identities, asOfTime]);
 
   // Cross-tab / cross-section arrival: switch sub-nav and select once that tab's list loads.
   useEffect(function() {
@@ -6422,11 +6454,11 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
     var cfg = ACTOR_SUBNAV[subNav];
     if (!curSelected || !cfg) { setDetail(null); return; }
     setDetailState('loading');
-    egeriaFetch(cfg.list + '/' + curSelected, creds)
+    egeriaFetch(cfg.list + '/' + curSelected + atSuffix, creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setDetail(data); setDetailState('ready'); })
       .catch(function() { setDetailState('error'); });
-  }, [subNav, curSelected]);
+  }, [subNav, curSelected, asOfTime]);
 
   function retryCurrent() {
     setAttempt(function(a) { return Object.assign({}, a, { [subNav]: a[subNav] + 1 }); });
@@ -6437,6 +6469,9 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
   const curError = error[subNav];
 
   const sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
+      React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' })
+    ),
     React.createElement("div", { style: { display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
       ACTOR_SUBNAV_ORDER.map(function(tab) {
         return React.createElement("button", {
@@ -7306,6 +7341,7 @@ function ProjectsView() {
   const [detail, setDetail]     = React.useState(null);
   const [detailState, setDetailState] = React.useState('idle');
   const [search, setSearch] = React.useState('');
+  const [asOfTime, setAsOfTime] = React.useState(null);  // LE-3 point-in-time
   // Two left-nav views: 'hierarchy' (managed sub-projects) | 'dependencies'
   const [projSubNav, setProjSubNav] = React.useState('hierarchy');
   const [projTree, setProjTree] = React.useState(null);
@@ -7314,32 +7350,35 @@ function ProjectsView() {
   const [depTreeState, setDepTreeState] = React.useState('loading');
   const [expandedProjs, setExpandedProjs] = React.useState(new Set());
 
+  var atParam = asOfTime ? '&as_of_time=' + encodeURIComponent(asOfTime) : '';
+
   React.useEffect(function() {
     setState('loading');
-    egeriaFetch('/api/projects?start_from=0&page_size=500', creds)
+    setSelected(null);
+    egeriaFetch('/api/projects?start_from=0&page_size=500' + atParam, creds)
       .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function(data) {
         setProjects(data.projects || []);
         setState('ready');
       })
       .catch(function(e) { setError(String(e)); setState('error'); });
-  }, []);
+  }, [asOfTime]);
 
   React.useEffect(function() {
     setProjTreeState('loading');
-    egeriaFetch('/api/projects/tree', creds)
+    egeriaFetch('/api/projects/tree' + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
       .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function(data) { setProjTree(data.roots || []); setProjTreeState('ready'); })
       .catch(function() { setProjTreeState('error'); });
-  }, []);
+  }, [asOfTime]);
 
   React.useEffect(function() {
     setDepTreeState('loading');
-    egeriaFetch('/api/projects/dependencies', creds)
+    egeriaFetch('/api/projects/dependencies' + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
       .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function(data) { setDepTree(data.roots || []); setDepTreeState('ready'); })
       .catch(function() { setDepTreeState('error'); });
-  }, []);
+  }, [asOfTime]);
 
   const toggleProj = React.useCallback(function(guid) {
     setExpandedProjs(function(prev) { var n = new Set(prev); if (n.has(guid)) n.delete(guid); else n.add(guid); return n; });
@@ -7348,11 +7387,11 @@ function ProjectsView() {
   React.useEffect(function() {
     if (!selected) { setDetail(null); return; }
     setDetailState('loading');
-    egeriaFetch('/api/projects/' + encodeURIComponent(selected.guid), creds)
+    egeriaFetch('/api/projects/' + encodeURIComponent(selected.guid) + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
       .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function(data) { setDetail(data); setDetailState('ready'); })
       .catch(function(e) { setDetailState('error'); });
-  }, [selected]);
+  }, [selected, asOfTime]);
 
   var filtered = projects.filter(function(p) {
     if (!search) return true;
@@ -7384,6 +7423,10 @@ function ProjectsView() {
   return React.createElement('div', { className: 'body' },
     // Sidebar
     React.createElement('div', { style: sidebarStyle },
+      // Time slider
+      React.createElement('div', { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
+        React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' })
+      ),
       // Sub-nav: Hierarchy | Dependencies
       React.createElement('div', { style: { display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
         [['hierarchy', 'Hierarchy'], ['dependencies', 'Dependencies']].map(function(t) {
