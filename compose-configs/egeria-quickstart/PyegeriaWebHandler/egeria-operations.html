@@ -723,7 +723,7 @@ function errMsg(r) {
 }
 
 // ── Servers tab ───────────────────────────────────────────────────────────────
-function ServersTab({ creds, platforms, platform, onPlatform, isAdmin }) {
+function ServersTab({ creds, platforms, platform, onPlatform }) {
   var _r = useState([]),       rows   = _r[0], setRows   = _r[1];
   var _s = useState('idle'),   state  = _s[0], setState  = _s[1];
   var _em = useState(''),      errMsg = _em[0], setErrMsg = _em[1];
@@ -814,10 +814,9 @@ function ServersTab({ creds, platforms, platform, onPlatform, isAdmin }) {
             el('td', { style: Object.assign({}, td, { color:'var(--muted)' }) }, r.description),
             el('td', { style: td }, r.organizationName),
             el('td', { style: td }, el(StatusPill, { value: r.serverActiveStatus, map: SERVER_STATUS })),
-            el('td', { style: td }, isAdmin
-              ? el('button', { onClick: function(e){ e.stopPropagation(); setConfirm({ row:r, action: running ? 'shutdown' : 'activate' }); },
-                  style: { fontSize:11, padding:'2px 10px', borderRadius:4, border:'1px solid '+(running?'#f8717155':'#34d39955'), background:'transparent', color: running?'#f87171':'#34d399', cursor:'pointer' } }, running ? 'Stop' : 'Start')
-              : el('span', { style: { fontSize:10, color:'var(--dim)' } }, 'Admin only')));
+            el('td', { style: td },
+              el('button', { onClick: function(e){ e.stopPropagation(); setConfirm({ row:r, action: running ? 'shutdown' : 'activate' }); },
+                style: { fontSize:11, padding:'2px 10px', borderRadius:4, border:'1px solid '+(running?'#f8717155':'#34d39955'), background:'transparent', color: running?'#f87171':'#34d399', cursor:'pointer' } }, running ? 'Stop' : 'Start')));
         }))));
 
   return el('div', { style: { display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' } },
@@ -904,7 +903,7 @@ function usePanelWidth(initial) {
 }
 
 // ── Integration Connectors tab ────────────────────────────────────────────────
-function ConnectorsTab({ creds, platforms, platform, onPlatform, isAdmin }) {
+function ConnectorsTab({ creds, platforms, platform, onPlatform }) {
   var t = useServerTab({ creds:creds, platform:platform, serverType:'Integration Daemon', endpoint:'/api/operations/integration-connectors' });
   var _cf = useState(null),        confirm    = _cf[0], setConfirm    = _cf[1];
   var _rfg = useState(new Set()),  refreshing = _rfg[0], setRefreshing = _rfg[1];
@@ -912,9 +911,9 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform, isAdmin }) {
   var _ft = useState(''),    fText   = _ft[0], setFText   = _ft[1];
   var _fs = useState(new Set()), fStatus = _fs[0], setFStatus = _fs[1];
   var _so = useState({ col:0, dir:'asc' }), sort = _so[0], setSort = _so[1];
-  var pw = usePanelWidth(420), panelW = pw[0], onPanelDown = pw[1];
-  var rz = useColumnResize(8, 150);
-  var SORT_KEYS = ['connectorName','connectorStatus','','integrationGroup','lastStatusChange','lastRefreshTime','minMinutesBetweenRefresh','failingExceptionMessage'];
+  var pw = usePanelWidth(460), panelW = pw[0], onPanelDown = pw[1];
+  var rz = useColumnResize(7, 150);
+  var SORT_KEYS = ['connectorName','connectorStatus','integrationGroup','lastStatusChange','lastRefreshTime','minMinutesBetweenRefresh','failingExceptionMessage'];
   var sel = t.rows.find(function(r){ return r.connectorName === t.selKey; });
   var groupNames = Array.from(new Set(t.rows.map(function(r){ return r.integrationGroup; }).filter(Boolean))).sort();
   var rows = applySort(t.rows.filter(function(r){
@@ -927,13 +926,11 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform, isAdmin }) {
 
   function act(row, action) {
     if (action === 'refresh') {
-      // Refresh runs in background on server (can take several minutes) — close
-      // the modal immediately, mark the row, and fire-and-forget the request.
       setConfirm(null);
       setRefreshing(function(s){ var n = new Set(s); n.add(row.connectorName); return n; });
       egeriaFetch('/api/operations/connector/refresh', creds, { method:'POST', headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify({ server_guid: t.server.guid, connector_name: row.connectorName }) })
-        .catch(function(){}); // background — ignore timeouts and errors
+        .catch(function(){}); // background — ignore timeouts; server logs the outcome
       return;
     }
     setConfirm(Object.assign({}, confirm, { busy:true }));
@@ -946,20 +943,32 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform, isAdmin }) {
 
   var th = { textAlign:'left', padding:'6px 10px', borderBottom:'2px solid var(--border)', color:'var(--accent)', fontSize:11, whiteSpace:'nowrap', position:'relative', overflow:'hidden' };
   var td = { padding:'5px 10px', borderBottom:'1px solid var(--border)', fontSize:12, verticalAlign:'top' };
-  var COLS = ['Connector','Status','Catalog Targets','Integration Group','Last Status Change','Last Refresh','Refresh (min)','Failing Message'];
-
-  function targetsCell(targets) {
-    if (!targets || !targets.length) return el('span', { style:{ color:'var(--dim)' } }, '—');
-    return el('div', null, targets.map(function(tg, i){
-      return el('div', { key:i, style:{ fontSize:11, marginBottom:2 } },
-        el('a', { onClick: function(e){ e.stopPropagation(); crossAppNavigate({ guid: tg.guid, typeName: tg.typeName }); }, style:{ cursor:'pointer' } }, tg.elementName || tg.catalogTargetName || tg.guid),
-        el('span', { style:{ color:'var(--dim)' } }, ' · ' + (tg.typeName || ''))); }));
-  }
+  var COLS = ['Connector','Status','Integration Group','Last Status Change','Last Refresh','Refresh (min)','Errors'];
 
   var actionBtn = function(label, color, row, action){
-    return el('button', { onClick:function(e){ e.stopPropagation(); setConfirm({ row:row, action:action }); },
+    return el('button', { key:action, onClick:function(e){ e.stopPropagation(); setConfirm({ row:row, action:action }); },
       style:{ fontSize:10, padding:'1px 7px', borderRadius:4, border:'1px solid '+color+'55', background:'transparent', color:color, cursor:'pointer', marginRight:4 } }, label);
   };
+
+  // Catalog targets table rendered in the detail panel
+  function CatalogTargetsSection({ targets }) {
+    if (!targets || !targets.length) return el('div', { style:{ color:'var(--dim)', fontSize:12 } }, 'No catalog targets configured.');
+    return el('table', { style:{ borderCollapse:'collapse', width:'100%', marginTop:4 } },
+      el('thead', null, el('tr', null,
+        el('th', { style:{ textAlign:'left', padding:'4px 8px', fontSize:10, color:'var(--muted)', borderBottom:'1px solid var(--border)', textTransform:'uppercase', letterSpacing:1 } }, 'Target Name'),
+        el('th', { style:{ textAlign:'left', padding:'4px 8px', fontSize:10, color:'var(--muted)', borderBottom:'1px solid var(--border)', textTransform:'uppercase', letterSpacing:1 } }, 'Element'),
+        el('th', { style:{ textAlign:'left', padding:'4px 8px', fontSize:10, color:'var(--muted)', borderBottom:'1px solid var(--border)', textTransform:'uppercase', letterSpacing:1 } }, 'Type'),
+        el('th', { style:{ padding:'4px 8px', borderBottom:'1px solid var(--border)' } }))),
+      el('tbody', null, targets.map(function(tg, i){
+        return el('tr', { key:i },
+          el('td', { style:{ padding:'5px 8px', fontSize:11, borderBottom:'1px solid rgba(26,45,72,.3)', color:'var(--muted)' } }, tg.catalogTargetName || '—'),
+          el('td', { style:{ padding:'5px 8px', fontSize:11, borderBottom:'1px solid rgba(26,45,72,.3)' } }, tg.elementName || tg.guid || '—'),
+          el('td', { style:{ padding:'5px 8px', fontSize:11, borderBottom:'1px solid rgba(26,45,72,.3)', color:'var(--dim)', fontFamily:'ui-monospace,monospace' } }, tg.typeName || '—'),
+          el('td', { style:{ padding:'5px 8px', borderBottom:'1px solid rgba(26,45,72,.3)', textAlign:'right' } },
+            tg.guid && el('button', { onClick:function(){ crossAppNavigate({ guid: tg.guid, typeName: tg.typeName }); },
+              style:{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid rgba(96,165,250,.4)', background:'transparent', color:'var(--accent)', cursor:'pointer', whiteSpace:'nowrap' } }, 'View ↗')));
+      })));
+  }
 
   var table = el('div', { style:{ flex:1, overflow:'auto', minWidth:0 } },
     t.state === 'loading' ? el('div', { style: pad }, 'Loading connectors…')
@@ -967,25 +976,25 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform, isAdmin }) {
     : !t.server ? el('div', { style: pad }, 'No Integration Daemon on this platform.')
     : rows.length === 0 ? el('div', { style: pad }, t.rows.length ? 'No connectors match the filter.' : 'No connectors on this daemon.')
     : el('table', { style:{ borderCollapse:'collapse', tableLayout:'fixed', width: rz.tableWidth ? rz.tableWidth+'px' : '100%', minWidth:'100%' } },
-        el('colgroup', null, [0,1,2,3,4,5,6,7].map(function(i){ return el('col', { key:i, style:{ width: ((rz.widths && rz.widths[i]) || rz.defaultW)+'px' } }); })),
+        el('colgroup', null, [0,1,2,3,4,5,6].map(function(i){ return el('col', { key:i, style:{ width: ((rz.widths && rz.widths[i]) || rz.defaultW)+'px' } }); })),
         el('thead', null, el('tr', null, COLS.map(function(h,i){ return thSortable(sort, setSort, i, h, rz.onResizeDown, th); })
           .concat([el('th', { key:'a', style: th }, 'Actions')]))),
         el('tbody', null, rows.map(function(r){
           var on = r.connectorName === t.selKey;
+          var hasErr = !!r.failingExceptionMessage;
           return el('tr', { key:r.connectorName, style:{ cursor:'pointer', background: on ? 'rgba(96,165,250,.14)' : 'transparent' }, onClick:function(){ t.setSelKey(on ? null : r.connectorName); } },
             el('td', { style: td }, r.connectorName),
             el('td', { style: td }, el(StatusPill, { value:r.connectorStatus, map:CONNECTOR_STATUS })),
-            el('td', { style: td }, targetsCell(r.catalogTargets)),
             el('td', { style: Object.assign({}, td, { color:'var(--muted)' }) }, r.integrationGroup || '—'),
             el('td', { style: td }, r.lastStatusChange),
             el('td', { style: td }, r.lastRefreshTime),
             el('td', { style: td }, r.minMinutesBetweenRefresh == null ? '' : String(r.minMinutesBetweenRefresh)),
-            el('td', { style: Object.assign({}, td, { color: r.failingExceptionMessage ? '#f87171' : 'var(--dim)' }) }, r.failingExceptionMessage || '—'),
+            el('td', { style: td }, hasErr
+              ? el('span', { title: r.failingExceptionMessage, style:{ color:'#f87171', cursor:'pointer' } }, '⚠ See details')
+              : el('span', { style:{ color:'var(--dim)' } }, '—')),
             el('td', { style: td }, refreshing.has(r.connectorName)
               ? el('span', { style:{ fontSize:10, color:'#60a5fa' } }, '⟳ Refreshing…')
-              : isAdmin
-                ? [actionBtn('Start','#34d399',r,'start'), actionBtn('Stop','#f87171',r,'stop'), actionBtn('Refresh','#60a5fa',r,'refresh')]
-                : el('span', { style:{ fontSize:10, color:'var(--dim)' } }, 'Admin only')));
+              : [actionBtn('Start','#34d399',r,'start'), actionBtn('Stop','#f87171',r,'stop'), actionBtn('Refresh','#60a5fa',r,'refresh')]));
         }))));
 
   var filters = el(React.Fragment, null,
@@ -995,13 +1004,21 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform, isAdmin }) {
     el('div', { style:{ width:1, height:20, background:'var(--border)', margin:'0 4px' } }),
     statusPillRow(CONNECTOR_STATUS, STATUS_COLORS, fStatus, setFStatus));
 
+  var sectionHdr = function(label){ return el('div', { style:{ fontSize:10, color:'var(--muted)', textTransform:'uppercase', letterSpacing:1, fontWeight:600, marginTop:16, marginBottom:6 } }, label); };
+
   return el('div', { style:{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' } },
     el(OpsToolbar, { platforms:platforms, platform:platform, onPlatform:onPlatform, servers:t.servers, server:t.server, onServer:t.setServer, serverLabel:'Daemon', onRefresh:loadAndClear, busy:t.busy, children:filters }),
     el('div', { style:{ flex:1, display:'flex', overflow:'hidden', minHeight:0 } },
       table,
       sel && el(DetailPanel, { title: sel.connectorName, subtitle: sel.integrationGroup, width: panelW, onResize: onPanelDown,
         onClose: function(){ t.setSelKey(null); }, onCatalog: function(){ crossAppNavigate({ guid: sel.connectorGUID, typeName: 'IntegrationConnector', superTypeNames: ['SoftwareCapability'] }); } },
-        el(JsonView, { data: sel }))),
+        sel.failingExceptionMessage && el('div', null,
+          sectionHdr('⚠ Failing Exception'),
+          el('div', { style:{ fontSize:12, color:'#f87171', background:'rgba(248,113,113,.08)', border:'1px solid rgba(248,113,113,.25)', borderRadius:6, padding:'10px 12px', wordBreak:'break-word', lineHeight:1.5 } }, sel.failingExceptionMessage)),
+        sectionHdr('Catalog Targets (' + (sel.catalogTargets ? sel.catalogTargets.length : 0) + ')'),
+        el(CatalogTargetsSection, { targets: sel.catalogTargets }),
+        sectionHdr('Connector Properties'),
+        el(JsonView, { data: (function(r){ var d={}; ['connectorGUID','connectorStatus','integrationGroup','lastStatusChange','lastRefreshTime','minMinutesBetweenRefresh'].forEach(function(k){ if(r[k]!=null) d[k]=r[k]; }); return d; })(sel) }))),
     confirm && el(ConfirmDialog, {
       title: confirm.action.charAt(0).toUpperCase() + confirm.action.slice(1) + ' connector?',
       body: el('span', null, confirm.action + ' ', el('b', { style:{ color:'var(--text)' } }, confirm.row.connectorName), ' on ', t.server ? _shortName(t.server.displayName) : '', '?'),
@@ -1010,7 +1027,7 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform, isAdmin }) {
 }
 
 // ── Governance Engines tab ──────────────────────────────────────────────────
-function EnginesTab({ creds, platforms, platform, onPlatform, isAdmin }) {
+function EnginesTab({ creds, platforms, platform, onPlatform }) {
   var t = useServerTab({ creds:creds, platform:platform, serverType:'Engine Host Server', endpoint:'/api/operations/governance-engines' });
   var _cf  = useState(null),  confirm  = _cf[0],  setConfirm  = _cf[1];
   var _scf = useState(null),  srvConf  = _scf[0], setSrvConf  = _scf[1];
@@ -1073,15 +1090,14 @@ function EnginesTab({ creds, platforms, platform, onPlatform, isAdmin }) {
             el('td', { style: td }, el(StatusPill, { value:r.governanceEngineStatus, map:GOV_ENGINE_STATUS })),
             el('td', { style: td }, chips(r.governanceRequestTypes)),
             el('td', { style: td }, r.lastRefreshTime || '—'),
-            el('td', { style: td }, isAdmin
-              ? el('button', { onClick:function(e){ e.stopPropagation(); setConfirm({ row:r }); },
-                  style:{ fontSize:10, padding:'1px 8px', borderRadius:4, border:'1px solid #60a5fa55', background:'transparent', color:'#60a5fa', cursor:'pointer' } }, 'Refresh config')
-              : el('span', { style:{ fontSize:10, color:'var(--dim)' } }, 'Admin only')));
+            el('td', { style: td },
+              el('button', { onClick:function(e){ e.stopPropagation(); setConfirm({ row:r }); },
+                style:{ fontSize:10, padding:'1px 8px', borderRadius:4, border:'1px solid #60a5fa55', background:'transparent', color:'#60a5fa', cursor:'pointer' } }, 'Refresh config')));
         }))));
 
   var filters = el(React.Fragment, null,
     el('input', { placeholder:'filter engine…', value:fText, onChange:function(e){ setFText(e.target.value); }, style:{ fontSize:11, padding:'4px 8px', background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:4, width:150 } }),
-    t.server && isAdmin && el(React.Fragment, null,
+    t.server && el(React.Fragment, null,
       el('div', { style:{ width:1, height:20, background:'var(--border)', margin:'0 4px' } }),
       el('button', { onClick:function(){ setSrvConf({ action:'activate' }); },
         style:{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid #34d39955', background:'transparent', color:'#34d399', cursor:'pointer' } }, 'Start host'),
@@ -1372,7 +1388,7 @@ function App() {
                color: on ? 'var(--accent)' : 'var(--muted)', borderBottom: on ? '2px solid var(--accent)' : '2px solid transparent', fontWeight: on ? 700 : 400 } }, t.label);
   };
 
-  var shared = { creds: creds, platforms: platforms, platform: platform, onPlatform: setPlatform, isAdmin: isAdmin };
+  var shared = { creds: creds, platforms: platforms, platform: platform, onPlatform: setPlatform };
   var content = !ready ? el('div', { style: pad }, 'Connecting…')
     : active.id === 'servers'    ? el(ServersTab,    Object.assign({ key:'servers@'+credKey },    shared))
     : active.id === 'connectors' ? el(ConnectorsTab, Object.assign({ key:'connectors@'+credKey }, shared))
