@@ -235,6 +235,7 @@ def get_glossaries(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Return all Egeria glossaries with summary information."""
     try:
@@ -253,6 +254,7 @@ def get_glossaries(
             sequencing_order="PROPERTY_ASCENDING",
             sequencing_property="displayName",
             graph_query_depth=0,
+            as_of_time=as_of_time or None,
         )
     except Exception as exc:
         logger.exception("find_glossaries failed")
@@ -276,6 +278,7 @@ def get_glossary_folders(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Return the CollectionFolder children of a glossary (organisational hierarchy)."""
     try:
@@ -285,11 +288,15 @@ def get_glossary_folders(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
+        body = {"class": "ResultsRequestBody"}
+        if as_of_time:
+            body["asOfTime"] = as_of_time
         raw = mgr.get_collection_members(
             collection_guid=collection_guid,
             output_format="JSON",
             start_from=start_from,
             page_size=page_size,
+            body=body,
         )
     except Exception as exc:
         logger.exception("get_collection_members failed")
@@ -312,6 +319,7 @@ def get_terms_in_collection(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """
     Return GlossaryTerms that are members of the given collection (glossary or folder).
@@ -326,10 +334,13 @@ def get_terms_in_collection(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
+        body = {"class": "ResultsRequestBody"}  # no metadataElementTypeName filter so GlossaryTerms are returned
+        if as_of_time:
+            body["asOfTime"] = as_of_time
         raw = mgr.get_collection_members(
             collection_guid=collection_guid,
             output_format="JSON",
-            body={"class": "ResultsRequestBody"},  # no metadataElementTypeName filter so GlossaryTerms are returned
+            body=body,
         )
     except Exception as exc:
         logger.exception("get_collection_members failed")
@@ -352,6 +363,7 @@ def search_all_terms(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """
     Search for GlossaryTerms across all glossaries using a text search string.
@@ -375,6 +387,7 @@ def search_all_terms(
             graph_query_depth=1,
             sequencing_order="PROPERTY_ASCENDING",
             sequencing_property="displayName",
+            as_of_time=as_of_time or None,
         )
     except Exception as exc:
         logger.exception("find_glossary_terms failed")
@@ -403,6 +416,7 @@ def get_term(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
 ):
     """Return full detail for a single glossary term."""
     try:
@@ -412,7 +426,10 @@ def get_term(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
-        raw = mgr.get_term_by_guid(term_guid, output_format="JSON", body={"class": "GetRequestBody", "graphQueryDepth": 1})
+        body = {"class": "GetRequestBody", "graphQueryDepth": 1}
+        if as_of_time:
+            body["asOfTime"] = as_of_time
+        raw = mgr.get_term_by_guid(term_guid, output_format="JSON", body=body)
     except Exception as exc:
         logger.exception("get_term_by_guid failed")
         raise HTTPException(status_code=500, detail=f"Term retrieval failed: {exc}")
