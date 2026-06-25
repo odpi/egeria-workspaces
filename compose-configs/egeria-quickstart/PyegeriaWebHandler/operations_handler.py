@@ -227,26 +227,19 @@ def _automated_curation(url=None, server=None, user_id=None, user_pwd=None):
     return mgr
 
 
-def _asset_maker(url=None, server=None, user_id=None, user_pwd=None):
-    from pyegeria import AssetMaker
-    url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
-    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
-    user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
-    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
-    mgr = AssetMaker(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
-    apply_token(mgr)
-    return mgr
-
-
 def _catalog_target(t: dict) -> dict:
-    """One catalog-target relationship → flat row. The related element (the
-    catalogued asset) is under `relatedElement`."""
+    """One catalog-target element → flat row.
+
+    AutomatedCuration.get_catalog_targets returns the target element directly
+    (elementHeader + properties at the top level). The CatalogTarget relationship
+    properties (including catalogTargetName) are in relatedBy.relationshipProperties.
+    """
     t = t or {}
-    re_ = t.get("relatedElement") or {}
-    hdr = re_.get("elementHeader") or {}
-    props = re_.get("properties") or {}
+    hdr   = t.get("elementHeader") or {}
+    props = t.get("properties") or {}
+    rel_props = (t.get("relatedBy") or {}).get("relationshipProperties") or {}
     return {
-        "catalogTargetName": t.get("catalogTargetName") or "",
+        "catalogTargetName": rel_props.get("catalogTargetName") or "",
         "typeName":          (hdr.get("type") or {}).get("typeName") or "",
         "guid":              hdr.get("guid") or "",
         "elementName":       _name_of(props),
@@ -265,7 +258,7 @@ def list_integration_connectors(
 ):
     try:
         rm = _runtime_manager(url, server, user_id, user_pwd)
-        am = _asset_maker(url, server, user_id, user_pwd)
+        ac = _automated_curation(url, server, user_id, user_pwd)
         rep = _report_element(rm.get_server_report(server_guid=server_guid, output_format="JSON")) or {}
     except Exception as exc:
         logger.exception("operations: integration-connectors report failed")
@@ -278,6 +271,10 @@ def list_integration_connectors(
               for g in (rep.get("integrationGroups") or []) if isinstance(g, dict)}
 
     # One get_catalog_targets per connector — N+1 fan-out, run concurrently.
+    # graphQueryDepth=1 in the body limits traversal depth; prevents timeouts on
+    # connectors with large numbers of targets (e.g. Jacquard).
+    _ct_body = {"class": "FilterRequestBody", "graphQueryDepth": 1}
+
     async def _fetch_targets(conns):
         sem = asyncio.Semaphore(16)
 
@@ -285,8 +282,9 @@ def list_integration_connectors(
             guid = c.get("connectorGUID")
             async with sem:
                 try:
-                    raw = await am._async_get_catalog_targets(integration_connector_guid=guid,
-                                                               graph_query_depth=1, page_size=200, output_format="JSON")
+                    raw = await ac._async_get_catalog_targets(integ_connector_guid=guid,
+                                                              page_size=200, output_format="JSON",
+                                                              report_spec=None, body=_ct_body)
                     targets = [_catalog_target(t) for t in _target_list(raw)]
                 except Exception:
                     targets = []
