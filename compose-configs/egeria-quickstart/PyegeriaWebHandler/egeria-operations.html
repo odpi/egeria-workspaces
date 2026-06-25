@@ -927,10 +927,13 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform }) {
   function act(row, action) {
     if (action === 'refresh') {
       setConfirm(null);
-      setRefreshing(function(s){ var n = new Set(s); n.add(row.connectorName); return n; });
+      var rName = row.connectorName;
+      setRefreshing(function(s){ var n = new Set(s); n.add(rName); return n; });
+      var clearR = function(){ setRefreshing(function(s){ var n = new Set(s); n.delete(rName); return n; }); };
       egeriaFetch('/api/operations/connector/refresh', creds, { method:'POST', headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ server_guid: t.server.guid, connector_name: row.connectorName }) })
-        .catch(function(){}); // background — ignore timeouts; server logs the outcome
+        body: JSON.stringify({ server_guid: t.server.guid, connector_name: rName }) })
+        .then(function(r){ clearR(); if (r.ok) setTimeout(t.load, 800); })
+        .catch(function(){ clearR(); });
       return;
     }
     setConfirm(Object.assign({}, confirm, { busy:true }));
@@ -965,7 +968,7 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform }) {
           el('td', { style:{ padding:'5px 8px', fontSize:11, borderBottom:'1px solid rgba(26,45,72,.3)' } }, tg.elementName || tg.guid || '—'),
           el('td', { style:{ padding:'5px 8px', fontSize:11, borderBottom:'1px solid rgba(26,45,72,.3)', color:'var(--dim)', fontFamily:'ui-monospace,monospace' } }, tg.typeName || '—'),
           el('td', { style:{ padding:'5px 8px', borderBottom:'1px solid rgba(26,45,72,.3)', textAlign:'right' } },
-            tg.guid && el('button', { onClick:function(){ crossAppNavigate({ guid: tg.guid, typeName: tg.typeName }); },
+            tg.guid && el('button', { onClick:function(){ crossAppNavigate({ guid: tg.guid, typeName: tg.typeName }, { app: 'tech-catalog' }); },
               style:{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid rgba(96,165,250,.4)', background:'transparent', color:'var(--accent)', cursor:'pointer', whiteSpace:'nowrap' } }, 'View ↗')));
       })));
   }
