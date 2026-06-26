@@ -39,6 +39,18 @@ def apply_token(client) -> None:
         client.create_egeria_bearer_token()
 
 
+async def async_apply_token(client) -> None:
+    """Async counterpart of :func:`apply_token` for use inside async FastAPI routes.
+
+    Calls the async token-creation method directly so that async routes don't
+    need to run a sub-loop (which would raise RuntimeError on Python 3.10+)."""
+    token = _egeria_token.get()
+    if token:
+        client.set_bearer_token(token)
+    else:
+        await client._async_create_egeria_bearer_token()
+
+
 class EgeriaTokenMiddleware:
     """Stash the X-Egeria-Token request header into a contextvar for the
     duration of the request so token-capable handlers can pick it up."""

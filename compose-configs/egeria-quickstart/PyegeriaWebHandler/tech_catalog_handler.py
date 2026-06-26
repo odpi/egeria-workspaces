@@ -394,7 +394,7 @@ async def get_egeria_bearer_token(request: Request):
     try:
         from pyegeria import AssetMaker
         mgr = AssetMaker(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
-        token = mgr.create_egeria_bearer_token()
+        token = await mgr._async_create_egeria_bearer_token()
         return JSONResponse({"token": token, "user_id": user_id})
     except Exception as exc:
         logger.exception("get_egeria_bearer_token failed")

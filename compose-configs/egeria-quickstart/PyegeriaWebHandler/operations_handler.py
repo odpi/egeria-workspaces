@@ -37,7 +37,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 from pydantic import BaseModel
 
-from egeria_auth import apply_token
+from egeria_auth import apply_token, async_apply_token
 
 router = APIRouter(tags=["egeria-operations"])
 
@@ -171,41 +171,38 @@ def _platform_server_guids(rm, platform_guid: str) -> list:
 
 
 @router.get("/api/operations/server-status", summary="Status row per server on a platform (Servers tab)")
-def server_status_overview(
+async def server_status_overview(
     platform_guid: str = Query(...),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     try:
-        rm = _runtime_manager(url, server, user_id, user_pwd)
+        rm = await _runtime_manager_async(url, server, user_id, user_pwd)
         stubs = [s for s in _platform_server_guids(rm, platform_guid) if s.get("guid")]
     except Exception as exc:
         logger.exception("operations: server-status discovery failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
-    # One report per server — fan out concurrently (bounded), as for audit users.
-    async def _fetch(stub_list):
-        sem = asyncio.Semaphore(16)
+    sem = asyncio.Semaphore(16)
 
-        async def _one(st):
-            async with sem:
-                try:
-                    rep = await rm._async_get_server_report(server_guid=st["guid"], output_format="JSON")
-                    rep = _report_element(rep) or {}
-                except Exception:
-                    rep = {}
-                return {
-                    "guid":               st["guid"],
-                    "serverName":         rep.get("serverName") or st.get("displayName") or "",
-                    "serverType":         rep.get("serverType") or st.get("serverType") or "",
-                    "description":        rep.get("description") or "",
-                    "organizationName":   rep.get("organizationName") or "",
-                    "serverActiveStatus": rep.get("serverActiveStatus") or "UNKNOWN",
-                }
-        return await asyncio.gather(*[_one(s) for s in stub_list])
+    async def _one(st):
+        async with sem:
+            try:
+                rep = await rm._async_get_server_report(server_guid=st["guid"], output_format="JSON")
+                rep = _report_element(rep) or {}
+            except Exception:
+                rep = {}
+            return {
+                "guid":               st["guid"],
+                "serverName":         rep.get("serverName") or st.get("displayName") or "",
+                "serverType":         rep.get("serverType") or st.get("serverType") or "",
+                "description":        rep.get("description") or "",
+                "organizationName":   rep.get("organizationName") or "",
+                "serverActiveStatus": rep.get("serverActiveStatus") or "UNKNOWN",
+            }
 
     try:
-        rows = asyncio.get_event_loop().run_until_complete(_fetch(stubs))
+        rows = list(await asyncio.gather(*[_one(s) for s in stubs]))
     except Exception:
         logger.exception("operations: concurrent server-report fetch failed")
         rows = [{"guid": s["guid"], "serverName": s.get("displayName") or "", "serverType": s.get("serverType") or "",
@@ -224,6 +221,28 @@ def _automated_curation(url=None, server=None, user_id=None, user_pwd=None):
     user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
     mgr = AutomatedCuration(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
     apply_token(mgr)
+    return mgr
+
+
+async def _runtime_manager_async(url=None, server=None, user_id=None, user_pwd=None):
+    from pyegeria import RuntimeManager
+    url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    mgr = RuntimeManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    await async_apply_token(mgr)
+    return mgr
+
+
+async def _automated_curation_async(url=None, server=None, user_id=None, user_pwd=None):
+    from pyegeria import AutomatedCuration
+    url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    mgr = AutomatedCuration(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    await async_apply_token(mgr)
     return mgr
 
 
@@ -251,58 +270,54 @@ def _target_list(raw) -> list:
 
 
 @router.get("/api/operations/integration-connectors", summary="Connectors on an Integration Daemon (Integration Connectors tab)")
-def list_integration_connectors(
+async def list_integration_connectors(
     server_guid: str = Query(...),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     try:
-        rm = _runtime_manager(url, server, user_id, user_pwd)
-        ac = _automated_curation(url, server, user_id, user_pwd)
-        rep = _report_element(rm.get_server_report(server_guid=server_guid, output_format="JSON")) or {}
+        rm = await _runtime_manager_async(url, server, user_id, user_pwd)
+        ac = await _automated_curation_async(url, server, user_id, user_pwd)
+        rep = _report_element(
+            await rm._async_get_server_report(server_guid=server_guid, output_format="JSON")
+        ) or {}
     except Exception as exc:
         logger.exception("operations: integration-connectors report failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
     connectors = rep.get("integrationConnectorReports") or []
-    # integration-group lookup is by GUID (the connector carries integrationGroupGUID,
-    # not the name the spec assumed).
     groups = {g.get("integrationGroupGUID"): g.get("integrationGroupName")
               for g in (rep.get("integrationGroups") or []) if isinstance(g, dict)}
 
     # One get_catalog_targets per connector — N+1 fan-out, run concurrently.
-    # graphQueryDepth=1 in the body limits traversal depth; prevents timeouts on
-    # connectors with large numbers of targets (e.g. Jacquard).
+    # graphQueryDepth=1 limits traversal depth to prevent timeouts on large connector sets.
     _ct_body = {"class": "FilterRequestBody", "graphQueryDepth": 1}
+    sem = asyncio.Semaphore(16)
 
-    async def _fetch_targets(conns):
-        sem = asyncio.Semaphore(16)
-
-        async def _one(c):
-            guid = c.get("connectorGUID")
-            async with sem:
-                try:
-                    raw = await ac._async_get_catalog_targets(integ_connector_guid=guid,
-                                                              page_size=200, output_format="JSON",
-                                                              report_spec=None, body=_ct_body)
-                    targets = [_catalog_target(t) for t in _target_list(raw)]
-                except Exception:
-                    targets = []
-            return {
-                "connectorName":         c.get("connectorName") or "",
-                "connectorGUID":         guid or "",
-                "connectorStatus":       c.get("connectorStatus") or "",
-                "integrationGroup":      groups.get(c.get("integrationGroupGUID")) or "",
-                "lastStatusChange":      c.get("lastStatusChange") or "",
-                "lastRefreshTime":       c.get("lastRefreshTime") or "",
-                "minMinutesBetweenRefresh": c.get("minMinutesBetweenRefresh"),
-                "failingExceptionMessage":  c.get("failingExceptionMessage") or "",
-                "catalogTargets":        targets,
-            }
-        return await asyncio.gather(*[_one(c) for c in conns])
+    async def _one(c):
+        guid = c.get("connectorGUID")
+        async with sem:
+            try:
+                raw = await ac._async_get_catalog_targets(integ_connector_guid=guid,
+                                                          page_size=200, output_format="JSON",
+                                                          report_spec=None, body=_ct_body)
+                targets = [_catalog_target(t) for t in _target_list(raw)]
+            except Exception:
+                targets = []
+        return {
+            "connectorName":            c.get("connectorName") or "",
+            "connectorGUID":            guid or "",
+            "connectorStatus":          c.get("connectorStatus") or "",
+            "integrationGroup":         groups.get(c.get("integrationGroupGUID")) or "",
+            "lastStatusChange":         c.get("lastStatusChange") or "",
+            "lastRefreshTime":          c.get("lastRefreshTime") or "",
+            "minMinutesBetweenRefresh": c.get("minMinutesBetweenRefresh"),
+            "failingExceptionMessage":  c.get("failingExceptionMessage") or "",
+            "catalogTargets":           targets,
+        }
 
     try:
-        rows = asyncio.get_event_loop().run_until_complete(_fetch_targets(connectors))
+        rows = list(await asyncio.gather(*[_one(c) for c in connectors]))
     except Exception:
         logger.exception("operations: concurrent catalog-target fetch failed")
         rows = []
