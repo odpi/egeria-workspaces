@@ -1376,12 +1376,18 @@ function App() {
   }, []);
 
   var credKey = who ? who.label : 'portal';
+  var PLATFORMS_POLL_MS = 30000; // re-fetch platform/server list every 30 s
   useEffect(function() {
     if (!ready) return;
-    egeriaFetch('/api/operations/platforms', creds).then(function(r){ return r.ok ? r.json() : { platforms: [] }; })
-      .then(function(d){ var ps = d.platforms || []; setPlatforms(ps);
-        setPlatform(function(cur){ if (cur) return cur; return ps.find(function(p){ return (p.servers||[]).length; }) || ps[0] || null; }); })
-      .catch(function(){ setPlatforms([]); });
+    function fetchPlatforms() {
+      egeriaFetch('/api/operations/platforms', creds).then(function(r){ return r.ok ? r.json() : { platforms: [] }; })
+        .then(function(d){ var ps = d.platforms || []; setPlatforms(ps);
+          setPlatform(function(cur){ if (cur) return cur; return ps.find(function(p){ return (p.servers||[]).length; }) || ps[0] || null; }); })
+        .catch(function(){ });
+    }
+    fetchPlatforms();
+    var timer = setInterval(fetchPlatforms, PLATFORMS_POLL_MS);
+    return function(){ clearInterval(timer); };
   }, [ready, credKey]);
 
   var tabBtn = function(t){

@@ -13,7 +13,7 @@ Consumed by the type-explorer UI and can be called directly.
 """
 
 import os
-from egeria_auth import apply_token
+from egeria_auth import apply_token, async_apply_token
 from pathlib import Path
 from typing import Optional
 
@@ -49,6 +49,18 @@ def _get_client(url: str, server: str, user_id: str, user_pwd: str) -> ValidMeta
     try:
         c = ValidMetadataManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
         apply_token(c)
+        return c
+    except Exception as e:
+        logger.error(f"Failed to initialize ValidMetadataManager: {e}")
+        raise
+
+
+async def _get_client_async(url: str, server: str, user_id: str, user_pwd: str) -> ValidMetadataManager:
+    """Async variant of _get_client — safe to call from async FastAPI routes."""
+    logger.debug(f"Initializing ValidMetadataManager (async) with url={url}, server={server}, user_id={user_id}")
+    try:
+        c = ValidMetadataManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+        await async_apply_token(c)
         return c
     except Exception as e:
         logger.error(f"Failed to initialize ValidMetadataManager: {e}")
@@ -273,7 +285,7 @@ async def get_type_names(
         if egeria_token:
             c = _get_client_from_token(url, server, user_id, egeria_token)
         else:
-            c = _get_client(url, server, user_id, user_pwd)
+            c = await _get_client_async(url, server, user_id, user_pwd)
         if cache_key == "entity":
             raw = _normalize_raw(c.get_all_entity_defs(), "Entity definitions")
         elif cache_key == "classification":
@@ -339,10 +351,10 @@ async def get_all_types(
             except (PyegeriaException, Exception) as token_exc:
                 # JWT egeria_token may have expired — fall back to service-account credentials
                 logger.warning(f"Token-based auth failed ({token_exc}); retrying with env-var credentials")
-                c = _get_client(url, server, user_id, user_pwd)
+                c = await _get_client_async(url, server, user_id, user_pwd)
                 entity_raw, relationship_raw, classification_raw = _fetch_raw(c)
         else:
-            c = _get_client(url, server, user_id, user_pwd)
+            c = await _get_client_async(url, server, user_id, user_pwd)
             entity_raw, relationship_raw, classification_raw = _fetch_raw(c)
         if entity_raw:
             sample = entity_raw[0]
