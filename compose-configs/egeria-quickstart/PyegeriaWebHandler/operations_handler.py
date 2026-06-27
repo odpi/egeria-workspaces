@@ -298,9 +298,12 @@ async def list_integration_connectors(
         guid = c.get("connectorGUID")
         async with sem:
             try:
-                raw = await ac._async_get_catalog_targets(integ_connector_guid=guid,
-                                                          page_size=200, output_format="JSON",
-                                                          report_spec=None, body=_ct_body)
+                raw = await asyncio.wait_for(
+                    ac._async_get_catalog_targets(integ_connector_guid=guid,
+                                                  page_size=200, output_format="JSON",
+                                                  report_spec=None, body=_ct_body),
+                    timeout=10,
+                )
                 targets = [_catalog_target(t) for t in _target_list(raw)]
             except Exception:
                 targets = []
