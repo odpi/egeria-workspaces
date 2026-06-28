@@ -37,9 +37,31 @@ from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 from pydantic import BaseModel
 
-from egeria_auth import apply_token
+from egeria_auth import apply_token, async_apply_token
 
 router = APIRouter(tags=["egeria-operations"])
+
+
+def _is_auth_error(exc: Exception) -> bool:
+    """Return True if exc represents a 401/403 from Egeria (expired token / access denied)."""
+    code = getattr(exc, "response_code", None) or getattr(exc, "http_status_code", None)
+    if code in (401, 403):
+        return True
+    s = str(exc).upper()
+    # pyegeria error strings embed "HTTP Code: 401" / "HTTP Code: 403"
+    return ("HTTP CODE: 401" in s or "HTTP CODE: 403" in s
+            or "USER_NOT_AUTHORIZED" in s or "NOT_AUTHORIZED" in s
+            or "AUTHORIZATION_ERROR" in s)
+
+
+def _raise_http(exc: Exception, log_msg: str = "") -> None:
+    """Re-raise a pyegeria exception as the correct FastAPI HTTPException."""
+    if log_msg:
+        logger.exception(log_msg)
+    if _is_auth_error(exc):
+        raise HTTPException(status_code=401,
+                            detail="Session expired or token invalid — please reconnect.")
+    raise HTTPException(status_code=500, detail=str(exc))
 
 _HERE = Path(__file__).parent
 _HTML = _HERE / "egeria-operations.html"
@@ -113,8 +135,7 @@ def list_platforms(
                 "graphQueryDepth": 1, "includeOnlyRelationships": ["DeployedOn"]}
         raw = rm.get_platforms_by_type(body=body, output_format="JSON")
     except Exception as exc:
-        logger.exception("operations: get_platforms_by_type failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_http(exc, "operations: get_platforms_by_type failed")
     out = []
     for e in (raw if isinstance(raw, list) else []):
         hdr = e.get("elementHeader") or {}
@@ -151,8 +172,7 @@ def server_report(
         rm = _runtime_manager(url, server, user_id, user_pwd)
         raw = rm.get_server_report(server_guid=guid, output_format="JSON")
     except Exception as exc:
-        logger.exception("operations: get_server_report(%s) failed", guid)
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_http(exc, f"operations: get_server_report({guid!r}) failed")
     el = _report_element(raw)
     if not el:
         raise HTTPException(status_code=404, detail=f"Server report for {guid!r} not found")
@@ -171,41 +191,37 @@ def _platform_server_guids(rm, platform_guid: str) -> list:
 
 
 @router.get("/api/operations/server-status", summary="Status row per server on a platform (Servers tab)")
-def server_status_overview(
+async def server_status_overview(
     platform_guid: str = Query(...),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     try:
-        rm = _runtime_manager(url, server, user_id, user_pwd)
+        rm = await _runtime_manager_async(url, server, user_id, user_pwd)
         stubs = [s for s in _platform_server_guids(rm, platform_guid) if s.get("guid")]
     except Exception as exc:
-        logger.exception("operations: server-status discovery failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_http(exc, "operations: server-status discovery failed")
 
-    # One report per server — fan out concurrently (bounded), as for audit users.
-    async def _fetch(stub_list):
-        sem = asyncio.Semaphore(16)
+    sem = asyncio.Semaphore(16)
 
-        async def _one(st):
-            async with sem:
-                try:
-                    rep = await rm._async_get_server_report(server_guid=st["guid"], output_format="JSON")
-                    rep = _report_element(rep) or {}
-                except Exception:
-                    rep = {}
-                return {
-                    "guid":               st["guid"],
-                    "serverName":         rep.get("serverName") or st.get("displayName") or "",
-                    "serverType":         rep.get("serverType") or st.get("serverType") or "",
-                    "description":        rep.get("description") or "",
-                    "organizationName":   rep.get("organizationName") or "",
-                    "serverActiveStatus": rep.get("serverActiveStatus") or "UNKNOWN",
-                }
-        return await asyncio.gather(*[_one(s) for s in stub_list])
+    async def _one(st):
+        async with sem:
+            try:
+                rep = await rm._async_get_server_report(server_guid=st["guid"], output_format="JSON")
+                rep = _report_element(rep) or {}
+            except Exception:
+                rep = {}
+            return {
+                "guid":               st["guid"],
+                "serverName":         rep.get("serverName") or st.get("displayName") or "",
+                "serverType":         rep.get("serverType") or st.get("serverType") or "",
+                "description":        rep.get("description") or "",
+                "organizationName":   rep.get("organizationName") or "",
+                "serverActiveStatus": rep.get("serverActiveStatus") or "UNKNOWN",
+            }
 
     try:
-        rows = asyncio.get_event_loop().run_until_complete(_fetch(stubs))
+        rows = list(await asyncio.gather(*[_one(s) for s in stubs]))
     except Exception:
         logger.exception("operations: concurrent server-report fetch failed")
         rows = [{"guid": s["guid"], "serverName": s.get("displayName") or "", "serverType": s.get("serverType") or "",
@@ -224,6 +240,28 @@ def _automated_curation(url=None, server=None, user_id=None, user_pwd=None):
     user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
     mgr = AutomatedCuration(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
     apply_token(mgr)
+    return mgr
+
+
+async def _runtime_manager_async(url=None, server=None, user_id=None, user_pwd=None):
+    from pyegeria import RuntimeManager
+    url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    mgr = RuntimeManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    await async_apply_token(mgr)
+    return mgr
+
+
+async def _automated_curation_async(url=None, server=None, user_id=None, user_pwd=None):
+    from pyegeria import AutomatedCuration
+    url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    mgr = AutomatedCuration(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    await async_apply_token(mgr)
     return mgr
 
 
@@ -251,61 +289,56 @@ def _target_list(raw) -> list:
 
 
 @router.get("/api/operations/integration-connectors", summary="Connectors on an Integration Daemon (Integration Connectors tab)")
-def list_integration_connectors(
+async def list_integration_connectors(
     server_guid: str = Query(...),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     try:
-        rm = _runtime_manager(url, server, user_id, user_pwd)
-        ac = _automated_curation(url, server, user_id, user_pwd)
-        rep = _report_element(rm.get_server_report(server_guid=server_guid, output_format="JSON")) or {}
+        rm = await _runtime_manager_async(url, server, user_id, user_pwd)
+        ac = await _automated_curation_async(url, server, user_id, user_pwd)
+        rep = _report_element(
+            await rm._async_get_server_report(server_guid=server_guid, output_format="JSON")
+        ) or {}
     except Exception as exc:
-        logger.exception("operations: integration-connectors report failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_http(exc, "operations: integration-connectors report failed")
 
     connectors = rep.get("integrationConnectorReports") or []
-    # integration-group lookup is by GUID (the connector carries integrationGroupGUID,
-    # not the name the spec assumed).
     groups = {g.get("integrationGroupGUID"): g.get("integrationGroupName")
               for g in (rep.get("integrationGroups") or []) if isinstance(g, dict)}
 
     # One get_catalog_targets per connector — N+1 fan-out, run concurrently.
-    # graphQueryDepth=1 in the body limits traversal depth; prevents timeouts on
-    # connectors with large numbers of targets (e.g. Jacquard).
+    # graphQueryDepth=1 limits traversal depth to prevent timeouts on large connector sets.
     _ct_body = {"class": "FilterRequestBody", "graphQueryDepth": 1}
+    sem = asyncio.Semaphore(16)
 
-    async def _fetch_targets(conns):
-        sem = asyncio.Semaphore(16)
-
-        async def _one(c):
-            guid = c.get("connectorGUID")
-            async with sem:
-                try:
-                    raw = await asyncio.wait_for(
-                        ac._async_get_catalog_targets(integ_connector_guid=guid,
-                                                      page_size=200, output_format="JSON",
-                                                      report_spec=None, body=_ct_body),
-                        timeout=10,
-                    )
-                    targets = [_catalog_target(t) for t in _target_list(raw)]
-                except Exception:
-                    targets = []
-            return {
-                "connectorName":         c.get("connectorName") or "",
-                "connectorGUID":         guid or "",
-                "connectorStatus":       c.get("connectorStatus") or "",
-                "integrationGroup":      groups.get(c.get("integrationGroupGUID")) or "",
-                "lastStatusChange":      c.get("lastStatusChange") or "",
-                "lastRefreshTime":       c.get("lastRefreshTime") or "",
-                "minMinutesBetweenRefresh": c.get("minMinutesBetweenRefresh"),
-                "failingExceptionMessage":  c.get("failingExceptionMessage") or "",
-                "catalogTargets":        targets,
-            }
-        return await asyncio.gather(*[_one(c) for c in conns])
+    async def _one(c):
+        guid = c.get("connectorGUID")
+        async with sem:
+            try:
+                raw = await asyncio.wait_for(
+                    ac._async_get_catalog_targets(integ_connector_guid=guid,
+                                                  page_size=200, output_format="JSON",
+                                                  report_spec=None, body=_ct_body),
+                    timeout=10,
+                )
+                targets = [_catalog_target(t) for t in _target_list(raw)]
+            except Exception:
+                targets = []
+        return {
+            "connectorName":            c.get("connectorName") or "",
+            "connectorGUID":            guid or "",
+            "connectorStatus":          c.get("connectorStatus") or "",
+            "integrationGroup":         groups.get(c.get("integrationGroupGUID")) or "",
+            "lastStatusChange":         c.get("lastStatusChange") or "",
+            "lastRefreshTime":          c.get("lastRefreshTime") or "",
+            "minMinutesBetweenRefresh": c.get("minMinutesBetweenRefresh"),
+            "failingExceptionMessage":  c.get("failingExceptionMessage") or "",
+            "catalogTargets":           targets,
+        }
 
     try:
-        rows = asyncio.get_event_loop().run_until_complete(_fetch_targets(connectors))
+        rows = list(await asyncio.gather(*[_one(c) for c in connectors]))
     except Exception:
         logger.exception("operations: concurrent catalog-target fetch failed")
         rows = []
@@ -345,8 +378,7 @@ def connector_action(action: str, request: Request, body: _ConnectorActionBody):
             threading.Thread(target=_bg_refresh, daemon=True).start()
             return JSONResponse({"ok": True, "action": "refresh", "refreshing": True}, status_code=202)
     except Exception as exc:
-        logger.exception("operations: connector %s(%s) failed", action, body.connector_name)
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_http(exc, f"operations: connector {action}({body.connector_name!r}) failed")
     logger.info("operations: connector %s %s on %s", action, body.connector_name, body.server_guid)
     return JSONResponse({"ok": True, "action": action, "connector_name": body.connector_name})
 
@@ -363,8 +395,7 @@ def list_governance_engines(
         rm = _runtime_manager(url, server, user_id, user_pwd)
         rep = _report_element(rm.get_server_report(server_guid=server_guid, output_format="JSON")) or {}
     except Exception as exc:
-        logger.exception("operations: governance-engines report failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_http(exc, "operations: governance-engines report failed")
     rows = []
     for g in (rep.get("governanceEngineSummaries") or []):
         if not isinstance(g, dict):
@@ -395,8 +426,7 @@ def engine_refresh(request: Request, body: _EngineActionBody):
         rm = _runtime_manager()
         rm.refresh_governance_engine(gov_engine_name=body.engine_name, server_guid=body.server_guid)
     except Exception as exc:
-        logger.exception("operations: refresh_governance_engine(%s) failed", body.engine_name)
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_http(exc, f"operations: refresh_governance_engine({body.engine_name!r}) failed")
     logger.info("operations: refreshed governance engine %s on %s", body.engine_name, body.server_guid)
     return JSONResponse({"ok": True, "engine_name": body.engine_name})
 
@@ -413,8 +443,7 @@ def list_engine_actions(
         ac = _automated_curation(url, server, user_id, user_pwd)
         raw = ac.find_engine_actions(search_string=search_string, page_size=500, output_format="JSON")
     except Exception as exc:
-        logger.exception("operations: find_engine_actions failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_http(exc, "operations: find_engine_actions failed")
     rows = []
     for item in (raw if isinstance(raw, list) else []):
         hdr   = item.get("elementHeader") or {}
@@ -449,8 +478,7 @@ def cancel_engine_action_route(request: Request, body: _CancelActionBody):
         ac = _automated_curation()
         ac.cancel_engine_action(engine_action_guid=body.engine_action_guid)
     except Exception as exc:
-        logger.exception("operations: cancel_engine_action(%s) failed", body.engine_action_guid)
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_http(exc, f"operations: cancel_engine_action({body.engine_action_guid!r}) failed")
     logger.info("operations: cancelled engine action %s", body.engine_action_guid)
     return JSONResponse({"ok": True, "engine_action_guid": body.engine_action_guid})
 
@@ -474,7 +502,6 @@ def server_action(action: str, request: Request, body: _ServerActionBody):
         else:
             rm.shutdown_server(server_guid=body.server_guid)
     except Exception as exc:
-        logger.exception("operations: server %s(%s) failed", action, body.server_guid)
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_http(exc, f"operations: server {action}({body.server_guid!r}) failed")
     logger.info("operations: server %s on %s", action, body.server_guid)
     return JSONResponse({"ok": True, "action": action, "server_guid": body.server_guid})
