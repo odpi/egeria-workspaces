@@ -1375,6 +1375,24 @@ function App() {
     }).catch(function(){ setCreds({}); setReady(true); });
   }, []);
 
+  // Auto-refresh expired Egeria tokens: egeriaFetch retries once on 401 using
+  // this callback, which obtains a fresh token (password comes from env vars on
+  // the backend so we only need to pass user_id).
+  useEffect(function() {
+    _tokenRefresher.refresh = function(oldCreds) {
+      return fetch('/api/egeria-token', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: oldCreds.userId, url: oldCreds.url || '', server: oldCreds.server || '' })
+      }).then(function(r) { return r.json(); })
+        .then(function(t) {
+          var newCreds = Object.assign({}, oldCreds, { token: t.token || '' });
+          setCreds(newCreds);
+          return newCreds;
+        });
+    };
+    return function() { _tokenRefresher.refresh = null; };
+  }, []);
+
   var credKey = who ? who.label : 'portal';
   var PLATFORMS_POLL_MS = 30000; // re-fetch platform/server list every 30 s
   useEffect(function() {

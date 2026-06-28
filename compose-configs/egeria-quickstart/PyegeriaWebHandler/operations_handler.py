@@ -41,6 +41,28 @@ from egeria_auth import apply_token, async_apply_token
 
 router = APIRouter(tags=["egeria-operations"])
 
+
+def _is_auth_error(exc: Exception) -> bool:
+    """Return True if exc represents a 401/403 from Egeria (expired token / access denied)."""
+    code = getattr(exc, "response_code", None) or getattr(exc, "http_status_code", None)
+    if code in (401, 403):
+        return True
+    s = str(exc).upper()
+    # pyegeria error strings embed "HTTP Code: 401" / "HTTP Code: 403"
+    return ("HTTP CODE: 401" in s or "HTTP CODE: 403" in s
+            or "USER_NOT_AUTHORIZED" in s or "NOT_AUTHORIZED" in s
+            or "AUTHORIZATION_ERROR" in s)
+
+
+def _raise_http(exc: Exception, log_msg: str = "") -> None:
+    """Re-raise a pyegeria exception as the correct FastAPI HTTPException."""
+    if log_msg:
+        logger.exception(log_msg)
+    if _is_auth_error(exc):
+        raise HTTPException(status_code=401,
+                            detail="Session expired or token invalid — please reconnect.")
+    raise HTTPException(status_code=500, detail=str(exc))
+
 _HERE = Path(__file__).parent
 _HTML = _HERE / "egeria-operations.html"
 
@@ -113,8 +135,7 @@ def list_platforms(
                 "graphQueryDepth": 1, "includeOnlyRelationships": ["DeployedOn"]}
         raw = rm.get_platforms_by_type(body=body, output_format="JSON")
     except Exception as exc:
-        logger.exception("operations: get_platforms_by_type failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_http(exc, "operations: get_platforms_by_type failed")
     out = []
     for e in (raw if isinstance(raw, list) else []):
         hdr = e.get("elementHeader") or {}
@@ -151,8 +172,7 @@ def server_report(
         rm = _runtime_manager(url, server, user_id, user_pwd)
         raw = rm.get_server_report(server_guid=guid, output_format="JSON")
     except Exception as exc:
-        logger.exception("operations: get_server_report(%s) failed", guid)
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_http(exc, f"operations: get_server_report({guid!r}) failed")
     el = _report_element(raw)
     if not el:
         raise HTTPException(status_code=404, detail=f"Server report for {guid!r} not found")
@@ -180,8 +200,7 @@ async def server_status_overview(
         rm = await _runtime_manager_async(url, server, user_id, user_pwd)
         stubs = [s for s in _platform_server_guids(rm, platform_guid) if s.get("guid")]
     except Exception as exc:
-        logger.exception("operations: server-status discovery failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_http(exc, "operations: server-status discovery failed")
 
     sem = asyncio.Semaphore(16)
 
@@ -282,8 +301,7 @@ async def list_integration_connectors(
             await rm._async_get_server_report(server_guid=server_guid, output_format="JSON")
         ) or {}
     except Exception as exc:
-        logger.exception("operations: integration-connectors report failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_http(exc, "operations: integration-connectors report failed")
 
     connectors = rep.get("integrationConnectorReports") or []
     groups = {g.get("integrationGroupGUID"): g.get("integrationGroupName")
@@ -360,8 +378,7 @@ def connector_action(action: str, request: Request, body: _ConnectorActionBody):
             threading.Thread(target=_bg_refresh, daemon=True).start()
             return JSONResponse({"ok": True, "action": "refresh", "refreshing": True}, status_code=202)
     except Exception as exc:
-        logger.exception("operations: connector %s(%s) failed", action, body.connector_name)
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_http(exc, f"operations: connector {action}({body.connector_name!r}) failed")
     logger.info("operations: connector %s %s on %s", action, body.connector_name, body.server_guid)
     return JSONResponse({"ok": True, "action": action, "connector_name": body.connector_name})
 
@@ -378,8 +395,7 @@ def list_governance_engines(
         rm = _runtime_manager(url, server, user_id, user_pwd)
         rep = _report_element(rm.get_server_report(server_guid=server_guid, output_format="JSON")) or {}
     except Exception as exc:
-        logger.exception("operations: governance-engines report failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_http(exc, "operations: governance-engines report failed")
     rows = []
     for g in (rep.get("governanceEngineSummaries") or []):
         if not isinstance(g, dict):
@@ -410,8 +426,7 @@ def engine_refresh(request: Request, body: _EngineActionBody):
         rm = _runtime_manager()
         rm.refresh_governance_engine(gov_engine_name=body.engine_name, server_guid=body.server_guid)
     except Exception as exc:
-        logger.exception("operations: refresh_governance_engine(%s) failed", body.engine_name)
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_http(exc, f"operations: refresh_governance_engine({body.engine_name!r}) failed")
     logger.info("operations: refreshed governance engine %s on %s", body.engine_name, body.server_guid)
     return JSONResponse({"ok": True, "engine_name": body.engine_name})
 
@@ -428,8 +443,7 @@ def list_engine_actions(
         ac = _automated_curation(url, server, user_id, user_pwd)
         raw = ac.find_engine_actions(search_string=search_string, page_size=500, output_format="JSON")
     except Exception as exc:
-        logger.exception("operations: find_engine_actions failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_http(exc, "operations: find_engine_actions failed")
     rows = []
     for item in (raw if isinstance(raw, list) else []):
         hdr   = item.get("elementHeader") or {}
@@ -464,8 +478,7 @@ def cancel_engine_action_route(request: Request, body: _CancelActionBody):
         ac = _automated_curation()
         ac.cancel_engine_action(engine_action_guid=body.engine_action_guid)
     except Exception as exc:
-        logger.exception("operations: cancel_engine_action(%s) failed", body.engine_action_guid)
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_http(exc, f"operations: cancel_engine_action({body.engine_action_guid!r}) failed")
     logger.info("operations: cancelled engine action %s", body.engine_action_guid)
     return JSONResponse({"ok": True, "engine_action_guid": body.engine_action_guid})
 
@@ -489,7 +502,6 @@ def server_action(action: str, request: Request, body: _ServerActionBody):
         else:
             rm.shutdown_server(server_guid=body.server_guid)
     except Exception as exc:
-        logger.exception("operations: server %s(%s) failed", action, body.server_guid)
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_http(exc, f"operations: server {action}({body.server_guid!r}) failed")
     logger.info("operations: server %s on %s", action, body.server_guid)
     return JSONResponse({"ok": True, "action": action, "server_guid": body.server_guid})
