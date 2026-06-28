@@ -470,6 +470,70 @@ Goal: extract the shared UI components that appear verbatim in both Explorer and
 
 ---
 
+## Session Reliability & Async Fixes (2026-06-26)
+
+Changes made to address long-running session failures (timeouts, token expiry, stale nav) surfacing in the demo site and long-lived notebooks.
+
+### pyegeria / egeria-python — `_client.py` / `_base_platform_client.py`
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| SR-1 | httpx connection pool settings | done | `AsyncClient` now created with `keepalive_expiry=20 s`, `connect` timeout 10 s, `max_connections=10`, `max_keepalive_connections=5`. The 20 s keepalive prevents dead-connection errors when a reverse proxy (nginx/Caddy default: 60–75 s idle timeout) closes an idle socket while pyegeria still holds it in the pool. Applied to both `pyegeria/_client.py` and `egeria-python/pyegeria/core/_base_platform_client.py`. |
+| SR-2 | `__exit__` async-close bug | done | `__exit__` called `self.session.aclose()` without `await`, so the session was never closed when using the client as a sync context manager. Fixed to `loop.run_until_complete(self.session.aclose())`. Applied to both repos. |
+| SR-3 | 401 auto-refresh | done | `_async_make_request` now detects 401/403 and, if `token_src == "Egeria"`, calls `_async_refresh_egeria_bearer_token()` and retries once (`_retrying=True` flag prevents loops). Externally-supplied tokens (`set_bearer_token`) are not auto-refreshed. Applied to both repos. |
+
+### egeria-workspaces — `PyegeriaWebHandler`
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| SR-4 | `egeria_auth.py` — `async_apply_token` | done | Added async counterpart to `apply_token`. Calls `await client._async_create_egeria_bearer_token()` directly so async FastAPI routes can build a client without triggering `RuntimeError: This event loop is already running` (which the sync `create_egeria_bearer_token()` would cause via its internal `run_until_complete`). |
+| SR-5 | `operations_handler.py` — async routes | done | `list_integration_connectors` and `server_status_overview` were sync routes using `asyncio.get_event_loop().run_until_complete()` to drive async fan-out. Converted to `async def`; added `_runtime_manager_async` and `_automated_curation_async` factories using `async_apply_token`. The `_async_get_server_report` call is now directly awaited, eliminating the sub-loop pattern that fails on Python 3.10+ when the event loop is already running. This is the primary fix for the integration-connectors pane timeout on the demo site. |
+| SR-6 | `audit_handler.py` — async routes | done | `list_users` and its `_user_names` fallback helper both used `asyncio.get_event_loop().run_until_complete()`. Converted both to `async def`; added `_security_officer_async` factory. The N=81 concurrent user-account fan-out now runs natively in the event loop. |
+| SR-7 | `type_system_handler.py` — async client factory | done | `get_type_names` and `get_all_types` are `async def` routes but called the sync `_get_client()` → `apply_token()` → `create_egeria_bearer_token()` chain, which raises `RuntimeError` inside a running loop. Added `_get_client_async()` that uses `async_apply_token`; both routes now use it for the no-token path. The token-expired fallback path in `get_all_types` is also fixed. |
+| SR-8 | `tech_catalog_handler.py` — async token creation | done | `get_egeria_bearer_token` is an `async def` route that called sync `mgr.create_egeria_bearer_token()`. Changed to `await mgr._async_create_egeria_bearer_token()`. |
+| SR-9 | `egeria-operations.html` — platforms list auto-refresh | done | The platforms/servers list was fetched once on page load and never refreshed, leaving the left-nav stale when servers started, stopped, or were added. Added a 30-second `setInterval` poll in the `useEffect`. Cleanup (`clearInterval`) is returned from the effect so it fires correctly on unmount and credential change. The error handler no longer blanks the nav on a transient network hiccup. |
+
+### Documentation
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| SR-10 | `egeria-python/docs/user_programming.md` — Long-Running Sessions section | done | New section covering httpx connection settings, automatic token refresh scope, and the async-context rule (`_async_create_egeria_bearer_token` vs sync `create_egeria_bearer_token`). Error-handling section extended with exception-class table. |
+| SR-11 | `egeria-python/AGENTS.md` — HTTP stack invariants | done | Four bullet points added under the `_base_platform_client.py` architecture entry: keepalive invariant, 401 retry, `__exit__` async rule, async context rule. Guards against accidental regression by AI coding assistants. |
+| SR-12 | `egeria-workspaces-fs/CLAUDE.md` — async handler pattern | done | See CLAUDE.md: rule added that new async FastAPI routes must use `*_async` client factories and `async_apply_token`; sync factories are for sync routes only. |
+| SR-13 | `egeria-workspaces-fs/AGENTS.md` — PyegeriaWebHandler async rule | done | See AGENTS.md: async invariant added to the PyegeriaWebHandler section. |
+
+---
+
+## Egeria Advisor — Intent Button Redesign (2026-06-26)
+
+Redesign the seven intent buttons to match a cleaner four-mode model: Learn / Find / Author / Execute.
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| IB-1 | Add `Create` intent + `CreateRouter` | open | Routes to PlanElicitor or ReportSpecElicitor based on query verb/domain. Remove `Plan` button. See design notes in `egeria-advisor/CLAUDE.md`. |
+| IB-2 | Expand `Act` to cover report execution + Dr.Egeria commands | open | Verb-based split: SHOW/LIST/GET → ReportPipeline; CREATE/UPDATE/ASSIGN/… → DrEgeriaActionAgent. After a successful run offer "Save as Report Spec" and "Refine columns" follow-up actions. |
+| IB-3 | Expand `Show me` to surface Dr.Egeria templates and report specs | open | ExamplesAgent already handles code examples. Add Dr.Egeria template search and catalog report spec listing to the same response. |
+| IB-4 | Expand `Inspect` to cover all repos (egeria-workspaces, egeria-advisor, egeria-java) | open | Currently pyegeria-only. Needs multi-repo code index or targeted file-read path for workspaces config, FastAPI handlers, compose files. |
+| IB-5 | Rename `Report` button → `Run Report` in UI | open | Clarifies that Report = execute existing spec, not build a new one. Small label-only change in `index.html`. |
+| IB-6 | Add "Fork / Customize →" affordance per report in sidebar | open | Opens Report Spec Builder pre-populated from the clicked spec. Covers "extend a report" without cluttering the Act flow. |
+| IB-7 | Ad-hoc query in Act: post-run "Save as Report Spec" button | open | After Act runs a report or ad-hoc exec, offer lightweight follow-up: [Save as Report Spec] [Refine columns] [Run again with filter]. No pre-run prompt. |
+
+---
+
+## Egeria Advisor — Vector Index Expansion (2026-06-26)
+
+Expand the indexed document corpus so `Explain` can answer questions from all Egeria repos and docs.
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| IX-1 | Index `egeria-python/docs/*.md` into `egeria_general` (or new `egeria_sdk_docs` collection) | open | Includes `output-formats-and-report-specs.md`, `user_programming.md`, `dr_egeria_manual.md`, etc. |
+| IX-2 | Index `egeria-advisor/docs/**/*.md` (user-docs + design) | open | User guides, design docs, LGCI guide, report spec guide. Low volume; can go into `egeria_general`. |
+| IX-3 | Index READMEs from egeria-workspaces-fs, egeria-python, egeria-advisor, egeria-java | open | Root READMEs and key sub-project READMEs. Gives Explain a "what is this repo / how do I set it up" capability. |
+| IX-4 | Index `CLAUDE.md` and `AGENTS.md` files from all repos | open | Useful for Inspect queries about conventions, architecture invariants, design rules. |
+| IX-5 | Add incremental indexer job for the above (so new doc edits are picked up) | open | Extend `advisor/incremental_indexer.py` collection list; add cron or watch trigger. |
+
+---
+
 ## Done (recent)
 
 | Item | Commit |

@@ -34,3 +34,39 @@ Stage specific files by name rather than `git add -A` or `git add .` to avoid ac
 | Egeria platform | `quickstart-egeria-main` | Metadata store on `egeria` DB |
 | FastAPI web | `quickstart-pyegeria-web` | Demo auth + Dr. Egeria API |
 | Shared Postgres | `egeria-shared-postgres` | Port 5442, multiple schemas |
+
+## PyegeriaWebHandler — async invariants
+
+**Never call `create_egeria_bearer_token()` (sync) from an `async def` FastAPI route.** It calls `asyncio.get_event_loop().run_until_complete()` internally, which raises `RuntimeError: This event loop is already running` on Python 3.10+.
+
+**Pattern for async routes — use `*_async` factories and `async_apply_token`:**
+
+```python
+# egeria_auth.py provides both:
+from egeria_auth import apply_token, async_apply_token
+
+# Sync factory — for sync (def) routes only:
+def _my_client(url, server, user_id, user_pwd):
+    mgr = SomeClient(...)
+    apply_token(mgr)          # calls create_egeria_bearer_token() — OK in a thread
+    return mgr
+
+# Async factory — required for async routes:
+async def _my_client_async(url, server, user_id, user_pwd):
+    mgr = SomeClient(...)
+    await async_apply_token(mgr)   # calls _async_create_egeria_bearer_token()
+    return mgr
+
+# Async route:
+@router.get("/api/...")
+async def my_endpoint(...):
+    client = await _my_client_async(url, server, user_id, user_pwd)
+    result = await client._async_some_method(...)
+    ...
+```
+
+**When converting a sync route to async:** replace `asyncio.get_event_loop().run_until_complete(coro)` with `await coro` directly — no sub-loop needed.
+
+**httpx session settings (load-bearing — do not remove):** The `AsyncClient` in pyegeria is configured with `keepalive_expiry=20 s`. This prevents dead-connection failures when a reverse proxy (nginx/Caddy idle timeout: 60–75 s) closes a socket that pyegeria still holds in the pool. Removing or raising this value will cause silent timeouts on the demo site.
+
+**Platforms list poll interval (`egeria-operations.html`):** 30 s (`PLATFORMS_POLL_MS`). The `setInterval` in the `useEffect` for `/api/operations/platforms` keeps the left-nav server list current. The effect returns `clearInterval(timer)` for cleanup — preserve that return value.
