@@ -29,6 +29,7 @@
 - MCP server entrypoint: `compose-configs/egeria-quickstart/PyegeriaWebHandler/mcp_server.py`; Obsidian MCP plugin is in `obsidian-plugins/calling-the-dr/`.
 - Token-gated SSE/messages endpoints rely on `MCP_ACCESS_TOKEN` (see middleware in `pyegeria_handler.py`).
 - `pyegeria-web` is mounted read-write to workspace folders (`/app`, `/config`, `/work`, templates, demo data), so path changes must preserve container mount assumptions.
+- **Async invariant:** `async def` FastAPI routes must use `*_async` client factories (e.g. `_runtime_manager_async`, `_security_officer_async`) that call `await async_apply_token(mgr)` from `egeria_auth.py`. Never call sync `apply_token()` or `create_egeria_bearer_token()` from an async route — they call `run_until_complete()` internally and raise `RuntimeError` on Python 3.10+. See CLAUDE.md for the full pattern and `operations_handler.py` / `audit_handler.py` for reference implementations.
 
 ## Tests and diagnostics
 - Focused Python tests exist in `compose-configs/egeria-quickstart/PyegeriaWebHandler/tests/`.
