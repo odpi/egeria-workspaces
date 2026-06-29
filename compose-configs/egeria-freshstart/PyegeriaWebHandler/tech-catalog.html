@@ -809,7 +809,8 @@ function TechTypeDetail({ item, detailLoading, creds }) {
   return React.createElement('div', null,
     React.createElement('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 4 } },
       React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)', margin: 0, flex: 1 } }, item.displayName),
-      React.createElement(EgeriaFeedbackWidget, { guid: item.guid })
+      React.createElement(EgeriaFeedbackWidget, { guid: item.guid }),
+      React.createElement(CopyJsonButton, { data: item })
     ),
     React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginBottom: item.description ? 12 : 4 } }, item.qualifiedName),
     item.description && React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 12 },
@@ -1565,7 +1566,8 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
         title: 'Preview the rows of this file',
         style: { fontSize: 12, padding: '4px 12px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer', whiteSpace: 'nowrap' }
       }, 'Preview Data 📊'),
-      React.createElement(EgeriaFeedbackWidget, { guid: item.guid })
+      React.createElement(EgeriaFeedbackWidget, { guid: item.guid }),
+      React.createElement(CopyJsonButton, { data: item })
     ),
     item.typeName && React.createElement('div', { style: { display: 'inline-block', fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: 'rgba(96,165,250,0.12)', color: 'var(--accent)', marginBottom: 12 } }, item.typeName),
     // Audit cross-links: skip for SurveyReports (no governance exceptions/certifications/licenses)

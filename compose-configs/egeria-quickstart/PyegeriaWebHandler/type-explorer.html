@@ -1110,7 +1110,8 @@ function TypeDetail({
       fontFamily: 'ui-monospace,monospace'
     },
     title: t.guid
-  }, t.guid.slice(0, 8), "\u2026"), t.wiki && /*#__PURE__*/React.createElement(WikiLink, { href: t.wiki })), /*#__PURE__*/React.createElement("p", {
+  }, t.guid.slice(0, 8), "\u2026"), t.wiki && /*#__PURE__*/React.createElement(WikiLink, { href: t.wiki }),
+  /*#__PURE__*/React.createElement(CopyJsonButton, { data: t })), /*#__PURE__*/React.createElement("p", {
     className: "detail-desc"
   }, t.desc || '—')), /*#__PURE__*/React.createElement("div", {
     className: "chain"
@@ -1351,7 +1352,8 @@ function ClassifDetail({
     }
   }, name), /*#__PURE__*/React.createElement(Badge, {
     kind: "classif"
-  }, "classification"), c.deprecated && /*#__PURE__*/React.createElement(DeprBadge, null), c.wiki && /*#__PURE__*/React.createElement(WikiLink, { href: c.wiki })), /*#__PURE__*/React.createElement("p", {
+  }, "classification"), c.deprecated && /*#__PURE__*/React.createElement(DeprBadge, null), c.wiki && /*#__PURE__*/React.createElement(WikiLink, { href: c.wiki }),
+  /*#__PURE__*/React.createElement(CopyJsonButton, { data: c })), /*#__PURE__*/React.createElement("p", {
     className: "detail-desc"
   }, c.desc || '—'), /*#__PURE__*/React.createElement("p", {
     style: {
@@ -1418,7 +1420,8 @@ function RelDetail({
     }
   }, name), /*#__PURE__*/React.createElement(Badge, {
     kind: "rel"
-  }, "relationship"), r.deprecated && /*#__PURE__*/React.createElement(DeprBadge, null), r.wiki && /*#__PURE__*/React.createElement(WikiLink, { href: r.wiki })), /*#__PURE__*/React.createElement("p", {
+  }, "relationship"), r.deprecated && /*#__PURE__*/React.createElement(DeprBadge, null), r.wiki && /*#__PURE__*/React.createElement(WikiLink, { href: r.wiki }),
+  /*#__PURE__*/React.createElement(CopyJsonButton, { data: r })), /*#__PURE__*/React.createElement("p", {
     className: "detail-desc"
   }, r.desc || '—')), /*#__PURE__*/React.createElement("div", {
     className: "arrow-row"
@@ -2191,7 +2194,8 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
     React.createElement('div', { className: 'detail-name' }, spec.name),
     React.createElement('div', { style: { display: 'flex', gap: 6, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' } },
       spec.family     && React.createElement('span', { className: 'badge', style: BADGE_STYLE.base  }, spec.family),
-      spec.target_type && React.createElement('span', { className: 'badge', style: BADGE_STYLE.entity }, spec.target_type)
+      spec.target_type && React.createElement('span', { className: 'badge', style: BADGE_STYLE.entity }, spec.target_type),
+      React.createElement(CopyJsonButton, { data: spec })
     ),
     spec.heading && React.createElement('div', { style: { marginTop: 12, fontWeight: 600, fontSize: 13, color: 'var(--text)' } }, spec.heading),
     spec.description && React.createElement('div', { className: 'detail-desc', style: { marginTop: 6 } }, spec.description),
@@ -2838,7 +2842,8 @@ function ReferenceDataDetail({ item }) {
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, item.displayName || item.qualifiedName),
       React.createElement("span", { className: "badge", style: { background: isSet ? 'rgba(99,102,241,.15)' : 'rgba(16,185,129,.12)', color: isSet ? '#818cf8' : '#34d399', border: '0.5px solid ' + (isSet ? 'rgba(99,102,241,.3)' : 'rgba(16,185,129,.3)') } }, item.typeName || (isSet ? 'Set' : 'Value')),
-      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: item.guid }))
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: item.guid })),
+      React.createElement(CopyJsonButton, { data: item })
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, item.guid),
     item.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(item.description)),
@@ -3114,7 +3119,8 @@ function DigitalProductDetail({ product, onNavigateToElement, creds }) {
         onClick: function() { setPreviewDs({ guid: product.guid, name: product.displayName || product.qualifiedName || product.guid }); },
         style: { padding: '3px 10px', borderRadius: 4, border: '1px solid rgba(251,191,36,.4)', background: 'rgba(251,191,36,.1)', color: '#fcd34d', cursor: 'pointer', fontSize: 12 }
       }, "Preview Data 📊"),
-      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: product.guid }))
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: product.guid })),
+      React.createElement(CopyJsonButton, { data: product })
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 4 } }, product.guid),
     product.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16, marginTop: 10 } }, renderMd(product.description)),
@@ -4169,7 +4175,8 @@ function ValidValueDetail({ item }) {
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, item.displayName || item.qualifiedName),
       isSet && React.createElement("span", { className: "badge", style: { background: 'rgba(99,102,241,.15)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.3)' } }, item.typeName || 'Set'),
-      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: item.guid }))
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: item.guid })),
+      React.createElement(CopyJsonButton, { data: item })
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, item.guid),
     item.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(item.description)),
@@ -4193,8 +4200,9 @@ function ValidValueEntry({ val }) {
   if (!val) return null;
   return React.createElement("div", { style: { padding: '14px 20px', borderBottom: '1px solid var(--border)' } },
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 } },
-      React.createElement("span", { style: { fontWeight: 600, fontSize: 14 } }, val.displayName || val.preferredValue || '?'),
-      val.preferredValue && React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)' } }, val.preferredValue)
+      React.createElement("span", { style: { fontWeight: 600, fontSize: 14, flex: 1 } }, val.displayName || val.preferredValue || '?'),
+      val.preferredValue && React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)' } }, val.preferredValue),
+      React.createElement(CopyJsonButton, { data: val })
     ),
     val.description && React.createElement("p", { style: { margin: 0, fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 } }, val.description)
   );
@@ -4294,7 +4302,8 @@ function ValidValuesView({ navProp }) {
         : React.createElement("div", null,
             React.createElement("div", { style: { padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 } },
               React.createElement("span", { style: { fontSize: 16, fontWeight: 700 } }, submittedProp),
-              React.createElement("span", { className: "badge" }, values.length + ' value' + (values.length !== 1 ? 's' : ''))
+              React.createElement("span", { className: "badge" }, values.length + ' value' + (values.length !== 1 ? 's' : '')),
+              React.createElement(CopyJsonButton, { data: values, title: '{ } Copy all JSON' })
             ),
             values.length === 0
               ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "No registered valid values for “" + submittedProp + "”"))
@@ -4871,7 +4880,8 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
       React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
         React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, detail.displayName || detail.qualifiedName),
         React.createElement("span", { className: "badge", style: { background: 'rgba(125,211,252,.1)', color: color, border: '0.5px solid rgba(125,211,252,.3)' } }, detail.typeName || ''),
-        React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: detail.guid }))
+        React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: detail.guid })),
+        React.createElement(CopyJsonButton, { data: detail })
       ),
       React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, detail.guid),
       detail.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(detail.description)),
@@ -4966,7 +4976,8 @@ function SolutionBlueprintDetail({ blueprint, onNavigateToComponent, onNavigateT
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, blueprint.displayName || blueprint.qualifiedName),
       React.createElement("span", { className: "badge", style: { background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)' } }, blueprint.typeName || 'SolutionBlueprint'),
-      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: blueprint.guid }))
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: blueprint.guid })),
+      React.createElement(CopyJsonButton, { data: blueprint })
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, blueprint.guid),
     blueprint.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(blueprint.description)),
@@ -5062,7 +5073,8 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, component.displayName || component.qualifiedName),
       React.createElement("span", { className: "badge", style: { background: 'rgba(96,165,250,.1)', color: '#93c5fd', border: '0.5px solid rgba(96,165,250,.3)' } }, component.typeName || 'SolutionComponent'),
-      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: component.guid }))
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: component.guid })),
+      React.createElement(CopyJsonButton, { data: component })
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, component.guid),
     component.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(component.description)),
@@ -5230,7 +5242,8 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
     return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
       React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
         React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, detail.displayName || detail.qualifiedName),
-        detail.typeName && React.createElement("span", { className: "badge", style: { background: 'rgba(196,181,253,.1)', color: color, border: '0.5px solid rgba(196,181,253,.3)' } }, detail.typeName)
+        detail.typeName && React.createElement("span", { className: "badge", style: { background: 'rgba(196,181,253,.1)', color: color, border: '0.5px solid rgba(196,181,253,.3)' } }, detail.typeName),
+        React.createElement(CopyJsonButton, { data: detail })
       ),
       React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, detail.guid),
       detail.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(detail.description)),
@@ -5773,7 +5786,8 @@ function ISCDetail({ data, detail, onNavigateToElement }) {
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.displayName || src.qualifiedName),
       React.createElement("span", { className: "badge", style: { background: 'rgba(94,234,212,.1)', color: '#5eead4', border: '0.5px solid rgba(94,234,212,.3)' } }, src.typeName || 'InformationSupplyChain'),
-      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid }))
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid })),
+      React.createElement(CopyJsonButton, { data: src })
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, src.guid),
     src.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(src.description)),
@@ -6046,7 +6060,8 @@ function LocationDetail({ data, detail, onNavigateToElement }) {
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.displayName || src.qualifiedName),
       React.createElement(LocationKindBadges, { kinds: src.locationKinds }),
-      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid }))
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid })),
+      React.createElement(CopyJsonButton, { data: src })
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, src.guid),
     src.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(src.description)),
@@ -6348,7 +6363,8 @@ function ActorDetail({ data, detail, onNavigateToElement }) {
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.displayName || src.qualifiedName),
       React.createElement(ActorTypeBadge, { typeName: src.typeName }),
-      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid }))
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid })),
+      React.createElement(CopyJsonButton, { data: src })
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, src.guid),
     src.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(src.description)),
@@ -6566,7 +6582,8 @@ function CommunityDetail({ data, detail, onNavigateToElement }) {
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.displayName || src.qualifiedName),
       React.createElement("span", { className: "badge", style: { background: 'rgba(192,132,252,.1)', color: '#c084fc', border: '0.5px solid rgba(192,132,252,.3)' } }, src.typeName || 'Community'),
-      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid }))
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid })),
+      React.createElement(CopyJsonButton, { data: src })
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, src.guid),
     src.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(src.description)),
@@ -6779,7 +6796,8 @@ function NoteLogDetail({ data, detail, onNavigateToElement }) {
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.displayName || src.qualifiedName),
       React.createElement("span", { className: "badge", style: { background: 'rgba(192,132,252,.1)', color: '#c084fc', border: '0.5px solid rgba(192,132,252,.3)' } }, src.typeName || 'NoteLog'),
-      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid }))
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid })),
+      React.createElement(CopyJsonButton, { data: src })
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, src.guid),
     src.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(src.description)),
@@ -7507,7 +7525,8 @@ function ProjectDetail({ project, children, onSelectChild }) {
       React.createElement('h2', { style: { fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text)', flex: 1 } },
         project.displayName || project.qualifiedName || project.guid
       ),
-      React.createElement(EgeriaFeedbackWidget, { guid: project.guid })
+      React.createElement(EgeriaFeedbackWidget, { guid: project.guid }),
+      React.createElement(CopyJsonButton, { data: project })
     ),
     (project.classifications || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 14 } },
       project.classifications.map(function(c) {
@@ -7615,7 +7634,8 @@ function GovDefDetail({ definition, onNavigateToElement }) {
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement('div', { style: { fontSize: 18, fontWeight: 700 } }, definition.displayName || definition.qualifiedName),
       definition.typeName && React.createElement('span', { className: 'badge', style: { background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)' } }, definition.typeName),
-      React.createElement('div', { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: definition.guid }))
+      React.createElement('div', { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: definition.guid })),
+      React.createElement(CopyJsonButton, { data: definition })
     ),
     React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 12 } }, definition.guid),
     definition.description && React.createElement('div', { style: { fontSize: 13, marginBottom: 16 } }, renderMd(definition.description)),
