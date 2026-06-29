@@ -18,6 +18,7 @@ Access it from the portal tile or directly at `/egeria-explorer`.
 | **ISC** | Information supply chains and data lineage | Data engineers, auditors |
 | **Solution Architect** | Blueprints, solution components, and roles | Architects |
 | **Perspectives** | Organisational views — teams, roles, responsibilities | HR, management |
+| **Search Keywords** | All registered search keywords and the elements tagged with each | Architects, data stewards |
 
 ---
 
@@ -69,7 +70,7 @@ The Execute panel is designed for testing individual commands. For production wo
 
 Every detail panel in Egeria Explorer has a **`{ } Copy JSON`** button in its header row. Clicking it copies the complete raw JSON payload for the selected element to the clipboard — useful for pasting into notebooks, debugging, or feeding into other tools.
 
-This is available on all detail views: Type System types, classifications and relationships, Glossary terms/folders, Data Design elements, Governance definitions, Digital Products, ISC, Solution Architect blueprints and components, Perspectives, Locations, Actors, Communities, Note Logs, Projects, Reference Data, Valid Values (per-entry and copy-all for the full result set), and Report Specs.
+This is available on all detail views: Type System types, classifications and relationships, Glossary terms/folders, Data Design elements, Governance definitions, Digital Products, ISC, Solution Architect blueprints and components, Perspectives, Locations, Actors, Communities, Note Logs, Projects, Search Keywords, Reference Data, Valid Values (per-entry and copy-all for the full result set), and Report Specs.
 
 The button shows **✓ Copied** (green) on success or **✕ Failed** (red) on failure, then resets after two seconds.
 
