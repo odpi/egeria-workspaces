@@ -35,6 +35,16 @@ def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     return mgr
 
 
+def _is_template(element: dict) -> bool:
+    """Return True if the element carries the Egeria 'Template' classification."""
+    for val in (element.get("elementHeader") or {}).values():
+        if isinstance(val, dict) and val.get("class") == "ElementClassification":
+            name = val.get("classificationName") or (val.get("type") or {}).get("typeName") or ""
+            if name == "Template":
+                return True
+    return False
+
+
 def _props(element: dict) -> dict:
     return element.get("properties") or {}
 
@@ -186,6 +196,7 @@ def list_blueprints(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
@@ -209,6 +220,9 @@ def list_blueprints(
 
     if not isinstance(raw, list):
         raw = []
+
+    if not include_templates:
+        raw = [b for b in raw if not _is_template(b)]
 
     blueprints = [_serialize_blueprint_summary(b) for b in raw]
     blueprints.sort(key=lambda b: (b.get("displayName") or "").lower())
@@ -323,6 +337,7 @@ def list_components(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
@@ -346,6 +361,9 @@ def list_components(
 
     if not isinstance(raw, list):
         raw = []
+
+    if not include_templates:
+        raw = [c for c in raw if not _is_template(c)]
 
     components = [_serialize_component_summary(c) for c in raw]
     components.sort(key=lambda c: (c.get("displayName") or "").lower())

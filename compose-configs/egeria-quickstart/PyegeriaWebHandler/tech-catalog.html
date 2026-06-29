@@ -1683,7 +1683,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   // LE-3: point-in-time browsing — only the data-asset endpoints accept as_of_time.
   var _asOfTime = useState(null), asOfTime = _asOfTime[0], setAsOfTime = _asOfTime[1];
   var supportsTime = /\/(data-stores|data-feeds|data-sets|infrastructure|software-capabilities|endpoints|apis|software-components|actions|survey-reports)\b/.test(endpoint);
-  var supportsTemplateFilter = /\/(infrastructure|software-capabilities)\b/.test(endpoint);
+  var supportsTemplateFilter = /\/(infrastructure|software-capabilities|endpoints|data-stores|data-feeds|data-sets|apis|software-components|actions)\b/.test(endpoint);
 
   useEffect(function() {
     setLoading(true); setError(''); setSelected(null); setDetail(null); setClassifFilter([]);

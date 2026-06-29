@@ -43,6 +43,16 @@ def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     return mgr
 
 
+def _is_template(element: dict) -> bool:
+    """Return True if the element carries the Egeria 'Template' classification."""
+    for val in (element.get("elementHeader") or {}).values():
+        if isinstance(val, dict) and val.get("class") == "ElementClassification":
+            name = val.get("classificationName") or (val.get("type") or {}).get("typeName") or ""
+            if name == "Template":
+                return True
+    return False
+
+
 def _props(element: dict) -> dict:
     return element.get("properties") or {}
 
@@ -138,7 +148,7 @@ def _serialize_actor_element(element: dict) -> dict:
     return d
 
 
-def _list_route(mgr, find_fn, url, server, user_id, user_pwd, start_from, page_size, label, as_of_time=None):
+def _list_route(mgr, find_fn, url, server, user_id, user_pwd, start_from, page_size, label, as_of_time=None, include_templates=True):
     try:
         raw = find_fn(
             search_string="*",
@@ -157,6 +167,8 @@ def _list_route(mgr, find_fn, url, server, user_id, user_pwd, start_from, page_s
 
     if not isinstance(raw, list):
         raw = []
+    if not include_templates:
+        raw = [e for e in raw if isinstance(e, dict) and not _is_template(e)]
     items = [_serialize_actor_element(e) for e in raw if isinstance(e, dict)]
     items.sort(key=lambda x: (x.get("displayName") or x.get("qualifiedName") or "").lower())
     return items
@@ -171,13 +183,14 @@ def list_actor_profiles(
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("Failed to create ActorManager for profile list")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
-    items = _list_route(mgr, mgr.find_actor_profiles, url, server, user_id, user_pwd, start_from, page_size, "Actor profile", as_of_time)
+    items = _list_route(mgr, mgr.find_actor_profiles, url, server, user_id, user_pwd, start_from, page_size, "Actor profile", as_of_time, include_templates=include_templates)
     return JSONResponse({"profiles": items, "total": len(items)})
 
 
@@ -219,13 +232,14 @@ def list_actor_roles(
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("Failed to create ActorManager for role list")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
-    items = _list_route(mgr, mgr.find_actor_roles, url, server, user_id, user_pwd, start_from, page_size, "Actor role", as_of_time)
+    items = _list_route(mgr, mgr.find_actor_roles, url, server, user_id, user_pwd, start_from, page_size, "Actor role", as_of_time, include_templates=include_templates)
     return JSONResponse({"roles": items, "total": len(items)})
 
 
@@ -267,13 +281,14 @@ def list_user_identities(
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("Failed to create ActorManager for identity list")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
-    items = _list_route(mgr, mgr.find_user_identities, url, server, user_id, user_pwd, start_from, page_size, "User identity", as_of_time)
+    items = _list_route(mgr, mgr.find_user_identities, url, server, user_id, user_pwd, start_from, page_size, "User identity", as_of_time, include_templates=include_templates)
     return JSONResponse({"identities": items, "total": len(items)})
 
 

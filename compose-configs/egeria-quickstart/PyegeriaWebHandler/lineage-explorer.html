@@ -538,15 +538,17 @@ function NavSearch({ onSelect, creds }) {
   var _open   = useState(false), open    = _open[0],   setOpen    = _open[1];
   var _load   = useState(false), loading = _load[0],   setLoading = _load[1];
   var _hi     = useState(-1),    hi      = _hi[0],     setHi      = _hi[1];
+  var _inclTempl = useState(false), inclTempl = _inclTempl[0], setInclTempl = _inclTempl[1];
   var _timer  = useRef(null);
   var wrapRef = useRef(null);
 
-  function doSearch(val) {
+  function doSearch(val, inclT) {
     if (_timer.current) clearTimeout(_timer.current);
     if (!val.trim()) { setItems([]); setOpen(false); return; }
     _timer.current = setTimeout(function() {
       setLoading(true);
-      fetchWithToken('/api/lineage/search?q=' + encodeURIComponent(val), creds)
+      var url = '/api/lineage/search?q=' + encodeURIComponent(val) + (inclT ? '&include_templates=true' : '');
+      fetchWithToken(url, creds)
         .then(function(r) { return r.ok ? r.json() : { items: [] }; })
         .then(function(d) { setItems(d.items || []); setOpen(true); setLoading(false); setHi(-1); })
         .catch(function() { setLoading(false); });
@@ -580,11 +582,17 @@ function NavSearch({ onSelect, creds }) {
       className: 'search-input',
       placeholder: loading ? 'Searching…' : 'Search assets…',
       value: q,
-      onChange: function(e) { setQ(e.target.value); doSearch(e.target.value); },
+      onChange: function(e) { setQ(e.target.value); doSearch(e.target.value, inclTempl); },
       onFocus: function() { if (items.length > 0) setOpen(true); },
       onKeyDown: onKeyDown,
       autoComplete: 'off',
     }),
+    React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', marginTop: 4 } },
+      React.createElement('input', { type: 'checkbox', checked: inclTempl,
+        onChange: function(e) { setInclTempl(e.target.checked); if (q.trim()) doSearch(q, e.target.checked); },
+        style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
+      'Include templates'
+    ),
     open && items.length > 0 && React.createElement('div', { className: 'search-dropdown' },
       items.map(function(item, i) {
         return React.createElement('div', {

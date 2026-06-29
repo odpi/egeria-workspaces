@@ -32,6 +32,16 @@ def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     return mgr
 
 
+def _is_template(element: dict) -> bool:
+    """Return True if the element carries the Egeria 'Template' classification."""
+    for val in (element.get("elementHeader") or {}).values():
+        if isinstance(val, dict) and val.get("class") == "ElementClassification":
+            name = val.get("classificationName") or (val.get("type") or {}).get("typeName") or ""
+            if name == "Template":
+                return True
+    return False
+
+
 def _props(element: dict) -> dict:
     return element.get("properties") or {}
 
@@ -93,6 +103,7 @@ def get_projects(
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
@@ -117,6 +128,9 @@ def get_projects(
 
     if not raw or not isinstance(raw, list):
         return JSONResponse({"projects": [], "total": 0})
+
+    if not include_templates:
+        raw = [p for p in raw if not _is_template(p)]
 
     projects = [_serialize_project(p) for p in raw if _type_name(p) == "Project"]
     projects.sort(key=lambda p: (p.get("displayName") or "").lower())

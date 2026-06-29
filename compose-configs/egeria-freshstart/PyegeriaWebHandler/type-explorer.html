@@ -5859,6 +5859,7 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
   const [detail, setDetail] = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter] = useState('');
+  const [inclTempl, setInclTempl] = useState(false);
   const [expandedISC, setExpandedISC] = useState(new Set());
 
   const toggleISC = useCallback(function(guid) {
@@ -5867,11 +5868,11 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
 
   useEffect(function() {
     setState('loading'); setError('');
-    egeriaFetch('/api/isc', creds)
+    egeriaFetch('/api/isc' + (inclTempl ? '?include_templates=true' : ''), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setItems(data.supply_chains || []); setState('ready'); })
       .catch(function(e) { setError(e.message); setState('error'); });
-  }, [attempt]);
+  }, [attempt, inclTempl]);
 
   useEffect(function() {
     if (!selected) { setDetail(null); return; }
@@ -5886,7 +5887,11 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
     React.createElement("div", { style: { padding: '8px 10px' } }, React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' })),
     React.createElement("div", { className: "search-wrap" },
       React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
-        onChange: function(e) { setFilter(e.target.value); } })
+        onChange: function(e) { setFilter(e.target.value); } }),
+      React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', marginTop: 4 } },
+        React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
+        "Include templates"
+      )
     ),
     state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     state === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -6157,6 +6162,7 @@ function LocationsView({ navGuid, onNavigateToElement }) {
   const [detail, setDetail] = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter] = useState('');
+  const [inclTempl, setInclTempl] = useState(false);
   const [expanded, setExpanded] = useState(function() { return new Set(); });
   // 'geo' = geographic nesting · 'kind' = grouped by location kind
   const [locView, setLocView] = useState('geo');
@@ -6168,11 +6174,14 @@ function LocationsView({ navGuid, onNavigateToElement }) {
 
   useEffect(function() {
     setState('loading'); setError('');
-    egeriaFetch('/api/locations' + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
+    var locParams = [];
+    if (asOfTime) locParams.push('as_of_time=' + encodeURIComponent(asOfTime));
+    if (inclTempl) locParams.push('include_templates=true');
+    egeriaFetch('/api/locations' + (locParams.length ? '?' + locParams.join('&') : ''), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setItems(data.locations || []); setState('ready'); })
       .catch(function(e) { setError(e.message); setState('error'); });
-  }, [attempt, asOfTime]);
+  }, [attempt, asOfTime, inclTempl]);
 
   useEffect(function() {
     if (!selected) { setDetail(null); return; }
@@ -6247,7 +6256,11 @@ function LocationsView({ navGuid, onNavigateToElement }) {
     ),
     React.createElement("div", { className: "search-wrap" },
       React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
-        onChange: function(e) { setFilter(e.target.value); } })
+        onChange: function(e) { setFilter(e.target.value); } }),
+      React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', marginTop: 4 } },
+        React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
+        "Include templates"
+      )
     ),
     state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     state === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -6431,6 +6444,7 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
   const [detail, setDetail]   = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter]   = useState('');
+  const [inclTempl, setInclTempl] = useState(false);
   // Expanded kind-group headers, keyed "subNav::typeName". Groups start collapsed.
   const [expandedKinds, setExpandedKinds] = useState(new Set());
   const [asOfTime, setAsOfTime] = useState(null);  // LE-3 point-in-time
@@ -6439,16 +6453,21 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
     setExpandedKinds(function(prev) { var n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
   }, []);
 
-  // When asOfTime changes, reset all tabs to idle so they re-fetch with the new time.
+  // When asOfTime or inclTempl changes, reset all tabs to idle so they re-fetch.
   useEffect(function() {
     setState({ profiles: 'idle', roles: 'idle', identities: 'idle' });
     setItems({ profiles: [], roles: [], identities: [] });
     setSelected({ profiles: null, roles: null, identities: null });
-  }, [asOfTime]);
+  }, [asOfTime, inclTempl]);
 
-  var atSuffix = asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : '';
+  var atSuffix = (function() {
+    var p = [];
+    if (asOfTime) p.push('as_of_time=' + encodeURIComponent(asOfTime));
+    if (inclTempl) p.push('include_templates=true');
+    return p.length ? '?' + p.join('&') : '';
+  })();
 
-  // Load the active sub-tab's list lazily (once per tab per asOfTime).
+  // Load the active sub-tab's list lazily (once per tab per asOfTime/inclTempl).
   useEffect(function() {
     var cfg = ACTOR_SUBNAV[subNav];
     if (!cfg || state[subNav] === 'ready' || state[subNav] === 'loading') return;
@@ -6509,7 +6528,11 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
     ),
     React.createElement("div", { className: "search-wrap" },
       React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
-        onChange: function(e) { setFilter(e.target.value); } })
+        onChange: function(e) { setFilter(e.target.value); } }),
+      React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', marginTop: 4 } },
+        React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
+        "Include templates"
+      )
     ),
     curState === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     curState === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -7132,15 +7155,22 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   const [expandedComps, setExpandedComps] = useState(new Set());
 
   const [filter, setFilter] = useState('');
+  const [inclTempl, setInclTempl] = useState(false);
+
+  // When inclTempl changes, reset components to idle so they re-fetch.
+  useEffect(function() {
+    setBpState('loading'); setBlueprints([]);
+    setCompState('idle'); setComponents([]);
+  }, [inclTempl]);
 
   // Load blueprints
   useEffect(function() {
     setBpState('loading'); setBpError('');
-    egeriaFetch('/api/solution/blueprints', creds)
+    egeriaFetch('/api/solution/blueprints' + (inclTempl ? '?include_templates=true' : ''), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setBlueprints(data.blueprints || []); setBpState('ready'); })
       .catch(function(e) { setBpError(e.message); setBpState('error'); });
-  }, [bpAttempt]);
+  }, [bpAttempt, inclTempl]);
 
   // Load blueprint→folio grouping
   useEffect(function() {
@@ -7155,11 +7185,11 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   useEffect(function() {
     if (subNav !== 'components' || compState !== 'idle') return;
     setCompState('loading'); setCompError('');
-    egeriaFetch('/api/solution/components', creds)
+    egeriaFetch('/api/solution/components' + (inclTempl ? '?include_templates=true' : ''), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setComponents(data.components || []); setCompState('ready'); })
       .catch(function(e) { setCompError(e.message); setCompState('error'); });
-  }, [subNav, compAttempt]);
+  }, [subNav, compAttempt, inclTempl]);
 
   // Load the composition hierarchy (used when no filter is active)
   useEffect(function() {
@@ -7222,7 +7252,11 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
     // Search bar (shared — resets on sub-nav change)
     React.createElement("div", { className: "search-wrap" },
       React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
-        onChange: function(e) { setFilter(e.target.value); } })
+        onChange: function(e) { setFilter(e.target.value); } }),
+      React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', marginTop: 4 } },
+        React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
+        "Include templates"
+      )
     ),
     // Blueprints list
     subNav === 'blueprints' && React.createElement("div", { style: { overflowY: 'auto', flex: 1 } },
@@ -7510,20 +7544,22 @@ function ProjectsView() {
   const [depTree, setDepTree] = React.useState(null);
   const [depTreeState, setDepTreeState] = React.useState('loading');
   const [expandedProjs, setExpandedProjs] = React.useState(new Set());
+  const [inclTempl, setInclTempl] = React.useState(false);
 
   var atParam = asOfTime ? '&as_of_time=' + encodeURIComponent(asOfTime) : '';
+  var inclTemplParam = inclTempl ? '&include_templates=true' : '';
 
   React.useEffect(function() {
     setState('loading');
     setSelected(null);
-    egeriaFetch('/api/projects?start_from=0&page_size=500' + atParam, creds)
+    egeriaFetch('/api/projects?start_from=0&page_size=500' + atParam + inclTemplParam, creds)
       .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function(data) {
         setProjects(data.projects || []);
         setState('ready');
       })
       .catch(function(e) { setError(String(e)); setState('error'); });
-  }, [asOfTime]);
+  }, [asOfTime, inclTempl]);
 
   React.useEffect(function() {
     setProjTreeState('loading');
@@ -7607,6 +7643,10 @@ function ProjectsView() {
         }),
         React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 5 } },
           filtered.length + ' of ' + projects.length + ' project' + (projects.length !== 1 ? 's' : '')
+        ),
+        React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', marginTop: 6 } },
+          React.createElement('input', { type: 'checkbox', checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
+          'Include templates'
         )
       ),
       React.createElement('div', { style: listStyle },
