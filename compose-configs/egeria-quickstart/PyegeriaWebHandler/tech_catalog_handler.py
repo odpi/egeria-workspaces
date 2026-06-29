@@ -1241,6 +1241,7 @@ def list_survey_reports(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """List SurveyReport elements. SurveyReports are DataAsset subtypes but use an
     empty content_status_list because they are not given ACTIVE status by Egeria."""
@@ -1261,6 +1262,8 @@ def list_survey_reports(
             sequencing_property=_SEQ_PROP,
             as_of_time=as_of_time or None,
         )
+        if not include_templates:
+            raw = [e for e in _safe_list(raw) if not _is_template(e)]
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
     except Exception as exc:
@@ -1387,6 +1390,7 @@ def list_tech_types(
     page_size:  int = Query(100, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """List or search technology types."""
     try:
@@ -1399,6 +1403,8 @@ def list_tech_types(
         )
         # Deduplicate by qualifiedName (some content packs register the same type twice).
         # Keep the entry with more catalogTemplates when there's a conflict.
+        if not include_templates:
+            raw = [e for e in _safe_list(raw) if not _is_template(e)]
         seen: dict = {}
         for e in _safe_list(raw):
             item = _serialize_tech_type(e)

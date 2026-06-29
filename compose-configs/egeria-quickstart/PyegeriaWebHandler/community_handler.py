@@ -34,6 +34,15 @@ def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     return mgr
 
 
+def _is_template(element: dict) -> bool:
+    for val in (element.get("elementHeader") or {}).values():
+        if isinstance(val, dict) and val.get("class") == "ElementClassification":
+            name = val.get("classificationName") or (val.get("type") or {}).get("typeName") or ""
+            if name == "Template":
+                return True
+    return False
+
+
 def _props(element: dict) -> dict:
     return element.get("properties") or {}
 
@@ -114,6 +123,7 @@ def list_communities(
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
@@ -139,6 +149,9 @@ def list_communities(
 
     if not isinstance(raw, list):
         raw = []
+
+    if not include_templates:
+        raw = [e for e in raw if isinstance(e, dict) and not _is_template(e)]
 
     communities = [_serialize_community(e) for e in raw if isinstance(e, dict)]
     communities.sort(key=lambda x: (x.get("displayName") or x.get("qualifiedName") or "").lower())

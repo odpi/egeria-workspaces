@@ -28,7 +28,7 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 from digital_products_handler import (
-    _get_manager, _serialize_node, _header, _type_name, _extract_all_rels,
+    _get_manager, _serialize_node, _header, _type_name, _extract_all_rels, _is_template,
 )
 
 router = APIRouter(tags=["collections"])
@@ -87,6 +87,7 @@ def get_roots(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """Return the RootCollection-typed collections that anchor the hierarchy."""
     try:
@@ -110,6 +111,8 @@ def get_roots(
         logger.exception("RootCollection discovery failed")
         raise HTTPException(status_code=500, detail=f"Root retrieval failed: {exc}")
 
+    if not include_templates:
+        raw = [c for c in raw if isinstance(c, dict) and not _is_template(c)]
     roots = [_serialize_node(c) for c in raw if isinstance(c, dict)]
     roots.sort(key=lambda c: (c.get("displayName") or c.get("qualifiedName") or "").lower())
     return JSONResponse({"roots": roots, "total": len(roots)})

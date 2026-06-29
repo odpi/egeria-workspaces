@@ -237,6 +237,15 @@ def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     return mgr
 
 
+def _is_template(element: dict) -> bool:
+    for val in (element.get("elementHeader") or {}).values():
+        if isinstance(val, dict) and val.get("class") == "ElementClassification":
+            name = val.get("classificationName") or (val.get("type") or {}).get("typeName") or ""
+            if name == "Template":
+                return True
+    return False
+
+
 def _header(element: dict) -> dict:
     return element.get("elementHeader") or {}
 
@@ -351,6 +360,7 @@ def find_definitions(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """Return governance definitions, optionally filtered by type and search string."""
     try:
@@ -382,6 +392,9 @@ def find_definitions(
 
     if not isinstance(raw, list):
         raw = []
+
+    if not include_templates:
+        raw = [e for e in raw if not _is_template(e)]
 
     items = [_serialize_list_item(el) for el in raw]
     items.sort(key=lambda x: (x.get("displayName") or x.get("qualifiedName") or "").lower())

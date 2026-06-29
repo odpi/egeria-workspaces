@@ -878,6 +878,9 @@ function TechTypesView({ creds }) {
   var _detail  = useState(null),  detail  = _detail[0],  setDetail  = _detail[1];
   var _detLoad = useState(false), detLoad = _detLoad[0], setDetLoad = _detLoad[1];
 
+  // Template filter
+  var _inclTempl = useState(false), inclTempl = _inclTempl[0], setInclTempl = _inclTempl[1];
+
   // Load hierarchy on mount
   useEffect(function() {
     fetchWithToken('/api/tech-catalog/tech-types/hierarchy', creds)
@@ -905,13 +908,13 @@ function TechTypesView({ creds }) {
     clearTimeout(_searchTimer.current);
     _searchTimer.current = setTimeout(function() {
       setSrLoad(true); setSrErr('');
-      fetchWithToken('/api/tech-catalog/tech-types?q=' + encodeURIComponent(q), creds)
+      fetchWithToken('/api/tech-catalog/tech-types?q=' + encodeURIComponent(q) + (inclTempl ? '&include_templates=true' : ''), creds)
         .then(function(r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
         .then(function(d) { setSrItems(d.items || []); setSrLoad(false); })
         .catch(function(e) { setSrErr(String(e)); setSrLoad(false); });
     }, 350);
     return function() { clearTimeout(_searchTimer.current); };
-  }, [input]);
+  }, [input, inclTempl]);
 
   // Load detail on selection
   useEffect(function() {
@@ -979,15 +982,19 @@ function TechTypesView({ creds }) {
 
   return React.createElement('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
     React.createElement('div', { style: { width: 290, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden' } },
-      // Search bar
-      React.createElement('div', { style: { padding: '7px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
+      // Search bar + template filter
+      React.createElement('div', { style: { padding: '7px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 5 } },
         React.createElement('input', {
           value: input,
           onChange: function(e) { setInput(e.target.value); },
           placeholder: 'Search… (or browse tree below)',
           style: { width: '100%', boxSizing: 'border-box', fontSize: 12, padding: '4px 9px', borderRadius: 4,
                    border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--text)', outline: 'none' }
-        })
+        }),
+        React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
+          React.createElement('input', { type: 'checkbox', checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
+          'Include templates'
+        )
       ),
       React.createElement('div', { style: { overflowY: 'auto', flex: 1, padding: '4px 0' } }, sidebarContent)
     ),
@@ -1265,7 +1272,7 @@ function GlossaryView({ creds, onNavigate }) {
   // Load glossary list
   useEffect(function() {
     setGlossaryState('loading'); setGlossaryError('');
-    fetchWithToken('/api/glossary', creds)
+    fetchWithToken('/api/glossary' + (showTemplates ? '?include_templates=true' : ''), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) {
         var list = (data.glossaries || []).slice().sort(function(a,b){return (a.displayName||'').localeCompare(b.displayName||'');});
@@ -1273,7 +1280,7 @@ function GlossaryView({ creds, onNavigate }) {
         if (list.length > 0) setSelectedGlossary(list[0].guid);
       })
       .catch(function(err) { setGlossaryError(err.message); setGlossaryState('error'); });
-  }, [glossaryAttempt]);
+  }, [glossaryAttempt, showTemplates]);
 
   var currentScopeGuid = useMemo(function() {
     if (!selectedGlossary) return null;
@@ -1287,21 +1294,21 @@ function GlossaryView({ creds, onNavigate }) {
     setSelectedItem(null); setSelectedData(null); setTermDetail(null); setTermDetailState('idle'); setFilterText('');
     Promise.all([
       fetchWithToken('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/folders', creds).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}),
-      fetchWithToken('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/terms',   creds).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+      fetchWithToken('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/terms' + (showTemplates ? '?include_templates=true' : ''), creds).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
     ])
     .then(function(res) { setFolders(res[0].folders||[]); setTerms(res[1].terms||[]); setScopeState('ready'); })
     .catch(function(err){ setScopeError(err.message); setScopeState('error'); });
-  }, [currentScopeGuid]);
+  }, [currentScopeGuid, showTemplates]);
 
   var runSearch = useCallback(function(q) {
     var sq = (q||'').trim() || '*';
     setSearchQuery(sq); setSearchInputValue(sq === '*' ? '' : sq);
     setSearchState('loading'); setSearchError(''); setSearchTerms([]); setSelectedItem(null); setSelectedData(null); setTermDetail(null); setTermDetailState('idle');
-    fetchWithToken('/api/glossary-terms?q=' + encodeURIComponent(sq), creds)
+    fetchWithToken('/api/glossary-terms?q=' + encodeURIComponent(sq) + (showTemplates ? '&include_templates=true' : ''), creds)
       .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
       .then(function(data){setSearchTerms(data.terms||[]);setSearchState('ready');})
       .catch(function(err){setSearchError(err.message);setSearchState('idle');});
-  }, []);
+  }, [showTemplates]);
 
   var navigateToTerm = useCallback(function(guid){ setSelectedItem(guid); }, []);
 
@@ -1683,7 +1690,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   // LE-3: point-in-time browsing — only the data-asset endpoints accept as_of_time.
   var _asOfTime = useState(null), asOfTime = _asOfTime[0], setAsOfTime = _asOfTime[1];
   var supportsTime = /\/(data-stores|data-feeds|data-sets|infrastructure|software-capabilities|endpoints|apis|software-components|actions|survey-reports)\b/.test(endpoint);
-  var supportsTemplateFilter = /\/(infrastructure|software-capabilities|endpoints|data-stores|data-feeds|data-sets|apis|software-components|actions)\b/.test(endpoint);
+  var supportsTemplateFilter = /\/(infrastructure|software-capabilities|endpoints|data-stores|data-feeds|data-sets|apis|software-components|actions|survey-reports)\b/.test(endpoint);
 
   useEffect(function() {
     setLoading(true); setError(''); setSelected(null); setDetail(null); setClassifFilter([]);

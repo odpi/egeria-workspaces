@@ -63,6 +63,15 @@ def _type_name(element: dict) -> str:
 _SKIP_KEYS = {"elementHeader", "properties", "mermaidGraph"}
 
 
+def _is_template(element: dict) -> bool:
+    for val in (element.get("elementHeader") or {}).values():
+        if isinstance(val, dict) and val.get("class") == "ElementClassification":
+            name = val.get("classificationName") or (val.get("type") or {}).get("typeName") or ""
+            if name == "Template":
+                return True
+    return False
+
+
 def _is_question(element: dict) -> bool:
     """Return True if this GlossaryTerm has the Question classification."""
     header = _header(element)
@@ -144,6 +153,7 @@ def get_perspectives(
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """Return all Perspective elements from the metadata repository."""
     try:
@@ -171,6 +181,9 @@ def get_perspectives(
 
     if not isinstance(raw, list):
         raw = []
+
+    if not include_templates:
+        raw = [e for e in raw if not _is_template(e)]
 
     perspectives = [_serialize_perspective(p) for p in raw if _type_name(p) == "Perspective"]
     perspectives.sort(key=lambda p: (p.get("displayName") or "").lower())
@@ -228,6 +241,7 @@ def get_questions(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """Return all GlossaryTerms classified as Questions (IsQuestion classification)."""
     try:
@@ -256,6 +270,9 @@ def get_questions(
 
     if not isinstance(raw, list):
         raw = []
+
+    if not include_templates:
+        raw = [e for e in raw if not _is_template(e)]
 
     logger.info(f"find_metadata_elements_with_string returned {len(raw)} raw elements")
 

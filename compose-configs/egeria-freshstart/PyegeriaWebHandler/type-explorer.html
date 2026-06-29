@@ -2544,9 +2544,13 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
   // Auth wrapper handed to the shared GlossaryTreeNode for lazy child loads.
   // Includes as_of_time so expanded folder children also reflect the chosen time.
   const fetchJson = React.useCallback(function(path) {
-    var url = path + (asOfTime ? ((path.indexOf('?') !== -1 ? '&' : '?') + 'as_of_time=' + encodeURIComponent(asOfTime)) : '');
+    var p = [];
+    if (asOfTime) p.push('as_of_time=' + encodeURIComponent(asOfTime));
+    if (showTemplates) p.push('include_templates=true');
+    var sep = path.indexOf('?') !== -1 ? '&' : '?';
+    var url = p.length ? path + sep + p.join('&') : path;
     return egeriaFetch(url, creds).then(function(r) { return r.ok ? r.json() : {}; });
-  }, [creds, asOfTime]);
+  }, [creds, asOfTime, showTemplates]);
 
   // Content for current scope (glossary or folder): separate folders and terms
   const [folders, setFolders] = useState([]);
@@ -2575,8 +2579,18 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
   const [showTemplates, setShowTemplates] = useState(false);
   const [glossaryError, setGlossaryError] = useState('');
 
-  var atParam = asOfTime ? ('?as_of_time=' + encodeURIComponent(asOfTime)) : '';
-  var atAppend = asOfTime ? ('&as_of_time=' + encodeURIComponent(asOfTime)) : '';
+  var atParam = (function() {
+    var p = [];
+    if (asOfTime) p.push('as_of_time=' + encodeURIComponent(asOfTime));
+    if (showTemplates) p.push('include_templates=true');
+    return p.length ? '?' + p.join('&') : '';
+  })();
+  var atAppend = (function() {
+    var p = [];
+    if (asOfTime) p.push('as_of_time=' + encodeURIComponent(asOfTime));
+    if (showTemplates) p.push('include_templates=true');
+    return p.length ? '&' + p.join('&') : '';
+  })();
 
   // When asOfTime changes: clear search results (user must re-run search) and reset scope
   useEffect(() => {
@@ -2618,7 +2632,7 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
         if (list.length > 0) setSelectedGlossary(list[0].guid);
       })
       .catch(err => { setGlossaryError(err.message); setGlossaryState('error'); });
-  }, [glossaryAttempt, asOfTime]);
+  }, [glossaryAttempt, asOfTime, showTemplates]);
 
   // Load folders + terms whenever scope or asOfTime changes
   useEffect(() => {
@@ -2642,7 +2656,7 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
       setScopeState('ready');
     })
     .catch(err => { setScopeError(err.message); setScopeState('error'); });
-  }, [currentScopeGuid, asOfTime]);
+  }, [currentScopeGuid, asOfTime, showTemplates]);
 
   // Cross-glossary search (asOfTime-aware)
   const runSearch = useCallback((q) => {
@@ -2659,7 +2673,7 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => { setSearchTerms(data.terms || []); setSearchState('ready'); })
       .catch(err => { setSearchError(err.message); setSearchState('idle'); });
-  }, [asOfTime]);
+  }, [asOfTime, showTemplates]);
 
   const openFolder = useCallback((folder) => {
     setFolderStack(s => [...s, { guid: folder.guid, displayName: folder.displayName }]);
@@ -2919,11 +2933,12 @@ function ReferenceDataView({ navGuid }) {
   const [search, setSearch]       = useState('');
   const [expanded, setExpanded]   = useState(function() { return new Set(); });
   const [error, setError]         = useState('');
+  const [inclTempl, setInclTempl] = useState(false);
 
   useEffect(function() {
     setLoadState('loading');
     setError('');
-    egeriaFetch('/api/reference-data?page_size=500', creds)
+    egeriaFetch('/api/reference-data?page_size=500' + (inclTempl ? '&include_templates=true' : ''), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) {
         const list = data.definitions || [];
@@ -2941,7 +2956,7 @@ function ReferenceDataView({ navGuid }) {
         }
       })
       .catch(function(err) { setError(err.message); setLoadState('error'); });
-  }, [attempt]);
+  }, [attempt, inclTempl]);
 
   const byGuid = useMemo(function() {
     const m = {};
@@ -3011,7 +3026,11 @@ function ReferenceDataView({ navGuid }) {
           type: "search", placeholder: "Filter…", value: search,
           onChange: function(e) { setSearch(e.target.value); },
           style: { width: '100%', boxSizing: 'border-box', fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' }
-        })
+        }),
+        React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
+          React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
+          "Include templates"
+        )
       ),
       React.createElement("div", { className: "tree-scroll" },
         rootNodes.map(function(root) {
@@ -3228,6 +3247,7 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
   useEffect(() => { childrenRef.current = childrenByGuid; }, [childrenByGuid]);
   const [catError, setCatError]     = useState('');
   const [treeError, setTreeError]   = useState('');
+  const [inclTempl, setInclTempl]   = useState(false);
 
   // Tracks the active deep-link guid so catalog/tree load effects don't stomp it
   const navGuidRef = useRef(navGuid);
@@ -3237,7 +3257,7 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
   useEffect(() => {
     setCatState('loading');
     setCatError('');
-    egeriaFetch('/api/digital-products/catalogs', creds)
+    egeriaFetch('/api/digital-products/catalogs' + (inclTempl ? '?include_templates=true' : ''), creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
         const list = (data.catalogs || []).slice().sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
@@ -3246,7 +3266,7 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
         if (list.length > 0 && !navGuidRef.current) setSelectedCat(list[0].guid);
       })
       .catch(err => { setCatError(err.message); setCatState('error'); });
-  }, [catAttempt]);
+  }, [catAttempt, inclTempl]);
 
   // Load tree for selected catalog
   useEffect(() => {
@@ -3322,7 +3342,13 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
   return React.createElement("div", { className: "body" },
     // Catalog list (left)
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
-      React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } }, "Catalogs (" + catalogs.length + ")"),
+      React.createElement("div", { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
+        React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } }, "Catalogs (" + catalogs.length + ")"),
+        React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
+          React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
+          "Include templates"
+        )
+      ),
       React.createElement("div", { className: "tree-scroll" },
         catalogs.map(c =>
           React.createElement("div", {
@@ -3400,13 +3426,14 @@ function CollectionsView({ onNavigateToElement }) {
   const [childrenByGuid, setChildrenByGuid] = useState({}); // guid -> [child nodes] (lazy)
   const [loadingGuids, setLoadingGuids]     = useState(new Set());
   const [asOfTime, setAsOfTime]             = useState(null);
+  const [inclTempl, setInclTempl]           = useState(false);
   const childrenRef = useRef({});
   useEffect(() => { childrenRef.current = childrenByGuid; }, [childrenByGuid]);
 
   // Load root collections on mount
   useEffect(() => {
     setRootState('loading'); setRootError('');
-    egeriaFetch('/api/collections/roots', creds)
+    egeriaFetch('/api/collections/roots' + (inclTempl ? '?include_templates=true' : ''), creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
         const list = (data.roots || []).slice().sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
@@ -3415,7 +3442,7 @@ function CollectionsView({ onNavigateToElement }) {
         if (list.length > 0) setSelectedRoot(list[0].guid);
       })
       .catch(err => { setRootError(err.message); setRootState('error'); });
-  }, [rootAttempt]);
+  }, [rootAttempt, inclTempl]);
 
   // Load hierarchy for the selected root
   useEffect(() => {
@@ -3472,7 +3499,13 @@ function CollectionsView({ onNavigateToElement }) {
   return React.createElement("div", { className: "body" },
     // Root collections (left)
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
-      React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } }, "Root Collections (" + roots.length + ")"),
+      React.createElement("div", { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
+        React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } }, "Root Collections (" + roots.length + ")"),
+        React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
+          React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
+          "Include templates"
+        )
+      ),
       React.createElement("div", { className: "tree-scroll" },
         roots.length === 0
           ? React.createElement("div", { style: { padding: '12px 10px', fontSize: 12, color: 'var(--dim)' } }, "No root collections found")
@@ -4768,6 +4801,7 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
   const [detailSt, setDetailSt] = React.useState('idle');
   const [sideW, onSideDivDown] = useResizable(260);
   const [filter, setFilter] = React.useState('');
+  const [inclTempl, setInclTempl] = React.useState(false);
 
   function updateList(nav, patch) {
     setListStates(function(prev) { return Object.assign({}, prev, { [nav]: Object.assign({}, prev[nav], patch) }); });
@@ -4775,7 +4809,7 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
 
   function loadItems(nav) {
     updateList(nav, { st: 'loading' });
-    egeriaFetch('/api/data-design/' + nav, creds)
+    egeriaFetch('/api/data-design/' + nav + (inclTempl ? '?include_templates=true' : ''), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(d) { updateList(nav, { st: 'ready', items: d[nav] || [] }); })
       .catch(function(err) { updateList(nav, { st: 'error', items: [], error: err.message }); });
@@ -4797,11 +4831,15 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
     loadDetail(nav, guid);
   }
 
-  React.useEffect(function() { loadItems('specs'); }, []);
+  React.useEffect(function() {
+    setListStates({ specs: { st: 'idle', items: [] }, structures: { st: 'idle', items: [] }, fields: { st: 'idle', items: [] }, grains: { st: 'idle', items: [] }, classes: { st: 'idle', items: [] } });
+  }, [inclTempl]);
+
+  React.useEffect(function() { loadItems('specs'); }, [inclTempl]);
 
   React.useEffect(function() {
     if (listStates[subNav].st === 'idle') loadItems(subNav);
-  }, [subNav]);
+  }, [subNav, inclTempl]);
 
   React.useEffect(function() {
     // Fall back to ?guid=&kind= on a cold deep-link (e.g. a Tech Catalog
@@ -4939,7 +4977,11 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
       React.createElement("div", { style: { width: sideW, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0 } },
         React.createElement("div", { className: "search-wrap" },
           React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
-            onChange: function(e) { setFilter(e.target.value); } })
+            onChange: function(e) { setFilter(e.target.value); } }),
+          React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', padding: '4px 0 2px' } },
+            React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
+            "Include templates"
+          )
         ),
         React.createElement("div", { style: { overflowY: 'auto', flex: 1 } },
           curList.st === 'loading'
@@ -5134,6 +5176,7 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
   const [subNav, setSubNav]   = useState('perspectives');
   const [filter, setFilter]   = useState('');
   const [asOfTime, setAsOfTime] = useState(null);  // LE-3 point-in-time
+  const [inclTempl, setInclTempl] = useState(false);
 
   const [perspList, setPerspList]   = useState([]);
   const [perspState, setPerspState] = useState('loading');
@@ -5155,29 +5198,35 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
     return s.replace(/([A-Z])/g, ' $1').replace(/^(.)/, function(c) { return c.toUpperCase(); }).trim();
   }
 
+  // Reset questions so they re-fetch with new inclTempl value
+  useEffect(() => { setQState('idle'); setQList([]); }, [inclTempl]);
+
   // Load perspectives on mount
   useEffect(() => {
     setPerspState('loading');
-    egeriaFetch('/api/perspectives' + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
+    var p = [];
+    if (asOfTime) p.push('as_of_time=' + encodeURIComponent(asOfTime));
+    if (inclTempl) p.push('include_templates=true');
+    egeriaFetch('/api/perspectives' + (p.length ? '?' + p.join('&') : ''), creds)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => { setPerspList(data.perspectives || []); setPerspState('ready'); })
       .catch(() => setPerspState('error'));
-  }, [asOfTime]);
+  }, [asOfTime, inclTempl]);
 
   // Cross-tab arrival: another tab called onNavigateToPerspective(guid) — select it.
   useEffect(() => {
     if (navGuid) { setSubNav('perspectives'); setFilter(''); setSelectedPersp(navGuid); }
   }, [navGuid]);
 
-  // Load questions lazily (first time Questions sub-nav is activated)
+  // Load questions lazily (first time Questions sub-nav is activated, or when inclTempl changes)
   useEffect(() => {
     if (subNav !== 'questions' || qState !== 'idle') return;
     setQState('loading');
-    egeriaFetch('/api/questions', creds)
+    egeriaFetch('/api/questions' + (inclTempl ? '?include_templates=true' : ''), creds)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => { setQList(data.questions || []); setQState('ready'); })
       .catch(() => setQState('error'));
-  }, [subNav]);
+  }, [subNav, qState, inclTempl]);
 
   // Load perspective detail
   useEffect(() => {
@@ -5300,6 +5349,12 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
         React.createElement("button", { style: subNavStyle('questions'), onClick: function() { setSubNav('questions'); setFilter(''); } }, "Questions")
       ),
       React.createElement("div", { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)' } }, React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' })),
+      React.createElement("div", { style: { padding: '4px 10px 6px', borderBottom: '1px solid var(--border)' } },
+        React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
+          React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
+          "Include templates"
+        )
+      ),
       React.createElement("div", { className: "search-wrap", style: { padding: '6px 10px', borderBottom: '1px solid var(--border)' } },
         React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter, onChange: function(e) { setFilter(e.target.value); } })
       ),
@@ -6788,14 +6843,18 @@ function CommunityView({ navGuid, onNavigateToElement }) {
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter] = useState('');
   const [asOfTime, setAsOfTime] = useState(null);  // LE-3 point-in-time
+  const [inclTempl, setInclTempl] = useState(false);
 
   useEffect(function() {
     setState('loading'); setError('');
-    egeriaFetch('/api/communities' + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
+    var p = [];
+    if (asOfTime) p.push('as_of_time=' + encodeURIComponent(asOfTime));
+    if (inclTempl) p.push('include_templates=true');
+    egeriaFetch('/api/communities' + (p.length ? '?' + p.join('&') : ''), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setItems(data.communities || []); setState('ready'); })
       .catch(function(e) { setError(e.message); setState('error'); });
-  }, [attempt, asOfTime]);
+  }, [attempt, asOfTime, inclTempl]);
 
   useEffect(function() {
     if (!selected) { setDetail(null); return; }
@@ -6815,7 +6874,11 @@ function CommunityView({ navGuid, onNavigateToElement }) {
     React.createElement("div", { style: { padding: '8px 10px' } }, React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' })),
     React.createElement("div", { className: "search-wrap" },
       React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
-        onChange: function(e) { setFilter(e.target.value); } })
+        onChange: function(e) { setFilter(e.target.value); } }),
+      React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', padding: '4px 0 2px' } },
+        React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
+        "Include templates"
+      )
     ),
     state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     state === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -7042,14 +7105,15 @@ function NoteLogView({ navGuid, onNavigateToElement }) {
   const [detail, setDetail] = useState(null);
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter] = useState('');
+  const [inclTempl, setInclTempl] = useState(false);
 
   useEffect(function() {
     setState('loading'); setError('');
-    egeriaFetch('/api/notelogs', creds)
+    egeriaFetch('/api/notelogs' + (inclTempl ? '?include_templates=true' : ''), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setItems(data.notelogs || []); setState('ready'); })
       .catch(function(e) { setError(e.message); setState('error'); });
-  }, [attempt]);
+  }, [attempt, inclTempl]);
 
   useEffect(function() {
     if (!selected) { setDetail(null); return; }
@@ -7068,7 +7132,11 @@ function NoteLogView({ navGuid, onNavigateToElement }) {
   var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { className: "search-wrap" },
       React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
-        onChange: function(e) { setFilter(e.target.value); } })
+        onChange: function(e) { setFilter(e.target.value); } }),
+      React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', padding: '4px 0 2px' } },
+        React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
+        "Include templates"
+      )
     ),
     state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     state === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -7894,6 +7962,7 @@ function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [domainFilter, setDomainFilter] = useState('all');
   const [domainOptions, setDomainOptions] = useState(null); // null=loading, []=loaded
+  const [inclTempl, setInclTempl] = useState(false);
 
   // Load governance domain options from valid metadata values
   useEffect(function() {
@@ -7942,11 +8011,12 @@ function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
     setListState('loading'); setListError('');
     const params = new URLSearchParams({ type_name: selType, page_size: '200' });
     if (search) params.set('search_string', search);
+    if (inclTempl) params.set('include_templates', 'true');
     egeriaFetch('/api/governance/definitions?' + params.toString(), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(d) { setDefinitions(d.definitions || []); setListState('ready'); })
       .catch(function(e) { setListError(e.message); setListState('error'); });
-  }, [selType, listAttempt]);
+  }, [selType, listAttempt, inclTempl]);
 
   const searchTimer = React.useRef(null);
   function onSearchChange(val) {
@@ -8053,7 +8123,11 @@ function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
           type: 'search', placeholder: 'Search…', value: search,
           onChange: function(e) { onSearchChange(e.target.value); },
           style: { width: '100%', boxSizing: 'border-box', fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' }
-        })
+        }),
+        React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
+          React.createElement('input', { type: 'checkbox', checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
+          'Include templates'
+        )
       ),
       listState === 'error' && React.createElement('div', { style: { padding: 12, color: '#f87171', fontSize: 12 } }, listError),
       listState === 'loading' && React.createElement('div', { style: { padding: 24, textAlign: 'center', color: 'var(--dim)', fontSize: 12 } }, 'Loading…'),
