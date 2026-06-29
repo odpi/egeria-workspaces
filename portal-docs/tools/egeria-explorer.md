@@ -65,6 +65,16 @@ The Execute panel is designed for testing individual commands. For production wo
 
 ---
 
+## Copying raw JSON
+
+Every detail panel in Egeria Explorer has a **`{ } Copy JSON`** button in its header row. Clicking it copies the complete raw JSON payload for the selected element to the clipboard — useful for pasting into notebooks, debugging, or feeding into other tools.
+
+This is available on all detail views: Type System types, classifications and relationships, Glossary terms/folders, Data Design elements, Governance definitions, Digital Products, ISC, Solution Architect blueprints and components, Perspectives, Locations, Actors, Communities, Note Logs, Projects, Reference Data, Valid Values (per-entry and copy-all for the full result set), and Report Specs.
+
+The button shows **✓ Copied** (green) on success or **✕ Failed** (red) on failure, then resets after two seconds.
+
+---
+
 ## Links from documentation
 
 Where documentation refers to a specific type or glossary term, you can explore it directly:
