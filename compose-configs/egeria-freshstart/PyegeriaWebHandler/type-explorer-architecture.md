@@ -13,37 +13,130 @@ For feature documentation and the REST API reference, see [README.md](README.md#
 
 ```
 Browser
-  │  GET /egeria-explorer              (page load — serves the SPA HTML)
+  │  GET /egeria-explorer              (page load — serves the Egeria Explorer SPA)
+  │  GET /tech-catalog                 (page load — serves the Tech Catalog SPA)
+  │  GET /lineage-explorer             (page load — serves the Lineage Explorer SPA)
   │  GET /api/types                    (type system data)
-  │  GET /api/reference-data           (reference data sets + values)
-  │  GET /api/glossary                 (glossary list)
-  │  GET /api/glossary/{guid}/terms    (terms in a glossary or folder)
-  │  GET /api/glossary-terms           (cross-glossary term search)
-  │  GET /api/digital-products/catalogs          (catalog list)
-  │  GET /api/digital-products/catalogs/{guid}/tree  (full catalog tree)
-  │  GET /api/digital-products/{guid}            (node detail)
+  │
+  │  ── Glossary ──────────────────────────────────────────────────────────────
+  │  GET /api/glossary[?include_templates=true]
+  │  GET /api/glossary/{guid}/terms[?include_templates=true]
+  │  GET /api/glossary/{guid}/folders
+  │  GET /api/glossary-terms[?q=…&include_templates=true]
+  │  GET /api/glossary/term/{guid}
+  │
+  │  ── Reference Data ─────────────────────────────────────────────────────────
+  │  GET /api/reference-data[?page_size=500&include_templates=true]
+  │
+  │  ── Digital Products ───────────────────────────────────────────────────────
+  │  GET /api/digital-products/catalogs[?include_templates=true]
+  │  GET /api/digital-products/catalogs/{guid}/tree
+  │  GET /api/digital-products/{guid}
+  │
+  │  ── Collections ────────────────────────────────────────────────────────────
+  │  GET /api/collections/roots[?include_templates=true]
+  │  GET /api/collections/{guid}/tree
+  │  GET /api/collections/{guid}
+  │
+  │  ── Data Design ────────────────────────────────────────────────────────────
+  │  GET /api/data-design/{nav}[?include_templates=true]   nav ∈ {specs,structures,fields,grains,classes}
+  │  GET /api/data-design/{nav}/{guid}
+  │
+  │  ── Perspectives & Questions ───────────────────────────────────────────────
+  │  GET /api/perspectives[?include_templates=true]
+  │  GET /api/perspectives/{guid}
+  │  GET /api/questions[?include_templates=true]
+  │  GET /api/questions/{guid}
+  │
+  │  ── Information Supply Chains ──────────────────────────────────────────────
+  │  GET /api/isc[?include_templates=true]
+  │  GET /api/isc/{guid}
+  │
+  │  ── Solution Architect ─────────────────────────────────────────────────────
+  │  GET /api/solution/blueprints[?include_templates=true]
+  │  GET /api/solution/blueprints/{guid}
+  │  GET /api/solution/components[?include_templates=true]
+  │  GET /api/solution/components/{guid}
+  │
+  │  ── Projects ───────────────────────────────────────────────────────────────
+  │  GET /api/projects[?include_templates=true]
+  │  GET /api/projects/{guid}
+  │
+  │  ── Actors ─────────────────────────────────────────────────────────────────
+  │  GET /api/actors[?include_templates=true]
+  │  GET /api/actors/roles[?include_templates=true]
+  │  GET /api/actors/user-identities[?include_templates=true]
+  │  GET /api/actors/{guid}
+  │
+  │  ── Locations ──────────────────────────────────────────────────────────────
+  │  GET /api/locations[?include_templates=true]
+  │  GET /api/locations/{guid}
+  │
+  │  ── Communities ────────────────────────────────────────────────────────────
+  │  GET /api/communities[?include_templates=true]
+  │  GET /api/communities/{guid}
+  │
+  │  ── Note Logs ──────────────────────────────────────────────────────────────
+  │  GET /api/notelogs[?include_templates=true]
+  │  GET /api/notelogs/{guid}
+  │
+  │  ── Governance Definitions ──────────────────────────────────────────────────
+  │  GET /api/governance/tree
+  │  GET /api/governance/definitions?type_name=…[&include_templates=true]
+  │  GET /api/governance/definitions/{guid}
+  │
+  │  ── Tech Catalog ────────────────────────────────────────────────────────────
+  │  GET /api/tech-catalog/{category}[?include_templates=true]
+  │  GET /api/tech-catalog/{category}/{guid}
+  │  GET /api/tech-catalog/survey-reports[?include_templates=true]
+  │  GET /api/tech-catalog/tech-types[?q=…&include_templates=true]
+  │  GET /api/tech-catalog/tech-types/hierarchy
+  │
+  │  ── Lineage ─────────────────────────────────────────────────────────────────
+  │  GET /api/lineage/search?q=…[&include_templates=true]
+  │
+  │  ── Mermaid diagrams ────────────────────────────────────────────────────────
   │  GET /api/mermaid/{guid}           (context diagram — graph_query_depth=5)
   │  GET /api/mermaid/{guid}/anchored  (full anchored element graph)
-  │  GET /api/valid-values/properties  (property names that have registered valid values)
-  │  GET /api/valid-values/lookup      (valid values for a property name)
-  │  GET /api/request-bodies           (Layer 1 request body catalog — no Egeria needed)
-  │  GET /api/rest-apis                (OpenAPI endpoint catalog)
-  │  POST /api/request-bodies/rebuild  (regenerate catalog from http-client-collections)
-  │  POST /api/rest-apis/refresh       (clear OpenAPI cache)
+  │
+  │  ── Valid Values ────────────────────────────────────────────────────────────
+  │  GET /api/valid-values/properties
+  │  GET /api/valid-values/lookup
+  │
+  │  ── REST API catalog ────────────────────────────────────────────────────────
+  │  GET /api/request-bodies
+  │  GET /api/rest-apis
+  │  POST /api/request-bodies/rebuild
+  │  POST /api/rest-apis/refresh
   ▼
 Apache httpd  (port 8085)
   │  ProxyPass /egeria-explorer → http://pyegeria-web:8000/egeria-explorer
+  │  ProxyPass /tech-catalog    → http://pyegeria-web:8000/tech-catalog
+  │  ProxyPass /lineage-explorer → http://pyegeria-web:8000/lineage-explorer
   │  ProxyPass /api/*           → http://pyegeria-web:8000/api/*
   ▼
 FastAPI  (pyegeria-web container, port 8000)
-  │  type_system_handler.py       → ValidMetadataManager
-  │  reference_data_handler.py    → ReferenceDataManager
-  │  glossary_handler.py          → GlossaryManager
-  │  digital_products_handler.py  → CollectionManager
-  │  mermaid_handler.py           → MetadataExpert
-  │  valid_values_handler.py      → ReferenceDataManager
-  │  rest_api_handler.py          → egeria_request_body_catalog.json (static)
-  │                                 + Egeria /v3/api-docs (live, cached 1h)
+  │  type_system_handler.py           → ValidMetadataManager
+  │  reference_data_handler.py        → ReferenceDataManager
+  │  glossary_handler.py              → GlossaryManager
+  │  digital_products_handler.py      → CollectionManager
+  │  collections_handler.py           → CollectionManager
+  │  data_design_handler.py           → CollectionManager / DataDesignManager
+  │  perspectives_handler.py          → CollectionManager (perspectives / questions)
+  │  isc_handler.py                   → InformationSupplyChainManager
+  │  solution_architect_handler.py    → SolutionArchitectManager
+  │  project_handler.py               → ProjectManager
+  │  actor_handler.py                 → ActorProfileManager
+  │  location_handler.py              → LocationManager
+  │  community_handler.py             → CommunityManager
+  │  notelog_handler.py               → CollaborationManager
+  │  governance_definitions_handler.py → GovernanceDefinitionManager
+  │  tech_catalog_handler.py          → AssetManager / SurveyReportManager
+  │  lineage_handler.py               → AssetManager
+  │  mermaid_handler.py               → MetadataExpert
+  │  valid_values_handler.py          → ReferenceDataManager
+  │  rest_api_handler.py              → egeria_request_body_catalog.json (static)
+  │                                     + Egeria /v3/api-docs (live, cached 1h)
   ▼
 pyegeria (various managers)
   ▼
@@ -63,23 +156,67 @@ Apache and the FastAPI server run in separate containers on the same Docker netw
 3. The HTML is a self-contained React 18 SPA. React and ReactDOM are loaded from CDN (`unpkg.com`). Mermaid diagram rendering is loaded from CDN (`cdn.jsdelivr.net/npm/mermaid@11`). Application JavaScript is inlined in the HTML.
 4. On load the SPA fetches `/api/types` immediately and renders the **Home (Splash Screen)** as the initial visible section. All other section data is fetched lazily when the user first opens that tab.
 
-### Tab data fetching
+### Tab data fetching (Egeria Explorer)
 
-| Tab | Endpoint | Fetched when |
-|-----|----------|-------------|
+| Tab / Section | Endpoint | Fetched when |
+|---------------|----------|-------------|
 | Home (Splash Screen) | — | Shown immediately on page load; no data fetch |
 | Type System | `GET /api/types` | Page load |
+| Glossary — list | `GET /api/glossary` | First time tab is opened |
+| Glossary — terms | `GET /api/glossary/{guid}/terms` | Glossary or folder selected |
+| Glossary — search | `GET /api/glossary-terms?q=…` | User submits "All Terms" search |
 | Reference Data | `GET /api/reference-data?page_size=500` | First time tab is opened |
-| Glossary | `GET /api/glossary` | First time tab is opened |
-| Glossary terms | `GET /api/glossary/{guid}/terms` | Glossary or folder selected |
-| Digital Products | `GET /api/digital-products/catalogs` | First time tab is opened |
-| Digital Products tree | `GET /api/digital-products/catalogs/{guid}/tree` | Catalog selected |
-| Context diagram | `GET /api/mermaid/{guid}` — `get_metadata_element_by_guid` at depth=5 | User clicks "▦ Load Context Diagram" |
-| Full anchored graph | `GET /api/mermaid/{guid}/anchored` — `get_anchored_element_graph` | User clicks "▦ Load Full Graph" |
-| Valid Values — property list | `GET /api/valid-values/properties` | First time tab is opened (pre-populates sidebar) |
+| Digital Products — catalogs | `GET /api/digital-products/catalogs` | First time tab is opened |
+| Digital Products — tree | `GET /api/digital-products/catalogs/{guid}/tree` | Catalog selected |
+| Collections — roots | `GET /api/collections/roots` | First time tab is opened |
+| Collections — tree | `GET /api/collections/{guid}/tree` | Root selected |
+| Data Design (each sub-tab) | `GET /api/data-design/{nav}` | Sub-tab first opened |
+| Perspectives | `GET /api/perspectives` | First time tab is opened |
+| Questions | `GET /api/questions` | First time "Questions" sub-tab activated |
+| Information Supply Chains | `GET /api/isc` | First time tab is opened |
+| Solution Blueprints | `GET /api/solution/blueprints` | First time blueprints sub-tab activated |
+| Solution Components | `GET /api/solution/components` | First time components sub-tab activated |
+| Projects | `GET /api/projects` | First time tab is opened |
+| Actors (Profiles) | `GET /api/actors` | First time sub-tab activated |
+| Actors (Roles) | `GET /api/actors/roles` | First time sub-tab activated |
+| Actors (User Identities) | `GET /api/actors/user-identities` | First time sub-tab activated |
+| Locations | `GET /api/locations` | First time tab is opened |
+| Communities | `GET /api/communities` | First time tab is opened |
+| Note Logs | `GET /api/notelogs` | First time tab is opened |
+| Governance Definitions | `GET /api/governance/definitions?type_name=…` | Tab open and on each type/search change |
+| Context diagram | `GET /api/mermaid/{guid}` | User clicks "▦ Load Context Diagram" |
+| Full anchored graph | `GET /api/mermaid/{guid}/anchored` | User clicks "▦ Load Full Graph" |
+| Valid Values — property list | `GET /api/valid-values/properties` | First time tab is opened |
 | Valid Values — lookup | `GET /api/valid-values/lookup?property_name=…` | User selects or enters a property name |
+| Report Specs | local pyegeria format registry | First time tab is opened |
 | REST APIs — body catalog | `GET /api/request-bodies` | REST APIs tab is opened (no Egeria needed) |
-| REST APIs — endpoints | `GET /api/rest-apis` | User clicks "Load API Endpoints" in the toolbar |
+| REST APIs — endpoints | `GET /api/rest-apis` | User clicks "Load API Endpoints" |
+
+All list endpoints that return element instances support an optional `include_templates=true` query parameter. When omitted (the default), elements carrying the `Template` classification are excluded from results. See [Template filter](#template-filter) below.
+
+### Tab data fetching (Tech Catalog)
+
+| Tab / Section | Endpoint | Fetched when |
+|---------------|----------|-------------|
+| IT Infrastructure | `GET /api/tech-catalog/infrastructure` | Tab opened |
+| Software Capabilities | `GET /api/tech-catalog/software-capabilities` | Tab opened |
+| Endpoints | `GET /api/tech-catalog/endpoints` | Tab opened |
+| Data Stores | `GET /api/tech-catalog/data-stores` | Tab opened |
+| Data Feeds | `GET /api/tech-catalog/data-feeds` | Tab opened |
+| Data Sets | `GET /api/tech-catalog/data-sets` | Tab opened |
+| APIs | `GET /api/tech-catalog/apis` | Tab opened |
+| Software Components | `GET /api/tech-catalog/software-components` | Tab opened |
+| Actions | `GET /api/tech-catalog/actions` | Tab opened |
+| Survey Reports | `GET /api/tech-catalog/survey-reports` | Tab opened |
+| Technology Types | `GET /api/tech-catalog/tech-types/hierarchy` | Tab opened (tree) |
+| Technology Types search | `GET /api/tech-catalog/tech-types?q=…` | User types search query |
+| Glossary | `GET /api/glossary` then `GET /api/glossary/{guid}/terms` | Tab opened / glossary selected |
+
+### Tab data fetching (Lineage Explorer)
+
+| Section | Endpoint | Fetched when |
+|---------|----------|-------------|
+| Asset search | `GET /api/lineage/search?q=…` | User submits search |
 
 **Server-side caching:** Most handlers have no caching — data is re-fetched on tab re-open. The REST API handler is the exception: the OpenAPI spec fetched from Egeria (`/v3/api-docs`) is cached in process for one hour. The request body catalog is loaded from disk once and held for the process lifetime. All other data is held in React state for the current page session.
 
@@ -233,18 +370,63 @@ The application JavaScript is written inline in the HTML using `React.createElem
 
 | File | Router prefix | Purpose |
 |------|--------------|---------|
-| `type_system_handler.py` | `/api/types`, `/egeria-explorer`, `/type-explorer` | Type definitions; serves the SPA HTML via two URL aliases |
+| `type_system_handler.py` | `/api/types`, `/egeria-explorer`, `/type-explorer` | Type definitions; serves the Egeria Explorer SPA |
 | `reference_data_handler.py` | `/api/reference-data` | Valid value set/value tree |
 | `glossary_handler.py` | `/api/glossary`, `/api/glossary-terms` | Glossaries, folders, terms |
 | `digital_products_handler.py` | `/api/digital-products` | Catalog→family→product hierarchy |
+| `collections_handler.py` | `/api/collections` | Collection root list + tree; imports `_is_template` from `digital_products_handler` |
+| `data_design_handler.py` | `/api/data-design` | Data Specs, Structures, Fields, Grains, Classes |
+| `perspectives_handler.py` | `/api/perspectives`, `/api/questions` | Perspectives and Questions |
+| `isc_handler.py` | `/api/isc` | Information Supply Chains |
+| `solution_architect_handler.py` | `/api/solution` | Solution Blueprints and Components |
+| `project_handler.py` | `/api/projects` | Projects (flat list) |
+| `actor_handler.py` | `/api/actors` | Actor Profiles, Roles, User Identities |
+| `location_handler.py` | `/api/locations` | Locations |
+| `community_handler.py` | `/api/communities` | Communities |
+| `notelog_handler.py` | `/api/notelogs` | Note Logs |
+| `governance_definitions_handler.py` | `/api/governance` | Governance Definitions type tree + instance list |
+| `tech_catalog_handler.py` | `/api/tech-catalog` | Infrastructure, Software Caps, Data Assets, APIs, Survey Reports, Tech Types; serves Tech Catalog SPA |
+| `lineage_handler.py` | `/api/lineage` | Asset search for Lineage Explorer; serves Lineage Explorer SPA |
 | `mermaid_handler.py` | `/api/mermaid` | Element context diagrams |
 | `valid_values_handler.py` | `/api/valid-values` | Property-name valid value lookups |
 | `report_specs_handler.py` | `/api/report-specs` | pyegeria report format specs |
 | `rest_api_handler.py` | `/api/request-bodies`, `/api/rest-apis` | Layer 1 body catalog (static) + OpenAPI endpoint catalog (live, cached) |
+| `isc_audit_handler.py` | `/api/audit` | Operational audit: platforms, users |
 | `pyegeria_handler.py` | — | FastAPI app; mounts all routers |
-| `type-explorer.html` | — | Self-contained SPA served by type_system_handler |
+| `type-explorer.html` | — | Egeria Explorer SPA (all non-catalog views) |
+| `tech-catalog.html` | — | Tech Catalog SPA |
+| `lineage-explorer.html` | — | Lineage Explorer SPA |
 | `egeria_request_body_catalog.json` | — | Generated catalog of Layer 1 request body types; loaded once at startup |
 | `build_request_body_catalog.py` | — | Standalone rebuild script; run after each Egeria upgrade |
+
+---
+
+## Template filter
+
+All list endpoints that return element instances support `include_templates: bool = Query(False)`.
+
+**What it filters:** Elements that carry the `Template` classification in their `elementHeader`. In pyegeria's JSON output, classifications appear as named keys directly on `elementHeader` where the value dict has `"class": "ElementClassification"` and `classificationName` or `type.typeName` equals `"Template"`.
+
+**Default behaviour:** Templates are excluded (`include_templates=False`). The frontend passes `?include_templates=true` only when the user checks the "Include templates" checkbox.
+
+**Two implementation paths:**
+
+1. **Native support** — `skip_classified_elements=["Template"]` passed directly to the pyegeria find method. Used by `find_infrastructure`, `find_software_capabilities`, `find_data_assets`, `find_assets`, `find_processes`. The filter happens server-side inside Egeria.
+
+2. **Python post-filter** — used by all other handlers where the underlying pyegeria method does not expose `skip_classified_elements`. The handler fetches the full list and removes templates with the shared `_is_template()` helper:
+   ```python
+   def _is_template(element: dict) -> bool:
+       for val in (element.get("elementHeader") or {}).values():
+           if isinstance(val, dict) and val.get("class") == "ElementClassification":
+               name = val.get("classificationName") or (val.get("type") or {}).get("typeName") or ""
+               if name == "Template":
+                   return True
+       return False
+   ```
+
+**Audit endpoints excluded:** `/api/audit/platforms` and `/api/audit/users` are operational monitoring endpoints (platform status, user accounts) — template classification does not apply.
+
+**Glossary special case:** `GlossaryView` has always had a client-side "Show template substitutes" checkbox that filters on `isTemplateSubstitute` (a term-level field). This now also passes `include_templates` to the backend calls for `GET /api/glossary`, `GET /api/glossary/{guid}/terms`, and `GET /api/glossary-terms`, providing server-side filtering of the `Template` classification in addition to the existing client-side `TemplateSubstitute` filter.
 
 ---
 
@@ -259,6 +441,19 @@ This table answers the question "where does the data actually come from?" for ea
 | Glossary | `GlossaryManager` → Egeria REST API | Yes | None |
 | Reference Data | `ReferenceDataManager` → Egeria REST API | Yes | None |
 | Digital Products | `CollectionManager` → Egeria REST API | Yes | None |
+| Collections | `CollectionManager` → Egeria REST API | Yes | None |
+| Data Design | `CollectionManager` / `DataDesignManager` → Egeria REST API | Yes | None |
+| Perspectives / Questions | `CollectionManager` → Egeria REST API | Yes | None |
+| Information Supply Chains | `InformationSupplyChainManager` → Egeria REST API | Yes | None |
+| Solution Architect | `SolutionArchitectManager` → Egeria REST API | Yes | None |
+| Projects | `ProjectManager` → Egeria REST API | Yes | None |
+| Actors | `ActorProfileManager` → Egeria REST API | Yes | None |
+| Locations | `LocationManager` → Egeria REST API | Yes | None |
+| Communities | `CommunityManager` → Egeria REST API | Yes | None |
+| Note Logs | `CollaborationManager` → Egeria REST API | Yes | None |
+| Governance Definitions | `GovernanceDefinitionManager` → Egeria REST API | Yes | None |
+| Tech Catalog | `AssetManager` / `SurveyReportManager` → Egeria REST API | Yes | None |
+| Lineage Explorer | `AssetManager` → Egeria REST API | Yes | None |
 | Valid Values | `ReferenceDataManager` → Egeria REST API | Yes | None |
 | Context Diagram | `MetadataExpert.get_metadata_element_by_guid` at depth=5 | Yes | None |
 | Full Anchored Graph | `MetadataExpert.get_anchored_element_graph` | Yes | None |
@@ -314,9 +509,16 @@ The `mermaidGraph` field is present in responses from any find or get method whe
 ### Adding a new Explorer section
 
 1. Create `<section>_handler.py` with a `router = APIRouter(tags=["<section>"])`.
-2. Add endpoints; follow the `_get_manager()` / `_props()` / `_header()` pattern from existing handlers.
+2. Add list endpoints; follow the `_get_manager()` / `_props()` / `_header()` / `_is_template()` pattern from existing handlers:
+   - Add `include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded")` to every list endpoint.
+   - If the underlying pyegeria method supports `skip_classified_elements`, pass `skip_classified_elements=[] if include_templates else ["Template"]`.
+   - Otherwise, post-filter with `_is_template()` (copy the helper from any existing handler, or import it from `digital_products_handler`).
 3. Register in `pyegeria_handler.py`: `from <section>_handler import router as <section>_router` then `app.include_router(<section>_router)`.
 4. Add the frontend component(s) to `type-explorer.html` and a tab button in the `App` component's tab bar.
+   - Add `const [inclTempl, setInclTempl] = useState(false);` to the component state.
+   - Append `?include_templates=true` (or `&include_templates=true`) to the list fetch URL when `inclTempl` is true.
+   - Add `inclTempl` to the `useEffect` dependency array so the list re-fetches when the checkbox is toggled.
+   - Render a checkbox label in the sidebar: `React.createElement('label', { style: { ... } }, React.createElement('input', { type: 'checkbox', checked: inclTempl, onChange: e => setInclTempl(e.target.checked) }), 'Include templates')`.
 5. Update this document, `README.md`, and `Extending the TypeExplorer.md`.
 
 ### Upgrading pyegeria

@@ -13,27 +13,51 @@ This document records the design decisions made when extending the original Type
 
 ## What has been implemented
 
-All four planned sections are live, plus three more added since. The app was renamed **Egeria Explorer** and the tab bar now reads:
+All four planned sections are live, plus many more added since. The app was renamed **Egeria Explorer** and the full section roster now spans multiple portal pages:
 
+**Egeria Explorer** (`type-explorer.html`):
 ```
-[ Type System ] [ Glossary ] [ Reference Data ] [ Digital Products ] [ Report Specs ] [ Valid Values ] [ REST APIs ]
+[ Type System ] [ Glossary ] [ Reference Data ] [ Digital Products ]
+[ Collections ] [ Data Design ] [ Perspectives ] [ ISC ]
+[ Solution Architect ] [ Projects ] [ Actors ] [ Locations ]
+[ Communities ] [ Note Logs ] [ Governance Definitions ]
+[ Report Specs ] [ Valid Values ] [ REST APIs ]
 ```
 
-A sixth tab, **Valid Values**, was added to surface Egeria's controlled vocabulary registry (property-name → allowed values lookups), which is distinct from the Reference Data sets.
+**Tech Catalog** (`tech-catalog.html`):
+```
+[ IT Infrastructure ] [ Software Capabilities ] [ Endpoints ]
+[ Data Stores ] [ Data Feeds ] [ Data Sets ] [ APIs ]
+[ Software Components ] [ Actions ] [ Survey Reports ]
+[ Technology Types ] [ Glossary ]
+```
 
-A seventh tab, **REST APIs**, was added to provide a browsable reference for the full Egeria REST API surface: a curated Layer 1 request body catalog always available offline, combined with live OpenAPI-based endpoint discovery when Egeria is running.
+**Lineage Explorer** (`lineage-explorer.html`): asset search with lineage graph.
 
 ### Sections and their handlers
 
-| Tab | Handler file | pyegeria manager / data source |
-|-----|-------------|-------------------------------|
+| Section / Tab | Handler file | pyegeria manager / data source |
+|---------------|-------------|-------------------------------|
 | Type System | `type_system_handler.py` | `ValidMetadataManager` |
+| Glossary | `glossary_handler.py` | `GlossaryManager` |
 | Reference Data | `reference_data_handler.py` | `ReferenceDataManager` |
 | Digital Products | `digital_products_handler.py` | `CollectionManager` |
-| Glossary | `glossary_handler.py` | `GlossaryManager` |
+| Collections | `collections_handler.py` | `CollectionManager` |
+| Data Design | `data_design_handler.py` | `CollectionManager` / `DataDesignManager` |
+| Perspectives / Questions | `perspectives_handler.py` | `CollectionManager` |
+| Information Supply Chains | `isc_handler.py` | `InformationSupplyChainManager` |
+| Solution Architect | `solution_architect_handler.py` | `SolutionArchitectManager` |
+| Projects | `project_handler.py` | `ProjectManager` |
+| Actors | `actor_handler.py` | `ActorProfileManager` |
+| Locations | `location_handler.py` | `LocationManager` |
+| Communities | `community_handler.py` | `CommunityManager` |
+| Note Logs | `notelog_handler.py` | `CollaborationManager` |
+| Governance Definitions | `governance_definitions_handler.py` | `GovernanceDefinitionManager` |
+| Tech Catalog (all categories) | `tech_catalog_handler.py` | `AssetManager` / `SurveyReportManager` |
+| Lineage Explorer | `lineage_handler.py` | `AssetManager` |
+| Context diagrams | `mermaid_handler.py` | `MetadataExpert` |
 | Report Specs | `report_specs_handler.py` | local pyegeria only |
 | Valid Values | `valid_values_handler.py` | `ReferenceDataManager` |
-| Context diagrams | `mermaid_handler.py` | `MetadataExpert` |
 | REST APIs | `rest_api_handler.py` | `egeria_request_body_catalog.json` (static) + Egeria `/v3/api-docs` (live) |
 
 ---
@@ -57,7 +81,8 @@ A seventh tab, **REST APIs**, was added to provide a browsable reference for the
 | Mermaid JS version | **v11** required | Egeria uses `@{ shape: … }` syntax introduced in v11.0 |
 | Tab order | Type Explorer is the **first** tab (leftmost) | Prevents it disappearing when type-system extras are hidden |
 | URL alias | `/type-explorer` restored alongside `/egeria-explorer` | Two `@router.get` decorators on the same handler function |
-| Template substitutes | Hidden by default in Glossary; checkbox + amber badge | `TemplateSubstitute` is stored in `elementHeader.templateSubstitute`, not in the classifications list |
+| Template substitutes (Glossary) | Hidden by default; "Show template substitutes" checkbox filters on `isTemplateSubstitute` client-side | `TemplateSubstitute` field comes from the term's own properties, not the `Template` classification |
+| Template classification filter | All list endpoints support `include_templates=true`; default excludes elements with the `Template` classification | Two paths: `skip_classified_elements` (native pyegeria) or `_is_template()` post-filter; frontend uses `inclTempl` state + checkbox |
 | REST API catalog source | Extracted from Egeria's `http-client-collections` http files | OpenAPI schemas alone don't reliably describe the two-layer payload structure; the http client files do |
 | REST API catalog format | Committed JSON artifact (`egeria_request_body_catalog.json`) + rebuild script | Committed so the UI works without a rebuild; script makes upgrades a one-command operation |
 | REST API OpenAPI caching | In-process 1-hour TTL, explicit refresh endpoint | The spec is large (~MB); re-fetching on every request would be too slow |
