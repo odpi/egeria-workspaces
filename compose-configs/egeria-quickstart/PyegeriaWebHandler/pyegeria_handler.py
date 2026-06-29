@@ -233,8 +233,8 @@ from governance_definitions_handler import router as governance_router
 app.include_router(governance_router)
 from project_handler import router as project_router
 app.include_router(project_router)
-from search_keywords_handler import router as search_keywords_router
-app.include_router(search_keywords_router)
+from informal_tags_handler import router as informal_tags_router
+app.include_router(informal_tags_router)
 from pyegeria_docs_handler import router as pyegeria_docs_router
 app.include_router(pyegeria_docs_router)
 from demo_feedback_handler import router as demo_feedback_router
