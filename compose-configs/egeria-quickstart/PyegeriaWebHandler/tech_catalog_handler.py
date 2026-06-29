@@ -683,6 +683,7 @@ def list_infrastructure(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -701,6 +702,7 @@ def list_infrastructure(
             sequencing_property=_SEQ_PROP,
             graph_query_depth=0,
             as_of_time=as_of_time or None,
+            skip_classified_elements=[] if include_templates else ["Template"],
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -718,6 +720,7 @@ def list_software_capabilities(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -732,6 +735,7 @@ def list_software_capabilities(
             output_format="JSON",
             graph_query_depth=0,
             as_of_time=as_of_time or None,
+            skip_classified_elements=[] if include_templates else ["Template"],
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})

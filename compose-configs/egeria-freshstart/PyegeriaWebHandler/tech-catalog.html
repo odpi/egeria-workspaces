@@ -1679,20 +1679,23 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   var _q             = useState(''),   q             = _q[0],             setQ             = _q[1];
   var _typeFilter    = useState('all'), typeFilter    = _typeFilter[0],    setTypeFilter    = _typeFilter[1];
   var _classifFilter = useState([]),   classifFilter = _classifFilter[0], setClassifFilter = _classifFilter[1];
+  var _inclTempl = useState(false), inclTempl = _inclTempl[0], setInclTempl = _inclTempl[1];
   // LE-3: point-in-time browsing — only the data-asset endpoints accept as_of_time.
   var _asOfTime = useState(null), asOfTime = _asOfTime[0], setAsOfTime = _asOfTime[1];
   var supportsTime = /\/(data-stores|data-feeds|data-sets|infrastructure|software-capabilities|endpoints|apis|software-components|actions|survey-reports)\b/.test(endpoint);
+  var supportsTemplateFilter = /\/(infrastructure|software-capabilities)\b/.test(endpoint);
 
   useEffect(function() {
     setLoading(true); setError(''); setSelected(null); setDetail(null); setClassifFilter([]);
-    var listUrl = endpoint + (supportsTime && asOfTime
-      ? (endpoint.indexOf('?') === -1 ? '?' : '&') + 'as_of_time=' + encodeURIComponent(asOfTime)
-      : '');
+    var params = [];
+    if (supportsTime && asOfTime) params.push('as_of_time=' + encodeURIComponent(asOfTime));
+    if (supportsTemplateFilter && inclTempl) params.push('include_templates=true');
+    var listUrl = endpoint + (params.length ? '?' + params.join('&') : '');
     fetchWithToken(listUrl, creds)
       .then(function(r) { return r.json(); })
       .then(function(d) { setItems(Array.isArray(d) ? d : (d.items || [])); setLoading(false); })
       .catch(function(e) { setError(String(e)); setLoading(false); });
-  }, [endpoint, asOfTime]);
+  }, [endpoint, asOfTime, inclTempl]);
 
   function handleSelect(item) {
     setSelected(item);
@@ -1774,6 +1777,11 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
     supportsTime && React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' }),
     React.createElement('input', { type: 'search', placeholder: 'Filter…', value: q, onChange: function(e) { setQ(e.target.value); },
       style: { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } }),
+    supportsTemplateFilter && React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
+      React.createElement('input', { type: 'checkbox', checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); },
+        style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
+      'Include templates'
+    ),
     types.length > 1 && React.createElement('select', { value: typeFilter, onChange: function(e) { setTypeFilter(e.target.value); },
       style: { fontSize: 11, padding: '3px 6px', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 4 } },
       [React.createElement('option', { key: 'all', value: 'all' }, 'All types')].concat(
