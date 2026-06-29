@@ -322,7 +322,7 @@ underlying relationship, so they show flat. **Re-verify once the data is seeded.
 |---|------|--------|-------|
 | RS-1 | Building / editing Report Specs from the UI | open | Large feature; spec TBD — form-driven composition of report specs |
 | RS-2 | Subscribe to a Digital Product | open | Exploratory — notification or watch mechanism when product changes |
-| RS-3 | Filter Report Specs list by Perspective and/or Question | open | Orthogonal selection axis — user picks a perspective (e.g. governance, lineage) or a question and sees only relevant report specs; complements existing name/description search |
+| RS-3 | Filter Report Specs list by Perspective and/or Question | **done** | Perspective dropdown + name/description/question search implemented in `ReportSpecView`; perspectives derived client-side from `question_spec[].perspectives` |
 
 ---
 

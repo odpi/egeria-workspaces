@@ -3543,6 +3543,7 @@ const SECTION_LABELS = {
   'digital-products':  'Digital Products',
   'collections':       'Collections',
   'projects':          'Projects',
+  'informal-tags':     'Informal Tags',
   'dr-egeria':         'Dr. Egeria',
   'python-api':        'Python API',
 };
@@ -3983,6 +3984,14 @@ const _SPLASH_CAPABILITIES = [
     icon: '◉',
     title: 'Projects',
     description: 'Browse projects and their hierarchies. Projects are distinguished by classifications (e.g. Campaign, StudyProject, PersonalProject, Task) — a single project can carry multiple kinds simultaneously.',
+    requiresConnection: true,
+  },
+  {
+    section: 'informal-tags',
+    group: 'review',
+    icon: '⚑',
+    title: 'Informal Tags',
+    description: 'Browse informal tags applied across the metadata ecosystem. See which elements have been tagged, filter by public or private tags, and navigate directly to any tagged element.',
     requiresConnection: true,
   },
   // ── Reference ────────────────────────────────────────────────────────────
@@ -6607,6 +6616,140 @@ function CommunityDetail({ data, detail, onNavigateToElement }) {
   );
 }
 
+function InformalTagDetail({ data, detail, onNavigateToElement }) {
+  var src = detail || data;
+  if (!src) return null;
+
+  var elements = src.taggedElements || [];
+
+  return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.name || src.guid),
+      React.createElement("span", { className: "badge", style: { background: 'rgba(52,211,153,.1)', color: '#34d399', border: '0.5px solid rgba(52,211,153,.3)' } }, 'Informal Tag'),
+      src.isPrivateTag && React.createElement("span", { className: "badge", style: { background: 'rgba(251,191,36,.08)', color: '#fbbf24', border: '0.5px solid rgba(251,191,36,.3)', fontSize: 11 } }, 'Private'),
+      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid })),
+      React.createElement(CopyJsonButton, { data: src })
+    ),
+    React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, src.guid),
+    src.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(src.description)),
+    elements.length > 0 && React.createElement("div", { style: { marginTop: 8 } },
+      React.createElement("div", { style: { fontSize: 13, fontWeight: 600, color: 'var(--dim)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' } },
+        'Tagged Elements (' + elements.length + ')'
+      ),
+      elements.map(function(el, i) {
+        return React.createElement("div", {
+          key: el.guid + i,
+          style: { padding: '8px 12px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', gap: 10 }
+        },
+          React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+            React.createElement("div", { style: { fontWeight: 600, fontSize: 13 } }, el.displayName || el.guid),
+            el.description && React.createElement("div", { style: { fontSize: 12, color: 'var(--dim)', marginTop: 2 } }, el.description),
+            React.createElement("span", { className: "badge", style: { background: 'rgba(148,163,184,.08)', color: 'var(--dim)', border: '0.5px solid var(--border)', fontSize: 11 } }, el.typeName)
+          ),
+          el.guid && React.createElement("button", {
+            className: "view-tab",
+            style: { flexShrink: 0, fontSize: 11 },
+            onClick: function() { onNavigateToElement && onNavigateToElement(el); },
+            title: 'View in its tab'
+          }, 'View →')
+        );
+      })
+    ),
+    elements.length === 0 && React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)', marginTop: 8 } }, 'No elements tagged with this tag')
+  );
+}
+
+function InformalTagsView({ navGuid, onNavigateToElement }) {
+  const creds = React.useContext(CredContext);
+  const [sideW, onDivDown] = useResizable(280);
+  const [state, setState]   = useState('loading');
+  const [attempt, setAttempt] = useState(0);
+  const [items, setItems]   = useState([]);
+  const [error, setError]   = useState('');
+  const [selected, setSelected] = useState(function() {
+    var params = new URLSearchParams(window.location.search);
+    return params.get('guid') || null;
+  });
+  const [detail, setDetail] = useState(null);
+  const [detailState, setDetailState] = useState('idle');
+  const [filter, setFilter] = useState('');
+  const [showPrivate, setShowPrivate] = useState(true);
+
+  useEffect(function() {
+    setState('loading'); setError('');
+    egeriaFetch('/api/informal-tags', creds)
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setItems(data.tags || []); setState('ready'); })
+      .catch(function(e) { setError(e.message); setState('error'); });
+  }, [attempt]);
+
+  useEffect(function() {
+    if (!selected) { setDetail(null); return; }
+    setDetailState('loading');
+    egeriaFetch('/api/informal-tags/' + selected, creds)
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setDetail(data); setDetailState('ready'); })
+      .catch(function() { setDetailState('error'); });
+  }, [selected]);
+
+  useEffect(function() {
+    if (navGuid) setSelected(navGuid);
+  }, [navGuid]);
+
+  var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { className: "search-wrap" },
+      React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
+        onChange: function(e) { setFilter(e.target.value); } })
+    ),
+    React.createElement("div", { style: { padding: '4px 12px 8px', display: 'flex', alignItems: 'center', gap: 6 } },
+      React.createElement("label", { style: { fontSize: 12, color: 'var(--dim)', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' } },
+        React.createElement("input", { type: 'checkbox', checked: showPrivate, onChange: function(e) { setShowPrivate(e.target.checked); } }),
+        'Show private tags'
+      )
+    ),
+    state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
+    state === 'error' && React.createElement("div", { style: { padding: 16 } },
+      React.createElement("div", { style: { color: '#f87171', fontSize: 13, marginBottom: 8 } }, "Error: " + error),
+      React.createElement("button", { className: "view-tab on", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "Retry")
+    ),
+    state === 'ready' && React.createElement("div", { style: { overflowY: 'auto', flex: 1 } },
+      (function() {
+        var q = filter.toLowerCase();
+        var vis = items.filter(function(x) {
+          if (!showPrivate && x.isPrivateTag) return false;
+          return !q || (x.name || '').toLowerCase().includes(q) || (x.description || '').toLowerCase().includes(q);
+        });
+        if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, q ? "No matches" : "No informal tags found");
+        return vis.map(function(x) {
+          return React.createElement("div", {
+            key: x.guid, className: "tree-item" + (selected === x.guid ? " sel" : ""),
+            onClick: function() { setSelected(x.guid); }, title: x.description || x.guid,
+          },
+            React.createElement("span", { className: "type-name" }, x.name),
+            x.isPrivateTag && React.createElement("span", { style: { fontSize: 10, color: 'var(--dim)', marginLeft: 4 } }, '🔒')
+          );
+        });
+      })()
+    )
+  );
+
+  var selectedItem = selected ? items.find(function(x) { return x.guid === selected; }) : null;
+  var mainPanel = React.createElement("div", { className: "main", style: { flex: 1, overflowY: 'auto' } },
+    !selected && React.createElement("div", { className: "center" },
+      React.createElement("span", { style: { color: 'var(--muted)' } }, "Select an informal tag from the sidebar")
+    ),
+    selected && detailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
+    selected && detailState === 'error'   && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load tag detail"),
+    selected && (detailState === 'ready' || selectedItem) && React.createElement(InformalTagDetail, { data: selectedItem, detail: detail, onNavigateToElement: onNavigateToElement })
+  );
+
+  return React.createElement("div", { className: "body" },
+    sidebar,
+    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
+    mainPanel
+  );
+}
+
 function CommunityView({ navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(280);
@@ -8042,7 +8185,7 @@ function App() {
   const [loadState, setLoadState] = useState('loading');
   const [error, setError]         = useState('');
   const [rawData, setRawData]     = useState(null);
-  const [areaFilter, setAreaFilter] = useState('4');
+  const [areaFilter, setAreaFilter] = useState('all');
   const [selected, setSelected]   = useState({ kind: 'type', name: '' });
   const [theme, setTheme]         = useState('dark');
   const [view, setView]           = useState('types'); // 'types' | 'attrs'
@@ -8050,7 +8193,7 @@ function App() {
     var hash = window.location.hash.slice(1);
     var valid = new Set(['type-system','reference-data','digital-products','collections','glossary',
       'report-specs','valid-values','rest-apis','python-api','solution-architect',
-      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','notelogs','governance','projects']);
+      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','notelogs','governance','projects','informal-tags']);
     return valid.has(hash) ? hash : 'splash';
   });
   const [glossaryNavGuid, setGlossaryNavGuid] = useState(null);
@@ -8120,6 +8263,12 @@ function App() {
   const onNavigateToCommunity = useCallback(function(guid) {
     setCommunitiesNavGuid(guid || null);
     setSection('communities');
+  }, []);
+
+  const [informalTagsNavGuid, setInformalTagsNavGuid] = useState(null);
+  const onNavigateToInformalTag = useCallback(function(guid) {
+    setInformalTagsNavGuid(guid || null);
+    setSection('informal-tags');
   }, []);
 
   const [noteLogsNavGuid, setNoteLogsNavGuid] = useState(null);
@@ -8290,7 +8439,7 @@ function App() {
         }),
         React.createElement(NavGroup, {
           label: 'Review', connected: connected, currentSection: section,
-          isActive: ['glossary','reference-data','data-design','collections','solution-architect','isc','locations','actors','communities','notelogs','perspectives','governance','projects'].includes(section),
+          isActive: ['glossary','reference-data','data-design','collections','solution-architect','isc','locations','actors','communities','notelogs','perspectives','governance','projects','informal-tags'].includes(section),
           onSelect: setSection,
           items: [
             { id: 'glossary',           label: 'Glossary',                needsConnect: true },
@@ -8306,6 +8455,7 @@ function App() {
             { id: 'perspectives',       label: 'Perspectives',            needsConnect: true },
             { id: 'governance',         label: 'Governance Definitions',  needsConnect: true },
             { id: 'projects',           label: 'Projects',                needsConnect: true },
+            { id: 'informal-tags',      label: 'Informal Tags',             needsConnect: true },
           ]
         }),
         React.createElement(NavGroup, {
@@ -8394,6 +8544,8 @@ function App() {
       ? React.createElement(GovernanceView, { key: credsKey, navTypeName: governanceNav.typeName, navGuid: governanceNav.guid, onNavigateToElement: onNavigateToElement })
       : section === 'projects'
       ? React.createElement(ProjectsView, { key: credsKey })
+      : section === 'informal-tags'
+      ? React.createElement(InformalTagsView, { key: credsKey, navGuid: informalTagsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'python-api'
       ? React.createElement(PyegeriaDocsView, null)
       : section !== 'type-system'

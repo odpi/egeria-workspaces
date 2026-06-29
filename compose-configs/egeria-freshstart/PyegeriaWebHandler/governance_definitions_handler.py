@@ -130,7 +130,9 @@ def _camel_to_label(name: str) -> str:
     last = words[-1]
     if last.endswith("y") and not last[-2:] in ("ay", "ey", "oy", "uy"):
         last = last[:-1] + "ies"
-    elif last.endswith(("s", "sh", "ch", "x", "z")):
+    elif last.endswith("s"):
+        pass  # already plural (e.g. "Conditions", "Policies")
+    elif last.endswith(("sh", "ch", "x", "z")):
         last = last + "es"
     else:
         last = last + "s"
