@@ -46,6 +46,14 @@ The **Lineage** sub-pane shows the direct lineage graph (Mermaid). The **Open in
 
 ---
 
+## Copying raw JSON
+
+Every detail pane has a **`{ } Copy JSON`** button in its header row. Clicking it copies the full raw JSON payload for the selected element to the clipboard — useful for pasting into notebooks, debugging API responses, or feeding data into other tools.
+
+The button shows **✓ Copied** (green) on success or **✕ Failed** (red) on failure, then resets after two seconds.
+
+---
+
 ## Searching
 
 Each section has a search box that filters by display name, qualified name, and description. Leaving the search box empty returns all elements.

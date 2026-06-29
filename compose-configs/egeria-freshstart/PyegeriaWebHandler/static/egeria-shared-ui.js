@@ -880,7 +880,8 @@ function GlossaryFolderDetail({ folder }) {
   return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 } },
       React.createElement('div', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)' } }, folder.displayName || folder.qualifiedName),
-      React.createElement('span', { style: _glsBadge }, 'Folder')
+      React.createElement('span', { style: _glsBadge }, 'Folder'),
+      React.createElement(CopyJsonButton, { data: folder })
     ),
     folder.description && React.createElement('p', { style: { fontSize: 13, lineHeight: 1.6, marginBottom: 16, color: 'var(--muted)' } }, folder.description),
     fields.length > 0 && React.createElement('div', null,
@@ -921,7 +922,8 @@ function GlossaryDetail({ glossary }) {
   return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 } },
       React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--text)', flex: 1 } }, glossary.displayName || glossary.qualifiedName || glossary.guid),
-      React.createElement('span', { style: _glsBadge }, 'Glossary')
+      React.createElement('span', { style: _glsBadge }, 'Glossary'),
+      React.createElement(CopyJsonButton, { data: glossary })
     ),
     glossary.description && React.createElement('p', { style: { fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, margin: '0 0 16px' } }, glossary.description),
     fields.length > 0 && React.createElement('div', null,
@@ -967,7 +969,8 @@ function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign, on
       React.createElement('div', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)' } }, term.displayName),
       term.isTemplateSubstitute && React.createElement('span', { style: Object.assign({}, _glsBadge, { background: 'rgba(245,158,11,.15)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.4)' }) }, 'Template Substitute'),
       !term.isTemplateSubstitute && term.isSourcedFromTemplate && React.createElement('span', { style: Object.assign({}, _glsBadge, { background: 'rgba(245,158,11,.08)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.25)' }) }, 'From Template'),
-      React.createElement('div', { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: term.guid }))
+      React.createElement('div', { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: term.guid })),
+      React.createElement(CopyJsonButton, { data: term })
     ),
     folderList.length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8, marginTop: 6 } },
       React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)', marginRight: 4 } }, 'Folders:'),
@@ -1672,6 +1675,34 @@ function thSortable(sort, setSort, i, h, rzDown, thStyle) {
    labelFn   : key → display string
    fSet      : current Set<string>
    setFSet   : state setter */
+// ── CopyJsonButton ────────────────────────────────────────────────────────────
+// Small utility button for advanced users: copies the raw JSON payload for any
+// property view to the clipboard. Pass the object/array directly as `data`.
+function CopyJsonButton({ data, title }) {
+  var _s = React.useState('idle'), state = _s[0], setState = _s[1];
+  function handleClick(e) {
+    e.stopPropagation();
+    var text;
+    try { text = JSON.stringify(data, null, 2); } catch(_) { setState('fail'); return; }
+    copyToClipboard(text).then(function(ok) {
+      setState(ok ? 'ok' : 'fail');
+      setTimeout(function() { setState('idle'); }, 2000);
+    });
+  }
+  var label = state === 'ok' ? '✓ Copied' : state === 'fail' ? '✕ Failed' : (title || '{ } Copy JSON');
+  var color = state === 'ok' ? '#4ade80' : state === 'fail' ? '#f87171' : 'var(--dim)';
+  return React.createElement('button', {
+    onClick: handleClick,
+    title: 'Copy raw JSON payload to clipboard',
+    style: {
+      fontSize: 11, padding: '3px 9px', borderRadius: 4,
+      border: '1px solid var(--border)', background: 'transparent',
+      color: color, cursor: 'pointer', whiteSpace: 'nowrap',
+      fontFamily: 'ui-monospace,monospace', transition: 'color 0.15s'
+    }
+  }, label);
+}
+
 function simplePillRow(values, labelFn, fSet, setFSet) {
   var el = React.createElement;
   return el('div', { style:{ display:'flex', gap:3, flexWrap:'wrap', alignItems:'center' } },
