@@ -165,6 +165,16 @@ def _extract_classifications(header: dict) -> list:
     return result
 
 
+def _is_template(element: dict) -> bool:
+    """Return True if the element carries the Egeria 'Template' classification."""
+    for val in (element.get("elementHeader") or {}).values():
+        if isinstance(val, dict) and val.get("class") == "ElementClassification":
+            name = val.get("classificationName") or (val.get("type") or {}).get("typeName") or ""
+            if name == "Template":
+                return True
+    return False
+
+
 def _flat_props(props_dict: dict) -> dict:
     """Flatten a properties dict that may use propertyValueMap encoding."""
     flat = {}
@@ -394,7 +404,7 @@ async def get_egeria_bearer_token(request: Request):
     try:
         from pyegeria import AssetMaker
         mgr = AssetMaker(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
-        token = mgr.create_egeria_bearer_token()
+        token = await mgr._async_create_egeria_bearer_token()
         return JSONResponse({"token": token, "user_id": user_id})
     except Exception as exc:
         logger.exception("get_egeria_bearer_token failed")
@@ -683,6 +693,7 @@ def list_infrastructure(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -701,6 +712,7 @@ def list_infrastructure(
             sequencing_property=_SEQ_PROP,
             graph_query_depth=0,
             as_of_time=as_of_time or None,
+            skip_classified_elements=[] if include_templates else ["Template"],
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -718,6 +730,7 @@ def list_software_capabilities(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -732,6 +745,7 @@ def list_software_capabilities(
             output_format="JSON",
             graph_query_depth=0,
             as_of_time=as_of_time or None,
+            skip_classified_elements=[] if include_templates else ["Template"],
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -749,6 +763,7 @@ def list_endpoints(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     try:
         mgr = _connection_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -763,6 +778,8 @@ def list_endpoints(
             graph_query_depth=0,
             as_of_time=as_of_time or None,
         )
+        if not include_templates:
+            raw = [e for e in _safe_list(raw) if not _is_template(e)]
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
     except Exception as exc:
@@ -779,6 +796,7 @@ def list_data_stores(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -796,6 +814,7 @@ def list_data_stores(
             sequencing_property=_SEQ_PROP,
             graph_query_depth=0,
             as_of_time=as_of_time or None,
+            skip_classified_elements=[] if include_templates else ["Template"],
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -813,6 +832,7 @@ def list_data_feeds(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -830,6 +850,7 @@ def list_data_feeds(
             sequencing_property=_SEQ_PROP,
             graph_query_depth=0,
             as_of_time=as_of_time or None,
+            skip_classified_elements=[] if include_templates else ["Template"],
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -847,6 +868,7 @@ def list_data_sets(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -864,6 +886,7 @@ def list_data_sets(
             sequencing_property=_SEQ_PROP,
             graph_query_depth=0,
             as_of_time=as_of_time or None,
+            skip_classified_elements=[] if include_templates else ["Template"],
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -881,6 +904,7 @@ def list_apis(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -897,6 +921,7 @@ def list_apis(
             sequencing_property=_SEQ_PROP,
             graph_query_depth=0,
             as_of_time=as_of_time or None,
+            skip_classified_elements=[] if include_templates else ["Template"],
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -914,6 +939,7 @@ def list_software_components(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -931,6 +957,7 @@ def list_software_components(
             sequencing_property=_SEQ_PROP,
             graph_query_depth=0,
             as_of_time=as_of_time or None,
+            skip_classified_elements=[] if include_templates else ["Template"],
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -948,6 +975,7 @@ def list_actions(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
@@ -965,6 +993,7 @@ def list_actions(
             sequencing_property=_SEQ_PROP,
             graph_query_depth=0,
             as_of_time=as_of_time or None,
+            skip_classified_elements=[] if include_templates else ["Template"],
         )
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
@@ -1212,6 +1241,7 @@ def list_survey_reports(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """List SurveyReport elements. SurveyReports are DataAsset subtypes but use an
     empty content_status_list because they are not given ACTIVE status by Egeria."""
@@ -1232,6 +1262,8 @@ def list_survey_reports(
             sequencing_property=_SEQ_PROP,
             as_of_time=as_of_time or None,
         )
+        if not include_templates:
+            raw = [e for e in _safe_list(raw) if not _is_template(e)]
         items = [_serialize(e) for e in _safe_list(raw)]
         return JSONResponse({"items": items, "total": len(items)})
     except Exception as exc:
@@ -1358,6 +1390,7 @@ def list_tech_types(
     page_size:  int = Query(100, ge=1, le=500),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """List or search technology types."""
     try:
@@ -1370,6 +1403,8 @@ def list_tech_types(
         )
         # Deduplicate by qualifiedName (some content packs register the same type twice).
         # Keep the entry with more catalogTemplates when there's a conflict.
+        if not include_templates:
+            raw = [e for e in _safe_list(raw) if not _is_template(e)]
         seen: dict = {}
         for e in _safe_list(raw):
             item = _serialize_tech_type(e)

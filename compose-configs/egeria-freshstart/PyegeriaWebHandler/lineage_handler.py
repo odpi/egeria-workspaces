@@ -118,6 +118,7 @@ def search_assets(
     q: str = Query("*"),
     url: Optional[str] = Query(None),
     server: Optional[str] = Query(None),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """Search for assets to use as a lineage focus asset.
 
@@ -130,6 +131,7 @@ def search_assets(
             search_string=q or "*",
             graph_query_depth=0,
             output_format="JSON",
+            skip_classified_elements=[] if include_templates else ["Template"],
         )
         items = [_serialize_search_item(e) for e in _safe_list(raw) if isinstance(e, dict)]
         return JSONResponse({"items": items})

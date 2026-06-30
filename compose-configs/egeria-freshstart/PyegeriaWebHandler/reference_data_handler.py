@@ -40,6 +40,15 @@ def _header(element: dict) -> dict:
     return element.get("elementHeader") or {}
 
 
+def _is_template(element: dict) -> bool:
+    for val in (element.get("elementHeader") or {}).values():
+        if isinstance(val, dict) and val.get("class") == "ElementClassification":
+            name = val.get("classificationName") or (val.get("type") or {}).get("typeName") or ""
+            if name == "Template":
+                return True
+    return False
+
+
 # Built-in and known custom Egeria set types
 _SET_TYPES = {"ValidValueSet", "ReferenceDataSet"}
 
@@ -93,6 +102,7 @@ def get_valid_value_definitions(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """
     Return valid value definitions from Egeria.
@@ -125,6 +135,9 @@ def get_valid_value_definitions(
 
     if not isinstance(raw, list):
         raw = []
+
+    if not include_templates:
+        raw = [e for e in raw if not _is_template(e)]
 
     definitions = [_serialize_vv_def(e) for e in raw]
     definitions.sort(key=lambda d: (d.get("typeName", ""), d.get("displayName", "").lower()))

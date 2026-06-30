@@ -66,6 +66,15 @@ _TERM_REL_KEY_NAMES = {k for k, _ in _TERM_REL_KEYS}
 _TERM_STRUCT_KEYS   = {"elementHeader", "properties", "mermaidGraph", "sourcedFromTemplate"}
 
 
+def _is_template(element: dict) -> bool:
+    for val in (element.get("elementHeader") or {}).values():
+        if isinstance(val, dict) and val.get("class") == "ElementClassification":
+            name = val.get("classificationName") or (val.get("type") or {}).get("typeName") or ""
+            if name == "Template":
+                return True
+    return False
+
+
 def _camel_to_label(s: str) -> str:
     result = s[0].upper() if s else ''
     for c in s[1:]:
@@ -236,6 +245,7 @@ def get_glossaries(
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """Return all Egeria glossaries with summary information."""
     try:
@@ -262,6 +272,9 @@ def get_glossaries(
 
     if not isinstance(raw, list):
         raw = []
+
+    if not include_templates:
+        raw = [e for e in raw if not _is_template(e)]
 
     glossaries = [_serialize_glossary(g) for g in raw
                   if _type_name(g) == "Glossary"]
@@ -320,6 +333,7 @@ def get_terms_in_collection(
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """
     Return GlossaryTerms that are members of the given collection (glossary or folder).
@@ -349,6 +363,9 @@ def get_terms_in_collection(
     if not isinstance(raw, list):
         raw = []
 
+    if not include_templates:
+        raw = [e for e in raw if not _is_template(e)]
+
     terms = [_serialize_term(t) for t in raw if _type_name(t) == "GlossaryTerm"]
     terms.sort(key=lambda t: (t.get("displayName") or "").lower())
     return JSONResponse({"terms": terms, "total": len(terms), "collection": collection_guid})
@@ -364,6 +381,7 @@ def search_all_terms(
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
     as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     """
     Search for GlossaryTerms across all glossaries using a text search string.
@@ -395,6 +413,9 @@ def search_all_terms(
 
     if not isinstance(raw, list):
         raw = []
+
+    if not include_templates:
+        raw = [e for e in raw if not _is_template(e)]
 
     seen: set = set()
     unique: list = []

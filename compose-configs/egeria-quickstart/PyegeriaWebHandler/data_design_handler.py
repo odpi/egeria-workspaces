@@ -99,6 +99,15 @@ def _zip_refs(guids: list, names: list, qnames: list = None) -> list:
     ]
 
 
+def _is_template(element: dict) -> bool:
+    for val in (element.get("elementHeader") or {}).values():
+        if isinstance(val, dict) and val.get("class") == "ElementClassification":
+            name = val.get("classificationName") or (val.get("type") or {}).get("typeName") or ""
+            if name == "Template":
+                return True
+    return False
+
+
 def _safe_list(raw) -> list:
     return raw if isinstance(raw, list) else []
 
@@ -253,6 +262,7 @@ def list_specs(
     server:  Optional[str] = Query(None),
     user_id: Optional[str] = Query(None),
     user_pwd:Optional[str] = Query(None),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     try:
         mgr = _get_collection_mgr(url, server, user_id, user_pwd)
@@ -262,6 +272,8 @@ def list_specs(
         raw = mgr.find_collections(search_string="*", metadata_element_type="DataSpec",
                                     graph_query_depth=0, output_format="JSON",
                                     sequencing_order="PROPERTY_ASCENDING", sequencing_property="displayName")
+        if not include_templates:
+            raw = [e for e in _safe_list(raw) if not _is_template(e)]
         items = sorted(
             [_serialize_spec(e) for e in _safe_list(raw)],
             key=lambda x: (x.get("displayName") or "").lower(),
@@ -278,6 +290,7 @@ def list_structures(
     server:  Optional[str] = Query(None),
     user_id: Optional[str] = Query(None),
     user_pwd:Optional[str] = Query(None),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     try:
         mgr = _get_designer(url, server, user_id, user_pwd)
@@ -286,6 +299,8 @@ def list_structures(
     try:
         raw = mgr.find_data_structures(search_string="*", graph_query_depth=0, output_format="JSON",
                                         sequencing_order="PROPERTY_ASCENDING", sequencing_property="displayName")
+        if not include_templates:
+            raw = [e for e in _safe_list(raw) if not _is_template(e)]
         items = sorted([_serialize_structure(e) for e in _safe_list(raw)],
                        key=lambda x: (x.get("displayName") or "").lower())
         return JSONResponse({"structures": items, "total": len(items)})
@@ -300,6 +315,7 @@ def list_fields(
     server:  Optional[str] = Query(None),
     user_id: Optional[str] = Query(None),
     user_pwd:Optional[str] = Query(None),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     try:
         mgr = _get_designer(url, server, user_id, user_pwd)
@@ -308,6 +324,8 @@ def list_fields(
     try:
         raw = mgr.find_data_fields(search_string="*", graph_query_depth=0, output_format="JSON",
                                     sequencing_order="PROPERTY_ASCENDING", sequencing_property="displayName")
+        if not include_templates:
+            raw = [e for e in _safe_list(raw) if not _is_template(e)]
         items = sorted([_serialize_field(e) for e in _safe_list(raw)],
                        key=lambda x: (x.get("displayName") or "").lower())
         return JSONResponse({"fields": items, "total": len(items)})
@@ -322,6 +340,7 @@ def list_grains(
     server:  Optional[str] = Query(None),
     user_id: Optional[str] = Query(None),
     user_pwd:Optional[str] = Query(None),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     try:
         mgr = _get_designer(url, server, user_id, user_pwd)
@@ -329,6 +348,8 @@ def list_grains(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
         raw = _search_data_value_specs(mgr)
+        if not include_templates:
+            raw = [e for e in _safe_list(raw) if not _is_template(e)]
         items = sorted(
             [_serialize_grain(e) for e in _safe_list(raw) if _type_name(e) == "DataGrain"],
             key=lambda x: (x.get("displayName") or "").lower(),
@@ -345,6 +366,7 @@ def list_classes(
     server:  Optional[str] = Query(None),
     user_id: Optional[str] = Query(None),
     user_pwd:Optional[str] = Query(None),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
 ):
     try:
         mgr = _get_designer(url, server, user_id, user_pwd)
@@ -352,6 +374,8 @@ def list_classes(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
         raw = _search_data_value_specs(mgr)
+        if not include_templates:
+            raw = [e for e in _safe_list(raw) if not _is_template(e)]
         items = sorted(
             [_serialize_class(e) for e in _safe_list(raw) if _type_name(e) == "DataClass"],
             key=lambda x: (x.get("displayName") or "").lower(),
