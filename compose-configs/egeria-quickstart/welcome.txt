@@ -1,0 +1,21 @@
+Subject: Welcome to the Egeria Demo — thanks for registering!
+Hi {{first_name}},
+Thanks for registering for the Egeria demo site — we're glad you're trying it out!
+You now have access to explore Egeria's open metadata and governance capabilities first-hand: cataloguing data sources, tracing lineage, managing glossaries, and seeing how automated governance actions work in practice.
+A couple of things that might help as you get started:
+
+• Take a look around the catalog and explorer views to see how assets, glossaries, and governance processes are connected..
+• If you hit a snag or have a question, the community is very responsive and happy to help..
+Get involved:
+
+• :speech_balloon: Join us onEgeria Slack— it's the best place to ask questions, share what you're trying to do, or just say hello..
+• :email: Or reply directly todan.wolfson@pdr-associates.comand let me know:.
+◦ How did you hear about Egeria?.
+◦ What interested you about it?.
+◦ Is there anything specific I can help you with, or any feature you'd like to see?.
+We'd genuinely love to hear from you — feedback like this helps shape where the project goes next.
+Thanks again for giving Egeria a try!
+
+Best regards,
+Dan Wolfson
+Egeria Maintainer
