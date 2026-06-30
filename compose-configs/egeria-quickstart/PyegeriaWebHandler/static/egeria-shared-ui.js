@@ -1742,7 +1742,7 @@ function FavoriteButton({ app, section, label, icon, url, personaId, demoMode })
     setState('loading');
     if (favId) {
       fetch('/api/favorites/' + encodeURIComponent(favId) + '?persona=' + encodeURIComponent(personaId), { method: 'DELETE' })
-        .then(function() { setFavId(null); setState('off'); })
+        .then(function(r) { if (r.ok) { setFavId(null); setState('off'); } else { setState('on'); } })
         .catch(function() { setState('on'); });
     } else {
       fetch('/api/favorites?persona=' + encodeURIComponent(personaId), {
@@ -1750,7 +1750,7 @@ function FavoriteButton({ app, section, label, icon, url, personaId, demoMode })
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ app: app, section: section, label: label, icon: icon, url: url }),
       })
-        .then(function(r) { return r.json(); })
+        .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
         .then(function(res) { setFavId(res.id); setState('on'); })
         .catch(function() { setState('off'); });
     }

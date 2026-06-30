@@ -252,38 +252,48 @@ def _write_to_db(db: Session, user_email: str, persona_id: str, favs: list[dict]
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
+def _effective_email(user, persona: str) -> str:
+    """Return the DB key to use for this request.
+
+    Authenticated users (demo portal login) use their real email so favourites
+    are tied to a verified identity.  Unauthenticated requests (local mode, or
+    SPA pages accessed before the portal session cookie is set) fall back to a
+    per-persona synthetic key so changes still persist across page loads.
+    """
+    return user.email if user else f"local:{persona}"
+
+
 @router.get("/api/favorites")
 async def list_favorites(
     persona: str = Query(...),
     request: Request = None,
     db: Session = Depends(get_db),
 ):
-    user = get_current_user(request, db)
-    if not user:
-        # Local mode — return hardcoded defaults (no persistence)
-        return JSONResponse(_defaults_with_ids(persona))
+    user  = get_current_user(request, db)
+    email = _effective_email(user, persona)
 
     # 1. Postgres cache hit
     rows = (
         db.query(Favorite)
-        .filter_by(user_email=user.email, persona_id=persona)
+        .filter_by(user_email=email, persona_id=persona)
         .order_by(Favorite.position)
         .all()
     )
     if rows:
         return JSONResponse([_row_to_dict(r) for r in rows])
 
-    # 2. Read from Egeria (authed as the persona)
-    egeria_favs = await _egeria_read_favorites(persona)
-    if egeria_favs:
-        _write_to_db(db, user.email, persona, egeria_favs)
-        rows = (
-            db.query(Favorite)
-            .filter_by(user_email=user.email, persona_id=persona)
-            .order_by(Favorite.position)
-            .all()
-        )
-        return JSONResponse([_row_to_dict(r) for r in rows])
+    # 2. Authenticated users: try to seed from Egeria
+    if user:
+        egeria_favs = await _egeria_read_favorites(persona)
+        if egeria_favs:
+            _write_to_db(db, email, persona, egeria_favs)
+            rows = (
+                db.query(Favorite)
+                .filter_by(user_email=email, persona_id=persona)
+                .order_by(Favorite.position)
+                .all()
+            )
+            return JSONResponse([_row_to_dict(r) for r in rows])
 
     # 3. Fall back to hardcoded defaults
     return JSONResponse(_defaults_with_ids(persona))
@@ -295,9 +305,8 @@ async def add_favorite(
     request: Request = None,
     db: Session = Depends(get_db),
 ):
-    user = get_current_user(request, db)
-    if not user:
-        raise HTTPException(status_code=401, detail="Authentication required")
+    user  = get_current_user(request, db)
+    email = _effective_email(user, persona)
 
     body    = await request.json()
     app     = body.get("app", "")
@@ -306,24 +315,24 @@ async def add_favorite(
     icon    = body.get("icon", "⭐")
     url     = body.get("url", "")
 
-    has_rows = db.query(Favorite).filter_by(user_email=user.email, persona_id=persona).first() is not None
+    has_rows = db.query(Favorite).filter_by(user_email=email, persona_id=persona).first() is not None
     if not has_rows:
         # First customization for this user+persona — materialize the defaults that
         # were being displayed so adding one item doesn't wipe out the rest.
-        _write_to_db(db, user.email, persona, _PERSONA_DEFAULTS.get(persona, []))
+        _write_to_db(db, email, persona, _PERSONA_DEFAULTS.get(persona, []))
 
     existing = (
         db.query(Favorite)
-        .filter_by(user_email=user.email, persona_id=persona, url=url)
+        .filter_by(user_email=email, persona_id=persona, url=url)
         .first()
     )
     if existing:
         return JSONResponse({"status": "already_exists", "id": existing.id})
 
-    pos = db.query(Favorite).filter_by(user_email=user.email, persona_id=persona).count()
+    pos = db.query(Favorite).filter_by(user_email=email, persona_id=persona).count()
     fav = Favorite(
         id=str(uuid.uuid4()),
-        user_email=user.email,
+        user_email=email,
         persona_id=persona,
         app=app, section=section, label=label, icon=icon, url=url,
         position=pos,
@@ -334,11 +343,12 @@ async def add_favorite(
 
     all_rows = (
         db.query(Favorite)
-        .filter_by(user_email=user.email, persona_id=persona)
+        .filter_by(user_email=email, persona_id=persona)
         .order_by(Favorite.position)
         .all()
     )
-    await _egeria_write_favorites(persona, [_row_to_dict(r) for r in all_rows])
+    if user:
+        await _egeria_write_favorites(persona, [_row_to_dict(r) for r in all_rows])
     return JSONResponse({"status": "added", "id": fav.id})
 
 
@@ -349,9 +359,8 @@ async def remove_favorite(
     request: Request = None,
     db: Session = Depends(get_db),
 ):
-    user = get_current_user(request, db)
-    if not user:
-        raise HTTPException(status_code=401, detail="Authentication required")
+    user  = get_current_user(request, db)
+    email = _effective_email(user, persona)
 
     if fav_id.startswith("default-"):
         # Synthetic id for a not-yet-persisted default — materialize the remaining
@@ -361,12 +370,13 @@ async def remove_favorite(
         except ValueError:
             idx = -1
         remaining = [d for i, d in enumerate(_PERSONA_DEFAULTS.get(persona, [])) if i != idx]
-        _write_to_db(db, user.email, persona, remaining)
-        await _egeria_write_favorites(persona, remaining)
+        _write_to_db(db, email, persona, remaining)
+        if user:
+            await _egeria_write_favorites(persona, remaining)
         return JSONResponse({"status": "deleted"})
 
     fav = db.get(Favorite, fav_id)
-    if not fav or fav.user_email != user.email:
+    if not fav or fav.user_email != email:
         raise HTTPException(status_code=404, detail="Not found")
 
     persona = fav.persona_id
@@ -375,11 +385,12 @@ async def remove_favorite(
 
     all_rows = (
         db.query(Favorite)
-        .filter_by(user_email=user.email, persona_id=persona)
+        .filter_by(user_email=email, persona_id=persona)
         .order_by(Favorite.position)
         .all()
     )
-    await _egeria_write_favorites(persona, [_row_to_dict(r) for r in all_rows])
+    if user:
+        await _egeria_write_favorites(persona, [_row_to_dict(r) for r in all_rows])
     return JSONResponse({"status": "deleted"})
 
 
@@ -389,24 +400,24 @@ async def reorder_favorites(
     request: Request = None,
     db: Session = Depends(get_db),
 ):
-    user = get_current_user(request, db)
-    if not user:
-        raise HTTPException(status_code=401, detail="Authentication required")
+    user  = get_current_user(request, db)
+    email = _effective_email(user, persona)
 
     items = await request.json()  # [{id, position}, …]
     for item in items:
         fav = db.get(Favorite, item.get("id"))
-        if fav and fav.user_email == user.email and fav.persona_id == persona:
+        if fav and fav.user_email == email and fav.persona_id == persona:
             fav.position = item.get("position", 0)
     db.commit()
 
     all_rows = (
         db.query(Favorite)
-        .filter_by(user_email=user.email, persona_id=persona)
+        .filter_by(user_email=email, persona_id=persona)
         .order_by(Favorite.position)
         .all()
     )
-    await _egeria_write_favorites(persona, [_row_to_dict(r) for r in all_rows])
+    if user:
+        await _egeria_write_favorites(persona, [_row_to_dict(r) for r in all_rows])
     return JSONResponse({"status": "reordered"})
 
 
@@ -416,14 +427,13 @@ async def reset_favorites(
     request: Request = None,
     db: Session = Depends(get_db),
 ):
-    user = get_current_user(request, db)
-    if not user:
-        raise HTTPException(status_code=401, detail="Authentication required")
+    user  = get_current_user(request, db)
+    email = _effective_email(user, persona)
 
-    db.query(Favorite).filter_by(user_email=user.email, persona_id=persona).delete()
+    db.query(Favorite).filter_by(user_email=email, persona_id=persona).delete()
     db.commit()
-    # Clear Egeria storage so Egeria also reverts to having no custom favorites
-    await _egeria_write_favorites(persona, [])
+    if user:
+        await _egeria_write_favorites(persona, [])
     return JSONResponse({"status": "reset"})
 
 
