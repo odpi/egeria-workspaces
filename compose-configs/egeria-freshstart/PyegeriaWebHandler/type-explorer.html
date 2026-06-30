@@ -7950,7 +7950,7 @@ function GovTypeNode({ node, depth, selectedType, onSelect, expanded, toggleExpa
   );
 }
 
-function ContextEventsView({ navGuid }) {
+function ContextEventsView({ navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown]   = useResizable(260);
   const [filter, setFilter]  = useState('');
@@ -8053,35 +8053,12 @@ function ContextEventsView({ navGuid }) {
     );
   }
 
-  function DateRow({ label, value }) {
-    if (!value) return null;
-    var d = parseDate(value);
-    return React.createElement('div', { style: { display: 'flex', gap: 8, marginBottom: 3, fontSize: 13 } },
-      React.createElement('span', { style: { color: 'var(--text-dim)', minWidth: 180 } }, label),
-      React.createElement('span', null, d ? d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : value)
-    );
-  }
+  var sectionHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 10, marginTop: 20 };
 
-  function NumRow({ label, value }) {
-    if (value == null) return null;
-    return React.createElement('div', { style: { display: 'flex', gap: 8, marginBottom: 3, fontSize: 13 } },
-      React.createElement('span', { style: { color: 'var(--text-dim)', minWidth: 180 } }, label),
-      React.createElement('span', null, value)
-    );
-  }
-
-  function RelGroup({ title, items }) {
-    if (!items || !items.length) return null;
-    return React.createElement('div', { style: { marginTop: 10 } },
-      React.createElement('div', { style: { fontWeight: 600, fontSize: 13, marginBottom: 4 } }, title),
-      items.map(function(r) {
-        return React.createElement('div', { key: r.guid, style: { padding: '4px 8px', background: 'var(--panel)', borderRadius: 4, marginBottom: 4, fontSize: 12 } },
-          React.createElement('div', { style: { fontWeight: 600 } }, r.displayName || r.qualifiedName || r.guid),
-          r.typeName && React.createElement('div', { style: { color: 'var(--text-dim)' } }, r.typeName),
-          r.description && React.createElement('div', { style: { marginTop: 2 } }, r.description)
-        );
-      })
-    );
+  function fmtDate(s) {
+    if (!s) return null;
+    var d = parseDate(s);
+    return d ? d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : s;
   }
 
   var selEvent = events.find(function(e) { return e.guid === selected; }) || null;
@@ -8122,7 +8099,7 @@ function ContextEventsView({ navGuid }) {
     ),
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
     // Main panel
-    React.createElement('div', { className: 'main', style: { overflowY: 'auto', padding: '16px 20px' } },
+    React.createElement('div', { className: 'main', style: { overflowY: 'auto', padding: '20px 24px' } },
       !selected
         ? React.createElement('div', { style: { color: 'var(--text-dim)', padding: 20 } }, 'Select a context event to view details.')
         : detailSt === 'loading'
@@ -8130,52 +8107,136 @@ function ContextEventsView({ navGuid }) {
         : detailSt === 'error'
         ? React.createElement('div', { style: { color: '#f44', padding: 12 } }, 'Failed to load event detail.')
         : detail && React.createElement('div', null,
-            React.createElement('h2', { style: { marginTop: 0, fontSize: 18, fontWeight: 700 } }, detail.displayName || detail.qualifiedName || detail.guid),
-            detail.typeName && React.createElement('div', { style: { color: 'var(--text-dim)', fontSize: 12, marginBottom: 8 } }, detail.typeName),
-            detail.status && React.createElement('div', { style: { marginBottom: 8 } },
-              React.createElement('span', { style: { background: 'var(--panel)', borderRadius: 4, padding: '2px 8px', fontSize: 12 } }, detail.status)
+
+            // ── Title row ──────────────────────────────────────────────────
+            React.createElement('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 6, flexWrap: 'wrap' } },
+              React.createElement('div', { style: { fontSize: 20, fontWeight: 700, flex: 1, color: 'var(--text)' } },
+                detail.displayName || detail.qualifiedName || detail.guid
+              ),
+              React.createElement(EgeriaFeedbackWidget, { guid: detail.guid }),
+              React.createElement(CopyJsonButton, { data: detail })
             ),
-            detail.description && React.createElement('p', { style: { fontSize: 14, marginBottom: 12 } }, detail.description),
-            detail.eventEffect && React.createElement('div', { style: { marginBottom: 12, padding: '8px 12px', background: 'var(--panel)', borderRadius: 6 } },
-              React.createElement('span', { style: { fontWeight: 600, marginRight: 6 } }, 'Effect:'),
-              detail.eventEffect
+
+            // ── Type + status badges ────────────────────────────────────────
+            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 12 } },
+              detail.typeName && React.createElement('span', { className: 'badge', style: { background: 'rgba(96,165,250,.12)', color: '#60a5fa', border: '0.5px solid rgba(96,165,250,.3)' } }, detail.typeName),
+              (detail.superTypeNames || []).map(function(t) {
+                return React.createElement('span', { key: t, className: 'badge', style: { background: 'rgba(148,163,184,.08)', color: 'var(--muted)', border: '0.5px solid var(--border)', fontSize: 9 } }, t);
+              }),
+              detail.status && React.createElement('span', { className: 'badge', style: { background: 'rgba(52,211,153,.1)', color: '#34d399', border: '0.5px solid rgba(52,211,153,.3)' } }, detail.status)
             ),
-            // Timeline
-            (detail.plannedStartDate || detail.actualStartDate || detail.plannedCompletionDate || detail.actualCompletionDate) && React.createElement('div', { style: { marginBottom: 16 } },
-              React.createElement('div', { style: { fontWeight: 600, marginBottom: 4, fontSize: 13 } }, 'Timeline'),
-              React.createElement(TimelineBar, { event: detail })
+
+            // ── GUID / qualified name ──────────────────────────────────────
+            React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginBottom: 4 } }, detail.guid),
+            detail.qualifiedName && React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginBottom: 14, wordBreak: 'break-all' } }, detail.qualifiedName),
+
+            // ── Description ────────────────────────────────────────────────
+            detail.description && React.createElement('div', { style: { fontSize: 13, lineHeight: 1.65, marginBottom: 16, color: 'var(--text)' } }, renderMd(detail.description)),
+
+            // ── Event Effect ───────────────────────────────────────────────
+            detail.eventEffect && React.createElement('div', { style: { marginBottom: 16, padding: '10px 14px', background: 'rgba(251,191,36,.07)', border: '1px solid rgba(251,191,36,.25)', borderRadius: 6 } },
+              React.createElement('span', { style: { fontWeight: 700, marginRight: 8, color: '#fbbf24' } }, 'Effect'),
+              React.createElement('span', { style: { fontSize: 13 } }, detail.eventEffect)
             ),
-            // Dates
-            React.createElement('div', { style: { marginBottom: 16 } },
-              React.createElement('div', { style: { fontWeight: 600, marginBottom: 6, fontSize: 13 } }, 'Dates'),
-              React.createElement(DateRow, { label: 'Planned Start',       value: detail.plannedStartDate }),
-              React.createElement(DateRow, { label: 'Actual Start',        value: detail.actualStartDate }),
-              React.createElement(DateRow, { label: 'Planned Completion',  value: detail.plannedCompletionDate }),
-              React.createElement(DateRow, { label: 'Actual Completion',   value: detail.actualCompletionDate }),
-              React.createElement(DateRow, { label: 'Effective From',      value: detail.referenceEffectiveFrom }),
-              React.createElement(DateRow, { label: 'Effective To',        value: detail.referenceEffectiveTo })
+
+            // ── Timeline SVG ───────────────────────────────────────────────
+            (detail.plannedStartDate || detail.actualStartDate || detail.plannedCompletionDate || detail.actualCompletionDate)
+              && React.createElement('div', { style: { marginBottom: 20 } },
+                React.createElement('div', { style: sectionHdr }, 'Timeline'),
+                React.createElement(TimelineBar, { event: detail })
+              ),
+
+            // ── Core properties table ──────────────────────────────────────
+            React.createElement('div', { style: { marginBottom: 20 } },
+              React.createElement('div', { style: sectionHdr }, 'Properties'),
+              React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
+                React.createElement('tbody', null,
+                  [
+                    ['Planned Start',      fmtDate(detail.plannedStartDate)],
+                    ['Actual Start',       fmtDate(detail.actualStartDate)],
+                    ['Planned Completion', fmtDate(detail.plannedCompletionDate)],
+                    ['Actual Completion',  fmtDate(detail.actualCompletionDate)],
+                    ['Effective From',     fmtDate(detail.referenceEffectiveFrom)],
+                    ['Effective To',       fmtDate(detail.referenceEffectiveTo)],
+                    ['Planned Duration',   detail.plannedDuration != null ? String(detail.plannedDuration) : null],
+                    ['Actual Duration',    detail.actualDuration  != null ? String(detail.actualDuration)  : null],
+                    ['Repeat Interval',    detail.repeatInterval  != null ? String(detail.repeatInterval)  : null],
+                    ['URL',                detail.url],
+                  ].filter(function(r) { return r[1]; }).map(function(r) {
+                    return React.createElement('tr', { key: r[0], style: { borderTop: '1px solid var(--border)' } },
+                      React.createElement('td', { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', width: 160, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
+                      React.createElement('td', { style: { padding: '6px 0', wordBreak: 'break-word' } }, r[1])
+                    );
+                  })
+                )
+              )
             ),
-            // Durations / intervals
-            (detail.plannedDuration != null || detail.actualDuration != null || detail.repeatInterval != null) && React.createElement('div', { style: { marginBottom: 16 } },
-              React.createElement('div', { style: { fontWeight: 600, marginBottom: 6, fontSize: 13 } }, 'Durations'),
-              React.createElement(NumRow, { label: 'Planned Duration',  value: detail.plannedDuration }),
-              React.createElement(NumRow, { label: 'Actual Duration',   value: detail.actualDuration }),
-              React.createElement(NumRow, { label: 'Repeat Interval',   value: detail.repeatInterval })
-            ),
-            // URL
-            detail.url && React.createElement('div', { style: { marginBottom: 16, fontSize: 13 } },
-              React.createElement('span', { style: { fontWeight: 600, marginRight: 6 } }, 'URL:'),
-              detail.url
-            ),
-            // Relationships
-            detail.relationships && Object.keys(detail.relationships).length > 0 && React.createElement('div', { style: { marginTop: 16 } },
-              React.createElement('h3', { style: { fontSize: 15, marginBottom: 8 } }, 'Relationships'),
-              Object.entries(detail.relationships).map(function(entry) {
-                return React.createElement(RelGroup, { key: entry[0], title: entry[0], items: entry[1] });
-              })
-            ),
-            React.createElement('div', { style: { marginTop: 16, fontSize: 11, color: 'var(--text-dim)', wordBreak: 'break-all' } }, 'GUID: ', detail.guid),
-            detail.qualifiedName && React.createElement('div', { style: { fontSize: 11, color: 'var(--text-dim)', wordBreak: 'break-all' } }, 'Qualified Name: ', detail.qualifiedName)
+
+            // ── Extra / forward-compatible properties ──────────────────────
+            detail.extraProperties && Object.keys(detail.extraProperties).length > 0
+              && React.createElement('div', { style: { marginBottom: 20 } },
+                React.createElement('div', { style: sectionHdr }, 'Additional Properties'),
+                React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
+                  React.createElement('tbody', null,
+                    Object.entries(detail.extraProperties).map(function(e) {
+                      return React.createElement('tr', { key: e[0], style: { borderTop: '1px solid var(--border)' } },
+                        React.createElement('td', { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', width: 160, verticalAlign: 'top', whiteSpace: 'nowrap' } }, e[0]),
+                        React.createElement('td', { style: { padding: '6px 0', wordBreak: 'break-word' } }, String(e[1]))
+                      );
+                    })
+                  )
+                )
+              ),
+
+            // ── Classifications ────────────────────────────────────────────
+            detail.classifications && detail.classifications.length > 0
+              && React.createElement('div', { style: { marginBottom: 20 } },
+                React.createElement('div', { style: sectionHdr }, 'Classifications'),
+                React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 } },
+                  detail.classifications.map(function(c) {
+                    return React.createElement('span', {
+                      key: c.typeName, className: 'badge',
+                      style: { background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)', fontSize: 11 }
+                    }, c.typeName);
+                  })
+                ),
+                detail.classifications.filter(function(c) { return Object.keys(c.properties || {}).length > 0; }).map(function(c) {
+                  return React.createElement('div', { key: c.typeName, style: { background: 'var(--panel)', border: '1px solid var(--border)', borderLeft: '3px solid #c4b5fd', borderRadius: 6, padding: '8px 12px', marginBottom: 8 } },
+                    React.createElement('div', { style: { fontSize: 12, fontWeight: 700, color: '#c4b5fd', marginBottom: 6 } }, c.typeName),
+                    React.createElement('table', { style: { borderCollapse: 'collapse', fontSize: 11 } },
+                      React.createElement('tbody', null,
+                        Object.entries(c.properties).map(function(e) {
+                          return React.createElement('tr', { key: e[0] },
+                            React.createElement('td', { style: { paddingRight: 12, color: 'var(--dim)', whiteSpace: 'nowrap', verticalAlign: 'top' } }, e[0]),
+                            React.createElement('td', { style: { color: 'var(--text)' } }, String(e[1]))
+                          );
+                        })
+                      )
+                    )
+                  );
+                })
+              ),
+
+            // ── Mermaid context diagram ─────────────────────────────────────
+            React.createElement(AvailableMermaidDiagrams, { data: detail }),
+            React.createElement(MermaidSection, { guid: detail.guid }),
+
+            // ── Relationships ──────────────────────────────────────────────
+            detail.relationships && Object.keys(detail.relationships).length > 0
+              && React.createElement('div', { style: { marginBottom: 20 } },
+                React.createElement('div', { style: sectionHdr }, 'Relationships'),
+                Object.entries(detail.relationships).map(function(entry) {
+                  return React.createElement(RelationshipSection, {
+                    key: entry[0],
+                    title: _prettyRelLabel(entry[0]),
+                    items: entry[1],
+                    onNavigateToElement: onNavigateToElement,
+                  });
+                })
+              ),
+
+            // ── Comments / feedback ─────────────────────────────────────────
+            React.createElement(EgeriaCommentsSection, { guid: detail.guid })
           )
     )
   );
@@ -8900,7 +8961,7 @@ function App() {
       : section === 'projects'
       ? React.createElement(ProjectsView, { key: credsKey })
       : section === 'context-events'
-      ? React.createElement(ContextEventsView, { key: credsKey })
+      ? React.createElement(ContextEventsView, { key: credsKey, onNavigateToElement: onNavigateToElement })
       : section === 'informal-tags'
       ? React.createElement(InformalTagsView, { key: credsKey, navGuid: informalTagsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'python-api'

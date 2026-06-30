@@ -71,13 +71,45 @@ def _serialize_rel_entries(rel_list: list) -> list:
         g = rh.get("guid", "")
         if g:
             result.append({
-                "guid":          g,
-                "displayName":   rp.get("displayName") or rp.get("name") or "",
-                "qualifiedName": rp.get("qualifiedName") or "",
-                "description":   rp.get("description") or "",
-                "typeName":      rtype.get("typeName") or "",
+                "guid":           g,
+                "displayName":    rp.get("displayName") or rp.get("name") or "",
+                "qualifiedName":  rp.get("qualifiedName") or "",
+                "description":    rp.get("description") or "",
+                "typeName":       rtype.get("typeName") or "",
+                "superTypeNames": rtype.get("superTypeNames") or [],
+                "relationshipProperties": {
+                    k: v for k, v in (rel.get("relationshipProperties") or {}).items()
+                    if k not in ("class",) and v is not None and v != ""
+                },
             })
     return result
+
+
+def _serialize_classifications(header: dict) -> list:
+    """Extract classifications from elementHeader into a list of {typeName, properties}."""
+    result = []
+    for val in header.values():
+        if not isinstance(val, dict):
+            continue
+        cls_class = val.get("class") or ""
+        if cls_class != "ElementClassification":
+            continue
+        type_info = val.get("type") or {}
+        type_name = val.get("classificationName") or type_info.get("typeName") or ""
+        if not type_name:
+            continue
+        raw_props = val.get("classificationProperties") or {}
+        props = {k: v for k, v in raw_props.items() if k != "class" and v is not None and v != ""}
+        result.append({"typeName": type_name, "properties": props})
+    return result
+
+
+_KNOWN_PROPS = frozenset({
+    "displayName", "qualifiedName", "description", "eventEffect", "url",
+    "plannedStartDate", "actualStartDate", "plannedCompletionDate", "actualCompletionDate",
+    "plannedDuration", "actualDuration", "repeatInterval",
+    "referenceEffectiveFrom", "referenceEffectiveTo", "class",
+})
 
 
 def _serialize_context_event(element: dict) -> dict:
@@ -102,6 +134,12 @@ def _serialize_context_event(element: dict) -> dict:
         "status":                  header.get("status") or "",
         "typeName":                _type_name(element),
         "superTypeNames":          _super_type_names(element),
+        "classifications":         _serialize_classifications(header),
+        # Any properties not in the known set (forward-compatible with schema additions)
+        "extraProperties": {
+            k: v for k, v in props.items()
+            if k not in _KNOWN_PROPS and v is not None and v != ""
+        },
     }
 
     # Collect all relationship arrays generically
