@@ -3577,6 +3577,7 @@ const SECTION_LABELS = {
   'collections':       'Collections',
   'projects':          'Projects',
   'informal-tags':     'Informal Tags',
+  'context-events':    'Context Events',
   'dr-egeria':         'Dr. Egeria',
   'python-api':        'Python API',
 };
@@ -4025,6 +4026,14 @@ const _SPLASH_CAPABILITIES = [
     icon: '⚑',
     title: 'Informal Tags',
     description: 'Browse informal tags applied across the metadata ecosystem. See which elements have been tagged, filter by public or private tags, and navigate directly to any tagged element.',
+    requiresConnection: true,
+  },
+  {
+    section: 'context-events',
+    group: 'review',
+    icon: '⏱',
+    title: 'Context Events',
+    description: 'Browse context events managed by the TimeKeeper service. View planned and actual dates on a timeline, durations, effects, and relationships between dependent and related events.',
     requiresConnection: true,
   },
   // ── Reference ────────────────────────────────────────────────────────────
@@ -7941,6 +7950,237 @@ function GovTypeNode({ node, depth, selectedType, onSelect, expanded, toggleExpa
   );
 }
 
+function ContextEventsView({ navGuid }) {
+  const creds = React.useContext(CredContext);
+  const [sideW, onDivDown]   = useResizable(260);
+  const [filter, setFilter]  = useState('');
+  const [inclTempl, setInclTempl] = useState(false);
+  const [events, setEvents]  = useState([]);
+  const [status, setStatus]  = useState('idle'); // idle | loading | ready | error
+  const [errMsg, setErrMsg]  = useState('');
+  const [selected, setSelected] = useState(null);
+  const [detail, setDetail]  = useState(null);
+  const [detailSt, setDetailSt] = useState('idle');
+  const [attempt, setAttempt] = useState(0);
+
+  // load list
+  useEffect(function() {
+    if (!creds) return;
+    setStatus('loading');
+    setEvents([]);
+    var url = '/api/context-events?page_size=500' + (inclTempl ? '&include_templates=true' : '');
+    egeriaFetch(url, creds)
+      .then(function(r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
+      .then(function(d) {
+        setEvents(Array.isArray(d.events) ? d.events : []);
+        setStatus('ready');
+      }).catch(function(e) {
+        setErrMsg(String(e));
+        setStatus('error');
+      });
+  }, [creds, attempt, inclTempl]);
+
+  // auto-select navGuid
+  useEffect(function() {
+    if (navGuid && events.length) {
+      var ev = events.find(function(e) { return e.guid === navGuid; });
+      if (ev) setSelected(ev.guid);
+    }
+  }, [navGuid, events]);
+
+  // load detail
+  useEffect(function() {
+    if (!selected || !creds) { setDetail(null); return; }
+    setDetailSt('loading');
+    egeriaFetch('/api/context-events/' + selected, creds)
+      .then(function(r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
+      .then(function(d) {
+        setDetail(d);
+        setDetailSt('ready');
+      }).catch(function() {
+        setDetailSt('error');
+      });
+  }, [selected, creds]);
+
+  var filtered = useMemo(function() {
+    var q = filter.trim().toLowerCase();
+    if (!q) return events;
+    return events.filter(function(e) {
+      return (e.displayName || '').toLowerCase().includes(q)
+          || (e.qualifiedName || '').toLowerCase().includes(q)
+          || (e.description || '').toLowerCase().includes(q);
+    });
+  }, [events, filter]);
+
+  // Timeline helpers
+  function parseDate(s) {
+    if (!s) return null;
+    var d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  var TODAY = new Date();
+  TODAY.setHours(0, 0, 0, 0);
+
+  function TimelineBar({ event }) {
+    var start  = parseDate(event.plannedStartDate  || event.actualStartDate);
+    var end    = parseDate(event.plannedCompletionDate || event.actualCompletionDate);
+    if (!start && !end) return null;
+    if (!start) start = new Date(end.getTime() - 7 * 86400000);
+    if (!end)   end   = new Date(start.getTime() + 7 * 86400000);
+
+    var margin = 30 * 86400000; // 30 days padding each side
+    var viewStart = new Date(Math.min(start.getTime(), TODAY.getTime()) - margin);
+    var viewEnd   = new Date(Math.max(end.getTime(), TODAY.getTime()) + margin);
+    var span = viewEnd - viewStart || 1;
+
+    function px(d) { return ((d - viewStart) / span * 580).toFixed(1); }
+
+    var barX  = parseFloat(px(start));
+    var barW  = Math.max(2, parseFloat(px(end)) - barX);
+    var todX  = parseFloat(px(TODAY));
+
+    var isActive  = start <= TODAY && TODAY <= end;
+    var isPast    = end < TODAY;
+    var barColor  = isPast ? 'var(--text-dim)' : isActive ? '#4caf50' : '#2196f3';
+
+    return React.createElement('svg', { width: '100%', viewBox: '0 0 600 44', style: { display: 'block', margin: '6px 0' } },
+      React.createElement('rect', { x: barX, y: 12, width: barW, height: 16, rx: 4, fill: barColor, opacity: 0.85 }),
+      React.createElement('line', { x1: todX, y1: 0, x2: todX, y2: 44, stroke: '#ff9800', strokeWidth: 1.5, strokeDasharray: '4,3' }),
+      React.createElement('text', { x: todX + 3, y: 10, fontSize: 9, fill: '#ff9800' }, 'today'),
+      start && React.createElement('text', { x: barX, y: 40, fontSize: 8, fill: 'var(--text-dim)' }, start.toLocaleDateString()),
+      end   && React.createElement('text', { x: Math.max(barX, parseFloat(px(end)) - 40), y: 40, fontSize: 8, fill: 'var(--text-dim)' }, end.toLocaleDateString())
+    );
+  }
+
+  function DateRow({ label, value }) {
+    if (!value) return null;
+    var d = parseDate(value);
+    return React.createElement('div', { style: { display: 'flex', gap: 8, marginBottom: 3, fontSize: 13 } },
+      React.createElement('span', { style: { color: 'var(--text-dim)', minWidth: 180 } }, label),
+      React.createElement('span', null, d ? d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : value)
+    );
+  }
+
+  function NumRow({ label, value }) {
+    if (value == null) return null;
+    return React.createElement('div', { style: { display: 'flex', gap: 8, marginBottom: 3, fontSize: 13 } },
+      React.createElement('span', { style: { color: 'var(--text-dim)', minWidth: 180 } }, label),
+      React.createElement('span', null, value)
+    );
+  }
+
+  function RelGroup({ title, items }) {
+    if (!items || !items.length) return null;
+    return React.createElement('div', { style: { marginTop: 10 } },
+      React.createElement('div', { style: { fontWeight: 600, fontSize: 13, marginBottom: 4 } }, title),
+      items.map(function(r) {
+        return React.createElement('div', { key: r.guid, style: { padding: '4px 8px', background: 'var(--panel)', borderRadius: 4, marginBottom: 4, fontSize: 12 } },
+          React.createElement('div', { style: { fontWeight: 600 } }, r.displayName || r.qualifiedName || r.guid),
+          r.typeName && React.createElement('div', { style: { color: 'var(--text-dim)' } }, r.typeName),
+          r.description && React.createElement('div', { style: { marginTop: 2 } }, r.description)
+        );
+      })
+    );
+  }
+
+  var selEvent = events.find(function(e) { return e.guid === selected; }) || null;
+
+  return React.createElement('div', { className: 'body' },
+    // Sidebar
+    React.createElement('div', { className: 'sidebar', style: { width: sideW, display: 'flex', flexDirection: 'column' } },
+      React.createElement('div', { className: 'search-wrap' },
+        React.createElement('input', {
+          className: 'search-box', placeholder: 'Filter events…',
+          value: filter, onChange: function(e) { setFilter(e.target.value); }
+        }),
+        React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, padding: '4px 8px', color: 'var(--text-dim)' } },
+          React.createElement('input', { type: 'checkbox', checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); } }),
+          'Include Templates'
+        ),
+        React.createElement('button', {
+          className: 'btn-sm', style: { margin: '0 8px 4px' },
+          onClick: function() { setAttempt(function(a) { return a + 1; }); }
+        }, '↻ Refresh')
+      ),
+      status === 'loading' && React.createElement('div', { style: { padding: 12, color: 'var(--text-dim)' } }, 'Loading…'),
+      status === 'error'   && React.createElement('div', { style: { padding: 12, color: '#f44' } }, errMsg || 'Error loading context events'),
+      status === 'ready'   && !filtered.length && React.createElement('div', { style: { padding: 12, color: 'var(--text-dim)' } }, events.length ? 'No matches.' : 'No context events found.'),
+      React.createElement('div', { style: { overflowY: 'auto', flex: 1 } },
+        filtered.map(function(ev) {
+          var isActive = ev.guid === selected;
+          return React.createElement('div', {
+            key: ev.guid,
+            className: 'sidebar-item' + (isActive ? ' selected' : ''),
+            onClick: function() { setSelected(ev.guid); }
+          },
+            React.createElement('div', { style: { fontWeight: isActive ? 600 : 400, fontSize: 13 } }, ev.displayName || ev.qualifiedName || ev.guid),
+            ev.eventEffect && React.createElement('div', { style: { fontSize: 11, color: 'var(--text-dim)', marginTop: 2 } }, ev.eventEffect)
+          );
+        })
+      )
+    ),
+    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
+    // Main panel
+    React.createElement('div', { className: 'main', style: { overflowY: 'auto', padding: '16px 20px' } },
+      !selected
+        ? React.createElement('div', { style: { color: 'var(--text-dim)', padding: 20 } }, 'Select a context event to view details.')
+        : detailSt === 'loading'
+        ? React.createElement('div', { style: { color: 'var(--text-dim)', padding: 12 } }, 'Loading…')
+        : detailSt === 'error'
+        ? React.createElement('div', { style: { color: '#f44', padding: 12 } }, 'Failed to load event detail.')
+        : detail && React.createElement('div', null,
+            React.createElement('h2', { style: { marginTop: 0, fontSize: 18, fontWeight: 700 } }, detail.displayName || detail.qualifiedName || detail.guid),
+            detail.typeName && React.createElement('div', { style: { color: 'var(--text-dim)', fontSize: 12, marginBottom: 8 } }, detail.typeName),
+            detail.status && React.createElement('div', { style: { marginBottom: 8 } },
+              React.createElement('span', { style: { background: 'var(--panel)', borderRadius: 4, padding: '2px 8px', fontSize: 12 } }, detail.status)
+            ),
+            detail.description && React.createElement('p', { style: { fontSize: 14, marginBottom: 12 } }, detail.description),
+            detail.eventEffect && React.createElement('div', { style: { marginBottom: 12, padding: '8px 12px', background: 'var(--panel)', borderRadius: 6 } },
+              React.createElement('span', { style: { fontWeight: 600, marginRight: 6 } }, 'Effect:'),
+              detail.eventEffect
+            ),
+            // Timeline
+            (detail.plannedStartDate || detail.actualStartDate || detail.plannedCompletionDate || detail.actualCompletionDate) && React.createElement('div', { style: { marginBottom: 16 } },
+              React.createElement('div', { style: { fontWeight: 600, marginBottom: 4, fontSize: 13 } }, 'Timeline'),
+              React.createElement(TimelineBar, { event: detail })
+            ),
+            // Dates
+            React.createElement('div', { style: { marginBottom: 16 } },
+              React.createElement('div', { style: { fontWeight: 600, marginBottom: 6, fontSize: 13 } }, 'Dates'),
+              React.createElement(DateRow, { label: 'Planned Start',       value: detail.plannedStartDate }),
+              React.createElement(DateRow, { label: 'Actual Start',        value: detail.actualStartDate }),
+              React.createElement(DateRow, { label: 'Planned Completion',  value: detail.plannedCompletionDate }),
+              React.createElement(DateRow, { label: 'Actual Completion',   value: detail.actualCompletionDate }),
+              React.createElement(DateRow, { label: 'Effective From',      value: detail.referenceEffectiveFrom }),
+              React.createElement(DateRow, { label: 'Effective To',        value: detail.referenceEffectiveTo })
+            ),
+            // Durations / intervals
+            (detail.plannedDuration != null || detail.actualDuration != null || detail.repeatInterval != null) && React.createElement('div', { style: { marginBottom: 16 } },
+              React.createElement('div', { style: { fontWeight: 600, marginBottom: 6, fontSize: 13 } }, 'Durations'),
+              React.createElement(NumRow, { label: 'Planned Duration',  value: detail.plannedDuration }),
+              React.createElement(NumRow, { label: 'Actual Duration',   value: detail.actualDuration }),
+              React.createElement(NumRow, { label: 'Repeat Interval',   value: detail.repeatInterval })
+            ),
+            // URL
+            detail.url && React.createElement('div', { style: { marginBottom: 16, fontSize: 13 } },
+              React.createElement('span', { style: { fontWeight: 600, marginRight: 6 } }, 'URL:'),
+              detail.url
+            ),
+            // Relationships
+            detail.relationships && Object.keys(detail.relationships).length > 0 && React.createElement('div', { style: { marginTop: 16 } },
+              React.createElement('h3', { style: { fontSize: 15, marginBottom: 8 } }, 'Relationships'),
+              Object.entries(detail.relationships).map(function(entry) {
+                return React.createElement(RelGroup, { key: entry[0], title: entry[0], items: entry[1] });
+              })
+            ),
+            React.createElement('div', { style: { marginTop: 16, fontSize: 11, color: 'var(--text-dim)', wordBreak: 'break-all' } }, 'GUID: ', detail.guid),
+            detail.qualifiedName && React.createElement('div', { style: { fontSize: 11, color: 'var(--text-dim)', wordBreak: 'break-all' } }, 'Qualified Name: ', detail.qualifiedName)
+          )
+    )
+  );
+}
+
 function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown]     = useResizable(220);
@@ -8307,7 +8547,7 @@ function App() {
     var hash = window.location.hash.slice(1);
     var valid = new Set(['type-system','reference-data','digital-products','collections','glossary',
       'report-specs','valid-values','rest-apis','python-api','solution-architect',
-      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','notelogs','governance','projects','informal-tags']);
+      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','notelogs','governance','projects','informal-tags','context-events']);
     return valid.has(hash) ? hash : 'splash';
   });
   const [glossaryNavGuid, setGlossaryNavGuid] = useState(null);
@@ -8553,7 +8793,7 @@ function App() {
         }),
         React.createElement(NavGroup, {
           label: 'Review', connected: connected, currentSection: section,
-          isActive: ['glossary','reference-data','data-design','collections','solution-architect','isc','locations','actors','communities','notelogs','perspectives','governance','projects','informal-tags'].includes(section),
+          isActive: ['glossary','reference-data','data-design','collections','solution-architect','isc','locations','actors','communities','notelogs','perspectives','governance','projects','informal-tags','context-events'].includes(section),
           onSelect: setSection,
           items: [
             { id: 'glossary',           label: 'Glossary',                needsConnect: true },
@@ -8570,6 +8810,7 @@ function App() {
             { id: 'governance',         label: 'Governance Definitions',  needsConnect: true },
             { id: 'projects',           label: 'Projects',                needsConnect: true },
             { id: 'informal-tags',      label: 'Informal Tags',             needsConnect: true },
+            { id: 'context-events',    label: 'Context Events',            needsConnect: true },
           ]
         }),
         React.createElement(NavGroup, {
@@ -8658,6 +8899,8 @@ function App() {
       ? React.createElement(GovernanceView, { key: credsKey, navTypeName: governanceNav.typeName, navGuid: governanceNav.guid, onNavigateToElement: onNavigateToElement })
       : section === 'projects'
       ? React.createElement(ProjectsView, { key: credsKey })
+      : section === 'context-events'
+      ? React.createElement(ContextEventsView, { key: credsKey })
       : section === 'informal-tags'
       ? React.createElement(InformalTagsView, { key: credsKey, navGuid: informalTagsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'python-api'
