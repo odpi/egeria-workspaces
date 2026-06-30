@@ -44,10 +44,13 @@ from egeria_auth import apply_token, async_apply_token
 router = APIRouter(tags=["egeria-operations"])
 
 
-# ── Server-report cache (stale-while-revalidate) ──────────────────────────────
+# ── Server-report cache (non-blocking, stale-while-revalidate) ────────────────
 # The Integration Daemon's /instance/report polls every connector for live
-# status; it can take 30-120 s. Cache the last good result and serve it
-# immediately on repeat loads while refreshing in the background.
+# status and can take several minutes.  Strategy:
+#   • Cold start  → fire background task, return loading=True immediately.
+#   • In-flight   → return loading=True (one task per key).
+#   • Fresh cache → return data instantly.
+#   • Stale cache → return data instantly, kick off background refresh.
 
 @dataclass
 class _ReportCacheEntry:
@@ -56,6 +59,7 @@ class _ReportCacheEntry:
     refreshing: bool = False
 
 _report_cache: dict[str, _ReportCacheEntry] = {}
+_fetch_in_progress: dict[str, asyncio.Task] = {}
 _REPORT_TTL = 60.0  # seconds before a cached entry is considered stale
 
 
@@ -69,35 +73,45 @@ def _invalidate_server_cache(server_guid: str) -> None:
         del _report_cache[key]
 
 
-async def _bg_refresh_report(rm, server_guid: str, key: str) -> None:
+async def _fetch_and_cache(rm, server_guid: str, key: str) -> None:
+    """Background coroutine: fetch the server report and populate the cache."""
     try:
         raw = await rm._async_get_server_report(server_guid=server_guid, output_format="JSON")
         _report_cache[key] = _ReportCacheEntry(data=raw, ts=time.monotonic())
-        logger.debug("operations: background report refresh complete for %s", server_guid)
+        logger.info("operations: server report cached for %s", server_guid)
     except Exception:
         entry = _report_cache.get(key)
         if entry:
             entry.refreshing = False
-        logger.debug("operations: background report refresh failed for %s", server_guid)
+        logger.warning("operations: background fetch failed for %s", server_guid)
+    finally:
+        _fetch_in_progress.pop(key, None)
 
 
-async def _get_server_report_cached(rm, server_guid: str, key: str) -> tuple[Any, bool]:
-    """Return (raw_report, is_stale).  Stale entries are returned immediately
-    and a background refresh is kicked off so the next request is fast."""
+def _get_server_report_cached(rm, server_guid: str, key: str) -> tuple[Any, bool, bool]:
+    """Return (raw_report, is_stale, is_loading).
+
+    is_loading=True means no cached data exists yet; the caller should return
+    an empty response and let the client retry in a few seconds.
+    This function is sync (no await) so there is no risk of concurrent cold-starts.
+    """
     now = time.monotonic()
     entry = _report_cache.get(key)
     if entry is not None:
         if now - entry.ts < _REPORT_TTL:
-            return entry.data, False  # fresh hit
-        # Stale: return what we have and refresh in the background
+            return entry.data, False, False  # fresh
         if not entry.refreshing:
             entry.refreshing = True
-            asyncio.get_event_loop().create_task(_bg_refresh_report(rm, server_guid, key))
-        return entry.data, True
-    # Cold start — blocking fetch (unavoidably slow on first load)
-    raw = await rm._async_get_server_report(server_guid=server_guid, output_format="JSON")
-    _report_cache[key] = _ReportCacheEntry(data=raw, ts=time.monotonic())
-    return raw, False
+            asyncio.get_event_loop().create_task(_fetch_and_cache(rm, server_guid, key))
+        return entry.data, True, False  # stale, refreshing in background
+
+    # No cache — ensure exactly one fetch task is running
+    task = _fetch_in_progress.get(key)
+    if task is None or task.done():
+        _fetch_in_progress[key] = asyncio.get_event_loop().create_task(
+            _fetch_and_cache(rm, server_guid, key)
+        )
+    return None, False, True  # loading
 
 
 def _is_auth_error(exc: Exception) -> bool:
@@ -382,10 +396,14 @@ async def list_integration_connectors(
     try:
         rm = await _runtime_manager_async(url, server, user_id, user_pwd)
         ac = await _automated_curation_async(url, server, user_id, user_pwd)
-        raw, is_stale = await _get_server_report_cached(rm, server_guid, cache_key)
-        rep = _report_element(raw) or {}
+        raw, is_stale, is_loading = _get_server_report_cached(rm, server_guid, cache_key)
     except Exception as exc:
         _raise_http(exc, "operations: integration-connectors report failed")
+
+    if is_loading:
+        return JSONResponse({"connectors": [], "total": 0, "loading": True, "stale": False})
+
+    rep = _report_element(raw) or {}
 
     connectors = rep.get("integrationConnectorReports") or []
     groups = {g.get("integrationGroupGUID"): g.get("integrationGroupName")
@@ -427,7 +445,7 @@ async def list_integration_connectors(
         logger.exception("operations: concurrent catalog-target fetch failed")
         rows = []
     rows.sort(key=lambda r: (r.get("connectorName") or "").lower())
-    return JSONResponse({"connectors": rows, "total": len(rows), "stale": is_stale})
+    return JSONResponse({"connectors": rows, "total": len(rows), "loading": False, "stale": is_stale})
 
 
 class _ConnectorActionBody(BaseModel):

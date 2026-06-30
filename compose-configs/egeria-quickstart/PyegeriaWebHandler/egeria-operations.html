@@ -855,11 +855,14 @@ function useServerTab({ creds, platform, serverType, endpoint, rowKey }) {
   var _b  = useState(false), busy   = _b[0],  setBusy   = _b[1];
   var _sel= useState(null),  selKey = _sel[0],setSelKey = _sel[1];
   var _st = useState(false), stale  = _st[0], setStale  = _st[1];
+  var retryTimer = useRef(null);
   var servers = (platform && platform.servers || []).filter(function(s){ return s.serverType === serverType; });
-  // default the server when the platform (or its matching servers) changes
   useEffect(function(){ setSelKey(null); setServer(servers[0] || null); }, [platform && platform.guid, servers.length]);
+  // cancel any pending retry on unmount
+  useEffect(function(){ return function(){ if (retryTimer.current) clearTimeout(retryTimer.current); }; }, []);
   function load() {
     if (!server) { setRows([]); setState('idle'); return; }
+    if (retryTimer.current) { clearTimeout(retryTimer.current); retryTimer.current = null; }
     setBusy(true); setErrMsg(''); if (state !== 'ready') setState('loading');
     egeriaFetch(endpoint + '?server_guid=' + encodeURIComponent(server.guid), creds)
       .then(function(r) {
@@ -872,7 +875,15 @@ function useServerTab({ creds, platform, serverType, endpoint, rowKey }) {
           throw new Error('Failed to load (HTTP ' + status + ').' + (detail ? ' ' + detail : ''));
         });
       })
-      .then(function(d){ setRows((d && (d.connectors || d.engines)) || []); setStale(!!(d && d.stale)); setState('ready'); setBusy(false); })
+      .then(function(d){
+        if (d && d.loading) {
+          // backend is fetching from Egeria in background — poll again in 8 s
+          setBusy(false); setState('loading');
+          retryTimer.current = setTimeout(load, 8000);
+          return;
+        }
+        setRows((d && (d.connectors || d.engines)) || []); setStale(!!(d && d.stale)); setState('ready'); setBusy(false);
+      })
       .catch(function(e){ setErrMsg(e.message || 'Failed to load.'); setState('error'); setBusy(false); });
   }
   useEffect(load, [server && server.guid]);
@@ -975,7 +986,7 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform }) {
   }
 
   var table = el('div', { style:{ flex:1, overflow:'auto', minWidth:0 } },
-    t.state === 'loading' ? el('div', { style: pad }, 'Loading connectors…')
+    t.state === 'loading' ? el('div', { style: pad }, 'Fetching connector data from Egeria — this can take a minute on first load. The page will update automatically.')
     : t.state === 'error' ? el('div', { style: Object.assign({}, pad, { color: '#f87171' }) }, t.errMsg || 'Failed to load connectors.')
     : !t.server ? el('div', { style: pad }, 'No Integration Daemon on this platform.')
     : rows.length === 0 ? el('div', { style: pad }, t.rows.length ? 'No connectors match the filter.' : 'No connectors on this daemon.')
