@@ -969,7 +969,7 @@ function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign, on
   var relBtnStyle = { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' };
   var ddBtnStyle  = { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(94,234,212,.4)', background: 'rgba(94,234,212,.1)', color: '#5eead4', cursor: 'pointer' };
   var DD_TYPES = { DataField: true, DataStructure: true, DataSpec: true, DataGrain: true, DataClass: true };
-  var termFavUrl = '/egeria-explorer#glossary?term=' + encodeURIComponent(term.guid);
+  var termFavUrl = '/egeria-explorer?guid=' + encodeURIComponent(term.guid) + '#glossary';
   return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement('div', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)' } }, term.displayName),

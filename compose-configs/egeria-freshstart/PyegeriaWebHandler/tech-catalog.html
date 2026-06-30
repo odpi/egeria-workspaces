@@ -1574,7 +1574,7 @@ function AssetDetail({ item, detailLoading, onNavigate, creds, sectionId }) {
         title: 'Preview the rows of this file',
         style: { fontSize: 12, padding: '4px 12px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer', whiteSpace: 'nowrap' }
       }, 'Preview Data 📊'),
-      _assetPersonaId && React.createElement(FavoriteButton, { app: 'tech-catalog', section: sectionId || 'assets', label: item.displayName || item.qualifiedName, icon: '🗄️', url: '/tech-catalog#' + (sectionId || 'assets') + '?asset=' + encodeURIComponent(item.guid), personaId: _assetPersonaId }),
+      _assetPersonaId && React.createElement(FavoriteButton, { app: 'tech-catalog', section: sectionId || 'assets', label: item.displayName || item.qualifiedName, icon: '🗄️', url: '/tech-catalog?guid=' + encodeURIComponent(item.guid) + '#' + (sectionId || 'assets'), personaId: _assetPersonaId }),
       React.createElement(EgeriaFeedbackWidget, { guid: item.guid }),
       React.createElement(CopyJsonButton, { data: item })
     ),

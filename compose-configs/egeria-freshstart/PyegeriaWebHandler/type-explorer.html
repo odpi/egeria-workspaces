@@ -1112,7 +1112,7 @@ function TypeDetail({
     },
     title: t.guid
   }, t.guid.slice(0, 8), "\u2026"), t.wiki && /*#__PURE__*/React.createElement(WikiLink, { href: t.wiki }),
-  _typePersonaId && /*#__PURE__*/React.createElement(FavoriteButton, { app: 'type-explorer', section: 'type-system', label: name, icon: '🔬', url: '/egeria-explorer#type-system?type=' + encodeURIComponent(name), personaId: _typePersonaId }),
+  _typePersonaId && /*#__PURE__*/React.createElement(FavoriteButton, { app: 'type-explorer', section: 'type-system', label: name, icon: '🔬', url: '/egeria-explorer?name=' + encodeURIComponent(name) + '#type-system', personaId: _typePersonaId }),
   /*#__PURE__*/React.createElement(CopyJsonButton, { data: t })), /*#__PURE__*/React.createElement("p", {
     className: "detail-desc"
   }, t.desc || '—')), /*#__PURE__*/React.createElement("div", {
@@ -2196,7 +2196,7 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
   return React.createElement('div', { className: 'detail', style: { overflowY: 'auto', height: '100%' } },
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
       React.createElement('div', { className: 'detail-name', style: { flex: 1, margin: 0 } }, spec.name),
-      _favPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'report-specs', label: spec.name, icon: '⊟', url: '/egeria-explorer#report-specs?spec=' + encodeURIComponent(spec.name), personaId: _favPersonaId })
+      _favPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'report-specs', label: spec.name, icon: '⊟', url: '/egeria-explorer?name=' + encodeURIComponent(spec.name) + '#report-specs', personaId: _favPersonaId })
     ),
     React.createElement('div', { style: { display: 'flex', gap: 6, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' } },
       spec.family     && React.createElement('span', { className: 'badge', style: BADGE_STYLE.base  }, spec.family),
@@ -2865,7 +2865,7 @@ function ReferenceDataDetail({ item }) {
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, item.displayName || item.qualifiedName),
       React.createElement("span", { className: "badge", style: { background: isSet ? 'rgba(99,102,241,.15)' : 'rgba(16,185,129,.12)', color: isSet ? '#818cf8' : '#34d399', border: '0.5px solid ' + (isSet ? 'rgba(99,102,241,.3)' : 'rgba(16,185,129,.3)') } }, item.typeName || (isSet ? 'Set' : 'Value')),
       React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
-        _rdPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'reference-data', label: item.displayName || item.qualifiedName, icon: '📊', url: '/egeria-explorer#reference-data?item=' + encodeURIComponent(item.guid), personaId: _rdPersonaId }),
+        _rdPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'reference-data', label: item.displayName || item.qualifiedName, icon: '📊', url: '/egeria-explorer?guid=' + encodeURIComponent(item.guid) + '#reference-data', personaId: _rdPersonaId }),
         React.createElement(EgeriaFeedbackWidget, { guid: item.guid })
       ),
       React.createElement(CopyJsonButton, { data: item })
@@ -3151,7 +3151,7 @@ function DigitalProductDetail({ product, onNavigateToElement, creds }) {
         style: { padding: '3px 10px', borderRadius: 4, border: '1px solid rgba(251,191,36,.4)', background: 'rgba(251,191,36,.1)', color: '#fcd34d', cursor: 'pointer', fontSize: 12 }
       }, "Preview Data 📊"),
       React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
-        _favPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'digital-products', label: product.displayName || product.qualifiedName, icon: '📦', url: '/egeria-explorer#digital-products?product=' + encodeURIComponent(product.guid), personaId: _favPersonaId }),
+        _favPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'digital-products', label: product.displayName || product.qualifiedName, icon: '📦', url: '/egeria-explorer?guid=' + encodeURIComponent(product.guid) + '#digital-products', personaId: _favPersonaId }),
         React.createElement(EgeriaFeedbackWidget, { guid: product.guid })
       ),
       React.createElement(CopyJsonButton, { data: product })
@@ -4262,7 +4262,7 @@ function ValidValueDetail({ item }) {
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, item.displayName || item.qualifiedName),
       isSet && React.createElement("span", { className: "badge", style: { background: 'rgba(99,102,241,.15)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.3)' } }, item.typeName || 'Set'),
       React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
-        _vvPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'valid-values', label: item.displayName || item.qualifiedName, icon: '✅', url: '/egeria-explorer#valid-values?item=' + encodeURIComponent(item.guid), personaId: _vvPersonaId }),
+        _vvPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'valid-values', label: item.displayName || item.qualifiedName, icon: '✅', url: '/egeria-explorer?guid=' + encodeURIComponent(item.guid) + '#valid-values', personaId: _vvPersonaId }),
         React.createElement(EgeriaFeedbackWidget, { guid: item.guid })
       ),
       React.createElement(CopyJsonButton, { data: item })
@@ -4976,7 +4976,7 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
         React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, detail.displayName || detail.qualifiedName),
         React.createElement("span", { className: "badge", style: { background: 'rgba(125,211,252,.1)', color: color, border: '0.5px solid rgba(125,211,252,.3)' } }, detail.typeName || ''),
         React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
-          _ddPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'data-design', label: detail.displayName || detail.qualifiedName, icon: '🗄️', url: '/egeria-explorer#data-design?item=' + encodeURIComponent(detail.guid), personaId: _ddPersonaId }),
+          _ddPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'data-design', label: detail.displayName || detail.qualifiedName, icon: '🗄️', url: '/egeria-explorer?guid=' + encodeURIComponent(detail.guid) + '#data-design', personaId: _ddPersonaId }),
           React.createElement(EgeriaFeedbackWidget, { guid: detail.guid })
         ),
         React.createElement(CopyJsonButton, { data: detail })
@@ -5903,7 +5903,7 @@ function ISCDetail({ data, detail, onNavigateToElement }) {
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.displayName || src.qualifiedName),
       React.createElement("span", { className: "badge", style: { background: 'rgba(94,234,212,.1)', color: '#5eead4', border: '0.5px solid rgba(94,234,212,.3)' } }, src.typeName || 'InformationSupplyChain'),
       React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
-        _iscPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'isc', label: src.displayName || src.qualifiedName, icon: '🔗', url: '/egeria-explorer#isc?isc=' + encodeURIComponent(src.guid), personaId: _iscPersonaId }),
+        _iscPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'isc', label: src.displayName || src.qualifiedName, icon: '🔗', url: '/egeria-explorer?guid=' + encodeURIComponent(src.guid) + '#isc', personaId: _iscPersonaId }),
         React.createElement(EgeriaFeedbackWidget, { guid: src.guid })
       ),
       React.createElement(CopyJsonButton, { data: src })
@@ -7082,7 +7082,7 @@ function NoteLogDetail({ data, detail, onNavigateToElement }) {
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.displayName || src.qualifiedName),
       React.createElement("span", { className: "badge", style: { background: 'rgba(192,132,252,.1)', color: '#c084fc', border: '0.5px solid rgba(192,132,252,.3)' } }, src.typeName || 'NoteLog'),
       React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
-        _nlPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'notelogs', label: src.displayName || src.qualifiedName, icon: '📝', url: '/egeria-explorer#notelogs?notelog=' + encodeURIComponent(src.guid), personaId: _nlPersonaId }),
+        _nlPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'notelogs', label: src.displayName || src.qualifiedName, icon: '📝', url: '/egeria-explorer?guid=' + encodeURIComponent(src.guid) + '#notelogs', personaId: _nlPersonaId }),
         React.createElement(EgeriaFeedbackWidget, { guid: src.guid })
       ),
       React.createElement(CopyJsonButton, { data: src })
@@ -8655,13 +8655,20 @@ function App() {
   const [theme, setTheme]         = useState('dark');
   const [view, setView]           = useState('types'); // 'types' | 'attrs'
   const [section, setSection]     = useState(function() {
-    var hash = window.location.hash.slice(1);
+    // split('?')[0]: element favourite deep-links like /egeria-explorer?guid=X#isc
+    // are fine, but guard against legacy #isc?isc=X URLs where the element id
+    // leaked into the hash fragment instead of the query string.
+    var hash = window.location.hash.slice(1).split('?')[0];
     var valid = new Set(['type-system','reference-data','digital-products','collections','glossary',
       'report-specs','valid-values','rest-apis','python-api','solution-architect',
       'data-design','perspectives','dr-egeria','isc','locations','actors','communities','notelogs','governance','projects','informal-tags','context-events']);
     return valid.has(hash) ? hash : 'splash';
   });
-  const [glossaryNavGuid, setGlossaryNavGuid] = useState(null);
+  const [glossaryNavGuid, setGlossaryNavGuid] = useState(function() {
+    var hash = window.location.hash.slice(1).split('?')[0];
+    var p = new URLSearchParams(window.location.search);
+    return hash === 'glossary' ? (p.get('guid') || null) : null;
+  });
   const [validValuesNavProp, setValidValuesNavProp] = useState(null);
   const [dataDesignNav, setDataDesignNav] = useState({ guid: null, type: null });
 
