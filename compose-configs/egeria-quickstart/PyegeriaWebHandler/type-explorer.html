@@ -3572,7 +3572,7 @@ const SECTION_LABELS = {
   'notelogs':          'Note Logs',
   'perspectives':      'Perspectives',
   'governance':        'Governance Definitions',
-  'report-specs':      'Report Specifications',
+  'report-specs':      'Reports',
   'digital-products':  'Digital Products',
   'collections':       'Collections',
   'projects':          'Projects',
@@ -3899,12 +3899,26 @@ function PlaceholderView({ section }) {
 // ── Splash Screen ─────────────────────────────────────────────────────────────
 
 const _SPLASH_CAPABILITIES = [
-  // ── Act ──────────────────────────────────────────────────────────────────
+  // ── Explore ───────────────────────────────────────────────────────────────
+  {
+    section: 'glossary',
+    group: 'act',
+    icon: '≡',
+    title: 'Glossary',
+    description: 'Explore business glossaries, terms, definitions, and semantic relationships. Navigate folders, search across all glossaries, and follow synonyms, antonyms, and related terms.',
+  },
+  {
+    section: 'collections',
+    group: 'act',
+    icon: '❐',
+    title: 'Collections',
+    description: 'Start from the root collections and navigate the collection hierarchy — digital products, families, blueprints, folios, dictionaries, and more — regardless of collection type.',
+  },
   {
     section: 'report-specs',
     group: 'act',
     icon: '⊟',
-    title: 'Report Specs',
+    title: 'Reports',
     description: 'Explore report specifications and their links to data assets. View the structure and metadata of reporting artefacts managed in Egeria.',
   },
   {
@@ -4169,7 +4183,7 @@ function SplashScreen({ onNavigate, saveCreds, demoMode, srvManaged, authUser })
         : ((!demoMode && !srvManaged) ? React.createElement(ConnectionForm, { saveCreds: saveCreds }) : null),
       React.createElement(React.Fragment, null,
         [
-          { key: 'act',       label: 'Act',       blurb: 'Take action — run reports, explore products, and issue Dr. Egeria commands.' },
+          { key: 'act',       label: 'Explore',   blurb: 'Good starting points — glossaries, collections, products, reports, and Dr. Egeria commands.' },
           { key: 'review',    label: 'Review',    blurb: 'Browse and analyse your metadata — glossaries, designs, supply chains, and governance.' },
           { key: 'reference', label: 'Reference', blurb: 'Reference tools — type system, REST APIs, valid values, and Python client.' },
         ].map(function(grp) {
@@ -8875,7 +8889,7 @@ function App() {
           ]
         }),
         React.createElement(NavGroup, {
-          label: 'Act', connected: connected, currentSection: section,
+          label: 'Explore', connected: connected, currentSection: section,
           isActive: ['report-specs','digital-products','dr-egeria'].includes(section),
           onSelect: setSection,
           items: [
