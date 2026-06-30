@@ -31,8 +31,8 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 from sqlalchemy.orm import Session
 
-from demo_auth_handler import get_current_user
-from demo_db import Favorite, get_db
+from demo_auth_handler import get_current_user, require_admin
+from demo_db import Favorite, User, get_db
 from egeria_auth import async_apply_token
 
 router = APIRouter(tags=["favorites"])
@@ -414,3 +414,44 @@ def reset_all_favorites_for_demo_reset(db: Session) -> None:
     """
     db.query(Favorite).delete()
     db.commit()
+
+
+# ── Admin ─────────────────────────────────────────────────────────────────────
+
+@router.post("/api/admin/favorites/sync-to-egeria",
+             summary="Push current Postgres favorites back to Egeria (admin only)")
+async def admin_sync_favorites_to_egeria(
+    persona: Optional[str] = Query(None, description="Limit sync to a single persona id; omit for all personas"),
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Push the current Postgres favorites for one persona (or every persona that has
+    saved favorites) back into Egeria Person.additionalProperties, making the
+    currently-displayed set the new canonical default for that persona.
+
+    If more than one portal user has saved favorites under the same persona, the
+    most recently created set is used as the source of truth.
+    """
+    query = db.query(Favorite.persona_id).distinct()
+    if persona:
+        query = query.filter(Favorite.persona_id == persona)
+    persona_ids = [row[0] for row in query.all()]
+
+    if not persona_ids:
+        raise HTTPException(status_code=404, detail="No favorites found to sync")
+
+    results: dict[str, dict] = {}
+    for pid in persona_ids:
+        rows = db.query(Favorite).filter_by(persona_id=pid).order_by(Favorite.created_at).all()
+        if not rows:
+            continue
+        latest_email = max(rows, key=lambda r: r.created_at).user_email
+        favs = sorted(
+            (r for r in rows if r.user_email == latest_email),
+            key=lambda r: r.position,
+        )
+        fav_dicts = [_row_to_dict(r) for r in favs]
+        await _egeria_write_favorites(pid, fav_dicts)
+        results[pid] = {"synced_count": len(fav_dicts), "source_user": latest_email}
+
+    return JSONResponse({"status": "synced", "personas": results})
