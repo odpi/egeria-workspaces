@@ -8923,12 +8923,12 @@ function App() {
     ),
     section !== 'splash' && React.createElement("div", { style: { padding: '4px 14px', background: 'var(--panel)', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 600, color: 'var(--text)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 } },
       React.createElement('span', null, SECTION_LABELS[section] || section),
-      activePersona && React.createElement(FavoriteButton, {
+      (activePersona || (srvManaged && authUser)) && React.createElement(FavoriteButton, {
         app: 'type-explorer', section: section,
         label: SECTION_LABELS[section] || section,
         icon: _sectionIcon(section),
         url: '/egeria-explorer#' + section,
-        personaId: activePersona.id,
+        personaId: activePersona ? activePersona.id : authUser.userId,
         demoMode: demoMode,
       })
     ),
