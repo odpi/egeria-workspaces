@@ -198,7 +198,10 @@ async def server_status_overview(
 ):
     try:
         rm = await _runtime_manager_async(url, server, user_id, user_pwd)
-        stubs = [s for s in _platform_server_guids(rm, platform_guid) if s.get("guid")]
+        stubs = await asyncio.get_event_loop().run_in_executor(
+            None, _platform_server_guids, rm, platform_guid
+        )
+        stubs = [s for s in stubs if s.get("guid")]
     except Exception as exc:
         _raise_http(exc, "operations: server-status discovery failed")
 
@@ -207,7 +210,10 @@ async def server_status_overview(
     async def _one(st):
         async with sem:
             try:
-                rep = await rm._async_get_server_report(server_guid=st["guid"], output_format="JSON")
+                rep = await asyncio.wait_for(
+                    rm._async_get_server_report(server_guid=st["guid"], output_format="JSON"),
+                    timeout=30,
+                )
                 rep = _report_element(rep) or {}
             except Exception:
                 rep = {}
@@ -297,9 +303,16 @@ async def list_integration_connectors(
     try:
         rm = await _runtime_manager_async(url, server, user_id, user_pwd)
         ac = await _automated_curation_async(url, server, user_id, user_pwd)
-        rep = _report_element(
-            await rm._async_get_server_report(server_guid=server_guid, output_format="JSON")
-        ) or {}
+        raw = await asyncio.wait_for(
+            rm._async_get_server_report(server_guid=server_guid, output_format="JSON"),
+            timeout=90,
+        )
+        rep = _report_element(raw) or {}
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=504,
+            detail="Integration Daemon report timed out — the server may be busy. Try again in a moment.",
+        )
     except Exception as exc:
         _raise_http(exc, "operations: integration-connectors report failed")
 
