@@ -2541,6 +2541,8 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
   const [navTerm, setNavTerm] = useState(null);
   const [asOfTime, setAsOfTime] = useState(null);  // LE-3 point-in-time
 
+  const [showTemplates, setShowTemplates] = useState(false);
+
   // Auth wrapper handed to the shared GlossaryTreeNode for lazy child loads.
   // Includes as_of_time so expanded folder children also reflect the chosen time.
   const fetchJson = React.useCallback(function(path) {
@@ -2576,7 +2578,6 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
   const [termDetail, setTermDetail] = useState(null);
   const [termDetailState, setTermDetailState] = useState('idle');
   const [filterText, setFilterText] = useState('');
-  const [showTemplates, setShowTemplates] = useState(false);
   const [glossaryError, setGlossaryError] = useState('');
 
   var atParam = (function() {
