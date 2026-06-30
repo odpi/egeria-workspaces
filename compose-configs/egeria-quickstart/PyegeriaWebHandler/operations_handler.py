@@ -190,6 +190,17 @@ def _platform_server_guids(rm, platform_guid: str) -> list:
     return []
 
 
+async def _platform_server_guids_async(rm, platform_guid: str) -> list:
+    """Async version of _platform_server_guids — uses _async_get_platforms_by_type."""
+    body = {"class": "FilterRequestBody", "filter": "OMAG Server Platform",
+            "graphQueryDepth": 1, "includeOnlyRelationships": ["DeployedOn"]}
+    raw = await rm._async_get_platforms_by_type(body=body, output_format="JSON")
+    for e in (raw if isinstance(raw, list) else []):
+        if (e.get("elementHeader") or {}).get("guid") == platform_guid:
+            return [_server_stub(r) for r in (e.get("hostedITAssets") or []) if isinstance(r, dict)]
+    return []
+
+
 @router.get("/api/operations/server-status", summary="Status row per server on a platform (Servers tab)")
 async def server_status_overview(
     platform_guid: str = Query(...),
@@ -198,10 +209,7 @@ async def server_status_overview(
 ):
     try:
         rm = await _runtime_manager_async(url, server, user_id, user_pwd)
-        stubs = await asyncio.get_event_loop().run_in_executor(
-            None, _platform_server_guids, rm, platform_guid
-        )
-        stubs = [s for s in stubs if s.get("guid")]
+        stubs = [s for s in await _platform_server_guids_async(rm, platform_guid) if s.get("guid")]
     except Exception as exc:
         _raise_http(exc, "operations: server-status discovery failed")
 
