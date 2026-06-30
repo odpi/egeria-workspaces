@@ -54,10 +54,24 @@ def _is_auth_error(exc: Exception) -> bool:
             or "AUTHORIZATION_ERROR" in s)
 
 
+def _is_timeout_error(exc: Exception) -> bool:
+    """Return True if exc is a pyegeria or asyncio timeout (408 / TIMEOUT_ERROR)."""
+    if isinstance(exc, asyncio.TimeoutError):
+        return True
+    code = getattr(exc, "response_code", None) or getattr(exc, "http_status_code", None)
+    if code == 408:
+        return True
+    s = str(exc).upper()
+    return "TIMEOUT_ERROR" in s or "TIMED OUT" in s
+
+
 def _raise_http(exc: Exception, log_msg: str = "") -> None:
     """Re-raise a pyegeria exception as the correct FastAPI HTTPException."""
     if log_msg:
         logger.exception(log_msg)
+    if _is_timeout_error(exc):
+        raise HTTPException(status_code=504,
+                            detail="Egeria did not respond in time — the server may be busy. Try again in a moment.")
     if _is_auth_error(exc):
         raise HTTPException(status_code=401,
                             detail="Session expired or token invalid — please reconnect.")
@@ -75,7 +89,7 @@ def _runtime_manager(url=None, server=None, user_id=None, user_pwd=None):
     server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
     user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
     user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
-    mgr = RuntimeManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    mgr = RuntimeManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd, time_out=90)
     apply_token(mgr)
     return mgr
 
@@ -218,11 +232,9 @@ async def server_status_overview(
     async def _one(st):
         async with sem:
             try:
-                rep = await asyncio.wait_for(
-                    rm._async_get_server_report(server_guid=st["guid"], output_format="JSON"),
-                    timeout=30,
-                )
-                rep = _report_element(rep) or {}
+                rep = _report_element(
+                    await rm._async_get_server_report(server_guid=st["guid"], output_format="JSON")
+                ) or {}
             except Exception:
                 rep = {}
             return {
@@ -263,7 +275,7 @@ async def _runtime_manager_async(url=None, server=None, user_id=None, user_pwd=N
     server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
     user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
     user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
-    mgr = RuntimeManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    mgr = RuntimeManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd, time_out=90)
     await async_apply_token(mgr)
     return mgr
 
@@ -311,16 +323,8 @@ async def list_integration_connectors(
     try:
         rm = await _runtime_manager_async(url, server, user_id, user_pwd)
         ac = await _automated_curation_async(url, server, user_id, user_pwd)
-        raw = await asyncio.wait_for(
-            rm._async_get_server_report(server_guid=server_guid, output_format="JSON"),
-            timeout=90,
-        )
+        raw = await rm._async_get_server_report(server_guid=server_guid, output_format="JSON")
         rep = _report_element(raw) or {}
-    except asyncio.TimeoutError:
-        raise HTTPException(
-            status_code=504,
-            detail="Integration Daemon report timed out — the server may be busy. Try again in a moment.",
-        )
     except Exception as exc:
         _raise_http(exc, "operations: integration-connectors report failed")
 
