@@ -326,6 +326,24 @@ License: CC BY 4.0, Copyright Contributors to the ODPi Egeria project.
 
 ## Troubleshooting
 
+### myEgeria fails to load when accessed via hostname (not localhost)
+
+**Symptom:** The myEgeria / My Profile page shows a blank screen or the textual app never connects when the browser URL uses a hostname other than `localhost` (e.g. `http://myserver.local:8885/my-egeria`).
+
+**Root cause:** `textual-serve` uses the `MY_EGERIA_PUBLIC_URL` environment variable to emit same-origin WebSocket and static-asset URLs. Without it set correctly, it emits `http://0.0.0.0:8020/...` or `http://localhost:8885/...` URLs that the browser blocks under its same-origin policy.
+
+**Fix:** Set `SITE_URL` in `compose-configs/egeria-quickstart/.env` to the base URL your browser uses to reach the portal (no trailing slash):
+
+```bash
+SITE_URL=http://myserver.local:8885
+```
+
+When `SITE_URL` is set, both the pyegeria-web service and the myEgeria service pick it up automatically. When `SITE_URL` is not set, the default `http://localhost:8885` is used — so no change is needed for single-machine `localhost` access.
+
+Note: if the startup script (`quick-start-local`) regenerates `.env` on every run, add `SITE_URL` to `.env.local` (gitignored) or set it in your shell environment so it survives regeneration.
+
+---
+
 ### Proxy Error: DNS lookup failure for `quickstart-pyegeria-web`
 
 Apache returns this when it can't resolve a container hostname — almost always because the containers are not attached to `egeria_network`.

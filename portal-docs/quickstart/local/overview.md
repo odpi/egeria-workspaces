@@ -32,6 +32,19 @@ Open the portal at **http://\<your-hostname\>:8085** or **http://localhost:8085*
 
 ---
 
+## Accessing from a non-localhost hostname
+
+If you open the portal via a hostname (e.g. `http://myserver.local:8885`) rather than `localhost`, you need to set `SITE_URL` so the myEgeria service emits the right WebSocket origin:
+
+```bash
+# compose-configs/egeria-quickstart/.env
+SITE_URL=http://myserver.local:8885
+```
+
+Without this, `textual-serve` emits `localhost` WebSocket URLs that the browser blocks, causing the myEgeria page to appear blank. The fallback is `http://localhost:8885`, so no change is needed for single-machine local access.
+
+---
+
 ## Configuration files
 
 | File | Purpose |
