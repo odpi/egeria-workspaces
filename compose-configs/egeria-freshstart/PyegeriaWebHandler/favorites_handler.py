@@ -314,7 +314,7 @@ async def add_favorite(
 
     existing = (
         db.query(Favorite)
-        .filter_by(user_email=user.email, persona_id=persona, app=app, section=section)
+        .filter_by(user_email=user.email, persona_id=persona, url=url)
         .first()
     )
     if existing:

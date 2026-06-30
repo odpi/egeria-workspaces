@@ -2085,6 +2085,7 @@ function DictResultView({ rows, columns, depth }) {
 
 function ReportSpecDetail({ spec, onSelectSpec }) {
   const creds = React.useContext(CredContext);
+  const _favPersonaId = React.useContext(PersonaContext);
   const [selFormat, setSelFormat] = useState(0);
   const perspBadge = { background: 'rgba(94,234,212,.12)', color: '#5eead4', border: '0.5px solid rgba(94,234,212,.3)' };
   const formats = spec.formats || [];
@@ -2191,7 +2192,10 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
   }
 
   return React.createElement('div', { className: 'detail', style: { overflowY: 'auto', height: '100%' } },
-    React.createElement('div', { className: 'detail-name' }, spec.name),
+    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+      React.createElement('div', { className: 'detail-name', style: { flex: 1, margin: 0 } }, spec.name),
+      _favPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'report-specs', label: spec.name, icon: '⊟', url: '/egeria-explorer#report-specs?spec=' + encodeURIComponent(spec.name), personaId: _favPersonaId })
+    ),
     React.createElement('div', { style: { display: 'flex', gap: 6, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' } },
       spec.family     && React.createElement('span', { className: 'badge', style: BADGE_STYLE.base  }, spec.family),
       spec.target_type && React.createElement('span', { className: 'badge', style: BADGE_STYLE.entity }, spec.target_type),
@@ -3059,6 +3063,7 @@ function ReferenceDataView({ navGuid }) {
 // ── Digital Products Explorer ─────────────────────────────────────────────────
 
 function DigitalProductDetail({ product, onNavigateToElement, creds }) {
+  var _favPersonaId = React.useContext(PersonaContext);
   if (!product) return null;
   var _previewState = useState(null), previewDs = _previewState[0], setPreviewDs = _previewState[1];
 
@@ -3139,7 +3144,10 @@ function DigitalProductDetail({ product, onNavigateToElement, creds }) {
         onClick: function() { setPreviewDs({ guid: product.guid, name: product.displayName || product.qualifiedName || product.guid }); },
         style: { padding: '3px 10px', borderRadius: 4, border: '1px solid rgba(251,191,36,.4)', background: 'rgba(251,191,36,.1)', color: '#fcd34d', cursor: 'pointer', fontSize: 12 }
       }, "Preview Data 📊"),
-      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: product.guid })),
+      React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        _favPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'digital-products', label: product.displayName || product.qualifiedName, icon: '📦', url: '/egeria-explorer#digital-products?product=' + encodeURIComponent(product.guid), personaId: _favPersonaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: product.guid })
+      ),
       React.createElement(CopyJsonButton, { data: product })
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 4 } }, product.guid),
@@ -8851,8 +8859,10 @@ function App() {
   );
 
   const { entities = {}, classifications = {}, relationships = {}, allEntities = {} } = data;
+  var favPersonaId = activePersona ? activePersona.id : (srvManaged && authUser ? authUser.userId : null);
 
-  return /*#__PURE__*/React.createElement(CredContext.Provider, { value: creds },
+  return React.createElement(PersonaContext.Provider, { value: favPersonaId },
+  /*#__PURE__*/React.createElement(CredContext.Provider, { value: creds },
   /*#__PURE__*/React.createElement(React.Fragment, null,
     // Header
     /*#__PURE__*/React.createElement("div", { className: "header" },
@@ -9018,7 +9028,7 @@ function App() {
       currentPersonaId: activePersona ? activePersona.id : null
     }),
     React.createElement(FeedbackButton, { section: section, persona: activePersona ? activePersona.display_name : null, demoMode: demoMode, srvManaged: srvManaged })
-  ));
+  )));
 }
 ReactDOM.createRoot(document.getElementById('root')).render(/*#__PURE__*/React.createElement(App, null));</script>
 </body>
