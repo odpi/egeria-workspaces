@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime
 from typing import Generator, Optional
 
-from sqlalchemy import Boolean, Column, DateTime, String, Text, create_engine, text
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Session
 
 from demo_config import DEMO_DB_SCHEMA, DEMO_DB_URL
@@ -55,6 +55,22 @@ class Event(Base):
     event_type        = Column(String(50), nullable=False)
     detail            = Column(Text)             # JSON-encoded dict
     created_at        = Column(DateTime, default=datetime.utcnow)
+
+
+class Favorite(Base):
+    __tablename__ = "favorites"
+    __table_args__ = {"schema": DEMO_DB_SCHEMA}
+
+    id         = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_email = Column(String(200), nullable=False, index=True)
+    persona_id = Column(String(100), nullable=False)
+    app        = Column(String(100), nullable=False)
+    section    = Column(String(100), nullable=False)
+    label      = Column(String(200), nullable=False)
+    icon       = Column(String(10))
+    url        = Column(String(500), nullable=False)
+    position   = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class Config(Base):
@@ -102,6 +118,7 @@ def get_engine():
             conn.commit()
         Base.metadata.create_all(_engine)
         _migrate_events_table(_engine)
+        _migrate_favorites_table(_engine)
         _seed_config()
     return _engine
 
@@ -119,6 +136,15 @@ def _migrate_events_table(engine) -> None:
             conn.execute(text(
                 f"ALTER TABLE {DEMO_DB_SCHEMA}.events ADD COLUMN IF NOT EXISTS {col} {coltype}"
             ))
+        conn.commit()
+
+
+def _migrate_favorites_table(engine) -> None:
+    """Add favorites table columns introduced after initial schema — safe for existing data."""
+    with engine.connect() as conn:
+        conn.execute(text(
+            f"ALTER TABLE {DEMO_DB_SCHEMA}.favorites ADD COLUMN IF NOT EXISTS icon VARCHAR(10)"
+        ))
         conn.commit()
 
 
