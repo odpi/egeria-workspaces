@@ -28,9 +28,11 @@ Routes:
 """
 import os
 import asyncio
+import time
 import threading
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
@@ -40,6 +42,62 @@ from pydantic import BaseModel
 from egeria_auth import apply_token, async_apply_token
 
 router = APIRouter(tags=["egeria-operations"])
+
+
+# ── Server-report cache (stale-while-revalidate) ──────────────────────────────
+# The Integration Daemon's /instance/report polls every connector for live
+# status; it can take 30-120 s. Cache the last good result and serve it
+# immediately on repeat loads while refreshing in the background.
+
+@dataclass
+class _ReportCacheEntry:
+    data: Any
+    ts: float
+    refreshing: bool = False
+
+_report_cache: dict[str, _ReportCacheEntry] = {}
+_REPORT_TTL = 60.0  # seconds before a cached entry is considered stale
+
+
+def _report_cache_key(server_guid: str, url: str, server: str, user_id: str) -> str:
+    return f"{server_guid}|{url}|{server}|{user_id}"
+
+
+def _invalidate_server_cache(server_guid: str) -> None:
+    """Drop cached reports for a server after a state-changing action."""
+    for key in [k for k in _report_cache if k.startswith(server_guid + "|")]:
+        del _report_cache[key]
+
+
+async def _bg_refresh_report(rm, server_guid: str, key: str) -> None:
+    try:
+        raw = await rm._async_get_server_report(server_guid=server_guid, output_format="JSON")
+        _report_cache[key] = _ReportCacheEntry(data=raw, ts=time.monotonic())
+        logger.debug("operations: background report refresh complete for %s", server_guid)
+    except Exception:
+        entry = _report_cache.get(key)
+        if entry:
+            entry.refreshing = False
+        logger.debug("operations: background report refresh failed for %s", server_guid)
+
+
+async def _get_server_report_cached(rm, server_guid: str, key: str) -> tuple[Any, bool]:
+    """Return (raw_report, is_stale).  Stale entries are returned immediately
+    and a background refresh is kicked off so the next request is fast."""
+    now = time.monotonic()
+    entry = _report_cache.get(key)
+    if entry is not None:
+        if now - entry.ts < _REPORT_TTL:
+            return entry.data, False  # fresh hit
+        # Stale: return what we have and refresh in the background
+        if not entry.refreshing:
+            entry.refreshing = True
+            asyncio.get_event_loop().create_task(_bg_refresh_report(rm, server_guid, key))
+        return entry.data, True
+    # Cold start — blocking fetch (unavoidably slow on first load)
+    raw = await rm._async_get_server_report(server_guid=server_guid, output_format="JSON")
+    _report_cache[key] = _ReportCacheEntry(data=raw, ts=time.monotonic())
+    return raw, False
 
 
 def _is_auth_error(exc: Exception) -> bool:
@@ -320,10 +378,11 @@ async def list_integration_connectors(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
+    cache_key = _report_cache_key(server_guid, url or "", server or "", user_id or "")
     try:
         rm = await _runtime_manager_async(url, server, user_id, user_pwd)
         ac = await _automated_curation_async(url, server, user_id, user_pwd)
-        raw = await rm._async_get_server_report(server_guid=server_guid, output_format="JSON")
+        raw, is_stale = await _get_server_report_cached(rm, server_guid, cache_key)
         rep = _report_element(raw) or {}
     except Exception as exc:
         _raise_http(exc, "operations: integration-connectors report failed")
@@ -368,7 +427,7 @@ async def list_integration_connectors(
         logger.exception("operations: concurrent catalog-target fetch failed")
         rows = []
     rows.sort(key=lambda r: (r.get("connectorName") or "").lower())
-    return JSONResponse({"connectors": rows, "total": len(rows)})
+    return JSONResponse({"connectors": rows, "total": len(rows), "stale": is_stale})
 
 
 class _ConnectorActionBody(BaseModel):
@@ -404,6 +463,7 @@ def connector_action(action: str, request: Request, body: _ConnectorActionBody):
             return JSONResponse({"ok": True, "action": "refresh", "refreshing": True}, status_code=202)
     except Exception as exc:
         _raise_http(exc, f"operations: connector {action}({body.connector_name!r}) failed")
+    _invalidate_server_cache(body.server_guid)
     logger.info("operations: connector %s %s on %s", action, body.connector_name, body.server_guid)
     return JSONResponse({"ok": True, "action": action, "connector_name": body.connector_name})
 

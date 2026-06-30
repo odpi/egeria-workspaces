@@ -854,6 +854,7 @@ function useServerTab({ creds, platform, serverType, endpoint, rowKey }) {
   var _em = useState(''),    errMsg = _em[0],  setErrMsg = _em[1];
   var _b  = useState(false), busy   = _b[0],  setBusy   = _b[1];
   var _sel= useState(null),  selKey = _sel[0],setSelKey = _sel[1];
+  var _st = useState(false), stale  = _st[0], setStale  = _st[1];
   var servers = (platform && platform.servers || []).filter(function(s){ return s.serverType === serverType; });
   // default the server when the platform (or its matching servers) changes
   useEffect(function(){ setSelKey(null); setServer(servers[0] || null); }, [platform && platform.guid, servers.length]);
@@ -871,12 +872,12 @@ function useServerTab({ creds, platform, serverType, endpoint, rowKey }) {
           throw new Error('Failed to load (HTTP ' + status + ').' + (detail ? ' ' + detail : ''));
         });
       })
-      .then(function(d){ setRows((d && (d.connectors || d.engines)) || []); setState('ready'); setBusy(false); })
+      .then(function(d){ setRows((d && (d.connectors || d.engines)) || []); setStale(!!(d && d.stale)); setState('ready'); setBusy(false); })
       .catch(function(e){ setErrMsg(e.message || 'Failed to load.'); setState('error'); setBusy(false); });
   }
   useEffect(load, [server && server.guid]);
   return { server:server, setServer:setServer, servers:servers, rows:rows, state:state, errMsg:errMsg, busy:busy, load:load,
-           selKey:selKey, setSelKey:setSelKey };
+           selKey:selKey, setSelKey:setSelKey, stale:stale };
 }
 
 // docked resizable detail panel (shared by the report-driven tabs)
@@ -1010,6 +1011,8 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform }) {
   var sectionHdr = function(label){ return el('div', { style:{ fontSize:10, color:'var(--muted)', textTransform:'uppercase', letterSpacing:1, fontWeight:600, marginTop:16, marginBottom:6 } }, label); };
 
   return el('div', { style:{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' } },
+    t.stale && el('div', { style:{ padding:'3px 14px', fontSize:11, background:'rgba(251,191,36,.08)', borderBottom:'1px solid rgba(251,191,36,.3)', color:'#fbbf24' } },
+      '⏱ Showing cached data — live status is refreshing in the background.'),
     el(OpsToolbar, { platforms:platforms, platform:platform, onPlatform:onPlatform, servers:t.servers, server:t.server, onServer:t.setServer, serverLabel:'Daemon', onRefresh:loadAndClear, busy:t.busy, children:filters }),
     el('div', { style:{ flex:1, display:'flex', overflow:'hidden', minHeight:0 } },
       table,
