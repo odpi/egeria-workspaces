@@ -1756,10 +1756,10 @@ function FavoriteButton({ app, section, label, icon, url, personaId, demoMode })
     style: {
       background: 'none', border: 'none', cursor: state === 'loading' ? 'default' : 'pointer',
       fontSize: 16, lineHeight: 1, padding: '2px 6px',
-      color: state === 'on' ? '#f5b400' : 'var(--muted)',
+      color: state === 'on' ? '#34d399' : 'var(--muted)',
       opacity: state === 'loading' ? 0.5 : 1,
     },
-  }, state === 'on' ? '★' : '☆');
+  }, state === 'on' ? '☑' : '☐');
 }
 
 function simplePillRow(values, labelFn, fSet, setFSet) {
