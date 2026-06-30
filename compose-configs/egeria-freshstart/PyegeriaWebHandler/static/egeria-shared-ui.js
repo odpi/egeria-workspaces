@@ -1715,7 +1715,7 @@ function FavoriteButton({ app, section, label, icon, url, personaId, demoMode })
   var _idH    = React.useState(null),      favId = _idH[0],    setFavId = _idH[1];
 
   React.useEffect(function() {
-    if (!demoMode || !personaId || !section) { setState('off'); return; }
+    if (!personaId || !section) { setState('off'); return; }
     setState('loading');
     fetch('/api/favorites?persona=' + encodeURIComponent(personaId))
       .then(function(r) { return r.ok ? r.json() : []; })
@@ -1725,11 +1725,11 @@ function FavoriteButton({ app, section, label, icon, url, personaId, demoMode })
         else { setFavId(null); setState('off'); }
       })
       .catch(function() { setState('off'); });
-  }, [app, section, personaId, demoMode]);
+  }, [app, section, personaId]);
 
   function toggle(e) {
     e.stopPropagation();
-    if (!demoMode || !personaId || state === 'loading') return;
+    if (!personaId || state === 'loading') return;
     setState('loading');
     if (favId) {
       fetch('/api/favorites/' + encodeURIComponent(favId) + '?persona=' + encodeURIComponent(personaId), { method: 'DELETE' })
@@ -1747,7 +1747,7 @@ function FavoriteButton({ app, section, label, icon, url, personaId, demoMode })
     }
   }
 
-  if (!demoMode || !personaId) return null;
+  if (!personaId) return null;
 
   return React.createElement('button', {
     onClick: toggle,
