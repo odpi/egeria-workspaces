@@ -885,6 +885,13 @@ function doLogout() {
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// Reload favorites when the user returns to this tab after toggling favorites in another page.
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'visible' && _currentPersonaId) {
+    loadFavorites(_currentPersonaId);
+  }
+});
 </script>
 </body>
 </html>

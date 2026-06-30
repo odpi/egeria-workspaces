@@ -1734,7 +1734,7 @@ function FavoriteButton({ app, section, label, icon, url, personaId, demoMode })
         else { setFavId(null); setState('off'); }
       })
       .catch(function() { setState('off'); });
-  }, [app, section, personaId]);
+  }, [app, section, url, personaId]);
 
   function toggle(e) {
     e.stopPropagation();
