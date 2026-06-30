@@ -137,10 +137,14 @@ def _send_email(to: str, subject: str, html: str, text: str = "") -> None:
 
 
 def _send_welcome_email(user) -> None:
-    first_name = user.display_name.split()[0] if user.display_name else "there"
-    portal_url = f"{SITE_URL}/portal"
-    slack_url  = "https://lfaifoundation.slack.com"
-    mailto     = "mailto:dan.wolfson@pdr-associates.com"
+    first_name  = user.display_name.split()[0] if user.display_name else "there"
+    portal_url  = f"{SITE_URL}/portal"
+    slack_url   = "https://lfaifoundation.slack.com"
+    mailto      = "mailto:dan.wolfson@pdr-associates.com"
+    egeria_url  = "https://egeria-project.org"
+    pdr_url     = "https://pdr-associates.com"
+    egeria_logo = f"{SITE_URL}/static/egeria-logo.png"
+    pdr_logo    = f"{SITE_URL}/static/pdr-logo.png"
 
     html = f"""
     <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1e293b">
@@ -185,6 +189,39 @@ def _send_welcome_email(user) -> None:
       <p>Best regards,<br>
          <strong>Dan Wolfson</strong><br>
          Egeria Maintainer</p>
+
+      <hr style="border:none;border-top:1px solid #e2e8f0;margin:32px 0 20px">
+      <table width="100%" cellpadding="0" cellspacing="0" style="color:#64748b;font-size:12px">
+        <tr>
+          <td style="text-align:center;padding-bottom:12px" colspan="3">
+            <em>Brought to you by</em>
+          </td>
+        </tr>
+        <tr>
+          <td style="text-align:right;padding-right:20px;width:50%;vertical-align:middle">
+            <a href="{egeria_url}" style="text-decoration:none">
+              <img src="{egeria_logo}" alt="Egeria" height="36"
+                   style="display:inline-block;vertical-align:middle">
+            </a>
+          </td>
+          <td style="text-align:center;color:#cbd5e1;font-size:18px;vertical-align:middle;width:1px">|</td>
+          <td style="text-align:left;padding-left:20px;width:50%;vertical-align:middle">
+            <a href="{pdr_url}" style="text-decoration:none">
+              <img src="{pdr_logo}" alt="PDR Associates" height="36"
+                   style="display:inline-block;vertical-align:middle">
+            </a>
+          </td>
+        </tr>
+        <tr>
+          <td style="text-align:right;padding-right:20px;padding-top:6px">
+            <a href="{egeria_url}" style="color:#6366f1;text-decoration:none">{egeria_url}</a>
+          </td>
+          <td></td>
+          <td style="text-align:left;padding-left:20px;padding-top:6px">
+            <a href="{pdr_url}" style="color:#6366f1;text-decoration:none">{pdr_url}</a>
+          </td>
+        </tr>
+      </table>
     </div>
     """
 
@@ -214,6 +251,10 @@ Thanks again for giving Egeria a try!
 Best regards,
 Dan Wolfson
 Egeria Maintainer
+
+---
+Egeria: {egeria_url}
+PDR Associates: {pdr_url}
 """
 
     _send_email(
