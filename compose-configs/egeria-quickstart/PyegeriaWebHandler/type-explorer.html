@@ -4081,6 +4081,11 @@ const _SPLASH_CAPABILITIES = [
   },
 ];
 
+function _sectionIcon(section) {
+  var found = _SPLASH_CAPABILITIES.find(function(c) { return c.section === section; });
+  return found ? found.icon : '⭐';
+}
+
 function ConnectionForm({ saveCreds }) {
   const creds = React.useContext(CredContext);
   const [form, setForm] = React.useState({
@@ -8915,7 +8920,17 @@ function App() {
       demoMode && !activePersona && React.createElement('a', { className: 'persona-badge-btn', href: '/portal' }, '🎭 Choose persona'),
       !demoMode && React.createElement('a', { className: 'theme-btn', style: { textDecoration: 'none' }, href: '/portal' }, 'Portal')
     ),
-    section !== 'splash' && React.createElement("div", { style: { padding: '4px 14px', background: 'var(--panel)', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 600, color: 'var(--text)', flexShrink: 0 } }, SECTION_LABELS[section] || section),
+    section !== 'splash' && React.createElement("div", { style: { padding: '4px 14px', background: 'var(--panel)', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 600, color: 'var(--text)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 } },
+      React.createElement('span', null, SECTION_LABELS[section] || section),
+      demoMode && activePersona && React.createElement(FavoriteButton, {
+        app: 'type-explorer', section: section,
+        label: SECTION_LABELS[section] || section,
+        icon: _sectionIcon(section),
+        url: '/egeria-explorer#' + section,
+        personaId: activePersona.id,
+        demoMode: demoMode,
+      })
+    ),
     section === 'type-system' && /*#__PURE__*/React.createElement("div", { className: "type-subbar" },
       /*#__PURE__*/React.createElement("select", {
         className: "area-select",

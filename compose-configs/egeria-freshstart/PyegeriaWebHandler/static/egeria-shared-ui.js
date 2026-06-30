@@ -1703,6 +1703,65 @@ function CopyJsonButton({ data, title }) {
   }, label);
 }
 
+/*
+ * FavoriteButton — toggles a section/element as a portal favorite for the
+ * active persona. Backed by /api/favorites (demo mode only — returns null
+ * outside demo mode or before a persona is selected).
+ *
+ * Props: app, section, label, icon, url, personaId, demoMode
+ */
+function FavoriteButton({ app, section, label, icon, url, personaId, demoMode }) {
+  var _stateH = React.useState('loading'), state = _stateH[0], setState = _stateH[1]; // loading | on | off
+  var _idH    = React.useState(null),      favId = _idH[0],    setFavId = _idH[1];
+
+  React.useEffect(function() {
+    if (!demoMode || !personaId || !section) { setState('off'); return; }
+    setState('loading');
+    fetch('/api/favorites?persona=' + encodeURIComponent(personaId))
+      .then(function(r) { return r.ok ? r.json() : []; })
+      .then(function(favs) {
+        var match = (favs || []).find(function(f) { return f.app === app && f.section === section; });
+        if (match) { setFavId(match.id); setState('on'); }
+        else { setFavId(null); setState('off'); }
+      })
+      .catch(function() { setState('off'); });
+  }, [app, section, personaId, demoMode]);
+
+  function toggle(e) {
+    e.stopPropagation();
+    if (!demoMode || !personaId || state === 'loading') return;
+    setState('loading');
+    if (favId) {
+      fetch('/api/favorites/' + encodeURIComponent(favId) + '?persona=' + encodeURIComponent(personaId), { method: 'DELETE' })
+        .then(function() { setFavId(null); setState('off'); })
+        .catch(function() { setState('on'); });
+    } else {
+      fetch('/api/favorites?persona=' + encodeURIComponent(personaId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ app: app, section: section, label: label, icon: icon, url: url }),
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(res) { setFavId(res.id); setState('on'); })
+        .catch(function() { setState('off'); });
+    }
+  }
+
+  if (!demoMode || !personaId) return null;
+
+  return React.createElement('button', {
+    onClick: toggle,
+    disabled: state === 'loading',
+    title: state === 'on' ? 'Remove from My Favorites' : 'Add to My Favorites',
+    style: {
+      background: 'none', border: 'none', cursor: state === 'loading' ? 'default' : 'pointer',
+      fontSize: 16, lineHeight: 1, padding: '2px 6px',
+      color: state === 'on' ? '#f5b400' : 'var(--muted)',
+      opacity: state === 'loading' ? 0.5 : 1,
+    },
+  }, state === 'on' ? '★' : '☆');
+}
+
 function simplePillRow(values, labelFn, fSet, setFSet) {
   var el = React.createElement;
   return el('div', { style:{ display:'flex', gap:3, flexWrap:'wrap', alignItems:'center' } },

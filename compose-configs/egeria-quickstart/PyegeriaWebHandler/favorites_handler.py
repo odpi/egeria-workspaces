@@ -306,6 +306,12 @@ async def add_favorite(
     icon    = body.get("icon", "⭐")
     url     = body.get("url", "")
 
+    has_rows = db.query(Favorite).filter_by(user_email=user.email, persona_id=persona).first() is not None
+    if not has_rows:
+        # First customization for this user+persona — materialize the defaults that
+        # were being displayed so adding one item doesn't wipe out the rest.
+        _write_to_db(db, user.email, persona, _PERSONA_DEFAULTS.get(persona, []))
+
     existing = (
         db.query(Favorite)
         .filter_by(user_email=user.email, persona_id=persona, app=app, section=section)
@@ -339,12 +345,25 @@ async def add_favorite(
 @router.delete("/api/favorites/{fav_id}")
 async def remove_favorite(
     fav_id: str,
-    request: Request,
+    persona: str = Query(...),
+    request: Request = None,
     db: Session = Depends(get_db),
 ):
     user = get_current_user(request, db)
     if not user:
         raise HTTPException(status_code=401, detail="Authentication required")
+
+    if fav_id.startswith("default-"):
+        # Synthetic id for a not-yet-persisted default — materialize the remaining
+        # defaults (minus this one) so the toggle behaves like a real removal.
+        try:
+            idx = int(fav_id.split("-", 1)[1])
+        except ValueError:
+            idx = -1
+        remaining = [d for i, d in enumerate(_PERSONA_DEFAULTS.get(persona, [])) if i != idx]
+        _write_to_db(db, user.email, persona, remaining)
+        await _egeria_write_favorites(persona, remaining)
+        return JSONResponse({"status": "deleted"})
 
     fav = db.get(Favorite, fav_id)
     if not fav or fav.user_email != user.email:
