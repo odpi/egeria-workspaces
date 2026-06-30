@@ -3,28 +3,74 @@
 """
 Egeria Operations — FastAPI router.
 
-Serves the egeria-operations SPA and the operations API. Four tabs, all driven
-by the pyegeria RuntimeManager (plus AssetMaker / AutomatedCuration):
+Serves the egeria-operations SPA and its API. Four tabs driven by the pyegeria
+RuntimeManager (plus AutomatedCuration):
 
   - Servers              : config + status of servers on a platform; start/stop.
   - Integration Connectors : connectors on an Integration Daemon; start/stop/refresh.
   - Governance Engines   : engines on an Engine Host; refresh config.
   - Engine Actions       : ecosystem-wide engine-action status; cancel.
 
-Spec: operations_plan.md (review comments inline there).
+Routes
+------
+  GET  /egeria-operations                              → SPA shell
+  GET  /api/operations/platforms                       → platforms + deployed servers
+  GET  /api/operations/server-status                   → live status row per server (async fan-out)
+  GET  /api/operations/server-report/{guid}            → full server report
+  GET  /api/operations/integration-connectors          → connectors on an Integration Daemon
+  GET  /api/operations/governance-engines              → engines on an Engine Host
+  GET  /api/operations/engine-actions                  → ecosystem-wide engine actions
+  POST /api/operations/server/{action}                 → activate | shutdown (admin-gated)
+  POST /api/operations/connector/{action}              → start | stop | refresh (admin-gated)
+  POST /api/operations/engine/refresh                  → refresh engine config (admin-gated)
+  POST /api/operations/engine-action/cancel            → cancel an engine action (admin-gated)
 
-Platform/server discovery (verified recipe — operations_plan.md):
-  get_platforms_by_type(body={class:FilterRequestBody, filter:"OMAG Server Platform",
-                              graphQueryDepth:1, includeOnlyRelationships:["DeployedOn"]})
-  → per platform: elementHeader.guid + properties.displayName(‖qualifiedName)
-  → servers under `hostedITAssets` (DeployedOn relationships); server element under
-    `relatedElement`: elementHeader.guid + properties.displayName + deployedImplementationType.
+Platform/server discovery
+-------------------------
+Uses _async_get_platforms_by_type (async) or get_platforms_by_type (sync) with:
+  body = {class:"FilterRequestBody", filter:"OMAG Server Platform",
+          graphQueryDepth:1, includeOnlyRelationships:["DeployedOn"]}
+Each platform element carries hostedITAssets (DeployedOn relationships); each
+relationship's relatedElement gives the server guid, displayName, and
+deployedImplementationType.
 
-Routes:
-  GET  /egeria-operations                       → serve the SPA
-  GET  /api/operations/platforms                → platforms + their deployed servers (cacheable)
-  GET  /api/operations/server-report/{guid}     → full server report (live, per refresh)
-  POST /api/operations/server/{action}          → activate | shutdown a server (admin-gated)
+Integration Connector caching (non-blocking)
+--------------------------------------------
+The Egeria /instance/report endpoint polls every connector for live status and
+can take several minutes on a loaded daemon. The endpoint is therefore
+non-blocking:
+
+  1. Cold start  — _get_server_report_cached fires a background asyncio Task and
+                   returns {"loading": true} immediately. The frontend polls every
+                   8 s until loading becomes false.
+  2. In-flight   — subsequent requests while the Task is running also get
+                   {"loading": true}. Exactly one Task runs per cache key.
+  3. Fresh cache — result returned instantly (TTL = 60 s).
+  4. Stale cache — stale result returned instantly; a background refresh Task is
+                   spawned; response includes {"stale": true} so the frontend
+                   shows an amber banner.
+
+Cache is invalidated by _invalidate_server_cache after any start/stop action so
+the next load reflects the new connector state.
+
+RuntimeManager timeout
+----------------------
+RuntimeManager is constructed with time_out=180 (seconds). The Egeria view
+server is the bottleneck, not our code; 180 s gives the background task enough
+headroom on slow daemons. Apache's ProxyPass timeout for /api is 300 s.
+
+Async invariants
+----------------
+- Sync client factories (_runtime_manager, _automated_curation) are only called
+  from sync (def) routes or background threads. Never call them from async routes.
+- Async factories (_runtime_manager_async, _automated_curation_async) use
+  async_apply_token, which awaits _async_create_egeria_bearer_token() directly
+  instead of run_until_complete(), avoiding the "event loop already running" error.
+- _platform_server_guids (sync) is used only from sync routes or executors.
+  _platform_server_guids_async awaits _async_get_platforms_by_type and is used
+  from async routes.
+- _get_server_report_cached is intentionally sync (no await) so that the check +
+  Task creation is atomic within the asyncio event loop — no concurrent cold-starts.
 """
 import os
 import asyncio

@@ -70,3 +70,24 @@ async def my_endpoint(...):
 **httpx session settings (load-bearing — do not remove):** The `AsyncClient` in pyegeria is configured with `keepalive_expiry=20 s`. This prevents dead-connection failures when a reverse proxy (nginx/Caddy idle timeout: 60–75 s) closes a socket that pyegeria still holds in the pool. Removing or raising this value will cause silent timeouts on the demo site.
 
 **Platforms list poll interval (`egeria-operations.html`):** 30 s (`PLATFORMS_POLL_MS`). The `setInterval` in the `useEffect` for `/api/operations/platforms` keeps the left-nav server list current. The effect returns `clearInterval(timer)` for cleanup — preserve that return value.
+
+## operations_handler.py — caching and timeout design
+
+**Why the Integration Connectors tab uses a non-blocking cache:** Egeria's `/instance/report` endpoint polls every connector for live status and can take several minutes. Blocking the HTTP request on it always loses against Apache's 300 s `ProxyPass timeout`. Instead:
+
+1. **Cold start** — `_get_server_report_cached` (sync, no `await`) fires a background `asyncio.Task` via `_fetch_and_cache` and returns `is_loading=True` immediately. The endpoint returns `{"connectors": [], "loading": true}`. The frontend polls every 8 s until `loading` becomes `false`.
+2. **In-flight** — subsequent requests while the Task is running return `loading: true`. Exactly one Task runs per cache key (keyed on `server_guid|url|server|user_id`).
+3. **Fresh hit** — returned instantly (TTL = 60 s, `_REPORT_TTL`).
+4. **Stale hit** — returned instantly; a background refresh Task is spawned; `{"stale": true}` triggers an amber banner in the UI.
+5. **After start/stop** — `_invalidate_server_cache(server_guid)` drops the cached entry so the next load fetches fresh state.
+
+**`_get_server_report_cached` must stay sync (no `await`).** The check-and-create-task must be atomic within the asyncio event loop to prevent concurrent cold-start Tasks for the same key.
+
+**`RuntimeManager` timeout** is `time_out=180` (seconds). The Egeria view server is the bottleneck; 180 s gives the background task enough headroom. Apache's `/api` proxy timeout is 300 s. When pyegeria eventually ships a lighter-weight connector-list API, swap out `_fetch_and_cache` and reduce this.
+
+**pyegeria sync methods call `run_until_complete` internally** — never call them from an `async def` route or from `run_in_executor` (the executor thread shares the main event loop's httpx client). Use `_async_*` variants with `await` instead. This is why `_platform_server_guids` (sync) has an async twin `_platform_server_guids_async` that awaits `_async_get_platforms_by_type` directly.
+
+**Error mapping in `_raise_http`:**
+- `asyncio.TimeoutError` or pyegeria `TIMEOUT_ERROR_408` → HTTP 504
+- pyegeria `401/403` auth errors → HTTP 401
+- everything else → HTTP 500
