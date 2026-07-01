@@ -227,7 +227,7 @@ def resolve_audit_actor(
         })
     try:
         mgr = _classifier(url, server, user_id, user_pwd)
-        if property_name:
+        if property_name and property_name.lower() != "guid":
             body = {"class": "GetRequestBody", "graphQueryDepth": 0}
             if type_name:
                 body["metadataElementTypeName"] = type_name
