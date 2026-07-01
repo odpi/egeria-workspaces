@@ -1,0 +1,392 @@
+
+    <!DOCTYPE html>
+    <html>
+        <head>
+          <style type="text/css">
+            #mySvgId {
+            width: 100%;
+            height: 600px;
+            overflow: scroll;
+            border: 2px solid #ccc;
+            position: relative;
+            margin-bottom: 10px;
+            }
+            svg {
+            cursor: grab;
+            }
+    
+          </style>
+        </head>
+    
+        <title>Information Supply Chain - Clinical Trial Treatment Validation:PROJ-CT-TBDF </title>
+        <h3>Information Supply Chain - Clinical Trial Treatment Validation:PROJ-CT-TBDF </h3>
+        GUID : a2caa20a-2cb1-4d35-a96a-6493bb9036d3
+
+    
+        <body>
+        
+          <div id="graphDiv"></div>
+          <script src="https://bumbu.me/svg-pan-zoom/dist/svg-pan-zoom.min.js"></script>
+          <script type="module">
+            import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    
+            mermaid.initialize({startOnLoad: false});
+            await mermaid.run({
+              querySelector: '.mermaid',
+              postRenderCallback: (id) => {
+                const container = document.getElementById("diagram-container");
+                const svgElement = container.querySelector("svg");
+    
+                // Initialize Panzoom
+                const panzoomInstance = Panzoom(svgElement, {
+                  maxScale: 5,
+                  minScale: 0.5,
+                  step: 0.1,
+                });
+    
+                // Add mouse wheel zoom
+                container.addEventListener("wheel", (event) => {
+                  panzoomInstance.zoomWithWheel(event);
+                });
+              }
+            });
+    
+    
+            const drawDiagram = async function () {
+              const element = document.querySelector('#graphDiv');
+             const graphDefinition = `
+    flowchart TD
+%%{init: {"flowchart": {"htmlLabels": false}} }%%
+
+subgraph Details
+subgraph Segments
+38635d38-f728-400d-a8ec-7c26e68b7c0f@{ shape: hex, label: "*Information Supply Chain Segment*
+**Weekly Measurements Onboarding**"}
+38635d38-f728-400d-a8ec-7c26e68b7c0f==>|"capture and catalog,
+[Information Supply Chain Link]"|7edca02c-e726-4570-815c-280bdf5498b9
+e4303326-e418-4f77-b8e7-fd5d34717594@{ shape: hex, label: "*Information Supply Chain Segment*
+**Assess Treatment under Trial**"}
+e4303326-e418-4f77-b8e7-fd5d34717594==>|"publish results,
+[Information Supply Chain Link]"|4fc47e60-f1b5-469c-b666-e1f4570e749f
+7edca02c-e726-4570-815c-280bdf5498b9@{ shape: hex, label: "*Information Supply Chain Segment*
+**Data Lake to Sandbox**"}
+7edca02c-e726-4570-815c-280bdf5498b9==>|"assemble,
+[Information Supply Chain Link]"|e4303326-e418-4f77-b8e7-fd5d34717594
+04ae768e-3816-47bc-bddb-c9ae25018684@{ shape: hex, label: "*Information Supply Chain Segment*
+**Hospital Delivers Patient Weekly Readings**"}
+04ae768e-3816-47bc-bddb-c9ae25018684==>|"publish,
+[Information Supply Chain Link]"|38635d38-f728-400d-a8ec-7c26e68b7c0f
+4fc47e60-f1b5-469c-b666-e1f4570e749f@{ shape: hex, label: "*Information Supply Chain Segment*
+**Deliver Treatment Assessment Report**"}
+end
+subgraph Design
+1c150d6e-30cf-481c-9afb-3b06c9c9e78f@{ shape: rect, label: "*Solution Component*
+**SolutionComponent::Hospital Landing Area Folder::V1.0**"}
+7f5dca65-50b4-4103-9ac7-3a406a09047a@{ shape: rect, label: "*Solution Component*
+**SolutionComponent::Weekly Measurements Onboarding Pipeline::V1.0**"}
+07705e15-efff-4f80-8992-f04ac85e0ef1@{ shape: rect, label: "*Solution Component*
+**SolutionComponent::Landing Folder Cataloguer::V1.0**"}
+a5d4d638-6836-47e5-99d0-fdcde637e13f@{ shape: rect, label: "*Solution Component*
+**SolutionComponent::Weekly Measurements Data Lake Folder::V1.0**"}
+48bc201e-3d4e-4beb-bdb2-0fd9d134f6d5@{ shape: rect, label: "*Solution Component*
+**SolutionComponent::Treatment Efficacy Evidence::V1.0**"}
+b5c8da4c-f925-4cf1-8294-e43cd2c1a584@{ shape: rect, label: "*Solution Component*
+**SolutionComponent::Analyse Patient Data::V1.0**"}
+d48f579f-76d3-4c49-b1b4-575f5645a9d0@{ shape: rect, label: "*Solution Component*
+**SolutionComponent::Treatment Validation Sandbox::V1.0**"}
+26c07ca4-3b8e-484b-812b-36c1ace4b275@{ shape: rect, label: "*Solution Component*
+**SolutionComponent::Populate Sandbox::V1.0**"}
+ee2bb773-e630-4cf9-bdf1-7c2dd64fe4ec@{ shape: rect, label: "*Solution Component*
+**SolutionComponent::Hospital Processes::V1.0**"}
+72a86eec-9734-4bc0-babb-4fec0aa7c9ff@{ shape: rect, label: "*Solution Component*
+**SolutionComponent::Assemble Treatment Assessment Report::V1.0**"}
+0bf2547c-937c-41b6-814f-6284849271a1@{ shape: rect, label: "*Solution Component*
+**SolutionComponent::Treatment Assessment Report Validation and Delivery::V1.0**"}
+38635d38-f728-400d-a8ec-7c26e68b7c0f-->|"Supporting Supply Chain,
+[Implemented By]"|1c150d6e-30cf-481c-9afb-3b06c9c9e78f
+38635d38-f728-400d-a8ec-7c26e68b7c0f-->|"Supporting Supply Chain,
+[Implemented By]"|7f5dca65-50b4-4103-9ac7-3a406a09047a
+38635d38-f728-400d-a8ec-7c26e68b7c0f-->|"Supporting Supply Chain,
+[Implemented By]"|07705e15-efff-4f80-8992-f04ac85e0ef1
+38635d38-f728-400d-a8ec-7c26e68b7c0f-->|"Supporting Supply Chain,
+[Implemented By]"|a5d4d638-6836-47e5-99d0-fdcde637e13f
+1c150d6e-30cf-481c-9afb-3b06c9c9e78f==>|"detect new files,
+[Solution Linking Wire]"|07705e15-efff-4f80-8992-f04ac85e0ef1
+ee2bb773-e630-4cf9-bdf1-7c2dd64fe4ec==>|"publish,
+[Solution Linking Wire]"|1c150d6e-30cf-481c-9afb-3b06c9c9e78f
+07705e15-efff-4f80-8992-f04ac85e0ef1==>|"request onboarding,
+[Solution Linking Wire]"|7f5dca65-50b4-4103-9ac7-3a406a09047a
+7f5dca65-50b4-4103-9ac7-3a406a09047a==>|"save new files,
+[Solution Linking Wire]"|a5d4d638-6836-47e5-99d0-fdcde637e13f
+a5d4d638-6836-47e5-99d0-fdcde637e13f==>|"read certified files,
+[Solution Linking Wire]"|26c07ca4-3b8e-484b-812b-36c1ace4b275
+e4303326-e418-4f77-b8e7-fd5d34717594-->|"Supporting Supply Chain,
+[Implemented By]"|48bc201e-3d4e-4beb-bdb2-0fd9d134f6d5
+e4303326-e418-4f77-b8e7-fd5d34717594-->|"Supporting Supply Chain,
+[Implemented By]"|b5c8da4c-f925-4cf1-8294-e43cd2c1a584
+e4303326-e418-4f77-b8e7-fd5d34717594-->|"Supporting Supply Chain,
+[Implemented By]"|d48f579f-76d3-4c49-b1b4-575f5645a9d0
+48bc201e-3d4e-4beb-bdb2-0fd9d134f6d5==>|"retrieve evidence,
+[Solution Linking Wire]"|72a86eec-9734-4bc0-babb-4fec0aa7c9ff
+b5c8da4c-f925-4cf1-8294-e43cd2c1a584==>|"publish results,
+[Solution Linking Wire]"|48bc201e-3d4e-4beb-bdb2-0fd9d134f6d5
+d48f579f-76d3-4c49-b1b4-575f5645a9d0==>|"retrieve patient data,
+[Solution Linking Wire]"|b5c8da4c-f925-4cf1-8294-e43cd2c1a584
+26c07ca4-3b8e-484b-812b-36c1ace4b275==>|"write patient measurements,
+[Solution Linking Wire]"|d48f579f-76d3-4c49-b1b4-575f5645a9d0
+7edca02c-e726-4570-815c-280bdf5498b9-->|"Supporting Supply Chain,
+[Implemented By]"|a5d4d638-6836-47e5-99d0-fdcde637e13f
+7edca02c-e726-4570-815c-280bdf5498b9-->|"Supporting Supply Chain,
+[Implemented By]"|26c07ca4-3b8e-484b-812b-36c1ace4b275
+7edca02c-e726-4570-815c-280bdf5498b9-->|"Supporting Supply Chain,
+[Implemented By]"|d48f579f-76d3-4c49-b1b4-575f5645a9d0
+04ae768e-3816-47bc-bddb-c9ae25018684-->|"Supporting Supply Chain,
+[Implemented By]"|1c150d6e-30cf-481c-9afb-3b06c9c9e78f
+04ae768e-3816-47bc-bddb-c9ae25018684-->|"Supporting Supply Chain,
+[Implemented By]"|ee2bb773-e630-4cf9-bdf1-7c2dd64fe4ec
+4fc47e60-f1b5-469c-b666-e1f4570e749f-->|"Supporting Supply Chain,
+[Implemented By]"|72a86eec-9734-4bc0-babb-4fec0aa7c9ff
+4fc47e60-f1b5-469c-b666-e1f4570e749f-->|"Supporting Supply Chain,
+[Implemented By]"|48bc201e-3d4e-4beb-bdb2-0fd9d134f6d5
+4fc47e60-f1b5-469c-b666-e1f4570e749f-->|"Supporting Supply Chain,
+[Implemented By]"|0bf2547c-937c-41b6-814f-6284849271a1
+72a86eec-9734-4bc0-babb-4fec0aa7c9ff==>|"publish results,
+[Solution Linking Wire]"|0bf2547c-937c-41b6-814f-6284849271a1
+end
+subgraph Implementation
+d2be0319-8bfe-42a3-899b-6e8c9658cbaf@{ shape: rounded, label: "*Data File Collection*
+**Data File Collection:Validated Incoming Weekly Measurements For Teddy Bear Drop Foot Clinical Trial**"}
+4373f284-925c-4ea4-94cb-2a0e037ab32f@{ shape: rounded, label: "*C S V File*
+**DataLake::PROJ-CT-TBDF::CSVFile::/Users/amandachessell/Code/ODPi/egeria-oak/egeria/open-metadata-distribution/omag-server-platform/build/unpacked/egeria-platform-5.3-SNAPSHOT-distribution.tar.gz/assembly/platform/coco-data-lake/research/clinical-trials/drop-foot/weekly-measurements/PROJ-CT-TBDF_000006.csv**"}
+d2be0319-8bfe-42a3-899b-6e8c9658cbaf==>|"Data Set Content"|4373f284-925c-4ea4-94cb-2a0e037ab32f
+2d668829-1446-4cb1-951b-323d743d6eb7@{ shape: rounded, label: "*C S V File*
+**DataLake::PROJ-CT-TBDF::CSVFile::/Users/amandachessell/Code/ODPi/egeria-oak/egeria/open-metadata-distribution/omag-server-platform/build/unpacked/egeria-platform-5.3-SNAPSHOT-distribution.tar.gz/assembly/platform/coco-data-lake/research/clinical-trials/drop-foot/weekly-measurements/PROJ-CT-TBDF_000003.csv**"}
+d2be0319-8bfe-42a3-899b-6e8c9658cbaf==>|"Data Set Content"|2d668829-1446-4cb1-951b-323d743d6eb7
+7ef44d59-a988-49bc-a536-a89e58b9e13d@{ shape: rounded, label: "*C S V File*
+**DataLake::PROJ-CT-TBDF::CSVFile::/Users/amandachessell/Code/ODPi/egeria-oak/egeria/open-metadata-distribution/omag-server-platform/build/unpacked/egeria-platform-5.3-SNAPSHOT-distribution.tar.gz/assembly/platform/coco-data-lake/research/clinical-trials/drop-foot/weekly-measurements/PROJ-CT-TBDF_000005.csv**"}
+d2be0319-8bfe-42a3-899b-6e8c9658cbaf==>|"Data Set Content"|7ef44d59-a988-49bc-a536-a89e58b9e13d
+b9bb8b14-1557-4db5-8b7f-55016af532a9@{ shape: rounded, label: "*C S V File*
+**DataLake::PROJ-CT-TBDF::CSVFile::/Users/amandachessell/Code/ODPi/egeria-oak/egeria/open-metadata-distribution/omag-server-platform/build/unpacked/egeria-platform-5.3-SNAPSHOT-distribution.tar.gz/assembly/platform/coco-data-lake/research/clinical-trials/drop-foot/weekly-measurements/PROJ-CT-TBDF_000008.csv**"}
+d2be0319-8bfe-42a3-899b-6e8c9658cbaf==>|"Data Set Content"|b9bb8b14-1557-4db5-8b7f-55016af532a9
+baa6081e-3ad4-44a8-89b7-606c27e44e79@{ shape: rounded, label: "*C S V File*
+**DataLake::PROJ-CT-TBDF::CSVFile::/Users/amandachessell/Code/ODPi/egeria-oak/egeria/open-metadata-distribution/omag-server-platform/build/unpacked/egeria-platform-5.3-SNAPSHOT-distribution.tar.gz/assembly/platform/coco-data-lake/research/clinical-trials/drop-foot/weekly-measurements/PROJ-CT-TBDF_000009.csv**"}
+d2be0319-8bfe-42a3-899b-6e8c9658cbaf==>|"Data Set Content"|baa6081e-3ad4-44a8-89b7-606c27e44e79
+d5074359-1804-4769-8db4-a480a77b0e5e@{ shape: rounded, label: "*C S V File*
+**DataLake::PROJ-CT-TBDF::CSVFile::/Users/amandachessell/Code/ODPi/egeria-oak/egeria/open-metadata-distribution/omag-server-platform/build/unpacked/egeria-platform-5.3-SNAPSHOT-distribution.tar.gz/assembly/platform/coco-data-lake/research/clinical-trials/drop-foot/weekly-measurements/PROJ-CT-TBDF_000004.csv**"}
+d2be0319-8bfe-42a3-899b-6e8c9658cbaf==>|"Data Set Content"|d5074359-1804-4769-8db4-a480a77b0e5e
+5474929e-ef14-46f8-bfc8-7c10a3fc1e20@{ shape: rounded, label: "*C S V File*
+**DataLake::PROJ-CT-TBDF::CSVFile::/Users/amandachessell/Code/ODPi/egeria-oak/egeria/open-metadata-distribution/omag-server-platform/build/unpacked/egeria-platform-5.3-SNAPSHOT-distribution.tar.gz/assembly/platform/coco-data-lake/research/clinical-trials/drop-foot/weekly-measurements/PROJ-CT-TBDF_000000.csv**"}
+d2be0319-8bfe-42a3-899b-6e8c9658cbaf==>|"Data Set Content"|5474929e-ef14-46f8-bfc8-7c10a3fc1e20
+20c0fff6-9477-448f-b144-7b6c1c72ed14@{ shape: rounded, label: "*C S V File*
+**DataLake::PROJ-CT-TBDF::CSVFile::/Users/amandachessell/Code/ODPi/egeria-oak/egeria/open-metadata-distribution/omag-server-platform/build/unpacked/egeria-platform-5.3-SNAPSHOT-distribution.tar.gz/assembly/platform/coco-data-lake/research/clinical-trials/drop-foot/weekly-measurements/PROJ-CT-TBDF_000007.csv**"}
+d2be0319-8bfe-42a3-899b-6e8c9658cbaf==>|"Data Set Content"|20c0fff6-9477-448f-b144-7b6c1c72ed14
+69e8370b-4b66-4e8c-9c45-21ef1a5f3289@{ shape: rounded, label: "*C S V File*
+**DataLake::PROJ-CT-TBDF::CSVFile::/Users/amandachessell/Code/ODPi/egeria-oak/egeria/open-metadata-distribution/omag-server-platform/build/unpacked/egeria-platform-5.3-SNAPSHOT-distribution.tar.gz/assembly/platform/coco-data-lake/research/clinical-trials/drop-foot/weekly-measurements/PROJ-CT-TBDF_000002.csv**"}
+d2be0319-8bfe-42a3-899b-6e8c9658cbaf==>|"Data Set Content"|69e8370b-4b66-4e8c-9c45-21ef1a5f3289
+4d0cbb70-0c50-4556-8c30-961509c4429c@{ shape: rounded, label: "*Transient Embedded Process*
+**Egeria:MoveCopyDeleteFileGovernanceActionService44a85bf1-be7e-471e-a5d3-ad2cb5596545**"}
+4d0cbb70-0c50-4556-8c30-961509c4429c==>|"Data Flow"|b9bb8b14-1557-4db5-8b7f-55016af532a9
+1b52fbf3-e5d2-44d5-bd9e-f03001bd9073@{ shape: rounded, label: "*Transient Embedded Process*
+**Egeria:MoveCopyDeleteFileGovernanceActionService289b636e-71ae-4320-b06a-7bf50ce5687a**"}
+1b52fbf3-e5d2-44d5-bd9e-f03001bd9073==>|"Data Flow"|baa6081e-3ad4-44a8-89b7-606c27e44e79
+d0dd34ff-fa41-4ec3-8bdc-6712a7025e69@{ shape: rounded, label: "*Deployed Software Component*
+**Apache Airflow DAG:populateDropfootSandbox**"}
+d2be0319-8bfe-42a3-899b-6e8c9658cbaf==>|"Copy Certified Data [Data Flow]"|d0dd34ff-fa41-4ec3-8bdc-6712a7025e69
+48a7c4d4-659e-476e-9a74-55f8cab65a9e@{ shape: rounded, label: "*Transient Embedded Process*
+**Egeria:MoveCopyDeleteFileGovernanceActionServiced8df7658-b8eb-4671-8fb2-1c3aaa4d058c**"}
+48a7c4d4-659e-476e-9a74-55f8cab65a9e==>|"Data Flow"|69e8370b-4b66-4e8c-9c45-21ef1a5f3289
+e7e0d46a-6bc4-4c13-8ea6-42b477d56573@{ shape: rounded, label: "*Transient Embedded Process*
+**Egeria:MoveCopyDeleteFileGovernanceActionService8ea6728a-2ab1-478d-ba26-699105ccc6b0**"}
+e7e0d46a-6bc4-4c13-8ea6-42b477d56573==>|"Data Flow"|20c0fff6-9477-448f-b144-7b6c1c72ed14
+c51c51ca-42d6-4dea-8291-8f7b33e66d45@{ shape: rounded, label: "*Transient Embedded Process*
+**Egeria:MoveCopyDeleteFileGovernanceActionServiceefeee970-11cd-4f49-bcbd-1b5bad17d7d6**"}
+c51c51ca-42d6-4dea-8291-8f7b33e66d45==>|"Data Flow"|d5074359-1804-4769-8db4-a480a77b0e5e
+37a0d034-3fa9-42ca-8f14-190667d9b2ab@{ shape: rounded, label: "*Deployed Database Schema*
+**PostgreSQL Relational Database Schema:LocalPostgreSQL1:clinical_trials.drop_foot**"}
+d0dd34ff-fa41-4ec3-8bdc-6712a7025e69==>|"Save Certified Data [Data Flow]"|37a0d034-3fa9-42ca-8f14-190667d9b2ab
+86162bc8-9df0-4133-b6b8-8352c4bd34ce@{ shape: rounded, label: "*Data Folder*
+**Data Folder:.landing-area/hospitals/oak-dene/clinical-trials/drop-foot**"}
+1b98cdac-dd0a-4621-93db-99ef5a1098bc@{ shape: rounded, label: "*Integration Connector*
+**Egeria:IntegrationGroup:Default:GeneralFilesMonitorIntegrationConnector**"}
+86162bc8-9df0-4133-b6b8-8352c4bd34ce==>|"new file notification [Data Flow]"|1b98cdac-dd0a-4621-93db-99ef5a1098bc
+ee8280cb-027b-4141-bb52-fa43172579f4@{ shape: rounded, label: "*Transient Embedded Process*
+**Egeria:MoveCopyDeleteFileGovernanceActionService327dcf3f-402c-4c30-90dc-a491fffa1e6a**"}
+ee8280cb-027b-4141-bb52-fa43172579f4==>|"Data Flow"|2d668829-1446-4cb1-951b-323d743d6eb7
+f1b3def9-3821-4dcb-90da-f04d4d108fac@{ shape: rounded, label: "*Governance Action Process*
+**Coco:GovernanceActionProcess:PROJ-CT-TBDF:Hampton Hospital:WeeklyMeasurements:Onboarding**"}
+1b98cdac-dd0a-4621-93db-99ef5a1098bc==>|"new file trigger [Data Flow]"|f1b3def9-3821-4dcb-90da-f04d4d108fac
+7a853197-e8bb-4854-b737-f76d8dbdd6be@{ shape: rounded, label: "*Transient Embedded Process*
+**Egeria:MoveCopyDeleteFileGovernanceActionServicefc54591f-4893-4eb3-b2de-77ddfe60655e**"}
+7a853197-e8bb-4854-b737-f76d8dbdd6be==>|"Data Flow"|7ef44d59-a988-49bc-a536-a89e58b9e13d
+96a171e1-61f2-4453-bc95-d789e319122c@{ shape: rounded, label: "*Transient Embedded Process*
+**Egeria:MoveCopyDeleteFileGovernanceActionService0f1bb121-2f82-4a38-9ff5-2788014566a8**"}
+48d5002a-37b4-438b-86b8-c113f1fde0cc@{ shape: rounded, label: "*C S V File*
+**DataLake::PROJ-CT-TBDF::CSVFile::/Users/amandachessell/Code/ODPi/egeria-oak/egeria/open-metadata-distribution/omag-server-platform/build/unpacked/egeria-platform-5.3-SNAPSHOT-distribution.tar.gz/assembly/platform/coco-data-lake/research/clinical-trials/drop-foot/weekly-measurements/PROJ-CT-TBDF_000001.csv**"}
+96a171e1-61f2-4453-bc95-d789e319122c==>|"Data Flow"|48d5002a-37b4-438b-86b8-c113f1fde0cc
+0373a380-fbf4-4ea2-92f1-479a7676d134@{ shape: rounded, label: "*Transient Embedded Process*
+**Egeria:MoveCopyDeleteFileGovernanceActionService917d70b1-251f-4e84-986c-eda425df696c**"}
+0373a380-fbf4-4ea2-92f1-479a7676d134==>|"Data Flow"|4373f284-925c-4ea4-94cb-2a0e037ab32f
+1215334f-7da2-4bee-b515-a348998a4049@{ shape: rounded, label: "*Organization*
+**Organization::Hampton Hospital**"}
+00766073-de88-41c7-82e4-dc522d648d6c@{ shape: rounded, label: "*Data Folder*
+**Data Folder:.landing-area/hospitals/hampton/clinical-trials/drop-foot**"}
+1215334f-7da2-4bee-b515-a348998a4049==>|"publish weekly measurements [Data Flow]"|00766073-de88-41c7-82e4-dc522d648d6c
+6d7acf4e-0d61-4744-b7c3-e09de9269b70@{ shape: rounded, label: "*Organization*
+**Organization::Oak Dene Hospital**"}
+6d7acf4e-0d61-4744-b7c3-e09de9269b70==>|"publish weekly measurements [Data Flow]"|86162bc8-9df0-4133-b6b8-8352c4bd34ce
+fad6b7b0-93d8-4c26-8f93-6dcd9d1636a6@{ shape: rounded, label: "*Transient Embedded Process*
+**Egeria:MoveCopyDeleteFileGovernanceActionService3db11b59-c7e8-4f20-a4ff-f141d192784b**"}
+fad6b7b0-93d8-4c26-8f93-6dcd9d1636a6==>|"Data Flow"|5474929e-ef14-46f8-bfc8-7c10a3fc1e20
+91678bb5-f5c6-47c0-bd86-50ac627c2a57@{ shape: rounded, label: "*Governance Action Process*
+**Coco:GovernanceActionProcess:PROJ-CT-TBDF:Oak Dene Hospital:WeeklyMeasurements:Onboarding**"}
+1b98cdac-dd0a-4621-93db-99ef5a1098bc==>|"new file trigger [Data Flow]"|91678bb5-f5c6-47c0-bd86-50ac627c2a57
+91678bb5-f5c6-47c0-bd86-50ac627c2a57==>|"delivered validated file [Data Flow]"|d2be0319-8bfe-42a3-899b-6e8c9658cbaf
+00766073-de88-41c7-82e4-dc522d648d6c==>|"new file notification [Data Flow]"|1b98cdac-dd0a-4621-93db-99ef5a1098bc
+f1b3def9-3821-4dcb-90da-f04d4d108fac==>|"delivered validated file [Data Flow]"|d2be0319-8bfe-42a3-899b-6e8c9658cbaf
+d2b65243-6748-418d-86a0-5245b60b2191@{ shape: rounded, label: "*Data Folder*
+**Unity Catalog Volume:http:/ /localhost:8087:clinical_trials.teddy_bear_drop_foot.weekly_measurements**"}
+d2be0319-8bfe-42a3-899b-6e8c9658cbaf==>|"get files from storage [Process Call]"|d2b65243-6748-418d-86a0-5245b60b2191
+1c150d6e-30cf-481c-9afb-3b06c9c9e78f-->|"Implemented By"|00766073-de88-41c7-82e4-dc522d648d6c
+a5d4d638-6836-47e5-99d0-fdcde637e13f-->|"Implemented By"|d2be0319-8bfe-42a3-899b-6e8c9658cbaf
+1c150d6e-30cf-481c-9afb-3b06c9c9e78f-->|"Implemented By"|86162bc8-9df0-4133-b6b8-8352c4bd34ce
+d48f579f-76d3-4c49-b1b4-575f5645a9d0-->|"Implemented By"|37a0d034-3fa9-42ca-8f14-190667d9b2ab
+26c07ca4-3b8e-484b-812b-36c1ace4b275-->|"Implemented By"|d0dd34ff-fa41-4ec3-8bdc-6712a7025e69
+7f5dca65-50b4-4103-9ac7-3a406a09047a-->|"Implemented By"|91678bb5-f5c6-47c0-bd86-50ac627c2a57
+7f5dca65-50b4-4103-9ac7-3a406a09047a-->|"Implemented By"|f1b3def9-3821-4dcb-90da-f04d4d108fac
+07705e15-efff-4f80-8992-f04ac85e0ef1-->|"Implemented By"|1b98cdac-dd0a-4621-93db-99ef5a1098bc
+end
+end
+subgraph Overview
+a2caa20a-2cb1-4d35-a96a-6493bb9036d3@{ shape: flip-tri, label: "*Information Supply Chain*
+**Clinical Trial Treatment Validation:PROJ-CT-TBDF**"}
+d1fba0cf-9645-43f9-96f2-199c199ebabe@{ shape: text, label: "*Description*
+**Delivering data relating to the Teddy Bear Drop Foot Clinical Trial clinical trial from the hospitals to the Coco Researchers so that they can then determine the efficacy of the treatment to report to the regulators.**"}
+90444eb1-6708-4334-afa2-f58f389d5718@{ shape: text, label: "*Purpose*
+**Deliver patient measurement data from hospitals to data scientists in research.**"}
+6da86ded-2ee2-4590-b9a5-ad8328880246@{ shape: text, label: "*Purpose*
+**Ensure incoming data is only from certified hospitals.**"}
+4f577396-89be-416c-b97e-cde4fdeea722@{ shape: text, label: "*Purpose*
+**Ensure incoming data is validated and catalogued.**"}
+a162b465-bc85-4528-8628-4d907e806ef2@{ shape: text, label: "*Purpose*
+**Ensure data and process owners are informed of key milestones and issues requiring attention.**"}
+9c3385a1-1f95-42b7-a051-1fe076aad7cd@{ shape: text, label: "*Purpose*
+**Ensure the process of data capture and treatment validation is transparent and auditable.**"}
+e1fb0e0b-0f31-4a9e-bdcf-848e5c640bde@{ shape: text, label: "*Purpose*
+**Ensure the treatment validation report is complete and regulatory compliant.**"}
+end
+Overview~~~Details
+style 48bc201e-3d4e-4beb-bdb2-0fd9d134f6d5 color:#FFFFFF, fill:#dda0dd, stroke:#000000
+style d2b65243-6748-418d-86a0-5245b60b2191 color:#000000, fill:#e0ab18, stroke:#004563
+style e7e0d46a-6bc4-4c13-8ea6-42b477d56573 color:#000000, fill:#e0ab18, stroke:#004563
+style 4d0cbb70-0c50-4556-8c30-961509c4429c color:#000000, fill:#e0ab18, stroke:#004563
+style Segments color:#004563, fill:#FFFFFF, stroke:#004563
+style a5d4d638-6836-47e5-99d0-fdcde637e13f color:#FFFFFF, fill:#dda0dd, stroke:#000000
+style Design color:#000000, fill:#b0c4de, stroke:#000000
+style 38635d38-f728-400d-a8ec-7c26e68b7c0f color:#004563, fill:#b7c0c7, stroke:#004563
+style 00766073-de88-41c7-82e4-dc522d648d6c color:#000000, fill:#e0ab18, stroke:#004563
+style 7ef44d59-a988-49bc-a536-a89e58b9e13d color:#000000, fill:#e0ab18, stroke:#004563
+style 96a171e1-61f2-4453-bc95-d789e319122c color:#000000, fill:#e0ab18, stroke:#004563
+style 20c0fff6-9477-448f-b144-7b6c1c72ed14 color:#000000, fill:#e0ab18, stroke:#004563
+style 0373a380-fbf4-4ea2-92f1-479a7676d134 color:#000000, fill:#e0ab18, stroke:#004563
+style ee8280cb-027b-4141-bb52-fa43172579f4 color:#000000, fill:#e0ab18, stroke:#004563
+style 1c150d6e-30cf-481c-9afb-3b06c9c9e78f color:#FFFFFF, fill:#dda0dd, stroke:#000000
+style 07705e15-efff-4f80-8992-f04ac85e0ef1 color:#FFFFFF, fill:#dda0dd, stroke:#000000
+style 2d668829-1446-4cb1-951b-323d743d6eb7 color:#000000, fill:#e0ab18, stroke:#004563
+style d2be0319-8bfe-42a3-899b-6e8c9658cbaf color:#000000, fill:#e0ab18, stroke:#004563
+style 4fc47e60-f1b5-469c-b666-e1f4570e749f color:#004563, fill:#b7c0c7, stroke:#004563
+style 6d7acf4e-0d61-4744-b7c3-e09de9269b70 color:#000000, fill:#e0ab18, stroke:#004563
+style ee2bb773-e630-4cf9-bdf1-7c2dd64fe4ec color:#FFFFFF, fill:#dda0dd, stroke:#000000
+style 37a0d034-3fa9-42ca-8f14-190667d9b2ab color:#000000, fill:#e0ab18, stroke:#004563
+style 6da86ded-2ee2-4590-b9a5-ad8328880246 color:#000000, fill:#F9F7ED, stroke:#b7c0c7
+style d1fba0cf-9645-43f9-96f2-199c199ebabe color:#000000, fill:#F9F7ED, stroke:#b7c0c7
+style Details color:#FFFFFF, fill:#FFFFFF, stroke:#FFFFFF
+style a162b465-bc85-4528-8628-4d907e806ef2 color:#000000, fill:#F9F7ED, stroke:#b7c0c7
+style d48f579f-76d3-4c49-b1b4-575f5645a9d0 color:#FFFFFF, fill:#dda0dd, stroke:#000000
+style 48a7c4d4-659e-476e-9a74-55f8cab65a9e color:#000000, fill:#e0ab18, stroke:#004563
+style 04ae768e-3816-47bc-bddb-c9ae25018684 color:#004563, fill:#b7c0c7, stroke:#004563
+style 1b98cdac-dd0a-4621-93db-99ef5a1098bc color:#000000, fill:#e0ab18, stroke:#004563
+style f1b3def9-3821-4dcb-90da-f04d4d108fac color:#000000, fill:#e0ab18, stroke:#004563
+style e4303326-e418-4f77-b8e7-fd5d34717594 color:#004563, fill:#b7c0c7, stroke:#004563
+style 4373f284-925c-4ea4-94cb-2a0e037ab32f color:#000000, fill:#e0ab18, stroke:#004563
+style e1fb0e0b-0f31-4a9e-bdcf-848e5c640bde color:#000000, fill:#F9F7ED, stroke:#b7c0c7
+style Implementation color:#004563, fill:#b7c0c7, stroke:#004563
+style d5074359-1804-4769-8db4-a480a77b0e5e color:#000000, fill:#e0ab18, stroke:#004563
+style 7edca02c-e726-4570-815c-280bdf5498b9 color:#004563, fill:#b7c0c7, stroke:#004563
+style 0bf2547c-937c-41b6-814f-6284849271a1 color:#FFFFFF, fill:#dda0dd, stroke:#000000
+style 4f577396-89be-416c-b97e-cde4fdeea722 color:#000000, fill:#F9F7ED, stroke:#b7c0c7
+style 26c07ca4-3b8e-484b-812b-36c1ace4b275 color:#FFFFFF, fill:#dda0dd, stroke:#000000
+style 91678bb5-f5c6-47c0-bd86-50ac627c2a57 color:#000000, fill:#e0ab18, stroke:#004563
+style 69e8370b-4b66-4e8c-9c45-21ef1a5f3289 color:#000000, fill:#e0ab18, stroke:#004563
+style fad6b7b0-93d8-4c26-8f93-6dcd9d1636a6 color:#000000, fill:#e0ab18, stroke:#004563
+style baa6081e-3ad4-44a8-89b7-606c27e44e79 color:#000000, fill:#e0ab18, stroke:#004563
+style 1215334f-7da2-4bee-b515-a348998a4049 color:#000000, fill:#e0ab18, stroke:#004563
+style b9bb8b14-1557-4db5-8b7f-55016af532a9 color:#000000, fill:#e0ab18, stroke:#004563
+style Overview color:#000000, fill:#F9F7ED, stroke:#b7c0c7
+style 5474929e-ef14-46f8-bfc8-7c10a3fc1e20 color:#000000, fill:#e0ab18, stroke:#004563
+style c51c51ca-42d6-4dea-8291-8f7b33e66d45 color:#000000, fill:#e0ab18, stroke:#004563
+style 7f5dca65-50b4-4103-9ac7-3a406a09047a color:#FFFFFF, fill:#dda0dd, stroke:#000000
+style 72a86eec-9734-4bc0-babb-4fec0aa7c9ff color:#FFFFFF, fill:#dda0dd, stroke:#000000
+style 1b52fbf3-e5d2-44d5-bd9e-f03001bd9073 color:#000000, fill:#e0ab18, stroke:#004563
+style b5c8da4c-f925-4cf1-8294-e43cd2c1a584 color:#FFFFFF, fill:#dda0dd, stroke:#000000
+style 7a853197-e8bb-4854-b737-f76d8dbdd6be color:#000000, fill:#e0ab18, stroke:#004563
+style 48d5002a-37b4-438b-86b8-c113f1fde0cc color:#000000, fill:#e0ab18, stroke:#004563
+style 86162bc8-9df0-4133-b6b8-8352c4bd34ce color:#000000, fill:#e0ab18, stroke:#004563
+style 9c3385a1-1f95-42b7-a051-1fe076aad7cd color:#000000, fill:#F9F7ED, stroke:#b7c0c7
+style a2caa20a-2cb1-4d35-a96a-6493bb9036d3 color:#FFFFFF, fill:#004563, stroke:#b7c0c7
+style d0dd34ff-fa41-4ec3-8bdc-6712a7025e69 color:#000000, fill:#e0ab18, stroke:#004563
+style 90444eb1-6708-4334-afa2-f58f389d5718 color:#000000, fill:#F9F7ED, stroke:#b7c0c7`;
+              const {svg} = await mermaid.render('mySvgId', graphDefinition);
+              element.innerHTML = svg.replace(/( )*max-width:( 0-9\.)*px;/i, '');
+    
+              var doPan = false;
+              var eventsHandler;
+              var panZoom;
+              var mousepos;
+    
+              eventsHandler = {
+                haltEventListeners: ['mousedown', 'mousemove', 'mouseup']
+    
+                , mouseDownHandler: function (ev) {
+                  if (event.target.className == "[object SVGAnimatedString]") {
+                    doPan = true;
+                    mousepos = {x: ev.clientX, y: ev.clientY}
+                  }
+                  ;
+                }
+    
+                , mouseMoveHandler: function (ev) {
+                  if (doPan) {
+                    panZoom.panBy({x: ev.clientX - mousepos.x, y: ev.clientY - mousepos.y});
+                    mousepos = {x: ev.clientX, y: ev.clientY};
+                    window.getSelection().removeAllRanges();
+                  }
+                }
+    
+                , mouseUpHandler: function (ev) {
+                  doPan = false;
+                }
+    
+                , init: function (options) {
+                  options.svgElement.addEventListener('mousedown', this.mouseDownHandler, false);
+                  options.svgElement.addEventListener('mousemove', this.mouseMoveHandler, false);
+                  options.svgElement.addEventListener('mouseup', this.mouseUpHandler, false);
+                }
+    
+                , destroy: function (options) {
+                  options.svgElement.removeEventListener('mousedown', this.mouseDownHandler, false);
+                  options.svgElement.removeEventListener('mousemove', this.mouseMoveHandler, false);
+                  options.svgElement.removeEventListener('mouseup', this.mouseUpHandler, false);
+                }
+              }
+              panZoom = svgPanZoom('#mySvgId', {
+                zoomEnabled: true
+                , controlIconsEnabled: true
+                , fit: 1
+                , center: 1
+                , customEventsHandler: eventsHandler
+              })
+            };
+            await drawDiagram();
+          </script>
+        </body>    
+    

@@ -1,0 +1,258 @@
+
+    <!DOCTYPE html>
+    <html>
+        <head>
+          <style type="text/css">
+            #mySvgId {
+            width: 100%;
+            height: 600px;
+            overflow: scroll;
+            border: 2px solid #ccc;
+            position: relative;
+            margin-bottom: 10px;
+            }
+            svg {
+            cursor: grab;
+            }
+    
+          </style>
+        </head>
+    
+        <title>Information Supply Chain - Clinical Trial Treatment Validation:{{clinicalTrialId}} </title>
+        <h3>Information Supply Chain - Clinical Trial Treatment Validation:{{clinicalTrialId}} </h3>
+        GUID : 1f71e403-1187-4f03-a1dd-ae7dc105f06f
+
+    
+        <body>
+        
+          <div id="graphDiv"></div>
+          <script src="https://bumbu.me/svg-pan-zoom/dist/svg-pan-zoom.min.js"></script>
+          <script type="module">
+            import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    
+            mermaid.initialize({startOnLoad: false});
+            await mermaid.run({
+              querySelector: '.mermaid',
+              postRenderCallback: (id) => {
+                const container = document.getElementById("diagram-container");
+                const svgElement = container.querySelector("svg");
+    
+                // Initialize Panzoom
+                const panzoomInstance = Panzoom(svgElement, {
+                  maxScale: 5,
+                  minScale: 0.5,
+                  step: 0.1,
+                });
+    
+                // Add mouse wheel zoom
+                container.addEventListener("wheel", (event) => {
+                  panzoomInstance.zoomWithWheel(event);
+                });
+              }
+            });
+    
+    
+            const drawDiagram = async function () {
+              const element = document.querySelector('#graphDiv');
+             const graphDefinition = `
+    flowchart TD
+%%{init: {"flowchart": {"htmlLabels": false}} }%%
+
+subgraph Details
+subgraph Segments
+38635d38-f728-400d-a8ec-7c26e68b7c0f@{ shape: hex, label: "*Information Supply Chain Segment*
+**Weekly Measurements Onboarding**"}
+38635d38-f728-400d-a8ec-7c26e68b7c0f==>|"capture and catalog,
+[Information Supply Chain Link]"|7edca02c-e726-4570-815c-280bdf5498b9
+e4303326-e418-4f77-b8e7-fd5d34717594@{ shape: hex, label: "*Information Supply Chain Segment*
+**Assess Treatment under Trial**"}
+e4303326-e418-4f77-b8e7-fd5d34717594==>|"publish results,
+[Information Supply Chain Link]"|4fc47e60-f1b5-469c-b666-e1f4570e749f
+04ae768e-3816-47bc-bddb-c9ae25018684@{ shape: hex, label: "*Information Supply Chain Segment*
+**Hospital Delivers Patient Weekly Readings**"}
+04ae768e-3816-47bc-bddb-c9ae25018684==>|"publish,
+[Information Supply Chain Link]"|38635d38-f728-400d-a8ec-7c26e68b7c0f
+4fc47e60-f1b5-469c-b666-e1f4570e749f@{ shape: hex, label: "*Information Supply Chain Segment*
+**Deliver Treatment Assessment Report**"}
+7edca02c-e726-4570-815c-280bdf5498b9@{ shape: hex, label: "*Information Supply Chain Segment*
+**Data Lake to Sandbox**"}
+7edca02c-e726-4570-815c-280bdf5498b9==>|"assemble,
+[Information Supply Chain Link]"|e4303326-e418-4f77-b8e7-fd5d34717594
+end
+subgraph Design
+1c150d6e-30cf-481c-9afb-3b06c9c9e78f@{ shape: rect, label: "*Solution Component*
+**SolutionComponent::Hospital Landing Area Folder::V1.0**"}
+7f5dca65-50b4-4103-9ac7-3a406a09047a@{ shape: rect, label: "*Solution Component*
+**SolutionComponent::Weekly Measurements Onboarding Pipeline::V1.0**"}
+07705e15-efff-4f80-8992-f04ac85e0ef1@{ shape: rect, label: "*Solution Component*
+**SolutionComponent::Landing Folder Cataloguer::V1.0**"}
+a5d4d638-6836-47e5-99d0-fdcde637e13f@{ shape: rect, label: "*Solution Component*
+**SolutionComponent::Weekly Measurements Data Lake Folder::V1.0**"}
+48bc201e-3d4e-4beb-bdb2-0fd9d134f6d5@{ shape: rect, label: "*Solution Component*
+**SolutionComponent::Treatment Efficacy Evidence::V1.0**"}
+b5c8da4c-f925-4cf1-8294-e43cd2c1a584@{ shape: rect, label: "*Solution Component*
+**SolutionComponent::Analyse Patient Data::V1.0**"}
+d48f579f-76d3-4c49-b1b4-575f5645a9d0@{ shape: rect, label: "*Solution Component*
+**SolutionComponent::Treatment Validation Sandbox::V1.0**"}
+ee2bb773-e630-4cf9-bdf1-7c2dd64fe4ec@{ shape: rect, label: "*Solution Component*
+**SolutionComponent::Hospital Processes::V1.0**"}
+72a86eec-9734-4bc0-babb-4fec0aa7c9ff@{ shape: rect, label: "*Solution Component*
+**SolutionComponent::Assemble Treatment Assessment Report::V1.0**"}
+0bf2547c-937c-41b6-814f-6284849271a1@{ shape: rect, label: "*Solution Component*
+**SolutionComponent::Treatment Assessment Report Validation and Delivery::V1.0**"}
+26c07ca4-3b8e-484b-812b-36c1ace4b275@{ shape: rect, label: "*Solution Component*
+**SolutionComponent::Populate Sandbox::V1.0**"}
+38635d38-f728-400d-a8ec-7c26e68b7c0f-->|"Supporting Supply Chain,
+[Implemented By]"|1c150d6e-30cf-481c-9afb-3b06c9c9e78f
+38635d38-f728-400d-a8ec-7c26e68b7c0f-->|"Supporting Supply Chain,
+[Implemented By]"|7f5dca65-50b4-4103-9ac7-3a406a09047a
+38635d38-f728-400d-a8ec-7c26e68b7c0f-->|"Supporting Supply Chain,
+[Implemented By]"|07705e15-efff-4f80-8992-f04ac85e0ef1
+38635d38-f728-400d-a8ec-7c26e68b7c0f-->|"Supporting Supply Chain,
+[Implemented By]"|a5d4d638-6836-47e5-99d0-fdcde637e13f
+1c150d6e-30cf-481c-9afb-3b06c9c9e78f==>|"detect new files,
+[Solution Linking Wire]"|07705e15-efff-4f80-8992-f04ac85e0ef1
+ee2bb773-e630-4cf9-bdf1-7c2dd64fe4ec==>|"publish,
+[Solution Linking Wire]"|1c150d6e-30cf-481c-9afb-3b06c9c9e78f
+07705e15-efff-4f80-8992-f04ac85e0ef1==>|"request onboarding,
+[Solution Linking Wire]"|7f5dca65-50b4-4103-9ac7-3a406a09047a
+7f5dca65-50b4-4103-9ac7-3a406a09047a==>|"save new files,
+[Solution Linking Wire]"|a5d4d638-6836-47e5-99d0-fdcde637e13f
+a5d4d638-6836-47e5-99d0-fdcde637e13f==>|"read certified files,
+[Solution Linking Wire]"|26c07ca4-3b8e-484b-812b-36c1ace4b275
+e4303326-e418-4f77-b8e7-fd5d34717594-->|"Supporting Supply Chain,
+[Implemented By]"|48bc201e-3d4e-4beb-bdb2-0fd9d134f6d5
+e4303326-e418-4f77-b8e7-fd5d34717594-->|"Supporting Supply Chain,
+[Implemented By]"|b5c8da4c-f925-4cf1-8294-e43cd2c1a584
+e4303326-e418-4f77-b8e7-fd5d34717594-->|"Supporting Supply Chain,
+[Implemented By]"|d48f579f-76d3-4c49-b1b4-575f5645a9d0
+48bc201e-3d4e-4beb-bdb2-0fd9d134f6d5==>|"retrieve evidence,
+[Solution Linking Wire]"|72a86eec-9734-4bc0-babb-4fec0aa7c9ff
+b5c8da4c-f925-4cf1-8294-e43cd2c1a584==>|"publish results,
+[Solution Linking Wire]"|48bc201e-3d4e-4beb-bdb2-0fd9d134f6d5
+d48f579f-76d3-4c49-b1b4-575f5645a9d0==>|"retrieve patient data,
+[Solution Linking Wire]"|b5c8da4c-f925-4cf1-8294-e43cd2c1a584
+26c07ca4-3b8e-484b-812b-36c1ace4b275==>|"write patient measurements,
+[Solution Linking Wire]"|d48f579f-76d3-4c49-b1b4-575f5645a9d0
+04ae768e-3816-47bc-bddb-c9ae25018684-->|"Supporting Supply Chain,
+[Implemented By]"|1c150d6e-30cf-481c-9afb-3b06c9c9e78f
+04ae768e-3816-47bc-bddb-c9ae25018684-->|"Supporting Supply Chain,
+[Implemented By]"|ee2bb773-e630-4cf9-bdf1-7c2dd64fe4ec
+4fc47e60-f1b5-469c-b666-e1f4570e749f-->|"Supporting Supply Chain,
+[Implemented By]"|72a86eec-9734-4bc0-babb-4fec0aa7c9ff
+4fc47e60-f1b5-469c-b666-e1f4570e749f-->|"Supporting Supply Chain,
+[Implemented By]"|48bc201e-3d4e-4beb-bdb2-0fd9d134f6d5
+4fc47e60-f1b5-469c-b666-e1f4570e749f-->|"Supporting Supply Chain,
+[Implemented By]"|0bf2547c-937c-41b6-814f-6284849271a1
+72a86eec-9734-4bc0-babb-4fec0aa7c9ff==>|"publish results,
+[Solution Linking Wire]"|0bf2547c-937c-41b6-814f-6284849271a1
+7edca02c-e726-4570-815c-280bdf5498b9-->|"Supporting Supply Chain,
+[Implemented By]"|a5d4d638-6836-47e5-99d0-fdcde637e13f
+7edca02c-e726-4570-815c-280bdf5498b9-->|"Supporting Supply Chain,
+[Implemented By]"|26c07ca4-3b8e-484b-812b-36c1ace4b275
+7edca02c-e726-4570-815c-280bdf5498b9-->|"Supporting Supply Chain,
+[Implemented By]"|d48f579f-76d3-4c49-b1b4-575f5645a9d0
+end
+end
+subgraph Overview
+1f71e403-1187-4f03-a1dd-ae7dc105f06f@{ shape: card, label: "*Information Supply Chain*
+**Clinical Trial Treatment Validation:{{clinicalTrialId}}**"}
+68c45044-016a-4fa2-a296-7f9ad9698880@{ shape: text, label: "*Description*
+**Delivering data relating to the {{clinicalTrialName}} clinical trial from the hospitals to the Coco Researchers so that they can then determine the efficacy of the treatment to report to the regulators.**"}
+3c799b34-8c94-4147-917a-2b04d37574a0@{ shape: text, label: "*Purpose*
+**Deliver patient measurement data from hospitals to data scientists in research.**"}
+864f0697-ddfd-46db-ae3a-a9812e98c898@{ shape: text, label: "*Purpose*
+**Ensure incoming data is only from certified hospitals.**"}
+ac8df8bc-1682-4f12-81f7-d5701d325a86@{ shape: text, label: "*Purpose*
+**Ensure incoming data is validated and catalogued.**"}
+d273bacd-0df8-4e0d-9e69-3e831f347d2c@{ shape: text, label: "*Purpose*
+**Ensure data and process owners are informed of key milestones and issues requiring attention.**"}
+8d06f9d4-9b16-4c59-87d5-331497aaaadc@{ shape: text, label: "*Purpose*
+**Ensure the process of data capture and treatment validation is transparent and auditable.**"}
+3077d19d-cf75-4369-bcc8-10098a1db8d0@{ shape: text, label: "*Purpose*
+**Ensure the treatment validation report is complete and regulatory compliant.**"}
+end
+Overview~~~Details
+style 48bc201e-3d4e-4beb-bdb2-0fd9d134f6d5 color:#FFFFFF, fill:#dda0dd, stroke:#000000
+style e4303326-e418-4f77-b8e7-fd5d34717594 color:#004563, fill:#b7c0c7, stroke:#004563
+style Segments color:#004563, fill:#FFFFFF, stroke:#004563
+style a5d4d638-6836-47e5-99d0-fdcde637e13f color:#FFFFFF, fill:#dda0dd, stroke:#000000
+style Design color:#000000, fill:#b0c4de, stroke:#000000
+style 3c799b34-8c94-4147-917a-2b04d37574a0 color:#000000, fill:#F9F7ED, stroke:#b7c0c7
+style 38635d38-f728-400d-a8ec-7c26e68b7c0f color:#004563, fill:#b7c0c7, stroke:#004563
+style 7edca02c-e726-4570-815c-280bdf5498b9 color:#004563, fill:#b7c0c7, stroke:#004563
+style 0bf2547c-937c-41b6-814f-6284849271a1 color:#FFFFFF, fill:#dda0dd, stroke:#000000
+style 1f71e403-1187-4f03-a1dd-ae7dc105f06f color:#004563, fill:#b0e0e6, stroke:#004563
+style ac8df8bc-1682-4f12-81f7-d5701d325a86 color:#000000, fill:#F9F7ED, stroke:#b7c0c7
+style 26c07ca4-3b8e-484b-812b-36c1ace4b275 color:#FFFFFF, fill:#dda0dd, stroke:#000000
+style 1c150d6e-30cf-481c-9afb-3b06c9c9e78f color:#FFFFFF, fill:#dda0dd, stroke:#000000
+style d273bacd-0df8-4e0d-9e69-3e831f347d2c color:#000000, fill:#F9F7ED, stroke:#b7c0c7
+style 8d06f9d4-9b16-4c59-87d5-331497aaaadc color:#000000, fill:#F9F7ED, stroke:#b7c0c7
+style 07705e15-efff-4f80-8992-f04ac85e0ef1 color:#FFFFFF, fill:#dda0dd, stroke:#000000
+style 4fc47e60-f1b5-469c-b666-e1f4570e749f color:#004563, fill:#b7c0c7, stroke:#004563
+style Overview color:#000000, fill:#F9F7ED, stroke:#b7c0c7
+style 7f5dca65-50b4-4103-9ac7-3a406a09047a color:#FFFFFF, fill:#dda0dd, stroke:#000000
+style ee2bb773-e630-4cf9-bdf1-7c2dd64fe4ec color:#FFFFFF, fill:#dda0dd, stroke:#000000
+style 72a86eec-9734-4bc0-babb-4fec0aa7c9ff color:#FFFFFF, fill:#dda0dd, stroke:#000000
+style b5c8da4c-f925-4cf1-8294-e43cd2c1a584 color:#FFFFFF, fill:#dda0dd, stroke:#000000
+style 864f0697-ddfd-46db-ae3a-a9812e98c898 color:#000000, fill:#F9F7ED, stroke:#b7c0c7
+style Details color:#FFFFFF, fill:#FFFFFF, stroke:#FFFFFF
+style d48f579f-76d3-4c49-b1b4-575f5645a9d0 color:#FFFFFF, fill:#dda0dd, stroke:#000000
+style 3077d19d-cf75-4369-bcc8-10098a1db8d0 color:#000000, fill:#F9F7ED, stroke:#b7c0c7
+style 04ae768e-3816-47bc-bddb-c9ae25018684 color:#004563, fill:#b7c0c7, stroke:#004563
+style 68c45044-016a-4fa2-a296-7f9ad9698880 color:#000000, fill:#F9F7ED, stroke:#b7c0c7`;
+              const {svg} = await mermaid.render('mySvgId', graphDefinition);
+              element.innerHTML = svg.replace(/( )*max-width:( 0-9\.)*px;/i, '');
+    
+              var doPan = false;
+              var eventsHandler;
+              var panZoom;
+              var mousepos;
+    
+              eventsHandler = {
+                haltEventListeners: ['mousedown', 'mousemove', 'mouseup']
+    
+                , mouseDownHandler: function (ev) {
+                  if (event.target.className == "[object SVGAnimatedString]") {
+                    doPan = true;
+                    mousepos = {x: ev.clientX, y: ev.clientY}
+                  }
+                  ;
+                }
+    
+                , mouseMoveHandler: function (ev) {
+                  if (doPan) {
+                    panZoom.panBy({x: ev.clientX - mousepos.x, y: ev.clientY - mousepos.y});
+                    mousepos = {x: ev.clientX, y: ev.clientY};
+                    window.getSelection().removeAllRanges();
+                  }
+                }
+    
+                , mouseUpHandler: function (ev) {
+                  doPan = false;
+                }
+    
+                , init: function (options) {
+                  options.svgElement.addEventListener('mousedown', this.mouseDownHandler, false);
+                  options.svgElement.addEventListener('mousemove', this.mouseMoveHandler, false);
+                  options.svgElement.addEventListener('mouseup', this.mouseUpHandler, false);
+                }
+    
+                , destroy: function (options) {
+                  options.svgElement.removeEventListener('mousedown', this.mouseDownHandler, false);
+                  options.svgElement.removeEventListener('mousemove', this.mouseMoveHandler, false);
+                  options.svgElement.removeEventListener('mouseup', this.mouseUpHandler, false);
+                }
+              }
+              panZoom = svgPanZoom('#mySvgId', {
+                zoomEnabled: true
+                , controlIconsEnabled: true
+                , fit: 1
+                , center: 1
+                , customEventsHandler: eventsHandler
+              })
+            };
+            await drawDiagram();
+          </script>
+        </body>    
+    

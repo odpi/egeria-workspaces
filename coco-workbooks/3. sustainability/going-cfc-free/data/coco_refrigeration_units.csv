@@ -1,0 +1,49 @@
+unit_id,make,model,purchase_date,refrigerant_type,refrigerant_volume,refrigerant_percentage_loss_per_year,used_for
+REF-NYC-001,Thermo Fisher Scientific,TSX Series TSX2305SA,2019-03-12,R-134a,1.2 kg,0.8,Ultra-low temperature storage of biological samples and reagents - New York lab
+REF-NYC-002,Thermo Fisher Scientific,TSX Series TSX2305SA,2019-03-12,R-134a,1.2 kg,1.1,Ultra-low temperature storage of biological samples and reagents - New York lab
+REF-NYC-003,Panasonic,MDF-U76VC-PE,2021-07-08,R-290,0.9 kg,0.5,Long-term archival storage of clinical trial specimens - New York
+REF-NYC-004,Liebherr,LKUv 1613,2020-11-22,R-600a,0.07 kg,0.3,Pharmacy-grade storage of temperature-sensitive drug products 2-8°C - New York
+REF-NYC-005,Helmer Scientific,iLR Series iLR256-GX,2018-06-15,R-404A,3.4 kg,2.1,Walk-in cold room for finished goods awaiting QC release - New York warehouse
+REF-NYC-006,Carrier,AquaEdge 19DV,2017-04-30,R-1234ze,68.0 kg,1.4,Building HVAC chiller serving New York office and laboratory floors
+REF-NYC-007,Thermo Fisher Scientific,Forma 88000 Series,2022-01-19,R-170,1.5 kg,0.4,Ultra-low -80°C freezer for mRNA vaccine intermediate storage - New York
+REF-NYC-008,Follett,Symphony Plus HCU900,2020-08-03,R-404A,1.8 kg,1.7,Ice and chilled water dispenser for laboratory benchtop use - New York
+REF-AUS-001,Thermo Fisher Scientific,TSX Series TSX5005SA,2021-05-17,R-134a,1.4 kg,0.6,Refrigerated storage of reference standards and calibration samples - Austin lab
+REF-AUS-002,Panasonic,MDF-DU702VH-PE,2020-02-28,R-290,1.1 kg,0.7,-80°C deep freeze storage of API intermediates - Austin manufacturing
+REF-AUS-003,Liebherr,LKPv 6524,2022-09-01,R-600a,0.09 kg,0.2,Pharmacy cold room for clinical supply management 2-8°C - Austin
+REF-AUS-004,Helmer Scientific,PC Series PC2500i,2019-10-14,R-134a,2.2 kg,1.5,Platelet and blood product storage for clinical trials support - Austin
+REF-AUS-005,Carrier,WeatherMaster 50XC,2018-03-22,R-410A,12.5 kg,2.3,Rooftop packaged HVAC unit serving Austin manufacturing floor
+REF-AUS-006,Thermo Fisher Scientific,Forma 88000 Series,2023-03-10,R-170,1.5 kg,0.3,-80°C freezer for vaccine adjuvant storage - Austin
+REF-AUS-007,Trane,Sintesis RTAF,2016-11-05,R-134a,85.0 kg,1.8,Central chiller plant for Austin manufacturing campus cooling
+REF-AUS-008,Thermo Fisher Scientific,TSX Series TSX2305SA,2022-06-27,R-134a,1.2 kg,0.5,Stability chamber refrigeration for ICH long-term studies - Austin
+REF-EDM-001,Thermo Fisher Scientific,TSX Series TSX5005SA,2020-04-09,R-134a,1.4 kg,0.9,Cold storage of biologics drug substance 2-8°C - Edmonton
+REF-EDM-002,Panasonic,MDF-U76VC-PE,2018-12-03,R-290,0.9 kg,1.2,-80°C archive storage for clinical trial samples - Edmonton
+REF-EDM-003,Carrier,AquaEdge 23XRV,2019-07-18,R-134a,72.0 kg,1.6,Central chiller for Edmonton manufacturing facility
+REF-EDM-004,Liebherr,GKv 6460,2021-11-30,R-600a,0.14 kg,0.4,Bulk raw material cold store for temperature-sensitive excipients - Edmonton warehouse
+REF-EDM-005,Helmer Scientific,iLR Series iLR471-GX,2017-08-25,R-404A,4.1 kg,2.8,Walk-in freezer -20°C for long-term retention samples - Edmonton QC
+REF-EDM-006,Thermo Fisher Scientific,Forma 88000 Series,2022-10-14,R-170,1.5 kg,0.4,-80°C ultra-low freezer for plasma protein storage - Edmonton
+REF-EDM-007,Daikin,EWAD-TZ,2020-01-22,R-32,18.0 kg,1.1,Process cooling for fermentation bioreactors - Edmonton
+REF-WIN-001,Thermo Fisher Scientific,TSX Series TSX2305SA,2021-02-16,R-134a,1.2 kg,0.7,Pharmaceutical cold store 2-8°C for investigational medicinal products - Winchester
+REF-WIN-002,Panasonic,MDF-DU302VH-PE,2019-09-04,R-290,0.8 kg,0.6,-80°C storage of DNA/RNA samples for genomics research - Winchester
+REF-WIN-003,Liebherr,LKUv 1613,2022-04-11,R-600a,0.07 kg,0.2,Vaccine finished product cold storage 2-8°C - Winchester distribution
+REF-WIN-004,Carrier,30XA Air-Cooled Chiller,2018-05-29,R-134a,56.0 kg,1.9,Central chiller for Winchester R&D building
+REF-WIN-005,Helmer Scientific,PC Series PC1200i,2020-07-07,R-134a,1.9 kg,1.3,Controlled temperature storage of cell therapy products 2-8°C - Winchester
+REF-WIN-006,Thermo Fisher Scientific,Forma 88000 Series,2023-01-25,R-170,1.5 kg,0.3,-80°C freezer for monoclonal antibody intermediate storage - Winchester
+REF-WIN-007,Daikin,EWAD-TZ,2017-06-13,R-32,14.0 kg,2.2,Process chiller for Winchester pilot plant manufacturing
+REF-LON-001,Thermo Fisher Scientific,TSX Series TSX5005SA,2020-10-20,R-134a,1.4 kg,0.8,Cold storage of reference samples and regulatory retention samples 2-8°C - London
+REF-LON-002,Panasonic,MDF-U76VC-PE,2021-03-08,R-290,0.9 kg,0.5,-80°C archive freezer for London medical affairs office
+REF-LON-003,Carrier,AquaForce 30XAB,2019-02-14,R-134a,61.0 kg,1.7,Chiller for London headquarters office building
+REF-LON-004,Liebherr,LKPv 6524,2022-07-19,R-600a,0.09 kg,0.2,Pharmacy-grade refrigerator 2-8°C for sample management - London
+REF-LON-005,Thermo Fisher Scientific,Forma 88000 Series,2018-11-06,R-170,1.5 kg,1.6,-80°C freezer for legacy compound library - London (approaching end of life)
+REF-AMS-001,Thermo Fisher Scientific,TSX Series TSX2305SA,2022-02-03,R-134a,1.2 kg,0.4,Cold store 2-8°C for European distribution hub - Amsterdam
+REF-AMS-002,Panasonic,MDF-DU702VH-PE,2021-08-17,R-290,1.1 kg,0.6,-80°C deep freeze for regulatory submission sample archive - Amsterdam
+REF-AMS-003,Carrier,AquaEdge 19DV,2020-06-10,R-1234ze,71.0 kg,1.0,Low-GWP chiller for Amsterdam office and warehouse (sustainability programme)
+REF-AMS-004,Liebherr,GKv 6460,2023-04-22,R-600a,0.14 kg,0.1,Bulk finished goods cold store 2-8°C - Amsterdam European distribution centre
+REF-AMS-005,Daikin,EWAD-TZ,2021-12-01,R-32,16.0 kg,0.9,Process cooling for Amsterdam analytical laboratory
+REF-AMS-006,Thermo Fisher Scientific,Forma 88000 Series,2022-09-29,R-170,1.5 kg,0.3,-80°C freezer for clinical trial IMP storage - Amsterdam
+REF-BUC-001,Thermo Fisher Scientific,TSX Series TSX2305SA,2020-05-14,R-134a,1.2 kg,1.0,Cold store 2-8°C for API raw material storage - Bucharest manufacturing
+REF-BUC-002,Panasonic,MDF-U76VC-PE,2019-01-23,R-290,0.9 kg,1.3,-80°C archive freezer for batch retention samples - Bucharest QC
+REF-BUC-003,Liebherr,LKUv 1613,2021-10-06,R-600a,0.07 kg,0.3,Pharmacy cold store for finished product QC testing samples 2-8°C - Bucharest
+REF-BUC-004,Carrier,WeatherMaster 50XC,2017-09-11,R-410A,14.0 kg,2.7,Rooftop HVAC unit for Bucharest manufacturing office wing (ageing unit)
+REF-BUC-005,Helmer Scientific,iLR Series iLR256-GX,2022-03-30,R-404A,3.4 kg,0.8,Walk-in cold room for finished goods packaging and release - Bucharest warehouse
+REF-BUC-006,Thermo Fisher Scientific,Forma 88000 Series,2023-06-15,R-170,1.5 kg,0.2,-80°C freezer for vaccine drug substance storage - Bucharest
+REF-BUC-007,Daikin,VRV IV-S,2020-09-18,R-32,9.5 kg,1.2,Multi-split HVAC system for Bucharest cleanroom temperature control
