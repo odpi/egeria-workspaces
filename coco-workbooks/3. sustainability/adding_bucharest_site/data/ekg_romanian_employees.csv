@@ -1,0 +1,51 @@
+employee_number,courtesy_title,first_name,middle_initials,surname,date_of_birth,email_address,pronouns,preferred_language,job_title
+EKG-001,Dl.,Alexandru,M.,Popescu,1985-03-14,alexandru.popescu@ekg.ro,el/lui,Română,Senior Software Engineer
+EKG-002,Dna.,Elena,C.,Ionescu,1990-07-22,elena.ionescu@ekg.ro,ea/ei,Română,Project Manager
+EKG-003,Dl.,Mihai,R.,Constantin,1978-11-05,mihai.constantin@ekg.ro,el/lui,Română,Chief Technology Officer
+EKG-004,Dna.,Andreea,L.,Popa,1995-02-18,andreea.popa@ekg.ro,ea/ei,Română,Data Analyst
+EKG-005,Dl.,Gheorghe,V.,Radu,1970-09-30,gheorghe.radu@ekg.ro,el/lui,Română,Finance Director
+EKG-006,Dna.,Cristina,A.,Dănilă,1988-05-11,cristina.danila@ekg.ro,ea/ei,Română,HR Business Partner
+EKG-007,Dl.,Bogdan,S.,Marin,1993-12-03,bogdan.marin@ekg.ro,el/lui,Română,DevOps Engineer
+EKG-008,Dna.,Ioana,M.,Stan,1982-08-25,ioana.stan@ekg.ro,ea/ei,Română,Legal Counsel
+EKG-009,Dl.,Radu,F.,Gheorghiu,1999-04-07,radu.gheorghiu@ekg.ro,el/lui,Română,Junior Software Engineer
+EKG-010,Dna.,Maria,T.,Nistor,1975-01-19,maria.nistor@ekg.ro,ea/ei,Română,Chief Executive Officer
+EKG-011,Dl.,Vlad,C.,Enache,1987-06-28,vlad.enache@ekg.ro,el/lui,Română,Solutions Architect
+EKG-012,Dna.,Roxana,I.,Dumitrescu,1992-10-14,roxana.dumitrescu@ekg.ro,ea/ei,Română,Marketing Manager
+EKG-013,Dl.,Cătălin,B.,Petrescu,1980-03-02,catalin.petrescu@ekg.ro,el/lui,Română,Database Administrator
+EKG-014,Dna.,Alina,G.,Văduva,1997-09-16,alina.vaduva@ekg.ro,ea/ei,Română,Business Analyst
+EKG-015,Dl.,Florin,N.,Stoica,1973-12-21,florin.stoica@ekg.ro,el/lui,Română,Operations Manager
+EKG-016,Dna.,Teodora,R.,Bălăceanu,1991-05-08,teodora.balaceanu@ekg.ro,ea/ei,Română,UX Designer
+EKG-017,Dl.,Andrei,P.,Lazăr,1996-07-31,andrei.lazar@ekg.ro,el/lui,Română,Software Engineer
+EKG-018,Dna.,Mihaela,D.,Apostol,1983-02-13,mihaela.apostol@ekg.ro,ea/ei,Română,Finance Controller
+EKG-019,Dl.,Sorin,E.,Matei,1968-11-27,sorin.matei@ekg.ro,el/lui,Română,Head of Security
+EKG-020,Dna.,Gabriela,V.,Ionescu,1994-04-04,gabriela.ionescu2@ekg.ro,ea/ei,Română,Product Owner
+EKG-021,Dl.,Lucian,H.,Preda,1986-08-19,lucian.preda@ekg.ro,el/lui,Română,Network Engineer
+EKG-022,Dna.,Raluca,C.,Neagu,1998-01-25,raluca.neagu@ekg.ro,ea/ei,Română,Junior Data Analyst
+EKG-023,Dl.,Ciprian,M.,Tudor,1977-06-10,ciprian.tudor@ekg.ro,el/lui,Română,Supply Chain Manager
+EKG-024,Dna.,Simona,A.,Florescu,1989-03-22,simona.florescu@ekg.ro,ea/ei,Română,Chief Financial Officer
+EKG-025,Dl.,Adrian,L.,Diaconu,2000-10-05,adrian.diaconu@ekg.ro,el/lui,Română,IT Support Technician
+EKG-026,Dna.,Nicoleta,F.,Oprea,1984-07-17,nicoleta.oprea@ekg.ro,ea/ei,Română,Quality Assurance Engineer
+EKG-027,Dl.,Sebastian,T.,Marinescu,1976-02-08,sebastian.marinescu@ekg.ro,el/lui,Română,Risk Manager
+EKG-028,Dna.,Laura,B.,Gheorghe,1993-11-30,laura.gheorghe@ekg.ro,ea/ei,Română,Scrum Master
+EKG-029,Dl.,Marian,S.,Bucur,1971-05-14,marian.bucur@ekg.ro,el/lui,Română,Facilities Manager
+EKG-030,Dna.,Oana,I.,Croitoru,1990-08-26,oana.croitoru@ekg.ro,ea/ei,Română,Recruitment Specialist
+EKG-031,Dl.,Cosmin,R.,Avram,1995-01-11,cosmin.avram@ekg.ro,el/lui,Română,Software Engineer
+EKG-032,Dna.,Bianca,M.,Tănase,1979-04-23,bianca.tanase@ekg.ro,ea/ei,Română,Training & Development Lead
+EKG-033,Dl.,Ionuț,C.,Stancu,1988-09-07,ionut.stancu@ekg.ro,el/lui,Română,Cloud Architect
+EKG-034,Dna.,Claudia,N.,Rusu,1997-12-19,claudia.rusu@ekg.ro,ea/ei,Română,Marketing Analyst
+EKG-035,Dl.,Dragoș,V.,Iordache,1974-06-03,dragos.iordache@ekg.ro,el/lui,Română,Enterprise Architect
+EKG-036,Dna.,Anca,P.,Ștefan,1986-03-15,anca.stefan@ekg.ro,ea/ei,Română,Payroll Specialist
+EKG-037,Dl.,Silviu,A.,Moldovan,1992-10-28,silviu.moldovan@ekg.ro,el/lui,Română,Backend Developer
+EKG-038,Dna.,Diana,F.,Cojocaru,1981-07-09,diana.cojocaru@ekg.ro,ea/ei,Română,Compliance Officer
+EKG-039,Dl.,Petru,G.,Halmaghi,1969-02-20,petru.halmaghi@ekg.ro,el/lui,Română,Chief Operating Officer
+EKG-040,Dna.,Irina,L.,Văcaru,1999-05-31,irina.vacaru@ekg.ro,ea/ei,Română,Frontend Developer
+EKG-041,Dl.,Răzvan,D.,Pîrvan,1983-11-16,razvan.pirvan@ekg.ro,el/lui,Română,IT Project Manager
+EKG-042,Dna.,Corina,S.,Aldea,1994-08-04,corina.aldea@ekg.ro,ea/ei,Română,Data Engineer
+EKG-043,Dl.,Cristian,B.,Lungu,1978-01-27,cristian.lungu@ekg.ro,el/lui,Română,Sales Director
+EKG-044,Dna.,Florentina,R.,Moise,1987-06-12,florentina.moise@ekg.ro,ea/ei,Română,Executive Assistant
+EKG-045,Dl.,Valentin,I.,Coman,1996-03-08,valentin.coman@ekg.ro,el/lui,Română,Machine Learning Engineer
+EKG-046,Dna.,Adina,C.,Petre,1973-09-24,adina.petre@ekg.ro,ea/ei,Română,Head of Legal
+EKG-047,Dl.,Marius,T.,Dumitru,1991-12-17,marius.dumitru@ekg.ro,el/lui,Română,Site Reliability Engineer
+EKG-048,Dna.,Lavinia,M.,Bota,1985-04-29,lavinia.bota@ekg.ro,ea/ei,Română,Customer Success Manager
+EKG-049,Dl.,Octavian,N.,Sandu,2001-07-13,octavian.sandu@ekg.ro,el/lui,Română,Apprentice Developer
+EKG-050,Dna.,Luminița,A.,Chiriac,1980-10-01,luminita.chiriac@ekg.ro,ea/ei,Română,Head of HR

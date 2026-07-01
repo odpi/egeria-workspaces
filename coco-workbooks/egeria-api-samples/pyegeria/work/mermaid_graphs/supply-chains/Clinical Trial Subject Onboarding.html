@@ -1,0 +1,139 @@
+
+    <!DOCTYPE html>
+    <html>
+        <head>
+          <style type="text/css">
+            #mySvgId {
+            width: 100%;
+            height: 600px;
+            overflow: scroll;
+            border: 2px solid #ccc;
+            position: relative;
+            margin-bottom: 10px;
+            }
+            svg {
+            cursor: grab;
+            }
+    
+          </style>
+        </head>
+    
+        <title>Information Supply Chain - Clinical Trial Subject Onboarding </title>
+        <h3>Information Supply Chain - Clinical Trial Subject Onboarding </h3>
+        GUID : 39a035f0-3b2b-45fe-adb8-ee8a19581f6a
+
+    
+        <body>
+        
+          <div id="graphDiv"></div>
+          <script src="https://bumbu.me/svg-pan-zoom/dist/svg-pan-zoom.min.js"></script>
+          <script type="module">
+            import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    
+            mermaid.initialize({startOnLoad: false});
+            await mermaid.run({
+              querySelector: '.mermaid',
+              postRenderCallback: (id) => {
+                const container = document.getElementById("diagram-container");
+                const svgElement = container.querySelector("svg");
+    
+                // Initialize Panzoom
+                const panzoomInstance = Panzoom(svgElement, {
+                  maxScale: 5,
+                  minScale: 0.5,
+                  step: 0.1,
+                });
+    
+                // Add mouse wheel zoom
+                container.addEventListener("wheel", (event) => {
+                  panzoomInstance.zoomWithWheel(event);
+                });
+              }
+            });
+    
+    
+            const drawDiagram = async function () {
+              const element = document.querySelector('#graphDiv');
+             const graphDefinition = `
+    flowchart TD
+%%{init: {"flowchart": {"htmlLabels": false}} }%%
+
+subgraph Overview
+39a035f0-3b2b-45fe-adb8-ee8a19581f6a@{ shape: card, label: "*Information Supply Chain*
+**Clinical Trial Subject Onboarding**"}
+6f162f0a-3d06-4220-b4bc-c1f0e67c821e@{ shape: text, label: "*Description*
+**Delivering the data necessary to add a person as a subject in the teddy bear drop foot clinical trial.**"}
+bd61f556-41e4-4a2e-b8fa-4b1292292e1a@{ shape: text, label: "*Purpose*
+**Ensure patient subject is aware of the process and potential risks in participation.**"}
+e0529333-d64f-4c22-a582-3df70b66f6ea@{ shape: text, label: "*Purpose*
+**Ensure patient subject has given permission for Coco Pharmaceuticals to acquire, store and process their personal data needed for the clinical trial.**"}
+3285ffbd-f301-468e-8fbb-71130157b183@{ shape: text, label: "*Purpose*
+**Ensure incoming data is validated and catalogued.**"}
+8506c913-22ae-4168-8fbf-d05c1448e09d@{ shape: text, label: "*Purpose*
+**Ensure data and process owners are informed of key milestones and issues requiring attention.**"}
+50b42e25-2232-4197-b5e2-d2cd679d40fc@{ shape: text, label: "*Purpose*
+**Ensure the process of data capture and validation is transparent and auditable.**"}
+end
+style 39a035f0-3b2b-45fe-adb8-ee8a19581f6a color:#004563, fill:#b0e0e6, stroke:#004563
+style 6f162f0a-3d06-4220-b4bc-c1f0e67c821e color:#000000, fill:#F9F7ED, stroke:#b7c0c7
+style bd61f556-41e4-4a2e-b8fa-4b1292292e1a color:#000000, fill:#F9F7ED, stroke:#b7c0c7
+style e0529333-d64f-4c22-a582-3df70b66f6ea color:#000000, fill:#F9F7ED, stroke:#b7c0c7
+style 50b42e25-2232-4197-b5e2-d2cd679d40fc color:#000000, fill:#F9F7ED, stroke:#b7c0c7
+style 3285ffbd-f301-468e-8fbb-71130157b183 color:#000000, fill:#F9F7ED, stroke:#b7c0c7
+style Overview color:#000000, fill:#F9F7ED, stroke:#b7c0c7
+style 8506c913-22ae-4168-8fbf-d05c1448e09d color:#000000, fill:#F9F7ED, stroke:#b7c0c7`;
+              const {svg} = await mermaid.render('mySvgId', graphDefinition);
+              element.innerHTML = svg.replace(/( )*max-width:( 0-9\.)*px;/i, '');
+    
+              var doPan = false;
+              var eventsHandler;
+              var panZoom;
+              var mousepos;
+    
+              eventsHandler = {
+                haltEventListeners: ['mousedown', 'mousemove', 'mouseup']
+    
+                , mouseDownHandler: function (ev) {
+                  if (event.target.className == "[object SVGAnimatedString]") {
+                    doPan = true;
+                    mousepos = {x: ev.clientX, y: ev.clientY}
+                  }
+                  ;
+                }
+    
+                , mouseMoveHandler: function (ev) {
+                  if (doPan) {
+                    panZoom.panBy({x: ev.clientX - mousepos.x, y: ev.clientY - mousepos.y});
+                    mousepos = {x: ev.clientX, y: ev.clientY};
+                    window.getSelection().removeAllRanges();
+                  }
+                }
+    
+                , mouseUpHandler: function (ev) {
+                  doPan = false;
+                }
+    
+                , init: function (options) {
+                  options.svgElement.addEventListener('mousedown', this.mouseDownHandler, false);
+                  options.svgElement.addEventListener('mousemove', this.mouseMoveHandler, false);
+                  options.svgElement.addEventListener('mouseup', this.mouseUpHandler, false);
+                }
+    
+                , destroy: function (options) {
+                  options.svgElement.removeEventListener('mousedown', this.mouseDownHandler, false);
+                  options.svgElement.removeEventListener('mousemove', this.mouseMoveHandler, false);
+                  options.svgElement.removeEventListener('mouseup', this.mouseUpHandler, false);
+                }
+              }
+              panZoom = svgPanZoom('#mySvgId', {
+                zoomEnabled: true
+                , controlIconsEnabled: true
+                , fit: 1
+                , center: 1
+                , customEventsHandler: eventsHandler
+              })
+            };
+            await drawDiagram();
+          </script>
+        </body>    
+    
