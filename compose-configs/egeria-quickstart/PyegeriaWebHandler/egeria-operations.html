@@ -1352,6 +1352,7 @@ function App() {
   var _srv   = useState(false),  srvManaged = _srv[0],     setSrvManaged = _srv[1];
   var _admin = useState(false),  isAdmin    = _admin[0],   setAdmin      = _admin[1];
   var _dm    = useState(false),  demoMode   = _dm[0],      setDemoMode   = _dm[1];
+  var _pid   = useState(null),   personaId  = _pid[0],     setPersonaId  = _pid[1];
   var _pl    = useState([]),     platforms  = _pl[0],      setPlatforms  = _pl[1];
   var _pf    = useState(null),   platform   = _pf[0],      setPlatform   = _pf[1];
   var _t = useState(function() {
@@ -1369,11 +1370,12 @@ function App() {
       setAdmin(d.role === 'admin');
       setDemoMode(!d.server_managed_auth);
       if (d.server_managed_auth) {
-        if (d.authenticated && d.id) setWho({ label: d.display_name || d.id, sub: d.role || '' });
+        if (d.authenticated && d.id) { setWho({ label: d.display_name || d.id, sub: d.role || '' }); setPersonaId(d.id); }
         setCreds({}); setReady(true); return;
       }
       var sp = null; try { var s = localStorage.getItem('egeria-persona'); sp = s ? JSON.parse(s) : null; } catch(e) {}
       if (sp && sp.id) {
+        setPersonaId(sp.id);
         setWho({ label: '🎭 ' + (sp.display_name || sp.id), sub: sp.id });
         fetch('/api/demo/select-persona', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ persona: sp.id }) })
           .then(function(r){ return r.json(); }).then(function(sel) {
@@ -1436,7 +1438,8 @@ function App() {
     : active.id === 'engines'    ? el(EnginesTab,    Object.assign({ key:'engines@'+credKey },    shared))
     : el(ActionsTab, Object.assign({ key:'actions@'+credKey }, shared));
 
-  return el(CredContext.Provider, { value: creds },
+  return el(PersonaContext.Provider, { value: personaId },
+    el(CredContext.Provider, { value: creds },
     el('div', { style: { display:'flex', flexDirection:'column', height:'100vh', background:'var(--bg)', color:'var(--text)' } },
       el('div', { style: { display:'flex', alignItems:'center', gap:10, padding:'0 16px', height:46, borderBottom:'1px solid var(--border)', background:'var(--panel)', flexShrink:0 } },
         el('span', { style: { fontSize:18 } }, '⚙️'),
@@ -1445,10 +1448,11 @@ function App() {
         el('div', { style: { flex:1 } }),
         isAdmin && el('span', { style: { fontSize:11, color:'#34d399', marginRight:4 } }, '🔓 Admin'),
         who && el('span', { title: who.sub || '', style: { fontSize:12, color:'var(--accent)', background:'rgba(96,165,250,.1)', border:'1px solid rgba(96,165,250,.3)', borderRadius:12, padding:'2px 10px' } }, who.label),
+        personaId && el(FavoriteButton, { app:'egeria-operations', section:active.id, label:active.label, icon:'⚙️', url:'/egeria-operations#'+active.id, personaId:personaId }),
         el(FeedbackButton, { section: active.id, persona: who ? who.sub : null, demoMode: demoMode, srvManaged: srvManaged, pagePrefix: 'egeria-operations/' }),
         el('a', { href:'/portal', style: { fontSize:12, color:'var(--muted)', textDecoration:'none', marginLeft:4 } }, '⌂ Portal')),
       el('div', { style: { display:'flex', gap:4, padding:'0 12px', borderBottom:'1px solid var(--border)', background:'var(--panel)', flexShrink:0 } }, TABS.map(tabBtn)),
-      el('div', { style: { flex:1, overflow:'hidden' } }, content)));
+      el('div', { style: { flex:1, overflow:'hidden' } }, content))))
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(el(App));

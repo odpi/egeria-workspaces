@@ -854,11 +854,15 @@ function useServerTab({ creds, platform, serverType, endpoint, rowKey }) {
   var _em = useState(''),    errMsg = _em[0],  setErrMsg = _em[1];
   var _b  = useState(false), busy   = _b[0],  setBusy   = _b[1];
   var _sel= useState(null),  selKey = _sel[0],setSelKey = _sel[1];
+  var _st = useState(false), stale  = _st[0], setStale  = _st[1];
+  var retryTimer = useRef(null);
   var servers = (platform && platform.servers || []).filter(function(s){ return s.serverType === serverType; });
-  // default the server when the platform (or its matching servers) changes
   useEffect(function(){ setSelKey(null); setServer(servers[0] || null); }, [platform && platform.guid, servers.length]);
+  // cancel any pending retry on unmount
+  useEffect(function(){ return function(){ if (retryTimer.current) clearTimeout(retryTimer.current); }; }, []);
   function load() {
     if (!server) { setRows([]); setState('idle'); return; }
+    if (retryTimer.current) { clearTimeout(retryTimer.current); retryTimer.current = null; }
     setBusy(true); setErrMsg(''); if (state !== 'ready') setState('loading');
     egeriaFetch(endpoint + '?server_guid=' + encodeURIComponent(server.guid), creds)
       .then(function(r) {
@@ -871,12 +875,20 @@ function useServerTab({ creds, platform, serverType, endpoint, rowKey }) {
           throw new Error('Failed to load (HTTP ' + status + ').' + (detail ? ' ' + detail : ''));
         });
       })
-      .then(function(d){ setRows((d && (d.connectors || d.engines)) || []); setState('ready'); setBusy(false); })
+      .then(function(d){
+        if (d && d.loading) {
+          // backend is fetching from Egeria in background — poll again in 8 s
+          setBusy(false); setState('loading');
+          retryTimer.current = setTimeout(load, 8000);
+          return;
+        }
+        setRows((d && (d.connectors || d.engines)) || []); setStale(!!(d && d.stale)); setState('ready'); setBusy(false);
+      })
       .catch(function(e){ setErrMsg(e.message || 'Failed to load.'); setState('error'); setBusy(false); });
   }
   useEffect(load, [server && server.guid]);
   return { server:server, setServer:setServer, servers:servers, rows:rows, state:state, errMsg:errMsg, busy:busy, load:load,
-           selKey:selKey, setSelKey:setSelKey };
+           selKey:selKey, setSelKey:setSelKey, stale:stale };
 }
 
 // docked resizable detail panel (shared by the report-driven tabs)
@@ -974,7 +986,7 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform }) {
   }
 
   var table = el('div', { style:{ flex:1, overflow:'auto', minWidth:0 } },
-    t.state === 'loading' ? el('div', { style: pad }, 'Loading connectors…')
+    t.state === 'loading' ? el('div', { style: pad }, 'Fetching connector data from Egeria — this can take a minute on first load. The page will update automatically.')
     : t.state === 'error' ? el('div', { style: Object.assign({}, pad, { color: '#f87171' }) }, t.errMsg || 'Failed to load connectors.')
     : !t.server ? el('div', { style: pad }, 'No Integration Daemon on this platform.')
     : rows.length === 0 ? el('div', { style: pad }, t.rows.length ? 'No connectors match the filter.' : 'No connectors on this daemon.')
@@ -1010,6 +1022,8 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform }) {
   var sectionHdr = function(label){ return el('div', { style:{ fontSize:10, color:'var(--muted)', textTransform:'uppercase', letterSpacing:1, fontWeight:600, marginTop:16, marginBottom:6 } }, label); };
 
   return el('div', { style:{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' } },
+    t.stale && el('div', { style:{ padding:'3px 14px', fontSize:11, background:'rgba(251,191,36,.08)', borderBottom:'1px solid rgba(251,191,36,.3)', color:'#fbbf24' } },
+      '⏱ Showing cached data — live status is refreshing in the background.'),
     el(OpsToolbar, { platforms:platforms, platform:platform, onPlatform:onPlatform, servers:t.servers, server:t.server, onServer:t.setServer, serverLabel:'Daemon', onRefresh:loadAndClear, busy:t.busy, children:filters }),
     el('div', { style:{ flex:1, display:'flex', overflow:'hidden', minHeight:0 } },
       table,
@@ -1338,6 +1352,7 @@ function App() {
   var _srv   = useState(false),  srvManaged = _srv[0],     setSrvManaged = _srv[1];
   var _admin = useState(false),  isAdmin    = _admin[0],   setAdmin      = _admin[1];
   var _dm    = useState(false),  demoMode   = _dm[0],      setDemoMode   = _dm[1];
+  var _pid   = useState(null),   personaId  = _pid[0],     setPersonaId  = _pid[1];
   var _pl    = useState([]),     platforms  = _pl[0],      setPlatforms  = _pl[1];
   var _pf    = useState(null),   platform   = _pf[0],      setPlatform   = _pf[1];
   var _t = useState(function() {
@@ -1355,11 +1370,12 @@ function App() {
       setAdmin(d.role === 'admin');
       setDemoMode(!d.server_managed_auth);
       if (d.server_managed_auth) {
-        if (d.authenticated && d.id) setWho({ label: d.display_name || d.id, sub: d.role || '' });
+        if (d.authenticated && d.id) { setWho({ label: d.display_name || d.id, sub: d.role || '' }); setPersonaId(d.id); }
         setCreds({}); setReady(true); return;
       }
       var sp = null; try { var s = localStorage.getItem('egeria-persona'); sp = s ? JSON.parse(s) : null; } catch(e) {}
       if (sp && sp.id) {
+        setPersonaId(sp.id);
         setWho({ label: '🎭 ' + (sp.display_name || sp.id), sub: sp.id });
         fetch('/api/demo/select-persona', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ persona: sp.id }) })
           .then(function(r){ return r.json(); }).then(function(sel) {
@@ -1422,7 +1438,8 @@ function App() {
     : active.id === 'engines'    ? el(EnginesTab,    Object.assign({ key:'engines@'+credKey },    shared))
     : el(ActionsTab, Object.assign({ key:'actions@'+credKey }, shared));
 
-  return el(CredContext.Provider, { value: creds },
+  return el(PersonaContext.Provider, { value: personaId },
+    el(CredContext.Provider, { value: creds },
     el('div', { style: { display:'flex', flexDirection:'column', height:'100vh', background:'var(--bg)', color:'var(--text)' } },
       el('div', { style: { display:'flex', alignItems:'center', gap:10, padding:'0 16px', height:46, borderBottom:'1px solid var(--border)', background:'var(--panel)', flexShrink:0 } },
         el('span', { style: { fontSize:18 } }, '⚙️'),
@@ -1431,10 +1448,11 @@ function App() {
         el('div', { style: { flex:1 } }),
         isAdmin && el('span', { style: { fontSize:11, color:'#34d399', marginRight:4 } }, '🔓 Admin'),
         who && el('span', { title: who.sub || '', style: { fontSize:12, color:'var(--accent)', background:'rgba(96,165,250,.1)', border:'1px solid rgba(96,165,250,.3)', borderRadius:12, padding:'2px 10px' } }, who.label),
+        personaId && el(FavoriteButton, { app:'egeria-operations', section:active.id, label:active.label, icon:'⚙️', url:'/egeria-operations#'+active.id, personaId:personaId }),
         el(FeedbackButton, { section: active.id, persona: who ? who.sub : null, demoMode: demoMode, srvManaged: srvManaged, pagePrefix: 'egeria-operations/' }),
         el('a', { href:'/portal', style: { fontSize:12, color:'var(--muted)', textDecoration:'none', marginLeft:4 } }, '⌂ Portal')),
       el('div', { style: { display:'flex', gap:4, padding:'0 12px', borderBottom:'1px solid var(--border)', background:'var(--panel)', flexShrink:0 } }, TABS.map(tabBtn)),
-      el('div', { style: { flex:1, overflow:'hidden' } }, content)));
+      el('div', { style: { flex:1, overflow:'hidden' } }, content))))
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(el(App));
