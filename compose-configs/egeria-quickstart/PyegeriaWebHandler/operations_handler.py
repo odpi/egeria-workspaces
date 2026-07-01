@@ -512,21 +512,20 @@ class _ConnectorActionBody(BaseModel):
 def _connector_restart(rm, server_guid: str, connector_name: str) -> None:
     """Restart a named integration connector via the correct Egeria 6.x API.
 
-    pyegeria's start_connector / stop_connector use the deprecated singular
-    `/integration-daemon/` URL path (GET request) which Egeria 6.x no longer
-    exposes.  The current API is:
+    pyegeria's start_connector / stop_connector (container version) use the broken
+    singular `/integration-daemon/` URL path (GET request) which Egeria 6.x no
+    longer exposes.  The correct endpoint mirrors _async_refresh_integration_connector:
       POST .../runtime-manager/integration-daemons/{guid}/integration-connectors/restart
-    with body {"class": "NameRequestBody", "name": connectorName}.
-    This is the same pattern as _async_refresh_integration_connector.
     Egeria 6.x does not expose a separate stop endpoint via the view-server
-    runtime-manager OMVS — restart is the correct action for "start a connector".
+    runtime-manager OMVS — restart is the correct equivalent for start/stop.
     """
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(
-        rm._async_restart_integration_connectors(
-            server_guid=server_guid, connector_name=connector_name
-        )
+    url = (
+        f"{rm.runtime_command_root}/integration-daemons/"
+        f"{server_guid}/integration-connectors/restart"
     )
+    body = {"class": "NameRequestBody", "name": connector_name}
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(rm._async_make_request("POST", url, body))
 
 
 @router.post("/api/operations/connector/{action}", summary="Start/stop/refresh a connector (admin only)")
