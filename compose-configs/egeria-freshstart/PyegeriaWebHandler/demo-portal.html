@@ -66,11 +66,14 @@
     .bio-highlights span::before { content: "→ "; color: var(--accent); }
     .bio-footer { margin-top: 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-    /* ── Favorites strip ── */
+    /* ── Bookmarks strip ── */
     .fav-strip { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 4px; }
     .fav-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 7px 15px; font-size: 0.85rem; text-decoration: none; color: var(--text); transition: border-color 0.15s, background 0.15s; cursor: pointer; white-space: nowrap; }
     .fav-chip:hover { border-color: var(--accent); background: var(--bg); }
     .fav-chip-icon { font-size: 1rem; line-height: 1; }
+    .fav-chip-del { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 13px; line-height: 1; padding: 0; margin-left: 1px; opacity: 0; transition: opacity 0.15s, background 0.15s; font-family: inherit; }
+    .fav-chip:hover .fav-chip-del { opacity: 1; }
+    .fav-chip-del:hover { background: rgba(248,113,113,.2); color: #f87171; }
 
     /* ── App grid ── */
     .section-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
@@ -215,9 +218,9 @@
 
   </div>
 
-  <!-- My Favorites -->
+  <!-- My Bookmarks -->
   <div id="favorites-section" style="display:none; margin-bottom: 28px;">
-    <div class="section-label">My Favorites</div>
+    <div class="section-label">My Bookmarks</div>
     <div class="fav-strip" id="fav-strip"></div>
   </div>
 
@@ -359,8 +362,16 @@ function applyPersonaUI(persona) {
   _renderJupBookmark(persona.id);
 }
 
-// ── Favorites ─────────────────────────────────────────────────────────────────
+// ── Bookmarks ─────────────────────────────────────────────────────────────────
 var _favoritesLoaded = false;
+
+function removeBookmark(id) {
+  var persona = _currentPersonaId;
+  if (!persona) return;
+  fetch('/api/favorites/' + encodeURIComponent(id) + '?persona=' + encodeURIComponent(persona), { method: 'DELETE' })
+    .then(function() { loadFavorites(persona); })
+    .catch(function() {});
+}
 
 function loadFavorites(personaId) {
   if (!personaId) return;
@@ -379,10 +390,13 @@ function renderFavorites(favs) {
   }
   section.style.display = '';
   strip.innerHTML = favs.map(function(f) {
-    return '<a class="fav-chip" href="' + esc(f.url) + '">' +
-      '<span class="fav-chip-icon">' + (f.icon || '⭐') + '</span>' +
-      '<span>' + esc(f.label) + '</span>' +
-      '</a>';
+    var delBtn = '<button class="fav-chip-del" title="Remove bookmark"'
+      + ' onclick="event.preventDefault();event.stopPropagation();removeBookmark(' + JSON.stringify(f.id) + ')">×</button>';
+    return '<a class="fav-chip" href="' + esc(f.url) + '">'
+      + '<span class="fav-chip-icon">' + (f.icon || '⭐') + '</span>'
+      + '<span>' + esc(f.label) + '</span>'
+      + delBtn
+      + '</a>';
   }).join('');
 }
 
