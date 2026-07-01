@@ -515,12 +515,12 @@ class _ConnectorActionBody(BaseModel):
 def connector_action(action: str, request: Request, body: _ConnectorActionBody,
                      url: Optional[str] = Query(None), server: Optional[str] = Query(None),
                      user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None)):
-    if action not in ("start", "stop", "refresh"):
+    if action not in ("restart", "refresh"):
         raise HTTPException(status_code=400, detail=f"Unsupported connector action {action!r}")
     _admin_gate(request)
     try:
         rm = _runtime_manager(url, server, user_id, user_pwd)
-        if action in ("start", "stop"):
+        if action == "restart":
             rm.restart_connector(server_guid=body.server_guid, connector_name=body.connector_name)
         else:
             # Refresh can take several minutes (external actions, large surveys) — run in
