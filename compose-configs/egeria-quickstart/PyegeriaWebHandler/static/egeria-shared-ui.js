@@ -801,6 +801,10 @@ function FeedbackButton({ section, persona, demoMode, srvManaged, pagePrefix }) 
  * ────────────────────────────────────────────────────────────────────────── */
 var CredContext = React.createContext({ url: '', server: '', userId: '', password: '' });
 
+// PersonaContext — the active persona/user ID for the favorites API (null if unknown).
+// Set by each SPA's App via PersonaContext.Provider and read by detail panels.
+var PersonaContext = React.createContext(null);
+
 /* Single lazy-loading diagram panel. fetchUrl is called on first open; label
  * appears in the header. field: which key to read from the JSON response
  * (default 'mermaidGraph'). Reads creds from CredContext + uses egeriaFetch so
@@ -957,6 +961,7 @@ function GlossaryDetail({ glossary }) {
 
 function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign, onNavigateToElement, isElementLinkable }) {
   if (!term) return null;
+  var personaId = React.useContext(PersonaContext);
   var sHdr   = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
   var fields = [['Qualified Name', term.qualifiedName],['GUID', term.guid],['Abbreviation', term.abbreviation],['Summary', term.summary],['Examples', term.examples],['Usage', term.usage],['Status', term.status],['Content Status', term.contentStatus],['Activity Status', term.activityStatus]].filter(function(r){return r[1]&&String(r[1]).trim();});
   var folderList = term.folders || [];
@@ -964,12 +969,16 @@ function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign, on
   var relBtnStyle = { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' };
   var ddBtnStyle  = { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(94,234,212,.4)', background: 'rgba(94,234,212,.1)', color: '#5eead4', cursor: 'pointer' };
   var DD_TYPES = { DataField: true, DataStructure: true, DataSpec: true, DataGrain: true, DataClass: true };
+  var termFavUrl = '/egeria-explorer?guid=' + encodeURIComponent(term.guid) + '#glossary';
   return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement('div', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)' } }, term.displayName),
       term.isTemplateSubstitute && React.createElement('span', { style: Object.assign({}, _glsBadge, { background: 'rgba(245,158,11,.15)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.4)' }) }, 'Template Substitute'),
       !term.isTemplateSubstitute && term.isSourcedFromTemplate && React.createElement('span', { style: Object.assign({}, _glsBadge, { background: 'rgba(245,158,11,.08)', color: '#fbbf24', border: '0.5px solid rgba(245,158,11,.25)' }) }, 'From Template'),
-      React.createElement('div', { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: term.guid })),
+      React.createElement('div', { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        personaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'glossary', label: term.displayName || term.qualifiedName, icon: '≡', url: termFavUrl, personaId: personaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: term.guid })
+      ),
       React.createElement(CopyJsonButton, { data: term })
     ),
     folderList.length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8, marginTop: 6 } },
@@ -1701,6 +1710,65 @@ function CopyJsonButton({ data, title }) {
       fontFamily: 'ui-monospace,monospace', transition: 'color 0.15s'
     }
   }, label);
+}
+
+/*
+ * FavoriteButton — toggles a section/element as a portal favorite for the
+ * active persona. Backed by /api/favorites (demo mode only — returns null
+ * outside demo mode or before a persona is selected).
+ *
+ * Props: app, section, label, icon, url, personaId, demoMode
+ */
+function FavoriteButton({ app, section, label, icon, url, personaId, demoMode }) {
+  var _stateH = React.useState('loading'), state = _stateH[0], setState = _stateH[1]; // loading | on | off
+  var _idH    = React.useState(null),      favId = _idH[0],    setFavId = _idH[1];
+
+  React.useEffect(function() {
+    if (!personaId || !section) { setState('off'); return; }
+    setState('loading');
+    fetch('/api/favorites?persona=' + encodeURIComponent(personaId))
+      .then(function(r) { return r.ok ? r.json() : []; })
+      .then(function(favs) {
+        var match = (favs || []).find(function(f) { return f.url === url; });
+        if (match) { setFavId(match.id); setState('on'); }
+        else { setFavId(null); setState('off'); }
+      })
+      .catch(function() { setState('off'); });
+  }, [app, section, url, personaId]);
+
+  function toggle(e) {
+    e.stopPropagation();
+    if (!personaId || state === 'loading') return;
+    setState('loading');
+    if (favId) {
+      fetch('/api/favorites/' + encodeURIComponent(favId) + '?persona=' + encodeURIComponent(personaId), { method: 'DELETE' })
+        .then(function(r) { if (r.ok) { setFavId(null); setState('off'); } else { setState('on'); } })
+        .catch(function() { setState('on'); });
+    } else {
+      fetch('/api/favorites?persona=' + encodeURIComponent(personaId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ app: app, section: section, label: label, icon: icon, url: url }),
+      })
+        .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function(res) { setFavId(res.id); setState('on'); })
+        .catch(function() { setState('off'); });
+    }
+  }
+
+  if (!personaId) return null;
+
+  return React.createElement('button', {
+    onClick: toggle,
+    disabled: state === 'loading',
+    title: state === 'on' ? 'Remove from My Favorites' : 'Add to My Favorites',
+    style: {
+      background: 'none', border: 'none', cursor: state === 'loading' ? 'default' : 'pointer',
+      fontSize: 16, lineHeight: 1, padding: '2px 6px',
+      color: state === 'on' ? '#34d399' : 'var(--muted)',
+      opacity: state === 'loading' ? 0.5 : 1,
+    },
+  }, state === 'on' ? '☑' : '☐');
 }
 
 function simplePillRow(values, labelFn, fSet, setFSet) {

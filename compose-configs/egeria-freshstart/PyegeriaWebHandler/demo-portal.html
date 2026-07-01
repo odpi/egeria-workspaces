@@ -5,7 +5,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Egeria Freshstart Demo Sandbox</title>
+  <title>Egeria Quickstart Demo Sandbox · Coco Pharmaceuticals</title>
   <style>
     :root {
       --bg:      #1a1a2e;
@@ -25,8 +25,9 @@
     .hdr-logos { display: flex; align-items: center; gap: 12px; }
     .hdr-title { font-size: 1rem; font-weight: 700; white-space: nowrap; }
     .hdr-right { display: flex; align-items: center; gap: 10px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
-    .user-chip { display: flex; align-items: center; gap: 8px; background: var(--border); border-radius: 20px; padding: 4px 14px 4px 10px; font-size: 0.82rem; }
-    .user-chip .name { font-weight: 600; }
+    .persona-chip { display: flex; align-items: center; gap: 8px; background: var(--border); border-radius: 20px; padding: 4px 14px 4px 10px; font-size: 0.82rem; }
+    .persona-chip .name { font-weight: 600; }
+    .persona-chip .role { color: var(--muted); font-size: 0.75rem; }
     .btn { display: inline-block; padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; font-size: 0.82rem; white-space: nowrap; transition: background 0.12s; text-decoration: none; box-sizing: border-box; vertical-align: middle; line-height: normal; }
     .btn:hover { background: var(--border); }
     .btn-accent { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -50,6 +51,27 @@
     /* ── Main ── */
     .main { max-width: 1060px; margin: 0 auto; padding: 32px 28px; }
 
+    /* ── Persona section ── */
+    .persona-section { margin-bottom: 36px; }
+    .persona-cta { background: var(--card); border: 2px dashed var(--border); border-radius: 10px; padding: 24px 28px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+    .persona-cta-text h3 { font-size: 1rem; margin-bottom: 4px; }
+    .persona-cta-text p  { font-size: 0.85rem; color: var(--muted); }
+    .persona-bio { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+    .bio-body { flex: 1; min-width: 200px; }
+    .bio-body p  { color: var(--muted); font-size: 0.87rem; line-height: 1.55; margin-bottom: 12px; }
+    .bio-link   { font-size: 0.82rem; color: var(--accent); text-decoration: none; }
+    .bio-link:hover { text-decoration: underline; }
+    .bio-highlights { display: flex; flex-direction: column; gap: 5px; }
+    .bio-highlights span { font-size: 0.82rem; color: var(--muted); }
+    .bio-highlights span::before { content: "→ "; color: var(--accent); }
+    .bio-footer { margin-top: 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+    /* ── Favorites strip ── */
+    .fav-strip { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 4px; }
+    .fav-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 7px 15px; font-size: 0.85rem; text-decoration: none; color: var(--text); transition: border-color 0.15s, background 0.15s; cursor: pointer; white-space: nowrap; }
+    .fav-chip:hover { border-color: var(--accent); background: var(--bg); }
+    .fav-chip-icon { font-size: 1rem; line-height: 1; }
+
     /* ── App grid ── */
     .section-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
     .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
@@ -62,13 +84,50 @@
     .app-action { margin-top: 8px; }
     .soon-badge { font-size: 0.7rem; background: var(--border); color: var(--muted); padding: 3px 8px; border-radius: 4px; display: inline-block; }
 
+    /* ── Persona picker overlay ── */
+    .overlay  { position: fixed; inset: 0; background: var(--overlay); display: flex; align-items: center; justify-content: center; z-index: 900; }
+    .p-modal  { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 28px 32px 32px; width: min(940px, 96vw); max-height: 88vh; overflow-y: auto; position: relative; }
+    .p-modal-hdr  { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .p-modal-hdr-left { flex: 1; min-width: 0; }
+    .p-modal-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 4px; }
+    .p-modal-sub  { color: var(--muted); font-size: 0.85rem; }
+    .p-modal-hdr-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+    .p-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+    .pcard  { background: var(--bg); border: 2px solid var(--border); border-radius: 10px; padding: 16px; cursor: pointer; transition: border-color 0.15s; }
+    .pcard:hover    { border-color: var(--accent); }
+    .pcard.selected { border-color: var(--green); }
+    .pcard-meta  { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+    .pcard-name  { font-weight: 600; margin-bottom: 2px; }
+    .pcard-title { color: var(--muted); font-size: 0.78rem; margin-bottom: 8px; }
+    .pcard-bio   { font-size: 0.78rem; color: var(--muted); margin-bottom: 10px; line-height: 1.4; }
+    .pcard-link  { font-size: 0.74rem; color: var(--accent); text-decoration: none; }
+    .pcard-link:hover { text-decoration: underline; }
+    .p-modal-hdr-actions .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .dbadge { font-size: 0.68rem; padding: 2px 7px; border-radius: 4px; }
+    .d-Starter   { background: #1a3a1a; color: #4caf50; }
+    .d-Business  { background: #1a2a3a; color: #64b5f6; }
+    .d-Technical { background: #2a1a3a; color: #ce93d8; }
+    .sbadge { font-size: 0.68rem; background: #4caf50; color: #fff; padding: 2px 7px; border-radius: 4px; }
+
+    /* ── Obsidian tile live states ── */
+    .obs-status { font-size: 0.78rem; padding: 4px 8px; border-radius: 4px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+    .obs-free  { background: #1a3a1a; color: #4caf50; }
+    .obs-mine  { background: #0d2a3a; color: #69f0ae; }
+    .obs-busy  { background: #3a1a1a; color: #ef9a9a; }
+    .obs-stuck { background: #3a2a1a; color: #ffcc80; }
+    .obs-hint  { font-size: 0.74rem; color: var(--muted); margin-top: 4px; }
+    .obs-evict { background: var(--accent); color: #fff; border-radius: 6px; padding: 8px 10px; font-size: 0.8rem; margin-bottom: 8px; }
+    .obs-actions { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+    .obs-actions .btn { width: 100%; display: block; text-align: center; box-sizing: border-box; }
+
     /* ── Footer ── */
     .ftr { border-top: 1px solid var(--border); padding: 16px 28px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
     .ftr-links { display: flex; flex-wrap: wrap; gap: 6px 18px; justify-content: center; font-size: 0.78rem; }
     .ftr-links a { color: var(--muted); text-decoration: none; }
     .ftr-links a:hover { color: var(--accent); text-decoration: underline; }
-
-    #loading-state { text-align: center; padding-top: 100px; color: var(--muted); font-size: 0.95rem; }
+    .ftr-stars { font-size: 0.76rem; color: var(--muted); text-align: center; }
+    .ftr-stars a { color: var(--muted); text-decoration: none; margin: 0 4px; }
+    .ftr-stars a:hover { color: var(--accent); }
   </style>
 </head>
 <body>
@@ -78,13 +137,14 @@
   <div class="hdr-logos">
     <img src="/static/egeria-logo.png" alt="Egeria" style="height:26px">
   </div>
-  <div class="hdr-title" id="hdr-title">Egeria Freshstart Demo Sandbox</div>
-  <div class="hdr-right" id="hdr-right" style="display:none">
-    <div class="user-chip" id="user-chip" style="display:none">
-      <span>👤</span>
-      <div><div class="name" id="chip-name"></div></div>
+  <div class="hdr-title" id="hdr-title">Egeria Quickstart Demo Sandbox</div>
+  <div class="hdr-right">
+    <div id="persona-chip" class="persona-chip" style="display:none">
+      <span>🎭</span>
+      <div><div class="name" id="chip-name"></div><div class="role" id="chip-role"></div></div>
     </div>
-    <button class="btn" onclick="doLogout()">Log out</button>
+    <button class="btn" id="persona-btn" onclick="openPicker()">Choose Persona</button>
+    <button class="btn" id="logout-btn" onclick="doLogout()">Log out</button>
   </div>
 </header>
 
@@ -92,8 +152,8 @@
 <div class="hero">
   <div class="hero-inner">
     <div class="hero-text">
-      <h1 id="hero-title">Welcome to Egeria Freshstart Demo Sandbox</h1>
-      <p id="hero-sub">A clean, authenticated Egeria metadata environment. Explore the open metadata platform, run notebooks, and govern your data landscape. Select a tool below to get started.</p>
+      <h1 id="hero-title">Welcome to the Egeria Quickstart Demo Sandbox</h1>
+      <p id="hero-sub">This environment showcases <strong>Egeria</strong> — the open metadata platform — using Coco Pharmaceuticals, a fictional company whose data landscape illustrates real-world governance, lineage, and cataloguing challenges. Register once, choose a persona, and explore the metadata environment from that character's perspective.</p>
     </div>
     <div class="hero-links">
       <div>
@@ -101,6 +161,7 @@
         <div class="hero-links-row">
           <a href="https://egeria-project.ai" target="_blank" rel="noopener">Documentation ↗</a>
           <a href="https://github.com/odpi" target="_blank" rel="noopener">GitHub ↗</a>
+          <a href="https://egeria-project.org/practices/coco-pharmaceuticals" target="_blank" rel="noopener">Coco Pharmaceuticals ↗</a>
         </div>
       </div>
       <div>
@@ -118,18 +179,58 @@
 
 <!-- ── Main ───────────────────────────────────────────────────────────────── -->
 <main class="main">
-  <div id="loading-state">Loading…</div>
 
-  <div id="hub" style="display:none">
-    <div class="section-label">Available Tools</div>
-    <div class="app-grid" id="app-grid"></div>
-
-    <div class="section-label" style="margin-top:32px">Documentation</div>
-    <div class="app-grid" id="doc-grid"></div>
-
-    <div class="section-label" style="margin-top:16px">API Reference</div>
-    <div class="app-grid" id="api-grid"></div>
+  <!-- Coco Pharmaceuticals intro — always visible -->
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px 24px;margin-bottom:24px;line-height:1.65;">
+    <span style="font-weight:700;color:var(--text)">Coco Pharmaceuticals</span>
+    <span style="color:var(--muted);font-size:0.88rem"> is a fictional mid-sized pharmaceutical company that is growing and evolving quickly to meet new challenges and opportunities. New products are being developed and evaluated through Clinical Trials, new mergers and acquisitions are evolving the business, and new regulations need to be addressed and accommodated. To support them in their efforts, Coco Pharmaceuticals has been adopting Egeria to help them understand, transform and manage their business data, and support the use of AI, new applications and new analytical techniques. Come and join them on this exciting journey. Start by choosing one of the many personas that are part of Coco Pharmaceuticals to view this environment from their perspective.
+    </span>
+    <a href="/docs/viewer.html?src=quickstart/coco/overview.md" target="_blank" rel="noopener" style="color:var(--accent);font-size:0.82rem;text-decoration:none;white-space:nowrap"> Learn more ↗</a>
   </div>
+
+  <!-- Persona section -->
+  <div class="persona-section">
+
+    <!-- CTA — shown when no persona selected -->
+    <div id="persona-cta" class="persona-cta" style="display:none">
+      <div style="font-size:2rem">🎭</div>
+      <div class="persona-cta-text" style="flex:1">
+        <h3>Choose a persona to personalise your view</h3>
+        <p>Each persona represents a Coco Pharmaceuticals employee with a different role and focus. Selecting one sets your credentials and highlights the most relevant tools for that perspective.</p>
+      </div>
+      <button class="btn btn-accent" onclick="openPicker()">Choose Persona</button>
+    </div>
+
+    <!-- Bio card — shown when persona is selected -->
+    <div id="persona-bio" class="persona-bio" style="display:none">
+      <div class="bio-body">
+        <p id="bio-text"></p>
+        <a id="bio-link" class="bio-link" href="#" target="_blank" rel="noopener" style="display:none">View full profile at egeria-project.org ↗</a>
+        <div class="bio-footer">
+          <button class="btn btn-accent" onclick="openPicker()">Switch Persona</button>
+        </div>
+      </div>
+      <div class="bio-highlights" id="bio-highlights"></div>
+    </div>
+
+  </div>
+
+  <!-- My Favorites -->
+  <div id="favorites-section" style="display:none; margin-bottom: 28px;">
+    <div class="section-label">My Favorites</div>
+    <div class="fav-strip" id="fav-strip"></div>
+  </div>
+
+  <!-- App grid -->
+  <div class="section-label">Available Tools</div>
+  <div class="app-grid" id="app-grid"></div>
+
+  <div class="section-label" style="margin-top:32px">Documentation</div>
+  <div class="app-grid" id="doc-grid"></div>
+
+  <div class="section-label" style="margin-top:16px">API Reference</div>
+  <div class="app-grid" id="api-grid"></div>
+
 </main>
 
 <!-- ── Footer ─────────────────────────────────────────────────────────────── -->
@@ -142,48 +243,153 @@
   </a>
 </footer>
 
+<!-- ── Persona picker overlay ─────────────────────────────────────────────── -->
+<div class="overlay" id="picker" style="display:none" onclick="overlayClick(event)">
+  <div class="p-modal">
+    <div class="p-modal-hdr">
+      <div class="p-modal-hdr-left">
+        <div class="p-modal-title">Choose your persona</div>
+        <div class="p-modal-sub">Select a <a href="https://egeria-project.org/practices/coco-pharmaceuticals" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">Coco Pharmaceuticals</a> character to explore from their perspective. You can switch at any time.</div>
+      </div>
+      <div class="p-modal-hdr-actions">
+        <button class="btn" onclick="closePicker()">Cancel</button>
+        <button class="btn btn-accent" id="confirm-btn" disabled onclick="confirmPersona()">Select Persona</button>
+      </div>
+    </div>
+    <div class="p-grid" id="p-grid"></div>
+  </div>
+</div>
+
 <script>
-var _user = null;
-var _orgName = 'Egeria Freshstart Demo Sandbox';
-var _platformCfg = {};
+var _personas = {};
+var _currentPersonaId = null;
+
+function _loadStored() {
+  try { var s = localStorage.getItem('egeria-persona'); return s ? JSON.parse(s) : null; } catch(e) { return null; }
+}
+function _saveStored(p) {
+  try { localStorage.setItem('egeria-persona', JSON.stringify(p)); } catch(e) {}
+}
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+var _obsidianUrl = '';
+var _obsidianGithubUrl = '';
 var _jupUrl = '';
 
-// ── Boot ──────────────────────────────────────────────────────────────────────
 Promise.all([
-  fetch('/api/auth/me').then(function(r) { return r.json(); }),
-  fetch('/api/platform/org-name').then(function(r) { return r.json(); }).catch(function() { return {name: ''}; }),
-  fetch('/api/platform/portal-config').then(function(r) { return r.json(); }).catch(function() { return {}; }),
+  fetch('/api/auth/me').then(function(r){ return r.json(); }),
+  fetch('/api/platform/org-name').then(function(r){ return r.json(); }).catch(function(){ return {name: ''}; }),
+  fetch('/api/platform/portal-config').then(function(r){ return r.json(); }).catch(function(){ return {}; }),
 ]).then(function(results) {
   var me = results[0];
-  var orgData = results[1];
-  _platformCfg = results[2] || {};
-  if (!me.authenticated) { window.location.href = '/login'; return; }
-  _user = me;
-  if (orgData.name && orgData.name.trim()) _orgName = orgData.name.trim();
-
-  var displayName = me.display_name || me.user_id || '';
-  document.title = _orgName + ' — Egeria';
-  document.getElementById('hdr-title').textContent = _orgName;
-  document.getElementById('hero-title').textContent = 'Welcome to ' + _orgName;
-  if (displayName) {
-    document.getElementById('chip-name').textContent = displayName;
-    document.getElementById('user-chip').style.display = 'flex';
+  var orgName = (results[1].name && results[1].name.trim()) ? results[1].name : 'Egeria Quickstart';
+  var platformCfg = results[2] || {};
+  var advisorRunning = !!platformCfg.advisor_running;
+  if (!me.demo_mode) {
+    _obsidianUrl = platformCfg.obsidian_vault_url || '';
+    _obsidianGithubUrl = platformCfg.obsidian_github_url || '';
+    document.getElementById('hdr-title').textContent = orgName;
+    document.getElementById('hero-title').textContent = 'Welcome to ' + orgName;
+    document.getElementById('hero-sub').textContent = 'An open metadata platform for learning, development, and experimentation. Select a tool below to get started.';
+    document.getElementById('logout-btn').style.display = 'none';
+    document.title = orgName;
+    renderAppGrid(me.demo_mode, advisorRunning, platformCfg.advisor_url || '');
+    refreshObsidianTile();
+    setInterval(refreshObsidianTile, 30000);
+    refreshJupyterTile();
+    setInterval(refreshJupyterTile, 30000);
+    fetch('/api/demo/personas').then(function(r){ return r.json(); }).then(function(data) {
+      _personas = data;
+      var stored = _loadStored();
+      _currentPersonaId = stored ? stored.id : null;
+      if (stored) { applyPersonaUI(stored); } else { document.getElementById('persona-cta').style.display = 'flex'; }
+    }).catch(function() { document.getElementById('persona-cta').style.display = 'none'; });
+    return;
   }
-  document.getElementById('hdr-right').style.display = 'flex';
-  document.getElementById('loading-state').style.display = 'none';
-
-  renderHub(me.role === 'admin');
-  refreshJupyterTile();
-  setInterval(refreshJupyterTile, 30000);
+  if (!me.authenticated) { window.location.href = '/login'; return; }
+  Promise.all([
+    fetch('/api/demo/personas').then(function(r){ return r.json(); }),
+    fetch('/api/demo/portal-config').then(function(r){ return r.json(); }).catch(function(){ return {}; }),
+  ]).then(function(results) {
+    _personas = results[0];
+    _obsidianUrl = (results[1] && results[1].obsidian_vault_url) || '';
+    _obsidianGithubUrl = (results[1] && results[1].obsidian_github_url) || '';
+    var stored = _loadStored();
+    _currentPersonaId = stored ? stored.id : null;
+    renderAppGrid(true, false, '');
+    refreshObsidianTile();
+    setInterval(refreshObsidianTile, 30000);
+    refreshJupyterTile();
+    setInterval(refreshJupyterTile, 30000);
+    if (stored) {
+      applyPersonaUI(stored);
+    } else {
+      document.getElementById('persona-cta').style.display = 'flex';
+      if (window.location.search.indexOf('pick-persona=1') !== -1) {
+        history.replaceState(null, '', '/portal');
+        setTimeout(openPicker, 100);
+      }
+    }
+  });
 }).catch(function() { window.location.href = '/login'; });
 
-// ── Hub ───────────────────────────────────────────────────────────────────────
-function renderHub(isAdmin) {
-  var jupyterUrl = 'http://' + window.location.hostname + ':7888/?token=egeria';
-  _jupUrl = jupyterUrl;
-  var advisorRunning = !!_platformCfg.advisor_running;
-  var advisorUrl = _platformCfg.advisor_url || ('http://' + window.location.hostname + ':7880/');
+// ── Persona UI ────────────────────────────────────────────────────────────────
+function applyPersonaUI(persona) {
+  var pd = _personas[persona.id];
+  _currentPersonaId = persona.id;
 
+  // Header chip
+  document.getElementById('chip-name').textContent = persona.display_name;
+  document.getElementById('chip-role').textContent = persona.coco_title || '';
+  document.getElementById('persona-chip').style.display = 'flex';
+  document.getElementById('persona-btn').textContent = 'Switch Persona';
+
+  // Bio card
+  document.getElementById('persona-cta').style.display = 'none';
+  if (pd) {
+    document.getElementById('bio-text').textContent = pd.bio || '';
+    var link = document.getElementById('bio-link');
+    if (pd.profile_url) { link.href = pd.profile_url; link.style.display = 'inline'; }
+    document.getElementById('bio-highlights').innerHTML =
+      (pd.highlights || []).map(function(h){ return '<span>' + esc(h) + '</span>'; }).join('');
+  }
+  document.getElementById('persona-bio').style.display = 'flex';
+
+  loadFavorites(persona.id);
+}
+
+// ── Favorites ─────────────────────────────────────────────────────────────────
+var _favoritesLoaded = false;
+
+function loadFavorites(personaId) {
+  if (!personaId) return;
+  fetch('/api/favorites?persona=' + encodeURIComponent(personaId))
+    .then(function(r) { return r.ok ? r.json() : []; })
+    .then(function(favs) { renderFavorites(favs); })
+    .catch(function() { renderFavorites([]); });
+}
+
+function renderFavorites(favs) {
+  var section = document.getElementById('favorites-section');
+  var strip   = document.getElementById('fav-strip');
+  if (!favs || !favs.length) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+  strip.innerHTML = favs.map(function(f) {
+    return '<a class="fav-chip" href="' + esc(f.url) + '">' +
+      '<span class="fav-chip-icon">' + (f.icon || '⭐') + '</span>' +
+      '<span>' + esc(f.label) + '</span>' +
+      '</a>';
+  }).join('');
+}
+
+// ── App grid ──────────────────────────────────────────────────────────────────
+function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
+  var jupyterUrl = 'http://' + window.location.hostname + ':8888/?token=egeria';
+  _jupUrl = jupyterUrl;
+  advisorUrl = advisorUrl || ('http://' + window.location.hostname + ':8880/');
   var apps = [
     // Row 1 — primary tools
     { icon: '🐱', name: 'The Catalog',
@@ -204,77 +410,256 @@ function renderHub(isAdmin) {
     { icon: '🔭', name: 'Resource Explorer',
       desc: 'Scout, Assess, Discover, Enrich Resources.',
       url: '/resource-explorer', newTab: false, enabled: false, badge: 'Preview soon' },
-    // Row 2 — workspaces & assistants (freshstart has no Obsidian tile)
+    // Row 2 — workspaces & assistants
     { icon: '📓', name: 'Jupyter Lab',
       desc: 'Interactive notebooks for data science and hands-on Egeria API exploration.',
       enabled: true, jupyter: true },
+    { icon: '🗒️', name: 'Obsidian Vault',
+      desc: _obsidianUrl
+        ? 'Open the Coco Pharmaceuticals workbook vault in your local Obsidian install.'
+        : 'Open the workbook vault in the shared browser-based Obsidian, or browse on GitHub.',
+      enabled: true, obsidian: true },
     { icon: '🖥️', name: 'My Egeria',
       desc: 'Explore your Egeria profile, roles, teams, actions, and data catalog.',
-      url: '/my-egeria/', newTab: true, enabled: false },
+      url: '/my-egeria/', newTab: true, enabled: true },
     { icon: '🤖', name: 'Egeria Advisor',
-      desc: advisorRunning
-        ? 'AI-powered guidance for your Egeria environment.'
-        : 'AI-powered guidance for your Egeria environment. (Not currently running)',
-      url: advisorUrl, newTab: true, enabled: true, unavailable: !advisorRunning },
-    { icon: '👤', name: 'My Profile',
-      desc: 'View and edit your Egeria profile and change your password.',
-      url: '/profile', newTab: false, enabled: true },
-  ];
-
-  if (isAdmin) {
-    apps.push({
-      icon: '⚙️', name: 'Admin',
-      desc: 'Manage Egeria user accounts, roles, groups, and portal configuration.',
-      url: '/admin', newTab: false, enabled: true,
-    });
-  }
-
-  var docs = [
+      desc: advisorRunning ? 'AI-powered guidance for your Egeria environment.' : 'AI-powered guidance for your Egeria environment. (Not currently running)',
+      url: advisorUrl, newTab: true, enabled: !demoMode, unavailable: !demoMode && !advisorRunning },
+    // Remaining — docs, admin & API references
     { icon: '📚', name: 'Egeria Workspaces Documentation',
-      desc: 'User guides, tool reference, Dr. Egeria templates, scenarios, and admin docs.',
-      url: '/docs/', newTab: true, enabled: true },
+      desc: 'User guides, tool reference, Dr. Egeria templates, Coco Pharmaceuticals scenarios, and admin docs.',
+      url: '/docs/', newTab: true, enabled: true, isDoc: true },
+    { icon: '⚙️', name: 'Admin',
+      desc: 'Manage the Obsidian session lock, view audit log, and add reservations.',
+      url: '/admin', newTab: false, enabled: !demoMode },
     { icon: '📖', name: 'Egeria Documentation',
       desc: 'Official Egeria project documentation, guides, and community resources.',
-      url: 'https://egeria.ai', newTab: true, enabled: true },
-    { icon: '☕', name: 'Egeria JavaDocs',
+      url: 'https://egeria.ai', newTab: true, enabled: true, isDoc: true },
+    { icon: '📚', name: 'Egeria JavaDocs',
       desc: 'Java API reference documentation for the Egeria platform and connectors.',
-      url: 'https://odpi.github.io/egeria/index.html', newTab: true, enabled: true, isApi: true },
+      url: 'https://odpi.github.io/egeria/index.html', newTab: true, enabled: true, isDoc: true, isApi: true },
     { icon: '🐍', name: 'Python API',
       desc: 'pyegeria Python client reference — classes, methods, and docstrings grouped by functional domain.',
-      url: '/egeria-explorer#python-api', newTab: false, enabled: true, isApi: true },
+      url: '/egeria-explorer#python-api', newTab: false, enabled: true, isDoc: true, isApi: true },
     { icon: '🔌', name: 'REST APIs',
       desc: 'Live Egeria REST API browser — all open metadata services with endpoints and parameters.',
-      url: '/egeria-explorer#rest-apis', newTab: false, enabled: true, isApi: true },
+      url: '/egeria-explorer#rest-apis', newTab: false, enabled: true, isDoc: true, isApi: true },
   ];
-
-  document.getElementById('app-grid').innerHTML = apps.map(renderTile).join('');
-  document.getElementById('doc-grid').innerHTML  = docs.filter(function(d) { return !d.isApi; }).map(renderTile).join('');
-  document.getElementById('api-grid').innerHTML  = docs.filter(function(d) { return  d.isApi; }).map(renderTile).join('');
-  document.getElementById('hub').style.display = 'block';
-}
-
-function renderTile(a) {
-  var action;
-  if (!a.enabled) {
-    action = '<span class="soon-badge">' + esc(a.badge || 'Coming soon') + '</span>';
-  } else if (a.unavailable) {
-    action = '<span class="soon-badge" style="background:var(--hover);color:var(--muted)">Not running</span>';
-  } else if (a.jupyter) {
-    action = '<div id="jup-tile-action"><span style="color:var(--muted);font-size:0.8rem">Loading…</span></div>';
-  } else {
-    action = '<button class="btn btn-accent app-action" onclick="launch(' + JSON.stringify(a.url).replace(/"/g, '&quot;') + ',' + a.newTab + ')">' + (a.newTab ? 'Open ↗' : 'Open') + '</button>';
+  function _renderTile(a) {
+    var action;
+    if (!a.enabled) {
+      action = '<span class="soon-badge">' + esc(a.badge || 'Coming soon') + '</span>';
+    } else if (a.unavailable) {
+      action = '<span class="soon-badge" style="background:var(--hover);color:var(--muted)">Not running</span>';
+    } else if (a.obsidian) {
+      action = '<div id="obs-tile-action"><span style="color:var(--muted);font-size:0.8rem">Loading…</span></div>';
+    } else if (a.jupyter) {
+      action = '<div id="jup-tile-action"><span style="color:var(--muted);font-size:0.8rem">Loading…</span></div>';
+    } else {
+      action = '<button class="btn btn-accent app-action" onclick="launch(' + JSON.stringify(a.url).replace(/"/g, '&quot;') + ',' + a.newTab + ',' + JSON.stringify(a.name).replace(/"/g, '&quot;') + ')">' + (a.newTab ? 'Open ↗' : 'Open') + '</button>';
+    }
+    return '<div class="app-tile' + (a.enabled ? '' : ' disabled') + '">' +
+      '<div class="app-icon">' + a.icon + '</div>' +
+      '<div class="app-name">' + esc(a.name) + '</div>' +
+      '<div class="app-desc">' + esc(a.desc) + '</div>' +
+      action + '</div>';
   }
-  return '<div class="app-tile' + (a.enabled ? '' : ' disabled') + '">' +
-    '<div class="app-icon">' + a.icon + '</div>' +
-    '<div class="app-name">' + esc(a.name) + '</div>' +
-    '<div class="app-desc">' + esc(a.desc) + '</div>' +
-    action + '</div>';
+  document.getElementById('app-grid').innerHTML = apps.filter(function(a) { return !a.isDoc; }).map(_renderTile).join('');
+  document.getElementById('doc-grid').innerHTML  = apps.filter(function(a) { return a.isDoc && !a.isApi; }).map(_renderTile).join('');
+  document.getElementById('api-grid').innerHTML  = apps.filter(function(a) { return a.isApi; }).map(_renderTile).join('');
 }
 
-function launch(url, newTab) {
+function launch(url, newTab, toolName) {
   if (!url) return;
+  var personaDisplayName = (_currentPersonaId && _personas[_currentPersonaId])
+    ? _personas[_currentPersonaId].display_name : null;
+  fetch('/api/demo/log-event', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ event_type: 'tool_open', tool: toolName || url, persona_name: personaDisplayName }),
+  }).catch(function() {});  // fire-and-forget; never block navigation
   if (newTab) { window.open(url, '_blank', 'noopener'); } else { window.location.href = url; }
 }
+
+// ── Obsidian lock management ──────────────────────────────────────────────────
+var _obsToken     = sessionStorage.getItem('obs-token') || null;
+var _obsKeepalive = null;   // setInterval handle
+var _obsTileTimer = null;   // setInterval handle for countdown display
+var _obsStatus    = null;   // last fetched status object
+
+function _obsIsLocal() { return !!_obsidianUrl; }
+
+function _obsContainerUrl() {
+  var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  return isLocal
+    ? 'http://' + location.hostname + ':8860'
+    : 'https://' + location.hostname + ':8861';
+}
+
+function _obsLaunchTarget() {
+  if (_obsIsLocal()) {
+    window.location.href = _obsidianUrl.startsWith('obsidian://') ? _obsidianUrl : ('obsidian://open?vault=' + encodeURIComponent(_obsidianUrl));
+  } else {
+    window.open(_obsContainerUrl(), '_blank', 'noopener');
+  }
+}
+
+function refreshObsidianTile() {
+  fetch('/api/obsidian/status').then(function(r) { return r.json(); }).then(function(s) {
+    _obsStatus = s;
+    _renderObsTile(s);
+  }).catch(function() {
+    var el = document.getElementById('obs-tile-action');
+    if (el) el.innerHTML = _obsGhBtn() || '<span class="obs-hint">Status unavailable</span>';
+  });
+}
+
+function _obsGhBtn() {
+  return _obsidianGithubUrl
+    ? '<a class="btn obs-actions" href="' + esc(_obsidianGithubUrl) + '" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:6px">Browse on GitHub ↗</a>'
+    : '';
+}
+
+function _renderObsTile(s) {
+  var el = document.getElementById('obs-tile-action');
+  if (!el) return;
+  var isMine = _obsToken && s.holder_token === undefined
+    ? false   // server never returns holder_token; we infer from sessionStorage match
+    : !!_obsToken && s.state !== 'FREE';
+
+  // If I have a token but the lock is free, someone else released it - clear my token
+  if (_obsToken && s.state === 'FREE') { _clearObsToken(); isMine = false; }
+
+  var html = '';
+
+  if (_obsIsLocal()) {
+    // Local Obsidian: no lock interaction, just a launch button
+    html = '<div class="obs-actions">'
+      + '<button class="btn btn-accent" onclick="_obsLaunchTarget()">Open in Obsidian</button>'
+      + _obsGhBtn()
+      + '</div>';
+    el.innerHTML = html;
+    return;
+  }
+
+  // Lock disabled: show direct link with no state management
+  if (s.state === 'DISABLED') {
+    html = '<div class="obs-actions">'
+      + '<button class="btn btn-accent" onclick="window.open(\'http://\'+location.hostname+\':8860\',\'_blank\',\'noopener\')">Open Obsidian →</button>'
+      + _obsGhBtn()
+      + '</div>';
+    el.innerHTML = html;
+    return;
+  }
+
+  // Container Obsidian: full lock UI
+  if (s.evicting && isMine) {
+    var deadline = new Date(s.evict_deadline + 'Z');
+    var secsLeft = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+    html += '<div class="obs-evict">⚠ Admin needs Obsidian in ~' + Math.ceil(secsLeft / 60) + ' min. Please save and close.</div>';
+  }
+
+  if (s.state === 'FREE') {
+    html += '<div class="obs-status obs-free">● Available</div>'
+      + '<div class="obs-actions">'
+      + '<button class="btn btn-accent" onclick="acquireObsidian()">Use Obsidian →</button>'
+      + _obsGhBtn()
+      + '</div>';
+
+  } else if (isMine) {
+    var mins = s.minutes_left !== null ? s.minutes_left : '?';
+    var idleWarn = s.idle_warning ? ' ⚠ idle' : '';
+    html += '<div class="obs-status obs-mine">● Your session · ' + mins + ' min left' + idleWarn + '</div>'
+      + '<div class="obs-actions">'
+      + '<button class="btn btn-accent" onclick="_obsLaunchTarget()">Open Obsidian →</button>'
+      + '<button class="btn" onclick="extendObsidian()">Extend</button>'
+      + '<button class="btn" onclick="releaseObsidian()" style="color:var(--muted)">Release</button>'
+      + '</div>';
+
+  } else if (s.state === 'STUCK') {
+    html += '<div class="obs-status obs-stuck">⚠ Session may be idle</div>'
+      + '<div class="obs-hint">An admin can free it using the admin panel.</div>'
+      + _obsGhBtn();
+
+  } else {
+    // IN_USE or ADMIN_IN_USE by someone else
+    var who = s.holder_display ? ' by ' + esc(s.holder_display) : '';
+    var eta  = s.minutes_left ? ' · ~' + s.minutes_left + ' min remaining' : '';
+    var ev   = (s.evicting && s.evict_deadline)
+      ? ' (eviction in ~' + Math.ceil(Math.max(0, new Date(s.evict_deadline + 'Z') - Date.now()) / 60000) + ' min)'
+      : '';
+    html += '<div class="obs-status obs-busy">● In use' + who + eta + ev + '</div>'
+      + '<div class="obs-hint">Check back later</div>'
+      + _obsGhBtn();
+  }
+
+  el.innerHTML = html;
+}
+
+function acquireObsidian() {
+  var persona   = _currentPersonaId || '';
+  var display   = persona && _personas[persona] ? _personas[persona].display_name : 'User';
+  fetch('/api/obsidian/acquire', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ persona: persona, display_name: display })
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (!data.acquired) {
+      alert('Could not acquire Obsidian: ' + (data.reason || 'unavailable'));
+      refreshObsidianTile();
+      return;
+    }
+    _obsToken = data.token;
+    sessionStorage.setItem('obs-token', _obsToken);
+    _startObsKeepalive();
+    refreshObsidianTile();
+    _obsLaunchTarget();
+  }).catch(function(e) { alert('Error: ' + e.message); });
+}
+
+function releaseObsidian() {
+  if (!_obsToken) return;
+  fetch('/api/obsidian/release', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: _obsToken })
+  }).then(function() { _clearObsToken(); refreshObsidianTile(); })
+    .catch(function() { _clearObsToken(); refreshObsidianTile(); });
+}
+
+function extendObsidian() {
+  if (!_obsToken) return;
+  fetch('/api/obsidian/extend', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: _obsToken })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (!d.extended) { alert('Could not extend: ' + (d.reason || 'blocked by reservation')); }
+    refreshObsidianTile();
+  });
+}
+
+function _startObsKeepalive() {
+  _stopObsKeepalive();
+  _obsKeepalive = setInterval(function() {
+    if (!_obsToken) { _stopObsKeepalive(); return; }
+    fetch('/api/obsidian/keepalive', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: _obsToken })
+    }).catch(function() {});
+    refreshObsidianTile();
+  }, 60000);
+}
+
+function _stopObsKeepalive() {
+  if (_obsKeepalive) { clearInterval(_obsKeepalive); _obsKeepalive = null; }
+}
+
+function _clearObsToken() {
+  _obsToken = null;
+  sessionStorage.removeItem('obs-token');
+  _stopObsKeepalive();
+}
+
+// Restore keepalive if we already hold the lock (page reload)
+if (_obsToken) { _startObsKeepalive(); }
 
 // ── Jupyter lock management ───────────────────────────────────────────────────
 var _jupToken     = sessionStorage.getItem('jup-token') || null;
@@ -287,7 +672,7 @@ function refreshJupyterTile() {
     _renderJupTile(s);
   }).catch(function() {
     var el = document.getElementById('jup-tile-action');
-    if (el) el.innerHTML = '<span style="font-size:0.78rem;color:var(--muted)">Status unavailable</span>';
+    if (el) el.innerHTML = '<span class="obs-hint">Status unavailable</span>';
   });
 }
 
@@ -304,37 +689,44 @@ function _renderJupTile(s) {
     return;
   }
 
-  var statusCss = 'font-size:0.78rem;padding:4px 8px;border-radius:4px;margin-bottom:6px;display:flex;align-items:center;gap:6px;';
-  var actionsCss = 'display:flex;flex-direction:column;gap:6px;margin-top:4px;';
+  if (s.evicting && isMine) {
+    var deadline = new Date(s.evict_deadline + 'Z');
+    var secsLeft = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+    html += '<div class="obs-evict">⚠ Admin needs Jupyter in ~' + Math.ceil(secsLeft / 60) + ' min. Please save your work.</div>';
+  }
 
   if (s.state === 'FREE') {
-    html = '<div style="' + statusCss + 'background:#1a3a1a;color:#4caf50">● Available</div>'
-      + '<div style="' + actionsCss + '">'
+    html += '<div class="obs-status obs-free">● Available</div>'
+      + '<div class="obs-actions">'
       + '<button class="btn btn-accent" onclick="acquireJupyter()">Use Jupyter →</button>'
       + '</div>';
   } else if (isMine) {
     var mins = s.minutes_left !== null ? s.minutes_left : '?';
     var idleWarn = s.idle_warning ? ' ⚠ idle' : '';
-    html = '<div style="' + statusCss + 'background:#0d2a3a;color:#69f0ae">● Your session · ' + mins + ' min left' + idleWarn + '</div>'
-      + '<div style="' + actionsCss + '">'
+    html += '<div class="obs-status obs-mine">● Your session · ' + mins + ' min left' + idleWarn + '</div>'
+      + '<div class="obs-actions">'
       + '<button class="btn btn-accent" onclick="window.open(' + JSON.stringify(_jupUrl) + ',\'_blank\',\'noopener\')">Open Jupyter →</button>'
       + '<button class="btn" onclick="extendJupyter()">Extend</button>'
       + '<button class="btn" onclick="releaseJupyter()" style="color:var(--muted)">Release</button>'
       + '</div>';
   } else if (s.state === 'STUCK') {
-    html = '<div style="' + statusCss + 'background:#3a2a1a;color:#ffcc80">⚠ Session may be idle</div>'
-      + '<div style="font-size:0.74rem;color:var(--muted)">An admin can free it.</div>';
+    html += '<div class="obs-status obs-stuck">⚠ Session may be idle</div>'
+      + '<div class="obs-hint">An admin can free it using the admin panel.</div>';
   } else {
     var who = s.holder_display ? ' by ' + esc(s.holder_display) : '';
     var eta  = s.minutes_left ? ' · ~' + s.minutes_left + ' min remaining' : '';
-    html = '<div style="' + statusCss + 'background:#3a1a1a;color:#ef9a9a">● In use' + who + eta + '</div>'
-      + '<div style="font-size:0.74rem;color:var(--muted)">Check back later</div>';
+    var ev   = (s.evicting && s.evict_deadline)
+      ? ' (eviction in ~' + Math.ceil(Math.max(0, new Date(s.evict_deadline + 'Z') - Date.now()) / 60000) + ' min)'
+      : '';
+    html += '<div class="obs-status obs-busy">● In use' + who + eta + ev + '</div>'
+      + '<div class="obs-hint">Check back later</div>';
   }
   el.innerHTML = html;
 }
 
 function acquireJupyter() {
-  var display = (_user && (_user.display_name || _user.user_id)) || 'User';
+  var persona  = _currentPersonaId || '';
+  var display  = persona && _personas[persona] ? _personas[persona].display_name : 'User';
   fetch('/api/jupyter/acquire', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ display_name: display })
@@ -396,17 +788,110 @@ function _clearJupToken() {
 
 if (_jupToken) { _startJupKeepalive(); }
 
+// ── Picker ────────────────────────────────────────────────────────────────────
+var _pendingId = null;
+
+function openPicker() {
+  _pendingId = null;
+  renderPicker();
+  document.getElementById('picker').style.display = 'flex';
+  _updateConfirmBtn();
+}
+
+function closePicker() {
+  document.getElementById('picker').style.display = 'none';
+  _pendingId = null;
+}
+
+function overlayClick(evt) {
+  if (evt.target === document.getElementById('picker')) closePicker();
+}
+
+function _updateConfirmBtn() {
+  var btn = document.getElementById('confirm-btn');
+  if (!btn) return;
+  if (_pendingId) {
+    btn.disabled = false;
+    btn.textContent = 'Select — ' + esc(_personas[_pendingId].display_name);
+  } else {
+    btn.disabled = true;
+    btn.textContent = 'Select Persona';
+  }
+}
+
+function renderPicker() {
+  document.getElementById('p-grid').innerHTML = Object.keys(_personas).map(function(id) {
+    var p = _personas[id];
+    var isActive = id === (_pendingId || _currentPersonaId);
+    return '<div class="pcard' + (isActive ? ' selected' : '') + '" onclick="highlightCard(&quot;' + esc(id) + '&quot;)">' +
+      '<div class="pcard-meta">' +
+        '<span class="dbadge d-' + esc(p.difficulty) + '">' + esc(p.difficulty) + '</span>' +
+        (p.starter ? '<span class="sbadge">Starter</span>' : '') +
+      '</div>' +
+      '<div class="pcard-name">'  + esc(p.display_name) + '</div>' +
+      '<div class="pcard-title">' + esc(p.coco_title)   + '</div>' +
+      '<div class="pcard-bio">'   + esc((p.bio || '').substring(0, 110)) + '…</div>' +
+      (p.profile_url
+        ? '<a class="pcard-link" href="' + esc(p.profile_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">View profile ↗</a>'
+        : '') +
+    '</div>';
+  }).join('');
+}
+
+function highlightCard(id) {
+  _pendingId = id;
+  // Update selected state on all cards without re-rendering
+  document.querySelectorAll('.pcard').forEach(function(el) {
+    el.classList.toggle('selected', el.getAttribute('onclick').indexOf('"' + id + '"') !== -1);
+  });
+  _updateConfirmBtn();
+}
+
+function confirmPersona() {
+  if (!_pendingId) return;
+  var id = _pendingId;
+  var btn = document.getElementById('confirm-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  fetch('/api/demo/select-persona', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ persona: id })
+  }).then(function(r) {
+    if (!r.ok) throw new Error('Server error ' + r.status);
+    return r.json();
+  }).then(function() {
+    var pd = _personas[id];
+    var info = { id: id, display_name: pd.display_name, coco_title: pd.coco_title };
+    _saveStored(info);
+    closePicker();
+    applyPersonaUI(info);
+  }).catch(function(e) {
+    btn.disabled = false;
+    _updateConfirmBtn();
+    alert('Could not select persona: ' + e.message);
+  });
+}
+
 // ── Logout ────────────────────────────────────────────────────────────────────
 function doLogout() {
   fetch('/api/auth/logout', { method: 'POST' }).then(function() {
+    localStorage.removeItem('egeria-persona');
+    localStorage.removeItem('egeria-creds');
     window.location.href = '/login';
   });
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function esc(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// Reload favorites when the user returns to this tab after toggling favorites in another page.
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'visible' && _currentPersonaId) {
+    loadFavorites(_currentPersonaId);
+  }
+});
 </script>
 </body>
 </html>

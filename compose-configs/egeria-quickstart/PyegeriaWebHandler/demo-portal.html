@@ -66,6 +66,12 @@
     .bio-highlights span::before { content: "→ "; color: var(--accent); }
     .bio-footer { margin-top: 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
+    /* ── Favorites strip ── */
+    .fav-strip { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 4px; }
+    .fav-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 7px 15px; font-size: 0.85rem; text-decoration: none; color: var(--text); transition: border-color 0.15s, background 0.15s; cursor: pointer; white-space: nowrap; }
+    .fav-chip:hover { border-color: var(--accent); background: var(--bg); }
+    .fav-chip-icon { font-size: 1rem; line-height: 1; }
+
     /* ── App grid ── */
     .section-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
     .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
@@ -209,6 +215,12 @@
 
   </div>
 
+  <!-- My Favorites -->
+  <div id="favorites-section" style="display:none; margin-bottom: 28px;">
+    <div class="section-label">My Favorites</div>
+    <div class="fav-strip" id="fav-strip"></div>
+  </div>
+
   <!-- App grid -->
   <div class="section-label">Available Tools</div>
   <div class="app-grid" id="app-grid"></div>
@@ -342,6 +354,35 @@ function applyPersonaUI(persona) {
       (pd.highlights || []).map(function(h){ return '<span>' + esc(h) + '</span>'; }).join('');
   }
   document.getElementById('persona-bio').style.display = 'flex';
+
+  loadFavorites(persona.id);
+}
+
+// ── Favorites ─────────────────────────────────────────────────────────────────
+var _favoritesLoaded = false;
+
+function loadFavorites(personaId) {
+  if (!personaId) return;
+  fetch('/api/favorites?persona=' + encodeURIComponent(personaId))
+    .then(function(r) { return r.ok ? r.json() : []; })
+    .then(function(favs) { renderFavorites(favs); })
+    .catch(function() { renderFavorites([]); });
+}
+
+function renderFavorites(favs) {
+  var section = document.getElementById('favorites-section');
+  var strip   = document.getElementById('fav-strip');
+  if (!favs || !favs.length) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+  strip.innerHTML = favs.map(function(f) {
+    return '<a class="fav-chip" href="' + esc(f.url) + '">' +
+      '<span class="fav-chip-icon">' + (f.icon || '⭐') + '</span>' +
+      '<span>' + esc(f.label) + '</span>' +
+      '</a>';
+  }).join('');
 }
 
 // ── App grid ──────────────────────────────────────────────────────────────────
@@ -844,6 +885,13 @@ function doLogout() {
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// Reload favorites when the user returns to this tab after toggling favorites in another page.
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'visible' && _currentPersonaId) {
+    loadFavorites(_currentPersonaId);
+  }
+});
 </script>
 </body>
 </html>

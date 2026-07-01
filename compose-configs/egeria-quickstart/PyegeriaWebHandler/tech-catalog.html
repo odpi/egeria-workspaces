@@ -1543,7 +1543,8 @@ var TYPE_TO_NAV = (function() {
 }());
 
 // ── Generic detail panel ──────────────────────────────────────────────────────
-function AssetDetail({ item, detailLoading, onNavigate, creds }) {
+function AssetDetail({ item, detailLoading, onNavigate, creds, sectionId }) {
+  var _assetPersonaId = React.useContext(PersonaContext);
   if (!item) return null;
   var _previewState = useState(false), showPreview = _previewState[0], setShowPreview = _previewState[1];
   // TC-13: file Data Assets (DataFile subtypes / anything with a file path) get a
@@ -1573,6 +1574,7 @@ function AssetDetail({ item, detailLoading, onNavigate, creds }) {
         title: 'Preview the rows of this file',
         style: { fontSize: 12, padding: '4px 12px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer', whiteSpace: 'nowrap' }
       }, 'Preview Data 📊'),
+      _assetPersonaId && React.createElement(FavoriteButton, { app: 'tech-catalog', section: sectionId || 'assets', label: item.displayName || item.qualifiedName, icon: '🗄️', url: '/tech-catalog?guid=' + encodeURIComponent(item.guid) + '#' + (sectionId || 'assets'), personaId: _assetPersonaId }),
       React.createElement(EgeriaFeedbackWidget, { guid: item.guid }),
       React.createElement(CopyJsonButton, { data: item })
     ),
@@ -1838,7 +1840,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
           detail && detail.guid && React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)' } }, detail.guid)
         );
       }
-      return React.createElement(AssetDetail, { item: detail, detailLoading: detailLoad, onNavigate: onNavigate, creds: creds });
+      return React.createElement(AssetDetail, { item: detail, detailLoading: detailLoad, onNavigate: onNavigate, creds: creds, sectionId: sectionId });
     },
   });
 }
@@ -2626,7 +2628,10 @@ function App() {
 
   if (!ready) return null;
 
-  return React.createElement(CredContext.Provider, { value: creds },
+  var favPersonaId = activePersona ? activePersona.id : (srvManaged && authUser ? authUser.userId : null);
+
+  return React.createElement(PersonaContext.Provider, { value: favPersonaId },
+  React.createElement(CredContext.Provider, { value: creds },
     React.createElement('div', { style: { display: 'flex', flexDirection: 'column', height: '100vh' } },
     // Nav bar
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '0 14px', height: 42, borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0 } },
@@ -2660,7 +2665,7 @@ function App() {
       ? React.createElement(SectionView, { sectionId: section, creds: creds, navTarget: navTarget, onNavigate: handleNavigate })
       : React.createElement(Splash, { onSelect: setSection, authUser: authUser, activePersona: activePersona, creds: creds, demoMode: demoMode, srvManaged: srvManaged, saveCreds: setCreds }),
     React.createElement(FeedbackButton, { section: section, persona: null, demoMode: demoMode, srvManaged: srvManaged, pagePrefix: 'tech-catalog/' })
-  ));
+  )));
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App, null));

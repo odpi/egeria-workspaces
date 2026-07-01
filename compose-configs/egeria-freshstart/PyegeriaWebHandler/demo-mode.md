@@ -1,115 +1,87 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 <!-- Copyright Contributors to the ODPi Egeria project. -->
 
-# Freshstart Portal — Authentication and User Management Guide
+# Demo Mode — Setup and Operations Guide
 
 ---
 
 ## Overview
 
-Freshstart uses **Egeria as the single user store**. There is no SQLite database, no self-registration form, and no email verification. The portal authenticates directly against Egeria's token endpoint, issues a short-lived JWT session cookie, and delegates all account management to the Egeria SecurityOfficer API.
+Demo mode adds user registration, authentication, and persona-based access control to the Egeria demo portal and Egeria Explorer. It is designed for public-facing deployments pre-loaded with Coco Pharmaceuticals data, where you want attendees to register, pick a named persona, and explore the metadata environment from that character's perspective.
 
-```
-User → Portal login → POST /api/token (Egeria) → JWT session cookie → Portal hub
-                                    ↓ CREDENTIALS_EXPIRED
-                              Forced password-change form → new token → Portal hub
-```
+When `DEMO_MODE=false` (the default), all demo machinery is dormant. The Explorer behaves as a local development tool: no login required, no persona picker, no auth gate on `/egeria-explorer`. All demo page routes (`/login`, `/register`, `/admin`, `/privacy`) still exist but redirect immediately to `/egeria-explorer`.
 
 ---
 
 ## Quick start
 
-**First run — bootstrap sequence:**
+From the repository root, run:
 
-1. Start the stack: `./fresh-start-local` (from the repository root)
-2. Open `http://localhost:7885/login`
-3. Sign in with `bootstrap` / `secret`
-4. If redirected to the password-change form, set a new password and continue
-5. You are now in the portal as an admin — go to **Admin → Egeria Users** to create accounts for your team
-
-**Required `.env` settings** (`compose-configs/egeria-freshstart/.env`, gitignored):
-
-```ini
-JWT_SECRET=your-random-32-plus-char-string
+```bash
+./quick-start-local --demo
 ```
 
-Optional:
+On first run the script will prompt for:
 
-```ini
-EGERIA_ORG_NAME=My Organisation          # shown in portal header and login page
-```
+- **TLS certificate directory** — a host directory containing `server.crt`, `server.key`, and `server-ca.crt`
+- **Admin bootstrap email and password** — the initial admin account created on first startup
+
+Answers are saved to `compose-configs/egeria-quickstart/.env.demo` (mode 600, gitignored) and reused on subsequent `--demo` runs. To change any value, edit `.env.demo` directly.
+
+The script also generates a JWT secret automatically if one is not already set, and writes a runtime `ssl-define.conf` that tells Apache the SSL server name (derived from the current `HOST_FQDN`).
+
+> **`.env` is managed automatically — do not edit it by hand for demo params.**
+> `compose-configs/egeria-quickstart/.env` is regenerated from scratch on every `quick-start-local` run. Any demo credentials you write directly into `.env` will be lost on the next startup. The correct place for persistent demo secrets (`JWT_SECRET`, `CERT_DIR`, `ADMIN_BOOTSTRAP_EMAIL`, etc.) is `.env.demo`, which `--demo` creates and manages for you.
+
+Once started, the following services are running:
+
+- HTTP portal: `http://<HOST_FQDN>:8885`
+- HTTPS portal: `https://<HOST_FQDN>` (port 443)
+- Login: `https://<HOST_FQDN>/login`
+- Jupyter: `http://<HOST_FQDN>:8888` (password: `egeria`)
+- Obsidian — see [Obsidian browser container](#obsidian-browser-container) below
+
+On first startup the container creates the admin account from the bootstrap credentials. If an admin already exists those values are ignored, so it is safe to leave them set.
+
+Log in at `/login` with those credentials to access the admin panel, then navigate to `/portal` to see the demo portal.
+
+> **Rootless Podman note:** Port 443 is a privileged port. Before running `--demo` with rootless Podman, allow it once:
+> ```bash
+> sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443
+> ```
+> To make this permanent across reboots:
+> ```bash
+> echo 'net.ipv4.ip_unprivileged_port_start=443' | sudo tee /etc/sysctl.d/99-rootless-podman.conf
+> sudo sysctl --system
+> ```
+> Alternatively set `HTTPS_PORT=8443` in `.env.demo` to use a non-privileged port — see [SSL / HTTPS](#ssl--https).
+
+> **Bootstrap race condition (Podman + uvicorn `--reload`):** The admin account is created during the FastAPI startup event, but uvicorn's file-watcher may restart the worker process before startup completes. If login fails with valid credentials, check whether the admin exists and create it manually:
+> ```bash
+> podman exec quickstart-pyegeria-web python3 -c "
+> import sys; sys.path.insert(0, '/app')
+> from demo_db import bootstrap_admin; bootstrap_admin()
+> print('done')
+> "
+> ```
 
 ---
 
-## Architecture
+### Manual `.env` configuration (without the script)
 
-### Single-layer authentication
+If you prefer to configure demo mode without using `./quick-start-local --demo`, set these values in `compose-configs/egeria-quickstart/.env.demo` (create it if it doesn't exist) before running the stack manually:
 
-| Quickstart | Freshstart |
-|---|---|
-| Login validates against SQLite `users` table | Login calls Egeria `POST /api/token` |
-| Self-registration at `/register` | No registration — admin creates all accounts |
-| Email verification flow | No email — credentials shared out of band |
-| SQLite stores portal sessions and events | Egeria is the source of truth; portal issues JWT on successful auth |
-| Persona picker (Coco Pharmaceuticals) | Direct tool access — no persona |
-
-### User account storage and listing
-
-Egeria manages user accounts through two parallel mechanisms:
-
-- **In-memory cache** — SecurityOfficer OMVS holds the authoritative state for authentication. Mutations (create, update, delete, disable, reset-password) take effect immediately via the SecurityOfficer REST API.
-- **YAML file** (`egeria-user-directory.omsecrets`) — Egeria's persistent backing store. Egeria lazily flushes its in-memory cache to this file (approximately hourly). The portal mounts this file directly at `/secrets/user-directory.omsecrets` and reads it for the admin user list so that newly created accounts are visible immediately without waiting for the hourly flush.
-
-**Write path** (immediate auth effect + immediate listing):
-
-```
-Admin creates user → SecurityOfficer REST (auth takes effect)
-                   → YAML mirror write (listing takes effect)
+```ini
+JWT_SECRET=your-random-32-plus-char-string
+SITE_URL=https://egeria-demo.example.com
+ADMIN_BOOTSTRAP_EMAIL=you@example.com
+ADMIN_BOOTSTRAP_PASSWORD=changeme
+RESEND_API_KEY=re_...                   # from resend.com — leave blank to skip email
+RESEND_FROM=Egeria Demo <noreply@your-domain.com>
+CERT_DIR=/absolute/path/to/certs
 ```
 
-**Read path** (admin user list):
-
-```
-GET /api/admin/egeria-users → reads /secrets/user-directory.omsecrets directly
-```
-
-This hybrid approach will be replaced by the SecurityOfficer list API once Egeria adds one. See [`BACKLOG.md`](../BACKLOG.md) for the tracking item.
-
-### User account types
-
-Egeria tracks accounts by `userAccountType`. Only human account types are shown in the admin panel:
-
-| Type | Shown in admin? | Notes |
-|------|-----------------|-------|
-| `EMPLOYEE` | Yes | Default for new accounts |
-| `EXTERNAL` | Yes | Contractors, guests |
-| `CONTRACTOR` | Yes | External contractors |
-| `DIGITAL` | No | Egeria internal service NPAs (e.g. `generalnpa`, engine, integration connector identities) |
-
-**Email is not part of a user account** — it belongs in the user's Egeria profile and is managed on the `/profile` page, not in the admin user creation form.
-
-### JWT session cookie
-
-After successful Egeria authentication the portal issues a signed JWT (`demo_token` cookie) containing:
-
-- `sub` — Egeria user ID
-- `role` — `admin` or `user` (see [Admin role](#admin-role) below)
-- `display_name` — user ID (updated once a profile is saved via `/profile`)
-- `egeria_token` — the Egeria bearer token, used for SecurityOfficer admin API calls
-- `exp` — expiry (2 hours for regular users, 7 days for admins)
-
-The Egeria token stored in the JWT is used directly for SecurityOfficer calls — admin operations run with the logged-in admin's own Egeria credentials, naturally respecting Egeria's RBAC.
-
-### Admin role
-
-Portal admin role is determined at login by the `EGERIA_ADMIN_USERS` environment variable — a comma-separated list of Egeria user IDs that receive `role=admin` in the portal JWT. Default is `bootstrap`.
-
-```yaml
-# egeria-freshstart.yaml
-EGERIA_ADMIN_USERS: "bootstrap,yourusername"
-```
-
-Egeria's own RBAC (security roles, groups, zones) is independent of the portal admin flag.
+Then run `./quick-start-local --demo` (it will read `.env.demo` and skip prompts).
 
 ---
 
@@ -117,210 +89,489 @@ Egeria's own RBAC (security roles, groups, zones) is independent of the portal a
 
 All settings are read from container environment variables at startup.
 
-**Secrets belong in `.env`, not the yaml.** Docker Compose automatically reads `compose-configs/egeria-freshstart/.env` (gitignored).
+**Secrets belong in `.env.demo`, not `.env` and not the yaml.** The compose yaml uses variable substitution (`${JWT_SECRET}`, `${SMTP_PASSWORD}`, etc.). Docker Compose reads `compose-configs/egeria-quickstart/.env` automatically, but that file is regenerated by `quick-start-local` on every run. Store real secret values in `.env.demo` instead — `--demo` reads from there and appends them to `.env` after regeneration.
 
-```ini
-JWT_SECRET=your-random-32-plus-char-string
-```
+### Core
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `DEMO_MODE` | `false` | Set `true` to activate demo auth gating |
+| `SITE_URL` | `http://localhost:8885` | Base URL used for email verification/reset links and as the public URL for the myEgeria service (textual-serve WebSocket origin). Must match what the browser uses to reach the portal. No trailing slash. |
 | `JWT_SECRET` | `change-me-before-going-public` | HS256 signing key — **set in `.env`, never in yaml** |
-| `JWT_EXPIRY_USER_SECONDS` | `7200` | User session lifetime (2 hours) |
-| `JWT_EXPIRY_ADMIN_SECONDS` | `604800` | Admin session lifetime (7 days) |
-| `EGERIA_PLATFORM_URL` | `https://freshstart-egeria-main:8443` | Egeria platform URL (already set in yaml) |
-| `EGERIA_VIEW_SERVER` | `fs-view-server` | View server for SecurityOfficer API calls |
-| `EGERIA_ADMIN_USERS` | `bootstrap` | Comma-separated user IDs that get portal admin role |
-| `EGERIA_ORG_NAME` | `Egeria` | Organisation name in portal header and login page |
-| `SITE_URL` | `http://localhost:7885` | Public base URL |
-| `EGERIA_USER_SECRETS_PATH` | `/secrets/user-directory.omsecrets` | Path to the mounted omsecrets YAML file used for user listing |
+| `JWT_EXPIRY_USER_SECONDS` | `7200` | User session lifetime in seconds (2 h) |
+| `JWT_EXPIRY_ADMIN_SECONDS` | `604800` | Admin session lifetime in seconds (7 d) |
+
+### Demo auth database (PostgreSQL)
+
+The demo auth tables (`users`, `events`, `config`) live in the **`demo_auth` schema** of the **`coco_pharma`** database on the shared PostgreSQL instance (`egeria-shared-postgres:5442`). This is the same host as the Egeria metadata store but a separate database/schema — the two are independent.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DEMO_DB_HOST` | `egeria-shared-postgres` | PostgreSQL host |
+| `DEMO_DB_PORT` | `5442` | PostgreSQL port |
+| `DEMO_DB_NAME` | `coco_pharma` | Database name |
+| `DEMO_DB_SCHEMA` | `demo_auth` | Schema for auth tables |
+| `DEMO_DB_USER` | `demo_user` | DB user |
+| `DEMO_DB_PASSWORD` | `demo4egeria` | DB password — **set in `.env`, never in yaml** |
+
+Schema and tables are created automatically on first startup via SQLAlchemy (`Base.metadata.create_all`).
+
+### Demo reset (Egeria metadata)
+
+Admin-triggered reset: stops the Egeria container, drops the metadata store schema from PostgreSQL so Egeria re-seeds fresh Coco Pharmaceuticals data on restart.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `EGERIA_CONTAINER_NAME` | `quickstart-egeria-main` | Docker container name for the Egeria platform |
+| `EGERIA_META_DB_NAME` | `egeria` | Database holding Egeria's metadata store |
+| `EGERIA_META_DB_USER` | `egeria_admin` | DB user for the metadata store |
+| `EGERIA_META_DB_PASSWORD` | `admin4egeria` | DB password — **set in `.env`, never in yaml** |
+
+The Docker socket must be mounted into the container (`/var/run/docker.sock:/var/run/docker.sock`) for reset to work.
+
+### SMTP email
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SMTP_HOST` | _(blank)_ | SMTP server hostname. If blank, email sending is skipped |
+| `SMTP_PORT` | `587` | SMTP port (587 = STARTTLS) |
+| `SMTP_SSL` | `false` | Set `true` for implicit TLS (port 465) |
+| `SMTP_USER` | _(blank)_ | SMTP authentication username (falls back to `ADMIN_BOOTSTRAP_EMAIL`) |
+| `SMTP_PASSWORD` | _(blank)_ | SMTP password — **set in `.env`, never in yaml** |
+| `SMTP_FROM` | _(same as `SMTP_USER`)_ | Sender address for outbound emails |
+
+### Resend email provider (alternative to SMTP)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RESEND_API_KEY` | _(blank)_ | Resend.com API key. If set, Resend is used instead of SMTP |
+| `RESEND_FROM` | _(blank)_ | Sender address when using Resend |
+
+### Bootstrap admin
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ADMIN_BOOTSTRAP_EMAIL` | _(blank)_ | Email for the auto-created admin. Only used when no admin exists yet |
+| `ADMIN_BOOTSTRAP_PASSWORD` | _(blank)_ | Password for the auto-created admin — **set in `.env`, never in yaml** |
+
+**Development without SMTP/Resend:** Leave both blank. Registrations will not receive a verification email. Use the admin panel to manually verify accounts.
 
 ---
 
 ## Pages and routes
 
-| Route | Description |
-|-------|-------------|
-| `GET /login` | Sign-in form (user ID + password). Handles CREDENTIALS_EXPIRED inline |
-| `GET /portal` | Hub with tool tiles. Requires authentication |
-| `GET /admin` | Admin panel. Requires `role=admin` |
-| `GET /profile` | My Profile — view/edit Egeria profile and change password |
-| `GET /egeria-explorer` | Egeria Explorer. Requires authentication |
-| `GET /privacy` | Privacy policy |
+| Route | Behaviour |
+|-------|-----------|
+| `GET /portal` | Demo portal — persona picker, app launcher tiles, resource links. Requires authentication |
+| `GET /login` | Login form. Auto-redirects to `/portal` if already authenticated |
+| `GET /register` | Registration form |
+| `GET /reset-password?token=…` | Password reset form — token arrives via email from the forgot-password flow |
+| `GET /egeria-explorer` | Egeria Explorer. Auth-gated when `DEMO_MODE=true`; redirects to `/login` if no valid session |
+| `GET /admin` | Admin panel. Requires `role=admin`; redirects to `/login` otherwise |
+| `GET /privacy` | Privacy policy (always accessible, no auth required) |
 
 ---
 
-## REST API reference
+## REST API reference (demo)
 
 ### Authentication
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `POST` | `/api/auth/login` | Public | Body: `{user_id, password}`. Returns JWT cookie or `{credentials_expired: true}` |
-| `POST` | `/api/auth/change-password` | Public | Body: `{user_id, password, new_password}`. Returns JWT cookie |
-| `POST` | `/api/auth/logout` | Public | Clears session cookie |
-| `GET` | `/api/auth/me` | Optional | Returns `{authenticated, user_id, display_name, role}` |
+| `POST` | `/api/auth/register` | Public | Register a new account. Body: `{display_name, email, password, org?}` |
+| `GET` | `/api/auth/verify/{token}` | Public | Verify email, set cookie, redirect to portal |
+| `POST` | `/api/auth/login` | Public | Log in. Body: `{email, password}`. Sets `demo_token` cookie |
+| `POST` | `/api/auth/logout` | Public | Clear session cookie |
+| `GET` | `/api/auth/me` | Optional | Returns `{authenticated, id, display_name, email, role}` or `{authenticated: false}` |
+| `POST` | `/api/auth/forgot-password` | Public | Send reset link. Body: `{email}` |
+| `POST` | `/api/auth/reset-password` | Public | Reset password. Body: `{token, password}` |
 
-### Profile
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `GET` | `/api/my-profile` | User | Get current user's Egeria profile |
-| `POST` | `/api/my-profile` | User | Create or update Egeria profile |
-
-### Platform
+### Personas
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET` | `/api/platform/org-name` | Public | Organisation name from `application.properties` or `EGERIA_ORG_NAME` |
+| `GET` | `/api/demo/personas` | Public | List all personas (passwords excluded) |
+| `POST` | `/api/demo/select-persona` | Verified user | Select a persona. Body: `{persona}`. Returns Egeria credentials |
 
-### Admin — Egeria users
+### Portal config
 
-All endpoints require `role=admin`.
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/api/demo/portal-config` | Verified user | Returns `{obsidian_vault_url, obsidian_github_url}` for the portal tile |
+
+### Demo reset
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/api/demo/reset/status` | Admin | Returns `{state, last_reset_at, reset_interval_hours}` |
+| `POST` | `/api/demo/reset` | Admin | Trigger an immediate demo reset (async — returns `{status: "reset_started"}`) |
+
+### Admin
+
+All admin endpoints require `role=admin`.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/admin/roles` | List Egeria SecurityRole elements |
-| `GET` | `/api/admin/groups` | List Egeria SecurityGroup elements |
-| `GET` | `/api/admin/egeria-users` | List all Egeria user accounts |
-| `POST` | `/api/admin/egeria-users` | Create a new user account |
-| `PUT` | `/api/admin/egeria-users/{id}` | Update user (name, roles, groups, zones) |
-| `POST` | `/api/admin/egeria-users/{id}/disable` | Set account status to `DISABLED` |
-| `POST` | `/api/admin/egeria-users/{id}/reset-password` | Set new temp password; status → `CREDENTIALS_EXPIRED` |
-| `DELETE` | `/api/admin/egeria-users/{id}` | Delete user account from Egeria |
-
-### Admin — config
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/demo/config` | Get runtime config key/value store |
-| `POST` | `/api/demo/config` | Update a config value. Body: `{key, value}` |
+| `GET` | `/api/demo/users` | List all registered users |
+| `POST` | `/api/demo/users/{id}/role` | Set role. Body: `{role: "user"\|"admin"}` |
+| `POST` | `/api/demo/users/{id}/disable` | Disable account (sets `verified=false`) |
+| `GET` | `/api/demo/events?limit=200` | Recent event log |
+| `GET` | `/api/demo/config` | Current runtime config |
+| `POST` | `/api/demo/config` | Update config. Body: `{key, value}` |
 
 ---
 
-## User account lifecycle
+## Demo portal
 
-### Account statuses
+The portal (`/portal`) is the landing page for authenticated demo users. It shows:
 
-| Status | Meaning |
-|--------|---------|
-| `CREDENTIALS_EXPIRED` | Set on all new accounts — forces password change on first login |
-| `ACTIVE` | Normal working state, set automatically after first password change |
-| `DISABLED` | Account blocked; user cannot log in |
+- **Hero banner** — welcome text, resource links (Documentation, GitHub, Coco Pharmaceuticals), and repo star prompts.
+- **Persona card** — currently selected persona with display name, role, difficulty badge, and a link to their profile on egeria-project.org.
+- **App launcher tiles** — one tile per integrated tool (Egeria Explorer, Jupyter, web resources, Obsidian workbooks).
+- **Footer** — links to documentation, GitHub, Coco Pharmaceuticals, and Privacy Policy.
 
-### Creating a user (admin steps)
+### Persona picker
 
-1. Go to **Admin → Egeria Users → Create User**
-2. Fill in User ID, display name, account type, and a temporary password. Security roles, groups, and zones are optional.
-3. After clicking **Create User**, a prompt shows the credentials — copy and share with the user out of band (Slack, Teams, etc.)
-4. The user logs in with the temporary password → the portal shows the forced password-change form → on success they enter the portal hub
+Click **Switch** on the persona card to open the persona picker modal. It lists all available personas with role, difficulty, and a Starter badge for recommended entry-level personas. The description at the top links to the Coco Pharmaceuticals practice overview on egeria-project.org.
 
-**Note:** Email address is not part of the user account. It belongs in the user's Egeria profile and is set from the `/profile` page after first login.
+Selecting a persona:
+1. Stores display info in `localStorage` (`egeria-persona`).
+2. Calls `POST /api/demo/select-persona` to retrieve the matching Egeria credentials.
+3. Stores those credentials in `localStorage` (`egeria-creds`) so Egeria Explorer can connect immediately without a separate login step.
 
-### First login (user steps)
+### Obsidian tile
 
-1. Open `http://localhost:7885/login` (or the configured SITE_URL)
-2. Enter the User ID and temporary password
-3. The portal detects `CREDENTIALS_EXPIRED` and shows the password-change form inline
-4. Set a new password — the portal issues a session and redirects to the hub
+The **Coco Pharmaceuticals Workbooks** tile links to the `coco-workbooks` Obsidian vault:
 
-### Resetting a password (admin)
+- **Local access** (localhost/127.0.0.1): shows an **Open in Obsidian** button that launches the vault via the `obsidian://` protocol handler (requires Obsidian installed locally).
+- **Remote access**: shows a **GitHub ↗** link pointing to the workbooks folder in the canonical repo (configurable).
 
-In the **Egeria Users** tab, click **Reset Pw** next to the user. Enter a new temporary password. The user's status reverts to `CREDENTIALS_EXPIRED` and they must change it again on next login.
+Configure the tile via the admin Config panel:
 
-### Disabling an account
+| Config key | Description |
+|------------|-------------|
+| `obsidian_vault_url` | Vault name or `obsidian://` URI for local users. If not a full URI, it is wrapped as `obsidian://open?vault=<name>`. Leave blank to hide the local button. |
+| `obsidian_github_url` | GitHub URL for remote users. Defaults to `https://github.com/odpi/egeria-workspaces/tree/main/coco-workbooks`. |
 
-Click **Disable** next to the user. Sets `userAccountStatus: DISABLED`. The user cannot log in. Re-create the account or call the SecurityOfficer API directly to re-enable.
+---
+
+## Egeria Explorer
+
+When accessed via the demo portal (demo mode active), Egeria Explorer behaves differently from standalone use:
+
+- **Auto-credentials**: When a persona is selected in the portal, credentials are stored in `localStorage`. Explorer reads them automatically on load — no manual connection form needed.
+- **Connection form hidden**: On the Home/splash screen in demo mode, the connection form is hidden. Users arriving from the portal are already connected.
+- **Grouped navigation**: The top nav bar collapses the 10+ section buttons into three dropdown groups:
+  - **Reference** — Type Explorer, REST APIs, Valid Values
+  - **Review** — Glossary, Reference Data, Data Design, Solution Architect, Supply Chains, Perspectives
+  - **Act** — Report Specs, Digital Products, Dr. Egeria
+- **Type-system sub-toolbar**: When the Type Explorer is active, a secondary bar below the main nav provides the area filter and Attribute Index toggle, keeping the main nav clean.
+- **Back to Portal**: A **Portal** button in the top-right header returns the user to `/portal`.
+- **Persona badge**: The current persona name is shown in the header.
 
 ---
 
 ## Admin panel guide
 
-Navigate to `/admin` while signed in as a portal admin.
+Navigate to `/admin` while logged in as an account with `role=admin`.
 
-### Egeria Users tab
+### Users tab
 
-Lists all human Egeria user accounts (types EMPLOYEE, EXTERNAL, CONTRACTOR) with user ID, display name, account type, status badge, and security roles. Egeria service accounts (type DIGITAL) are filtered out. Actions per user:
+Shows all registered users with role badge, verification status, and last login time. Available actions:
 
-- **Edit** — opens a modal to update display name, security roles, security groups, default zones, and publish zones
-- **Disable** — sets `userAccountStatus: DISABLED`
-- **Reset Pw** — prompts for a new temporary password, sets status back to `CREDENTIALS_EXPIRED`
-- **Delete** — permanently removes the account from Egeria (confirmation required; cannot be undone)
+- **Promote** — elevate a `user` to `admin`.
+- **Demote** — reduce an `admin` to `user`.
+- **Disable** — blocks login by setting `verified=false`. The user record is retained for audit purposes.
 
-The **Create User** button opens the same modal pre-cleared. The **Security Roles** and **Security Groups** multi-selects are populated from the Egeria SecurityOfficer API (requires SecurityRole/SecurityGroup elements in the metadata store).
+### Events tab
 
-**Current limitation:** The Roles column always shows empty in the user list. Role and group memberships are stored in the `namedLists` section of the omsecrets YAML (not in the per-user record), so they cannot be reverse-mapped without additional work. This will be fixed once the SecurityOfficer list API is available. See [BACKLOG.md](../BACKLOG.md).
+Shows the 200 most recent events (register, verify, login, persona_select) with timestamps and detail JSON. Use this to diagnose registration problems or confirm that email verification completed.
 
 ### Config tab
 
-Key/value pairs persisted in `/app/demo-data/config.json` on the `demo-data` volume. Editable in place. Use for any runtime tuning flags specific to your deployment.
+Key/value pairs from the `config` table. All values are strings. Editable in place.
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `obsidian_vault_url` | _(blank)_ | Vault name or `obsidian://` URI for local Obsidian launch |
+| `obsidian_github_url` | `https://github.com/odpi/egeria-workspaces/tree/main/coco-workbooks` | GitHub fallback for remote users |
+| `reset_interval_hours` | `0` | Auto-reset interval; 0 = disabled. Set > 0 to enable scheduled resets |
+| `directive_cap` | `validate` | Maximum Dr. Egeria directive level for demo users |
+| `session_lifetime_user` | `7200` | Informational; actual lifetime is set by `JWT_EXPIRY_USER_SECONDS` |
+| `session_lifetime_admin` | `604800` | Informational; actual lifetime is set by `JWT_EXPIRY_ADMIN_SECONDS` |
+| `last_reset_at` | _(blank)_ | ISO timestamp of the last successful demo reset (set automatically) |
+| `reset_state` | `ready` | `ready` or `resetting` — reflects current reset progress |
 
 ---
 
-## Organisation name
+## Demo reset (Egeria metadata)
 
-The portal header shows **"Welcome — \<org name\>"**. Resolved in this order:
+The demo reset wipes the Egeria metadata store and restarts it fresh with Coco Pharmaceuticals data. User accounts and config are unaffected.
 
-1. `platform.organization.name` from `application.properties`, if mounted into pyegeria-web at `/app/application.properties`
-2. The `EGERIA_ORG_NAME` environment variable (simplest option)
-3. Falls back to `"Egeria"`
+**What it does:**
+1. Stops the `quickstart-egeria-main` container.
+2. Drops the `repository_qs_metadata_store` schema from the `egeria` database on `egeria-shared-postgres:5442`.
+3. Restarts the container — Egeria re-seeds all Coco Pharmaceuticals data from scratch (~5 min).
 
-To mount the properties file, add this volume to `freshstart-pyegeria-web` in `egeria-freshstart.yaml`:
+**Triggering manually** (admin only):
 
-```yaml
-- ../../runtime-volumes/freshstart-platform-data/freshstart.application.properties:/app/application.properties:ro
+```
+POST /api/demo/reset
 ```
 
-Or simply set in `egeria-freshstart.yaml`:
+Returns immediately with `{status: "reset_started"}`. Check progress via:
 
-```yaml
-EGERIA_ORG_NAME: "My Organisation"
 ```
+GET /api/demo/reset/status
+```
+
+**Scheduled resets**: Set `reset_interval_hours` > 0 in the Config tab. The scheduler checks every 5 minutes and triggers a reset when the elapsed time exceeds the interval.
+
+**Docker socket requirement**: Mount `/var/run/docker.sock` into the `quickstart-pyegeria-web` container (configured in `egeria-quickstart.yaml`).
+
+---
+
+## Personas reference
+
+All personas use the Egeria password `"secret"` — the well-known Coco Pharmaceuticals demo default. This is not a security concern as the Egeria instance is pre-populated with non-sensitive fictional data.
+
+| ID | Display Name | Title | Difficulty | Starter | Focus Areas |
+|----|-------------|-------|-----------|---------|-------------|
+| `erinoverview` | Erin Overview | IT Project Leader | Business | Yes | Full view; best entry point for new users |
+| `peterprofile` | Peter Profile | Chief Data Officer | Business | Yes | Solution Architect, Perspectives, ISC |
+| `calliequartile` | Callie Quartile | Data Scientist | Technical | Yes | Data Design, Glossary, ISC |
+| `ivorpadlock` | Ivor Padlock | Information Security Officer | Business | Yes | Governance, Perspectives, Glossary |
+| `garygeeke` | Gary Geeke | IT Infrastructure Director | Technical | — | Type System, Governance, Digital Products |
+| `faithbroker` | Faith Broker | Head of Human Resources | Business | — | Perspectives, Governance, Glossary |
+| `pollytasker` | Polly Tasker | Project Leader | Business | — | Solution Architect, ISC, Perspectives |
+| `tomtally` | Tom Tally | Accounts Manager | Business | — | ISC lineage, Glossary, Data Design |
+| `lemmiestage` | Lemmie Stage | Data Staging Manager | Technical | — | ISC pipeline flows, Data Design, Governance |
+| `juleskeeper` | Jules Keeper | Records Manager | Business | — | Governance retention, Glossary, Perspectives |
+| `stewfaster` | Stew Faster | Data Steward | Business | — | Glossary curation, Data Design, Governance |
+
+**Starter personas** are highlighted in the persona picker with a green "Starter" badge and are recommended as first picks for demo attendees new to Egeria.
+
+Persona credentials come from `personas.json` in the container. To add or update a persona, edit `personas.json` and restart the container (or hot-reload via uvicorn `--reload`).
+
+---
+
+## Database maintenance
+
+The demo auth database is **PostgreSQL** — the `demo_auth` schema in the `coco_pharma` database on the shared Postgres instance (port 5442). The schema is created automatically on first startup.
+
+> **Container engine note:** Docker and Podman store named volumes in separate locations (`/var/lib/docker/volumes/` vs `~/.local/share/containers/storage/volumes/`). If you switch engines, the database starts empty — all user registrations from the previous engine are inaccessible. There is no automated migration path; re-register users after an engine switch.
+
+### Connecting directly
+
+From inside the container (replace `docker` with `podman` as appropriate):
+
+```bash
+docker exec -it egeria-shared-postgres psql -h localhost -p 5442 -U demo_user -d coco_pharma
+```
+
+From the host (port 5442 is exposed by default):
+
+```bash
+psql -h localhost -p 5442 -U demo_user -d coco_pharma
+```
+
+### Clearing users and events (preserving config)
+
+```bash
+docker exec egeria-shared-postgres psql -h localhost -p 5442 -U demo_user -d coco_pharma \
+  -c "DELETE FROM demo_auth.events; DELETE FROM demo_auth.users;"
+```
+
+After clearing, credentials in `.env.demo` are used to bootstrap a fresh admin on the next container restart.
+
+### Full schema reset (nuclear option)
+
+```bash
+docker exec egeria-shared-postgres psql -h localhost -p 5442 -U demo_user -d coco_pharma \
+  -c "DROP SCHEMA IF EXISTS demo_auth CASCADE;"
+```
+
+The schema and tables are recreated automatically on the next `quickstart-pyegeria-web` startup.
 
 ---
 
 ## SSL / HTTPS
 
-SSL is off by default. The same opt-in mechanism as quickstart applies. See
-[`../../egeria-quickstart/PyegeriaWebHandler/demo-mode.md`](../../egeria-quickstart/PyegeriaWebHandler/demo-mode.md#ssl--https)
-for the full procedure. Substitute:
+SSL is **off by default**. The web server listens on port 8885 (HTTP) only. HTTPS is enabled automatically when you use `./quick-start-local --demo`.
 
-- yaml file: `egeria-freshstart.yaml` (apache-web service)
-- Port: 7885 instead of 8885
-- `SSL_SERVER_NAME`: your freshstart domain
+### Prerequisites
+
+- A TLS certificate and private key for your domain, with the chain certificate.
+- The certificate files accessible on the host at a stable directory path.
+- Port 443 open on any firewall between users and the host (or use `HTTPS_PORT=8443` for rootless Podman — see below).
+- DNS pointing your domain at the host's IP address.
+
+### Enabling SSL (automated via `--demo`)
+
+Run:
+
+```bash
+./quick-start-local --demo
+```
+
+When prompted, provide the path to a directory containing:
+
+```
+server.crt       — TLS certificate for your domain
+server.key       — private key
+server-ca.crt    — CA / chain certificate
+```
+
+The script:
+1. Saves the cert path to `.env.demo` as `CERT_DIR`
+2. Generates `runtime-volumes/quickstart-apache-web/ssl-define.conf` containing `Define SSL_SERVER_NAME <HOST_FQDN>`
+3. Applies `egeria-quickstart-demo.yaml`, which mounts the cert directory, the SSL vhost config, and port 443
+
+`SITE_URL` is automatically set to `https://<HOST_FQDN>` (or `https://<HOST_FQDN>:<port>` when `HTTPS_PORT` is non-443).
+
+#### Using a non-standard HTTPS port (rootless Podman)
+
+Rootless Podman cannot bind privileged ports (<1024) without a sysctl change. To use port 8443 instead:
+
+Add to `compose-configs/egeria-quickstart/.env.demo`:
+```ini
+HTTPS_PORT=8443
+```
+
+Then run `./quick-start-local --demo`. The script sets `SITE_URL=https://<HOST_FQDN>:8443` automatically. Users reach the portal at `https://<HOST_FQDN>:8443`.
+
+### Enabling SSL (manual)
+
+If you need to manage the SSL config manually:
+
+**Step 1 — Create `runtime-volumes/quickstart-apache-web/ssl-define.conf`:**
+
+```apache
+Define SSL_SERVER_NAME your.domain.com
+```
+
+**Step 2 — Set `CERT_DIR` and `SITE_URL` in `compose-configs/egeria-quickstart/.env.demo`:**
+
+```ini
+CERT_DIR=/absolute/path/to/certs
+SITE_URL=https://your.domain.com
+```
+
+**Step 3 — Apply the demo overlay manually:**
+
+```bash
+docker compose \
+  -f egeria-quickstart.yaml \
+  -f egeria-quickstart-local.yaml \
+  -f egeria-quickstart-docker.yaml \
+  -f egeria-quickstart-demo.yaml \
+  up -d apache-web
+```
+
+### Disabling SSL
+
+Run without `--demo`:
+
+```bash
+./quick-start-local
+```
+
+`httpd.conf` uses `IncludeOptional conf/extra/fastapi-ssl.conf` — when the SSL vhost file is not mounted (no demo overlay), Apache starts HTTP-only on port 8885.
+
+### Cookie security
+
+Cookies are set with `Secure=true` automatically when `SITE_URL` starts with `https://`. No additional configuration is required.
+
+### Certificate renewal
+
+Replace the files in `CERT_DIR` and restart Apache — no rebuild required:
+
+```bash
+docker compose \
+  -f egeria-quickstart.yaml \
+  -f egeria-quickstart-local.yaml \
+  -f egeria-quickstart-demo.yaml \
+  restart apache-web
+```
+
+---
+
+## Obsidian browser container
+
+The `obsidian` service (container `obsidian-quickstart`) runs a full desktop Obsidian instance streamed to the browser via [Selkies](https://github.com/selkies-project/selkies) (WebRTC). It starts automatically with `quick-start-local` in all modes.
+
+### Why `http://<HOST_FQDN>:8860` shows a black screen
+
+Selkies uses WebRTC for streaming. Browsers enforce that WebRTC only works in a **secure context** — HTTPS or `localhost`. Accessing via a plain HTTP hostname (e.g. `http://cray:8860`) gives a black screen with a "needs a secure connection" error from the browser, even though the server is running correctly.
+
+### Access options
+
+| Scenario | URL | Notes |
+|----------|-----|-------|
+| On the server itself | `http://localhost:8860` | `localhost` is always a secure context — no cert needed |
+| Remote, local mode | `https://<HOST_FQDN>:8861` | nginx serves HTTPS with a self-signed cert — accept the browser warning once |
+| Remote, demo mode | `https://<HOST_FQDN>:8861` | The demo overlay mounts your real cert (`CERT_DIR`) into the container — no browser warning |
+
+The portal tile automatically opens the correct URL: `http://localhost:8860` on the server, `https://<HOST_FQDN>:8861` for all remote browsers.
+
+### Vault access
+
+`coco-workbooks/` is mounted as the vault root at `/config/vaults` inside the container. On the very first launch Obsidian shows a vault-selector screen — click **Open** (the path `/config/vaults` is pre-configured). This is a one-time step; the selection is saved to `runtime-volumes/obsidian-config/` and the vault opens directly on every subsequent restart.
 
 ---
 
 ## Security checklist
 
-Before making a freshstart deployment accessible beyond localhost:
+Before making a deployment public:
 
-- [ ] `JWT_SECRET` set to a random 32+ character string in `.env` (not in yaml)
-- [ ] `bootstrap` password changed on first login
-- [ ] `EGERIA_ADMIN_USERS` updated to include your own user ID (so bootstrap can be retired)
-- [ ] `SITE_URL` set to the actual public URL
-- [ ] HTTPS enabled for public deployments (see [SSL / HTTPS](#ssl--https))
-- [ ] Port 7800 (FastAPI) **not** exposed directly to the internet; all traffic via Apache on 7885
-- [ ] `runtime-volumes/freshstart-platform-data/secrets/egeria-user-directory.omsecrets` exists (seeded from template by startup script; copy manually if starting compose directly)
+- [ ] `JWT_SECRET` in `.env.demo` is a random 32+ character string (auto-generated by `--demo` if not set)
+- [ ] `CERT_DIR` in `.env.demo` points to a directory with valid TLS certs (`server.crt`, `server.key`, `server-ca.crt`)
+- [ ] `RESEND_API_KEY` (or SMTP credentials) set in `.env.demo` if email verification is required
+- [ ] `SITE_URL` is `https://your.domain.com` — set automatically by `--demo` from `HOST_FQDN`; verify it is correct
+- [ ] Port 8000 (FastAPI) NOT exposed to the internet; all traffic via Apache on port 8885/443
+- [ ] `DEMO_DB_PASSWORD` and `EGERIA_META_DB_PASSWORD` set in `.env.demo` if changed from defaults
+- [ ] Egeria data store pre-loaded with Coco Pharmaceuticals data before announcing the demo
+- [ ] `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD` set in `.env.demo` so admin is created on first startup
 
 ---
 
 ## Troubleshooting
 
-**Login redirects back to `/login` with no error** — Egeria platform may not be healthy yet. Check `docker compose logs freshstart-egeria-main` and wait for all servers to finish starting.
+**"rootlessport cannot expose privileged port 443"** (Podman only) — Rootless Podman cannot bind ports below 1024 without a sysctl change. Either lower the limit (`sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443`) or set `HTTPS_PORT=8443` in `.env.demo` and re-run `./quick-start-local --demo`.
 
-**"Invalid user ID or password"** — Confirm the user ID and password are correct in Egeria's secrets store. User IDs are case-sensitive.
-
-**Password-change form appears every time** — The Egeria `POST /api/token` endpoint returned `CREDENTIALS_EXPIRED` even after the password change. Check `docker compose logs freshstart-pyegeria-web` — a HTTP 200 response from `/api/token` with a non-JSON body confirms the change succeeded. If the body is a JSON error, the `newPassword` field may not be accepted by this Egeria version.
-
-**Admin panel shows empty Egeria Users list** — The omsecrets YAML file at `EGERIA_USER_SECRETS_PATH` may not exist or may not contain any human user entries. Check that `runtime-volumes/freshstart-platform-data/secrets/egeria-user-directory.omsecrets` exists on the host and is mounted correctly (the compose file mounts it to `/secrets/user-directory.omsecrets`). Run `docker compose logs freshstart-pyegeria-web` for YAML parse errors. If the file only contains `DIGITAL` accounts (Egeria service NPAs), the list will be empty — this is correct behaviour; human accounts must be created via the admin panel.
-
-**omsecrets file missing on startup** — If `runtime-volumes/freshstart-platform-data/secrets/egeria-user-directory.omsecrets` doesn't exist, the startup script copies the template from `compose-configs/egeria-freshstart/secrets/egeria-user-directory.omsecrets`. If you bypassed the startup script and started compose manually, copy the template manually before starting: `cp compose-configs/egeria-freshstart/secrets/egeria-user-directory.omsecrets runtime-volumes/freshstart-platform-data/secrets/`.
-
-**Roles/Groups dropdowns are empty in Create User form** — Expected if SecurityRole/SecurityGroup metadata has not been loaded into the metadata store via the Secrets Store Cataloguer integration connector. The create form still works — roles and groups fields will be empty multi-selects.
-
-**"Admin access required" on `/admin`** — The signed-in user ID is not in `EGERIA_ADMIN_USERS`. Add it to `egeria-freshstart.yaml` and restart `freshstart-pyegeria-web`:
-
+**Login fails with correct credentials / admin account not created** — The `bootstrap_admin()` startup event may have been interrupted by uvicorn's file-watcher reloading the worker process (Podman + `--reload` race condition). Run manually:
 ```bash
-docker compose -f egeria-freshstart.yaml restart freshstart-pyegeria-web
+podman exec quickstart-pyegeria-web python3 -c "
+import sys; sys.path.insert(0, '/app')
+from demo_db import bootstrap_admin; bootstrap_admin()
+print('done')
+"
 ```
+
+**All user accounts are gone after restarting / switching container engines** — Docker and Podman store named volumes in separate locations. Switching engines creates a fresh database volume; prior registrations are not migrated. Re-register users and re-run the bootstrap.
+
+**"SSLCertificateFile: file '/etc/ssl/egeria/server.crt' does not exist"** — `CERT_DIR` in `.env.demo` points to an empty or missing directory. Provide real certs at that path, or update `CERT_DIR` in `.env.demo` to the correct directory and restart with `./quick-start-local --demo`.
+
+**"Authentication required" on /egeria-explorer or /portal** — `DEMO_MODE` is true and the session cookie is missing or expired. Visit `/login` to sign in.
+
+**Email verification link not arriving** — Neither `SMTP_HOST` nor `RESEND_API_KEY` is configured. Log into the admin panel and manually verify the account (Users tab), or promote it to admin.
+
+**Admin panel shows "Admin access required"** — The signed-in account has `role=user`. Use the bootstrap env vars and restart the container to auto-create an admin, then log in with those credentials.
+
+**Demo auth tables not found / schema errors** — The `demo_auth` schema has not been created yet. Restart the `quickstart-pyegeria-web` container — `get_engine()` creates the schema and tables on first call.
+
+**Persona picker not appearing** — Either `DEMO_MODE` is false, or a persona was previously selected and stored in `localStorage`. Clear `egeria-persona` (and `egeria-creds`) from browser localStorage, or click **Switch** in the header persona badge.
+
+**"Persona not found" error** — The persona ID sent to `/api/demo/select-persona` does not match any key in `personas.json`. Ensure the frontend is using the correct persona IDs (lowercase, no spaces: `erinoverview`, `peterprofile`, etc.).
+
+**Egeria Explorer shows "Connect" tab with a form in demo mode** — The persona has not been selected yet, or `egeria-creds` was cleared from localStorage. Return to `/portal` and select a persona — Explorer will pick up the credentials automatically.
+
+**Demo reset fails: "Cannot reach Docker daemon"** — `/var/run/docker.sock` is not mounted into the `quickstart-pyegeria-web` container. Check the volume mount in `egeria-quickstart.yaml`.
+
+**No containers start at all / docker compose parse error** — A YAML syntax error in `egeria-quickstart.yaml` prevents `docker compose` from parsing the file, so nothing starts even with `--demo`. Run `docker compose -f compose-configs/egeria-quickstart/egeria-quickstart.yaml config` to identify the offending line. Common cause: a duplicate `environment:` key in a service block.
+
+**Obsidian container not starting / port 8860 unreachable** — Obsidian is started automatically by `quick-start-local` alongside the core services (no separate flag required). If it fails to start, check that the `lscr.io/linuxserver/obsidian:latest` image can be pulled and that ports 8860/8861 are not already in use.
+
+**Obsidian shows black screen / "needs a secure connection"** — This is a browser WebRTC restriction, not a container error. Selkies (the streaming engine) requires a secure context. Use `http://localhost:8860` when on the server itself, or `https://<HOST_FQDN>:8861` (self-signed cert) for remote access. See [Obsidian browser container](#obsidian-browser-container).
+
+**Obsidian tile shows only GitHub link when I'm local** — `obsidian_vault_url` is not set in the Config tab. Set it to your vault name (e.g. `coco-workbooks`) or a full `obsidian://` URI. Local vs. remote detection is based on `window.location.hostname`; ensure you are accessing the portal via `localhost` or `127.0.0.1`.

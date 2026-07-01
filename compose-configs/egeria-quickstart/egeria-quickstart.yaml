@@ -124,7 +124,7 @@ services:
       DEMO_DB_PATH: "/app/demo-data/demo.db"
       FEEDBACK_DB_PATH: "/app/demo-data/feedback.db"
       JWT_SECRET: "${JWT_SECRET:-change-me-before-going-public-meow}"
-      SITE_URL: "http://localhost:8885"
+      SITE_URL: "${SITE_URL:-http://localhost:8885}"
       # Resend — set RESEND_API_KEY and RESEND_FROM in .env (never in the yaml)
       RESEND_API_KEY: "${RESEND_API_KEY:-}"
       RESEND_FROM: "${RESEND_FROM:-}"
@@ -217,7 +217,7 @@ services:
       MY_PROFILE_PORT:      "8020"
       # Externally-visible URL via the Apache proxy — makes textual-serve emit
       # same-origin static/WebSocket URLs so the page CSP ('self') allows them.
-      MY_EGERIA_PUBLIC_URL: "${MY_EGERIA_PUBLIC_URL:-http://localhost:8885/my-egeria}"
+      MY_EGERIA_PUBLIC_URL: "${SITE_URL:-http://localhost:8885}/my-egeria"
     extra_hosts:
       - "${HOST_FQDN}:${HOST_GATEWAY_IP:-host-gateway}"
       - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"

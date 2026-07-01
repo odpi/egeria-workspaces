@@ -249,6 +249,10 @@ from operations_handler import router as operations_router
 app.include_router(operations_router)
 from lineage_handler import router as lineage_router
 app.include_router(lineage_router)
+from context_events_handler import router as context_events_router
+app.include_router(context_events_router)
+from favorites_handler import router as favorites_router
+app.include_router(favorites_router)
 from obsidian_lock_handler import router as obsidian_lock_router
 app.include_router(obsidian_lock_router)
 from jupyter_lock_handler import router as jupyter_lock_router

@@ -136,6 +136,135 @@ def _send_email(to: str, subject: str, html: str, text: str = "") -> None:
         logger.error(f"Failed to send email to {to!r}: {exc}")
 
 
+def _send_welcome_email(user) -> None:
+    first_name  = user.display_name.split()[0] if user.display_name else "there"
+    portal_url  = f"{SITE_URL}/portal"
+    slack_url   = "https://lfaifoundation.slack.com"
+    mailto      = "mailto:dan.wolfson@pdr-associates.com"
+    egeria_url  = "https://egeria-project.org"
+    pdr_url     = "https://pdr-associates.com"
+    egeria_logo = f"{SITE_URL}/static/egeria-logo.png"
+    pdr_logo    = f"{SITE_URL}/static/pdr-logo.png"
+
+    html = f"""
+    <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1e293b">
+      <p>Hi {first_name},</p>
+      <p>Thanks for registering for the Egeria demo site — we're glad you're trying it out!</p>
+      <p>You now have access to explore Egeria's open metadata and governance capabilities
+         first-hand: cataloguing data sources, tracing lineage, managing glossaries, and
+         seeing how automated governance actions work in practice.</p>
+
+      <p><a href="{portal_url}"
+            style="display:inline-block;padding:10px 22px;background:#6366f1;color:#fff;
+                   text-decoration:none;border-radius:6px;font-weight:600">
+        Open the Demo Portal →
+      </a></p>
+
+      <p><strong>A couple of things that might help as you get started:</strong></p>
+      <ul>
+        <li>Take a look around the catalog and explorer views to see how assets, glossaries,
+            and governance processes are connected.</li>
+        <li>If you hit a snag or have a question, the community is very responsive and
+            happy to help.</li>
+      </ul>
+
+      <p><strong>Get involved:</strong></p>
+      <ul>
+        <li>💬 <a href="{slack_url}">Join us on Egeria Slack</a> — it's the best place to
+            ask questions, share what you're trying to do, or just say hello.</li>
+        <li>📧 Or <a href="{mailto}">reply directly to dan.wolfson@pdr-associates.com</a>
+            and let me know:
+          <ul>
+            <li>How did you hear about Egeria?</li>
+            <li>What interested you about it?</li>
+            <li>Is there anything specific I can help you with, or any feature you'd like
+                to see?</li>
+          </ul>
+        </li>
+      </ul>
+
+      <p>We'd genuinely love to hear from you — feedback like this helps shape where the
+         project goes next.</p>
+      <p>Thanks again for giving Egeria a try!</p>
+      <p>Best regards,<br>
+         <strong>Dan Wolfson</strong><br>
+         Egeria Maintainer</p>
+
+      <hr style="border:none;border-top:1px solid #e2e8f0;margin:32px 0 20px">
+      <table width="100%" cellpadding="0" cellspacing="0" style="color:#64748b;font-size:12px">
+        <tr>
+          <td style="text-align:center;padding-bottom:12px" colspan="3">
+            <em>Brought to you by</em>
+          </td>
+        </tr>
+        <tr>
+          <td style="text-align:right;padding-right:20px;width:50%;vertical-align:middle">
+            <a href="{egeria_url}" style="text-decoration:none">
+              <img src="{egeria_logo}" alt="Egeria" height="36"
+                   style="display:inline-block;vertical-align:middle">
+            </a>
+          </td>
+          <td style="text-align:center;color:#cbd5e1;font-size:18px;vertical-align:middle;width:1px">|</td>
+          <td style="text-align:left;padding-left:20px;width:50%;vertical-align:middle">
+            <a href="{pdr_url}" style="text-decoration:none">
+              <img src="{pdr_logo}" alt="PDR Associates" height="36"
+                   style="display:inline-block;vertical-align:middle">
+            </a>
+          </td>
+        </tr>
+        <tr>
+          <td style="text-align:right;padding-right:20px;padding-top:6px">
+            <a href="{egeria_url}" style="color:#6366f1;text-decoration:none">{egeria_url}</a>
+          </td>
+          <td></td>
+          <td style="text-align:left;padding-left:20px;padding-top:6px">
+            <a href="{pdr_url}" style="color:#6366f1;text-decoration:none">{pdr_url}</a>
+          </td>
+        </tr>
+      </table>
+    </div>
+    """
+
+    text = f"""Hi {first_name},
+
+Thanks for registering for the Egeria demo site — we're glad you're trying it out!
+
+You now have access to explore Egeria's open metadata and governance capabilities first-hand: cataloguing data sources, tracing lineage, managing glossaries, and seeing how automated governance actions work in practice.
+
+Open the portal: {portal_url}
+
+A couple of things that might help as you get started:
+• Take a look around the catalog and explorer views to see how assets, glossaries, and governance processes are connected.
+• If you hit a snag or have a question, the community is very responsive and happy to help.
+
+Get involved:
+• 💬 Join us on Egeria Slack ({slack_url}) — it's the best place to ask questions, share what you're trying to do, or just say hello.
+• 📧 Or reply directly to dan.wolfson@pdr-associates.com and let me know:
+  - How did you hear about Egeria?
+  - What interested you about it?
+  - Is there anything specific I can help you with, or any feature you'd like to see?
+
+We'd genuinely love to hear from you — feedback like this helps shape where the project goes next.
+
+Thanks again for giving Egeria a try!
+
+Best regards,
+Dan Wolfson
+Egeria Maintainer
+
+---
+Egeria: {egeria_url}
+PDR Associates: {pdr_url}
+"""
+
+    _send_email(
+        to=user.email,
+        subject="Welcome to the Egeria Demo — thanks for registering!",
+        html=html,
+        text=text,
+    )
+
+
 # ── Persona helpers ────────────────────────────────────────────────────────────
 
 def _load_personas() -> dict:
@@ -257,6 +386,7 @@ def verify_email(token: str, db: Session = Depends(get_db)):
     db.commit()
     log_event(db, user.id, "verify", {},
               user_email=user.email, user_display_name=user.display_name)
+    _send_welcome_email(user)
 
     demo_token = _make_jwt(user.id, user.role)
     exp = JWT_EXPIRY_ADMIN_SEC if user.role == "admin" else JWT_EXPIRY_USER_SEC
