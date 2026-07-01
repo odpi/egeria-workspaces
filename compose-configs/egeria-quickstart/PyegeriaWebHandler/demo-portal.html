@@ -356,6 +356,7 @@ function applyPersonaUI(persona) {
   document.getElementById('persona-bio').style.display = 'flex';
 
   loadFavorites(persona.id);
+  _renderJupBookmark(persona.id);
 }
 
 // ── Favorites ─────────────────────────────────────────────────────────────────
@@ -454,7 +455,8 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
     } else if (a.obsidian) {
       action = '<div id="obs-tile-action"><span style="color:var(--muted);font-size:0.8rem">Loading…</span></div>';
     } else if (a.jupyter) {
-      action = '<div id="jup-tile-action"><span style="color:var(--muted);font-size:0.8rem">Loading…</span></div>';
+      action = '<div id="jup-tile-action"><span style="color:var(--muted);font-size:0.8rem">Loading…</span></div>'
+             + '<div id="jup-tile-bookmark"></div>';
     } else {
       action = '<button class="btn btn-accent app-action" onclick="launch(' + JSON.stringify(a.url).replace(/"/g, '&quot;') + ',' + a.newTab + ',' + JSON.stringify(a.name).replace(/"/g, '&quot;') + ')">' + (a.newTab ? 'Open ↗' : 'Open') + '</button>';
     }
@@ -787,6 +789,51 @@ function _clearJupToken() {
 }
 
 if (_jupToken) { _startJupKeepalive(); }
+
+// ── Jupyter notebook bookmarks ────────────────────────────────────────────────
+function _renderJupBookmark(personaId) {
+  var el = document.getElementById('jup-tile-bookmark');
+  if (!el) return;
+  if (!personaId) { el.innerHTML = ''; return; }
+  var inp = 'width:100%;background:var(--bg);border:1px solid var(--border);border-radius:4px;'
+          + 'padding:4px 7px;color:var(--text);font-size:11px;outline:none;';
+  el.innerHTML =
+    '<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px;">'
+    + '<div style="font-size:11px;color:var(--muted);margin-bottom:5px;">📎 Bookmark a notebook</div>'
+    + '<input id="jup-nb-path" placeholder="path/to/notebook.ipynb" style="' + inp + 'font-family:ui-monospace,monospace;margin-bottom:4px;" />'
+    + '<div style="display:flex;gap:6px;align-items:center;">'
+    + '<input id="jup-nb-label" placeholder="Label (optional)" style="' + inp + 'flex:1;" />'
+    + '<button onclick="saveNotebookBookmark()" style="font-size:11px;padding:4px 10px;border-radius:4px;'
+    + 'border:none;background:rgba(96,165,250,.15);color:var(--accent);cursor:pointer;white-space:nowrap;font-family:inherit;">Save</button>'
+    + '</div>'
+    + '<div id="jup-nb-status" style="font-size:11px;color:#34d399;margin-top:3px;min-height:14px;"></div>'
+    + '</div>';
+}
+
+function saveNotebookBookmark() {
+  var path = (document.getElementById('jup-nb-path').value || '').trim().replace(/^\/+/, '');
+  if (!path) return;
+  var label = (document.getElementById('jup-nb-label').value || '').trim()
+              || path.split('/').pop().replace(/\.ipynb$/i, '');
+  // Build the JupyterLab deep-link: /lab/tree/<path>?token=egeria
+  var nbUrl = 'http://' + window.location.hostname + ':8888/lab/tree/'
+              + path.split('/').map(encodeURIComponent).join('/') + '?token=egeria';
+  var persona = _currentPersonaId;
+  if (!persona) return;
+  var status = document.getElementById('jup-nb-status');
+  fetch('/api/favorites?persona=' + encodeURIComponent(persona), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ app: 'jupyter', section: 'notebook', label: label, icon: '📓', url: nbUrl })
+  }).then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+    .then(function() {
+      document.getElementById('jup-nb-path').value = '';
+      document.getElementById('jup-nb-label').value = '';
+      if (status) { status.textContent = '✓ Bookmarked'; setTimeout(function() { if (status) status.textContent = ''; }, 2000); }
+      loadFavorites(persona);
+    })
+    .catch(function() { if (status) status.textContent = 'Error saving'; });
+}
 
 // ── Picker ────────────────────────────────────────────────────────────────────
 var _pendingId = null;
