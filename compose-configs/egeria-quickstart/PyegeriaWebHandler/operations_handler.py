@@ -509,23 +509,6 @@ class _ConnectorActionBody(BaseModel):
     connector_name: str
 
 
-def _connector_restart(rm, server_guid: str, connector_name: str) -> None:
-    """Restart a named integration connector via the correct Egeria 6.x API.
-
-    pyegeria's start_connector / stop_connector (container version) use the broken
-    singular `/integration-daemon/` URL path (GET request) which Egeria 6.x no
-    longer exposes.  The correct endpoint mirrors _async_refresh_integration_connector:
-      POST .../runtime-manager/integration-daemons/{guid}/integration-connectors/restart
-    Egeria 6.x does not expose a separate stop endpoint via the view-server
-    runtime-manager OMVS — restart is the correct equivalent for start/stop.
-    """
-    url = (
-        f"{rm.runtime_command_root}/integration-daemons/"
-        f"{server_guid}/integration-connectors/restart"
-    )
-    body = {"class": "NameRequestBody", "name": connector_name}
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(rm._async_make_request("POST", url, body))
 
 
 @router.post("/api/operations/connector/{action}", summary="Start/stop/refresh a connector (admin only)")
@@ -538,11 +521,7 @@ def connector_action(action: str, request: Request, body: _ConnectorActionBody,
     try:
         rm = _runtime_manager(url, server, user_id, user_pwd)
         if action in ("start", "stop"):
-            # Egeria 6.x runtime-manager OMVS does not expose separate start/stop
-            # endpoints (pyegeria's start_connector uses a defunct singular URL).
-            # restart is the supported equivalent — it starts a stopped connector or
-            # restarts a running one.
-            _connector_restart(rm, body.server_guid, body.connector_name)
+            rm.restart_connector(server_guid=body.server_guid, connector_name=body.connector_name)
         else:
             # Refresh can take several minutes (external actions, large surveys) — run in
             # background thread and return 202 immediately so the request never times out.
