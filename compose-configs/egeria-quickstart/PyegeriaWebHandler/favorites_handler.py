@@ -263,6 +263,13 @@ def _effective_email(user, persona: str) -> str:
     return user.email if user else f"local:{persona}"
 
 
+def _old_url_format(url: str) -> bool:
+    """Return True for the legacy '#section?param=value' URL format (hash before query)."""
+    if not url or '#' not in url or '?' not in url:
+        return False
+    return url.index('#') < url.index('?')
+
+
 @router.get("/api/favorites")
 async def list_favorites(
     persona: str = Query(...),
@@ -280,7 +287,33 @@ async def list_favorites(
         .all()
     )
     if rows:
-        return JSONResponse([_row_to_dict(r) for r in rows])
+        # Purge any rows stored in the old '#section?param=value' URL format.
+        # These were created before the URL-format fix and can no longer be matched
+        # by FavoriteButtons (which now generate '?param=value#section'), so they
+        # only appear as unexpected duplicates in the portal chip strip.
+        stale = [r for r in rows if _old_url_format(r.url)]
+        if stale:
+            for r in stale:
+                db.delete(r)
+            db.commit()
+            rows = [r for r in rows if not _old_url_format(r.url)]
+
+        # Deduplicate by URL (keep the highest-position row for each URL).
+        seen: dict[str, Favorite] = {}
+        for r in rows:
+            if r.url not in seen or r.position > seen[r.url].position:
+                seen[r.url] = r
+        deduped = sorted(seen.values(), key=lambda r: r.position)
+        if len(deduped) < len(rows):
+            # Remove the extra rows so the DB stays clean.
+            keep_ids = {r.id for r in deduped}
+            for r in rows:
+                if r.id not in keep_ids:
+                    db.delete(r)
+            db.commit()
+
+        if deduped:
+            return JSONResponse([_row_to_dict(r) for r in deduped])
 
     # 2. Authenticated users: try to seed from Egeria
     if user:
@@ -317,9 +350,15 @@ async def add_favorite(
 
     has_rows = db.query(Favorite).filter_by(user_email=email, persona_id=persona).first() is not None
     if not has_rows:
-        # First customization for this user+persona — materialize the defaults that
-        # were being displayed so adding one item doesn't wipe out the rest.
-        _write_to_db(db, email, persona, _PERSONA_DEFAULTS.get(persona, []))
+        # First customization — materialize the defaults that were being displayed.
+        # Exclude any page-level default for the same section as the item being added
+        # to avoid an unexpected "duplicate" (e.g. section chip + element chip for ISC).
+        persona_defaults = _PERSONA_DEFAULTS.get(persona, [])
+        defaults_to_write = [
+            d for d in persona_defaults
+            if not (d.get("app") == app and d.get("section") == section)
+        ]
+        _write_to_db(db, email, persona, defaults_to_write)
 
     existing = (
         db.query(Favorite)
@@ -363,16 +402,31 @@ async def remove_favorite(
     email = _effective_email(user, persona)
 
     if fav_id.startswith("default-"):
-        # Synthetic id for a not-yet-persisted default — materialize the remaining
-        # defaults (minus this one) so the toggle behaves like a real removal.
+        # Synthetic id for a not-yet-persisted default.
+        # Materialize the remaining defaults (minus this one) while preserving any
+        # element-level rows that were explicitly added (not part of the defaults).
         try:
             idx = int(fav_id.split("-", 1)[1])
         except ValueError:
             idx = -1
-        remaining = [d for i, d in enumerate(_PERSONA_DEFAULTS.get(persona, [])) if i != idx]
-        _write_to_db(db, email, persona, remaining)
+        defaults = _PERSONA_DEFAULTS.get(persona, [])
+        default_urls = {d.get("url", "") for d in defaults}
+
+        # Collect any real (element-level) rows that aren't part of the defaults.
+        existing = db.query(Favorite).filter_by(user_email=email, persona_id=persona).all()
+        extra_rows = [_row_to_dict(r) for r in existing if r.url not in default_urls]
+
+        # Defaults minus the removed one, excluding any URLs already in extra_rows.
+        extra_urls = {r["url"] for r in extra_rows}
+        remaining_defaults = [
+            d for i, d in enumerate(defaults)
+            if i != idx and d.get("url", "") not in extra_urls
+        ]
+
+        combined = remaining_defaults + extra_rows
+        _write_to_db(db, email, persona, combined)
         if user:
-            await _egeria_write_favorites(persona, remaining)
+            await _egeria_write_favorites(persona, combined)
         return JSONResponse({"status": "deleted"})
 
     fav = db.get(Favorite, fav_id)
