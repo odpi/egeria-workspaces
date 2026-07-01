@@ -1761,7 +1761,7 @@ function FavoriteButton({ app, section, label, icon, url, personaId, demoMode })
   return React.createElement('button', {
     onClick: toggle,
     disabled: state === 'loading',
-    title: state === 'on' ? 'Remove from My Favorites' : 'Add to My Favorites',
+    title: state === 'on' ? 'Remove from My Bookmarks' : 'Add to My Bookmarks',
     style: {
       background: 'none', border: 'none', cursor: state === 'loading' ? 'default' : 'pointer',
       fontSize: 16, lineHeight: 1, padding: '2px 6px',
