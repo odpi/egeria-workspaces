@@ -500,12 +500,14 @@ class _ConnectorActionBody(BaseModel):
 
 
 @router.post("/api/operations/connector/{action}", summary="Start/stop/refresh a connector (admin only)")
-def connector_action(action: str, request: Request, body: _ConnectorActionBody):
+def connector_action(action: str, request: Request, body: _ConnectorActionBody,
+                     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+                     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None)):
     if action not in ("start", "stop", "refresh"):
         raise HTTPException(status_code=400, detail=f"Unsupported connector action {action!r}")
     _admin_gate(request)
     try:
-        rm = _runtime_manager()
+        rm = _runtime_manager(url, server, user_id, user_pwd)
         if action == "start":
             rm.start_connector(server_guid=body.server_guid, connector_name=body.connector_name)
         elif action == "stop":
@@ -569,10 +571,12 @@ class _EngineActionBody(BaseModel):
 
 
 @router.post("/api/operations/engine/refresh", summary="Refresh a governance engine's config (admin only)")
-def engine_refresh(request: Request, body: _EngineActionBody):
+def engine_refresh(request: Request, body: _EngineActionBody,
+                   url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+                   user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None)):
     _admin_gate(request)
     try:
-        rm = _runtime_manager()
+        rm = _runtime_manager(url, server, user_id, user_pwd)
         rm.refresh_governance_engine(gov_engine_name=body.engine_name, server_guid=body.server_guid)
     except Exception as exc:
         _raise_http(exc, f"operations: refresh_governance_engine({body.engine_name!r}) failed")
@@ -621,10 +625,12 @@ class _CancelActionBody(BaseModel):
 
 
 @router.post("/api/operations/engine-action/cancel", summary="Cancel an engine action (admin only)")
-def cancel_engine_action_route(request: Request, body: _CancelActionBody):
+def cancel_engine_action_route(request: Request, body: _CancelActionBody,
+                               url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+                               user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None)):
     _admin_gate(request)
     try:
-        ac = _automated_curation()
+        ac = _automated_curation(url, server, user_id, user_pwd)
         ac.cancel_engine_action(engine_action_guid=body.engine_action_guid)
     except Exception as exc:
         _raise_http(exc, f"operations: cancel_engine_action({body.engine_action_guid!r}) failed")
@@ -639,12 +645,14 @@ class _ServerActionBody(BaseModel):
 
 
 @router.post("/api/operations/server/{action}", summary="Start/stop a server (admin only)")
-def server_action(action: str, request: Request, body: _ServerActionBody):
+def server_action(action: str, request: Request, body: _ServerActionBody,
+                  url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+                  user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None)):
     if action not in ("activate", "shutdown"):
         raise HTTPException(status_code=400, detail=f"Unsupported server action {action!r}")
     _admin_gate(request)
     try:
-        rm = _runtime_manager()
+        rm = _runtime_manager(url, server, user_id, user_pwd)
         if action == "activate":
             # Slow (timeout up to 240s) — the frontend shows a spinner and suppresses refresh.
             rm.activate_server_with_stored_config(server_guid=body.server_guid)

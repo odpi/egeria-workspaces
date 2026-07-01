@@ -3,34 +3,82 @@
 """
 Egeria Operations — FastAPI router.
 
-Serves the egeria-operations SPA and the operations API. Four tabs, all driven
-by the pyegeria RuntimeManager (plus AssetMaker / AutomatedCuration):
+Serves the egeria-operations SPA and its API. Four tabs driven by the pyegeria
+RuntimeManager (plus AutomatedCuration):
 
   - Servers              : config + status of servers on a platform; start/stop.
   - Integration Connectors : connectors on an Integration Daemon; start/stop/refresh.
   - Governance Engines   : engines on an Engine Host; refresh config.
   - Engine Actions       : ecosystem-wide engine-action status; cancel.
 
-Spec: operations_plan.md (review comments inline there).
+Routes
+------
+  GET  /egeria-operations                              → SPA shell
+  GET  /api/operations/platforms                       → platforms + deployed servers
+  GET  /api/operations/server-status                   → live status row per server (async fan-out)
+  GET  /api/operations/server-report/{guid}            → full server report
+  GET  /api/operations/integration-connectors          → connectors on an Integration Daemon
+  GET  /api/operations/governance-engines              → engines on an Engine Host
+  GET  /api/operations/engine-actions                  → ecosystem-wide engine actions
+  POST /api/operations/server/{action}                 → activate | shutdown (admin-gated)
+  POST /api/operations/connector/{action}              → start | stop | refresh (admin-gated)
+  POST /api/operations/engine/refresh                  → refresh engine config (admin-gated)
+  POST /api/operations/engine-action/cancel            → cancel an engine action (admin-gated)
 
-Platform/server discovery (verified recipe — operations_plan.md):
-  get_platforms_by_type(body={class:FilterRequestBody, filter:"OMAG Server Platform",
-                              graphQueryDepth:1, includeOnlyRelationships:["DeployedOn"]})
-  → per platform: elementHeader.guid + properties.displayName(‖qualifiedName)
-  → servers under `hostedITAssets` (DeployedOn relationships); server element under
-    `relatedElement`: elementHeader.guid + properties.displayName + deployedImplementationType.
+Platform/server discovery
+-------------------------
+Uses _async_get_platforms_by_type (async) or get_platforms_by_type (sync) with:
+  body = {class:"FilterRequestBody", filter:"OMAG Server Platform",
+          graphQueryDepth:1, includeOnlyRelationships:["DeployedOn"]}
+Each platform element carries hostedITAssets (DeployedOn relationships); each
+relationship's relatedElement gives the server guid, displayName, and
+deployedImplementationType.
 
-Routes:
-  GET  /egeria-operations                       → serve the SPA
-  GET  /api/operations/platforms                → platforms + their deployed servers (cacheable)
-  GET  /api/operations/server-report/{guid}     → full server report (live, per refresh)
-  POST /api/operations/server/{action}          → activate | shutdown a server (admin-gated)
+Integration Connector caching (non-blocking)
+--------------------------------------------
+The Egeria /instance/report endpoint polls every connector for live status and
+can take several minutes on a loaded daemon. The endpoint is therefore
+non-blocking:
+
+  1. Cold start  — _get_server_report_cached fires a background asyncio Task and
+                   returns {"loading": true} immediately. The frontend polls every
+                   8 s until loading becomes false.
+  2. In-flight   — subsequent requests while the Task is running also get
+                   {"loading": true}. Exactly one Task runs per cache key.
+  3. Fresh cache — result returned instantly (TTL = 60 s).
+  4. Stale cache — stale result returned instantly; a background refresh Task is
+                   spawned; response includes {"stale": true} so the frontend
+                   shows an amber banner.
+
+Cache is invalidated by _invalidate_server_cache after any start/stop action so
+the next load reflects the new connector state.
+
+RuntimeManager timeout
+----------------------
+RuntimeManager is constructed with time_out=180 (seconds). The Egeria view
+server is the bottleneck, not our code; 180 s gives the background task enough
+headroom on slow daemons. Apache's ProxyPass timeout for /api is 300 s.
+
+Async invariants
+----------------
+- Sync client factories (_runtime_manager, _automated_curation) are only called
+  from sync (def) routes or background threads. Never call them from async routes.
+- Async factories (_runtime_manager_async, _automated_curation_async) use
+  async_apply_token, which awaits _async_create_egeria_bearer_token() directly
+  instead of run_until_complete(), avoiding the "event loop already running" error.
+- _platform_server_guids (sync) is used only from sync routes or executors.
+  _platform_server_guids_async awaits _async_get_platforms_by_type and is used
+  from async routes.
+- _get_server_report_cached is intentionally sync (no await) so that the check +
+  Task creation is atomic within the asyncio event loop — no concurrent cold-starts.
 """
 import os
 import asyncio
+import time
 import threading
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
@@ -40,6 +88,76 @@ from pydantic import BaseModel
 from egeria_auth import apply_token, async_apply_token
 
 router = APIRouter(tags=["egeria-operations"])
+
+
+# ── Server-report cache (non-blocking, stale-while-revalidate) ────────────────
+# The Integration Daemon's /instance/report polls every connector for live
+# status and can take several minutes.  Strategy:
+#   • Cold start  → fire background task, return loading=True immediately.
+#   • In-flight   → return loading=True (one task per key).
+#   • Fresh cache → return data instantly.
+#   • Stale cache → return data instantly, kick off background refresh.
+
+@dataclass
+class _ReportCacheEntry:
+    data: Any
+    ts: float
+    refreshing: bool = False
+
+_report_cache: dict[str, _ReportCacheEntry] = {}
+_fetch_in_progress: dict[str, asyncio.Task] = {}
+_REPORT_TTL = 60.0  # seconds before a cached entry is considered stale
+
+
+def _report_cache_key(server_guid: str, url: str, server: str, user_id: str) -> str:
+    return f"{server_guid}|{url}|{server}|{user_id}"
+
+
+def _invalidate_server_cache(server_guid: str) -> None:
+    """Drop cached reports for a server after a state-changing action."""
+    for key in [k for k in _report_cache if k.startswith(server_guid + "|")]:
+        del _report_cache[key]
+
+
+async def _fetch_and_cache(rm, server_guid: str, key: str) -> None:
+    """Background coroutine: fetch the server report and populate the cache."""
+    try:
+        raw = await rm._async_get_server_report(server_guid=server_guid, output_format="JSON")
+        _report_cache[key] = _ReportCacheEntry(data=raw, ts=time.monotonic())
+        logger.info("operations: server report cached for %s", server_guid)
+    except Exception:
+        entry = _report_cache.get(key)
+        if entry:
+            entry.refreshing = False
+        logger.warning("operations: background fetch failed for %s", server_guid)
+    finally:
+        _fetch_in_progress.pop(key, None)
+
+
+def _get_server_report_cached(rm, server_guid: str, key: str) -> tuple[Any, bool, bool]:
+    """Return (raw_report, is_stale, is_loading).
+
+    is_loading=True means no cached data exists yet; the caller should return
+    an empty response and let the client retry in a few seconds.
+    This function is sync (no await) so there is no risk of concurrent cold-starts.
+    """
+    now = time.monotonic()
+    entry = _report_cache.get(key)
+    if entry is not None:
+        if now - entry.ts < _REPORT_TTL:
+            return entry.data, False, False  # fresh
+        if not entry.refreshing:
+            entry.refreshing = True
+            asyncio.get_event_loop().create_task(_fetch_and_cache(rm, server_guid, key))
+        return entry.data, True, False  # stale, refreshing in background
+
+    # No cache — ensure exactly one fetch task is running
+    task = _fetch_in_progress.get(key)
+    if task is None or task.done():
+        _fetch_in_progress[key] = asyncio.get_event_loop().create_task(
+            _fetch_and_cache(rm, server_guid, key)
+        )
+    return None, False, True  # loading
 
 
 def _is_auth_error(exc: Exception) -> bool:
@@ -54,10 +172,24 @@ def _is_auth_error(exc: Exception) -> bool:
             or "AUTHORIZATION_ERROR" in s)
 
 
+def _is_timeout_error(exc: Exception) -> bool:
+    """Return True if exc is a pyegeria or asyncio timeout (408 / TIMEOUT_ERROR)."""
+    if isinstance(exc, asyncio.TimeoutError):
+        return True
+    code = getattr(exc, "response_code", None) or getattr(exc, "http_status_code", None)
+    if code == 408:
+        return True
+    s = str(exc).upper()
+    return "TIMEOUT_ERROR" in s or "TIMED OUT" in s
+
+
 def _raise_http(exc: Exception, log_msg: str = "") -> None:
     """Re-raise a pyegeria exception as the correct FastAPI HTTPException."""
     if log_msg:
         logger.exception(log_msg)
+    if _is_timeout_error(exc):
+        raise HTTPException(status_code=504,
+                            detail="Egeria did not respond in time — the server may be busy. Try again in a moment.")
     if _is_auth_error(exc):
         raise HTTPException(status_code=401,
                             detail="Session expired or token invalid — please reconnect.")
@@ -75,7 +207,7 @@ def _runtime_manager(url=None, server=None, user_id=None, user_pwd=None):
     server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
     user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
     user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
-    mgr = RuntimeManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    mgr = RuntimeManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd, time_out=180)
     apply_token(mgr)
     return mgr
 
@@ -190,6 +322,17 @@ def _platform_server_guids(rm, platform_guid: str) -> list:
     return []
 
 
+async def _platform_server_guids_async(rm, platform_guid: str) -> list:
+    """Async version of _platform_server_guids — uses _async_get_platforms_by_type."""
+    body = {"class": "FilterRequestBody", "filter": "OMAG Server Platform",
+            "graphQueryDepth": 1, "includeOnlyRelationships": ["DeployedOn"]}
+    raw = await rm._async_get_platforms_by_type(body=body, output_format="JSON")
+    for e in (raw if isinstance(raw, list) else []):
+        if (e.get("elementHeader") or {}).get("guid") == platform_guid:
+            return [_server_stub(r) for r in (e.get("hostedITAssets") or []) if isinstance(r, dict)]
+    return []
+
+
 @router.get("/api/operations/server-status", summary="Status row per server on a platform (Servers tab)")
 async def server_status_overview(
     platform_guid: str = Query(...),
@@ -198,7 +341,7 @@ async def server_status_overview(
 ):
     try:
         rm = await _runtime_manager_async(url, server, user_id, user_pwd)
-        stubs = [s for s in _platform_server_guids(rm, platform_guid) if s.get("guid")]
+        stubs = [s for s in await _platform_server_guids_async(rm, platform_guid) if s.get("guid")]
     except Exception as exc:
         _raise_http(exc, "operations: server-status discovery failed")
 
@@ -207,8 +350,9 @@ async def server_status_overview(
     async def _one(st):
         async with sem:
             try:
-                rep = await rm._async_get_server_report(server_guid=st["guid"], output_format="JSON")
-                rep = _report_element(rep) or {}
+                rep = _report_element(
+                    await rm._async_get_server_report(server_guid=st["guid"], output_format="JSON")
+                ) or {}
             except Exception:
                 rep = {}
             return {
@@ -249,7 +393,7 @@ async def _runtime_manager_async(url=None, server=None, user_id=None, user_pwd=N
     server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
     user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
     user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
-    mgr = RuntimeManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    mgr = RuntimeManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd, time_out=180)
     await async_apply_token(mgr)
     return mgr
 
@@ -294,14 +438,18 @@ async def list_integration_connectors(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
+    cache_key = _report_cache_key(server_guid, url or "", server or "", user_id or "")
     try:
         rm = await _runtime_manager_async(url, server, user_id, user_pwd)
         ac = await _automated_curation_async(url, server, user_id, user_pwd)
-        rep = _report_element(
-            await rm._async_get_server_report(server_guid=server_guid, output_format="JSON")
-        ) or {}
+        raw, is_stale, is_loading = _get_server_report_cached(rm, server_guid, cache_key)
     except Exception as exc:
         _raise_http(exc, "operations: integration-connectors report failed")
+
+    if is_loading:
+        return JSONResponse({"connectors": [], "total": 0, "loading": True, "stale": False})
+
+    rep = _report_element(raw) or {}
 
     connectors = rep.get("integrationConnectorReports") or []
     groups = {g.get("integrationGroupGUID"): g.get("integrationGroupName")
@@ -343,7 +491,7 @@ async def list_integration_connectors(
         logger.exception("operations: concurrent catalog-target fetch failed")
         rows = []
     rows.sort(key=lambda r: (r.get("connectorName") or "").lower())
-    return JSONResponse({"connectors": rows, "total": len(rows)})
+    return JSONResponse({"connectors": rows, "total": len(rows), "loading": False, "stale": is_stale})
 
 
 class _ConnectorActionBody(BaseModel):
@@ -352,12 +500,14 @@ class _ConnectorActionBody(BaseModel):
 
 
 @router.post("/api/operations/connector/{action}", summary="Start/stop/refresh a connector (admin only)")
-def connector_action(action: str, request: Request, body: _ConnectorActionBody):
+def connector_action(action: str, request: Request, body: _ConnectorActionBody,
+                     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+                     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None)):
     if action not in ("start", "stop", "refresh"):
         raise HTTPException(status_code=400, detail=f"Unsupported connector action {action!r}")
     _admin_gate(request)
     try:
-        rm = _runtime_manager()
+        rm = _runtime_manager(url, server, user_id, user_pwd)
         if action == "start":
             rm.start_connector(server_guid=body.server_guid, connector_name=body.connector_name)
         elif action == "stop":
@@ -379,6 +529,7 @@ def connector_action(action: str, request: Request, body: _ConnectorActionBody):
             return JSONResponse({"ok": True, "action": "refresh", "refreshing": True}, status_code=202)
     except Exception as exc:
         _raise_http(exc, f"operations: connector {action}({body.connector_name!r}) failed")
+    _invalidate_server_cache(body.server_guid)
     logger.info("operations: connector %s %s on %s", action, body.connector_name, body.server_guid)
     return JSONResponse({"ok": True, "action": action, "connector_name": body.connector_name})
 
@@ -420,10 +571,12 @@ class _EngineActionBody(BaseModel):
 
 
 @router.post("/api/operations/engine/refresh", summary="Refresh a governance engine's config (admin only)")
-def engine_refresh(request: Request, body: _EngineActionBody):
+def engine_refresh(request: Request, body: _EngineActionBody,
+                   url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+                   user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None)):
     _admin_gate(request)
     try:
-        rm = _runtime_manager()
+        rm = _runtime_manager(url, server, user_id, user_pwd)
         rm.refresh_governance_engine(gov_engine_name=body.engine_name, server_guid=body.server_guid)
     except Exception as exc:
         _raise_http(exc, f"operations: refresh_governance_engine({body.engine_name!r}) failed")
@@ -472,10 +625,12 @@ class _CancelActionBody(BaseModel):
 
 
 @router.post("/api/operations/engine-action/cancel", summary="Cancel an engine action (admin only)")
-def cancel_engine_action_route(request: Request, body: _CancelActionBody):
+def cancel_engine_action_route(request: Request, body: _CancelActionBody,
+                               url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+                               user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None)):
     _admin_gate(request)
     try:
-        ac = _automated_curation()
+        ac = _automated_curation(url, server, user_id, user_pwd)
         ac.cancel_engine_action(engine_action_guid=body.engine_action_guid)
     except Exception as exc:
         _raise_http(exc, f"operations: cancel_engine_action({body.engine_action_guid!r}) failed")
@@ -490,12 +645,14 @@ class _ServerActionBody(BaseModel):
 
 
 @router.post("/api/operations/server/{action}", summary="Start/stop a server (admin only)")
-def server_action(action: str, request: Request, body: _ServerActionBody):
+def server_action(action: str, request: Request, body: _ServerActionBody,
+                  url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+                  user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None)):
     if action not in ("activate", "shutdown"):
         raise HTTPException(status_code=400, detail=f"Unsupported server action {action!r}")
     _admin_gate(request)
     try:
-        rm = _runtime_manager()
+        rm = _runtime_manager(url, server, user_id, user_pwd)
         if action == "activate":
             # Slow (timeout up to 240s) — the frontend shows a spinner and suppresses refresh.
             rm.activate_server_with_stored_config(server_guid=body.server_guid)

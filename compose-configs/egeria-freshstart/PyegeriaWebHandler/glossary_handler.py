@@ -318,7 +318,7 @@ def get_glossary_folders(
     if not isinstance(raw, list):
         raw = []
 
-    folders = [_serialize_folder(f) for f in raw]
+    folders = [_serialize_folder(f) for f in raw if "Folder" in _type_name(f)]
     folders.sort(key=lambda f: (f.get("displayName") or "").lower())
     return JSONResponse({"folders": folders, "total": len(folders), "collection": collection_guid})
 

@@ -32,6 +32,7 @@ Routes:
   POST /api/audit/users/status                → change a user's account status (admin-gated)
 """
 import os
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -41,6 +42,9 @@ from loguru import logger
 
 import asyncio
 from egeria_auth import apply_token, async_apply_token
+
+# Matches unresolved Egeria template placeholders such as ~{hospitalName}~
+_TEMPLATE_PLACEHOLDER_RE = re.compile(r"^~\{[^}]+\}~$")
 
 router = APIRouter(tags=["egeria-audit"])
 
@@ -208,10 +212,26 @@ def resolve_audit_actor(
 ):
     """Per the spec: if propertyName is set, resolve the actor by unique name
     (get_element_by_unique_name); otherwise `value` is the actor GUID."""
+    # Unresolved template placeholders (e.g. ~{hospitalName}~) are stored as-is
+    # in relationship properties when a certification/license was created from a
+    # template whose substitution values were never supplied.  Egeria rejects a
+    # uniqueName lookup of such a string with a 400.  Return a synthetic stub so
+    # the UI can display the raw value instead of an error.
+    if _TEMPLATE_PLACEHOLDER_RE.match(value.strip()):
+        return JSONResponse({
+            "properties": {
+                "name":    value,
+                "summary": "Unresolved template placeholder — the certification or license was created "
+                           "from a template and this actor has not yet been assigned.",
+            },
+        })
     try:
         mgr = _classifier(url, server, user_id, user_pwd)
-        if property_name:
-            body = {"class": "GetRequestBody", "graphQueryDepth": 0}
+        if property_name and property_name.lower() != "guid":
+            # Must use FindPropertyNameProperties format — passing a GetRequestBody
+            # body overrides pyegeria's default and drops propertyValue/propertyName,
+            # causing Egeria to receive null for uniqueName (OPEN-METADATA-400-004).
+            body = {"class": "FindPropertyNameProperties", "propertyValue": value, "propertyName": property_name}
             if type_name:
                 body["metadataElementTypeName"] = type_name
             if as_of_time:
@@ -227,7 +247,7 @@ def resolve_audit_actor(
         raise HTTPException(status_code=500, detail=str(exc))
     el = _first_element(raw)
     if not el:
-        raise HTTPException(status_code=404, detail="Actor not found")
+        return JSONResponse({"properties": {"name": value, "summary": "Actor not found in metadata store — the value may reference an element that has not been loaded."}})
     return JSONResponse(el)
 
 
