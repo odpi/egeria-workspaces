@@ -228,7 +228,10 @@ def resolve_audit_actor(
     try:
         mgr = _classifier(url, server, user_id, user_pwd)
         if property_name and property_name.lower() != "guid":
-            body = {"class": "GetRequestBody", "graphQueryDepth": 0}
+            # Must use FindPropertyNameProperties format — passing a GetRequestBody
+            # body overrides pyegeria's default and drops propertyValue/propertyName,
+            # causing Egeria to receive null for uniqueName (OPEN-METADATA-400-004).
+            body = {"class": "FindPropertyNameProperties", "propertyValue": value, "propertyName": property_name}
             if type_name:
                 body["metadataElementTypeName"] = type_name
             if as_of_time:
@@ -244,7 +247,7 @@ def resolve_audit_actor(
         raise HTTPException(status_code=500, detail=str(exc))
     el = _first_element(raw)
     if not el:
-        raise HTTPException(status_code=404, detail="Actor not found")
+        return JSONResponse({"properties": {"name": value, "summary": "Actor not found in metadata store — the value may reference an element that has not been loaded."}})
     return JSONResponse(el)
 
 
