@@ -32,6 +32,7 @@ Routes:
   POST /api/audit/users/status                → change a user's account status (admin-gated)
 """
 import os
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -39,7 +40,11 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
-from egeria_auth import apply_token
+import asyncio
+from egeria_auth import apply_token, async_apply_token
+
+# Matches unresolved Egeria template placeholders such as ~{hospitalName}~
+_TEMPLATE_PLACEHOLDER_RE = re.compile(r"^~\{[^}]+\}~$")
 
 router = APIRouter(tags=["egeria-audit"])
 
@@ -207,6 +212,19 @@ def resolve_audit_actor(
 ):
     """Per the spec: if propertyName is set, resolve the actor by unique name
     (get_element_by_unique_name); otherwise `value` is the actor GUID."""
+    # Unresolved template placeholders (e.g. ~{hospitalName}~) are stored as-is
+    # in relationship properties when a certification/license was created from a
+    # template whose substitution values were never supplied.  Egeria rejects a
+    # uniqueName lookup of such a string with a 400.  Return a synthetic stub so
+    # the UI can display the raw value instead of an error.
+    if _TEMPLATE_PLACEHOLDER_RE.match(value.strip()):
+        return JSONResponse({
+            "properties": {
+                "name":    value,
+                "summary": "Unresolved template placeholder — the certification or license was created "
+                           "from a template and this actor has not yet been assigned.",
+            },
+        })
     try:
         mgr = _classifier(url, server, user_id, user_pwd)
         if property_name:
@@ -249,6 +267,17 @@ def _runtime_manager(url=None, server=None, user_id=None, user_pwd=None):
     return mgr
 
 
+async def _security_officer_async(url=None, server=None, user_id=None, user_pwd=None):
+    from pyegeria.egeria_tech_client import SecurityOfficer
+    url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    mgr = SecurityOfficer(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    await async_apply_token(mgr)
+    return mgr
+
+
 def _security_officer(url=None, server=None, user_id=None, user_pwd=None):
     from pyegeria.egeria_tech_client import SecurityOfficer
     url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
@@ -280,7 +309,7 @@ def list_platforms(
     return JSONResponse({"platforms": out})
 
 
-def _user_names(so, platform_name, platform_guid):
+async def _user_names(so, platform_name, platform_guid):
     """Return the list of user IDs registered with a platform's security connector.
 
     Robust against the pyegeria version where SecurityOfficer.get_user_list reads
@@ -295,29 +324,25 @@ def _user_names(so, platform_name, platform_guid):
     except Exception:
         logger.debug("audit: get_user_list raised; falling back to raw names")
     try:
-        import asyncio
         url = f"{so.security_officer_base_url}/platforms/{platform_guid}/user-accounts"
-
-        async def _go():
-            r = await so._async_make_request("GET", url, params={})
-            j = r.json()
-            return j.get("names") or j.get("userIds") or []
-        return asyncio.get_event_loop().run_until_complete(_go())
+        r = await so._async_make_request("GET", url, params={})
+        j = r.json()
+        return j.get("names") or j.get("userIds") or []
     except Exception:
         logger.exception("audit: raw user-accounts fetch failed")
         return []
 
 
 @router.get("/api/audit/users", summary="User accounts on a platform")
-def list_users(
+async def list_users(
     platform_guid: str = Query(...),
     platform_name: Optional[str] = Query(None),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     try:
-        so = _security_officer(url, server, user_id, user_pwd)
-        names = _user_names(so, platform_name, platform_guid)
+        so = await _security_officer_async(url, server, user_id, user_pwd)
+        names = await _user_names(so, platform_name, platform_guid)
     except Exception as exc:
         logger.exception("audit: get_user_list failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -325,22 +350,18 @@ def list_users(
         names = []
     # One get_user_account per user is an N+1 fan-out — serial it took ~77s for 81
     # users (browser/proxy timeout → empty tab). Fetch them concurrently (bounded).
-    import asyncio
+    sem = asyncio.Semaphore(40)
 
-    async def _fetch_accounts(name_list):
-        sem = asyncio.Semaphore(40)
-
-        async def _one(nm):
-            async with sem:
-                try:
-                    a = await so._async_get_user_account(platform_name, nm, platform_guid)
-                    return a if isinstance(a, dict) else {"userId": nm}
-                except Exception:
-                    return {"userId": nm}
-        return await asyncio.gather(*[_one(n) for n in name_list])
+    async def _one(nm):
+        async with sem:
+            try:
+                a = await so._async_get_user_account(platform_name, nm, platform_guid)
+                return a if isinstance(a, dict) else {"userId": nm}
+            except Exception:
+                return {"userId": nm}
 
     try:
-        accounts = asyncio.get_event_loop().run_until_complete(_fetch_accounts(names))
+        accounts = list(await asyncio.gather(*[_one(n) for n in names]))
     except Exception:
         logger.exception("audit: concurrent user-account fetch failed")
         accounts = [{"userId": n} for n in names]
