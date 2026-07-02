@@ -2434,14 +2434,14 @@ function SearchResultCard({ item, onNavigate }) {
     }
   }
   function handleOpen() {
-    if (!onNavigate || !item.guid) return;
-    if (nav) {
-      onNavigate({ guid: item.guid, displayName: item.displayName, section: nav.section, tab: nav.tab });
-    } else if (item.categoryId && item.categoryId !== 'other') {
-      onNavigate({ guid: item.guid, displayName: item.displayName, section: item.categoryId });
+    if (!item.guid) return;
+    if (onNavigate && (nav || (item.categoryId && item.categoryId !== 'other'))) {
+      onNavigate({ guid: item.guid, displayName: item.displayName, section: nav ? nav.section : item.categoryId, tab: nav && nav.tab });
+    } else {
+      // Unknown type — resolve via element-nav deep-link
+      window.location.href = '/tech-catalog?guid=' + encodeURIComponent(item.guid);
     }
   }
-  var canNav = !!(nav || (item.categoryId && item.categoryId !== 'other'));
   return React.createElement('div', {
     style: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }
   },
@@ -2453,7 +2453,7 @@ function SearchResultCard({ item, onNavigate }) {
       item.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginTop: 2, lineHeight: 1.4 } }, item.description.slice(0, 160) + (item.description.length > 160 ? '…' : '')),
       item.qualifiedName && item.qualifiedName !== item.displayName && React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginTop: 1 } }, item.qualifiedName.slice(0, 100))
     ),
-    canNav && item.guid && React.createElement('button', {
+    item.guid && React.createElement('button', {
       onClick: handleOpen,
       style: { fontSize: 10, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }
     }, '↗ View')
