@@ -119,29 +119,67 @@ def _extract_props(props: dict) -> dict:
     return out
 
 
+def _extract_rel_item(entry: dict) -> dict | None:
+    """Extract a single {guid, displayName, qualifiedName, typeName, superTypeNames} from a relationship entry."""
+    re = entry.get("relatedElement") or entry
+    rh = re.get("elementHeader") or {}
+    rp = re.get("properties") or {}
+    g  = rh.get("guid") or re.get("guid") or ""
+    if not g:
+        return None
+    rtype = rh.get("type") or {}
+    return {
+        "guid":           g,
+        "displayName":    rp.get("displayName") or rp.get("name") or "",
+        "qualifiedName":  rp.get("qualifiedName") or "",
+        "typeName":       rtype.get("typeName") or "",
+        "superTypeNames": rtype.get("superTypeNames") or [],
+    }
+
+
 def _extract_all_rels(element: dict) -> dict:
-    """Extract all relationship lists from an element → {key: [{guid, displayName, qualifiedName, typeName}]}."""
+    """Extract all relationship lists from an element → {key: [{guid, displayName, qualifiedName, typeName}]}.
+
+    Handles both list-valued relationships (multi-cardinality, e.g. assignedActors) and
+    single-dict relationships (mono-cardinality, e.g. superTeam).  For depth-2 responses,
+    also extracts sideLinks (second-hop relationships like PersonRoleAppointment → Person).
+    """
     result = {}
     for key, val in element.items():
-        if key in _DP_SKIP_KEYS or not isinstance(val, list) or not val:
+        if key in _DP_SKIP_KEYS:
             continue
+
+        # Mono-cardinality: single RelatedMetadataElementSummary dict (e.g. superTeam)
+        if isinstance(val, dict) and val.get("relatedElement"):
+            item = _extract_rel_item(val)
+            if item:
+                result[key] = [item]
+            continue
+
+        if not isinstance(val, list) or not val:
+            continue
+
         items = []
+        side_items = []
         for entry in val:
-            re = entry.get("relatedElement") or entry
-            rh = re.get("elementHeader") or {}
-            rp = re.get("properties") or {}
-            g  = rh.get("guid") or re.get("guid") or ""
-            if g:
-                rtype = rh.get("type") or {}
-                items.append({
-                    "guid":           g,
-                    "displayName":    rp.get("displayName") or rp.get("name") or "",
-                    "qualifiedName":  rp.get("qualifiedName") or "",
-                    "typeName":       rtype.get("typeName") or "",
-                    "superTypeNames": rtype.get("superTypeNames") or [],
-                })
+            item = _extract_rel_item(entry)
+            if item:
+                items.append(item)
+            # Depth-2: sideLinks carries second-hop related elements (e.g. persons via PersonRoles)
+            for side in (entry.get("sideLinks") or []):
+                side_item = _extract_rel_item(side)
+                if side_item:
+                    side_items.append(side_item)
+
         if items:
             result[key] = items
+        # Merge sideLinks under a "<key>Appointments" key to avoid collision
+        if side_items:
+            side_key = key + "Appointments"
+            existing = result.get(side_key, [])
+            seen = {i["guid"] for i in existing}
+            result[side_key] = existing + [i for i in side_items if i["guid"] not in seen]
+
     return result
 
 
@@ -392,7 +430,23 @@ def get_node(
             apply_token(am)
             raw = am.get_asset_by_guid(node_guid, output_format="JSON")
         except Exception as exc:
-            logger.exception("AssetMaker.get_asset_by_guid failed")
+            logger.warning("AssetMaker.get_asset_by_guid failed for %s: %s", node_guid, exc)
+
+    if not raw:
+        # General fallback for any element type (e.g. Team, Person, PersonRole) — uses
+        # graph_query_depth=2 to capture second-hop relationships (e.g. persons via PersonRoles).
+        try:
+            from pyegeria import ClassificationExplorer
+            ce = ClassificationExplorer(view_server=svr_val, platform_url=url_val, user_id=uid, user_pwd=pwd)
+            apply_token(ce)
+            raw = ce.get_element_by_guid(
+                guid=node_guid,
+                graph_query_depth=2,
+                output_format="JSON",
+                body={"class": "GetRequestBody"},
+            )
+        except Exception as exc:
+            logger.exception("ClassificationExplorer.get_element_by_guid failed for %s", node_guid)
 
     if not raw:
         raise HTTPException(status_code=404, detail=f"Node {node_guid!r} not found")

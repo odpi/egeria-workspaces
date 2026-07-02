@@ -3911,9 +3911,112 @@ function PlaceholderView({ section }) {
   );
 }
 
+// ── Global Search ─────────────────────────────────────────────────────────────
+
+const EXPLORER_SEARCH_CATEGORY_ICONS = {
+  'glossary':'📖','tech-types':'🔧','data-assets':'🗄️','infrastructure':'🖧',
+  'apis':'🔗','processes':'⚙️','surveys':'🔍','other':'📦',
+};
+
+function _explorerHlEsc(s) { return s.replace(/[&<>"]/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function _explorerHl(text, q) {
+  if (!text) return '';
+  var safe = _explorerHlEsc(text);
+  if (!q || q.length < 2) return safe;
+  try {
+    var re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+    return safe.replace(re, '<mark style="background:rgba(251,191,36,.35);color:inherit;border-radius:2px;padding:0 1px">$1</mark>');
+  } catch(e) { return safe; }
+}
+
+function ExplorerSearchView({ creds, initialQuery }) {
+  const [q, setQ]           = React.useState(initialQuery || '');
+  const [data, setData]     = React.useState(null);
+  const [err, setErr]       = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const timer = React.useRef(null);
+
+  function doSearch(query) {
+    const trimmed = (query || '').trim();
+    if (!trimmed || trimmed === '*') { setData(null); setErr(null); return; }
+    setLoading(true); setErr(null);
+    egeriaFetch('/api/catalog/search?q=' + encodeURIComponent(trimmed) + '&page_size=200', creds)
+      .then(r => r.ok ? r.json() : r.json().then(e => { throw new Error(e.detail || r.status); }))
+      .then(j => { setData(j); setLoading(false); })
+      .catch(e => { setErr(e.message || String(e)); setLoading(false); });
+  }
+
+  function handleInput(e) {
+    const val = e.target.value;
+    setQ(val);
+    clearTimeout(timer.current);
+    if (val.trim().length >= 2) timer.current = setTimeout(() => doSearch(val), 400);
+    else setData(null);
+  }
+
+  React.useEffect(() => {
+    if (initialQuery && initialQuery.trim().length >= 2) doSearch(initialQuery);
+  }, []);
+
+  return React.createElement('div', { style: { display: 'flex', flex: 1, flexDirection: 'column', overflow: 'hidden' } },
+    React.createElement('div', { style: { padding: '16px 20px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
+      React.createElement('div', { style: { position: 'relative' } },
+        React.createElement('input', {
+          type: 'search', value: q, onChange: handleInput, autoFocus: true,
+          placeholder: 'Search across The Catalog — assets, glossary, tech types, surveys…',
+          style: { width: '100%', padding: '10px 14px 10px 38px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)', fontSize: 14, boxSizing: 'border-box', outline: 'none' }
+        }),
+        React.createElement('span', { style: { position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 15, pointerEvents: 'none', color: 'var(--dim)' } }, '🔎')
+      ),
+      data && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginTop: 6 } },
+        data.total + ' result' + (data.total === 1 ? '' : 's') + ' for ' + JSON.stringify(data.query))
+    ),
+    React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: '12px 20px' } },
+      loading && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12, padding: 8 } }, 'Searching…'),
+      err     && React.createElement('div', { style: { color: '#f87171', fontSize: 13, padding: 8 } }, 'Error: ' + err),
+      !loading && !err && !data && q.trim().length < 2 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, padding: 8, textAlign: 'center', marginTop: 40 } }, 'Type at least 2 characters to search.'),
+      data && data.total === 0 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, padding: 8, textAlign: 'center', marginTop: 40 } }, 'No results found for ' + JSON.stringify(data.query) + '.'),
+      data && data.groups && data.groups.map(grp =>
+        React.createElement('div', { key: grp.categoryId, style: { marginBottom: 20 } },
+          React.createElement('div', { style: { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 } },
+            React.createElement('span', null, EXPLORER_SEARCH_CATEGORY_ICONS[grp.categoryId] || '📦'),
+            grp.categoryLabel,
+            React.createElement('span', { style: { fontWeight: 400, color: 'var(--dim)', textTransform: 'none', letterSpacing: 0 } }, '(' + grp.count + ')')
+          ),
+          grp.items.map((item, i) =>
+            React.createElement('div', { key: item.guid || i, style: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' } },
+              React.createElement('div', { style: { flex: 1, minWidth: 0 } },
+                React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
+                  React.createElement('span', { style: { fontWeight: 600, fontSize: 13, color: 'var(--fg)', wordBreak: 'break-word' }, dangerouslySetInnerHTML: { __html: _explorerHl(item.displayName || item.qualifiedName || item.guid, q) } }),
+                  React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)', fontFamily: 'ui-monospace,monospace', background: 'var(--panel)', padding: '0 5px', borderRadius: 3, flexShrink: 0 } }, item.typeName)
+                ),
+                item.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginTop: 2, lineHeight: 1.5, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }, dangerouslySetInnerHTML: { __html: _explorerHl(item.description, q) } }),
+                item.qualifiedName && item.qualifiedName !== item.displayName && React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginTop: 1, wordBreak: 'break-all', whiteSpace: 'normal' }, dangerouslySetInnerHTML: { __html: _explorerHl(item.qualifiedName, q) } })
+              ),
+              item.guid && React.createElement('a', {
+                href: '/tech-catalog?guid=' + encodeURIComponent(item.guid),
+                target: '_blank',
+                style: { fontSize: 10, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', color: 'var(--accent)', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }
+              }, '↗ Catalog')
+            )
+          )
+        )
+      )
+    )
+  );
+}
+
 // ── Splash Screen ─────────────────────────────────────────────────────────────
 
 const _SPLASH_CAPABILITIES = [
+  // ── Search ────────────────────────────────────────────────────────────────
+  {
+    section: 'search',
+    group: 'search',
+    icon: '🔎',
+    title: 'Search',
+    description: 'Cross-catalog keyword search across The Catalog — assets, glossary terms, technology types, surveys, and more. Results grouped by category with direct links to detail views.',
+  },
   // ── Explore ───────────────────────────────────────────────────────────────
   {
     section: 'glossary',
@@ -4203,6 +4306,7 @@ function SplashScreen({ onNavigate, saveCreds, demoMode, srvManaged, authUser })
         : ((!demoMode && !srvManaged) ? React.createElement(ConnectionForm, { saveCreds: saveCreds }) : null),
       React.createElement(React.Fragment, null,
         [
+          { key: 'search',    label: 'Search',    blurb: 'Find anything across The Catalog by keyword.' },
           { key: 'act',       label: 'Explore',   blurb: 'Good starting points — glossaries, collections, products, reports, and Dr. Egeria commands.' },
           { key: 'review',    label: 'Review',    blurb: 'Browse and analyse your metadata — glossaries, designs, supply chains, and governance.' },
           { key: 'reference', label: 'Reference', blurb: 'Reference tools — type system, REST APIs, valid values, and Python client.' },
@@ -4217,6 +4321,32 @@ function SplashScreen({ onNavigate, saveCreds, demoMode, srvManaged, authUser })
             ),
             React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(245px, 1fr))', gap: 14 } },
               caps.map(function(cap) {
+                if (cap.section === 'search') {
+                  return React.createElement('div', { key: 'search', style: Object.assign({}, cardStyle, { gridColumn: '1 / -1' }) },
+                    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 } },
+                      React.createElement('span', { style: { fontSize: 18, color: 'var(--accent)' } }, '🔎'),
+                      React.createElement('span', { style: { fontSize: 14, fontWeight: 600, color: 'var(--fg)' } }, 'Search')
+                    ),
+                    React.createElement('p', { style: { fontSize: 12, color: 'var(--muted)', margin: '0 0 12px', lineHeight: 1.55 } }, cap.description),
+                    React.createElement('form', {
+                      onSubmit: function(e) {
+                        e.preventDefault();
+                        var val = e.target.elements.q.value.trim();
+                        if (val.length >= 2) onNavigate('search', val);
+                      },
+                      style: { display: 'flex', gap: 0 }
+                    },
+                      React.createElement('input', {
+                        name: 'q', type: 'search', autoComplete: 'off',
+                        placeholder: 'Enter search terms…',
+                        style: { flex: 1, fontSize: 13, padding: '7px 12px', border: '1px solid var(--border)', borderRight: 'none', borderRadius: '5px 0 0 5px', background: 'var(--bg)', color: 'var(--fg)', outline: 'none' }
+                      }),
+                      React.createElement('button', { type: 'submit',
+                        style: { padding: '7px 16px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: '0 5px 5px 0', background: 'rgba(96,165,250,.15)', color: 'var(--accent)', cursor: 'pointer' }
+                      }, 'Search →')
+                    )
+                  );
+                }
                 return React.createElement('div', { key: cap.section, style: cardStyle },
                   React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
                     React.createElement('span', { style: { fontSize: 18, color: 'var(--accent)', minWidth: 22, textAlign: 'center' } }, cap.icon),
@@ -8661,9 +8791,10 @@ function App() {
     var hash = window.location.hash.slice(1).split('?')[0];
     var valid = new Set(['type-system','reference-data','digital-products','collections','glossary',
       'report-specs','valid-values','rest-apis','python-api','solution-architect',
-      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','notelogs','governance','projects','informal-tags','context-events']);
+      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','notelogs','governance','projects','informal-tags','context-events','search']);
     return valid.has(hash) ? hash : 'splash';
   });
+  const [searchQuery, setSearchQuery] = useState('');
   const [glossaryNavGuid, setGlossaryNavGuid] = useState(function() {
     var hash = window.location.hash.slice(1).split('?')[0];
     var p = new URLSearchParams(window.location.search);
@@ -8991,8 +9122,10 @@ function App() {
       )
     ),
     // Body — dispatches to section, then to Type System sub-view
-    section === 'splash'
-      ? React.createElement(SplashScreen, { onNavigate: function(s) { setSection(s); if (s === 'type-system') setView('types'); }, saveCreds: saveCreds, demoMode: demoMode, srvManaged: srvManaged, authUser: authUser })
+    section === 'search'
+      ? React.createElement(ExplorerSearchView, { key: 'search', creds: creds, initialQuery: searchQuery })
+    : section === 'splash'
+      ? React.createElement(SplashScreen, { onNavigate: function(s, q) { if (q) setSearchQuery(q); setSection(s); if (s === 'type-system') setView('types'); }, saveCreds: saveCreds, demoMode: demoMode, srvManaged: srvManaged, authUser: authUser })
       : section === 'report-specs'
       ? React.createElement(ReportSpecView, { key: credsKey })
       : section === 'glossary'

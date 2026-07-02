@@ -23,6 +23,37 @@ from loguru import logger
 router = APIRouter(tags=["glossary"])
 
 
+def _is_auth_error(exc: Exception) -> bool:
+    seen = set()
+    node = exc
+    while node is not None and id(node) not in seen:
+        seen.add(id(node))
+        code = getattr(node, "response_code", None) or getattr(node, "http_status_code", None)
+        if code in (401, 403):
+            return True
+        # httpx.HTTPStatusError stores status_code on response
+        resp = getattr(node, "response", None)
+        if resp is not None and getattr(resp, "status_code", None) in (401, 403):
+            return True
+        s = str(node).upper()
+        if ("HTTP CODE: 401" in s or "HTTP CODE: 403" in s
+                or "USER_NOT_AUTHORIZED" in s or "NOT_AUTHORIZED" in s
+                or "AUTHORIZATION_ERROR" in s or "401 " in s
+                or "CLIENT ERROR '401" in s or "CLIENT ERROR '403" in s):
+            return True
+        node = getattr(node, "__cause__", None) or getattr(node, "__context__", None)
+    return False
+
+
+def _raise_http(exc: Exception, log_msg: str = "") -> None:
+    if log_msg:
+        logger.exception(log_msg)
+    if _is_auth_error(exc):
+        raise HTTPException(status_code=401,
+                            detail="Session expired or token invalid — please reconnect.")
+    raise HTTPException(status_code=500, detail=str(exc))
+
+
 def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     from pyegeria import GlossaryManager
     url     = url     or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
@@ -251,8 +282,7 @@ def get_glossaries(
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
-        logger.exception("Failed to create GlossaryManager")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        _raise_http(exc, "Failed to create GlossaryManager")
 
     try:
         raw = mgr.find_glossaries(
@@ -267,8 +297,7 @@ def get_glossaries(
             as_of_time=as_of_time or None,
         )
     except Exception as exc:
-        logger.exception("find_glossaries failed")
-        raise HTTPException(status_code=500, detail=f"Glossary retrieval failed: {exc}")
+        _raise_http(exc, "find_glossaries failed")
 
     if not isinstance(raw, list):
         raw = []
@@ -297,8 +326,7 @@ def get_glossary_folders(
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
-        logger.exception("Failed to create GlossaryManager")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        _raise_http(exc, "Failed to create GlossaryManager")
 
     try:
         body = {"class": "ResultsRequestBody"}
@@ -312,8 +340,7 @@ def get_glossary_folders(
             body=body,
         )
     except Exception as exc:
-        logger.exception("get_collection_members failed")
-        raise HTTPException(status_code=500, detail=f"Folder retrieval failed: {exc}")
+        _raise_http(exc, "get_collection_members failed")
 
     if not isinstance(raw, list):
         raw = []
@@ -344,8 +371,7 @@ def get_terms_in_collection(
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
-        logger.exception("Failed to create GlossaryManager")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        _raise_http(exc, "Failed to create GlossaryManager")
 
     try:
         body = {"class": "ResultsRequestBody"}  # no metadataElementTypeName filter so GlossaryTerms are returned
@@ -357,8 +383,7 @@ def get_terms_in_collection(
             body=body,
         )
     except Exception as exc:
-        logger.exception("get_collection_members failed")
-        raise HTTPException(status_code=500, detail=f"Term retrieval failed: {exc}")
+        _raise_http(exc, "get_collection_members failed")
 
     if not isinstance(raw, list):
         raw = []
@@ -390,8 +415,7 @@ def search_all_terms(
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
-        logger.exception("Failed to create GlossaryManager")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        _raise_http(exc, "Failed to create GlossaryManager")
 
     search_string = q.strip() if q and q.strip() else "*"
     try:
@@ -408,8 +432,7 @@ def search_all_terms(
             as_of_time=as_of_time or None,
         )
     except Exception as exc:
-        logger.exception("find_glossary_terms failed")
-        raise HTTPException(status_code=500, detail=f"Term search failed: {exc}")
+        _raise_http(exc, "find_glossary_terms failed")
 
     if not isinstance(raw, list):
         raw = []
@@ -443,8 +466,7 @@ def get_term(
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
-        logger.exception("Failed to create GlossaryManager")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        _raise_http(exc, "Failed to create GlossaryManager")
 
     try:
         body = {"class": "GetRequestBody", "graphQueryDepth": 1}
@@ -452,8 +474,7 @@ def get_term(
             body["asOfTime"] = as_of_time
         raw = mgr.get_term_by_guid(term_guid, output_format="JSON", body=body)
     except Exception as exc:
-        logger.exception("get_term_by_guid failed")
-        raise HTTPException(status_code=500, detail=f"Term retrieval failed: {exc}")
+        _raise_http(exc, "get_term_by_guid failed")
 
     if not raw:
         raise HTTPException(status_code=404, detail=f"Term {term_guid!r} not found")

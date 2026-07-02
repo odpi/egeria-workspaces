@@ -30,9 +30,11 @@ Endpoints:
   GET /api/tech-catalog/survey-reports                        → SurveyReport assets
   GET /api/tech-catalog/survey-reports/{guid}/annotations     → Annotations for a report
   GET /api/tech-catalog/annotations                           → All/searched Annotations
+  GET /api/tech-catalog/survey-types                          → Survey type definitions (aggregated from TechnologyTypes)
 """
 
 import os
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -510,6 +512,67 @@ def _normalize_request_param(p: dict) -> dict:
     }
 
 
+def _normalize_produced_annotation(a: dict) -> dict:
+    other = {}
+    raw_other = a.get("otherPropertyValues") or {}
+    if isinstance(raw_other, dict):
+        other = {k: v for k, v in raw_other.items() if v not in (None, "", [], {})}
+    return {
+        "name":               a.get("name") or "",
+        "description":        a.get("description") or "",
+        "analysisStepName":   a.get("analysisStepName") or "",
+        "openMetadataTypeName": a.get("openMetadataTypeName") or "",
+        "explanation":        a.get("explanation") or "",
+        "otherPropertyValues": other,
+    }
+
+
+def _normalize_analysis_step(s: dict) -> dict:
+    return {
+        "name":        s.get("name") or "",
+        "description": s.get("description") or "",
+    }
+
+
+def _normalize_action_target(t: dict) -> dict:
+    return {
+        "name":        t.get("name") or "",
+        "description": t.get("description") or "",
+        "required":    t.get("required") is True or t.get("required") == "true",
+        "typeName":    t.get("technicalName") or t.get("typeName") or "",
+    }
+
+
+def _normalize_guard(g: dict) -> dict:
+    return {
+        "guard":           g.get("guard") or "",
+        "description":     g.get("description") or "",
+        "completionStatus": g.get("completionStatus") or "",
+    }
+
+
+def _extract_survey_spec(spec: dict) -> dict:
+    """Extract the survey specification fields from a governanceActionProcesses or resourceList entry."""
+    raw_params     = spec.get("supportedRequestParameter") or []
+    raw_steps      = spec.get("supportedAnalysisStep") or []
+    raw_produced   = spec.get("producedAnnotationType") or []
+    raw_guards     = spec.get("producedGuard") or []
+    raw_sup_tgts   = spec.get("supportedActionTarget") or []
+    raw_prod_tgts  = spec.get("producedActionTarget") or []
+    params   = sorted(
+        [_normalize_request_param(p) for p in raw_params if isinstance(p, dict)],
+        key=lambda p: (not p["required"], p["name"].lower()),
+    )
+    return {
+        "parameters":            params,
+        "analysisSteps":         [_normalize_analysis_step(s) for s in raw_steps if isinstance(s, dict)],
+        "producedAnnotationTypes": [_normalize_produced_annotation(a) for a in raw_produced if isinstance(a, dict)],
+        "producedGuards":        [_normalize_guard(g) for g in raw_guards if isinstance(g, dict)],
+        "supportedActionTargets": [_normalize_action_target(t) for t in raw_sup_tgts if isinstance(t, dict)],
+        "producedActionTargets": [_normalize_action_target(t) for t in raw_prod_tgts if isinstance(t, dict)],
+    }
+
+
 def _serialize_tech_type_detail(el: dict) -> dict:
     """Serialise a technology type detail element for the UI."""
     base = _serialize_tech_type(el)
@@ -554,18 +617,41 @@ def _serialize_tech_type_detail(el: dict) -> dict:
         rel_props = rel_el.get("properties") or {}
         rel_hdr   = rel_el.get("elementHeader") or {}
         spec = gp.get("specification") or {}
-        raw_params = spec.get("supportedRequestParameter") or []
-        params = [_normalize_request_param(p) for p in raw_params if isinstance(p, dict)]
-        params.sort(key=lambda p: (not p["required"], p["name"].lower()))
-        processes.append({
+        survey_spec = _extract_survey_spec(spec)
+        entry = {
             # rel_props.displayName is the actual process name; gp.displayName is the resourceUse label
             "displayName": rel_props.get("displayName") or gp.get("displayName") or "",
             "description": gp.get("description") or rel_props.get("description") or "",
             "guid":        rel_hdr.get("guid") or rel_el.get("guid") or gp.get("guid") or "",
             "resourceUse": gp.get("resourceUse") or "",
-            "parameters":  params,
-        })
+            "typeName":    (rel_hdr.get("type") or {}).get("typeName") or "",
+        }
+        entry.update(survey_spec)
+        processes.append(entry)
     base["governanceActionProcesses"] = processes
+
+    # --- Resource List (GovernanceActionTypes) ---
+    raw_resources = el.get("resourceList") or []
+    resource_list = []
+    for r in raw_resources:
+        if not isinstance(r, dict):
+            continue
+        rel_el    = (r.get("relatedElement") or {})
+        rel_props = rel_el.get("properties") or {}
+        rel_hdr   = rel_el.get("elementHeader") or {}
+        spec = r.get("specification") or {}
+        survey_spec = _extract_survey_spec(spec)
+        entry = {
+            "displayName": rel_props.get("displayName") or r.get("displayName") or "",
+            "qualifiedName": rel_props.get("qualifiedName") or "",
+            "description": r.get("description") or rel_props.get("description") or "",
+            "guid":        rel_hdr.get("guid") or rel_el.get("guid") or "",
+            "resourceUse": r.get("resourceUse") or "",
+            "typeName":    (rel_hdr.get("type") or {}).get("typeName") or "",
+        }
+        entry.update(survey_spec)
+        resource_list.append(entry)
+    base["resourceList"] = resource_list
 
     # --- External References ---
     raw_refs = el.get("externalReferences") or []
@@ -1482,6 +1568,96 @@ def get_tech_type_detail(
     except Exception as exc:
         logger.exception("get_tech_type_detail failed")
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ── Survey Types aggregation ──────────────────────────────────────────────────
+
+_SURVEY_TYPES_CACHE: dict = {}   # key → {"ts": float, "data": list}
+_SURVEY_TYPES_TTL = 300          # 5 minutes
+
+
+@router.get("/api/tech-catalog/survey-types")
+def list_survey_types(
+    request: Request,
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    """Return survey type definitions extracted from all TechnologyTypes.
+
+    Each entry represents a GovernanceActionType or GovernanceActionProcess with
+    resourceUse == 'Survey Resource', with the full survey specification and the
+    list of TechnologyTypes that reference it.
+    """
+    cache_key = f"{url}|{server}|{user_id}"
+    cached = _SURVEY_TYPES_CACHE.get(cache_key)
+    if cached and (time.time() - cached["ts"]) < _SURVEY_TYPES_TTL:
+        return JSONResponse({"items": cached["data"]})
+
+    token = _token_from_request(request)
+    try:
+        ac = _automated_curation(url, server, user_id, user_pwd, token=token)
+        raw_list = ac.find_technology_types(search_string="*", page_size=500, output_format="JSON")
+    except Exception as exc:
+        logger.exception("list_survey_types: find_technology_types failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    # guid → survey type entry (aggregated across TechTypes)
+    by_guid: dict = {}
+
+    for tech_raw in _safe_list(raw_list):
+        tech_base = _serialize_tech_type(tech_raw)
+        tech_display = tech_base.get("displayName") or tech_base.get("qualifiedName") or ""
+        tech_qn = tech_base.get("qualifiedName") or ""
+
+        try:
+            detail_raw = ac.get_tech_type_detail(
+                filter_string=tech_base.get("deployedImplementationType") or tech_base.get("displayName") or tech_qn,
+                output_format="JSON",
+            )
+            el = detail_raw[0] if isinstance(detail_raw, list) else detail_raw
+            if not isinstance(el, dict):
+                continue
+        except Exception:
+            logger.warning("list_survey_types: could not fetch detail for %s", tech_qn)
+            continue
+
+        def _process_survey_entry(entry: dict, source: str):
+            if not isinstance(entry, dict):
+                return
+            resource_use = entry.get("resourceUse") or ""
+            if "survey" not in resource_use.lower():
+                return
+            rel_el    = (entry.get("relatedElement") or {})
+            rel_props = rel_el.get("properties") or {}
+            rel_hdr   = rel_el.get("elementHeader") or {}
+            guid = rel_hdr.get("guid") or rel_el.get("guid") or ""
+            if not guid:
+                return
+            spec = entry.get("specification") or {}
+            survey_spec = _extract_survey_spec(spec)
+            if guid not in by_guid:
+                by_guid[guid] = {
+                    "guid":          guid,
+                    "displayName":   rel_props.get("displayName") or entry.get("displayName") or "",
+                    "qualifiedName": rel_props.get("qualifiedName") or "",
+                    "description":   entry.get("description") or rel_props.get("description") or "",
+                    "typeName":      (rel_hdr.get("type") or {}).get("typeName") or "",
+                    "resourceUse":   resource_use,
+                    "usedByTechTypes": [],
+                    **survey_spec,
+                }
+            ref = {"displayName": tech_display, "qualifiedName": tech_qn}
+            if ref not in by_guid[guid]["usedByTechTypes"]:
+                by_guid[guid]["usedByTechTypes"].append(ref)
+
+        for gp in _safe_list(el.get("governanceActionProcesses")):
+            _process_survey_entry(gp, "governanceActionProcesses")
+        for r in _safe_list(el.get("resourceList")):
+            _process_survey_entry(r, "resourceList")
+
+    items = sorted(by_guid.values(), key=lambda x: x.get("displayName", "").lower())
+    _SURVEY_TYPES_CACHE[cache_key] = {"ts": time.time(), "data": items}
+    return JSONResponse({"items": items})
 
 
 # Map from section id → targeted find_* with graph_query_depth=5

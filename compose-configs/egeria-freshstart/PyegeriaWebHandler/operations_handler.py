@@ -162,14 +162,24 @@ def _get_server_report_cached(rm, server_guid: str, key: str) -> tuple[Any, bool
 
 def _is_auth_error(exc: Exception) -> bool:
     """Return True if exc represents a 401/403 from Egeria (expired token / access denied)."""
-    code = getattr(exc, "response_code", None) or getattr(exc, "http_status_code", None)
-    if code in (401, 403):
-        return True
-    s = str(exc).upper()
-    # pyegeria error strings embed "HTTP Code: 401" / "HTTP Code: 403"
-    return ("HTTP CODE: 401" in s or "HTTP CODE: 403" in s
-            or "USER_NOT_AUTHORIZED" in s or "NOT_AUTHORIZED" in s
-            or "AUTHORIZATION_ERROR" in s)
+    seen = set()
+    node = exc
+    while node is not None and id(node) not in seen:
+        seen.add(id(node))
+        code = getattr(node, "response_code", None) or getattr(node, "http_status_code", None)
+        if code in (401, 403):
+            return True
+        resp = getattr(node, "response", None)
+        if resp is not None and getattr(resp, "status_code", None) in (401, 403):
+            return True
+        s = str(node).upper()
+        if ("HTTP CODE: 401" in s or "HTTP CODE: 403" in s
+                or "USER_NOT_AUTHORIZED" in s or "NOT_AUTHORIZED" in s
+                or "AUTHORIZATION_ERROR" in s or "401 " in s
+                or "CLIENT ERROR '401" in s or "CLIENT ERROR '403" in s):
+            return True
+        node = getattr(node, "__cause__", None) or getattr(node, "__context__", None)
+    return False
 
 
 def _is_timeout_error(exc: Exception) -> bool:
@@ -499,19 +509,19 @@ class _ConnectorActionBody(BaseModel):
     connector_name: str
 
 
+
+
 @router.post("/api/operations/connector/{action}", summary="Start/stop/refresh a connector (admin only)")
 def connector_action(action: str, request: Request, body: _ConnectorActionBody,
                      url: Optional[str] = Query(None), server: Optional[str] = Query(None),
                      user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None)):
-    if action not in ("start", "stop", "refresh"):
+    if action not in ("restart", "refresh"):
         raise HTTPException(status_code=400, detail=f"Unsupported connector action {action!r}")
     _admin_gate(request)
     try:
         rm = _runtime_manager(url, server, user_id, user_pwd)
-        if action == "start":
-            rm.start_connector(server_guid=body.server_guid, connector_name=body.connector_name)
-        elif action == "stop":
-            rm.stop_connector(server_guid=body.server_guid, connector_name=body.connector_name)
+        if action == "restart":
+            rm.restart_connector(server_guid=body.server_guid, connector_name=body.connector_name)
         else:
             # Refresh can take several minutes (external actions, large surveys) — run in
             # background thread and return 202 immediately so the request never times out.

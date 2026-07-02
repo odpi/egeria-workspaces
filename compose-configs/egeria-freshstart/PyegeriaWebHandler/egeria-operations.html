@@ -1009,7 +1009,7 @@ function ConnectorsTab({ creds, platforms, platform, onPlatform }) {
               : el('span', { style:{ color:'var(--dim)' } }, '—')),
             el('td', { style: td }, refreshing.has(r.connectorName)
               ? el('span', { style:{ fontSize:10, color:'#60a5fa' } }, '⟳ Refreshing…')
-              : [actionBtn('Start','#34d399',r,'start'), actionBtn('Stop','#f87171',r,'stop'), actionBtn('Refresh','#60a5fa',r,'refresh')]));
+              : [actionBtn('Restart','#34d399',r,'restart'), actionBtn('Refresh','#60a5fa',r,'refresh')]));
         }))));
 
   var filters = el(React.Fragment, null,
