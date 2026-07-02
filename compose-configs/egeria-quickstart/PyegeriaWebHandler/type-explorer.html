@@ -3918,6 +3918,17 @@ const EXPLORER_SEARCH_CATEGORY_ICONS = {
   'apis':'🔗','processes':'⚙️','surveys':'🔍','other':'📦',
 };
 
+function _explorerHlEsc(s) { return s.replace(/[&<>"]/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function _explorerHl(text, q) {
+  if (!text) return '';
+  var safe = _explorerHlEsc(text);
+  if (!q || q.length < 2) return safe;
+  try {
+    var re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+    return safe.replace(re, '<mark style="background:rgba(251,191,36,.35);color:inherit;border-radius:2px;padding:0 1px">$1</mark>');
+  } catch(e) { return safe; }
+}
+
 function ExplorerSearchView({ creds, initialQuery }) {
   const [q, setQ]           = React.useState(initialQuery || '');
   const [data, setData]     = React.useState(null);
@@ -3976,11 +3987,11 @@ function ExplorerSearchView({ creds, initialQuery }) {
             React.createElement('div', { key: item.guid || i, style: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' } },
               React.createElement('div', { style: { flex: 1, minWidth: 0 } },
                 React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
-                  React.createElement('span', { style: { fontWeight: 600, fontSize: 13, color: 'var(--fg)' } }, item.displayName || item.qualifiedName || item.guid),
-                  React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)', fontFamily: 'ui-monospace,monospace', background: 'var(--panel)', padding: '0 5px', borderRadius: 3 } }, item.typeName)
+                  React.createElement('span', { style: { fontWeight: 600, fontSize: 13, color: 'var(--fg)', wordBreak: 'break-word' }, dangerouslySetInnerHTML: { __html: _explorerHl(item.displayName || item.qualifiedName || item.guid, q) } }),
+                  React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)', fontFamily: 'ui-monospace,monospace', background: 'var(--panel)', padding: '0 5px', borderRadius: 3, flexShrink: 0 } }, item.typeName)
                 ),
-                item.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginTop: 2, lineHeight: 1.4 } }, item.description.slice(0, 160) + (item.description.length > 160 ? '…' : '')),
-                item.qualifiedName && item.qualifiedName !== item.displayName && React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginTop: 1 } }, item.qualifiedName.slice(0, 100))
+                item.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginTop: 2, lineHeight: 1.5, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }, dangerouslySetInnerHTML: { __html: _explorerHl(item.description, q) } }),
+                item.qualifiedName && item.qualifiedName !== item.displayName && React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginTop: 1, wordBreak: 'break-all', whiteSpace: 'normal' }, dangerouslySetInnerHTML: { __html: _explorerHl(item.qualifiedName, q) } })
               ),
               item.guid && React.createElement('a', {
                 href: '/tech-catalog?guid=' + encodeURIComponent(item.guid),

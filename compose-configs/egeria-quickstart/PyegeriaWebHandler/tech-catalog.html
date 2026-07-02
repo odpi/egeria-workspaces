@@ -2425,7 +2425,18 @@ var SEARCH_CATEGORY_ICONS = {
   'other':         '📦',
 };
 
-function SearchResultCard({ item, onNavigate }) {
+function _hlEscape(s) { return s.replace(/[&<>"]/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function highlightHtml(text, q) {
+  if (!text) return '';
+  var safe = _hlEscape(text);
+  if (!q || q.length < 2) return safe;
+  try {
+    var re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+    return safe.replace(re, '<mark style="background:rgba(251,191,36,.35);color:inherit;border-radius:2px;padding:0 1px">$1</mark>');
+  } catch(e) { return safe; }
+}
+
+function SearchResultCard({ item, query, onNavigate }) {
   var nav = TYPE_TO_NAV[item.typeName];
   if (!nav) {
     var sup = item.superTypeNames || [];
@@ -2438,20 +2449,20 @@ function SearchResultCard({ item, onNavigate }) {
     if (onNavigate && (nav || (item.categoryId && item.categoryId !== 'other'))) {
       onNavigate({ guid: item.guid, displayName: item.displayName, section: nav ? nav.section : item.categoryId, tab: nav && nav.tab });
     } else {
-      // Unknown type — resolve via element-nav deep-link
       window.location.href = '/tech-catalog?guid=' + encodeURIComponent(item.guid);
     }
   }
+  var q = (query || '').trim();
   return React.createElement('div', {
     style: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }
   },
     React.createElement('div', { style: { flex: 1, minWidth: 0 } },
       React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
-        React.createElement('span', { style: { fontWeight: 600, fontSize: 13, color: 'var(--text)' } }, item.displayName || item.qualifiedName || item.guid),
-        React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)', fontFamily: 'ui-monospace,monospace', background: 'var(--panel)', padding: '0 5px', borderRadius: 3 } }, item.typeName)
+        React.createElement('span', { style: { fontWeight: 600, fontSize: 13, color: 'var(--text)', wordBreak: 'break-word' }, dangerouslySetInnerHTML: { __html: highlightHtml(item.displayName || item.qualifiedName || item.guid, q) } }),
+        React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)', fontFamily: 'ui-monospace,monospace', background: 'var(--panel)', padding: '0 5px', borderRadius: 3, flexShrink: 0 } }, item.typeName)
       ),
-      item.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginTop: 2, lineHeight: 1.4 } }, item.description.slice(0, 160) + (item.description.length > 160 ? '…' : '')),
-      item.qualifiedName && item.qualifiedName !== item.displayName && React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginTop: 1 } }, item.qualifiedName.slice(0, 100))
+      item.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginTop: 2, lineHeight: 1.5, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }, dangerouslySetInnerHTML: { __html: highlightHtml(item.description, q) } }),
+      item.qualifiedName && item.qualifiedName !== item.displayName && React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginTop: 1, wordBreak: 'break-all', whiteSpace: 'normal' }, dangerouslySetInnerHTML: { __html: highlightHtml(item.qualifiedName, q) } })
     ),
     item.guid && React.createElement('button', {
       onClick: handleOpen,
@@ -2523,7 +2534,7 @@ function SearchView({ creds, onNavigate, initialQuery }) {
             React.createElement('span', { style: { fontWeight: 400, color: 'var(--dim)', textTransform: 'none', letterSpacing: 0 } }, '(' + grp.count + ')')
           ),
           grp.items.map(function(item, i) {
-            return React.createElement(SearchResultCard, { key: item.guid || i, item: item, onNavigate: onNavigate });
+            return React.createElement(SearchResultCard, { key: item.guid || i, item: item, query: q, onNavigate: onNavigate });
           })
         );
       }),
