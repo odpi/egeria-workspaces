@@ -2661,11 +2661,18 @@ var SECTIONS = [
   { id: 'data-assets',    icon: '🗄️', label: 'Data Assets',           desc: 'Data stores, data feeds, and data sets.' },
   { id: 'apis',           icon: '🔗', label: 'APIs',                    desc: 'Deployed APIs and their endpoints.' },
   { id: 'processes',      icon: '⚙️', label: 'Processes',               desc: 'Software components and actions.' },
-  { id: 'surveys',        icon: '🔍', label: 'Survey Reports & Annotations',   desc: 'Survey reports, analysis annotations, and survey type definitions.' },
+  { id: 'surveys',        icon: '🔍', label: 'Survey Reports & Annotations', desc: 'Survey reports, analysis annotations, and survey type definitions.' },
 ];
-// Search is not a SECTIONS entry (no tile on splash) — it's navigated to via the search bar.
+// ALL_SECTIONS includes Search for the nav-bar button list; Search is not a splash tile group.
+var ALL_SECTIONS = SECTIONS.concat([{ id: 'search', icon: '🔎', label: 'Search' }]);
 
 var SPLASH_GROUPS = [
+  {
+    key: 'search',
+    label: 'Search',
+    blurb: 'Find anything across The Catalog by keyword — assets, glossary terms, tech types, surveys, and more.',
+    sections: ['search'],
+  },
   {
     key: 'definitions',
     label: 'Definitions & Standards',
@@ -2685,8 +2692,11 @@ var SPLASH_GROUPS = [
     sections: ['surveys'],
   },
 ];
+var SECTIONS_BY_ID = {};
+ALL_SECTIONS.forEach(function(s) { SECTIONS_BY_ID[s.id] = s; });
+SECTIONS_BY_ID['search'] = { id: 'search', icon: '🔎', label: 'Search', desc: 'Cross-catalog keyword search — find assets, glossary terms, tech types, surveys, and more in one place.' };
 
-function Splash({ onSelect, onSearch, authUser, activePersona, creds, demoMode, srvManaged, saveCreds }) {
+function Splash({ onSelect, authUser, activePersona, creds, demoMode, srvManaged, saveCreds }) {
   var cardStyle = {
     background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8,
     padding: '20px 20px 16px', display: 'flex', flexDirection: 'column', gap: 8,
@@ -2697,8 +2707,6 @@ function Splash({ onSelect, onSearch, authUser, activePersona, creds, demoMode, 
     cursor: 'pointer', fontSize: 12, fontWeight: 600, alignSelf: 'flex-start',
   };
 
-  var sectionById = {};
-  SECTIONS.forEach(function(s) { sectionById[s.id] = s; });
 
   // Connection panel — persona takes precedence in both demo and local quickstart modes.
   var connIdentity = activePersona
@@ -2744,29 +2752,9 @@ function Splash({ onSelect, onSearch, authUser, activePersona, creds, demoMode, 
         'Browse and explore technical assets, definitions, and standards registered in your Egeria metadata environment.'),
       connPanel,
 
-      // Search card
-      React.createElement('form', {
-        onSubmit: function(e) {
-          e.preventDefault();
-          var val = e.target.elements.q.value.trim();
-          if (val.length >= 2 && onSearch) onSearch(val);
-        },
-        style: { marginBottom: 32, display: 'flex', gap: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', borderRadius: 8, overflow: 'hidden' }
-      },
-        React.createElement('input', {
-          name: 'q', type: 'search', autoComplete: 'off',
-          placeholder: '🔎  Search across all assets, glossary terms, tech types, surveys…',
-          style: { flex: 1, fontSize: 14, padding: '14px 18px', border: '1px solid var(--border)', borderRight: 'none', borderRadius: '8px 0 0 8px', background: 'var(--card)', color: 'var(--text)', outline: 'none' }
-        }),
-        React.createElement('button', {
-          type: 'submit',
-          style: { padding: '14px 22px', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', borderLeft: 'none', borderRadius: '0 8px 8px 0', background: 'var(--accent)', color: '#fff', cursor: 'pointer' }
-        }, 'Search')
-      ),
-
-      // Section groups
+      // Section groups (Search is first group; its card renders an inline input)
       SPLASH_GROUPS.map(function(grp) {
-        var caps = grp.sections.map(function(id) { return sectionById[id]; }).filter(Boolean);
+        var caps = grp.sections.map(function(id) { return SECTIONS_BY_ID[id]; }).filter(Boolean);
         return React.createElement('div', { key: grp.key, style: { marginBottom: 32 } },
           React.createElement('div', {
             style: { display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 14, paddingBottom: 6, borderBottom: '1px solid var(--border)' }
@@ -2776,6 +2764,34 @@ function Splash({ onSelect, onSearch, authUser, activePersona, creds, demoMode, 
           ),
           React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(245px, 1fr))', gap: 14 } },
             caps.map(function(s) {
+              if (s.id === 'search') {
+                return React.createElement('div', { key: 'search', style: Object.assign({}, cardStyle, { gridColumn: '1 / -1' }),
+                  onMouseEnter: function(e) { e.currentTarget.style.borderColor = 'var(--accent)'; },
+                  onMouseLeave: function(e) { e.currentTarget.style.borderColor = 'var(--border)'; } },
+                  React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 } },
+                    React.createElement('span', { style: { fontSize: 18, color: 'var(--accent)' } }, '🔎'),
+                    React.createElement('span', { style: { fontSize: 14, fontWeight: 600, color: 'var(--text)' } }, 'Search')
+                  ),
+                  React.createElement('p', { style: { fontSize: 12, color: 'var(--muted)', margin: '0 0 12px', lineHeight: 1.55 } }, s.desc),
+                  React.createElement('form', {
+                    onSubmit: function(e) {
+                      e.preventDefault();
+                      var val = e.target.elements.q.value.trim();
+                      if (val.length >= 2) onSelect('search', val);
+                    },
+                    style: { display: 'flex', gap: 0 }
+                  },
+                    React.createElement('input', {
+                      name: 'q', type: 'search', autoComplete: 'off',
+                      placeholder: 'Enter search terms…',
+                      style: { flex: 1, fontSize: 13, padding: '7px 12px', border: '1px solid var(--border)', borderRight: 'none', borderRadius: '5px 0 0 5px', background: 'var(--bg)', color: 'var(--text)', outline: 'none' }
+                    }),
+                    React.createElement('button', { type: 'submit',
+                      style: { padding: '7px 16px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: '0 5px 5px 0', background: 'rgba(96,165,250,.15)', color: 'var(--accent)', cursor: 'pointer' }
+                    }, 'Search →')
+                  )
+                );
+              }
               return React.createElement('div', { key: s.id, style: cardStyle,
                 onMouseEnter: function(e) { e.currentTarget.style.borderColor = 'var(--accent)'; },
                 onMouseLeave: function(e) { e.currentTarget.style.borderColor = 'var(--border)'; } },
@@ -2933,35 +2949,15 @@ function App() {
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '0 14px', height: 42, borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0 } },
       React.createElement('span', { style: { fontSize: 18 } }, '🐱'),
       React.createElement('span', { style: { fontSize: 14, fontWeight: 700, color: 'var(--text)', marginRight: 8 } }, 'The Catalog'),
-      section && section !== 'search' && React.createElement('button', { onClick: function() { setSection(''); },
+      section && React.createElement('button', { onClick: function() { setSection(''); },
         style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, '⌂ Home'),
-      section && section !== 'search' && SECTIONS.map(function(s) {
+      section && ALL_SECTIONS.map(function(s) {
         return React.createElement('button', { key: s.id, onClick: function() { setSection(s.id); },
           style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: s.id === section ? '1px solid var(--accent)' : '1px solid var(--border)',
                    background: s.id === section ? 'rgba(96,165,250,0.1)' : 'transparent',
                    color: s.id === section ? 'var(--accent)' : 'var(--muted)', cursor: 'pointer' } }, s.label);
       }),
       React.createElement('div', { style: { flex: 1 } }),
-      React.createElement('form', {
-        onSubmit: function(e) {
-          e.preventDefault();
-          var val = e.target.elements.q.value.trim();
-          if (val.length >= 2) { setSearchQ(val); setSection('search'); }
-        },
-        style: { display: 'flex', alignItems: 'center', gap: 0, marginRight: 8 }
-      },
-        React.createElement('input', {
-          name: 'q',
-          type: 'search',
-          placeholder: 'Search catalog…',
-          defaultValue: section === 'search' ? searchQ : '',
-          style: { fontSize: 12, padding: '4px 8px', borderRadius: '4px 0 0 4px', border: '1px solid var(--border)', borderRight: 'none', background: 'var(--panel)', color: 'var(--text)', width: 160, outline: 'none' }
-        }),
-        React.createElement('button', {
-          type: 'submit',
-          style: { fontSize: 12, padding: '4px 8px', borderRadius: '0 4px 4px 0', border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--muted)', cursor: 'pointer' }
-        }, '🔎')
-      ),
       activePersona
         ? React.createElement(React.Fragment, null,
             React.createElement('span', { className: 'persona-badge-btn', title: activePersona.coco_title || '' }, '🎭 ' + (activePersona.display_name || activePersona.id)),
@@ -2979,7 +2975,7 @@ function App() {
     ),
     section
       ? React.createElement(SectionView, { sectionId: section, creds: creds, navTarget: navTarget, onNavigate: handleNavigate, searchQuery: searchQ })
-      : React.createElement(Splash, { onSelect: setSection, onSearch: function(q) { setSearchQ(q); setSection('search'); }, authUser: authUser, activePersona: activePersona, creds: creds, demoMode: demoMode, srvManaged: srvManaged, saveCreds: setCreds }),
+      : React.createElement(Splash, { onSelect: function(id, q) { if (q) setSearchQ(q); setSection(id); }, authUser: authUser, activePersona: activePersona, creds: creds, demoMode: demoMode, srvManaged: srvManaged, saveCreds: setCreds }),
     React.createElement(FeedbackButton, { section: section, persona: null, demoMode: demoMode, srvManaged: srvManaged, pagePrefix: 'tech-catalog/' })
   )));
 }
