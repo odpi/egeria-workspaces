@@ -663,6 +663,87 @@ function TechResourceBadge(resourceUse) {
   }, resourceUse || 'resource');
 }
 
+function SurveySpecCard({ entry, card, showTechTypes }) {
+  var isSurvey = (entry.resourceUse || '').toLowerCase().indexOf('survey') !== -1;
+  var paramRows = (entry.parameters || []).map(function(p) {
+    return [
+      React.createElement('span', { style: { fontWeight: p.required ? 700 : 400, color: p.required ? 'var(--text)' : 'var(--muted)' } }, p.name),
+      p.dataType || '',
+      p.required ? React.createElement('span', { style: { color: '#34d399', fontWeight: 700 } }, '✓') : '',
+      p.description || '',
+      React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)' } }, p.example || ''),
+    ];
+  });
+  var annotRows = (entry.producedAnnotationTypes || []).map(function(a) {
+    return [
+      React.createElement('span', { style: { fontWeight: 600, color: 'var(--text)' } }, a.name || ''),
+      React.createElement('code', { style: { fontSize: 10 } }, a.openMetadataTypeName || ''),
+      a.analysisStepName || '',
+      a.description || '',
+    ];
+  });
+  var stepItems = entry.analysisSteps || [];
+  var guardRows = (entry.producedGuards || []).map(function(g) {
+    return [ g.guard || '', g.completionStatus || '', g.description || '' ];
+  });
+  var supTgtRows = (entry.supportedActionTargets || []).map(function(t) {
+    return [
+      t.name || '',
+      t.required ? React.createElement('span', { style: { color: '#34d399', fontWeight: 700 } }, '✓') : '',
+      t.typeName || '',
+      t.description || '',
+    ];
+  });
+
+  return React.createElement('div', { style: card },
+    React.createElement('div', { style: { display: 'flex', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap', gap: 6 } },
+      React.createElement('span', { style: { fontWeight: 700, fontSize: 13, flex: 1, color: 'var(--text)' } }, entry.displayName || '(unnamed)'),
+      entry.typeName && React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)', fontFamily: 'ui-monospace,monospace' } }, entry.typeName),
+      entry.resourceUse && TechResourceBadge(entry.resourceUse)
+    ),
+    entry.qualifiedName && React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginBottom: 4 } }, entry.qualifiedName),
+    entry.description && React.createElement('div', { style: { fontSize: 12, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.5 } }, entry.description),
+
+    showTechTypes && entry.usedByTechTypes && entry.usedByTechTypes.length > 0 && React.createElement('div', { style: { marginBottom: 8 } },
+      React.createElement('div', { style: { fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 } }, 'Used by Technology Types'),
+      React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 4 } },
+        entry.usedByTechTypes.map(function(tt, i) {
+          return React.createElement('span', { key: i, style: { fontSize: 11, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 8px', color: 'var(--muted)' } }, tt.displayName || tt.qualifiedName);
+        })
+      )
+    ),
+
+    isSurvey && stepItems.length > 0 && React.createElement('div', { style: { marginBottom: 8 } },
+      React.createElement('div', { style: { fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 } }, 'Analysis Steps'),
+      React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 4 } },
+        stepItems.map(function(s, i) {
+          return React.createElement('span', { key: i, title: s.description || '', style: { fontSize: 11, background: 'rgba(245,158,11,.1)', border: '1px solid rgba(245,158,11,.3)', borderRadius: 4, padding: '1px 8px', color: '#fbbf24', cursor: s.description ? 'help' : 'default' } }, s.name);
+        })
+      )
+    ),
+
+    isSurvey && annotRows.length > 0 && React.createElement('div', { style: { marginBottom: 8 } },
+      React.createElement('div', { style: { fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 } }, 'Produced Annotation Types'),
+      TechTable(['Name', 'Metadata Type', 'Analysis Step', 'Description'], annotRows, null)
+    ),
+
+    paramRows.length > 0 && React.createElement('div', { style: { marginBottom: 8 } },
+      React.createElement('div', { style: { fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 } }, 'Request Parameters'),
+      TechTable(['Name', 'Type', 'Required', 'Description', 'Example'], paramRows, null)
+    ),
+
+    guardRows.length > 0 && React.createElement('div', { style: { marginBottom: 8 } },
+      React.createElement('div', { style: { fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 } }, 'Produced Guards'),
+      TechTable(['Guard', 'Status', 'Description'], guardRows, null)
+    ),
+
+    supTgtRows.length > 0 && React.createElement('div', null,
+      React.createElement('div', { style: { fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 } }, 'Supported Action Targets'),
+      TechTable(['Name', 'Required', 'Type', 'Description'], supTgtRows, null)
+    )
+  );
+}
+
 function TechTypeDetail({ item, detailLoading, creds }) {
   if (!item) return null;
   var sHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
@@ -711,26 +792,49 @@ function TechTypeDetail({ item, detailLoading, creds }) {
     processesEl = React.createElement('div', null,
       React.createElement('div', { style: sHdr }, 'Governance Action Processes'),
       item.governanceActionProcesses.map(function(gp, gi) {
-        var rows = (gp.parameters || []).map(function(p) {
-          return [
-            React.createElement('span', { style: { fontWeight: p.required ? 700 : 400, color: p.required ? 'var(--text)' : 'var(--muted)' } }, p.name),
-            p.dataType || '',
-            p.required ? React.createElement('span', { style: { color: '#34d399', fontWeight: 700 } }, '✓') : '',
-            p.description || '',
-            React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)' } }, p.example || ''),
-          ];
-        });
-        return React.createElement('div', { key: gi, style: card },
-          React.createElement('div', { style: { display: 'flex', alignItems: 'center', marginBottom: 6 } },
-            React.createElement('span', { style: { fontWeight: 700, fontSize: 13, flex: 1, color: 'var(--text)' } }, gp.displayName || '(process)'),
-            gp.resourceUse && TechResourceBadge(gp.resourceUse)
-          ),
-          gp.description && React.createElement('div', { style: { fontSize: 12, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.5 } }, gp.description),
-          rows.length > 0
-            ? TechTable(['Name','Type','Required','Description','Example'], rows, null)
-            : React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } }, 'No request parameters.')
-        );
+        return React.createElement(SurveySpecCard, { key: gi, entry: gp, card: card });
       })
+    );
+  }
+
+  // --- Resource List (GovernanceActionTypes) ---
+  var resourceListEl = null;
+  if (item.resourceList && item.resourceList.length > 0) {
+    var surveyResources = item.resourceList.filter(function(r) {
+      return (r.resourceUse || '').toLowerCase().indexOf('survey') !== -1;
+    });
+    var otherResources = item.resourceList.filter(function(r) {
+      return (r.resourceUse || '').toLowerCase().indexOf('survey') === -1;
+    });
+    resourceListEl = React.createElement('div', null,
+      surveyResources.length > 0 && React.createElement('div', null,
+        React.createElement('div', { style: sHdr }, 'Survey Action Services'),
+        surveyResources.map(function(r, ri) {
+          return React.createElement(SurveySpecCard, { key: ri, entry: r, card: card });
+        })
+      ),
+      otherResources.length > 0 && React.createElement('div', null,
+        React.createElement('div', { style: sHdr }, 'Other Resources'),
+        otherResources.map(function(r, ri) {
+          var rows = (r.parameters || []).map(function(p) {
+            return [
+              React.createElement('span', { style: { fontWeight: p.required ? 700 : 400, color: p.required ? 'var(--text)' : 'var(--muted)' } }, p.name),
+              p.dataType || '',
+              p.required ? React.createElement('span', { style: { color: '#34d399', fontWeight: 700 } }, '✓') : '',
+              p.description || '',
+            ];
+          });
+          return React.createElement('div', { key: ri, style: card },
+            React.createElement('div', { style: { display: 'flex', alignItems: 'center', marginBottom: 6 } },
+              React.createElement('span', { style: { fontWeight: 700, fontSize: 13, flex: 1, color: 'var(--text)' } }, r.displayName || '(resource)'),
+              r.typeName && React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)', marginLeft: 8 } }, r.typeName),
+              r.resourceUse && TechResourceBadge(r.resourceUse)
+            ),
+            r.description && React.createElement('div', { style: { fontSize: 12, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.5 } }, r.description),
+            rows.length > 0 ? TechTable(['Name','Type','Required','Description'], rows, null) : null
+          );
+        })
+      )
     );
   }
 
@@ -818,6 +922,7 @@ function TechTypeDetail({ item, detailLoading, creds }) {
     React.createElement(AvailableMermaidDiagrams, { data: item, skip: new Set() }),
     templatesEl,
     processesEl,
+    resourceListEl,
     extRefsEl,
     instancesEl,
     React.createElement(EgeriaCommentsSection, { guid: item.guid })
@@ -2308,6 +2413,169 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
 
 // ── Section views (each wraps AssetTabView for its sub-tabs) ─────────────────
 
+// ── Global Search ─────────────────────────────────────────────────────────────
+var SEARCH_CATEGORY_ICONS = {
+  'glossary':      '📖',
+  'tech-types':    '🔧',
+  'data-assets':   '🗄️',
+  'infrastructure':'🖧',
+  'apis':          '🔗',
+  'processes':     '⚙️',
+  'surveys':       '🔍',
+  'other':         '📦',
+};
+
+function SearchResultCard({ item, onNavigate }) {
+  var nav = TYPE_TO_NAV[item.typeName];
+  if (!nav) {
+    var sup = item.superTypeNames || [];
+    for (var i = 0; i < sup.length; i++) {
+      if (TYPE_TO_NAV[sup[i]]) { nav = TYPE_TO_NAV[sup[i]]; break; }
+    }
+  }
+  function handleOpen() {
+    if (!onNavigate || !item.guid) return;
+    if (nav) {
+      onNavigate({ guid: item.guid, displayName: item.displayName, section: nav.section, tab: nav.tab });
+    } else if (item.categoryId && item.categoryId !== 'other') {
+      onNavigate({ guid: item.guid, displayName: item.displayName, section: item.categoryId });
+    }
+  }
+  var canNav = !!(nav || (item.categoryId && item.categoryId !== 'other'));
+  return React.createElement('div', {
+    style: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }
+  },
+    React.createElement('div', { style: { flex: 1, minWidth: 0 } },
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
+        React.createElement('span', { style: { fontWeight: 600, fontSize: 13, color: 'var(--text)' } }, item.displayName || item.qualifiedName || item.guid),
+        React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)', fontFamily: 'ui-monospace,monospace', background: 'var(--panel)', padding: '0 5px', borderRadius: 3 } }, item.typeName)
+      ),
+      item.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginTop: 2, lineHeight: 1.4 } }, item.description.slice(0, 160) + (item.description.length > 160 ? '…' : '')),
+      item.qualifiedName && item.qualifiedName !== item.displayName && React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginTop: 1 } }, item.qualifiedName.slice(0, 100))
+    ),
+    canNav && item.guid && React.createElement('button', {
+      onClick: handleOpen,
+      style: { fontSize: 10, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }
+    }, '↗ View')
+  );
+}
+
+function SearchView({ creds, onNavigate, initialQuery }) {
+  var _q      = useState(initialQuery || ''), q = _q[0], setQ = _q[1];
+  var _data   = useState(null), data = _data[0], setData = _data[1];
+  var _err    = useState(null), err  = _err[0],  setErr  = _err[1];
+  var _loading = useState(false), loading = _loading[0], setLoading = _loading[1];
+  var _timer  = useRef(null);
+
+  function doSearch(query) {
+    var trimmed = (query || '').trim();
+    if (!trimmed || trimmed === '*') { setData(null); setErr(null); return; }
+    setLoading(true); setErr(null);
+    fetchWithToken('/api/catalog/search?q=' + encodeURIComponent(query.trim()) + '&page_size=200', creds)
+      .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || r.status); }); })
+      .then(function(j) { setData(j); setLoading(false); })
+      .catch(function(e) { setErr(e.message || String(e)); setLoading(false); });
+  }
+
+  function handleInput(e) {
+    var val = e.target.value;
+    setQ(val);
+    clearTimeout(_timer.current);
+    if (val.trim().length >= 2) {
+      _timer.current = setTimeout(function() { doSearch(val); }, 400);
+    } else {
+      setData(null);
+    }
+  }
+
+  useEffect(function() {
+    if (initialQuery && initialQuery.trim().length >= 2) doSearch(initialQuery);
+  }, []);
+
+  var hasResults = data && data.total > 0;
+
+  return React.createElement('div', { style: { display: 'flex', flex: 1, flexDirection: 'column', overflow: 'hidden' } },
+    React.createElement('div', { style: { padding: '16px 20px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
+      React.createElement('div', { style: { position: 'relative' } },
+        React.createElement('input', {
+          type: 'search', value: q,
+          onChange: handleInput,
+          placeholder: 'Search across all of The Catalog — assets, glossary, tech types, surveys…',
+          autoFocus: true,
+          style: { width: '100%', padding: '10px 14px 10px 38px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)', fontSize: 14, boxSizing: 'border-box', outline: 'none' }
+        }),
+        React.createElement('span', { style: { position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 15, pointerEvents: 'none', color: 'var(--dim)' } }, '🔎')
+      ),
+      data && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginTop: 6 } },
+        data.total + ' result' + (data.total === 1 ? '' : 's') + ' for ' + JSON.stringify(data.query)
+      )
+    ),
+    React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: '12px 20px' } },
+      loading && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12, padding: 8 } }, 'Searching…'),
+      err     && React.createElement('div', { style: { color: '#f87171', fontSize: 13, padding: 8 } }, 'Error: ' + err),
+      !loading && !err && !data && q.trim().length < 2 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, padding: 8, textAlign: 'center', marginTop: 40 } },
+        'Type at least 2 characters to search.'),
+      hasResults && data.groups.map(function(grp) {
+        return React.createElement('div', { key: grp.categoryId, style: { marginBottom: 20 } },
+          React.createElement('div', { style: { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 } },
+            React.createElement('span', null, SEARCH_CATEGORY_ICONS[grp.categoryId] || '📦'),
+            grp.categoryLabel,
+            React.createElement('span', { style: { fontWeight: 400, color: 'var(--dim)', textTransform: 'none', letterSpacing: 0 } }, '(' + grp.count + ')')
+          ),
+          grp.items.map(function(item, i) {
+            return React.createElement(SearchResultCard, { key: item.guid || i, item: item, onNavigate: onNavigate });
+          })
+        );
+      }),
+      !loading && data && data.total === 0 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, padding: 8, textAlign: 'center', marginTop: 40 } },
+        'No results found for ' + JSON.stringify(data.query) + '.')
+    )
+  );
+}
+
+function SurveyTypesView({ creds }) {
+  var _data = useState(null), data = _data[0], setData = _data[1];
+  var _err  = useState(null), err  = _err[0],  setErr  = _err[1];
+  var _q    = useState(''),   q    = _q[0],    setQ    = _q[1];
+
+  useEffect(function() {
+    setData(null); setErr(null);
+    fetchWithToken('/api/tech-catalog/survey-types', creds)
+      .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || r.status); }); })
+      .then(function(j) { setData(j.items || []); })
+      .catch(function(e) { setErr(e.message || String(e)); });
+  }, [creds.url, creds.server, creds.userId, creds.userPwd]);
+
+  var card = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 10 };
+  var filtered = !data ? [] : data.filter(function(st) {
+    if (!q) return true;
+    var lq = q.toLowerCase();
+    return (st.displayName || '').toLowerCase().indexOf(lq) !== -1 ||
+           (st.qualifiedName || '').toLowerCase().indexOf(lq) !== -1 ||
+           (st.description || '').toLowerCase().indexOf(lq) !== -1;
+  });
+
+  return React.createElement('div', { style: { display: 'flex', flex: 1, flexDirection: 'column', overflow: 'hidden' } },
+    React.createElement('div', { style: { padding: '12px 16px 8px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
+      React.createElement('input', {
+        type: 'text', value: q,
+        onChange: function(e) { setQ(e.target.value); },
+        placeholder: 'Filter survey types…',
+        style: { width: '100%', padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)', fontSize: 13, boxSizing: 'border-box' }
+      })
+    ),
+    React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: '12px 16px' } },
+      err  && React.createElement('div', { style: { color: '#f87171', fontSize: 13, padding: 12 } }, 'Error: ' + err),
+      !data && !err && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12, padding: 12 } },
+        'Loading survey types — this aggregates data from all Technology Types and may take a moment…'),
+      data && filtered.length === 0 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12, padding: 12 } }, q ? 'No survey types match.' : 'No survey types found.'),
+      filtered.map(function(st, i) {
+        return React.createElement(SurveySpecCard, { key: st.guid || i, entry: st, card: card, showTechTypes: true });
+      })
+    )
+  );
+}
+
 var SECTION_TABS = {
   infrastructure: [
     { id: 'infrastructure', label: 'IT Infrastructure', endpoint: '/api/tech-catalog/infrastructure' },
@@ -2329,10 +2597,14 @@ var SECTION_TABS = {
   surveys: [
     { id: 'survey-reports', label: 'Survey Reports', endpoint: '/api/tech-catalog/survey-reports' },
     { id: 'annotations',    label: 'Annotations',    endpoint: '/api/tech-catalog/annotations', custom: true },
+    { id: 'survey-types',   label: 'Survey Types',   custom: true },
   ],
 };
 
-function SectionView({ sectionId, creds, navTarget, onNavigate }) {
+function SectionView({ sectionId, creds, navTarget, onNavigate, searchQuery }) {
+  if (sectionId === 'search') {
+    return React.createElement(SearchView, { creds: creds, onNavigate: onNavigate, initialQuery: searchQuery });
+  }
   if (sectionId === 'glossary') {
     return React.createElement('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
       React.createElement(GlossaryView, { creds: creds, onNavigate: onNavigate })
@@ -2366,6 +2638,8 @@ function SectionView({ sectionId, creds, navTarget, onNavigate }) {
     currentTab && currentTab.custom
       ? (currentTab.id === 'annotations'
           ? React.createElement(AnnotationsTabView, { key: 'annotations', creds: creds, navTarget: navTarget, onNavigate: onNavigate })
+          : currentTab.id === 'survey-types'
+          ? React.createElement(SurveyTypesView, { key: 'survey-types', creds: creds })
           : null)
       : currentTab && React.createElement(AssetTabView, {
           key: currentTab.id,
@@ -2387,8 +2661,9 @@ var SECTIONS = [
   { id: 'data-assets',    icon: '🗄️', label: 'Data Assets',           desc: 'Data stores, data feeds, and data sets.' },
   { id: 'apis',           icon: '🔗', label: 'APIs',                    desc: 'Deployed APIs and their endpoints.' },
   { id: 'processes',      icon: '⚙️', label: 'Processes',               desc: 'Software components and actions.' },
-  { id: 'surveys',        icon: '🔍', label: 'Surveys & Annotations',   desc: 'Survey reports and analysis annotations from discovery runs.' },
+  { id: 'surveys',        icon: '🔍', label: 'Survey Reports & Annotations',   desc: 'Survey reports, analysis annotations, and survey type definitions.' },
 ];
+// Search is not a SECTIONS entry (no tile on splash) — it's navigated to via the search bar.
 
 var SPLASH_GROUPS = [
   {
@@ -2411,7 +2686,7 @@ var SPLASH_GROUPS = [
   },
 ];
 
-function Splash({ onSelect, authUser, activePersona, creds, demoMode, srvManaged, saveCreds }) {
+function Splash({ onSelect, onSearch, authUser, activePersona, creds, demoMode, srvManaged, saveCreds }) {
   var cardStyle = {
     background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8,
     padding: '20px 20px 16px', display: 'flex', flexDirection: 'column', gap: 8,
@@ -2469,6 +2744,26 @@ function Splash({ onSelect, authUser, activePersona, creds, demoMode, srvManaged
         'Browse and explore technical assets, definitions, and standards registered in your Egeria metadata environment.'),
       connPanel,
 
+      // Search card
+      React.createElement('form', {
+        onSubmit: function(e) {
+          e.preventDefault();
+          var val = e.target.elements.q.value.trim();
+          if (val.length >= 2 && onSearch) onSearch(val);
+        },
+        style: { marginBottom: 32, display: 'flex', gap: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', borderRadius: 8, overflow: 'hidden' }
+      },
+        React.createElement('input', {
+          name: 'q', type: 'search', autoComplete: 'off',
+          placeholder: '🔎  Search across all assets, glossary terms, tech types, surveys…',
+          style: { flex: 1, fontSize: 14, padding: '14px 18px', border: '1px solid var(--border)', borderRight: 'none', borderRadius: '8px 0 0 8px', background: 'var(--card)', color: 'var(--text)', outline: 'none' }
+        }),
+        React.createElement('button', {
+          type: 'submit',
+          style: { padding: '14px 22px', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', borderLeft: 'none', borderRadius: '0 8px 8px 0', background: 'var(--accent)', color: '#fff', cursor: 'pointer' }
+        }, 'Search')
+      ),
+
       // Section groups
       SPLASH_GROUPS.map(function(grp) {
         var caps = grp.sections.map(function(id) { return sectionById[id]; }).filter(Boolean);
@@ -2503,10 +2798,11 @@ function Splash({ onSelect, authUser, activePersona, creds, demoMode, srvManaged
 function App() {
   var _section   = useState(function() {
     var hash  = window.location.hash.slice(1);
-    var valid = new Set(['glossary','infrastructure','data-assets','apis','processes','tech-types']);
+    var valid = new Set(['glossary','infrastructure','data-assets','apis','processes','tech-types','surveys','search']);
     if (valid.has(hash)) return hash;
     return '';  // ?guid= section is resolved via element-nav after auth
   }), section = _section[0], setSection = _section[1];
+  var _searchQ = useState(''), searchQ = _searchQ[0], setSearchQ = _searchQ[1];
 
   var _creds     = useState(null),  creds      = _creds[0],     setCreds      = _creds[1];
   var _srvMgd    = useState(false), srvManaged = _srvMgd[0],    setSrvManaged = _srvMgd[1];
@@ -2637,15 +2933,35 @@ function App() {
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '0 14px', height: 42, borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0 } },
       React.createElement('span', { style: { fontSize: 18 } }, '🐱'),
       React.createElement('span', { style: { fontSize: 14, fontWeight: 700, color: 'var(--text)', marginRight: 8 } }, 'The Catalog'),
-      section && React.createElement('button', { onClick: function() { setSection(''); },
+      section && section !== 'search' && React.createElement('button', { onClick: function() { setSection(''); },
         style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, '⌂ Home'),
-      section && SECTIONS.map(function(s) {
+      section && section !== 'search' && SECTIONS.map(function(s) {
         return React.createElement('button', { key: s.id, onClick: function() { setSection(s.id); },
           style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: s.id === section ? '1px solid var(--accent)' : '1px solid var(--border)',
                    background: s.id === section ? 'rgba(96,165,250,0.1)' : 'transparent',
                    color: s.id === section ? 'var(--accent)' : 'var(--muted)', cursor: 'pointer' } }, s.label);
       }),
       React.createElement('div', { style: { flex: 1 } }),
+      React.createElement('form', {
+        onSubmit: function(e) {
+          e.preventDefault();
+          var val = e.target.elements.q.value.trim();
+          if (val.length >= 2) { setSearchQ(val); setSection('search'); }
+        },
+        style: { display: 'flex', alignItems: 'center', gap: 0, marginRight: 8 }
+      },
+        React.createElement('input', {
+          name: 'q',
+          type: 'search',
+          placeholder: 'Search catalog…',
+          defaultValue: section === 'search' ? searchQ : '',
+          style: { fontSize: 12, padding: '4px 8px', borderRadius: '4px 0 0 4px', border: '1px solid var(--border)', borderRight: 'none', background: 'var(--panel)', color: 'var(--text)', width: 160, outline: 'none' }
+        }),
+        React.createElement('button', {
+          type: 'submit',
+          style: { fontSize: 12, padding: '4px 8px', borderRadius: '0 4px 4px 0', border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--muted)', cursor: 'pointer' }
+        }, '🔎')
+      ),
       activePersona
         ? React.createElement(React.Fragment, null,
             React.createElement('span', { className: 'persona-badge-btn', title: activePersona.coco_title || '' }, '🎭 ' + (activePersona.display_name || activePersona.id)),
@@ -2662,8 +2978,8 @@ function App() {
             )
     ),
     section
-      ? React.createElement(SectionView, { sectionId: section, creds: creds, navTarget: navTarget, onNavigate: handleNavigate })
-      : React.createElement(Splash, { onSelect: setSection, authUser: authUser, activePersona: activePersona, creds: creds, demoMode: demoMode, srvManaged: srvManaged, saveCreds: setCreds }),
+      ? React.createElement(SectionView, { sectionId: section, creds: creds, navTarget: navTarget, onNavigate: handleNavigate, searchQuery: searchQ })
+      : React.createElement(Splash, { onSelect: setSection, onSearch: function(q) { setSearchQ(q); setSection('search'); }, authUser: authUser, activePersona: activePersona, creds: creds, demoMode: demoMode, srvManaged: srvManaged, saveCreds: setCreds }),
     React.createElement(FeedbackButton, { section: section, persona: null, demoMode: demoMode, srvManaged: srvManaged, pagePrefix: 'tech-catalog/' })
   )));
 }

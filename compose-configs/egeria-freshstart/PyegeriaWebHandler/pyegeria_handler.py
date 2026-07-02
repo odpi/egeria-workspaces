@@ -243,6 +243,8 @@ from egeria_feedback_handler import router as egeria_feedback_router
 app.include_router(egeria_feedback_router)
 from tech_catalog_handler import router as tech_catalog_router
 app.include_router(tech_catalog_router)
+from catalog_search_handler import router as catalog_search_router
+app.include_router(catalog_search_router)
 from audit_handler import router as audit_router
 app.include_router(audit_router)
 from operations_handler import router as operations_router
