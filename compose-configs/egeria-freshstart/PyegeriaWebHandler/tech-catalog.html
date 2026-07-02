@@ -2951,7 +2951,7 @@ function App() {
       React.createElement('span', { style: { fontSize: 14, fontWeight: 700, color: 'var(--text)', marginRight: 8 } }, 'The Catalog'),
       section && React.createElement('button', { onClick: function() { setSection(''); },
         style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, '⌂ Home'),
-      section && ALL_SECTIONS.map(function(s) {
+      section && SECTIONS.map(function(s) {
         return React.createElement('button', { key: s.id, onClick: function() { setSection(s.id); },
           style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: s.id === section ? '1px solid var(--accent)' : '1px solid var(--border)',
                    background: s.id === section ? 'rgba(96,165,250,0.1)' : 'transparent',
