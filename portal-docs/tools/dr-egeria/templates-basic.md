@@ -106,8 +106,8 @@ Name: Glossary review — finance terms
 
 ### View a report
 ```markdown
-# View Report
-Report: [report name or qualified name]
+# Report
+Report Spec: [report spec name, e.g. 'Digital-Products', 'Collections']
 ```
 
 ---
