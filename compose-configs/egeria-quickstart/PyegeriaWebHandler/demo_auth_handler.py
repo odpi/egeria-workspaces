@@ -113,7 +113,7 @@ def require_admin(request: Request, db: Session = Depends(get_db)) -> User:
 
 # ── Email via Resend ───────────────────────────────────────────────────────────
 
-def _send_email(to: str, subject: str, html: str, text: str = "") -> None:
+def _send_email(to: str, subject: str, html: str, text: str = "", bcc: list[str] | None = None) -> None:
     if not RESEND_API_KEY:
         logger.warning(f"RESEND_API_KEY not set — skipped email to {to!r}: {subject}")
         return
@@ -130,6 +130,8 @@ def _send_email(to: str, subject: str, html: str, text: str = "") -> None:
         }
         if text:
             params["text"] = text
+        if bcc:
+            params["bcc"] = bcc
         _resend.Emails.send(params)
         logger.info(f"Email sent to {to!r}: {subject}")
     except Exception as exc:
@@ -262,6 +264,7 @@ PDR Associates: {pdr_url}
         subject="Welcome to the Egeria Demo — thanks for registering!",
         html=html,
         text=text,
+        bcc=["info@pdr-associates.com"],
     )
 
 
