@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "egeria-workspaces"
-version = "5.3"
+version = "6.0"
 description = ""
 authors = ["Dan Wolfson <dwolfson@users.noreply.github.com>"]
 readme = "README.md"
@@ -9,7 +9,7 @@ readme = "README.md"
 python = ">=3.12.3,<4.0"
 jupyter = "*"
 rich = "*"
-pyegeria = ">=5.4.0.31"
+pyegeria = "*"
 unitycatalog = "*"
 textual = "*"
 apache-airflow = "*"
@@ -22,7 +22,7 @@ jupyter-notebook-parser = "^0.1.4"
 marko = "^2.1.2"
 fastapi = "^0.116.1"
 pyspark = "3.5.3"
-
+rich = "*"
 
 
 [build-system]

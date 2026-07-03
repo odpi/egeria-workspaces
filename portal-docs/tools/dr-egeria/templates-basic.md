@@ -83,6 +83,36 @@ Name: Clinical Data Pipeline
 Description: End-to-end pipeline from lab systems to analytics platform.
 ```
 
+### Create a design pattern
+```markdown
+# Create Design Pattern
+Name: Batch Ingestion Pattern
+Description: Periodic bulk load of source data into a staging area.
+Problem Statement: Source systems only expose full-file exports on a schedule, not real-time events.
+Solution Description: Land the file in staging, validate, then merge into the target on a fixed cadence.
+```
+
+### Link two design patterns as nested
+```markdown
+# Link Nested Design Patterns
+Parent Design Pattern: DesignPattern::Batch Ingestion Pattern
+Nested Design Pattern: DesignPattern::File Validation Pattern
+```
+
+### Link a specialized design pattern
+```markdown
+# Link Specialized Design Patterns
+General Design Pattern: DesignPattern::Batch Ingestion Pattern
+Specialized Design Pattern: DesignPattern::CSV Batch Ingestion Pattern
+```
+
+### Link two related design patterns
+```markdown
+# Link Related Design Patterns
+Design Pattern 1: DesignPattern::Batch Ingestion Pattern
+Design Pattern 2: DesignPattern::Event Streaming Pattern
+```
+
 ---
 
 ## Project management
@@ -106,8 +136,8 @@ Name: Glossary review — finance terms
 
 ### View a report
 ```markdown
-# View Report
-Report: [report name or qualified name]
+# Report
+Report Spec: [report spec name, e.g. 'Digital-Products', 'Collections']
 ```
 
 ---
