@@ -12,7 +12,6 @@ type(scope): short summary
 Body here.
 
 Signed-off-by: Dan Wolfson <dan.wolfson@pdr-associates.com>
-Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
 EOF
 )"
 ```
