@@ -266,7 +266,7 @@ Output: Available glossaries:
 
 ## Egeria Explorer
 
-The PyegeriaWebHandler includes a built-in **Egeria Explorer** — an interactive browser for the live Egeria metadata ecosystem. It is a single-page application, all read-only, all backed by live Egeria API calls. Tabs are grouped into three nav groups in the header bar: **Type System** (Type Explorer, Valid Values, REST APIs, Python API), **Review** (Glossary, Reference Data, Data Design, Solution Architect, Supply Chains, Actors, Perspectives, Governance Definitions, Projects), and **Act** (Digital Products, Report Specs, Dr. Egeria). Many sections include a **TimeSlider** ("As of date") for point-in-time browsing.
+The PyegeriaWebHandler includes a built-in **Egeria Explorer** — an interactive browser for the live Egeria metadata ecosystem. It is a single-page application, all read-only, all backed by live Egeria API calls. Tabs are grouped into three nav groups in the header bar: **Type System** (Type Explorer, Valid Values, REST APIs, Python API), **Review** (Glossary, Reference Data, Data Design, Collections, Solution Architect, Supply Chains, Locations, Actors, Communities, Note Logs, Perspectives, Governance Definitions, Projects, Informal Tags, Context Events, External References), and **Act** (Digital Products, Report Specs, Dr. Egeria). Many sections include a **TimeSlider** ("As of date") for point-in-time browsing.
 
 ![Egeria Explorer — Glossary tab](../../../../docs/images/Glossary.png)
 
@@ -520,6 +520,12 @@ All three sub-tabs load lazily and are independently searchable via their filter
 
 **TimeSlider** ("As of date") at the top of the sidebar time-travels all three sub-tabs simultaneously. Moving the slider resets all three sub-tab caches and re-fetches the active sub-tab at the selected time.
 
+#### External References
+
+Browses external references across all five Egeria subtypes: `ExternalReference` (general link), `RelatedMedia`, `CitedDocument`, `ExternalDataSource`, and `ExternalModelSource`. All five are fetched together in one flat list and filtered client-side via a type tab bar at the top of the sidebar (All / one tab per subtype, each showing a live count).
+
+Selecting an item shows its description, URL, a per-subtype properties table (rendered generically from whatever fields that subtype carries — no hardcoded field list), any available Mermaid diagram, and a **Relationships** section listing every element the reference is attached to (via `ExternalReferenceLink`). Each related element has a **View →** button that cross-links into its own tab (Glossary, Governance, Digital Products, etc.) using the shared `onNavigateToElement` dispatcher — and the reverse direction works too: any tab that lists an external reference as a related element links back into this tab.
+
 ---
 
 ### Context diagrams (all sections)
@@ -753,6 +759,18 @@ Response: `{ definitions: [{ guid, typeName, displayName, qualifiedName, descrip
 
 Response: all list fields plus `scope`, `usage`, `importance`, `implications`, `outcomes`, `results`, `status`, `mermaidGraph`, and `relationships: { relName: [{ guid, typeName, displayName, qualifiedName, description }] }`.
 
+#### External References
+
+**`GET /api/external-references`** — Search or list all external references (all five subtypes together).
+
+Query params: `search_string` (default `*`), `type_name` (optional — restrict to one of `ExternalReference`, `RelatedMedia`, `CitedDocument`, `ExternalDataSource`, `ExternalModelSource`), `start_from`, `page_size` (default 500, max 1000), plus standard connection params.
+
+Response: `{ references: [{ guid, typeName, superTypeNames, displayName, qualifiedName, description, url, status, props: {...subtype-specific fields} }], total, byType: { typeName: count } }`.
+
+**`GET /api/external-references/{guid}`** — Full detail for a single external reference.
+
+Response: all list fields plus `relationships: { referencingElements: [{ guid, typeName, superTypeNames, displayName, qualifiedName, label, linkDescription }] }` (the elements this reference is attached to, via `ExternalReferenceLink`) and `mermaidGraph`.
+
 #### Demo mode
 
 See [demo-mode.md](demo-mode.md) for the complete auth and admin API reference.
@@ -778,6 +796,7 @@ For the extension history and remaining open work, see [Extending the TypeExplor
 | `governance_definitions_handler.py` | `/api/governance/tree`, `/api/governance/definitions`, `/api/governance/definitions/{guid}`; uses `GovernanceOfficer` |
 | `project_handler.py` | `/api/projects`, `/api/projects/tree`, `/api/projects/dependencies`, `/api/projects/{guid}`; uses `ProjectManager`; tree/deps results cached for 120 s (keyed by `as_of_time`) |
 | `actor_handler.py` | `/api/actors/profiles*`, `/api/actors/roles*`, `/api/actors/identities*`; uses `ActorManager`; generic relationship surface via any top-level list with `relatedElement` entries |
+| `external_links_handler.py` | `/api/external-references*`; uses `ExternalReferences`; list fetched with `graph_query_depth=0`, detail with `graph_query_depth=1` to surface `referencingElements` |
 | `pyegeria_handler.py` | FastAPI app entry point; mounts all routers |
 | `type-explorer.html` | Self-contained SPA (React 18 + Mermaid 11 via CDN, application JS inlined) |
 | `egeria_request_body_catalog.json` | Generated catalog of Layer 1 request body types; regenerate with `build_request_body_catalog.py` |
