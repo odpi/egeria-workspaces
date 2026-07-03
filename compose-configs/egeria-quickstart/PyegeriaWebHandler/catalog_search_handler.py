@@ -11,10 +11,11 @@ Endpoints:
 import os
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
+from egeria_auth import apply_token
 from pyegeria.omvs.classification_explorer import ClassificationExplorer
 
 router = APIRouter(tags=["catalog-search"])
@@ -119,21 +120,15 @@ def _creds(url, server, user_id, user_pwd):
     )
 
 
-def _token_from_request(request: Request) -> Optional[str]:
-    return request.headers.get("X-Egeria-Token") or None
-
-
-def _classification_explorer(url, server, user_id, user_pwd, token=None):
+def _classification_explorer(url, server, user_id, user_pwd):
     resolved_url, resolved_server, resolved_uid, resolved_pwd = _creds(url, server, user_id, user_pwd)
     ce = ClassificationExplorer(
         view_server=resolved_server,
         platform_url=resolved_url,
         user_id=resolved_uid,
         user_pwd=resolved_pwd,
-        token=token,
     )
-    if token:
-        ce.set_bearer_token(token)
+    apply_token(ce)
     return ce
 
 
@@ -173,7 +168,6 @@ def _serialize_search_result(el: dict) -> Optional[dict]:
 
 @router.get("/api/catalog/search")
 def catalog_search(
-    request: Request,
     q: str = Query(..., min_length=1, description="Search query"),
     page_size: int = Query(_DEFAULT_PAGE_SIZE, ge=1, le=500),
     url: Optional[str] = Query(None),
@@ -191,7 +185,7 @@ def catalog_search(
     if q.strip() in ("*", ""):
         raise HTTPException(status_code=400, detail="Wildcard '*' search is not supported. Enter a specific search term.")
     try:
-        ce = _classification_explorer(url, server, user_id, user_pwd, token=_token_from_request(request))
+        ce = _classification_explorer(url, server, user_id, user_pwd)
         raw = ce.find_elements_by_property_value(
             property_value=q,
             property_names=_SEARCH_PROPS,
