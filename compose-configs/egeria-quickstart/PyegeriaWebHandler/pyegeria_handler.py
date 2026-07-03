@@ -237,6 +237,8 @@ from informal_tags_handler import router as informal_tags_router
 app.include_router(informal_tags_router)
 from external_links_handler import router as external_links_router
 app.include_router(external_links_router)
+from agreements_handler import router as agreements_router
+app.include_router(agreements_router)
 from pyegeria_docs_handler import router as pyegeria_docs_router
 app.include_router(pyegeria_docs_router)
 from demo_feedback_handler import router as demo_feedback_router

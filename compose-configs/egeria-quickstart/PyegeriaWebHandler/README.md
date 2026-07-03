@@ -526,6 +526,12 @@ Browses external references across all five Egeria subtypes: `ExternalReference`
 
 Selecting an item shows its description, URL, a per-subtype properties table (rendered generically from whatever fields that subtype carries — no hardcoded field list), any available Mermaid diagram, and a **Relationships** section listing every element the reference is attached to (via `ExternalReferenceLink`). Each related element has a **View →** button that cross-links into its own tab (Glossary, Governance, Digital Products, etc.) using the shared `onNavigateToElement` dispatcher — and the reverse direction works too: any tab that lists an external reference as a related element links back into this tab.
 
+#### Agreements
+
+Browses agreements — Collection subtypes covering `Agreement` (general), `DataSharingAgreement`, and `DigitalSubscription`. All are fetched together in one `find_collections(metadata_element_type_name="Agreement")` call and filtered client-side via a type tab bar, same pattern as External References. (`DataSharingAgreement` has a client-side pyegeria properties model but is not yet accepted by the server — its tab shows a zero count until server support lands.)
+
+Selecting an item shows its description, a generic properties table (identifier, etc.), any available Mermaid diagram, and a **Relationships** section covering `agreementItems` (what the agreement covers), `agreementActors` (who is party to it), and `contracts` (linked external references). Each related element cross-links into its own tab via the shared `onNavigateToElement` dispatcher, and other tabs that reference an agreement link back into this one.
+
 ---
 
 ### Context diagrams (all sections)
@@ -771,6 +777,18 @@ Response: `{ references: [{ guid, typeName, superTypeNames, displayName, qualifi
 
 Response: all list fields plus `relationships: { referencingElements: [{ guid, typeName, superTypeNames, displayName, qualifiedName, label, linkDescription }] }` (the elements this reference is attached to, via `ExternalReferenceLink`) and `mermaidGraph`.
 
+#### Agreements
+
+**`GET /api/agreements`** — Search or list all agreements (all subtypes together).
+
+Query params: `search_string` (default `*`), `type_name` (optional — restrict to one of `Agreement`, `DataSharingAgreement`, `DigitalSubscription`), `start_from`, `page_size` (default 500, max 1000), plus standard connection params.
+
+Response: `{ agreements: [{ guid, typeName, superTypeNames, displayName, qualifiedName, description, status, props: {...} }], total, byType: { typeName: count } }`.
+
+**`GET /api/agreements/{guid}`** — Full detail for a single agreement.
+
+Response: all list fields plus `relationships: { agreementItems: [...], agreementActors: [...], contracts: [...] }` and `mermaidGraph`.
+
 #### Demo mode
 
 See [demo-mode.md](demo-mode.md) for the complete auth and admin API reference.
@@ -797,6 +815,7 @@ For the extension history and remaining open work, see [Extending the TypeExplor
 | `project_handler.py` | `/api/projects`, `/api/projects/tree`, `/api/projects/dependencies`, `/api/projects/{guid}`; uses `ProjectManager`; tree/deps results cached for 120 s (keyed by `as_of_time`) |
 | `actor_handler.py` | `/api/actors/profiles*`, `/api/actors/roles*`, `/api/actors/identities*`; uses `ActorManager`; generic relationship surface via any top-level list with `relatedElement` entries |
 | `external_links_handler.py` | `/api/external-references*`; uses `ExternalReferences`; list fetched with `graph_query_depth=0`, detail with `graph_query_depth=1` to surface `referencingElements` |
+| `agreements_handler.py` | `/api/agreements*`; uses `CollectionManager.find_collections(metadata_element_type_name="Agreement")`; reuses `_serialize_node`/`_extract_all_rels` from `digital_products_handler.py` since agreements are Collections |
 | `pyegeria_handler.py` | FastAPI app entry point; mounts all routers |
 | `type-explorer.html` | Self-contained SPA (React 18 + Mermaid 11 via CDN, application JS inlined) |
 | `egeria_request_body_catalog.json` | Generated catalog of Layer 1 request body types; regenerate with `build_request_body_catalog.py` |

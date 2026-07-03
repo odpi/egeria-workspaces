@@ -3229,6 +3229,166 @@ function ExternalReferencesView({ navGuid, onNavigateToElement }) {
   );
 }
 
+// ── Agreements Explorer ────────────────────────────────────────────────────────
+// Agreements are Collection subtypes; find_collections(metadata_element_type_name=
+// "Agreement") returns every subtype together — filtered client-side by a type
+// tab bar, same pattern as External References.
+
+const AGREEMENT_TYPES = ['Agreement', 'DataSharingAgreement', 'DigitalSubscription'];
+
+const AGREEMENT_TYPE_COLORS = {
+  Agreement:            { bg: 'rgba(148,163,184,.1)', fg: '#cbd5e1', border: 'rgba(148,163,184,.3)' },
+  DataSharingAgreement: { bg: 'rgba(96,165,250,.1)',  fg: '#60a5fa', border: 'rgba(96,165,250,.3)' },
+  DigitalSubscription:  { bg: 'rgba(251,191,36,.1)',  fg: '#fbbf24', border: 'rgba(251,191,36,.3)' },
+};
+
+function AgreementTypeBadge({ typeName }) {
+  var c = AGREEMENT_TYPE_COLORS[typeName] || AGREEMENT_TYPE_COLORS.Agreement;
+  return React.createElement("span", { className: "badge", style: { background: c.bg, color: c.fg, border: '0.5px solid ' + c.border } }, typeName || 'Agreement');
+}
+
+function AgreementDetail({ item, onNavigateToElement }) {
+  var _agPersonaId = React.useContext(PersonaContext);
+  if (!item) return null;
+
+  const fields = [['Qualified Name', item.qualifiedName]]
+    .concat(Object.keys(item.props || {}).sort().map(function(k) { return [_humanizeKey(k), item.props[k]]; }))
+    .concat([['Status', item.status]])
+    .filter(([, v]) => v !== '' && v !== null && v !== undefined && String(v).trim());
+
+  var relEntries = Object.entries(item.relationships || {}).filter(function(e) { return e[1] && e[1].length; });
+
+  return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' } },
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, item.displayName || item.qualifiedName),
+      React.createElement(AgreementTypeBadge, { typeName: item.typeName }),
+      React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        _agPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'agreements', label: item.displayName || item.qualifiedName, icon: '📜', url: '/egeria-explorer?guid=' + encodeURIComponent(item.guid) + '#agreements', personaId: _agPersonaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: item.guid })
+      ),
+      React.createElement(CopyJsonButton, { data: item })
+    ),
+    React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 4 } }, item.guid),
+    item.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16, marginTop: 10 } }, renderMd(item.description)),
+    React.createElement(AvailableMermaidDiagrams, { data: item, skip: new Set() }),
+    fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 20 } },
+      React.createElement("tbody", null,
+        fields.map(([label, value]) =>
+          React.createElement("tr", { key: label, style: { borderTop: '1px solid var(--border)' } },
+            React.createElement("td", { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', verticalAlign: 'top', width: 160 } }, label),
+            React.createElement("td", { style: { padding: '6px 0' } }, renderMd(String(value)))
+          )
+        )
+      )
+    ),
+    relEntries.length > 0 && React.createElement("div", null,
+      React.createElement("div", { style: { fontWeight: 700, fontSize: 13, marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' } }, "Relationships"),
+      relEntries.map(function(entry) {
+        return React.createElement(RelationshipSection, { key: entry[0], title: _prettyRelLabel(entry[0]), items: entry[1], onNavigateToElement: onNavigateToElement });
+      })
+    ),
+    React.createElement(EgeriaCommentsSection, { guid: item.guid })
+  );
+}
+
+function AgreementsView({ navGuid, onNavigateToElement }) {
+  const creds = React.useContext(CredContext);
+  const [sideW, onDivDown] = useResizable(280);
+  const [state, setState]     = useState('loading');
+  const [attempt, setAttempt] = useState(0);
+  const [items, setItems]     = useState([]);
+  const [byType, setByType]   = useState({});
+  const [error, setError]     = useState('');
+  const [typeTab, setTypeTab] = useState('all');
+  const [filter, setFilter]   = useState('');
+  const [selected, setSelected] = useState(function() {
+    var params = new URLSearchParams(window.location.search);
+    return params.get('guid') || null;
+  });
+  const [detail, setDetail]   = useState(null);
+  const [detailState, setDetailState] = useState('idle');
+
+  useEffect(function() {
+    setState('loading'); setError('');
+    egeriaFetch('/api/agreements?page_size=1000', creds)
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setItems(data.agreements || []); setByType(data.byType || {}); setState('ready'); })
+      .catch(function(e) { setError(e.message); setState('error'); });
+  }, [attempt]);
+
+  useEffect(function() {
+    if (!selected) { setDetail(null); return; }
+    setDetailState('loading');
+    egeriaFetch('/api/agreements/' + selected, creds)
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setDetail(data); setDetailState('ready'); })
+      .catch(function() { setDetailState('error'); });
+  }, [selected]);
+
+  useEffect(function() {
+    if (navGuid) setSelected(navGuid);
+  }, [navGuid]);
+
+  var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { display: 'flex', flexWrap: 'wrap', gap: 4, padding: '8px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
+      [['all', 'All (' + items.length + ')']].concat(AGREEMENT_TYPES.map(function(t) { return [t, t + ' (' + (byType[t] || 0) + ')']; })).map(function([id, label]) {
+        return React.createElement("button", {
+          key: id, onClick: function() { setTypeTab(id); },
+          style: { padding: '3px 8px', borderRadius: 10, fontSize: 11, cursor: 'pointer',
+                   border: '1px solid ' + (typeTab === id ? 'var(--accent)' : 'var(--border)'),
+                   background: typeTab === id ? 'rgba(96,165,250,.12)' : 'transparent',
+                   color: typeTab === id ? 'var(--accent)' : 'var(--dim)' },
+        }, label);
+      })
+    ),
+    React.createElement("div", { className: "search-wrap" },
+      React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
+        onChange: function(e) { setFilter(e.target.value); } })
+    ),
+    state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
+    state === 'error' && React.createElement("div", { style: { padding: 16 } },
+      React.createElement("div", { style: { color: '#f87171', fontSize: 13, marginBottom: 8 } }, "Error: " + error),
+      React.createElement("button", { className: "view-tab on", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "Retry")
+    ),
+    state === 'ready' && React.createElement("div", { style: { overflowY: 'auto', flex: 1 } },
+      (function() {
+        var q = filter.trim().toLowerCase();
+        var vis = items.filter(function(x) {
+          if (typeTab !== 'all' && x.typeName !== typeTab) return false;
+          return !q || (x.displayName || x.qualifiedName || '').toLowerCase().includes(q) || (x.description || '').toLowerCase().includes(q);
+        });
+        if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, q ? "No matches" : "No agreements found");
+        return vis.map(function(x) {
+          return React.createElement("div", {
+            key: x.guid, className: "tree-item" + (selected === x.guid ? " sel" : ""),
+            onClick: function() { setSelected(x.guid); }, title: x.description || x.qualifiedName,
+            style: { display: 'flex', alignItems: 'center', gap: 6 },
+          },
+            React.createElement("span", { className: "type-name", style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, x.displayName || x.qualifiedName),
+            React.createElement("span", { className: "badge", style: { fontSize: 9, flexShrink: 0, background: (AGREEMENT_TYPE_COLORS[x.typeName] || AGREEMENT_TYPE_COLORS.Agreement).bg, color: (AGREEMENT_TYPE_COLORS[x.typeName] || AGREEMENT_TYPE_COLORS.Agreement).fg, border: '0.5px solid ' + (AGREEMENT_TYPE_COLORS[x.typeName] || AGREEMENT_TYPE_COLORS.Agreement).border } }, x.typeName)
+          );
+        });
+      })()
+    )
+  );
+
+  var selectedItem = selected ? items.find(function(x) { return x.guid === selected; }) : null;
+  var mainPanel = React.createElement("div", { className: "main", style: { flex: 1, overflowY: 'auto' } },
+    !selected && React.createElement("div", { className: "center" },
+      React.createElement("span", { style: { color: 'var(--muted)' } }, "Select an agreement from the sidebar")
+    ),
+    selected && detailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
+    selected && detailState === 'error'   && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load agreement detail"),
+    selected && (detailState === 'ready' || selectedItem) && React.createElement(AgreementDetail, { item: detail || selectedItem, onNavigateToElement: onNavigateToElement })
+  );
+
+  return React.createElement("div", { className: "body" },
+    sidebar,
+    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
+    mainPanel
+  );
+}
+
 // TabularPreviewModal now lives in /static/egeria-shared-ui.js (shared with the
 // Tech Catalog file-asset preview, TC-13). Pass a fetchUrl returning {columns,rows,has_more}.
 // ── Digital Products Explorer ─────────────────────────────────────────────────
@@ -3759,6 +3919,7 @@ const SECTION_LABELS = {
   'informal-tags':     'Informal Tags',
   'context-events':    'Context Events',
   'external-references': 'External References',
+  'agreements':        'Agreements',
   'dr-egeria':         'Dr. Egeria',
   'python-api':        'Python API',
 };
@@ -4340,6 +4501,14 @@ const _SPLASH_CAPABILITIES = [
     icon: '🔗',
     title: 'External References',
     description: 'Browse external references — general links, related media, cited documents, external data sources, and external model sources. Cross-link to every element each reference is attached to.',
+    requiresConnection: true,
+  },
+  {
+    section: 'agreements',
+    group: 'review',
+    icon: '📜',
+    title: 'Agreements',
+    description: 'Browse agreements — general agreements, data sharing agreements, and digital subscriptions. See the actors, items, and contracts each agreement links to.',
     requiresConnection: true,
   },
   // ── Reference ────────────────────────────────────────────────────────────
@@ -6405,6 +6574,7 @@ function _elementIsLinkable(item) {
   if (item.typeName === 'CollectionFolder') return true;
   if (item.typeName === 'GovernanceActionProcess') return true;
   if (EXT_REF_TYPES.indexOf(item.typeName) !== -1) return true;
+  if (AGREEMENT_TYPES.indexOf(item.typeName) !== -1) return true;
   if (DD_TYPES_SET[item.typeName]) return true;
   if (_actorKindForType(item.typeName, superTypes)) return true;
   if (superTypes.indexOf('GovernanceDefinition') !== -1) return true;
@@ -8966,7 +9136,7 @@ function App() {
     var hash = window.location.hash.slice(1).split('?')[0];
     var valid = new Set(['type-system','reference-data','digital-products','collections','glossary',
       'report-specs','valid-values','rest-apis','python-api','solution-architect',
-      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','notelogs','governance','projects','informal-tags','context-events','external-references','search']);
+      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','notelogs','governance','projects','informal-tags','context-events','external-references','agreements','search']);
     return valid.has(hash) ? hash : 'splash';
   });
   const [searchQuery, setSearchQuery] = useState('');
@@ -9083,6 +9253,12 @@ function App() {
     setSection('external-references');
   }, []);
 
+  const [agreementsNavGuid, setAgreementsNavGuid] = useState(null);
+  const onNavigateToAgreement = useCallback(function(guid) {
+    setAgreementsNavGuid(guid || null);
+    setSection('agreements');
+  }, []);
+
   // Single dispatcher used by RelatedElementRow everywhere: decides the target
   // tab purely from the related element's typeName/superTypeNames. Adding a
   // new linkable type only requires a new branch here.
@@ -9105,6 +9281,7 @@ function App() {
     if (typeName === 'CollectionFolder') { onNavigateToDigitalProduct(guid); return; }
     if (typeName === 'GovernanceActionProcess') { onNavigateToGovernance(typeName, guid); return; }
     if (EXT_REF_TYPES.indexOf(typeName) !== -1) { onNavigateToExternalReference(guid); return; }
+    if (AGREEMENT_TYPES.indexOf(typeName) !== -1) { onNavigateToAgreement(guid); return; }
     var actorKind = _actorKindForType(typeName, superTypes);
     if (actorKind) { onNavigateToActor(actorKind, guid); return; }
     if (superTypes.indexOf('GovernanceDefinition') !== -1) { onNavigateToGovernance(typeName, guid); return; }
@@ -9115,7 +9292,7 @@ function App() {
     // "↗ Tech Catalog" link, for callers that route everything through this
     // single dispatcher instead of rendering that link separately).
     if (superTypes.indexOf('Asset') !== -1) { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
-  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToExternalReference]);
+  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToExternalReference, onNavigateToAgreement]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254);
 
@@ -9226,7 +9403,7 @@ function App() {
         }),
         React.createElement(NavGroup, {
           label: 'Review', connected: connected, currentSection: section,
-          isActive: ['glossary','reference-data','data-design','collections','solution-architect','isc','locations','actors','communities','notelogs','perspectives','governance','projects','informal-tags','context-events','external-references'].includes(section),
+          isActive: ['glossary','reference-data','data-design','collections','solution-architect','isc','locations','actors','communities','notelogs','perspectives','governance','projects','informal-tags','context-events','external-references','agreements'].includes(section),
           onSelect: setSection,
           items: [
             { id: 'glossary',           label: 'Glossary',                needsConnect: true },
@@ -9245,6 +9422,7 @@ function App() {
             { id: 'informal-tags',      label: 'Informal Tags',             needsConnect: true },
             { id: 'context-events',    label: 'Context Events',            needsConnect: true },
             { id: 'external-references', label: 'External References',    needsConnect: true },
+            { id: 'agreements',        label: 'Agreements',                needsConnect: true },
           ]
         }),
         React.createElement(NavGroup, {
@@ -9351,6 +9529,8 @@ function App() {
       ? React.createElement(InformalTagsView, { key: credsKey, navGuid: informalTagsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'external-references'
       ? React.createElement(ExternalReferencesView, { key: credsKey, navGuid: externalReferencesNavGuid, onNavigateToElement: onNavigateToElement })
+      : section === 'agreements'
+      ? React.createElement(AgreementsView, { key: credsKey, navGuid: agreementsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'python-api'
       ? React.createElement(PyegeriaDocsView, null)
       : section !== 'type-system'
