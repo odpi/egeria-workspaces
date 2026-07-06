@@ -84,6 +84,10 @@ _TYPE_CATEGORY: dict[str, dict] = {
     "GovernanceActionType":     {"id": "processes", "label": "Processes"},
     "EngineAction":             {"id": "processes", "label": "Processes"},
     "GovernanceActionProcessInstance": {"id": "processes", "label": "Processes"},
+    # Projects (Campaign/StudyProject/PersonalProject/Task/GlossaryProject are
+    # classifications on a Project entity, not distinct typeNames — so "Project"
+    # alone covers all of them here).
+    "Project":                  {"id": "projects", "label": "Projects"},
     # Surveys
     "SurveyReport":             {"id": "surveys", "label": "Surveys", "tab": "survey-reports"},
     "Annotation":               {"id": "surveys", "label": "Surveys", "tab": "annotations"},
@@ -95,7 +99,7 @@ _TYPE_CATEGORY: dict[str, dict] = {
 }
 
 _CATEGORY_ORDER = [
-    "glossary", "tech-types", "data-assets", "infrastructure", "apis", "processes", "surveys", "other",
+    "glossary", "tech-types", "data-assets", "infrastructure", "apis", "processes", "projects", "surveys", "other",
 ]
 
 _CATEGORY_LABELS = {
@@ -105,6 +109,7 @@ _CATEGORY_LABELS = {
     "infrastructure": "Infrastructure",
     "apis":         "APIs",
     "processes":    "Processes",
+    "projects":     "Projects",
     "surveys":      "Surveys",
     "other":        "Other",
 }

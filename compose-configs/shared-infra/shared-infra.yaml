@@ -67,7 +67,7 @@ services:
       - egeria_network
     ports:
       - "5442:5442"
-    shm_size: 128mb
+    shm_size: 1gb
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: egeria

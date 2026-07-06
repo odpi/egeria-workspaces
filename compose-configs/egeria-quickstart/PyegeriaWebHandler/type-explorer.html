@@ -4242,7 +4242,7 @@ function PlaceholderView({ section }) {
 
 const EXPLORER_SEARCH_CATEGORY_ICONS = {
   'glossary':'📖','tech-types':'🔧','data-assets':'🗄️','infrastructure':'🖧',
-  'apis':'🔗','processes':'⚙️','surveys':'🔍','other':'📦',
+  'apis':'🔗','processes':'⚙️','projects':'◉','surveys':'🔍','other':'📦',
 };
 
 function _explorerHlEsc(s) { return s.replace(/[&<>"]/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
@@ -4256,7 +4256,7 @@ function _explorerHl(text, q) {
   } catch(e) { return safe; }
 }
 
-function ExplorerSearchView({ creds, initialQuery }) {
+function ExplorerSearchView({ creds, initialQuery, onNavigateToElement }) {
   const [q, setQ]           = React.useState(initialQuery || '');
   const [data, setData]     = React.useState(null);
   const [err, setErr]       = React.useState(null);
@@ -4320,11 +4320,16 @@ function ExplorerSearchView({ creds, initialQuery }) {
                 item.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginTop: 2, lineHeight: 1.5, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }, dangerouslySetInnerHTML: { __html: _explorerHl(item.description, q) } }),
                 item.qualifiedName && item.qualifiedName !== item.displayName && React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginTop: 1, wordBreak: 'break-all', whiteSpace: 'normal' }, dangerouslySetInnerHTML: { __html: _explorerHl(item.qualifiedName, q) } })
               ),
-              item.guid && React.createElement('a', {
-                href: '/tech-catalog?guid=' + encodeURIComponent(item.guid),
-                target: '_blank',
-                style: { fontSize: 10, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', color: 'var(--accent)', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }
-              }, '↗ Catalog')
+              item.guid && (onNavigateToElement && _elementIsLinkable(item)
+                ? React.createElement('button', {
+                    onClick: function() { onNavigateToElement(item); },
+                    style: { fontSize: 10, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }
+                  }, '↗ ' + (item.categoryLabel || 'View'))
+                : React.createElement('a', {
+                    href: '/tech-catalog?guid=' + encodeURIComponent(item.guid),
+                    target: '_blank',
+                    style: { fontSize: 10, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', color: 'var(--accent)', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }
+                  }, '↗ Catalog'))
             )
           )
         )
@@ -6569,6 +6574,7 @@ function _elementIsLinkable(item) {
   if (item.typeName === 'SolutionComponent' || superTypes.indexOf('SolutionComponent') !== -1) return true;
   if (item.typeName === 'SolutionBlueprint' || superTypes.indexOf('SolutionBlueprint') !== -1) return true;
   if (item.typeName === 'Perspective') return true;
+  if (item.typeName === 'Project') return true;
   // Explicit subtype checks so linkability does not depend on superTypeNames being
   // present on the relationship item (some serializers omit them).
   if (item.typeName === 'CollectionFolder') return true;
@@ -8128,7 +8134,7 @@ function ProjectTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggle
   );
 }
 
-function ProjectsView() {
+function ProjectsView({ navGuid }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(280);
   const [state, setState]   = React.useState('loading');
@@ -8182,6 +8188,11 @@ function ProjectsView() {
   const toggleProj = React.useCallback(function(guid) {
     setExpandedProjs(function(prev) { var n = new Set(prev); if (n.has(guid)) n.delete(guid); else n.add(guid); return n; });
   }, []);
+
+  // Cross-tab arrival: another tab called onNavigateToElement on a Project item.
+  React.useEffect(function() {
+    if (navGuid) { setSearch(''); setSelected({ guid: navGuid }); }
+  }, [navGuid]);
 
   React.useEffect(function() {
     if (!selected) { setDetail(null); return; }
@@ -9259,6 +9270,12 @@ function App() {
     setSection('agreements');
   }, []);
 
+  const [projectNavGuid, setProjectNavGuid] = useState(null);
+  const onNavigateToProject = useCallback(function(guid) {
+    setProjectNavGuid(guid || null);
+    setSection('projects');
+  }, []);
+
   // Single dispatcher used by RelatedElementRow everywhere: decides the target
   // tab purely from the related element's typeName/superTypeNames. Adding a
   // new linkable type only requires a new branch here.
@@ -9277,6 +9294,7 @@ function App() {
     if (DD_TYPES_SET[typeName]) { onNavigateToDataDesign(typeName, guid); return; }
     if (typeName === 'DigitalProduct') { onNavigateToDigitalProduct(guid); return; }
     if (typeName === 'Perspective') { onNavigateToPerspective(guid); return; }
+    if (typeName === 'Project') { onNavigateToProject(guid); return; }
     // Explicit subtype routing — fires even when the item omits superTypeNames.
     if (typeName === 'CollectionFolder') { onNavigateToDigitalProduct(guid); return; }
     if (typeName === 'GovernanceActionProcess') { onNavigateToGovernance(typeName, guid); return; }
@@ -9292,7 +9310,7 @@ function App() {
     // "↗ Tech Catalog" link, for callers that route everything through this
     // single dispatcher instead of rendering that link separately).
     if (superTypes.indexOf('Asset') !== -1) { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
-  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToExternalReference, onNavigateToAgreement]);
+  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToExternalReference, onNavigateToAgreement, onNavigateToProject]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254);
 
@@ -9484,7 +9502,7 @@ function App() {
     ),
     // Body — dispatches to section, then to Type System sub-view
     section === 'search'
-      ? React.createElement(ExplorerSearchView, { key: 'search', creds: creds, initialQuery: searchQuery })
+      ? React.createElement(ExplorerSearchView, { key: 'search', creds: creds, initialQuery: searchQuery, onNavigateToElement: onNavigateToElement })
     : section === 'splash'
       ? React.createElement(SplashScreen, { onNavigate: function(s, q) { if (q) setSearchQuery(q); setSection(s); if (s === 'type-system') setView('types'); }, saveCreds: saveCreds, demoMode: demoMode, srvManaged: srvManaged, authUser: authUser })
       : section === 'report-specs'
@@ -9522,7 +9540,7 @@ function App() {
       : section === 'governance'
       ? React.createElement(GovernanceView, { key: credsKey, navTypeName: governanceNav.typeName, navGuid: governanceNav.guid, onNavigateToElement: onNavigateToElement })
       : section === 'projects'
-      ? React.createElement(ProjectsView, { key: credsKey })
+      ? React.createElement(ProjectsView, { key: credsKey, navGuid: projectNavGuid })
       : section === 'context-events'
       ? React.createElement(ContextEventsView, { key: credsKey, onNavigateToElement: onNavigateToElement })
       : section === 'informal-tags'

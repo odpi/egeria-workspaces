@@ -11,7 +11,7 @@ type(scope): short summary
 
 Body here.
 
-Signed-off-by: Dan Wolfson <dan.wolfson@pdr-associates.com>
+Signed-off-by: Dan Wolfson <dan.wolfson@pdr-associates.com>./
 EOF
 )"
 ```
