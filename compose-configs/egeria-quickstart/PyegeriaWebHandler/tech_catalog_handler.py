@@ -112,6 +112,14 @@ def _connection_maker(url, server, user_id, user_pwd, token: Optional[str] = Non
     return mgr
 
 
+def _governance_officer(url, server, user_id, user_pwd, token: Optional[str] = None):
+    from pyegeria import GovernanceOfficer
+    u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
+    mgr = GovernanceOfficer(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
+    _apply_token(mgr, token)
+    return mgr
+
+
 # ── Serialisation ─────────────────────────────────────────────────────────────
 
 def _header(el):
@@ -539,7 +547,7 @@ def _normalize_action_target(t: dict) -> dict:
         "name":        t.get("name") or "",
         "description": t.get("description") or "",
         "required":    t.get("required") is True or t.get("required") == "true",
-        "typeName":    t.get("technicalName") or t.get("typeName") or "",
+        "typeName":    t.get("technicalName") or t.get("openMetadataTypeName") or t.get("typeName") or "",
     }
 
 
@@ -570,6 +578,81 @@ def _extract_survey_spec(spec: dict) -> dict:
         "producedGuards":        [_normalize_guard(g) for g in raw_guards if isinstance(g, dict)],
         "supportedActionTargets": [_normalize_action_target(t) for t in raw_sup_tgts if isinstance(t, dict)],
         "producedActionTargets": [_normalize_action_target(t) for t in raw_prod_tgts if isinstance(t, dict)],
+    }
+
+
+def _serialize_governance_process_list_item(el: dict) -> dict:
+    hdr, props = _header(el), _props(el)
+    return {
+        "guid":          hdr.get("guid", ""),
+        "typeName":      _type_name(el),
+        "displayName":   props.get("displayName") or props.get("name") or "",
+        "qualifiedName": props.get("qualifiedName") or "",
+        "description":   props.get("description") or "",
+    }
+
+
+def _serialize_governance_process_detail(raw: dict) -> dict:
+    """Serialise a GovernanceOfficer.get_governance_process_graph() response.
+
+    That call returns {governanceActionProcess, firstProcessStep, nextProcessSteps,
+    processStepLinks, governanceActionProcessMermaidGraph} — a shape specific to
+    process/step structure (0462 Governance Action Processes), not a plain Asset
+    element, so it needs its own serializer rather than the generic _serialize().
+    """
+    gap   = raw.get("governanceActionProcess") or {}
+    hdr   = _header(gap)
+    props = _props(gap)
+    spec  = gap.get("specification") or {}
+
+    steps_by_guid: dict = {}
+
+    def _add_step(step_el: dict, is_first: bool = False):
+        s_hdr = _header(step_el)
+        s_guid = s_hdr.get("guid", "")
+        if not s_guid or s_guid in steps_by_guid:
+            return
+        s_props = step_el.get("processStepProperties") or _props(step_el)
+        steps_by_guid[s_guid] = {
+            "guid":          s_guid,
+            "typeName":      (s_hdr.get("type") or {}).get("typeName", ""),
+            "displayName":   s_props.get("displayName") or s_props.get("name") or "",
+            "qualifiedName": s_props.get("qualifiedName") or "",
+            "description":   s_props.get("description") or "",
+            "isFirst":       is_first,
+        }
+
+    first_element = (raw.get("firstProcessStep") or {}).get("element") or {}
+    if first_element:
+        _add_step(first_element, is_first=True)
+    for step_el in _safe_list(raw.get("nextProcessSteps")):
+        _add_step(step_el)
+
+    step_links = []
+    for link in _safe_list(raw.get("processStepLinks")):
+        prev_stub = link.get("previousProcessStep") or {}
+        next_stub = link.get("nextProcessStep") or {}
+        prev_guid = prev_stub.get("guid", "")
+        next_guid = next_stub.get("guid", "")
+        step_links.append({
+            "fromGuid": prev_guid,
+            "fromName": steps_by_guid.get(prev_guid, {}).get("displayName") or prev_stub.get("uniqueName") or "",
+            "toGuid":   next_guid,
+            "toName":   steps_by_guid.get(next_guid, {}).get("displayName") or next_stub.get("uniqueName") or "",
+            "guard":    link.get("guard") or "",
+            "mandatoryGuard": bool(link.get("mandatoryGuard")),
+        })
+
+    return {
+        "guid":          hdr.get("guid", ""),
+        "typeName":      (hdr.get("type") or {}).get("typeName", ""),
+        "displayName":   props.get("displayName") or props.get("name") or "",
+        "qualifiedName": props.get("qualifiedName") or "",
+        "description":   props.get("description") or "",
+        "governanceActionProcessMermaidGraph": raw.get("governanceActionProcessMermaidGraph") or "",
+        "steps":          list(steps_by_guid.values()),
+        "stepLinks":      step_links,
+        "specification":  _extract_survey_spec(spec) if spec else None,
     }
 
 
@@ -1085,6 +1168,71 @@ def list_actions(
         return JSONResponse({"items": items, "total": len(items)})
     except Exception as exc:
         logger.exception("list_actions failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/api/tech-catalog/governance-processes")
+def list_governance_processes(
+    request: Request,
+    q:          str = Query("*"),
+    start_from: int = Query(0, ge=0),
+    page_size:  int = Query(200, ge=1, le=500),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
+):
+    """List GovernanceActionProcess definitions (0462 Governance Action Processes)."""
+    try:
+        mgr = _governance_officer(url, server, user_id, user_pwd, token=_token_from_request(request))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    try:
+        raw = mgr.find_governance_definitions(
+            search_string=q or "*",
+            metadata_element_type="GovernanceActionProcess",
+            output_format="JSON",
+            start_from=start_from,
+            page_size=page_size,
+            graph_query_depth=0,
+            sequencing_order=_SEQ_ORDER,
+            sequencing_property=_SEQ_PROP,
+            skip_classified_elements=[] if include_templates else ["Template"],
+        )
+        raw = _safe_list(raw)
+        items = [_serialize_governance_process_list_item(e) for e in raw]
+        return JSONResponse({"items": items, "total": len(items)})
+    except Exception as exc:
+        if _is_auth_error(exc):
+            raise HTTPException(status_code=401, detail="Token expired or unauthorized")
+        logger.exception("list_governance_processes failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/api/tech-catalog/governance-processes/{guid}")
+def get_governance_process_detail(
+    request: Request,
+    guid: str,
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    """Full step/flow/target detail for one GovernanceActionProcess, via
+    GovernanceOfficer.get_governance_process_graph — the 0462 structural API,
+    not the generic Asset graph (which has no concept of process steps)."""
+    try:
+        mgr = _governance_officer(url, server, user_id, user_pwd, token=_token_from_request(request))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    try:
+        raw = mgr.get_governance_process_graph(guid, output_format="JSON")
+        if not raw or not isinstance(raw, dict) or not raw.get("governanceActionProcess"):
+            raise HTTPException(status_code=404, detail=f"Governance action process {guid!r} not found")
+        return JSONResponse(_serialize_governance_process_detail(raw))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        if _is_auth_error(exc):
+            raise HTTPException(status_code=401, detail="Token expired or unauthorized")
+        logger.exception("get_governance_process_detail failed for %s", guid)
         raise HTTPException(status_code=500, detail=str(exc))
 
 

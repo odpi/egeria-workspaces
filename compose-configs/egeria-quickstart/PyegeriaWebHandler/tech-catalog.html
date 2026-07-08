@@ -1611,6 +1611,10 @@ var TYPE_TO_NAV = (function() {
    'MLModel','MLModelDeployment'].forEach(function(t) {
     m[t] = { section: 'processes', tab: 'software-components' };
   });
+  // Governance Action Processes (0462) — exact match takes priority over the
+  // GovernanceDefinition supertype fallback below, so these stay in-app on the
+  // Processes tab (with step/flow detail) instead of opening Egeria Explorer.
+  m['GovernanceActionProcess'] = { section: 'processes', tab: 'governance-processes' };
   // Glossary
   ['GlossaryTerm','Glossary','GlossaryCategory'].forEach(function(t) {
     m[t] = { section: 'glossary', tab: 'glossary' };
@@ -2587,6 +2591,159 @@ function SurveyTypesView({ creds }) {
   );
 }
 
+// ── Governance Action Processes (0462) ─────────────────────────────────────────
+// Uses GovernanceOfficer.get_governance_process_graph, not the generic Asset
+// graph — so the detail shows the actual step/flow structure (steps, guarded
+// next-step links, request/action targets), matching the type-0462 model.
+function GovernanceProcessDetail({ item, detailLoading, creds }) {
+  if (!item) return null;
+  var el = React.createElement;
+  var sectionHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
+
+  var steps     = item.steps || [];
+  var stepLinks = item.stepLinks || [];
+  var spec      = item.specification || {};
+
+  var stepRows = steps.slice().sort(function(a, b) {
+    if (a.isFirst && !b.isFirst) return -1;
+    if (b.isFirst && !a.isFirst) return 1;
+    return (a.displayName || '').localeCompare(b.displayName || '');
+  }).map(function(s) {
+    return [
+      s.isFirst
+        ? el('span', { style: { color: '#34d399', fontWeight: 700 } }, '▶ ' + (s.displayName || s.guid))
+        : (s.displayName || s.guid),
+      s.description || '',
+    ];
+  });
+
+  var linkRows = stepLinks.map(function(l) {
+    return [
+      l.fromName || l.fromGuid,
+      '→ ' + (l.toName || l.toGuid),
+      el('code', { style: { fontSize: 10 } }, l.guard || ''),
+      l.mandatoryGuard ? el('span', { style: { color: '#fbbf24', fontWeight: 700 } }, 'mandatory') : '',
+    ];
+  });
+
+  var guardRows = (spec.producedGuards || []).map(function(g) {
+    return [g.guard || '', g.completionStatus || '', g.description || ''];
+  });
+  var supTgtRows = (spec.supportedActionTargets || []).map(function(t) {
+    return [t.name || '', t.required ? el('span', { style: { color: '#34d399', fontWeight: 700 } }, '✓') : '', t.typeName || '', t.description || ''];
+  });
+  var prodTgtRows = (spec.producedActionTargets || []).map(function(t) {
+    return [t.name || '', t.typeName || '', t.description || ''];
+  });
+  var paramRows = (spec.parameters || []).map(function(p) {
+    return [p.name || '', p.dataType || '', p.required ? el('span', { style: { color: '#34d399', fontWeight: 700 } }, '✓') : '', p.description || ''];
+  });
+
+  return el('div', null,
+    el('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 12 } },
+      el('h2', { style: { fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--text)', flex: 1 } }, item.displayName || item.qualifiedName || item.guid),
+      detailLoading && el('span', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Loading detail…'),
+      el(EgeriaFeedbackWidget, { guid: item.guid }),
+      el(CopyJsonButton, { data: item })
+    ),
+    item.typeName && el('div', { style: { display: 'inline-block', fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: 'rgba(96,165,250,0.12)', color: 'var(--accent)', marginBottom: 12 } }, item.typeName),
+    item.qualifiedName && el('code', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 8, wordBreak: 'break-all' } }, item.qualifiedName),
+    item.description && el('div', { style: { fontSize: 13, color: 'var(--muted)', marginBottom: 12, lineHeight: 1.6, whiteSpace: 'pre-wrap' } }, item.description),
+
+    el(AvailableMermaidDiagrams, { data: item, skip: new Set() }),
+
+    !detailLoading && (steps.length > 0
+      ? el('div', null,
+          el('div', { style: sectionHdr }, 'Process Steps (' + steps.length + ')'),
+          TechTable(['Step', 'Description'], stepRows, null)
+        )
+      : el('div', { style: { fontSize: 12, color: 'var(--dim)', marginTop: 20 } }, 'This process has no defined steps.')),
+
+    !detailLoading && linkRows.length > 0 && el('div', null,
+      el('div', { style: sectionHdr }, 'Step Flow (guards)'),
+      TechTable(['From', 'To', 'Guard', ''], linkRows, null)
+    ),
+
+    !detailLoading && paramRows.length > 0 && el('div', null,
+      el('div', { style: sectionHdr }, 'Request Parameters'),
+      TechTable(['Name', 'Type', 'Required', 'Description'], paramRows, null)
+    ),
+
+    !detailLoading && guardRows.length > 0 && el('div', null,
+      el('div', { style: sectionHdr }, 'Produced Guards'),
+      TechTable(['Guard', 'Status', 'Description'], guardRows, null)
+    ),
+
+    !detailLoading && supTgtRows.length > 0 && el('div', null,
+      el('div', { style: sectionHdr }, 'Supported Action Targets'),
+      TechTable(['Name', 'Required', 'Type', 'Description'], supTgtRows, null)
+    ),
+
+    !detailLoading && prodTgtRows.length > 0 && el('div', null,
+      el('div', { style: sectionHdr }, 'Produced Action Targets'),
+      TechTable(['Name', 'Type', 'Description'], prodTgtRows, null)
+    )
+  );
+}
+
+function GovernanceProcessesView({ creds, navTarget, onNavigate }) {
+  var _items      = useState([]),    items      = _items[0],      setItems      = _items[1];
+  var _loading    = useState(true),  loading    = _loading[0],    setLoading    = _loading[1];
+  var _error      = useState(''),    error      = _error[0],      setError      = _error[1];
+  var _selected   = useState(null),  selected   = _selected[0],   setSelected   = _selected[1];
+  var _detail     = useState(null),  detail     = _detail[0],     setDetail     = _detail[1];
+  var _detailLoad = useState(false), detailLoad = _detailLoad[0], setDetailLoad = _detailLoad[1];
+  var _q          = useState(''),    q          = _q[0],          setQ          = _q[1];
+
+  useEffect(function() {
+    setLoading(true); setError('');
+    fetchWithToken('/api/tech-catalog/governance-processes?page_size=500', creds)
+      .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || r.status); }); })
+      .then(function(d) { setItems(d.items || []); setLoading(false); })
+      .catch(function(e) { setError(e.message || String(e)); setLoading(false); });
+  }, [creds.url, creds.server, creds.userId, creds.userPwd]);
+
+  function handleSelect(item) {
+    setSelected(item);
+    setDetail(item);
+    setDetailLoad(true);
+    fetchWithToken('/api/tech-catalog/governance-processes/' + encodeURIComponent(item.guid), creds)
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(d) { setDetail(d || item); setDetailLoad(false); })
+      .catch(function() { setDetailLoad(false); });
+  }
+
+  // Cross-navigation from another tab's "View →" (item typed GovernanceActionProcess).
+  var _lastNavGuid = useRef(null);
+  useEffect(function() {
+    if (!navTarget || !navTarget.guid || !creds) return;
+    if (navTarget.section !== 'processes' || navTarget.tab !== 'governance-processes') return;
+    if (navTarget.guid === _lastNavGuid.current) return;
+    _lastNavGuid.current = navTarget.guid;
+    handleSelect({ guid: navTarget.guid, displayName: navTarget.displayName || navTarget.guid });
+  }, [navTarget, creds]);
+
+  var filtered = items.filter(function(item) {
+    if (!q.trim()) return true;
+    var lq = q.trim().toLowerCase();
+    return (item.displayName || '').toLowerCase().indexOf(lq) !== -1 ||
+           (item.qualifiedName || '').toLowerCase().indexOf(lq) !== -1;
+  });
+
+  var filterBar = React.createElement('div', { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)' } },
+    React.createElement('input', { type: 'search', placeholder: 'Filter…', value: q, onChange: function(e) { setQ(e.target.value); },
+      style: { width: '100%', fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none', boxSizing: 'border-box' } })
+  );
+
+  return React.createElement(SidebarDetail, {
+    items: filtered, loading: loading, error: error, selected: selected, onSelect: handleSelect,
+    filterBar: filterBar,
+    renderDetail: function() {
+      return React.createElement(GovernanceProcessDetail, { item: detail, detailLoading: detailLoad, creds: creds });
+    },
+  });
+}
+
 var SECTION_TABS = {
   infrastructure: [
     { id: 'infrastructure', label: 'IT Infrastructure', endpoint: '/api/tech-catalog/infrastructure' },
@@ -2604,6 +2761,7 @@ var SECTION_TABS = {
   processes: [
     { id: 'software-components', label: 'Software Components', endpoint: '/api/tech-catalog/software-components' },
     { id: 'actions', label: 'Actions', endpoint: '/api/tech-catalog/actions' },
+    { id: 'governance-processes', label: 'Governance Processes', custom: true },
   ],
   surveys: [
     { id: 'survey-reports', label: 'Survey Reports', endpoint: '/api/tech-catalog/survey-reports' },
@@ -2651,6 +2809,8 @@ function SectionView({ sectionId, creds, navTarget, onNavigate, searchQuery }) {
           ? React.createElement(AnnotationsTabView, { key: 'annotations', creds: creds, navTarget: navTarget, onNavigate: onNavigate })
           : currentTab.id === 'survey-types'
           ? React.createElement(SurveyTypesView, { key: 'survey-types', creds: creds })
+          : currentTab.id === 'governance-processes'
+          ? React.createElement(GovernanceProcessesView, { key: 'governance-processes', creds: creds, navTarget: navTarget, onNavigate: onNavigate })
           : null)
       : currentTab && React.createElement(AssetTabView, {
           key: currentTab.id,
@@ -2883,10 +3043,14 @@ function App() {
         var disp = (d && d.displayName) || guid;
         setSection(sec);
         setNavTarget({ guid: guid, section: sec, tab: tab, displayName: disp });
+        // Deep link consumed — drop ?guid= from the URL so a page refresh lands on
+        // the resolved section instead of replaying this one-time navigation forever.
+        history.replaceState(null, '', window.location.pathname + '#' + sec);
       })
       .catch(function() {
         setSection('data-assets');
         setNavTarget({ guid: guid, section: 'data-assets' });
+        history.replaceState(null, '', window.location.pathname + '#data-assets');
       });
   }, [creds]);
 

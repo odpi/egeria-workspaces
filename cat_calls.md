@@ -74,6 +74,29 @@ Called when the user selects a section or sub-tab. Returns `{ items: [...], tota
 |---|---|---|
 | Software Components | `AssetMaker.find_processes` | `search_string=q\|"*"`, `metadata_element_type="DeployedSoftwareComponent"`, `activity_status_list=[]`, `start_from`, `page_size`, `output_format="JSON"`, `sequencing_order="PROPERTY_ASCENDING"`, `sequencing_property="displayName"`, `graph_query_depth=0` |
 | Actions | `AssetMaker.find_processes` | same as above with `metadata_element_type="Action"` |
+| Governance Processes | `GovernanceOfficer.find_governance_definitions` | `search_string=q\|"*"`, `metadata_element_type="GovernanceActionProcess"`, `start_from`, `page_size`, `output_format="JSON"`, `sequencing_order`/`sequencing_property` as above, `graph_query_depth=0`. **Not** `AssetMaker` — `GovernanceActionProcess` is a `GovernanceDefinition`, not an `Asset`. Detail uses a dedicated endpoint, not the generic `_fetch_detail` chain — see below. |
+
+#### Governance Processes detail — `GET /api/tech-catalog/governance-processes/{guid}`
+
+Uses `GovernanceOfficer.get_governance_process_graph(guid, output_format="JSON")`, **not** `AssetCatalog.get_asset_graph_by_guid` (which 404s — `GovernanceActionProcess` isn't an Asset subtype). Response shape:
+
+```
+{
+  "governanceActionProcess": { elementHeader, properties, specification? },
+  "firstProcessStep": { "element": {elementHeader, processStepProperties}, "linkGUID" },
+  "nextProcessSteps": [ {elementHeader, processStepProperties}, ... ],   # flat, NOT wrapped in "element"
+  "processStepLinks": [ {previousProcessStep: ElementStub, nextProcessStep: ElementStub,
+                          nextProcessStepLinkGUID, guard, mandatoryGuard}, ... ],
+  "governanceActionProcessMermaidGraph": "...mermaid source..."
+}
+```
+
+Quirks:
+- `firstProcessStep.element` is nested one level deeper than `nextProcessSteps` entries — `_serialize_governance_process_detail`'s `_add_step()` helper normalizes both.
+- `processStepLinks[].previousProcessStep`/`nextProcessStep` are flat `ElementStub`s (`guid`, `uniqueName` at top level) — not wrapped in `elementHeader` like most other pyegeria relationship shapes.
+- `governanceActionProcess.specification` (when present) has the same `producedGuard`/`supportedActionTarget`/`producedActionTarget`/`supportedRequestParameter` shape as a TechnologyType's `governanceActionProcesses`/`resourceList` entries — reuses `_extract_survey_spec()`.
+- `supportedActionTarget`/`producedActionTarget` entries carry the target's type in **`openMetadataTypeName`**, not `technicalName`/`typeName` — `_normalize_action_target` checks all three (fixed 2026-07-07; previously always blank for this call).
+- Not all processes have `specification` populated (e.g. `Onboard Landing Area Files For Clinical Trial Project` has 6 steps/7 guarded links but no top-level specification; a simple one-step "Create Evaluation subscription…" process has `specification` but no `nextProcessSteps`/`processStepLinks`).
 
 ### Technology Types
 
@@ -231,9 +254,10 @@ Relationship cards in the detail pane show a **"View →"** button whenever the 
 | `DataSet` and subtypes (SecretsCollection, VirtualRelationalTable, …) | `data-assets` | `data-sets` |
 | `DeployedAPI` | `apis` | `apis` |
 | `DeployedSoftwareComponent` and subtypes | `processes` | `software-components` |
+| `GovernanceActionProcess` | `processes` | `governance-processes` |
 | `GlossaryTerm`, `Glossary`, `GlossaryCategory` | `glossary` | `glossary` |
 
-> Subtype fallback: when exact `typeName` is not in the map, the frontend walks `relatedElement.superTypes` (from `elementHeader.type.superTypeNames`) to find the first matching ancestor.
+> Subtype fallback: when exact `typeName` is not in the map, the frontend walks `relatedElement.superTypes` (from `elementHeader.type.superTypeNames`) to find the first matching ancestor. **Exception:** `GovernanceActionProcess` is an exact-match entry that must be checked *before* the fallback walk reaches its `GovernanceDefinition` supertype (which maps to an external Egeria Explorer link) — otherwise process deep-links would leave The Catalog instead of opening the Governance Processes tab.
 
 ---
 

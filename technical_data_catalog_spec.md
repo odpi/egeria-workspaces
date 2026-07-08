@@ -10,7 +10,7 @@ When you launch The Catalog, there are **five tiles** (Glossary is first):
 | **Infrastructure Assets** | Servers, storage, networks, software capabilities, and endpoints |
 | **Data Assets** | Data stores, data feeds, and data sets |
 | **APIs** | Deployed APIs and their endpoints |
-| **Processes** | Software components and actions |
+| **Processes** | Software components, actions, and governance action process definitions |
 
 ---
 
@@ -127,7 +127,7 @@ Single list (no sub-tabs):
 
 ## Processes tile
 
-Two sub-tabs:
+Three sub-tabs:
 
 ### Software Components tab
 - **API:** `AssetMaker.find_processes(search_string, metadata_element_type="DeployedSoftwareComponent", activity_status_list=[], graph_query_depth=0)`
@@ -137,6 +137,14 @@ Two sub-tabs:
 ### Actions tab
 - **API:** `AssetMaker.find_processes(search_string, metadata_element_type="Action", activity_status_list=[], graph_query_depth=0)`
 - **Type:** `Action` and subtypes
+
+### Governance Processes tab
+Reusable `GovernanceActionProcess` *definitions* (type 0462), not the same thing as the Actions tab's runtime `Action`/`EngineAction` instances. This tab is a `custom: true` entry in `SECTION_TABS.processes` (own `GovernanceProcessesView`/`GovernanceProcessDetail` components), not a generic `AssetTabView`, because process structure (steps, guarded flow links, request/action targets) isn't representable in the generic Asset graph model.
+
+- **List API:** `GovernanceOfficer.find_governance_definitions(search_string, metadata_element_type="GovernanceActionProcess", graph_query_depth=0)`
+- **Detail API:** `GovernanceOfficer.get_governance_process_graph(guid)` — returns `{governanceActionProcess, firstProcessStep, nextProcessSteps, processStepLinks, governanceActionProcessMermaidGraph}`. `_serialize_governance_process_detail()` flattens this into `{steps[], stepLinks[], specification, governanceActionProcessMermaidGraph}`, reusing `_extract_survey_spec()` (previously TechnologyType-only) for the `producedGuards`/`supportedActionTargets`/`producedActionTargets`/`parameters` tables.
+- **Type:** `GovernanceActionProcess` (not a subtype of `Asset` — hence its own detail path instead of `AssetCatalog.get_asset_graph_by_guid`)
+- **Cross-nav:** `TYPE_TO_NAV['GovernanceActionProcess']` routes here (not to Egeria Explorer's Governance tab, despite `GovernanceActionProcess` inheriting from `GovernanceDefinition`) — the exact-typeName entry takes priority over the `GovernanceDefinition` supertype fallback.
 
 ---
 
@@ -152,6 +160,8 @@ GET /api/tech-catalog/data-sets               find_data_assets (DataSet)
 GET /api/tech-catalog/apis                    find_assets (DeployedAPI)
 GET /api/tech-catalog/software-components     find_processes (DeployedSoftwareComponent)
 GET /api/tech-catalog/actions                 find_processes (Action)
+GET /api/tech-catalog/governance-processes    GovernanceOfficer.find_governance_definitions (GovernanceActionProcess)
+GET /api/tech-catalog/governance-processes/{guid}  GovernanceOfficer.get_governance_process_graph
 GET /api/tech-catalog/assets/{guid}           detail for any element by GUID + section hint
 ```
 
@@ -203,7 +213,7 @@ pyegeria wraps related elements in `RelatedMetadataElementSummary`. The actual `
 | TC-3 | Infrastructure section (3 sub-tabs) | ✅ Complete |
 | TC-4 | Data Assets section (3 sub-tabs) | ✅ Complete |
 | TC-5 | APIs section | ✅ Complete |
-| TC-6 | Processes section (2 sub-tabs) | ✅ Complete |
+| TC-6 | Processes section (3 sub-tabs incl. Governance Processes, added 2026-07-07) | ✅ Complete |
 | TC-7 | Glossary tile (3-column browser, full term detail) | ✅ Complete |
 | TC-8 | Cross-navigation links via "View →" in relationship cards | ✅ Complete |
 | MOD-1→3 | Extract shared components to `egeria-shared-ui.js` | 🔲 Post-MVP |
