@@ -3,6 +3,15 @@
 Consolidated work list. Update status when items start or finish.  
 Status: `open` · `in-progress` · `done` · `deferred`
 ---
+## Egeria Explorer search + Tech Catalog fixes/features (2026-07-06/07) — ✅ done
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| SEARCH-1 | Global search results always cross-linked Projects (and any type outside the backend's `_TYPE_CATEGORY` map) to the generic Catalog/data-asset screen | done | Added `"Project"` → `projects` category in `catalog_search_handler.py` (both envs). `ExplorerSearchView` (type-explorer.html) now routes linkable result types through the shared `onNavigateToElement` dispatcher instead of hardcoding a `/tech-catalog?guid=` link; added `onNavigateToProject`/`ProjectsView(navGuid)` cross-nav plumbing, matching the existing pattern for Perspectives/Communities/etc. |
+| TC-REFRESH-1 | Refreshing The Catalog with a stale `?guid=` in the URL (e.g. from an old deep link) always re-navigated to that same element instead of the current section | done | `tech-catalog.html`'s deep-link resolver now calls `history.replaceState(...)` after consuming `?guid=`, replacing it with `#<resolved-section>` so a refresh lands on the section, not the one-time nav target. |
+| TC-9 | Processes tab had no view for `GovernanceActionProcess` definitions — no step/flow/guard/target detail (type 0462) | done | New **Governance Processes** sub-tab in The Catalog's Processes section (`GET /api/tech-catalog/governance-processes[/{guid}]`, `GovernanceOfficer.find_governance_definitions` / `get_governance_process_graph`). Detail view shows the mermaid flow diagram, ordered steps, guarded step-links, and request/produced-guard/action-target tables (reusing `_extract_survey_spec`/`SurveySpecCard`). Also fixed `_normalize_action_target` to read `openMetadataTypeName` (previously always blank for process specs). See `technical_data_catalog_spec.md` → Processes tile → Governance Processes tab. |
+
+---
 ## 🔴 High Priority — Fix SecretsStoreCataloguer catalog target (Quickstart)
 
 **Status:** open  

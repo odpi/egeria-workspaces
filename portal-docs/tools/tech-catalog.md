@@ -13,7 +13,7 @@ Access it from the portal tile or directly at `/catalog`.
 | **IT Infrastructure** | Servers, hosts, applications, and their software capabilities | IT Infrastructure, Software Capabilities, Endpoints |
 | **Data Assets** | Data stores, feeds, and sets | Data Stores, Data Feeds, Data Sets |
 | **APIs** | Deployed API definitions | APIs |
-| **Processes** | Running software components and actions | Software Components, Actions |
+| **Processes** | Running software components, actions, and governance action process definitions | Software Components, Actions, Governance Processes |
 | **Technology Types** | Egeria's registered technology classifications | Types list, Hierarchy |
 | **Glossary** | Business terms, folders, and their relationships | Glossary terms |
 
@@ -29,6 +29,19 @@ Selecting any item opens a detail pane on the right. For most asset types this i
 - **Relationships** — related elements with "View →" navigation links
 - **Schema** — column / attribute list (data assets only)
 - **Lineage** — direct lineage graph and link to Lineage Explorer
+
+---
+
+## Governance Action Processes
+
+The **Governance Processes** sub-tab (under **Processes**) lists `GovernanceActionProcess` definitions — the reusable, chained-step processes described in the Egeria type model [0462 Governance Action Processes](https://egeria-project.org/types/4/0462-governance-action-processes/). Unlike the generic asset detail pane, this view is built from the process's actual structure rather than a plain property/relationship graph, so it shows:
+
+- **Flow diagram** — a Mermaid diagram of the process and its steps, generated directly from the step sequence
+- **Process Steps** — every `GovernanceActionProcessStep` in the process, with the first step marked
+- **Step Flow** — each `NextGovernanceActionProcessStep` link between steps, including the **guard** that triggers it and whether the guard is mandatory
+- **Request Parameters**, **Produced Guards**, **Supported Action Targets**, and **Produced Action Targets** — the process's specification, i.e. what inputs it needs and what it hands off to the next step
+
+This gives a full picture of what a governance action process does, how its steps are linked, and what data flows in and out — information that isn't visible from the Software Components or Actions tabs (which cover deployed/running elements rather than process definitions).
 
 ---
 
