@@ -586,7 +586,8 @@ var d=null!=c&&c.hydratedSources||null,e=!1,f="",g=aj;null!==c&&void 0!==c&&(!0=
 function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmountComponentAtNode=function(a){if(!Vd(a))throw Error(m(40));return a._reactRootContainer?(yb(function(){Wd(null,null,a,!1,function(){a._reactRootContainer=null;a[Ja]=null})}),!0):!1};Q.unstable_batchedUpdates=Tf;Q.unstable_renderSubtreeIntoContainer=function(a,b,c,d){if(!Vd(c))throw Error(m(200));if(null==a||void 0===a._reactInternals)throw Error(m(38));return Wd(a,b,c,!1,d)};Q.version="18.3.1-next-f1338f8080-20240426"});
 })();
 </script>
-  <script src="/static/egeria-shared-ui.js"></script>
+  <!-- Bump ?v= whenever egeria-shared-ui.js changes — see tech-catalog.html for why. -->
+  <script src="/static/egeria-shared-ui.js?v=2026-07-09c"></script>
   <script>"use strict";
 
 const {
@@ -2844,20 +2845,9 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
 
 // ── Reference Data Explorer ───────────────────────────────────────────────────
 
-function ReferenceDataDetail({ item }) {
+function ReferenceDataDetail({ item, onNavigateToElement }) {
   var _rdPersonaId = React.useContext(PersonaContext);
   if (!item) return null;
-  const fields = [
-    ['Qualified Name',  item.qualifiedName],
-    ['Preferred Value', item.preferredValue],
-    ['Category',        item.category],
-    ['Data Type',       item.dataType],
-    ['Usage',           item.usage],
-    ['Scope',           item.scope],
-    ['Status',          item.status],
-    ['Deprecated',      item.isDeprecated ? 'Yes' : null],
-    ['Case Sensitive',  item.isCaseSensitive ? 'Yes' : null],
-  ].filter(([, v]) => v && String(v).trim());
 
   const isSet = !!item.isSet;
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
@@ -2868,21 +2858,19 @@ function ReferenceDataDetail({ item }) {
         _rdPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'reference-data', label: item.displayName || item.qualifiedName, icon: '📊', url: '/egeria-explorer?guid=' + encodeURIComponent(item.guid) + '#reference-data', personaId: _rdPersonaId }),
         React.createElement(EgeriaFeedbackWidget, { guid: item.guid })
       ),
+      React.createElement(HeaderInfoButton, { header: item._header }),
       React.createElement(CopyJsonButton, { data: item })
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, item.guid),
     item.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(item.description)),
     React.createElement(MermaidSection, { guid: item.guid }),
-    fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
-      React.createElement("tbody", null,
-        fields.map(([label, value]) =>
-          React.createElement("tr", { key: label, style: { borderTop: '1px solid var(--border)' } },
-            React.createElement("td", { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', verticalAlign: 'top', width: 140 } }, label),
-            React.createElement("td", { style: { padding: '6px 0' } }, renderMd(value))
-          )
-        )
-      )
+    React.createElement("div", { style: { marginBottom: 8 } },
+      React.createElement(GenericPropertiesTable, {
+        item: item, priority: ['preferredValue', 'category', 'dataType', 'usage', 'scope', 'status', 'isDeprecated', 'isCaseSensitive'],
+        renderValue: function(key, val) { return renderMd(val); },
+      })
     ),
+    React.createElement(GenericRelationshipsSection, { relationships: item.relationships, onNavigateToElement: onNavigateToElement }),
     React.createElement(EgeriaCommentsSection, { guid: item.guid })
   );
 }
@@ -2929,7 +2917,7 @@ function RefDataTreeNode({ item, byGuid, depth, selected, onSelect, expanded, to
   );
 }
 
-function ReferenceDataView({ navGuid }) {
+function ReferenceDataView({ navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   // Captures ?guid= once on mount for a cross-app deep link (e.g. from Tech Catalog).
   const _urlGuidRef = React.useRef((function() {
@@ -3056,7 +3044,7 @@ function ReferenceDataView({ navGuid }) {
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
     React.createElement("div", { className: "main" },
       selectedItem
-        ? React.createElement(ReferenceDataDetail, { item: selectedItem })
+        ? React.createElement(ReferenceDataDetail, { item: selectedItem, onNavigateToElement: onNavigateToElement })
         : React.createElement("div", { className: "center" },
             React.createElement("span", { style: { color: 'var(--muted)' } }, items.length === 0 ? "No valid value definitions found" : "Select an item to view details")
           )
@@ -3154,6 +3142,7 @@ function DigitalProductDetail({ product, onNavigateToElement, creds }) {
         _favPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'digital-products', label: product.displayName || product.qualifiedName, icon: '📦', url: '/egeria-explorer?guid=' + encodeURIComponent(product.guid) + '#digital-products', personaId: _favPersonaId }),
         React.createElement(EgeriaFeedbackWidget, { guid: product.guid })
       ),
+      React.createElement(HeaderInfoButton, { header: product._header }),
       React.createElement(CopyJsonButton, { data: product })
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 4 } }, product.guid),
@@ -5198,22 +5187,16 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
   );
 }
 
-function SolutionBlueprintDetail({ blueprint, onNavigateToComponent, onNavigateToBlueprint }) {
+function SolutionBlueprintDetail({ blueprint, onNavigateToComponent, onNavigateToBlueprint, onNavigateToElement }) {
   const [implState, setImplState] = useState('idle');
   if (!blueprint) return null;
-  const fields = [
-    ['Qualified Name',     blueprint.qualifiedName],
-    ['Version',           blueprint.versionIdentifier],
-    ['Lifecycle Status',  blueprint.lifecycleStatus],
-    ['User Defined Status', blueprint.userDefinedStatus],
-    ['Status',            blueprint.status],
-  ].filter(([, v]) => v && String(v).trim());
 
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, blueprint.displayName || blueprint.qualifiedName),
       React.createElement("span", { className: "badge", style: { background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)' } }, blueprint.typeName || 'SolutionBlueprint'),
       React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: blueprint.guid })),
+      React.createElement(HeaderInfoButton, { header: blueprint._header }),
       React.createElement(CopyJsonButton, { data: blueprint })
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, blueprint.guid),
@@ -5222,15 +5205,11 @@ function SolutionBlueprintDetail({ blueprint, onNavigateToComponent, onNavigateT
       React.createElement(AvailableMermaidDiagrams, { data: blueprint }),
       React.createElement(MermaidSection, { guid: blueprint.guid })
     ),
-    fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 20 } },
-      React.createElement("tbody", null,
-        fields.map(function([label, value]) {
-          return React.createElement("tr", { key: label, style: { borderTop: '1px solid var(--border)' } },
-            React.createElement("td", { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', width: 160, verticalAlign: 'top' } }, label),
-            React.createElement("td", { style: { padding: '6px 0' } }, renderMd(String(value)))
-          );
-        })
-      )
+    React.createElement("div", { style: { marginBottom: 20 } },
+      React.createElement(GenericPropertiesTable, {
+        item: blueprint, priority: ['versionIdentifier', 'lifecycleStatus', 'userDefinedStatus', 'status'],
+        renderValue: function(key, val) { return renderMd(val); },
+      })
     ),
     blueprint.components && blueprint.components.length > 0 && React.createElement("div", { style: { marginBottom: 16 } },
       React.createElement("div", { style: { fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'var(--accent)' } }, "Solution Components (" + blueprint.components.length + ")"),
@@ -5261,6 +5240,7 @@ function SolutionBlueprintDetail({ blueprint, onNavigateToComponent, onNavigateT
         );
       })
     ),
+    React.createElement(GenericRelationshipsSection, { relationships: blueprint.relationships, onNavigateToElement: onNavigateToElement }),
     React.createElement(EgeriaCommentsSection, { guid: blueprint.guid })
   );
 }
@@ -5280,14 +5260,6 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
   }
 
   if (!component) return null;
-  const fields = [
-    ['Qualified Name',      component.qualifiedName],
-    ['Component Type',      component.componentType],
-    ['Version',            component.versionIdentifier],
-    ['Lifecycle Status',   component.lifecycleStatus],
-    ['User Defined Status', component.userDefinedStatus],
-    ['Status',             component.status],
-  ].filter(([, v]) => v && String(v).trim());
 
   function relSection(title, items, onClick) {
     if (!items || items.length === 0) return null;
@@ -5311,6 +5283,7 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, component.displayName || component.qualifiedName),
       React.createElement("span", { className: "badge", style: { background: 'rgba(96,165,250,.1)', color: '#93c5fd', border: '0.5px solid rgba(96,165,250,.3)' } }, component.typeName || 'SolutionComponent'),
       React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: component.guid })),
+      React.createElement(HeaderInfoButton, { header: component._header }),
       React.createElement(CopyJsonButton, { data: component })
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, component.guid),
@@ -5319,15 +5292,11 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
       React.createElement(AvailableMermaidDiagrams, { data: component }),
       React.createElement(MermaidSection, { guid: component.guid })
     ),
-    fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 20 } },
-      React.createElement("tbody", null,
-        fields.map(function([label, value]) {
-          return React.createElement("tr", { key: label, style: { borderTop: '1px solid var(--border)' } },
-            React.createElement("td", { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', width: 160, verticalAlign: 'top' } }, label),
-            React.createElement("td", { style: { padding: '6px 0' } }, renderMd(String(value)))
-          );
-        })
-      )
+    React.createElement("div", { style: { marginBottom: 20 } },
+      React.createElement(GenericPropertiesTable, {
+        item: component, priority: ['componentType', 'versionIdentifier', 'lifecycleStatus', 'userDefinedStatus', 'status'],
+        renderValue: function(key, val) { return renderMd(val); },
+      })
     ),
     relSection("Parent Blueprints", component.blueprints, onNavigateToBlueprint),
     relSection("Parent Components", component.parentComponents, onNavigateToComponent),
@@ -5335,6 +5304,7 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
     React.createElement(RelationshipSection, { title: "Actors", items: component.actors, onNavigateToElement: onNavigateToElement }),
     relSection("Wired To", component.wiredTo, onNavigateToComponent),
     relSection("Wired From", component.wiredFrom, onNavigateToComponent),
+    React.createElement(GenericRelationshipsSection, { relationships: component.relationships, onNavigateToElement: onNavigateToElement }),
     React.createElement("div", { style: { marginBottom: 16 } },
       React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 } },
         React.createElement("div", { style: { fontWeight: 600, fontSize: 13, color: 'var(--accent)' } }, "Implementations"),
@@ -6024,13 +5994,6 @@ function ISCDetail({ data, detail, onNavigateToElement }) {
   var _iscPersonaId = React.useContext(PersonaContext);
   var src = data || detail;
   if (!src) return null;
-  var fields = [
-    ['Qualified Name',     src.qualifiedName],
-    ['Scope',              src.scope],
-    ['Version',            src.versionIdentifier],
-    ['Lifecycle Status',   src.lifecycleStatus],
-    ['Status',             src.status],
-  ].filter(function(f) { return f[1] && String(f[1]).trim(); });
 
   var structural = detail || data;
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
@@ -6041,6 +6004,7 @@ function ISCDetail({ data, detail, onNavigateToElement }) {
         _iscPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'isc', label: src.displayName || src.qualifiedName, icon: '🔗', url: '/egeria-explorer?guid=' + encodeURIComponent(src.guid) + '#isc', personaId: _iscPersonaId }),
         React.createElement(EgeriaFeedbackWidget, { guid: src.guid })
       ),
+      React.createElement(HeaderInfoButton, { header: src._header }),
       React.createElement(CopyJsonButton, { data: src })
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, src.guid),
@@ -6049,15 +6013,8 @@ function ISCDetail({ data, detail, onNavigateToElement }) {
       React.createElement(AvailableMermaidDiagrams, { data: data || src }),
       React.createElement(MermaidSection, { guid: src.guid })
     ),
-    fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 20 } },
-      React.createElement("tbody", null,
-        fields.map(function(f) {
-          return React.createElement("tr", { key: f[0], style: { borderTop: '1px solid var(--border)' } },
-            React.createElement("td", { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', width: 160, verticalAlign: 'top' } }, f[0]),
-            React.createElement("td", { style: { padding: '6px 0' } }, String(f[1]))
-          );
-        })
-      )
+    React.createElement("div", { style: { marginBottom: 20 } },
+      React.createElement(GenericPropertiesTable, { item: src, priority: ['scope', 'versionIdentifier', 'lifecycleStatus', 'status'] })
     ),
     structural.owner && structural.owner.guid && React.createElement(RelationshipSection, { title: "Owner", items: [structural.owner], onNavigateToElement: onNavigateToElement }),
     React.createElement(RelationshipSection, { title: "Segments", items: structural.segments, onNavigateToElement: onNavigateToElement }),
@@ -6282,6 +6239,32 @@ function RelationshipSection({ title, items, onNavigateToElement }) {
   );
 }
 
+// GenericRelationshipsSection — renders every group in a backend-supplied
+// `relationships` dict ({ keyName: [relatedElement, ...] }), instead of each
+// Detail component hand-picking which relationship keys to show. This is
+// what makes a relationship Egeria returns under a key nobody hard-coded
+// (e.g. a SolutionBlueprint's "resourceList") show up automatically. Backend
+// side: common_serialize.py::_generic_relationships produces this shape.
+function _relTitleCase(key) {
+  var s = String(key).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/_/g, ' ');
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+var _REL_KEY_LABELS = {}; // per-key overrides can be added here if a nicer label is needed
+function GenericRelationshipsSection({ relationships, onNavigateToElement, skip }) {
+  if (!relationships) return null;
+  var skipSet = new Set(skip || []);
+  var keys = Object.keys(relationships).filter(function(k) { return !skipSet.has(k) && relationships[k] && relationships[k].length > 0; });
+  if (keys.length === 0) return null;
+  return React.createElement(React.Fragment, null,
+    keys.map(function(k) {
+      return React.createElement(RelationshipSection, {
+        key: k, title: _REL_KEY_LABELS[k] || _relTitleCase(k),
+        items: relationships[k], onNavigateToElement: onNavigateToElement,
+      });
+    })
+  );
+}
+
 var LOCATION_KIND_COLORS = {
   'Fixed':  { bg: 'rgba(94,234,212,.1)',  fg: '#5eead4', border: 'rgba(94,234,212,.3)' },
   'Cyber':  { bg: 'rgba(129,140,248,.1)', fg: '#818cf8', border: 'rgba(129,140,248,.3)' },
@@ -6305,8 +6288,6 @@ function LocationKindBadges({ kinds }) {
 function LocationDetail({ data, detail, onNavigateToElement }) {
   var src = detail || data;
   if (!src) return null;
-  var fields = [['Identifier', src.identifier], ['Qualified Name', src.qualifiedName], ['Status', src.status]]
-    .filter(function(f) { return f[1] && String(f[1]).trim(); });
 
   var kindFields = [];
   (src.locationKinds || []).forEach(function(k) {
@@ -6321,6 +6302,7 @@ function LocationDetail({ data, detail, onNavigateToElement }) {
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.displayName || src.qualifiedName),
       React.createElement(LocationKindBadges, { kinds: src.locationKinds }),
       React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid })),
+      React.createElement(HeaderInfoButton, { header: src._header }),
       React.createElement(CopyJsonButton, { data: src })
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, src.guid),
@@ -6328,15 +6310,8 @@ function LocationDetail({ data, detail, onNavigateToElement }) {
     src.mermaidGraph && React.createElement("div", { style: { marginBottom: 8 } },
       React.createElement(MermaidDiagram, { code: src.mermaidGraph })
     ),
-    (fields.length > 0 || kindFields.length > 0) && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 20 } },
-      React.createElement("tbody", null,
-        fields.concat(kindFields).map(function(f, i) {
-          return React.createElement("tr", { key: f[0] + i, style: { borderTop: '1px solid var(--border)' } },
-            React.createElement("td", { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', width: 160, verticalAlign: 'top' } }, f[0]),
-            React.createElement("td", { style: { padding: '6px 0' } }, String(f[1]))
-          );
-        })
-      )
+    React.createElement("div", { style: { marginBottom: 20 } },
+      React.createElement(GenericPropertiesTable, { item: src, priority: ['identifier', 'status'], extra: kindFields })
     ),
     React.createElement(RelationshipSection, { title: "Parent Locations", items: src.parentLocations, onNavigateToElement: onNavigateToElement }),
     React.createElement(RelationshipSection, { title: "Child Locations", items: src.childLocations, onNavigateToElement: onNavigateToElement }),
@@ -6344,6 +6319,7 @@ function LocationDetail({ data, detail, onNavigateToElement }) {
     React.createElement(RelationshipSection, { title: "Resources Hosted Here", items: src.localResources, onNavigateToElement: onNavigateToElement }),
     React.createElement(RelationshipSection, { title: "Assigned Actors", items: src.assignedActors, onNavigateToElement: onNavigateToElement }),
     React.createElement(RelationshipSection, { title: "Reference Values", items: src.referenceValues, onNavigateToElement: onNavigateToElement }),
+    React.createElement(GenericRelationshipsSection, { relationships: src.relationships, onNavigateToElement: onNavigateToElement }),
     React.createElement(EgeriaCommentsSection, { guid: src.guid })
   );
 }
@@ -6616,13 +6592,6 @@ function _prettyRelLabel(key) {
 function ActorDetail({ data, detail, onNavigateToElement }) {
   var src = detail || data;
   if (!src) return null;
-  var fields = [
-    ['Qualified Name', src.qualifiedName], ['Status', src.status], ['Job Title', src.jobTitle],
-    ['Employee Number', src.employeeNumber], ['Employee Type', src.employeeType], ['Identifier', src.identifier],
-    ['Contact Type', src.contactType], ['Contact Method', src.contactMethodType], ['Contact Value', src.contactMethodValue],
-    ['User Id', src.userId], ['Distinguished Name', src.distinguishedName],
-    ['Head Count', src.headCount], ['Domain Identifier', src.domainIdentifier],
-  ].filter(function(f) { return f[1] !== undefined && f[1] !== null && String(f[1]).trim(); });
 
   var relationships = src.relationships || {};
   var relKeys = Object.keys(relationships).filter(function(k) { return relationships[k] && relationships[k].length; });
@@ -6632,6 +6601,7 @@ function ActorDetail({ data, detail, onNavigateToElement }) {
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.displayName || src.qualifiedName),
       React.createElement(ActorTypeBadge, { typeName: src.typeName }),
       React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid })),
+      React.createElement(HeaderInfoButton, { header: src._header }),
       React.createElement(CopyJsonButton, { data: src })
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, src.guid),
@@ -6639,15 +6609,8 @@ function ActorDetail({ data, detail, onNavigateToElement }) {
     src.mermaidGraph && React.createElement("div", { style: { marginBottom: 8 } },
       React.createElement(MermaidDiagram, { code: src.mermaidGraph })
     ),
-    fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 20 } },
-      React.createElement("tbody", null,
-        fields.map(function(f, i) {
-          return React.createElement("tr", { key: f[0] + i, style: { borderTop: '1px solid var(--border)' } },
-            React.createElement("td", { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', width: 160, verticalAlign: 'top' } }, f[0]),
-            React.createElement("td", { style: { padding: '6px 0' } }, String(f[1]))
-          );
-        })
-      )
+    React.createElement("div", { style: { marginBottom: 20 } },
+      React.createElement(GenericPropertiesTable, { item: src, priority: ['status', 'jobTitle'] })
     ),
     relKeys.map(function(k) {
       return React.createElement(RelationshipSection, { key: k, title: _prettyRelLabel(k), items: relationships[k], onNavigateToElement: onNavigateToElement });
@@ -6850,8 +6813,6 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
 function CommunityDetail({ data, detail, onNavigateToElement }) {
   var src = detail || data;
   if (!src) return null;
-  var fields = [['Qualified Name', src.qualifiedName], ['Mission', src.mission], ['Status', src.status]]
-    .filter(function(f) { return f[1] && String(f[1]).trim(); });
 
   var relationships = src.relationships || {};
   var relKeys = Object.keys(relationships).filter(function(k) { return relationships[k] && relationships[k].length; });
@@ -6861,6 +6822,7 @@ function CommunityDetail({ data, detail, onNavigateToElement }) {
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.displayName || src.qualifiedName),
       React.createElement("span", { className: "badge", style: { background: 'rgba(192,132,252,.1)', color: '#c084fc', border: '0.5px solid rgba(192,132,252,.3)' } }, src.typeName || 'Community'),
       React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid })),
+      React.createElement(HeaderInfoButton, { header: src._header }),
       React.createElement(CopyJsonButton, { data: src })
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, src.guid),
@@ -6868,15 +6830,8 @@ function CommunityDetail({ data, detail, onNavigateToElement }) {
     src.mermaidGraph && React.createElement("div", { style: { marginBottom: 8 } },
       React.createElement(MermaidDiagram, { code: src.mermaidGraph })
     ),
-    fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 20 } },
-      React.createElement("tbody", null,
-        fields.map(function(f, i) {
-          return React.createElement("tr", { key: f[0] + i, style: { borderTop: '1px solid var(--border)' } },
-            React.createElement("td", { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', width: 160, verticalAlign: 'top' } }, f[0]),
-            React.createElement("td", { style: { padding: '6px 0' } }, String(f[1]))
-          );
-        })
-      )
+    React.createElement("div", { style: { marginBottom: 20 } },
+      React.createElement(GenericPropertiesTable, { item: src, priority: ['mission', 'status'] })
     ),
     relKeys.map(function(k) {
       return React.createElement(RelationshipSection, { key: k, title: _prettyRelLabel(k), items: relationships[k], onNavigateToElement: onNavigateToElement });
@@ -7172,8 +7127,6 @@ function NoteLogDetail({ data, detail, onNavigateToElement }) {
 
   var src = detail || data;
   if (!src) return null;
-  var fields = [['Qualified Name', src.qualifiedName], ['Status', src.status]]
-    .filter(function(f) { return f[1] && String(f[1]).trim(); });
   var entries = src.entries || [];
   var subjects = src.subjects || [];
 
@@ -7221,6 +7174,7 @@ function NoteLogDetail({ data, detail, onNavigateToElement }) {
         _nlPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'notelogs', label: src.displayName || src.qualifiedName, icon: '📝', url: '/egeria-explorer?guid=' + encodeURIComponent(src.guid) + '#notelogs', personaId: _nlPersonaId }),
         React.createElement(EgeriaFeedbackWidget, { guid: src.guid })
       ),
+      React.createElement(HeaderInfoButton, { header: src._header }),
       React.createElement(CopyJsonButton, { data: src })
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, src.guid),
@@ -7228,17 +7182,11 @@ function NoteLogDetail({ data, detail, onNavigateToElement }) {
     src.mermaidGraph && React.createElement("div", { style: { marginBottom: 8 } },
       React.createElement(MermaidDiagram, { code: src.mermaidGraph })
     ),
-    fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 20 } },
-      React.createElement("tbody", null,
-        fields.map(function(f, i) {
-          return React.createElement("tr", { key: f[0] + i, style: { borderTop: '1px solid var(--border)' } },
-            React.createElement("td", { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', width: 160, verticalAlign: 'top' } }, f[0]),
-            React.createElement("td", { style: { padding: '6px 0' } }, String(f[1]))
-          );
-        })
-      )
+    React.createElement("div", { style: { marginBottom: 20 } },
+      React.createElement(GenericPropertiesTable, { item: src, priority: ['status'] })
     ),
     subjects.length > 0 && React.createElement(RelationshipSection, { title: "About", items: subjects, onNavigateToElement: onNavigateToElement }),
+    React.createElement(GenericRelationshipsSection, { relationships: src.relationships, onNavigateToElement: onNavigateToElement, skip: ['subjects'] }),
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, marginTop: 4, flexWrap: 'wrap' } },
       React.createElement("span", { style: { fontWeight: 600, fontSize: 13, color: 'var(--accent)' } },
         "Notes" + (typeof src.entryCount === 'number' ? " (" + src.entryCount + ")" : "")),
@@ -7622,7 +7570,7 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
       ),
       selectedBp && bpDetailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
       selectedBp && bpDetailState === 'error' && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load blueprint detail"),
-      selectedBp && bpDetailState === 'ready' && bpDetail && React.createElement(SolutionBlueprintDetail, { blueprint: bpDetail, onNavigateToComponent: onNavigateToComponent, onNavigateToBlueprint: onNavigateToBlueprint })
+      selectedBp && bpDetailState === 'ready' && bpDetail && React.createElement(SolutionBlueprintDetail, { blueprint: bpDetail, onNavigateToComponent: onNavigateToComponent, onNavigateToBlueprint: onNavigateToBlueprint, onNavigateToElement: onNavigateToElement })
     ),
     subNav === 'components' && React.createElement(React.Fragment, null,
       !selectedComp && React.createElement("div", { className: "center" },
@@ -7789,7 +7737,7 @@ function ProjectTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggle
   );
 }
 
-function ProjectsView({ navGuid }) {
+function ProjectsView({ navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(280);
   const [state, setState]   = React.useState('loading');
@@ -7952,20 +7900,13 @@ function ProjectsView({ navGuid }) {
         ? React.createElement('div', { className: 'center' }, React.createElement('div', { className: 'spinner' }))
         : detailState === 'error'
         ? React.createElement('div', { style: { color: '#f87171' } }, 'Failed to load project detail.')
-        : detail && React.createElement(ProjectDetail, { project: detail.project, children: detail.children, onSelectChild: setSelected })
+        : detail && React.createElement(ProjectDetail, { project: detail.project, children: detail.children, onSelectChild: setSelected, onNavigateToElement: onNavigateToElement })
     )
   );
 }
 
-function ProjectDetail({ project, children, onSelectChild }) {
+function ProjectDetail({ project, children, onSelectChild, onNavigateToElement }) {
   if (!project) return null;
-
-  var fieldRows = [
-    ['Status',          project.projectStatus || project.status],
-    ['Start Date',      project.startDate],
-    ['Planned End',     project.plannedEndDate],
-    ['Qualified Name',  project.qualifiedName],
-  ].filter(function(r) { return r[1]; });
 
   var sectionHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 10, marginTop: 20 };
   var cardStyle  = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 };
@@ -7977,6 +7918,7 @@ function ProjectDetail({ project, children, onSelectChild }) {
         project.displayName || project.qualifiedName || project.guid
       ),
       React.createElement(EgeriaFeedbackWidget, { guid: project.guid }),
+      React.createElement(HeaderInfoButton, { header: project._header }),
       React.createElement(CopyJsonButton, { data: project })
     ),
     (project.classifications || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 14 } },
@@ -7988,19 +7930,10 @@ function ProjectDetail({ project, children, onSelectChild }) {
     // Description
     project.description && React.createElement('p', { style: { fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, margin: '0 0 16px' } }, project.description),
 
-    // Key fields
-    fieldRows.length > 0 && React.createElement('div', null,
+    // Key fields — generic (shows every scalar property, incl. authors/contentStatus)
+    React.createElement('div', null,
       React.createElement('div', { style: sectionHdr }, 'Details'),
-      React.createElement('table', { style: { borderCollapse: 'collapse', width: '100%', fontSize: 12 } },
-        React.createElement('tbody', null,
-          fieldRows.map(function(r) {
-            return React.createElement('tr', { key: r[0], style: { borderBottom: '1px solid var(--border)' } },
-              React.createElement('td', { style: { padding: '5px 10px 5px 0', color: 'var(--dim)', width: 140, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
-              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', fontFamily: r[0] === 'Qualified Name' ? 'ui-monospace,monospace' : 'inherit', fontSize: r[0] === 'Qualified Name' ? 11 : 12, wordBreak: 'break-all' } }, r[1])
-            );
-          })
-        )
-      )
+      React.createElement(GenericPropertiesTable, { item: project, priority: ['projectStatus', 'status', 'startDate', 'plannedEndDate'] })
     ),
 
     // Classification detail cards (show properties if non-empty)
@@ -8044,6 +7977,7 @@ function ProjectDetail({ project, children, onSelectChild }) {
             );
           })
         ),
+    React.createElement(GenericRelationshipsSection, { relationships: project.relationships, onNavigateToElement: onNavigateToElement }),
     React.createElement(AvailableMermaidDiagrams, { data: project }),
     React.createElement(MermaidSection, { guid: project.guid }),
     React.createElement(EgeriaCommentsSection, { guid: project.guid })
@@ -8067,25 +8001,12 @@ const _GOV_DOMAIN_NAMES = {
 function GovDefDetail({ definition, onNavigateToElement }) {
   if (!definition) return null;
 
-  const SCALAR_FIELDS = [
-    ['Qualified Name',    definition.qualifiedName],
-    ['Identifier',        definition.identifier],
-    ['Scope',             definition.scope],
-    ['Usage',             definition.usage],
-    ['Domain',            definition.domainIdentifier ? String(definition.domainIdentifier) : ''],
-    ['Importance',        definition.importance],
-    ['Status',            definition.status],
-    ['Summary',           definition.summary],
-    ['Implications',      definition.implications],
-    ['Outcomes',          definition.outcomes],
-    ['Results',           definition.results],
-  ].filter(([, v]) => v && String(v).trim());
-
   return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement('div', { style: { fontSize: 18, fontWeight: 700 } }, definition.displayName || definition.qualifiedName),
       definition.typeName && React.createElement('span', { className: 'badge', style: { background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)' } }, definition.typeName),
       React.createElement('div', { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: definition.guid })),
+      React.createElement(HeaderInfoButton, { header: definition._header }),
       React.createElement(CopyJsonButton, { data: definition })
     ),
     React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 12 } }, definition.guid),
@@ -8094,15 +8015,12 @@ function GovDefDetail({ definition, onNavigateToElement }) {
       React.createElement(AvailableMermaidDiagrams, { data: definition }),
       React.createElement(MermaidSection, { guid: definition.guid })
     ),
-    SCALAR_FIELDS.length > 0 && React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 20 } },
-      React.createElement('tbody', null,
-        SCALAR_FIELDS.map(function(pair) {
-          return React.createElement('tr', { key: pair[0], style: { borderTop: '1px solid var(--border)' } },
-            React.createElement('td', { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', verticalAlign: 'top', width: 150 } }, pair[0]),
-            React.createElement('td', { style: { padding: '6px 0', whiteSpace: 'pre-wrap' } }, renderMd(String(pair[1])))
-          );
-        })
-      )
+    React.createElement('div', { style: { marginBottom: 20 } },
+      React.createElement(GenericPropertiesTable, {
+        item: definition,
+        priority: ['identifier', 'domainIdentifier', 'status', 'summary'],
+        renderValue: function(key, val) { return renderMd(val); },
+      })
     ),
     definition.relationships && Object.keys(definition.relationships).length > 0 && React.createElement('div', null,
       React.createElement('div', { style: { fontWeight: 700, fontSize: 13, marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' } }, 'Relationships'),
@@ -9149,7 +9067,7 @@ function App() {
       : section === 'glossary'
       ? React.createElement(GlossaryView, { key: credsKey, navGuid: glossaryNavGuid, onNavigateToDataDesign: onNavigateToDataDesign, onNavigateToElement: onNavigateToElement })
       : section === 'reference-data'
-      ? React.createElement(ReferenceDataView, { key: credsKey, navGuid: referenceDataNavGuid })
+      ? React.createElement(ReferenceDataView, { key: credsKey, navGuid: referenceDataNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'digital-products'
       ? React.createElement(DigitalProductsView, { key: credsKey, navGuid: digitalProductNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'collections'
@@ -9179,7 +9097,7 @@ function App() {
       : section === 'governance'
       ? React.createElement(GovernanceView, { key: credsKey, navTypeName: governanceNav.typeName, navGuid: governanceNav.guid, onNavigateToElement: onNavigateToElement })
       : section === 'projects'
-      ? React.createElement(ProjectsView, { key: credsKey, navGuid: projectNavGuid })
+      ? React.createElement(ProjectsView, { key: credsKey, navGuid: projectNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'context-events'
       ? React.createElement(ContextEventsView, { key: credsKey, onNavigateToElement: onNavigateToElement })
       : section === 'informal-tags'

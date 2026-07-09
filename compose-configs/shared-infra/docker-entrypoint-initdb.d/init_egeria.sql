@@ -5,7 +5,7 @@ create user airflow_user with superuser login password 'user4airflow';
 create user marquez_user with superuser login password 'user4marquez';
 create user example_user with login password 'user4example';
 create user uc_user with superuser login password 'user4uc';
-create user mlflow_user with superuser login password 'mlflow_password';
+create user mlflow_user with superuser login password 'mlflow_password';1
 create user egeria_advisor with login password 'advisor';
 create user surveyor with login password 'surveyor4egeria';
 

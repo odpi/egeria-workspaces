@@ -579,7 +579,11 @@ var d=null!=c&&c.hydratedSources||null,e=!1,f="",g=aj;null!==c&&void 0!==c&&(!0=
 function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmountComponentAtNode=function(a){if(!Vd(a))throw Error(m(40));return a._reactRootContainer?(yb(function(){Wd(null,null,a,!1,function(){a._reactRootContainer=null;a[Ja]=null})}),!0):!1};Q.unstable_batchedUpdates=Tf;Q.unstable_renderSubtreeIntoContainer=function(a,b,c,d){if(!Vd(c))throw Error(m(200));if(null==a||void 0===a._reactInternals)throw Error(m(38));return Wd(a,b,c,!1,d)};Q.version="18.3.1-next-f1338f8080-20240426"});
 })();
 </script>
-<script src="/static/egeria-shared-ui.js"></script>
+<!-- Bump ?v= whenever egeria-shared-ui.js changes — /static is served with
+     Cache-Control: no-cache (forces revalidation), but a browser that cached
+     this URL *before* that header existed won't revalidate on its own; a new
+     URL guarantees a fresh fetch regardless of prior cache state. -->
+<script src="/static/egeria-shared-ui.js?v=2026-07-09c"></script>
 <script>
 'use strict';
 // React hook aliases (mirror type-explorer.html)
@@ -626,13 +630,19 @@ function TechTable(headers, rows, emptyMsg) {
       ? React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '4px 0' } }, emptyMsg)
       : null;
   }
-  var thSt = { padding: '5px 10px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--dim)', borderBottom: '1px solid var(--border)', background: 'var(--panel)', whiteSpace: 'nowrap' };
-  var tdSt = { padding: '5px 10px', fontSize: 11, borderBottom: '1px solid var(--border)', verticalAlign: 'top', lineHeight: 1.5 };
+  // Hook-free resize (makeResizableCols, not useColumnResize) — TechTable is called
+  // as a plain function, often inside a .map() loop, so it can't use React hooks.
+  var lenSum = headers.reduce(function(s, h) { return s + Math.max(String(h).length, 6); }, 0);
+  var initialWidths = headers.map(function(h) { return (Math.max(String(h).length, 6) / lenSum * 100) + '%'; });
+  var rz = makeResizableCols(headers.length, initialWidths);
+  var thSt = { padding: '5px 10px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--dim)', borderBottom: '1px solid var(--border)', background: 'var(--panel)', whiteSpace: 'nowrap', position: 'relative' };
+  var tdSt = { padding: '5px 10px', fontSize: 11, borderBottom: '1px solid var(--border)', verticalAlign: 'top', lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis' };
   return React.createElement('div', { style: { overflowX: 'auto', borderRadius: 4, border: '1px solid var(--border)', marginTop: 8 } },
-    React.createElement('table', { style: { borderCollapse: 'collapse', width: '100%' } },
+    React.createElement('table', { style: { borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' } },
+      resizableColgroup(rz),
       React.createElement('thead', null,
         React.createElement('tr', null, headers.map(function(h, i) {
-          return React.createElement('th', { key: i, style: thSt }, h);
+          return React.createElement('th', { key: i, style: thSt }, h, colResizeHandle(rz.onResizeDown, i));
         }))
       ),
       React.createElement('tbody', null, rows.map(function(row, ri) {
@@ -871,19 +881,21 @@ function TechTypeDetail({ item, detailLoading, creds }) {
     renderContent: function(data) {
       var its = data.items || [];
       if (its.length === 0) return React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '6px 0' } }, 'No catalog entries of this type yet.');
-      var thStyle = { fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 8px 4px 0', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', textAlign: 'left' };
-      var tdBase  = { fontSize: 11, padding: '5px 8px 5px 0', verticalAlign: 'top', borderBottom: '1px solid var(--border)' };
-      var tdMono  = Object.assign({}, tdBase, { fontFamily: 'ui-monospace,monospace', fontSize: 10, color: 'var(--dim)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
-      var tdDesc  = Object.assign({}, tdBase, { color: 'var(--muted)', maxWidth: 200, lineHeight: 1.4 });
+      var thStyle = { fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 8px 4px 0', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', textAlign: 'left', position: 'relative' };
+      var tdBase  = { fontSize: 11, padding: '5px 8px 5px 0', verticalAlign: 'top', borderBottom: '1px solid var(--border)', overflow: 'hidden', textOverflow: 'ellipsis' };
+      var tdMono  = Object.assign({}, tdBase, { fontFamily: 'ui-monospace,monospace', fontSize: 10, color: 'var(--dim)', whiteSpace: 'nowrap' });
+      var tdDesc  = Object.assign({}, tdBase, { color: 'var(--muted)', lineHeight: 1.4 });
+      var rz = makeResizableCols(6, ['16%', '12%', '30%', '22%', '15%', '5%']);
       return React.createElement('div', { style: { overflowX: 'auto', marginTop: 6 } },
-        React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse' } },
+        React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' } },
+          resizableColgroup(rz),
           React.createElement('thead', null,
             React.createElement('tr', null,
-              React.createElement('th', { style: thStyle }, 'Name'),
-              React.createElement('th', { style: thStyle }, 'Type'),
-              React.createElement('th', { style: thStyle }, 'Description'),
-              React.createElement('th', { style: thStyle }, 'Qualified Name'),
-              React.createElement('th', { style: thStyle }, 'GUID'),
+              React.createElement('th', { style: thStyle }, 'Name', colResizeHandle(rz.onResizeDown, 0)),
+              React.createElement('th', { style: thStyle }, 'Type', colResizeHandle(rz.onResizeDown, 1)),
+              React.createElement('th', { style: thStyle }, 'Description', colResizeHandle(rz.onResizeDown, 2)),
+              React.createElement('th', { style: thStyle }, 'Qualified Name', colResizeHandle(rz.onResizeDown, 3)),
+              React.createElement('th', { style: thStyle }, 'GUID', colResizeHandle(rz.onResizeDown, 4)),
               React.createElement('th', { style: thStyle }, '')
             )
           ),
@@ -966,6 +978,7 @@ function TechTypeNode({ node, depth, selQN, onSelect, expanded, onToggle }) {
 }
 
 function TechTypesView({ creds }) {
+  var _sideW = useResizable(290, 200, 600), sideW = _sideW[0], onSideDivDown = _sideW[1];
   // Hierarchy state
   var _hier    = useState(null),  hier    = _hier[0],    setHier    = _hier[1];
   var _hierErr = useState(''),    hierErr = _hierErr[0], setHierErr = _hierErr[1];
@@ -1086,7 +1099,7 @@ function TechTypesView({ creds }) {
   }
 
   return React.createElement('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
-    React.createElement('div', { style: { width: 290, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden' } },
+    React.createElement('div', { style: { width: sideW, minWidth: 200, borderRight: 'none', display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden' } },
       // Search bar + template filter
       React.createElement('div', { style: { padding: '7px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 5 } },
         React.createElement('input', {
@@ -1103,6 +1116,7 @@ function TechTypesView({ creds }) {
       ),
       React.createElement('div', { style: { overflowY: 'auto', flex: 1, padding: '4px 0' } }, sidebarContent)
     ),
+    React.createElement(ResizeDivider, { onMouseDown: onSideDivDown }),
     React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: sel ? '20px 24px' : 0 } },
       sel
         ? React.createElement(TechTypeDetail, { item: detail || sel, detailLoading: detLoad, creds: creds })
@@ -1194,6 +1208,8 @@ function SidebarDetail({ items, loading, error, selected, onSelect, renderDetail
                 item.displayName || item.qualifiedName || item.guid),
               item.deployedImplementationType && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 1 } }, item.deployedImplementationType),
               item.typeName && !item.deployedImplementationType && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 1 } }, item.typeName),
+              item.createTime && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 1 } },
+                new Date(item.createTime).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })),
               badges.length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 2, marginTop: 3 } }, badges)
             );
           })
@@ -1275,9 +1291,10 @@ function SchemaPane({ guid, creds }) {
   function renderSchema(data) {
     var st = data.schemaType;
     var attrs = data.attributes || [];
-    var tblHdr = { fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 8px 4px 0', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' };
-    var tdStyle = { fontSize: 11, padding: '3px 8px 3px 0', color: 'var(--text)', verticalAlign: 'top', borderBottom: '1px solid var(--border)' };
+    var tblHdr = { fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 8px 4px 0', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', position: 'relative' };
+    var tdStyle = { fontSize: 11, padding: '3px 8px 3px 0', color: 'var(--text)', verticalAlign: 'top', borderBottom: '1px solid var(--border)', overflow: 'hidden', textOverflow: 'ellipsis' };
     var tdDim   = Object.assign({}, tdStyle, { color: 'var(--dim)', whiteSpace: 'nowrap' });
+    var rz = makeResizableCols(5, ['5%', '22%', '18%', '10%', '45%']);
     return React.createElement('div', null,
       st && React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 } },
         React.createElement('span', { style: { fontSize: 12, color: 'var(--muted)' } }, 'Schema type:'),
@@ -1286,13 +1303,14 @@ function SchemaPane({ guid, creds }) {
       ),
       attrs.length === 0
         ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'No attributes found.')
-        : React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 } },
+        : React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' } },
+            resizableColgroup(rz),
             React.createElement('thead', null,
               React.createElement('tr', null,
-                React.createElement('th', { style: tblHdr }, '#'),
-                React.createElement('th', { style: tblHdr }, 'Name'),
-                React.createElement('th', { style: tblHdr }, 'Type'),
-                React.createElement('th', { style: tblHdr }, 'Required'),
+                React.createElement('th', { style: tblHdr }, '#', colResizeHandle(rz.onResizeDown, 0)),
+                React.createElement('th', { style: tblHdr }, 'Name', colResizeHandle(rz.onResizeDown, 1)),
+                React.createElement('th', { style: tblHdr }, 'Type', colResizeHandle(rz.onResizeDown, 2)),
+                React.createElement('th', { style: tblHdr }, 'Required', colResizeHandle(rz.onResizeDown, 3)),
                 React.createElement('th', { style: tblHdr }, 'Description')
               )
             ),
@@ -1342,6 +1360,7 @@ var _glsItemSelStyle = Object.assign({}, _glsItemStyle, { background: 'rgba(96,1
 
 function GlossaryView({ creds, onNavigate }) {
   var _sideW = useResizable(220), sideW = _sideW[0], onDivDown = _sideW[1];
+  var _midW  = useResizable(280, 200, 700), midW = _midW[0], onMidDivDown = _midW[1];
   var _gs = useState('loading'), glossaryState = _gs[0], setGlossaryState = _gs[1];
   var _ga = useState(0),         glossaryAttempt = _ga[0], setGlossaryAttempt = _ga[1];
   var _gl = useState([]),         glossaries = _gl[0], setGlossaries = _gl[1];
@@ -1511,7 +1530,7 @@ function GlossaryView({ creds, onNavigate }) {
     ),
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
     // Middle: folders + terms / search results
-    React.createElement('div', { style: { width: 280, flexShrink: 0, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
+    React.createElement('div', { style: { width: midW, minWidth: 200, flexShrink: 0, borderRight: 'none', display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
       React.createElement('div', { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 5 } },
         // Glossary name (folders are now expandable inline in the tree below)
         !isSearchMode && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', fontWeight: 600 } }, selectedGlossaryName || 'Glossary'),
@@ -1540,6 +1559,7 @@ function GlossaryView({ creds, onNavigate }) {
             )
       )
     ),
+    React.createElement(ResizeDivider, { onMouseDown: onMidDivDown }),
     // Right: detail
     React.createElement('div', { style: mainStyle },
       selectedObj && selectedObj.isFolder
@@ -1760,7 +1780,14 @@ function AssetDetail({ item, detailLoading, onNavigate, creds, sectionId }) {
           ),
           el.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginBottom: relProps.length ? 4 : 0 } }, el.description),
           relProps.filter(function(e) { return typeof e[1] !== 'object' || e[1] === null; }).map(function(e) {
-            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
+            return React.createElement('div', { key: 'rel-' + e[0], style: { fontSize: 11, color: 'var(--muted)' } },
+              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
+          }),
+          // Related element's own scalar properties — fills in useful detail (e.g. an
+          // Annotation's summary/annotationType/confidence) beyond just guid/typeName,
+          // especially for related types that have no displayName of their own.
+          Object.entries(el.properties || {}).slice(0, 8).map(function(e) {
+            return React.createElement('div', { key: 'prop-' + e[0], style: { fontSize: 11, color: 'var(--muted)' } },
               e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
           })
         );
@@ -1800,8 +1827,13 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   var _inclTempl = useState(false), inclTempl = _inclTempl[0], setInclTempl = _inclTempl[1];
   // LE-3: point-in-time browsing — only the data-asset endpoints accept as_of_time.
   var _asOfTime = useState(null), asOfTime = _asOfTime[0], setAsOfTime = _asOfTime[1];
+  var _createdFrom = useState(''), createdFrom = _createdFrom[0], setCreatedFrom = _createdFrom[1];
+  var _createdTo   = useState(''), createdTo   = _createdTo[0],   setCreatedTo   = _createdTo[1];
   var supportsTime = /\/(data-stores|data-feeds|data-sets|infrastructure|software-capabilities|endpoints|apis|software-components|actions|survey-reports)\b/.test(endpoint);
   var supportsTemplateFilter = /\/(infrastructure|software-capabilities|endpoints|data-stores|data-feeds|data-sets|apis|software-components|actions|survey-reports)\b/.test(endpoint);
+  // Filter-by-creation-timestamp: currently only meaningful for Survey Reports,
+  // where "when did this survey run" is a primary way of finding a report.
+  var supportsCreatedFilter = /\/survey-reports\b/.test(endpoint);
 
   useEffect(function() {
     setLoading(true); setError(''); setSelected(null); setDetail(null); setClassifFilter([]);
@@ -1886,7 +1918,16 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
       }
       return clsList.some(function(c) { return c.typeName === key; });
     });
-    return matchQ && matchT && matchC;
+    var matchCreated = true;
+    if (supportsCreatedFilter && (createdFrom || createdTo)) {
+      if (!item.createTime) { matchCreated = false; }
+      else {
+        var ct = new Date(item.createTime).getTime();
+        if (createdFrom && ct < new Date(createdFrom).getTime()) matchCreated = false;
+        if (createdTo && ct > (new Date(createdTo).getTime() + 24 * 60 * 60 * 1000 - 1)) matchCreated = false;
+      }
+    }
+    return matchQ && matchT && matchC && matchCreated;
   });
 
   var types = Array.from(new Set(items.map(function(i) { return i.deployedImplementationType || i.typeName || ''; }).filter(Boolean))).sort();
@@ -1895,6 +1936,16 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
     supportsTime && React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' }),
     React.createElement('input', { type: 'search', placeholder: 'Filter…', value: q, onChange: function(e) { setQ(e.target.value); },
       style: { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } }),
+    supportsCreatedFilter && React.createElement('div', { style: { display: 'flex', gap: 4, alignItems: 'center' } },
+      React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)', whiteSpace: 'nowrap' } }, 'Created:'),
+      React.createElement('input', { type: 'date', value: createdFrom, onChange: function(e) { setCreatedFrom(e.target.value); },
+        title: 'Created on/after', style: { flex: 1, fontSize: 11, padding: '2px 4px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none', minWidth: 0 } }),
+      React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)' } }, '→'),
+      React.createElement('input', { type: 'date', value: createdTo, onChange: function(e) { setCreatedTo(e.target.value); },
+        title: 'Created on/before', style: { flex: 1, fontSize: 11, padding: '2px 4px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none', minWidth: 0 } }),
+      (createdFrom || createdTo) && React.createElement('button', { onClick: function() { setCreatedFrom(''); setCreatedTo(''); },
+        title: 'Clear date filter', style: { fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--dim)', cursor: 'pointer' } }, '✕')
+    ),
     supportsTemplateFilter && React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
       React.createElement('input', { type: 'checkbox', checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); },
         style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
@@ -2198,6 +2249,9 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
   var _coll    = useState(new Set()),   coll      = _coll[0],     setColl      = _coll[1];
   var _rzDetail = useResizable(400, 180, 700), detailW = _rzDetail[0], detailDown = _rzDetail[1];
   var _selRowRef = useRef(null);
+  var _reportFilter = useState(''), reportFilter = _reportFilter[0], setReportFilter = _reportFilter[1];
+  var _createdFrom = useState(''), createdFrom = _createdFrom[0], setCreatedFrom = _createdFrom[1];
+  var _createdTo   = useState(''), createdTo   = _createdTo[0],   setCreatedTo   = _createdTo[1];
   var el = React.createElement;
 
   var COLS     = ['typeName', 'summary', 'analysisStep', 'confidence', 'surveyReportDisplayName', 'createTime'];
@@ -2286,7 +2340,17 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
   });
   uniqueAnnotTypes.sort();
 
-  var filtered = atFilter ? allItems.filter(function(a) { return a.annotationType === atFilter; }) : allItems;
+  var filtered = allItems.filter(function(a) {
+    if (atFilter && a.annotationType !== atFilter) return false;
+    if (reportFilter.trim() && (a.surveyReportDisplayName || '').toLowerCase().indexOf(reportFilter.trim().toLowerCase()) === -1) return false;
+    if (createdFrom || createdTo) {
+      if (!a.createTime) return false;
+      var ct = new Date(a.createTime).getTime();
+      if (createdFrom && ct < new Date(createdFrom).getTime()) return false;
+      if (createdTo && ct > (new Date(createdTo).getTime() + 24 * 60 * 60 * 1000 - 1)) return false;
+    }
+    return true;
+  });
   var sorted = applySort(filtered, sort, COLS);
   var grouped = {}, groupOrder = [];
   sorted.forEach(function(a) {
@@ -2357,6 +2421,21 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
                      background: atFilter === at ? 'rgba(96,165,250,.12)' : 'transparent',
                      color: atFilter === at ? 'var(--accent)' : 'var(--muted)' } }, at);
         })
+      ),
+      el('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 4,
+                            paddingLeft: 4, borderLeft: '2px solid var(--border)' } },
+        el('input', { value: reportFilter, onChange: function(e) { setReportFilter(e.target.value); },
+          placeholder: 'Filter by survey report name…', style: { fontSize: 11, padding: '3px 8px', minWidth: 180,
+            borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } }),
+        el('span', { style: { fontSize: 10, color: 'var(--dim)', whiteSpace: 'nowrap' } }, 'Created:'),
+        el('input', { type: 'date', value: createdFrom, onChange: function(e) { setCreatedFrom(e.target.value); },
+          title: 'Created on/after', style: { fontSize: 11, padding: '3px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } }),
+        el('span', { style: { fontSize: 10, color: 'var(--dim)' } }, '→'),
+        el('input', { type: 'date', value: createdTo, onChange: function(e) { setCreatedTo(e.target.value); },
+          title: 'Created on/before', style: { fontSize: 11, padding: '3px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } }),
+        (reportFilter || createdFrom || createdTo) && el('button', {
+          onClick: function() { setReportFilter(''); setCreatedFrom(''); setCreatedTo(''); },
+          title: 'Clear report/date filters', style: { fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--dim)', cursor: 'pointer' } }, '✕')
       )
     ),
     el('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
@@ -2365,7 +2444,8 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
         loading && el('div', { style: { padding: '20px 0', textAlign: 'center', color: 'var(--dim)', fontSize: 12 } }, 'Loading…'),
         err     && el('div', { style: { padding: 12, color: '#f87171', fontSize: 12 } }, '⚠ ' + err),
         !loading && !err && items && items.length === 0 && el('div', { style: { padding: 20, color: 'var(--dim)', fontSize: 12 } }, 'No annotations found.'),
-        hasItems && el('table', { style: { width: rz.tableWidth || '100%', tableLayout: rz.widths ? 'fixed' : 'auto', borderCollapse: 'collapse' } },
+        !loading && !err && items && items.length > 0 && filtered.length === 0 && el('div', { style: { padding: 20, color: 'var(--dim)', fontSize: 12 } }, 'No annotations match the current filters.'),
+        hasItems && filtered.length > 0 && el('table', { style: { width: rz.tableWidth || '100%', tableLayout: rz.widths ? 'fixed' : 'auto', borderCollapse: 'collapse' } },
           rz.widths && el('colgroup', null, rz.widths.map(function(w, i) { return el('col', { key: i, style: { width: w } }); })),
           el('thead', null, el('tr', null, COL_HDRS.map(function(h, i) { return thSortable(sort, setSort, i, h, rz.onResizeDown, thSty); }))),
           el('tbody', null,

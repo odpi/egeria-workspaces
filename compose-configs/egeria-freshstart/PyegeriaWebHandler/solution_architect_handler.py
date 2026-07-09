@@ -21,6 +21,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
+from common_serialize import _authored_fields, _header_summary, _generic_relationships
+
 router = APIRouter(tags=["solution-architect"])
 
 
@@ -117,6 +119,8 @@ def _serialize_blueprint_summary(element: dict) -> dict:
         "userDefinedStatus": props.get("userDefinedStatus") or "",
         "status":            header.get("status") or "",
         "typeName":          _type_name(element),
+        "_header":           _header_summary(element),
+        **_authored_fields(element),
     }
 
 
@@ -132,6 +136,11 @@ def _serialize_blueprint_detail(element: dict) -> dict:
         components = _serialize_rel_entries(_rel_list(element, "collectionMembers"))
     detail["components"] = components
     detail["memberOf"] = _serialize_rel_entries(_rel_list(element, "memberOfCollections"))
+    # Generic catch-all so any relationship key not curated above (e.g. resourceList,
+    # governanceDefinitions) still surfaces instead of being silently dropped.
+    detail["relationships"] = _generic_relationships(element, skip=(
+        "nestedComponents", "solutionComponents", "collectionMembers", "memberOfCollections",
+    ))
     return detail
 
 
@@ -149,6 +158,8 @@ def _serialize_component_summary(element: dict) -> dict:
         "userDefinedStatus": props.get("userDefinedStatus") or "",
         "status":            header.get("status") or "",
         "typeName":          _type_name(element),
+        "_header":           _header_summary(element),
+        **_authored_fields(element),
     }
 
 
@@ -169,6 +180,11 @@ def _serialize_component_detail(element: dict) -> dict:
     detail["actors"]            = _serialize_rel_entries(_rel_list(element, "actors"))
     detail["wiredTo"]           = _serialize_rel_entries(_rel_list(element, "wiredTo"))
     detail["wiredFrom"]         = _serialize_rel_entries(_rel_list(element, "wiredFrom"))
+    # Generic catch-all so any relationship key not curated above still surfaces.
+    detail["relationships"]     = _generic_relationships(element, skip=(
+        "memberOfCollections", "usedInSolutionComponents", "nestedSolutionComponents",
+        "actors", "wiredTo", "wiredFrom",
+    ))
     return detail
 
 

@@ -22,6 +22,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
+from common_serialize import _authored_fields, _header_summary
+
 # Tree cache: guid → (timestamp, result). Invalidated after 5 minutes.
 _TREE_CACHE: dict = {}
 _TREE_CACHE_TTL = 300  # seconds
@@ -107,7 +109,8 @@ _PROP_SKIP = {"displayName", "name", "qualifiedName", "description", "class", "t
 
 def _extract_props(props: dict) -> dict:
     """All remaining scalar properties (str/num/bool), so the detail can show the
-    full property set rather than a curated product-specific subset."""
+    full property set rather than a curated product-specific subset. String lists
+    (e.g. AuthoredReferenceable's `authors`) are joined rather than dropped."""
     out = {}
     for k, v in (props or {}).items():
         if k in _PROP_SKIP:
@@ -116,6 +119,8 @@ def _extract_props(props: dict) -> dict:
             out[k] = v
         elif isinstance(v, str) and v.strip():
             out[k] = v
+        elif isinstance(v, list) and v and all(isinstance(i, str) for i in v):
+            out[k] = ", ".join(v)
     return out
 
 
@@ -205,6 +210,8 @@ def _serialize_node(element: dict) -> dict:
         "deploymentStatus": props.get("deploymentStatus", "") or "",
         "status":           header.get("status", "") or "",
         "props":            _extract_props(props),
+        "_header":          _header_summary(element),
+        **_authored_fields(element),
     }
     node.update(_extract_mermaid_fields(element))
     return node

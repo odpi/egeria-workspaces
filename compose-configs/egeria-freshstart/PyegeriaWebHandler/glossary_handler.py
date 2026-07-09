@@ -16,6 +16,8 @@ import os
 from egeria_auth import apply_token
 from typing import Optional
 
+from common_serialize import _authored_fields, _header_summary
+
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
@@ -159,6 +161,8 @@ def _serialize_glossary(element: dict) -> dict:
         "usage":           props.get("usage", "") or "",
         "status":          header.get("status", "") or "",
         "classifications": _extract_classifications(header),
+        "_header":         _header_summary(element),
+        **_authored_fields(element),
     }
 
 
@@ -174,8 +178,9 @@ def _serialize_folder(element: dict) -> dict:
         "qualifiedName":   props.get("qualifiedName", "") or "",
         "description":     props.get("description", "") or "",
         "status":          header.get("status", "") or "",
-        "contentStatus":   props.get("contentStatus", "") or "",
         "classifications": _extract_classifications(header),
+        "_header":         _header_summary(element),
+        **_authored_fields(element),
     }
 
 
@@ -250,13 +255,14 @@ def _serialize_term(term: dict) -> dict:
         "usage":                  props.get("usage", "") or "",
         "summary":                props.get("summary", "") or "",
         "status":                 header.get("status", "") or "",
-        "contentStatus":          props.get("contentStatus", "") or "",
         "activityStatus":         props.get("activityStatus", "") or "",
         "mermaidGraph":           term.get("mermaidGraph", "") or props.get("mermaidGraph", "") or "",
         "folders":                _folder_memberships(term),
         "isTemplateSubstitute":   is_template_substitute,
         "isSourcedFromTemplate":  is_sourced_from_template,
         "classifications":        _extract_classifications(header),
+        "_header":                _header_summary(term),
+        **_authored_fields(term),
         "relationships":          {
                                       **{label: items for key, label in _TERM_REL_KEYS
                                          if (items := _related_elements(term.get(key)))},
