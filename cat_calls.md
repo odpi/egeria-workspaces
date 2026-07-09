@@ -310,7 +310,8 @@ Every list item and detail response is normalised through `_serialize(el, includ
 | `activityStatus` | `properties.activityStatus` |
 | `networkAddress` | `properties.networkAddress` |
 | `classifications` | named `ElementClassification` keys on `elementHeader`, iterated by `_extract_classifications`; internal types removed by `_SKIP_CLASSIFICATIONS` |
-| `relationships` | extracted via `_extract_relationships` (detail only, `include_relationships=True`) |
+| `createTime` / `updateTime` | `elementHeader.versions.createTime` / `.updateTime` (added 2026-07-08 — used by the Survey Reports sidebar + its created-date filter) |
+| `relationships` | extracted via `_extract_relationships` (detail only, `include_relationships=True`) — each entry's `relatedElement` has `guid`, `typeName`, `superTypes`, `displayName`, `description`, and `properties` (remaining scalar properties of the related element). `displayName` falls back through `displayName` → `name` → `summary` → `qualifiedName` → `guid` (added 2026-07-08 — Annotation-typed related elements have no `displayName`/`name`, so relationship cards previously showed a raw GUID; see the Survey Reports/Annotations entry in `BACKLOG.md`). `properties` surfaces the rest (e.g. an Annotation's `annotationType`, `confidence`, `analysisStep`) so relationship cards show more than just a type badge. |
 | `hasSchema` | `True` if `schemaType` key is present and contains a `relatedElement` |
 | `hasLineage` | Currently always `True` — see TC-9 in backlog to determine which types genuinely support lineage. The lineage endpoint handles non-Asset GUIDs gracefully (returns empty graph). |
 | `mermaidGraph` et al. | any `_MERMAID_FIELDS` present in element or `properties` with non-empty, non-"no " value |
