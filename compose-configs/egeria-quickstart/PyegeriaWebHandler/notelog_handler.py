@@ -39,6 +39,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
+from common_serialize import _authored_fields, _header_summary
+
 router = APIRouter(tags=["notelogs"])
 
 MAX_ENTRIES = 100      # most recent notes returned per log (bounds giant-log latency)
@@ -173,6 +175,7 @@ def _serialize_note(element: dict) -> Optional[dict]:
         "updatedBy":  versions.get("updatedBy") or "",
         "createTime": versions.get("createTime") or "",
         "updateTime": versions.get("updateTime") or "",
+        **_authored_fields(element),
     }
 
 
@@ -188,6 +191,8 @@ def _serialize_notelog_summary(element: dict) -> dict:
         "status":         header.get("status") or "",
         "typeName":       _type_name(element) or "NoteLog",
         "superTypeNames": _super_type_names(element),
+        "_header":        _header_summary(element),
+        **_authored_fields(element),
     }
 
 

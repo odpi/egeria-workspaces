@@ -19,6 +19,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
+from common_serialize import _authored_fields, _header_summary
+
 router = APIRouter(tags=["context-events"])
 
 
@@ -140,6 +142,8 @@ def _serialize_context_event(element: dict) -> dict:
             k: v for k, v in props.items()
             if k not in _KNOWN_PROPS and v is not None and v != ""
         },
+        "_header":                 _header_summary(element),
+        **_authored_fields(element),
     }
 
     # Collect all relationship arrays generically

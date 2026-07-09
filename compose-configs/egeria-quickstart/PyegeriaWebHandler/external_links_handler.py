@@ -21,6 +21,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
+from common_serialize import _authored_fields, _header_summary
+
 router = APIRouter(tags=["external-references"])
 
 
@@ -90,6 +92,8 @@ def _serialize_ext_ref(element: dict, include_relationships: bool = False) -> di
         "url":            props.get("url") or "",
         "status":         header.get("status") or "",
         "props":          {k: v for k, v in props.items() if k not in _COMMON_PROP_KEYS},
+        "_header":        _header_summary(element),
+        **_authored_fields(element),
     }
 
     if include_relationships:

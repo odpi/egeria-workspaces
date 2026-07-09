@@ -26,6 +26,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
+from common_serialize import _authored_fields, _header_summary
+
 router = APIRouter(tags=["governance"])
 
 # ── Type hierarchy ────────────────────────────────────────────────────────────
@@ -307,6 +309,8 @@ def _serialize_detail(element: dict) -> dict:
         "results":          sv("results"),
         "status":           (header.get("status") or ""),
         "mermaidGraph":     element.get("mermaidGraph") or "",
+        "_header":          _header_summary(element),
+        **_authored_fields(element),
     }
 
     # Collect all relationship lists

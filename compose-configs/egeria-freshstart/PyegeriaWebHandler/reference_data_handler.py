@@ -18,6 +18,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
+from common_serialize import _authored_fields, _header_summary, _generic_relationships
+
 router = APIRouter(tags=["reference-data"])
 
 
@@ -90,6 +92,9 @@ def _serialize_vv_def(element: dict) -> dict:
         "isCaseSensitive":props.get("isCaseSensitive", False),
         "mermaidGraph":   element.get("mermaidGraph", "") or props.get("mermaidGraph", "") or "",
         "parentSets":     parent_sets,
+        "_header":        _header_summary(element),
+        **_authored_fields(element),
+        "relationships":  _generic_relationships(element, skip=("memberOfValidValueSets",)),
     }
 
 

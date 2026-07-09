@@ -42,6 +42,8 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
+from common_serialize import _authored_fields, _header_summary
+
 router = APIRouter(tags=["tech-catalog"])
 
 _HERE = Path(__file__).parent
@@ -222,6 +224,29 @@ def _unwrap_rel_item(item: dict, key: str) -> Optional[dict]:
     elem_hdr  = _header(elem)
     elem_props = _props(elem)
     type_info  = elem_hdr.get("type") or {}
+    # Some related types (e.g. Annotation) have no displayName/name of their own —
+    # fall back through summary/qualifiedName before finally falling back to guid,
+    # so relationship cards don't just show a raw GUID.
+    display_name = (
+        elem_props.get("displayName")
+        or elem_props.get("name")
+        or elem_props.get("summary")
+        or elem_props.get("qualifiedName")
+        or elem_hdr.get("guid", "")
+    )
+    # Pass through the related element's remaining scalar properties so relationship
+    # cards can show useful detail (e.g. an Annotation's annotationType/confidence)
+    # beyond just displayName/description — especially valuable for types like
+    # Annotation that have no displayName of their own.
+    _skip_extra = {"class", "displayName", "name", "description", "qualifiedName"}
+    extra_props = {}
+    for k, v in elem_props.items():
+        if k in _skip_extra:
+            continue
+        if isinstance(v, bool) or isinstance(v, (int, float)):
+            extra_props[k] = v
+        elif isinstance(v, str) and v.strip():
+            extra_props[k] = v
     return {
         "relationshipType": rel_type,
         "relationshipProperties": rel_props,
@@ -229,8 +254,9 @@ def _unwrap_rel_item(item: dict, key: str) -> Optional[dict]:
             "guid":        elem_hdr.get("guid", ""),
             "typeName":    type_info.get("typeName", ""),
             "superTypes":  type_info.get("superTypeNames") or [],
-            "displayName": elem_props.get("displayName") or elem_props.get("name") or elem_hdr.get("guid", ""),
+            "displayName": display_name,
             "description": elem_props.get("description") or "",
+            "properties":  extra_props,
         },
     }
 
@@ -287,6 +313,8 @@ def _serialize(el, include_relationships: bool = False):
         "activityStatus":             props.get("activityStatus") or "",
         "networkAddress":             props.get("networkAddress") or "",
         "classifications":            _extract_classifications(hdr),
+        "_header":                    _header_summary(el),
+        **_authored_fields(el),
     }
     if include_relationships:
         out["relationships"] = _extract_relationships(el)

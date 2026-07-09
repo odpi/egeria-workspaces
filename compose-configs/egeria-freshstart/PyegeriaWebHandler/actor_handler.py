@@ -26,6 +26,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
+from common_serialize import _authored_fields, _header_summary
+
 router = APIRouter(tags=["actors"])
 
 
@@ -126,6 +128,8 @@ def _serialize_actor_element(element: dict) -> dict:
         "status":         header.get("status") or "",
         "typeName":       _type_name(element),
         "superTypeNames": _super_type_names(element),
+        "_header":        _header_summary(element),
+        **_authored_fields(element),
     }
     for key in _EXTRA_PROPERTY_KEYS:
         val = props.get(key)

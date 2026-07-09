@@ -17,6 +17,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
+from common_serialize import _authored_fields, _header_summary
+
 router = APIRouter(tags=["communities"])
 
 
@@ -97,6 +99,8 @@ def _serialize_community(element: dict) -> dict:
         "status":         header.get("status") or "",
         "typeName":       _type_name(element),
         "superTypeNames": _super_type_names(element),
+        "_header":        _header_summary(element),
+        **_authored_fields(element),
     }
     relationships = {}
     for k, v in element.items():

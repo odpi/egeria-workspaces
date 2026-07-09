@@ -17,6 +17,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
+from common_serialize import _authored_fields, _header_summary, _generic_relationships
+
 router = APIRouter(tags=["locations"])
 
 
@@ -111,6 +113,12 @@ def _serialize_location(element: dict) -> dict:
         "localResources":    _serialize_rel_entries(_rel_list(element, "localResources")),
         "assignedActors":    _serialize_rel_entries(_rel_list(element, "assignedActors")),
         "referenceValues":   _serialize_rel_entries(_rel_list(element, "referenceValues")),
+        "_header":           _header_summary(element),
+        **_authored_fields(element),
+        "relationships":     _generic_relationships(element, skip=(
+            "groupingLocations", "nestedLocations", "peerLocations",
+            "localResources", "assignedActors", "referenceValues",
+        )),
     }
     mermaid = element.get("mermaidGraph") or ""
     if mermaid and isinstance(mermaid, str) and not mermaid.lower().startswith("no "):

@@ -772,10 +772,30 @@ async def on_shutdown():
     executor.shutdown(wait=True)
 
 
+class NoCacheStaticFiles(StaticFiles):
+    """StaticFiles that forces revalidation on every request.
+
+    Without this, browsers apply heuristic caching to /static/* responses
+    (no Cache-Control header means the browser guesses a freshness lifetime
+    from Last-Modified). Shared JS like egeria-shared-ui.js is loaded by
+    both tech-catalog.html and type-explorer.html with an unversioned
+    <script src>, so a browser holding a stale cached copy will silently
+    hit a ReferenceError (e.g. a new helper function referenced by fresh
+    HTML but missing from the old cached JS) — this can present as a blank
+    page with no visible console error. "no-cache" still allows caching but
+    forces an ETag/Last-Modified revalidation round-trip before reuse, so
+    edits take effect on the very next load without requiring a hard-refresh.
+    """
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 # Static assets (logos, etc.) — must be mounted before the "/" catch-all below.
 _static_dir = SCRIPT_DIR / "static"
 if _static_dir.is_dir():
-    app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+    app.mount("/static", NoCacheStaticFiles(directory=str(_static_dir)), name="static")
 
 # Mount MCP SSE app last — mounting at "/" is a catch-all and must come after
 # all @app.get() / include_router() registrations or it intercepts them first.
