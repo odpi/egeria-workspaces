@@ -18,6 +18,8 @@ You can also deep-link directly to a focus asset: `/lineage?guid={guid}`.
 
 Shows the selected asset's type, display name, qualified name, description, and creation timestamp.
 
+Click the bookmark toggle (☐ / ☑) next to the asset name to save it to **My Bookmarks** on the portal — it links back to `/lineage?guid={guid}` so you can jump straight to that asset's lineage view later. Bookmarking requires an active persona (Quickstart) or a logged-in account (Freshstart).
+
 ---
 
 ## Time slider
