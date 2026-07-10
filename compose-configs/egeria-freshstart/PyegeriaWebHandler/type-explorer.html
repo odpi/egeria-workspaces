@@ -5189,13 +5189,17 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
 
 function SolutionBlueprintDetail({ blueprint, onNavigateToComponent, onNavigateToBlueprint, onNavigateToElement }) {
   const [implState, setImplState] = useState('idle');
+  var _saPersonaId = React.useContext(PersonaContext);
   if (!blueprint) return null;
 
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, blueprint.displayName || blueprint.qualifiedName),
       React.createElement("span", { className: "badge", style: { background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)' } }, blueprint.typeName || 'SolutionBlueprint'),
-      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: blueprint.guid })),
+      React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        _saPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'solution-architect', label: blueprint.displayName || blueprint.qualifiedName, icon: '◫', url: '/egeria-explorer?guid=' + encodeURIComponent(blueprint.guid) + '#solution-architect', personaId: _saPersonaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: blueprint.guid })
+      ),
       React.createElement(HeaderInfoButton, { header: blueprint._header }),
       React.createElement(CopyJsonButton, { data: blueprint })
     ),
@@ -5247,6 +5251,7 @@ function SolutionBlueprintDetail({ blueprint, onNavigateToComponent, onNavigateT
 
 function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateToComponent, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
+  var _saPersonaId = React.useContext(PersonaContext);
   const [implState, setImplState] = useState('idle');
   const [implementations, setImplementations] = useState([]);
 
@@ -5282,7 +5287,10 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, component.displayName || component.qualifiedName),
       React.createElement("span", { className: "badge", style: { background: 'rgba(96,165,250,.1)', color: '#93c5fd', border: '0.5px solid rgba(96,165,250,.3)' } }, component.typeName || 'SolutionComponent'),
-      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: component.guid })),
+      React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        _saPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'solution-architect', label: component.displayName || component.qualifiedName, icon: '◫', url: '/egeria-explorer?guid=' + encodeURIComponent(component.guid) + '#solution-architect', personaId: _saPersonaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: component.guid })
+      ),
       React.createElement(HeaderInfoButton, { header: component._header }),
       React.createElement(CopyJsonButton, { data: component })
     ),
@@ -6287,6 +6295,7 @@ function LocationKindBadges({ kinds }) {
 
 function LocationDetail({ data, detail, onNavigateToElement }) {
   var src = detail || data;
+  var _locPersonaId = React.useContext(PersonaContext);
   if (!src) return null;
 
   var kindFields = [];
@@ -6301,7 +6310,10 @@ function LocationDetail({ data, detail, onNavigateToElement }) {
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.displayName || src.qualifiedName),
       React.createElement(LocationKindBadges, { kinds: src.locationKinds }),
-      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid })),
+      React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        _locPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'locations', label: src.displayName || src.qualifiedName, icon: '⚲', url: '/egeria-explorer?guid=' + encodeURIComponent(src.guid) + '#locations', personaId: _locPersonaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: src.guid })
+      ),
       React.createElement(HeaderInfoButton, { header: src._header }),
       React.createElement(CopyJsonButton, { data: src })
     ),
@@ -6591,6 +6603,7 @@ function _prettyRelLabel(key) {
 
 function ActorDetail({ data, detail, onNavigateToElement }) {
   var src = detail || data;
+  var _actPersonaId = React.useContext(PersonaContext);
   if (!src) return null;
 
   var relationships = src.relationships || {};
@@ -6600,7 +6613,10 @@ function ActorDetail({ data, detail, onNavigateToElement }) {
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.displayName || src.qualifiedName),
       React.createElement(ActorTypeBadge, { typeName: src.typeName }),
-      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid })),
+      React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        _actPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'actors', label: src.displayName || src.qualifiedName, icon: '☻', url: '/egeria-explorer?guid=' + encodeURIComponent(src.guid) + '#actors', personaId: _actPersonaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: src.guid })
+      ),
       React.createElement(HeaderInfoButton, { header: src._header }),
       React.createElement(CopyJsonButton, { data: src })
     ),
@@ -6812,6 +6828,7 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
 
 function CommunityDetail({ data, detail, onNavigateToElement }) {
   var src = detail || data;
+  var _commPersonaId = React.useContext(PersonaContext);
   if (!src) return null;
 
   var relationships = src.relationships || {};
@@ -6821,7 +6838,10 @@ function CommunityDetail({ data, detail, onNavigateToElement }) {
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.displayName || src.qualifiedName),
       React.createElement("span", { className: "badge", style: { background: 'rgba(192,132,252,.1)', color: '#c084fc', border: '0.5px solid rgba(192,132,252,.3)' } }, src.typeName || 'Community'),
-      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid })),
+      React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        _commPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'communities', label: src.displayName || src.qualifiedName, icon: '⚇', url: '/egeria-explorer?guid=' + encodeURIComponent(src.guid) + '#communities', personaId: _commPersonaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: src.guid })
+      ),
       React.createElement(HeaderInfoButton, { header: src._header }),
       React.createElement(CopyJsonButton, { data: src })
     ),
@@ -7906,6 +7926,7 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
 }
 
 function ProjectDetail({ project, children, onSelectChild, onNavigateToElement }) {
+  var _projPersonaId = React.useContext(PersonaContext);
   if (!project) return null;
 
   var sectionHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 10, marginTop: 20 };
@@ -7917,6 +7938,7 @@ function ProjectDetail({ project, children, onSelectChild, onNavigateToElement }
       React.createElement('h2', { style: { fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text)', flex: 1 } },
         project.displayName || project.qualifiedName || project.guid
       ),
+      _projPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'projects', label: project.displayName || project.qualifiedName, icon: '◉', url: '/egeria-explorer?guid=' + encodeURIComponent(project.guid) + '#projects', personaId: _projPersonaId }),
       React.createElement(EgeriaFeedbackWidget, { guid: project.guid }),
       React.createElement(HeaderInfoButton, { header: project._header }),
       React.createElement(CopyJsonButton, { data: project })
@@ -7999,13 +8021,17 @@ const _GOV_DOMAIN_NAMES = {
 };
 
 function GovDefDetail({ definition, onNavigateToElement }) {
+  var _govPersonaId = React.useContext(PersonaContext);
   if (!definition) return null;
 
   return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement('div', { style: { fontSize: 18, fontWeight: 700 } }, definition.displayName || definition.qualifiedName),
       definition.typeName && React.createElement('span', { className: 'badge', style: { background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)' } }, definition.typeName),
-      React.createElement('div', { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: definition.guid })),
+      React.createElement('div', { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        _govPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'governance', label: definition.displayName || definition.qualifiedName, icon: '⚖', url: '/egeria-explorer?guid=' + encodeURIComponent(definition.guid) + '#governance', personaId: _govPersonaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: definition.guid })
+      ),
       React.createElement(HeaderInfoButton, { header: definition._header }),
       React.createElement(CopyJsonButton, { data: definition })
     ),

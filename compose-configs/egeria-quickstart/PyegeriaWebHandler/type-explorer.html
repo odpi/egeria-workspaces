@@ -3218,6 +3218,148 @@ function ExternalReferencesView({ navGuid, onNavigateToElement }) {
   );
 }
 
+// ── External Identifiers Explorer ──────────────────────────────────────────────
+// ExternalId records that a catalogued element also has an identifier in a
+// third-party system (ExternalIdLink relationship, "equivalentElements" in the
+// graph response — see external_links_handler.py::_serialize_external_id).
+
+function ExternalIdentifierDetail({ item, onNavigateToElement }) {
+  var _eiPersonaId = React.useContext(PersonaContext);
+  if (!item) return null;
+
+  return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' } },
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, item.displayName || item.qualifiedName),
+      React.createElement("span", { className: "badge", style: { background: 'rgba(224,171,24,.12)', color: '#e0ab18', border: '0.5px solid rgba(224,171,24,.3)' } }, "ExternalId"),
+      React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        _eiPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'external-identifiers', label: item.displayName || item.qualifiedName, icon: '🔑', url: '/egeria-explorer?guid=' + encodeURIComponent(item.guid) + '#external-identifiers', personaId: _eiPersonaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: item.guid })
+      ),
+      React.createElement(HeaderInfoButton, { header: item._header }),
+      React.createElement(CopyJsonButton, { data: item })
+    ),
+    React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, item.guid),
+    item.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(item.description)),
+    React.createElement(AvailableMermaidDiagrams, { data: item, skip: new Set() }),
+    React.createElement("div", { style: { marginBottom: 20 } },
+      React.createElement(GenericPropertiesTable, {
+        item: item, priority: ['key', 'keyPattern', 'source', 'status'],
+        renderValue: function(key, val) { return renderMd(val); },
+      })
+    ),
+    (item.linkedElements || []).length > 0 && React.createElement("div", { style: { marginBottom: 16 } },
+      React.createElement("div", { style: { fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'var(--accent)' } }, "Linked Elements (" + item.linkedElements.length + ")"),
+      item.linkedElements.map(function(le) {
+        var isLinkable = onNavigateToElement && _elementIsLinkable(le);
+        return React.createElement("div", { key: le.guid, style: { padding: '8px 0', borderTop: '1px solid var(--border)', fontSize: 13 } },
+          React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+            React.createElement("span", { style: { flex: 1 } }, le.displayName || le.qualifiedName),
+            le.typeName && React.createElement("span", { className: "badge", style: { fontSize: 10, background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)' } }, le.typeName),
+            isLinkable && React.createElement("button", {
+              onClick: function() { onNavigateToElement(le); },
+              style: { padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(167,139,250,.4)', background: 'rgba(167,139,250,.1)', color: '#c4b5fd', cursor: 'pointer', fontSize: 11 }
+            }, "View →")
+          ),
+          (le.usage || le.permittedSynchronization || le.lastSynchronized) && React.createElement("div", { style: { display: 'flex', gap: 14, marginTop: 4, fontSize: 11, color: 'var(--dim)' } },
+            le.usage && React.createElement("span", null, "Usage: " + le.usage),
+            le.permittedSynchronization && React.createElement("span", null, "Sync: " + le.permittedSynchronization),
+            le.lastSynchronized && React.createElement("span", null, "Last Synced: " + le.lastSynchronized)
+          )
+        );
+      })
+    ),
+    React.createElement(GenericRelationshipsSection, { relationships: item.relationships, onNavigateToElement: onNavigateToElement }),
+    React.createElement(EgeriaCommentsSection, { guid: item.guid })
+  );
+}
+
+function ExternalIdentifiersView({ navGuid, onNavigateToElement }) {
+  const creds = React.useContext(CredContext);
+  const [sideW, onDivDown] = useResizable(280);
+  const [state, setState]     = useState('loading');
+  const [attempt, setAttempt] = useState(0);
+  const [items, setItems]     = useState([]);
+  const [error, setError]     = useState('');
+  const [filter, setFilter]   = useState('');
+  const [selected, setSelected] = useState(function() {
+    var params = new URLSearchParams(window.location.search);
+    return params.get('guid') || null;
+  });
+  const [detail, setDetail]   = useState(null);
+  const [detailState, setDetailState] = useState('idle');
+
+  useEffect(function() {
+    setState('loading'); setError('');
+    egeriaFetch('/api/external-identifiers?page_size=1000', creds)
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setItems(data.identifiers || []); setState('ready'); })
+      .catch(function(e) { setError(e.message); setState('error'); });
+  }, [attempt]);
+
+  useEffect(function() {
+    if (!selected) { setDetail(null); return; }
+    setDetailState('loading');
+    egeriaFetch('/api/external-identifiers/' + selected, creds)
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setDetail(data); setDetailState('ready'); })
+      .catch(function() { setDetailState('error'); });
+  }, [selected]);
+
+  useEffect(function() {
+    if (navGuid) setSelected(navGuid);
+  }, [navGuid]);
+
+  var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0, fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } },
+      items.length + ' external identifiers'
+    ),
+    React.createElement("div", { className: "search-wrap" },
+      React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
+        onChange: function(e) { setFilter(e.target.value); } })
+    ),
+    state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
+    state === 'error' && React.createElement("div", { style: { padding: 16 } },
+      React.createElement("div", { style: { color: '#f87171', fontSize: 13, marginBottom: 8 } }, "Error: " + error),
+      React.createElement("button", { className: "view-tab on", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "Retry")
+    ),
+    state === 'ready' && React.createElement("div", { style: { overflowY: 'auto', flex: 1 } },
+      (function() {
+        var q = filter.trim().toLowerCase();
+        var vis = items.filter(function(x) {
+          return !q || (x.displayName || x.qualifiedName || '').toLowerCase().includes(q) || (x.key || '').toLowerCase().includes(q) || (x.description || '').toLowerCase().includes(q);
+        });
+        if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, q ? "No matches" : "No external identifiers found");
+        return vis.map(function(x) {
+          return React.createElement("div", {
+            key: x.guid, className: "tree-item" + (selected === x.guid ? " sel" : ""),
+            onClick: function() { setSelected(x.guid); }, title: x.description || x.qualifiedName,
+            style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 },
+          },
+            React.createElement("span", { className: "type-name", style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' } }, x.displayName || x.qualifiedName),
+            x.key && React.createElement("span", { style: { fontSize: 10, color: 'var(--dim)', fontFamily: 'ui-monospace,monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' } }, x.key)
+          );
+        });
+      })()
+    )
+  );
+
+  var selectedItem = selected ? items.find(function(x) { return x.guid === selected; }) : null;
+  var mainPanel = React.createElement("div", { className: "main", style: { flex: 1, overflowY: 'auto' } },
+    !selected && React.createElement("div", { className: "center" },
+      React.createElement("span", { style: { color: 'var(--muted)' } }, "Select an external identifier from the sidebar")
+    ),
+    selected && detailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
+    selected && detailState === 'error'   && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load external identifier detail"),
+    selected && (detailState === 'ready' || selectedItem) && React.createElement(ExternalIdentifierDetail, { item: detail || selectedItem, onNavigateToElement: onNavigateToElement })
+  );
+
+  return React.createElement("div", { className: "body" },
+    sidebar,
+    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
+    mainPanel
+  );
+}
+
 // ── Agreements Explorer ────────────────────────────────────────────────────────
 // Agreements are Collection subtypes; find_collections(metadata_element_type_name=
 // "Agreement") returns every subtype together — filtered client-side by a type
@@ -3910,6 +4052,7 @@ const SECTION_LABELS = {
   'informal-tags':     'Informal Tags',
   'context-events':    'Context Events',
   'external-references': 'External References',
+  'external-identifiers': 'External Identifiers',
   'agreements':        'Agreements',
   'dr-egeria':         'Dr. Egeria',
   'python-api':        'Python API',
@@ -4505,6 +4648,14 @@ const _SPLASH_CAPABILITIES = [
     icon: '📜',
     title: 'Agreements',
     description: 'Browse agreements — general agreements, data sharing agreements, and digital subscriptions. See the actors, items, and contracts each agreement links to.',
+    requiresConnection: true,
+  },
+  {
+    section: 'external-identifiers',
+    group: 'review',
+    icon: '🔑',
+    title: 'External Identifiers',
+    description: 'Browse external identifiers — records that a catalogued element also has an identifier in a third-party system. See the key, source, and every element each identifier is linked to.',
     requiresConnection: true,
   },
   // ── Reference ────────────────────────────────────────────────────────────
@@ -5534,13 +5685,17 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
 
 function SolutionBlueprintDetail({ blueprint, onNavigateToComponent, onNavigateToBlueprint, onNavigateToElement }) {
   const [implState, setImplState] = useState('idle');
+  var _saPersonaId = React.useContext(PersonaContext);
   if (!blueprint) return null;
 
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, blueprint.displayName || blueprint.qualifiedName),
       React.createElement("span", { className: "badge", style: { background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)' } }, blueprint.typeName || 'SolutionBlueprint'),
-      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: blueprint.guid })),
+      React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        _saPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'solution-architect', label: blueprint.displayName || blueprint.qualifiedName, icon: '◫', url: '/egeria-explorer?guid=' + encodeURIComponent(blueprint.guid) + '#solution-architect', personaId: _saPersonaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: blueprint.guid })
+      ),
       React.createElement(HeaderInfoButton, { header: blueprint._header }),
       React.createElement(CopyJsonButton, { data: blueprint })
     ),
@@ -5592,6 +5747,7 @@ function SolutionBlueprintDetail({ blueprint, onNavigateToComponent, onNavigateT
 
 function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateToComponent, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
+  var _saPersonaId = React.useContext(PersonaContext);
   const [implState, setImplState] = useState('idle');
   const [implementations, setImplementations] = useState([]);
 
@@ -5627,7 +5783,10 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, component.displayName || component.qualifiedName),
       React.createElement("span", { className: "badge", style: { background: 'rgba(96,165,250,.1)', color: '#93c5fd', border: '0.5px solid rgba(96,165,250,.3)' } }, component.typeName || 'SolutionComponent'),
-      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: component.guid })),
+      React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        _saPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'solution-architect', label: component.displayName || component.qualifiedName, icon: '◫', url: '/egeria-explorer?guid=' + encodeURIComponent(component.guid) + '#solution-architect', personaId: _saPersonaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: component.guid })
+      ),
       React.createElement(HeaderInfoButton, { header: component._header }),
       React.createElement(CopyJsonButton, { data: component })
     ),
@@ -6539,6 +6698,7 @@ function _elementIsLinkable(item) {
   if (item.typeName === 'CollectionFolder') return true;
   if (item.typeName === 'GovernanceActionProcess') return true;
   if (EXT_REF_TYPES.indexOf(item.typeName) !== -1) return true;
+  if (item.typeName === 'ExternalId') return true;
   if (AGREEMENT_TYPES.indexOf(item.typeName) !== -1) return true;
   if (DD_TYPES_SET[item.typeName]) return true;
   if (_actorKindForType(item.typeName, superTypes)) return true;
@@ -6634,6 +6794,7 @@ function LocationKindBadges({ kinds }) {
 
 function LocationDetail({ data, detail, onNavigateToElement }) {
   var src = detail || data;
+  var _locPersonaId = React.useContext(PersonaContext);
   if (!src) return null;
 
   var kindFields = [];
@@ -6648,7 +6809,10 @@ function LocationDetail({ data, detail, onNavigateToElement }) {
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.displayName || src.qualifiedName),
       React.createElement(LocationKindBadges, { kinds: src.locationKinds }),
-      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid })),
+      React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        _locPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'locations', label: src.displayName || src.qualifiedName, icon: '⚲', url: '/egeria-explorer?guid=' + encodeURIComponent(src.guid) + '#locations', personaId: _locPersonaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: src.guid })
+      ),
       React.createElement(HeaderInfoButton, { header: src._header }),
       React.createElement(CopyJsonButton, { data: src })
     ),
@@ -6938,6 +7102,7 @@ function _prettyRelLabel(key) {
 
 function ActorDetail({ data, detail, onNavigateToElement }) {
   var src = detail || data;
+  var _actPersonaId = React.useContext(PersonaContext);
   if (!src) return null;
 
   var relationships = src.relationships || {};
@@ -6947,7 +7112,10 @@ function ActorDetail({ data, detail, onNavigateToElement }) {
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.displayName || src.qualifiedName),
       React.createElement(ActorTypeBadge, { typeName: src.typeName }),
-      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid })),
+      React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        _actPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'actors', label: src.displayName || src.qualifiedName, icon: '☻', url: '/egeria-explorer?guid=' + encodeURIComponent(src.guid) + '#actors', personaId: _actPersonaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: src.guid })
+      ),
       React.createElement(HeaderInfoButton, { header: src._header }),
       React.createElement(CopyJsonButton, { data: src })
     ),
@@ -7159,6 +7327,7 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
 
 function CommunityDetail({ data, detail, onNavigateToElement }) {
   var src = detail || data;
+  var _commPersonaId = React.useContext(PersonaContext);
   if (!src) return null;
 
   var relationships = src.relationships || {};
@@ -7168,7 +7337,10 @@ function CommunityDetail({ data, detail, onNavigateToElement }) {
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.displayName || src.qualifiedName),
       React.createElement("span", { className: "badge", style: { background: 'rgba(192,132,252,.1)', color: '#c084fc', border: '0.5px solid rgba(192,132,252,.3)' } }, src.typeName || 'Community'),
-      React.createElement("div", { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: src.guid })),
+      React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        _commPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'communities', label: src.displayName || src.qualifiedName, icon: '⚇', url: '/egeria-explorer?guid=' + encodeURIComponent(src.guid) + '#communities', personaId: _commPersonaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: src.guid })
+      ),
       React.createElement(HeaderInfoButton, { header: src._header }),
       React.createElement(CopyJsonButton, { data: src })
     ),
@@ -8253,6 +8425,7 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
 }
 
 function ProjectDetail({ project, children, onSelectChild, onNavigateToElement }) {
+  var _projPersonaId = React.useContext(PersonaContext);
   if (!project) return null;
 
   var sectionHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 10, marginTop: 20 };
@@ -8264,6 +8437,7 @@ function ProjectDetail({ project, children, onSelectChild, onNavigateToElement }
       React.createElement('h2', { style: { fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text)', flex: 1 } },
         project.displayName || project.qualifiedName || project.guid
       ),
+      _projPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'projects', label: project.displayName || project.qualifiedName, icon: '◉', url: '/egeria-explorer?guid=' + encodeURIComponent(project.guid) + '#projects', personaId: _projPersonaId }),
       React.createElement(EgeriaFeedbackWidget, { guid: project.guid }),
       React.createElement(HeaderInfoButton, { header: project._header }),
       React.createElement(CopyJsonButton, { data: project })
@@ -8346,13 +8520,17 @@ const _GOV_DOMAIN_NAMES = {
 };
 
 function GovDefDetail({ definition, onNavigateToElement }) {
+  var _govPersonaId = React.useContext(PersonaContext);
   if (!definition) return null;
 
   return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement('div', { style: { fontSize: 18, fontWeight: 700 } }, definition.displayName || definition.qualifiedName),
       definition.typeName && React.createElement('span', { className: 'badge', style: { background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)' } }, definition.typeName),
-      React.createElement('div', { style: { marginLeft: 'auto' } }, React.createElement(EgeriaFeedbackWidget, { guid: definition.guid })),
+      React.createElement('div', { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        _govPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'governance', label: definition.displayName || definition.qualifiedName, icon: '⚖', url: '/egeria-explorer?guid=' + encodeURIComponent(definition.guid) + '#governance', personaId: _govPersonaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: definition.guid })
+      ),
       React.createElement(HeaderInfoButton, { header: definition._header }),
       React.createElement(CopyJsonButton, { data: definition })
     ),
@@ -9067,7 +9245,7 @@ function App() {
     var hash = window.location.hash.slice(1).split('?')[0];
     var valid = new Set(['type-system','reference-data','digital-products','collections','glossary',
       'report-specs','valid-values','rest-apis','python-api','solution-architect',
-      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','notelogs','governance','projects','informal-tags','context-events','external-references','agreements','search']);
+      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','notelogs','governance','projects','informal-tags','context-events','external-references','external-identifiers','agreements','search']);
     return valid.has(hash) ? hash : 'splash';
   });
   const [searchQuery, setSearchQuery] = useState('');
@@ -9190,6 +9368,12 @@ function App() {
     setSection('agreements');
   }, []);
 
+  const [externalIdentifiersNavGuid, setExternalIdentifiersNavGuid] = useState(null);
+  const onNavigateToExternalIdentifier = useCallback(function(guid) {
+    setExternalIdentifiersNavGuid(guid || null);
+    setSection('external-identifiers');
+  }, []);
+
   const [projectNavGuid, setProjectNavGuid] = useState(null);
   const onNavigateToProject = useCallback(function(guid) {
     setProjectNavGuid(guid || null);
@@ -9219,6 +9403,7 @@ function App() {
     if (typeName === 'CollectionFolder') { onNavigateToDigitalProduct(guid); return; }
     if (typeName === 'GovernanceActionProcess') { onNavigateToGovernance(typeName, guid); return; }
     if (EXT_REF_TYPES.indexOf(typeName) !== -1) { onNavigateToExternalReference(guid); return; }
+    if (typeName === 'ExternalId') { onNavigateToExternalIdentifier(guid); return; }
     if (AGREEMENT_TYPES.indexOf(typeName) !== -1) { onNavigateToAgreement(guid); return; }
     var actorKind = _actorKindForType(typeName, superTypes);
     if (actorKind) { onNavigateToActor(actorKind, guid); return; }
@@ -9230,7 +9415,7 @@ function App() {
     // "↗ Tech Catalog" link, for callers that route everything through this
     // single dispatcher instead of rendering that link separately).
     if (superTypes.indexOf('Asset') !== -1) { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
-  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToExternalReference, onNavigateToAgreement, onNavigateToProject]);
+  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToExternalReference, onNavigateToExternalIdentifier, onNavigateToAgreement, onNavigateToProject]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254);
 
@@ -9341,7 +9526,7 @@ function App() {
         }),
         React.createElement(NavGroup, {
           label: 'Review', connected: connected, currentSection: section,
-          isActive: ['glossary','reference-data','data-design','collections','solution-architect','isc','locations','actors','communities','notelogs','perspectives','governance','projects','informal-tags','context-events','external-references','agreements'].includes(section),
+          isActive: ['glossary','reference-data','data-design','collections','solution-architect','isc','locations','actors','communities','notelogs','perspectives','governance','projects','informal-tags','context-events','external-references','external-identifiers','agreements'].includes(section),
           onSelect: setSection,
           items: [
             { id: 'glossary',           label: 'Glossary',                needsConnect: true },
@@ -9360,6 +9545,7 @@ function App() {
             { id: 'informal-tags',      label: 'Informal Tags',             needsConnect: true },
             { id: 'context-events',    label: 'Context Events',            needsConnect: true },
             { id: 'external-references', label: 'External References',    needsConnect: true },
+            { id: 'external-identifiers', label: 'External Identifiers',  needsConnect: true },
             { id: 'agreements',        label: 'Agreements',                needsConnect: true },
           ]
         }),
@@ -9467,6 +9653,8 @@ function App() {
       ? React.createElement(InformalTagsView, { key: credsKey, navGuid: informalTagsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'external-references'
       ? React.createElement(ExternalReferencesView, { key: credsKey, navGuid: externalReferencesNavGuid, onNavigateToElement: onNavigateToElement })
+      : section === 'external-identifiers'
+      ? React.createElement(ExternalIdentifiersView, { key: credsKey, navGuid: externalIdentifiersNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'agreements'
       ? React.createElement(AgreementsView, { key: credsKey, navGuid: agreementsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'python-api'
