@@ -30,6 +30,9 @@
     .hdr-nav a:hover { color: var(--accent); }
     .hdr-nav .sep { color: var(--border); }
     .hdr-nav .crumb-current { color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .doc-bookmark-btn { background: none; border: none; cursor: pointer; font-size: 16px; line-height: 1; padding: 2px 6px; color: var(--muted); flex-shrink: 0; }
+    .doc-bookmark-btn.on { color: #34d399; }
+    .doc-bookmark-btn:disabled { opacity: 0.5; cursor: default; }
 
     /* ── Layout ── */
     .layout { display: flex; max-width: 1060px; margin: 0 auto; padding: 28px; gap: 28px; align-items: flex-start; }
@@ -86,6 +89,7 @@
   <nav class="hdr-nav" id="breadcrumb">
     <a href="/docs/">Documentation</a>
   </nav>
+  <button id="docBookmarkBtn" class="doc-bookmark-btn" style="display:none" title="Add to My Bookmarks">☐</button>
 </header>
 
 <div class="layout">
@@ -176,6 +180,59 @@
     document.getElementById('toc-col').style.display = 'block';
   }
 
+  // ── Bookmark this page (My Bookmarks, same /api/favorites backend the React
+  // apps use — this page is plain JS, so it talks to the API directly instead
+  // of going through the shared FavoriteButton React component). ──────────────
+  function _getPersonaId(cb) {
+    var stored = null;
+    try { var s = localStorage.getItem('egeria-persona'); stored = s ? JSON.parse(s) : null; } catch (e) {}
+    if (stored && stored.id) { cb(stored.id); return; }
+    fetch('/api/auth/me').then(function(r) { return r.json(); }).then(function(d) {
+      cb(d.server_managed_auth && d.authenticated && d.id ? d.id : null);
+    }).catch(function() { cb(null); });
+  }
+
+  function _initBookmark(src, label) {
+    var btn = document.getElementById('docBookmarkBtn');
+    var url = '/docs/viewer.html?src=' + src;
+    var favId = null;
+    _getPersonaId(function(personaId) {
+      if (!personaId) return; // stays hidden — no persona/login, nothing to bookmark against
+      btn.style.display = '';
+      btn.disabled = true;
+      fetch('/api/favorites?persona=' + encodeURIComponent(personaId))
+        .then(function(r) { return r.ok ? r.json() : []; })
+        .then(function(favs) {
+          var match = (favs || []).find(function(f) { return f.url === url; });
+          if (match) { favId = match.id; btn.classList.add('on'); btn.textContent = '☑'; }
+          btn.disabled = false;
+        })
+        .catch(function() { btn.disabled = false; });
+
+      btn.addEventListener('click', function() {
+        if (btn.disabled) return;
+        btn.disabled = true;
+        if (favId) {
+          fetch('/api/favorites/' + encodeURIComponent(favId) + '?persona=' + encodeURIComponent(personaId), { method: 'DELETE' })
+            .then(function(r) {
+              if (r.ok) { favId = null; btn.classList.remove('on'); btn.textContent = '☐'; }
+              btn.disabled = false;
+            })
+            .catch(function() { btn.disabled = false; });
+        } else {
+          fetch('/api/favorites?persona=' + encodeURIComponent(personaId), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ app: 'docs', section: src, label: label, icon: '📚', url: url }),
+          })
+            .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+            .then(function(res) { favId = res.id; btn.classList.add('on'); btn.textContent = '☑'; btn.disabled = false; })
+            .catch(function() { btn.disabled = false; });
+        }
+      });
+    });
+  }
+
   // ── Main load ─────────────────────────────────────────────────────────────────
   var params = new URLSearchParams(location.search);
   var src = params.get('src') || 'tools/overview.md';
@@ -183,6 +240,7 @@
   src = src.replace(/\.\.\//g, '').replace(/^\//, '');
 
   _buildBreadcrumb(src);
+  _initBookmark(src, _label(src.replace(/\.md$/, '').split('/').pop()));
 
   fetch(src, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
     .then(function(r) {
