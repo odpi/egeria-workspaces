@@ -8,19 +8,66 @@ Access it from the portal tile or directly at `/egeria-explorer`.
 
 ## Tabs overview
 
-| Tab | What it shows | Good for |
-|---|---|---|
-| **Type System** | All open metadata types and their inheritance | Developers, architects |
-| **Glossary** | Business terms and their definitions | Business users, data stewards |
-| **Data Design** | Data structures, schemas, quality rules | Data analysts, engineers |
-| **Governance** | Policies, zones, security classifications, compliance rules | Governance officers |
-| **Digital Products** | Published data products and their assets | Data consumers |
-| **ISC** | Information supply chains and data lineage | Data engineers, auditors |
-| **Solution Architect** | Blueprints, solution components, and roles | Architects |
-| **Perspectives** | Organisational views — teams, roles, responsibilities | HR, management |
-| **Search Keywords** | All registered search keywords and the elements tagged with each | Architects, data stewards |
-| **External References** | General links, related media, cited documents, external data sources, and external model sources — and every element each one is attached to | Architects, data stewards |
-| **Agreements** | General agreements, data sharing agreements, and digital subscriptions — the actors, items, and contracts each one links to | Data stewards, governance officers |
+### Explore
+
+A quick-start subset of the most commonly used tabs, shown on the splash screen for fast access.
+
+| Tab | What it shows |
+|---|---|
+| **Glossary** | Business glossaries, terms, definitions, and semantic relationships — folders, cross-glossary search, synonyms, antonyms, and related terms |
+| **Collections** | The collection hierarchy — digital products, families, blueprints, folios, dictionaries, and more, regardless of collection subtype |
+| **Reports** | Report specifications and their links to data assets |
+| **Digital Products** | Data products with governance metadata, lineage, and associated glossary terms |
+| **Dr. Egeria Commands** | The full library of Dr. Egeria markdown command templates, organised by level and family — see [Dr. Egeria Execute panel](#dr-egeria-execute-panel) below |
+
+### Review
+
+The full set of element-category browsers — most support search, filtering, cross-navigation, and full property/relationship detail.
+
+| Tab | What it shows |
+|---|---|
+| **Glossary** | Same as above |
+| **Reference Data** | Valid value sets and definitions — the allowed values for property fields in your Egeria environment |
+| **Data Design** | Data Specs, Data Structures, Data Fields, and Data Grains, cross-referenced with glossary terms |
+| **Collections** | Same as above |
+| **Solution Architect** | Solution blueprints and component hierarchies — actor assignments, wiring relationships, concrete implementations |
+| **Information Supply Chains** | ISC scope, segments, and concrete technical implementations as Mermaid diagrams |
+| **Locations** | Physical, cyber, and secure locations — parent/child hierarchies, peer links, locally hosted assets, assigned roles |
+| **Actors** | Actor profiles (people, teams, organizations, IT profiles), the roles they perform, and their user identities |
+| **Communities** | Communities of interest and the roles/people assigned to them |
+| **Note Logs** | Note logs and their dated entries, each attached to a subject element |
+| **Perspectives & Questions** | Governance perspectives (viewpoints held by actors) and the Questions they must address |
+| **Governance Definitions** | Governance drivers, policies, and controls, with relationships between definitions |
+| **Projects** | Projects and their hierarchies, distinguished by classification (Campaign, StudyProject, PersonalProject, Task, etc.) |
+| **Informal Tags** | Informal tags applied across the metadata ecosystem — public/private filter, jump to any tagged element |
+| **Context Events** | TimeKeeper-managed events — planned/actual dates, durations, effects, dependent/related event relationships |
+| **External References** | General links, related media, cited documents, external data sources, and external model sources |
+| **Agreements** | General agreements, data sharing agreements, and digital subscriptions |
+| **External Identifiers** | Records that a catalogued element also has an identifier in a third-party system — key, source, and every linked element |
+
+### Reference
+
+Read-only reference material; most don't require a live server connection.
+
+| Tab | What it shows |
+|---|---|
+| **Type Explorer** | The open metadata type system — entities, classifications, relationships, and full inheritance hierarchy |
+| **REST APIs** | REST endpoints exposed by the view server — operations, parameters, and response shapes |
+| **Valid Values** | Registered valid metadata values for a specific Egeria property name |
+| **Python API** | The pyegeria Python client API — classes by functional domain, methods with docstrings, inherited-vs-own filter |
+
+---
+
+## Detail panel features
+
+Most detail panels (Glossary, Solution Architect, Locations, Actors, Communities, Projects, Governance Definitions, Reference Data, External References, External Identifiers, Agreements, Note Logs, and more) share a common set of controls in their header row:
+
+- **ℹ Header** — pops up the element's header metadata common to every type: GUID, type name, status, version, and who created/last updated it and when.
+- **{ } Copy JSON** — copies the complete raw JSON payload for the selected element to the clipboard. Shows **✓ Copied** (green) on success or **✕ Failed** (red), resetting after two seconds.
+- **☐ / ☑ bookmark** — saves the item to **My Bookmarks** on the portal home page, linking back to this exact element. Requires an active persona (Quickstart) or a logged-in account (Freshstart); the toggle is hidden otherwise.
+- **♡ feedback** — like/comment on the element via Egeria's built-in feedback API (separate from the portal's own per-page feedback button).
+
+Properties are shown generically — any scalar property Egeria returns for an element (including `authors`, `contentStatus`, and other `AuthoredReferenceable` fields) is displayed automatically, without needing per-type code changes. Relationships not otherwise shown in a dedicated section appear in a catch-all **Relationships** block at the bottom of the panel, so nothing linked to an element is silently hidden.
 
 ---
 
@@ -68,16 +115,6 @@ The Execute panel is designed for testing individual commands. For production wo
 
 ---
 
-## Copying raw JSON
-
-Every detail panel in Egeria Explorer has a **`{ } Copy JSON`** button in its header row. Clicking it copies the complete raw JSON payload for the selected element to the clipboard — useful for pasting into notebooks, debugging, or feeding into other tools.
-
-This is available on all detail views: Type System types, classifications and relationships, Glossary terms/folders, Data Design elements, Governance definitions, Digital Products, ISC, Solution Architect blueprints and components, Perspectives, Locations, Actors, Communities, Note Logs, Projects, Search Keywords, Reference Data, External References, Agreements, Valid Values (per-entry and copy-all for the full result set), and Report Specs.
-
-The button shows **✓ Copied** (green) on success or **✕ Failed** (red) on failure, then resets after two seconds.
-
----
-
 ## Links from documentation
 
 Where documentation refers to a specific type or glossary term, you can explore it directly:
@@ -92,4 +129,3 @@ Where documentation refers to a specific type or glossary term, you can explore 
 - [Tech Catalog](tech-catalog.md) — browse and search technical assets; includes schemas, lineage sub-pane, and context diagrams
 - [Lineage Explorer](lineage-explorer.md) — full-featured data lineage tracing tool
 - [Egeria project documentation](https://egeria-project.org) — full open metadata type reference
-- [Coco Pharmaceuticals scenarios](../quickstart/coco/scenarios.md) — guided Explorer walk-throughs
