@@ -17,6 +17,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
+from common_serialize import _authored_fields, _header_summary
+
 router = APIRouter(tags=["search-keywords"])
 
 
@@ -66,6 +68,8 @@ def _serialize_keyword(element: dict) -> dict:
         "description":     props.get("description") or "",
         "status":          header.get("status") or "",
         "keywordElements": keyword_elements,
+        "_header":         _header_summary(element),
+        **_authored_fields(element),
     }
 
 

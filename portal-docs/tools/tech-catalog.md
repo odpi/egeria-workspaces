@@ -14,6 +14,7 @@ Access it from the portal tile or directly at `/catalog`.
 | **Data Assets** | Data stores, feeds, and sets | Data Stores, Data Feeds, Data Sets |
 | **APIs** | Deployed API definitions | APIs |
 | **Processes** | Running software components, actions, and governance action process definitions | Software Components, Actions, Governance Processes |
+| **Discovery & Analysis** | Survey run results and the individual findings (annotations) they produced | Survey Reports, Annotations |
 | **Technology Types** | Egeria's registered technology classifications | Types list, Hierarchy |
 | **Glossary** | Business terms, folders, and their relationships | Glossary terms |
 
@@ -42,6 +43,17 @@ The **Governance Processes** sub-tab (under **Processes**) lists `GovernanceActi
 - **Request Parameters**, **Produced Guards**, **Supported Action Targets**, and **Produced Action Targets** — the process's specification, i.e. what inputs it needs and what it hands off to the next step
 
 This gives a full picture of what a governance action process does, how its steps are linked, and what data flows in and out — information that isn't visible from the Software Components or Actions tabs (which cover deployed/running elements rather than process definitions).
+
+---
+
+## Survey Reports and Annotations
+
+Both **Survey Reports** and **Annotations** (under Discovery & Analysis) show when each item was created, and let you filter on it:
+
+- **Survey Reports** — each entry in the list shows its creation timestamp under the display name. A **Created** date-range filter (in addition to the existing name filter) narrows the list to reports run within a given window.
+- **Annotations** — the table already has a sortable **Created** column and a **Report** column (the survey report the annotation belongs to). A **Filter by survey report name…** text box and a **Created** date-range filter let you narrow the list to annotations from a specific survey run, alongside the existing free-text search and annotation-type filters.
+
+Relationship cards in the Survey Report detail pane (e.g. its reported annotations) now show more than a type badge — each card surfaces the related element's own key details (for an annotation: its summary, annotation type, confidence, and analysis step) instead of just a GUID, which annotations don't have a display name of their own to show.
 
 ---
 

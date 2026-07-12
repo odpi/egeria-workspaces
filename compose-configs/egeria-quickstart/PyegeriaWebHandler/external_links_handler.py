@@ -8,9 +8,15 @@ External references cover five subtypes, all returned together by
 `find_external_references` / `get_external_reference_by_guid`:
   ExternalReference, RelatedMedia, CitedDocument, ExternalDataSource, ExternalModelSource
 
+External identifiers (ExternalId) record that a catalogued element also has an
+identifier in a third-party system (ExternalIdLink relationship, "equivalentElements"
+in the graph response). Uses the same `ExternalReferences` pyegeria client class.
+
 Endpoints:
   GET /api/external-references          → list / search all external references (all subtypes)
   GET /api/external-references/{guid}   → full detail, including referencing elements + mermaid graph
+  GET /api/external-identifiers         → list / search all external identifiers
+  GET /api/external-identifiers/{guid}  → full detail, including linked elements + mermaid graph
 """
 
 import os
@@ -20,6 +26,8 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
+
+from common_serialize import _authored_fields, _header_summary, _generic_relationships
 
 router = APIRouter(tags=["external-references"])
 
@@ -90,6 +98,8 @@ def _serialize_ext_ref(element: dict, include_relationships: bool = False) -> di
         "url":            props.get("url") or "",
         "status":         header.get("status") or "",
         "props":          {k: v for k, v in props.items() if k not in _COMMON_PROP_KEYS},
+        "_header":        _header_summary(element),
+        **_authored_fields(element),
     }
 
     if include_relationships:
@@ -177,3 +187,135 @@ def get_external_reference(
         raise HTTPException(status_code=404, detail=f"External reference {guid!r} not found")
 
     return JSONResponse(_serialize_ext_ref(element, include_relationships=True))
+
+
+# ── External Identifiers ─────────────────────────────────────────────────────
+
+# Properties surfaced as dedicated fields; everything else in `properties` is
+# passed through as `props` for generic rendering on the frontend.
+_EXT_ID_PROP_KEYS = _COMMON_PROP_KEYS | {"key", "keyPattern", "source"}
+
+
+def _serialize_linked_element(entry: dict) -> Optional[dict]:
+    """Serialize one entry from the `equivalentElements` list (RelatedMetadataElementSummary,
+    ExternalIdLink relationship) — the catalogued element this external identifier is
+    attached to, plus the ExternalIdLink relationship's own properties."""
+    rel_el = entry.get("relatedElement") or {}
+    rh = rel_el.get("elementHeader") or {}
+    rp = rel_el.get("properties") or {}
+    rtype = rh.get("type") or {}
+    guid = rh.get("guid", "")
+    if not guid:
+        return None
+    rel_props = entry.get("relationshipProperties") or {}
+    return {
+        "guid":                    guid,
+        "typeName":                rtype.get("typeName", ""),
+        "superTypeNames":          rtype.get("superTypeNames") or [],
+        "displayName":             rp.get("displayName") or rp.get("name") or "",
+        "qualifiedName":           rp.get("qualifiedName") or "",
+        "permittedSynchronization": rel_props.get("permittedSynchronization") or "",
+        "lastSynchronized":        rel_props.get("lastSynchronized") or "",
+        "usage":                   rel_props.get("usage") or "",
+        "mappingProperties":       rel_props.get("mappingProperties") or {},
+    }
+
+
+def _serialize_external_id(element: dict, include_relationships: bool = False) -> dict:
+    props  = _props(element)
+    header = _header(element)
+
+    result = {
+        "guid":           header.get("guid", ""),
+        "typeName":       "ExternalId",
+        "displayName":    props.get("displayName") or props.get("name") or "",
+        "qualifiedName":  props.get("qualifiedName") or "",
+        "description":    props.get("description") or "",
+        "key":            props.get("key") or "",
+        "keyPattern":     props.get("keyPattern") or "",
+        "source":         props.get("source") or "",
+        "status":         header.get("status") or "",
+        "props":          {k: v for k, v in props.items() if k not in _EXT_ID_PROP_KEYS},
+        "_header":        _header_summary(element),
+        **_authored_fields(element),
+    }
+
+    if include_relationships:
+        linked = []
+        for entry in (element.get("equivalentElements") or []):
+            if isinstance(entry, dict):
+                item = _serialize_linked_element(entry)
+                if item:
+                    linked.append(item)
+        result["linkedElements"] = linked
+        result["mermaidGraph"] = element.get("mermaidGraph", "") or ""
+        result["relationships"] = _generic_relationships(element, skip=("equivalentElements",))
+
+    return result
+
+
+@router.get("/api/external-identifiers", summary="List / search all external identifiers")
+def list_external_identifiers(
+    search_string: str = Query("*", description="Filter string; '*' returns all"),
+    start_from: int = Query(0,   ge=0),
+    page_size:  int = Query(500, ge=1, le=1000),
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
+    try:
+        mgr = _get_manager(url, server, user_id, user_pwd)
+    except Exception as exc:
+        logger.exception("Failed to create ExternalReferences manager for external-identifiers list")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+    try:
+        raw = mgr.find_external_identifiers(
+            search_string=search_string,
+            starts_with=False,
+            ignore_case=True,
+            start_from=start_from,
+            page_size=page_size,
+            graph_query_depth=1,
+            output_format="JSON",
+        )
+    except Exception as exc:
+        logger.exception("find_external_identifiers failed")
+        raise HTTPException(status_code=500, detail=f"External identifier retrieval failed: {exc}")
+
+    if not isinstance(raw, list):
+        raw = []
+
+    identifiers = [_serialize_external_id(e) for e in raw if isinstance(e, dict)]
+    identifiers.sort(key=lambda x: (x.get("displayName") or "").lower())
+
+    return JSONResponse({"identifiers": identifiers, "total": len(identifiers)})
+
+
+@router.get("/api/external-identifiers/{guid}", summary="Get full detail for an external identifier")
+def get_external_identifier(
+    guid: str,
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
+    try:
+        mgr = _get_manager(url, server, user_id, user_pwd)
+    except Exception as exc:
+        logger.exception("Failed to create ExternalReferences manager for external-identifier detail")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+    try:
+        element = mgr.get_external_identifier_by_guid(guid, output_format="JSON", graph_query_depth=1)
+    except Exception as exc:
+        logger.exception(f"get_external_identifier_by_guid failed for {guid}")
+        raise HTTPException(status_code=500, detail=f"External identifier detail retrieval failed: {exc}")
+
+    if isinstance(element, list):
+        element = element[0] if element else None
+    if not isinstance(element, dict):
+        raise HTTPException(status_code=404, detail=f"External identifier {guid!r} not found")
+
+    return JSONResponse(_serialize_external_id(element, include_relationships=True))

@@ -878,28 +878,19 @@ var _glsBadge = { display: 'inline-block', fontSize: 10, fontWeight: 600, paddin
 
 function GlossaryFolderDetail({ folder }) {
   if (!folder) return null;
-  var fields = [['Qualified Name', folder.qualifiedName],['GUID', folder.guid],['Type', folder.typeName],['Status', folder.status],['Description', folder.description]].filter(function(r){return r[1]&&String(r[1]).trim();});
   var sHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
   var cardStyle = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 };
   return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 } },
-      React.createElement('div', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)' } }, folder.displayName || folder.qualifiedName),
+      React.createElement('div', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)', flex: 1 } }, folder.displayName || folder.qualifiedName),
       React.createElement('span', { style: _glsBadge }, 'Folder'),
+      React.createElement(HeaderInfoButton, { header: folder._header }),
       React.createElement(CopyJsonButton, { data: folder })
     ),
     folder.description && React.createElement('p', { style: { fontSize: 13, lineHeight: 1.6, marginBottom: 16, color: 'var(--muted)' } }, folder.description),
-    fields.length > 0 && React.createElement('div', null,
+    React.createElement('div', null,
       React.createElement('div', { style: sHdr }, 'Properties'),
-      React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 } },
-        React.createElement('tbody', null,
-          fields.map(function(r) {
-            var mono = r[0] === 'Qualified Name' || r[0] === 'GUID';
-            return React.createElement('tr', { key: r[0], style: { borderTop: '1px solid var(--border)' } },
-              React.createElement('td', { style: { padding: '5px 12px 5px 0', color: 'var(--dim)', width: 140, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
-              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: mono ? 'ui-monospace,monospace' : 'inherit', fontSize: mono ? 11 : 12 } }, String(r[1])));
-          })
-        )
-      )
+      React.createElement(GenericPropertiesTable, { item: folder, priority: ['description'] })
     ),
     (folder.classifications || []).length > 0 && React.createElement('div', null,
       React.createElement('div', { style: sHdr }, 'Classifications'),
@@ -922,26 +913,17 @@ function GlossaryDetail({ glossary }) {
   if (!glossary) return null;
   var sHdr   = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
   var cardStyle = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 };
-  var fields = [['Qualified Name', glossary.qualifiedName],['GUID', glossary.guid],['Language', glossary.language],['Usage', glossary.usage],['Status', glossary.status]].filter(function(r){return r[1];});
   return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 } },
       React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--text)', flex: 1 } }, glossary.displayName || glossary.qualifiedName || glossary.guid),
       React.createElement('span', { style: _glsBadge }, 'Glossary'),
+      React.createElement(HeaderInfoButton, { header: glossary._header }),
       React.createElement(CopyJsonButton, { data: glossary })
     ),
     glossary.description && React.createElement('p', { style: { fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, margin: '0 0 16px' } }, glossary.description),
-    fields.length > 0 && React.createElement('div', null,
+    React.createElement('div', null,
       React.createElement('div', { style: sHdr }, 'Properties'),
-      React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 } },
-        React.createElement('tbody', null,
-          fields.map(function(r) {
-            var mono = r[0] === 'Qualified Name' || r[0] === 'GUID';
-            return React.createElement('tr', { key: r[0], style: { borderTop: '1px solid var(--border)' } },
-              React.createElement('td', { style: { padding: '5px 12px 5px 0', color: 'var(--dim)', width: 140, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
-              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: mono ? 'ui-monospace,monospace' : 'inherit', fontSize: mono ? 11 : 12 } }, String(r[1])));
-          })
-        )
-      )
+      React.createElement(GenericPropertiesTable, { item: glossary, priority: ['description'] })
     ),
     (glossary.classifications || []).length > 0 && React.createElement('div', null,
       React.createElement('div', { style: sHdr }, 'Classifications'),
@@ -963,7 +945,6 @@ function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign, on
   if (!term) return null;
   var personaId = React.useContext(PersonaContext);
   var sHdr   = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
-  var fields = [['Qualified Name', term.qualifiedName],['GUID', term.guid],['Abbreviation', term.abbreviation],['Summary', term.summary],['Examples', term.examples],['Usage', term.usage],['Status', term.status],['Content Status', term.contentStatus],['Activity Status', term.activityStatus]].filter(function(r){return r[1]&&String(r[1]).trim();});
   var folderList = term.folders || [];
   var relGroups  = Object.entries(term.relationships || {}).filter(function(e) { return e[1].length > 0; });
   var relBtnStyle = { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' };
@@ -979,6 +960,7 @@ function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign, on
         personaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'glossary', label: term.displayName || term.qualifiedName, icon: '≡', url: termFavUrl, personaId: personaId }),
         React.createElement(EgeriaFeedbackWidget, { guid: term.guid })
       ),
+      React.createElement(HeaderInfoButton, { header: term._header }),
       React.createElement(CopyJsonButton, { data: term })
     ),
     folderList.length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8, marginTop: 6 } },
@@ -987,18 +969,9 @@ function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign, on
     ),
     term.description && React.createElement('div', { style: { fontSize: 13, marginBottom: 16, color: 'var(--text)' } }, renderMd(term.description)),
     React.createElement(MermaidSection, { guid: term.guid }),
-    fields.length > 0 && React.createElement('div', null,
+    React.createElement('div', null,
       React.createElement('div', { style: sHdr }, 'Properties'),
-      React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 } },
-        React.createElement('tbody', null,
-          fields.map(function(r) {
-            var mono = r[0] === 'Qualified Name' || r[0] === 'GUID';
-            return React.createElement('tr', { key: r[0], style: { borderTop: '1px solid var(--border)' } },
-              React.createElement('td', { style: { padding: '5px 12px 5px 0', color: 'var(--dim)', width: 140, verticalAlign: 'top', whiteSpace: 'nowrap' } }, r[0]),
-              React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: mono ? 'ui-monospace,monospace' : 'inherit', fontSize: mono ? 11 : 12 } }, mono ? r[1] : renderMd(r[1])));
-          })
-        )
-      )
+      React.createElement(GenericPropertiesTable, { item: term, skip: ['description', 'folders', 'isTemplateSubstitute', 'isSourcedFromTemplate'], renderValue: function(key, val) { return renderMd(val); } })
     ),
     (term.classifications || []).length > 0 && React.createElement('div', null,
       React.createElement('div', { style: sHdr }, 'Classifications'),
@@ -1649,11 +1622,198 @@ function useColumnResize(count, defaultW) {
 }
 
 function colResizeHandle(onResizeDown, idx) {
+  // width: 6 is the visible dotted border; the handle's actual mousedown hit
+  // target is 12px (right: -3 either side of that line) — 6px was too easy to
+  // miss and land on the neighbouring header's text-select/sort-click instead.
   return React.createElement('div', {
     onMouseDown: function(e){ onResizeDown(e, idx); },
     onClick: function(e){ e.stopPropagation(); },
-    style: { position: 'absolute', right: 0, top: 0, bottom: 0, width: 6, cursor: 'col-resize', zIndex: 2, borderRight: '2px dotted rgba(96,165,250,0.45)' }
+    style: { position: 'absolute', right: -3, top: 0, bottom: 0, width: 12, cursor: 'col-resize', zIndex: 2 }
+  },
+    React.createElement('div', { style: { position: 'absolute', right: 3, top: 0, bottom: 0, width: 6, borderRight: '2px dotted rgba(96,165,250,0.45)' } })
+  );
+}
+
+/* ── makeResizableCols — hook-free column resize for plain render-helper
+ * functions (e.g. TechTable) that get called directly inside another
+ * component's render, often inside a .map() loop — a variable number of
+ * calls per render, so they can't safely use useColumnResize's hooks
+ * (React requires a fixed hook-call count/order per component). This writes
+ * directly to each <col> element's DOM style on drag instead of going
+ * through React state, so no hooks are needed at all — safe to call from
+ * anywhere, any number of times, per render.
+ *
+ * Usage: var rz = makeResizableCols(headers.length, initialWidths);
+ *   <table style="table-layout:fixed"> + resizableColgroup(rz.refs) +
+ *   <th>{h}{colResizeHandle(rz.onResizeDown, i)}</th> (th needs position:relative). ── */
+function makeResizableCols(count, initialWidths) {
+  var refs = [];
+  for (var i = 0; i < count; i++) refs.push(React.createRef());
+  function onResizeDown(e, idx) {
+    e.preventDefault(); e.stopPropagation();
+    var colEl = refs[idx].current;
+    var startX = e.clientX;
+    var startW = colEl ? colEl.getBoundingClientRect().width : 120;
+    function mv(ev) {
+      var dx = ev.clientX - startX;
+      var nw = Math.max(40, startW + dx);
+      if (refs[idx].current) refs[idx].current.style.width = nw + 'px';
+    }
+    function up() { document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); }
+    document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+  }
+  return { refs: refs, onResizeDown: onResizeDown, initialWidths: initialWidths || [] };
+}
+
+function resizableColgroup(rz) {
+  return React.createElement('colgroup', null, rz.refs.map(function(ref, i) {
+    var w = rz.initialWidths[i];
+    return React.createElement('col', { key: i, ref: ref, style: w ? { width: w } : undefined });
+  }));
+}
+
+/* ── GenericPropertiesTable — shared by Egeria Explorer + Tech Catalog ───────
+ * Renders every scalar property of `item` as a label:value row, instead of
+ * each Detail component hand-picking a fixed field list. This is what makes
+ * a property like `authors` (AuthoredReferenceable) show up automatically,
+ * everywhere, without a per-type frontend change — the backend just needs to
+ * include it in the item it hands to this component (see common_serialize.py
+ * ::_authored_fields, which every *_handler.py serializer now merges in).
+ *
+ * Props:
+ *   item     — the object whose scalar keys become rows
+ *   priority — key names to show first, in this order (e.g. ['description'])
+ *   skip     — additional key names to exclude beyond _GENERIC_PROPS_SKIP
+ *              (header/relationship/classification keys already shown
+ *              elsewhere are skipped by default)
+ *   extra    — [[label, value], ...] rows appended after the generic ones,
+ *              for computed/derived values that aren't plain item keys
+ */
+var _GENERIC_PROPS_SKIP = new Set([
+  'class', 'guid', 'typeName', 'superTypeNames', 'displayName', 'name',
+  'classifications', 'relationships', 'hasSchema', 'hasLineage', 'hasAnnotations',
+  'createTime', 'updateTime', 'createdBy', 'updatedBy', 'maintainedBy', 'version',
+  'description', '_header',
+]);
+var _GENERIC_PROPS_LABELS = {
+  qualifiedName: 'Qualified Name', authors: 'Authors', contentStatus: 'Content Status',
+  userDefinedContentStatus: 'User-Defined Content Status', description: 'Description',
+  guid: 'GUID',
+};
+function _titleCaseKey(key) {
+  var s = String(key).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/_/g, ' ');
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+// A value is "scalar enough" for the generic table if it's a plain string/number/
+// boolean, or an array of such (e.g. authors: ['alice','bob']). Plain objects and
+// arrays-of-objects are curated relationship/nested-element data already rendered
+// by a dedicated section elsewhere (e.g. blueprint.components, project.relationships)
+// — showing them here would just stringify to "[object Object]".
+function _isScalarForPropsTable(v) {
+  if (Array.isArray(v)) return v.every(function(x) { return x === null || typeof x !== 'object'; });
+  return typeof v !== 'object';
+}
+function _genericPropsRows(item, priority, skip) {
+  if (!item) return [];
+  var skipSet = new Set(_GENERIC_PROPS_SKIP);
+  (skip || []).forEach(function(k) { skipSet.add(k); });
+  var isEmpty = function(v) { return v === undefined || v === null || (typeof v === 'string' && !v.trim()) || (Array.isArray(v) && v.length === 0); };
+  var rows = [], seen = new Set();
+  (priority || []).forEach(function(k) {
+    if (skipSet.has(k) || seen.has(k) || isEmpty(item[k])) return;
+    rows.push([k, item[k]]); seen.add(k);
   });
+  Object.keys(item).sort().forEach(function(k) {
+    if (skipSet.has(k) || seen.has(k) || _isMermaidKey(k)) return;
+    var v = item[k];
+    if (isEmpty(v) || !_isScalarForPropsTable(v)) return;
+    rows.push([k, v]); seen.add(k);
+  });
+  return rows;
+}
+function GenericPropertiesTable({ item, priority, skip, extra, renderValue }) {
+  var rows = _genericPropsRows(item, priority, skip);
+  (extra || []).forEach(function(r) {
+    var v = r[1];
+    if (v !== undefined && v !== null && String(v).trim() !== '') rows.push(r);
+  });
+  if (rows.length === 0) return null;
+  var mono = new Set(['qualifiedName', 'guid']);
+  var rz = makeResizableCols(2, ['160px', 'auto']);
+  return React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' } },
+    resizableColgroup(rz),
+    React.createElement('tbody', null,
+      rows.map(function(r, ri) {
+        var key = r[0], val = r[1];
+        var label = _GENERIC_PROPS_LABELS[key] || _titleCaseKey(key);
+        var isMono = mono.has(key);
+        // renderValue lets a caller customize specific rows (e.g. markdown for a
+        // long-text field) without every consumer of this shared table needing
+        // the same special-casing baked in.
+        var raw = Array.isArray(val) ? val.join(', ') : String(val);
+        var display = isMono || !renderValue ? raw : renderValue(key, raw);
+        return React.createElement('tr', { key: key, style: { borderTop: '1px solid var(--border)' } },
+          React.createElement('td', { style: { padding: '5px 12px 5px 0', color: 'var(--dim)', verticalAlign: 'top', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', position: ri === 0 ? 'relative' : 'static' } },
+            label, ri === 0 && colResizeHandle(rz.onResizeDown, 0)),
+          React.createElement('td', { style: { padding: '5px 0', color: 'var(--text)', wordBreak: 'break-all', fontFamily: isMono ? 'ui-monospace,monospace' : 'inherit', fontSize: isMono ? 11 : 12 } }, display)
+        );
+      })
+    )
+  );
+}
+
+/* ── HeaderInfoButton — pops up elementHeader metadata (guid, type, status,
+ * version, created/updated by+time) common to every element, regardless of
+ * type. Mirrors the "Show Context Diagram" toggle-button convention used for
+ * mermaid graphs. Drop into any Detail component's header-button row next to
+ * CopyJsonButton. `header` is the normalized subset a backend serializer
+ * produces via common_serialize.py::_header_summary (or an equivalent
+ * frontend-side pick of guid/typeName/status/version/createdBy/etc off the
+ * item, for handlers not yet updated to send a dedicated `_header` field). ── */
+function _fmtHeaderDate(iso) {
+  if (!iso) return '';
+  try { return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }); } catch (e) { return iso; }
+}
+function HeaderInfoButton({ header }) {
+  var _open = React.useState(false), open = _open[0], setOpen = _open[1];
+  if (!header) return null;
+  var rows = [
+    ['GUID', header.guid],
+    ['Type', header.typeName],
+    ['Status', header.status],
+    ['Version', header.version],
+    ['Created By', header.createdBy],
+    ['Create Time', _fmtHeaderDate(header.createTime)],
+    ['Updated By', header.updatedBy],
+    ['Update Time', _fmtHeaderDate(header.updateTime)],
+    ['Maintained By', Array.isArray(header.maintainedBy) ? header.maintainedBy.join(', ') : header.maintainedBy],
+  ].filter(function(r) { return r[1] !== undefined && r[1] !== null && String(r[1]).trim() !== ''; });
+  if (rows.length === 0) return null;
+  return React.createElement('div', { style: { position: 'relative', display: 'inline-block' } },
+    React.createElement('button', {
+      onClick: function(e) { e.stopPropagation(); setOpen(function(o) { return !o; }); },
+      title: 'Show element header (guid, status, version, created/updated metadata)',
+      style: { fontSize: 11, padding: '3px 9px', borderRadius: 4, border: '1px solid var(--border)',
+               background: open ? 'rgba(96,165,250,.1)' : 'transparent', color: open ? 'var(--accent)' : 'var(--dim)',
+               cursor: 'pointer', whiteSpace: 'nowrap' }
+    }, 'ℹ Header'),
+    open && React.createElement(React.Fragment, null,
+      React.createElement('div', { onClick: function() { setOpen(false); }, style: { position: 'fixed', inset: 0, zIndex: 19 } }),
+      React.createElement('div', {
+        onClick: function(e) { e.stopPropagation(); },
+        style: { position: 'absolute', top: '100%', right: 0, marginTop: 4, zIndex: 20, background: 'var(--card)',
+                 border: '1px solid var(--border)', borderRadius: 6, padding: '10px 12px', minWidth: 260,
+                 boxShadow: '0 4px 16px rgba(0,0,0,.35)' }
+      },
+        rows.map(function(r) {
+          return React.createElement('div', { key: r[0], style: { display: 'flex', gap: 8, fontSize: 11, padding: '2px 0' } },
+            React.createElement('span', { style: { color: 'var(--dim)', minWidth: 100, flexShrink: 0 } }, r[0]),
+            React.createElement('span', { style: { color: 'var(--text)', wordBreak: 'break-all' } }, String(r[1]))
+          );
+        })
+      )
+    )
+  );
 }
 
 /* ── Shared sort / filter / pill utilities ───────────────────────────────── */

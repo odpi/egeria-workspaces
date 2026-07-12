@@ -18,6 +18,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
+from common_serialize import _authored_fields, _header_summary, _generic_relationships
+
 router = APIRouter(tags=["projects"])
 
 
@@ -91,6 +93,9 @@ def _serialize_project(element: dict) -> dict:
         "plannedEndDate": props.get("plannedEndDate") or "",
         "status":         header.get("status") or "",
         "classifications": _extract_classifications(header),
+        "_header":        _header_summary(element),
+        **_authored_fields(element),
+        "relationships":  _generic_relationships(element),
     }
 
 
@@ -257,7 +262,10 @@ def get_project(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
-        body = {"class": "GetRequestBody"}
+        # graphQueryDepth=2 so relationship arrays (resources, dependencies, etc.)
+        # are present for _generic_relationships to surface — without it the
+        # response has no relationship keys to extract at all.
+        body = {"class": "GetRequestBody", "graphQueryDepth": 2}
         if as_of_time:
             body["asOfTime"] = as_of_time
         raw = mgr.get_project_by_guid(guid, output_format="JSON", body=body)

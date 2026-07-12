@@ -17,6 +17,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
+from common_serialize import _authored_fields, _header_summary
+
 router = APIRouter(tags=["isc"])
 
 
@@ -172,6 +174,8 @@ def _serialize_isc(element: dict) -> dict:
         "implementations":   _serialize_rel_entries(_rel_list(element, "implementations")),
         "relationships":     _extract_all_rels(element),
         "owner":             _owner_ref(element),
+        "_header":           _header_summary(element),
+        **_authored_fields(element),
     }
     d.update(_extract_mermaid(element))
     return d

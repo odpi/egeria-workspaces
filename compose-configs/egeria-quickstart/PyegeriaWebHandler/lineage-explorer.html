@@ -815,7 +815,7 @@ function LinkedAssetsTable({ assets, onSetFocus }) {
 }
 
 // ── Main panel ─────────────────────────────────────────────────────────────────
-function MainPanel({ focusAsset, creds, onSetFocus, activePersona }) {
+function MainPanel({ focusAsset, creds, onSetFocus, activePersona, favPersonaId }) {
   var _graphData   = useState(null),  graphData  = _graphData[0],  setGraphData  = _graphData[1];
   var _graphLoad   = useState(false), graphLoad  = _graphLoad[0],  setGraphLoad  = _graphLoad[1];
   var _graphErr    = useState(''),    graphErr   = _graphErr[0],   setGraphErr   = _graphErr[1];
@@ -916,7 +916,15 @@ function MainPanel({ focusAsset, creds, onSetFocus, activePersona }) {
   return React.createElement('div', null,
     // ── Focus Asset Card
     React.createElement('div', { className: 'asset-card' },
-      React.createElement('div', { className: 'asset-name' }, dispName || focusAsset.guid),
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+        React.createElement('div', { className: 'asset-name', style: { flex: 1 } }, dispName || focusAsset.guid),
+        favPersonaId && React.createElement(FavoriteButton, {
+          app: 'lineage-explorer', section: 'lineage',
+          label: dispName || focusAsset.guid, icon: '🔗',
+          url: '/lineage?guid=' + encodeURIComponent(focusAsset.guid),
+          personaId: favPersonaId,
+        })
+      ),
       React.createElement('div', { className: 'asset-type' }, typeName),
       qName && React.createElement('div', { className: 'asset-qn' }, qName),
       desc  && React.createElement('div', { className: 'asset-desc' }, desc),
@@ -1180,7 +1188,8 @@ function App() {
     // Full-width main content
     React.createElement('div', { className: 'main' },
       focusAsset
-        ? React.createElement(MainPanel, { focusAsset: focusAsset, creds: creds, onSetFocus: handleSetFocus, activePersona: activePersona })
+        ? React.createElement(MainPanel, { focusAsset: focusAsset, creds: creds, onSetFocus: handleSetFocus, activePersona: activePersona,
+            favPersonaId: activePersona ? activePersona.id : (authUser ? authUser.userId : null) })
         : React.createElement('div', { className: 'welcome' },
             React.createElement('div', { className: 'welcome-icon' }, '🔗'),
             React.createElement('div', { className: 'welcome-text' }, 'Lineage Explorer'),
