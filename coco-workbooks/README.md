@@ -9,7 +9,7 @@ The purpose of these workbooks is to help you understand how to use Egeria and e
 
 ## Where to start
 
-- **Getting Started**: Begin with the [Quickstart Guide]([quickstart.md](https://egeria-project.org/egeria-workspaces/quick-start/overview/)) to set up your environment and run the first workbook.
+- **Getting Started**: Begin with the [Quickstart Guide]([quickstart.md](https://egeria-project.org/egeria-workspaces/quick-start/overview/)) to set up your environment.
 - **Exploring Workbooks**: The numbering of the workbook folders offers a logical flow through the workbooks. However, you can run them in the order that interests you.  There are some dependencies between the workbooks and these are explicitly called out.
 - **Contributing**: If you want to contribute, check out the [Egeria Community](https://egeria-project.org/community/)
 

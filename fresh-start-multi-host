@@ -61,8 +61,8 @@ HOST_FQDN_PRINT=$(grep '^HOST_FQDN=' compose-configs/egeria-freshstart/.env | cu
 KAFKA_CLUSTER_ID_PRINT=$(grep '^KAFKA_CLUSTER_ID=' compose-configs/egeria-freshstart/.env | cut -d= -f2- || echo "42")
 echo "  - Effective HOST_FQDN: ${HOST_FQDN_PRINT}"
 echo "  - Effective KAFKA_CLUSTER_ID: ${KAFKA_CLUSTER_ID_PRINT}"
-echo "  - Egeria (platform): https://${HOST_FQDN_PRINT:-localhost}:8443 (reachable from other hosts if DNS resolves)"
-echo "  - Kafka external:    ${HOST_FQDN_PRINT:-localhost}:9194"
-echo "  - Jupyter (local):   http://localhost:7888   (password: egeria)"
-echo "  - Web (local):       http://localhost:7885"
+echo "  - Egeria (platform):     https://${HOST_FQDN_PRINT:-localhost}:8443 (reachable from other hosts if DNS resolves)"
+echo "  - Kafka external:        ${HOST_FQDN_PRINT:-localhost}:9194"
+echo "  - JupyterHub (local):    http://localhost:7888   (password: egeria)"
+echo "  - Egeria Portal (local): http://localhost:7885"
 
