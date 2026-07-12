@@ -5,7 +5,7 @@
   "userPass": "",
   "egeriaUrl": "https://host.docker.internal:9443",
   "viewServer": "qs-view-server",
-  "defaultDirective": "validate",
+  "defaultDirective": "process",
   "outboxPath": "dr-egeria-outbox",
   "inputPath": "",
   "vaultRoot": "/coco-workbooks",

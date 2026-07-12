@@ -10,6 +10,10 @@ ____
 ### Display Name  
   
 Terrorism (Protection of Premises) Act 2025 (UK)
+
+### Qualified Name
+CocoPharma::Regulation::MartynsLaw
+
 ### Domain Identifier  
   
 SECURITY
@@ -37,15 +41,16 @@ This regulation requires organized events and venues to take steps to reduce the
  
 Primarily for large events held in the UK.  This is also a source of best practices for all large events across the world.
 ### Regulation Source  
- 
 United Kingdom (UK)
+
 ### Regulators  
- 
+- UK Home Office
 - Security Industry Authority (SIA) - https://www.gov.uk/government/organisations/security-industry-authority/about
 
 ### Category  
 
-In-person Meetings and Events
+Event Security
+
 ### Description  
  
 The Terrorism (Protection of Premises) Act 2025, commonly referred to as **Martyn’s Law**, is intended to improve protective security and organisational preparedness across the UK.
