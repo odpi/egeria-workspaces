@@ -5803,6 +5803,7 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
       })
     ),
     relSection("Parent Blueprints", component.blueprints, onNavigateToBlueprint),
+    React.createElement(RelationshipSection, { title: "Information Supply Chains", items: component.informationSupplyChains, onNavigateToElement: onNavigateToElement }),
     relSection("Parent Components", component.parentComponents, onNavigateToComponent),
     relSection("Sub-components", component.subComponents, onNavigateToComponent),
     React.createElement(RelationshipSection, { title: "Actors", items: component.actors, onNavigateToElement: onNavigateToElement }),
@@ -7902,10 +7903,12 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
       .catch(function(e) { setBpError(e.message); setBpState('error'); });
   }, [bpAttempt, inclTempl]);
 
-  // Load blueprint→folio grouping
+  // Load blueprint→folio grouping. bpAttempt > 0 means a manual Refresh click,
+  // so bypass the backend's 30s cache to pick up entities created elsewhere
+  // (e.g. via Dr.Egeria) without waiting for the TTL to expire.
   useEffect(function() {
     setBpFoliosState('loading');
-    egeriaFetch('/api/solution/blueprints/folios', creds)
+    egeriaFetch('/api/solution/blueprints/folios' + (bpAttempt > 0 ? '?refresh=true' : ''), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setBpFolios(data); setBpFoliosState('ready'); })
       .catch(function() { setBpFoliosState('error'); });
@@ -7921,11 +7924,12 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
       .catch(function(e) { setCompError(e.message); setCompState('error'); });
   }, [subNav, compAttempt, inclTempl]);
 
-  // Load the composition hierarchy (used when no filter is active)
+  // Load the composition hierarchy (used when no filter is active). compAttempt > 0
+  // means a manual Refresh click, so bypass the backend's 30s cache.
   useEffect(function() {
     if (subNav !== 'components') return;
     setCompTreeState('loading');
-    egeriaFetch('/api/solution/components/tree', creds)
+    egeriaFetch('/api/solution/components/tree' + (compAttempt > 0 ? '?refresh=true' : ''), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setCompTree(data.roots || []); setCompTreeState('ready'); })
       .catch(function() { setCompTreeState('error'); });
@@ -7986,7 +7990,14 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
       React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', marginTop: 4 } },
         React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
         "Include templates"
-      )
+      ),
+      React.createElement("button", {
+        className: "btn-sm", style: { marginTop: 4 }, title: "Reload and bypass the cached Blueprints/Components tree",
+        onClick: function() {
+          setBpAttempt(function(a) { return a + 1; });
+          setCompAttempt(function(a) { return a + 1; });
+        }
+      }, "↻ Refresh")
     ),
     // Blueprints list
     subNav === 'blueprints' && React.createElement("div", { style: { overflowY: 'auto', flex: 1 } },

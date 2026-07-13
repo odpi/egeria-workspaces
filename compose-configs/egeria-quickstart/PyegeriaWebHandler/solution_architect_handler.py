@@ -167,19 +167,25 @@ def _serialize_component_detail(element: dict) -> dict:
     detail = _serialize_component_summary(element)
     detail.update(_extract_mermaid_fields(element))
 
-    # Parent blueprints come from memberOfCollections filtered by SolutionBlueprint typeName
+    # memberOfCollections mixes SolutionBlueprint and InformationSupplyChain related
+    # elements — split by typeName so both memberships surface on the detail page.
     raw_collections = _rel_list(element, "memberOfCollections")
     blueprints = _serialize_rel_entries([
         m for m in raw_collections
         if (m.get("relatedElement") or {}).get("elementHeader", {}).get("type", {}).get("typeName") == "SolutionBlueprint"
     ])
+    supply_chains = _serialize_rel_entries([
+        m for m in raw_collections
+        if (m.get("relatedElement") or {}).get("elementHeader", {}).get("type", {}).get("typeName") == "InformationSupplyChain"
+    ])
 
-    detail["parentComponents"]  = _serialize_rel_entries(_rel_list(element, "usedInSolutionComponents"))
-    detail["subComponents"]     = _serialize_rel_entries(_rel_list(element, "nestedSolutionComponents"))
-    detail["blueprints"]        = blueprints
-    detail["actors"]            = _serialize_rel_entries(_rel_list(element, "actors"))
-    detail["wiredTo"]           = _serialize_rel_entries(_rel_list(element, "wiredTo"))
-    detail["wiredFrom"]         = _serialize_rel_entries(_rel_list(element, "wiredFrom"))
+    detail["parentComponents"]        = _serialize_rel_entries(_rel_list(element, "usedInSolutionComponents"))
+    detail["subComponents"]           = _serialize_rel_entries(_rel_list(element, "nestedSolutionComponents"))
+    detail["blueprints"]              = blueprints
+    detail["informationSupplyChains"] = supply_chains
+    detail["actors"]                  = _serialize_rel_entries(_rel_list(element, "actors"))
+    detail["wiredTo"]                 = _serialize_rel_entries(_rel_list(element, "wiredTo"))
+    detail["wiredFrom"]               = _serialize_rel_entries(_rel_list(element, "wiredFrom"))
     # Generic catch-all so any relationship key not curated above still surfaces.
     detail["relationships"]     = _generic_relationships(element, skip=(
         "memberOfCollections", "usedInSolutionComponents", "nestedSolutionComponents",
@@ -246,7 +252,7 @@ def list_blueprints(
 
 
 _BP_FOLIO_CACHE: dict = {}
-_BP_FOLIO_TTL = 120  # seconds
+_BP_FOLIO_TTL = 30  # seconds
 
 
 @router.get("/api/solution/blueprints/folios", summary="Blueprints grouped by their Folios")
@@ -255,13 +261,14 @@ def list_blueprints_by_folio(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    refresh:  bool = Query(False, description="Bypass the cache and re-query the metadata store"),
 ):
     """Group solution blueprints under the Folios that curate them. A blueprint's
     folios are its memberOfCollections entries whose type is Folio; blueprints in
     no folio are returned under `ungrouped`. Built from one depth-1 find."""
     cache_key = f"{url or ''}|{server or ''}|{user_id or ''}"
     cached = _BP_FOLIO_CACHE.get(cache_key)
-    if cached and (time.time() - cached[0]) < _BP_FOLIO_TTL:
+    if not refresh and cached and (time.time() - cached[0]) < _BP_FOLIO_TTL:
         return JSONResponse(cached[1])
 
     try:
@@ -388,7 +395,7 @@ def list_components(
 
 # Component tree cache: cache_key → (timestamp, result). The depth-1 find is ~5s.
 _COMP_TREE_CACHE: dict = {}
-_COMP_TREE_TTL = 120  # seconds
+_COMP_TREE_TTL = 30  # seconds
 
 
 def _rel_guids(element: dict, key: str) -> list:
@@ -408,6 +415,7 @@ def list_components_tree(
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
+    refresh:  bool = Query(False, description="Bypass the cache and re-query the metadata store"),
 ):
     """Return the solution-component composition forest: roots (components not nested
     in any other) with recursively nested children. Built from a single depth-1 find
@@ -415,7 +423,7 @@ def list_components_tree(
     (parents)."""
     cache_key = f"{url or ''}|{server or ''}|{user_id or ''}"
     cached = _COMP_TREE_CACHE.get(cache_key)
-    if cached and (time.time() - cached[0]) < _COMP_TREE_TTL:
+    if not refresh and cached and (time.time() - cached[0]) < _COMP_TREE_TTL:
         return JSONResponse(cached[1])
 
     try:
