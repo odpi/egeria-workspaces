@@ -287,7 +287,6 @@ Promise.all([
   var me = results[0];
   var orgName = (results[1].name && results[1].name.trim()) ? results[1].name : 'Egeria Quickstart';
   var platformCfg = results[2] || {};
-  var advisorRunning = !!platformCfg.advisor_running;
   if (!me.demo_mode) {
     _obsidianUrl = platformCfg.obsidian_vault_url || '';
     _obsidianGithubUrl = platformCfg.obsidian_github_url || '';
@@ -296,11 +295,13 @@ Promise.all([
     document.getElementById('hero-sub').textContent = 'An open metadata platform for learning, development, and experimentation. Select a tool below to get started.';
     document.getElementById('logout-btn').style.display = 'none';
     document.title = orgName;
-    renderAppGrid(me.demo_mode, advisorRunning, platformCfg.advisor_url || '');
+    renderAppGrid(me.demo_mode);
     refreshObsidianTile();
     setInterval(refreshObsidianTile, 30000);
     refreshJupyterTile();
     setInterval(refreshJupyterTile, 30000);
+    refreshAdvisorTile();
+    setInterval(refreshAdvisorTile, 30000);
     fetch('/api/demo/personas').then(function(r){ return r.json(); }).then(function(data) {
       _personas = data;
       var stored = _loadStored();
@@ -319,11 +320,13 @@ Promise.all([
     _obsidianGithubUrl = (results[1] && results[1].obsidian_github_url) || '';
     var stored = _loadStored();
     _currentPersonaId = stored ? stored.id : null;
-    renderAppGrid(true, false, '');
+    renderAppGrid(true);
     refreshObsidianTile();
     setInterval(refreshObsidianTile, 30000);
     refreshJupyterTile();
     setInterval(refreshJupyterTile, 30000);
+    refreshAdvisorTile();
+    setInterval(refreshAdvisorTile, 30000);
     if (stored) {
       applyPersonaUI(stored);
     } else {
@@ -360,6 +363,7 @@ function applyPersonaUI(persona) {
 
   loadFavorites(persona.id);
   _renderJupBookmark(persona.id);
+  refreshAdvisorTile();
 }
 
 // ── Bookmarks ─────────────────────────────────────────────────────────────────
@@ -401,10 +405,9 @@ function renderFavorites(favs) {
 }
 
 // ── App grid ──────────────────────────────────────────────────────────────────
-function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
+function renderAppGrid(demoMode) {
   var jupyterUrl = 'http://' + window.location.hostname + ':8888/?token=egeria';
   _jupUrl = jupyterUrl;
-  advisorUrl = advisorUrl || ('http://' + window.location.hostname + ':8880/');
   var apps = [
     // Row 1 — primary tools
     { icon: '🐱', name: 'The Catalog',
@@ -438,8 +441,8 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
       desc: 'Explore your Egeria profile, roles, teams, actions, and data catalog.',
       url: '/my-egeria/', newTab: true, enabled: true },
     { icon: '🤖', name: 'Egeria Advisor',
-      desc: advisorRunning ? 'AI-powered guidance for your Egeria environment.' : 'AI-powered guidance for your Egeria environment. (Not currently running)',
-      url: advisorUrl, newTab: true, enabled: !demoMode, unavailable: !demoMode && !advisorRunning },
+      desc: 'AI-powered guidance for your Egeria environment.',
+      enabled: true, advisor: true },
     // Remaining — docs, admin & API references
     { icon: '📚', name: 'Egeria Workspaces Documentation',
       desc: 'User guides, tool reference, Dr. Egeria templates, Coco Pharmaceuticals scenarios, and admin docs.',
@@ -471,6 +474,8 @@ function renderAppGrid(demoMode, advisorRunning, advisorUrl) {
     } else if (a.jupyter) {
       action = '<div id="jup-tile-action"><span style="color:var(--muted);font-size:0.8rem">Loading…</span></div>'
              + '<div id="jup-tile-bookmark"></div>';
+    } else if (a.advisor) {
+      action = '<div id="advisor-tile-action"><span style="color:var(--muted);font-size:0.8rem">Loading…</span></div>';
     } else {
       action = '<button class="btn btn-accent app-action" onclick="launch(' + JSON.stringify(a.url).replace(/"/g, '&quot;') + ',' + a.newTab + ',' + JSON.stringify(a.name).replace(/"/g, '&quot;') + ')">' + (a.newTab ? 'Open ↗' : 'Open') + '</button>';
     }
@@ -803,6 +808,142 @@ function _clearJupToken() {
 }
 
 if (_jupToken) { _startJupKeepalive(); }
+
+// ── Egeria Advisor lock + SSO handoff ─────────────────────────────────────────
+var _advToken     = sessionStorage.getItem('adv-token') || null;
+var _advKeepalive = null;
+
+function refreshAdvisorTile() {
+  fetch('/api/advisor/status').then(function(r) { return r.json(); }).then(function(s) {
+    _renderAdvTile(s);
+  }).catch(function() {
+    var el = document.getElementById('advisor-tile-action');
+    if (el) el.innerHTML = '<span class="obs-hint">Status unavailable</span>';
+  });
+}
+
+function _renderAdvTile(s) {
+  var el = document.getElementById('advisor-tile-action');
+  if (!el) return;
+  var isMine = !!_advToken && s.state !== 'FREE';
+  if (_advToken && s.state === 'FREE') { _clearAdvToken(); isMine = false; }
+
+  if (s.state === 'DISABLED' || !s.sso_configured) {
+    el.innerHTML = '<span class="soon-badge" style="background:var(--hover);color:var(--muted)">Not configured</span>';
+    return;
+  }
+  if (!s.reachable) {
+    el.innerHTML = '<span class="soon-badge" style="background:var(--hover);color:var(--muted)">Not running</span>';
+    return;
+  }
+  if (!_currentPersonaId) {
+    el.innerHTML = '<div class="obs-hint">Select a persona first</div>';
+    return;
+  }
+
+  var html = '';
+  if (s.evicting && isMine) {
+    var deadline = new Date(s.evict_deadline + 'Z');
+    var secsLeft = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+    html += '<div class="obs-evict">⚠ Admin needs Egeria Advisor in ~' + Math.ceil(secsLeft / 60) + ' min.</div>';
+  }
+
+  if (s.state === 'FREE') {
+    html += '<div class="obs-status obs-free">● Available</div>'
+      + '<div class="obs-actions">'
+      + '<button class="btn btn-accent" onclick="acquireAdvisor()">Ask Advisor →</button>'
+      + '</div>';
+  } else if (isMine) {
+    var mins = s.minutes_left !== null ? s.minutes_left : '?';
+    var idleWarn = s.idle_warning ? ' ⚠ idle' : '';
+    html += '<div class="obs-status obs-mine">● Your session · ' + mins + ' min left' + idleWarn + '</div>'
+      + '<div class="obs-actions">'
+      + '<button class="btn" onclick="extendAdvisor()">Extend</button>'
+      + '<button class="btn" onclick="releaseAdvisor()" style="color:var(--muted)">Release</button>'
+      + '</div>';
+  } else if (s.state === 'STUCK') {
+    html += '<div class="obs-status obs-stuck">⚠ Session may be idle</div>'
+      + '<div class="obs-hint">An admin can free it using the admin panel.</div>';
+  } else {
+    var who = s.holder_display ? ' by ' + esc(s.holder_display) : '';
+    var eta  = s.minutes_left ? ' · ~' + s.minutes_left + ' min remaining' : '';
+    html += '<div class="obs-status obs-busy">● In use' + who + eta + '</div>'
+      + '<div class="obs-hint">Check back later</div>';
+  }
+  el.innerHTML = html;
+}
+
+function acquireAdvisor() {
+  // Open the tab synchronously, inside the click handler, so the browser's
+  // popup blocker doesn't reject it once we redirect it after the (cross-
+  // machine, higher-latency) acquire fetch resolves.
+  var tab = window.open('', '_blank');
+  var persona = _currentPersonaId || '';
+  var display = persona && _personas[persona] ? _personas[persona].display_name : 'User';
+  fetch('/api/advisor/acquire', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ persona: persona, display_name: display })
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (!data.acquired) {
+      if (tab) tab.close();
+      alert('Could not open Egeria Advisor: ' + (data.reason || 'unavailable'));
+      refreshAdvisorTile();
+      return;
+    }
+    _advToken = data.token;
+    sessionStorage.setItem('adv-token', _advToken);
+    _startAdvKeepalive();
+    refreshAdvisorTile();
+    if (tab) { tab.opener = null; tab.location = data.advisor_sso_url; }
+  }).catch(function(e) {
+    if (tab) tab.close();
+    alert('Error: ' + e.message);
+  });
+}
+
+function releaseAdvisor() {
+  if (!_advToken) return;
+  fetch('/api/advisor/release', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: _advToken })
+  }).then(function() { _clearAdvToken(); refreshAdvisorTile(); })
+    .catch(function() { _clearAdvToken(); refreshAdvisorTile(); });
+}
+
+function extendAdvisor() {
+  if (!_advToken) return;
+  fetch('/api/advisor/extend', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: _advToken })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (!d.extended) { alert('Could not extend: ' + (d.reason || 'blocked by reservation')); }
+    refreshAdvisorTile();
+  });
+}
+
+function _startAdvKeepalive() {
+  _stopAdvKeepalive();
+  _advKeepalive = setInterval(function() {
+    if (!_advToken) { _stopAdvKeepalive(); return; }
+    fetch('/api/advisor/keepalive', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: _advToken })
+    }).catch(function() {});
+    refreshAdvisorTile();
+  }, 60000);
+}
+
+function _stopAdvKeepalive() {
+  if (_advKeepalive) { clearInterval(_advKeepalive); _advKeepalive = null; }
+}
+
+function _clearAdvToken() {
+  _advToken = null;
+  sessionStorage.removeItem('adv-token');
+  _stopAdvKeepalive();
+}
+
+if (_advToken) { _startAdvKeepalive(); }
 
 // ── Jupyter notebook bookmarks ────────────────────────────────────────────────
 function _renderJupBookmark(personaId) {

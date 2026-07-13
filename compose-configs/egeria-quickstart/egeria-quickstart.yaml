@@ -135,6 +135,11 @@ services:
       OBSIDIAN_VAULT_URL: "${OBSIDIAN_VAULT_URL:-}"
       # Egeria Advisor URL — checked server-side; set in .env if running on a non-default port/host
       EGERIA_ADVISOR_URL: "${EGERIA_ADVISOR_URL:-http://localhost:8880/}"
+      # Shared HS256 secret with Egeria Advisor's ADVISOR_PORTAL_SECRET for the
+      # Portal -> Advisor SSO handoff. Must match the value in Advisor's own
+      # .env exactly. Leave unset to disable the SSO handoff (tile shows
+      # "Not configured").
+      EGERIA_ADVISOR_SSO_SECRET: "${EGERIA_ADVISOR_SSO_SECRET:-}"
     extra_hosts:
       - "${HOST_FQDN}:${HOST_GATEWAY_IP:-host-gateway}"
       - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"

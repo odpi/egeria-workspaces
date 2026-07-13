@@ -153,7 +153,7 @@ compose-configs/egeria-quickstart/bin/apply-postgres-init.sh
 pushd compose-configs/egeria-quickstart >/dev/null
 
   # ── Demo mode: collect / persist credentials ─────────────────────────────
-  _jwt="" _cert_dir="" _admin_email="" _admin_pass="" _resend_key="" _resend_from="" _https_port="" _site_url_override=""
+  _jwt="" _cert_dir="" _admin_email="" _admin_pass="" _resend_key="" _resend_from="" _https_port="" _site_url_override="" _advisor_url="" _advisor_secret=""
   if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
     ENV_DEMO=".env.demo"
     echo "[quick-start-local] Demo mode: loading configuration..."
@@ -180,6 +180,8 @@ pushd compose-configs/egeria-quickstart >/dev/null
     _resend_from="$(_pick RESEND_FROM)"
     _https_port="$(_pick HTTPS_PORT)"
     _site_url_override="$(_pick SITE_URL)"
+    _advisor_url="$(_pick EGERIA_ADVISOR_URL)"
+    _advisor_secret="$(_pick EGERIA_ADVISOR_SSO_SECRET)"
 
     # Generate JWT_SECRET if not already set
     if [[ -z "$_jwt" ]]; then
@@ -239,6 +241,12 @@ pushd compose-configs/egeria-quickstart >/dev/null
     fi
 
     # Save credentials to .env.demo (mode 600 — contains secrets)
+    # Note: EGERIA_ADVISOR_SSO_SECRET is deliberately NOT auto-generated like
+    # JWT_SECRET is — it's a secret shared with an independently-deployed
+    # Egeria Advisor instance, so a locally-generated value would silently
+    # desync from whatever is already in Advisor's own .env. Leave blank
+    # (SSO handoff tile shows "Not configured") until you paste in the exact
+    # value from the Advisor machine.
     cat > "$ENV_DEMO" <<EOF
 JWT_SECRET=${_jwt}
 CERT_DIR=${_cert_dir}
@@ -248,6 +256,8 @@ RESEND_API_KEY=${_resend_key}
 RESEND_FROM=${_resend_from}
 HTTPS_PORT=${_https_port}
 SITE_URL=${_site_url_override}
+EGERIA_ADVISOR_URL=${_advisor_url}
+EGERIA_ADVISOR_SSO_SECRET=${_advisor_secret}
 EOF
     chmod 600 "$ENV_DEMO"
     echo "[quick-start-local]   Demo credentials saved to ${ENV_DEMO}."
@@ -280,6 +290,8 @@ EOF
       echo "RESEND_FROM=${_resend_from}"
       echo "HTTPS_PORT=${_https_port_num}"
       echo "DEMO_SITE_URL=${_site_url}"
+      echo "EGERIA_ADVISOR_URL=${_advisor_url}"
+      echo "EGERIA_ADVISOR_SSO_SECRET=${_advisor_secret}"
     } >> .env
 
     # Generate runtime ssl-define.conf (Apache Define for SSL_SERVER_NAME)
