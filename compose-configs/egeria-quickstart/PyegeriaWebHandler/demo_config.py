@@ -69,3 +69,10 @@ OBSIDIAN_GITHUB_URL:  str = os.environ.get("OBSIDIAN_GITHUB_URL",  "https://gith
 # URL of the Egeria Advisor service. Set in .env or yaml (default: localhost:8880).
 # Checked server-side at startup to set advisor_running in portal-config.
 EGERIA_ADVISOR_URL:   str = os.environ.get("EGERIA_ADVISOR_URL",   "http://localhost:8880/")
+
+# Shared HS256 secret with Egeria Advisor's own ADVISOR_PORTAL_SECRET — used to
+# mint the short-lived SSO handoff token in advisor_lock_handler.py. Must match
+# exactly; do not confuse with JWT_SECRET above (that signs the Portal's own
+# demo_token cookie and is unrelated). Left empty, the Advisor tile's acquire
+# call returns 503 rather than minting with an insecure/mismatched key.
+EGERIA_ADVISOR_SSO_SECRET: str = os.environ.get("EGERIA_ADVISOR_SSO_SECRET", "")
