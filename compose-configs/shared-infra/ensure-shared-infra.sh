@@ -49,20 +49,21 @@ else
   echo "[shared-infra] $CONTAINER_ENGINE network 'egeria_network' already exists"
 fi
 
-echo "[shared-infra] Ensuring shared Kafka, Postgres, and proxy are running..."
-if ! $COMPOSE_CMD -p egeria-shared-infra -f shared-infra.yaml build "${COMPOSE_BUILD_FLAGS[@]}" proxy; then
+echo "[shared-infra] Ensuring shared Kafka, Postgres, proxy, and Dagster are running..."
+if ! $COMPOSE_CMD -p egeria-shared-infra -f shared-infra.yaml build "${COMPOSE_BUILD_FLAGS[@]}" proxy dagster-user-code; then
   echo "[shared-infra] Pull-enabled build failed; retrying build without pull to use local cache..."
-  $COMPOSE_CMD -p egeria-shared-infra -f shared-infra.yaml build proxy
+  $COMPOSE_CMD -p egeria-shared-infra -f shared-infra.yaml build proxy dagster-user-code
 fi
 
-if ! $COMPOSE_CMD -p egeria-shared-infra -f shared-infra.yaml up -d ${COMPOSE_PULL_FLAGS} proxy kafka postgres; then
+if ! $COMPOSE_CMD -p egeria-shared-infra -f shared-infra.yaml up -d ${COMPOSE_PULL_FLAGS} proxy kafka postgres dagster-user-code dagster-webserver dagster-daemon; then
   echo "[shared-infra] Pull-enabled up failed; retrying up without pull to use local cache..."
-  $COMPOSE_CMD -p egeria-shared-infra -f shared-infra.yaml up -d proxy kafka postgres
+  $COMPOSE_CMD -p egeria-shared-infra -f shared-infra.yaml up -d proxy kafka postgres dagster-user-code dagster-webserver dagster-daemon
 fi
 
 wait_for_container_state egeria-shared-kafka
 wait_for_container_state egeria-shared-postgres
 wait_for_container_state egeria-shared-openlineage-proxy-backend
+wait_for_container_state egeria-shared-dagster-webserver
 
 # Extra safety: Wait for Postgres port to be reachable on localhost
 # Container 'healthy' (pg_isready) doesn't always mean the host-mapped port is fully bound/reachable yet.
@@ -79,6 +80,5 @@ if command -v nc &> /dev/null; then
   done
 fi
 
-echo "[shared-infra] Shared Kafka, Postgres, and proxy are ready."
+echo "[shared-infra] Shared infrastructure and Dagster services are ready."
 popd >/dev/null
-

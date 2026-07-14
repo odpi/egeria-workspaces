@@ -89,6 +89,68 @@ services:
       -c max_connections=1000
       -c idle_in_transaction_session_timeout=1800000
 
+  dagster-user-code:
+    build:
+      context: ../../runtime-volumes/dagster/user_code
+      dockerfile: Dockerfile
+    image: egeria-shared-infra-dagster-user-code:latest
+    container_name: egeria-shared-dagster-user-code
+    networks:
+      - egeria_network
+    environment:
+      - DAGSTER_CURRENT_IMAGE=egeria-shared-dagster-user-code
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-egeria}
+      - OPENLINEAGE_URL=http://egeria-shared-openlineage-proxy-backend:6000
+      - OPENLINEAGE_NAMESPACE=egeria-workspace
+    volumes:
+      - ../../runtime-volumes/dagster/user_code:/opt/dagster/app
+    ports:
+      - "4000:4000"
+    restart: always
+
+  dagster-webserver:
+    image: egeria-shared-infra-dagster-user-code:latest
+    container_name: egeria-shared-dagster-webserver
+    entrypoint: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000", "-w", "/opt/dagster/workspace.yaml"]
+    networks:
+      - egeria_network
+    ports:
+      - "8050:3000"
+    environment:
+      - DAGSTER_HOME=/opt/dagster
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-egeria}
+    volumes:
+      - ../../runtime-volumes/dagster:/opt/dagster
+    depends_on:
+      postgres:
+        condition: service_healthy
+      dagster-user-code:
+        condition: service_started
+    restart: always
+
+  dagster-daemon:
+    image: egeria-shared-infra-dagster-user-code:latest
+    container_name: egeria-shared-dagster-daemon
+    entrypoint: ["dagster-daemon", "run", "-w", "/opt/dagster/workspace.yaml"]
+    networks:
+      - egeria_network
+    environment:
+      - DAGSTER_HOME=/opt/dagster
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-egeria}
+      - OPENLINEAGE_URL=http://egeria-shared-openlineage-proxy-backend:6000
+      - OPENLINEAGE_NAMESPACE=egeria-workspace
+    volumes:
+      - ../../runtime-volumes/dagster:/opt/dagster
+    depends_on:
+      postgres:
+        condition: service_healthy
+      dagster-user-code:
+        condition: service_started
+    restart: always
+
 volumes:
   shared_postgres_data:
     external: false
