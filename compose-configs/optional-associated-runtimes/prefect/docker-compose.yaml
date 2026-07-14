@@ -11,6 +11,7 @@ services:
     environment:
       - PREFECT_SERVER_API_HOST=0.0.0.0
       - PREFECT_API_DATABASE_CONNECTION_URL=postgresql+asyncpg://prefect_user:user4prefect@egeria-shared-postgres:5442/prefect
+      - PREFECT_UI_API_URL=http://localhost:4200/api
     networks:
       - egeria_network
     restart: always
