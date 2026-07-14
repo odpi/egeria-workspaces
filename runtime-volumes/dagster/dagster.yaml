@@ -5,7 +5,7 @@ storage:
         env: POSTGRES_USER
       password:
         env: POSTGRES_PASSWORD
-      hostname: postgres
+      hostname: egeria-shared-postgres
       port: 5442
       db_name: dagster
 

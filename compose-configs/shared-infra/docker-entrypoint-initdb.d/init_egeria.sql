@@ -9,6 +9,7 @@ create user mlflow_user with superuser login password 'mlflow_password';
 create user egeria_advisor with login password 'advisor';
 create user surveyor with login password 'surveyor4egeria';
 create user dagster_user with superuser login password 'user4dagster';
+create user prefect_user with superuser login password 'user4prefect';
 
 create database egeria;
 create database egeria_freshstart;
@@ -22,6 +23,7 @@ create database hive_metastore;
 create database mlflow_db;
 create database egeria_advisor owner egeria_advisor;
 create database dagster;
+create database prefect;
 
 grant all privileges on database egeria to egeria_admin, egeria_user;
 grant all privileges on database egeria_freshstart to egeria_admin, egeria_user;
@@ -36,6 +38,7 @@ grant all privileges on database mlflow_db to mlflow_user;
 grant all privileges on database egeria_advisor to egeria_advisor;
 grant pg_monitor to surveyor;
 grant all privileges on database dagster to dagster_user;
+grant all privileges on database prefect to prefect_user;
 
 \c egeria_advisor
 CREATE EXTENSION IF NOT EXISTS vector;
