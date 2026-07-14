@@ -81,7 +81,9 @@ def egeria_glossary_flow(
             
             table.add_row(name, guid, qname, desc)
             
-    console.print(table)
+    with console.capture() as capture:
+        console.print(table)
+    logger.info("\n" + capture.get())
     logger.info("Egeria Glossary Inspector completed successfully.")
     return glossaries
 

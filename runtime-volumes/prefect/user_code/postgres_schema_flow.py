@@ -89,7 +89,9 @@ def postgres_schema_flow(
             for item in schema_list:
                 table.add_row(db, item["schema"], item["table"])
                 
-    console.print(table)
+    with console.capture() as capture:
+        console.print(table)
+    logger.info("\n" + capture.get())
     logger.info("PostgreSQL Schema Inspector completed successfully.")
     return results
 
