@@ -1,0 +1,18 @@
+storage:
+  postgres:
+    postgres_db:
+      username:
+        env: POSTGRES_USER
+      password:
+        env: POSTGRES_PASSWORD
+      hostname: postgres
+      port: 5442
+      db_name: dagster
+
+run_launcher:
+  module: dagster.core.launcher
+  class: DefaultRunLauncher
+
+scheduler:
+  module: dagster.core.scheduler
+  class: DagsterDaemonScheduler
