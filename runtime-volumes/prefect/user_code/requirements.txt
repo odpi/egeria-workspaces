@@ -1,0 +1,3 @@
+pyegeria>=0.5.5.16
+rich
+pandas

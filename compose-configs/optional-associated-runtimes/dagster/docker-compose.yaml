@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: Apache-2.0
+name: egeria-optional-dagster
+
+services:
+  dagster-user-code:
+    build:
+      context: ../../../runtime-volumes/dagster/user_code
+      dockerfile: Dockerfile
+    image: egeria-optional-dagster-user-code:latest
+    container_name: egeria-optional-dagster-user-code
+    networks:
+      - egeria_network
+    environment:
+      - DAGSTER_CURRENT_IMAGE=egeria-optional-dagster-user-code
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-egeria}
+      - OPENLINEAGE_URL=http://egeria-shared-openlineage-proxy-backend:6000
+      - OPENLINEAGE_NAMESPACE=egeria-workspace
+    volumes:
+      - ../../../runtime-volumes/dagster/user_code:/opt/dagster/app
+    ports:
+      - "4000:4000"
+    restart: always
+
+  dagster-webserver:
+    image: egeria-optional-dagster-user-code:latest
+    container_name: egeria-optional-dagster-webserver
+    entrypoint: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000", "-w", "/opt/dagster/workspace.yaml"]
+    networks:
+      - egeria_network
+    ports:
+      - "8050:3000"
+    environment:
+      - DAGSTER_HOME=/opt/dagster
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-egeria}
+    volumes:
+      - ../../../runtime-volumes/dagster:/opt/dagster
+    depends_on:
+      - dagster-user-code
+    restart: always
+
+  dagster-daemon:
+    image: egeria-optional-dagster-user-code:latest
+    container_name: egeria-optional-dagster-daemon
+    entrypoint: ["dagster-daemon", "run", "-w", "/opt/dagster/workspace.yaml"]
+    networks:
+      - egeria_network
+    environment:
+      - DAGSTER_HOME=/opt/dagster
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-egeria}
+      - OPENLINEAGE_URL=http://egeria-shared-openlineage-proxy-backend:6000
+      - OPENLINEAGE_NAMESPACE=egeria-workspace
+    volumes:
+      - ../../../runtime-volumes/dagster:/opt/dagster
+    depends_on:
+      - dagster-user-code
+    restart: always
+
+networks:
+  egeria_network:
+    name: egeria_network
+    external: true

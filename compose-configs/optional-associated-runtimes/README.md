@@ -7,6 +7,8 @@ convenient, supporting experimentation, development, and learning.
 Currently there are compose configurations for:
 
     * Airflow & Marquez - used for demonstrating Open Lineage and other metadata integrations.
+    * Dagster - used for orchestrating pipelines and metadata harvesting with Egeria and OpenLineage.
+    * Prefect - used for workflow automation and Egeria catalog integrations.
     * Milvus - a vector database used in AI workloads.
     * Superset—an analytics and reporting dashboard that we use to present Egeria survey results.
     * Unity Catalog—The Open Source version of Unity Catalog—we use for demonstrating Egeria's integration with other catalogs.
