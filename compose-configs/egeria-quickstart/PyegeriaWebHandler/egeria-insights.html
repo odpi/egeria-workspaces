@@ -677,7 +677,7 @@ function Dashboard({ creds, onOpenSearch }) {
 }
 
 /* ── Zone tree (left rail) ────────────────────────────────────────────────── */
-function ZoneTree({ creds, selectedZone, onSelectZone }) {
+function ZoneTree({ creds, selectedZone, onSelectZone, width }) {
   var _z = useState([]), zones = _z[0], setZones = _z[1];
   var _st = useState('loading'), state = _st[0], setState = _st[1];
   var _capped = useState(false), capped = _capped[0], setCapped = _capped[1];
@@ -691,7 +691,7 @@ function ZoneTree({ creds, selectedZone, onSelectZone }) {
       .catch(function() { setState('error'); });
   }, [creds && creds.userId]);
 
-  return el('div', { className: 'sidebar', style: { width: 240, borderRight: '1px solid var(--border)' } },
+  return el('div', { className: 'sidebar', style: { width: width || 240, minWidth: 160, borderRight: 'none', flexShrink: 0, overflow: 'hidden' } },
     el('div', { className: 'search-wrap' },
       el('div', { style: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--muted)' } }, 'Governance Zones'),
       capped && el('div', { style: { fontSize: 10.5, color: 'var(--dim)', marginTop: 4 } }, 'usage counts capped at 500')
@@ -837,6 +837,7 @@ function GovernanceSearch({ creds, focusZone }) {
   var _full = useState(false), fullCount = _full[0], setFullCount = _full[1];
   var _typeName = useState(''), typeName = _typeName[0], setTypeName = _typeName[1];
   var _valueOpts = useState({}), valueOpts = _valueOpts[0], setValueOpts = _valueOpts[1];
+  var _zoneW = useResizable(240, 160, 480), zoneWidth = _zoneW[0], onZoneResizeDown = _zoneW[1];
 
   useEffect(function(){ typeCatalog(creds, setCatalog, setCatState); }, [creds && creds.userId]);
 
@@ -903,7 +904,8 @@ function GovernanceSearch({ creds, focusZone }) {
   var canFullCount = conditions.some(function(c){ return c.classification; }) || !!typeName;
 
   return el('div', { style: { display: 'flex', height: '100%' } },
-    el(ZoneTree, { creds: creds, selectedZone: selectedZone, onSelectZone: setSelectedZone }),
+    el(ZoneTree, { creds: creds, selectedZone: selectedZone, onSelectZone: setSelectedZone, width: zoneWidth }),
+    el(ResizeDivider, { onMouseDown: onZoneResizeDown }),
     el('div', { className: 'main', style: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
       el('div', { style: { padding: '14px 20px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
         el('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' } },
