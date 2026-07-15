@@ -14,6 +14,68 @@ Status: `open` · `in-progress` · `done` · `deferred`
 | TC-17 | Made `TechTable` and two hand-rolled tables (Technology Types "Catalog Instances", `SchemaPane` attributes) resizable, matching `AnnotationsTabView`. Uncovered a real, previously-undiagnosed bug in the process: `/static/*` assets (`egeria-shared-ui.js`, shared by both apps) had no `Cache-Control` header, so browsers heuristically cache it; the SPA HTML documents are versioned freshly (`no-store`) but the shared JS was not, so a browser with an old cached copy of `egeria-shared-ui.js` + fresh HTML calling a newly-added shared function throws a synchronous `ReferenceError` outside React's render cycle — reproduced deterministically in a headless Node+jsdom harness (not a browser-tooling artifact, as first suspected) — presenting as a blank page with no visible console error | done | Added `makeResizableCols`/`resizableColgroup` to `egeria-shared-ui.js` — a hook-free (ref-based, imperative DOM write) column-resize mechanism, since `TechTable` is called as a plain function inside `.map()` loops where React hooks aren't safe. Applied to `TechTable` (feeds Catalog Templates, Other Resources, Survey specs, all of `GovernanceProcessDetail`'s tables), the Catalog Instances table, and `SchemaPane`. **Root-cause fix:** `pyegeria_handler.py` now mounts `/static` via a `NoCacheStaticFiles` subclass that sets `Cache-Control: no-cache` on every response (forces ETag revalidation, so edits apply on next load without a hard-refresh) — was previously an unversioned, unheadered static mount, a latent bug independent of this specific feature that could recur on any future shared-JS edit. Also added the same `no-store, must-revalidate` header to `/egeria-explorer`'s `FileResponse` (`type_system_handler.py`), which — unlike `/tech-catalog` — had no cache header on its HTML document at all. Added a `?v=` cache-busting query string to both apps' `<script src="/static/egeria-shared-ui.js">` tags (bump on every future edit) — the `no-cache` header alone can't force browsers that cached the file *before* that header existed to revalidate; a new URL guarantees a fresh fetch regardless of prior cache state. Follow-up (same day): widened `colResizeHandle`'s hit target from 6px to a 12px invisible target around the same visible dotted line (6px was easy to miss, confirmed by mis-clicking it myself during testing), and extended resize to the three Glossary "Properties" tables (`GlossaryFolderDetail`/`GlossaryDetail`/`GlossaryTermDetail` in `egeria-shared-ui.js`, shared with Egeria Explorer) — these had no `<thead>` at all (label:value rows), so the resize handle is anchored to the first row's label cell instead of a header. Verified all edits via a headless Node+jsdom render harness before deploying, after the earlier blank-screen incident. **Second follow-up:** the actual remaining complaint was about *pane dividers*, not table columns — `TechTypesView`'s sidebar/detail split (`tech-catalog.html`) and `GlossaryView`'s middle/right split were hardcoded `width: 290`/`width: 280` with no drag handle at all (only Glossary's left/middle divider had one). Added a second `useResizable`/`ResizeDivider` pair to each, matching the pattern already used elsewhere in the same functions. |
 
 ---
+## 🔴 High Priority — Finish semantic `as_of_time` verification (PY-1/7/9/11 remainder)
+
+**Status:** open
+**Added:** 2026-07-15
+
+Full context and the methods already confirmed live in `PYEGERIA_ISSUES.md`
+(PY-7/PY-8/PY-9/PY-11). On 2026-07-15, re-verified the pyegeria `as_of_time`
+fixes against the **actually deployed** container (pyegeria 6.0.16.18, not
+just source) using a *real* test: compare a call with no `as_of_time` against
+the same call with `as_of_time="2000-01-01T00:00:00Z"` (before any qs demo
+data existed) — a genuine fix returns real data "now" and `"No elements
+found"` for the year-2000 call; a fix that's merely accepted-but-ignored
+returns the same non-empty result both times.
+
+**Confirmed working (real data, real before/after difference):**
+- `CollectionManager.find_note_logs("*", graph_query_depth=0)` — 4 → `"No elements found"`
+- `AutomatedCuration.get_technology_type_elements(filter_string="File")` — 108 → `"No elements found"`
+- `CollectionManager.get_collection_members("dbc14481-fa8d-42eb-9bce-a7dad33a6779")` — 12 → `"No elements found"`
+- `DataDesigner.find_data_structures("*", graph_query_depth=0)` — 94 → `"No elements found"`
+
+**Not yet confirmed — no test data available in this environment, needs follow-up tomorrow:**
+1. `GovernanceOfficer.find_information_supply_chains` — need qs demo data with at least one ISC loaded.
+2. `GovernanceOfficer.find_governance_definitions` — need at least one governance definition loaded.
+3. `DataDesigner.get_data_field_by_guid` — need a real `DataField` GUID (list via `DataDesigner.find_data_fields("*", graph_query_depth=0)` first, pick a GUID from the result, then re-run the before/after test against it).
+4. `ProjectManager.get_linked_projects` — tested without a `TypeError`, but the GUID used had no linked projects to show a count difference. Need a project GUID that actually has links (list via `ProjectManager.find_projects("*", graph_query_depth=0)`, or look for one referenced from Egeria Explorer's Projects tab).
+5. `DataDesigner.find_data_value_specifications` (PY-1) — the crash fix is confirmed (`AttributeError` is gone), but there's no `DataValueSpecification` data loaded in this environment to confirm `as_of_time` has real effect vs. just being silently accepted. Both "now" and year-2000 calls currently return `"No elements found"` — inconclusive either way.
+
+**How to repeat this tomorrow** (same recipe used for the confirmed methods above):
+```python
+# Run inside the quickstart-pyegeria-web container:
+#   docker exec quickstart-pyegeria-web python3 -c "<script below>"
+from pyegeria import <ClientClass>   # e.g. GovernanceOfficer, DataDesigner, ProjectManager
+import pyegeria
+pyegeria.enable_ssl_check = False
+pyegeria.disable_ssl_warnings = True
+
+mgr = <ClientClass>(view_server="qs-view-server", platform_url="https://host.docker.internal:9443",
+                     user_id="peterprofile", user_pwd="secret")
+# Note: some classes (DataDesigner, ProjectManager) use `view_server_name=` instead
+# of `view_server=` — check with `inspect.signature(<ClientClass>.__init__)` if the
+# constructor call raises TypeError.
+mgr.create_egeria_bearer_token()
+
+r_now  = mgr.<method>(<required args>, graph_query_depth=0)   # omit graph_query_depth if not accepted
+r_2000 = mgr.<method>(<required args>, graph_query_depth=0, as_of_time="2000-01-01T00:00:00Z")
+print("now:", len(r_now) if isinstance(r_now, list) else r_now)
+print("2000:", len(r_2000) if isinstance(r_2000, list) else r_2000)
+# Real fix  -> non-empty count "now", "No elements found" (or empty list) at 2000
+# Not fixed -> identical non-empty result both times
+```
+
+If any of the 5 remaining methods show identical non-empty results for both
+calls (not fixed) rather than `"No elements found"` at 2000, downgrade that
+method's status in `PYEGERIA_ISSUES.md` (PY-7/PY-9/PY-11 section) and
+`BACKLOG.md`'s PY-9/PY-11 rows accordingly, and note the discrepancy for Dan.
+
+**Also worth doing if time allows:** if any of the "no test data" methods
+still have no data tomorrow, check whether demo data can be loaded/created for
+that type (an ISC, a governance definition, a DataField, a linked project) so
+this can be closed out definitively rather than left inconclusive.
+
+---
 ## 🔴 High Priority — Fix SecretsStoreCataloguer catalog target (Quickstart)
 
 **Status:** open  
@@ -355,19 +417,24 @@ Spec: `demo_plan.md`
 
 ## pyegeria Upstream Bugs
 
+Full repro steps (runnable code, expected vs. actual, root cause) for every row below live in **`PYEGERIA_ISSUES.md`**.
+
 | # | Bug | Status | Workaround |
 |---|-----|--------|------------|
-| PY-1 | `DataDesigner.find_data_value_specifications` calls non-existent `_async_post` | open | `_search_data_value_specs()` hits endpoint directly |
-| PY-2 | `get_data_value_specifications_by_name("*")` rejects wildcard | open | Same workaround as PY-1 |
-| PY-3 | `find_all_solution_blueprints/components` missing in 6.0.12.2 | open | Use `find_*(search_string="*")` |
+| PY-1 | `DataDesigner.find_data_value_specifications` calls non-existent `_async_post` | **fixed** — verified 2026-07-14 live on deployed 6.0.16.18 | `_search_data_value_specs()` can likely be simplified to call the method directly now; test before removing the manual workaround |
+| PY-2 | `get_data_value_specifications_by_name("*")` rejects wildcard | **not a bug — closed 2026-07-15 (Dan).** `by_name` methods are complete-match lookups (full displayName/qualifiedName), not search; `"*"` was never meant to mean "list all" here | Use `find_data_value_specifications(search_string="*")` (fixed by PY-1) for `DataGrain`/`DataClass` listing — that's what `find_*`/`_by_search_string` is for |
+| PY-3 | `find_all_solution_blueprints/components` missing in 6.0.12.2 | **fixed/moot** — both exist on deployed 6.0.16.18 | Use `find_*(search_string="*")` if still on an older pin |
 | PY-4 | `ServerClient.update_comment` defaults `merge_update=True` and sets `mergeUpdate: true` in body, but Egeria still rejects the request with `OPEN-METADATA-400-004` requiring `qualifiedName` | done | Workaround already in `egeria_feedback_handler.py`: fetches comment first via `get_comment_by_guid`, extracts `qualifiedName`, builds body manually |
 | PY-5 | `get_notes_for_note_log` was unusable in 6.0.14.5 (default `metadata_element_type_name="Action"` → `OMAG-…-404-001` on the NoteLog guid; `="NoteLog"` returned the log not the notes; timed out on big logs) | **fixed in 6.0.14.6** | Default kwargs now return the notes, `page_size`-bounded. **Gotcha:** do *not* pass `metadata_element_type_name="NoteLog"` — now returns 0. `notelog_handler.py` uses the default. |
-| PY-6 | `find_note_logs('*')` at default graph depth is O(total notes) — inlines every log's entries (~30s on qs; `page_size` bounds logs, not per-log expansion) | open | List uses `graph_query_depth=0` (≈0.3s, accepted via `**kwargs`); subjects via the depth-0 `Anchors` classification |
-| PY-7 | Add `as_of_time` to `ValidMetadataManager.get_valid_metadata_values` (no param, no `**kwargs`) | open (Dan) | Blocks LE-3 time-travel on reference-data / valid-values lists. Surfaced by the LE-3 `as_of_time` audit (2026-06-21). |
-| PY-8 | Add `as_of_time` to `get_technology_type_elements` (no param, no `**kwargs`) | open (Dan) | Blocks LE-3 time-travel on Tech Type member lists. Surfaced by the LE-3 `as_of_time` audit (2026-06-21). |
-| PY-11 | Add a direct `as_of_time` param to the `find_*` methods that only accept it via `**kwargs` (silent no-op): `find_information_supply_chains`, `find_governance_definitions`, `find_note_logs`, `find_collections`, `find_data_structures`. | open (Dan) | These build their request body from explicit params, so the workspace can't inject `asOfTime` without replacing the whole body. Blocks LE-3 time-travel on the Explorer **ISC**, **Governance** definitions, **Note Logs**, and **Data Design** specs/structures lists. Same pattern as the already-direct `find_communities`/`find_projects`/etc. Surfaced 2026-06-22. |
+| PY-6 | `find_note_logs('*')` at default graph depth is O(total notes) — inlines every log's entries (~30s on qs; `page_size` bounds logs, not per-log expansion) | **not a bug** — reclassified 2026-07-14; `graph_query_depth` trading off graph richness vs. speed is intended Egeria behavior, `graph_query_depth=0` is the documented opt-out | List uses `graph_query_depth=0` (≈0.3s, accepted via `**kwargs`); subjects via the depth-0 `Anchors` classification |
+| PY-7 | Add `as_of_time` to `ValidMetadataManager.get_valid_metadata_values` (no param, no `**kwargs`) | **reclassified — not a pyegeria fix.** The underlying Egeria REST endpoint (`get-valid-metadata-values/{propertyName}`) doesn't accept `asOfTime` at all; would need an Egeria API change first | Blocks LE-3 time-travel on reference-data / valid-values lists. No client-side fix possible. |
+| PY-8 | Add `as_of_time` to `get_technology_type_elements` (no param, no `**kwargs`) | **fixed** — semantically verified 2026-07-15: real data returns 108 elements "now" vs. `"No elements found"` at `as_of_time="2000-01-01"` | Blocks LE-3 time-travel on Tech Type member lists — no longer blocked, ready to wire up |
+| PY-11 | Add a direct `as_of_time` param to the `find_*` methods that only accept it via `**kwargs` (silent no-op): `find_information_supply_chains`, `find_governance_definitions`, `find_note_logs`, `find_collections`, `find_data_structures`. | **fixed** — semantically verified 2026-07-15 for `find_note_logs` (4→0) and `find_data_structures` (94→0) against real qs data; `find_information_supply_chains`/`find_governance_definitions` share the same code path but weren't independently data-verified (no loaded data of those types) | LE-3 time-travel on Note Logs, Data Design specs/structures confirmed unblocked; ISC/Governance definitions expected fixed |
 | PY-10 | ~~Asset detail by-guid rejects `asOfTime`~~ — **NOT A BUG (closed 2026-06-21).** Root cause found by reading egeria-python + re-testing: `get_asset_graph_by_guid` and `get_asset_by_guid` **do** honour `asOfTime` (verified: `asOfTime=now` returns the element; `Z` format works). The earlier 500/404 were because the demo repo was (re)loaded **2026-06-17**, so test times of 2020 / 2026-06-01 legitimately predate the entity's repository version → Egeria correctly returns "not found at that time" (`OMAG-REPOSITORY-HANDLER-404-007`, surfaced as 404 by the by-guid retrieve and 500 by the graph endpoint). No Egeria/pyegeria change needed. | done | Asset detail pane now time-travels (LE-3); handler degrades a "not found at time" to a clean 404 → friendly "not present at the selected time" message. |
-| PY-9 | **Ship the `as_of_time` method updates to the deployed pyegeria.** Local edits to `project_manager` (`get_linked_projects`), `collection_manager` (`get_collection_members`), `data_designer` (`get_data_field_by_guid`) are NOT in the container (pip-installed `pyegeria 6.0.15.5`, not editable). Until a release bump (or an editable/volume mount), passing `as_of_time=` to those installed methods raises `TypeError`, so the tree-view + linked-projects + data-field time-travel can't be wired. | open (Dan) | Surfaced 2026-06-21. Options: cut a pyegeria release + rebuild the image, or mount the local `pyegeria-python` editable into pyegeria-web for dev. |
+| PY-9 | **Ship the `as_of_time` method updates to the deployed pyegeria.** Local edits to `project_manager` (`get_linked_projects`), `collection_manager` (`get_collection_members`), `data_designer` (`get_data_field_by_guid`) | **resolved** — semantically verified 2026-07-15 for `get_collection_members` on deployed 6.0.16.18 (real collection: 12 members "now" vs. `"No elements found"` at `as_of_time="2000-01-01"`); `get_linked_projects` confirmed no `TypeError`; `get_data_field_by_guid` not independently data-verified | Tree-view + linked-projects + data-field time-travel can now be wired up |
+| PY-12 | `ReferenceDataManager` has no specification-property / valid-metadata methods (only inherits `ServerClient`) — easy to assume it covers `SpecificationProperties`' territory since `get_valid_metadata_values` happens to work on it | open (docs/placement) | Use `pyegeria.SpecificationProperties` for `get_specification_property_*`/`find_specification_property` |
+| PY-13 | `SpecificationProperties.get_specification_property_by_type` always 400s regardless of the value passed (plain name, or the enum-wrapped form from its own OpenAPI spec) | **reclassified as Egeria server bug** — not fixable in pyegeria; server-side `@RequestParam` enum binding issue | `valid_values_handler.py` uses `find_specification_property("*")` + client-side filter on `properties.identifier` instead |
+| PY-14 | `find_specification_property` default `graph_query_depth=3` is O(n) per element (~50s for 1000 elements) — same root cause as PY-6, confirmed on a second method | **not a bug** — reclassified 2026-07-14, same reasoning as PY-6 | Always pass `graph_query_depth=0` on bulk `find_*`/list calls (~0.6-2s for 1000 elements, same flat data minus the graph) |
 
 ---
 
