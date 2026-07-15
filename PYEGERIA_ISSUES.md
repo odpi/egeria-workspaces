@@ -524,6 +524,79 @@ that's easy to leave at its default.
 
 ---
 
+## PY-15: Postgres repository connector ignores `matchCriteria` on `SearchClassifications` — multi-classification search always returns 0
+
+**Status:** confirmed server-side bug, 2026-07-15, while building Egeria Insights
+(`insights_handler.py`). Not a pyegeria client bug — the client sends the body
+faithfully; the Postgres repository connector's SQL generation drops
+`matchCriteria` on the classification-matching path only.
+
+**How to trigger:**
+```python
+import pyegeria, os
+pyegeria.enable_ssl_check = False
+pyegeria.disable_ssl_warnings = True
+from pyegeria import MetadataExpert
+mgr = MetadataExpert(view_server="qs-view-server", platform_url="https://localhost:9443",
+                      user_id="erinoverview", user_pwd="secret")
+mgr.create_egeria_bearer_token()
+
+def find(names, match_criteria):
+    body = {
+        "class": "FindRequestBody",
+        "matchClassifications": {
+            "class": "SearchClassifications",
+            "matchCriteria": match_criteria,
+            "conditions": [{"name": n} for n in names],
+        },
+        "limitResultsByStatus": ["ACTIVE"],
+    }
+    return mgr.find_metadata_elements(body, start_from=0, page_size=500, graph_query_depth=0)
+
+print(len(find(["ZoneMembership"], "ANY")))                    # 150 on qs demo data
+print(len(find(["Confidentiality"], "ANY")))                    # 1
+print(find(["ZoneMembership", "Confidentiality"], "ANY"))       # "No elements found"
+print(find(["ZoneMembership", "Confidentiality"], "ALL"))       # "No elements found" — same as ANY
+print(find(["ZoneMembership", "Confidentiality"], "NONE"))      # "No elements found" — same again
+```
+
+**Expected:** `matchCriteria: "ANY"` across two classification names should
+return the union — every element carrying *either* classification (151 on qs
+demo data, since none carry both). `"ALL"` should return the (here, empty)
+intersection. `"NONE"` should return elements carrying neither.
+
+**Actual:** any query naming 2+ classifications in `matchClassifications`
+returns zero elements, and the result is identical no matter which
+`matchCriteria` value is sent — `ANY`/`ALL`/`NONE` are indistinguishable.
+Single-condition queries work correctly and are unaffected.
+
+**Root cause:** `QueryBuilder.getSearchClassificationsClause()` in
+`open-metadata-implementation/adapters/open-connectors/repository-services-connectors/open-metadata-collection-store-connectors/postgres-repository-connector/src/main/java/org/odpi/openmetadata/adapters/repositoryservices/postgres/repositoryconnector/database/QueryBuilder.java`
+(lines 1036–1078) unconditionally `AND`s an `AND (type_name LIKE '%:<Name>:%' ...)`
+clause per classification condition and never reads
+`matchClassifications.getMatchCriteria()` at all — confirmed by grepping the
+whole file: `MatchCriteria` is read in the *property*-matching path
+(`getPropertyComparisonFromPropertyConditions()`, ~line 896: `if
+(searchProperties.getMatchCriteria() == MatchCriteria.ANY) { matchOperand =
+" or "; }`) but never in the classification-matching path. So the generated
+SQL always requires every named classification to appear on the same
+classification-table join simultaneously, regardless of what `matchCriteria`
+the caller asked for. With two mutually exclusive classification names, no
+row can satisfy the `AND`-chain, so the query returns nothing.
+
+**No client-side workaround applied** — `insights_handler.py`'s
+`get_summary()` (5-classification `ANY` tally for the Dashboard card) and any
+multi-classification compound search in the Governance Search tab are
+affected; both currently return correct results only when 0 or 1
+classification condition is supplied. Fixing this requires a server-side
+change; a full replacement for `getSearchClassificationsClause()` (mirroring
+the `ANY`→`or`/`ALL`→`and`/`NONE`→`not(...)` pattern already used for
+property conditions) is on file at
+`scratchpad/QueryBuilder-classifications-fix.patch` in the session that found
+this, pending a proper PR against `postgres-repository-connector`.
+
+---
+
 ## Quick reference: which OMVS client class for which purpose
 
 | Need | Class | Notes |
