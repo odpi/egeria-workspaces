@@ -5,8 +5,10 @@ Copyright Contributors to the ODPi Egeria project.
 Valid Metadata Values Explorer — FastAPI router.
 
 Endpoints:
-  GET /api/valid-values/properties  → property names that have registered valid values
-  GET /api/valid-values/lookup      → valid values for a specific Egeria property name
+  GET /api/valid-values/properties          → property names that have registered valid values
+  GET /api/valid-values/lookup              → valid values for a specific Egeria property name
+  GET /api/valid-values/spec-property-types → specification property type names
+  GET /api/valid-values/spec-property-lookup → specification property values for a given type
 """
 
 import os
@@ -37,6 +39,17 @@ def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     user_id = user_id or os.environ.get("EGERIA_USER",          "erinoverview")
     user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
     mgr = ReferenceDataManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    apply_token(mgr)
+    return mgr
+
+
+def _get_spec_props(url=None, server=None, user_id=None, user_pwd=None):
+    from pyegeria import SpecificationProperties
+    url     = url     or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server  = server  or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id = user_id or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    mgr = SpecificationProperties(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
     apply_token(mgr)
     return mgr
 
@@ -262,4 +275,101 @@ def lookup_valid_values(
         "type_name":     type_name,
         "values":        raw,
         "total":         len(raw),
+    })
+
+
+@router.get("/api/valid-values/spec-property-types", summary="List specification property type names")
+def get_specification_property_types(
+    url:     Optional[str] = Query(None, description="Egeria platform URL (overrides env)"),
+    server:  Optional[str] = Query(None, description="View server name (overrides env)"),
+    user_id: Optional[str] = Query(None, description="User ID (overrides env)"),
+    user_pwd:Optional[str] = Query(None, description="Password (overrides env)"),
+):
+    """
+    Return the sorted list of specification property type names (e.g. TemplateSubstitute,
+    ReplacementProperty) that can be used to look up specification property values.
+    """
+    try:
+        mgr = _get_spec_props(url, server, user_id, user_pwd)
+    except Exception as exc:
+        logger.exception("Failed to create SpecificationProperties client")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+    try:
+        raw = mgr.get_specification_property_types()
+    except Exception as exc:
+        logger.exception("get_specification_property_types failed")
+        raise HTTPException(status_code=500, detail=f"Specification property type retrieval failed: {exc}")
+
+    names = sorted(raw.keys()) if isinstance(raw, dict) else []
+    return JSONResponse({"types": names, "total": len(names)})
+
+
+def _flatten_spec_property_element(el: dict) -> dict:
+    """Flatten a raw OpenMetadataRootElement into the flat shape ValidValueEntry expects."""
+    props = el.get("properties") or {}
+    return {
+        "displayName":     props.get("displayName") or props.get("preferredValue") or "",
+        "preferredValue":  props.get("preferredValue", ""),
+        "description":     props.get("description", ""),
+        "category":        props.get("category", ""),
+        "dataType":        props.get("dataType", ""),
+        "usage":           props.get("usage", ""),
+        "qualifiedName":   props.get("qualifiedName", ""),
+        "isCaseSensitive": bool(props.get("isCaseSensitive", False)),
+        "ordinal":         props.get("ordinal", 9999),
+        "specPropertyType": props.get("identifier", ""),
+        "guid":            (el.get("elementHeader") or {}).get("guid", ""),
+    }
+
+
+@router.get("/api/valid-values/spec-property-lookup", summary="Look up specification property values for a type")
+def lookup_specification_property_values(
+    spec_property_type: str           = Query(..., description="Specification property type to look up (PascalCase, e.g. PlaceholderProperty)"),
+    url:     Optional[str] = Query(None, description="Egeria platform URL (overrides env)"),
+    server:  Optional[str] = Query(None, description="View server name (overrides env)"),
+    user_id: Optional[str] = Query(None, description="User ID (overrides env)"),
+    user_pwd:Optional[str] = Query(None, description="Password (overrides env)"),
+):
+    """
+    Return specification property values registered for a given specification property type.
+
+    NOTE: the dedicated "by-type" REST operation (get_specification_property_by_type)
+    rejects every value tried for its specificationPropertyType enum parameter with a
+    generic 400 from the view server (looks like an upstream Egeria/pyegeria mismatch).
+    As a workaround, fetch the full specification property catalog via the working
+    by-search-string operation (find_specification_property) and filter client-side on
+    the "identifier" property, which holds the camelCase form of the type name
+    (e.g. "PlaceholderProperty" -> "placeholderProperty").
+
+    graph_query_depth=0 is required: the default (3) makes the view server compute a
+    relationship graph/mermaid diagram per element, which takes ~50s for 1000 elements
+    vs <1s with depth=0 (same O(n) cost pattern as the Note Logs graph_query_depth issue).
+    """
+    try:
+        mgr = _get_spec_props(url, server, user_id, user_pwd)
+    except Exception as exc:
+        logger.exception("Failed to create SpecificationProperties client")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+    try:
+        elements = mgr.find_specification_property("*", page_size=1000, graph_query_depth=0)
+    except Exception as exc:
+        logger.exception("find_specification_property failed")
+        raise HTTPException(status_code=500, detail=f"Specification property retrieval failed: {exc}")
+
+    if not isinstance(elements, list):
+        elements = []
+
+    identifier = spec_property_type[:1].lower() + spec_property_type[1:] if spec_property_type else ""
+    raw = [
+        _flatten_spec_property_element(el)
+        for el in elements
+        if isinstance(el, dict) and (el.get("properties") or {}).get("identifier") == identifier
+    ]
+
+    return JSONResponse({
+        "spec_property_type": spec_property_type,
+        "values":             raw,
+        "total":              len(raw),
     })

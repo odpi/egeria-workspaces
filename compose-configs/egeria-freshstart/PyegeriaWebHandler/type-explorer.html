@@ -4411,17 +4411,67 @@ function ValidValueDetail({ item }) {
 
 function ValidValueEntry({ val }) {
   if (!val) return null;
+  const fields = [
+    ['Preferred Value', val.preferredValue],
+    ['Description',     val.description],
+    ['Category',        val.category],
+    ['Data Type',       val.dataType],
+    ['Usage',           val.usage],
+    ['Scope',           val.scope],
+    ['Property Name',   val.propertyName],
+    ['Spec Property Type', val.specPropertyType],
+    ['Qualified Name',  val.qualifiedName],
+    ['Case Sensitive',  val.isCaseSensitive != null ? (val.isCaseSensitive ? 'Yes' : 'No') : null],
+    ['Ordinal',         val.ordinal != null && val.ordinal !== 9999 ? val.ordinal : null],
+    ['GUID',            val.guid],
+  ].filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== '');
+
   return React.createElement("div", { style: { padding: '14px 20px', borderBottom: '1px solid var(--border)' } },
-    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 } },
+    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 } },
       React.createElement("span", { style: { fontWeight: 600, fontSize: 14, flex: 1 } }, val.displayName || val.preferredValue || '?'),
-      val.preferredValue && React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)' } }, val.preferredValue),
       React.createElement(CopyJsonButton, { data: val })
     ),
-    val.description && React.createElement("p", { style: { margin: 0, fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 } }, val.description)
+    fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 } },
+      React.createElement("tbody", null,
+        fields.map(([label, value]) =>
+          React.createElement("tr", { key: label, style: { borderTop: '1px solid var(--border)' } },
+            React.createElement("td", { style: { padding: '4px 12px 4px 0', color: 'var(--dim)', whiteSpace: 'nowrap', verticalAlign: 'top', width: 130 } }, label),
+            React.createElement("td", { style: { padding: '4px 0', wordBreak: 'break-word' } },
+              label === 'GUID'
+                ? React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)' } }, value)
+                : String(value)
+            )
+          )
+        )
+      )
+    )
   );
 }
 
 function ValidValuesView({ navProp }) {
+  const [tab, setTab] = useState('metadata'); // 'metadata' | 'spec-properties'
+
+  return React.createElement("div", { className: "body", style: { flexDirection: 'column' } },
+    React.createElement("div", { style: { display: 'flex', gap: 0, borderBottom: '1px solid var(--border)',
+      flexShrink: 0, background: 'var(--panel)' } },
+      React.createElement("button", {
+        className: "view-tab" + (tab === 'metadata' ? " on" : ""),
+        onClick: function() { setTab('metadata'); }
+      }, "Valid Metadata Values"),
+      React.createElement("button", {
+        className: "view-tab" + (tab === 'spec-properties' ? " on" : ""),
+        onClick: function() { setTab('spec-properties'); }
+      }, "Specification Property Values")
+    ),
+    React.createElement("div", { style: { flex: 1, minHeight: 0, display: 'flex' } },
+      tab === 'metadata'
+        ? React.createElement(ValidMetadataValuesTab, { navProp: navProp })
+        : React.createElement(SpecificationPropertyValuesTab, null)
+    )
+  );
+}
+
+function ValidMetadataValuesTab({ navProp }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(254);
   // Left: property name input + dynamic presets from Egeria
@@ -4434,6 +4484,7 @@ function ValidValuesView({ navProp }) {
   const [values, setValues] = useState([]);
   const [loadState, setLoadState] = useState('idle');
   const [error, setError] = useState('');
+  const [filterText, setFilterText] = useState('');
 
   // Fetch list of properties that have registered valid values
   useEffect(() => {
@@ -4479,6 +4530,17 @@ function ValidValuesView({ navProp }) {
     if (navProp) { setPropertyName(navProp); lookup(navProp); }
   }, [navProp]);  // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => { setFilterText(''); }, [submittedProp]);
+
+  const filteredValues = useMemo(() => {
+    const q = filterText.trim().toLowerCase();
+    if (!q) return values;
+    return values.filter(v =>
+      [v.displayName, v.preferredValue, v.description, v.qualifiedName, v.category, v.propertyName, v.usage]
+        .some(f => f && String(f).toLowerCase().includes(q))
+    );
+  }, [values, filterText]);
+
   return React.createElement("div", { className: "body" },
     // Left: property selector
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
@@ -4515,12 +4577,148 @@ function ValidValuesView({ navProp }) {
         : React.createElement("div", null,
             React.createElement("div", { style: { padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 } },
               React.createElement("span", { style: { fontSize: 16, fontWeight: 700 } }, submittedProp),
-              React.createElement("span", { className: "badge" }, values.length + ' value' + (values.length !== 1 ? 's' : '')),
+              React.createElement("span", { className: "badge" }, (filterText ? filteredValues.length + ' / ' : '') + values.length + ' value' + (values.length !== 1 ? 's' : '')),
               React.createElement(CopyJsonButton, { data: values, title: '{ } Copy all JSON' })
+            ),
+            values.length > 0 && React.createElement("div", { style: { padding: '8px 20px', borderBottom: '1px solid var(--border)' } },
+              React.createElement("input", {
+                type: "text",
+                className: "search-input",
+                placeholder: "Filter these values…",
+                value: filterText,
+                onChange: e => setFilterText(e.target.value),
+                style: { width: '100%', maxWidth: 320 }
+              })
             ),
             values.length === 0
               ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "No registered valid values for “" + submittedProp + "”"))
-              : values.map((v, i) => React.createElement(ValidValueEntry, { key: i, val: v }))
+              : filteredValues.length === 0
+              ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "No values match “" + filterText + "”"))
+              : filteredValues.map((v, i) => React.createElement(ValidValueEntry, { key: i, val: v }))
+          )
+    )
+  );
+}
+
+function SpecificationPropertyValuesTab() {
+  const creds = React.useContext(CredContext);
+  const [sideW, onDivDown] = useResizable(254);
+  // Left: spec property type input + dynamic presets from Egeria
+  const [typeName, setTypeName] = useState('');
+  const [submittedType, setSubmittedType] = useState('');
+  const [knownTypes, setKnownTypes] = useState([]);
+  const [typesState, setTypesState] = useState('loading'); // 'loading' | 'ready' | 'error'
+  const [typesError, setTypesError] = useState('');
+  // Right: loaded values for the submitted type
+  const [values, setValues] = useState([]);
+  const [loadState, setLoadState] = useState('idle');
+  const [error, setError] = useState('');
+  const [filterText, setFilterText] = useState('');
+
+  // Fetch list of specification property types
+  useEffect(() => {
+    setTypesState('loading');
+    setTypesError('');
+    egeriaFetch('/api/valid-values/spec-property-types', creds)
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(data => {
+        if (data && Array.isArray(data.types)) {
+          setKnownTypes(data.types);
+          setTypesState('ready');
+        } else {
+          setKnownTypes([]);
+          setTypesState('ready');
+        }
+      })
+      .catch(err => { setTypesError(err.message); setTypesState('error'); });
+  }, [creds]);
+
+  const lookup = useCallback((type) => {
+    const t = (type || '').trim();
+    if (!t) return;
+    setSubmittedType(t);
+    setLoadState('loading');
+    setError('');
+    setValues([]);
+    egeriaFetch('/api/valid-values/spec-property-lookup?spec_property_type=' + encodeURIComponent(t), creds)
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(data => {
+        const sorted = (data.values || []).slice().sort((a, b) => {
+          const ao = a.ordinal != null ? a.ordinal : 9999;
+          const bo = b.ordinal != null ? b.ordinal : 9999;
+          return ao !== bo ? ao - bo : (a.displayName || '').localeCompare(b.displayName || '');
+        });
+        setValues(sorted);
+        setLoadState('ready');
+      })
+      .catch(err => { setError(err.message); setLoadState('error'); });
+  }, [creds]);
+
+  useEffect(() => { setFilterText(''); }, [submittedType]);
+
+  const filteredValues = useMemo(() => {
+    const q = filterText.trim().toLowerCase();
+    if (!q) return values;
+    return values.filter(v =>
+      [v.displayName, v.preferredValue, v.description, v.qualifiedName, v.category, v.specPropertyType, v.usage]
+        .some(f => f && String(f).toLowerCase().includes(q))
+    );
+  }, [values, filterText]);
+
+  return React.createElement("div", { className: "body" },
+    // Left: type selector
+    React.createElement("div", { className: "sidebar", style: { width: sideW } },
+      React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } }, "Specification Property Type"),
+      React.createElement("form", { onSubmit: e => { e.preventDefault(); lookup(e.target.elements.spt.value); }, style: { padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 4 } },
+        React.createElement("input", { name: "spt", type: "text", placeholder: "e.g. TemplateSubstitute", value: typeName, onChange: e => setTypeName(e.target.value), style: { flex: 1, fontSize: 13, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' } }),
+        React.createElement("button", { type: "submit", style: { padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', cursor: 'pointer', fontSize: 12 } }, "Go")
+      ),
+      React.createElement("div", { style: { padding: '6px 12px', fontSize: 11, color: 'var(--dim)', borderBottom: '1px solid var(--border)' } },
+        typesState === 'loading' ? "Loading types…"
+        : typesState === 'error' ? React.createElement("span", { style: { color: '#d44' }, title: typesError }, "⚠ " + typesError)
+        : knownTypes.length === 0 ? "No registered specification property types found"
+        : "Registered specification property types:"
+      ),
+      React.createElement("div", { className: "tree-scroll" },
+        knownTypes.map(t =>
+          React.createElement("div", {
+            key: t,
+            className: "tree-item" + (submittedType === t ? " sel" : ""),
+            onClick: () => { setTypeName(t); lookup(t); },
+          }, React.createElement("span", { className: "type-name" }, t))
+        )
+      )
+    ),
+    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
+    // Right: specification property values for selected type
+    React.createElement("div", { className: "main", style: { flexDirection: 'column', alignItems: 'stretch', overflowY: 'auto' } },
+      !submittedType
+        ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a specification property type or type one to look up its values"))
+        : loadState === 'loading'
+        ? React.createElement("div", { className: "center" }, "Loading specification property values for “" + submittedType + "”…")
+        : loadState === 'error'
+        ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "Error: " + error))
+        : React.createElement("div", null,
+            React.createElement("div", { style: { padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 } },
+              React.createElement("span", { style: { fontSize: 16, fontWeight: 700 } }, submittedType),
+              React.createElement("span", { className: "badge" }, (filterText ? filteredValues.length + ' / ' : '') + values.length + ' value' + (values.length !== 1 ? 's' : '')),
+              React.createElement(CopyJsonButton, { data: values, title: '{ } Copy all JSON' })
+            ),
+            values.length > 0 && React.createElement("div", { style: { padding: '8px 20px', borderBottom: '1px solid var(--border)' } },
+              React.createElement("input", {
+                type: "text",
+                className: "search-input",
+                placeholder: "Filter these values…",
+                value: filterText,
+                onChange: e => setFilterText(e.target.value),
+                style: { width: '100%', maxWidth: 320 }
+              })
+            ),
+            values.length === 0
+              ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "No registered specification property values for “" + submittedType + "”"))
+              : filteredValues.length === 0
+              ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "No values match “" + filterText + "”"))
+              : filteredValues.map((v, i) => React.createElement(ValidValueEntry, { key: i, val: v }))
           )
     )
   );
