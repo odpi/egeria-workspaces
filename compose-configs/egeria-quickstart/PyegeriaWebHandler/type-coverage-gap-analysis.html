@@ -1,0 +1,771 @@
+<title>Egeria Portal — Type Coverage Registry</title>
+<style>
+  :root{
+    --bg:#EEF0F2; --surface:#FFFFFF; --surface-2:#F5F6F8;
+    --ink:#1B222C; --ink-soft:#58626F; --ink-faint:#8891A0;
+    --accent:#2E4374; --accent-soft:#EAEEF7;
+    --flag:#B9862B; --flag-soft:#FBF2E1;
+    --rule:#D6D9DE; --rule-soft:#E5E7EB;
+    --critical:#B23B30; --critical-soft:#F6E3E0;
+    --high:#B9862B; --high-soft:#FBF2E1;
+    --medium:#4A5C7A; --medium-soft:#E7EAF2;
+    --backlog:#6B7280; --backlog-soft:#ECEDEF;
+    --good:#3F7A5C; --good-soft:#E4F0EA;
+    --shadow: 0 1px 2px rgba(27,34,44,0.06), 0 6px 20px rgba(27,34,44,0.05);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#12161C; --surface:#1B212A; --surface-2:#20262F;
+      --ink:#E7E9EC; --ink-soft:#9AA3AF; --ink-faint:#6B7480;
+      --accent:#8CA3D6; --accent-soft:#232B3C;
+      --flag:#D9A94B; --flag-soft:#332A16;
+      --rule:#2A313C; --rule-soft:#242B35;
+      --critical:#DE7B6E; --critical-soft:#3A211E;
+      --high:#D9A94B; --high-soft:#332A16;
+      --medium:#9DB0DA; --medium-soft:#232B3C;
+      --backlog:#9AA0A8; --backlog-soft:#242830;
+      --good:#7FC1A0; --good-soft:#1C2E26;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#12161C; --surface:#1B212A; --surface-2:#20262F;
+    --ink:#E7E9EC; --ink-soft:#9AA3AF; --ink-faint:#6B7480;
+    --accent:#8CA3D6; --accent-soft:#232B3C;
+    --flag:#D9A94B; --flag-soft:#332A16;
+    --rule:#2A313C; --rule-soft:#242B35;
+    --critical:#DE7B6E; --critical-soft:#3A211E;
+    --high:#D9A94B; --high-soft:#332A16;
+    --medium:#9DB0DA; --medium-soft:#232B3C;
+    --backlog:#9AA0A8; --backlog-soft:#242830;
+    --good:#7FC1A0; --good-soft:#1C2E26;
+    color-scheme: dark;
+  }
+  :root[data-theme="light"]{
+    --bg:#EEF0F2; --surface:#FFFFFF; --surface-2:#F5F6F8;
+    --ink:#1B222C; --ink-soft:#58626F; --ink-faint:#8891A0;
+    --accent:#2E4374; --accent-soft:#EAEEF7;
+    --flag:#B9862B; --flag-soft:#FBF2E1;
+    --rule:#D6D9DE; --rule-soft:#E5E7EB;
+    --critical:#B23B30; --critical-soft:#F6E3E0;
+    --high:#B9862B; --high-soft:#FBF2E1;
+    --medium:#4A5C7A; --medium-soft:#E7EAF2;
+    --backlog:#6B7280; --backlog-soft:#ECEDEF;
+    --good:#3F7A5C; --good-soft:#E4F0EA;
+    color-scheme: light;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    font-size:16px;
+    line-height:1.55;
+  }
+  .mono{
+    font-family:"SF Mono","Menlo","Consolas","Liberation Mono",monospace;
+    font-size:0.85em;
+    letter-spacing:-0.01em;
+  }
+  h1,h2,h3{
+    font-family:"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif;
+    font-weight:600;
+    text-wrap:balance;
+    color:var(--ink);
+    margin:0;
+  }
+
+  .page{
+    max-width:1180px;
+    margin:0 auto;
+    padding:0 clamp(20px,4vw,56px) 96px;
+    display:grid;
+    grid-template-columns:220px minmax(0,1fr);
+    gap:56px;
+  }
+  @media (max-width:860px){
+    .page{ grid-template-columns:1fr; }
+    .rail{ display:none; }
+  }
+
+  /* ---------- Header / masthead ---------- */
+  .masthead{
+    grid-column:1 / -1;
+    padding:52px 0 30px;
+    border-bottom:1px solid var(--rule);
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+  .eyebrow{
+    font-family:"SF Mono","Menlo",monospace;
+    font-size:12.5px;
+    letter-spacing:0.09em;
+    text-transform:uppercase;
+    color:var(--accent);
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .eyebrow::before{
+    content:"";
+    width:7px; height:7px;
+    background:var(--accent);
+    display:inline-block;
+    border-radius:1px;
+    transform:rotate(45deg);
+  }
+  .masthead h1{
+    font-size:clamp(28px,3.6vw,40px);
+    line-height:1.15;
+  }
+  .masthead .dek{
+    max-width:62ch;
+    color:var(--ink-soft);
+    font-size:16.5px;
+  }
+  .masthead .dek .mono{ color:var(--ink); }
+
+  .stat-strip{
+    display:flex;
+    gap:0;
+    margin-top:10px;
+    border:1px solid var(--rule);
+    border-radius:8px;
+    overflow:hidden;
+    background:var(--surface);
+    box-shadow:var(--shadow);
+    width:fit-content;
+  }
+  .stat{
+    padding:14px 22px;
+    border-right:1px solid var(--rule);
+    min-width:108px;
+  }
+  .stat:last-child{ border-right:none; }
+  .stat .n{
+    font-family:"Iowan Old Style","Palatino Linotype",Georgia,serif;
+    font-size:24px;
+    font-variant-numeric:tabular-nums;
+    color:var(--ink);
+    display:block;
+  }
+  .stat .l{
+    font-size:11.5px;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:var(--ink-faint);
+  }
+
+  /* ---------- Left rail ---------- */
+  .rail{
+    position:sticky;
+    top:28px;
+    align-self:start;
+    padding-top:44px;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  .rail .rail-label{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--ink-faint);
+    margin:18px 0 6px;
+  }
+  .rail .rail-label:first-child{ margin-top:0; }
+  .rail a{
+    color:var(--ink-soft);
+    text-decoration:none;
+    font-size:13.5px;
+    padding:5px 0;
+    border-left:2px solid transparent;
+    padding-left:10px;
+    margin-left:-11px;
+  }
+  .rail a:hover, .rail a:focus-visible{
+    color:var(--ink);
+    border-left-color:var(--accent);
+    outline:none;
+  }
+
+  /* ---------- Main column ---------- */
+  main{ padding-top:44px; min-width:0; }
+
+  .lede{
+    max-width:70ch;
+    color:var(--ink-soft);
+    font-size:15.5px;
+    margin-bottom:44px;
+  }
+  .lede strong{ color:var(--ink); font-weight:600; }
+
+  section.tier{ margin-bottom:52px; scroll-margin-top:24px; }
+  .tier-head{
+    display:flex;
+    align-items:baseline;
+    gap:12px;
+    margin-bottom:6px;
+    padding-bottom:10px;
+    border-bottom:1px solid var(--rule);
+  }
+  .tier-head h2{ font-size:21px; }
+  .tier-count{
+    font-family:"SF Mono",monospace;
+    font-size:12px;
+    color:var(--ink-faint);
+    margin-left:auto;
+  }
+  .tier-note{
+    color:var(--ink-soft);
+    font-size:14px;
+    max-width:68ch;
+    margin:10px 0 22px;
+  }
+
+  .entry{
+    display:grid;
+    grid-template-columns:40px minmax(0,1fr);
+    gap:18px;
+    padding:20px 0;
+    border-bottom:1px solid var(--rule-soft);
+  }
+  .entry:last-child{ border-bottom:none; }
+  .entry-num{
+    font-family:"Iowan Old Style","Palatino Linotype",Georgia,serif;
+    font-size:19px;
+    color:var(--ink-faint);
+    padding-top:1px;
+  }
+  .entry-body h3{
+    font-size:17px;
+    display:inline;
+  }
+  .entry-top{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+    margin-bottom:8px;
+  }
+  .chip{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+    font-weight:600;
+    padding:3px 9px;
+    border-radius:99px;
+    white-space:nowrap;
+  }
+  .chip.critical{ background:var(--critical-soft); color:var(--critical); }
+  .chip.high{ background:var(--high-soft); color:var(--high); }
+  .chip.medium{ background:var(--medium-soft); color:var(--medium); }
+  .chip.backlog{ background:var(--backlog-soft); color:var(--backlog); }
+  .chip.good{ background:var(--good-soft); color:var(--good); }
+
+  .entry-desc{ color:var(--ink-soft); font-size:14.5px; max-width:70ch; }
+  .entry-desc strong{ color:var(--ink); font-weight:600;}
+
+  .types{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-top:12px;
+  }
+  .type-pill{
+    font-family:"SF Mono","Menlo",monospace;
+    font-size:12px;
+    background:var(--surface-2);
+    border:1px solid var(--rule);
+    color:var(--ink-soft);
+    padding:2px 8px;
+    border-radius:5px;
+  }
+
+  .status-line{
+    margin-top:10px;
+    font-size:13px;
+    color:var(--ink-faint);
+    display:flex;
+    gap:6px;
+    align-items:baseline;
+  }
+  .status-line .k{ color:var(--ink-faint); }
+  .status-line .v{ color:var(--ink-soft); }
+
+  /* ---------- Covered / calibration table ---------- */
+  .covered-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(230px,1fr));
+    gap:10px;
+  }
+  .covered-item{
+    background:var(--surface);
+    border:1px solid var(--rule);
+    border-radius:8px;
+    padding:12px 14px;
+    font-size:13.5px;
+    color:var(--ink-soft);
+    display:flex;
+    gap:10px;
+    align-items:flex-start;
+  }
+  .covered-item .dot{
+    width:7px; height:7px; border-radius:50%;
+    background:var(--good);
+    margin-top:6px;
+    flex:none;
+  }
+  .covered-item b{ color:var(--ink); font-weight:600; display:block; font-size:14px;}
+
+  /* ---------- Backlog list ---------- */
+  .backlog-list{ display:flex; flex-direction:column; gap:0; }
+  .backlog-row{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:16px;
+    padding:13px 0;
+    border-bottom:1px solid var(--rule-soft);
+    align-items:baseline;
+  }
+  .backlog-row:last-child{ border-bottom:none; }
+  .backlog-row .t{ color:var(--ink); font-size:14.5px; }
+  .backlog-row .t span{ color:var(--ink-soft); }
+  .backlog-row .src{
+    font-family:"SF Mono",monospace;
+    font-size:11.5px;
+    color:var(--ink-faint);
+    white-space:nowrap;
+  }
+
+  /* ---------- Appendix / raw diff ---------- */
+  .appendix-intro{
+    color:var(--ink-soft);
+    font-size:14.5px;
+    max-width:70ch;
+    margin-bottom:20px;
+  }
+  details.area{
+    background:var(--surface);
+    border:1px solid var(--rule);
+    border-radius:8px;
+    margin-bottom:10px;
+    overflow:hidden;
+  }
+  details.area + details.area{ margin-top:10px; }
+  details.area summary{
+    cursor:pointer;
+    list-style:none;
+    padding:14px 18px;
+    display:flex;
+    align-items:center;
+    gap:14px;
+    font-size:14.5px;
+    color:var(--ink);
+    user-select:none;
+  }
+  details.area summary::-webkit-details-marker{ display:none; }
+  details.area summary::before{
+    content:"▸";
+    color:var(--ink-faint);
+    font-size:11px;
+    transition:transform 0.15s ease;
+    flex:none;
+  }
+  details.area[open] summary::before{ transform:rotate(90deg); }
+  details.area summary .area-name{ font-weight:600; }
+  details.area summary .area-frac{
+    font-family:"SF Mono",monospace;
+    font-size:12px;
+    color:var(--ink-faint);
+    margin-left:auto;
+  }
+  .area-bar{
+    height:4px;
+    background:var(--rule-soft);
+    border-radius:99px;
+    width:90px;
+    overflow:hidden;
+    flex:none;
+  }
+  .area-bar span{
+    display:block;
+    height:100%;
+    background:var(--accent);
+  }
+  .area-missing{
+    padding:4px 18px 18px;
+    border-top:1px solid var(--rule-soft);
+  }
+  .area-missing p{
+    margin:12px 0 8px;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+    color:var(--ink-faint);
+  }
+  .area-missing .types{ margin-top:0; }
+
+  footer{
+    margin-top:60px;
+    padding-top:22px;
+    border-top:1px solid var(--rule);
+    color:var(--ink-faint);
+    font-size:12.5px;
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    * { transition:none !important; }
+  }
+</style>
+
+<div class="page">
+
+  <div class="masthead">
+    <div class="eyebrow">Egeria Workspaces · Portal Coverage Audit</div>
+    <h1>What the Egeria portals haven't built yet</h1>
+    <p class="dek">A gap analysis of <span class="mono">pyegeriawebhandler</span> (Egeria Explorer, Tech Catalog, Audit, Operations, Lineage Explorer) against the full Egeria v6 open metadata type system — <span class="mono">625</span> entity, relationship, and classification types across Areas 0–7. Ranked for feature prioritization, not exhaustiveness.</p>
+    <div class="stat-strip">
+      <div class="stat"><span class="n">625</span><span class="l">Types in model</span></div>
+      <div class="stat"><span class="n">190</span><span class="l">Referenced in UI</span></div>
+      <div class="stat"><span class="n">11</span><span class="l">Feature gaps found</span></div>
+      <div class="stat"><span class="n">8</span><span class="l">Areas surveyed</span></div>
+    </div>
+  </div>
+
+  <nav class="rail">
+    <div class="rail-label">Priority</div>
+    <a href="#critical">Highest value</a>
+    <a href="#high">High value</a>
+    <a href="#medium">Worth planning</a>
+    <a href="#niche">Niche / advanced</a>
+    <div class="rail-label">Reference</div>
+    <a href="#covered">Already covered</a>
+    <a href="#backlog">App's own backlog</a>
+    <a href="#appendix">Raw type diff</a>
+  </nav>
+
+  <main>
+    <p class="lede">Method: every handler in <span class="mono">PyegeriaWebHandler</span> was checked for which Egeria types it actually queries or renders, then diffed against the canonical type list in <span class="mono">OpenMetadataType.java</span>. Internal relationship plumbing, abstract base types, and subtypes that ride along automatically when a parent type is browsed (e.g. <span class="mono">CSVFile</span> under <span class="mono">DataFile</span>) were filtered out — what's left below are <strong>real, browsable feature gaps</strong>.</p>
+
+    <section class="tier" id="critical">
+      <div class="tier-head">
+        <h2>Highest value</h2>
+        <span class="tier-count">1 item</span>
+      </div>
+      <p class="tier-note">The single gap most out of proportion to how mature the rest of the app is.</p>
+
+      <div class="entry">
+        <div class="entry-num">01</div>
+        <div class="entry-body">
+          <div class="entry-top">
+            <h3>Governance classifications &amp; security have no browsing surface</h3>
+            <span class="chip critical">Highest value</span>
+          </div>
+          <p class="entry-desc">Confidentiality, retention, criticality, and security-tag classifications drive most real governance workflows, but there's no tab to browse zones, subject areas, or "show me everything tagged Confidential." The data exists — it just surfaces incidentally, buried in raw element headers a couple of handlers happen to read.</p>
+          <div class="types">
+            <span class="type-pill">Confidentiality</span><span class="type-pill">Confidence</span>
+            <span class="type-pill">Criticality</span><span class="type-pill">Retention</span>
+            <span class="type-pill">Impact</span><span class="type-pill">SecurityTags</span>
+            <span class="type-pill">Ownership</span><span class="type-pill">ZoneMembership</span>
+            <span class="type-pill">GovernanceZone</span><span class="type-pill">SubjectArea</span>
+            <span class="type-pill">SecurityGroup</span><span class="type-pill">SecurityRole</span>
+            <span class="type-pill">SecurityAccessControl</span>
+          </div>
+          <div class="status-line"><span class="k">Current state —</span><span class="v"><span class="mono">zoneMembership</span> read incidentally in <span class="mono">glossary_handler.py</span> / <span class="mono">tech_catalog_handler.py</span>; no dedicated tab anywhere.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tier" id="high">
+      <div class="tier-head">
+        <h2>High value</h2>
+        <span class="tier-count">3 items</span>
+      </div>
+      <p class="tier-note">Gaps adjacent to sections that are otherwise well built — the surrounding feature already proves the pattern.</p>
+
+      <div class="entry">
+        <div class="entry-num">02</div>
+        <div class="entry-body">
+          <div class="entry-top">
+            <h3>Glossary terms don't show their semantic relationships</h3>
+            <span class="chip good">Fixed — 2026-07-15</span>
+          </div>
+          <p class="entry-desc">This gap was smaller than it looked: classifications and term-to-term relationships were already being fetched and rendered. The real bug — confirmed live, not just by reading the roadmap doc — was that Egeria puts <em>every</em> term-to-term relationship type into one undifferentiated <span class="mono">relatedTerms</span> list rather than separate per-type keys, so a Synonym link and an ISARelationship link were indistinguishable in the UI. Fixed by grouping each entry by its actual relationship type (and, for the asymmetric ISARelationship, which end the term is on).</p>
+          <div class="types">
+            <span class="type-pill">Synonym</span><span class="type-pill">Antonym</span>
+            <span class="type-pill">ISARelationship</span><span class="type-pill">PreferredTerm</span>
+            <span class="type-pill">RelatedTerm</span><span class="type-pill">UsedInContext</span>
+            <span class="type-pill">AbstractConcept</span>
+          </div>
+          <div class="status-line"><span class="k">Fix —</span><span class="v"><span class="mono">glossary_handler.py</span>'s <span class="mono">_group_related_terms()</span>; verified end-to-end with seeded test data via <span class="mono">egeria-python/tests/functional-tests/test_glossary_manager_omvs.py::test_term_relationship_keys_synonym_and_isa</span>. Still open, separately: term → semantically-linked-asset back-links (a different relationship, see <span class="mono">Extending the TypeExplorer.md</span> → Cross-section navigation).</span></div>
+        </div>
+      </div>
+
+      <div class="entry">
+        <div class="entry-num">03</div>
+        <div class="entry-body">
+          <div class="entry-top">
+            <h3>Conceptual/logical data models are writable but not viewable</h3>
+            <span class="chip high">High value</span>
+          </div>
+          <p class="entry-desc">Dr. Egeria commands can already <em>create</em> these — the write path is there. Data Design got a full browse tab for Spec/Structure/Field/Grain/Class; these sibling types didn't.</p>
+          <div class="types">
+            <span class="type-pill">ConceptModel</span><span class="type-pill">ConceptBead</span>
+            <span class="type-pill">DesignPattern</span><span class="type-pill">DataDictionary</span>
+            <span class="type-pill">DataDescription</span>
+          </div>
+          <div class="status-line"><span class="k">Current state —</span><span class="v">referenced only in <span class="mono">dr_egeria_md.py</span>; zero hits in any Explorer handler.</span></div>
+        </div>
+      </div>
+
+      <div class="entry">
+        <div class="entry-num">04</div>
+        <div class="entry-body">
+          <div class="entry-top">
+            <h3>Solution component wiring isn't shown as its own topology</h3>
+            <span class="chip high">High value</span>
+          </div>
+          <p class="entry-desc">Solution Architect stops at Blueprints → Components → Implementations. The actual port/wire connectivity between components — the part that would let you trace data flow through an architecture — has no dedicated view.</p>
+          <div class="types">
+            <span class="type-pill">SolutionPort</span><span class="type-pill">SolutionLinkingWire</span>
+            <span class="type-pill">SolutionComponentPort</span><span class="type-pill">SolutionComposition</span>
+          </div>
+          <div class="status-line"><span class="k">Current state —</span><span class="v"><span class="mono">solution_architect_handler.py</span> exposes exactly 5 endpoints: blueprints, blueprint detail, components, component detail, implementations.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tier" id="medium">
+      <div class="tier-head">
+        <h2>Worth planning</h2>
+        <span class="tier-count">3 items</span>
+      </div>
+
+      <div class="entry">
+        <div class="entry-num">05</div>
+        <div class="entry-body">
+          <div class="entry-top">
+            <h3>No duplicate-resolution review</h3>
+            <span class="chip medium">Worth planning</span>
+          </div>
+          <p class="entry-desc">Zero references anywhere. No way to review or act on duplicate-candidate suggestions the platform surfaces.</p>
+          <div class="types">
+            <span class="type-pill">KnownDuplicate</span><span class="type-pill">ConsolidatedDuplicate</span>
+            <span class="type-pill">PeerDuplicateLink</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="entry">
+        <div class="entry-num">06</div>
+        <div class="entry-body">
+          <div class="entry-top">
+            <h3>The social/collaboration layer is invisible</h3>
+            <span class="chip medium">Worth planning</span>
+          </div>
+          <p class="entry-desc">Informal Tags and Note Logs each got their own tab; the adjacent activity-feed types didn't get any.</p>
+          <div class="types">
+            <span class="type-pill">Comment</span><span class="type-pill">Rating</span>
+            <span class="type-pill">Like</span><span class="type-pill">ToDo</span>
+            <span class="type-pill">Meeting</span><span class="type-pill">Notification</span>
+            <span class="type-pill">Campaign</span><span class="type-pill">Task</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="entry">
+        <div class="entry-num">07</div>
+        <div class="entry-body">
+          <div class="entry-top">
+            <h3>No Business Capability model</h3>
+            <span class="chip medium">Worth planning</span>
+          </div>
+          <p class="entry-desc">Zero coverage despite Solution Architect covering the adjacent blueprint/component layer — capabilities are the piece that would connect architecture to business strategy.</p>
+          <div class="types">
+            <span class="type-pill">BusinessCapability</span><span class="type-pill">BusinessCapabilityDependency</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tier" id="niche">
+      <div class="tier-head">
+        <h2>Niche / advanced</h2>
+        <span class="tier-count">3 items</span>
+      </div>
+      <p class="tier-note">Real gaps, lower urgency — thin vocabulary layers under a type that's already partly covered.</p>
+
+      <div class="entry">
+        <div class="entry-num">08</div>
+        <div class="entry-body">
+          <div class="entry-top">
+            <h3>Privacy execution detail beyond the purpose stub</h3>
+            <span class="chip backlog">Niche</span>
+          </div>
+          <p class="entry-desc"><span class="type-pill">DataProcessingPurpose</span> already appears as a leaf in the Governance Definitions control tree; the execution-level detail around it does not.</p>
+          <div class="types">
+            <span class="type-pill">DataProcessingAction</span><span class="type-pill">DataProcessingSpecification</span>
+            <span class="type-pill">DataProcessingTarget</span><span class="type-pill">PermittedProcessing</span>
+            <span class="type-pill">ApprovedPurpose</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="entry">
+        <div class="entry-num">09</div>
+        <div class="entry-body">
+          <div class="entry-top">
+            <h3>Policy enforcement architecture</h3>
+            <span class="chip backlog">Niche</span>
+          </div>
+          <p class="entry-desc">Models where policy decisions are actually enforced. Zero coverage; low frequency of use in most deployments.</p>
+          <div class="types">
+            <span class="type-pill">PolicyManagementPoint</span><span class="type-pill">PolicyAdministrationPoint</span>
+            <span class="type-pill">PolicyDecisionPoint</span><span class="type-pill">PolicyEnforcementPoint</span>
+            <span class="type-pill">PolicyInformationPoint</span><span class="type-pill">PolicyRetrievalPoint</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="entry">
+        <div class="entry-num">10</div>
+        <div class="entry-body">
+          <div class="entry-top">
+            <h3>Naming-standard vocabulary</h3>
+            <span class="chip backlog">Niche</span>
+          </div>
+          <p class="entry-desc"><span class="type-pill">NamingStandardRule</span> shows up as a control-tree leaf; the word vocabulary used to compose standard names doesn't.</p>
+          <div class="types">
+            <span class="type-pill">PrimeWord</span><span class="type-pill">ClassWord</span><span class="type-pill">Modifier</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tier" id="covered">
+      <div class="tier-head">
+        <h2>Already covered — for calibration</h2>
+      </div>
+      <p class="tier-note">Things that look like gaps in a raw name diff but aren't. Worth naming so prioritization time isn't wasted rediscovering them.</p>
+      <div class="covered-grid">
+        <div class="covered-item"><span class="dot"></span><div><b>Physical schema</b>Per-asset in Tech Catalog's schema tree, not a standalone tab — <span class="mono">/api/tech-catalog/assets/{guid}/schema</span></div></div>
+        <div class="covered-item"><span class="dot"></span><div><b>Governance drivers / policies / controls</b>Full three-panel tree in Governance Definitions</div></div>
+        <div class="covered-item"><span class="dot"></span><div><b>Digital products &amp; agreements</b>Catalog hierarchy, subscriptions, contracts all browsable</div></div>
+        <div class="covered-item"><span class="dot"></span><div><b>Engines &amp; engine actions</b>Egeria Operations page — Governance Engines, Engine Actions tabs</div></div>
+        <div class="covered-item"><span class="dot"></span><div><b>Exceptions, certifications, licenses</b>Egeria Audit page, zone-access-filtered per viewer</div></div>
+      </div>
+    </section>
+
+    <section class="tier" id="backlog">
+      <div class="tier-head">
+        <h2>App's own acknowledged backlog</h2>
+      </div>
+      <p class="tier-note">From <span class="mono">Extending the TypeExplorer.md</span> — not type-coverage gaps, but UI/UX work the team already flagged.</p>
+      <div class="backlog-list">
+        <div class="backlog-row"><div class="t">Cross-section navigation <span>— Type System property → Valid Values, glossary term → linked assets</span></div><div class="src">roadmap</div></div>
+        <div class="backlog-row"><div class="t">Full recursive glossary folder tree <span>— currently two levels (glossary / folder)</span></div><div class="src">roadmap</div></div>
+        <div class="backlog-row"><div class="t">UI-level pagination <span>— endpoints support it; UI currently loads all results</span></div><div class="src">roadmap</div></div>
+        <div class="backlog-row"><div class="t">Global cross-section search <span>— currently per-section only</span></div><div class="src">roadmap</div></div>
+        <div class="backlog-row"><div class="t">Report Specs <span class="mono">question_spec</span> field display <span>— data exists, not yet rendered</span></div><div class="src">roadmap</div></div>
+      </div>
+    </section>
+
+    <section class="tier" id="appendix">
+      <div class="tier-head">
+        <h2>Raw type diff, by Area</h2>
+      </div>
+      <p class="appendix-intro">The mechanical, unfiltered comparison this analysis was built from: every type in each of Egeria's eight model Areas, checked against whether its exact name appears anywhere in a portal handler or its HTML. Includes subtypes, relationships, and internal types the curated list above deliberately excludes — use this if you want to audit the method itself, not to re-derive priorities from it.</p>
+
+      <details class="area">
+        <summary><span class="area-name">Area 0 — Basic definitions &amp; Infrastructure</span><div class="area-bar"><span style="width:42%"></span></div><span class="area-frac">53 / 125</span></summary>
+        <div class="area-missing">
+          <p>Missing (72)</p>
+          <div class="types">
+            <span class="type-pill">ActionRequester</span><span class="type-pill">ActionTarget</span><span class="type-pill">AdjacentLocation</span><span class="type-pill">AttachedStorage</span><span class="type-pill">AuthoredReferenceable</span><span class="type-pill">CapabilityAssetUse</span><span class="type-pill">CatalogTemplate</span><span class="type-pill">ChangeManagementLibrary</span><span class="type-pill">CitedDocumentLink</span><span class="type-pill">CloudPlatform</span><span class="type-pill">CloudProvider</span><span class="type-pill">CloudTenant</span><span class="type-pill">CollectionKind</span><span class="type-pill">CollectionMembership</span><span class="type-pill">ContentCollectionManager</span><span class="type-pill">CyberLocation</span><span class="type-pill">DataAccessManager</span><span class="type-pill">DataAsset</span><span class="type-pill">DataLineageRelationship</span><span class="type-pill">DataManager</span><span class="type-pill">EventManager</span><span class="type-pill">ExternalIdLink</span><span class="type-pill">ExternalReferenceLink</span><span class="type-pill">ExternalSourceCode</span><span class="type-pill">FileManager</span><span class="type-pill">FixedLocation</span><span class="type-pill">HomeCollection</span><span class="type-pill">HostClusterMember</span><span class="type-pill">ITSubsystem</span><span class="type-pill">InventoryCatalog</span><span class="type-pill">KnownLocation</span><span class="type-pill">LabeledRelationship</span><span class="type-pill">LineageRelationship</span><span class="type-pill">MediaReference</span><span class="type-pill">MetadataCohortPeer</span><span class="type-pill">MetadataRepositoryCohort</span><span class="type-pill">MobileResource</span><span class="type-pill">MoreInformation</span><span class="type-pill">NestedLocation</span><span class="type-pill">Network</span><span class="type-pill">NetworkGatewayLink</span><span class="type-pill">OperatingPlatformManifest</span><span class="type-pill">OperatingPlatformUse</span><span class="type-pill">PropertyFacet</span><span class="type-pill">RESTAPIManager</span><span class="type-pill">RecentAccess</span><span class="type-pill">ReferenceList</span><span class="type-pill">ReferenceableFacet</span><span class="type-pill">ResourceList</span><span class="type-pill">ResourceManager</span><span class="type-pill">ResultsSet</span><span class="type-pill">RoledRelationship</span><span class="type-pill">SampleData</span><span class="type-pill">SearchKeyword</span><span class="type-pill">SearchKeywordLink</span><span class="type-pill">SecureLocation</span><span class="type-pill">ServerEndpoint</span><span class="type-pill">SoftwareArchive</span><span class="type-pill">SoftwareLibrary</span><span class="type-pill">SoftwarePackageDependency</span><span class="type-pill">SoftwarePackageManifest</span><span class="type-pill">SoftwareService</span><span class="type-pill">SourceControlLibrary</span><span class="type-pill">SourcedFrom</span><span class="type-pill">SupportedSoftwareCapability</span><span class="type-pill">TranslationDetail</span><span class="type-pill">TranslationLink</span><span class="type-pill">UserAccessDirectory</span><span class="type-pill">UserAuthenticationManager</span><span class="type-pill">UserProfileManager</span><span class="type-pill">VisibleEndpoint</span><span class="type-pill">WorkItemList</span>
+          </div>
+        </div>
+      </details>
+
+      <details class="area">
+        <summary><span class="area-name">Area 1 — Collaboration</span><div class="area-bar"><span style="width:25%"></span></div><span class="area-frac">16 / 65</span></summary>
+        <div class="area-missing">
+          <p>Missing (49)</p>
+          <div class="types">
+            <span class="type-pill">AcceptedAnswer</span><span class="type-pill">ActivityEntry</span><span class="type-pill">AssignmentScope</span><span class="type-pill">AssociatedSkillSet</span><span class="type-pill">AttachedComment</span><span class="type-pill">AttachedLike</span><span class="type-pill">AttachedNoteLog</span><span class="type-pill">AttachedNoteLogEntry</span><span class="type-pill">AttachedRating</span><span class="type-pill">AttachedTag</span><span class="type-pill">BlogEntry</span><span class="type-pill">Campaign</span><span class="type-pill">Comment</span><span class="type-pill">CommunityMember</span><span class="type-pill">ContactThrough</span><span class="type-pill">Contribution</span><span class="type-pill">ContributionRecord</span><span class="type-pill">CrowdSourcingContribution</span><span class="type-pill">CrowdSourcingContributor</span><span class="type-pill">Experiment</span><span class="type-pill">ITInfrastructureProfile</span><span class="type-pill">ITProfileRole</span><span class="type-pill">ITProfileRoleAppointment</span><span class="type-pill">JournalEntry</span><span class="type-pill">Like</span><span class="type-pill">Meeting</span><span class="type-pill">NoteLogAuthor</span><span class="type-pill">Notification</span><span class="type-pill">Peer</span><span class="type-pill">PersonRoleAppointment</span><span class="type-pill">PersonalProject</span><span class="type-pill">ProfileIdentity</span><span class="type-pill">ProjectClassification</span><span class="type-pill">ProjectDependency</span><span class="type-pill">ProjectHierarchy</span><span class="type-pill">ProjectKind</span><span class="type-pill">ProjectManager</span><span class="type-pill">Rating</span><span class="type-pill">ScopedBy</span><span class="type-pill">Skill</span><span class="type-pill">SkillSet</span><span class="type-pill">StudyProject</span><span class="type-pill">Task</span><span class="type-pill">TeamLeader</span><span class="type-pill">TeamMember</span><span class="type-pill">TeamRole</span><span class="type-pill">TeamRoleAppointment</span><span class="type-pill">TeamStructure</span><span class="type-pill">ToDo</span>
+          </div>
+        </div>
+      </details>
+
+      <details class="area">
+        <summary><span class="area-name">Area 2 — Assets</span><div class="area-bar"><span style="width:33%"></span></div><span class="area-frac">29 / 88</span></summary>
+        <div class="area-missing">
+          <p>Missing (59)</p>
+          <div class="types">
+            <span class="type-pill">APIEndpoint</span><span class="type-pill">AnalyticsModelRun</span><span class="type-pill">ArchiveContents</span><span class="type-pill">ArchiveFile</span><span class="type-pill">AssetConnection</span><span class="type-pill">AssociatedLog</span><span class="type-pill">AudioFile</span><span class="type-pill">AvroFile</span><span class="type-pill">BuildInstructionFile</span><span class="type-pill">CohortRegistryStore</span><span class="type-pill">ConnectToEndpoint</span><span class="type-pill">ConnectionConnectorType</span><span class="type-pill">DataAssetEncoding</span><span class="type-pill">DataScope</span><span class="type-pill">DataSetContent</span><span class="type-pill">DeployedAnalyticsModel</span><span class="type-pill">DeployedDatabaseSchema</span><span class="type-pill">Document</span><span class="type-pill">EmbeddedConnection</span><span class="type-pill">EmbeddedProcess</span><span class="type-pill">ExecutableFile</span><span class="type-pill">FolderHierarchy</span><span class="type-pill">Form</span><span class="type-pill">FunctionCall</span><span class="type-pill">JSONFile</span><span class="type-pill">KeyStoreFile</span><span class="type-pill">LinkedFile</span><span class="type-pill">LinkedMedia</span><span class="type-pill">ListenerInterface</span><span class="type-pill">LogFile</span><span class="type-pill">MetadataCollection</span><span class="type-pill">MetadataRepository</span><span class="type-pill">NestedFile</span><span class="type-pill">ParquetFile</span><span class="type-pill">PortAlias</span><span class="type-pill">PortDelegation</span><span class="type-pill">PortImplementation</span><span class="type-pill">ProcessHierarchy</span><span class="type-pill">ProcessPort</span><span class="type-pill">PropertiesFile</span><span class="type-pill">PublisherInterface</span><span class="type-pill">RasterFile</span><span class="type-pill">ReferenceCodeMappingTable</span><span class="type-pill">ReportDependency</span><span class="type-pill">ReportOriginator</span><span class="type-pill">ReportSubject</span><span class="type-pill">ReportType</span><span class="type-pill">RequestResponseInterface</span><span class="type-pill">ScriptFile</span><span class="type-pill">SecretsCollection</span><span class="type-pill">SourceCodeFile</span><span class="type-pill">StoredOn</span><span class="type-pill">ThreeDImageFile</span><span class="type-pill">TransientEmbeddedProcess</span><span class="type-pill">UserAccountProfile</span><span class="type-pill">VectorFile</span><span class="type-pill">VideoFile</span><span class="type-pill">XMLFile</span><span class="type-pill">YAMLFile</span>
+          </div>
+        </div>
+      </details>
+
+      <details class="area">
+        <summary><span class="area-name">Area 3 — Glossary</span><div class="area-bar"><span style="width:12%"></span></div><span class="area-frac">3 / 24</span></summary>
+        <div class="area-missing">
+          <p>Missing (21)</p>
+          <div class="types">
+            <span class="type-pill">AbstractConcept</span><span class="type-pill">ActivityDescription</span><span class="type-pill">Antonym</span><span class="type-pill">CanonicalVocabulary</span><span class="type-pill">ContextDefinition</span><span class="type-pill">DataValueMeaning</span><span class="type-pill">EditingCollection</span><span class="type-pill">ElementSupplement</span><span class="type-pill">GlossaryProject</span><span class="type-pill">ISARelationship</span><span class="type-pill">PreferredTerm</span><span class="type-pill">RelatedTerm</span><span class="type-pill">ReplacementTerm</span><span class="type-pill">ScopingCollection</span><span class="type-pill">SemanticAssignment</span><span class="type-pill">SemanticDefinition</span><span class="type-pill">StagingCollection</span><span class="type-pill">SupplementaryProperties</span><span class="type-pill">Synonym</span><span class="type-pill">Taxonomy</span><span class="type-pill">UsedInContext</span>
+          </div>
+        </div>
+      </details>
+
+      <details class="area">
+        <summary><span class="area-name">Area 4 — Governance</span><div class="area-bar"><span style="width:32%"></span></div><span class="area-frac">46 / 145</span></summary>
+        <div class="area-missing">
+          <p>Missing (99)</p>
+          <div class="types">
+            <span class="type-pill">ApprovedPurpose</span><span class="type-pill">AssetOwner</span><span class="type-pill">AssociatedSecurityList</span><span class="type-pill">AuditLog</span><span class="type-pill">BusinessOwner</span><span class="type-pill">CatalogTarget</span><span class="type-pill">ClassWord</span><span class="type-pill">ComponentOwner</span><span class="type-pill">Confidence</span><span class="type-pill">Confidentiality</span><span class="type-pill">ConnectorActivityReport</span><span class="type-pill">ConsolidatedDuplicate</span><span class="type-pill">ConsolidatedDuplicateLink</span><span class="type-pill">ContextEventCollection</span><span class="type-pill">ContextEventEvidence</span><span class="type-pill">ContextEventForTimelineEffects</span><span class="type-pill">ContextEventImpact</span><span class="type-pill">ControlPoint</span><span class="type-pill">Criticality</span><span class="type-pill">DataItemOwner</span><span class="type-pill">DataProcessingAction</span><span class="type-pill">DataProcessingSpecification</span><span class="type-pill">DataProcessingTarget</span><span class="type-pill">DependentContextEvent</span><span class="type-pill">DetailedProcessingAction</span><span class="type-pill">EnforcementPoint</span><span class="type-pill">ExceptionBacklog</span><span class="type-pill">ExecutionPoint</span><span class="type-pill">GovernanceAction</span><span class="type-pill">GovernanceActionEngine</span><span class="type-pill">GovernanceActionExecutor</span><span class="type-pill">GovernanceActionProcessFlow</span><span class="type-pill">GovernanceActionProcessStep</span><span class="type-pill">GovernanceActionService</span><span class="type-pill">GovernanceControlLink</span><span class="type-pill">GovernanceDriverLink</span><span class="type-pill">GovernanceExpectations</span><span class="type-pill">GovernanceMeasurements</span><span class="type-pill">GovernanceMechanism</span><span class="type-pill">GovernanceOfficer</span><span class="type-pill">GovernancePolicyLink</span><span class="type-pill">GovernanceProject</span><span class="type-pill">GovernanceRepresentative</span><span class="type-pill">GovernanceResponse</span><span class="type-pill">GovernanceResults</span><span class="type-pill">GovernanceService</span><span class="type-pill">GovernedBy</span><span class="type-pill">Impact</span><span class="type-pill">ImpactedResource</span><span class="type-pill">IntegrationGroup</span><span class="type-pill">KnownDuplicate</span><span class="type-pill">LineageLog</span><span class="type-pill">LocationOwner</span><span class="type-pill">LogAnalysis</span><span class="type-pill">MeteringLog</span><span class="type-pill">Modifier</span><span class="type-pill">MonitoredResource</span><span class="type-pill">NamingStandardRuleSet</span><span class="type-pill">NextGovernanceActionProcessStep</span><span class="type-pill">NotificationSubscriber</span><span class="type-pill">Ownership</span><span class="type-pill">PeerDuplicateLink</span><span class="type-pill">PermittedProcessing</span><span class="type-pill">PolicyAdministrationPoint</span><span class="type-pill">PolicyDecisionPoint</span><span class="type-pill">PolicyEnforcementPoint</span><span class="type-pill">PolicyInformationPoint</span><span class="type-pill">PolicyManagementPoint</span><span class="type-pill">PolicyRetrievalPoint</span><span class="type-pill">PrimeWord</span><span class="type-pill">RegisteredIntegrationConnector</span><span class="type-pill">RegulationCertificationType</span><span class="type-pill">Regulator</span><span class="type-pill">RelatedContextEvent</span><span class="type-pill">RepositoryGovernanceEngine</span><span class="type-pill">RepositoryGovernanceService</span><span class="type-pill">ResourcePermissions</span><span class="type-pill">Retention</span><span class="type-pill">Risk</span><span class="type-pill">SecretsCollectionSecurityList</span><span class="type-pill">SecurityList</span><span class="type-pill">SecurityListMembership</span><span class="type-pill">SecurityLog</span><span class="type-pill">SecurityRole</span><span class="type-pill">SecurityTags</span><span class="type-pill">SolutionOwner</span><span class="type-pill">SubjectArea</span><span class="type-pill">SubjectAreaHierarchy</span><span class="type-pill">SubjectAreaOwner</span><span class="type-pill">SupportedGovernanceService</span><span class="type-pill">SurveyActionEngine</span><span class="type-pill">SurveyActionService</span><span class="type-pill">TargetForGovernanceAction</span><span class="type-pill">UserAccount</span><span class="type-pill">VerificationPoint</span><span class="type-pill">WatchdogActionEngine</span><span class="type-pill">WatchdogActionService</span><span class="type-pill">ZoneHierarchy</span><span class="type-pill">ZoneMembershipProfile</span>
+          </div>
+        </div>
+      </details>
+
+      <details class="area">
+        <summary><span class="area-name">Area 5 — Schemas</span><div class="area-bar"><span style="width:20%"></span></div><span class="area-frac">23 / 114</span></summary>
+        <div class="area-missing">
+          <p>Missing (91)</p>
+          <div class="types">
+            <span class="type-pill">APIHeader</span><span class="type-pill">APIOperations</span><span class="type-pill">APIParameter</span><span class="type-pill">APIParameterList</span><span class="type-pill">APIRequest</span><span class="type-pill">APIResponse</span><span class="type-pill">AttributeForSchema</span><span class="type-pill">CalculatedValue</span><span class="type-pill">ComplexSchemaType</span><span class="type-pill">ConceptBead</span><span class="type-pill">ConceptBeadAttribute</span><span class="type-pill">ConceptBeadAttributeLink</span><span class="type-pill">ConceptBeadExtension</span><span class="type-pill">ConceptBeadRelationship</span><span class="type-pill">ConceptBeadRelationshipEnd</span><span class="type-pill">ConceptDesign</span><span class="type-pill">ConceptModel</span><span class="type-pill">ConceptModelElement</span><span class="type-pill">ConsistentValidValues</span><span class="type-pill">DataClassComposition</span><span class="type-pill">DataDescription</span><span class="type-pill">DataStructureDefinition</span><span class="type-pill">DataValueAssignment</span><span class="type-pill">DataValueDefinition</span><span class="type-pill">DataValueHierarchy</span><span class="type-pill">DataValueSpecification</span><span class="type-pill">DerivedSchemaTypeQueryTarget</span><span class="type-pill">DesignModel</span><span class="type-pill">DesignModelElement</span><span class="type-pill">DesignPattern</span><span class="type-pill">DisplayDataContainer</span><span class="type-pill">DisplayDataField</span><span class="type-pill">DisplayDataSchemaType</span><span class="type-pill">DocumentSchemaAttribute</span><span class="type-pill">DocumentSchemaType</span><span class="type-pill">EnumSchemaType</span><span class="type-pill">EventSchemaAttribute</span><span class="type-pill">EventTypeList</span><span class="type-pill">ExternalSchemaType</span><span class="type-pill">ForeignKey</span><span class="type-pill">GraphEdge</span><span class="type-pill">GraphEdgeLink</span><span class="type-pill">GraphSchemaType</span><span class="type-pill">GraphVertex</span><span class="type-pill">ImplementationSnippet</span><span class="type-pill">InstanceMetadata</span><span class="type-pill">IsAConceptBead</span><span class="type-pill">LinkedDataField</span><span class="type-pill">LinkedExternalSchemaType</span><span class="type-pill">LiteralSchemaType</span><span class="type-pill">MapFromElementType</span><span class="type-pill">MapSchemaType</span><span class="type-pill">MapToElementType</span><span class="type-pill">MemberDataField</span><span class="type-pill">MetamodelInstance</span><span class="type-pill">NestedDataField</span><span class="type-pill">NestedDesignPattern</span><span class="type-pill">NestedSchemaAttribute</span><span class="type-pill">ObjectAttribute</span><span class="type-pill">ObjectSchemaType</span><span class="type-pill">PrimaryKey</span><span class="type-pill">PrimitiveSchemaType</span><span class="type-pill">QueryDataContainer</span><span class="type-pill">QueryDataField</span><span class="type-pill">QuerySchemaType</span><span class="type-pill">ReferenceData</span><span class="type-pill">ReferenceValueAssignment</span><span class="type-pill">RelatedDesignPattern</span><span class="type-pill">RelationalDBSchema</span><span class="type-pill">RelationalDBSchemaTypeList</span><span class="type-pill">RelationalTableType</span><span class="type-pill">RootSchemaType</span><span class="type-pill">SchemaAttributeDefinition</span><span class="type-pill">SchemaTypeChoice</span><span class="type-pill">SchemaTypeDefinition</span><span class="type-pill">SchemaTypeOption</span><span class="type-pill">SimpleSchemaType</span><span class="type-pill">SpecializedDesignPattern</span><span class="type-pill">SpecificationPropertyAssignment</span><span class="type-pill">SpecificationPropertyValue</span><span class="type-pill">StructSchemaType</span><span class="type-pill">TabularColumn</span><span class="type-pill">TabularFileColumn</span><span class="type-pill">TypeEmbeddedAttribute</span><span class="type-pill">TypedByConceptBead</span><span class="type-pill">ValidValueAssociation</span><span class="type-pill">ValidValueDefinition</span><span class="type-pill">ValidValueMember</span><span class="type-pill">ValidValuesAssignment</span><span class="type-pill">ValidValuesImplementation</span><span class="type-pill">ValidValuesMapping</span>
+          </div>
+        </div>
+      </details>
+
+      <details class="area">
+        <summary><span class="area-name">Area 6 — Metadata Surveys</span><div class="area-bar"><span style="width:35%"></span></div><span class="area-frac">8 / 23</span></summary>
+        <div class="area-missing">
+          <p>Missing (15)</p>
+          <div class="types">
+            <span class="type-pill">AnnotationExtension</span><span class="type-pill">AnnotationMatch</span><span class="type-pill">AnnotationReview</span><span class="type-pill">AssociatedAnnotation</span><span class="type-pill">DataClassAnnotation</span><span class="type-pill">DataGrainAnnotation</span><span class="type-pill">FingerprintAnnotation</span><span class="type-pill">RelationshipAdviceAnnotation</span><span class="type-pill">ReportedAnnotation</span><span class="type-pill">RequestForActionTarget</span><span class="type-pill">ResourcePhysicalStatusAnnotation</span><span class="type-pill">ResourceProfileAnnotation</span><span class="type-pill">ResourceProfileData</span><span class="type-pill">ResourceProfileLogAnnotation</span><span class="type-pill">SemanticAnnotation</span>
+          </div>
+        </div>
+      </details>
+
+      <details class="area">
+        <summary><span class="area-name">Area 7 — Lineage &amp; Usage</span><div class="area-bar"><span style="width:29%"></span></div><span class="area-frac">12 / 41</span></summary>
+        <div class="area-missing">
+          <p>Missing (29)</p>
+          <div class="types">
+            <span class="type-pill">AgreementActor</span><span class="type-pill">AgreementItem</span><span class="type-pill">BusinessCapability</span><span class="type-pill">BusinessCapabilityDependency</span><span class="type-pill">BusinessSignificant</span><span class="type-pill">ContractLink</span><span class="type-pill">ControlFlow</span><span class="type-pill">DataFlow</span><span class="type-pill">DataHub</span><span class="type-pill">DataMapping</span><span class="type-pill">DataSharingRequest</span><span class="type-pill">DigitalProductDependency</span><span class="type-pill">DigitalProductManager</span><span class="type-pill">DigitalResourceOrigin</span><span class="type-pill">DigitalSubscriber</span><span class="type-pill">DigitalSupport</span><span class="type-pill">ImplementationResource</span><span class="type-pill">ImplementedBy</span><span class="type-pill">Incomplete</span><span class="type-pill">InformationSupplyChainLink</span><span class="type-pill">ProcessCall</span><span class="type-pill">SolutionComponentActor</span><span class="type-pill">SolutionComponentPort</span><span class="type-pill">SolutionComposition</span><span class="type-pill">SolutionDesign</span><span class="type-pill">SolutionLinkingWire</span><span class="type-pill">SolutionPortDelegation</span><span class="type-pill">UltimateDestination</span><span class="type-pill">UltimateSource</span>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <footer>
+      Source: <span class="mono">~/localGit/egeria-v6/egeria-workspaces-fs</span> (compose-configs/egeria-quickstart/PyegeriaWebHandler) against <span class="mono">OpenMetadataType.java</span>, egeria-v6. Coverage counts are name-presence checks, not a claim about relationship-level completeness within covered types.
+    </footer>
+  </main>
+</div>
