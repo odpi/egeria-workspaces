@@ -3,15 +3,14 @@
   SPDX-License-Identifier: Apache-2.0
   Copyright Contributors to the ODPi Egeria project.
 
-  Egeria Operations — runtime operations SPA.
-  Served by PyegeriaWebHandler at /egeria-operations
-  Spec: operations_plan.md
+  Egeria Insights — cross-cutting governance search SPA.
+  Served by PyegeriaWebHandler at /egeria-insights
 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Egeria Operations</title>
+  <title>Egeria Insights</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -275,7 +274,7 @@
   <div id="root">
     <div class="center">
       <div class="spinner"></div>
-      <span>Loading The Catalog…</span>
+      <span>Loading Egeria Insights…</span>
     </div>
   </div>
 
@@ -586,880 +585,509 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 
 <script>
 'use strict';
-// ── Egeria Operations SPA ─────────────────────────────────────────────────────
-// Four tabs over the pyegeria RuntimeManager: Servers, Integration Connectors,
-// Governance Engines, Engine Actions. Shared, reusable pieces: a platform/server
-// toolbar (platform selection carries across tabs), a RefreshControl (manual +
-// interval auto-poll), StatusPill, and the docked resizable detail panel. Cross-
-// links to The Catalog / Explorer via the shared crossAppNavigate.
+// ── Egeria Insights SPA ──────────────────────────────────────────────────────
+// Two tabs: Dashboard (card launcher with live capped counts) and Governance
+// Search (zone + classification faceted search). "Governance Search" maps
+// directly onto Egeria's native FindRequestBody.matchClassifications — see
+// insights_handler.py's module docstring for the full design rationale.
+// Cross-links use the shared crossAppNavigate() from egeria-shared-ui.js —
+// no bespoke navigation logic here.
 var useState = React.useState;
 var useEffect = React.useEffect;
-var useRef = React.useRef;
+var useMemo = React.useMemo;
 var el = React.createElement;
 var pad = { padding: '24px', color: 'var(--muted)', fontSize: 13 };
 
-// ── Enums (confirmed by Dan) → [label, colour-intent] ─────────────────────────
-var SERVER_STATUS = { UNKNOWN:['Unknown','grey'], STARTING:['Starting','amber'], RUNNING:['Running','green'], STOPPING:['Stopping','amber'], INACTIVE:['Inactive','grey'] };
-var CONNECTOR_STATUS = { INITIALIZED:['Initialized','amber'], WAITING:['Waiting','green'], REFRESHING:['Refreshing','green'], RUNNING:['Running','green'], STOPPED:['Stopped','grey'], INITIALIZE_FAILED:['Initialize Failed','red'], CONFIG_FAILED:['Configuration Failed','red'], SHUTDOWN:['Shutdown','grey'], FAILED:['Connector Failed','red'] };
-var GOV_ENGINE_STATUS = { ASSIGNED:['Assigned','grey'], CONFIGURING:['Configuring','amber'], RUNNING:['Running','green'], FAILED:['Failed','red'], DISABLED:['Disabled','grey'] };
-var ACTIVITY_STATUS = { REQUESTED:['Requested','amber'], APPROVED:['Approved','amber'], WAITING:['Waiting','amber'], ACTIVATING:['Activating','amber'], IN_PROGRESS:['In Progress','green'], PAUSED:['Paused','amber'], COMPLETED:['Completed','green'], INVALID:['Invalid','grey'], IGNORED:['Ignored','grey'], FAILED:['Failed','red'], CANCELLED:['Cancelled','grey'], ABANDONED:['Abandoned','grey'] };
-var STATUS_COLORS = { green:'#34d399', amber:'#fbbf24', red:'#f87171', grey:'#7a96b0' };
-
-function StatusPill({ value, map }) {
-  var m = (map && map[value]) || [value || '—', 'grey'];
-  var c = STATUS_COLORS[m[1]] || STATUS_COLORS.grey;
-  return el('span', { title: value || '', style: { display:'inline-block', fontSize:11, fontWeight:600, color:c, background:c+'1f', border:'1px solid '+c+'55', borderRadius:10, padding:'1px 9px', whiteSpace:'nowrap' } }, m[0]);
-}
-
 var TABS = [
-  { id:'servers',    label:'Servers' },
-  { id:'connectors', label:'Integration Connectors', serverType:'Integration Daemon' },
-  { id:'engines',    label:'Governance Engines',      serverType:'Engine Host Server' },
-  { id:'actions',    label:'Engine Actions',          ecosystem:true },
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'search',    label: 'Governance Search' },
 ];
 
-// ── RefreshControl (reusable) — manual button + interval auto-poll ────────────
-function RefreshControl({ onRefresh, busy }) {
-  var _i = useState(0), secs = _i[0], setSecs = _i[1];   // 0 = off
-  var ref = useRef(onRefresh); ref.current = onRefresh;
+// Mirrors insights_handler.py's _GOVERNANCE_CLASSIFICATIONS / LEVEL_FIELDS —
+// the facet picker itself is populated live from /api/types, this only
+// flags which properties are ordinal "levels" so the value input can offer
+// numeric operators and try a valid-values lookup for human labels.
+var LEVEL_FIELDS = {
+  confidentialityLevel: true, criticalityLevel: true, severityLevel: true, retentionBasis: true,
+};
+var OPERATORS = [
+  ['EQ', '='], ['NEQ', '≠'], ['GT', '>'], ['GTE', '≥'], ['LT', '<'], ['LTE', '≤'],
+  ['LIKE', 'contains'], ['IS_NULL', 'is empty'], ['NOT_NULL', 'is set'],
+];
+
+function cardStyle() {
+  return { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10,
+           padding: 18, display: 'flex', flexDirection: 'column', gap: 8, cursor: 'pointer',
+           transition: 'border-color .15s, background .15s' };
+}
+
+/* ── Dashboard ─────────────────────────────────────────────────────────────── */
+function Dashboard({ creds, onOpenSearch }) {
+  var _s = useState(null), summary = _s[0], setSummary = _s[1];
+  var _st = useState('loading'), state = _st[0], setState = _st[1];
+
   useEffect(function() {
-    if (!secs) return;
-    var id = window.setInterval(function(){ if (!document.hidden && ref.current) ref.current(); }, secs * 1000);
-    return function(){ window.clearInterval(id); };
-  }, [secs]);
-  var sel = { fontSize: 11, padding: '3px 6px', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 4 };
-  return el('div', { style: { display:'flex', alignItems:'center', gap:6 } },
-    el('button', { onClick: function(){ onRefresh && onRefresh(); }, disabled: busy,
-      style: { fontSize:12, padding:'4px 12px', borderRadius:4, border:'1px solid var(--border)', background: busy?'transparent':'rgba(96,165,250,.1)', color:'var(--accent)', cursor: busy?'default':'pointer' } }, busy ? '⏳ …' : '⟳ Refresh'),
-    el('span', { style: { fontSize:11, color:'var(--dim)' } }, 'auto'),
-    el('select', { value: secs, onChange: function(e){ setSecs(parseInt(e.target.value,10)); }, style: sel },
-      [['0','off'],['10','10s'],['30','30s'],['60','1m'],['300','5m']].map(function(o){ return el('option', { key:o[0], value:o[0] }, o[1]); })));
+    setState('loading');
+    egeriaFetch('/api/insights/summary', creds).then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function(d) { setSummary(d); setState('ready'); })
+      .catch(function() { setState('error'); });
+  }, [creds && creds.userId]);
+
+  var countLabel = state === 'loading' ? '…' : state === 'error' ? '—'
+    : (summary.classifiedCount + (summary.capped ? '+' : ''));
+
+  return el('div', { style: { padding: 24, overflowY: 'auto', height: '100%' } },
+    el('div', { style: { fontSize: 13, color: 'var(--muted)', marginBottom: 18, maxWidth: 640 } },
+      'Cross-cutting discovery over the governance metadata every other section browses one type ' +
+      'at a time. Cards below run live, capped queries against Egeria — counts marked "+" are a ' +
+      'floor, not a ceiling.'),
+    el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14, maxWidth: 900 } },
+      el('div', { style: Object.assign(cardStyle(), { borderColor: 'var(--accent)' }), onClick: onOpenSearch },
+        el('div', { style: { fontSize: 22 } }, '🧭'),
+        el('div', { style: { fontSize: 15, fontWeight: 700 } }, 'Governance Search'),
+        el('div', { style: { fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.5 } },
+          'Find elements by zone, confidentiality, criticality, retention, and impact — combined with AND / OR / NONE.'),
+        el('div', { style: { marginTop: 6, display: 'flex', gap: 14, fontSize: 12, flexWrap: 'wrap' } },
+          el('span', null, el('b', { style: { color: 'var(--accent)' } }, countLabel), ' classified elements'),
+          summary && summary.topZones && summary.topZones[0] &&
+            el('span', { style: { color: 'var(--dim)' } }, 'top zone: ', summary.topZones[0].zone, ' (', summary.topZones[0].count, ')')
+        )
+      ),
+      el('div', { style: Object.assign(cardStyle(), { cursor: 'default', opacity: 0.55 }) },
+        el('div', { style: { fontSize: 22 } }, '🕸️'),
+        el('div', { style: { fontSize: 15, fontWeight: 700 } }, 'Relationship Explorer'),
+        el('div', { style: { fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.5 } },
+          'Find elements connected through a specific combination of relationships — e.g. components that implement a confidential asset.'),
+        el('div', { style: { marginTop: 6 } },
+          el('span', { className: 'badge', style: { background: 'rgba(251,191,36,.12)', color: 'var(--rel)' } }, 'Coming soon'))
+      )
+    ),
+    summary && summary.byClassification && Object.keys(summary.byClassification).length > 0 &&
+      el('div', { style: { marginTop: 26, maxWidth: 900 } },
+        el('div', { style: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--muted)', marginBottom: 8 } }, 'By classification (capped tally)'),
+        el('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+          Object.keys(summary.byClassification).sort().map(function(k) {
+            return el('span', { key: k, className: 'chip', style: { cursor: 'default' } }, k + ' ' + summary.byClassification[k]);
+          })
+        )
+      )
+  );
 }
 
-// ── Platform/server toolbar (reusable across tabs) ────────────────────────────
-function OpsToolbar({ platforms, platform, onPlatform, servers, server, onServer, serverLabel, onRefresh, busy, children }) {
-  var sel = { fontSize:12, padding:'4px 8px', background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:4, maxWidth:280 };
-  return el('div', { style: { display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', padding:'10px 14px', borderBottom:'1px solid var(--border)', background:'var(--panel)' } },
-    el('span', { style: { fontSize:12, color:'var(--dim)' } }, 'Platform'),
-    el('select', { value: platform ? platform.guid : '', onChange: function(e){ onPlatform(platforms.find(function(p){ return p.guid === e.target.value; }) || null); }, style: sel },
-      (platforms.length ? platforms : []).length === 0 ? el('option', { value:'' }, 'No platforms')
-        : platforms.map(function(p){ return el('option', { key:p.guid, value:p.guid }, p.displayName); })),
-    onServer && el('span', { style: { fontSize:12, color:'var(--dim)' } }, serverLabel || 'Server'),
-    onServer && el('select', { value: server ? server.guid : '', onChange: function(e){ onServer((servers||[]).find(function(s){ return s.guid === e.target.value; }) || null); }, style: sel },
-      [el('option', { key:'_', value:'' }, (servers && servers.length) ? 'Select a server…' : 'No matching servers')]
-        .concat((servers||[]).map(function(s){ return el('option', { key:s.guid, value:s.guid }, _shortName(s.displayName || s.serverName)); }))),
-    children,
-    el('div', { style: { marginLeft:'auto' } }, el(RefreshControl, { onRefresh: onRefresh, busy: busy })));
+/* ── Zone tree (left rail) ────────────────────────────────────────────────── */
+function ZoneTree({ creds, selectedZone, onSelectZone, width }) {
+  var _z = useState([]), zones = _z[0], setZones = _z[1];
+  var _st = useState('loading'), state = _st[0], setState = _st[1];
+  var _capped = useState(false), capped = _capped[0], setCapped = _capped[1];
+
+  useEffect(function() {
+    setState('loading');
+    egeriaFetch('/api/insights/zones', creds).then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function(d) { setZones(d.zones || []); setCapped(!!d.countsCapped); setState('ready'); })
+      .catch(function() { setState('error'); });
+  }, [creds && creds.userId]);
+
+  return el('div', { className: 'sidebar', style: { width: width || 240, minWidth: 160, borderRight: 'none', flexShrink: 0, overflow: 'hidden' } },
+    el('div', { className: 'search-wrap' },
+      el('div', { style: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--muted)' } }, 'Governance Zones'),
+      capped && el('div', { style: { fontSize: 10.5, color: 'var(--dim)', marginTop: 4 } }, 'usage counts capped at 500')
+    ),
+    el('div', { className: 'tree-scroll' },
+      state === 'loading' && el('div', { style: { padding: 12, fontSize: 12, color: 'var(--dim)' } }, 'Loading zones…'),
+      state === 'error'   && el('div', { style: { padding: 12, fontSize: 12, color: '#f87171' } }, 'Failed to load zones.'),
+      state === 'ready' && el('div', { className: 'tree-item' + (selectedZone === null ? ' sel' : ''), onClick: function(){ onSelectZone(null); } },
+        el('span', { className: 'type-name' }, 'All zones')),
+      state === 'ready' && zones.map(function(z) {
+        return el('div', {
+          key: z.guid || z.name,
+          className: 'tree-item' + (selectedZone === z.name ? ' sel' : ''),
+          onClick: function(){ onSelectZone(z.name); },
+          title: z.description || ''
+        },
+          el('span', { className: 'type-name', style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' } }, z.displayName || z.name),
+          el('span', { className: 'badge', style: { background: 'var(--hover)', color: 'var(--muted)' } }, z.count)
+        );
+      }),
+      state === 'ready' && zones.length === 0 && el('div', { style: { padding: 12, fontSize: 12, color: 'var(--dim)' } }, 'No governance zones defined.')
+    )
+  );
 }
 
-// server displayNames are verbose ("qs-x from Coco … on https://…") — trim to the leading token for dropdowns
-function _shortName(n){ n = n || ''; var i = n.indexOf(' from '); return i > 0 ? n.slice(0, i) : n; }
-
-// ── Generic JSON viewer for the server-report detail panel ────────────────────
-function JsonView({ data }) {
-  if (data === null || data === undefined) return el('span', { style:{ color:'var(--dim)' } }, '—');
-  if (typeof data !== 'object') return el('span', { style:{ color:'var(--text)', wordBreak:'break-word' } }, String(data));
-  if (Array.isArray(data)) {
-    if (!data.length) return el('span', { style:{ color:'var(--dim)' } }, '[]');
-    return el('div', null, data.map(function(v, i){
-      return el('div', { key:i, style:{ marginBottom:4 } }, (typeof v === 'object' && v)
-        ? el(Collapsible, { title: '['+i+']', defaultOpen:false }, el(JsonView, { data:v }))
-        : el('div', { style:{ fontSize:11 } }, '• ', el(JsonView, { data:v }))); }));
-  }
-  var keys = Object.keys(data).filter(function(k){ return k !== 'class'; });
-  return el('table', { style:{ borderCollapse:'collapse', width:'100%' } }, el('tbody', null, keys.map(function(k){
-    var v = data[k];
-    var nested = v && typeof v === 'object';
-    return el('tr', { key:k }, el('td', { style:{ padding:'3px 12px 3px 0', color:'var(--dim)', fontSize:11, verticalAlign:'top', whiteSpace:'nowrap' } }, k),
-      el('td', { style:{ padding:'3px 0', fontSize:11, color:'var(--text)' } }, nested
-        ? el(Collapsible, { title: Array.isArray(v) ? ('['+v.length+']') : '{…}', defaultOpen:false }, el(JsonView, { data:v }))
-        : el(JsonView, { data:v }))); })));
+/* ── Governance Search ────────────────────────────────────────────────────── */
+function typeCatalog(creds, setCatalog, setCatState) {
+  setCatState('loading');
+  egeriaFetch('/api/types', creds).then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }).then(function(d) { setCatalog(d); setCatState('ready'); })
+    .catch(function() { setCatState('error'); });
 }
 
-// ── Confirm dialog (reusable) ─────────────────────────────────────────────────
-function ConfirmDialog({ title, body, confirmLabel, err, onCancel, onConfirm }) {
-  return el('div', { style: { position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 },
-      onClick: function(e){ if (e.target === e.currentTarget) onCancel(); } },
-    el('div', { style: { background:'var(--panel)', border:'1px solid var(--border)', borderRadius:8, padding:'20px 24px', width:440 } },
-      el('div', { style: { fontWeight:700, fontSize:14, marginBottom:10 } }, title),
-      el('div', { style: { fontSize:13, color:'var(--muted)', marginBottom:14, lineHeight:1.5 } }, body),
-      err && el('div', { style: { fontSize:12, color:'#f87171', marginBottom:10 } }, err),
-      el('div', { style: { display:'flex', gap:8, justifyContent:'flex-end' } },
-        el('button', { onClick: onCancel, style: { padding:'6px 14px', borderRadius:5, border:'1px solid var(--border)', background:'transparent', color:'var(--text)', cursor:'pointer', fontSize:13 } }, 'Cancel'),
-        el('button', { onClick: onConfirm, style: { padding:'6px 16px', borderRadius:5, border:'none', background:'var(--accent)', color:'#fff', cursor:'pointer', fontSize:13, fontWeight:600 } }, confirmLabel || 'Confirm'))));
-}
+// Columns for the results table — shared by the row renderer and the sort/filter
+// logic below. Each entry is [label, getter(item)]; the trailing '' column (the
+// cross-nav button) has no getter since it isn't sortable/filterable.
+var RESULT_COLUMNS = [
+  ['Name',            function(it){ return it.displayName; }],
+  ['Type',            function(it){ return it.typeName; }],
+  ['Zones',           function(it){ return ((it.classifications && it.classifications.zoneMembership && it.classifications.zoneMembership.zoneMembership) || []).join(', '); }],
+  ['Classifications', function(it){ return Object.keys(it.classifications || {}).filter(function(k){ return k !== 'zoneMembership'; }).join(', '); }],
+  ['',                null],
+];
 
-// ── Sort + error helpers ──────────────────────────────────────────────────────
-function applySort(rows, sort, keys) {
-  var key = sort.col != null ? keys[sort.col] : null;
-  if (!key) return rows;
-  return rows.slice().sort(function(a, b) {
-    var av = (a[key] == null ? '' : String(a[key])).toLowerCase();
-    var bv = (b[key] == null ? '' : String(b[key])).toLowerCase();
-    var r = av < bv ? -1 : av > bv ? 1 : 0;
-    return sort.dir === 'asc' ? r : -r;
-  });
-}
-function thSortable(sort, setSort, i, h, rzDown, thStyle) {
-  var isSorted = sort.col === i;
-  var indicator = isSorted
-    ? el('span', { style:{ fontSize:9, opacity:0.8 } }, sort.dir === 'asc' ? ' ↑' : ' ↓')
-    : el('span', { style:{ fontSize:9, opacity:0.2 } }, ' ⇅');
-  return el('th', { key:i, style: Object.assign({}, thStyle, { cursor:'pointer', userSelect:'none' }),
-    onClick: function(){ setSort(function(s){ return { col:i, dir: s.col===i ? (s.dir==='asc'?'desc':'asc') : 'asc' }; }); } },
-    h, indicator, rzDown ? colResizeHandle(rzDown, i) : null);
-}
-function statusPillRow(map, statusColors, fStatus, setFStatus) {
-  return el('div', { style:{ display:'flex', gap:3, flexWrap:'wrap', alignItems:'center' } },
-    Object.keys(map).map(function(s){
-      var on = fStatus.has(s); var hex = statusColors[map[s][1]] || '#7a96b0';
-      return el('button', { key:s, onClick:function(){ setFStatus(function(prev){ var n=new Set(prev); if(n.has(s)) n.delete(s); else n.add(s); return n; }); },
-        style:{ fontSize:10, padding:'2px 8px', borderRadius:10, cursor:'pointer', fontWeight: on ? 700 : 400,
-                border: on ? '1.5px solid '+hex : '1px solid var(--border)',
-                background: on ? hex+'22' : 'transparent', color: on ? hex : 'var(--muted)' } }, map[s][0]); }),
-    fStatus.size > 0 && el('button', { onClick:function(){ setFStatus(new Set()); },
-      style:{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid var(--border)', background:'transparent', color:'var(--dim)', cursor:'pointer' } }, 'clear'));
-}
-function errMsg(r) {
-  if (r.status === 403) return Promise.reject(new Error('You do not have permission for this operation.'));
-  return r.json().then(function(e){ throw new Error(e.detail || 'Failed'); });
-}
+function SearchResults({ results }) {
+  var _filter = useState(''),  filter = _filter[0],  setFilter = _filter[1];
+  var _sort   = useState(null), sort   = _sort[0],   setSort   = _sort[1]; // {col, dir}
+  var rz = useColumnResize(RESULT_COLUMNS.length, 170);
 
-// ── Servers tab ───────────────────────────────────────────────────────────────
-function ServersTab({ creds, platforms, platform, onPlatform }) {
-  var _r = useState([]),       rows   = _r[0], setRows   = _r[1];
-  var _s = useState('idle'),   state  = _s[0], setState  = _s[1];
-  var _em = useState(''),      errMsg = _em[0], setErrMsg = _em[1];
-  var _b = useState(false),    busy   = _b[0], setBusy   = _b[1];
-  var _sel = useState(null),   selGuid= _sel[0], setSelGuid = _sel[1];
-  var _rep = useState(null),   report = _rep[0], setReport = _rep[1];
-  var _repErr = useState(''),  reportErr = _repErr[0], setReportErr = _repErr[1];
-  var _cf = useState(null),    confirm= _cf[0], setConfirm = _cf[1];   // {row, action, err}
-  var _pw = useState(400),     panelW = _pw[0], setPanelW = _pw[1];
-  var rz = useColumnResize(5, 180);
-  var _so = useState({ col:0, dir:'asc' }), sort = _so[0], setSort = _so[1];
-  var SORT_KEYS = ['serverName','serverType','description','organizationName','serverActiveStatus'];
-  var sel = rows.find(function(r){ return r.guid === selGuid; });
-  var sortedRows = applySort(rows, sort, SORT_KEYS);
+  if (!results) return null;
+  var items = results.results || [];
 
-  function onPanelDown(e) {
-    e.preventDefault();
-    var w0 = panelW, x0 = e.clientX;
-    function mv(ev){ setPanelW(Math.max(280, Math.min(820, w0 - (ev.clientX - x0)))); }
-    function up(){ document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); }
-    document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
-  }
-
-  function load() {
-    if (!platform) { setRows([]); setState('idle'); return; }
-    setBusy(true); setErrMsg(''); if (state !== 'ready') setState('loading');
-    egeriaFetch('/api/operations/server-status?platform_guid=' + encodeURIComponent(platform.guid), creds)
-      .then(function(r) {
-        if (r.ok) return r.json();
-        var status = r.status;
-        return r.json().catch(function(){ return {}; }).then(function(e) {
-          var detail = e.detail || '';
-          if (status === 401) throw new Error('Session expired or credentials invalid (HTTP 401).' + (detail ? ' ' + detail : ''));
-          if (status === 403) throw new Error('Your account does not have permission to view server status (HTTP 403).' + (detail ? ' ' + detail : ''));
-          throw new Error('Failed to load servers (HTTP ' + status + ').' + (detail ? ' ' + detail : ''));
-        });
-      })
-      .then(function(d){ setRows(d.servers || []); setState('ready'); setBusy(false); })
-      .catch(function(e){ setErrMsg(e.message || 'Failed to load.'); setState('error'); setBusy(false); });
-  }
-  useEffect(load, [platform && platform.guid]);
-
-  // load the full report when a server is selected (and on refresh)
-  function loadReport(guid) {
-    if (!guid) { setReport(null); setReportErr(''); return; }
-    setReportErr('');
-    egeriaFetch('/api/operations/server-report/' + encodeURIComponent(guid), creds)
-      .then(function(r) {
-        if (r.ok) return r.json().then(setReport);
-        var status = r.status;
-        if (status === 401) setReportErr('Session expired — please reconnect (HTTP 401).');
-        else if (status === 403) setReportErr('Not authorized to view this server\'s report (HTTP 403).');
-        else setReportErr('Could not load report (HTTP ' + status + ').');
-        setReport(null);
-      })
-      .catch(function(){ setReportErr('Could not load report.'); setReport(null); });
-  }
-  useEffect(function(){ loadReport(selGuid); }, [selGuid]);
-
-  function doAction(row, action) {
-    setConfirm(Object.assign({}, confirm, { busy:true }));
-    egeriaFetch('/api/operations/server/' + action, creds, { method:'POST', headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ server_guid: row.guid }) })
-      .then(function(r){ return r.ok ? r.json() : errMsg(r); })
-      .then(function(){ setConfirm(null); setTimeout(load, 1500); })
-      .catch(function(e){ setConfirm(Object.assign({}, confirm, { err: e.message, busy:false })); });
-  }
-
-  var th = { textAlign:'left', padding:'6px 12px', borderBottom:'2px solid var(--border)', color:'var(--accent)', fontSize:11, whiteSpace:'nowrap', position:'relative', overflow:'hidden' };
-  var td = { padding:'5px 12px', borderBottom:'1px solid var(--border)', fontSize:12, verticalAlign:'top' };
-  var COLS = ['Server Name','Server Type','Description','Organization','Status'];
-
-  var table = el('div', { style: { flex:1, overflow:'auto', minWidth:0 } },
-    state === 'loading' ? el('div', { style: pad }, 'Loading servers…')
-    : state === 'error' ? el('div', { style: Object.assign({}, pad, { color: '#f87171' }) }, errMsg || 'Failed to load servers.')
-    : !platform ? el('div', { style: pad }, 'Select a platform.')
-    : rows.length === 0 ? el('div', { style: pad }, 'No servers deployed on ' + platform.displayName + '.')
-    : el('table', { style: { borderCollapse:'collapse', tableLayout:'fixed', width: rz.tableWidth ? rz.tableWidth+'px' : '100%', minWidth:'100%' } },
-        el('colgroup', null, [0,1,2,3,4].map(function(i){ return el('col', { key:i, style:{ width: ((rz.widths && rz.widths[i]) || rz.defaultW)+'px' } }); })),
-        el('thead', null, el('tr', null, COLS.map(function(h,i){ return thSortable(sort, setSort, i, h, rz.onResizeDown, th); })
-          .concat([el('th', { key:'a', style: th }, 'Actions')]))),
-        el('tbody', null, sortedRows.map(function(r){
-          var on = r.guid === selGuid;
-          var running = r.serverActiveStatus === 'RUNNING';
-          return el('tr', { key:r.guid, style: { cursor:'pointer', background: on ? 'rgba(96,165,250,.14)' : 'transparent' }, onClick: function(){ setSelGuid(on ? null : r.guid); } },
-            el('td', { style: td }, r.serverName),
-            el('td', { style: td }, r.serverType),
-            el('td', { style: Object.assign({}, td, { color:'var(--muted)' }) }, r.description),
-            el('td', { style: td }, r.organizationName),
-            el('td', { style: td }, el(StatusPill, { value: r.serverActiveStatus, map: SERVER_STATUS })),
-            el('td', { style: td },
-              el('button', { onClick: function(e){ e.stopPropagation(); setConfirm({ row:r, action: running ? 'shutdown' : 'activate' }); },
-                style: { fontSize:11, padding:'2px 10px', borderRadius:4, border:'1px solid '+(running?'#f8717155':'#34d39955'), background:'transparent', color: running?'#f87171':'#34d399', cursor:'pointer' } }, running ? 'Stop' : 'Start')));
-        }))));
-
-  return el('div', { style: { display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' } },
-    el(OpsToolbar, { platforms: platforms, platform: platform, onPlatform: onPlatform, onRefresh: function(){ load(); loadReport(selGuid); }, busy: busy }),
-    el('div', { style: { flex:1, display:'flex', overflow:'hidden', minHeight:0 } },
-      table,
-      sel && el('div', { onMouseDown: onPanelDown, title:'Drag to resize', style: { width:6, flexShrink:0, cursor:'col-resize', background:'var(--border)' } }),
-      sel && el('div', { style: { width: panelW+'px', flexShrink:0, overflow:'auto', borderLeft:'1px solid var(--border)', background:'var(--panel)' } },
-        el('div', { style: { padding:'10px 14px', display:'flex', alignItems:'center', gap:8, borderBottom:'1px solid var(--border)', position:'sticky', top:0, background:'var(--panel)', zIndex:1 } },
-          el('div', { style:{ minWidth:0 } },
-            el('div', { style:{ fontWeight:700, fontSize:13, color:'var(--accent)' } }, sel.serverName),
-            el('div', { style:{ fontSize:11, color:'var(--dim)' } }, sel.serverType)),
-          el('button', { onClick: function(){ crossAppNavigate({ guid: sel.guid, typeName: 'SoftwareServer', superTypeNames: ['Asset'] }); }, title:'Open in The Catalog',
-            style:{ marginLeft:'auto', fontSize:11, padding:'2px 8px', borderRadius:4, border:'1px solid var(--border)', background:'transparent', color:'var(--accent)', cursor:'pointer' } }, 'Catalog ↗'),
-          el('button', { onClick: function(){ setSelGuid(null); }, title:'Close', style:{ background:'transparent', border:'none', color:'var(--dim)', cursor:'pointer', fontSize:16, lineHeight:1 } }, '✕')),
-        el('div', { style:{ padding:'10px 14px' } },
-          reportErr ? el('div', { style:{ color:'#f87171', fontSize:12 } }, reportErr)
-          : report ? el(JsonView, { data: report })
-          : el('div', { style:{ color:'var(--dim)', fontSize:12 } }, 'Loading report…')))),
-    confirm && el(ConfirmDialog, {
-      title: (confirm.action === 'shutdown' ? 'Stop' : 'Start') + ' server?',
-      body: el('span', null, (confirm.action === 'shutdown' ? 'Shut down ' : 'Start '), el('b', { style:{ color:'var(--text)' } }, confirm.row.serverName),
-        confirm.action === 'activate' ? ' (activate with stored config — this can take a while).' : '? Active work on this server will stop.'),
-      confirmLabel: confirm.action === 'shutdown' ? 'Stop server' : 'Start server',
-      err: confirm.err, onCancel: function(){ setConfirm(null); }, onConfirm: function(){ doAction(confirm.row, confirm.action); } }));
-}
-
-// ── Reusable: server-report-driven tab (Connectors / Engines share this shell) ─
-// Selects a server (filtered by type) from the shared platform, loads rows, and
-// lays out a resizable table + docked detail panel with a confirm-gated action.
-function useServerTab({ creds, platform, serverType, endpoint, rowKey }) {
-  var _sv = useState(null),  server = _sv[0], setServer = _sv[1];
-  var _r  = useState([]),    rows   = _r[0],  setRows   = _r[1];
-  var _s  = useState('idle'),state  = _s[0],  setState  = _s[1];
-  var _em = useState(''),    errMsg = _em[0],  setErrMsg = _em[1];
-  var _b  = useState(false), busy   = _b[0],  setBusy   = _b[1];
-  var _sel= useState(null),  selKey = _sel[0],setSelKey = _sel[1];
-  var _st = useState(false), stale  = _st[0], setStale  = _st[1];
-  var retryTimer = useRef(null);
-  var servers = (platform && platform.servers || []).filter(function(s){ return s.serverType === serverType; });
-  useEffect(function(){ setSelKey(null); setServer(servers[0] || null); }, [platform && platform.guid, servers.length]);
-  // cancel any pending retry on unmount
-  useEffect(function(){ return function(){ if (retryTimer.current) clearTimeout(retryTimer.current); }; }, []);
-  function load() {
-    if (!server) { setRows([]); setState('idle'); return; }
-    if (retryTimer.current) { clearTimeout(retryTimer.current); retryTimer.current = null; }
-    setBusy(true); setErrMsg(''); if (state !== 'ready') setState('loading');
-    egeriaFetch(endpoint + '?server_guid=' + encodeURIComponent(server.guid), creds)
-      .then(function(r) {
-        if (r.ok) return r.json();
-        var status = r.status;
-        return r.json().catch(function(){ return {}; }).then(function(e) {
-          var detail = e.detail || '';
-          if (status === 401) throw new Error('Session expired or credentials invalid (HTTP 401).' + (detail ? ' ' + detail : ''));
-          if (status === 403) throw new Error('Your account does not have permission to view this data (HTTP 403).' + (detail ? ' ' + detail : ''));
-          throw new Error('Failed to load (HTTP ' + status + ').' + (detail ? ' ' + detail : ''));
-        });
-      })
-      .then(function(d){
-        if (d && d.loading) {
-          // backend is fetching from Egeria in background — poll again in 8 s
-          setBusy(false); setState('loading');
-          retryTimer.current = setTimeout(load, 8000);
-          return;
-        }
-        setRows((d && (d.connectors || d.engines)) || []); setStale(!!(d && d.stale)); setState('ready'); setBusy(false);
-      })
-      .catch(function(e){ setErrMsg(e.message || 'Failed to load.'); setState('error'); setBusy(false); });
-  }
-  useEffect(load, [server && server.guid]);
-  return { server:server, setServer:setServer, servers:servers, rows:rows, state:state, errMsg:errMsg, busy:busy, load:load,
-           selKey:selKey, setSelKey:setSelKey, stale:stale };
-}
-
-// docked resizable detail panel (shared by the report-driven tabs)
-function DetailPanel({ title, subtitle, onClose, onCatalog, width, onResize, children }) {
-  return el(React.Fragment, null,
-    el('div', { onMouseDown: onResize, title:'Drag to resize', style:{ width:6, flexShrink:0, cursor:'col-resize', background:'var(--border)' } }),
-    el('div', { style:{ width: width+'px', flexShrink:0, overflow:'auto', borderLeft:'1px solid var(--border)', background:'var(--panel)' } },
-      el('div', { style:{ padding:'10px 14px', display:'flex', alignItems:'center', gap:8, borderBottom:'1px solid var(--border)', position:'sticky', top:0, background:'var(--panel)', zIndex:1 } },
-        el('div', { style:{ minWidth:0 } },
-          el('div', { style:{ fontWeight:700, fontSize:13, color:'var(--accent)', wordBreak:'break-word' } }, title),
-          subtitle && el('div', { style:{ fontSize:11, color:'var(--dim)' } }, subtitle)),
-        onCatalog && el('button', { onClick: onCatalog, title:'Open in The Catalog', style:{ marginLeft:'auto', fontSize:11, padding:'2px 8px', borderRadius:4, border:'1px solid var(--border)', background:'transparent', color:'var(--accent)', cursor:'pointer', whiteSpace:'nowrap' } }, 'Catalog ↗'),
-        el('button', { onClick: onClose, title:'Close', style:{ marginLeft: onCatalog?0:'auto', background:'transparent', border:'none', color:'var(--dim)', cursor:'pointer', fontSize:16, lineHeight:1 } }, '✕')),
-      el('div', { style:{ padding:'10px 14px' } }, children)));
-}
-
-function usePanelWidth(initial) {
-  var _pw = useState(initial), w = _pw[0], setW = _pw[1];
-  function onDown(e){ e.preventDefault(); var w0=w, x0=e.clientX;
-    function mv(ev){ setW(Math.max(280, Math.min(860, w0 - (ev.clientX - x0)))); }
-    function up(){ document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up); }
-    document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up); }
-  return [w, onDown];
-}
-
-// ── Integration Connectors tab ────────────────────────────────────────────────
-function ConnectorsTab({ creds, platforms, platform, onPlatform }) {
-  var t = useServerTab({ creds:creds, platform:platform, serverType:'Integration Daemon', endpoint:'/api/operations/integration-connectors' });
-  var _cf = useState(null),        confirm    = _cf[0], setConfirm    = _cf[1];
-  var _rfg = useState(new Set()),  refreshing = _rfg[0], setRefreshing = _rfg[1];
-  var _fg = useState('all'),       fGroup     = _fg[0], setFGroup     = _fg[1];
-  var _ft = useState(''),    fText   = _ft[0], setFText   = _ft[1];
-  var _fs = useState(new Set()), fStatus = _fs[0], setFStatus = _fs[1];
-  var _so = useState({ col:0, dir:'asc' }), sort = _so[0], setSort = _so[1];
-  var pw = usePanelWidth(460), panelW = pw[0], onPanelDown = pw[1];
-  var rz = useColumnResize(7, 150);
-  var SORT_KEYS = ['connectorName','connectorStatus','integrationGroup','lastStatusChange','lastRefreshTime','minMinutesBetweenRefresh','failingExceptionMessage'];
-  var sel = t.rows.find(function(r){ return r.connectorName === t.selKey; });
-  var groupNames = Array.from(new Set(t.rows.map(function(r){ return r.integrationGroup; }).filter(Boolean))).sort();
-  var rows = applySort(t.rows.filter(function(r){
-    if (fStatus.size > 0 && !fStatus.has(r.connectorStatus)) return false;
-    if (fGroup !== 'all' && r.integrationGroup !== fGroup) return false;
-    if (fText && (r.connectorName || '').toLowerCase().indexOf(fText.toLowerCase()) < 0) return false;
-    return true; }), sort, SORT_KEYS);
-
-  function loadAndClear() { setRefreshing(new Set()); t.load(); }
-
-  function act(row, action) {
-    if (action === 'refresh') {
-      setConfirm(null);
-      var rName = row.connectorName;
-      setRefreshing(function(s){ var n = new Set(s); n.add(rName); return n; });
-      var clearR = function(){ setRefreshing(function(s){ var n = new Set(s); n.delete(rName); return n; }); };
-      egeriaFetch('/api/operations/connector/refresh', creds, { method:'POST', headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ server_guid: t.server.guid, connector_name: rName }) })
-        .then(function(r){ clearR(); if (r.ok) setTimeout(t.load, 800); })
-        .catch(function(){ clearR(); });
-      return;
-    }
-    setConfirm(Object.assign({}, confirm, { busy:true }));
-    egeriaFetch('/api/operations/connector/' + action, creds, { method:'POST', headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ server_guid: t.server.guid, connector_name: row.connectorName }) })
-      .then(function(r){ return r.ok ? r.json() : errMsg(r); })
-      .then(function(){ setConfirm(null); setTimeout(t.load, 1200); })
-      .catch(function(e){ setConfirm(Object.assign({}, confirm, { err:e.message, busy:false })); });
-  }
-
-  var th = { textAlign:'left', padding:'6px 10px', borderBottom:'2px solid var(--border)', color:'var(--accent)', fontSize:11, whiteSpace:'nowrap', position:'relative', overflow:'hidden' };
-  var td = { padding:'5px 10px', borderBottom:'1px solid var(--border)', fontSize:12, verticalAlign:'top' };
-  var COLS = ['Connector','Status','Integration Group','Last Status Change','Last Refresh','Refresh (min)','Errors'];
-
-  var actionBtn = function(label, color, row, action){
-    return el('button', { key:action, onClick:function(e){ e.stopPropagation(); setConfirm({ row:row, action:action }); },
-      style:{ fontSize:10, padding:'1px 7px', borderRadius:4, border:'1px solid '+color+'55', background:'transparent', color:color, cursor:'pointer', marginRight:4 } }, label);
-  };
-
-  // Catalog targets table rendered in the detail panel
-  function CatalogTargetsSection({ targets }) {
-    if (!targets || !targets.length) return el('div', { style:{ color:'var(--dim)', fontSize:12 } }, 'No catalog targets configured.');
-    return el('table', { style:{ borderCollapse:'collapse', width:'100%', marginTop:4 } },
-      el('thead', null, el('tr', null,
-        el('th', { style:{ textAlign:'left', padding:'4px 8px', fontSize:10, color:'var(--muted)', borderBottom:'1px solid var(--border)', textTransform:'uppercase', letterSpacing:1 } }, 'Target Name'),
-        el('th', { style:{ textAlign:'left', padding:'4px 8px', fontSize:10, color:'var(--muted)', borderBottom:'1px solid var(--border)', textTransform:'uppercase', letterSpacing:1 } }, 'Element'),
-        el('th', { style:{ textAlign:'left', padding:'4px 8px', fontSize:10, color:'var(--muted)', borderBottom:'1px solid var(--border)', textTransform:'uppercase', letterSpacing:1 } }, 'Type'),
-        el('th', { style:{ padding:'4px 8px', borderBottom:'1px solid var(--border)' } }))),
-      el('tbody', null, targets.map(function(tg, i){
-        return el('tr', { key:i },
-          el('td', { style:{ padding:'5px 8px', fontSize:11, borderBottom:'1px solid rgba(26,45,72,.3)', color:'var(--muted)' } }, tg.catalogTargetName || '—'),
-          el('td', { style:{ padding:'5px 8px', fontSize:11, borderBottom:'1px solid rgba(26,45,72,.3)' } }, tg.elementName || tg.guid || '—'),
-          el('td', { style:{ padding:'5px 8px', fontSize:11, borderBottom:'1px solid rgba(26,45,72,.3)', color:'var(--dim)', fontFamily:'ui-monospace,monospace' } }, tg.typeName || '—'),
-          el('td', { style:{ padding:'5px 8px', borderBottom:'1px solid rgba(26,45,72,.3)', textAlign:'right' } },
-            tg.guid && el('button', { onClick:function(){ crossAppNavigate({ guid: tg.guid, typeName: tg.typeName }, { app: 'tech-catalog' }); },
-              style:{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid rgba(96,165,250,.4)', background:'transparent', color:'var(--accent)', cursor:'pointer', whiteSpace:'nowrap' } }, 'View ↗')));
-      })));
-  }
-
-  var table = el('div', { style:{ flex:1, overflow:'auto', minWidth:0 } },
-    t.state === 'loading' ? el('div', { style: pad }, 'Fetching connector data from Egeria — this can take a minute on first load. The page will update automatically.')
-    : t.state === 'error' ? el('div', { style: Object.assign({}, pad, { color: '#f87171' }) }, t.errMsg || 'Failed to load connectors.')
-    : !t.server ? el('div', { style: pad }, 'No Integration Daemon on this platform.')
-    : rows.length === 0 ? el('div', { style: pad }, t.rows.length ? 'No connectors match the filter.' : 'No connectors on this daemon.')
-    : el('table', { style:{ borderCollapse:'collapse', tableLayout:'fixed', width: rz.tableWidth ? rz.tableWidth+'px' : '100%', minWidth:'100%' } },
-        el('colgroup', null, [0,1,2,3,4,5,6].map(function(i){ return el('col', { key:i, style:{ width: ((rz.widths && rz.widths[i]) || rz.defaultW)+'px' } }); })),
-        el('thead', null, el('tr', null, COLS.map(function(h,i){ return thSortable(sort, setSort, i, h, rz.onResizeDown, th); })
-          .concat([el('th', { key:'a', style: th }, 'Actions')]))),
-        el('tbody', null, rows.map(function(r){
-          var on = r.connectorName === t.selKey;
-          var hasErr = !!r.failingExceptionMessage;
-          return el('tr', { key:r.connectorName, style:{ cursor:'pointer', background: on ? 'rgba(96,165,250,.14)' : 'transparent' }, onClick:function(){ t.setSelKey(on ? null : r.connectorName); } },
-            el('td', { style: td }, r.connectorName),
-            el('td', { style: td }, el(StatusPill, { value:r.connectorStatus, map:CONNECTOR_STATUS })),
-            el('td', { style: Object.assign({}, td, { color:'var(--muted)' }) }, r.integrationGroup || '—'),
-            el('td', { style: td }, r.lastStatusChange),
-            el('td', { style: td }, r.lastRefreshTime),
-            el('td', { style: td }, r.minMinutesBetweenRefresh == null ? '' : String(r.minMinutesBetweenRefresh)),
-            el('td', { style: td }, hasErr
-              ? el('span', { title: r.failingExceptionMessage, style:{ color:'#f87171', cursor:'pointer' } }, '⚠ See details')
-              : el('span', { style:{ color:'var(--dim)' } }, '—')),
-            el('td', { style: td }, refreshing.has(r.connectorName)
-              ? el('span', { style:{ fontSize:10, color:'#60a5fa' } }, '⟳ Refreshing…')
-              : [actionBtn('Restart','#34d399',r,'restart'), actionBtn('Refresh','#60a5fa',r,'refresh')]));
-        }))));
-
-  var filters = el(React.Fragment, null,
-    el('select', { value:fGroup, onChange:function(e){ setFGroup(e.target.value); }, style:{ fontSize:11, padding:'4px 6px', background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:4, maxWidth:200 } },
-      [el('option', { key:'all', value:'all' }, 'All groups')].concat(groupNames.map(function(g){ return el('option', { key:g, value:g }, g); }))),
-    el('input', { placeholder:'filter connector…', value:fText, onChange:function(e){ setFText(e.target.value); }, style:{ fontSize:11, padding:'4px 8px', background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:4, width:150 } }),
-    el('div', { style:{ width:1, height:20, background:'var(--border)', margin:'0 4px' } }),
-    statusPillRow(CONNECTOR_STATUS, STATUS_COLORS, fStatus, setFStatus));
-
-  var sectionHdr = function(label){ return el('div', { style:{ fontSize:10, color:'var(--muted)', textTransform:'uppercase', letterSpacing:1, fontWeight:600, marginTop:16, marginBottom:6 } }, label); };
-
-  return el('div', { style:{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' } },
-    t.stale && el('div', { style:{ padding:'3px 14px', fontSize:11, background:'rgba(251,191,36,.08)', borderBottom:'1px solid rgba(251,191,36,.3)', color:'#fbbf24' } },
-      '⏱ Showing cached data — live status is refreshing in the background.'),
-    el(OpsToolbar, { platforms:platforms, platform:platform, onPlatform:onPlatform, servers:t.servers, server:t.server, onServer:t.setServer, serverLabel:'Daemon', onRefresh:loadAndClear, busy:t.busy, children:filters }),
-    el('div', { style:{ flex:1, display:'flex', overflow:'hidden', minHeight:0 } },
-      table,
-      sel && el(DetailPanel, { title: sel.connectorName, subtitle: sel.integrationGroup, width: panelW, onResize: onPanelDown,
-        onClose: function(){ t.setSelKey(null); }, onCatalog: function(){ crossAppNavigate({ guid: sel.connectorGUID, typeName: 'IntegrationConnector', superTypeNames: ['SoftwareCapability'] }); } },
-        sel.failingExceptionMessage && el('div', null,
-          sectionHdr('⚠ Failing Exception'),
-          el('div', { style:{ fontSize:12, color:'#f87171', background:'rgba(248,113,113,.08)', border:'1px solid rgba(248,113,113,.25)', borderRadius:6, padding:'10px 12px', wordBreak:'break-word', lineHeight:1.5 } }, sel.failingExceptionMessage)),
-        sectionHdr('Catalog Targets (' + (sel.catalogTargets ? sel.catalogTargets.length : 0) + ')'),
-        el(CatalogTargetsSection, { targets: sel.catalogTargets }),
-        sectionHdr('Connector Properties'),
-        el(JsonView, { data: (function(r){ var d={}; ['connectorGUID','connectorStatus','integrationGroup','lastStatusChange','lastRefreshTime','minMinutesBetweenRefresh'].forEach(function(k){ if(r[k]!=null) d[k]=r[k]; }); return d; })(sel) }))),
-    confirm && el(ConfirmDialog, {
-      title: confirm.action.charAt(0).toUpperCase() + confirm.action.slice(1) + ' connector?',
-      body: el('span', null, confirm.action + ' ', el('b', { style:{ color:'var(--text)' } }, confirm.row.connectorName), ' on ', t.server ? _shortName(t.server.displayName) : '', '?'),
-      confirmLabel: confirm.action.charAt(0).toUpperCase() + confirm.action.slice(1), err: confirm.err,
-      onCancel: function(){ setConfirm(null); }, onConfirm: function(){ act(confirm.row, confirm.action); } }));
-}
-
-// ── Governance Engines tab ──────────────────────────────────────────────────
-function EnginesTab({ creds, platforms, platform, onPlatform }) {
-  var t = useServerTab({ creds:creds, platform:platform, serverType:'Engine Host Server', endpoint:'/api/operations/governance-engines' });
-  var _cf  = useState(null),  confirm  = _cf[0],  setConfirm  = _cf[1];
-  var _scf = useState(null),  srvConf  = _scf[0], setSrvConf  = _scf[1];
-  var _ft  = useState(''),    fText    = _ft[0],   setFText    = _ft[1];
-  var _fs  = useState(new Set()), fStatus = _fs[0], setFStatus = _fs[1];
-  var _so  = useState({ col:0, dir:'asc' }), sort = _so[0], setSort = _so[1];
-  var pw = usePanelWidth(420), panelW = pw[0], onPanelDown = pw[1];
-  var rz = useColumnResize(7, 150);
-  var SORT_KEYS = ['governanceEngineName','governanceEngineTypeName','governanceEngineService','governanceEngineDescription','governanceEngineStatus','','lastRefreshTime'];
-  var sel = t.rows.find(function(r){ return r.governanceEngineName === t.selKey; });
-  var rows = applySort(t.rows.filter(function(r){
-    if (fStatus.size > 0 && !fStatus.has(r.governanceEngineStatus)) return false;
-    return !fText || (r.governanceEngineName || '').toLowerCase().indexOf(fText.toLowerCase()) >= 0;
-  }), sort, SORT_KEYS);
-
-  function refresh(row) {
-    setConfirm(Object.assign({}, confirm, { busy:true }));
-    egeriaFetch('/api/operations/engine/refresh', creds, { method:'POST', headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ server_guid: t.server.guid, engine_name: row.governanceEngineName }) })
-      .then(function(r){ return r.ok ? r.json() : errMsg(r); })
-      .then(function(){ setConfirm(null); setTimeout(t.load, 1200); })
-      .catch(function(e){ setConfirm(Object.assign({}, confirm, { err:e.message, busy:false })); });
-  }
-
-  function doSrvAction(action) {
-    setSrvConf(Object.assign({}, srvConf, { busy:true }));
-    egeriaFetch('/api/operations/server/' + action, creds, { method:'POST', headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ server_guid: t.server.guid }) })
-      .then(function(r){ return r.ok ? r.json() : errMsg(r); })
-      .then(function(){ setSrvConf(null); setTimeout(t.load, 1500); })
-      .catch(function(e){ setSrvConf(Object.assign({}, srvConf, { err:e.message, busy:false })); });
-  }
-
-  var th = { textAlign:'left', padding:'6px 10px', borderBottom:'2px solid var(--border)', color:'var(--accent)', fontSize:11, whiteSpace:'nowrap', position:'relative', overflow:'hidden' };
-  var td = { padding:'5px 10px', borderBottom:'1px solid var(--border)', fontSize:12, verticalAlign:'top' };
-  var COLS = ['Engine','Type','Service','Description','Status','Request Types','Last Refresh'];
-
-  function chips(list) {
-    if (!list || !list.length) return el('span', { style:{ color:'var(--dim)' } }, '—');
-    return el('div', { style:{ display:'flex', flexWrap:'wrap', gap:3 } }, list.map(function(rt,i){
-      return el('span', { key:i, style:{ fontSize:10, padding:'1px 6px', borderRadius:8, background:'rgba(96,165,250,.12)', border:'1px solid rgba(96,165,250,.3)', color:'var(--accent)' } }, rt); }));
-  }
-
-  var table = el('div', { style:{ flex:1, overflow:'auto', minWidth:0 } },
-    t.state === 'loading' ? el('div', { style: pad }, 'Loading governance engines…')
-    : t.state === 'error' ? el('div', { style: Object.assign({}, pad, { color: '#f87171' }) }, t.errMsg || 'Failed to load governance engines.')
-    : !t.server ? el('div', { style: pad }, 'No Engine Host on this platform.')
-    : rows.length === 0 ? el('div', { style: pad }, t.rows.length ? 'No engines match the filter.' : 'No governance engines on this host.')
-    : el('table', { style:{ borderCollapse:'collapse', tableLayout:'fixed', width: rz.tableWidth ? rz.tableWidth+'px' : '100%', minWidth:'100%' } },
-        el('colgroup', null, [0,1,2,3,4,5,6].map(function(i){ return el('col', { key:i, style:{ width: ((rz.widths && rz.widths[i]) || rz.defaultW)+'px' } }); })),
-        el('thead', null, el('tr', null, COLS.map(function(h,i){ return thSortable(sort, setSort, i, h, rz.onResizeDown, th); })
-          .concat([el('th', { key:'a', style: th }, 'Actions')]))),
-        el('tbody', null, rows.map(function(r){
-          var on = r.governanceEngineName === t.selKey;
-          return el('tr', { key:r.governanceEngineName, style:{ cursor:'pointer', background: on ? 'rgba(96,165,250,.14)' : 'transparent' }, onClick:function(){ t.setSelKey(on ? null : r.governanceEngineName); } },
-            el('td', { style: td }, r.governanceEngineName),
-            el('td', { style: td }, r.governanceEngineTypeName || '—'),
-            el('td', { style: td }, r.governanceEngineService || '—'),
-            el('td', { style: Object.assign({}, td, { color:'var(--muted)' }) }, r.governanceEngineDescription || '—'),
-            el('td', { style: td }, el(StatusPill, { value:r.governanceEngineStatus, map:GOV_ENGINE_STATUS })),
-            el('td', { style: td }, chips(r.governanceRequestTypes)),
-            el('td', { style: td }, r.lastRefreshTime || '—'),
-            el('td', { style: td },
-              el('button', { onClick:function(e){ e.stopPropagation(); setConfirm({ row:r }); },
-                style:{ fontSize:10, padding:'1px 8px', borderRadius:4, border:'1px solid #60a5fa55', background:'transparent', color:'#60a5fa', cursor:'pointer' } }, 'Refresh config')));
-        }))));
-
-  var filters = el(React.Fragment, null,
-    el('input', { placeholder:'filter engine…', value:fText, onChange:function(e){ setFText(e.target.value); }, style:{ fontSize:11, padding:'4px 8px', background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:4, width:150 } }),
-    t.server && el(React.Fragment, null,
-      el('div', { style:{ width:1, height:20, background:'var(--border)', margin:'0 4px' } }),
-      el('button', { onClick:function(){ setSrvConf({ action:'activate' }); },
-        style:{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid #34d39955', background:'transparent', color:'#34d399', cursor:'pointer' } }, 'Start host'),
-      el('button', { onClick:function(){ setSrvConf({ action:'shutdown' }); },
-        style:{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid #f8717155', background:'transparent', color:'#f87171', cursor:'pointer' } }, 'Stop host')),
-    el('div', { style:{ width:1, height:20, background:'var(--border)', margin:'0 4px' } }),
-    statusPillRow(GOV_ENGINE_STATUS, STATUS_COLORS, fStatus, setFStatus));
-
-  return el('div', { style:{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' } },
-    el(OpsToolbar, { platforms:platforms, platform:platform, onPlatform:onPlatform, servers:t.servers, server:t.server, onServer:t.setServer, serverLabel:'Engine Host', onRefresh:t.load, busy:t.busy, children:filters }),
-    el('div', { style:{ flex:1, display:'flex', overflow:'hidden', minHeight:0 } },
-      table,
-      sel && el(DetailPanel, { title: sel.governanceEngineName, subtitle: sel.governanceEngineTypeName, width: panelW, onResize: onPanelDown,
-        onClose: function(){ t.setSelKey(null); },
-        onCatalog: sel.governanceEngineGUID ? function(){ crossAppNavigate({ guid: sel.governanceEngineGUID, typeName: 'GovernanceEngine', superTypeNames: ['SoftwareCapability'] }); } : null },
-        el(JsonView, { data: sel }))),
-    confirm && el(ConfirmDialog, {
-      title: 'Refresh engine config?',
-      body: el('span', null, 'Refresh the configuration of ', el('b', { style:{ color:'var(--text)' } }, confirm.row.governanceEngineName), ' from the metadata server?'),
-      confirmLabel: 'Refresh config', err: confirm.err,
-      onCancel: function(){ setConfirm(null); }, onConfirm: function(){ refresh(confirm.row); } }),
-    srvConf && el(ConfirmDialog, {
-      title: srvConf.action === 'shutdown' ? 'Stop Engine Host?' : 'Start Engine Host?',
-      body: el('span', null, srvConf.action === 'shutdown' ? 'Shut down ' : 'Start ',
-        el('b', { style:{ color:'var(--text)' } }, t.server ? _shortName(t.server.displayName) : 'this engine host'), '?'),
-      confirmLabel: srvConf.action === 'shutdown' ? 'Stop host' : 'Start host', err: srvConf.err,
-      onCancel: function(){ setSrvConf(null); }, onConfirm: function(){ doSrvAction(srvConf.action); } }));
-}
-
-// ── Engine Actions tab (ecosystem-wide) ──────────────────────────────────────
-function ActionsTab({ creds, isAdmin }) {
-  var _rows = useState([]),        rows    = _rows[0], setRows    = _rows[1];
-  var _st   = useState('idle'),    state   = _st[0],   setState   = _st[1];
-  var _busy = useState(false),     busy    = _busy[0], setBusy    = _busy[1];
-  var _ft   = useState(''),        fText   = _ft[0],   setFText   = _ft[1];
-  var _fs   = useState(new Set()), fStatus = _fs[0],   setFStatus = _fs[1];
-  var _sel  = useState(null),      selGuid = _sel[0],  setSelGuid = _sel[1];
-  var _cf   = useState(null),      confirm = _cf[0],   setConfirm = _cf[1];
-  var _so   = useState({ col:5, dir:'desc' }), sort = _so[0], setSort = _so[1];
-  var _grp  = useState(false),     grouped = _grp[0],  setGrouped = _grp[1];
-  var _exp  = useState(new Set()), expanded = _exp[0], setExpanded = _exp[1];
-  var pw    = usePanelWidth(420),  panelW  = pw[0],    onPanelDown = pw[1];
-  var rz    = useColumnResize(9, 140);
-  var SORT_KEYS = ['displayName','requestType','activityStatus','executorEngineName','requesterUserId','startTime','completionTime',''];
-
-  var sel = rows.find(function(r){ return r.guid === selGuid; });
-
-  function load() {
-    if (busy) return;
-    setBusy(true); setState('loading');
-    egeriaFetch('/api/operations/engine-actions', creds)
-      .then(function(r){ return r.ok ? r.json() : errMsg(r); })
-      .then(function(d){ setRows(d.actions || []); setState('ready'); setBusy(false); })
-      .catch(function(){ setState('error'); setBusy(false); });
-  }
-
-  React.useEffect(function(){ load(); }, []);
-
-  function toggleStatus(s) {
-    setFStatus(function(prev){ var n = new Set(prev); if (n.has(s)) n.delete(s); else n.add(s); return n; });
-  }
-  function toggleGroup(key) {
-    setExpanded(function(prev){ var n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
-  }
-
-  var filteredRows = rows.filter(function(r){
-    if (fStatus.size > 0 && !fStatus.has(r.activityStatus)) return false;
-    if (fText) {
-      var q = fText.toLowerCase();
-      return (r.displayName||'').toLowerCase().indexOf(q) >= 0 ||
-             (r.requestType||'').toLowerCase().indexOf(q) >= 0 ||
-             (r.executorEngineName||'').toLowerCase().indexOf(q) >= 0;
-    }
-    return true;
-  });
-  var visibleRows = applySort(filteredRows, sort, SORT_KEYS);
-
-  var canCancel = function(r){ return r && ['REQUESTED','APPROVED','WAITING','IN_PROGRESS'].indexOf(r.activityStatus) >= 0; };
-
-  function doCancel(row) {
-    setConfirm(Object.assign({}, confirm, { busy:true }));
-    egeriaFetch('/api/operations/engine-action/cancel', creds, { method:'POST', headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ engine_action_guid: row.guid }) })
-      .then(function(r){ return r.ok ? r.json() : errMsg(r); })
-      .then(function(){ setConfirm(null); setTimeout(load, 800); })
-      .catch(function(e){ setConfirm(Object.assign({}, confirm, { err:e.message, busy:false })); });
-  }
-
-  function fmtTime(iso) {
-    if (!iso) return '—';
-    try { return new Date(iso).toLocaleString([], { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }); }
-    catch(e){ return iso; }
-  }
-
-  function chips(list) {
-    if (!list || !list.length) return el('span', { style:{ color:'var(--dim)' } }, '—');
-    return el('div', { style:{ display:'flex', flexWrap:'wrap', gap:3 } }, list.map(function(g,i){
-      return el('span', { key:i, style:{ fontSize:10, padding:'1px 6px', borderRadius:8, background:'rgba(96,165,250,.12)', border:'1px solid rgba(96,165,250,.3)', color:'var(--accent)' } }, g); }));
-  }
-
-  var th = { textAlign:'left', padding:'6px 10px', borderBottom:'2px solid var(--border)', color:'var(--accent)', fontSize:11, whiteSpace:'nowrap', position:'relative', overflow:'hidden' };
-  var td = { padding:'5px 10px', borderBottom:'1px solid var(--border)', fontSize:12, verticalAlign:'top' };
-  var COLS = ['Name','Request Type','Status','Engine','Requester','Start','Completion','Guards'];
-
-  function flatRow(r) {
-    var on = r.guid === selGuid;
-    return el('tr', { key:r.guid, style:{ cursor:'pointer', background: on ? 'rgba(96,165,250,.14)' : 'transparent' },
-      onClick: function(){ setSelGuid(on ? null : r.guid); } },
-      el('td', { style: td }, _shortName(r.displayName)),
-      el('td', { style: td }, r.requestType || '—'),
-      el('td', { style: td }, el(StatusPill, { value: r.activityStatus, map: ACTIVITY_STATUS })),
-      el('td', { style: td }, r.executorEngineName || '—'),
-      el('td', { style: td }, r.requesterUserId || '—'),
-      el('td', { style: td }, fmtTime(r.startTime)),
-      el('td', { style: td }, fmtTime(r.completionTime)),
-      el('td', { style: td }, chips(r.completionGuards)),
-      el('td', { style: td },
-        canCancel(r) && el('button', { onClick:function(e){ e.stopPropagation(); setConfirm({ row:r }); },
-          style:{ fontSize:10, padding:'1px 8px', borderRadius:4, border:'1px solid #f8717155', background:'transparent', color:'#f87171', cursor:'pointer' } }, 'Cancel')));
-  }
-
-  function groupedRows() {
-    var groups = {};
-    var order = [];
-    visibleRows.forEach(function(r) {
-      var key = (r.displayName || '') + '||' + (r.requestType || '');
-      if (!groups[key]) { groups[key] = []; order.push(key); }
-      groups[key].push(r);
+  var vis = items;
+  if (filter.trim()) {
+    var q = filter.trim().toLowerCase();
+    vis = vis.filter(function(it) {
+      return RESULT_COLUMNS.some(function(c){ return c[1] && String(c[1](it) || '').toLowerCase().indexOf(q) !== -1; });
     });
-    var result = [];
-    order.forEach(function(key) {
-      var members = groups[key];
-      var first = members[0];
-      var isOpen = expanded.has(key);
-      var statusCounts = {};
-      members.forEach(function(r){ statusCounts[r.activityStatus] = (statusCounts[r.activityStatus]||0)+1; });
-      var countChips = Object.keys(statusCounts).map(function(s){
-        var c = STATUS_COLORS[(ACTIVITY_STATUS[s] || ['','grey'])[1]] || STATUS_COLORS.grey;
-        return el('span', { key:s, style:{ fontSize:10, padding:'1px 6px', borderRadius:8, fontWeight:600, background:c+'1f', border:'1px solid '+c+'55', color:c } }, statusCounts[s] + ' ' + (ACTIVITY_STATUS[s] ? ACTIVITY_STATUS[s][0] : s));
-      });
-      result.push(el('tr', { key:key, style:{ cursor:'pointer', background:'rgba(96,165,250,.05)', borderTop:'1px solid var(--border)' },
-        onClick: function(){ toggleGroup(key); } },
-        el('td', { style: Object.assign({}, td, { fontWeight:600 }) },
-          el('span', { style:{ marginRight:6, fontSize:11 } }, isOpen ? '▼' : '▶'),
-          _shortName(first.displayName),
-          el('span', { style:{ marginLeft:8, fontSize:11, color:'var(--dim)', fontWeight:400 } }, members.length + ' instances')),
-        el('td', { style: td }, first.requestType || '—'),
-        el('td', { style: Object.assign({}, td, { display:'flex', flexWrap:'wrap', gap:2 }) }, countChips),
-        el('td', { style: td }, first.executorEngineName || '—'),
-        el('td', { style: td }, ''),
-        el('td', { style: td }, fmtTime(first.startTime)),
-        el('td', { style: td }, ''),
-        el('td', { style: td }, ''),
-        el('td', { style: td }, '')));
-      if (isOpen) {
-        members.forEach(function(r){ result.push(flatRow(r)); });
-      }
+  }
+  if (sort) {
+    var gi = RESULT_COLUMNS[sort.col][1], dir = sort.dir;
+    vis = vis.slice().sort(function(a, b) {
+      var va = String(gi(a) || ''), vb = String(gi(b) || '');
+      return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
     });
-    return result;
+  }
+  function toggleSort(i) {
+    if (!RESULT_COLUMNS[i][1]) return; // '' column isn't sortable
+    setSort(function(p){ if (!p || p.col !== i) return { col: i, dir: 'asc' }; if (p.dir === 'asc') return { col: i, dir: 'desc' }; return null; });
   }
 
-  var tbody = grouped ? groupedRows() : visibleRows.map(flatRow);
+  var th = { textAlign: 'left', padding: '6px 12px', borderBottom: '2px solid var(--border)', color: 'var(--accent)', fontSize: 11, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: 'var(--panel)', cursor: 'pointer', userSelect: 'none', overflow: 'hidden' };
+  var td = { padding: '5px 12px', borderBottom: '1px solid var(--border)', fontSize: 12, verticalAlign: 'top', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
 
-  var table = el('div', { style:{ flex:1, overflow:'auto', minWidth:0 } },
-    state === 'loading' ? el('div', { style: pad }, 'Loading engine actions…')
-    : state === 'error' ? el('div', { style: pad }, 'Failed to load engine actions.')
-    : visibleRows.length === 0 ? el('div', { style: pad }, rows.length ? 'No actions match the filter.' : 'No engine actions found.')
-    : el('table', { style:{ borderCollapse:'collapse', tableLayout:'fixed', width: rz.tableWidth ? rz.tableWidth+'px' : '100%', minWidth:'100%' } },
-        el('colgroup', null, [0,1,2,3,4,5,6,7,8].map(function(i){ return el('col', { key:i, style:{ width:((rz.widths&&rz.widths[i])||rz.defaultW)+'px' } }); })),
-        el('thead', null, el('tr', null, COLS.map(function(h,i){ return thSortable(sort, setSort, i, h, rz.onResizeDown, th); })
-          .concat([el('th', { key:'a', style: th }, 'Actions')]))),
-        el('tbody', null, tbody)));
-
-  var statusPills = Object.keys(ACTIVITY_STATUS).map(function(s){
-    var on = fStatus.has(s); var hex = STATUS_COLORS[ACTIVITY_STATUS[s][1]] || '#7a96b0';
-    return el('button', { key:s, onClick:function(){ toggleStatus(s); },
-      style:{ fontSize:10, padding:'2px 8px', borderRadius:10, cursor:'pointer', fontWeight: on ? 700 : 400,
-              border: on ? '1.5px solid '+hex : '1px solid var(--border)',
-              background: on ? hex+'22' : 'transparent', color: on ? hex : 'var(--muted)' } }, ACTIVITY_STATUS[s][0]);
-  });
-
-  var toolbar = el('div', { style:{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderBottom:'1px solid var(--border)', flexWrap:'wrap' } },
-    el('button', { onClick:function(){ setGrouped(!grouped); setExpanded(new Set()); },
-      title: grouped ? 'Showing grouped by action name — click for flat list' : 'Group rows by action name',
-      style:{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, padding:'4px 11px', borderRadius:6, cursor:'pointer',
-              border: grouped ? '1.5px solid var(--accent)' : '1px solid var(--border)',
-              background: grouped ? 'rgba(96,165,250,.15)' : 'var(--bg)', color: grouped ? 'var(--accent)' : 'var(--muted)', fontWeight: grouped ? 700 : 500 } },
-      el('span', { style:{ fontSize:9, transition:'transform .15s', transform: grouped ? 'rotate(0deg)' : 'rotate(-90deg)', display:'inline-block' } }, '▼'),
-      el('span', { style:{ fontSize:13, lineHeight:1 } }, '☰'),
-      grouped ? 'Grouped' : 'Group'),
-    el(RefreshControl, { onRefresh: load, busy: busy }),
-    el('div', { style:{ width:1, height:20, background:'var(--border)', margin:'0 2px' } }),
-    el('input', { placeholder:'search name / type / engine…', value: fText, onChange:function(e){ setFText(e.target.value); },
-      style:{ fontSize:11, padding:'4px 8px', background:'var(--bg)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:4, width:210 } }),
-    el('div', { style:{ display:'flex', gap:3, flexWrap:'wrap' } }, statusPills),
-    fStatus.size > 0 && el('button', { onClick:function(){ setFStatus(new Set()); },
-      style:{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid var(--border)', background:'transparent', color:'var(--dim)', cursor:'pointer' } }, 'clear'),
-    el('span', { style:{ marginLeft:'auto', fontSize:11, color:'var(--dim)' } }, visibleRows.length + ' / ' + rows.length + ' actions'));
-
-  return el('div', { style:{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' } },
-    toolbar,
-    el('div', { style:{ flex:1, display:'flex', overflow:'hidden', minHeight:0 } },
-      table,
-      sel && el(DetailPanel, {
-        title: _shortName(sel.displayName), subtitle: sel.requestType,
-        width: panelW, onResize: onPanelDown,
-        onClose: function(){ setSelGuid(null); },
-        onCatalog: sel.executorEngineGUID ? function(){ crossAppNavigate({ guid: sel.executorEngineGUID, typeName: 'GovernanceEngine', superTypeNames: ['SoftwareCapability'] }); } : null },
-        el('div', { style:{ display:'flex', gap:6, marginBottom:10, flexWrap:'wrap' } },
-          sel.guid && el('button', { onClick:function(){ crossAppNavigate({ guid: sel.guid, typeName: 'EngineAction' }, { app: 'tech-catalog' }); },
-            style:{ fontSize:11, padding:'3px 10px', borderRadius:4, border:'1px solid rgba(96,165,250,.4)', background:'transparent', color:'var(--accent)', cursor:'pointer' } }, 'Engine Action ↗'),
-          canCancel(sel) && el('button', { onClick:function(){ setConfirm({ row: sel }); },
-            style:{ fontSize:11, padding:'3px 10px', borderRadius:4, border:'1px solid #f8717155', background:'transparent', color:'#f87171', cursor:'pointer' } }, 'Cancel this action')),
-        el(JsonView, { data: sel }))),
-    confirm && el(ConfirmDialog, {
-      title: 'Cancel engine action?',
-      body: el('span', null, 'Cancel ', el('b', { style:{ color:'var(--text)' } }, _shortName(confirm.row.displayName)), '? This cannot be undone.'),
-      confirmLabel: 'Cancel action', err: confirm.err,
-      onCancel: function(){ setConfirm(null); }, onConfirm: function(){ doCancel(confirm.row); } }));
+  return el('div', null,
+    el('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, fontSize: 12.5, color: 'var(--muted)' } },
+      el('b', { style: { color: 'var(--text)', fontSize: 14 } }, results.total),
+      results.fullCount
+        ? ('matching elements (exact' + (results.truncated ? ', truncated at 10,000' : '') + ')')
+        : ('matching elements' + (results.capped ? ' (showing top ' + results.total + ' — refine to see more, or run an exact count)' : '')),
+      items.length > 0 && el('input', { type: 'search', placeholder: 'Filter results…', value: filter,
+        onChange: function(e){ setFilter(e.target.value); },
+        style: { marginLeft: 'auto', fontSize: 12, padding: '5px 9px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none', width: 220 } })
+    ),
+    results.aggregates && Object.keys(results.aggregates).length > 0 &&
+      el('div', { style: { marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8 } },
+        Object.keys(results.aggregates).map(function(k) {
+          var tally = results.aggregates[k];
+          var entries = Object.keys(tally).map(function(v){ return [v, tally[v]]; }).sort(function(a,b){ return b[1]-a[1]; });
+          return el('div', { key: k },
+            el('div', { style: { fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--dim)', marginBottom: 4 } }, k),
+            el('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+              entries.map(function(e) { return el('span', { key: e[0], className: 'chip', style: { cursor: 'default' } }, e[0] + ' · ' + e[1]); })
+            )
+          );
+        })
+      ),
+    items.length === 0
+      ? el('div', { style: { fontSize: 13, color: 'var(--dim)', padding: '20px 0' } }, 'No matches.')
+      : vis.length === 0
+      ? el('div', { style: { fontSize: 13, color: 'var(--dim)', padding: '20px 0' } }, 'No results match your filter.')
+      : el('div', { style: { overflow: 'auto' } },
+          el('table', { style: { borderCollapse: 'collapse', tableLayout: 'fixed', width: rz.tableWidth ? rz.tableWidth + 'px' : '100%', minWidth: '100%' } },
+            el('colgroup', null, RESULT_COLUMNS.map(function(c, i){
+              return el('col', { key: i, style: { width: ((rz.widths && rz.widths[i]) || rz.defaultW) + 'px' } });
+            })),
+            el('thead', null, el('tr', null,
+              RESULT_COLUMNS.map(function(c, i) {
+                var arrow = !c[1] ? '' : (sort && sort.col === i ? (sort.dir === 'asc' ? ' ↑' : ' ↓') : ' ↕');
+                return el('th', { key: i, style: th, onClick: function(){ toggleSort(i); } }, c[0] + arrow, colResizeHandle(rz.onResizeDown, i));
+              })
+            )),
+            el('tbody', null, vis.map(function(it) {
+              var zm = (it.classifications && it.classifications.zoneMembership && it.classifications.zoneMembership.zoneMembership) || [];
+              var clsNames = Object.keys(it.classifications || {}).filter(function(k){ return k !== 'zoneMembership'; });
+              var nav = resolveElementNav(it);
+              return el('tr', { key: it.guid },
+                el('td', { style: td }, it.displayName, el('div', { style: { fontSize: 10.5, color: 'var(--dim)' } }, it.qualifiedName)),
+                el('td', { style: Object.assign({}, td, { fontFamily: 'monospace' }) }, it.typeName),
+                el('td', { style: td, title: zm.join(', ') }, zm.join(', ')),
+                el('td', { style: td, title: clsNames.join(', ') }, clsNames.join(', ')),
+                el('td', { style: td }, nav && el('button', {
+                    onClick: function(){ crossAppNavigate(it, nav); },
+                    style: { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' }
+                  }, 'View →'))
+              );
+            }))
+          )
+        )
+  );
 }
 
-// ── Placeholder (kept for future tabs) ───────────────────────────────────────
-function ComingSoon({ name, note }) {
-  return el('div', { style: { padding:'40px', color:'var(--muted)', fontSize:14 } },
-    el('div', { style:{ fontSize:18, marginBottom:8 } }, name),
-    el('div', { style:{ fontSize:13, color:'var(--dim)', maxWidth:560, lineHeight:1.6 } }, note));
+function GovernanceSearch({ creds, focusZone }) {
+  var _cat = useState(null),      catalog = _cat[0],   setCatalog = _cat[1];
+  var _cst = useState('loading'), catState = _cst[0],  setCatState = _cst[1];
+  var _zone = useState(focusZone || null), selectedZone = _zone[0], setSelectedZone = _zone[1];
+  var _mc  = useState('ALL'), matchCriteria = _mc[0], setMatchCriteria = _mc[1];
+  var _cond = useState([]), conditions = _cond[0], setConditions = _cond[1];
+  var _res = useState(null), results = _res[0], setResults = _res[1];
+  var _rst = useState('idle'), resState = _rst[0], setResState = _rst[1];
+  var _full = useState(false), fullCount = _full[0], setFullCount = _full[1];
+  var _typeName = useState(''), typeName = _typeName[0], setTypeName = _typeName[1];
+  var _valueOpts = useState({}), valueOpts = _valueOpts[0], setValueOpts = _valueOpts[1];
+  var _zoneW = useResizable(240, 160, 480), zoneWidth = _zoneW[0], onZoneResizeDown = _zoneW[1];
+
+  useEffect(function(){ typeCatalog(creds, setCatalog, setCatState); }, [creds && creds.userId]);
+
+  // Seed / replace a ZoneMembership condition when a zone is selected from the tree —
+  // browsing by zone and building a compound query are the same mechanism.
+  useEffect(function() {
+    setConditions(function(prev) {
+      var rest = prev.filter(function(c){ return c.classification !== 'ZoneMembership'; });
+      if (!selectedZone) return rest;
+      return [{ classification: 'ZoneMembership', property: 'zoneMembership', operator: 'LIKE', value: selectedZone, value_type: 'string' }].concat(rest);
+    });
+  }, [selectedZone]);
+
+  var classificationNames = useMemo(function() {
+    if (!catalog || !catalog.classifications) return [];
+    return Object.keys(catalog.classifications).sort();
+  }, [catalog]);
+
+  function propsFor(clsName) {
+    if (!catalog || !catalog.classifications[clsName]) return [];
+    return catalog.classifications[clsName].props || [];
+  }
+
+  function addCondition() {
+    setConditions(conditions.concat([{ classification: classificationNames[0] || '', property: '', operator: 'EQ', value: '', value_type: 'string' }]));
+  }
+  function updateCondition(i, patch) {
+    setConditions(conditions.map(function(c, idx){ return idx === i ? Object.assign({}, c, patch) : c; }));
+  }
+  function removeCondition(i) {
+    setConditions(conditions.filter(function(_, idx){ return idx !== i; }));
+    if (conditions[i] && conditions[i].classification === 'ZoneMembership') setSelectedZone(null);
+  }
+
+  function loadValueOptions(propName) {
+    if (valueOpts[propName] || !propName) return;
+    egeriaFetch('/api/valid-values/lookup?property_name=' + encodeURIComponent(propName), creds)
+      .then(function(r){ return r.ok ? r.json() : { values: [] }; })
+      .then(function(d){ setValueOpts(function(prev){ var next = Object.assign({}, prev); next[propName] = d.values || []; return next; }); })
+      .catch(function(){});
+  }
+
+  function runSearch(full) {
+    setResState('loading');
+    var body = {
+      type_name: typeName || null,
+      match_criteria: matchCriteria,
+      conditions: conditions.filter(function(c){ return c.classification; }).map(function(c) {
+        return { classification: c.classification, property: c.property || null, operator: c.operator,
+                 value: (c.operator === 'IS_NULL' || c.operator === 'NOT_NULL') ? null : c.value, value_type: c.value_type };
+      }),
+      full_count: !!full, start_from: 0, page_size: 200,
+      server: creds && creds.server, user_id: creds && creds.userId, url: creds && creds.url,
+    };
+    egeriaFetch('/api/insights/search', creds, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    }).then(function(r) {
+      if (!r.ok) return r.json().then(function(e){ throw new Error(e.detail || ('HTTP ' + r.status)); });
+      return r.json();
+    }).then(function(d) { setResults(d); setResState('ready'); })
+      .catch(function(e) { setResState('error'); setResults({ error: e.message }); });
+  }
+
+  var canFullCount = conditions.some(function(c){ return c.classification; }) || !!typeName;
+
+  return el('div', { style: { display: 'flex', height: '100%' } },
+    el(ZoneTree, { creds: creds, selectedZone: selectedZone, onSelectZone: setSelectedZone, width: zoneWidth }),
+    el(ResizeDivider, { onMouseDown: onZoneResizeDown }),
+    el('div', { className: 'main', style: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
+      el('div', { style: { padding: '14px 20px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
+        el('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' } },
+          el('span', { style: { fontSize: 12, color: 'var(--muted)' } }, 'Match'),
+          el('select', { className: 'area-select', value: matchCriteria, onChange: function(e){ setMatchCriteria(e.target.value); } },
+            el('option', { value: 'ALL' }, 'ALL conditions (AND)'),
+            el('option', { value: 'ANY' }, 'ANY condition (OR)'),
+            el('option', { value: 'NONE' }, 'NONE of the conditions')
+          ),
+          el('span', { style: { fontSize: 12, color: 'var(--muted)', marginLeft: 10 } }, 'Element type'),
+          el('input', { className: 'search-input', style: { width: 180 }, placeholder: 'e.g. Asset (optional)',
+                        value: typeName, onChange: function(e){ setTypeName(e.target.value); } })
+        ),
+        catState === 'loading' && el('div', { style: { fontSize: 12, color: 'var(--dim)', marginBottom: 8 } }, 'Loading classification catalog…'),
+        catState === 'error'   && el('div', { style: { fontSize: 12, color: '#f87171', marginBottom: 8 } }, 'Failed to load the type system — condition builder unavailable.'),
+        conditions.map(function(c, i) {
+          var props = propsFor(c.classification);
+          var opts = valueOpts[c.property];
+          return el('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' } },
+            el('select', { className: 'area-select', value: c.classification,
+                onChange: function(e){ updateCondition(i, { classification: e.target.value, property: '' }); } },
+              classificationNames.map(function(n){ return el('option', { key: n, value: n }, n); })
+            ),
+            el('select', { className: 'area-select', value: c.property,
+                onChange: function(e){ updateCondition(i, { property: e.target.value }); if (e.target.value) loadValueOptions(e.target.value); } },
+              el('option', { value: '' }, '(has classification)'),
+              props.map(function(p){ return el('option', { key: p.name, value: p.name }, p.name + (p.type ? ' : ' + p.type : '')); })
+            ),
+            c.property && el('select', { className: 'area-select', value: c.operator,
+                onChange: function(e){ updateCondition(i, { operator: e.target.value }); } },
+              OPERATORS.map(function(o){ return el('option', { key: o[0], value: o[0] }, o[1]); })
+            ),
+            c.property && c.operator !== 'IS_NULL' && c.operator !== 'NOT_NULL' && (
+              opts && opts.length > 0
+                ? el('select', { className: 'area-select', value: c.value || '',
+                      onChange: function(e){ updateCondition(i, { value: e.target.value, value_type: LEVEL_FIELDS[c.property] ? 'int' : 'string' }); } },
+                    el('option', { value: '' }, '(choose)'),
+                    opts.map(function(v){ return el('option', { key: v.preferredValue, value: v.preferredValue },
+                      (v.displayName || v.preferredValue) + (v.ordinal != null ? ' (' + v.ordinal + ')' : '')); })
+                  )
+                : el('input', { className: 'search-input', style: { width: 140 }, placeholder: 'value',
+                      value: c.value == null ? '' : c.value,
+                      onChange: function(e){ updateCondition(i, { value: e.target.value, value_type: LEVEL_FIELDS[c.property] ? 'int' : c.value_type }); } })
+            ),
+            el('button', { onClick: function(){ removeCondition(i); },
+                style: { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, '✕')
+          );
+        }),
+        el('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' } },
+          el('button', { onClick: addCondition, disabled: catState !== 'ready',
+              style: { fontSize: 12, padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' } }, '+ Add condition'),
+          el('button', { onClick: function(){ runSearch(false); },
+              style: { fontSize: 12, padding: '5px 16px', borderRadius: 4, border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 600, cursor: 'pointer' } }, 'Search'),
+          el('label', { style: { fontSize: 12, color: canFullCount ? 'var(--muted)' : 'var(--dim)', display: 'flex', alignItems: 'center', gap: 5 } },
+            el('input', { type: 'checkbox', checked: fullCount, disabled: !canFullCount, onChange: function(e){ setFullCount(e.target.checked); } }),
+            'Exact count (may take a while)'
+          ),
+          fullCount && el('button', { onClick: function(){ runSearch(true); }, disabled: !canFullCount,
+              style: { fontSize: 12, padding: '5px 14px', borderRadius: 4, border: '1px solid var(--rel)', background: 'transparent', color: 'var(--rel)', cursor: 'pointer' } }, 'Run exact count')
+        )
+      ),
+      el('div', { style: { flex: 1, overflowY: 'auto', padding: '14px 20px' } },
+        resState === 'idle'    && el('div', { style: { fontSize: 13, color: 'var(--dim)' } }, 'Add conditions (or pick a zone on the left) and run a search.'),
+        resState === 'loading' && el('div', { className: 'center', style: { height: 200 } }, el('div', { className: 'spinner' })),
+        resState === 'error'   && el('div', { style: { fontSize: 13, color: '#f87171' } }, (results && results.error) || 'Search failed.'),
+        resState === 'ready'   && el(SearchResults, { results: results })
+      )
+    )
+  );
 }
 
-// ── App ───────────────────────────────────────────────────────────────────────
 function App() {
   var params = new URLSearchParams(window.location.search);
-  var _creds = useState({}),     creds      = _creds[0],   setCreds      = _creds[1];
-  var _ready = useState(false),  ready      = _ready[0],   setReady      = _ready[1];
-  var _who   = useState(null),   who        = _who[0],     setWho        = _who[1];
-  var _srv   = useState(false),  srvManaged = _srv[0],     setSrvManaged = _srv[1];
-  var _admin = useState(false),  isAdmin    = _admin[0],   setAdmin      = _admin[1];
-  var _dm    = useState(false),  demoMode   = _dm[0],      setDemoMode   = _dm[1];
-  var _pid   = useState(null),   personaId  = _pid[0],     setPersonaId  = _pid[1];
-  var _pl    = useState([]),     platforms  = _pl[0],      setPlatforms  = _pl[1];
-  var _pf    = useState(null),   platform   = _pf[0],      setPlatform   = _pf[1];
+  var _creds = useState(null),   creds   = _creds[0],   setCreds   = _creds[1];
+  var _ready = useState(false),  ready   = _ready[0],   setReady   = _ready[1];
+  var _who   = useState(null),   who     = _who[0],     setWho     = _who[1];   // { label, sub }
+  var _srv   = useState(false),  srvManaged = _srv[0],  setSrvManaged = _srv[1];
+  var _pid   = useState(null),   personaId  = _pid[0],  setPersonaId  = _pid[1];
+  var _showC = useState(false),  showConn = _showC[0],  setShowConn = _showC[1];
+  var _fu = useState(''),  fu = _fu[0], setFu = _fu[1];
+  var _fp = useState(''),  fp = _fp[0], setFp = _fp[1];
+  var _ce = useState(''),  cerr = _ce[0], setCerr = _ce[1];
+  var focusZone = params.get('zone') || null;
   var _t = useState(function() {
     var h = params.get('tab') || window.location.hash.slice(1);
-    return TABS.some(function(t){ return t.id === h; }) ? h : 'servers';
+    return TABS.some(function(t){ return t.id === h; }) ? h : 'dashboard';
   }), tab = _t[0], setTab = _t[1];
   function go(id){ setTab(id); try { window.location.hash = id; } catch(e){} }
   var active = TABS.find(function(t){ return t.id === tab; }) || TABS[0];
 
-  // Auth bootstrap: portal session identity (freshstart JWT or quickstart persona).
-  // To change user, go to the portal profile / persona selector.
+  function applyConn(uid, token) {
+    setCreds({ server: 'qs-view-server', userId: uid, token: token || '' });
+    setWho({ label: uid, sub: 'connected' }); setShowConn(false);
+    try { sessionStorage.setItem('insights-creds', JSON.stringify({ userId: uid, token: token || '' })); } catch(e) {}
+  }
+  function connect() {
+    setCerr('');
+    fetch('/api/egeria-token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: fu, password: fp }) })
+      .then(function(r){ return r.ok ? r.json() : r.json().then(function(e){ throw new Error(e.detail || 'Failed'); }); })
+      .then(function(d){ applyConn(fu, d.token); setFp(''); })
+      .catch(function(e){ setCerr(e.message || 'Connection failed'); });
+  }
+  function disconnect() { setCreds(null); setWho(null); try { sessionStorage.removeItem('insights-creds'); } catch(e) {} setShowConn(true); }
+
+  // Auth bootstrap: restore a session connection, then /api/auth/me (portal JWT
+  // for freshstart; persona for quickstart demo). Identical pattern to every
+  // other portal SPA — see egeria-audit.html / egeria-operations.html.
   useEffect(function() {
+    try { var sc = JSON.parse(sessionStorage.getItem('insights-creds') || 'null'); if (sc && sc.userId) { setCreds({ server: 'qs-view-server', userId: sc.userId, token: sc.token || '' }); setWho({ label: sc.userId, sub: 'connected' }); } } catch(e) {}
     fetch('/api/auth/me').then(function(r){ return r.json(); }).then(function(d) {
       setSrvManaged(!!d.server_managed_auth);
-      setAdmin(d.role === 'admin');
-      setDemoMode(!d.server_managed_auth);
       if (d.server_managed_auth) {
-        if (d.authenticated && d.id) { setWho({ label: d.display_name || d.id, sub: d.role || '' }); setPersonaId(d.id); }
-        setCreds({}); setReady(true); return;
+        if (d.authenticated && d.id) { setWho({ label: d.display_name || d.id, sub: d.role || '' }); setPersonaId(d.id); setCreds({}); }
+        setReady(true); return;
       }
       var sp = null; try { var s = localStorage.getItem('egeria-persona'); sp = s ? JSON.parse(s) : null; } catch(e) {}
       if (sp && sp.id) {
         setPersonaId(sp.id);
         setWho({ label: '🎭 ' + (sp.display_name || sp.id), sub: sp.id });
-        fetch('/api/demo/select-persona', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ persona: sp.id }) })
+        fetch('/api/demo/select-persona', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ persona: sp.id }) })
           .then(function(r){ return r.json(); }).then(function(sel) {
             if (sel.egeria_user) {
-              fetch('/api/egeria-token', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ user_id: sel.egeria_user, password: sel.egeria_password || '' }) })
-                .then(function(r){ return r.json(); }).then(function(t){ setCreds({ server:'qs-view-server', userId: sel.egeria_user, token: t.token || '' }); setReady(true); })
-                .catch(function(){ setCreds({}); setReady(true); });
+              fetch('/api/egeria-token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: sel.egeria_user, password: sel.egeria_password || '' }) })
+                .then(function(r){ return r.json(); }).then(function(t){ setCreds({ server: 'qs-view-server', userId: sel.egeria_user, token: t.token || '' }); setReady(true); })
+                .catch(function(){ setCreds({ server: 'qs-view-server', userId: sel.egeria_user }); setReady(true); });
             } else { setReady(true); }
           }).catch(function(){ setReady(true); });
         return;
       }
-      setCreds({}); setReady(true);
-    }).catch(function(){ setCreds({}); setReady(true); });
+      setReady(true);
+    }).catch(function(){ setReady(true); });
   }, []);
-
-  // Auto-refresh expired Egeria tokens: egeriaFetch retries once on 401 using
-  // this callback, which obtains a fresh token (password comes from env vars on
-  // the backend so we only need to pass user_id).
-  useEffect(function() {
-    _tokenRefresher.refresh = function(oldCreds) {
-      return fetch('/api/egeria-token', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: oldCreds.userId, url: oldCreds.url || '', server: oldCreds.server || '' })
-      }).then(function(r) { return r.json(); })
-        .then(function(t) {
-          var newCreds = Object.assign({}, oldCreds, { token: t.token || '' });
-          setCreds(newCreds);
-          return newCreds;
-        });
-    };
-    return function() { _tokenRefresher.refresh = null; };
-  }, []);
-
-  var credKey = who ? who.label : 'portal';
-  var PLATFORMS_POLL_MS = 30000; // re-fetch platform/server list every 30 s
-  useEffect(function() {
-    if (!ready) return;
-    function fetchPlatforms() {
-      egeriaFetch('/api/operations/platforms', creds).then(function(r){ return r.ok ? r.json() : { platforms: [] }; })
-        .then(function(d){ var ps = d.platforms || []; setPlatforms(ps);
-          setPlatform(function(cur){ if (cur) return cur; return ps.find(function(p){ return (p.servers||[]).length; }) || ps[0] || null; }); })
-        .catch(function(){ });
-    }
-    fetchPlatforms();
-    var timer = setInterval(fetchPlatforms, PLATFORMS_POLL_MS);
-    return function(){ clearInterval(timer); };
-  }, [ready, credKey]);
 
   var tabBtn = function(t){
     var on = t.id === tab;
-    return el('button', { key:t.id, onClick: function(){ go(t.id); },
-      style: { padding:'6px 14px', fontSize:13, cursor:'pointer', border:'none', background:'transparent',
+    return el('button', { key: t.id, onClick: function(){ go(t.id); },
+      style: { padding: '6px 14px', fontSize: 13, cursor: 'pointer', border: 'none', background: 'transparent',
                color: on ? 'var(--accent)' : 'var(--muted)', borderBottom: on ? '2px solid var(--accent)' : '2px solid transparent', fontWeight: on ? 700 : 400 } }, t.label);
   };
 
-  var shared = { creds: creds, platforms: platforms, platform: platform, onPlatform: setPlatform };
-  var content = !ready ? el('div', { style: pad }, 'Connecting…')
-    : active.id === 'servers'    ? el(ServersTab,    Object.assign({ key:'servers@'+credKey },    shared))
-    : active.id === 'connectors' ? el(ConnectorsTab, Object.assign({ key:'connectors@'+credKey }, shared))
-    : active.id === 'engines'    ? el(EnginesTab,    Object.assign({ key:'engines@'+credKey },    shared))
-    : el(ActionsTab, Object.assign({ key:'actions@'+credKey }, shared));
+  // re-key on the connected identity so tabs re-fetch when you connect/switch
+  var credKey = (who ? who.label : 'anon');
+  var content = !ready
+    ? el('div', { style: pad }, 'Connecting…')
+    : active.id === 'dashboard'
+      ? el(Dashboard, { key: 'dash@' + credKey, creds: creds, onOpenSearch: function(){ go('search'); } })
+      : el(GovernanceSearch, { key: 'search@' + credKey, creds: creds, focusZone: focusZone });
+
+  var inp = { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', outline: 'none' };
+  var showConnBar = ready && !srvManaged && (showConn || !who);
+  var connBar = showConnBar && el('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderBottom: '1px solid var(--border)', background: 'rgba(96,165,250,.06)' } },
+    el('span', { style: { fontSize: 12, color: 'var(--muted)' } }, 'Connect to Egeria as:'),
+    el('input', { placeholder: 'Egeria user id', value: fu, onChange: function(e){ setFu(e.target.value); },
+      onKeyDown: function(e){ if (e.key === 'Enter') connect(); }, style: Object.assign({}, inp, { width: 200 }) }),
+    el('input', { type: 'password', placeholder: 'password', value: fp, onChange: function(e){ setFp(e.target.value); },
+      onKeyDown: function(e){ if (e.key === 'Enter') connect(); }, style: Object.assign({}, inp, { width: 150 }) }),
+    el('button', { onClick: connect, style: { fontSize: 12, padding: '4px 14px', borderRadius: 4, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: 600 } }, 'Connect'),
+    cerr && el('span', { style: { fontSize: 12, color: '#f87171' } }, cerr),
+    el('span', { style: { marginLeft: 'auto', fontSize: 11, color: 'var(--dim)' } }, 'Some operations may require elevated Egeria permissions.'));
 
   return el(PersonaContext.Provider, { value: personaId },
     el(CredContext.Provider, { value: creds },
-    el('div', { style: { display:'flex', flexDirection:'column', height:'100vh', background:'var(--bg)', color:'var(--text)' } },
-      el('div', { style: { display:'flex', alignItems:'center', gap:10, padding:'0 16px', height:46, borderBottom:'1px solid var(--border)', background:'var(--panel)', flexShrink:0 } },
-        el('span', { style: { fontSize:18 } }, '⚙️'),
-        el('span', { style: { fontSize:15, fontWeight:700 } }, 'Egeria Operations'),
-        el('span', { style: { fontSize:11, color:'var(--dim)' } }, 'Servers · Integration Connectors · Governance Engines · Engine Actions'),
-        el('div', { style: { flex:1 } }),
-        isAdmin && el('span', { style: { fontSize:11, color:'#34d399', marginRight:4 } }, '🔓 Admin'),
-        who && el('span', { title: who.sub || '', style: { fontSize:12, color:'var(--accent)', background:'rgba(96,165,250,.1)', border:'1px solid rgba(96,165,250,.3)', borderRadius:12, padding:'2px 10px' } }, who.label),
-        personaId && el(FavoriteButton, { app:'egeria-operations', section:active.id, label:active.label, icon:'⚙️', url:'/egeria-operations#'+active.id, personaId:personaId }),
-        el(FeedbackButton, { section: active.id, persona: who ? who.sub : null, demoMode: demoMode, srvManaged: srvManaged, pagePrefix: 'egeria-operations/' }),
-        el('a', { href:'/portal', style: { fontSize:12, color:'var(--muted)', textDecoration:'none', marginLeft:4 } }, '⌂ Portal')),
-      el('div', { style: { display:'flex', gap:4, padding:'0 12px', borderBottom:'1px solid var(--border)', background:'var(--panel)', flexShrink:0 } }, TABS.map(tabBtn)),
-      el('div', { style: { flex:1, overflow:'hidden' } }, content))))
+    el('div', { style: { display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', color: 'var(--text)' } },
+      el('div', { style: { display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px', height: 46, borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0 } },
+        el('span', { style: { fontSize: 18 } }, '🧭'),
+        el('span', { style: { fontSize: 15, fontWeight: 700 } }, 'Egeria Insights'),
+        el('span', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Governance search across the metadata ecosystem'),
+        el('div', { style: { flex: 1 } }),
+        who && el('span', { title: who.sub || '', style: { fontSize: 12, color: 'var(--accent)', background: 'rgba(96,165,250,.1)', border: '1px solid rgba(96,165,250,.3)', borderRadius: 12, padding: '2px 10px' } }, who.label),
+        who && !srvManaged && el('button', { onClick: disconnect, title: 'Switch user', style: { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, 'Switch'),
+        !who && !srvManaged && el('button', { onClick: function(){ setShowConn(!showConn); }, style: { fontSize: 12, padding: '3px 10px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' } }, '🔌 Connect'),
+        personaId && el(FavoriteButton, { app:'egeria-insights', section:active.id, label:active.label, icon:'🧭', url:'/egeria-insights#'+active.id, personaId:personaId }),
+        el(FeedbackButton, { section: active.id, persona: who ? who.sub : null, demoMode: !srvManaged, srvManaged: srvManaged, pagePrefix: 'egeria-insights/' }),
+        el('a', { href: '/portal', style: { fontSize: 12, color: 'var(--muted)', textDecoration: 'none' } }, '⌂ Portal')
+      ),
+      connBar,
+      el('div', { style: { display: 'flex', gap: 4, padding: '0 12px', borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0 } }, TABS.map(tabBtn)),
+      el('div', { style: { flex: 1, overflow: 'hidden' } }, content)
+    )));
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(el(App));
-
 </script>
 </body>
 </html>

@@ -1625,12 +1625,20 @@ function colResizeHandle(onResizeDown, idx) {
   // width: 6 is the visible dotted border; the handle's actual mousedown hit
   // target is 12px (right: -3 either side of that line) — 6px was too easy to
   // miss and land on the neighbouring header's text-select/sort-click instead.
+  // At 0.45 opacity the line itself was reported as effectively invisible at
+  // rest (confirmed present in the DOM with correct geometry, just too faint
+  // to notice) — bumped the resting opacity and added a mouseenter/mouseleave
+  // brighten. This is a plain function (not a component — called per-column
+  // inside a .map() loop, so it can't safely use hooks), hence the imperative
+  // style mutation instead of React state for the hover effect.
   return React.createElement('div', {
     onMouseDown: function(e){ onResizeDown(e, idx); },
     onClick: function(e){ e.stopPropagation(); },
+    onMouseEnter: function(e){ var line = e.currentTarget.firstChild; if (line) line.style.borderRightColor = 'rgba(96,165,250,0.9)'; },
+    onMouseLeave: function(e){ var line = e.currentTarget.firstChild; if (line) line.style.borderRightColor = 'rgba(96,165,250,0.6)'; },
     style: { position: 'absolute', right: -3, top: 0, bottom: 0, width: 12, cursor: 'col-resize', zIndex: 2 }
   },
-    React.createElement('div', { style: { position: 'absolute', right: 3, top: 0, bottom: 0, width: 6, borderRight: '2px dotted rgba(96,165,250,0.45)' } })
+    React.createElement('div', { style: { position: 'absolute', right: 3, top: 0, bottom: 0, width: 6, borderRight: '2px dotted rgba(96,165,250,0.6)' } })
   );
 }
 

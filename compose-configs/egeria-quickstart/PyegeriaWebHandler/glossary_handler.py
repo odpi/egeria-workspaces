@@ -83,20 +83,52 @@ def _super_type_names(element: dict) -> list:
     return (_header(element).get("type") or {}).get("superTypeNames", []) or []
 
 
-# Semantic relationship keys returned by pyegeria on GlossaryTerm at graph_query_depth>=1.
+# NOTE: term-to-term semantic relationships (Synonym, Antonym, RelatedTerm,
+# PreferredTerm, ReplacementTerm, ISARelationship) do NOT get separate top-level
+# keys the way this used to assume — empirically confirmed (2026-07-15, live
+# against qs-view-server) that get_term_by_guid(output_format="JSON") puts ALL
+# of them into a single "relatedTerms" list, distinguishable only by each
+# entry's relationshipHeader.type.typeName (and, for the asymmetric
+# ISARelationship, the relatedElementAtEnd1 boolean). See _group_related_terms()
+# below, which replaces the old per-key assumption. "categories" (term-to-category
+# membership) is a different mechanism and does still arrive as its own key.
 _TERM_REL_KEYS = [
-    ("synonyms",       "Synonyms"),
-    ("antonyms",       "Antonyms"),
-    ("translations",   "Translations"),
-    ("preferredTerms", "Preferred Terms"),
-    ("replacedTerms",  "Replaced By"),
-    ("relatedTerms",   "Related Terms"),
-    ("usedInContexts", "Used In Contexts"),
-    ("categories",     "Categories"),
+    ("categories", "Categories"),
 ]
 
 _TERM_REL_KEY_NAMES = {k for k, _ in _TERM_REL_KEYS}
-_TERM_STRUCT_KEYS   = {"elementHeader", "properties", "mermaidGraph", "sourcedFromTemplate"}
+_TERM_STRUCT_KEYS   = {"elementHeader", "properties", "mermaidGraph", "sourcedFromTemplate", "relatedTerms"}
+
+_TERM_RELATIONSHIP_LABELS = {
+    "Synonym":         "Synonyms",
+    "Antonym":         "Antonyms",
+    "RelatedTerm":     "Related Terms",
+    "PreferredTerm":   "Preferred Terms",
+    "ReplacementTerm": "Replaced By",
+}
+
+
+def _group_related_terms(raw_list: list) -> dict:
+    """Group a raw 'relatedTerms' list by each entry's actual relationship type
+    (relationshipHeader.type.typeName) rather than by top-level dict key — see the
+    NOTE above _TERM_REL_KEYS. ISARelationship is asymmetric: relatedElementAtEnd1
+    distinguishes 'Is A' (this term is the narrower/more specific one, so its
+    related element is the broader concept) from 'Classifies' (this term is the
+    broader one). Confirmed live: when the fetched term is end1 of the
+    relationship, relatedElementAtEnd1 is False and the label is 'Is A'; when the
+    fetched term is end2, relatedElementAtEnd1 is True and the label is
+    'Classifies'."""
+    groups: dict = {}
+    for rel in (raw_list or []):
+        type_name = ((rel.get("relationshipHeader") or {}).get("type") or {}).get("typeName", "")
+        if type_name == "ISARelationship":
+            label = "Classifies" if rel.get("relatedElementAtEnd1") else "Is A"
+        else:
+            label = _TERM_RELATIONSHIP_LABELS.get(type_name, type_name or "Related Terms")
+        item = _related_elements([rel])
+        if item:
+            groups.setdefault(label, []).extend(item)
+    return groups
 
 
 def _is_template(element: dict) -> bool:
@@ -266,6 +298,7 @@ def _serialize_term(term: dict) -> dict:
         "relationships":          {
                                       **{label: items for key, label in _TERM_REL_KEYS
                                          if (items := _related_elements(term.get(key)))},
+                                      **_group_related_terms(term.get("relatedTerms")),
                                       **_extract_extra_rels(term),
                                   },
     }

@@ -3573,6 +3573,7 @@ const SECTION_LABELS = {
   'locations':         'Locations',
   'actors':            'Actors',
   'communities':       'Communities',
+  'business-capabilities': 'Business Capabilities',
   'notelogs':          'Note Logs',
   'perspectives':      'Perspectives',
   'governance':        'Governance Definitions',
@@ -4113,6 +4114,14 @@ const _SPLASH_CAPABILITIES = [
     icon: '⚇',
     title: 'Communities',
     description: 'Browse communities of interest and the roles and people assigned to them. Cross-link to the actor profiles and roles that participate in each community.',
+    requiresConnection: true,
+  },
+  {
+    section: 'business-capabilities',
+    group: 'review',
+    icon: '⬢',
+    title: 'Business Capabilities',
+    description: 'Browse business capabilities (functions, capability or skill sets) and the collections, members, and actors linked to them — the layer that connects Solution Architect\'s blueprints/components to business strategy.',
     requiresConnection: true,
   },
   {
@@ -6390,6 +6399,7 @@ function _elementIsLinkable(item) {
   if (item.typeName === 'GlossaryTerm' || item.typeName === 'Glossary' || item.typeName === 'GlossaryCategory') return true;
   if (item.typeName === 'DigitalProduct') return true;
   if (item.typeName === 'Community') return true;
+  if (item.typeName === 'BusinessCapability') return true;
   if (item.typeName === 'NoteLog') return true;
   if (item.typeName === 'InformationSupplyChain') return true;
   if (item.typeName === 'SolutionComponent' || superTypes.indexOf('SolutionComponent') !== -1) return true;
@@ -7275,6 +7285,130 @@ function CommunityView({ navGuid, onNavigateToElement }) {
     selected && detailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
     selected && detailState === 'error'   && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load community detail"),
     selected && (detailState === 'ready' || selectedItem) && React.createElement(CommunityDetail, { data: selectedItem, detail: detail, onNavigateToElement: onNavigateToElement })
+  );
+
+  return React.createElement("div", { className: "body" },
+    sidebar,
+    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
+    mainPanel
+  );
+}
+
+function BusinessCapabilityDetail({ data, detail, onNavigateToElement }) {
+  var src = detail || data;
+  var _bcPersonaId = React.useContext(PersonaContext);
+  if (!src) return null;
+
+  var relationships = src.relationships || {};
+  var relKeys = Object.keys(relationships).filter(function(k) { return relationships[k] && relationships[k].length; });
+
+  return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, src.displayName || src.qualifiedName),
+      React.createElement("span", { className: "badge", style: { background: 'rgba(192,132,252,.1)', color: '#c084fc', border: '0.5px solid rgba(192,132,252,.3)' } }, src.typeName || 'BusinessCapability'),
+      src.businessCapabilityType && React.createElement("span", { className: "badge", style: { background: 'rgba(96,165,250,.1)', color: 'var(--accent)', border: '0.5px solid rgba(96,165,250,.3)' } }, src.businessCapabilityType),
+      React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        _bcPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'business-capabilities', label: src.displayName || src.qualifiedName, icon: '⬢', url: '/egeria-explorer?guid=' + encodeURIComponent(src.guid) + '#business-capabilities', personaId: _bcPersonaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: src.guid })
+      ),
+      React.createElement(HeaderInfoButton, { header: src._header }),
+      React.createElement(CopyJsonButton, { data: src })
+    ),
+    React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, src.guid),
+    src.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(src.description)),
+    React.createElement("div", { style: { marginBottom: 20 } },
+      React.createElement(GenericPropertiesTable, { item: src, priority: ['businessCapabilityType', 'businessImplementationType', 'status'] })
+    ),
+    relKeys.map(function(k) {
+      return React.createElement(RelationshipSection, { key: k, title: _prettyRelLabel(k), items: relationships[k], onNavigateToElement: onNavigateToElement });
+    }),
+    React.createElement(EgeriaCommentsSection, { guid: src.guid })
+  );
+}
+
+function BusinessCapabilityView({ navGuid, onNavigateToElement }) {
+  const creds = React.useContext(CredContext);
+  const [sideW, onDivDown] = useResizable(280);
+  const [state, setState]   = useState('loading');
+  const [attempt, setAttempt] = useState(0);
+  const [items, setItems]   = useState([]);
+  const [error, setError]   = useState('');
+  const [selected, setSelected] = useState(function() {
+    var params = new URLSearchParams(window.location.search);
+    return params.get('guid') || null;
+  });
+  const [detail, setDetail] = useState(null);
+  const [detailState, setDetailState] = useState('idle');
+  const [filter, setFilter] = useState('');
+  const [asOfTime, setAsOfTime] = useState(null);  // LE-3 point-in-time
+  const [inclTempl, setInclTempl] = useState(false);
+
+  useEffect(function() {
+    setState('loading'); setError('');
+    var p = [];
+    if (asOfTime) p.push('as_of_time=' + encodeURIComponent(asOfTime));
+    if (inclTempl) p.push('include_templates=true');
+    egeriaFetch('/api/business-capabilities' + (p.length ? '?' + p.join('&') : ''), creds)
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setItems(data.businessCapabilities || []); setState('ready'); })
+      .catch(function(e) { setError(e.message); setState('error'); });
+  }, [attempt, asOfTime, inclTempl]);
+
+  useEffect(function() {
+    if (!selected) { setDetail(null); return; }
+    setDetailState('loading');
+    egeriaFetch('/api/business-capabilities/' + selected, creds)
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setDetail(data); setDetailState('ready'); })
+      .catch(function() { setDetailState('error'); });
+  }, [selected]);
+
+  // Cross-tab arrival: another tab called onNavigateToElement on a BusinessCapability item.
+  useEffect(function() {
+    if (navGuid) setSelected(navGuid);
+  }, [navGuid]);
+
+  var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { padding: '8px 10px' } }, React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' })),
+    React.createElement("div", { className: "search-wrap" },
+      React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
+        onChange: function(e) { setFilter(e.target.value); } }),
+      React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', padding: '4px 0 2px' } },
+        React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
+        "Include templates"
+      )
+    ),
+    state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
+    state === 'error' && React.createElement("div", { style: { padding: 16 } },
+      React.createElement("div", { style: { color: '#f87171', fontSize: 13, marginBottom: 8 } }, "Error: " + error),
+      React.createElement("button", { className: "view-tab on", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "Retry")
+    ),
+    state === 'ready' && React.createElement("div", { style: { overflowY: 'auto', flex: 1 } },
+      (function() {
+        var q = filter.toLowerCase();
+        var vis = items.filter(function(x) { return !q || (x.displayName || x.qualifiedName || '').toLowerCase().includes(q); });
+        if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, q ? "No matches" : "No business capabilities found");
+        return vis.map(function(x) {
+          return React.createElement("div", {
+            key: x.guid, className: "tree-item" + (selected === x.guid ? " sel" : ""),
+            onClick: function() { setSelected(x.guid); }, title: x.qualifiedName || x.guid,
+          },
+            React.createElement("span", { className: "type-name" }, x.displayName || x.qualifiedName),
+            x.businessCapabilityType && React.createElement("span", { className: "badge", style: { fontSize: 9, marginLeft: 4, background: 'rgba(96,165,250,.1)', color: 'var(--accent)', border: '0.5px solid rgba(96,165,250,.3)' } }, x.businessCapabilityType)
+          );
+        });
+      })()
+    )
+  );
+
+  var selectedItem = selected ? items.find(function(x) { return x.guid === selected; }) : null;
+  var mainPanel = React.createElement("div", { className: "main", style: { flex: 1, overflowY: 'auto' } },
+    !selected && React.createElement("div", { className: "center" },
+      React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a business capability from the sidebar")
+    ),
+    selected && detailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
+    selected && detailState === 'error'   && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load business capability detail"),
+    selected && (detailState === 'ready' || selectedItem) && React.createElement(BusinessCapabilityDetail, { data: selectedItem, detail: detail, onNavigateToElement: onNavigateToElement })
   );
 
   return React.createElement("div", { className: "body" },
@@ -8955,7 +9089,7 @@ function App() {
     var hash = window.location.hash.slice(1).split('?')[0];
     var valid = new Set(['type-system','reference-data','digital-products','collections','glossary',
       'report-specs','valid-values','rest-apis','python-api','solution-architect',
-      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','notelogs','governance','projects','informal-tags','context-events','search']);
+      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','business-capabilities','notelogs','governance','projects','informal-tags','context-events','search']);
     return valid.has(hash) ? hash : 'splash';
   });
   const [searchQuery, setSearchQuery] = useState('');
@@ -9032,6 +9166,12 @@ function App() {
     setSection('communities');
   }, []);
 
+  const [businessCapabilitiesNavGuid, setBusinessCapabilitiesNavGuid] = useState(null);
+  const onNavigateToBusinessCapability = useCallback(function(guid) {
+    setBusinessCapabilitiesNavGuid(guid || null);
+    setSection('business-capabilities');
+  }, []);
+
   const [informalTagsNavGuid, setInformalTagsNavGuid] = useState(null);
   const onNavigateToInformalTag = useCallback(function(guid) {
     setInformalTagsNavGuid(guid || null);
@@ -9083,6 +9223,7 @@ function App() {
     if (typeName === 'ReferenceDataValue') { onNavigateToReferenceData(guid); return; }
     if (typeName === 'GlossaryTerm' || typeName === 'Glossary' || typeName === 'GlossaryCategory') { onNavigateToGlossary(guid); return; }
     if (typeName === 'Community') { onNavigateToCommunity(guid); return; }
+    if (typeName === 'BusinessCapability') { onNavigateToBusinessCapability(guid); return; }
     if (typeName === 'NoteLog') { onNavigateToNoteLog(guid); return; }
     if (typeName === 'InformationSupplyChain') { onNavigateToISC(guid); return; }
     if (typeName === 'SolutionBlueprint' || superTypes.indexOf('SolutionBlueprint') !== -1) { onNavigateToSolutionBlueprint(guid); return; }
@@ -9104,7 +9245,7 @@ function App() {
     // "↗ Tech Catalog" link, for callers that route everything through this
     // single dispatcher instead of rendering that link separately).
     if (superTypes.indexOf('Asset') !== -1) { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
-  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToProject]);
+  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToProject]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254);
 
@@ -9215,7 +9356,7 @@ function App() {
         }),
         React.createElement(NavGroup, {
           label: 'Review', connected: connected, currentSection: section,
-          isActive: ['glossary','reference-data','data-design','collections','solution-architect','isc','locations','actors','communities','notelogs','perspectives','governance','projects','informal-tags','context-events'].includes(section),
+          isActive: ['glossary','reference-data','data-design','collections','solution-architect','isc','locations','actors','communities','business-capabilities','notelogs','perspectives','governance','projects','informal-tags','context-events'].includes(section),
           onSelect: setSection,
           items: [
             { id: 'glossary',           label: 'Glossary',                needsConnect: true },
@@ -9227,6 +9368,7 @@ function App() {
             { id: 'locations',          label: 'Locations',               needsConnect: true },
             { id: 'actors',             label: 'Actors',                  needsConnect: true },
             { id: 'communities',        label: 'Communities',             needsConnect: true },
+            { id: 'business-capabilities', label: 'Business Capabilities', needsConnect: true },
             { id: 'notelogs',           label: 'Note Logs',               needsConnect: true },
             { id: 'perspectives',       label: 'Perspectives',            needsConnect: true },
             { id: 'governance',         label: 'Governance Definitions',  needsConnect: true },
@@ -9327,6 +9469,8 @@ function App() {
       ? React.createElement(ActorsView, { key: credsKey, navKind: actorsNav.kind, navGuid: actorsNav.guid, onNavigateToElement: onNavigateToElement })
       : section === 'communities'
       ? React.createElement(CommunityView, { key: credsKey, navGuid: communitiesNavGuid, onNavigateToElement: onNavigateToElement })
+      : section === 'business-capabilities'
+      ? React.createElement(BusinessCapabilityView, { key: credsKey, navGuid: businessCapabilitiesNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'notelogs'
       ? React.createElement(NoteLogView, { key: credsKey, navGuid: noteLogsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'governance'

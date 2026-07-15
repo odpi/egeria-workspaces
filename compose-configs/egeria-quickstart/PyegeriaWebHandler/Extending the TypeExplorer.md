@@ -155,17 +155,43 @@ In the Egeria demo dataset, template substitute terms have the same display name
 Currently only **Digital Products → Glossary** cross-navigation is implemented (the "View in Glossary →" button on a Digital Products detail panel). Planned but not yet done:
 
 - Type System property row → Valid Values lookup for that property name
-- Glossary term → any assets semantically linked to the term
 - Reference Data value → any metadata elements that use it
 
-### Semantic relationship display on glossary terms
+~~Glossary term → any assets semantically linked to the term~~ — **already
+done, verified 2026-07-15.** `SemanticAssignment` (term → data element, e.g. a
+schema attribute) and `SemanticDefinition` (term → Data Design element, e.g. a
+DataStructure) both already render via `_extract_extra_rels()`'s generic
+fallback in `glossary_handler.py` — as "Meaning For Data Elements" and
+"Semantically Associated Definitions" respectively. Verified live by seeding
+both relationship types (`ClassificationExplorer.setup_semantic_assignment`,
+`DataDesigner.link_semantic_definition`) against real qs demo data and
+confirming the API response, then cleaning up. No code changes were needed —
+this item was listed as open but had actually been working all along.
 
-The term detail panel shows all term properties but does not yet show:
-- Semantic relationships to other terms (IsA, Synonym, PreferredTerm, Translation, etc.)
-- Classifications applied to the term (AbstractConcept, DataValue, etc.)
-- Back-links to assets or data fields
+### Semantic relationship display on glossary terms — done (2026-07-15)
 
-These require additional pyegeria calls (e.g., `get_related_elements` or `get_term_relationships`) and frontend components.
+This section was stale — classifications and term-to-term relationships were
+already being fetched and rendered (`glossary_handler.py`'s `_serialize_term`,
+`GlossaryTermDetail` in `egeria-shared-ui.js`) by the time this was re-checked.
+One real bug was found and fixed: `_TERM_REL_KEYS` assumed Egeria exposes each
+relationship type (Synonym, Antonym, ISARelationship, etc.) as its own
+top-level key (`synonyms`, `classifies`/`isA`, ...), based on reading
+`OpenMetadataTypesArchive1_2.java`'s per-type end-attribute names. **Live
+testing disproved this**: `get_term_by_guid(output_format="JSON")` puts ALL
+term-to-term relationships into a single `relatedTerms` list — every one of
+them was silently falling through to the generic-extra-keys fallback under one
+undifferentiated "Related Terms" label, with no way to tell a Synonym from an
+ISARelationship link. Fixed by grouping `relatedTerms` entries by each one's
+actual `relationshipHeader.type.typeName` (and, for the asymmetric
+ISARelationship, the `relatedElementAtEnd1` boolean → "Is A" vs "Classifies")
+— see `_group_related_terms()`. Verified end-to-end against a live
+qs-view-server with seeded Synonym + ISARelationship test data (see
+`egeria-python/tests/functional-tests/test_glossary_manager_omvs.py::test_term_relationship_keys_synonym_and_isa`).
+
+Still open, separately: "Glossary term → any assets semantically linked" (see
+Cross-section navigation above) — that's semantic *assignment* to
+DataFields/assets, a different relationship from the term-to-term ones fixed
+here.
 
 ### Glossary hierarchy tree
 

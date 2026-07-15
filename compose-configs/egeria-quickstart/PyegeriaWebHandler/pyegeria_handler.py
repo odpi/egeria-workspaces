@@ -216,6 +216,8 @@ from rest_api_handler import router as rest_api_router
 app.include_router(rest_api_router)
 from solution_architect_handler import router as solution_architect_router
 app.include_router(solution_architect_router)
+from business_capability_handler import router as business_capability_router
+app.include_router(business_capability_router)
 from data_design_handler import router as data_design_router
 app.include_router(data_design_router)
 from perspectives_handler import router as perspectives_router
@@ -254,6 +256,8 @@ from catalog_search_handler import router as catalog_search_router
 app.include_router(catalog_search_router)
 from audit_handler import router as audit_router
 app.include_router(audit_router)
+from insights_handler import router as insights_router
+app.include_router(insights_router)
 from operations_handler import router as operations_router
 app.include_router(operations_router)
 from lineage_handler import router as lineage_router
