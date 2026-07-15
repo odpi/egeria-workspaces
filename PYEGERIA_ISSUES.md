@@ -595,6 +595,15 @@ property conditions) is on file at
 `scratchpad/QueryBuilder-classifications-fix.patch` in the session that found
 this, pending a proper PR against `postgres-repository-connector`.
 
+**Regression coverage:**
+- `egeria-python/tests/functional-tests/test_metadata_expert.py::test_find_metadata_elements_multi_classification_any_match_criteria`
+  (pytest, asserts ANY's count >= max of the two single-condition counts).
+- `egeria-python/pyegeria/http clients/Egeria-PY15-matchClassifications-bug.http`
+  (PyCharm/IntelliJ HTTP Client collection, same assertions via raw REST calls —
+  run "Token" then top-to-bottom, or `ijhttp --insecure Egeria-PY15-matchClassifications-bug.http`
+  from the CLI). Both currently fail on the `ANY` case exactly as documented above;
+  both should pass once the `QueryBuilder.java` fix lands.
+
 ---
 
 ## Quick reference: which OMVS client class for which purpose

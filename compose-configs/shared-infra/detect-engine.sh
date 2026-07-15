@@ -39,7 +39,16 @@ if [[ "$COMPOSE_CMD" == "podman-compose" ]]; then
     export COMPOSE_PULL_FLAGS=""
     export COMPOSE_BUILD_PULL_FLAGS=""
 else
-    export COMPOSE_PULL_FLAGS="--pull always"
+    # "missing" (not "always") — the CLI --pull flag overrides each service's own
+    # pull_policy in the compose file, so "always" here forced a doomed pull attempt
+    # on every locally-built image (egeria-quickstart-*/egeria-freshstart-*/
+    # egeria-shared-infra-proxy, none of which are published to any registry) on
+    # every single run, regardless of pull_policy: never being set on those services.
+    # "missing" still lets genuinely registry-hosted images (obsidian, kafka, postgres)
+    # pull on a fresh machine where they don't exist yet; it just stops re-checking a
+    # registry for images that already exist locally. Run `docker compose pull <service>`
+    # manually if you want to force-refresh a published image's :latest tag.
+    export COMPOSE_PULL_FLAGS="--pull missing"
     export COMPOSE_BUILD_PULL_FLAGS="--pull"
 fi
 
