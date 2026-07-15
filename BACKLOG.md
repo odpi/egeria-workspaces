@@ -3,6 +3,25 @@
 Consolidated work list. Update status when items start or finish.  
 Status: `open` · `in-progress` · `done` · `deferred`
 ---
+## Type coverage gaps — next up (2026-07-15)
+
+Source: `type-coverage-gap-analysis.html`. Items #2 and #7 from that doc are
+already done (see their own BACKLOG sections below). Next in priority order
+(smallest/niche first, per Dan's explicit ordering — not the doc's own tier
+order):
+
+| # | Item | Doc entry # | Status | Notes |
+|---|------|-------------|--------|-------|
+| GAP-10 | Naming-standard vocabulary | 10 | open | `PrimeWord`/`ClassWord`/`Modifier` — the word vocabulary behind `NamingStandardRule` (already a Governance Definitions control-tree leaf). Niche tier. |
+| GAP-9 | Policy enforcement architecture | 09 | open | `PolicyManagementPoint`/`PolicyAdministrationPoint`/`PolicyDecisionPoint`/`PolicyEnforcementPoint`/`PolicyInformationPoint`/`PolicyRetrievalPoint`. Zero coverage; doc notes low frequency of use in most deployments. Niche tier. |
+| GAP-8 | Privacy execution detail beyond the purpose stub | 08 | open | `DataProcessingAction`/`DataProcessingSpecification`/`DataProcessingTarget`/`PermittedProcessing`/`ApprovedPurpose` — `DataProcessingPurpose` already appears as a Governance Definitions leaf, this is the execution-level detail around it. Niche tier. |
+| GAP-6 | The social/collaboration layer is invisible | 06 | open | `Comment`/`Rating`/`Like`/`ToDo`/`Meeting`/`Notification`/`Campaign`/`Task` — Informal Tags and Note Logs each got their own tab; these adjacent activity-feed types didn't. Medium ("Worth planning") tier. |
+| GAP-5 | No duplicate-resolution review | 05 | open | `KnownDuplicate`/`ConsolidatedDuplicate`/`PeerDuplicateLink` — zero references anywhere; no way to review or act on duplicate-candidate suggestions the platform surfaces. Medium ("Worth planning") tier. |
+
+Plan being built — see conversation/plan file for the implementation approach
+per item before code changes start.
+
+---
 ## Egeria Explorer search + Tech Catalog fixes/features (2026-07-06/08) — ✅ done
 
 | # | Item | Status | Notes |

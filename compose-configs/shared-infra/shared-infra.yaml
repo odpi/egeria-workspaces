@@ -5,6 +5,7 @@
 services:
   proxy:
     image: egeria-shared-infra-proxy:latest
+    pull_policy: never
     build:
       context: ../egeria-quickstart
       dockerfile: Dockerfile-proxy

@@ -26,6 +26,7 @@ services:
         condition: service_started
 
     image: egeria-quickstart-jupyter:local
+    pull_policy: never
     container_name: quickstart-jupyter-work-full
     user: root
     networks:
@@ -59,6 +60,7 @@ services:
 
   egeria-main:
     image: 'egeria-quickstart-platform:local'
+    pull_policy: never
     container_name: quickstart-egeria-main
     build:
       context: .
@@ -102,6 +104,7 @@ services:
   # Define your FastAPI application service
   pyegeria-web:
     image: egeria-quickstart-pyegeria-web:latest
+    pull_policy: never
     container_name: quickstart-pyegeria-web
     build:
       context: ./PyegeriaWebHandler
@@ -171,6 +174,7 @@ services:
 
   apache-web:
     image: egeria-quickstart-apache-web:latest
+    pull_policy: never
     build:
       context: .
       dockerfile: Dockerfile-apache-web
@@ -203,6 +207,7 @@ services:
 
   my-profile:
     image: egeria-quickstart-my-profile:local
+    pull_policy: never
     container_name: quickstart-my-profile
     build:
       context: .

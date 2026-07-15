@@ -8,6 +8,7 @@ services:
       freshstart-egeria-main:
         condition: service_healthy
     image: egeria-freshstart-jupyter:local
+    pull_policy: never
     container_name: freshstart-jupyter-work-full
     user: root
     networks:
@@ -37,6 +38,7 @@ services:
 
   freshstart-egeria-main:
     image: 'egeria-freshstart-platform:local'
+    pull_policy: never
     build:
       context: .
       dockerfile: Dockerfile-egeria-platform
@@ -72,6 +74,7 @@ services:
 
   freshstart-pyegeria-web:
     image: egeria-freshstart-pyegeria-web:latest
+    pull_policy: never
     container_name: freshstart-pyegeria-web
     build:
       context: ./PyegeriaWebHandler
@@ -133,6 +136,7 @@ services:
 
   freshstart-apache-web:
     image: egeria-freshstart-apache-web:latest
+    pull_policy: never
     build:
       context: ../egeria-quickstart
       dockerfile: Dockerfile-apache-web
