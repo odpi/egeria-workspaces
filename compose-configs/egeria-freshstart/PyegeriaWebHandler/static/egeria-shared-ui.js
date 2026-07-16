@@ -1300,6 +1300,11 @@ function _isCatalogType(item) {
  * { app, hash?, kind? } or null. */
 function resolveElementNav(item) {
   if (!item) return null;
+  // EngineAction already has a dedicated view (Egeria Operations' Engine Actions
+  // tab) — must be checked before the generic Asset-supertype fallback below,
+  // which would otherwise route it to Tech Catalog's generic mixed "Actions"
+  // tab (metadata_element_type="Action", no per-subtype detail).
+  if ((item.typeName || '') === 'EngineAction') return { app: 'egeria-operations' };
   var ex = resolveExplorerNav(item);
   if (ex) return { app: 'egeria-explorer', hash: ex.hash, kind: ex.kind };
   if (_isCatalogType(item)) return { app: 'tech-catalog' };
@@ -1320,6 +1325,14 @@ function crossAppNavigate(item, explicitNav) {
   if (!nav || !item || !item.guid) return false;
   if (nav.app === 'tech-catalog') {
     window.open('/tech-catalog?guid=' + encodeURIComponent(item.guid), '_blank');
+    return true;
+  }
+  if (nav.app === 'egeria-operations') {
+    // No per-guid deep link exists yet in egeria-operations.html (it only
+    // reads ?tab=/hash for tab selection) — route to the Engine Actions tab,
+    // still a real improvement over falling through to Tech Catalog's
+    // generic mixed Actions tab.
+    window.open('/egeria-operations?tab=actions#actions', '_blank');
     return true;
   }
   var url = '/egeria-explorer?guid=' + encodeURIComponent(item.guid)
@@ -1625,12 +1638,20 @@ function colResizeHandle(onResizeDown, idx) {
   // width: 6 is the visible dotted border; the handle's actual mousedown hit
   // target is 12px (right: -3 either side of that line) — 6px was too easy to
   // miss and land on the neighbouring header's text-select/sort-click instead.
+  // At 0.45 opacity the line itself was reported as effectively invisible at
+  // rest (confirmed present in the DOM with correct geometry, just too faint
+  // to notice) — bumped the resting opacity and added a mouseenter/mouseleave
+  // brighten. This is a plain function (not a component — called per-column
+  // inside a .map() loop, so it can't safely use hooks), hence the imperative
+  // style mutation instead of React state for the hover effect.
   return React.createElement('div', {
     onMouseDown: function(e){ onResizeDown(e, idx); },
     onClick: function(e){ e.stopPropagation(); },
+    onMouseEnter: function(e){ var line = e.currentTarget.firstChild; if (line) line.style.borderRightColor = 'rgba(96,165,250,0.9)'; },
+    onMouseLeave: function(e){ var line = e.currentTarget.firstChild; if (line) line.style.borderRightColor = 'rgba(96,165,250,0.6)'; },
     style: { position: 'absolute', right: -3, top: 0, bottom: 0, width: 12, cursor: 'col-resize', zIndex: 2 }
   },
-    React.createElement('div', { style: { position: 'absolute', right: 3, top: 0, bottom: 0, width: 6, borderRight: '2px dotted rgba(96,165,250,0.45)' } })
+    React.createElement('div', { style: { position: 'absolute', right: 3, top: 0, bottom: 0, width: 6, borderRight: '2px dotted rgba(96,165,250,0.6)' } })
   );
 }
 

@@ -1300,6 +1300,11 @@ function _isCatalogType(item) {
  * { app, hash?, kind? } or null. */
 function resolveElementNav(item) {
   if (!item) return null;
+  // EngineAction already has a dedicated view (Egeria Operations' Engine Actions
+  // tab) — must be checked before the generic Asset-supertype fallback below,
+  // which would otherwise route it to Tech Catalog's generic mixed "Actions"
+  // tab (metadata_element_type="Action", no per-subtype detail).
+  if ((item.typeName || '') === 'EngineAction') return { app: 'egeria-operations' };
   var ex = resolveExplorerNav(item);
   if (ex) return { app: 'egeria-explorer', hash: ex.hash, kind: ex.kind };
   if (_isCatalogType(item)) return { app: 'tech-catalog' };
@@ -1320,6 +1325,14 @@ function crossAppNavigate(item, explicitNav) {
   if (!nav || !item || !item.guid) return false;
   if (nav.app === 'tech-catalog') {
     window.open('/tech-catalog?guid=' + encodeURIComponent(item.guid), '_blank');
+    return true;
+  }
+  if (nav.app === 'egeria-operations') {
+    // No per-guid deep link exists yet in egeria-operations.html (it only
+    // reads ?tab=/hash for tab selection) — route to the Engine Actions tab,
+    // still a real improvement over falling through to Tech Catalog's
+    // generic mixed Actions tab.
+    window.open('/egeria-operations?tab=actions#actions', '_blank');
     return true;
   }
   var url = '/egeria-explorer?guid=' + encodeURIComponent(item.guid)

@@ -232,6 +232,14 @@ from actor_handler import router as actor_router
 app.include_router(actor_router)
 from community_handler import router as community_router
 app.include_router(community_router)
+from naming_vocabulary_handler import router as naming_vocabulary_router
+app.include_router(naming_vocabulary_router)
+from policy_enforcement_handler import router as policy_enforcement_router
+app.include_router(policy_enforcement_router)
+from action_center_handler import router as action_center_router
+app.include_router(action_center_router)
+from duplicate_review_handler import router as duplicate_review_router
+app.include_router(duplicate_review_router)
 from notelog_handler import router as notelog_router
 app.include_router(notelog_router)
 from governance_definitions_handler import router as governance_router
