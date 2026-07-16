@@ -606,6 +606,121 @@ this, pending a proper PR against `postgres-repository-connector`.
 
 ---
 
+## PY-16: `ClassificationExplorer.link_elements_as_peer_duplicates` (and its `_async_*` twin) POST to the wrong URL path — always 404s
+
+**Status:** confirmed client-side bug, 2026-07-16, while seeding demo data for
+the Duplicate Resolution Review pane (`duplicate_review_handler.py`).
+
+**How to trigger:**
+```python
+import pyegeria, os
+pyegeria.enable_ssl_check = False
+pyegeria.disable_ssl_warnings = True
+from pyegeria import ClassificationExplorer
+ce = ClassificationExplorer(view_server="qs-view-server", platform_url="https://localhost:9443",
+                             user_id="erinoverview", user_pwd="secret")
+ce.create_egeria_bearer_token()
+
+body = {
+    "class": "NewRelationshipRequestBody",
+    "properties": {"class": "PeerDuplicateLinkProperties", "statusIdentifier": 0,
+                    "steward": "erinoverview", "source": "test", "notes": "test"},
+}
+ce.link_elements_as_peer_duplicates("<guid-a>", "<guid-b>", body)  # any two valid, same-typed GUIDs
+```
+
+**Expected:** creates a `PeerDuplicateLink` relationship, returns its GUID.
+
+**Actual:** `httpx.HTTPStatusError: Client error '404'` — the client posts to
+```
+.../classification-explorer/elements/{elementGUID}/peer-duplicate/{peerDuplicateGUID}/attach
+```
+but the real Spring endpoint
+(`open-metadata-implementation/view-server-generic-services/classification-explorer/classification-explorer-spring/.../ClassificationExplorerResource.java`,
+`linkElementsAsPeerDuplicates`) is mapped at
+```
+.../classification-explorer/related-elements/{elementGUID}/peer-duplicate/{peerDuplicateGUID}/attach
+```
+— `elements` vs `related-elements`. Same root cause likely affects
+`unlink_elements_as_peer_duplicates` (detach, same path shape). Classification
+calls (`set_known_duplicate_classification`/`set_consolidated_duplicate_classification`)
+and the read path (`get_relationships`/`get_elements_by_classification`) are
+unaffected — confirmed working.
+
+**Workaround used:** called `ce._async_make_request("POST", corrected_url, body)`
+directly with the `related-elements` path, bypassing the buggy helper, to seed
+the Duplicate Resolution Review pane's demo pair (two `Community` entities,
+GAP-5 in `BACKLOG.md`'s type-coverage-gaps section).
+
+**Fix:** in `pyegeria/omvs/classification_explorer.py`,
+`_async_link_elements_as_peer_duplicates` (and its detach twin) should build
+the URL from `f"{self.classification_command_root}/related-elements/{element_guid}/peer-duplicate/{peer_duplicate_guid}/attach"`.
+
+---
+
+## PY-17: `MetadataExpert.get_metadata_element_by_guid` never returns relationships, at any `graph_query_depth` — use `get_all_related_elements` instead
+
+**Status:** confirmed 2026-07-16, while fixing the Action Center pane's
+cross-links (`action_center_handler.py`, GAP-6 in `BACKLOG.md`) — likely a
+docs/usage gap rather than a bug (the method may simply not be designed to
+carry relationships at all — `get_all_related_elements` exists precisely for
+that), but the `graph_query_depth` parameter accepted on
+`get_metadata_element_by_guid` strongly implies it should affect relationship
+inclusion, and it silently doesn't.
+
+**How to trigger:**
+```python
+import pyegeria, os
+pyegeria.enable_ssl_check = False
+pyegeria.disable_ssl_warnings = True
+from pyegeria import MetadataExpert
+mgr = MetadataExpert(view_server="qs-view-server", platform_url="https://localhost:9443",
+                      user_id="erinoverview", user_pwd="secret")
+mgr.create_egeria_bearer_token()
+
+guid = "<a Notification guid known to have Actions/ActionRequester/AssignmentScope relationships>"
+for depth in (0, 1, 2, 3):
+    el = mgr.get_metadata_element_by_guid(guid, graph_query_depth=depth, output_format="JSON")
+    print(depth, sorted(el.keys()))
+# every depth prints the same 8 keys — no relationship key ever appears:
+# ['classifications', 'elementGUID', 'elementProperties', 'headerVersion',
+#  'origin', 'status', 'type', 'versions']
+```
+
+**Expected:** at `graph_query_depth >= 1`, the element dict should include its
+relationships (as other raw-shape handlers in this codebase assume —
+`insights_handler.py`, `glossary_handler.py`, the original `action_center_handler.py`
+all built relationship-extraction helpers assuming top-level list-valued keys
+would appear on the element itself once `graph_query_depth=1` was passed).
+
+**Actual:** the element dict is byte-identical across `graph_query_depth`
+0 through 3 — relationships never appear on it via this call, regardless of
+depth.
+
+**Working alternative:** `MetadataExpert.get_all_related_elements(guid, output_format="JSON")`
+returns `{"startingElement": <the element>, "elementList": [...], "mermaidGraph": ...}`.
+Each `elementList` entry is a relationship-header dict with its own
+`type.typeName` (the *relationship* type — `Actions`, `ActionRequester`,
+`AssignmentScope`, presumably `ActionTarget` when present) and a nested
+`element` key holding the *other* end, in the same raw `elementGUID`/
+`elementProperties.propertyValueMap` shape as everything else in this
+codebase's raw-shape handlers. This is the actual source of cross-link data —
+confirmed live against a real Notification with 3 genuine relationships, all
+three showed up correctly via this call and none via `get_metadata_element_by_guid`
+at any depth.
+
+**Fix applied**: `action_center_handler.py`'s `get_action()` now calls both —
+`get_metadata_element_by_guid` for the element's own properties,
+`get_all_related_elements` for relationships — and merges them via
+`_relationships_from_related_elements()`. Both envs.
+
+**Worth checking**: whether other handlers in this codebase that assumed
+`graph_query_depth=1` on a by-guid call would surface relationships (several
+were built on that assumption before this was caught) are actually silently
+missing cross-links the same way — not yet audited beyond Action Center.
+
+---
+
 ## Quick reference: which OMVS client class for which purpose
 
 | Need | Class | Notes |
