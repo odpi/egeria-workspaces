@@ -541,13 +541,25 @@ that's easy to leave at its default.
 
 ## PY-15: Postgres repository connector ignores `matchCriteria` on `SearchClassifications` — multi-classification search always returns 0
 
-**Status: FIXED in Egeria (2026-07-17).** Originally confirmed as a
+**Status: FIXED and CLOSED — verified 2026-07-17.** Originally confirmed as a
 server-side bug 2026-07-15, while building Egeria Insights
 (`insights_handler.py`) — not a pyegeria client bug, the client sent the body
 faithfully; the Postgres repository connector's SQL generation dropped
-`matchCriteria` on the classification-matching path only. Fixed server-side;
-re-verify the regression tests below once the fixed server is deployed to
-this environment and close this entry out.
+`matchCriteria` on the classification-matching path only. Fixed server-side
+and re-verified live against `qs-view-server` once the fixed server was
+deployed to this environment:
+
+```
+ZoneMembership ANY:      150   (unchanged — single-condition baseline)
+Confidentiality ANY:       1   (unchanged — single-condition baseline)
+Both ANY:                150   (was 0 — now a real, differentiated union)
+Both ALL:                  0   ("No elements found" — correct, empty intersection)
+Both NONE:               1000  (was 0 — now a real, differentiated count)
+```
+
+`ANY`/`ALL`/`NONE` now produce distinct, semantically correct results instead
+of all being an unconditional AND that always returned zero. The pytest
+regression test below now passes.
 
 **How to trigger:**
 ```python
@@ -615,12 +627,15 @@ this, pending a proper PR against `postgres-repository-connector`.
 
 **Regression coverage:**
 - `egeria-python/tests/functional-tests/test_metadata_expert.py::test_find_metadata_elements_multi_classification_any_match_criteria`
-  (pytest, asserts ANY's count >= max of the two single-condition counts).
+  (pytest, asserts ANY's count >= max of the two single-condition counts) —
+  **passes** as of 2026-07-17 (1 passed, run via the `egeria-python` repo's own
+  `.venv`).
 - `egeria-python/pyegeria/http clients/Egeria-PY15-matchClassifications-bug.http`
   (PyCharm/IntelliJ HTTP Client collection, same assertions via raw REST calls —
   run "Token" then top-to-bottom, or `ijhttp --insecure Egeria-PY15-matchClassifications-bug.http`
-  from the CLI). Both currently fail on the `ANY` case exactly as documented above;
-  both should pass once the `QueryBuilder.java` fix lands.
+  from the CLI) — not re-run this pass (`ijhttp` unavailable outside PyCharm in
+  this shell), but the underlying server behavior it asserts on is now proven
+  correct via the pytest test above.
 
 ---
 
