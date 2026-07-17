@@ -266,7 +266,7 @@ Output: Available glossaries:
 
 ## Egeria Explorer
 
-The PyegeriaWebHandler includes a built-in **Egeria Explorer** — an interactive browser for the live Egeria metadata ecosystem. It is a single-page application, all read-only, all backed by live Egeria API calls. Tabs are grouped into three nav groups in the header bar: **Type System** (Type Explorer, Valid Values, REST APIs, Python API), **Review** (Glossary, Reference Data, Data Design, Collections, Solution Architect, Supply Chains, Locations, Actors, Communities, Note Logs, Perspectives, Governance Definitions, Projects, Informal Tags, Context Events, External References), and **Act** (Digital Products, Report Specs, Dr. Egeria). Many sections include a **TimeSlider** ("As of date") for point-in-time browsing.
+The PyegeriaWebHandler includes a built-in **Egeria Explorer** — an interactive browser for the live Egeria metadata ecosystem. It is a single-page application, all read-only, all backed by live Egeria API calls. Tabs are grouped into three nav groups in the header bar: **Type System** (Type Explorer, Valid Values, REST APIs, Python API), **Review** (Glossary, Reference Data, Data Design, Collections, Solution Architect, Supply Chains, Locations, Actors, Communities, Business Capabilities, Note Logs, Naming Vocabulary, Policy Enforcement, Action Center, Duplicate Review, Perspectives, Governance Definitions, Projects, Informal Tags, Context Events, External References, External Identifiers, Agreements), and **Act** (Digital Products, Report Specs, Dr. Egeria). Many sections include a **TimeSlider** ("As of date") for point-in-time browsing.
 
 ![Egeria Explorer — Glossary tab](../../../../docs/images/Glossary.png)
 
@@ -294,7 +294,7 @@ The explorer opens to a **Home** splash screen on first load. Tabs are grouped i
 
 #### Home (Splash Screen)
 
-The initial view shown when the application loads. It presents a one-paragraph description of the tool and a card for each of the seven capabilities. Each card shows an icon, title, and short description of what that section does. Clicking **Open →** on any card navigates directly to that section. The **⌂ Home** tab in the header returns to this screen from any section.
+The initial view shown when the application loads. It presents a one-paragraph description of the tool and a card for each capability, grouped the same way as the nav bar. Each card shows an icon, title, and short description of what that section does. Clicking **Open →** on any card navigates directly to that section. The **⌂ Home** tab in the header returns to this screen from any section.
 
 No Egeria connection or data fetch is required to display the splash screen.
 
@@ -531,6 +531,22 @@ Selecting an item shows its description, URL, a per-subtype properties table (re
 Browses agreements — Collection subtypes covering `Agreement` (general), `DataSharingAgreement`, and `DigitalSubscription`. All are fetched together in one `find_collections(metadata_element_type_name="Agreement")` call and filtered client-side via a type tab bar, same pattern as External References. (`DataSharingAgreement` has a client-side pyegeria properties model but is not yet accepted by the server — its tab shows a zero count until server support lands.)
 
 Selecting an item shows its description, a generic properties table (identifier, etc.), any available Mermaid diagram, and a **Relationships** section covering `agreementItems` (what the agreement covers), `agreementActors` (who is party to it), and `contracts` (linked external references). Each related element cross-links into its own tab via the shared `onNavigateToElement` dispatcher, and other tabs that reference an agreement link back into this one.
+
+#### Naming Vocabulary
+
+Browses elements classified `PrimeWord`, `ClassWord`, or `Modifier` — the word vocabulary used to compose standard names, referenced by (but not related to as an entity/relationship) `NamingStandardRule`. These are classifications on `Referenceable`, not separate entity types, so this is a flat list grouped by classification rather than a tree — each row shows the underlying element (display name, type) plus the classification's own properties, with a **View →** link into the element's own tab.
+
+#### Policy Enforcement
+
+Browses elements carrying one of the six Policy\*Point classifications (`PolicyManagementPoint`, `PolicyAdministrationPoint`, `PolicyDecisionPoint`, `PolicyEnforcementPoint`, `PolicyInformationPoint`, `PolicyRetrievalPoint`) — an XACML-style policy architecture. Same structural pattern as Naming Vocabulary (classification-search, grouped by classification, not a tree), since these too are classifications on `Referenceable` rather than entities.
+
+#### Action Center
+
+Browses `Notification`, `Meeting`, `ToDo`, and `Review` — the four "Actions For People" entity types (model 0135), siblings under the same abstract `Action` supertype as `EngineAction` (which has its own dedicated view in Egeria Operations). A type-filter chip bar (All / one per type) sits above a server-side paginated list — Notification volume can be in the hundreds to low thousands on a live system, so this section does not use the app's usual load-all-into-state pattern. Selecting an action shows its properties and every related element (action target, requester, assignment scope, etc.), each cross-linking into its own tab.
+
+#### Duplicate Review
+
+Read-only review of Egeria's duplicate-management model: elements classified `KnownDuplicate` and paired via `PeerDuplicateLink` (pending steward review — status/steward/notes shown per pair), plus elements already classified `ConsolidatedDuplicate` together with the `ConsolidatedDuplicateLink` sources they absorbed. Each element in a pair or source list cross-links into its own tab. No confirm/reject actions yet — pyegeria exposes the write-side calls for a future follow-up.
 
 ---
 

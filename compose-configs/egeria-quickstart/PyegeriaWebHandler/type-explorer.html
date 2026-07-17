@@ -4043,6 +4043,10 @@ const SECTION_LABELS = {
   'actors':            'Actors',
   'communities':       'Communities',
   'business-capabilities': 'Business Capabilities',
+  'naming-vocabulary': 'Naming Vocabulary',
+  'policy-enforcement': 'Policy Enforcement',
+  'action-center':     'Action Center',
+  'duplicate-review':  'Duplicate Review',
   'notelogs':          'Note Logs',
   'perspectives':      'Perspectives',
   'governance':        'Governance Definitions',
@@ -4602,6 +4606,38 @@ const _SPLASH_CAPABILITIES = [
     icon: '🗒',
     title: 'Note Logs',
     description: 'Browse note logs and their dated note entries. Each log is attached to a subject element — cross-link to the people, communities, or assets the notes are about.',
+    requiresConnection: true,
+  },
+  {
+    section: 'naming-vocabulary',
+    group: 'review',
+    icon: '𝔸',
+    title: 'Naming Vocabulary',
+    description: 'Browse elements classified PrimeWord, ClassWord, or Modifier — the naming-standard word vocabulary behind NamingStandardRule. Grouped by classification, cross-link to the underlying element.',
+    requiresConnection: true,
+  },
+  {
+    section: 'policy-enforcement',
+    group: 'review',
+    icon: '🛡',
+    title: 'Policy Enforcement',
+    description: 'Browse elements classified with a Policy*Point classification (XACML-style policy architecture: Management/Administration/Decision/Enforcement/Information/Retrieval points).',
+    requiresConnection: true,
+  },
+  {
+    section: 'action-center',
+    group: 'review',
+    icon: '✓',
+    title: 'Action Center',
+    description: 'Browse Notification, Meeting, ToDo, and Review actions — cross-link to the elements each action concerns.',
+    requiresConnection: true,
+  },
+  {
+    section: 'duplicate-review',
+    group: 'review',
+    icon: '⧉',
+    title: 'Duplicate Review',
+    description: 'Review candidate duplicate elements paired via PeerDuplicateLink, and elements already classified ConsolidatedDuplicate showing the sources they absorbed.',
     requiresConnection: true,
   },
   {
@@ -6896,6 +6932,7 @@ function _elementIsLinkable(item) {
   if (item.typeName === 'DigitalProduct') return true;
   if (item.typeName === 'Community') return true;
   if (item.typeName === 'BusinessCapability') return true;
+  if (item.typeName === 'Notification' || item.typeName === 'Meeting' || item.typeName === 'ToDo' || item.typeName === 'Review') return true;
   if (item.typeName === 'NoteLog') return true;
   if (item.typeName === 'InformationSupplyChain') return true;
   if (item.typeName === 'SolutionComponent' || superTypes.indexOf('SolutionComponent') !== -1) return true;
@@ -7608,6 +7645,355 @@ function InformalTagDetail({ data, detail, onNavigateToElement }) {
       })
     ),
     elements.length === 0 && React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)', marginTop: 8 } }, 'No elements tagged with this tag')
+  );
+}
+
+function NamingVocabularyView() {
+  const creds = React.useContext(CredContext);
+  const [state, setState]   = useState('loading');
+  const [attempt, setAttempt] = useState(0);
+  const [groups, setGroups] = useState({});
+  const [error, setError]   = useState('');
+
+  useEffect(function() {
+    setState('loading'); setError('');
+    egeriaFetch('/api/naming-vocabulary', creds)
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setGroups(data.groups || {}); setState('ready'); })
+      .catch(function(e) { setError(e.message); setState('error'); });
+  }, [attempt]);
+
+  var GROUP_LABELS = { PrimeWord: 'Prime Words', ClassWord: 'Class Words', Modifier: 'Modifiers' };
+  var GROUP_ORDER = ['PrimeWord', 'ClassWord', 'Modifier'];
+
+  return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { fontSize: 18, fontWeight: 700, marginBottom: 4 } }, 'Naming Vocabulary'),
+    React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)', marginBottom: 16 } },
+      'The word vocabulary used to compose standard names — see the Naming Standard Rules under Governance Definitions for the rules that reference these words.'),
+    state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
+    state === 'error' && React.createElement("div", { style: { padding: 16 } },
+      React.createElement("div", { style: { color: '#f87171', fontSize: 13, marginBottom: 8 } }, "Error: " + error),
+      React.createElement("button", { className: "view-tab on", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "Retry")
+    ),
+    state === 'ready' && GROUP_ORDER.map(function(g) {
+      var items = groups[g] || [];
+      return React.createElement("div", { key: g, style: { marginBottom: 24 } },
+        React.createElement("div", { style: { fontSize: 13, fontWeight: 600, color: 'var(--dim)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' } },
+          GROUP_LABELS[g] + ' (' + items.length + ')'
+        ),
+        items.length === 0
+          ? React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)' } }, 'None found')
+          : items.map(function(it, i) {
+              return React.createElement("div", {
+                key: it.guid + i,
+                style: { padding: '8px 12px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', gap: 10 }
+              },
+                React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                  React.createElement("div", { style: { fontWeight: 600, fontSize: 13 } }, it.displayName || it.guid),
+                  it.description && React.createElement("div", { style: { fontSize: 12, color: 'var(--dim)', marginTop: 2 } }, it.description),
+                  it.qualifiedName && React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', marginTop: 2 } }, it.qualifiedName)
+                ),
+                React.createElement("span", { className: "badge", style: { background: 'rgba(148,163,184,.08)', color: 'var(--dim)', border: '0.5px solid var(--border)', fontSize: 11 } }, it.typeName)
+              );
+            })
+      );
+    })
+  );
+}
+
+function PolicyEnforcementView() {
+  const creds = React.useContext(CredContext);
+  const [state, setState]   = useState('loading');
+  const [attempt, setAttempt] = useState(0);
+  const [groups, setGroups] = useState({});
+  const [error, setError]   = useState('');
+
+  useEffect(function() {
+    setState('loading'); setError('');
+    egeriaFetch('/api/policy-enforcement', creds)
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setGroups(data.groups || {}); setState('ready'); })
+      .catch(function(e) { setError(e.message); setState('error'); });
+  }, [attempt]);
+
+  var GROUP_ORDER = ['PolicyManagementPoint', 'PolicyAdministrationPoint', 'PolicyDecisionPoint', 'PolicyEnforcementPoint', 'PolicyInformationPoint', 'PolicyRetrievalPoint'];
+  var GROUP_LABELS = {
+    PolicyManagementPoint:      'Policy Management Points',
+    PolicyAdministrationPoint:  'Policy Administration Points',
+    PolicyDecisionPoint:        'Policy Decision Points',
+    PolicyEnforcementPoint:     'Policy Enforcement Points',
+    PolicyInformationPoint:     'Policy Information Points',
+    PolicyRetrievalPoint:       'Policy Retrieval Points',
+  };
+
+  return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { fontSize: 18, fontWeight: 700, marginBottom: 4 } }, 'Policy Enforcement Architecture'),
+    React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)', marginBottom: 16 } },
+      'Elements classified with a Policy*Point classification (XACML-style policy architecture). ' +
+      'Policy Management Point is the parent classification — any element carrying one of the five ' +
+      'more specific classifications below also appears here.'),
+    state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
+    state === 'error' && React.createElement("div", { style: { padding: 16 } },
+      React.createElement("div", { style: { color: '#f87171', fontSize: 13, marginBottom: 8 } }, "Error: " + error),
+      React.createElement("button", { className: "view-tab on", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "Retry")
+    ),
+    state === 'ready' && GROUP_ORDER.map(function(g) {
+      var items = groups[g] || [];
+      return React.createElement("div", { key: g, style: { marginBottom: 24 } },
+        React.createElement("div", { style: { fontSize: 13, fontWeight: 600, color: 'var(--dim)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' } },
+          GROUP_LABELS[g] + ' (' + items.length + ')'
+        ),
+        items.length === 0
+          ? React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)' } }, 'None found')
+          : items.map(function(it, i) {
+              var detail = it.classificationDetail || {};
+              return React.createElement("div", {
+                key: it.guid + i,
+                style: { padding: '8px 12px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', gap: 10 }
+              },
+                React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                  React.createElement("div", { style: { fontWeight: 600, fontSize: 13 } }, it.displayName || it.guid),
+                  detail.description && React.createElement("div", { style: { fontSize: 12, color: 'var(--dim)', marginTop: 2 } }, detail.description),
+                  it.qualifiedName && React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', marginTop: 2 } }, it.qualifiedName)
+                ),
+                React.createElement("span", { className: "badge", style: { background: 'rgba(148,163,184,.08)', color: 'var(--dim)', border: '0.5px solid var(--border)', fontSize: 11 } }, it.typeName)
+              );
+            })
+      );
+    })
+  );
+}
+
+function ActionDetail({ data, onNavigateToElement }) {
+  var _acPersonaId = React.useContext(PersonaContext);
+  if (!data) return null;
+
+  var relationships = data.relationships || {};
+  var relKeys = Object.keys(relationships).filter(function(k) { return relationships[k] && relationships[k].length; });
+  var props = data.properties || {};
+  var extraProps = Object.keys(props).filter(function(k) {
+    return ['displayName', 'qualifiedName', 'description', 'situation'].indexOf(k) === -1;
+  });
+
+  return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, data.displayName || data.qualifiedName),
+      React.createElement("span", { className: "badge", style: { background: 'rgba(192,132,252,.1)', color: '#c084fc', border: '0.5px solid rgba(192,132,252,.3)' } }, data.typeName || 'Action'),
+      React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        _acPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'action-center', label: data.displayName || data.qualifiedName, icon: '✓', url: '/egeria-explorer?guid=' + encodeURIComponent(data.guid) + '#action-center', personaId: _acPersonaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: data.guid })
+      ),
+      React.createElement(CopyJsonButton, { data: data })
+    ),
+    React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, data.guid),
+    props.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 12 } }, renderMd(props.description)),
+    props.situation && React.createElement("div", { style: { fontSize: 12, color: 'var(--dim)', marginBottom: 16 } }, 'Situation: ' + props.situation),
+    extraProps.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', marginBottom: 20 } },
+      React.createElement("tbody", null, extraProps.map(function(k) {
+        var v = props[k];
+        return React.createElement("tr", { key: k },
+          React.createElement("td", { style: { padding: '3px 12px 3px 0', color: 'var(--dim)', verticalAlign: 'top', whiteSpace: 'nowrap', width: 160, fontSize: 12 } }, _titleCaseKey(k)),
+          React.createElement("td", { style: { padding: '3px 0', color: 'var(--text)', wordBreak: 'break-word', fontSize: 12 } }, Array.isArray(v) ? v.join(', ') : String(v))
+        );
+      }))
+    ),
+    relKeys.map(function(k) {
+      return React.createElement(RelationshipSection, { key: k, title: _prettyRelLabel(k), items: relationships[k], onNavigateToElement: onNavigateToElement });
+    }),
+    relKeys.length === 0 && React.createElement("div", { style: { fontSize: 12, color: 'var(--dim)' } }, 'No related elements recorded for this action.'),
+    React.createElement(EgeriaCommentsSection, { guid: data.guid })
+  );
+}
+
+function ActionCenterView({ onNavigateToElement, navGuid }) {
+  const creds = React.useContext(CredContext);
+  const [sideW, onDivDown] = useResizable(280);
+  const [actionType, setActionType] = useState('all');
+  const [startFrom, setStartFrom] = useState(0);
+  const PAGE_SIZE = 50;
+  const [state, setState]   = useState('loading');
+  const [items, setItems]   = useState([]);
+  const [error, setError]   = useState('');
+  const [selected, setSelected] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [detailState, setDetailState] = useState('idle');
+
+  useEffect(function() {
+    setState('loading'); setError('');
+    var params = new URLSearchParams({ start_from: String(startFrom), page_size: String(PAGE_SIZE) });
+    if (actionType !== 'all') params.set('action_type', actionType);
+    egeriaFetch('/api/action-center?' + params.toString(), creds)
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setItems(data.actions || []); setState('ready'); })
+      .catch(function(e) { setError(e.message); setState('error'); });
+  }, [actionType, startFrom]);
+
+  useEffect(function() {
+    if (!selected) { setDetail(null); return; }
+    setDetailState('loading');
+    egeriaFetch('/api/action-center/' + selected, creds)
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setDetail(data); setDetailState('ready'); })
+      .catch(function() { setDetailState('error'); });
+  }, [selected]);
+
+  useEffect(function() {
+    if (navGuid) setSelected(navGuid);
+  }, [navGuid]);
+
+  var TYPE_CHIPS = [
+    { id: 'all', label: 'All' },
+    { id: 'Notification', label: 'Notifications' },
+    { id: 'Meeting', label: 'Meetings' },
+    { id: 'ToDo', label: 'To Dos' },
+    { id: 'Review', label: 'Reviews' },
+  ];
+
+  var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { padding: '8px 10px', display: 'flex', gap: 4, flexWrap: 'wrap' } },
+      TYPE_CHIPS.map(function(c) {
+        return React.createElement("button", {
+          key: c.id,
+          onClick: function() { setActionType(c.id); setStartFrom(0); setSelected(null); },
+          style: {
+            fontSize: 11, padding: '3px 8px', borderRadius: 10, cursor: 'pointer',
+            fontWeight: actionType === c.id ? 700 : 400,
+            border: actionType === c.id ? '1.5px solid var(--accent)' : '1px solid var(--border)',
+            background: actionType === c.id ? 'rgba(96,165,250,.1)' : 'transparent',
+            color: actionType === c.id ? 'var(--accent)' : 'var(--dim)',
+          }
+        }, c.label);
+      })
+    ),
+    state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
+    state === 'error' && React.createElement("div", { style: { padding: 16, color: '#f87171', fontSize: 13 } }, "Error: " + error),
+    state === 'ready' && React.createElement("div", { style: { overflowY: 'auto', flex: 1 } },
+      items.length === 0
+        ? React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "No actions found")
+        : items.map(function(it) {
+            return React.createElement("div", {
+              key: it.guid, className: "tree-item" + (selected === it.guid ? " sel" : ""),
+              onClick: function() { setSelected(it.guid); }, title: it.qualifiedName || it.guid,
+            },
+              React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                React.createElement("span", { className: "type-name" }, it.displayName || it.qualifiedName || it.guid)
+              ),
+              React.createElement("span", { className: "badge", style: { fontSize: 9, marginLeft: 4, background: 'rgba(148,163,184,.08)', color: 'var(--dim)', border: '0.5px solid var(--border)' } }, it.actionType)
+            );
+          })
+    ),
+    React.createElement("div", { style: { padding: '8px 10px', display: 'flex', gap: 8, alignItems: 'center', borderTop: '1px solid var(--border)' } },
+      React.createElement("button", { className: "view-tab", disabled: startFrom === 0,
+        onClick: function() { setStartFrom(Math.max(0, startFrom - PAGE_SIZE)); } }, '← Prev'),
+      React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)' } }, 'From ' + startFrom),
+      React.createElement("button", { className: "view-tab", disabled: items.length < PAGE_SIZE,
+        onClick: function() { setStartFrom(startFrom + PAGE_SIZE); } }, 'Next →')
+    )
+  );
+
+  var mainPanel = React.createElement("div", { className: "main", style: { flex: 1, overflowY: 'auto' } },
+    !selected && React.createElement("div", { className: "center" },
+      React.createElement("span", { style: { color: 'var(--muted)' } }, "Select an action from the sidebar")
+    ),
+    selected && detailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
+    selected && detailState === 'error'   && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load action detail"),
+    selected && detailState === 'ready' && detail && React.createElement(ActionDetail, { data: detail, onNavigateToElement: onNavigateToElement })
+  );
+
+  return React.createElement("div", { className: "body" },
+    sidebar,
+    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
+    mainPanel
+  );
+}
+
+function DuplicateReviewView({ onNavigateToElement }) {
+  const creds = React.useContext(CredContext);
+  const [state, setState] = useState('loading');
+  const [attempt, setAttempt] = useState(0);
+  const [pairs, setPairs] = useState([]);
+  const [consolidated, setConsolidated] = useState([]);
+  const [error, setError] = useState('');
+
+  useEffect(function() {
+    setState('loading'); setError('');
+    Promise.all([
+      egeriaFetch('/api/duplicate-review/pending', creds).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+      egeriaFetch('/api/duplicate-review/consolidated', creds).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+    ]).then(function(results) {
+      setPairs(results[0].pairs || []);
+      setConsolidated(results[1].consolidated || []);
+      setState('ready');
+    }).catch(function(e) { setError(e.message); setState('error'); });
+  }, [attempt]);
+
+  function ElementChip({ el }) {
+    if (!el || !el.guid) return null;
+    var clickable = !!onNavigateToElement;
+    return React.createElement("div", {
+      onClick: clickable ? function() { onNavigateToElement(el); } : undefined,
+      style: {
+        padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 6,
+        cursor: clickable ? 'pointer' : 'default', minWidth: 0, flex: 1,
+      }
+    },
+      React.createElement("div", { style: { fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, el.displayName || el.guid),
+      React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)' } }, el.typeName)
+    );
+  }
+
+  return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { fontSize: 18, fontWeight: 700, marginBottom: 4 } }, 'Duplicate Resolution Review'),
+    React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)', marginBottom: 16 } },
+      'Elements classified KnownDuplicate, paired via PeerDuplicateLink, awaiting steward review; ' +
+      'and elements already classified ConsolidatedDuplicate showing the sources they absorbed. Read-only for now.'),
+    state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
+    state === 'error' && React.createElement("div", { style: { padding: 16 } },
+      React.createElement("div", { style: { color: '#f87171', fontSize: 13, marginBottom: 8 } }, "Error: " + error),
+      React.createElement("button", { className: "view-tab on", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "Retry")
+    ),
+    state === 'ready' && React.createElement("div", null,
+      React.createElement("div", { style: { fontSize: 13, fontWeight: 600, color: 'var(--dim)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' } },
+        'Pending (' + pairs.length + ')'),
+      pairs.length === 0
+        ? React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)', marginBottom: 24 } }, 'None found')
+        : pairs.map(function(p) {
+            return React.createElement("div", {
+              key: p.relationshipGuid,
+              style: { padding: '10px 0', borderTop: '1px solid var(--border)', marginBottom: 8 }
+            },
+              React.createElement("div", { style: { display: 'flex', gap: 10, alignItems: 'stretch', marginBottom: 6 } },
+                React.createElement(ElementChip, { el: p.elementA }),
+                React.createElement("div", { style: { display: 'flex', alignItems: 'center', color: 'var(--dim)', fontSize: 12 } }, '↔'),
+                React.createElement(ElementChip, { el: p.elementB })
+              ),
+              React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', display: 'flex', gap: 16, flexWrap: 'wrap' } },
+                React.createElement("span", null, 'Status: ' + p.statusIdentifier),
+                p.steward && React.createElement("span", null, 'Steward: ' + p.steward),
+                p.source && React.createElement("span", null, 'Source: ' + p.source)
+              ),
+              p.notes && React.createElement("div", { style: { fontSize: 12, marginTop: 4 } }, p.notes)
+            );
+          }),
+      React.createElement("div", { style: { fontSize: 13, fontWeight: 600, color: 'var(--dim)', marginTop: 24, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' } },
+        'Consolidated (' + consolidated.length + ')'),
+      consolidated.length === 0
+        ? React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)' } }, 'None found')
+        : consolidated.map(function(c) {
+            return React.createElement("div", {
+              key: c.survivor.guid,
+              style: { padding: '10px 0', borderTop: '1px solid var(--border)', marginBottom: 8 }
+            },
+              React.createElement("div", { style: { marginBottom: 6 } },
+                React.createElement(ElementChip, { el: c.survivor })
+              ),
+              React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', marginBottom: 4 } }, 'Absorbed sources:'),
+              React.createElement("div", { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+                c.sources.map(function(s, i) { return React.createElement(ElementChip, { key: s.guid + i, el: s }); })
+              )
+            );
+          })
+    )
   );
 }
 
@@ -9588,7 +9974,7 @@ function App() {
     var hash = window.location.hash.slice(1).split('?')[0];
     var valid = new Set(['type-system','reference-data','digital-products','collections','glossary',
       'report-specs','valid-values','rest-apis','python-api','solution-architect',
-      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','business-capabilities','notelogs','governance','projects','informal-tags','context-events','external-references','external-identifiers','agreements','search']);
+      'data-design','perspectives','dr-egeria','isc','locations','actors','communities','business-capabilities','notelogs','governance','naming-vocabulary','policy-enforcement','action-center','duplicate-review','projects','informal-tags','context-events','external-references','external-identifiers','agreements','search']);
     return valid.has(hash) ? hash : 'splash';
   });
   const [searchQuery, setSearchQuery] = useState('');
@@ -9671,6 +10057,12 @@ function App() {
     setSection('business-capabilities');
   }, []);
 
+  const [actionCenterNavGuid, setActionCenterNavGuid] = useState(null);
+  const onNavigateToAction = useCallback(function(guid) {
+    setActionCenterNavGuid(guid || null);
+    setSection('action-center');
+  }, []);
+
   const [informalTagsNavGuid, setInformalTagsNavGuid] = useState(null);
   const onNavigateToInformalTag = useCallback(function(guid) {
     setInformalTagsNavGuid(guid || null);
@@ -9741,6 +10133,7 @@ function App() {
     if (typeName === 'GlossaryTerm' || typeName === 'Glossary' || typeName === 'GlossaryCategory') { onNavigateToGlossary(guid); return; }
     if (typeName === 'Community') { onNavigateToCommunity(guid); return; }
     if (typeName === 'BusinessCapability') { onNavigateToBusinessCapability(guid); return; }
+    if (typeName === 'Notification' || typeName === 'Meeting' || typeName === 'ToDo' || typeName === 'Review') { onNavigateToAction(guid); return; }
     if (typeName === 'NoteLog') { onNavigateToNoteLog(guid); return; }
     if (typeName === 'InformationSupplyChain') { onNavigateToISC(guid); return; }
     if (typeName === 'SolutionBlueprint' || superTypes.indexOf('SolutionBlueprint') !== -1) { onNavigateToSolutionBlueprint(guid); return; }
@@ -9765,7 +10158,7 @@ function App() {
     // "↗ Tech Catalog" link, for callers that route everything through this
     // single dispatcher instead of rendering that link separately).
     if (superTypes.indexOf('Asset') !== -1) { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
-  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToExternalReference, onNavigateToExternalIdentifier, onNavigateToAgreement, onNavigateToProject]);
+  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToAction, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToExternalReference, onNavigateToExternalIdentifier, onNavigateToAgreement, onNavigateToProject]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254);
 
@@ -9876,7 +10269,7 @@ function App() {
         }),
         React.createElement(NavGroup, {
           label: 'Review', connected: connected, currentSection: section,
-          isActive: ['glossary','reference-data','data-design','collections','solution-architect','isc','locations','actors','communities','business-capabilities','notelogs','perspectives','governance','projects','informal-tags','context-events','external-references','external-identifiers','agreements'].includes(section),
+          isActive: ['glossary','reference-data','data-design','collections','solution-architect','isc','locations','actors','communities','business-capabilities','notelogs','perspectives','governance','naming-vocabulary','policy-enforcement','action-center','duplicate-review','projects','informal-tags','context-events','external-references','external-identifiers','agreements'].includes(section),
           onSelect: setSection,
           items: [
             { id: 'glossary',           label: 'Glossary',                needsConnect: true },
@@ -9892,6 +10285,10 @@ function App() {
             { id: 'notelogs',           label: 'Note Logs',               needsConnect: true },
             { id: 'perspectives',       label: 'Perspectives',            needsConnect: true },
             { id: 'governance',         label: 'Governance Definitions',  needsConnect: true },
+            { id: 'naming-vocabulary',  label: 'Naming Vocabulary',       needsConnect: true },
+            { id: 'policy-enforcement', label: 'Policy Enforcement',     needsConnect: true },
+            { id: 'action-center',      label: 'Action Center',           needsConnect: true },
+            { id: 'duplicate-review',   label: 'Duplicate Review',        needsConnect: true },
             { id: 'projects',           label: 'Projects',                needsConnect: true },
             { id: 'informal-tags',      label: 'Informal Tags',             needsConnect: true },
             { id: 'context-events',    label: 'Context Events',            needsConnect: true },
@@ -9998,6 +10395,14 @@ function App() {
       ? React.createElement(NoteLogView, { key: credsKey, navGuid: noteLogsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'governance'
       ? React.createElement(GovernanceView, { key: credsKey, navTypeName: governanceNav.typeName, navGuid: governanceNav.guid, onNavigateToElement: onNavigateToElement })
+      : section === 'naming-vocabulary'
+      ? React.createElement(NamingVocabularyView, { key: credsKey })
+      : section === 'policy-enforcement'
+      ? React.createElement(PolicyEnforcementView, { key: credsKey })
+      : section === 'action-center'
+      ? React.createElement(ActionCenterView, { key: credsKey, navGuid: actionCenterNavGuid, onNavigateToElement: onNavigateToElement })
+      : section === 'duplicate-review'
+      ? React.createElement(DuplicateReviewView, { key: credsKey, onNavigateToElement: onNavigateToElement })
       : section === 'projects'
       ? React.createElement(ProjectsView, { key: credsKey, navGuid: projectNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'context-events'

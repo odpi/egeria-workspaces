@@ -553,9 +553,9 @@
         <div class="entry-body">
           <div class="entry-top">
             <h3>No duplicate-resolution review</h3>
-            <span class="chip medium">Worth planning</span>
+            <span class="chip good">Built — 2026-07-16</span>
           </div>
-          <p class="entry-desc">Zero references anywhere. No way to review or act on duplicate-candidate suggestions the platform surfaces.</p>
+          <p class="entry-desc">Zero references anywhere. No way to review or act on duplicate-candidate suggestions the platform surfaces. <strong>Built as GAP-5</strong>: a read-only "Duplicate Review" pane (Egeria Explorer → Duplicate Review) pairs <span class="mono">KnownDuplicate</span>-classified elements via <span class="mono">PeerDuplicateLink</span>, and lists <span class="mono">ConsolidatedDuplicate</span> survivors with their absorbed sources. No live demo data existed, so one demo pair was seeded and left in place. Hit and worked around a real pyegeria bug doing so (wrong URL on the peer-duplicate-link write endpoint) — see PYEGERIA_ISSUES.md PY-16.</p>
           <div class="types">
             <span class="type-pill">KnownDuplicate</span><span class="type-pill">ConsolidatedDuplicate</span>
             <span class="type-pill">PeerDuplicateLink</span>
@@ -568,9 +568,9 @@
         <div class="entry-body">
           <div class="entry-top">
             <h3>The social/collaboration layer is invisible</h3>
-            <span class="chip medium">Worth planning</span>
+            <span class="chip good">Built — extension pending</span>
           </div>
-          <p class="entry-desc">Informal Tags and Note Logs each got their own tab; the adjacent activity-feed types didn't get any.</p>
+          <p class="entry-desc">Informal Tags and Note Logs each got their own tab; the adjacent activity-feed types didn't get any. <strong>Built as GAP-6 "Action Center"</strong> (re-scoped 2026-07-15/16): Comment/Rating/Like turned out to already be covered per-element via the feedback widget, and Task/Campaign are classifications on Project/Collection rather than separate entities — so the real new surface is just Notification/Meeting/ToDo/Review, model 0135's "Actions For People", plus a fix so EngineAction cross-nav routes to Egeria Operations instead of a generic fallback. Notification has substantial real data (fluctuates, background watchdog engine); Meeting/ToDo/Review were seeded and left in place. Cross-links to every related element (ActionRequester/AssignmentScope/Actions/ActionTarget) now resolve correctly — this required a separate fix, since the by-guid element call never returns relationships regardless of depth (PYEGERIA_ISSUES.md PY-17). Re-opened pending a scope-extension write-up.</p>
           <div class="types">
             <span class="type-pill">Comment</span><span class="type-pill">Rating</span>
             <span class="type-pill">Like</span><span class="type-pill">ToDo</span>
@@ -607,9 +607,9 @@
         <div class="entry-body">
           <div class="entry-top">
             <h3>Privacy execution detail beyond the purpose stub</h3>
-            <span class="chip backlog">Niche</span>
+            <span class="chip good">Fixed — 2026-07-16</span>
           </div>
-          <p class="entry-desc"><span class="type-pill">DataProcessingPurpose</span> already appears as a leaf in the Governance Definitions control tree; the execution-level detail around it does not.</p>
+          <p class="entry-desc"><span class="type-pill">DataProcessingPurpose</span> already appears as a leaf in the Governance Definitions control tree; the execution-level detail around it does not. <strong>Turned out to need zero code changes (GAP-8)</strong>: the Governance Definitions detail view already generically iterates every relationship key on an element, and the 2 real <span class="type-pill">ApprovedPurpose</span> links (→ CSVFile assets) were already being rendered once checked live — the gap was in this doc's assumption, not the app. <span class="type-pill">DataProcessingTarget</span>/<span class="type-pill">PermittedProcessing</span> have no live data to verify against; <span class="type-pill">DataProcessingSpecification</span> and <span class="type-pill">DetailedProcessingActions</span> are deprecated in the Egeria type model and were not pursued.</p>
           <div class="types">
             <span class="type-pill">DataProcessingAction</span><span class="type-pill">DataProcessingSpecification</span>
             <span class="type-pill">DataProcessingTarget</span><span class="type-pill">PermittedProcessing</span>
@@ -623,9 +623,9 @@
         <div class="entry-body">
           <div class="entry-top">
             <h3>Policy enforcement architecture</h3>
-            <span class="chip backlog">Niche</span>
+            <span class="chip good">Built — extension pending</span>
           </div>
-          <p class="entry-desc">Models where policy decisions are actually enforced. Zero coverage; low frequency of use in most deployments.</p>
+          <p class="entry-desc">Models where policy decisions are actually enforced. Zero coverage; low frequency of use in most deployments. <strong>Built as GAP-9</strong>: all six Policy*Point types turned out to be classifications on <span class="mono">Referenceable</span>, not entities, so this is a classification-search pane (Egeria Explorer → Policy Enforcement) grouped by which Policy*Point classification an element carries, not a control-tree node. No live data existed, so one element per classification was seeded and left in place. Re-opened pending a scope-extension write-up.</p>
           <div class="types">
             <span class="type-pill">PolicyManagementPoint</span><span class="type-pill">PolicyAdministrationPoint</span>
             <span class="type-pill">PolicyDecisionPoint</span><span class="type-pill">PolicyEnforcementPoint</span>
@@ -639,9 +639,9 @@
         <div class="entry-body">
           <div class="entry-top">
             <h3>Naming-standard vocabulary</h3>
-            <span class="chip backlog">Niche</span>
+            <span class="chip good">Built — extension pending</span>
           </div>
-          <p class="entry-desc"><span class="type-pill">NamingStandardRule</span> shows up as a control-tree leaf; the word vocabulary used to compose standard names doesn't.</p>
+          <p class="entry-desc"><span class="type-pill">NamingStandardRule</span> shows up as a control-tree leaf; the word vocabulary used to compose standard names doesn't. <strong>Built as GAP-10</strong>: PrimeWord/ClassWord/Modifier turned out to be classifications on <span class="mono">Referenceable</span> (typically applied to <span class="mono">ValidValueDefinition</span>s), not entities, and not related to <span class="mono">NamingStandardRule</span> by any relationship — so this is a classification-search pane (Egeria Explorer → Naming Vocabulary), structurally unable to live in the control tree. No live data existed, so demo <span class="mono">ValidValueDefinition</span>s were seeded and left in place. Re-opened pending a scope-extension write-up.</p>
           <div class="types">
             <span class="type-pill">PrimeWord</span><span class="type-pill">ClassWord</span><span class="type-pill">Modifier</span>
           </div>
