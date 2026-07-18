@@ -129,6 +129,26 @@ Admin-triggered reset: stops the Egeria container, drops the metadata store sche
 
 The Docker socket must be mounted into the container (`/var/run/docker.sock:/var/run/docker.sock`) for reset to work.
 
+### Egeria Advisor integration
+
+Egeria Advisor is a separate AI-assistant service (its own repo/process, not part of this compose stack). The portal shows it as a tile and brokers exclusive access to it, since one Advisor instance is shared across all demo attendees.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `EGERIA_ADVISOR_URL` | `http://localhost:8880/` | Base URL of the Advisor service. Used both for the server-side reachability check and as the base of the SSO handoff link opened in the attendee's browser — **must be reachable from attendees' browsers**, not just from this host. For a public deployment (`SITE_URL` on a public domain), set this to Advisor's public HTTPS URL (e.g. `https://your-domain.com:8881/`), not `localhost` — `localhost` only works when the browser and the Advisor process are on the same machine. |
+| `EGERIA_ADVISOR_SSO_SECRET` | _(blank)_ | HS256 secret shared with Advisor's own `ADVISOR_PORTAL_SECRET` (**not** this app's `JWT_SECRET`). Signs the short-lived token that lets an attendee land in Advisor already logged in as their persona. Leave blank to disable SSO — the tile then shows **Not configured** and `/api/advisor/acquire` returns 503. |
+| `ADVISOR_LOCK_ENABLED` | `true` | Set `false` to disable the exclusive-access lock entirely (`/api/advisor/status` returns `{"state": "DISABLED"}` and the tile shows **Not configured**). |
+| `ADVISOR_SESSION_MINUTES` | `60` | Length of a session once acquired. |
+| `ADVISOR_IDLE_SOFT_MINUTES` | `15` | Minutes of no keepalive before the tile shows an idle warning to the holder. |
+| `ADVISOR_IDLE_HARD_MINUTES` | `30` | Minutes of no keepalive before the session is marked `STUCK` and becomes eligible for admin force-release. |
+| `ADVISOR_BUFFER_MINUTES` | `10` | Minimum gap enforced before an admin-reserved block; blocks `extend` requests that would run into it. |
+| `ADVISOR_EVICT_GRACE_SECONDS` | `300` | Grace period given to the current holder when an admin evicts them. |
+| `ADVISOR_LOCK_STATE_FILE` | `/app/demo-data/advisor_lock.json` | Where lock state persists across container restarts. |
+
+**Why Advisor needs to bind `0.0.0.0`, not `127.0.0.1`:** if Advisor is started via its own CLI default (`egeria-advisor-web`, no flags), it binds `127.0.0.1` only — reachable from the host but not from the `quickstart-pyegeria-web` container's reachability check, nor from any other machine. Start it with `scripts/run_web.sh` (from the Advisor repo) instead, which honors `ADVISOR_BIND_HOST=0.0.0.0` from its own `.env`, or pass `--host 0.0.0.0` explicitly. HTTPS (`ADVISOR_HTTPS_PORT`, default 8881) only starts if `ADVISOR_SSL_CERTFILE`/`ADVISOR_SSL_KEYFILE` are set and exist.
+
+**One shared session at a time:** `/api/advisor/acquire` grants an exclusive lock (states `FREE` → `IN_USE`/`ADMIN_IN_USE` → back to `FREE` on release/expiry). The portal calls `/api/advisor/keepalive` roughly every 60 s while a tab is open; a holder that stops sending keepalives is marked `STUCK` after `ADVISOR_IDLE_HARD_MINUTES` and can be force-released by an admin (`POST /api/advisor/unlock`). Admins can also reserve future blocks (`POST /api/advisor/reservations`) or evict the current holder with a grace period (`POST /api/advisor/evict`).
+
 ### SMTP email
 
 | Variable | Default | Description |
@@ -206,6 +226,21 @@ The Docker socket must be mounted into the container (`/var/run/docker.sock:/var
 | `GET` | `/api/demo/reset/status` | Admin | Returns `{state, last_reset_at, reset_interval_hours}` |
 | `POST` | `/api/demo/reset` | Admin | Trigger an immediate demo reset (async — returns `{status: "reset_started"}`) |
 
+### Egeria Advisor lock
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/api/advisor/status` | Public | Current lock state, reachability, and time remaining |
+| `POST` | `/api/advisor/acquire` | Verified user | Acquire the lock for the caller's persona. Body: `{persona, display_name}`. Returns `{acquired, token, expires_at, advisor_sso_url}` |
+| `POST` | `/api/advisor/release` | Lock holder | Release the lock. Body: `{token}` |
+| `POST` | `/api/advisor/keepalive` | Lock holder | Heartbeat, resets the idle clock. Body: `{token}` |
+| `POST` | `/api/advisor/extend` | Lock holder | Extend the current session by `ADVISOR_SESSION_MINUTES`. Body: `{token}` |
+| `GET` | `/api/advisor/reservations` | Public | List upcoming admin-reserved blocks |
+| `POST` | `/api/advisor/reservations` | Admin | Reserve a future block. Body: `{label, starts_at, ends_at}` |
+| `DELETE` | `/api/advisor/reservations/{id}` | Admin | Cancel a reservation |
+| `POST` | `/api/advisor/evict` | Admin | Begin grace-period eviction of the current holder. Body: `{grace_seconds?, message?}` |
+| `POST` | `/api/advisor/unlock` | Admin | Force-release a stuck or frozen lock |
+
 ### Admin
 
 All admin endpoints require `role=admin`.
@@ -252,6 +287,18 @@ Configure the tile via the admin Config panel:
 |------------|-------------|
 | `obsidian_vault_url` | Vault name or `obsidian://` URI for local users. If not a full URI, it is wrapped as `obsidian://open?vault=<name>`. Leave blank to hide the local button. |
 | `obsidian_github_url` | GitHub URL for remote users. Defaults to `https://github.com/odpi/egeria-workspaces/tree/main/coco-workbooks`. |
+
+### Egeria Advisor tile
+
+The **Egeria Advisor** tile links to a separate AI-assistant service that answers natural-language questions about the connected Egeria environment (see [Egeria Advisor use cases](../../../portal-docs/tools/egeria-advisor.md)). Because a single Advisor instance is shared across all demo attendees, the tile brokers exclusive access via the lock described in [Egeria Advisor integration](#egeria-advisor-integration) above:
+
+- **Not configured** — `EGERIA_ADVISOR_SSO_SECRET` is unset, or `ADVISOR_LOCK_ENABLED=false`.
+- **Not running** — the service isn't reachable at `EGERIA_ADVISOR_URL`.
+- **Select a persona first** — shown until the attendee picks a persona (Advisor's SSO handoff needs a persona's Egeria credentials to mint the token).
+- **Available** — a green **Ask Advisor →** button. Clicking it calls `POST /api/advisor/acquire`, opens a new tab, and (once the lock is granted) navigates that tab to the SSO handoff URL so the attendee lands in Advisor already authenticated as their persona.
+- **Your session · N min left** — shown to the current holder, with **Extend** and **Release** buttons. The portal sends a keepalive roughly every 60 s while the tab stays open.
+- **In use by \<name\> · ~N min remaining** — shown to everyone else while a session is active.
+- **Session may be idle** — shown once the holder's keepalive has lapsed past `ADVISOR_IDLE_HARD_MINUTES`; an admin can force-release it from the admin panel.
 
 ---
 
@@ -561,6 +608,14 @@ print('done')
 **Demo auth tables not found / schema errors** — The `demo_auth` schema has not been created yet. Restart the `quickstart-pyegeria-web` container — `get_engine()` creates the schema and tables on first call.
 
 **Persona picker not appearing** — Either `DEMO_MODE` is false, or a persona was previously selected and stored in `localStorage`. Clear `egeria-persona` (and `egeria-creds`) from browser localStorage, or click **Switch** in the header persona badge.
+
+**Egeria Advisor tile always shows "Not running"** — `GET /api/advisor/status` does a plain `httpx` HEAD against `EGERIA_ADVISOR_URL` from inside the `quickstart-pyegeria-web` container, with no `localhost` → `host.docker.internal` fallback (unlike the older `advisor_running` check in `pyegeria_handler.py`). Two common causes:
+  1. Advisor is bound to `127.0.0.1` (the bare `egeria-advisor-web` CLI default) instead of `0.0.0.0` — the container can't reach a loopback-only socket on the host at all, regardless of hostname. Restart Advisor via its `scripts/run_web.sh` (honors `ADVISOR_BIND_HOST=0.0.0.0`).
+  2. `EGERIA_ADVISOR_URL` is set to `http://localhost:...` while the container isn't on host networking — point it at `host.docker.internal:<port>` for the container to reach it, or (for a public deployment) at Advisor's public HTTPS URL, which every network hop can resolve.
+
+**Egeria Advisor tile shows "Not configured"** — `EGERIA_ADVISOR_SSO_SECRET` is unset, or `ADVISOR_LOCK_ENABLED=false`. Set `EGERIA_ADVISOR_SSO_SECRET` in `.env.demo` to match Advisor's own `ADVISOR_PORTAL_SECRET` exactly.
+
+**"Ask Advisor" opens a tab that fails to load for remote attendees** — `EGERIA_ADVISOR_URL` is set to `localhost`, which resolves in the *attendee's* browser to their own machine, not the demo host. For any deployment reachable by people other than you on this machine, set `EGERIA_ADVISOR_URL` to Advisor's public HTTPS URL instead.
 
 **"Persona not found" error** — The persona ID sent to `/api/demo/select-persona` does not match any key in `personas.json`. Ensure the frontend is using the correct persona IDs (lowercase, no spaces: `erinoverview`, `peterprofile`, etc.).
 
