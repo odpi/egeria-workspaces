@@ -3310,6 +3310,26 @@ ___
 
 ___
 
+## Link Assignment Scope
+
+### Assigned Actor
+CocoPharma::GovernanceRole::ChiefDataOfficer
+
+### Assignment Type
+Governance Folio
+
+### Scope Element
+CocoPharma::Folio::ChiefDataOfficer
+
+### Description
+Assigns the Chief Data Officer role responsibility for all governance definitions collected in the Chief Data Officer Governance Folio.
+
+___
+
+---
+
+___
+
 ## Create Folio
 
 ### Display Name
@@ -3335,6 +3355,26 @@ Ivor Padlock
 
 ### Content Status
 ACTIVE
+
+___
+
+---
+
+___
+
+## Link Assignment Scope
+
+### Assigned Actor
+CocoPharma::GovernanceRole::ChiefInformationSecurityOfficer
+
+### Assignment Type
+Governance Folio
+
+### Scope Element
+CocoPharma::Folio::ChiefInformationSecurityOfficer
+
+### Description
+Assigns the Chief Information Security Officer role responsibility for all governance definitions collected in the Chief Information Security Officer Governance Folio.
 
 ___
 
@@ -3374,6 +3414,26 @@ ___
 
 ___
 
+## Link Assignment Scope
+
+### Assigned Actor
+CocoPharma::GovernanceRole::ChiefPrivacyOfficer
+
+### Assignment Type
+Governance Folio
+
+### Scope Element
+CocoPharma::Folio::ChiefPrivacyOfficer
+
+### Description
+Assigns the Chief Privacy Officer role responsibility for all governance definitions collected in the Chief Privacy Officer Governance Folio.
+
+___
+
+---
+
+___
+
 ## Create Folio
 
 ### Display Name
@@ -3399,6 +3459,26 @@ Reggie Mint
 
 ### Content Status
 ACTIVE
+
+___
+
+---
+
+___
+
+## Link Assignment Scope
+
+### Assigned Actor
+CocoPharma::GovernanceRole::ChiefFinancialOfficer
+
+### Assignment Type
+Governance Folio
+
+### Scope Element
+CocoPharma::Folio::ChiefFinancialOfficer
+
+### Description
+Assigns the Chief Financial Officer role responsibility for all governance definitions collected in the Chief Financial Officer Governance Folio.
 
 ___
 
@@ -3438,6 +3518,26 @@ ___
 
 ___
 
+## Link Assignment Scope
+
+### Assigned Actor
+CocoPharma::GovernanceRole::DrugDevelopmentLead
+
+### Assignment Type
+Governance Folio
+
+### Scope Element
+CocoPharma::Folio::DrugDevelopmentLead
+
+### Description
+Assigns the Drug Development Lead role responsibility for all governance definitions collected in the Drug Development Lead Governance Folio.
+
+___
+
+---
+
+___
+
 ## Create Folio
 
 ### Display Name
@@ -3463,6 +3563,26 @@ Tom Tally
 
 ### Content Status
 ACTIVE
+
+___
+
+---
+
+___
+
+## Link Assignment Scope
+
+### Assigned Actor
+CocoPharma::GovernanceRole::SustainabilityLead
+
+### Assignment Type
+Governance Folio
+
+### Scope Element
+CocoPharma::Folio::SustainabilityLead
+
+### Description
+Assigns the Sustainability Lead role responsibility for all governance definitions collected in the Sustainability Lead Governance Folio.
 
 ___
 
