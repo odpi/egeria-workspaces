@@ -3,15 +3,29 @@
 
 # Shared infrastructure for Egeria workspaces
 
-This directory contains the shared Kafka, PostgreSQL, and OpenLineage proxy infrastructure used by both the `egeria-quickstart`
-and `egeria-freshstart` deployments.
+This directory contains the shared Kafka, PostgreSQL, OpenLineage proxy, and Kroki (diagram rendering) infrastructure used by
+both the `egeria-quickstart` and `egeria-freshstart` deployments.
 
 The shared stack exposes:
 
 - Kafka on `9192`, `9193`, `9194`
 - PostgreSQL on `5442` (with [pgvector](https://github.com/pgvector/pgvector) extension available)
 - OpenLineage proxy on `6000`, `6001`
+- Kroki (`egeria-shared-kroki` + `egeria-shared-kroki-mermaid` companion), internal-network only, no host port
 - the external Docker network `egeria_network`
+
+## Kroki (Mermaid diagram rendering)
+
+pyegeria's `render_mermaid()` (used by Jupyter notebooks) previously called the public `https://kroki.io` service directly —
+an unannounced external dependency subject to that service's own load (intermittent "Failed to launch the browser process"
+Chromium crashes) and Mermaid version drift (inconsistent diagram colors/themes between requests). This stack now runs its
+own Kroki instance instead: `egeria-shared-kroki` (core) + `egeria-shared-kroki-mermaid` (the headless-browser companion
+Mermaid needs, given `shm_size: 1gb` — the standard fix for the same class of Docker/Chromium crash kroki.io's own
+infrastructure was hitting).
+
+Jupyter services in both environments set `EGERIA_KROKI_URL=http://egeria-shared-kroki:8000` so pyegeria tries this
+container first. If it's absent or unreachable, pyegeria falls back to rendering the diagram entirely client-side in the
+notebook's browser (no server dependency at all) — nothing hard-depends on this container being present.
 
 ## PostgreSQL and pgvector
 
@@ -26,7 +40,7 @@ Both root startup scripts (`quick-start-*` and `fresh-start-*`) call `ensure-sha
 
 1. generates `.env` for the shared stack,
 2. creates `egeria_network` if needed,
-3. starts OpenLineage proxy, Kafka, and PostgreSQL when they are missing or stopped,
+3. starts OpenLineage proxy, Kafka, PostgreSQL, and Kroki when they are missing or stopped,
 4. waits until all services are ready.
 
 `ensure-shared-infra.sh` now also refreshes images during startup:
@@ -62,7 +76,7 @@ You can also manage the shared stack directly from this directory:
 ./ensure-shared-infra.sh
 NO_CACHE=1 ./ensure-shared-infra.sh
 docker compose -p egeria-shared-infra -f shared-infra.yaml build --pull proxy
-docker compose -p egeria-shared-infra -f shared-infra.yaml up -d --pull always proxy kafka postgres
+docker compose -p egeria-shared-infra -f shared-infra.yaml up -d --pull always proxy kafka postgres kroki kroki-mermaid
 docker compose -p egeria-shared-infra -f shared-infra.yaml ps
 docker compose -p egeria-shared-infra -f shared-infra.yaml down
 ```

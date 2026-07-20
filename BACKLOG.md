@@ -3,6 +3,66 @@
 Consolidated work list. Update status when items start or finish.  
 Status: `open` · `in-progress` · `done` · `deferred`
 ---
+## Self-hosted Kroki, remove pyegeria's public kroki.io dependency (2026-07-20) — ✅ done
+
+Dan reported intermittent "Kroki error 400 ... Failed to launch the browser
+process ... crashpad" failures rendering Mermaid diagrams in Jupyter
+notebooks, plus inconsistent diagram colors between runs. Root cause:
+`pyegeria.view.mermaid_utilities.render_mermaid()` called the **public**
+`https://kroki.io` service directly and unconditionally — Jupyter notebook
+users had no visibility into that dependency, and the failures were kroki.io's
+own infrastructure (a shared, multi-tenant headless-Chromium renderer)
+crashing under its own load, plus its bundled Mermaid version drifting over
+time. Not fixable by tuning local container resources, since the Jupyter
+container was never doing the rendering.
+
+**Fix — pyegeria (`egeria-python` repo):**
+- `pyegeria/core/config.py`: new `egeria_kroki_url` setting (`EGERIA_KROKI_URL`
+  env var), empty by default — no default guess at any specific container.
+- `pyegeria/view/mermaid_utilities.py`: `render_mermaid()` rewritten as a
+  two-tier fallback, no more silent external network call:
+  1. **Local Kroki** — only attempted if `EGERIA_KROKI_URL` is explicitly set;
+     short (5s) timeout so a dead local service falls through fast.
+  2. **Client-side rendering** — if tier 1 isn't configured or fails, the
+     diagram renders entirely in the notebook's own browser via mermaid.js,
+     inside a sandboxed `<iframe srcdoc="...">` (JupyterLab 4.x strips
+     top-level `<script>` tags from HTML outputs; an iframe is its own
+     document so its scripts still execute). Reuses the existing
+     `construct_mermaid_web` HTML (refactored into a shared
+     `_build_mermaid_client_html` helper) rather than duplicating it.
+  - The public kroki.io is no longer called anywhere in this path.
+
+**Fix — egeria-workspaces-fs (this repo):**
+- `compose-configs/shared-infra/shared-infra.yaml`: new `kroki` +
+  `kroki-mermaid` services (`yuzutech/kroki` + `yuzutech/kroki-mermaid`
+  companion, internal-network only, no host port). `kroki-mermaid` sets
+  `shm_size: 1gb` — the standard fix for the exact "Failed to launch the
+  browser process" Chromium/Docker crash Dan reported, same pattern already
+  used for Postgres in this file.
+- `compose-configs/shared-infra/ensure-shared-infra.sh`: added `kroki
+  kroki-mermaid` to the build/up service lists and a `wait_for_container_state`
+  check.
+- `compose-configs/shared-infra/README.md`: documented the new service.
+- Both `egeria-quickstart.yaml`/`egeria-freshstart.yaml`'s Jupyter service:
+  `EGERIA_KROKI_URL: "http://egeria-shared-kroki:8000"`.
+
+**Verified live:**
+- `/health` on the new `egeria-shared-kroki` container: healthy, Mermaid 11.15.0.
+- 8 consecutive `/mermaid/svg` renders: byte-identical output every time (no
+  crashes, no theme drift) — the exact two problems reported.
+- Cross-container reachability confirmed from `quickstart-pyegeria-web` over
+  `egeria_network`.
+- Copied the modified pyegeria source into `quickstart-jupyter-work-full`
+  (not yet a published pyegeria release) and confirmed both fallback tiers
+  live: local-Kroki-configured-and-up → SVG via local container;
+  local-Kroki-configured-but-unreachable → falls through to the client-side
+  iframe path. Container restored to its pinned pyegeria release afterward.
+
+**Follow-up:** pyegeria's `egeria-python` repo changes are local edits, not
+yet released/published — Dan to cut a release when ready. `render_mermaid()`
+no longer has any code path that reaches kroki.io.
+
+---
 ## Type coverage gaps — next up (2026-07-15)
 
 Source: `type-coverage-gap-analysis.html`. Items #2 and #7 from that doc are
