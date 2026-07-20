@@ -90,6 +90,42 @@ services:
       -c max_connections=1000
       -c idle_in_transaction_session_timeout=1800000
 
+  kroki:
+    # Self-hosted Mermaid/diagram rendering, replacing pyegeria's previous
+    # hardcoded dependency on the public https://kroki.io service (unreliable
+    # under that service's own load — "Failed to launch the browser process"
+    # crashpad crashes, plus Mermaid theme drift between requests). Jupyter
+    # notebooks point EGERIA_KROKI_URL at this container; pyegeria's
+    # render_mermaid() falls back to rendering client-side in the browser if
+    # this container is absent or unreachable, so nothing hard-depends on it.
+    image: yuzutech/kroki:latest
+    container_name: egeria-shared-kroki
+    restart: unless-stopped
+    networks:
+      - egeria_network
+    environment:
+      KROKI_MERMAID_HOST: kroki-mermaid
+    depends_on:
+      - kroki-mermaid
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  kroki-mermaid:
+    # Mermaid needs a real headless-browser renderer (same class of engine
+    # kroki.io itself runs) — shm_size is the standard fix for Chromium's
+    # "Failed to launch the browser process" crashpad crash under Docker's
+    # default 64MB /dev/shm, same pattern already used for postgres above.
+    image: yuzutech/kroki-mermaid:latest
+    container_name: egeria-shared-kroki-mermaid
+    restart: unless-stopped
+    shm_size: 1gb
+    networks:
+      - egeria_network
+
 
 volumes:
   shared_postgres_data:

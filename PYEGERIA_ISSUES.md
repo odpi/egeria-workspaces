@@ -458,6 +458,13 @@ the camelCase form of the type name (`"PlaceholderProperty"` ->
 `"placeholderProperty"`). See PY-14 for a critical performance caveat on that
 workaround.
 
+**Confirmed 2026-07-17 (Dan):** `find_specification_property` is defined on
+`ValidMetadataManager`, not `SpecificationProperties` itself —
+`SpecificationProperties` just inherits it (see PY-12). Calling it via
+`ValidMetadataManager.find_specification_property` directly (or any class
+that inherits from it) is the correct, supported path; no need to instantiate
+`SpecificationProperties` specifically just for this one call.
+
 ---
 
 ## PY-14: `find_specification_property` (and likely other `find_*` methods) is O(n) per element unless `graph_query_depth=0` — same root cause as PY-6
@@ -510,6 +517,14 @@ diagram per returned element, turning an O(n) listing into effectively O(n ×
 graph-computation-cost). This is at minimum the second unrelated `find_*`
 method with this exact performance cliff; there are likely more.
 
+**Confirmed 2026-07-17 (Dan):** the cost is incurred by the *attempt* to
+compute the graph, not by how much actually comes back — an element with no
+relationships to traverse still costs the same as one with many, because
+Egeria has to do the traversal work to discover that there's nothing there.
+So this scales with `graph_query_depth` and result-set size, not with how
+much metadata actually exists to return. Confirms this is inherent cost, not
+a bug — nothing to fix, `graph_query_depth=0` remains the correct opt-out.
+
 **Workaround:** always pass `graph_query_depth=0` explicitly on any `find_*`
 or `get_*` bulk-listing call unless the caller actually needs the
 graph/mermaid output. Used in `valid_values_handler.py`'s Specification
@@ -526,10 +541,25 @@ that's easy to leave at its default.
 
 ## PY-15: Postgres repository connector ignores `matchCriteria` on `SearchClassifications` — multi-classification search always returns 0
 
-**Status:** confirmed server-side bug, 2026-07-15, while building Egeria Insights
-(`insights_handler.py`). Not a pyegeria client bug — the client sends the body
-faithfully; the Postgres repository connector's SQL generation drops
-`matchCriteria` on the classification-matching path only.
+**Status: FIXED and CLOSED — verified 2026-07-17.** Originally confirmed as a
+server-side bug 2026-07-15, while building Egeria Insights
+(`insights_handler.py`) — not a pyegeria client bug, the client sent the body
+faithfully; the Postgres repository connector's SQL generation dropped
+`matchCriteria` on the classification-matching path only. Fixed server-side
+and re-verified live against `qs-view-server` once the fixed server was
+deployed to this environment:
+
+```
+ZoneMembership ANY:      150   (unchanged — single-condition baseline)
+Confidentiality ANY:       1   (unchanged — single-condition baseline)
+Both ANY:                150   (was 0 — now a real, differentiated union)
+Both ALL:                  0   ("No elements found" — correct, empty intersection)
+Both NONE:               1000  (was 0 — now a real, differentiated count)
+```
+
+`ANY`/`ALL`/`NONE` now produce distinct, semantically correct results instead
+of all being an unconditional AND that always returned zero. The pytest
+regression test below now passes.
 
 **How to trigger:**
 ```python
@@ -597,19 +627,30 @@ this, pending a proper PR against `postgres-repository-connector`.
 
 **Regression coverage:**
 - `egeria-python/tests/functional-tests/test_metadata_expert.py::test_find_metadata_elements_multi_classification_any_match_criteria`
-  (pytest, asserts ANY's count >= max of the two single-condition counts).
+  (pytest, asserts ANY's count >= max of the two single-condition counts) —
+  **passes** as of 2026-07-17 (1 passed, run via the `egeria-python` repo's own
+  `.venv`).
 - `egeria-python/pyegeria/http clients/Egeria-PY15-matchClassifications-bug.http`
   (PyCharm/IntelliJ HTTP Client collection, same assertions via raw REST calls —
   run "Token" then top-to-bottom, or `ijhttp --insecure Egeria-PY15-matchClassifications-bug.http`
-  from the CLI). Both currently fail on the `ANY` case exactly as documented above;
-  both should pass once the `QueryBuilder.java` fix lands.
+  from the CLI) — not re-run this pass (`ijhttp` unavailable outside PyCharm in
+  this shell), but the underlying server behavior it asserts on is now proven
+  correct via the pytest test above.
 
 ---
 
 ## PY-16: `ClassificationExplorer.link_elements_as_peer_duplicates` (and its `_async_*` twin) POST to the wrong URL path — always 404s
 
-**Status:** confirmed client-side bug, 2026-07-16, while seeding demo data for
-the Duplicate Resolution Review pane (`duplicate_review_handler.py`).
+**Status: FIXED — confirmed 2026-07-17 on pyegeria 6.0.16.20.**
+`_async_link_elements_as_peer_duplicates` now builds the URL from
+`f"{self.classification_command_root}/related-elements/{element_guid}/peer-duplicate/{peer_duplicate_guid}/attach"`
+— verified directly against the running `quickstart-pyegeria-web` container's
+installed pyegeria source. Originally confirmed as a client-side bug
+2026-07-16, while seeding demo data for the Duplicate Resolution Review pane
+(`duplicate_review_handler.py`), whose seed script used a direct
+`_async_make_request` workaround (see below) rather than the plain client
+call — safe to switch back to the plain `link_elements_as_peer_duplicates`
+call now if that seed script is ever re-run.
 
 **How to trigger:**
 ```python
@@ -660,13 +701,16 @@ the URL from `f"{self.classification_command_root}/related-elements/{element_gui
 
 ## PY-17: `MetadataExpert.get_metadata_element_by_guid` never returns relationships, at any `graph_query_depth` — use `get_all_related_elements` instead
 
-**Status:** confirmed 2026-07-16, while fixing the Action Center pane's
-cross-links (`action_center_handler.py`, GAP-6 in `BACKLOG.md`) — likely a
-docs/usage gap rather than a bug (the method may simply not be designed to
-carry relationships at all — `get_all_related_elements` exists precisely for
-that), but the `graph_query_depth` parameter accepted on
-`get_metadata_element_by_guid` strongly implies it should affect relationship
-inclusion, and it silently doesn't.
+**Status: not a bug — working as designed (confirmed 2026-07-17, Dan).**
+`get_metadata_element_by_guid` is deliberately scoped to the element itself;
+`get_all_related_elements` is the correct, separate call for relationships —
+this is a two-call design, not a gap in the by-guid method. Originally
+flagged 2026-07-16 while fixing the Action Center pane's cross-links
+(`action_center_handler.py`, GAP-6 in `BACKLOG.md`) because the accepted
+`graph_query_depth` parameter on `get_metadata_element_by_guid` suggested it
+should affect relationship inclusion; it doesn't, and that's correct
+behavior. No pyegeria change needed — kept below as a usage note (which call
+to use for what) rather than a bug report.
 
 **How to trigger:**
 ```python
@@ -727,10 +771,13 @@ missing cross-links the same way — not yet audited beyond Action Center.
 |---|---|---|
 | Business reference data (country/currency codes) | `ReferenceDataManager` | Does **not** cover specification properties (PY-12, docs-only) |
 | Valid metadata values for a property name | `ReferenceDataManager` or `MetadataExpert` | `get_valid_metadata_values` lives on shared `ServerClient` base; no `as_of_time` support — Egeria endpoint doesn't expose it |
-| Specification properties (placeholders, guards, action targets, etc.) | `SpecificationProperties` | Avoid `get_specification_property_by_type` (PY-13, Egeria server bug); use `find_specification_property` with `graph_query_depth=0` (PY-14, expected Egeria behavior, not a bug) |
+| Specification properties (placeholders, guards, action targets, etc.) | `ValidMetadataManager.find_specification_property` (inherited by `SpecificationProperties`) | Avoid `get_specification_property_by_type` (PY-13, open Egeria server bug); use `find_specification_property` with `graph_query_depth=0` (PY-14, expected Egeria behavior, not a bug — cost is incurred by the traversal attempt itself, not by how much comes back) |
 | `DataGrain` / `DataClass` listing | `find_data_value_specifications(search_string="*")` | Fixed (PY-1) — safe to call directly now. Do **not** use `get_data_value_specifications_by_name("*")` for listing — by design a complete-match lookup, not search (PY-2, not a bug) |
 | `DataSpec` (Collection subtype) | `CollectionManager.find_collections(metadata_element_type="DataSpec")` | |
 | `DataStructure` / `DataField` | `DataDesigner.find_data_structures` / `find_data_fields` | |
 | Solution blueprints/components (any pyegeria version) | `SolutionArchitect.find_solution_blueprints/components(search_string="*")` | Avoid `find_all_*` variants (PY-3) |
 | Note logs (list) | `find_note_logs("*", graph_query_depth=0)` | PY-6 |
+| Multi-classification search (`matchClassifications`, 2+ conditions) | `MetadataExpert.find_metadata_elements` | Fixed in Egeria (PY-15) — re-verify once the fixed server is deployed here |
+| Peer-duplicate linking | `ClassificationExplorer.link_elements_as_peer_duplicates` | Fixed in pyegeria 6.0.16.20 (PY-16) — safe to call directly now |
+| Relationships for a single element by guid | `MetadataExpert.get_all_related_elements(guid)` | **Not** `get_metadata_element_by_guid` — that call never returns relationships, by design (PY-17, not a bug) |
 | Note logs (entries) | `get_notes_for_note_log(guid, page_size=100)` | PY-5 — never pass `metadata_element_type_name="NoteLog"` |

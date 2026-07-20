@@ -3,6 +3,94 @@
 Consolidated work list. Update status when items start or finish.  
 Status: `open` · `in-progress` · `done` · `deferred`
 ---
+## Fix: relationships disappear after collection toggle-close/reopen (2026-07-20) — ✅ done
+
+Dan reported: open a Collection, select a member, relationships show fine;
+toggle the collection closed and reopen it, select a member — relationships
+no longer appear. Traced to `CollectionsView`'s (and identically-patterned
+`DigitalProductsView`'s) `handleSelect`/detail-fetch-`useEffect` pair in
+`type-explorer.html`:
+
+1. `handleSelect` unconditionally called `setNodeDetail(null)` on every
+   click, but the fetch effect only reruns when the selected guid actually
+   *changes*. A tree container's `onClick` fires `onSelect` on itself every
+   time it's toggled open/closed — so toggling a collection closed then
+   reopening it reselects the collection each time, and if that leaves
+   `selectedNode` unchanged, the wipe fires with nothing to trigger a
+   refetch, leaving the pane blank until a genuinely different node is
+   picked. Fixed by moving the clear inside the effect (only runs on real
+   guid changes).
+2. Neither fetch effect guarded against out-of-order async responses — a
+   slow fetch for a previous selection could resolve after a faster one for
+   the current selection and clobber it. Added the standard `cancelled`-flag
+   cleanup guard.
+
+Also found and fixed the same missing-guard-#2 in Solution Architect's
+blueprint/component detail fetch (same `DigitalTreeNode` pattern; didn't have
+bug #1 since its `onSelect` doesn't eagerly clear). No other `DigitalTreeNode`
+call sites in the file. Both envs.
+
+---
+## Self-hosted Kroki, remove pyegeria's public kroki.io dependency (2026-07-20) — ✅ done
+
+Dan reported intermittent "Kroki error 400 ... Failed to launch the browser
+process ... crashpad" failures rendering Mermaid diagrams in Jupyter
+notebooks, plus inconsistent diagram colors between runs. Root cause:
+`pyegeria.view.mermaid_utilities.render_mermaid()` called the **public**
+`https://kroki.io` service directly and unconditionally — Jupyter notebook
+users had no visibility into that dependency, and the failures were kroki.io's
+own infrastructure (a shared, multi-tenant headless-Chromium renderer)
+crashing under its own load, plus its bundled Mermaid version drifting over
+time. Not fixable by tuning local container resources, since the Jupyter
+container was never doing the rendering.
+
+**Fix — pyegeria (`egeria-python` repo):**
+- `pyegeria/core/config.py`: new `egeria_kroki_url` setting (`EGERIA_KROKI_URL`
+  env var), empty by default — no default guess at any specific container.
+- `pyegeria/view/mermaid_utilities.py`: `render_mermaid()` rewritten as a
+  two-tier fallback, no more silent external network call:
+  1. **Local Kroki** — only attempted if `EGERIA_KROKI_URL` is explicitly set;
+     short (5s) timeout so a dead local service falls through fast.
+  2. **Client-side rendering** — if tier 1 isn't configured or fails, the
+     diagram renders entirely in the notebook's own browser via mermaid.js,
+     inside a sandboxed `<iframe srcdoc="...">` (JupyterLab 4.x strips
+     top-level `<script>` tags from HTML outputs; an iframe is its own
+     document so its scripts still execute). Reuses the existing
+     `construct_mermaid_web` HTML (refactored into a shared
+     `_build_mermaid_client_html` helper) rather than duplicating it.
+  - The public kroki.io is no longer called anywhere in this path.
+
+**Fix — egeria-workspaces-fs (this repo):**
+- `compose-configs/shared-infra/shared-infra.yaml`: new `kroki` +
+  `kroki-mermaid` services (`yuzutech/kroki` + `yuzutech/kroki-mermaid`
+  companion, internal-network only, no host port). `kroki-mermaid` sets
+  `shm_size: 1gb` — the standard fix for the exact "Failed to launch the
+  browser process" Chromium/Docker crash Dan reported, same pattern already
+  used for Postgres in this file.
+- `compose-configs/shared-infra/ensure-shared-infra.sh`: added `kroki
+  kroki-mermaid` to the build/up service lists and a `wait_for_container_state`
+  check.
+- `compose-configs/shared-infra/README.md`: documented the new service.
+- Both `egeria-quickstart.yaml`/`egeria-freshstart.yaml`'s Jupyter service:
+  `EGERIA_KROKI_URL: "http://egeria-shared-kroki:8000"`.
+
+**Verified live:**
+- `/health` on the new `egeria-shared-kroki` container: healthy, Mermaid 11.15.0.
+- 8 consecutive `/mermaid/svg` renders: byte-identical output every time (no
+  crashes, no theme drift) — the exact two problems reported.
+- Cross-container reachability confirmed from `quickstart-pyegeria-web` over
+  `egeria_network`.
+- Copied the modified pyegeria source into `quickstart-jupyter-work-full`
+  (not yet a published pyegeria release) and confirmed both fallback tiers
+  live: local-Kroki-configured-and-up → SVG via local container;
+  local-Kroki-configured-but-unreachable → falls through to the client-side
+  iframe path. Container restored to its pinned pyegeria release afterward.
+
+**Follow-up:** pyegeria's `egeria-python` repo changes are local edits, not
+yet released/published — Dan to cut a release when ready. `render_mermaid()`
+no longer has any code path that reaches kroki.io.
+
+---
 ## Type coverage gaps — next up (2026-07-15)
 
 Source: `type-coverage-gap-analysis.html`. Items #2 and #7 from that doc are
@@ -481,9 +569,9 @@ Full repro steps (runnable code, expected vs. actual, root cause) for every row 
 | PY-12 | `ReferenceDataManager` has no specification-property / valid-metadata methods (only inherits `ServerClient`) — easy to assume it covers `SpecificationProperties`' territory since `get_valid_metadata_values` happens to work on it | open (docs/placement) | Use `pyegeria.SpecificationProperties` for `get_specification_property_*`/`find_specification_property` |
 | PY-13 | `SpecificationProperties.get_specification_property_by_type` always 400s regardless of the value passed (plain name, or the enum-wrapped form from its own OpenAPI spec) | **reclassified as Egeria server bug** — not fixable in pyegeria; server-side `@RequestParam` enum binding issue | `valid_values_handler.py` uses `find_specification_property("*")` + client-side filter on `properties.identifier` instead |
 | PY-14 | `find_specification_property` default `graph_query_depth=3` is O(n) per element (~50s for 1000 elements) — same root cause as PY-6, confirmed on a second method | **not a bug** — reclassified 2026-07-14, same reasoning as PY-6 | Always pass `graph_query_depth=0` on bulk `find_*`/list calls (~0.6-2s for 1000 elements, same flat data minus the graph) |
-| PY-15 | Postgres repository connector's `QueryBuilder.getSearchClassificationsClause()` ignores `matchClassifications.matchCriteria` entirely once 2+ classification conditions are given — ANY/ALL/NONE all behave as an unconditional AND, so a query naming two classifications that never co-occur on the same element (e.g. `ZoneMembership` + `Confidentiality`) always returns zero elements instead of the ANY union | **open — genuine Egeria server bug**, root-caused 2026-07-15 while building Egeria Insights. Recommended Java fix (mirrors the `ANY`→`or`/`ALL`→`and` pattern already used for property conditions) is on file; needs to be applied to the Egeria checkout and PR'd upstream | Blocks `insights_handler.py`'s `get_summary()` 5-classification dashboard tally and any multi-classification compound search in Governance Search — both only correct with 0 or 1 classification condition. Regression test added: `egeria-python/tests/functional-tests/test_metadata_expert.py::test_find_metadata_elements_multi_classification_any_match_criteria` (fails now, should pass once the connector fix lands) |
-| PY-16 | `ClassificationExplorer.link_elements_as_peer_duplicates`/`_async_link_elements_as_peer_duplicates` (and likely the `unlink_*` detach twin) POST to `.../classification-explorer/elements/{guid}/peer-duplicate/{guid}/attach` — the real Spring endpoint (`ClassificationExplorerResource.java`) is mapped at `.../related-elements/{guid}/peer-duplicate/{guid}/attach` (`elements` vs `related-elements`), so every call 404s | **open — pyegeria client bug**, found 2026-07-16 seeding GAP-5's Duplicate Resolution Review demo pair. Classification calls (`set_known_duplicate_classification` etc.) and the read path (`get_relationships`/`get_elements_by_classification`) are unaffected | Worked around by calling `_async_make_request` directly with the corrected URL to seed demo data; see PYEGERIA_ISSUES.md PY-16 for full repro |
-| PY-17 | `MetadataExpert.get_metadata_element_by_guid` never returns relationships regardless of `graph_query_depth` (confirmed identical output at depth 0/1/2/3 against a Notification with known real relationships) | **open — likely docs/usage gap, not a bug**, found 2026-07-16 fixing Action Center cross-links. `get_all_related_elements(guid)` is the call that actually surfaces relationships ({startingElement, elementList, mermaidGraph}) | Fixed in `action_center_handler.py` (calls both, merges). Worth auditing other handlers that assumed `graph_query_depth=1` on a by-guid call would include relationships — not yet checked beyond Action Center; see PYEGERIA_ISSUES.md PY-17 |
+| PY-15 | Postgres repository connector's `QueryBuilder.getSearchClassificationsClause()` ignores `matchClassifications.matchCriteria` entirely once 2+ classification conditions are given — ANY/ALL/NONE all behave as an unconditional AND, so a query naming two classifications that never co-occur on the same element (e.g. `ZoneMembership` + `Confidentiality`) always returns zero elements instead of the ANY union | **FIXED and CLOSED** — root-caused 2026-07-15 while building Egeria Insights, fixed server verified live 2026-07-17: ANY/ALL/NONE now return distinct correct results (150/0/1000) instead of all being 0 | Regression test `test_find_metadata_elements_multi_classification_any_match_criteria` passes |
+| PY-16 | `ClassificationExplorer.link_elements_as_peer_duplicates`/`_async_link_elements_as_peer_duplicates` (and likely the `unlink_*` detach twin) POST to `.../classification-explorer/elements/{guid}/peer-duplicate/{guid}/attach` — the real Spring endpoint (`ClassificationExplorerResource.java`) is mapped at `.../related-elements/{guid}/peer-duplicate/{guid}/attach` (`elements` vs `related-elements`), so every call 404s | **FIXED in pyegeria 6.0.16.20 (2026-07-17)** — confirmed live against `quickstart-pyegeria-web`'s updated install | `duplicate_review_handler.py`'s seed script used a direct `_async_make_request` workaround — safe to revert to the plain client call if re-run |
+| PY-17 | `MetadataExpert.get_metadata_element_by_guid` never returns relationships regardless of `graph_query_depth` (confirmed identical output at depth 0/1/2/3 against a Notification with known real relationships) | **not a bug — working as designed (2026-07-17)**. `get_all_related_elements(guid)` is the correct, separate call for relationships — this is a two-call design, not a gap | `action_center_handler.py` already calls both and merges. Worth auditing other handlers that assumed `graph_query_depth=1` on a by-guid call would include relationships — not yet checked beyond Action Center |
 
 ---
 

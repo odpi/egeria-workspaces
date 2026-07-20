@@ -20,6 +20,10 @@ services:
       JUPYTER_ENABLE_LAB: "yes"
       JUPYTER_TOKEN: "egeria"
       JUPYTER_PORT: "7888"
+      # pyegeria's render_mermaid() tries this local, self-hosted Kroki first
+      # (shared-infra.yaml) and falls back to rendering client-side in the
+      # browser if it's absent/unreachable — no dependency on kroki.io.
+      EGERIA_KROKI_URL: "http://egeria-shared-kroki:8000"
     extra_hosts:
       - "${HOST_FQDN}:${HOST_GATEWAY_IP:-host-gateway}"
       - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"

@@ -35,7 +35,12 @@ The full set of element-category browsers — most support search, filtering, cr
 | **Locations** | Physical, cyber, and secure locations — parent/child hierarchies, peer links, locally hosted assets, assigned roles |
 | **Actors** | Actor profiles (people, teams, organizations, IT profiles), the roles they perform, and their user identities |
 | **Communities** | Communities of interest and the roles/people assigned to them |
+| **Business Capabilities** | Business capabilities (functions, capability or skill sets) and the collections, members, and actors linked to them — connects Solution Architect's blueprints/components to business strategy |
 | **Note Logs** | Note logs and their dated entries, each attached to a subject element |
+| **Naming Vocabulary** | Elements classified `PrimeWord`, `ClassWord`, or `Modifier` — the naming-standard word vocabulary, grouped by classification |
+| **Policy Enforcement** | Elements carrying a Policy\*Point classification (Management/Administration/Decision/Enforcement/Information/Retrieval) — an XACML-style policy architecture, grouped by classification |
+| **Action Center** | Notification, Meeting, ToDo, and Review actions — the "Actions For People" model, paginated, with cross-links to every related element |
+| **Duplicate Review** | Candidate duplicate elements paired via PeerDuplicateLink pending steward review, and already-consolidated elements with the sources they absorbed |
 | **Perspectives & Questions** | Governance perspectives (viewpoints held by actors) and the Questions they must address |
 | **Governance Definitions** | Governance drivers, policies, and controls, with relationships between definitions |
 | **Projects** | Projects and their hierarchies, distinguished by classification (Campaign, StudyProject, PersonalProject, Task, etc.) |
