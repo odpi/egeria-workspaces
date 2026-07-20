@@ -3,6 +3,34 @@
 Consolidated work list. Update status when items start or finish.  
 Status: `open` · `in-progress` · `done` · `deferred`
 ---
+## Fix: relationships disappear after collection toggle-close/reopen (2026-07-20) — ✅ done
+
+Dan reported: open a Collection, select a member, relationships show fine;
+toggle the collection closed and reopen it, select a member — relationships
+no longer appear. Traced to `CollectionsView`'s (and identically-patterned
+`DigitalProductsView`'s) `handleSelect`/detail-fetch-`useEffect` pair in
+`type-explorer.html`:
+
+1. `handleSelect` unconditionally called `setNodeDetail(null)` on every
+   click, but the fetch effect only reruns when the selected guid actually
+   *changes*. A tree container's `onClick` fires `onSelect` on itself every
+   time it's toggled open/closed — so toggling a collection closed then
+   reopening it reselects the collection each time, and if that leaves
+   `selectedNode` unchanged, the wipe fires with nothing to trigger a
+   refetch, leaving the pane blank until a genuinely different node is
+   picked. Fixed by moving the clear inside the effect (only runs on real
+   guid changes).
+2. Neither fetch effect guarded against out-of-order async responses — a
+   slow fetch for a previous selection could resolve after a faster one for
+   the current selection and clobber it. Added the standard `cancelled`-flag
+   cleanup guard.
+
+Also found and fixed the same missing-guard-#2 in Solution Architect's
+blueprint/component detail fetch (same `DigitalTreeNode` pattern; didn't have
+bug #1 since its `onSelect` doesn't eagerly clear). No other `DigitalTreeNode`
+call sites in the file. Both envs.
+
+---
 ## Self-hosted Kroki, remove pyegeria's public kroki.io dependency (2026-07-20) — ✅ done
 
 Dan reported intermittent "Kroki error 400 ... Failed to launch the browser
