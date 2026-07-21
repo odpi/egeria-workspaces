@@ -3,6 +3,50 @@
 Consolidated work list. Update status when items start or finish.  
 Status: `open` · `in-progress` · `done` · `deferred`
 ---
+## Fix: Lineage Explorer blank screen on asset selection (2026-07-21) — ✅ done
+
+Dan reported: search for an asset works fine, but selecting one to view its
+lineage shows a blank screen with no visible console error. Two real bugs
+found and fixed, plus a systemic robustness gap:
+
+1. **`tech_catalog_handler.py` — genuine backend TypeError** (both envs, 3
+   call sites: the classification-diagnosis endpoint, `get_asset_schema`, and
+   a fallback in the generic asset-detail lookup). All three called
+   `mgr.get_asset_by_guid(asset_guid=guid, ...)`, but pyegeria's real
+   parameter name is `guid`, not `asset_guid`. Because the method also
+   accepts `**kwargs`, the wrong keyword name was silently absorbed instead
+   of raising "unexpected keyword argument" — so it failed with `TypeError:
+   get_asset_by_guid() missing 1 required positional argument: 'guid'`,
+   a 500 on `/api/tech-catalog/assets/{guid}/schema` any time this fallback
+   path was hit. Confirmed via `inspect.signature` against the installed
+   pyegeria and fixed by renaming the keyword; verified live (both a
+   genuinely-missing guid and a real one now behave correctly instead of
+   crashing).
+2. **`lineage-explorer.html`'s `MermaidDiagram`** (both envs) had an
+   asymmetric try/catch: `window.mermaid.initialize(...)` was wrapped in
+   `try/catch(_){}`, but the very next line, `window.mermaid.render(...)`,
+   was not. `window.mermaid` loads from a blocking external CDN `<script
+   src>` — if that request is slow, blocked (ad-blocker, restrictive
+   network), or fails, `window.mermaid` stays undefined and the unguarded
+   `.render()` call throws synchronously inside a `useEffect`. Wrapped the
+   whole effect body and added an explicit "Mermaid library failed to load"
+   inline message instead of an uncaught throw.
+3. **No Error Boundary existed anywhere in this ~1200-line app.** React's
+   default behavior for an uncaught render/effect error with no boundary is
+   to unmount the *entire* tree — turning any single bug (like #2 above, or
+   any future one) into exactly the reported symptom: a totally blank page,
+   with the actual error easy to miss in the console. Added a class-based
+   `ErrorBoundary` wrapping `<App>`, so any future uncaught error shows a
+   readable message + reload button instead of silently blanking the page.
+
+Note: browser-based live reproduction was attempted but the Chrome
+automation tool gave unreliable results this session (reported a 200 success
+for a POST that the container's own server logs show as a 404) — root-caused
+via direct backend calls (curl with a real egeria-token, replicating
+`fetchWithToken`'s exact request shape) and static analysis instead once that
+became clear.
+
+---
 ## Fix: relationships disappear after collection toggle-close/reopen (2026-07-20) — ✅ done
 
 Dan reported: open a Collection, select a member, relationships show fine;

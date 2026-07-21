@@ -523,10 +523,29 @@ function MermaidDiagram({ code }) {
   var id  = useRef('mermaid-' + Math.random().toString(36).slice(2));
   useEffect(function() {
     if (!ref.current || !code) return;
-    try { window.mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' }); } catch(_) {}
-    window.mermaid.render(id.current, code)
-      .then(function(r) { if (ref.current) ref.current.innerHTML = r.svg; })
-      .catch(function(e) { console.error('Mermaid render error:', e); if (ref.current) ref.current.innerHTML = '<pre style="color:red;font-size:10px">' + String(e) + '</pre>'; });
+    // window.mermaid loads from a blocking <script src> in <head>, so it's
+    // normally ready by the time React mounts — but if that CDN request is
+    // slow, blocked (ad-blocker, restrictive network), or fails outright,
+    // window.mermaid stays undefined. The previous version only wrapped
+    // .initialize() in try/catch, not the .render() call right below it —
+    // that threw synchronously inside this effect, uncaught, which (with no
+    // Error Boundary anywhere in this app — see ErrorBoundary added around
+    // <App> below) unmounted the ENTIRE page with no visible console error
+    // in some browsers. Wrapping the whole thing and showing an inline
+    // message turns that into a recoverable, debuggable state instead.
+    try {
+      if (!window.mermaid || typeof window.mermaid.render !== 'function') {
+        if (ref.current) ref.current.innerHTML = '<pre style="color:#f87171;font-size:11px">Mermaid library failed to load (check network access to cdn.jsdelivr.net) — diagram cannot be rendered.</pre>';
+        return;
+      }
+      window.mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' });
+      window.mermaid.render(id.current, code)
+        .then(function(r) { if (ref.current) ref.current.innerHTML = r.svg; })
+        .catch(function(e) { console.error('Mermaid render error:', e); if (ref.current) ref.current.innerHTML = '<pre style="color:red;font-size:10px">' + String(e) + '</pre>'; });
+    } catch (e) {
+      console.error('Mermaid render error:', e);
+      if (ref.current) ref.current.innerHTML = '<pre style="color:red;font-size:10px">' + String(e) + '</pre>';
+    }
   }, [code]);
   return React.createElement('div', { ref: ref, className: 'mermaid-wrap' });
 }
@@ -1199,7 +1218,39 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App, null));
+// Without an Error Boundary anywhere, React's default behavior for an
+// uncaught error during render or in an effect (e.g. the mermaid.js
+// TypeError this was added alongside) is to unmount the ENTIRE app —
+// a blank screen with the actual error easy to miss in the console.
+// This catches it and shows a recoverable message with a reload button
+// instead, and every render/effect error going forward.
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { error: error };
+  }
+  componentDidCatch(error, info) {
+    console.error('Lineage Explorer crashed:', error, info);
+  }
+  render() {
+    if (this.state.error) {
+      return React.createElement('div', { style: { padding: 40, textAlign: 'center', color: '#f87171', fontFamily: 'sans-serif' } },
+        React.createElement('div', { style: { fontSize: 18, fontWeight: 700, marginBottom: 10 } }, 'Something went wrong'),
+        React.createElement('div', { style: { fontSize: 13, marginBottom: 16, color: 'var(--muted)' } }, String(this.state.error)),
+        React.createElement('button', {
+          onClick: function() { location.reload(); },
+          style: { padding: '8px 16px', borderRadius: 4, border: '1px solid #f87171', background: 'rgba(248,113,113,.1)', color: '#f87171', cursor: 'pointer' }
+        }, 'Reload')
+      );
+    }
+    return this.props.children;
+  }
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(ErrorBoundary, null, React.createElement(App, null)));
 </script>
 </body>
 </html>

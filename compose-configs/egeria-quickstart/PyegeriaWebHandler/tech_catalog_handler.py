@@ -810,7 +810,7 @@ def debug_raw_element(
     # Try asset-graph fetch first
     try:
         raw = mgr.get_asset_by_guid(
-            asset_guid=guid,
+            guid=guid,
             output_format="JSON",
             body={"class": "GetRequestBody", "graphQueryDepth": 1},
         )
@@ -1341,7 +1341,7 @@ def get_asset_schema(
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
         raw = mgr.get_asset_by_guid(
-            asset_guid=guid,
+            guid=guid,
             output_format="JSON",
             body={
                 "class": "GetRequestBody",
@@ -1899,7 +1899,7 @@ def _fetch_detail(mgr, guid: str, section: Optional[str], as_of_time: Optional[s
     # Fallback: get_asset_by_guid
     try:
         raw = mgr.get_asset_by_guid(
-            asset_guid=guid,
+            guid=guid,
             output_format="JSON",
             body={"class": "GetRequestBody", "graphQueryDepth": 5, "relationshipsPageSize": 50},
         )
