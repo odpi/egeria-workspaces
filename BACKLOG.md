@@ -3,6 +3,15 @@
 Consolidated work list. Update status when items start or finish.  
 Status: `open` · `in-progress` · `done` · `deferred`
 ---
+## Next up (queued 2026-07-21, pick up next session)
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| NEXT-1 | Re-verify Lineage Explorer end-to-end | open | Confirm the `FavoriteButton`/ErrorBoundary/mermaid fixes from this session actually resolve the reported blank-screen behavior in real use, not just via curl/static analysis (browser automation was unreliable this session — see the Lineage Explorer entry below). |
+| NEXT-2 | Make "Relationships" sections foldable/collapsible everywhere | open | Currently always-expanded in every screen that renders a generic relationships block (Tech Catalog asset detail, Collections/Digital Products `DigitalProductDetail`, Action Center, others using the shared `RelationshipSection`/similar pattern). Apply the same collapsible affordance already used elsewhere (e.g. `SubPane`'s toggle header in tech-catalog.html) consistently across all of them. |
+| NEXT-3 | Move Schema section above Relationships (Tech Catalog asset detail, at least) | open | Currently Schema renders below/after the generic Relationships section for assets like RetailSchema (just fixed to actually show data — see below); reorder so Schema appears first. Check whether other detail panels have the same generic-relationships-before-specific-section ordering issue once NEXT-2 is scoped. |
+
+---
 ## Fix: Tech Catalog Schema section always empty (2026-07-21) — ✅ done
 
 Dan reported: for a data asset like RetailSchema, the Schema section is
