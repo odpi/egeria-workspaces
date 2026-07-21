@@ -31,6 +31,16 @@ export PGPASSWORD="${PGPASSWORD:-egeria}"
 PGDATABASE="${PGDATABASE:-coco_pharma}"
 SCHEMAS=(demo_auth demo)
 
+# The app connects as this role (demo_config.py's DEMO_DB_USER), which
+# originally owned these tables by having created them itself — the app
+# also runs schema-migration DDL (ALTER TABLE ... ADD COLUMN) as this role
+# on every startup, which requires actual ownership, not just GRANTed DML
+# privileges. pg_restore runs as PGUSER (the superuser, for a reliable
+# restore across machines regardless of which roles exist where), so
+# restored tables end up owned by that superuser instead — silently
+# breaking both queries and migrations until ownership is reassigned back.
+DEMO_DB_USER="${DEMO_DB_USER:-demo_user}"
+
 SYNC_DIR="${SYNC_DIR:-${QUICKSTART_DIR}/../../runtime-volumes/demo-sync}"
 
 log() { echo "[sync-demo-db] $*" >&2; }
@@ -79,6 +89,25 @@ _psql() {
     psql -h localhost -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" "$@"
 }
 
+# Reassign ownership of every table in a schema to DEMO_DB_USER (loop, not
+# a single GRANT, since there's no "ALL TABLES IN SCHEMA" shorthand for
+# ALTER TABLE ... OWNER TO — and GRANT alone doesn't cover the app's own
+# ALTER TABLE migrations, which require ownership).
+_reown_schema() {
+  local schema="$1"
+  _psql -c "
+DO \$do\$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = '${schema}' LOOP
+    EXECUTE format('ALTER TABLE ${schema}.%I OWNER TO ${DEMO_DB_USER}', r.tablename);
+  END LOOP;
+  EXECUTE 'GRANT USAGE ON SCHEMA ${schema} TO ${DEMO_DB_USER}';
+END
+\$do\$;
+"
+}
+
 _restore_demo_auth() {
   local infile="$1"
   log "Replacing demo_auth (users, events, favorites, config) from ${infile}"
@@ -86,6 +115,7 @@ _restore_demo_auth() {
     pg_restore -h localhost -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" \
       --schema=demo_auth --clean --if-exists --no-owner \
     < "$infile"
+  _reown_schema demo_auth
 }
 
 # Merge demo.feedback by id instead of replacing it: rename the live 'demo'
@@ -146,6 +176,7 @@ SQL
       --schema=demo --no-owner \
     < "$infile" || true
   _psql < "$post_sql"
+  _reown_schema demo
   rm -f "$pre_sql" "$post_sql"
 }
 
