@@ -3,6 +3,46 @@
 Consolidated work list. Update status when items start or finish.  
 Status: `open` · `in-progress` · `done` · `deferred`
 ---
+## Fix: Tech Catalog Schema section always empty (2026-07-21) — ✅ done
+
+Dan reported: for a data asset like RetailSchema, the Schema section is
+always empty because the schema elements were flattened into the generic
+"Relationships" section above instead. Root-caused and fixed in
+`tech_catalog_handler.py` (both envs):
+
+- `get_asset_schema` was calling `AssetMaker.get_asset_by_guid`, which never
+  nests attribute relationships under `el["schemaType"]["relatedElement"]` at
+  any graph depth — confirmed live. Switched to `AssetCatalog.get_asset_graph_by_guid`
+  (the same call the main asset detail view already successfully uses via
+  `_fetch_detail`), whose response carries a separate top-level `relationships`
+  list covering the whole reachable subgraph.
+- That list has no explicit parent/child marking — each entry only carries
+  `startingElementGUID` (confirmed NOT reliably "the parent"; it can be
+  either end) and `relatedElementAtEnd1`. Empirically confirmed against
+  RetailSchema's real hierarchy (`DeployedDatabaseSchema -[Schema]->
+  RelationalDBSchemaTypeList -[RelationalDBSchema]-> RelationalDBSchemaType
+  -[AttributeForSchema]-> RelationalTable -[NestedSchemaAttribute]->
+  RelationalColumn`) that the parent is `relatedElement` when `atEnd1` is
+  True, `startingElementGUID` otherwise. Rewrote `_serialize_schema` to walk
+  the flat list into a real tree using that rule, anchored at the asset's own
+  `schemaType` so unrelated schema instances the same broad traversal picks
+  up elsewhere (e.g. a shared physical table catalogued under a different
+  schema) are naturally excluded.
+- A further gap: some tree nodes (the intermediate `RelationalDBSchemaType`,
+  and several columns) only ever appear as a bare `startingElementGUID` in
+  this response, never as a fully-described `relatedElement` — their own
+  displayName/typeName simply isn't present anywhere in it. Added a
+  supplementary `MetadataExpert.get_metadata_element_by_guid` lookup (depth
+  0, cheap) per unresolved node, confirmed live these are real schema
+  elements (e.g. a `CUSTSTATUS` column), not noise.
+- Updated `SchemaPane` in `tech-catalog.html` to render the resulting tree
+  with indentation (previously a flat table, which is why even a partially-
+  correct fix wouldn't have shown the real nesting). Verified live: RetailSchema
+  now shows its full 4-level structure — schema type → RETAILSCHEMA schema
+  detail → CUSTOMER table → 4 columns (CUSTID, CUSTNAME, CUSTSTATUS, CUSTCARD),
+  correctly ordered by position.
+
+---
 ## Fix: Lineage Explorer blank screen on asset selection (2026-07-21) — ✅ done
 
 Dan reported: search for an asset works fine, but selecting one to view its

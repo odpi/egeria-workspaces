@@ -1286,39 +1286,55 @@ function SubPane({ title, fetchUrl, creds, renderContent, prominent }) {
   );
 }
 
-// SchemaPane: renders schemaType + sorted attribute table
+// Flatten a schema attribute tree into depth-first {node, depth} rows, so
+// the real nested structure (e.g. RelationalDBSchemaType -> RelationalTable
+// -> RelationalColumn, however many levels deep) renders as an indented
+// tree instead of the old flat dump (which was always empty anyway, since
+// the backend wasn't finding any attributes at all — see _serialize_schema
+// in tech_catalog_handler.py for the root cause).
+function _flattenSchemaTree(nodes, depth, out) {
+  (nodes || []).forEach(function(n) {
+    out.push({ node: n, depth: depth });
+    _flattenSchemaTree(n.children, depth + 1, out);
+  });
+  return out;
+}
+
+// SchemaPane: renders schemaType + the real nested attribute structure
 function SchemaPane({ guid, creds }) {
   function renderSchema(data) {
     var st = data.schemaType;
-    var attrs = data.attributes || [];
+    var rows = _flattenSchemaTree(data.attributes || [], 0, []);
     var tblHdr = { fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 8px 4px 0', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', position: 'relative' };
     var tdStyle = { fontSize: 11, padding: '3px 8px 3px 0', color: 'var(--text)', verticalAlign: 'top', borderBottom: '1px solid var(--border)', overflow: 'hidden', textOverflow: 'ellipsis' };
     var tdDim   = Object.assign({}, tdStyle, { color: 'var(--dim)', whiteSpace: 'nowrap' });
-    var rz = makeResizableCols(5, ['5%', '22%', '18%', '10%', '45%']);
+    var rz = makeResizableCols(4, ['30%', '18%', '10%', '42%']);
     return React.createElement('div', null,
       st && React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 } },
         React.createElement('span', { style: { fontSize: 12, color: 'var(--muted)' } }, 'Schema type:'),
         React.createElement('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--text)' } }, st.typeName || ''),
         st.displayName && React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, st.displayName)
       ),
-      attrs.length === 0
+      rows.length === 0
         ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'No attributes found.')
         : React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' } },
             resizableColgroup(rz),
             React.createElement('thead', null,
               React.createElement('tr', null,
-                React.createElement('th', { style: tblHdr }, '#', colResizeHandle(rz.onResizeDown, 0)),
-                React.createElement('th', { style: tblHdr }, 'Name', colResizeHandle(rz.onResizeDown, 1)),
-                React.createElement('th', { style: tblHdr }, 'Type', colResizeHandle(rz.onResizeDown, 2)),
-                React.createElement('th', { style: tblHdr }, 'Required', colResizeHandle(rz.onResizeDown, 3)),
+                React.createElement('th', { style: tblHdr }, 'Name', colResizeHandle(rz.onResizeDown, 0)),
+                React.createElement('th', { style: tblHdr }, 'Type', colResizeHandle(rz.onResizeDown, 1)),
+                React.createElement('th', { style: tblHdr }, 'Required', colResizeHandle(rz.onResizeDown, 2)),
                 React.createElement('th', { style: tblHdr }, 'Description')
               )
             ),
             React.createElement('tbody', null,
-              attrs.map(function(a, i) {
+              rows.map(function(row, i) {
+                var a = row.node;
                 return React.createElement('tr', { key: a.guid || i },
-                  React.createElement('td', { style: tdDim }, a.position != null ? a.position : i + 1),
-                  React.createElement('td', { style: tdStyle }, a.displayName),
+                  React.createElement('td', { style: Object.assign({}, tdStyle, { paddingLeft: 4 + row.depth * 16 }) },
+                    row.depth > 0 && React.createElement('span', { style: { color: 'var(--dim)' } }, '↳ '),
+                    a.displayName
+                  ),
                   React.createElement('td', { style: tdDim }, a.dataType || a.typeName || ''),
                   React.createElement('td', { style: tdDim }, a.required ? 'Yes' : ''),
                   React.createElement('td', { style: Object.assign({}, tdStyle, { color: 'var(--muted)' }) }, a.description || '')
