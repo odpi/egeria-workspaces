@@ -3782,16 +3782,28 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
   const handleSelect = useCallback((guid, nodeObj) => {
     setSelectedNode(guid);
     setSelectedNodeObj(nodeObj);
-    setNodeDetail(null);
   }, []);
 
-  // Fetch full detail (including relationships) for the selected node
+  // Fetch full detail (including relationships) for the selected node.
+  // Guards against two bugs found together (Collections/Digital Products tree
+  // toggle-then-reselect, 2026-07-20): (1) reselecting the SAME node used to
+  // wipe nodeDetail via an eager setNodeDetail(null) in handleSelect above,
+  // but this effect only reruns when `selectedNode` actually CHANGES — so a
+  // same-guid reselect (e.g. a container's onClick fires onSelect on itself
+  // every time it's toggled open/closed) left the relationships pane blank
+  // with nothing left to trigger a refetch. (2) rapid selection changes could
+  // race: an in-flight fetch for a previous node could resolve after a newer
+  // selection's fetch and clobber it with stale data — `cancelled` discards
+  // any response that arrives after this effect was superseded.
   useEffect(() => {
     if (!selectedNode) { setNodeDetail(null); return; }
+    let cancelled = false;
+    setNodeDetail(null);
     egeriaFetch('/api/digital-products/' + encodeURIComponent(selectedNode), creds)
       .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data) setNodeDetail(data); })
+      .then(data => { if (!cancelled && data) setNodeDetail(data); })
       .catch(() => {});
+    return () => { cancelled = true; };
   }, [selectedNode]);
 
   // Handle deep-link navigation: select the given GUID without requiring tree traversal
@@ -3947,16 +3959,30 @@ function CollectionsView({ onNavigateToElement }) {
   }, [loadChildren]);
 
   const handleSelect = useCallback((guid, nodeObj) => {
-    setSelectedNode(guid); setSelectedNodeObj(nodeObj); setNodeDetail(null);
+    setSelectedNode(guid); setSelectedNodeObj(nodeObj);
   }, []);
 
-  // Fetch full detail (members + relationships) for the selected node
+  // Fetch full detail (members + relationships) for the selected node.
+  // Guards against two bugs found together (2026-07-20): (1) reselecting the
+  // SAME node used to wipe nodeDetail via an eager setNodeDetail(null) in
+  // handleSelect above, but this effect only reruns when `selectedNode`
+  // actually CHANGES — so a same-guid reselect (a container's onClick fires
+  // onSelect on itself every time it's toggled open/closed, so toggling a
+  // collection closed then reopening it re-selects the collection each time)
+  // left the relationships pane blank with nothing left to trigger a refetch.
+  // (2) rapid selection changes could race: an in-flight fetch for a previous
+  // node could resolve after a newer selection's fetch and clobber it with
+  // stale data — `cancelled` discards any response that arrives after this
+  // effect was superseded.
   useEffect(() => {
     if (!selectedNode) { setNodeDetail(null); return; }
+    let cancelled = false;
+    setNodeDetail(null);
     egeriaFetch('/api/collections/' + encodeURIComponent(selectedNode), creds)
       .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data) setNodeDetail(data); })
+      .then(data => { if (!cancelled && data) setNodeDetail(data); })
       .catch(() => {});
+    return () => { cancelled = true; };
   }, [selectedNode]);
 
   if (rootState === 'loading') return React.createElement("div", { className: "body", style: { alignItems: 'center', justifyContent: 'center' } },
@@ -8657,24 +8683,32 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
     setExpandedComps(function(prev) { var n = new Set(prev); if (n.has(guid)) n.delete(guid); else n.add(guid); return n; });
   }, []);
 
-  // Fetch blueprint detail when selection changes
+  // Fetch blueprint detail when selection changes. `cancelled` discards a
+  // response that arrives after a newer selection superseded this fetch —
+  // same race-condition class found in Collections/Digital Products
+  // (2026-07-20): without it, a slow response for a previous selection can
+  // resolve after a faster one for the current selection and clobber it.
   useEffect(function() {
     if (!selectedBp) { setBpDetail(null); return; }
+    var cancelled = false;
     setBpDetailState('loading');
     egeriaFetch('/api/solution/blueprints/' + selectedBp, creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(function(data) { setBpDetail(data); setBpDetailState('ready'); })
-      .catch(function() { setBpDetailState('error'); });
+      .then(function(data) { if (!cancelled) { setBpDetail(data); setBpDetailState('ready'); } })
+      .catch(function() { if (!cancelled) setBpDetailState('error'); });
+    return function() { cancelled = true; };
   }, [selectedBp]);
 
-  // Fetch component detail when selection changes
+  // Fetch component detail when selection changes (same race guard as above).
   useEffect(function() {
     if (!selectedComp) { setCompDetail(null); return; }
+    var cancelled = false;
     setCompDetailState('loading');
     egeriaFetch('/api/solution/components/' + selectedComp, creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(function(data) { setCompDetail(data); setCompDetailState('ready'); })
-      .catch(function() { setCompDetailState('error'); });
+      .then(function(data) { if (!cancelled) { setCompDetail(data); setCompDetailState('ready'); } })
+      .catch(function() { if (!cancelled) setCompDetailState('error'); });
+    return function() { cancelled = true; };
   }, [selectedComp]);
 
   function onNavigateToBlueprint(guid) {
