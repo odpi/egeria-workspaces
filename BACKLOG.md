@@ -39,6 +39,21 @@ found and fixed, plus a systemic robustness gap:
    `ErrorBoundary` wrapping `<App>`, so any future uncaught error shows a
    readable message + reload button instead of silently blanking the page.
 
+**The actual original root cause, found once the Error Boundary above made
+the crash visible instead of silent:** `lineage-explorer.html` (quickstart
+only — freshstart's copy never had this feature) referenced `FavoriteButton`
+in the Focus Asset Card header, but never loaded `/static/egeria-shared-ui.js`
+(where `FavoriteButton` is actually defined) — the file only pulled in the
+mermaid CDN script. `ReferenceError: Can't find variable: FavoriteButton`
+fired on every render of the Focus Asset Card whenever a persona was active
+(`favPersonaId &&` short-circuits past it otherwise, which is why this
+depends on being logged in as a persona to reproduce). Fixed by adding the
+shared script include, positioned so this page's own local
+`MermaidDiagram`/`TimeSlider`/`ResizeDivider`/`useResizable` (all
+independently defined in this file, all still active) safely take
+precedence over the shared file's same-named versions via normal
+last-declaration-wins `function` redeclaration semantics.
+
 Note: browser-based live reproduction was attempted but the Chrome
 automation tool gave unreliable results this session (reported a 200 success
 for a POST that the container's own server logs show as a 404) — root-caused

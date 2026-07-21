@@ -475,6 +475,17 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 })();
 </script>
 
+<!-- Provides FavoriteButton (used below in the Focus Asset Card) — this page
+     never included it, so FavoriteButton was undefined any time a persona
+     was active, throwing a ReferenceError during MainPanel's render (every
+     asset selection) with no Error Boundary to catch it: the actual root
+     cause of the reported blank-screen bug. Loads before this page's own
+     script below, whose own MermaidDiagram/TimeSlider/ResizeDivider/
+     useResizable definitions safely take precedence over the shared file's
+     same-named ones (later plain `function` declarations overwrite earlier
+     ones in the same global scope). -->
+<script src="/static/egeria-shared-ui.js?v=2026-07-21a"></script>
+
 </head>
 <body>
 <div id="root"></div>
