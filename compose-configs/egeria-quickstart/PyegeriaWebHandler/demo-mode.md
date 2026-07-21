@@ -440,6 +440,29 @@ docker exec egeria-shared-postgres psql -h localhost -p 5442 -U demo_user -d coc
 
 The schema and tables are recreated automatically on the next `quickstart-pyegeria-web` startup.
 
+### Syncing demo data between machines
+
+If you move the live Portal between two machines that never run it at the same time (e.g. this box and a laptop running Egeria Advisor / Resource Explorer instead), use `bin/sync-demo-db.sh` to carry `demo_auth` + `demo` (feedback) forward via pg_dump/pg_restore:
+
+```bash
+# On the machine you're stepping away from:
+compose-configs/egeria-quickstart/bin/sync-demo-db.sh push <remote-host> <remote-dir>
+
+# On the machine you're about to start the Portal on:
+compose-configs/egeria-quickstart/bin/sync-demo-db.sh import <remote-dir>/latest.dump
+```
+
+Or pull automatically at startup with `./quick-start-local --demo --sync-from <host>:<remote-dir>`.
+
+**Two different rules, by design:**
+- `demo_auth` (users, events, favorites, config) is a **full replace** (`pg_restore --clean`). Only one Portal is ever live, so there's no concurrent-write conflict to resolve — whatever's in the dump becomes the local truth. This also means whichever admin account is *in the dump* is the one that works after import; local `ADMIN_BOOTSTRAP_EMAIL`/`PASSWORD` become irrelevant once any admin row exists.
+- `demo.feedback` is **merged by id**, not replaced — existing local rows are kept, and rows present in the dump but missing locally are added. Feedback is independently-generated, append-only data either machine can produce, so a sync should never be able to lose it.
+
+**Transport prerequisites:**
+- The remote host needs SSH reachable — either a normal `sshd`, or Tailscale SSH (`sudo tailscale up --ssh` on the remote machine; no separate key management needed, authenticated via Tailscale identity/ACLs).
+- First connection to a new host will fail non-interactively on host key verification (`Host key verification failed`) unless the key is already trusted — connect once with `ssh -o StrictHostKeyChecking=accept-new <host>` (or a plain interactive `ssh <host>`) before scripting `push`/`pull`.
+- If your local username differs from the remote one, `ssh <host>` alone will fail (Tailscale SSH errors with `failed to look up local user "<name>"` for a name that doesn't exist there) — use `ssh <remote-user>@<host>` explicitly, or add a `User` entry for the host in `~/.ssh/config`.
+
 ---
 
 ## SSL / HTTPS

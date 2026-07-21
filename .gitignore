@@ -213,6 +213,9 @@ runtime-volumes/quickstart-apache-web/ssl-define.conf
 # Demo auth SQLite runtime data (now on Postgres; file retained for reference)
 runtime-volumes/quickstart-demo-data/
 
+# sync-demo-db.sh dump files (contain real user emails/password hashes)
+runtime-volumes/demo-sync/
+
 # JetBrains AI / Junie local state
 .junie/
 /runtime-volumes/certs/
