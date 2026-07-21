@@ -449,51 +449,174 @@ async def get_egeria_bearer_token(request: Request):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-def _serialize_schema(el: dict) -> dict:
-    """Flatten the schemaType + nested attribute tree into a UI-friendly structure."""
+# Relationship types that represent schema *containment* (parent contains
+# child schema element) — walked recursively to build the attribute tree.
+# Deliberately does NOT include "Schema" (asset -> schemaType; that direction
+# is already resolved via el["schemaType"] itself, not walked from here).
+_SCHEMA_CONTAINMENT_RELS = {
+    "RelationalDBSchema", "AttributeForSchema", "NestedSchemaAttribute",
+    "SchemaAttributeType", "MapFromElementType", "MapToElementType",
+}
+
+
+def _to_int(v):
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _node_from_related_element(re_: dict) -> dict:
+    hdr = re_.get("elementHeader") or {}
+    flat = _flat_props(re_.get("properties") or {})
+    return {
+        "guid":        hdr.get("guid", ""),
+        "typeName":    (hdr.get("type") or {}).get("typeName", ""),
+        "displayName": flat.get("displayName") or flat.get("qualifiedName", ""),
+        "description": flat.get("description", ""),
+        "dataType":    flat.get("dataType", ""),
+        "required":    flat.get("isNullable") in ("False", False),
+        "extraProps":  {k: v for k, v in flat.items()
+                        if k not in ("displayName", "qualifiedName", "description", "dataType", "isNullable")},
+        "children":    [],
+    }
+
+
+def _node_from_metadata_expert_element(el: dict) -> dict:
+    """Same shape as _node_from_related_element, but for the raw MetadataExpert
+    shape (elementGUID/elementProperties.propertyValueMap) returned by the
+    supplementary per-guid lookup — a different shape from AssetCatalog's."""
+    flat = _flat_props(el.get("elementProperties") or {})
+    type_info = (el.get("type") or {})
+    return {
+        "guid":        el.get("elementGUID", ""),
+        "typeName":    type_info.get("typeName", ""),
+        "displayName": flat.get("displayName") or flat.get("qualifiedName", ""),
+        "description": flat.get("description", ""),
+        "dataType":    flat.get("dataType", ""),
+        "required":    flat.get("isNullable") in ("False", False),
+        "extraProps":  {k: v for k, v in flat.items()
+                        if k not in ("displayName", "qualifiedName", "description", "dataType", "isNullable")},
+        "children":    [],
+    }
+
+
+def _serialize_schema(el: dict, mgr=None) -> dict:
+    """Build the nested schemaType -> attribute -> nested-attribute tree.
+
+    AssetCatalog.get_asset_graph_by_guid's response flattens the ENTIRE
+    reachable subgraph into one top-level `relationships` list with no
+    indication of which element each relationship attaches from, or which
+    end is the container vs the member — both pieces the generic
+    relationship extraction used for the "Relationships" section
+    (_extract_relationships/_unwrap_rel_item) discards, and both required to
+    reassemble a real tree:
+
+    - `startingElementGUID` says which element pyegeria's traversal was
+      visiting when it recorded the relationship (NOT reliably "the parent" —
+      confirmed live it can be either end).
+    - `relatedElementAtEnd1` resolves it: confirmed empirically against
+      RETAILSCHEMA's real 3-level hierarchy (DeployedDatabaseSchema
+      -[Schema]-> RelationalDBSchemaTypeList -[RelationalDBSchema]->
+      RelationalDBSchemaType -[AttributeForSchema]-> RelationalTable
+      -[NestedSchemaAttribute]-> RelationalColumn) that the parent is
+      `relatedElement` when atEnd1 is True, and `startingElementGUID` when
+      atEnd1 is False.
+
+    A further gap: some nodes (e.g. the intermediate RelationalDBSchemaType,
+    and columns reached via the atEnd1=True direction) only ever appear as a
+    bare `startingElementGUID` in this response — never as a fully-described
+    `relatedElement` anywhere in it, so their own displayName/typeName is
+    simply not present. Confirmed live these are real schema elements, not
+    noise, via a supplementary MetadataExpert.get_metadata_element_by_guid
+    lookup (depth 0, cheap) for each one — done here when `mgr` is supplied.
+    """
     if not el:
         return {"schemaType": None, "attributes": []}
     st = el.get("schemaType")
     if not isinstance(st, dict):
         return {"schemaType": None, "attributes": []}
-    re = st.get("relatedElement", {})
-    rehdr = re.get("elementHeader", {})
-    reprops = re.get("properties", {})
-    type_info = rehdr.get("type") or {}
+    st_elem = st.get("relatedElement") or {}
+    st_hdr = st_elem.get("elementHeader") or {}
+    st_props = _flat_props(st_elem.get("properties") or {})
+    schema_type_guid = st_hdr.get("guid", "")
     schema_type = {
-        "guid":        rehdr.get("guid", ""),
-        "typeName":    type_info.get("typeName", ""),
-        "displayName": reprops.get("displayName") or reprops.get("qualifiedName", ""),
-        "description": reprops.get("description", ""),
+        "guid":        schema_type_guid,
+        "typeName":    (st_hdr.get("type") or {}).get("typeName", ""),
+        "displayName": st_props.get("displayName") or st_props.get("qualifiedName", ""),
+        "description": st_props.get("description", ""),
     }
-    attributes = []
-    _SCHEMA_META = {"elementHeader", "properties", "class"}
-    for key, arr in re.items():
-        if key in _SCHEMA_META or not isinstance(arr, list):
+    if not schema_type_guid:
+        return {"schemaType": schema_type, "attributes": []}
+
+    # parent_guid -> list of (child_guid, node-if-known-or-None, position)
+    edges: dict = {}
+    known_nodes: dict = {}  # guid -> node dict, for children we DO have full data for
+
+    for r in (el.get("relationships") or []):
+        if not isinstance(r, dict):
             continue
-        for item in arr:
-            if not isinstance(item, dict):
+        rtype = ((r.get("relationshipHeader") or {}).get("type") or {}).get("typeName")
+        if rtype not in _SCHEMA_CONTAINMENT_RELS:
+            continue
+        start = r.get("startingElementGUID")
+        re_ = r.get("relatedElement") or {}
+        related_guid = (re_.get("elementHeader") or {}).get("guid", "")
+        if not start or not related_guid:
+            continue
+        at_end1 = r.get("relatedElementAtEnd1")
+        rel_props = _flat_props(r.get("relationshipProperties") or {})
+        position = _to_int(rel_props.get("position"))
+        if at_end1:
+            parent_guid, child_guid = related_guid, start
+        else:
+            parent_guid, child_guid = start, related_guid
+        edges.setdefault(parent_guid, []).append((child_guid, position))
+        # We only have full node data for `related_guid` (the relatedElement
+        # side) — if that's the child, keep it; if it's the parent, we
+        # already have that from schemaType or an earlier level's own
+        # known_nodes entry.
+        if child_guid == related_guid:
+            known_nodes[child_guid] = _node_from_related_element(re_)
+
+    # Resolve any child guid we don't have full data for via a supplementary
+    # by-guid lookup (cheap, depth 0) — see docstring above.
+    if mgr is not None:
+        missing = set()
+        for children in edges.values():
+            for child_guid, _pos in children:
+                if child_guid not in known_nodes:
+                    missing.add(child_guid)
+        if missing:
+            try:
+                me = _metadata_expert_from_asset_maker(mgr)
+                for guid in missing:
+                    try:
+                        raw_el = me.get_metadata_element_by_guid(guid, graph_query_depth=0, output_format="JSON")
+                        if isinstance(raw_el, dict):
+                            known_nodes[guid] = _node_from_metadata_expert_element(raw_el)
+                    except Exception:
+                        logger.debug("schema tree: could not resolve node %s", guid)
+            except Exception:
+                logger.debug("schema tree: could not create MetadataExpert for supplementary lookups")
+
+    def _children_of(guid: str, visited: set) -> list:
+        nodes = []
+        for child_guid, position in edges.get(guid, []):
+            if not child_guid or child_guid in visited:
                 continue
-            r = _unwrap_rel_item(item, key)
-            if not r:
-                continue
-            ri = r["relatedElement"]
-            # Also fetch inner scalar props from the relatedElement directly
-            nested_elem = item.get("relatedElement", {})
-            p = _props(nested_elem)
-            flat = _flat_props(p)
-            attributes.append({
-                "guid":        ri["guid"],
-                "typeName":    ri["typeName"],
-                "displayName": ri["displayName"],
-                "description": ri["description"],
-                "dataType":    flat.get("dataType") or p.get("dataType", ""),
-                "position":    flat.get("position") or p.get("position"),
-                "required":    flat.get("required") or p.get("isNullable") == "false",
-                "extraProps":  {k: v for k, v in flat.items()
-                                if k not in ("displayName","qualifiedName","description","dataType","position","required","isNullable")},
-            })
-    attributes.sort(key=lambda a: (a.get("position") is None, a.get("position") or 0))
+            node = known_nodes.get(child_guid)
+            if not node:
+                continue  # genuinely unresolvable (lookup failed) — skip rather than show a blank row
+            node = dict(node)
+            node["position"] = position
+            visited.add(child_guid)
+            node["children"] = _children_of(child_guid, visited)
+            nodes.append(node)
+        nodes.sort(key=lambda n: (n.get("position") is None, n.get("position") or 0))
+        return nodes
+
+    attributes = _children_of(schema_type_guid, {schema_type_guid})
     return {"schemaType": schema_type, "attributes": attributes}
 
 
@@ -810,7 +933,7 @@ def debug_raw_element(
     # Try asset-graph fetch first
     try:
         raw = mgr.get_asset_by_guid(
-            asset_guid=guid,
+            guid=guid,
             output_format="JSON",
             body={"class": "GetRequestBody", "graphQueryDepth": 1},
         )
@@ -1337,20 +1460,29 @@ def get_asset_schema(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
-    """Return the schema type + attribute tree for any asset with a Schema relationship."""
+    """Return the schema type + nested attribute tree for any asset with a Schema relationship.
+
+    Uses AssetCatalog.get_asset_graph_by_guid (same call _fetch_detail() uses
+    for the main asset detail view), NOT AssetMaker.get_asset_by_guid --
+    confirmed live that the latter never nests attribute relationships under
+    el["schemaType"]["relatedElement"] at any graph depth, which is why this
+    section always came back empty. get_asset_graph_by_guid's response
+    carries a separate top-level `relationships` list covering the whole
+    reachable subgraph, where each entry's `startingElementGUID` says which
+    element it actually attaches from -- the piece _serialize_schema() needs
+    to walk it into a real tree instead of the schema data being buried
+    (unlabeled) in the generic flattened "Relationships" section.
+    """
     try:
         mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
-        raw = mgr.get_asset_by_guid(
-            asset_guid=guid,
+        ac = _asset_catalog_from_asset_maker(mgr)
+        raw = ac.get_asset_graph_by_guid(
+            guid,
             output_format="JSON",
-            body={
-                "class": "GetRequestBody",
-                "graphQueryDepth": 5,
-                "relationshipsPageSize": 200,
-            },
+            body={"class": "ResultsRequestBody", "graphQueryDepth": 5},
         )
         el = raw[0] if isinstance(raw, list) else raw
-        return JSONResponse(_serialize_schema(el or {}))
+        return JSONResponse(_serialize_schema(el or {}, mgr=mgr))
     except Exception as exc:
         logger.exception("get_asset_schema failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -1899,7 +2031,7 @@ def _fetch_detail(mgr, guid: str, section: Optional[str], as_of_time: Optional[s
     # Fallback: get_asset_by_guid
     try:
         raw = mgr.get_asset_by_guid(
-            asset_guid=guid,
+            guid=guid,
             output_format="JSON",
             body={"class": "GetRequestBody", "graphQueryDepth": 5, "relationshipsPageSize": 50},
         )
@@ -1970,6 +2102,30 @@ def _asset_catalog_from_asset_maker(mgr):
     token = auth[len("Bearer "):] if auth.startswith("Bearer ") else None
     _apply_token(ac, token)
     return ac
+
+
+def _metadata_expert_from_asset_maker(mgr):
+    """Create a MetadataExpert sharing credentials/token from an existing AssetMaker.
+
+    Used by _serialize_schema()'s supplementary per-guid lookups: some schema
+    tree nodes (RelationalDBSchemaType, some columns) only ever appear as a
+    bare `startingElementGUID` in AssetCatalog.get_asset_graph_by_guid's
+    response, never as a fully-described `relatedElement` anywhere in it —
+    confirmed live, not a bug in our own parsing, a real gap in that response
+    shape. get_metadata_element_by_guid(graph_query_depth=0) is cheap and
+    works for any element type.
+    """
+    from pyegeria import MetadataExpert
+    me = MetadataExpert(
+        view_server=mgr.server_name,
+        platform_url=mgr.platform_url,
+        user_id=mgr.user_id,
+        user_pwd=mgr.user_pwd,
+    )
+    auth = (getattr(mgr, "headers", None) or {}).get("Authorization", "")
+    token = auth[len("Bearer "):] if auth.startswith("Bearer ") else None
+    _apply_token(me, token)
+    return me
 
 
 def _classification_explorer_from_asset_maker(mgr):

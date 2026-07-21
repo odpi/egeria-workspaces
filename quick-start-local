@@ -19,12 +19,21 @@ Options:
                       certificate directory and admin credentials; saves them to
                       compose-configs/egeria-quickstart/.env.demo for reuse.
                       See compose-configs/egeria-quickstart/PyegeriaWebHandler/demo-mode.md
+  --sync-from HOST:REMOTE_DIR
+                      Before starting, pull the latest demo user/feedback data
+                      (demo_auth + demo schemas) from another machine that
+                      isn't running the Portal right now — e.g.
+                      --sync-from hedwig:egeria-workspaces/runtime-volumes/demo-sync
+                      Requires key-based SSH to HOST already working. Failure
+                      only warns; startup continues with local data.
+                      See compose-configs/egeria-quickstart/bin/sync-demo-db.sh
   -h, --help          Show this help text.
 EOF
 }
 
 REFRESH_PLATFORM=0
 DEMO_MODE_FLAG=0
+SYNC_FROM=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --refresh-platform)
@@ -34,6 +43,10 @@ while [[ $# -gt 0 ]]; do
     --demo)
       DEMO_MODE_FLAG=1
       shift
+      ;;
+    --sync-from)
+      SYNC_FROM="$2"
+      shift 2
       ;;
     -h|--help)
       print_usage
@@ -149,6 +162,15 @@ cp compose-configs/egeria-quickstart/secrets/*.omsecrets "$RUNTIME_SECRETS_DIR"/
 
 compose-configs/shared-infra/ensure-shared-infra.sh
 compose-configs/egeria-quickstart/bin/apply-postgres-init.sh
+
+if [[ -n "$SYNC_FROM" ]]; then
+  _sync_host="${SYNC_FROM%%:*}"
+  _sync_dir="${SYNC_FROM#*:}"
+  echo "[quick-start-local] Pulling latest demo user/feedback data from ${_sync_host}:${_sync_dir}..."
+  if ! compose-configs/egeria-quickstart/bin/sync-demo-db.sh pull "$_sync_host" "$_sync_dir" -y; then
+    echo "[quick-start-local] WARNING: Could not pull demo data from ${SYNC_FROM} — continuing with local data." >&2
+  fi
+fi
 
 pushd compose-configs/egeria-quickstart >/dev/null
 

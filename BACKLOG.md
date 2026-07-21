@@ -3,6 +3,114 @@
 Consolidated work list. Update status when items start or finish.  
 Status: `open` · `in-progress` · `done` · `deferred`
 ---
+## Next up (queued 2026-07-21, pick up next session)
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| NEXT-1 | Re-verify Lineage Explorer end-to-end | open | Confirm the `FavoriteButton`/ErrorBoundary/mermaid fixes from this session actually resolve the reported blank-screen behavior in real use, not just via curl/static analysis (browser automation was unreliable this session — see the Lineage Explorer entry below). |
+| NEXT-2 | Make "Relationships" sections foldable/collapsible everywhere | open | Currently always-expanded in every screen that renders a generic relationships block (Tech Catalog asset detail, Collections/Digital Products `DigitalProductDetail`, Action Center, others using the shared `RelationshipSection`/similar pattern). Apply the same collapsible affordance already used elsewhere (e.g. `SubPane`'s toggle header in tech-catalog.html) consistently across all of them. |
+| NEXT-3 | Move Schema section above Relationships (Tech Catalog asset detail, at least) | open | Currently Schema renders below/after the generic Relationships section for assets like RetailSchema (just fixed to actually show data — see below); reorder so Schema appears first. Check whether other detail panels have the same generic-relationships-before-specific-section ordering issue once NEXT-2 is scoped. |
+
+---
+## Fix: Tech Catalog Schema section always empty (2026-07-21) — ✅ done
+
+Dan reported: for a data asset like RetailSchema, the Schema section is
+always empty because the schema elements were flattened into the generic
+"Relationships" section above instead. Root-caused and fixed in
+`tech_catalog_handler.py` (both envs):
+
+- `get_asset_schema` was calling `AssetMaker.get_asset_by_guid`, which never
+  nests attribute relationships under `el["schemaType"]["relatedElement"]` at
+  any graph depth — confirmed live. Switched to `AssetCatalog.get_asset_graph_by_guid`
+  (the same call the main asset detail view already successfully uses via
+  `_fetch_detail`), whose response carries a separate top-level `relationships`
+  list covering the whole reachable subgraph.
+- That list has no explicit parent/child marking — each entry only carries
+  `startingElementGUID` (confirmed NOT reliably "the parent"; it can be
+  either end) and `relatedElementAtEnd1`. Empirically confirmed against
+  RetailSchema's real hierarchy (`DeployedDatabaseSchema -[Schema]->
+  RelationalDBSchemaTypeList -[RelationalDBSchema]-> RelationalDBSchemaType
+  -[AttributeForSchema]-> RelationalTable -[NestedSchemaAttribute]->
+  RelationalColumn`) that the parent is `relatedElement` when `atEnd1` is
+  True, `startingElementGUID` otherwise. Rewrote `_serialize_schema` to walk
+  the flat list into a real tree using that rule, anchored at the asset's own
+  `schemaType` so unrelated schema instances the same broad traversal picks
+  up elsewhere (e.g. a shared physical table catalogued under a different
+  schema) are naturally excluded.
+- A further gap: some tree nodes (the intermediate `RelationalDBSchemaType`,
+  and several columns) only ever appear as a bare `startingElementGUID` in
+  this response, never as a fully-described `relatedElement` — their own
+  displayName/typeName simply isn't present anywhere in it. Added a
+  supplementary `MetadataExpert.get_metadata_element_by_guid` lookup (depth
+  0, cheap) per unresolved node, confirmed live these are real schema
+  elements (e.g. a `CUSTSTATUS` column), not noise.
+- Updated `SchemaPane` in `tech-catalog.html` to render the resulting tree
+  with indentation (previously a flat table, which is why even a partially-
+  correct fix wouldn't have shown the real nesting). Verified live: RetailSchema
+  now shows its full 4-level structure — schema type → RETAILSCHEMA schema
+  detail → CUSTOMER table → 4 columns (CUSTID, CUSTNAME, CUSTSTATUS, CUSTCARD),
+  correctly ordered by position.
+
+---
+## Fix: Lineage Explorer blank screen on asset selection (2026-07-21) — ✅ done
+
+Dan reported: search for an asset works fine, but selecting one to view its
+lineage shows a blank screen with no visible console error. Two real bugs
+found and fixed, plus a systemic robustness gap:
+
+1. **`tech_catalog_handler.py` — genuine backend TypeError** (both envs, 3
+   call sites: the classification-diagnosis endpoint, `get_asset_schema`, and
+   a fallback in the generic asset-detail lookup). All three called
+   `mgr.get_asset_by_guid(asset_guid=guid, ...)`, but pyegeria's real
+   parameter name is `guid`, not `asset_guid`. Because the method also
+   accepts `**kwargs`, the wrong keyword name was silently absorbed instead
+   of raising "unexpected keyword argument" — so it failed with `TypeError:
+   get_asset_by_guid() missing 1 required positional argument: 'guid'`,
+   a 500 on `/api/tech-catalog/assets/{guid}/schema` any time this fallback
+   path was hit. Confirmed via `inspect.signature` against the installed
+   pyegeria and fixed by renaming the keyword; verified live (both a
+   genuinely-missing guid and a real one now behave correctly instead of
+   crashing).
+2. **`lineage-explorer.html`'s `MermaidDiagram`** (both envs) had an
+   asymmetric try/catch: `window.mermaid.initialize(...)` was wrapped in
+   `try/catch(_){}`, but the very next line, `window.mermaid.render(...)`,
+   was not. `window.mermaid` loads from a blocking external CDN `<script
+   src>` — if that request is slow, blocked (ad-blocker, restrictive
+   network), or fails, `window.mermaid` stays undefined and the unguarded
+   `.render()` call throws synchronously inside a `useEffect`. Wrapped the
+   whole effect body and added an explicit "Mermaid library failed to load"
+   inline message instead of an uncaught throw.
+3. **No Error Boundary existed anywhere in this ~1200-line app.** React's
+   default behavior for an uncaught render/effect error with no boundary is
+   to unmount the *entire* tree — turning any single bug (like #2 above, or
+   any future one) into exactly the reported symptom: a totally blank page,
+   with the actual error easy to miss in the console. Added a class-based
+   `ErrorBoundary` wrapping `<App>`, so any future uncaught error shows a
+   readable message + reload button instead of silently blanking the page.
+
+**The actual original root cause, found once the Error Boundary above made
+the crash visible instead of silent:** `lineage-explorer.html` (quickstart
+only — freshstart's copy never had this feature) referenced `FavoriteButton`
+in the Focus Asset Card header, but never loaded `/static/egeria-shared-ui.js`
+(where `FavoriteButton` is actually defined) — the file only pulled in the
+mermaid CDN script. `ReferenceError: Can't find variable: FavoriteButton`
+fired on every render of the Focus Asset Card whenever a persona was active
+(`favPersonaId &&` short-circuits past it otherwise, which is why this
+depends on being logged in as a persona to reproduce). Fixed by adding the
+shared script include, positioned so this page's own local
+`MermaidDiagram`/`TimeSlider`/`ResizeDivider`/`useResizable` (all
+independently defined in this file, all still active) safely take
+precedence over the shared file's same-named versions via normal
+last-declaration-wins `function` redeclaration semantics.
+
+Note: browser-based live reproduction was attempted but the Chrome
+automation tool gave unreliable results this session (reported a 200 success
+for a POST that the container's own server logs show as a 404) — root-caused
+via direct backend calls (curl with a real egeria-token, replicating
+`fetchWithToken`'s exact request shape) and static analysis instead once that
+became clear.
+
+---
 ## Fix: relationships disappear after collection toggle-close/reopen (2026-07-20) — ✅ done
 
 Dan reported: open a Collection, select a member, relationships show fine;
