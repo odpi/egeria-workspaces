@@ -1419,6 +1419,37 @@ function RawJsonViewer({ guid, creds, depth }) {
   }, '📋', label);
 }
 
+// Classifications that are internal infrastructure — never shown in the UI.
+// Mirrors common_serialize.py's _SKIP_CLASSIFICATIONS.
+var _SKIP_CLASSIFICATIONS = { Anchors: 1, LatestChange: 1, Memento: 1, TemplateSubstitute: 1, SpineObject: 1, SpineAttribute: 1, ObjectIdentifier: 1 };
+
+// _classificationsFromHeader — JS port of common_serialize.py's _classifications():
+// each classification is a named key directly on elementHeader (not a
+// "classifications" list), with class === "ElementClassification". Converts
+// to the [{typeName, properties}] shape ClassificationsAndRawJson expects, for
+// call sites (e.g. ElementPropertiesPane) that only have a raw elementHeader.
+function _classificationsFromHeader(hdr) {
+  if (!hdr || typeof hdr !== 'object') return [];
+  var result = [];
+  Object.keys(hdr).forEach(function(key) {
+    var val = hdr[key];
+    if (!val || typeof val !== 'object') return;
+    if (val.class !== 'ElementClassification') return;
+    var clsName = val.classificationName || (val.type && val.type.typeName) || (key.charAt(0).toUpperCase() + key.slice(1));
+    if (!clsName || _SKIP_CLASSIFICATIONS[clsName]) return;
+    var flat = {};
+    var rawProps = val.classificationProperties || {};
+    Object.keys(rawProps).forEach(function(k) {
+      if (k === 'class' || k === 'typeName') return;
+      var v = rawProps[k];
+      if (Array.isArray(v)) flat[k] = v.join(', ');
+      else if (v !== null && typeof v !== 'object') flat[k] = String(v);
+    });
+    result.push({ typeName: clsName, properties: flat });
+  });
+  return result;
+}
+
 // ClassificationsAndRawJson — one shared insertion point for any Detail
 // component: the foldable "Classifications" section (only rendered when the
 // element actually carries any — closed by default, unlike Relationships,
@@ -1461,7 +1492,7 @@ function ElementPropertiesPane({ element, onCrossLink }) {
   var type = (hdr.type || {});
   var vers = (hdr.versions || {});
   var props = element.properties || {};
-  var item = { guid: hdr.guid || element.guid, typeName: type.typeName, superTypeNames: type.superTypeNames || [] };
+  var item = { guid: hdr.guid || element.guid, typeName: type.typeName, superTypeNames: type.superTypeNames || [], classifications: _classificationsFromHeader(hdr) };
 
   var rows = [];
   function push(k, v) { if (v != null && String(v).trim() !== '') rows.push([k, String(v)]); }
@@ -1494,7 +1525,8 @@ function ElementPropertiesPane({ element, onCrossLink }) {
             React.createElement('td', { style: td }, r[1]));
         })
       )
-    )
+    ),
+    React.createElement(ClassificationsAndRawJson, { item: item })
   );
 }
 
