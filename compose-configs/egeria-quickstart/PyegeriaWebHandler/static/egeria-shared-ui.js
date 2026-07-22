@@ -1377,54 +1377,73 @@ function Collapsible({ title, defaultOpen, count, children }) {
   );
 }
 
-// RawJsonViewer — "View Raw JSON" debug affordance for advanced users: fetches
+// RawJsonViewer — "Copy raw JSON" debug affordance for advanced users: fetches
 // the untransformed Egeria/pyegeria payload for a guid (via the generic
 // /api/debug/raw/{guid} endpoint — tech_catalog_handler.py, but reachable from
 // any app since all handlers share one FastAPI instance) instead of this
-// app's serialized/flattened shape. Lazy — only fetches on first expand.
+// app's serialized/flattened shape, and copies it straight to the clipboard —
+// no inline display, just a copy action with a brief confirmation.
 function RawJsonViewer({ guid, creds, depth }) {
-  var _o = React.useState(false), open = _o[0], setOpen = _o[1];
-  var _d = React.useState(null), data = _d[0], setData = _d[1];
-  var _l = React.useState(false), loading = _l[0], setLoading = _l[1];
-  var _e = React.useState(null), err = _e[0], setErr = _e[1];
+  var _s = React.useState('idle'), state = _s[0], setState = _s[1]; // idle | loading | copied | error
 
-  function toggle() {
-    var next = !open;
-    setOpen(next);
-    if (next && !data && !loading) {
-      setLoading(true);
-      setErr(null);
-      var url = '/api/debug/raw/' + encodeURIComponent(guid) + (depth != null ? '?depth=' + depth : '');
-      egeriaFetch(url, creds).then(function(r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      }).then(function(d) { setData(d); setLoading(false); })
-        .catch(function(e) { setErr(String(e && e.message || e)); setLoading(false); });
-    }
+  function handleClick() {
+    if (state === 'loading') return;
+    setState('loading');
+    var url = '/api/debug/raw/' + encodeURIComponent(guid) + (depth != null ? '?depth=' + depth : '');
+    egeriaFetch(url, creds).then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function(d) {
+      return navigator.clipboard.writeText(JSON.stringify(d.raw, null, 2));
+    }).then(function() {
+      setState('copied');
+      setTimeout(function() { setState('idle'); }, 1500);
+    }).catch(function() {
+      setState('error');
+      setTimeout(function() { setState('idle'); }, 2000);
+    });
   }
 
-  return React.createElement('div', { style: { borderTop: '1px solid var(--border)', marginTop: 16 } },
-    React.createElement('div', {
-      onClick: toggle,
-      style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 4px', cursor: 'pointer', userSelect: 'none', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--dim)' }
-    },
-      React.createElement(FoldTriangle, { open: open, style: { color: 'var(--dim)' } }),
-      'Raw JSON (debug)'
+  var label = state === 'loading' ? 'Copying…'
+    : state === 'copied' ? '✓ Copied raw JSON'
+    : state === 'error' ? 'Copy failed'
+    : 'Copy raw JSON (debug)';
+
+  return React.createElement('div', {
+    onClick: handleClick,
+    style: { borderTop: '1px solid var(--border)', marginTop: 16, padding: '8px 4px', cursor: 'pointer',
+             userSelect: 'none', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
+             color: state === 'copied' ? '#4ade80' : state === 'error' ? '#f87171' : 'var(--dim)',
+             display: 'flex', alignItems: 'center', gap: 6 }
+  }, '📋', label);
+}
+
+// ClassificationsAndRawJson — one shared insertion point for any Detail
+// component: the foldable "Classifications" section (only rendered when the
+// element actually carries any — closed by default, unlike Relationships,
+// since classification data is usually secondary/governance-oriented rather
+// than what a reader wants to see first) plus the "Copy raw JSON" debug
+// affordance. Mirrors RelationshipSection's role for relationships — pass
+// whatever object carries `guid` + `classifications` (the shape every
+// _authored_fields(el)-based serializer now produces, common_serialize.py).
+function ClassificationsAndRawJson({ item, creds }) {
+  var ctxCreds = React.useContext(CredContext);
+  var effectiveCreds = creds || ctxCreds;
+  if (!item) return null;
+  var classifs = item.classifications || [];
+  return React.createElement(React.Fragment, null,
+    classifs.length > 0 && React.createElement(Collapsible, { title: 'Classifications', count: classifs.length, defaultOpen: false },
+      classifs.map(function(c) {
+        return React.createElement('div', { key: c.typeName, style: { borderLeft: '3px solid var(--classif)', paddingLeft: 8, marginBottom: 6 } },
+          React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
+          Object.entries(c.properties || {}).map(function(e) {
+            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
+              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
+          })
+        );
+      })
     ),
-    open && React.createElement('div', { style: { padding: '2px 4px 12px 18px' } },
-      loading ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'Loading…')
-      : err ? React.createElement('div', { style: { fontSize: 12, color: '#f87171' } }, 'Error: ' + err)
-      : data && React.createElement('div', null,
-          React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginBottom: 6 } },
-            'fetch_method: ' + data.fetch_method + ' · element_type: ' + data.element_type),
-          React.createElement('pre', {
-            style: { fontSize: 11, fontFamily: 'ui-monospace,monospace', background: 'var(--bg)',
-                     border: '1px solid var(--border)', borderRadius: 5, padding: '10px 12px',
-                     overflow: 'auto', maxHeight: 500, color: 'var(--text)',
-                     whiteSpace: 'pre-wrap', wordBreak: 'break-word' }
-          }, JSON.stringify(data.raw, null, 2))
-        )
-    )
+    item.guid && React.createElement(RawJsonViewer, { guid: item.guid, creds: effectiveCreds })
   );
 }
 

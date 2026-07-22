@@ -17,7 +17,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
-from common_serialize import _authored_fields, _header_summary, _generic_relationships
+from common_serialize import _authored_fields, _header_summary, _generic_relationships, _classifications
 
 router = APIRouter(tags=["locations"])
 
@@ -115,6 +115,7 @@ def _serialize_location(element: dict) -> dict:
         "referenceValues":   _serialize_rel_entries(_rel_list(element, "referenceValues")),
         "_header":           _header_summary(element),
         **_authored_fields(element),
+        "classifications": _classifications(element),
         "relationships":     _generic_relationships(element, skip=(
             "groupingLocations", "nestedLocations", "peerLocations",
             "localResources", "assignedActors", "referenceValues",

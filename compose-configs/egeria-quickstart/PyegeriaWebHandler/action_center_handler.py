@@ -47,6 +47,7 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 from egeria_auth import apply_token
+from common_serialize import _classifications_from_metadata_expert
 
 router = APIRouter(tags=["action-center"])
 
@@ -137,6 +138,7 @@ def _serialize_detail(element: dict, related: dict) -> dict:
     detail = _serialize_summary(element)
     detail["properties"] = props
     detail["relationships"] = _relationships_from_related_elements(related)
+    detail["classifications"] = _classifications_from_metadata_expert(element)
     return detail
 
 

@@ -25,7 +25,7 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 from egeria_auth import apply_token
-from common_serialize import _authored_fields, _header_summary
+from common_serialize import _authored_fields, _header_summary, _classifications
 
 router = APIRouter(tags=["policy-enforcement"])
 
@@ -84,6 +84,7 @@ def _serialize_point(element: dict, classification: str) -> dict:
         "classificationDetail":  _classification_properties(element, classification),
         "_header":               _header_summary(element),
         **_authored_fields(element),
+        "classifications": _classifications(element),
     }
 
 

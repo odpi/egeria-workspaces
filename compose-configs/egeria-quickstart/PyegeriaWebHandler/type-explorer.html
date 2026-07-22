@@ -2870,6 +2870,7 @@ function ReferenceDataDetail({ item, onNavigateToElement }) {
       })
     ),
     React.createElement(GenericRelationshipsSection, { relationships: item.relationships, onNavigateToElement: onNavigateToElement }),
+    React.createElement(ClassificationsAndRawJson, { item: item }),
     React.createElement(EgeriaCommentsSection, { guid: item.guid })
   );
 }
@@ -3115,6 +3116,7 @@ function ExternalReferenceDetail({ item, onNavigateToElement }) {
         return React.createElement(RelationshipSection, { key: entry[0], title: _prettyRelLabel(entry[0]), items: entry[1], onNavigateToElement: onNavigateToElement });
       })
     ),
+    React.createElement(ClassificationsAndRawJson, { item: item }),
     React.createElement(EgeriaCommentsSection, { guid: item.guid })
   );
 }
@@ -3268,6 +3270,7 @@ function ExternalIdentifierDetail({ item, onNavigateToElement }) {
       })
     ),
     React.createElement(GenericRelationshipsSection, { relationships: item.relationships, onNavigateToElement: onNavigateToElement }),
+    React.createElement(ClassificationsAndRawJson, { item: item }),
     React.createElement(EgeriaCommentsSection, { guid: item.guid })
   );
 }
@@ -3418,6 +3421,7 @@ function AgreementDetail({ item, onNavigateToElement }) {
         return React.createElement(RelationshipSection, { key: entry[0], title: _prettyRelLabel(entry[0]), items: entry[1], onNavigateToElement: onNavigateToElement });
       })
     ),
+    React.createElement(ClassificationsAndRawJson, { item: item }),
     React.createElement(EgeriaCommentsSection, { guid: item.guid })
   );
 }
@@ -3642,6 +3646,7 @@ function DigitalProductDetail({ product, onNavigateToElement, creds }) {
         })
       );
     })(),
+    React.createElement(ClassificationsAndRawJson, { item: product, creds: creds }),
     React.createElement(EgeriaCommentsSection, { guid: product.guid }),
     previewDs && React.createElement(TabularPreviewModal, { fetchUrl: '/api/digital-products/' + previewDs.guid + '/tabular', name: previewDs.name, creds: creds, onClose: function() { setPreviewDs(null); } })
   );
@@ -4968,6 +4973,7 @@ function ValidValueDetail({ item }) {
         )
       )
     ),
+    React.createElement(ClassificationsAndRawJson, { item: item }),
     React.createElement(EgeriaCommentsSection, { guid: item.guid })
   );
 }
@@ -6007,6 +6013,7 @@ function SolutionBlueprintDetail({ blueprint, onNavigateToComponent, onNavigateT
       })
     ),
     React.createElement(GenericRelationshipsSection, { relationships: blueprint.relationships, onNavigateToElement: onNavigateToElement }),
+    React.createElement(ClassificationsAndRawJson, { item: blueprint }),
     React.createElement(EgeriaCommentsSection, { guid: blueprint.guid })
   );
 }
@@ -6091,6 +6098,7 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
         return React.createElement(RelatedElementRow, { key: impl.guid, item: impl, onNavigateToElement: onNavigateToElement });
       })
     ),
+    React.createElement(ClassificationsAndRawJson, { item: component, creds: creds }),
     React.createElement(EgeriaCommentsSection, { guid: component.guid })
   );
 }
@@ -6797,6 +6805,7 @@ function ISCDetail({ data, detail, onNavigateToElement }) {
         items: structural.relationships[key], onNavigateToElement: onNavigateToElement,
       });
     }),
+    React.createElement(ClassificationsAndRawJson, { item: src }),
     React.createElement(EgeriaCommentsSection, { guid: src.guid })
   );
 }
@@ -7104,6 +7113,7 @@ function LocationDetail({ data, detail, onNavigateToElement }) {
     React.createElement(RelationshipSection, { title: "Assigned Actors", items: src.assignedActors, onNavigateToElement: onNavigateToElement }),
     React.createElement(RelationshipSection, { title: "Reference Values", items: src.referenceValues, onNavigateToElement: onNavigateToElement }),
     React.createElement(GenericRelationshipsSection, { relationships: src.relationships, onNavigateToElement: onNavigateToElement }),
+    React.createElement(ClassificationsAndRawJson, { item: src }),
     React.createElement(EgeriaCommentsSection, { guid: src.guid })
   );
 }
@@ -7403,6 +7413,7 @@ function ActorDetail({ data, detail, onNavigateToElement }) {
     relKeys.map(function(k) {
       return React.createElement(RelationshipSection, { key: k, title: _prettyRelLabel(k), items: relationships[k], onNavigateToElement: onNavigateToElement });
     }),
+    React.createElement(ClassificationsAndRawJson, { item: src }),
     React.createElement(EgeriaCommentsSection, { guid: src.guid })
   );
 }
@@ -7628,6 +7639,7 @@ function CommunityDetail({ data, detail, onNavigateToElement }) {
     relKeys.map(function(k) {
       return React.createElement(RelationshipSection, { key: k, title: _prettyRelLabel(k), items: relationships[k], onNavigateToElement: onNavigateToElement });
     }),
+    React.createElement(ClassificationsAndRawJson, { item: src }),
     React.createElement(EgeriaCommentsSection, { guid: src.guid })
   );
 }
@@ -7671,7 +7683,8 @@ function InformalTagDetail({ data, detail, onNavigateToElement }) {
         );
       })
     ),
-    elements.length === 0 && React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)', marginTop: 8 } }, 'No elements tagged with this tag')
+    elements.length === 0 && React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)', marginTop: 8 } }, 'No elements tagged with this tag'),
+    React.createElement(ClassificationsAndRawJson, { item: src })
   );
 }
 
@@ -7828,6 +7841,7 @@ function ActionDetail({ data, onNavigateToElement }) {
       return React.createElement(RelationshipSection, { key: k, title: _prettyRelLabel(k), items: relationships[k], onNavigateToElement: onNavigateToElement });
     }),
     relKeys.length === 0 && React.createElement("div", { style: { fontSize: 12, color: 'var(--dim)' } }, 'No related elements recorded for this action.'),
+    React.createElement(ClassificationsAndRawJson, { item: data }),
     React.createElement(EgeriaCommentsSection, { guid: data.guid })
   );
 }
@@ -8234,6 +8248,7 @@ function BusinessCapabilityDetail({ data, detail, onNavigateToElement }) {
     relKeys.map(function(k) {
       return React.createElement(RelationshipSection, { key: k, title: _prettyRelLabel(k), items: relationships[k], onNavigateToElement: onNavigateToElement });
     }),
+    React.createElement(ClassificationsAndRawJson, { item: src }),
     React.createElement(EgeriaCommentsSection, { guid: src.guid })
   );
 }
@@ -8452,6 +8467,7 @@ function NoteLogDetail({ data, detail, onNavigateToElement }) {
     ),
     subjects.length > 0 && React.createElement(RelationshipSection, { title: "About", items: subjects, onNavigateToElement: onNavigateToElement }),
     React.createElement(GenericRelationshipsSection, { relationships: src.relationships, onNavigateToElement: onNavigateToElement, skip: ['subjects'] }),
+    React.createElement(ClassificationsAndRawJson, { item: src }),
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, marginTop: 4, flexWrap: 'wrap' } },
       React.createElement("span", { style: { fontWeight: 600, fontSize: 13, color: 'var(--accent)' } },
         "Notes" + (typeof src.entryCount === 'number' ? " (" + src.entryCount + ")" : "")),
@@ -9265,6 +9281,7 @@ function ProjectDetail({ project, children, onSelectChild, onNavigateToElement }
     React.createElement(GenericRelationshipsSection, { relationships: project.relationships, onNavigateToElement: onNavigateToElement }),
     React.createElement(AvailableMermaidDiagrams, { data: project }),
     React.createElement(MermaidSection, { guid: project.guid }),
+    project.guid && React.createElement(RawJsonViewer, { guid: project.guid }),
     React.createElement(EgeriaCommentsSection, { guid: project.guid })
   );
 }
@@ -9317,6 +9334,7 @@ function GovDefDetail({ definition, onNavigateToElement }) {
         return React.createElement(RelationshipSection, { key: pair[0], title: _prettyRelLabel(pair[0]), items: pair[1], onNavigateToElement: onNavigateToElement });
       })
     ),
+    React.createElement(ClassificationsAndRawJson, { item: definition }),
     React.createElement(EgeriaCommentsSection, { guid: definition.guid })
   );
 }

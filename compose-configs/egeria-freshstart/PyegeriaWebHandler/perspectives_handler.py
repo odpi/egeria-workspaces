@@ -23,7 +23,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
-from common_serialize import _authored_fields, _header_summary
+from common_serialize import _authored_fields, _header_summary, _classifications
 
 router = APIRouter(tags=["perspectives"])
 
@@ -126,6 +126,7 @@ def _serialize_perspective(element: dict) -> dict:
         "relationships": _extract_all_rels(element),
         "_header":       _header_summary(element),
         **_authored_fields(element),
+        "classifications": _classifications(element),
     }
 
 
@@ -145,6 +146,7 @@ def _serialize_question(element: dict) -> dict:
         "relationships": _extract_all_rels(element),
         "_header":       _header_summary(element),
         **_authored_fields(element),
+        "classifications": _classifications(element),
     }
 
 

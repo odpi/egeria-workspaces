@@ -37,6 +37,80 @@ def _authored_fields(el: dict) -> dict:
     }
 
 
+# Classifications that are internal infrastructure — never shown in the UI.
+# Duplicated from tech_catalog_handler.py's own copy rather than imported, to
+# avoid coupling this shared module to that handler.
+_SKIP_CLASSIFICATIONS = frozenset([
+    "Anchors", "LatestChange", "Memento", "TemplateSubstitute", "SpineObject",
+    "SpineAttribute", "ObjectIdentifier",
+])
+
+
+def _classifications(el: dict) -> list:
+    """Extract governance/business classifications from an element, in
+    pyegeria's JSON output shape: each classification is a named key directly
+    on elementHeader (e.g. "dataAssetEncoding", "zoneMembership"), not a
+    "classifications" list — every such value has class="ElementClassification"
+    and carries classificationName + classificationProperties. Mirrors
+    tech_catalog_handler._extract_classifications; centralized here so every
+    _authored_fields(el) call site can add classification support the same
+    one-line way."""
+    if not isinstance(el, dict):
+        return []
+    hdr = el.get("elementHeader") or {}
+    result = []
+    for key, val in hdr.items():
+        if not isinstance(val, dict):
+            continue
+        if val.get("class") != "ElementClassification":
+            continue
+        cls_name = (val.get("classificationName")
+                    or (val.get("type") or {}).get("typeName")
+                    or (key[0].upper() + key[1:]))
+        if not cls_name or cls_name in _SKIP_CLASSIFICATIONS:
+            continue
+        cls_props_raw = val.get("classificationProperties") or {}
+        flat = {}
+        if isinstance(cls_props_raw, dict):
+            for k, v in cls_props_raw.items():
+                if k in ("class", "typeName"):
+                    continue
+                if isinstance(v, list):
+                    flat[k] = ", ".join(str(i) for i in v)
+                elif not isinstance(v, dict):
+                    flat[k] = str(v)
+        result.append({"typeName": cls_name, "properties": flat})
+    return result
+
+
+def _classifications_from_metadata_expert(el: dict) -> list:
+    """Same as _classifications, but for MetadataExpert.get_metadata_element_by_guid's
+    raw shape (elementGUID/elementProperties.propertyValueMap, classifications
+    as a real top-level list) instead of AssetCatalog's JSON output shape —
+    see tech_catalog_handler._extract_classifications_from_metadata_expert,
+    which this mirrors. Use this one for handlers (e.g. action_center_handler)
+    whose elements come from MetadataExpert rather than AssetCatalog/GlossaryManager/etc."""
+    if not isinstance(el, dict):
+        return []
+    result = []
+    for c in (el.get("classifications") or []):
+        if not isinstance(c, dict):
+            continue
+        cls_name = c.get("classificationName") or (c.get("type") or {}).get("typeName", "")
+        if not cls_name or cls_name in _SKIP_CLASSIFICATIONS:
+            continue
+        cls_props_raw = (c.get("classificationProperties") or {}).get("propertyValueMap") or {}
+        flat = {}
+        for k, v in cls_props_raw.items():
+            pv = v.get("primitiveValue", "") if isinstance(v, dict) else v
+            if isinstance(pv, list):
+                flat[k] = ", ".join(str(i) for i in pv)
+            elif not isinstance(pv, dict):
+                flat[k] = str(pv)
+        result.append({"typeName": cls_name, "properties": flat})
+    return result
+
+
 def _header_summary(el: dict) -> Optional[dict]:
     """Normalized header subset for the frontend's "Header" info popover —
     guid/type/status/version plus the same authorship/versions fields.

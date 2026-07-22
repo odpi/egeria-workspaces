@@ -1783,7 +1783,7 @@ function AssetDetail({ item, detailLoading, onNavigate, creds, sectionId }) {
     ),
 
     // Classifications
-    (item.classifications || []).length > 0 && React.createElement(Collapsible, { title: 'Classifications', count: item.classifications.length, defaultOpen: true },
+    (item.classifications || []).length > 0 && React.createElement(Collapsible, { title: 'Classifications', count: item.classifications.length, defaultOpen: false },
       item.classifications.map(function(c) {
         return React.createElement('div', { key: c.typeName, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--classif)' }) },
           React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),

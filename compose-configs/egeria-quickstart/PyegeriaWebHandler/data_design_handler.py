@@ -37,7 +37,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
-from common_serialize import _authored_fields, _header_summary
+from common_serialize import _authored_fields, _header_summary, _classifications
 
 router = APIRouter(tags=["data-design"])
 
@@ -87,6 +87,7 @@ def _base(el: dict) -> dict:
         "description":   p.get("description", "") or "",
         "_header":       _header_summary(el),
         **_authored_fields(el),
+        "classifications": _classifications(el),
     }
 
 
