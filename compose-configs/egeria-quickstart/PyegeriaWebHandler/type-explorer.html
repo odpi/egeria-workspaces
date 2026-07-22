@@ -587,7 +587,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 })();
 </script>
   <!-- Bump ?v= whenever egeria-shared-ui.js changes — see tech-catalog.html for why. -->
-  <script src="/static/egeria-shared-ui.js?v=2026-07-22a"></script>
+  <script src="/static/egeria-shared-ui.js?v=2026-07-22b"></script>
   <script>"use strict";
 
 const {
@@ -7376,6 +7376,7 @@ var REL_KEY_LABELS = {
   assignmentScope: 'Responsible For', governedBy: 'Governed By', memberOfCollections: 'Member Of',
   subTeams: 'Sub Teams', superTeam: 'Parent Team', assetsUsingProfile: 'Assets Using Profile',
   contributionRecord: 'Contribution Record', userIdentities: 'User Identities', profile: 'Profile',
+  communities: 'Communities',
 };
 
 function _prettyRelLabel(key) {
@@ -9237,11 +9238,14 @@ function ProjectDetail({ project, children, onSelectChild, onNavigateToElement }
       React.createElement(GenericPropertiesTable, { item: project, priority: ['projectStatus', 'status', 'startDate', 'plannedEndDate'] })
     ),
 
-    // Classification detail cards (show properties if non-empty)
-    (project.classifications || []).some(function(c) { return Object.keys(c.properties || {}).length > 0; }) &&
-      React.createElement('div', null,
-        React.createElement('div', { style: sectionHdr }, 'Classification Details'),
-        project.classifications.filter(function(c) { return Object.keys(c.properties || {}).length > 0; }).map(function(c) {
+    // Classification detail cards (show properties if non-empty) — foldable,
+    // closed by default, matching the shared ClassificationsAndRawJson pattern
+    // used by every other Detail view in Egeria Explorer.
+    (function() {
+      var withProps = (project.classifications || []).filter(function(c) { return Object.keys(c.properties || {}).length > 0; });
+      if (!withProps.length) return null;
+      return React.createElement(Collapsible, { title: 'Classification Details', count: withProps.length, defaultOpen: false },
+        withProps.map(function(c) {
           var s = _PROJECT_KIND_STYLE[c.typeName] || _PROJECT_KIND_DEFAULT;
           return React.createElement('div', { key: c.typeName, style: Object.assign({}, cardStyle, { borderLeft: '3px solid ' + s.fg }) },
             React.createElement('div', { style: { fontSize: 12, fontWeight: 700, color: s.fg, marginBottom: 6 } }, c.typeName),
@@ -9257,7 +9261,8 @@ function ProjectDetail({ project, children, onSelectChild, onNavigateToElement }
             )
           );
         })
-      ),
+      );
+    })(),
 
     // Child projects
     React.createElement('div', { style: sectionHdr }, 'Sub-Projects'),

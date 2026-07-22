@@ -1394,7 +1394,8 @@ function RawJsonViewer({ guid, creds, depth }) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
     }).then(function(d) {
-      return navigator.clipboard.writeText(JSON.stringify(d.raw, null, 2));
+      var payload = { fetch_method: d.fetch_method, raw: d.raw };
+      return navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
     }).then(function() {
       setState('copied');
       setTimeout(function() { setState('idle'); }, 1500);

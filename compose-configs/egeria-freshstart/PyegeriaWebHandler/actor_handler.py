@@ -153,6 +153,49 @@ def _serialize_actor_element(element: dict) -> dict:
     return d
 
 
+def _enrich_person_communities(mgr, element: dict) -> None:
+    """Community membership in Egeria's model is two hops from a Person:
+    Person --performsRoles--> PersonRole ("Community Member") --assignmentScope--> Community.
+    graph_query_depth=1 on get_actor_profile_by_guid only resolves the first
+    hop, so a Person's community affiliation is otherwise invisible on their
+    own detail page unless you click through the intermediate role first.
+    Resolve that second hop here and add a synthetic top-level "communities"
+    key (same RelatedMetadataElementSummary shape as the other relationship
+    arrays) so _serialize_actor_element's generic relationship-section logic
+    picks it up automatically and it renders/cross-links like any other
+    relationship.
+    """
+    perform_roles = element.get("performsRoles") or []
+    if not perform_roles:
+        return
+    communities = []
+    seen = set()
+    for entry in perform_roles:
+        role_guid = ((entry.get("relatedElement") or {}).get("elementHeader") or {}).get("guid")
+        if not role_guid:
+            continue
+        try:
+            role = mgr.get_actor_role_by_guid(role_guid, output_format="JSON", graph_query_depth=1)
+        except Exception:
+            continue
+        if isinstance(role, list):
+            role = role[0] if role else None
+        if not isinstance(role, dict):
+            continue
+        for scope in (role.get("assignmentScope") or []):
+            related = scope.get("relatedElement") or {}
+            rtype = ((related.get("elementHeader") or {}).get("type") or {}).get("typeName") or ""
+            if rtype != "Community":
+                continue
+            guid = (related.get("elementHeader") or {}).get("guid")
+            if not guid or guid in seen:
+                continue
+            seen.add(guid)
+            communities.append(scope)
+    if communities:
+        element["communities"] = communities
+
+
 def _list_route(mgr, find_fn, url, server, user_id, user_pwd, start_from, page_size, label, as_of_time=None, include_templates=True):
     try:
         raw = find_fn(
@@ -225,6 +268,7 @@ def get_actor_profile(
         element = element[0] if element else None
     if not isinstance(element, dict):
         raise HTTPException(status_code=404, detail=f"Actor profile {guid!r} not found")
+    _enrich_person_communities(mgr, element)
     return JSONResponse(_serialize_actor_element(element))
 
 
