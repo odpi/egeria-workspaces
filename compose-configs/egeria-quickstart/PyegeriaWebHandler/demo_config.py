@@ -68,7 +68,36 @@ OBSIDIAN_GITHUB_URL:  str = os.environ.get("OBSIDIAN_GITHUB_URL",  "https://gith
 
 # URL of the Egeria Advisor service. Set in .env or yaml (default: localhost:8880).
 # Checked server-side at startup to set advisor_running in portal-config.
+# This is ALSO the literal URL sent to browsers (advisor_url / advisor_sso_url in
+# pyegeria_handler.py / advisor_lock_handler.py) — it must be an address real
+# users can resolve (e.g. the public domain), not a Docker-internal one like
+# host.docker.internal, or external users get sent to an address only this
+# container can reach. See advisor_check_urls() below for the internal-only
+# fallback used just for the server-side reachability check.
 EGERIA_ADVISOR_URL:   str = os.environ.get("EGERIA_ADVISOR_URL",   "http://localhost:8880/")
+
+
+def advisor_check_urls() -> list:
+    """URLs to try, in order, when checking if Advisor is reachable from inside
+    this container. Always includes EGERIA_ADVISOR_URL itself (the public/real
+    value), plus a host.docker.internal variant as a fallback — Advisor runs
+    directly on the host, not in this compose network, and a public hostname
+    routing back to this same machine may hit hairpin-NAT issues or simply not
+    be port-forwarded (during setup) even though it works for real external
+    users. Swapping just the hostname keeps EGERIA_ADVISOR_URL itself unchanged
+    for anything sent to a browser.
+    """
+    if not EGERIA_ADVISOR_URL:
+        return []
+    from urllib.parse import urlsplit, urlunsplit
+    parts = urlsplit(EGERIA_ADVISOR_URL)
+    if parts.hostname in (None, "host.docker.internal"):
+        return [EGERIA_ADVISOR_URL]
+    port = f":{parts.port}" if parts.port else ""
+    userinfo = f"{parts.username}{':' + parts.password if parts.password else ''}@" if parts.username else ""
+    fallback_netloc = f"{userinfo}host.docker.internal{port}"
+    fallback = urlunsplit((parts.scheme, fallback_netloc, parts.path, parts.query, parts.fragment))
+    return [EGERIA_ADVISOR_URL, fallback]
 
 # Shared HS256 secret with Egeria Advisor's own ADVISOR_PORTAL_SECRET — used to
 # mint the short-lived SSO handoff token in advisor_lock_handler.py. Must match

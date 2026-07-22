@@ -177,6 +177,26 @@ def _extract_classifications(header: dict) -> list:
     return result
 
 
+def _extract_classifications_from_metadata_expert(el: dict) -> list:
+    """Extract classifications from MetadataExpert.get_metadata_element_by_guid's
+    raw shape — a real top-level `classifications` list, each item carrying
+    classificationName + classificationProperties.propertyValueMap. This is a
+    different raw shape from AssetCatalog's JSON output (see
+    _extract_classifications, which reads classifications encoded as named
+    keys directly on elementHeader instead) — a different pyegeria class,
+    a different response shape, same recurring pattern in this codebase."""
+    result = []
+    for c in (el.get("classifications") or []):
+        if not isinstance(c, dict):
+            continue
+        cls_name = c.get("classificationName") or (c.get("type") or {}).get("typeName", "")
+        if not cls_name or cls_name in _SKIP_CLASSIFICATIONS:
+            continue
+        flat = _flat_props(c.get("classificationProperties") or {})
+        result.append({"typeName": cls_name, "properties": flat})
+    return result
+
+
 def _is_template(element: dict) -> bool:
     """Return True if the element carries the Egeria 'Template' classification."""
     for val in (element.get("elementHeader") or {}).values():
@@ -479,6 +499,7 @@ def _node_from_related_element(re_: dict) -> dict:
         "extraProps":  {k: v for k, v in flat.items()
                         if k not in ("displayName", "qualifiedName", "description", "dataType", "isNullable")},
         "children":    [],
+        "classifications": [],
     }
 
 
@@ -498,6 +519,7 @@ def _node_from_metadata_expert_element(el: dict) -> dict:
         "extraProps":  {k: v for k, v in flat.items()
                         if k not in ("displayName", "qualifiedName", "description", "dataType", "isNullable")},
         "children":    [],
+        "classifications": _extract_classifications_from_metadata_expert(el),
     }
 
 
@@ -580,23 +602,37 @@ def _serialize_schema(el: dict, mgr=None) -> dict:
             known_nodes[child_guid] = _node_from_related_element(re_)
 
     # Resolve any child guid we don't have full data for via a supplementary
-    # by-guid lookup (cheap, depth 0) — see docstring above.
+    # by-guid lookup (cheap, depth 0) — see docstring above. Also use this same
+    # per-guid lookup to fetch classifications for every node we already know
+    # about: AssetCatalog's relatedElement.elementHeader never populates
+    # `classifications` for graph-traversal results (confirmed live — always
+    # absent even when the top-level asset fetch for the same guid DOES
+    # return real classification data), so this is the only way to get real
+    # classification data onto schema-tree nodes.
     if mgr is not None:
         missing = set()
         for children in edges.values():
             for child_guid, _pos in children:
                 if child_guid not in known_nodes:
                     missing.add(child_guid)
-        if missing:
+        all_guids = missing | set(known_nodes.keys())
+        if all_guids:
             try:
                 me = _metadata_expert_from_asset_maker(mgr)
-                for guid in missing:
+                for guid in all_guids:
                     try:
                         raw_el = me.get_metadata_element_by_guid(guid, graph_query_depth=0, output_format="JSON")
-                        if isinstance(raw_el, dict):
-                            known_nodes[guid] = _node_from_metadata_expert_element(raw_el)
                     except Exception:
                         logger.debug("schema tree: could not resolve node %s", guid)
+                        continue
+                    if not isinstance(raw_el, dict):
+                        continue
+                    if guid in missing:
+                        known_nodes[guid] = _node_from_metadata_expert_element(raw_el)
+                    else:
+                        classifs = _extract_classifications_from_metadata_expert(raw_el)
+                        if classifs:
+                            known_nodes[guid]["classifications"] = classifs
             except Exception:
                 logger.debug("schema tree: could not create MetadataExpert for supplementary lookups")
 
@@ -907,78 +943,104 @@ def _serialize_tech_type_detail(el: dict) -> dict:
 
 # ── Debug / diagnostic endpoints ─────────────────────────────────────────────
 
-@router.get("/api/debug/raw/{guid}")
+@router.get("/api/debug/raw/{guid}", summary="Fetch the raw, unserialized Egeria payload for any GUID")
 def debug_raw_element(
     request: Request,
     guid: str,
+    depth: int = Query(1, ge=0, le=5, description="graphQueryDepth to request from Egeria"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
-    """Return raw pyegeria element response for a GUID — for classification structure diagnosis.
+    """Return the raw pyegeria/Egeria element response for any GUID — for advanced
+    users who want to see the actual payload Egeria returns, rather than the
+    web app's serialized/flattened shape. Works for any element type (asset,
+    schema attribute, glossary term, governance definition, community, etc.),
+    not just Tech Catalog assets, since MetadataExpert.get_metadata_element_by_guid
+    is a generic Open Metadata client-level call — confirmed live against
+    assets, schema attributes, and glossary terms alike. Mounted once here but
+    reachable from any app in this FastAPI instance (all handlers share one app).
 
-    Shows:
-    - raw: the full element dict as returned by pyegeria
-    - header_keys: top-level keys in elementHeader
-    - raw_classifications: the raw classifications array from elementHeader
-    - extracted: what _extract_classifications() produced
+    Response:
+    - raw: the full element dict exactly as pyegeria returned it
+    - fetch_method: which pyegeria call actually produced it
+    - element_type / element_keys: quick-glance summary
+    - classifications: normalized (typeName + properties) for convenience,
+      alongside the untouched raw classification data inside `raw` itself
     """
-    import json as _json
-    try:
-        mgr = _asset_maker(url, server, user_id, user_pwd, token=_token_from_request(request))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-
+    token = _token_from_request(request)
     el = None
     fetch_method = "unknown"
-    # Try asset-graph fetch first
-    try:
-        raw = mgr.get_asset_by_guid(
-            guid=guid,
-            output_format="JSON",
-            body={"class": "GetRequestBody", "graphQueryDepth": 1},
-        )
-        el = raw[0] if isinstance(raw, list) else raw
-        fetch_method = "get_asset_by_guid(depth=1)"
-    except Exception:
-        pass
+    classifications: list = []
 
-    # Fallback: find in broader search
+    # Primary: MetadataExpert's generic per-guid fetch — works for any
+    # element type, not just Assets, so it's the right default for a
+    # general-purpose "show me the raw payload" tool.
+    try:
+        from pyegeria import MetadataExpert
+        u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
+        me = MetadataExpert(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
+        _apply_token(me, token)
+        raw_el = me.get_metadata_element_by_guid(guid, graph_query_depth=depth, output_format="JSON")
+        if isinstance(raw_el, dict) and raw_el:
+            el = raw_el
+            fetch_method = f"MetadataExpert.get_metadata_element_by_guid(depth={depth})"
+            classifications = _extract_classifications_from_metadata_expert(raw_el)
+    except Exception:
+        logger.debug("debug_raw_element: MetadataExpert lookup failed for %s", guid, exc_info=True)
+
+    # Fallback chain: asset-graph fetch, broader infrastructure search, then
+    # GlossaryManager — kept from the original classification-diagnosis
+    # version of this endpoint in case MetadataExpert can't resolve a guid
+    # for some reason.
     if not el:
         try:
-            raw = mgr.find_infrastructure(search_string="*", output_format="JSON", graph_query_depth=1)
-            el = _find_by_guid(raw, guid)
-            fetch_method = "find_infrastructure"
+            mgr = _asset_maker(url, server, user_id, user_pwd, token=token)
+            raw = mgr.get_asset_by_guid(
+                guid=guid,
+                output_format="JSON",
+                body={"class": "GetRequestBody", "graphQueryDepth": depth},
+            )
+            el = raw[0] if isinstance(raw, list) else raw
+            fetch_method = f"AssetMaker.get_asset_by_guid(depth={depth})"
+            classifications = _extract_classifications(_header(el))
         except Exception:
             pass
 
     if not el:
-        # Try GlossaryManager as fallback
+        try:
+            mgr = _asset_maker(url, server, user_id, user_pwd, token=token)
+            raw = mgr.find_infrastructure(search_string="*", output_format="JSON", graph_query_depth=depth)
+            found = _find_by_guid(raw, guid)
+            if found:
+                el = found
+                fetch_method = "AssetMaker.find_infrastructure"
+                classifications = _extract_classifications(_header(el))
+        except Exception:
+            pass
+
+    if not el:
         try:
             from pyegeria import GlossaryManager
             u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
             gm = GlossaryManager(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
-            _apply_token(gm, _token_from_request(request))
-            raw = gm.get_term_by_guid(guid, output_format="JSON", body={"class": "GetRequestBody", "graphQueryDepth": 1})
+            _apply_token(gm, token)
+            raw = gm.get_term_by_guid(guid, output_format="JSON", body={"class": "GetRequestBody", "graphQueryDepth": depth})
             el = raw
-            fetch_method = "get_term_by_guid(depth=1)"
+            fetch_method = f"GlossaryManager.get_term_by_guid(depth={depth})"
+            classifications = _extract_classifications(_header(el))
         except Exception:
             pass
 
     if not el:
         raise HTTPException(status_code=404, detail=f"Could not fetch element {guid!r} via any method")
 
-    hdr = _header(el)
-    raw_classifs = hdr.get("classifications") or []
-    extracted = _extract_classifications(hdr)
-
     return JSONResponse({
-        "fetch_method":        fetch_method,
-        "header_keys":         list(hdr.keys()),
-        "raw_classifications": raw_classifs,
-        "extracted":           extracted,
-        "classification_count": len(raw_classifs),
-        "element_type":        _type_name(el),
-        "element_keys":        list(el.keys()),
+        "guid":            guid,
+        "fetch_method":     fetch_method,
+        "element_type":     (el.get("type") or {}).get("typeName") or _type_name(el),
+        "element_keys":     list(el.keys()),
+        "classifications":  classifications,
+        "raw":              el,
     })
 
 

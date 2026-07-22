@@ -235,7 +235,7 @@ function GlossaryTreeNode({ folder, depth, selected, onSelect, showTemplates, fe
       style: { display: 'flex', alignItems: 'center', gap: 6, paddingLeft: pad, cursor: 'pointer' },
       title: folder.description || folder.qualifiedName,
     },
-      React.createElement("span", { onClick: function(e) { e.stopPropagation(); toggle(); }, style: { width: 14, textAlign: 'center', flexShrink: 0, color: expanded ? 'var(--accent)' : 'var(--muted)', fontSize: 10, fontWeight: 700 } }, expanded ? '▼' : '▶'),
+      React.createElement(FoldTriangle, { open: expanded, onClick: function(e) { e.stopPropagation(); toggle(); }, size: 12, style: { width: 14, textAlign: 'center' } }),
       React.createElement("span", { style: { fontSize: 12, flexShrink: 0 }, onClick: function(e) { e.stopPropagation(); toggle(); } }, "📁"),
       React.createElement("span", { className: "type-name", style: { flex: 1 }, onClick: function() { onSelect(folder, true); } }, folder.displayName || folder.qualifiedName || folder.guid)
     ),
@@ -1343,18 +1343,107 @@ function crossAppNavigate(item, explicitNav) {
 }
 
 /* ── Collapsible — a foldable titled section. ─────────────────────────────── */
+// FoldTriangle — the one canonical fold/expand indicator, standardized across
+// every collapsible/expandable affordance in the app: section headers
+// (Collapsible, SubPane, Annotations) AND hierarchical tree drill-downs. A
+// single glyph rotated via CSS transform/transition gives a real "turning"
+// animation instead of an instant character swap. onClick/size/style are
+// optional escape hatches for call sites that need the arrow itself
+// clickable (independent of a row-level onClick) or a smaller footprint in
+// deeply-nested trees; defaults match the section-header look.
+function FoldTriangle({ open, onClick, size, style }) {
+  return React.createElement('span', {
+    onClick: onClick,
+    style: Object.assign({
+      display: 'inline-block', fontSize: size || 16, lineHeight: 1, flexShrink: 0,
+      color: 'var(--accent)', transition: 'transform 0.15s ease',
+      transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
+    }, style || {})
+  }, '▶');
+}
+
 function Collapsible({ title, defaultOpen, count, children }) {
   var _o = React.useState(defaultOpen !== false), open = _o[0], setOpen = _o[1];
   return React.createElement('div', { style: { borderTop: '1px solid var(--border)' } },
     React.createElement('div', {
       onClick: function() { setOpen(!open); },
-      style: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 4px', cursor: 'pointer', userSelect: 'none', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--accent)' }
+      style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 4px', cursor: 'pointer', userSelect: 'none', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--accent)' }
     },
-      React.createElement('span', { style: { width: 12, display: 'inline-block', color: 'var(--muted)' } }, open ? '▾' : '▸'),
+      React.createElement(FoldTriangle, { open: open }),
       title,
       (count != null) && React.createElement('span', { style: { color: 'var(--dim)', fontWeight: 600 } }, '(' + count + ')')
     ),
     open && React.createElement('div', { style: { padding: '2px 4px 12px 18px' } }, children)
+  );
+}
+
+// RawJsonViewer — "Copy raw JSON" debug affordance for advanced users: fetches
+// the untransformed Egeria/pyegeria payload for a guid (via the generic
+// /api/debug/raw/{guid} endpoint — tech_catalog_handler.py, but reachable from
+// any app since all handlers share one FastAPI instance) instead of this
+// app's serialized/flattened shape, and copies it straight to the clipboard —
+// no inline display, just a copy action with a brief confirmation.
+function RawJsonViewer({ guid, creds, depth }) {
+  var _s = React.useState('idle'), state = _s[0], setState = _s[1]; // idle | loading | copied | error
+
+  function handleClick() {
+    if (state === 'loading') return;
+    setState('loading');
+    var url = '/api/debug/raw/' + encodeURIComponent(guid) + (depth != null ? '?depth=' + depth : '');
+    egeriaFetch(url, creds).then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function(d) {
+      return navigator.clipboard.writeText(JSON.stringify(d.raw, null, 2));
+    }).then(function() {
+      setState('copied');
+      setTimeout(function() { setState('idle'); }, 1500);
+    }).catch(function() {
+      setState('error');
+      setTimeout(function() { setState('idle'); }, 2000);
+    });
+  }
+
+  var label = state === 'loading' ? 'Copying…'
+    : state === 'copied' ? '✓ Copied raw JSON'
+    : state === 'error' ? 'Copy failed'
+    : 'Copy raw JSON (debug)';
+
+  return React.createElement('div', {
+    onClick: handleClick,
+    style: { borderTop: '1px solid var(--border)', marginTop: 16, padding: '8px 4px', cursor: 'pointer',
+             userSelect: 'none', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
+             color: state === 'copied' ? '#4ade80' : state === 'error' ? '#f87171' : 'var(--dim)',
+             display: 'flex', alignItems: 'center', gap: 6 }
+  }, '📋', label);
+}
+
+// ClassificationsAndRawJson — one shared insertion point for any Detail
+// component: the foldable "Classifications" section (only rendered when the
+// element actually carries any — closed by default, unlike Relationships,
+// since classification data is usually secondary/governance-oriented rather
+// than what a reader wants to see first) plus the "Copy raw JSON" debug
+// affordance. Mirrors RelationshipSection's role for relationships — pass
+// whatever object carries `guid` + `classifications` (the shape every
+// _authored_fields(el)-based serializer now produces, common_serialize.py).
+function ClassificationsAndRawJson({ item, creds }) {
+  var ctxCreds = React.useContext(CredContext);
+  var effectiveCreds = creds || ctxCreds;
+  if (!item) return null;
+  var classifs = item.classifications || [];
+  return React.createElement(React.Fragment, null,
+    classifs.length > 0 && React.createElement(Collapsible, { title: 'Classifications', count: classifs.length, defaultOpen: false },
+      classifs.map(function(c) {
+        return React.createElement('div', { key: c.typeName, style: { borderLeft: '3px solid var(--classif)', paddingLeft: 8, marginBottom: 6 } },
+          React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
+          Object.entries(c.properties || {}).map(function(e) {
+            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
+              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
+          })
+        );
+      })
+    ),
+    item.guid && React.createElement(RawJsonViewer, { guid: item.guid, creds: effectiveCreds })
   );
 }
 

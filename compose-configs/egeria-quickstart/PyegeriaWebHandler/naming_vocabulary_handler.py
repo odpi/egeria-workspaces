@@ -29,7 +29,7 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 from egeria_auth import apply_token
-from common_serialize import _authored_fields, _header_summary
+from common_serialize import _authored_fields, _header_summary, _classifications
 
 router = APIRouter(tags=["naming-vocabulary"])
 
@@ -73,6 +73,7 @@ def _serialize_word(element: dict, classification: str) -> dict:
         "classification":  classification,
         "_header":         _header_summary(element),
         **_authored_fields(element),
+        "classifications": _classifications(element),
     }
 
 

@@ -39,7 +39,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
-from common_serialize import _authored_fields, _header_summary
+from common_serialize import _authored_fields, _header_summary, _classifications
 
 router = APIRouter(tags=["notelogs"])
 
@@ -176,6 +176,7 @@ def _serialize_note(element: dict) -> Optional[dict]:
         "createTime": versions.get("createTime") or "",
         "updateTime": versions.get("updateTime") or "",
         **_authored_fields(element),
+        "classifications": _classifications(element),
     }
 
 
@@ -193,6 +194,7 @@ def _serialize_notelog_summary(element: dict) -> dict:
         "superTypeNames": _super_type_names(element),
         "_header":        _header_summary(element),
         **_authored_fields(element),
+        "classifications": _classifications(element),
     }
 
 

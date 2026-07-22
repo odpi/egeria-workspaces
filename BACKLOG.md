@@ -7,9 +7,129 @@ Status: `open` · `in-progress` · `done` · `deferred`
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| NEXT-1 | Re-verify Lineage Explorer end-to-end | open | Confirm the `FavoriteButton`/ErrorBoundary/mermaid fixes from this session actually resolve the reported blank-screen behavior in real use, not just via curl/static analysis (browser automation was unreliable this session — see the Lineage Explorer entry below). |
-| NEXT-2 | Make "Relationships" sections foldable/collapsible everywhere | open | Currently always-expanded in every screen that renders a generic relationships block (Tech Catalog asset detail, Collections/Digital Products `DigitalProductDetail`, Action Center, others using the shared `RelationshipSection`/similar pattern). Apply the same collapsible affordance already used elsewhere (e.g. `SubPane`'s toggle header in tech-catalog.html) consistently across all of them. |
-| NEXT-3 | Move Schema section above Relationships (Tech Catalog asset detail, at least) | open | Currently Schema renders below/after the generic Relationships section for assets like RetailSchema (just fixed to actually show data — see below); reorder so Schema appears first. Check whether other detail panels have the same generic-relationships-before-specific-section ordering issue once NEXT-2 is scoped. |
+| NEXT-1 | Re-verify Lineage Explorer end-to-end | done | Dan confirmed working live (2026-07-22). Note: the Chrome browser automation tool was unreliable again this session — not just misreporting network requests, `javascript_tool`'s actual `fetch()` calls returned fabricated data (e.g. claiming `demo_mode: true` when the real server, confirmed via curl and direct Python inspection, said `false`), reproduced in two separate tabs. Verification fell back to direct backend curl calls + served-file checks instead. |
+| NEXT-2 | Make "Relationships" sections foldable/collapsible everywhere | done | Fixed by making `RelationshipSection` (type-explorer.html, both envs — the single shared component backing ~30 call sites: every Detail panel's relationship groups, plus `GenericRelationshipsSection`) delegate to the existing shared `Collapsible` component (`static/egeria-shared-ui.js`) instead of a plain always-expanded `<div>`. Also fixed Tech Catalog's asset-detail "Relationships" block (`tech-catalog.html`, both envs — previously the one place with an inline, non-componentized relationships list) the same way. No other generic relationship-rendering pattern found in egeria-audit.html/egeria-operations.html/egeria-insights.html (those have their own specialized, already-tabbed relationship UIs, not this generic pattern). |
+| NEXT-3 | Move Schema section above Relationships (Tech Catalog asset detail, at least) | done | Moved the Schema/Lineage/Annotations sub-panes block above the Relationships block in `tech-catalog.html`'s asset detail (both envs) — only one such ordering existed in the file, now fixed. |
+| NEXT-4 | Large, clearly-animated fold/expand triangle, applied as a general rule across all foldable sections | done | See "Fix: Foldable section indicator" section below. |
+
+---
+## Feature: Raw JSON debug viewer for advanced users (2026-07-22) — ✅ done
+
+Dan asked whether the web app could deliver the raw Egeria/pyegeria payload
+rather than the serialized shape the REST calls normally return, for
+debugging purposes — decided to add it as an additive "View Raw JSON"
+affordance rather than replace any existing endpoint.
+
+- Generalized the existing classification-diagnosis-only
+  `GET /api/debug/raw/{guid}` (`tech_catalog_handler.py`, both envs) into a
+  general-purpose raw-payload endpoint. Primary fetch is now
+  `MetadataExpert.get_metadata_element_by_guid` — a generic Open Metadata
+  client-level call confirmed live to work for ANY element type (assets,
+  schema attributes, glossary terms, and presumably governance
+  definitions/communities/etc. too), not just Tech Catalog assets — with the
+  original AssetMaker/GlossaryManager fetch chain kept as a fallback. Added
+  an optional `depth` query param (`graphQueryDepth`, 0-5).
+- Since every handler in this app mounts on one shared FastAPI instance, this
+  single endpoint is reachable from any screen, not just Tech Catalog.
+- Frontend: new shared `RawJsonViewer` component (`egeria-shared-ui.js`, both
+  envs) — a foldable "Raw JSON (debug)" section (same FoldTriangle/Collapsible
+  pattern as everywhere else) that lazy-fetches on first expand and
+  pretty-prints the full raw payload, plus which pyegeria call produced it.
+  Wired into Tech Catalog's `AssetDetail` (both envs) as the concrete
+  integration point.
+- **Not yet done**: rolling `RawJsonViewer` out across type-explorer.html's
+  ~20 individual instance-Detail components (GlossaryTermDetail,
+  CommunityDetail, ActorDetail, LocationDetail, ISCDetail, etc.) — there's no
+  single shared wrapper across them the way `RelationshipSection` covers
+  relationships, so this would be a similar mechanical sweep to the
+  FoldTriangle rollout. Follow up if Dan wants raw-JSON viewing available
+  from Egeria Explorer's detail panels too, not just Tech Catalog's.
+
+---
+## Fix: Tech Catalog / Egeria Explorer classifications missing on schema elements (2026-07-22) — ✅ done
+
+Dan reported classification info seemed to have been lost in recent updates.
+Investigation found the top-level asset classifications badge and the
+type-system CLASSIFICATIONS browser were both fine — the real gap was that
+schema-tree nodes (`RelationalTable`/`RelationalColumn`, etc., from the
+Schema section rebuilt earlier this week) never carried classification data
+at all:
+
+- `AssetCatalog.get_asset_graph_by_guid`'s `relatedElement.elementHeader`
+  never populates `classifications` for graph-traversal results — confirmed
+  live: `None` for every node in RETAILSCHEMA's tree, even though the SAME
+  guid's top-level asset fetch (`get_asset_by_guid`) DOES return real
+  classification data. Not something recent edits broke; `_serialize_schema`
+  simply never had a `classifications` field to populate.
+- Fix (`tech_catalog_handler.py`, both envs): added
+  `_extract_classifications_from_metadata_expert()` — a second extractor
+  alongside the existing `_extract_classifications()`, because
+  `MetadataExpert.get_metadata_element_by_guid`'s raw shape is different (a
+  real top-level `classifications` list with `propertyValueMap`-wrapped
+  properties, vs. AssetCatalog's classifications-as-named-keys-on-header).
+  `_serialize_schema`'s existing per-guid supplementary `MetadataExpert`
+  lookup (previously only used to resolve nodes AssetCatalog left as a bare
+  `startingElementGUID`) now runs for every node in the tree, attaching real
+  classification data.
+- Frontend (`tech-catalog.html`, both envs): extracted each schema-tree row
+  into its own `SchemaRow` component (needed local `useState` for a
+  per-row expand toggle) — rows with classifications get a `FoldTriangle` +
+  count badge; toggling reveals a sub-row with the same classification-card
+  rendering used for top-level asset classifications (typeName + full
+  properties dict, not just a badge — Dan specifically flagged that some
+  classifications carry detailed property dictionaries worth showing in
+  full). Also wrapped the existing top-level asset "Classifications" block in
+  `Collapsible`, matching the "foldable everywhere" rule from NEXT-4.
+- Verified live end-to-end against RETAILSCHEMA's `CUSTID`/`CUSTNAME`/etc.
+  columns (now show a real `TypeEmbeddedAttribute` classification with
+  `dataType`/`schemaTypeName` properties).
+
+---
+## Fix: Foldable section indicator — large turning triangle (2026-07-21) — ✅ done
+
+Dan asked for it to be visually obvious that sections like Schema and
+Relationships are foldable, and wanted a large "turning" triangle applied as
+a general design rule, not a one-off for those two sections.
+
+- Added one canonical component, `FoldTriangle`, to `static/egeria-shared-ui.js`
+  (both envs, kept byte-identical as usual) — a single `▶` glyph rotated via
+  CSS `transform: rotate()` + `transition`, 16px (up from the old 10-11px
+  chevrons), so it visibly turns 0°→90° on toggle instead of instantly
+  swapping characters (▾/▸ or ▲/▼).
+- Rewired the shared `Collapsible` component to use it — this automatically
+  upgrades `RelationshipSection` in `type-explorer.html` (the ~30 call sites
+  behind every Detail panel's relationship groups) with zero further changes,
+  since it already delegated to `Collapsible`.
+- Applied directly to `tech-catalog.html`'s `SubPane` (both the "prominent"
+  and normal header variants — this backs Schema, Lineage, and the
+  Relationships block) and `AnnotationsSubPane`, in both envs.
+- Scope: this covers every **foldable section header** (Collapsible/SubPane/
+  Annotations) — the pattern semantically matching Schema/Relationships.
+  Deliberately left untouched: the small tree-navigation expand/collapse
+  chevrons in `type-explorer.html`/`tech-catalog.html`/`egeria-shared-ui.js`
+  (dozens of instances) — a different UX pattern (hierarchical tree
+  drill-down, not section show/hide). Flagged for Dan in case he wants those
+  addressed too as a follow-up.
+- Checked egeria-audit.html/egeria-operations.html/egeria-insights.html for
+  the same generic section-fold pattern — none found (their relationship UIs
+  are already specialized/tabbed, not this generic collapsible-section
+  pattern), so no changes needed there.
+
+**Follow-up (same day):** Dan liked the look and asked to standardize it
+across *every* collapsible/expandable affordance, explicitly including the
+hierarchical tree drill-downs that were deliberately left out above.
+Extended `FoldTriangle` (`egeria-shared-ui.js`, both envs) to take optional
+`onClick`/`size`/`style` so it can slot into tree-node rows (which often
+need the arrow itself clickable, independent of row selection, and a
+smaller footprint at deep nesting) while keeping the same glyph/rotation
+everywhere. Converted every remaining `▲/▼`/`▸/▾`/`▶` fold-toggle glyph in
+`type-explorer.html` and `tech-catalog.html` (both envs) — tree nodes
+(entity/classification/relationship side-nav, glossary tree, ref-data tree,
+location tree, solution-components tree, pyegeria-docs class tree, note-log
+rows), collapsible parameter groups (Optional Parameters, Advanced), and a
+multi-select dropdown's open/closed indicator. Left untouched: two `▶ Run`
+execute-button icons and one `▶ ` "first pipeline step" marker in Tech
+Catalog's process view — neither is a fold/expand affordance.
 
 ---
 ## Fix: Tech Catalog Schema section always empty (2026-07-21) — ✅ done

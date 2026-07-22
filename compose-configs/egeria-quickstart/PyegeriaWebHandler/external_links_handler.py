@@ -27,7 +27,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
-from common_serialize import _authored_fields, _header_summary, _generic_relationships
+from common_serialize import _authored_fields, _header_summary, _generic_relationships, _classifications
 
 router = APIRouter(tags=["external-references"])
 
@@ -100,6 +100,7 @@ def _serialize_ext_ref(element: dict, include_relationships: bool = False) -> di
         "props":          {k: v for k, v in props.items() if k not in _COMMON_PROP_KEYS},
         "_header":        _header_summary(element),
         **_authored_fields(element),
+        "classifications": _classifications(element),
     }
 
     if include_relationships:
@@ -238,6 +239,7 @@ def _serialize_external_id(element: dict, include_relationships: bool = False) -
         "props":          {k: v for k, v in props.items() if k not in _EXT_ID_PROP_KEYS},
         "_header":        _header_summary(element),
         **_authored_fields(element),
+        "classifications": _classifications(element),
     }
 
     if include_relationships:

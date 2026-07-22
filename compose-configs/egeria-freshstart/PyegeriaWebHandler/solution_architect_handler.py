@@ -21,7 +21,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
-from common_serialize import _authored_fields, _header_summary, _generic_relationships
+from common_serialize import _authored_fields, _header_summary, _generic_relationships, _classifications
 
 router = APIRouter(tags=["solution-architect"])
 
@@ -121,6 +121,7 @@ def _serialize_blueprint_summary(element: dict) -> dict:
         "typeName":          _type_name(element),
         "_header":           _header_summary(element),
         **_authored_fields(element),
+        "classifications": _classifications(element),
     }
 
 
@@ -160,6 +161,7 @@ def _serialize_component_summary(element: dict) -> dict:
         "typeName":          _type_name(element),
         "_header":           _header_summary(element),
         **_authored_fields(element),
+        "classifications": _classifications(element),
     }
 
 

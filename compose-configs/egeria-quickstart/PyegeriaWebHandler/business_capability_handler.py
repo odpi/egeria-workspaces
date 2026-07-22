@@ -29,7 +29,7 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 from egeria_auth import apply_token
-from common_serialize import _authored_fields, _header_summary, _generic_relationships
+from common_serialize import _authored_fields, _header_summary, _generic_relationships, _classifications
 
 router = APIRouter(tags=["business-capabilities"])
 
@@ -87,6 +87,7 @@ def _serialize_business_capability_summary(element: dict) -> dict:
         "status":                     header.get("status") or "",
         "_header":                    _header_summary(element),
         **_authored_fields(element),
+        "classifications": _classifications(element),
     }
 
 

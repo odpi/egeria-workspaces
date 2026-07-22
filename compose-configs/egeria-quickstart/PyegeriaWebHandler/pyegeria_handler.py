@@ -63,7 +63,7 @@ pyegeria.enable_ssl_check = False
 pyegeria.disable_ssl_warnings = True
 
 import dr_egeria_md
-from demo_config import DEMO_MODE, OBSIDIAN_VAULT_URL, OBSIDIAN_GITHUB_URL, EGERIA_ADVISOR_URL
+from demo_config import DEMO_MODE, OBSIDIAN_VAULT_URL, OBSIDIAN_GITHUB_URL, EGERIA_ADVISOR_URL, advisor_check_urls
 try:
     from demo_config import SERVER_MANAGED_AUTH
 except Exception:
@@ -340,21 +340,14 @@ async def platform_portal_config():
     else:
         obsidian_url = raw
     advisor_running = False
-    if EGERIA_ADVISOR_URL:
-        check_urls = [EGERIA_ADVISOR_URL]
-        # Inside Docker, localhost resolves to the container, not the host.
-        # Add host.docker.internal as a fallback so the health check reaches
-        # a service running on the host machine.
-        if "localhost" in EGERIA_ADVISOR_URL:
-            check_urls.append(EGERIA_ADVISOR_URL.replace("localhost", "host.docker.internal"))
-        for check_url in check_urls:
-            try:
-                async with httpx.AsyncClient(verify=False, timeout=1.5) as client:
-                    await client.head(check_url)
-                advisor_running = True
-                break
-            except Exception:
-                continue
+    for check_url in advisor_check_urls():
+        try:
+            async with httpx.AsyncClient(verify=False, timeout=1.5) as client:
+                await client.head(check_url)
+            advisor_running = True
+            break
+        except Exception:
+            continue
     return {
         "obsidian_vault_url":  obsidian_url,
         "obsidian_github_url": OBSIDIAN_GITHUB_URL,
