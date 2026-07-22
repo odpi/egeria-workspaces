@@ -45,7 +45,7 @@ from jose import jwt
 from loguru import logger
 from pydantic import BaseModel
 
-from demo_config import DEMO_MODE, EGERIA_ADVISOR_URL, EGERIA_ADVISOR_SSO_SECRET
+from demo_config import DEMO_MODE, EGERIA_ADVISOR_URL, EGERIA_ADVISOR_SSO_SECRET, advisor_check_urls
 
 router = APIRouter(prefix="/api/advisor", tags=["advisor-lock"])
 
@@ -236,13 +236,14 @@ async def _advisor_reachable() -> bool:
     if now - _reachable_cache["checked_at"] < _REACHABLE_TTL_SECONDS:
         return _reachable_cache["ok"]
     ok = False
-    if EGERIA_ADVISOR_URL:
+    for check_url in advisor_check_urls():
         try:
             async with httpx.AsyncClient(verify=False, timeout=1.5) as client:
-                await client.head(EGERIA_ADVISOR_URL)
+                await client.head(check_url)
             ok = True
+            break
         except Exception:
-            ok = False
+            continue
     _reachable_cache.update(ok=ok, checked_at=now)
     return ok
 
