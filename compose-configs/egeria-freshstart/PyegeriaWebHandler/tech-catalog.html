@@ -955,11 +955,11 @@ function TechTypeNode({ node, depth, selQN, onSelect, expanded, onToggle }) {
                background: isSelected ? 'var(--hover)' : 'transparent',
                borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent' }
     },
-      React.createElement('span', {
+      React.createElement(FoldTriangle, {
+        open: isExpanded, size: 9,
         onClick: function(e) { e.stopPropagation(); if (hasChildren) onToggle(key); },
-        style: { width: 14, flexShrink: 0, fontSize: 9, color: 'var(--dim)',
-                 visibility: hasChildren ? 'visible' : 'hidden', textAlign: 'center' }
-      }, isExpanded ? '▼' : '▶'),
+        style: { width: 14, visibility: hasChildren ? 'visible' : 'hidden' },
+      }),
       React.createElement('span', {
         onClick: function() { onSelect(node); },
         style: { fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -1249,14 +1249,14 @@ function SubPane({ title, fetchUrl, creds, renderContent, prominent }) {
 
   if (prominent) {
     var btnStyle = { width: '100%', marginTop: 14, padding: '10px 16px', fontSize: 13, fontWeight: 700,
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer',
+      display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer',
       borderRadius: 6, border: '1px solid ' + (open ? 'rgba(96,165,250,.6)' : 'rgba(96,165,250,.35)'),
       background: open ? 'rgba(96,165,250,.12)' : 'rgba(96,165,250,.06)',
       color: 'var(--accent)', userSelect: 'none' };
     return React.createElement('div', null,
       React.createElement('div', { style: btnStyle, onClick: toggle },
-        React.createElement('span', null, title),
-        React.createElement('span', { style: { fontSize: 18, lineHeight: 1 } }, open ? '▲' : '▼')
+        React.createElement(FoldTriangle, { open: open }),
+        React.createElement('span', null, title)
       ),
       open && React.createElement('div', { style: { paddingBottom: 12 } },
         loading
@@ -1268,13 +1268,12 @@ function SubPane({ title, fetchUrl, creds, renderContent, prominent }) {
     );
   }
 
-  var hdrStyle = { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 0', cursor: 'pointer', borderTop: '1px solid var(--border)', marginTop: 16, userSelect: 'none' };
+  var hdrStyle = { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', cursor: 'pointer', borderTop: '1px solid var(--border)', marginTop: 16, userSelect: 'none' };
   var labelStyle = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', flex: 1 };
-  var chevron = open ? '▲' : '▼';
   return React.createElement('div', null,
     React.createElement('div', { style: hdrStyle, onClick: toggle },
-      React.createElement('span', { style: labelStyle }, title),
-      React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)' } }, chevron)
+      React.createElement(FoldTriangle, { open: open }),
+      React.createElement('span', { style: labelStyle }, title)
     ),
     open && React.createElement('div', { style: { paddingBottom: 12 } },
       loading
@@ -1298,6 +1297,48 @@ function _flattenSchemaTree(nodes, depth, out) {
     _flattenSchemaTree(n.children, depth + 1, out);
   });
   return out;
+}
+
+// SchemaRow: one schema-tree row, plus an optional foldable classifications
+// sub-row (same Collapsible/FoldTriangle pattern as everywhere else) when the
+// node carries any — needs its own component (not a plain row-builder
+// function) so each row can hold its own expand/collapse state.
+function SchemaRow({ row, tdStyle, tdDim }) {
+  var _o = React.useState(false), open = _o[0], setOpen = _o[1];
+  var a = row.node;
+  var classifs = a.classifications || [];
+  var hasClassifs = classifs.length > 0;
+  return React.createElement(React.Fragment, null,
+    React.createElement('tr', {
+      style: hasClassifs ? { cursor: 'pointer' } : null,
+      onClick: hasClassifs ? function() { setOpen(!open); } : undefined,
+    },
+      React.createElement('td', { style: Object.assign({}, tdStyle, { paddingLeft: 4 + row.depth * 16 }) },
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 4 } },
+          row.depth > 0 && React.createElement('span', { style: { color: 'var(--dim)' } }, '↳ '),
+          hasClassifs && React.createElement(FoldTriangle, { open: open, size: 10 }),
+          a.displayName,
+          hasClassifs && React.createElement('span', { style: { fontSize: 10, color: 'var(--classif)', border: '1px solid var(--classif)', borderRadius: 8, padding: '0 5px' } }, classifs.length)
+        )
+      ),
+      React.createElement('td', { style: tdDim }, a.dataType || a.typeName || ''),
+      React.createElement('td', { style: tdDim }, a.required ? 'Yes' : ''),
+      React.createElement('td', { style: Object.assign({}, tdStyle, { color: 'var(--muted)' }) }, a.description || '')
+    ),
+    open && hasClassifs && React.createElement('tr', null,
+      React.createElement('td', { colSpan: 4, style: { padding: '2px 8px 10px', paddingLeft: 4 + row.depth * 16 + 14, borderBottom: '1px solid var(--border)' } },
+        classifs.map(function(c) {
+          return React.createElement('div', { key: c.typeName, style: { borderLeft: '3px solid var(--classif)', paddingLeft: 8, marginTop: 4 } },
+            React.createElement('div', { style: { fontSize: 11, fontWeight: 600, color: 'var(--classif)' } }, c.typeName),
+            Object.entries(c.properties || {}).map(function(e) {
+              return React.createElement('div', { key: e[0], style: { fontSize: 10, color: 'var(--muted)' } },
+                e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
+            })
+          );
+        })
+      )
+    )
+  );
 }
 
 // SchemaPane: renders schemaType + the real nested attribute structure
@@ -1329,16 +1370,7 @@ function SchemaPane({ guid, creds }) {
             ),
             React.createElement('tbody', null,
               rows.map(function(row, i) {
-                var a = row.node;
-                return React.createElement('tr', { key: a.guid || i },
-                  React.createElement('td', { style: Object.assign({}, tdStyle, { paddingLeft: 4 + row.depth * 16 }) },
-                    row.depth > 0 && React.createElement('span', { style: { color: 'var(--dim)' } }, '↳ '),
-                    a.displayName
-                  ),
-                  React.createElement('td', { style: tdDim }, a.dataType || a.typeName || ''),
-                  React.createElement('td', { style: tdDim }, a.required ? 'Yes' : ''),
-                  React.createElement('td', { style: Object.assign({}, tdStyle, { color: 'var(--muted)' }) }, a.description || '')
-                );
+                return React.createElement(SchemaRow, { key: row.node.guid || i, row: row, tdStyle: tdStyle, tdDim: tdDim });
               })
             )
           )
@@ -1751,8 +1783,7 @@ function AssetDetail({ item, detailLoading, onNavigate, creds, sectionId }) {
     ),
 
     // Classifications
-    (item.classifications || []).length > 0 && React.createElement('div', null,
-      React.createElement('div', { style: sectionHdr }, 'Classifications'),
+    (item.classifications || []).length > 0 && React.createElement(Collapsible, { title: 'Classifications', count: item.classifications.length, defaultOpen: true },
       item.classifications.map(function(c) {
         return React.createElement('div', { key: c.typeName, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--classif)' }) },
           React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
@@ -1764,12 +1795,24 @@ function AssetDetail({ item, detailLoading, onNavigate, creds, sectionId }) {
       })
     ),
 
+    // Raw JSON (debug) — advanced-user affordance, the untransformed Egeria
+    // payload for this guid rather than this app's serialized shape.
+    React.createElement(RawJsonViewer, { guid: item.guid, creds: creds }),
+
     // Mermaid diagrams — between Properties and Relationships
     React.createElement(AvailableMermaidDiagrams, { data: item, skip: new Set() }),
 
-    // Relationships
-    rels.length > 0 && React.createElement('div', null,
-      React.createElement('div', { style: sectionHdr }, 'Relationships'),
+    // Sub-panes: Schema and Lineage (lazy-loaded on first open) — moved above
+    // Relationships so the specific, structured views aren't buried below the
+    // generic flattened relationship dump.
+    item.hasSchema      && React.createElement(SchemaPane,         { guid: item.guid, creds: creds }),
+    item.hasLineage     && React.createElement(LineagePane,        { guid: item.guid }),
+    item.hasAnnotations && React.createElement(AnnotationsSubPane, { guid: item.guid, creds: creds, onNavigate: onNavigate }),
+
+    // Relationships — foldable (shared Collapsible), same affordance as the
+    // Schema/Lineage/Annotations sub-panes above and RelationshipSection in
+    // type-explorer.html.
+    rels.length > 0 && React.createElement(Collapsible, { title: 'Relationships', count: rels.length, defaultOpen: true },
       rels.map(function(r, i) {
         var el = r.relatedElement || {};
         var relProps = Object.entries(r.relationshipProperties || {});
@@ -1809,11 +1852,6 @@ function AssetDetail({ item, detailLoading, onNavigate, creds, sectionId }) {
         );
       })
     ),
-
-    // Sub-panes: Schema and Lineage (lazy-loaded on first open)
-    item.hasSchema      && React.createElement(SchemaPane,         { guid: item.guid, creds: creds }),
-    item.hasLineage     && React.createElement(LineagePane,        { guid: item.guid }),
-    item.hasAnnotations && React.createElement(AnnotationsSubPane, { guid: item.guid, creds: creds, onNavigate: onNavigate }),
 
     // Comments
     React.createElement(EgeriaCommentsSection, { guid: item.guid }),
@@ -2190,9 +2228,10 @@ function AnnotationsSubPane({ guid, creds, onNavigate }) {
   });
 
   return el('div', { style: { marginTop: 20 } },
-    el('div', { onClick: toggle, style: { display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginBottom: open ? 8 : 0 } },
+    el('div', { onClick: toggle, style: { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: open ? 8 : 0 } },
+      el(FoldTriangle, { open: open }),
       el('div', { style: { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)' } },
-        (open ? '▾ ' : '▸ ') + 'Annotations' + (data ? ' (' + data.length + ')' : '')),
+        'Annotations' + (data ? ' (' + data.length + ')' : '')),
       !loaded && el('span', { style: { fontSize: 10, color: 'var(--dim)' } }, '(click to load)')
     ),
     err && el('div', { style: { fontSize: 11, color: '#f87171', marginBottom: 8 } }, '⚠ ' + err),
@@ -2237,7 +2276,7 @@ function AnnotationsSubPane({ guid, creds, onNavigate }) {
               el('div', { onClick: function() { toggleGroup(typeName); },
                 style: { display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '5px 0',
                          borderBottom: '1px solid var(--border)', marginTop: 8, marginBottom: isCollapsed ? 0 : 6 } },
-                el('span', { style: { color: typeColor, fontSize: 12 } }, isCollapsed ? '▸' : '▾'),
+                el(FoldTriangle, { open: !isCollapsed, size: 12, style: { color: typeColor } }),
                 el('span', { style: { fontSize: 11, fontWeight: 600, color: 'var(--text)' } }, ANNOT_TYPE_LABEL[typeName] || typeName),
                 el('span', { style: { fontSize: 10, color: 'var(--dim)', marginLeft: 4 } }, '(' + groupItems.length + ')')
               ),
@@ -2477,7 +2516,7 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
                   el('td', { colSpan: COLS.length,
                     style: { padding: '4px 10px', fontSize: 11, fontWeight: 700, color: typeColor,
                              borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' } },
-                    el('span', { style: { marginRight: 6 } }, isCollapsed ? '▸' : '▾'),
+                    el(FoldTriangle, { open: !isCollapsed, size: 11, style: { marginRight: 6 } }),
                     ANNOT_TYPE_LABEL[typeName] || typeName,
                     el('span', { style: { color: 'var(--dim)', fontWeight: 400, marginLeft: 6 } }, '(' + groupItems.length + ')')
                   )

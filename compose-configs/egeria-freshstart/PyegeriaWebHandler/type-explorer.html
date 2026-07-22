@@ -662,8 +662,9 @@ function CollapsibleChartPanel({ label, spec }) {
   var [visible, setVisible] = React.useState(false);
   var btnStyle = { fontSize: 12, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'rgba(251,191,36,.08)', color: '#fbbf24', cursor: 'pointer' };
   return React.createElement('div', { style: { margin: '4px 0' } },
-    React.createElement('button', { onClick: function() { setVisible(function(v) { return !v; }); }, style: btnStyle },
-      (visible ? '▾ Hide ' : '▸ Show ') + label
+    React.createElement('button', { onClick: function() { setVisible(function(v) { return !v; }); }, style: Object.assign({ display: 'flex', alignItems: 'center', gap: 6 }, btnStyle) },
+      React.createElement(FoldTriangle, { open: visible, size: 12, style: { color: '#fbbf24' } }),
+      (visible ? 'Hide ' : 'Show ') + label
     ),
     visible && React.createElement(VegaChart, { spec: spec })
   );
@@ -1497,12 +1498,10 @@ function TreeNode({
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
-      color: 'var(--dim)',
-      fontSize: 10,
       width: 10,
       flexShrink: 0
     }
-  }, hasCh ? expanded.has(name) ? '▾' : '▸' : ''), /*#__PURE__*/React.createElement("span", {
+  }, hasCh ? /*#__PURE__*/React.createElement(FoldTriangle, { open: expanded.has(name), size: 10 }) : null), /*#__PURE__*/React.createElement("span", {
     className: "type-name",
     style: {
       color: nameCol
@@ -1640,7 +1639,7 @@ function Sidebar({
       ...s,
       tree: !s.tree
     }))
-  }, /*#__PURE__*/React.createElement("span", null, sec.tree ? '▾' : '▸'), " ENTITY TYPES (", Object.keys(entities).length, ")"), sec.tree && Object.keys(allEntities || entities).length > 0 && /*#__PURE__*/React.createElement(TreeNode, {
+  }, /*#__PURE__*/React.createElement(FoldTriangle, { open: sec.tree, size: 12 }), " ENTITY TYPES (", Object.keys(entities).length, ")"), sec.tree && Object.keys(allEntities || entities).length > 0 && /*#__PURE__*/React.createElement(TreeNode, {
     name: "OpenMetadataRoot",
     depth: 0,
     selected: selected,
@@ -1659,7 +1658,7 @@ function Sidebar({
       ...s,
       classifs: !s.classifs
     }))
-  }, /*#__PURE__*/React.createElement("span", null, sec.classifs ? '▾' : '▸'), " CLASSIFICATIONS (", Object.keys(classifications).length, ")"), sec.classifs && filtClassif.map(n => mkSideRow('classif', n, '#5a7290', '#5eead4', 'rgba(34,211,176,.1)'))), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement(FoldTriangle, { open: sec.classifs, size: 12 }), " CLASSIFICATIONS (", Object.keys(classifications).length, ")"), sec.classifs && filtClassif.map(n => mkSideRow('classif', n, '#5a7290', '#5eead4', 'rgba(34,211,176,.1)'))), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 4
     }
@@ -1669,7 +1668,7 @@ function Sidebar({
       ...s,
       rels: !s.rels
     }))
-  }, /*#__PURE__*/React.createElement("span", null, sec.rels ? '▾' : '▸'), " RELATIONSHIPS (", Object.keys(relationships).length, ")"), sec.rels && filtRels.map(n => mkSideRow('rel', n, '#5a7290', '#fbbf24', 'rgba(251,191,36,.1)'))))));
+  }, /*#__PURE__*/React.createElement(FoldTriangle, { open: sec.rels, size: 12 }), " RELATIONSHIPS (", Object.keys(relationships).length, ")"), sec.rels && filtRels.map(n => mkSideRow('rel', n, '#5a7290', '#fbbf24', 'rgba(251,191,36,.1)'))))));
 }
 
 // ── Attribute Index ───────────────────────────────────────────────────────────
@@ -1877,7 +1876,7 @@ function MultiSelect({ paramName, value, onChange, options, placeholder }) {
               }, '×')
             );
           }),
-      React.createElement('span', { style: { marginLeft: 'auto', color: 'var(--dim)', fontSize: 10, paddingLeft: 4 } }, open ? '▲' : '▼')
+      React.createElement(FoldTriangle, { open: open, size: 10, style: { marginLeft: 'auto', paddingLeft: 4 } })
     ),
     open && React.createElement('div', {
       style: { position: 'absolute', zIndex: 200, top: '100%', left: 0, right: 0, background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 4, boxShadow: '0 4px 16px rgba(0,0,0,.4)', maxHeight: 240, overflow: 'hidden', display: 'flex', flexDirection: 'column' },
@@ -2026,9 +2025,9 @@ function DictResultView({ rows, columns, depth }) {
     var cells = [];
     if (hasExpand) {
       cells.push(React.createElement('td', { key: '__x',
-        style: Object.assign({}, _DV_TD, { cursor: 'pointer', color: 'var(--accent)', fontSize: 14, width: 22, textAlign: 'center' }),
+        style: Object.assign({}, _DV_TD, { cursor: 'pointer', width: 22, textAlign: 'center' }),
         onClick: function() { setExpanded(function(p) { var n = Object.assign({}, p); n[rowId] = !n[rowId]; return n; }); }
-      }, isExp ? '▾' : '▸'));
+      }, React.createElement(FoldTriangle, { open: isExp, size: 14 })));
     }
     scalarCols.forEach(function(c) {
       var val = row[c.dataKey];
@@ -2234,7 +2233,7 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
             style: { fontSize: 12, color: 'var(--text)', cursor: 'pointer', marginBottom: 6, userSelect: 'none', display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(99,102,241,.08)', border: '1px solid rgba(99,102,241,.25)', borderRadius: 5, padding: '6px 10px' },
             onClick: function() { setShowOptParams(function(v) { return !v; }); },
           },
-            React.createElement('span', { style: { fontSize: 13, color: '#a5b4fc' } }, showOptParams ? '▾' : '▸'),
+            React.createElement(FoldTriangle, { open: showOptParams, size: 13, style: { color: '#a5b4fc' } }),
             React.createElement('span', { style: { fontWeight: 600 } }, 'Optional Parameters'),
             React.createElement('span', { style: { background: 'rgba(99,102,241,.2)', color: '#a5b4fc', borderRadius: 3, padding: '0 6px', fontSize: 11, fontWeight: 700 } }, spec.action.optional_params.length),
             React.createElement('span', { style: { fontSize: 10, fontStyle: 'italic', color: 'var(--dim)', marginLeft: 2 } }, '— leave blank for defaults')
@@ -2259,7 +2258,7 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
             style: { fontSize: 12, color: 'var(--text)', cursor: 'pointer', marginBottom: 6, userSelect: 'none', display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(251,191,36,.06)', border: '1px solid rgba(251,191,36,.2)', borderRadius: 5, padding: '6px 10px' },
             onClick: function() { setShowAdvanced(function(v) { return !v; }); },
           },
-            React.createElement('span', { style: { fontSize: 13, color: '#fbbf24' } }, showAdvanced ? '▾' : '▸'),
+            React.createElement(FoldTriangle, { open: showAdvanced, size: 13, style: { color: '#fbbf24' } }),
             React.createElement('span', { style: { fontWeight: 600 } }, 'Advanced'),
             React.createElement('span', { style: { background: 'rgba(251,191,36,.15)', color: '#fbbf24', borderRadius: 3, padding: '0 6px', fontSize: 11, fontWeight: 700 } }, Object.keys(spec.action.spec_params).length),
             React.createElement('span', { style: { fontSize: 10, fontStyle: 'italic', color: 'var(--dim)', marginLeft: 2 } }, '— pre-configured by report spec')
@@ -2903,7 +2902,7 @@ function RefDataTreeNode({ item, byGuid, depth, selected, onSelect, expanded, to
       title: item.description || item.qualifiedName,
     },
       hasChildren
-        ? React.createElement('span', { style: { width: 16, fontSize: 10, color: isExpanded ? 'var(--accent)' : 'var(--muted)', flexShrink: 0, textAlign: 'center' } }, isExpanded ? '▼' : '▶')
+        ? React.createElement(FoldTriangle, { open: isExpanded, size: 10, style: { width: 16 } })
         : React.createElement('span', { style: { width: 16, flexShrink: 0 } }),
       React.createElement('span', { className: 'type-name', style: { flex: 1 } }, label),
       item.isSet && React.createElement('span', { className: 'badge', style: { background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.3)', fontSize: 9, flexShrink: 0 } }, item.typeName || 'Set')
@@ -3196,9 +3195,7 @@ function DigitalTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggle
       }
     },
       node.isContainer
-        ? React.createElement("span", { style: { color: isExp ? 'var(--accent)' : 'var(--muted)', width: 18, display: 'inline-block', fontSize: 11, flexShrink: 0, fontWeight: 700, textAlign: 'center' } },
-            isExp ? '▼' : '▶'
-          )
+        ? React.createElement(FoldTriangle, { open: isExp, size: 11, style: { width: 18, display: 'inline-block' } })
         : React.createElement("span", { style: { width: 18, display: 'inline-block', flexShrink: 0 } }),
       React.createElement("span", { className: "type-name" }, node.displayName || node.qualifiedName || node.guid),
       node.typeName && React.createElement("span", { className: "badge", style: { background: 'rgba(99,102,241,.1)', color: typeColor, border: '0.5px solid rgba(99,102,241,.3)', fontSize: 9, marginLeft: 4 } }, node.typeName)
@@ -3787,7 +3784,7 @@ function PyegeriaDocsView() {
             onClick: function() { toggleDomain(g.domain); },
             style: { padding: '6px 10px 6px 10px', cursor: 'pointer', background: 'var(--panel)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, userSelect: 'none' }
           },
-            React.createElement("span", { style: { fontSize: 14, color: 'var(--text)', flexShrink: 0, lineHeight: 1 } }, open ? '▼' : '▶'),
+            React.createElement(FoldTriangle, { open: open, size: 14 }),
             React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: 'var(--text)', flex: 1 } }, g.domain),
             React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)', background: 'var(--bg)', padding: '1px 5px', borderRadius: 3, border: '1px solid var(--border)' } }, g.classes.length)
           ),
@@ -3887,7 +3884,7 @@ function PyegeriaDocsView() {
                   onClick: function() { toggleMethod(m.name); },
                   style: { padding: '8px 14px', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: 8, background: isOpen ? 'var(--panel)' : 'transparent' }
                 },
-                  React.createElement("span", { style: { fontSize: 12, color: 'var(--dim)', marginTop: 2, flexShrink: 0 } }, isOpen ? '▾' : '▸'),
+                  React.createElement(FoldTriangle, { open: isOpen, size: 12, style: { marginTop: 2 } }),
                   React.createElement("div", { style: { flex: 1, minWidth: 0 } },
                     React.createElement("div", { style: { display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' } },
                       React.createElement("span", { style: { fontSize: 13, fontWeight: 600, fontFamily: 'ui-monospace,monospace', color: 'var(--text)' } }, m.name),
@@ -6033,9 +6030,9 @@ function DrEgeriaCommandsView() {
       ),
       optional.length > 0 && React.createElement("div", { style: { marginBottom: 16 } },
         React.createElement("div", {
-          style: { fontWeight: 700, fontSize: 12, color: 'var(--dim)', marginBottom: 8, cursor: 'pointer' },
+          style: { fontWeight: 700, fontSize: 12, color: 'var(--dim)', marginBottom: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 },
           onClick: function() { setShowOptional(function(v) { return !v; }); }
-        }, (showOptional ? "▾" : "▸") + " Optional Parameters (" + optional.length + ")"),
+        }, React.createElement(FoldTriangle, { open: showOptional, size: 12 }), " Optional Parameters (" + optional.length + ")"),
         showOptional && optional.map(paramField)
       ),
       execState !== 'idle' && React.createElement("div", { style: { marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 16 } },
@@ -6200,7 +6197,7 @@ function DrEgeriaCommandsView() {
             style: { fontWeight: 700, fontSize: 13, marginBottom: 8, color: 'var(--dim)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 },
             onClick: function() { setShowOptional(function(v) { return !v; }); }
           },
-            React.createElement("span", null, showOptional ? "▾" : "▸"),
+            React.createElement(FoldTriangle, { open: showOptional, size: 13 }),
             "Optional Parameters (" + optional.length + ")"
           ),
           showOptional && renderParamTable(optional, 'var(--fg)')
@@ -6393,7 +6390,7 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
               onClick: function() { setSelected(x.guid); if (hasSegs) toggleISC(x.guid); }, title: x.qualifiedName || x.guid,
             },
               hasSegs
-                ? React.createElement("span", { style: { color: isExp ? 'var(--accent)' : 'var(--muted)', width: 14, display: 'inline-block', flexShrink: 0, fontSize: 10, fontWeight: 700, textAlign: 'center' } }, isExp ? '▼' : '▶')
+                ? React.createElement(FoldTriangle, { open: isExp, size: 10, style: { width: 14, display: 'inline-block' } })
                 : React.createElement("span", { style: { width: 14, display: 'inline-block', flexShrink: 0 } }),
               React.createElement("span", { className: "type-name" }, x.displayName || x.qualifiedName),
               x.lifecycleStatus && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(94,234,212,.1)', color: '#5eead4', border: '0.5px solid rgba(94,234,212,.3)', marginLeft: 4 } }, x.lifecycleStatus)
@@ -6509,10 +6506,14 @@ function RelatedElementRow({ item, onNavigateToElement }) {
   );
 }
 
+// Foldable — uses the shared Collapsible (static/egeria-shared-ui.js), same
+// toggle affordance already used elsewhere (e.g. Audit's relationship tabs),
+// applied consistently here since this one component backs every detail
+// panel's relationship groups across the whole app (~30 call sites via
+// direct use + GenericRelationshipsSection below).
 function RelationshipSection({ title, items, onNavigateToElement }) {
   if (!items || !items.length) return null;
-  return React.createElement("div", { style: { marginBottom: 16 } },
-    React.createElement("div", { style: { fontWeight: 600, fontSize: 13, marginBottom: 6, color: 'var(--accent)' } }, title + " (" + items.length + ")"),
+  return React.createElement(Collapsible, { title: title, count: items.length, defaultOpen: true },
     items.map(function(item) {
       return React.createElement(RelatedElementRow, { key: item.guid, item: item, onNavigateToElement: onNavigateToElement });
     })
@@ -6640,7 +6641,7 @@ function LocationTreeNode({ item, byGuid, depth, selected, onSelect, expanded, t
       title: item.qualifiedName || item.guid,
     },
       hasChildren
-        ? React.createElement('span', { style: { width: 16, fontSize: 10, color: isExpanded ? 'var(--accent)' : 'var(--muted)', flexShrink: 0, textAlign: 'center' } }, isExpanded ? '▼' : '▶')
+        ? React.createElement(FoldTriangle, { open: isExpanded, size: 10, style: { width: 16 } })
         : React.createElement('span', { style: { width: 16, flexShrink: 0 } }),
       React.createElement('span', { className: 'type-name', style: { flex: 1 } }, label),
       React.createElement(LocationKindBadges, { kinds: item.locationKinds })
@@ -6813,7 +6814,7 @@ function LocationsView({ navGuid, onNavigateToElement }) {
                 React.createElement("div", {
                   onClick: function() { toggleLocKind(k); },
                   style: { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--dim)', background: 'var(--panel)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' } },
-                  React.createElement("span", { style: { width: 10, fontSize: 9, flexShrink: 0 } }, collapsed ? '▶' : '▼'),
+                  React.createElement(FoldTriangle, { open: !collapsed, size: 9, style: { width: 10 } }),
                   React.createElement("span", { style: { flex: 1 } }, k),
                   React.createElement("span", { style: { color: 'var(--muted)', fontWeight: 400 } }, groups[k].length)
                 ),
@@ -7067,7 +7068,7 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
               onClick: function() { toggleKind(key); },
               style: { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--dim)', background: 'var(--panel)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0 },
             },
-              React.createElement("span", { style: { width: 10, fontSize: 9, flexShrink: 0 } }, collapsed ? '▶' : '▼'),
+              React.createElement(FoldTriangle, { open: !collapsed, size: 9, style: { width: 10 } }),
               React.createElement("span", { style: { flex: 1 } }, tn),
               React.createElement("span", { style: { color: 'var(--muted)', fontWeight: 400 } }, groups[tn].length)
             ),
@@ -7848,7 +7849,7 @@ function NoteEntryCard({ entry, expanded, onToggle, colW }) {
       onClick: onToggle,
       style: { display: 'flex', alignItems: 'flex-start', cursor: 'pointer', padding: '7px 4px', background: expanded ? 'var(--panel)' : 'transparent' },
     },
-      React.createElement("span", { style: { width: 18, textAlign: 'center', fontSize: 10, color: expanded ? 'var(--accent)' : 'var(--muted)', flexShrink: 0, fontWeight: 700, marginTop: 1 } }, expanded ? '▼' : '▶'),
+      React.createElement(FoldTriangle, { open: expanded, size: 10, style: { width: 18, marginTop: 1 } }),
       // Collapsed: one line with ellipsis (+ hover tooltip). Expanded: wrap to show the full subject.
       React.createElement("span", { title: title, style: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: expanded ? 700 : 600, padding: '0 8px',
         overflow: expanded ? 'visible' : 'hidden', textOverflow: expanded ? 'clip' : 'ellipsis',
@@ -8291,7 +8292,7 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
             style: { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: 'var(--text)', background: 'var(--panel)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' },
             title: folio.qualifiedName || folio.guid,
           },
-            React.createElement("span", { style: { width: 10, fontSize: 9, flexShrink: 0, color: isExp ? 'var(--accent)' : 'var(--muted)' } }, isExp ? '▼' : '▶'),
+            React.createElement(FoldTriangle, { open: isExp, size: 9, style: { width: 10 } }),
             React.createElement("span", { className: "badge", style: { fontSize: 8, background: 'rgba(251,191,36,.12)', color: '#fbbf24', border: '0.5px solid rgba(251,191,36,.3)' } }, "Folio"),
             React.createElement("span", { style: { flex: 1 } }, folio.displayName || folio.qualifiedName),
             React.createElement("span", { style: { color: 'var(--muted)', fontWeight: 400 } }, (folio.blueprints || []).length)
@@ -8505,7 +8506,7 @@ function ProjectTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggle
       onClick: function() { onSelect(node); if (node.isContainer) toggle(node.guid); }
     },
       node.isContainer
-        ? React.createElement('span', { style: { color: isExp ? 'var(--accent)' : 'var(--muted)', width: 14, flexShrink: 0, fontSize: 10, fontWeight: 700, marginTop: 2, textAlign: 'center' } }, isExp ? '▼' : '▶')
+        ? React.createElement(FoldTriangle, { open: isExp, size: 10, style: { width: 14, marginTop: 2 } })
         : React.createElement('span', { style: { width: 14, flexShrink: 0 } }),
       React.createElement('div', { style: { flex: 1, minWidth: 0 } },
         React.createElement('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: (node.classifications || []).length ? 4 : 0, lineHeight: 1.3 } }, node.displayName || node.qualifiedName || node.guid),
@@ -8833,7 +8834,7 @@ function GovTypeNode({ node, depth, selectedType, onSelect, expanded, toggleExpa
       onClick: function() { onSelect(node.typeName); if (hasChildren) toggleExpanded(node.typeName); }
     },
       hasChildren
-        ? React.createElement('span', { style: { width: 14, fontSize: 10, color: isExp ? 'var(--accent)' : 'var(--muted)', flexShrink: 0, textAlign: 'center' } }, isExp ? '▼' : '▶')
+        ? React.createElement(FoldTriangle, { open: isExp, size: 10, style: { width: 14 } })
         : React.createElement('span', { style: { width: 14, flexShrink: 0 } }),
       React.createElement('span', { style: { flex: 1, color: isAbstract ? 'var(--dim)' : 'var(--text)', fontStyle: isAbstract ? 'italic' : 'normal', fontSize: 13 } }, node.label),
       isSel && !isAbstract && React.createElement('span', { style: { width: 6, height: 6, borderRadius: 3, background: 'var(--accent)', flexShrink: 0 } })
