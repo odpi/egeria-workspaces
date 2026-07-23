@@ -27,7 +27,26 @@ time-series store, no data warehouse, the metadata *is* the history.
 ### Axis 1 — `asOfTime` (system / version time) — **use this heavily next**
 
 "What did the repository know at time T." Already used for the growth series.
-Underexploited. Planned uses:
+The overview endpoints (summary / people / usage-context / ai-context) now accept
+`as_of_time` and thread it through. **How each client takes as-of differs** —
+verified by `test_overview_asof.py`:
+
+| Client method | as-of mechanism |
+|---|---|
+| `find_metadata_elements` | `asOfTime` in the `FindRequestBody` |
+| `get_relationships` | `asOfTime` in a `ResultsRequestBody` via `body=` |
+| `find_actor_profiles`, `find_communities` | `as_of_time=` kwarg |
+| `SolutionArchitect.find_*` | `asOfTime` in a **`SearchStringRequestBody`** via `body=` (no kwarg) |
+
+**Gotchas found (tests reproduce them):**
+- A raw `+` in the offset URL-decodes to a space → invalid timestamp → silent
+  all-null. Guarded by `_norm_asof`; clients using `URLSearchParams` are fine.
+- **`page_size` 5000 + as-of intermittently 500s** the Actor/Community/Solution
+  view services; 500 (the endpoints' value) is reliable. Worth a controlled repro
+  / pyegeria issue.
+- as-of is **expensive** (people ≈47s) — reinforces the count-API case below.
+
+Planned uses:
 
 1. **Global time-machine** — a single "as of `<date>`" picker in the header that
    re-runs **every** `/api/overview/*` endpoint with `asOfTime=<date>`. The whole
