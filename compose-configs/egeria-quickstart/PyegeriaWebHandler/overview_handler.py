@@ -237,7 +237,10 @@ def get_summary(
     term_count, term_capped = _count_type(mgr, "GlossaryTerm")
     top_zones = sorted(zone_counts.items(), key=lambda kv: -kv[1])[:8]
 
-    # Certifications & licenses (governance relationships) — separate client, best-effort.
+    # Data products (DigitalProduct) — live count.
+    data_products, _ = _count_type(mgr, "DigitalProduct")
+
+    # Certifications, licenses & open exceptions (governance relationships).
     certs = _certifications(url, server, user_id, user_pwd)
 
     payload = {
@@ -252,9 +255,8 @@ def get_summary(
         "certExpiring90":   certs["expiring90"],
         "certSoon":         certs["soon"],
         "licenses":         certs["licenses"],
-        # Still sample in the SPA until wired.
-        "dataProducts":     None,
-        "openExceptions":   None,
+        "dataProducts":     data_products,
+        "openExceptions":   certs["exceptions"],
         "partial":          True,
         "source":           "live:summary",
     }
@@ -286,9 +288,10 @@ def _rel_end_date(rel: dict):
 
 def _certifications(url, server, user_id, user_pwd) -> dict:
     """Count active certifications, those expiring within 90 days, a soonest list,
-    and the license count. Degrades to zeros on any failure (demo may have none)."""
+    the license count, and open governance exceptions. Degrades to zeros on any
+    failure (demo may have none)."""
     from datetime import datetime, timezone, timedelta
-    out = {"active": None, "expiring90": None, "soon": [], "licenses": None}
+    out = {"active": None, "expiring90": None, "soon": [], "licenses": None, "exceptions": None}
     try:
         ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
     except Exception as exc:  # noqa: BLE001
@@ -322,6 +325,11 @@ def _certifications(url, server, user_id, user_pwd) -> dict:
                                                               output_format="JSON", start_from=0, page_size=_DEFAULT_CAP)))
     except Exception:  # noqa: BLE001
         pass
+    try:
+        out["exceptions"] = len(_json_list(ce.get_relationships(relationship_type="Exception",
+                                                               output_format="JSON", start_from=0, page_size=_DEFAULT_CAP)))
+    except Exception:  # noqa: BLE001
+        pass
     return out
 
 
@@ -343,26 +351,41 @@ def get_ai_context(
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
-    cataloged, _ = _count_type(mgr, "Asset")           # broad supertype, capped
-    classified   = len(_find(mgr, {
+    cataloged, _ = _count_type(mgr, "Asset")           # broad supertype
+    classified   = len(_find(mgr, {                     # any governance classification
         "class": "FindRequestBody", "limitResultsByStatus": ["ACTIVE"],
         "matchClassifications": {"class": "SearchClassifications", "matchCriteria": "ANY",
-                                  "conditions": [{"name": "Confidentiality"}]},
+                                  "conditions": [{"name": n} for n in _GOVERNANCE_CLASSIFICATIONS]},
     }))
+
+    # Semantic grounding: SemanticAssignment relationships (term ↔ asset) — the
+    # meaning layer that grounds AI. Count of assignments as a proxy for grounded links.
+    grounding_links = None
+    grounding_pct = None
+    try:
+        ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
+        grounding_links = len(_json_list(ce.get_relationships(
+            relationship_type="SemanticAssignment", output_format="JSON",
+            start_from=0, page_size=5000)))
+        if cataloged:
+            grounding_pct = min(100, round(100 * grounding_links / cataloged))
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview ai-context: grounding query failed: {exc}")
 
     payload = {
         "funnel": {
             "cataloged":  cataloged or None,
-            "documented": None,     # needs a description-present filter — TODO
+            "documented": None,          # needs a description-present filter — best-effort TODO
             "classified": classified or None,
-            "lineage":    None,     # needs lineage-relationship presence — TODO
-            "aiReady":    None,     # composite gate — TODO
+            "lineage":    None,          # needs lineage-relationship presence — TODO
+            "aiReady":    None,          # composite gate — TODO
         },
-        "consumers":  None,   # not natively tracked (would come from MCP/API access logs)
-        "guardrails": None,
-        "grounding":  None,   # % assets with glossary term links — TODO
-        "partial":    True,
-        "source":     "live:ai-context",
+        "consumers":       None,         # not natively tracked (MCP/API access logs)
+        "guardrails":      None,
+        "groundingLinks":  grounding_links,
+        "groundingPct":    grounding_pct,
+        "partial":         True,
+        "source":          "live:ai-context",
     }
     return JSONResponse(_cache_put(ckey, payload))
 
@@ -473,19 +496,61 @@ def _is_template_el(el: dict) -> bool:
 
 # ── Growth (asOfTime snapshots) ──────────────────────────────────────────────
 
-@router.get("/api/overview/growth", summary="Catalog growth via asOfTime snapshots (best-effort)")
+_GROWTH_TTL = 900.0   # 15 min — growth is expensive (N snapshots) and slow-moving
+
+
+def _count_asof(mgr, type_name: Optional[str], as_of: Optional[str], classifications=None) -> int:
+    body: dict = {"class": "FindRequestBody", "limitResultsByStatus": ["ACTIVE"]}
+    if type_name:
+        body["metadataElementTypeName"] = type_name
+    if classifications:
+        body["matchClassifications"] = {"class": "SearchClassifications", "matchCriteria": "ANY",
+                                         "conditions": [{"name": n} for n in classifications]}
+    if as_of:
+        body["asOfTime"] = as_of
+    return len(_find(mgr, body, page_size=5000))
+
+
+@router.get("/api/overview/growth", summary="Catalog growth via asOfTime snapshots")
 def get_growth(
     months: int = Query(6, ge=2, le=12),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
-    """Placeholder shape for the growth series. A live implementation issues one
-    capped find per snapshot date with asOfTime set (Egeria supports historical
-    queries natively — no separate time-series store). Deferred to keep the first
-    build fast; SPA renders its sample series until this returns data."""
-    return JSONResponse({
-        "series":  None,
-        "months":  months,
-        "partial": True,
-        "source":  "stub:growth",
-    })
+    """Real growth series: one capped find per snapshot date with asOfTime set —
+    Egeria answers historical queries natively, so no separate time-series store is
+    needed. Snapshots assets (Asset supertype), glossary terms, and governed
+    elements at monthly points. Cached 15 min (this is the expensive endpoint)."""
+    from datetime import datetime, timezone
+    ckey = f"growth|{months}|{url}|{server}|{user_id}"
+    hit = _cache.get(ckey)
+    if hit and (time.time() - hit[0]) < _GROWTH_TTL:
+        return JSONResponse(hit[1])
+
+    try:
+        mgr = _expert(url, server, user_id, user_pwd)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+    now = datetime.now(timezone.utc)
+    points = []
+    for i in range(months - 1, -1, -1):
+        # i months back — approximate a month as 30 days; None asOfTime = "now" for i==0
+        if i == 0:
+            as_of, label = None, now.strftime("%b")
+        else:
+            dt = now.timestamp() - i * 30 * 86400
+            d = datetime.fromtimestamp(dt, tz=timezone.utc)
+            as_of, label = d.isoformat(), d.strftime("%b")
+        try:
+            assets   = _count_asof(mgr, "Asset", as_of)
+            terms    = _count_asof(mgr, "GlossaryTerm", as_of)
+            governed = _count_asof(mgr, None, as_of, classifications=_GOVERNANCE_CLASSIFICATIONS)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview growth: snapshot {i} failed: {exc}")
+            assets = terms = governed = None
+        points.append({"label": label, "assets": assets, "terms": terms, "governed": governed})
+
+    payload = {"series": points, "months": months, "partial": False, "source": "live:growth"}
+    _cache[ckey] = (time.time(), payload)
+    return JSONResponse(payload)

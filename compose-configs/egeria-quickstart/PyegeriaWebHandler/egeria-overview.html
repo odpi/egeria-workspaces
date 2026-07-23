@@ -125,6 +125,9 @@
   .persp-tabs button { background:transparent; border:1px solid var(--border); color:var(--muted); border-radius:20px;
     padding:5px 12px; font-size:.75rem; cursor:pointer; font-family:inherit; white-space:nowrap; }
   .persp-tabs button.on { background:var(--c3); border-color:var(--c3); color:#1a1a2e; font-weight:650; }
+  /* perspective-driven layout: sections become flex items so JS can reorder/hide them */
+  .dash-flow { display:flex; flex-direction:column; }
+  .dash-sec { min-width:0; }
   .persp-tabs button:hover:not(.on){ border-color:var(--c3); color:var(--text); }
 
   .qpanel { max-height:0; overflow:hidden; transition:max-height .3s ease; }
@@ -235,19 +238,19 @@
   <div class="persp-bar">
     <div>
       <div class="persp-eyebrow">Viewing through perspective</div>
-      <div class="persp-cur">🛡️ Data Governance Lead
+      <div class="persp-cur" id="persp-cur">🛡️ Data Governance Lead
         <span style="font-size:.72rem;color:var(--muted);font-weight:400">— "Are we in control, and is it improving?"</span>
       </div>
     </div>
     <div class="persp-tabs">
-      <button class="on">Governance Lead</button>
-      <button>Steward</button>
-      <button>Data Owner</button>
-      <button>Consumer</button>
-      <button>Engineer</button>
-      <button>App&nbsp;/&nbsp;AI&nbsp;Builder</button>
-      <button>Privacy&nbsp;Officer</button>
-      <button>Community&nbsp;Lead</button>
+      <button data-persp="governance" class="on">Governance Lead</button>
+      <button data-persp="steward">Steward</button>
+      <button data-persp="owner">Data Owner</button>
+      <button data-persp="consumer">Consumer</button>
+      <button data-persp="engineer">Engineer</button>
+      <button data-persp="builder">App&nbsp;/&nbsp;AI&nbsp;Builder</button>
+      <button data-persp="privacy">Privacy&nbsp;Officer</button>
+      <button data-persp="community">Community&nbsp;Lead</button>
       <button onclick="document.getElementById('qpanel').classList.toggle('open')" style="border-color:var(--c3);color:var(--c3)">❓ Questions ▾</button>
     </div>
   </div>
@@ -256,66 +259,12 @@
   <div class="qpanel" id="qpanel">
     <div class="qpanel-inner">
       <div class="qp-head">This view renders the <b>questions this perspective needs answered</b>. Each question is a <code>Question</code> element (GlossaryTerm · IsQuestion) linked to the perspective via <code>ScopedBy</code>, and answered by a saved <b>report spec / view definition</b>. Starter question sets are scavenged from <b>DAMA-DMBOK</b>, <b>EDM-Council DCAM</b>, <b>FAIR</b>, and <b>DataOps</b> observability — then curated per organization.</div>
-
-      <div class="qrow"><span>🟢</span><div><div class="q-txt">What share of critical assets is governed (owned, classified, certified)?</div><div class="q-src">DCAM · Data Governance &nbsp;→&nbsp; <b style="color:var(--text)">Business value:</b> regulatory exposure &amp; audit-readiness</div></div><span class="q-badge qb-ans">Governed Coverage · 68%</span></div>
-
-      <div class="qrow"><span>🟢</span><div><div class="q-txt">Is governance coverage improving period over period?</div><div class="q-src">DAMA maturity &nbsp;→&nbsp; <b style="color:var(--text)">Business value:</b> demonstrable program ROI to the board</div></div><span class="q-badge qb-ans">Trend · ▲5 pts</span></div>
-
-      <div class="qrow"><span>🟠</span><div><div class="q-txt">Where is our regulatory exposure concentrated?</div><div class="q-src">FAIR + Privacy &nbsp;→&nbsp; <b style="color:var(--text)">Business value:</b> avoided fines, breach-cost reduction</div></div><span class="q-badge qb-part">24 confidential in open zones</span></div>
-
-      <div class="qrow"><span>🟢</span><div><div class="q-txt">How many policy exceptions are open, and are they aging down?</div><div class="q-src">DCAM · Control &nbsp;→&nbsp; <b style="color:var(--text)">Business value:</b> operational risk &amp; SLA to remediation</div></div><span class="q-badge qb-ans">12 open · ▼4</span></div>
-
-      <div class="qrow"><span>🟠</span><div><div class="q-txt">How much of our data is <b>AI-ready</b> — governed context safe to feed apps &amp; agents?</div><div class="q-src">AI governance / context intelligence &nbsp;→&nbsp; <b style="color:var(--text)">Business value:</b> trustworthy AI faster, grounded &amp; auditable</div></div><span class="q-badge qb-part">48% AI-ready · ↓ AI section</span></div>
-
-      <div class="qrow"><span>⚪</span><div><div class="q-txt">Is the community actively curating &amp; trusting the catalog?</div><div class="q-src">Adoption / data-as-product &nbsp;→&nbsp; <b style="color:var(--text)">Business value:</b> self-service adoption, less steward toil</div></div><span class="q-badge qb-none">→ People &amp; Community ↓</span></div>
+      <div id="qrows"></div>
     </div>
   </div>
 
-  <!-- ── KPI BAND ── -->
-  <div class="kpis">
-    <div class="kpi clickable" data-drill="assets">
-      <span class="k-ico">🗂️</span>
-      <span class="k-label">Cataloged Assets</span>
-      <span class="k-val" id="kpi-assets">1,284</span>
-      <span class="delta up">▲ 63 <span style="color:var(--muted);font-weight:400">·  new /90d</span></span>
-      <svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline fill="none" stroke="var(--c2)" stroke-width="2" points="0,20 20,18 40,15 60,13 80,9 100,6 120,4"/></svg>
-    </div>
-    <div class="kpi">
-      <span class="k-ico">📖</span>
-      <span class="k-label">Glossary Terms</span>
-      <span class="k-val" id="kpi-terms">742</span>
-      <span class="k-sub">61% linked to assets</span>
-      <svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline fill="none" stroke="var(--c1)" stroke-width="2" points="0,17 20,15 40,14 60,12 80,10 100,8 120,7"/></svg>
-    </div>
-    <div class="kpi clickable" data-drill="governed">
-      <span class="k-ico">🛡️</span>
-      <span class="k-label">Governed Coverage</span>
-      <span class="k-val" id="kpi-governed">68%</span>
-      <span class="delta up">▲ 5 pts</span>
-      <svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline fill="none" stroke="var(--c6)" stroke-width="2" points="0,18 20,16 40,15 60,12 80,10 100,7 120,6"/></svg>
-    </div>
-    <div class="kpi clickable" data-drill="certs">
-      <span class="k-ico">📜</span>
-      <span class="k-label">Active Certifications</span>
-      <span class="k-val" id="kpi-certs">47</span>
-      <span class="delta down" id="kpi-certs-sub">6 expiring ≤90d</span>
-      <svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline fill="none" stroke="var(--c4)" stroke-width="2" points="0,10 20,11 40,9 60,12 80,11 100,13 120,12"/></svg>
-    </div>
-    <div class="kpi">
-      <span class="k-ico">📦</span>
-      <span class="k-label">Data Products</span>
-      <span class="k-val">23</span>
-      <span class="k-sub">18 published · 5 draft</span>
-      <svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline fill="none" stroke="var(--c3)" stroke-width="2" points="0,22 20,20 40,17 60,15 80,12 100,10 120,6"/></svg>
-    </div>
-    <div class="kpi">
-      <span class="k-ico">⚠️</span>
-      <span class="k-label">Open Exceptions</span>
-      <span class="k-val">12</span>
-      <span class="delta up" title="fewer is better">▼ 4 vs last period</span>
-      <svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline fill="none" stroke="var(--c5)" stroke-width="2" points="0,6 20,8 40,7 60,10 80,9 100,12 120,14"/></svg>
-    </div>
-  </div>
+  <!-- ── KPI BAND (per-perspective, JS-rendered) ── -->
+  <div class="kpis" id="kpi-band"></div>
 
   <!-- ── BUSINESS VALUE LENS ── -->
   <div class="section-label">Business Value <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— what these numbers mean to the business</span></div>
@@ -525,16 +474,16 @@
     </div>
     <div class="kpi clickable" data-drill="grounding">
       <span class="k-ico">🧠</span><span class="k-label">Semantic Grounding</span>
-      <span class="k-val">61%</span><span class="delta up">▲ 9 pts <span style="color:var(--muted);font-weight:400">·  glossary-linked</span></span>
+      <span class="k-val" id="ai-grounding">61%</span><span class="delta up">▲ 9 pts <span style="color:var(--muted);font-weight:400">·  glossary-linked</span></span>
     </div>
   </div>
 
   <div class="grid g-3">
     <div class="panel">
       <div class="panel-head"><div><h3>🚦 Context Readiness Funnel</h3><div class="ph-sub">How much cataloged data becomes trustworthy AI context</div></div><span class="drill-hint">click a stage</span></div>
-      <div class="funnel-row" data-drill="funnel-cataloged"><span class="lab">Cataloged</span><div class="funnel-track"><div class="funnel-fill" style="width:100%;background:var(--c2)">1,284</div></div><span class="conv">100%</span></div>
+      <div class="funnel-row" data-drill="funnel-cataloged"><span class="lab">Cataloged</span><div class="funnel-track"><div class="funnel-fill" style="width:100%;background:var(--c2)"><span id="uc-cataloged">1,284</span></div></div><span class="conv">100%</span></div>
       <div class="funnel-row" data-drill="funnel-documented"><span class="lab">Documented</span><div class="funnel-track"><div class="funnel-fill" style="width:71%;background:var(--c1)">912</div></div><span class="conv">71%</span></div>
-      <div class="funnel-row" data-drill="funnel-classified"><span class="lab">Classified</span><div class="funnel-track"><div class="funnel-fill" style="width:68%;background:var(--c6)">873</div></div><span class="conv">68%</span></div>
+      <div class="funnel-row" data-drill="funnel-classified"><span class="lab">Classified</span><div class="funnel-track"><div class="funnel-fill" style="width:68%;background:var(--c6)"><span id="uc-classified">873</span></div></div><span class="conv">68%</span></div>
       <div class="funnel-row" data-drill="funnel-lineage"><span class="lab">Lineage-traced</span><div class="funnel-track"><div class="funnel-fill" style="width:55%;background:var(--c3)">705</div></div><span class="conv">55%</span></div>
       <div class="funnel-row" data-drill="funnel-airead"><span class="lab" style="font-weight:700">AI-Ready</span><div class="funnel-track"><div class="funnel-fill" style="width:48%;background:var(--c4)">612</div></div><span class="conv">48%</span></div>
       <div style="margin-top:11px;font-size:.74rem;color:var(--muted);line-height:1.5;border-top:1px solid var(--border);padding-top:9px"><b style="color:var(--text)">Business value:</b> grounded, lineage-backed context = fewer hallucinations and a full audit trail of what an agent was allowed to see.</div>
@@ -696,17 +645,22 @@
 <!-- Shared portal helpers: egeriaFetch (adds creds + auto 401-refresh), crossAppNavigate -->
 <script src="/static/egeria-shared-ui.js?v=2026-07-22c"></script>
 <script>
-// ---- Catalog growth (dual axis-ish, normalized) ----
-(function(){
-  const svg = document.getElementById('growth');
+// ---- Catalog growth (dual-axis) — sample by default, live series when available ----
+function renderGrowth(live){
+  const svg = document.getElementById('growth'); if (!svg) return;
   const W=720,H=260, padL=44, padR=44, padT=16, padB=28;
-  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul'];
-  const assets=[880,948,1010,1072,1140,1221,1284];
-  const terms=[588,610,648,672,695,720,742];
-  const gov=[52,54,58,60,63,66,68]; // percent
+  let months=['Jan','Feb','Mar','Apr','May','Jun','Jul'];
+  let assets=[880,948,1010,1072,1140,1221,1284];
+  let terms=[588,610,648,672,695,720,742];
+  let gov=[52,54,58,60,63,66,68]; // percent
+  if (live && Array.isArray(live.labels) && live.labels.length >= 2) {
+    months = live.labels; assets = live.assets; terms = live.terms; gov = live.gov;
+  }
   const iw=W-padL-padR, ih=H-padT-padB;
   const x=i=>padL + iw*i/(months.length-1);
-  const maxL=1300, yL=v=>padT+ih*(1-v/maxL);
+  const rawMax = Math.max(...assets, ...terms, 10);
+  const maxL = Math.ceil(rawMax/100)*100 || 1300;
+  const yL=v=>padT+ih*(1-v/maxL);
   const yPct=v=>padT+ih*(1-v/100);
   let g='';
   // gridlines
@@ -732,7 +686,8 @@
   g+=line(terms,yL,'var(--c1)',false);
   g+=line(gov,yPct,'var(--c6)',false);
   svg.innerHTML=g;
-})();
+}
+renderGrowth();
 
 // ---- Donut ----
 (function(){
@@ -800,10 +755,189 @@ hbars('fbType',[
   svg.innerHTML=g;
 })();
 
-// perspective tab toggle (cosmetic)
-document.querySelectorAll('.persp-tabs button').forEach(b=>{ if(b.textContent.includes('Questions'))return;
-  b.onclick=()=>{ document.querySelectorAll('.persp-tabs button').forEach(x=>{if(!x.textContent.includes('Questions'))x.classList.remove('on');}); b.classList.add('on'); };
-});
+// ==== PERSPECTIVE-DRIVEN LAYOUT ====
+// Selecting a perspective reconfigures the whole dashboard: which sections show,
+// in what order, plus the ribbon title and the question set. The KPI band stays
+// (headline metrics are relevant to everyone); the sections below reflow.
+// Question starter sets are scavenged from DAMA-DMBOK / DCAM / FAIR / DataOps.
+const Q = (i,t,src,b,bc)=>({i:i,t:t,src:src,b:b,bc:bc||'qb-part'});
+const PERSPECTIVES = {
+  governance: { icon:'🛡️', label:'Data Governance Lead', q:'"Are we in control, and is it improving?"',
+    show:['value','growth','quality','composition','usage','ai','people','activity'],
+    questions:[
+      Q('🟢','What share of critical assets is governed (owned, classified, certified)?','DCAM · Governance → <b style="color:var(--text)">Business value:</b> regulatory exposure &amp; audit-readiness','Governed Coverage','qb-ans'),
+      Q('🟢','Is governance coverage improving period over period?','DAMA maturity → <b style="color:var(--text)">Business value:</b> demonstrable program ROI to the board','Growth trend','qb-ans'),
+      Q('🟠','Where is our regulatory exposure concentrated?','FAIR + Privacy → <b style="color:var(--text)">Business value:</b> avoided fines, breach-cost reduction','Confidential in open zones'),
+      Q('🟢','How many policy exceptions are open, and are they aging down?','DCAM · Control → <b style="color:var(--text)">Business value:</b> operational risk &amp; SLA to remediation','Open exceptions','qb-ans'),
+      Q('⚪','Is the community actively curating &amp; trusting the catalog?','Adoption → <b style="color:var(--text)">Business value:</b> self-service, less steward toil','→ People &amp; Community','qb-none') ] },
+  steward: { icon:'🧹', label:'Data Steward', q:'"What in my domain needs my attention?"',
+    show:['quality','composition','usage','growth','people','activity'],
+    questions:[
+      Q('🟠','Which assets lack an owner, classification, or description?','DAMA · Metadata → <b style="color:var(--text)">Value:</b> trustable, findable catalog','Attention queue'),
+      Q('🟠','Which glossary terms are unlinked or awaiting approval?','FAIR · Findable → <b style="color:var(--text)">Value:</b> semantic coverage','Orphan terms'),
+      Q('🟠','Which data stores have never been surveyed / profiled?','DataOps · quality → <b style="color:var(--text)">Value:</b> known data quality','Unsurveyed'),
+      Q('⚪','What changed in my domain since I last looked?','Observability → <b style="color:var(--text)">Value:</b> stay ahead of drift','→ Recent Activity','qb-none') ] },
+  owner: { icon:'📦', label:'Data Owner', q:'"Is my data healthy, used, and trusted?"',
+    show:['value','quality','people','usage','composition','activity'],
+    questions:[
+      Q('🟢','Who is using my data products, and how much?','Data-as-product → <b style="color:var(--text)">Value:</b> demonstrate impact','Most-engaged assets','qb-ans'),
+      Q('🟠','What is the quality &amp; freshness of assets I own?','DataOps → <b style="color:var(--text)">Value:</b> reliability','DQ coverage'),
+      Q('🟠','Are there open issues or low ratings on my assets?','Feedback → <b style="color:var(--text)">Value:</b> trust signal','Ratings'),
+      Q('🟠','Is my data properly classified &amp; access-controlled?','DCAM → <b style="color:var(--text)">Value:</b> compliance','Governed coverage') ] },
+  consumer: { icon:'🔎', label:'Data Consumer / Analyst', q:'"Can I find and trust the data I need?"',
+    show:['composition','usage','people','ai','growth'],
+    questions:[
+      Q('🟢','What certified data products exist for my domain?','FAIR · Findable → <b style="color:var(--text)">Value:</b> faster time-to-data','Data products','qb-ans'),
+      Q('🟠','Where did this data come from, and how fresh is it?','FAIR · lineage → <b style="color:var(--text)">Value:</b> trust','Usage context'),
+      Q('🟢','What do peers say — ratings, comments, most-used?','Collaboration → <b style="color:var(--text)">Value:</b> social proof','Most-engaged','qb-ans'),
+      Q('🟠','Which datasets are safe to use with an LLM/agent?','AI governance → <b style="color:var(--text)">Value:</b> safe reuse','AI-ready') ] },
+  engineer: { icon:'🔧', label:'Data Engineer / Platform', q:'"Is the pipeline healthy and complete?"',
+    show:['composition','usage','quality','ai','growth','activity'],
+    questions:[
+      Q('🟠','Which assets are unsurveyed / missing schema?','DataOps → <b style="color:var(--text)">Value:</b> coverage','Schema captured'),
+      Q('🟠','How complete is lineage — any orphan nodes?','FAIR · lineage → <b style="color:var(--text)">Value:</b> impact analysis','Lineage-traced'),
+      Q('🟠','What supply chains / blueprints do assets participate in?','Architecture → <b style="color:var(--text)">Value:</b> change safety','Usage context'),
+      Q('⚪','What structural change happened recently?','Observability → <b style="color:var(--text)">Value:</b> detect drift','→ Activity','qb-none') ] },
+  builder: { icon:'🤖', label:'App / AI Builder', q:'"How much governed context can I safely build on?"',
+    show:['ai','usage','composition','value','growth'],
+    questions:[
+      Q('🟠','How much data is AI-ready — governed, documented, lineage-traced?','AI governance → <b style="color:var(--text)">Value:</b> trustworthy AI faster','Context readiness funnel'),
+      Q('🟢','What context products can I consume via MCP / API?','Context intelligence → <b style="color:var(--text)">Value:</b> ship without re-plumbing','Context products','qb-ans'),
+      Q('🟠','What is semantically grounded (glossary-linked)?','RAG grounding → <b style="color:var(--text)">Value:</b> fewer hallucinations','Semantic grounding'),
+      Q('🟢','What guardrails keep confidential data out of AI context?','AI safety → <b style="color:var(--text)">Value:</b> defensible AI','AI guardrails','qb-ans') ] },
+  privacy: { icon:'🔒', label:'Privacy / Risk Officer', q:'"Where is our risk and exposure?"',
+    show:['value','quality','composition','ai','usage'],
+    questions:[
+      Q('🟠','Where is PII / sensitive data, and is it in the right zones?','Privacy → <b style="color:var(--text)">Value:</b> breach-cost reduction','Confidentiality dist.'),
+      Q('🟠','What is our retention / certification compliance posture?','DCAM · Control → <b style="color:var(--text)">Value:</b> avoided fines','Certifications'),
+      Q('🟠','Who / what can access restricted data (incl. AI agents)?','Access control → <b style="color:var(--text)">Value:</b> least privilege','AI guardrails'),
+      Q('🟢','Is confidential data blocked from AI training/RAG?','AI safety → <b style="color:var(--text)">Value:</b> defensible AI','Blocked from AI','qb-ans') ] },
+  community: { icon:'🌐', label:'Community Lead', q:'"Is the community healthy and engaged?"',
+    show:['people','activity','usage','value','growth'],
+    questions:[
+      Q('🟢','Who are our most active contributors (karma leaders)?','Community Profile → <b style="color:var(--text)">Value:</b> recognise curation','Karma leaderboard','qb-ans'),
+      Q('🟢','Is engagement (comments, ratings, tags) growing?','Adoption → <b style="color:var(--text)">Value:</b> trusted &amp; used catalog','Engagement trend','qb-ans'),
+      Q('🟠','Which communities / teams are most (and least) engaged?','Collaboration → <b style="color:var(--text)">Value:</b> target enablement','By organization'),
+      Q('🟠','What questions are being asked but not answered?','Q&amp;A → <b style="color:var(--text)">Value:</b> new views to build','Open questions') ] }
+};
+
+// ==== PER-PERSPECTIVE KPI BAND ====
+// LIVE holds the latest values fetched from /api/overview/*; METRICS renders a tile
+// from LIVE (sample fallback), and each perspective picks its own 6 headline metrics.
+const LIVE = {};
+let CUR_PERSP = 'governance';
+const num = n => (n != null ? Number(n).toLocaleString() : null);
+const SPARK = 'points="0,20 30,17 60,13 90,9 120,5"';
+const METRICS = {
+  assets:     { label:'Cataloged Assets',      ico:'🗂️', color:'var(--c2)', drill:'assets',
+                get:()=>({ val: num(LIVE.assets) || '1,284', sub: LIVE.assetsDelta || 'metadata assets' }) },
+  terms:      { label:'Glossary Terms',        ico:'📖', color:'var(--c1)', drill:'grounding',
+                get:()=>({ val: num(LIVE.terms) || '742', sub: 'business vocabulary' }) },
+  governed:   { label:'Governed Coverage',     ico:'🛡️', color:'var(--c6)', drill:'governed',
+                get:()=>({ val: LIVE.governedPct || '68%', sub: LIVE.governedSub || '≥1 governance classification' }) },
+  certs:      { label:'Active Certifications', ico:'📜', color:'var(--c4)', drill:'certs',
+                get:()=>({ val: LIVE.certs != null ? String(LIVE.certs) : '47', sub: LIVE.certsSub || '6 expiring ≤90d' }) },
+  products:   { label:'Data Products',         ico:'📦', color:'var(--c3)', drill:'products',
+                get:()=>({ val: LIVE.products != null ? String(LIVE.products) : '23', sub: 'digital products' }) },
+  exceptions: { label:'Open Exceptions',       ico:'⚠️', color:'var(--c5)', drill:'exceptions',
+                get:()=>({ val: LIVE.exceptions != null ? String(LIVE.exceptions) : '12', sub: 'governance issues open' }) },
+  people:     { label:'People / Contributors', ico:'👥', color:'var(--c2)', drill:'people',
+                get:()=>({ val: num(LIVE.people) || '34', sub: 'registered persons' }) },
+  communities:{ label:'Active Communities',    ico:'🌐', color:'var(--c6)', drill:'people',
+                get:()=>({ val: LIVE.communities != null ? String(LIVE.communities) : '9', sub: 'collaboration groups' }) },
+  isc:        { label:'Supply Chains',         ico:'🔗', color:'var(--c2)', drill:'isc',
+                get:()=>({ val: LIVE.isc != null ? String(LIVE.isc) : '18', sub: 'end-to-end data flows' }) },
+  blueprints: { label:'Solution Blueprints',   ico:'🧱', color:'var(--c3)', drill:'blueprints',
+                get:()=>({ val: LIVE.blueprints != null ? String(LIVE.blueprints) : '30', sub: 'reusable designs' }) },
+  grounding:  { label:'Semantic Grounding',    ico:'🧠', color:'var(--c1)', drill:'grounding',
+                get:()=>({ val: LIVE.groundingPct != null ? LIVE.groundingPct + '%' : '61%',
+                           sub: LIVE.groundingLinks != null ? num(LIVE.groundingLinks) + ' term links' : 'glossary-linked' }) }
+};
+const PERSP_KPIS = {
+  governance: ['assets','terms','governed','certs','products','exceptions'],
+  steward:    ['assets','governed','exceptions','certs','terms','grounding'],
+  owner:      ['products','governed','certs','exceptions','people','grounding'],
+  consumer:   ['products','terms','grounding','isc','blueprints','people'],
+  engineer:   ['assets','isc','blueprints','grounding','exceptions','governed'],
+  builder:    ['assets','grounding','isc','blueprints','governed','products'],
+  privacy:    ['governed','certs','exceptions','assets','grounding','products'],
+  community:  ['people','communities','products','terms','governed','assets']
+};
+function renderKPIs(){
+  const band = document.getElementById('kpi-band'); if (!band) return;
+  const keys = PERSP_KPIS[CUR_PERSP] || PERSP_KPIS.governance;
+  band.innerHTML = keys.map(k => {
+    const m = METRICS[k]; if (!m) return '';
+    const s = m.get();
+    return `<div class="kpi${m.drill ? ' clickable' : ''}"${m.drill ? ` data-drill="${m.drill}"` : ''}>`+
+      `<span class="k-ico">${m.ico}</span><span class="k-label">${m.label}</span>`+
+      `<span class="k-val">${s.val}</span><span class="k-sub">${s.sub || ''}</span>`+
+      `<svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline fill="none" stroke="${m.color}" stroke-width="2" ${SPARK}/></svg></div>`;
+  }).join('');
+}
+
+// Group each section-label + its content grids into a reorderable .dash-sec.
+function buildSections(){
+  const wrap = document.querySelector('.wrap');
+  const labels = [...wrap.querySelectorAll(':scope > .section-label')];
+  if (!labels.length) return;
+  const keyOf = txt => {
+    txt = txt.toLowerCase();
+    if (txt.includes('business value')) return 'value';
+    if (txt.includes('growth')) return 'growth';
+    if (txt.includes('composition')) return 'composition';
+    if (txt.includes('usage context')) return 'usage';
+    if (txt.includes('quality')) return 'quality';
+    if (txt.includes('ai &')) return 'ai';
+    if (txt.includes('people')) return 'people';
+    if (txt.includes('activity')) return 'activity';
+    return txt.replace(/\W+/g,'-').slice(0,12);
+  };
+  const flow = document.createElement('div'); flow.className = 'dash-flow';
+  wrap.insertBefore(flow, labels[0]);
+  const foot = wrap.querySelector('.foot-note');
+  labels.forEach((lab,i)=>{
+    const sec = document.createElement('section'); sec.className='dash-sec'; sec.dataset.sec = keyOf(lab.textContent);
+    const stop = labels[i+1] || foot;
+    let n = lab;
+    const nodes = [];
+    while (n && n !== stop) { nodes.push(n); n = n.nextElementSibling; }
+    nodes.forEach(x => sec.appendChild(x));
+    flow.appendChild(sec);
+  });
+}
+
+function renderQuestions(list){
+  const el = document.getElementById('qrows'); if (!el) return;
+  el.innerHTML = list.map(q =>
+    `<div class="qrow"><span>${q.i}</span><div><div class="q-txt">${q.t}</div>`+
+    `<div class="q-src">${q.src}</div></div><span class="q-badge ${q.bc}">${q.b}</span></div>`).join('');
+}
+
+function applyPerspective(key){
+  const p = PERSPECTIVES[key]; if (!p) return;
+  CUR_PERSP = key;
+  renderKPIs();
+  document.getElementById('persp-cur').innerHTML =
+    `${p.icon} ${p.label} <span style="font-size:.72rem;color:var(--muted);font-weight:400">— ${p.q}</span>`;
+  document.querySelectorAll('.persp-tabs button[data-persp]').forEach(b =>
+    b.classList.toggle('on', b.getAttribute('data-persp') === key));
+  const order = p.show;
+  document.querySelectorAll('.dash-sec').forEach(sec => {
+    const idx = order.indexOf(sec.dataset.sec);
+    if (idx === -1) { sec.style.display = 'none'; }
+    else { sec.style.display = ''; sec.style.order = idx; }
+  });
+  renderQuestions(p.questions);
+  try { localStorage.setItem('overview-perspective', key); } catch(e) {}
+}
+
+buildSections();
+document.querySelectorAll('.persp-tabs button[data-persp]').forEach(b =>
+  b.addEventListener('click', () => applyPerspective(b.getAttribute('data-persp'))));
+var _savedPersp = 'governance';
+try { _savedPersp = localStorage.getItem('overview-perspective') || 'governance'; } catch(e) {}
+applyPerspective(PERSPECTIVES[_savedPersp] ? _savedPersp : 'governance');
 
 // ==== DRILL-DOWN ====
 // Each entry = what a click reveals: a focused breakdown + the portal screen that owns the detail.
@@ -843,6 +977,21 @@ const DRILL = {
     list:[['Assets with term links',783],['Terms linked to assets',452],['Orphan terms',47]],
     cta:['Open Glossary in Explorer','/egeria-explorer'], sec:null,
     note:'Semantic assignments (term ↔ asset) from the Glossary handler.' },
+  products: { eb:'Data products', t:'📦 Data Products', s:'Curated, governed data products published for consumption',
+    stats:[['23','products'],['—','published'],['★4.3','avg rating']],
+    list:[['Clinical Trial Results DW',1],['Patient Demographics',1],['Weekly Sales Snapshot',1],['Drug Interaction Ref Data',1]],
+    cta:['Open Digital Products','/tech-catalog'], sec:['Governance in Insights','/egeria-insights'],
+    note:'Live count of <code>DigitalProduct</code> elements. Publication status &amp; ratings are a later slice.' },
+  exceptions: { eb:'Governance control', t:'⚠️ Open Exceptions', s:'Governance exceptions awaiting steward review or remediation',
+    stats:[['12','open'],['—','aging &gt;30d'],['—','assigned']],
+    list:[['Suspected duplicates',1],['Missing owner',1],['Classification conflicts',1],['Retention overdue',1]],
+    cta:['Open Egeria Audit','/egeria-audit'], sec:['Duplicate review','/egeria-explorer'],
+    note:'Live count of <code>Exception</code> governance relationships from ClassificationExplorer.' },
+  people: { eb:'People & community', t:'👥 People &amp; Community', s:'The human network behind the metadata — people, teams, organizations and communities',
+    stats:[['34','people'],['—','teams'],['—','communities']],
+    list:[['Registered persons',248],['Teams',45],['Organizations',21],['Communities',15]],
+    cta:['Open My Egeria','/my-egeria/'], sec:['Actors in Audit','/egeria-audit'],
+    note:'Live counts from ActorManager (Person/Team/Organization) &amp; CommunityMatters. Karma/feedback aggregates are a later slice.' },
   isc: { eb:'Usage context', t:'🔗 Information Supply Chains', s:'End-to-end flows that carry data through the business — the context that makes an asset meaningful',
     stats:[['18','supply chains'],['—','assets in flows'],['—','stages']],
     list:[['Clinical Trial results',1],['Sales & revenue',1],['Sustainability reporting',1],['Treasury / finance',1]],
@@ -878,8 +1027,28 @@ function drillFor(key){
   return { eb:'Detail', t:key, s:'Breakdown', stats:[], list:[], cta:['Open portal','/'], sec:null, note:'' };
 }
 
+// Overlay the drawer's headline stat with the live value where we have one.
+function drillLivePatch(key, d){
+  if (typeof LIVE === 'undefined' || !d.stats || !d.stats.length) return;
+  const set = v => { if (v != null) d.stats[0][0] = (typeof v === 'number' ? v.toLocaleString() : String(v)); };
+  const map = { assets:LIVE.assets, terms:LIVE.terms, certs:LIVE.certs, products:LIVE.products,
+                exceptions:LIVE.exceptions, people:LIVE.people, isc:LIVE.isc, blueprints:LIVE.blueprints };
+  if (key in map) set(map[key]);
+  if (key === 'governed' && LIVE.governedPct) { d.stats[0][0] = LIVE.governedPct; if (LIVE.governedSub) d.s = LIVE.governedSub + ' carry ≥1 governance classification'; }
+  if (key === 'grounding' && LIVE.groundingPct != null) { d.stats[0][0] = LIVE.groundingPct + '%'; }
+  if (key === 'people') {
+    if (LIVE.teams != null) d.stats[1][0] = String(LIVE.teams);
+    if (LIVE.communities != null) d.stats[2][0] = String(LIVE.communities);
+    if (LIVE.people != null || LIVE.teams != null) d.list = [
+      ['Registered persons', LIVE.people != null ? LIVE.people : 248],
+      ['Teams', LIVE.teams != null ? LIVE.teams : 45],
+      ['Organizations', LIVE.orgs != null ? LIVE.orgs : 21],
+      ['Communities', LIVE.communities != null ? LIVE.communities : 15] ];
+  }
+}
 function openDrill(key){
   const d=drillFor(key);
+  drillLivePatch(key, d);
   document.getElementById('d-eyebrow').textContent=d.eb;
   document.getElementById('d-title').textContent=d.t;
   document.getElementById('d-sub').textContent=d.s;
@@ -917,26 +1086,27 @@ document.querySelectorAll('#range button').forEach(b=>b.onclick=()=>{
   var badge = function(txt, color){ var b = document.getElementById('srcBadge'); if (b){ b.textContent = txt; b.style.color = color; } };
   var stamp = function(){ setTxt('asofTime', new Date().toLocaleString([], {dateStyle:'medium', timeStyle:'short'})); };
 
+  // Each apply* writes into the LIVE store, then re-renders the (per-perspective)
+  // KPI band + any section widgets it feeds. Sample values remain the fallback.
   function applySummary(d){
     if (!d) return;
-    setTxt('kpi-assets',   fmt(d.assetTotal));
-    setTxt('kpi-terms',    fmt(d.termCount));
+    LIVE.assets = d.assetTotal; LIVE.terms = d.termCount;
+    LIVE.governedCount = d.governedCount;
     if (d.assetTotal && d.governedCount != null) {
-      setTxt('kpi-governed', Math.round(100 * d.governedCount / Math.max(d.assetTotal, d.governedCount)) + '%');
+      LIVE.governedPct = Math.round(100 * d.governedCount / Math.max(d.assetTotal, d.governedCount)) + '%';
+      LIVE.governedSub = fmt(d.governedCount) + ' of ' + fmt(d.assetTotal) + ' assets';
     }
-    // Certifications (0 in demo is real — show it honestly, with license count)
     if (d.certifications != null) {
-      setTxt('kpi-certs', fmt(d.certifications));
-      var cs = document.getElementById('kpi-certs-sub');
-      if (cs) {
-        var parts = [];
-        if (d.certExpiring90) parts.push(d.certExpiring90 + ' expiring ≤90d');
-        if (d.licenses != null) parts.push(d.licenses + ' licenses');
-        cs.textContent = parts.join(' · ') || 'none active';
-        cs.className = d.certExpiring90 ? 'delta down' : 'k-sub';
-      }
+      LIVE.certs = d.certifications;
+      var parts = [];
+      if (d.certExpiring90) parts.push(d.certExpiring90 + ' expiring ≤90d');
+      if (d.licenses != null) parts.push(d.licenses + ' licenses');
+      LIVE.certsSub = parts.join(' · ') || 'none active';
     }
-    // Assets-by-type live overlay (falls back to sample bars if absent)
+    if (d.dataProducts != null) LIVE.products = d.dataProducts;
+    if (d.openExceptions != null) LIVE.exceptions = d.openExceptions;
+    renderKPIs();
+    // Assets-by-type live overlay (composition section)
     if (Array.isArray(d.byType) && d.byType.length && typeof hbars === 'function') {
       var keymap = {DataStore:'type-datastore', DataSet:'type-dataset', DeployedSoftwareComponent:'type-swcomp',
                     ITInfrastructure:'type-infra', DeployedAPI:'type-api', Process:'type-proc', DataFeed:'type-feed'};
@@ -949,8 +1119,11 @@ document.querySelectorAll('#range button').forEach(b=>b.onclick=()=>{
 
   function applyPeople(d){
     if (!d) return;
+    LIVE.people = d.activeContributors; LIVE.communities = d.communities;
+    LIVE.teams = d.teams; LIVE.orgs = d.organizations;
+    renderKPIs();
+    // People & Community section sub-band
     setTxt('kpi-people', fmt(d.activeContributors));
-    if (d.activeContributors != null) setTxt('kpi-people-sub', 'registered persons');
     if (d.teams != null || d.organizations != null) {
       setTxt('kpi-orgs', fmt((d.teams || 0) + (d.organizations || 0)));
       setTxt('kpi-orgs-sub', (d.teams || 0) + ' teams · ' + (d.organizations || 0) + ' orgs');
@@ -960,14 +1133,46 @@ document.querySelectorAll('#range button').forEach(b=>b.onclick=()=>{
 
   function applyUsage(d){
     if (!d) return;
+    LIVE.isc = d.informationSupplyChains; LIVE.blueprints = d.blueprints;
+    renderKPIs();
     setTxt('uc-isc', fmt(d.informationSupplyChains));
     setTxt('uc-bp',  fmt(d.blueprints));
     if (d.contextualisedPct != null) setTxt('uc-cov', d.contextualisedPct + '%');
-    // keep DRILL headline counts in sync with live values
     if (typeof DRILL === 'object') {
       if (d.informationSupplyChains != null && DRILL.isc) DRILL.isc.stats[0] = [String(d.informationSupplyChains), 'supply chains'];
       if (d.blueprints != null && DRILL.blueprints) DRILL.blueprints.stats[0] = [String(d.blueprints), 'blueprints'];
     }
+  }
+
+  function applyAI(d){
+    if (!d) return;
+    if (d.groundingPct != null) LIVE.groundingPct = d.groundingPct;
+    if (d.groundingLinks != null) LIVE.groundingLinks = d.groundingLinks;
+    renderKPIs();
+    // AI section grounding tile + funnel (cataloged/classified live)
+    if (d.groundingPct != null) setTxt('ai-grounding', d.groundingPct + '%');
+    var f = d.funnel || {};
+    if (f.cataloged != null) setTxt('uc-cataloged', fmt(f.cataloged));
+    if (f.classified != null) setTxt('uc-classified', fmt(f.classified));
+  }
+
+  function applyGrowth(d){
+    if (!d || !Array.isArray(d.series) || d.series.length < 2) return;
+    var s = d.series;
+    var live = {
+      labels: s.map(function(p){ return p.label; }),
+      assets: s.map(function(p){ return p.assets || 0; }),
+      terms:  s.map(function(p){ return p.terms || 0; }),
+      gov:    s.map(function(p){ return (p.assets && p.governed != null) ? Math.round(100 * p.governed / p.assets) : 0; })
+    };
+    if (typeof renderGrowth === 'function') renderGrowth(live);
+    // KPI deltas from first→last snapshot
+    var first = s[0], last = s[s.length - 1];
+    if (last.assets != null && first.assets != null) {
+      var da = last.assets - first.assets;
+      LIVE.assetsDelta = (da >= 0 ? '▲ ' : '▼ ') + fmt(Math.abs(da)) + ' new / ' + s.length + 'mo';
+    }
+    renderKPIs();
   }
 
   function loadAll(creds){
@@ -976,8 +1181,7 @@ document.querySelectorAll('#range button').forEach(b=>b.onclick=()=>{
     var done = function(ok){ any = true; if (ok) live = true; };
     var finish = function(){
       if (!any) return;
-      if (live) badge('● live', 'var(--green)');
-      else      badge('○ sample (Egeria unavailable)', 'var(--c4)');
+      badge(live ? '● live' : '○ sample (Egeria unavailable)', live ? 'var(--green)' : 'var(--c4)');
     };
     var get = function(path, apply){
       return egeriaFetch(path, creds).then(function(r){ if(!r.ok) throw 0; return r.json(); })
@@ -987,8 +1191,9 @@ document.querySelectorAll('#range button').forEach(b=>b.onclick=()=>{
     Promise.allSettled([
       get('/api/overview/summary',       applySummary),
       get('/api/overview/people',        applyPeople),
-      get('/api/overview/usage-context', applyUsage)
-      // ai-context / growth overlays land in a later slice — sample baseline shows for now.
+      get('/api/overview/usage-context', applyUsage),
+      get('/api/overview/ai-context',    applyAI),
+      get('/api/overview/growth?months=6', applyGrowth)
     ]).then(finish);
   }
 
