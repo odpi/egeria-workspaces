@@ -265,6 +265,7 @@
 
   <!-- ── KPI BAND (per-perspective, JS-rendered) ── -->
   <div class="kpis" id="kpi-band"></div>
+  <div id="kpi-trend-note" style="font-size:.7rem;color:var(--muted);margin-top:8px;display:flex;align-items:center;gap:6px">Trend sparklines show real monthly snapshots (loading…).</div>
 
   <!-- ── BUSINESS VALUE LENS ── -->
   <div class="section-label">Business Value <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— what these numbers mean to the business</span></div>
@@ -827,18 +828,20 @@ const PERSPECTIVES = {
 const LIVE = {};
 let CUR_PERSP = 'governance';
 const num = n => (n != null ? Number(n).toLocaleString() : null);
-const SPARK = 'points="0,20 30,17 60,13 90,9 120,5"';
+// A KPI shows a sparkline ONLY when we have a real historical series for it
+// (from /api/overview/growth asOfTime snapshots). `hist` names the series field;
+// metrics without one render no sparkline rather than a fake squiggle.
 const METRICS = {
-  assets:     { label:'Cataloged Assets',      ico:'🗂️', color:'var(--c2)', drill:'assets',
+  assets:     { label:'Cataloged Assets',      ico:'🗂️', color:'var(--c2)', drill:'assets', hist:'assets',
                 get:()=>({ val: num(LIVE.assets) || '1,284', sub: LIVE.assetsDelta || 'metadata assets' }) },
-  terms:      { label:'Glossary Terms',        ico:'📖', color:'var(--c1)', drill:'grounding',
-                get:()=>({ val: num(LIVE.terms) || '742', sub: 'business vocabulary' }) },
-  governed:   { label:'Governed Coverage',     ico:'🛡️', color:'var(--c6)', drill:'governed',
+  terms:      { label:'Glossary Terms',        ico:'📖', color:'var(--c1)', drill:'grounding', hist:'terms',
+                get:()=>({ val: num(LIVE.terms) || '742', sub: LIVE.termsDelta || 'business vocabulary' }) },
+  governed:   { label:'Governed Coverage',     ico:'🛡️', color:'var(--c6)', drill:'governed', hist:'gov',
                 get:()=>({ val: LIVE.governedPct || '68%', sub: LIVE.governedSub || '≥1 governance classification' }) },
   certs:      { label:'Active Certifications', ico:'📜', color:'var(--c4)', drill:'certs',
                 get:()=>({ val: LIVE.certs != null ? String(LIVE.certs) : '47', sub: LIVE.certsSub || '6 expiring ≤90d' }) },
-  products:   { label:'Data Products',         ico:'📦', color:'var(--c3)', drill:'products',
-                get:()=>({ val: LIVE.products != null ? String(LIVE.products) : '23', sub: 'digital products' }) },
+  products:   { label:'Data Products',         ico:'📦', color:'var(--c3)', drill:'products', hist:'products',
+                get:()=>({ val: LIVE.products != null ? String(LIVE.products) : '23', sub: LIVE.productsDelta || 'digital products' }) },
   exceptions: { label:'Open Exceptions',       ico:'⚠️', color:'var(--c5)', drill:'exceptions',
                 get:()=>({ val: LIVE.exceptions != null ? String(LIVE.exceptions) : '12', sub: 'governance issues open' }) },
   people:     { label:'People / Contributors', ico:'👥', color:'var(--c2)', drill:'people',
@@ -853,6 +856,13 @@ const METRICS = {
                 get:()=>({ val: LIVE.groundingPct != null ? LIVE.groundingPct + '%' : '61%',
                            sub: LIVE.groundingLinks != null ? num(LIVE.groundingLinks) + ' term links' : 'glossary-linked' }) }
 };
+// Map an array of values to a polyline within the 120x26 sparkline viewbox.
+function sparkPts(vals){
+  const v = vals.filter(x => x != null);
+  if (v.length < 2) return null;
+  const mn = Math.min(...v), mx = Math.max(...v), rng = (mx - mn) || 1;
+  return v.map((x,i) => (120 * i / (v.length - 1)).toFixed(1) + ',' + (23 - 18 * (x - mn) / rng).toFixed(1)).join(' ');
+}
 const PERSP_KPIS = {
   governance: ['assets','terms','governed','certs','products','exceptions'],
   steward:    ['assets','governed','exceptions','certs','terms','grounding'],
@@ -869,10 +879,16 @@ function renderKPIs(){
   band.innerHTML = keys.map(k => {
     const m = METRICS[k]; if (!m) return '';
     const s = m.get();
+    let spark = '';
+    const pts = (m.hist && LIVE.series) ? sparkPts(LIVE.series[m.hist]) : null;
+    if (pts) {
+      const tip = LIVE.rangeFrom ? `${LIVE.rangeFrom} → ${LIVE.rangeTo}` : 'trend';
+      spark = `<svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none"><title>${tip}</title>`+
+              `<polyline fill="none" stroke="${m.color}" stroke-width="2" points="${pts}"/></svg>`;
+    }
     return `<div class="kpi${m.drill ? ' clickable' : ''}"${m.drill ? ` data-drill="${m.drill}"` : ''}>`+
       `<span class="k-ico">${m.ico}</span><span class="k-label">${m.label}</span>`+
-      `<span class="k-val">${s.val}</span><span class="k-sub">${s.sub || ''}</span>`+
-      `<svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline fill="none" stroke="${m.color}" stroke-width="2" ${SPARK}/></svg></div>`;
+      `<span class="k-val">${s.val}</span><span class="k-sub">${s.sub || ''}</span>${spark}</div>`;
   }).join('');
 }
 
@@ -1163,15 +1179,21 @@ document.querySelectorAll('#range button').forEach(b=>b.onclick=()=>{
       labels: s.map(function(p){ return p.label; }),
       assets: s.map(function(p){ return p.assets || 0; }),
       terms:  s.map(function(p){ return p.terms || 0; }),
+      products: s.map(function(p){ return p.products || 0; }),
       gov:    s.map(function(p){ return (p.assets && p.governed != null) ? Math.round(100 * p.governed / p.assets) : 0; })
     };
     if (typeof renderGrowth === 'function') renderGrowth(live);
-    // KPI deltas from first→last snapshot
+    // Feed the KPI sparklines + time reference from the same real series.
+    LIVE.series = live;
+    LIVE.rangeFrom = d.rangeFrom; LIVE.rangeTo = d.rangeTo;
+    var span = s.length + 'mo';
+    var delta = function(a, b){ return a != null && b != null ? ((a - b >= 0 ? '▲ ' : '▼ ') + fmt(Math.abs(a - b)) + ' / ' + span) : null; };
     var first = s[0], last = s[s.length - 1];
-    if (last.assets != null && first.assets != null) {
-      var da = last.assets - first.assets;
-      LIVE.assetsDelta = (da >= 0 ? '▲ ' : '▼ ') + fmt(Math.abs(da)) + ' new / ' + s.length + 'mo';
-    }
+    LIVE.assetsDelta   = delta(last.assets,   first.assets);
+    LIVE.termsDelta    = delta(last.terms,    first.terms);
+    LIVE.productsDelta = delta(last.products, first.products);
+    var noteEl = document.getElementById('kpi-trend-note');
+    if (noteEl && d.rangeFrom) noteEl.textContent = 'Trend sparklines & Growth chart: ' + s.length + ' monthly snapshots, ' + d.rangeFrom + ' → ' + d.rangeTo + ' (via Egeria asOfTime).';
     renderKPIs();
   }
 

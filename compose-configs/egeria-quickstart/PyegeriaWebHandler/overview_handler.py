@@ -537,20 +537,25 @@ def get_growth(
     for i in range(months - 1, -1, -1):
         # i months back — approximate a month as 30 days; None asOfTime = "now" for i==0
         if i == 0:
-            as_of, label = None, now.strftime("%b")
+            d = now
+            as_of, label = None, d.strftime("%b")
         else:
-            dt = now.timestamp() - i * 30 * 86400
-            d = datetime.fromtimestamp(dt, tz=timezone.utc)
+            d = datetime.fromtimestamp(now.timestamp() - i * 30 * 86400, tz=timezone.utc)
             as_of, label = d.isoformat(), d.strftime("%b")
         try:
             assets   = _count_asof(mgr, "Asset", as_of)
             terms    = _count_asof(mgr, "GlossaryTerm", as_of)
             governed = _count_asof(mgr, None, as_of, classifications=_GOVERNANCE_CLASSIFICATIONS)
+            products = _count_asof(mgr, "DigitalProduct", as_of)
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview growth: snapshot {i} failed: {exc}")
-            assets = terms = governed = None
-        points.append({"label": label, "assets": assets, "terms": terms, "governed": governed})
+            assets = terms = governed = products = None
+        points.append({"label": label, "date": d.strftime("%d %b %Y"),
+                       "assets": assets, "terms": terms, "governed": governed, "products": products})
 
-    payload = {"series": points, "months": months, "partial": False, "source": "live:growth"}
+    payload = {"series": points, "months": months,
+               "rangeFrom": points[0]["date"] if points else None,
+               "rangeTo": points[-1]["date"] if points else None,
+               "partial": False, "source": "live:growth"}
     _cache[ckey] = (time.time(), payload)
     return JSONResponse(payload)
