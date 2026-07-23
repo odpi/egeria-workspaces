@@ -1,0 +1,1018 @@
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+<!-- Copyright Contributors to the ODPi Egeria project. -->
+<!-- PROTOTYPE MOCKUP — Egeria Overview dashboard app. Sample Coco Pharmaceuticals data. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Egeria Overview · Coco Pharmaceuticals</title>
+<style>
+  :root {
+    --bg:#1a1a2e; --card:#16213e; --card2:#12203c; --border:#0f3460;
+    --accent:#e94560; --text:#e0e0e0; --muted:#8b93a7; --green:#4caf50;
+    /* data palette (dark-navy safe, categorical) */
+    --c1:#2dd4bf; --c2:#4f9cf9; --c3:#a78bfa; --c4:#f5b74e; --c5:#e94560; --c6:#6ee7b7; --c7:#f472b6;
+    --grid:rgba(255,255,255,.06); --axis:#5b6376;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,sans-serif; min-height:100vh; }
+  a { color:inherit; }
+
+  /* header — matches portal shell */
+  .hdr { background:var(--card); border-bottom:1px solid var(--border); padding:10px 24px; display:flex; align-items:center; gap:14px; position:sticky; top:0; z-index:10; }
+  .hdr .logo { font-size:1.3rem; }
+  .hdr-title { font-size:1rem; font-weight:700; }
+  .hdr-sub { font-size:.72rem; color:var(--muted); }
+  .hdr-right { margin-left:auto; display:flex; align-items:center; gap:10px; }
+  .chip { background:var(--border); border-radius:20px; padding:5px 13px; font-size:.78rem; display:inline-flex; gap:7px; align-items:center; }
+  .chip .role { color:var(--muted); font-size:.7rem; }
+  .seg { display:flex; border:1px solid var(--border); border-radius:7px; overflow:hidden; }
+  .seg button { background:transparent; color:var(--muted); border:none; padding:5px 12px; font-size:.76rem; cursor:pointer; font-family:inherit; }
+  .seg button.on { background:var(--accent); color:#fff; }
+  .btn { padding:5px 12px; border-radius:6px; border:1px solid var(--border); background:transparent; color:var(--text); cursor:pointer; font-size:.78rem; }
+  .btn:hover { background:var(--border); }
+
+  .wrap { max-width:1280px; margin:0 auto; padding:22px 24px 60px; }
+  .pagehead { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+  .pagehead h1 { font-size:1.35rem; font-weight:700; }
+  .pagehead p { color:var(--muted); font-size:.85rem; margin-top:3px; }
+  .asof { font-size:.74rem; color:var(--muted); }
+  .asof b { color:var(--text); font-weight:600; }
+
+  .section-label { font-size:.7rem; font-weight:700; letter-spacing:.11em; text-transform:uppercase; color:var(--muted); margin:26px 0 12px; display:flex; align-items:center; gap:8px; }
+  .section-label::after { content:""; flex:1; height:1px; background:var(--border); }
+
+  /* KPI band */
+  .kpis { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; }
+  .kpi { background:var(--card); border:1px solid var(--border); border-radius:11px; padding:15px 16px; display:flex; flex-direction:column; gap:5px; position:relative; overflow:hidden; }
+  .kpi .k-ico { position:absolute; right:10px; top:9px; font-size:1.05rem; opacity:.5; }
+  .kpi .k-label { font-size:.72rem; color:var(--muted); font-weight:600; }
+  .kpi .k-val { font-size:1.7rem; font-weight:700; line-height:1.1; letter-spacing:-.02em; }
+  .kpi .k-sub { font-size:.72rem; color:var(--muted); }
+  .delta { font-size:.72rem; font-weight:600; display:inline-flex; align-items:center; gap:3px; }
+  .up { color:var(--green); } .down { color:var(--accent); } .flat { color:var(--muted); }
+  .kpi .spark { position:absolute; bottom:0; left:0; right:0; height:26px; opacity:.55; }
+
+  /* generic panel */
+  .grid { display:grid; gap:14px; }
+  .g-2 { grid-template-columns:1.5fr 1fr; }
+  .g-3 { grid-template-columns:repeat(3,1fr); }
+  .g-12 { grid-template-columns:2fr 1fr; }
+  .panel { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px 18px; }
+  .panel h3 { font-size:.92rem; font-weight:650; margin-bottom:2px; display:flex; align-items:center; gap:8px; }
+  .panel .ph-sub { font-size:.74rem; color:var(--muted); margin-bottom:12px; }
+  .panel-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:12px; }
+  .panel-head .ph-sub { margin-bottom:0; }
+  .legend { display:flex; flex-wrap:wrap; gap:12px; font-size:.74rem; color:var(--muted); margin-top:10px; }
+  .legend span { display:inline-flex; align-items:center; gap:6px; }
+  .dot { width:9px; height:9px; border-radius:2px; display:inline-block; }
+
+  /* horizontal bars */
+  .hbar-row { display:grid; grid-template-columns:120px 1fr 46px; align-items:center; gap:10px; margin-bottom:9px; font-size:.8rem; }
+  .hbar-row .lab { color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .hbar-track { background:var(--card2); border-radius:5px; height:16px; overflow:hidden; }
+  .hbar-fill { height:100%; border-radius:5px; }
+  .hbar-row .num { text-align:right; color:var(--muted); font-variant-numeric:tabular-nums; }
+
+  /* donut */
+  .donut-wrap { display:flex; align-items:center; gap:18px; }
+  .donut-center { position:relative; width:150px; height:150px; flex-shrink:0; }
+  .donut-center .dc-num { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .donut-center .dc-num b { font-size:1.7rem; font-weight:700; }
+  .donut-center .dc-num small { font-size:.7rem; color:var(--muted); }
+
+  /* attention list */
+  .att { display:flex; align-items:center; gap:12px; padding:11px 12px; border:1px solid var(--border); border-radius:9px; margin-bottom:9px; background:var(--card2); }
+  .att .a-ico { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:1rem; flex-shrink:0; }
+  .att .a-body { flex:1; }
+  .att .a-title { font-size:.83rem; font-weight:600; }
+  .att .a-desc { font-size:.74rem; color:var(--muted); }
+  .att .a-count { font-size:1.15rem; font-weight:700; }
+  .att .a-cta { font-size:.72rem; color:var(--c2); text-decoration:none; white-space:nowrap; }
+  .sev-hi { background:rgba(233,69,96,.14); color:#ff6b81; }
+  .sev-md { background:rgba(245,183,78,.14); color:var(--c4); }
+  .sev-lo { background:rgba(79,156,249,.14); color:var(--c2); }
+
+  /* activity feed */
+  .feed-item { display:flex; gap:11px; padding:9px 0; border-bottom:1px solid var(--border); font-size:.8rem; }
+  .feed-item:last-child { border-bottom:none; }
+  .feed-dot { width:8px; height:8px; border-radius:50%; margin-top:5px; flex-shrink:0; }
+  .feed-body { flex:1; }
+  .feed-body .fb-main b { font-weight:650; }
+  .feed-body .fb-meta { font-size:.71rem; color:var(--muted); margin-top:1px; }
+
+  /* mini table */
+  table.mini { width:100%; border-collapse:collapse; font-size:.79rem; }
+  table.mini th { text-align:left; color:var(--muted); font-weight:600; font-size:.71rem; text-transform:uppercase; letter-spacing:.05em; padding:6px 8px; border-bottom:1px solid var(--border); }
+  table.mini td { padding:8px; border-bottom:1px solid var(--border); }
+  table.mini tr:last-child td { border-bottom:none; }
+  .pill { font-size:.68rem; padding:2px 8px; border-radius:20px; font-weight:600; }
+  .pill-warn { background:rgba(245,183,78,.15); color:var(--c4); }
+  .pill-hi { background:rgba(233,69,96,.15); color:#ff6b81; }
+  .pill-ok { background:rgba(76,175,80,.15); color:var(--green); }
+
+  .foot-note { margin-top:30px; font-size:.72rem; color:var(--muted); border-top:1px solid var(--border); padding-top:14px; line-height:1.6; }
+  .foot-note code { background:var(--card); padding:1px 5px; border-radius:4px; color:var(--c2); }
+
+  /* perspective ribbon */
+  .persp-bar { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
+    background:linear-gradient(90deg,var(--card) 0%,var(--card2) 100%); border:1px solid var(--border);
+    border-left:3px solid var(--c3); border-radius:10px; padding:11px 16px; margin-bottom:6px; }
+  .persp-eyebrow { font-size:.66rem; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); font-weight:700; }
+  .persp-cur { font-size:1rem; font-weight:700; margin-top:1px; display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+  .persp-tabs { display:flex; gap:6px; flex-wrap:wrap; }
+  .persp-tabs button { background:transparent; border:1px solid var(--border); color:var(--muted); border-radius:20px;
+    padding:5px 12px; font-size:.75rem; cursor:pointer; font-family:inherit; white-space:nowrap; }
+  .persp-tabs button.on { background:var(--c3); border-color:var(--c3); color:#1a1a2e; font-weight:650; }
+  .persp-tabs button:hover:not(.on){ border-color:var(--c3); color:var(--text); }
+
+  .qpanel { max-height:0; overflow:hidden; transition:max-height .3s ease; }
+  .qpanel.open { max-height:900px; }
+  .qpanel-inner { background:var(--card); border:1px solid var(--border); border-radius:11px; padding:15px 18px; margin-bottom:6px; }
+  .qpanel-inner .qp-head { font-size:.78rem; color:var(--muted); margin-bottom:12px; line-height:1.5; }
+  .qpanel-inner .qp-head b { color:var(--text); }
+  .qrow { display:grid; grid-template-columns:20px 1fr auto; gap:11px; align-items:center; padding:9px 0; border-bottom:1px solid var(--border); }
+  .qrow:last-child { border-bottom:none; }
+  .qrow .q-txt { font-size:.84rem; }
+  .qrow .q-src { font-size:.7rem; color:var(--muted); margin-top:2px; }
+  .q-badge { font-size:.68rem; padding:3px 9px; border-radius:20px; font-weight:600; white-space:nowrap; }
+  .qb-ans { background:rgba(76,175,80,.15); color:var(--green); }
+  .qb-part { background:rgba(245,183,78,.15); color:var(--c4); }
+  .qb-none { background:rgba(139,147,167,.15); color:var(--muted); }
+
+  /* leaderboard */
+  .lead-row { display:grid; grid-template-columns:26px 30px 1fr auto; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); }
+  .lead-row:last-child { border-bottom:none; }
+  .lead-rank { font-size:.8rem; color:var(--muted); font-weight:700; text-align:center; }
+  .avatar { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.95rem; background:var(--border); }
+  .lead-name { font-size:.83rem; font-weight:600; }
+  .lead-role { font-size:.7rem; color:var(--muted); }
+  .lead-karma { text-align:right; }
+  .lead-karma b { font-size:.95rem; color:var(--c4); }
+  .lead-karma small { display:block; font-size:.66rem; color:var(--muted); }
+  .trophy { color:var(--c4); }
+
+  /* drill-down affordances */
+  .clickable { cursor:pointer; }
+  .kpi.clickable:hover, .panel.clickable:hover { border-color:var(--c2); }
+  .hbar-row.drill:hover .hbar-fill { filter:brightness(1.25); }
+  .hbar-row.drill { cursor:pointer; }
+  .hbar-row.drill:hover .lab { color:var(--c2); }
+  .drill-hint { font-size:.7rem; color:var(--muted); display:inline-flex; align-items:center; gap:5px; }
+  .drill-hint::before { content:"⤡"; color:var(--c2); }
+  .deep { font-size:.68rem; color:var(--c2); text-decoration:none; opacity:.8; white-space:nowrap; }
+  .panel-head .deep::after { content:" ↗"; }
+
+  /* right drawer */
+  .ovl { position:fixed; inset:0; background:rgba(0,0,0,.55); opacity:0; pointer-events:none; transition:opacity .2s; z-index:50; }
+  .ovl.open { opacity:1; pointer-events:auto; }
+  .drawer { position:fixed; top:0; right:0; height:100%; width:440px; max-width:92vw; background:var(--bg);
+    border-left:1px solid var(--border); transform:translateX(100%); transition:transform .26s ease; z-index:51;
+    display:flex; flex-direction:column; box-shadow:-16px 0 40px rgba(0,0,0,.4); }
+  .drawer.open { transform:none; }
+  .drawer .dh { padding:18px 20px; border-bottom:1px solid var(--border); background:var(--card); }
+  .drawer .dh .d-eyebrow { font-size:.68rem; text-transform:uppercase; letter-spacing:.09em; color:var(--muted); font-weight:700; }
+  .drawer .dh h2 { font-size:1.15rem; font-weight:700; margin-top:3px; display:flex; align-items:center; gap:9px; }
+  .drawer .dh .d-sub { font-size:.78rem; color:var(--muted); margin-top:5px; line-height:1.5; }
+  .drawer .db { padding:16px 20px; overflow-y:auto; flex:1; }
+  .drawer .dclose { position:absolute; top:14px; right:16px; background:transparent; border:none; color:var(--muted); font-size:1.4rem; cursor:pointer; line-height:1; }
+  .d-stat { display:flex; gap:14px; margin-bottom:16px; }
+  .d-stat .ds { flex:1; background:var(--card); border:1px solid var(--border); border-radius:9px; padding:11px 13px; }
+  .d-stat .ds b { font-size:1.35rem; font-weight:700; display:block; }
+  .d-stat .ds small { font-size:.7rem; color:var(--muted); }
+  .d-list .dli { display:flex; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); font-size:.82rem; }
+  .d-list .dli:last-child { border-bottom:none; }
+  .d-list .dli .m { color:var(--muted); font-variant-numeric:tabular-nums; }
+  .d-cta { display:block; text-align:center; margin-top:16px; padding:11px; border-radius:8px; background:var(--accent); color:#fff; text-decoration:none; font-size:.86rem; font-weight:600; }
+  .d-cta.sec { background:transparent; border:1px solid var(--border); color:var(--text); margin-top:9px; }
+  .d-note { font-size:.73rem; color:var(--muted); line-height:1.5; margin-top:14px; border-top:1px solid var(--border); padding-top:12px; }
+  .d-note code { background:var(--card); padding:1px 5px; border-radius:4px; color:var(--c2); }
+
+  /* funnel */
+  .funnel-row { display:grid; grid-template-columns:130px 1fr 92px; align-items:center; gap:10px; margin-bottom:8px; font-size:.8rem; cursor:pointer; }
+  .funnel-row:hover .funnel-fill { filter:brightness(1.2); }
+  .funnel-track { background:var(--card2); border-radius:5px; height:22px; display:flex; align-items:center; }
+  .funnel-fill { height:100%; border-radius:5px; display:flex; align-items:center; padding-left:9px; font-size:.72rem; font-weight:600; color:#0d1a30; }
+  .funnel-row .conv { font-size:.72rem; color:var(--muted); text-align:right; }
+
+  text { font-family:system-ui,sans-serif; }
+  @media (max-width:1100px){ .kpis{grid-template-columns:repeat(3,1fr);} .g-2,.g-12{grid-template-columns:1fr;} .g-3{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <a href="/" class="btn" style="padding:5px 10px" title="Back to Portal">←</a>
+  <span class="logo">📊</span>
+  <div>
+    <div class="hdr-title">Egeria Overview</div>
+    <div class="hdr-sub">Catalog Health &amp; Governance KPIs</div>
+  </div>
+  <div class="hdr-right">
+    <div class="seg" id="range">
+      <button data-r="30">30d</button>
+      <button data-r="90" class="on">90d</button>
+      <button data-r="180">6mo</button>
+      <button data-r="365">1yr</button>
+    </div>
+    <span class="chip">Peter Profile <span class="role">· Data Owner</span></span>
+    <button class="btn">⤓ Export</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="pagehead">
+    <div>
+      <h1>Coco Pharmaceuticals — Metadata Landscape</h1>
+      <p>A single-glance summary of what Egeria knows: scale, governance coverage, quality, and how they're trending. <span class="drill-hint" style="margin-left:6px">tiles &amp; bars are clickable — drill in or jump to the app</span></p>
+    </div>
+    <div class="asof" id="dataSrc">Snapshot as of <b id="asofTime">—</b> · <span id="srcBadge" style="color:var(--muted)">○ connecting…</span> · <span id="srcServer">qs-view-server</span></div>
+  </div>
+
+  <!-- ── PERSPECTIVE RIBBON ── -->
+  <div class="persp-bar">
+    <div>
+      <div class="persp-eyebrow">Viewing through perspective</div>
+      <div class="persp-cur">🛡️ Data Governance Lead
+        <span style="font-size:.72rem;color:var(--muted);font-weight:400">— "Are we in control, and is it improving?"</span>
+      </div>
+    </div>
+    <div class="persp-tabs">
+      <button class="on">Governance Lead</button>
+      <button>Steward</button>
+      <button>Data Owner</button>
+      <button>Consumer</button>
+      <button>Engineer</button>
+      <button>App&nbsp;/&nbsp;AI&nbsp;Builder</button>
+      <button>Privacy&nbsp;Officer</button>
+      <button>Community&nbsp;Lead</button>
+      <button onclick="document.getElementById('qpanel').classList.toggle('open')" style="border-color:var(--c3);color:var(--c3)">❓ Questions ▾</button>
+    </div>
+  </div>
+
+  <!-- ── QUESTIONS PANEL (the meta-model) ── -->
+  <div class="qpanel" id="qpanel">
+    <div class="qpanel-inner">
+      <div class="qp-head">This view renders the <b>questions this perspective needs answered</b>. Each question is a <code>Question</code> element (GlossaryTerm · IsQuestion) linked to the perspective via <code>ScopedBy</code>, and answered by a saved <b>report spec / view definition</b>. Starter question sets are scavenged from <b>DAMA-DMBOK</b>, <b>EDM-Council DCAM</b>, <b>FAIR</b>, and <b>DataOps</b> observability — then curated per organization.</div>
+
+      <div class="qrow"><span>🟢</span><div><div class="q-txt">What share of critical assets is governed (owned, classified, certified)?</div><div class="q-src">DCAM · Data Governance &nbsp;→&nbsp; <b style="color:var(--text)">Business value:</b> regulatory exposure &amp; audit-readiness</div></div><span class="q-badge qb-ans">Governed Coverage · 68%</span></div>
+
+      <div class="qrow"><span>🟢</span><div><div class="q-txt">Is governance coverage improving period over period?</div><div class="q-src">DAMA maturity &nbsp;→&nbsp; <b style="color:var(--text)">Business value:</b> demonstrable program ROI to the board</div></div><span class="q-badge qb-ans">Trend · ▲5 pts</span></div>
+
+      <div class="qrow"><span>🟠</span><div><div class="q-txt">Where is our regulatory exposure concentrated?</div><div class="q-src">FAIR + Privacy &nbsp;→&nbsp; <b style="color:var(--text)">Business value:</b> avoided fines, breach-cost reduction</div></div><span class="q-badge qb-part">24 confidential in open zones</span></div>
+
+      <div class="qrow"><span>🟢</span><div><div class="q-txt">How many policy exceptions are open, and are they aging down?</div><div class="q-src">DCAM · Control &nbsp;→&nbsp; <b style="color:var(--text)">Business value:</b> operational risk &amp; SLA to remediation</div></div><span class="q-badge qb-ans">12 open · ▼4</span></div>
+
+      <div class="qrow"><span>🟠</span><div><div class="q-txt">How much of our data is <b>AI-ready</b> — governed context safe to feed apps &amp; agents?</div><div class="q-src">AI governance / context intelligence &nbsp;→&nbsp; <b style="color:var(--text)">Business value:</b> trustworthy AI faster, grounded &amp; auditable</div></div><span class="q-badge qb-part">48% AI-ready · ↓ AI section</span></div>
+
+      <div class="qrow"><span>⚪</span><div><div class="q-txt">Is the community actively curating &amp; trusting the catalog?</div><div class="q-src">Adoption / data-as-product &nbsp;→&nbsp; <b style="color:var(--text)">Business value:</b> self-service adoption, less steward toil</div></div><span class="q-badge qb-none">→ People &amp; Community ↓</span></div>
+    </div>
+  </div>
+
+  <!-- ── KPI BAND ── -->
+  <div class="kpis">
+    <div class="kpi clickable" data-drill="assets">
+      <span class="k-ico">🗂️</span>
+      <span class="k-label">Cataloged Assets</span>
+      <span class="k-val" id="kpi-assets">1,284</span>
+      <span class="delta up">▲ 63 <span style="color:var(--muted);font-weight:400">·  new /90d</span></span>
+      <svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline fill="none" stroke="var(--c2)" stroke-width="2" points="0,20 20,18 40,15 60,13 80,9 100,6 120,4"/></svg>
+    </div>
+    <div class="kpi">
+      <span class="k-ico">📖</span>
+      <span class="k-label">Glossary Terms</span>
+      <span class="k-val" id="kpi-terms">742</span>
+      <span class="k-sub">61% linked to assets</span>
+      <svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline fill="none" stroke="var(--c1)" stroke-width="2" points="0,17 20,15 40,14 60,12 80,10 100,8 120,7"/></svg>
+    </div>
+    <div class="kpi clickable" data-drill="governed">
+      <span class="k-ico">🛡️</span>
+      <span class="k-label">Governed Coverage</span>
+      <span class="k-val" id="kpi-governed">68%</span>
+      <span class="delta up">▲ 5 pts</span>
+      <svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline fill="none" stroke="var(--c6)" stroke-width="2" points="0,18 20,16 40,15 60,12 80,10 100,7 120,6"/></svg>
+    </div>
+    <div class="kpi clickable" data-drill="certs">
+      <span class="k-ico">📜</span>
+      <span class="k-label">Active Certifications</span>
+      <span class="k-val" id="kpi-certs">47</span>
+      <span class="delta down" id="kpi-certs-sub">6 expiring ≤90d</span>
+      <svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline fill="none" stroke="var(--c4)" stroke-width="2" points="0,10 20,11 40,9 60,12 80,11 100,13 120,12"/></svg>
+    </div>
+    <div class="kpi">
+      <span class="k-ico">📦</span>
+      <span class="k-label">Data Products</span>
+      <span class="k-val">23</span>
+      <span class="k-sub">18 published · 5 draft</span>
+      <svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline fill="none" stroke="var(--c3)" stroke-width="2" points="0,22 20,20 40,17 60,15 80,12 100,10 120,6"/></svg>
+    </div>
+    <div class="kpi">
+      <span class="k-ico">⚠️</span>
+      <span class="k-label">Open Exceptions</span>
+      <span class="k-val">12</span>
+      <span class="delta up" title="fewer is better">▼ 4 vs last period</span>
+      <svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline fill="none" stroke="var(--c5)" stroke-width="2" points="0,6 20,8 40,7 60,10 80,9 100,12 120,14"/></svg>
+    </div>
+  </div>
+
+  <!-- ── BUSINESS VALUE LENS ── -->
+  <div class="section-label">Business Value <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— what these numbers mean to the business</span></div>
+  <div class="grid g-3" style="grid-template-columns:repeat(4,1fr)">
+    <div class="panel" style="border-left:3px solid var(--c5)">
+      <h3>🛡️ Risk &amp; Compliance</h3>
+      <div style="font-size:1.5rem;font-weight:700;margin:6px 0 2px">↓ 38%</div>
+      <div class="ph-sub" style="margin-bottom:8px">ungoverned confidential assets, YoY</div>
+      <div style="font-size:.76rem;color:var(--muted);line-height:1.5">873 assets now certified &amp; classified · <b style="color:var(--text)">audit-ready</b>. Est. exposure on remaining <b style="color:#ff6b81">24</b> unmitigated.</div>
+    </div>
+    <div class="panel" style="border-left:3px solid var(--c2)">
+      <h3>⚡ Productivity</h3>
+      <div style="font-size:1.5rem;font-weight:700;margin:6px 0 2px">71%</div>
+      <div class="ph-sub" style="margin-bottom:8px">assets documented &amp; findable</div>
+      <div style="font-size:.76rem;color:var(--muted);line-height:1.5"><b style="color:var(--text)">Faster time-to-data</b>: analysts self-serve instead of hunting. 61% terms linked to real assets.</div>
+    </div>
+    <div class="panel" style="border-left:3px solid var(--c6)">
+      <h3>📈 Trust &amp; Adoption</h3>
+      <div style="font-size:1.5rem;font-weight:700;margin:6px 0 2px">18</div>
+      <div class="ph-sub" style="margin-bottom:8px">published data products · ★4.3 avg</div>
+      <div style="font-size:.76rem;color:var(--muted);line-height:1.5"><b style="color:var(--text)">Reuse over rebuild</b>: rated, certified products drive consumption &amp; cut duplicate pipelines.</div>
+    </div>
+    <div class="panel" style="border-left:3px solid var(--c4)">
+      <h3>💰 Cost Avoidance</h3>
+      <div style="font-size:1.5rem;font-weight:700;margin:6px 0 2px">153</div>
+      <div class="ph-sub" style="margin-bottom:8px">stale/duplicate assets flagged</div>
+      <div style="font-size:.76rem;color:var(--muted);line-height:1.5">Candidates for archival &amp; storage reclaim · <b style="color:var(--text)">less steward toil</b> via crowd-sourced curation.</div>
+    </div>
+  </div>
+
+  <!-- ── TRENDS ── -->
+  <div class="section-label">Growth &amp; Trends</div>
+  <div class="grid g-2">
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h3>Catalog Growth</h3>
+          <div class="ph-sub">Monthly snapshots via Egeria <code style="font-size:.7rem">asOfTime</code> historical queries</div>
+        </div>
+        <div class="legend" style="margin-top:0">
+          <span><i class="dot" style="background:var(--c2)"></i>Assets</span>
+          <span><i class="dot" style="background:var(--c1)"></i>Terms</span>
+          <span><i class="dot" style="background:var(--c6)"></i>Governed %</span>
+        </div>
+      </div>
+      <svg viewBox="0 0 720 260" width="100%" height="260" id="growth"></svg>
+    </div>
+
+    <div class="panel">
+      <h3>Governed vs. Ungoverned</h3>
+      <div class="ph-sub">Assets carrying at least one governance classification</div>
+      <div class="donut-wrap">
+        <div class="donut-center">
+          <svg viewBox="0 0 150 150" width="150" height="150" id="donut"></svg>
+          <div class="dc-num"><b>68%</b><small>governed</small></div>
+        </div>
+        <div style="flex:1">
+          <div class="hbar-row" style="grid-template-columns:1fr 46px"><span class="lab"><i class="dot" style="background:var(--c6)"></i> Fully governed</span><span class="num">873</span></div>
+          <div class="hbar-row" style="grid-template-columns:1fr 46px"><span class="lab"><i class="dot" style="background:var(--c4)"></i> Partial (zone only)</span><span class="num">241</span></div>
+          <div class="hbar-row" style="grid-template-columns:1fr 46px"><span class="lab"><i class="dot" style="background:var(--card2);border:1px solid var(--border)"></i> Ungoverned</span><span class="num">170</span></div>
+          <div style="margin-top:12px; font-size:.74rem; color:var(--muted); line-height:1.5; border-top:1px solid var(--border); padding-top:10px">
+            <b style="color:#ff6b81">24</b> ungoverned assets are also flagged <b>Confidential</b> — see Attention below.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── COMPOSITION ── -->
+  <div class="section-label">Catalog Composition</div>
+  <div class="grid g-3">
+    <div class="panel">
+      <h3>Assets by Type</h3>
+      <div class="ph-sub">Top asset categories in the catalog</div>
+      <div id="byType"></div>
+    </div>
+    <div class="panel">
+      <h3>Elements by Governance Zone</h3>
+      <div class="ph-sub">Zone membership across all element types</div>
+      <div id="byZone"></div>
+    </div>
+    <div class="panel">
+      <h3>Confidentiality Distribution</h3>
+      <div class="ph-sub">Ordinal levels from <code style="font-size:.7rem">Confidentiality</code> classification</div>
+      <div id="byConf"></div>
+    </div>
+  </div>
+
+  <!-- ── USAGE CONTEXT (ISC + BLUEPRINTS) ── -->
+  <div class="section-label">Usage Context <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— supply chains &amp; blueprints put assets in a business context, not just a list</span></div>
+  <div class="grid g-3">
+    <div class="panel clickable" data-drill="isc" style="border-left:3px solid var(--c2)">
+      <h3>🔗 Information Supply Chains</h3>
+      <div style="font-size:1.9rem;font-weight:700;margin:6px 0 2px" id="uc-isc">18</div>
+      <div class="ph-sub" style="margin-bottom:8px">end-to-end flows of data through the business</div>
+      <div style="font-size:.76rem;color:var(--muted);line-height:1.5"><b style="color:var(--text)">Brings assets alive:</b> "this data store <i>feeds the Clinical Trial results supply chain</i>" — context an isolated catalog entry can't give.</div>
+    </div>
+    <div class="panel clickable" data-drill="blueprints" style="border-left:3px solid var(--c3)">
+      <h3>🧱 Solution Blueprints</h3>
+      <div style="font-size:1.9rem;font-weight:700;margin:6px 0 2px" id="uc-bp">30</div>
+      <div class="ph-sub" style="margin-bottom:8px">reusable designs assets realise / participate in</div>
+      <div style="font-size:.76rem;color:var(--muted);line-height:1.5"><b style="color:var(--text)">Business value:</b> shows <i>why</i> an asset exists and what it supports — impact analysis before change, reuse of proven designs.</div>
+    </div>
+    <div class="panel" style="border-left:3px solid var(--c6)">
+      <h3>🎯 Contextualised Coverage</h3>
+      <div style="font-size:1.9rem;font-weight:700;margin:6px 0 2px" id="uc-cov">57%</div>
+      <div class="ph-sub" style="margin-bottom:8px">assets participating in ≥1 supply chain or blueprint <span style="color:var(--c4)">(sample)</span></div>
+      <div style="font-size:.76rem;color:var(--muted);line-height:1.5">The gap = assets floating without a usage context — hard to trust, hard to prioritise. A stewardship target in its own right.</div>
+    </div>
+  </div>
+
+  <!-- ── QUALITY + ATTENTION ── -->
+  <div class="section-label">Quality &amp; Things Needing Attention</div>
+  <div class="grid g-2">
+    <div class="panel">
+      <h3>Attention Queue</h3>
+      <div class="ph-sub">Actionable gaps, ranked by severity — each links into the relevant app</div>
+
+      <div class="att">
+        <div class="a-ico sev-hi">🔓</div>
+        <div class="a-body">
+          <div class="a-title">Confidential assets in open zones</div>
+          <div class="a-desc">Confidential/Restricted data with no restricted-zone membership</div>
+        </div>
+        <div style="text-align:right"><div class="a-count" style="color:#ff6b81">24</div><a class="a-cta" href="#">Review in Insights →</a></div>
+      </div>
+
+      <div class="att">
+        <div class="a-ico sev-md">📜</div>
+        <div class="a-body">
+          <div class="a-title">Certifications expiring within 90 days</div>
+          <div class="a-desc">6 certifications, covering 41 assets, need renewal</div>
+        </div>
+        <div style="text-align:right"><div class="a-count" style="color:var(--c4)">6</div><a class="a-cta" href="#">Open Audit →</a></div>
+      </div>
+
+      <div class="att">
+        <div class="a-ico sev-md">🔬</div>
+        <div class="a-body">
+          <div class="a-title">Data stores never surveyed</div>
+          <div class="a-desc">No survey report / profiling annotations attached</div>
+        </div>
+        <div style="text-align:right"><div class="a-count" style="color:var(--c4)">88</div><a class="a-cta" href="#">Open Catalog →</a></div>
+      </div>
+
+      <div class="att">
+        <div class="a-ico sev-lo">🔗</div>
+        <div class="a-body">
+          <div class="a-title">Orphan glossary terms</div>
+          <div class="a-desc">Approved terms with no semantic assignment to any asset</div>
+        </div>
+        <div style="text-align:right"><div class="a-count" style="color:var(--c2)">47</div><a class="a-cta" href="#">Open Explorer →</a></div>
+      </div>
+
+      <div class="att">
+        <div class="a-ico sev-lo">🕓</div>
+        <div class="a-body">
+          <div class="a-title">Stale assets (no update &gt; 180d)</div>
+          <div class="a-desc">Possibly abandoned; candidates for archival review</div>
+        </div>
+        <div style="text-align:right"><div class="a-count" style="color:var(--c2)">153</div><a class="a-cta" href="#">Open Catalog →</a></div>
+      </div>
+    </div>
+
+    <div class="grid" style="gap:14px">
+      <div class="panel">
+        <h3>Data Quality Coverage</h3>
+        <div class="ph-sub">Survey &amp; annotation coverage of data stores</div>
+        <div class="hbar-row"><span class="lab">Surveyed</span><div class="hbar-track"><div class="hbar-fill" style="width:61%;background:var(--c6)"></div></div><span class="num">61%</span></div>
+        <div class="hbar-row"><span class="lab">Has quality annotations</span><div class="hbar-track"><div class="hbar-fill" style="width:44%;background:var(--c1)"></div></div><span class="num">44%</span></div>
+        <div class="hbar-row"><span class="lab">Has schema captured</span><div class="hbar-track"><div class="hbar-fill" style="width:78%;background:var(--c2)"></div></div><span class="num">78%</span></div>
+        <div class="hbar-row"><span class="lab">Has assigned owner</span><div class="hbar-track"><div class="hbar-fill" style="width:83%;background:var(--c3)"></div></div><span class="num">83%</span></div>
+        <div class="hbar-row"><span class="lab">Has description</span><div class="hbar-track"><div class="hbar-fill" style="width:71%;background:var(--c4)"></div></div><span class="num">71%</span></div>
+      </div>
+
+      <div class="panel">
+        <h3>Certifications Expiring Soon</h3>
+        <div class="ph-sub">Next renewals due</div>
+        <table class="mini">
+          <thead><tr><th>Certification</th><th>Scope</th><th>Due</th></tr></thead>
+          <tbody>
+            <tr><td>GDPR Data Handling</td><td>Clinical zone</td><td><span class="pill pill-hi">12 days</span></td></tr>
+            <tr><td>ISO 27001 Control</td><td>18 assets</td><td><span class="pill pill-warn">34 days</span></td></tr>
+            <tr><td>Data Steward Sign-off</td><td>Sales DW</td><td><span class="pill pill-warn">58 days</span></td></tr>
+            <tr><td>HIPAA Alignment</td><td>Patient data</td><td><span class="pill pill-warn">81 days</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── AI & CONTEXT INTELLIGENCE ── -->
+  <div class="section-label">AI &amp; Context Intelligence <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— turning governed metadata into trustworthy context for apps &amp; agents</span></div>
+
+  <div class="kpis" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
+    <div class="kpi clickable" data-drill="ai-ready">
+      <span class="k-ico">🤖</span><span class="k-label">AI-Ready Assets</span>
+      <span class="k-val">612</span><span class="k-sub">48% — governed + documented + lineage</span>
+    </div>
+    <div class="kpi clickable" data-drill="context-products">
+      <span class="k-ico">🧩</span><span class="k-label">Context Products</span>
+      <span class="k-val">14</span><span class="k-sub">served to apps via MCP / API</span>
+    </div>
+    <div class="kpi clickable" data-drill="ai-consumers">
+      <span class="k-ico">🔌</span><span class="k-label">Active AI Consumers</span>
+      <span class="k-val">7</span><span class="k-sub">agents · MCP clients · Advisor</span>
+    </div>
+    <div class="kpi clickable" data-drill="grounding">
+      <span class="k-ico">🧠</span><span class="k-label">Semantic Grounding</span>
+      <span class="k-val">61%</span><span class="delta up">▲ 9 pts <span style="color:var(--muted);font-weight:400">·  glossary-linked</span></span>
+    </div>
+  </div>
+
+  <div class="grid g-3">
+    <div class="panel">
+      <div class="panel-head"><div><h3>🚦 Context Readiness Funnel</h3><div class="ph-sub">How much cataloged data becomes trustworthy AI context</div></div><span class="drill-hint">click a stage</span></div>
+      <div class="funnel-row" data-drill="funnel-cataloged"><span class="lab">Cataloged</span><div class="funnel-track"><div class="funnel-fill" style="width:100%;background:var(--c2)">1,284</div></div><span class="conv">100%</span></div>
+      <div class="funnel-row" data-drill="funnel-documented"><span class="lab">Documented</span><div class="funnel-track"><div class="funnel-fill" style="width:71%;background:var(--c1)">912</div></div><span class="conv">71%</span></div>
+      <div class="funnel-row" data-drill="funnel-classified"><span class="lab">Classified</span><div class="funnel-track"><div class="funnel-fill" style="width:68%;background:var(--c6)">873</div></div><span class="conv">68%</span></div>
+      <div class="funnel-row" data-drill="funnel-lineage"><span class="lab">Lineage-traced</span><div class="funnel-track"><div class="funnel-fill" style="width:55%;background:var(--c3)">705</div></div><span class="conv">55%</span></div>
+      <div class="funnel-row" data-drill="funnel-airead"><span class="lab" style="font-weight:700">AI-Ready</span><div class="funnel-track"><div class="funnel-fill" style="width:48%;background:var(--c4)">612</div></div><span class="conv">48%</span></div>
+      <div style="margin-top:11px;font-size:.74rem;color:var(--muted);line-height:1.5;border-top:1px solid var(--border);padding-top:9px"><b style="color:var(--text)">Business value:</b> grounded, lineage-backed context = fewer hallucinations and a full audit trail of what an agent was allowed to see.</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><div><h3>🔌 Context Consumers</h3><div class="ph-sub">Apps &amp; agents pulling Egeria context (30d)</div></div><a class="deep" href="#" data-drill="ai-consumers">details</a></div>
+      <table class="mini">
+        <thead><tr><th>Consumer</th><th>Type</th><th>Calls</th></tr></thead>
+        <tbody>
+          <tr><td>Egeria Advisor</td><td>AI agent</td><td><span class="pill pill-ok">4.1k</span></td></tr>
+          <tr><td>Claude / MCP</td><td>MCP client</td><td><span class="pill pill-ok">2.8k</span></td></tr>
+          <tr><td>Clinical RAG bot</td><td>RAG app</td><td><span class="pill pill-ok">1.6k</span></td></tr>
+          <tr><td>Sales Copilot</td><td>Agent</td><td><span class="pill pill-warn">640</span></td></tr>
+          <tr><td>Notebook / pyegeria</td><td>SDK</td><td>510</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:11px;font-size:.74rem;color:var(--muted);line-height:1.5;border-top:1px solid var(--border);padding-top:9px"><b style="color:var(--text)">Enables builders:</b> a governed context API means teams ship AI apps without re-plumbing metadata each time.</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><div><h3>🛡️ AI Guardrails</h3><div class="ph-sub">Governance keeping AI safe &amp; compliant</div></div></div>
+      <div class="att" style="margin-bottom:8px"><div class="a-ico sev-hi">🚫</div><div class="a-body"><div class="a-title">Confidential blocked from AI context</div><div class="a-desc">Excluded from RAG / training sets by zone policy</div></div><div class="a-count" style="color:#ff6b81">24</div></div>
+      <div class="att" style="margin-bottom:8px"><div class="a-ico sev-md">🎭</div><div class="a-body"><div class="a-title">PII fields masked for agents</div><div class="a-desc">Served with obfuscation classification applied</div></div><div class="a-count" style="color:var(--c4)">146</div></div>
+      <div class="att" style="margin-bottom:0"><div class="a-ico sev-lo">📋</div><div class="a-body"><div class="a-title">Context requests audited</div><div class="a-desc">Full provenance: which agent saw which asset</div></div><div class="a-count" style="color:var(--c2)">9.6k</div></div>
+      <div style="margin-top:11px;font-size:.74rem;color:var(--muted);line-height:1.5;border-top:1px solid var(--border);padding-top:9px"><b style="color:var(--text)">Business value:</b> defensible AI — prove to auditors exactly what data any model or agent was exposed to.</div>
+    </div>
+  </div>
+
+  <!-- ── PEOPLE & COMMUNITY ── -->
+  <div class="section-label">People &amp; Community <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— the human engagement behind the metadata (Community Profile + Collaboration OMAS)</span></div>
+
+  <div class="kpis" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
+    <div class="kpi">
+      <span class="k-ico">👥</span><span class="k-label">People / Contributors</span>
+      <span class="k-val" id="kpi-people">34</span><span class="k-sub" id="kpi-people-sub">registered persons</span>
+    </div>
+    <div class="kpi">
+      <span class="k-ico">🏢</span><span class="k-label">Teams &amp; Organizations</span>
+      <span class="k-val" id="kpi-orgs">—</span><span class="k-sub" id="kpi-orgs-sub">teams · organizations</span>
+    </div>
+    <div class="kpi">
+      <span class="k-ico">💬</span><span class="k-label">Feedback Items</span>
+      <span class="k-val" id="kpi-feedback">1,207</span><span class="k-sub">comments · ratings · tags <span style="color:var(--c4)">(sample)</span></span>
+    </div>
+    <div class="kpi">
+      <span class="k-ico">🌐</span><span class="k-label">Active Communities</span>
+      <span class="k-val" id="kpi-communities">9</span><span class="k-sub">collaboration groups</span>
+    </div>
+  </div>
+
+  <div class="grid g-3">
+    <div class="panel">
+      <div class="panel-head"><div><h3>🏆 Karma Leaderboard</h3><div class="ph-sub">Top curators by contribution reputation</div></div></div>
+      <div class="lead-row"><span class="lead-rank trophy">1</span><span class="avatar">👩‍🔬</span><div><div class="lead-name">Erin Overview</div><div class="lead-role">Data Steward · Clinical</div></div><div class="lead-karma"><b>1,340</b><small>+180 /90d</small></div></div>
+      <div class="lead-row"><span class="lead-rank trophy">2</span><span class="avatar">👨‍💼</span><div><div class="lead-name">Peter Profile</div><div class="lead-role">Data Owner · Sales</div></div><div class="lead-karma"><b>1,115</b><small>+150 /90d</small></div></div>
+      <div class="lead-row"><span class="lead-rank trophy">3</span><span class="avatar">👩‍💻</span><div><div class="lead-name">Faith Broker</div><div class="lead-role">Governance · Finance</div></div><div class="lead-karma"><b>780</b><small>+95 /90d</small></div></div>
+      <div class="lead-row"><span class="lead-rank">4</span><span class="avatar">🧑‍🔬</span><div><div class="lead-name">Tanya Tidie</div><div class="lead-role">Steward · Research</div></div><div class="lead-karma"><b>640</b><small>+70 /90d</small></div></div>
+      <div class="lead-row"><span class="lead-rank">5</span><span class="avatar">👨‍🏫</span><div><div class="lead-name">Harry Hopeful</div><div class="lead-role">Analyst · Ops</div></div><div class="lead-karma"><b>410</b><small>+120 /90d</small></div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><div><h3>📈 Engagement Over Time</h3><div class="ph-sub">Feedback contributions per week (12 wk)</div></div></div>
+      <svg viewBox="0 0 340 192" width="100%" height="192" id="engage"></svg>
+      <div class="legend"><span><i class="dot" style="background:var(--c1)"></i>Comments</span><span><i class="dot" style="background:var(--c4)"></i>Ratings</span><span><i class="dot" style="background:var(--c3)"></i>Tags</span></div>
+      <div style="margin-top:10px;font-size:.74rem;color:var(--muted);line-height:1.5;border-top:1px solid var(--border);padding-top:9px">
+        <b style="color:var(--text)">Business value:</b> rising engagement = the catalog is trusted and used — self-service adoption offloads the central team.
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><div><h3>💬 Feedback by Type</h3><div class="ph-sub">Crowd-sourced curation signals</div></div></div>
+      <div id="fbType"></div>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+        <div style="font-size:.74rem;color:var(--muted);margin-bottom:8px">Engagement by organization</div>
+        <div class="hbar-row" style="grid-template-columns:96px 1fr 30px"><span class="lab">Clinical</span><div class="hbar-track"><div class="hbar-fill" style="width:88%;background:var(--c6)"></div></div><span class="num">312</span></div>
+        <div class="hbar-row" style="grid-template-columns:96px 1fr 30px"><span class="lab">Sales &amp; Mktg</span><div class="hbar-track"><div class="hbar-fill" style="width:70%;background:var(--c6)"></div></div><span class="num">248</span></div>
+        <div class="hbar-row" style="grid-template-columns:96px 1fr 30px"><span class="lab">Research</span><div class="hbar-track"><div class="hbar-fill" style="width:55%;background:var(--c6)"></div></div><span class="num">195</span></div>
+        <div class="hbar-row" style="grid-template-columns:96px 1fr 30px"><span class="lab">Finance</span><div class="hbar-track"><div class="hbar-fill" style="width:34%;background:var(--c6)"></div></div><span class="num">120</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g-2" style="margin-top:14px">
+    <div class="panel">
+      <h3>🔥 Most-Engaged Assets</h3>
+      <div class="ph-sub">Where the community is spending attention — a demand signal for stewardship &amp; productization</div>
+      <table class="mini">
+        <thead><tr><th>Asset</th><th>Rating</th><th>Comments</th><th>Views</th></tr></thead>
+        <tbody>
+          <tr><td>Clinical Trial Results DW</td><td>★ 4.6</td><td>38</td><td><span class="pill pill-ok">1.2k</span></td></tr>
+          <tr><td>Patient Demographics</td><td>★ 4.4</td><td>27</td><td><span class="pill pill-ok">980</span></td></tr>
+          <tr><td>Weekly Sales Snapshot</td><td>★ 4.3</td><td>21</td><td><span class="pill pill-ok">870</span></td></tr>
+          <tr><td>Drug Interaction Ref Data</td><td>★ 3.9</td><td>19</td><td><span class="pill pill-warn">540</span></td></tr>
+          <tr><td>Employee Compensation</td><td>★ 2.8</td><td>14</td><td><span class="pill pill-hi">low trust</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h3>❓ Questions &amp; Answers Activity</h3>
+      <div class="ph-sub">The Perspective/Question model in motion — what people are asking of the catalog</div>
+      <div class="hbar-row"><span class="lab">Questions asked</span><div class="hbar-track"><div class="hbar-fill" style="width:64%;background:var(--c2)"></div></div><span class="num">86</span></div>
+      <div class="hbar-row"><span class="lab">Answered / resolved</span><div class="hbar-track"><div class="hbar-fill" style="width:52%;background:var(--c6)"></div></div><span class="num">61</span></div>
+      <div class="hbar-row"><span class="lab">Open / unanswered</span><div class="hbar-track"><div class="hbar-fill" style="width:19%;background:var(--c4)"></div></div><span class="num">25</span></div>
+      <div style="margin-top:12px;padding-top:11px;border-top:1px solid var(--border);font-size:.78rem;color:var(--muted);line-height:1.55">
+        Top unanswered: <b style="color:var(--text)">"Which datasets are safe for the LLM training set?"</b> · <b style="color:var(--text)">"Who signed off on the EU patient extract?"</b><br>
+        <span style="color:var(--c4)">→ each open question is a candidate for a new saved view / report spec.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ACTIVITY ── -->
+  <div class="section-label">Recent Activity</div>
+  <div class="grid g-12">
+    <div class="panel">
+      <h3>Metadata Change Stream</h3>
+      <div class="ph-sub">Recent context events &amp; catalog changes (last 48h)</div>
+      <div style="margin-top:6px">
+        <div class="feed-item"><span class="feed-dot" style="background:var(--c6)"></span><div class="feed-body"><div class="fb-main"><b>Peter Profile</b> certified <b>Clinical Trial Results DW</b> against GDPR Data Handling</div><div class="fb-meta">Certification · 2h ago · Clinical zone</div></div></div>
+        <div class="feed-item"><span class="feed-dot" style="background:var(--c2)"></span><div class="feed-body"><div class="fb-main">Survey connector profiled <b>hospital-1 landing area</b> — 14 new schema attributes</div><div class="fb-meta">Survey report · 4h ago · 2 quality annotations raised</div></div></div>
+        <div class="feed-item"><span class="feed-dot" style="background:var(--c4)"></span><div class="feed-body"><div class="fb-main"><b>Faith Broker</b> raised confidentiality of <b>Employee Compensation</b> to Restricted</div><div class="fb-meta">Classification change · 6h ago</div></div></div>
+        <div class="feed-item"><span class="feed-dot" style="background:var(--c3)"></span><div class="feed-body"><div class="fb-main">Data product <b>Weekly Sales Snapshot v2</b> moved Draft → Published</div><div class="fb-meta">Digital product · 9h ago</div></div></div>
+        <div class="feed-item"><span class="feed-dot" style="background:var(--c1)"></span><div class="feed-body"><div class="fb-main">27 new terms imported into <b>Clinical Terminology</b> glossary</div><div class="fb-meta">Glossary · 14h ago · Erin Overview</div></div></div>
+        <div class="feed-item"><span class="feed-dot" style="background:var(--c5)"></span><div class="feed-body"><div class="fb-main">Duplicate suspected: <b>Patient (CRM)</b> ≈ <b>Patient (Trials)</b></div><div class="fb-meta">Exception · 20h ago · awaiting steward review</div></div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Activity by Type (7d)</h3>
+      <div class="ph-sub">What's driving change</div>
+      <div id="activity"></div>
+      <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border)">
+        <div style="font-size:.74rem;color:var(--muted);margin-bottom:8px">Most active stewards</div>
+        <div class="hbar-row" style="grid-template-columns:88px 1fr 30px"><span class="lab">Peter P.</span><div class="hbar-track"><div class="hbar-fill" style="width:90%;background:var(--c2)"></div></div><span class="num">38</span></div>
+        <div class="hbar-row" style="grid-template-columns:88px 1fr 30px"><span class="lab">Erin O.</span><div class="hbar-track"><div class="hbar-fill" style="width:64%;background:var(--c2)"></div></div><span class="num">27</span></div>
+        <div class="hbar-row" style="grid-template-columns:88px 1fr 30px"><span class="lab">Faith B.</span><div class="hbar-track"><div class="hbar-fill" style="width:41%;background:var(--c2)"></div></div><span class="num">17</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot-note">
+    <b>Prototype mockup</b> · sample Coco Pharmaceuticals figures. Every tile maps to data the portal already exposes — asset/type counts from the Tech Catalog handlers, classification &amp; zone tallies from <code>/api/insights/summary</code>, certifications from the Audit handler, glossary counts from the Glossary handler, survey coverage from survey-report annotations, the change stream from Context Events, and the <b>People &amp; Community</b> block from the Community Profile / Collaboration handlers (<code>actor</code>, <code>community</code>, karma / <code>egeria-feedback</code> likes·ratings·comments, <code>informal-tags</code>). The <b>Perspective → Question</b> framing is the existing <code>perspectives_handler</code> model (Perspective ⟶ <code>ScopedBy</code> ⟶ Question), with each question answered by a saved <b>report spec / view definition</b>. Trend lines use Egeria's native <code>asOfTime</code> historical queries — no separate time-series store required. The one new backend piece is a small <code>/api/overview/*</code> aggregation router that fans these out and caches them (mirroring the operations handler's non-blocking cache pattern).
+  </div>
+
+</div>
+
+<!-- ── DRILL-DOWN DRAWER ── -->
+<div class="ovl" id="ovl" onclick="closeDrill()"></div>
+<aside class="drawer" id="drawer">
+  <div class="dh">
+    <button class="dclose" onclick="closeDrill()">×</button>
+    <div class="d-eyebrow" id="d-eyebrow">Drill-down</div>
+    <h2 id="d-title">—</h2>
+    <div class="d-sub" id="d-sub"></div>
+  </div>
+  <div class="db" id="d-body"></div>
+</aside>
+
+<!-- Shared portal helpers: egeriaFetch (adds creds + auto 401-refresh), crossAppNavigate -->
+<script src="/static/egeria-shared-ui.js?v=2026-07-22c"></script>
+<script>
+// ---- Catalog growth (dual axis-ish, normalized) ----
+(function(){
+  const svg = document.getElementById('growth');
+  const W=720,H=260, padL=44, padR=44, padT=16, padB=28;
+  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul'];
+  const assets=[880,948,1010,1072,1140,1221,1284];
+  const terms=[588,610,648,672,695,720,742];
+  const gov=[52,54,58,60,63,66,68]; // percent
+  const iw=W-padL-padR, ih=H-padT-padB;
+  const x=i=>padL + iw*i/(months.length-1);
+  const maxL=1300, yL=v=>padT+ih*(1-v/maxL);
+  const yPct=v=>padT+ih*(1-v/100);
+  let g='';
+  // gridlines
+  for(let i=0;i<=4;i++){const yy=padT+ih*i/4; g+=`<line x1="${padL}" y1="${yy}" x2="${W-padR}" y2="${yy}" stroke="var(--grid)"/>`;
+    g+=`<text x="${padL-8}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--axis)">${Math.round(maxL*(1-i/4))}</text>`;}
+  // x labels (month ticks) + axis title
+  months.forEach((m,i)=>{ g+=`<text x="${x(i)}" y="${H-16}" text-anchor="middle" font-size="10" fill="var(--axis)">${m}</text>`;});
+  g+=`<text x="${padL+iw/2}" y="${H-2}" text-anchor="middle" font-size="10" font-weight="600" fill="var(--muted)">Month (2026) →</text>`;
+  // right axis (%) + unit
+  [0,25,50,75,100].forEach(p=>{ g+=`<text x="${W-padR+8}" y="${yPct(p)+4}" font-size="10" fill="var(--axis)">${p}%</text>`;});
+  g+=`<text transform="translate(${W-10},${padT+ih/2}) rotate(90)" text-anchor="middle" font-size="10" font-weight="600" fill="var(--muted)">% governed</text>`;
+  // left axis unit
+  g+=`<text transform="translate(11,${padT+ih/2}) rotate(-90)" text-anchor="middle" font-size="10" font-weight="600" fill="var(--muted)">Elements (count)</text>`;
+  const line=(arr,fn,col,fill)=>{
+    const pts=arr.map((v,i)=>`${x(i)},${fn(v)}`).join(' ');
+    let s='';
+    if(fill){ s+=`<polygon points="${padL},${padT+ih} ${pts} ${W-padR},${padT+ih}" fill="${col}" opacity=".08"/>`; }
+    s+=`<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2.5"/>`;
+    arr.forEach((v,i)=> s+=`<circle cx="${x(i)}" cy="${fn(v)}" r="3" fill="${col}"/>`);
+    return s;
+  };
+  g+=line(assets,yL,'var(--c2)',true);
+  g+=line(terms,yL,'var(--c1)',false);
+  g+=line(gov,yPct,'var(--c6)',false);
+  svg.innerHTML=g;
+})();
+
+// ---- Donut ----
+(function(){
+  const svg=document.getElementById('donut');
+  const data=[['var(--c6)',873],['var(--c4)',241],['#243456',170]];
+  const total=data.reduce((a,b)=>a+b[1],0);
+  const cx=75,cy=75,r=58,sw=20; let a=-Math.PI/2,g='';
+  data.forEach(([col,v])=>{
+    const frac=v/total, a2=a+frac*2*Math.PI;
+    const x1=cx+r*Math.cos(a), y1=cy+r*Math.sin(a), x2=cx+r*Math.cos(a2), y2=cy+r*Math.sin(a2);
+    const large=frac>0.5?1:0;
+    g+=`<path d="M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}" fill="none" stroke="${col}" stroke-width="${sw}"/>`;
+    a=a2;
+  });
+  svg.innerHTML=g;
+})();
+
+// ---- Horizontal bar helper (row = [lab,val,col,drillKey?]) ----
+function hbars(id,rows,max){
+  const el=document.getElementById(id);
+  const mx=max||Math.max(...rows.map(r=>r[1]));
+  el.innerHTML=rows.map(([lab,val,col,dk])=>
+    `<div class="hbar-row${dk?' drill':''}"${dk?` data-drill="${dk}"`:''}><span class="lab" title="${lab}">${lab}</span>`+
+    `<div class="hbar-track"><div class="hbar-fill" style="width:${Math.max(3,100*val/mx)}%;background:${col||'var(--c2)'}"></div></div>`+
+    `<span class="num">${val}</span></div>`).join('');
+}
+hbars('byType',[
+  ['Data Stores',312,'var(--c2)','type-datastore'],['Data Sets',268,'var(--c2)','type-dataset'],['Software Comp.',205,'var(--c2)','type-swcomp'],
+  ['Infrastructure',160,'var(--c2)','type-infra'],['APIs',141,'var(--c2)','type-api'],['Processes',100,'var(--c2)','type-proc'],['Data Feeds',98,'var(--c2)','type-feed']
+]);
+hbars('byZone',[
+  ['data-lake',480,'var(--c3)','zone-data-lake'],['published',260,'var(--c3)','zone-published'],['research',214,'var(--c3)','zone-research'],
+  ['clinical-trial',210,'var(--c3)','zone-clinical-trial'],['personal-data',190,'var(--c3)','zone-personal-data'],['sandbox',156,'var(--c3)','zone-sandbox'],['quarantine',34,'var(--c5)','zone-quarantine']
+]);
+hbars('byConf',[
+  ['Unclassified',420,'#33415c'],['Internal',512,'var(--c6)'],['Sensitive',210,'var(--c4)'],
+  ['Confidential',118,'#ff8c5a'],['Restricted',24,'var(--c5)']
+]);
+hbars('activity',[
+  ['Classifications',52,'var(--c4)'],['New assets',38,'var(--c6)'],['Certifications',19,'var(--c2)'],
+  ['Term links',44,'var(--c1)'],['Surveys',11,'var(--c3)'],['Exceptions',8,'var(--c5)']
+]);
+hbars('fbType',[
+  ['Ratings ★',512,'var(--c4)'],['Comments',410,'var(--c1)'],['Tags',285,'var(--c3)'],
+  ['Likes',196,'var(--c2)'],['Note logs',74,'var(--c6)']
+]);
+
+// ---- Engagement over time (stacked-ish multi-line) ----
+(function(){
+  const svg=document.getElementById('engage');
+  const W=340,H=192,padL=30,padR=8,padT=10,padB=42,n=12;
+  const comments=[18,22,20,26,24,30,28,34,32,38,40,44];
+  const ratings =[24,26,30,28,34,32,38,36,42,44,48,52];
+  const tags    =[8,10,9,12,14,13,16,18,17,20,22,26];
+  const iw=W-padL-padR, ih=H-padT-padB, max=60;
+  const x=i=>padL+iw*i/(n-1), y=v=>padT+ih*(1-v/max);
+  let g='';
+  for(let i=0;i<=3;i++){const yy=padT+ih*i/3; g+=`<line x1="${padL}" y1="${yy}" x2="${W-padR}" y2="${yy}" stroke="var(--grid)"/>`;
+    g+=`<text x="${padL-5}" y="${yy+4}" text-anchor="end" font-size="9" fill="var(--axis)">${Math.round(max*(1-i/3))}</text>`;}
+  ['wk 1','','','','','wk 6','','','','','','wk 12'].forEach((m,i)=>{ if(m) g+=`<text x="${x(i)}" y="${H-24}" text-anchor="middle" font-size="9" fill="var(--axis)">${m}</text>`;});
+  g+=`<text x="${padL+iw/2}" y="${H-8}" text-anchor="middle" font-size="10" font-weight="600" fill="var(--muted)">Week (last 12 weeks) →</text>`;
+  g+=`<text transform="translate(10,${padT+ih/2}) rotate(-90)" text-anchor="middle" font-size="9" font-weight="600" fill="var(--muted)">Items / week</text>`;
+  const ln=(arr,col)=>{const pts=arr.map((v,i)=>`${x(i)},${y(v)}`).join(' ');return `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2"/>`;};
+  g+=ln(ratings,'var(--c4)')+ln(comments,'var(--c1)')+ln(tags,'var(--c3)');
+  svg.innerHTML=g;
+})();
+
+// perspective tab toggle (cosmetic)
+document.querySelectorAll('.persp-tabs button').forEach(b=>{ if(b.textContent.includes('Questions'))return;
+  b.onclick=()=>{ document.querySelectorAll('.persp-tabs button').forEach(x=>{if(!x.textContent.includes('Questions'))x.classList.remove('on');}); b.classList.add('on'); };
+});
+
+// ==== DRILL-DOWN ====
+// Each entry = what a click reveals: a focused breakdown + the portal screen that owns the detail.
+const DRILL = {
+  assets: { eb:'Catalog · scale', t:'🗂️ Cataloged Assets', s:'1,284 active assets · +63 new in last 90 days',
+    stats:[['1,284','total'],['+63','new /90d'],['7','asset types']],
+    list:[['Data Stores',312],['Data Sets',268],['Software Components',205],['Infrastructure',160],['APIs',141],['Processes',100],['Data Feeds',98]],
+    cta:['Open in The Catalog','/tech-catalog'], sec:['Search in Egeria Insights','/egeria-insights'],
+    note:'Counts from the Tech Catalog handlers (<code>/api/tech-catalog/*</code>). Trend via <code>asOfTime</code> snapshots.' },
+  governed: { eb:'Governance posture', t:'🛡️ Governed Coverage', s:'873 of 1,284 assets carry ≥1 governance classification (68%)',
+    stats:[['68%','governed'],['▲5 pts','vs 90d ago'],['170','ungoverned']],
+    list:[['Fully governed',873],['Partial (zone only)',241],['Ungoverned',170],['↳ of which Confidential',24]],
+    cta:['Review in Egeria Insights','/egeria-insights'], sec:['See exceptions in Audit','/egeria-audit'],
+    note:'Classification &amp; zone tallies from <code>/api/insights/summary</code>.' },
+  certs: { eb:'Compliance', t:'📜 Active Certifications', s:'47 active · 6 expiring within 90 days',
+    stats:[['47','active'],['6','expiring ≤90d'],['41','assets at risk']],
+    list:[['GDPR Data Handling — 12d',1],['ISO 27001 Control — 34d',1],['Data Steward Sign-off — 58d',1],['HIPAA Alignment — 81d',1]],
+    cta:['Open in Egeria Audit','/egeria-audit'], sec:null,
+    note:'Certification &amp; license relationships from the Audit handler (<code>/api/audit/relationships</code>).' },
+  'ai-ready': { eb:'AI & context intelligence', t:'🤖 AI-Ready Assets', s:'612 assets are governed + documented + lineage-traced — safe to serve as AI context',
+    stats:[['612','AI-ready'],['48%','of catalog'],['24','held back']],
+    list:[['Documented',912],['Classified',873],['Lineage-traced',705],['AI-ready (all gates)',612],['Blocked: confidential',24]],
+    cta:['Explore context products','/tech-catalog'], sec:['View lineage','/lineage'],
+    note:'A composite gate over documentation, classification and lineage completeness. This is the metric App/AI builders care about most.' },
+  'context-products': { eb:'AI & context intelligence', t:'🧩 Context Products', s:'14 curated context products served to apps via MCP / API',
+    stats:[['14','products'],['7','consumers'],['9.6k','calls /30d']],
+    list:[['Clinical semantic layer',3900],['Sales metrics context',2100],['Reference/valid values',1800],['Glossary grounding set',1200]],
+    cta:['Open Digital Products','/tech-catalog'], sec:['MCP usage docs','/docs/'],
+    note:'Context products = governed collections exposed to AI via the Egeria MCP server &amp; API.' },
+  'ai-consumers': { eb:'AI & context intelligence', t:'🔌 Active AI Consumers', s:'7 apps/agents pulling Egeria context in the last 30 days',
+    stats:[['7','consumers'],['9.6k','calls'],['100%','audited']],
+    list:[['Egeria Advisor (agent)',4100],['Claude / MCP',2800],['Clinical RAG bot',1600],['Sales Copilot',640],['Notebook / pyegeria',510]],
+    cta:['Open Egeria Advisor','/advisor'], sec:['Context audit trail','/egeria-audit'],
+    note:'Every context request is logged with provenance — which agent saw which asset.' },
+  grounding: { eb:'AI & context intelligence', t:'🧠 Semantic Grounding', s:'61% of assets are linked to glossary terms — the meaning layer that grounds AI',
+    stats:[['61%','grounded'],['▲9 pts','/90d'],['742','terms']],
+    list:[['Assets with term links',783],['Terms linked to assets',452],['Orphan terms',47]],
+    cta:['Open Glossary in Explorer','/egeria-explorer'], sec:null,
+    note:'Semantic assignments (term ↔ asset) from the Glossary handler.' },
+  isc: { eb:'Usage context', t:'🔗 Information Supply Chains', s:'End-to-end flows that carry data through the business — the context that makes an asset meaningful',
+    stats:[['18','supply chains'],['—','assets in flows'],['—','stages']],
+    list:[['Clinical Trial results',1],['Sales & revenue',1],['Sustainability reporting',1],['Treasury / finance',1]],
+    cta:['Explore supply chains','/egeria-explorer#isc'], sec:['See in Lineage','/lineage'],
+    note:'Live count from <code>find_information_supply_chains</code> (SolutionArchitect). Per-ISC asset participation needs graph traversal — a later slice.' },
+  blueprints: { eb:'Usage context', t:'🧱 Solution Blueprints', s:'Reusable solution designs that assets realise or participate in — the "why" behind an asset',
+    stats:[['30','blueprints'],['—','components'],['—','realised by']],
+    list:[['Clinical data platform',1],['Customer 360',1],['Regulatory reporting',1],['Data lakehouse',1]],
+    cta:['Explore blueprints','/egeria-explorer#blueprints'], sec:null,
+    note:'Live count from <code>find_solution_blueprints</code> (SolutionArchitect). Blueprints link designs to the components that implement them.' },
+};
+['datastore','dataset','swcomp','infra','api','proc','feed'].forEach(k=>{});
+function typeDrill(name,count){ return { eb:'Catalog · asset type', t:'🗂️ '+name, s:count+' '+name.toLowerCase()+' in the catalog',
+  stats:[[String(count),'assets'],['—','surveyed'],['—','owned']], list:[['Governed',Math.round(count*.68)],['Documented',Math.round(count*.71)],['Surveyed',Math.round(count*.55)]],
+  cta:['Filter The Catalog','/tech-catalog'], sec:['Search in Insights','/egeria-insights'],
+  note:'Would deep-link to a pre-filtered Catalog view for this type.' }; }
+function zoneDrill(name,count){ return { eb:'Governance zone', t:'📁 '+name, s:count+' elements are members of the '+name+' zone',
+  stats:[[String(count),'members'],['—','confidential'],['—','owners']], list:[['Data Stores',Math.round(count*.4)],['Data Sets',Math.round(count*.35)],['Other',Math.round(count*.25)]],
+  cta:['Open zone in Insights','/egeria-insights?zone='+encodeURIComponent(name)], sec:null,
+  note:'Deep-links into Egeria Insights faceted by this <code>ZoneMembership</code> value.' }; }
+const TYPE_NAMES={'type-datastore':['Data Stores',312],'type-dataset':['Data Sets',268],'type-swcomp':['Software Components',205],'type-infra':['Infrastructure',160],'type-api':['APIs',141],'type-proc':['Processes',100],'type-feed':['Data Feeds',98]};
+
+function drillFor(key){
+  if(DRILL[key]) return DRILL[key];
+  if(TYPE_NAMES[key]) return typeDrill(...TYPE_NAMES[key]);
+  if(key.startsWith('zone-')){ const z=key.slice(5); const map={'data-lake':480,'published':260,'research':214,'clinical-trial':210,'personal-data':190,'sandbox':156,'quarantine':34}; return zoneDrill(z,map[z]||0); }
+  if(key.startsWith('funnel-')){ const m={'funnel-cataloged':['Cataloged',1284,'All registered assets'],'funnel-documented':['Documented',912,'Have a description / usage'],'funnel-classified':['Classified',873,'Carry governance classifications'],'funnel-lineage':['Lineage-traced',705,'Connected in the lineage graph'],'funnel-airead':['AI-Ready',612,'Pass all context-readiness gates']}[key];
+    return { eb:'Context readiness', t:'🚦 '+m[0], s:m[2]+' — '+m[1]+' assets ('+Math.round(m[1]/1284*100)+'% of catalog)',
+      stats:[[String(m[1]),'assets'],[Math.round(m[1]/1284*100)+'%','of catalog'],['—','gap to next']],
+      list:[['Reaches this stage',m[1]],['Drops off before',1284-m[1]]],
+      cta:['See these in The Catalog','/tech-catalog'], sec:['Fix gaps via Insights','/egeria-insights'],
+      note:'Each funnel stage is a saved query; the drop-off is the actionable backlog for stewards.' }; }
+  return { eb:'Detail', t:key, s:'Breakdown', stats:[], list:[], cta:['Open portal','/'], sec:null, note:'' };
+}
+
+function openDrill(key){
+  const d=drillFor(key);
+  document.getElementById('d-eyebrow').textContent=d.eb;
+  document.getElementById('d-title').textContent=d.t;
+  document.getElementById('d-sub').textContent=d.s;
+  let h='';
+  if(d.stats&&d.stats.length){ h+='<div class="d-stat">'+d.stats.map(([b,s])=>`<div class="ds"><b>${b}</b><small>${s}</small></div>`).join('')+'</div>'; }
+  if(d.list&&d.list.length){ h+='<div class="d-list">'+d.list.map(([l,v])=>`<div class="dli"><span>${l}</span><span class="m">${typeof v==='number'?v.toLocaleString():v}</span></div>`).join('')+'</div>'; }
+  if(d.cta){ h+=`<a class="d-cta" href="${d.cta[1]}">${d.cta[0]} →</a>`; }
+  if(d.sec){ h+=`<a class="d-cta sec" href="${d.sec[1]}">${d.sec[0]} →</a>`; }
+  if(d.note){ h+=`<div class="d-note">${d.note}</div>`; }
+  document.getElementById('d-body').innerHTML=h;
+  document.getElementById('ovl').classList.add('open');
+  document.getElementById('drawer').classList.add('open');
+}
+function closeDrill(){ document.getElementById('ovl').classList.remove('open'); document.getElementById('drawer').classList.remove('open'); }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeDrill(); });
+document.addEventListener('click',e=>{ const el=e.target.closest('[data-drill]'); if(el){ e.preventDefault(); openDrill(el.getAttribute('data-drill')); } });
+// donut clickable
+const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn.parentElement.parentElement.setAttribute('data-drill','governed'); }
+
+// range segmented control (cosmetic in mockup)
+document.querySelectorAll('#range button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#range button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+});
+
+// ==== LIVE DATA BOOTSTRAP ====
+// The layout above renders a full *sample* baseline so the page is always useful.
+// On load we resolve the caller's Egeria creds (same flow as egeria-insights.html)
+// then overlay whatever /api/overview/* returns live. Fields the backend can't yet
+// compute come back null → we keep the sample value. A header badge shows which
+// data source is in effect so nothing is silently faked.
+(function(){
+  var fmt = function(n){ return (typeof n === 'number') ? n.toLocaleString() : n; };
+  var setTxt = function(id, v){ var el = document.getElementById(id); if (el && v != null) el.textContent = v; };
+  var badge = function(txt, color){ var b = document.getElementById('srcBadge'); if (b){ b.textContent = txt; b.style.color = color; } };
+  var stamp = function(){ setTxt('asofTime', new Date().toLocaleString([], {dateStyle:'medium', timeStyle:'short'})); };
+
+  function applySummary(d){
+    if (!d) return;
+    setTxt('kpi-assets',   fmt(d.assetTotal));
+    setTxt('kpi-terms',    fmt(d.termCount));
+    if (d.assetTotal && d.governedCount != null) {
+      setTxt('kpi-governed', Math.round(100 * d.governedCount / Math.max(d.assetTotal, d.governedCount)) + '%');
+    }
+    // Certifications (0 in demo is real — show it honestly, with license count)
+    if (d.certifications != null) {
+      setTxt('kpi-certs', fmt(d.certifications));
+      var cs = document.getElementById('kpi-certs-sub');
+      if (cs) {
+        var parts = [];
+        if (d.certExpiring90) parts.push(d.certExpiring90 + ' expiring ≤90d');
+        if (d.licenses != null) parts.push(d.licenses + ' licenses');
+        cs.textContent = parts.join(' · ') || 'none active';
+        cs.className = d.certExpiring90 ? 'delta down' : 'k-sub';
+      }
+    }
+    // Assets-by-type live overlay (falls back to sample bars if absent)
+    if (Array.isArray(d.byType) && d.byType.length && typeof hbars === 'function') {
+      var keymap = {DataStore:'type-datastore', DataSet:'type-dataset', DeployedSoftwareComponent:'type-swcomp',
+                    ITInfrastructure:'type-infra', DeployedAPI:'type-api', Process:'type-proc', DataFeed:'type-feed'};
+      var rows = d.byType.filter(function(r){ return r.count > 0; })
+                         .sort(function(a,b){ return b.count - a.count; })
+                         .map(function(r){ return [r.label, r.count, 'var(--c2)', keymap[r.type]]; });
+      if (rows.length) hbars('byType', rows);
+    }
+  }
+
+  function applyPeople(d){
+    if (!d) return;
+    setTxt('kpi-people', fmt(d.activeContributors));
+    if (d.activeContributors != null) setTxt('kpi-people-sub', 'registered persons');
+    if (d.teams != null || d.organizations != null) {
+      setTxt('kpi-orgs', fmt((d.teams || 0) + (d.organizations || 0)));
+      setTxt('kpi-orgs-sub', (d.teams || 0) + ' teams · ' + (d.organizations || 0) + ' orgs');
+    }
+    setTxt('kpi-communities', fmt(d.communities));
+  }
+
+  function applyUsage(d){
+    if (!d) return;
+    setTxt('uc-isc', fmt(d.informationSupplyChains));
+    setTxt('uc-bp',  fmt(d.blueprints));
+    if (d.contextualisedPct != null) setTxt('uc-cov', d.contextualisedPct + '%');
+    // keep DRILL headline counts in sync with live values
+    if (typeof DRILL === 'object') {
+      if (d.informationSupplyChains != null && DRILL.isc) DRILL.isc.stats[0] = [String(d.informationSupplyChains), 'supply chains'];
+      if (d.blueprints != null && DRILL.blueprints) DRILL.blueprints.stats[0] = [String(d.blueprints), 'blueprints'];
+    }
+  }
+
+  function loadAll(creds){
+    stamp();
+    var live = false, any = false;
+    var done = function(ok){ any = true; if (ok) live = true; };
+    var finish = function(){
+      if (!any) return;
+      if (live) badge('● live', 'var(--green)');
+      else      badge('○ sample (Egeria unavailable)', 'var(--c4)');
+    };
+    var get = function(path, apply){
+      return egeriaFetch(path, creds).then(function(r){ if(!r.ok) throw 0; return r.json(); })
+        .then(function(d){ apply(d); done(true); })
+        .catch(function(){ done(false); });
+    };
+    Promise.allSettled([
+      get('/api/overview/summary',       applySummary),
+      get('/api/overview/people',        applyPeople),
+      get('/api/overview/usage-context', applyUsage)
+      // ai-context / growth overlays land in a later slice — sample baseline shows for now.
+    ]).then(finish);
+  }
+
+  // Resolve creds: who am I → (demo) persona → egeria token. Degrade to env-default
+  // server-side creds (no token) if any step is unavailable.
+  function boot(){
+    if (typeof egeriaFetch !== 'function') {   // shared UI not loaded — sample only
+      badge('○ sample (offline)', 'var(--c4)'); stamp(); return;
+    }
+    fetch('/api/auth/me').then(function(r){ return r.ok ? r.json() : null; }).then(function(me){
+      var server = 'qs-view-server';
+      if (me && me.egeria_user) {
+        fetch('/api/egeria-token', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ user_id: me.egeria_user, password: me.egeria_password || '' }) })
+          .then(function(r){ return r.ok ? r.json() : {}; })
+          .then(function(t){ loadAll({ server: server, userId: me.egeria_user, token: t.token || '' }); })
+          .catch(function(){ loadAll({ server: server, userId: me.egeria_user }); });
+      } else {
+        loadAll({ server: server });   // server falls back to env-default user
+      }
+    }).catch(function(){ loadAll({ server: 'qs-view-server' }); });
+  }
+  boot();
+})();
+</script>
+</body>
+</html>
