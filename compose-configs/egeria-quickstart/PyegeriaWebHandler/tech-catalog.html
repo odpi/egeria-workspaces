@@ -583,7 +583,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      Cache-Control: no-cache (forces revalidation), but a browser that cached
      this URL *before* that header existed won't revalidate on its own; a new
      URL guarantees a fresh fetch regardless of prior cache state. -->
-<script src="/static/egeria-shared-ui.js?v=2026-07-22a"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-07-22c"></script>
 <script>
 'use strict';
 // React hook aliases (mirror type-explorer.html)
@@ -1788,22 +1788,9 @@ function AssetDetail({ item, detailLoading, onNavigate, creds, sectionId }) {
       )
     ),
 
-    // Classifications
-    (item.classifications || []).length > 0 && React.createElement(Collapsible, { title: 'Classifications', count: item.classifications.length, defaultOpen: false },
-      item.classifications.map(function(c) {
-        return React.createElement('div', { key: c.typeName, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--classif)' }) },
-          React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
-          Object.entries(c.properties || {}).map(function(e) {
-            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
-              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
-          })
-        );
-      })
-    ),
-
-    // Raw JSON (debug) — advanced-user affordance, the untransformed Egeria
-    // payload for this guid rather than this app's serialized shape.
-    React.createElement(RawJsonViewer, { guid: item.guid, creds: creds }),
+    // Classifications + Raw JSON (debug) — shared component (egeria-shared-ui.js)
+    // so this stays in sync with the same collapsible used across Egeria Explorer.
+    React.createElement(ClassificationsAndRawJson, { item: item, creds: creds }),
 
     // Mermaid diagrams — between Properties and Relationships
     React.createElement(AvailableMermaidDiagrams, { data: item, skip: new Set() }),
