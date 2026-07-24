@@ -11,8 +11,6 @@ ____
   
 Terrorism (Protection of Premises) Act 2025 (UK)
 
-### Qualified Name
-CocoPharma::Regulation::MartynsLaw
 
 ### Domain Identifier  
   
