@@ -81,39 +81,34 @@ this *meant* to be in effect," independent of when it was recorded. Distinct fro
 - Combined bitemporal view ("as recorded at T1, effective at T2") is the full
   power but almost certainly more than the dashboard needs near-term.
 
-## Egeria API enhancements we want (for the enhancements session)
+## Native instance counting — LANDED (odpi/egeria#9168), wired here
 
-Root problem (see `OVERVIEW_METRICS.md` → *Cost & the case for a count API*):
-**no server-side count.** Every metric is `len(find_metadata_elements(...))`,
-which materializes and transfers the whole result set. Growth pays this N×4.
+Egeria added native counting: `POST …/metadata-elements/by-search-conditions/count`
+and `POST …/relationships/by-search-conditions/count`, both taking the same
+`FindRequestBody` / `FindRelationshipRequestBody` as their `find` equivalents and
+returning a `CountResponse{count}` (server does a `SELECT COUNT(*)` — no
+materialization). pyegeria: `MetadataExpert.count_metadata_elements` /
+`count_relationships_between_elements` (+ async twins, unit-tested).
 
-Requested, in priority order:
+**The dashboard uses them now.** The count seam (`_element_count` / `_rel_count`)
+calls the native method when the client + server support it, else falls back to
+`len(find/get)` — with a per-server capability cache so an older server costs at
+most one failed probe. Verified: on the current (pre-#9168) stack it falls back and
+returns identical values; on a #9168 stack the whole dashboard, incl. the as-of
+time-machine and the N×4 growth snapshots, drops to sub-second. To run native
+end-to-end: use a #9168 Egeria server and a pyegeria that includes the count
+methods.
 
-1. **Element count** — `POST …/metadata-elements/count` taking a `FindRequestBody`
-   (same shape as the search) → `{ "count": N }`. Must honour `asOfTime` and
-   classification/type/status conditions. Replaces ~all `find_metadata_elements`
-   `len()` calls.
-2. **Relationship count** — `…/relationships/{type}/count` (+ `asOfTime`) →
-   `{ "count": N }`. Replaces certification/license/exception/semantic-assignment
-   counts.
-3. **Grouped counts** — count elements grouped by `typeName`, or by a
-   classification's ordinal value, in one call → `{ "GroupA": n, ... }`. Collapses
-   the 6 per-type asset queries and powers confidentiality/zone distributions
-   directly.
-4. **(stretch) Participation / traversal counts** — "assets reachable from ≥1 ISC
-   or blueprint," "assets with lineage relationships," "assets with a
-   `SemanticAssignment`" — as count queries. Unlocks the deferred funnel stages
-   (documented/lineage/AI-ready) and usage **% contextualised** without
-   client-side graph walks.
+### Still wanted (future)
 
-Payoff: payloads shrink from thousands of objects to one integer; fine time
-windows become cheap; the 60 s / 15 min caches can shrink or go away; and the
-standing `insights_handler` "no `totalCount`" limitation is resolved portal-wide.
-
-**Client prep (do first, no server change needed):** add a `_count(body)` helper
-in `overview_handler.py` that calls the count API when available and falls back to
-`len(find_metadata_elements(body))`. Route all counters through it, so the whole
-dashboard speeds up the moment the server API ships.
+1. **Grouped counts** — count elements grouped by `typeName`, or by a
+   classification's ordinal value, in one call → `{ "GroupA": n, ... }`. Would
+   collapse the 6 per-type asset queries and power confidentiality/zone
+   distributions directly.
+2. **Participation / traversal counts** — "assets reachable from ≥1 ISC or
+   blueprint," "assets with lineage relationships" — as count queries. Would unlock
+   the deferred funnel stages (documented/lineage/AI-ready) and usage
+   **% contextualised** without client-side graph walks.
 
 ## Done since first draft
 

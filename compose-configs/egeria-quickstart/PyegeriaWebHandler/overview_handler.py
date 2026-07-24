@@ -158,17 +158,35 @@ def _find(mgr, body: dict, page_size: int = _DEFAULT_CAP) -> list:
         return []
 
 
-# ── count seam — ready for a native server-side count API ────────────────────
-# pyegeria has no count method today (verified), so these fall back to
-# len(find/get) — i.e. they materialize the full result set just to size it, which
-# is the main cost (esp. for as-of queries). When the OMVS ships
-# metadata-elements/count and relationships/{type}/count (see OVERVIEW_NEXT_STEPS.md
-# → "count API"), add the method name to the candidate tuple below and every count
-# in this handler — including the as-of time-machine — drops to sub-second with no
-# other change. The result is normalized from int or {"count": N}.
+# ── count seam — uses Egeria native instance counting when available ─────────
+# Egeria added native counting in odpi/egeria#9168 (MetadataExpert.count_metadata_elements
+# / count_relationships_between_elements → SELECT COUNT(*), no result-set
+# materialization). We use it when BOTH the pyegeria client exposes the method AND
+# the target server supports it; otherwise we fall back to len(find/get) — same
+# result, just heavier. This makes every count here — including the as-of
+# time-machine and the N-snapshot growth series — sub-second on a #9168 server, and
+# still correct on older ones. The result is normalized from int or {"count": N}.
 _ELEMENT_COUNT_CANDIDATES = ("count_metadata_elements", "get_metadata_element_count")
-_REL_COUNT_CANDIDATES     = ("count_relationships", "get_relationship_count")
+_REL_COUNT_CANDIDATES     = ("count_relationships_between_elements", "count_relationships")
 _count_caps: dict[str, Optional[str]] = {}   # cache: which native method (if any) a client class exposes
+_native_server_ok: dict[str, bool] = {}      # cache: does this server support native count? (False after a probe fails)
+
+
+def _server_key(mgr) -> str:
+    return f"{getattr(mgr, 'platform_url', '')}|{getattr(mgr, 'view_server', '')}"
+
+
+def _native_disabled(mgr) -> bool:
+    """True once a native count call has failed for this server — so we don't pay a
+    failed round-trip on every subsequent count against an older server."""
+    return _native_server_ok.get(_server_key(mgr)) is False
+
+
+def _disable_native(mgr, exc) -> None:
+    if not _native_disabled(mgr):
+        logger.info(f"overview count seam: native count not supported by "
+                    f"{_server_key(mgr)} — using len(find/get) fallback ({exc})")
+    _native_server_ok[_server_key(mgr)] = False
 
 
 def _native_count_method(mgr, candidates, cache_key: str) -> Optional[str]:
@@ -189,19 +207,19 @@ def _as_count(res) -> Optional[int]:
 
 
 def _element_count(mgr, body: dict, as_of: Optional[str] = None) -> int:
-    """Count elements matching a FindRequestBody — native when available, else
-    len(find_metadata_elements(...))."""
+    """Count elements matching a FindRequestBody — native (count_metadata_elements)
+    when the client + server support it, else len(find_metadata_elements(...))."""
     b = dict(body)
     if as_of:
         b["asOfTime"] = as_of
     name = _native_count_method(mgr, _ELEMENT_COUNT_CANDIDATES, "elem:" + type(mgr).__name__)
-    if name:
+    if name and not _native_disabled(mgr):
         try:
             c = _as_count(getattr(mgr, name)(b))
             if c is not None:
                 return c
-        except Exception as exc:  # noqa: BLE001
-            logger.debug(f"native element count failed, falling back: {exc}")
+        except Exception as exc:  # noqa: BLE001 — old server: mark unsupported, fall back
+            _disable_native(mgr, exc)
     return len(_find(mgr, b))
 
 
@@ -215,19 +233,27 @@ def _count_type(mgr, type_name: Optional[str], as_of: Optional[str] = None) -> t
     return n, n >= _DEFAULT_CAP
 
 
-def _rel_count(ce, rel_type: str, as_of: Optional[str] = None) -> Optional[int]:
-    """Count relationships of a type, optionally as of a past time — native when
-    available, else len(get_relationships(...)). asOfTime goes in the
-    ResultsRequestBody (get_relationships has no as_of_time kwarg — audit_handler
-    mechanism). None on failure."""
-    name = _native_count_method(ce, _REL_COUNT_CANDIDATES, "rel:" + type(ce).__name__)
-    if name:
-        try:
-            c = _as_count(getattr(ce, name)(rel_type, as_of) if as_of else getattr(ce, name)(rel_type))
-            if c is not None:
-                return c
-        except Exception as exc:  # noqa: BLE001
-            logger.debug(f"native rel count failed, falling back: {exc}")
+def _rel_count(ce, rel_type: str, as_of: Optional[str] = None, expert=None) -> Optional[int]:
+    """Count relationships of a type, optionally as of a past time.
+
+    Prefers Egeria's native count via MetadataExpert.count_relationships_between_elements
+    (odpi/egeria#9168) with a FindRelationshipRequestBody, passed as `expert`. Falls
+    back to len(ClassificationExplorer.get_relationships(...)) — the proven path —
+    when there's no expert, no native support, or the native call fails. asOfTime
+    goes in the request body. None on total failure."""
+    if expert is not None and not _native_disabled(expert):
+        name = _native_count_method(expert, _REL_COUNT_CANDIDATES, "rel:" + type(expert).__name__)
+        if name:
+            body = {"class": "FindRelationshipRequestBody", "relationshipTypeName": rel_type,
+                    "limitResultsByStatus": ["ACTIVE"]}
+            if as_of:
+                body["asOfTime"] = as_of
+            try:
+                c = _as_count(getattr(expert, name)(body))
+                if c is not None:
+                    return c
+            except Exception as exc:  # noqa: BLE001 — old server: mark unsupported, fall back
+                _disable_native(expert, exc)
     try:
         body = {"class": "ResultsRequestBody", "asOfTime": as_of} if as_of else None
         return len(_json_list(ce.get_relationships(
@@ -327,7 +353,7 @@ def get_summary(
     data_products, _ = _count_type(mgr, "DigitalProduct", as_of_time)
 
     # Certifications, licenses & open exceptions (governance relationships).
-    certs = _certifications(url, server, user_id, user_pwd, as_of_time)
+    certs = _certifications(url, server, user_id, user_pwd, as_of_time, expert=mgr)
 
     payload = {
         "asOfTime":         as_of_time,
@@ -373,10 +399,11 @@ def _rel_end_date(rel: dict):
     return None
 
 
-def _certifications(url, server, user_id, user_pwd, as_of: Optional[str] = None) -> dict:
+def _certifications(url, server, user_id, user_pwd, as_of: Optional[str] = None, expert=None) -> dict:
     """Count active certifications, those expiring within 90 days, a soonest list,
     the license count, and open governance exceptions — optionally as of a past
-    time. Degrades to zeros on any failure (demo may have none)."""
+    time. `expert` (a MetadataExpert) enables native relationship counts.
+    Degrades to zeros on any failure (demo may have none)."""
     from datetime import datetime, timezone, timedelta
     out = {"active": None, "expiring90": None, "soon": [], "licenses": None, "exceptions": None}
     try:
@@ -412,8 +439,8 @@ def _certifications(url, server, user_id, user_pwd, as_of: Optional[str] = None)
         out["soon"] = soon[:5]
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview certifications: query failed: {exc}")
-    out["licenses"] = _rel_count(ce, "License", as_of)
-    out["exceptions"] = _rel_count(ce, "Exception", as_of)
+    out["licenses"] = _rel_count(ce, "License", as_of, expert=expert)
+    out["exceptions"] = _rel_count(ce, "Exception", as_of, expert=expert)
     return out
 
 
@@ -453,7 +480,7 @@ def get_ai_context(
     grounding_pct = None
     try:
         ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
-        grounding_links = _rel_count(ce, "SemanticAssignment", as_of_time)
+        grounding_links = _rel_count(ce, "SemanticAssignment", as_of_time, expert=mgr)
         if cataloged and grounding_links is not None:
             grounding_pct = min(100, round(100 * grounding_links / cataloged))
     except Exception as exc:  # noqa: BLE001
@@ -528,19 +555,25 @@ def get_people(
     feedback_by_type = None
     feedback_items = None
     karma = None
+    expert = None
+    try:
+        expert = _expert(url, server, user_id, user_pwd)   # for native counts (feedback + karma)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview people: expert build failed: {exc}")
     try:
         ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
         fb = {}
         for rel, key in (("AttachedRating", "ratings"), ("AttachedComment", "comments"),
                          ("AttachedLike", "likes"), ("AttachedTag", "tags"),
                          ("AttachedNoteLog", "noteLogs")):
-            fb[key] = _rel_count(ce, rel, as_of_time) or 0
+            fb[key] = _rel_count(ce, rel, as_of_time, expert=expert) or 0
         feedback_by_type = fb
         feedback_items = sum(fb.values())
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview people: feedback query failed: {exc}")
     try:
-        karma, _ = _count_type(_expert(url, server, user_id, user_pwd), "ContributionRecord", as_of_time)
+        if expert is not None:
+            karma, _ = _count_type(expert, "ContributionRecord", as_of_time)
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview people: karma query failed: {exc}")
 

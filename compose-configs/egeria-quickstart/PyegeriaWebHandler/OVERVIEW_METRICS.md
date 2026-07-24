@@ -19,13 +19,18 @@ Client factories build tokened `pyegeria` clients per request.
 
 ## How counts are computed (important)
 
-Egeria's `find_metadata_elements` and `get_relationships` **return the full
-list of matching elements/relationships**; we call `len()` on the result. There
-is **no server-side count** — see the note in `insights_handler.py`
-("`OpenMetadataRootElementsResponse` has no `totalCount` field"). So every count
-below materializes and transfers the full result set. This is the main cost
-driver and the motivation for a native count API (see *Cost & the case for a
-count API* at the end).
+Counts flow through a **count seam** (`_element_count` / `_rel_count` in
+`overview_handler.py`). When the pyegeria client **and** the target server support
+Egeria's native instance counting (odpi/egeria#9168 —
+`MetadataExpert.count_metadata_elements` / `count_relationships_between_elements`,
+which answer with a `SELECT COUNT(*)` and no result-set materialization), the seam
+uses it — every count here, including the as-of time-machine and the N-snapshot
+growth series, becomes sub-second. Otherwise it **falls back** to
+`len(find_metadata_elements(...))` / `len(get_relationships(...))`, which materialize
+and transfer the full result set (the historical cost driver, esp. for as-of
+queries). A per-server capability cache means a single failed native probe on an
+older server disables further attempts — no repeated failed round-trips. Same
+result either way; native is just far cheaper.
 
 `page_size` is set high (500–5000). In this environment `find_metadata_elements`
 returns the complete list regardless of `page_size` (verified: `Asset` = 1729,
