@@ -43,7 +43,7 @@ Again you can load the definitions into Egeria on one of two ways:
 2. From the command line in JupyterLab. Make sure you are in this directory and issue the command:
 
     ```
-    dr_egeria --directive software-development-governance.md
+    dr_egeria --directive process software-development-governance-program.md
      
     ```
 
