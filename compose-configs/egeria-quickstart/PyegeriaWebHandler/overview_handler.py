@@ -123,6 +123,17 @@ def _make(cls_name, url=None, server=None, user_id=None, user_pwd=None):
     return mgr
 
 
+def _norm_asof(s: Optional[str]) -> Optional[str]:
+    """Repair an ISO-8601 `asOfTime` whose `+HH:MM` offset arrived as ` HH:MM`
+    because a raw `+` in a query string URL-decodes to a space. Clients that use
+    URLSearchParams encode it correctly; this guards curl / hand-built URLs so a
+    malformed offset doesn't silently degrade every query to null."""
+    if not s:
+        return s
+    import re
+    return re.sub(r" (\d{2}:\d{2})$", r"+\1", s.strip())
+
+
 def _json_list(raw) -> list:
     """Normalise a pyegeria output_format='JSON' result to a list of dicts.
     Empty results come back as a 'No … found' string; some calls wrap in a dict."""
@@ -147,13 +158,84 @@ def _find(mgr, body: dict, page_size: int = _DEFAULT_CAP) -> list:
         return []
 
 
-def _count_type(mgr, type_name: Optional[str]) -> tuple[int, bool]:
-    """Capped count of ACTIVE elements of a type. Returns (count, capped)."""
+# ── count seam — ready for a native server-side count API ────────────────────
+# pyegeria has no count method today (verified), so these fall back to
+# len(find/get) — i.e. they materialize the full result set just to size it, which
+# is the main cost (esp. for as-of queries). When the OMVS ships
+# metadata-elements/count and relationships/{type}/count (see OVERVIEW_NEXT_STEPS.md
+# → "count API"), add the method name to the candidate tuple below and every count
+# in this handler — including the as-of time-machine — drops to sub-second with no
+# other change. The result is normalized from int or {"count": N}.
+_ELEMENT_COUNT_CANDIDATES = ("count_metadata_elements", "get_metadata_element_count")
+_REL_COUNT_CANDIDATES     = ("count_relationships", "get_relationship_count")
+_count_caps: dict[str, Optional[str]] = {}   # cache: which native method (if any) a client class exposes
+
+
+def _native_count_method(mgr, candidates, cache_key: str) -> Optional[str]:
+    if cache_key not in _count_caps:
+        name = next((c for c in candidates if callable(getattr(mgr, c, None))), None)
+        _count_caps[cache_key] = name
+        logger.info(f"overview count seam [{cache_key}]: "
+                    + (f"native via {name}" if name else "fallback to len(find/get)"))
+    return _count_caps[cache_key]
+
+
+def _as_count(res) -> Optional[int]:
+    if isinstance(res, int):
+        return res
+    if isinstance(res, dict) and res.get("count") is not None:
+        return int(res["count"])
+    return None
+
+
+def _element_count(mgr, body: dict, as_of: Optional[str] = None) -> int:
+    """Count elements matching a FindRequestBody — native when available, else
+    len(find_metadata_elements(...))."""
+    b = dict(body)
+    if as_of:
+        b["asOfTime"] = as_of
+    name = _native_count_method(mgr, _ELEMENT_COUNT_CANDIDATES, "elem:" + type(mgr).__name__)
+    if name:
+        try:
+            c = _as_count(getattr(mgr, name)(b))
+            if c is not None:
+                return c
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"native element count failed, falling back: {exc}")
+    return len(_find(mgr, b))
+
+
+def _count_type(mgr, type_name: Optional[str], as_of: Optional[str] = None) -> tuple[int, bool]:
+    """Count of ACTIVE elements of a type, optionally as of a past time. Returns
+    (count, capped) — `capped` kept for call-site compatibility."""
     body: dict = {"class": "FindRequestBody", "limitResultsByStatus": ["ACTIVE"]}
     if type_name:
         body["metadataElementTypeName"] = type_name
-    hits = _find(mgr, body)
-    return len(hits), len(hits) >= _DEFAULT_CAP
+    n = _element_count(mgr, body, as_of)
+    return n, n >= _DEFAULT_CAP
+
+
+def _rel_count(ce, rel_type: str, as_of: Optional[str] = None) -> Optional[int]:
+    """Count relationships of a type, optionally as of a past time — native when
+    available, else len(get_relationships(...)). asOfTime goes in the
+    ResultsRequestBody (get_relationships has no as_of_time kwarg — audit_handler
+    mechanism). None on failure."""
+    name = _native_count_method(ce, _REL_COUNT_CANDIDATES, "rel:" + type(ce).__name__)
+    if name:
+        try:
+            c = _as_count(getattr(ce, name)(rel_type, as_of) if as_of else getattr(ce, name)(rel_type))
+            if c is not None:
+                return c
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"native rel count failed, falling back: {exc}")
+    try:
+        body = {"class": "ResultsRequestBody", "asOfTime": as_of} if as_of else None
+        return len(_json_list(ce.get_relationships(
+            relationship_type=rel_type, output_format="JSON",
+            start_from=0, page_size=5000, body=body)))
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview _rel_count({rel_type}) failed: {exc}")
+        return None
 
 
 def _classifications_of(el: dict) -> set[str]:
@@ -190,10 +272,12 @@ def serve_overview():
 
 @router.get("/api/overview/summary", summary="Headline KPI counts for the Overview dashboard")
 def get_summary(
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now (time-machine)"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
-    ckey = f"summary|{url}|{server}|{user_id}"
+    as_of_time = _norm_asof(as_of_time)
+    ckey = f"summary|{as_of_time}|{url}|{server}|{user_id}"
     cached = _cache_get(ckey)
     if cached is not None:
         return JSONResponse(cached)
@@ -216,6 +300,8 @@ def get_summary(
         },
         "limitResultsByStatus": ["ACTIVE"],
     }
+    if as_of_time:
+        gov_body["asOfTime"] = as_of_time
     governed_hits = _find(mgr, gov_body)
     by_classification: dict[str, int] = {}
     zone_counts: dict[str, int] = {}
@@ -230,20 +316,21 @@ def get_summary(
     by_type = []
     asset_total = 0
     for label, tname in _ASSET_TYPES:
-        c, _ = _count_type(mgr, tname)
+        c, _ = _count_type(mgr, tname, as_of_time)
         by_type.append({"label": label, "type": tname, "count": c})
         asset_total += c
 
-    term_count, term_capped = _count_type(mgr, "GlossaryTerm")
+    term_count, term_capped = _count_type(mgr, "GlossaryTerm", as_of_time)
     top_zones = sorted(zone_counts.items(), key=lambda kv: -kv[1])[:8]
 
     # Data products (DigitalProduct) — live count.
-    data_products, _ = _count_type(mgr, "DigitalProduct")
+    data_products, _ = _count_type(mgr, "DigitalProduct", as_of_time)
 
     # Certifications, licenses & open exceptions (governance relationships).
-    certs = _certifications(url, server, user_id, user_pwd)
+    certs = _certifications(url, server, user_id, user_pwd, as_of_time)
 
     payload = {
+        "asOfTime":         as_of_time,
         "assetTotal":       asset_total,
         "byType":           by_type,
         "termCount":        term_count,
@@ -286,10 +373,10 @@ def _rel_end_date(rel: dict):
     return None
 
 
-def _certifications(url, server, user_id, user_pwd) -> dict:
+def _certifications(url, server, user_id, user_pwd, as_of: Optional[str] = None) -> dict:
     """Count active certifications, those expiring within 90 days, a soonest list,
-    the license count, and open governance exceptions. Degrades to zeros on any
-    failure (demo may have none)."""
+    the license count, and open governance exceptions — optionally as of a past
+    time. Degrades to zeros on any failure (demo may have none)."""
     from datetime import datetime, timezone, timedelta
     out = {"active": None, "expiring90": None, "soon": [], "licenses": None, "exceptions": None}
     try:
@@ -297,10 +384,15 @@ def _certifications(url, server, user_id, user_pwd) -> dict:
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview certifications: client build failed: {exc}")
         return out
+    body = {"class": "ResultsRequestBody", "asOfTime": as_of} if as_of else None
     try:
         certs = _json_list(ce.get_relationships(relationship_type="Certification",
-                                                output_format="JSON", start_from=0, page_size=_DEFAULT_CAP))
-        now = datetime.now(timezone.utc)
+                                                output_format="JSON", start_from=0,
+                                                page_size=_DEFAULT_CAP, body=body))
+        # "expiring soon" is anchored to the snapshot time, not always wall-clock now.
+        now = datetime.fromisoformat(as_of.replace("Z", "+00:00")) if as_of else datetime.now(timezone.utc)
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
         horizon = now + timedelta(days=90)
         soon = []
         expiring = 0
@@ -320,16 +412,8 @@ def _certifications(url, server, user_id, user_pwd) -> dict:
         out["soon"] = soon[:5]
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview certifications: query failed: {exc}")
-    try:
-        out["licenses"] = len(_json_list(ce.get_relationships(relationship_type="License",
-                                                              output_format="JSON", start_from=0, page_size=_DEFAULT_CAP)))
-    except Exception:  # noqa: BLE001
-        pass
-    try:
-        out["exceptions"] = len(_json_list(ce.get_relationships(relationship_type="Exception",
-                                                               output_format="JSON", start_from=0, page_size=_DEFAULT_CAP)))
-    except Exception:  # noqa: BLE001
-        pass
+    out["licenses"] = _rel_count(ce, "License", as_of)
+    out["exceptions"] = _rel_count(ce, "Exception", as_of)
     return out
 
 
@@ -337,12 +421,14 @@ def _certifications(url, server, user_id, user_pwd) -> dict:
 
 @router.get("/api/overview/ai-context", summary="AI / context-intelligence readiness (best-effort)")
 def get_ai_context(
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     """Context-readiness funnel + grounding. Consumers/guardrails are not natively
     queryable yet — returned as null so the SPA shows its sample baseline."""
-    ckey = f"ai|{url}|{server}|{user_id}"
+    as_of_time = _norm_asof(as_of_time)
+    ckey = f"ai|{as_of_time}|{url}|{server}|{user_id}"
     cached = _cache_get(ckey)
     if cached is not None:
         return JSONResponse(cached)
@@ -351,12 +437,15 @@ def get_ai_context(
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
-    cataloged, _ = _count_type(mgr, "Asset")           # broad supertype
-    classified   = len(_find(mgr, {                     # any governance classification
+    cataloged, _ = _count_type(mgr, "Asset", as_of_time)   # broad supertype
+    class_body = {                                          # any governance classification
         "class": "FindRequestBody", "limitResultsByStatus": ["ACTIVE"],
         "matchClassifications": {"class": "SearchClassifications", "matchCriteria": "ANY",
                                   "conditions": [{"name": n} for n in _GOVERNANCE_CLASSIFICATIONS]},
-    }))
+    }
+    if as_of_time:
+        class_body["asOfTime"] = as_of_time
+    classified = len(_find(mgr, class_body))
 
     # Semantic grounding: SemanticAssignment relationships (term ↔ asset) — the
     # meaning layer that grounds AI. Count of assignments as a proxy for grounded links.
@@ -364,15 +453,14 @@ def get_ai_context(
     grounding_pct = None
     try:
         ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
-        grounding_links = len(_json_list(ce.get_relationships(
-            relationship_type="SemanticAssignment", output_format="JSON",
-            start_from=0, page_size=5000)))
-        if cataloged:
+        grounding_links = _rel_count(ce, "SemanticAssignment", as_of_time)
+        if cataloged and grounding_links is not None:
             grounding_pct = min(100, round(100 * grounding_links / cataloged))
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview ai-context: grounding query failed: {exc}")
 
     payload = {
+        "asOfTime":  as_of_time,
         "funnel": {
             "cataloged":  cataloged or None,
             "documented": None,          # needs a description-present filter — best-effort TODO
@@ -394,13 +482,15 @@ def get_ai_context(
 
 @router.get("/api/overview/people", summary="People / community engagement (best-effort)")
 def get_people(
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     """People counts (persons / teams / orgs / communities) are live from Actor +
     Community managers. Karma / feedback aggregates need the Collaboration OMAS and
     stay null (SPA keeps its sample baseline)."""
-    ckey = f"people|{url}|{server}|{user_id}"
+    as_of_time = _norm_asof(as_of_time)
+    ckey = f"people|{as_of_time}|{url}|{server}|{user_id}"
     cached = _cache_get(ckey)
     if cached is not None:
         return JSONResponse(cached)
@@ -409,7 +499,8 @@ def get_people(
     try:
         am = _make("ActorManager", url, server, user_id, user_pwd)
         profiles = _json_list(am.find_actor_profiles(search_string="*", output_format="JSON",
-                                                     start_from=0, page_size=_DEFAULT_CAP))
+                                                     start_from=0, page_size=_DEFAULT_CAP,
+                                                     as_of_time=as_of_time or None))
         counts: dict[str, int] = {}
         for p in profiles:
             tn = ((p.get("elementHeader") or {}).get("type") or {}).get("typeName") or "?"
@@ -426,21 +517,45 @@ def get_people(
         cm = _make("CommunityMatters", url, server, user_id, user_pwd)
         communities = len(_json_list(cm.find_communities(
             search_string="*", starts_with=False, output_format="JSON",
-            graph_query_depth=0, start_from=0, page_size=_DEFAULT_CAP)))
+            graph_query_depth=0, start_from=0, page_size=_DEFAULT_CAP,
+            as_of_time=as_of_time or None)))
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview people: community query failed: {exc}")
 
+    # Crowd-sourced feedback — Collaboration OMAS relationship counts (cheap). Often
+    # sparse in demo data, but real. Leaderboard/engagement need per-person rollups
+    # (deferred). karma = count of ContributionRecord elements.
+    feedback_by_type = None
+    feedback_items = None
+    karma = None
+    try:
+        ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
+        fb = {}
+        for rel, key in (("AttachedRating", "ratings"), ("AttachedComment", "comments"),
+                         ("AttachedLike", "likes"), ("AttachedTag", "tags"),
+                         ("AttachedNoteLog", "noteLogs")):
+            fb[key] = _rel_count(ce, rel, as_of_time) or 0
+        feedback_by_type = fb
+        feedback_items = sum(fb.values())
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview people: feedback query failed: {exc}")
+    try:
+        karma, _ = _count_type(_expert(url, server, user_id, user_pwd), "ContributionRecord", as_of_time)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview people: karma query failed: {exc}")
+
     payload = {
+        "asOfTime":           as_of_time,
         "activeContributors": persons,
         "teams":              teams,
         "organizations":      orgs,
         "itProfiles":         it_profiles,
         "communities":        communities,
-        "karmaAwarded":       None,   # ContributionRecord — sparse in demo; TODO engagement fallback
-        "feedbackItems":      None,   # likes+ratings+comments — Collaboration OMAS; TODO
-        "leaderboard":        None,
-        "engagementSeries":   None,
-        "feedbackByType":     None,
+        "karmaRecords":       karma,             # count of ContributionRecord elements
+        "feedbackItems":      feedback_items,    # Σ ratings+comments+likes+tags+noteLogs
+        "feedbackByType":     feedback_by_type,
+        "leaderboard":        None,              # per-person karma rollup — deferred
+        "engagementSeries":   None,              # weekly feedback trend — deferred
         "partial":            True,
         "source":             "live:people",
     }
@@ -452,6 +567,7 @@ def get_people(
 @router.get("/api/overview/usage-context",
             summary="Information Supply Chains & Solution Blueprints that give assets a usage context")
 def get_usage_context(
+    as_of_time: Optional[str] = Query(None, description="ISO 8601; null/absent = now"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
@@ -459,24 +575,40 @@ def get_usage_context(
     feeds the Clinical Trial supply chain", "this component realises the Sales
     blueprint". Counts are live; the "% of assets contextualised" coverage figure
     needs graph traversal and is deferred (SPA shows its sample baseline)."""
-    ckey = f"usage|{url}|{server}|{user_id}"
+    as_of_time = _norm_asof(as_of_time)
+    ckey = f"usage|{as_of_time}|{url}|{server}|{user_id}"
     cached = _cache_get(ckey)
     if cached is not None:
         return JSONResponse(cached)
 
+    # SolutionArchitect find methods take asOfTime via `body` (no as_of_time kwarg).
+    # Best-effort: if the body shape is rejected we degrade to null for that call.
+    def _sa_count(fn, as_of):
+        if as_of:
+            try:
+                # SolutionArchitect OMVS takes as-of via a SearchStringRequestBody
+                # (confirmed by test_overview_asof.py — FilterRequestBody is rejected).
+                return len([e for e in _json_list(fn(
+                    body={"class": "SearchStringRequestBody", "searchString": "*", "asOfTime": as_of},
+                    output_format="JSON", start_from=0, page_size=_DEFAULT_CAP))
+                    if not _is_template_el(e)])
+            except Exception as exc:  # noqa: BLE001
+                logger.debug(f"overview usage-context: as-of query failed: {exc}")
+                return None
+        return len([e for e in _json_list(fn(
+            search_string="*", output_format="JSON", start_from=0, page_size=_DEFAULT_CAP))
+            if not _is_template_el(e)])
+
     iscs = blueprints = None
     try:
         sa = _make("SolutionArchitect", url, server, user_id, user_pwd)
-        iscs = len([e for e in _json_list(sa.find_information_supply_chains(
-            search_string="*", output_format="JSON", start_from=0, page_size=_DEFAULT_CAP))
-            if not _is_template_el(e)])
-        blueprints = len([e for e in _json_list(sa.find_solution_blueprints(
-            search_string="*", output_format="JSON", start_from=0, page_size=_DEFAULT_CAP))
-            if not _is_template_el(e)])
+        iscs = _sa_count(sa.find_information_supply_chains, as_of_time)
+        blueprints = _sa_count(sa.find_solution_blueprints, as_of_time)
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview usage-context: query failed: {exc}")
 
     payload = {
+        "asOfTime":                as_of_time,
         "informationSupplyChains": iscs,
         "blueprints":              blueprints,
         "contextualisedPct":       None,   # % assets participating in ≥1 ISC/blueprint — TODO (traversal)
@@ -506,23 +638,51 @@ def _count_asof(mgr, type_name: Optional[str], as_of: Optional[str], classificat
     if classifications:
         body["matchClassifications"] = {"class": "SearchClassifications", "matchCriteria": "ANY",
                                          "conditions": [{"name": n} for n in classifications]}
-    if as_of:
-        body["asOfTime"] = as_of
-    return len(_find(mgr, body, page_size=5000))
+    return _element_count(mgr, body, as_of)   # native count when available, else len(find)
+
+
+# Time-window → (total span seconds, default #points). asOfTime lets us snapshot
+# at any granularity; granularity follows the window so we always get ~6–12 points.
+_WINDOWS = {
+    "8h":  (8 * 3600,       8),
+    "1d":  (86400,          6),
+    "3d":  (3 * 86400,      6),
+    "7d":  (7 * 86400,      7),
+    "30d": (30 * 86400,     6),
+    "90d": (90 * 86400,     7),
+    "6mo": (180 * 86400,    6),
+    "1y":  (365 * 86400,    12),
+}
+
+
+def _growth_label(d, span_s: int) -> str:
+    if span_s <= 2 * 86400:
+        return d.strftime("%H:00")          # hourly / intraday
+    if span_s <= 120 * 86400:
+        return d.strftime("%-d %b")         # daily / weekly
+    return d.strftime("%b")                 # monthly
 
 
 @router.get("/api/overview/growth", summary="Catalog growth via asOfTime snapshots")
 def get_growth(
-    months: int = Query(6, ge=2, le=12),
+    window: str = Query("6mo", description="8h|1d|3d|7d|30d|90d|6mo|1y"),
+    points: Optional[int] = Query(None, ge=2, le=24, description="override #snapshots"),
+    months: Optional[int] = Query(None, ge=2, le=12, description="deprecated — use window"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
-    """Real growth series: one capped find per snapshot date with asOfTime set —
-    Egeria answers historical queries natively, so no separate time-series store is
-    needed. Snapshots assets (Asset supertype), glossary terms, and governed
-    elements at monthly points. Cached 15 min (this is the expensive endpoint)."""
+    """Real growth series: one count per snapshot date with asOfTime set — Egeria
+    answers historical queries natively, so no separate time-series store is needed.
+    The window sets the span and (by default) the granularity; points can override
+    the snapshot count. Snapshots assets / terms / governed / data-products.
+    Cached 15 min (this is the expensive endpoint until the count API lands)."""
     from datetime import datetime, timezone
-    ckey = f"growth|{months}|{url}|{server}|{user_id}"
+    if months:                              # back-compat: months → an N*30d window
+        window = f"{months * 30}d"
+    span_s, default_pts = _WINDOWS.get(window, _WINDOWS["6mo"])
+    n = points or default_pts
+
+    ckey = f"growth|{window}|{n}|{url}|{server}|{user_id}"
     hit = _cache.get(ckey)
     if hit and (time.time() - hit[0]) < _GROWTH_TTL:
         return JSONResponse(hit[1])
@@ -533,15 +693,15 @@ def get_growth(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     now = datetime.now(timezone.utc)
-    points = []
-    for i in range(months - 1, -1, -1):
-        # i months back — approximate a month as 30 days; None asOfTime = "now" for i==0
+    step = span_s / (n - 1)
+    date_fmt = "%d %b %Y %H:%M" if span_s <= 2 * 86400 else "%d %b %Y"
+    series = []
+    for i in range(n - 1, -1, -1):
         if i == 0:
-            d = now
-            as_of, label = None, d.strftime("%b")
+            d, as_of = now, None
         else:
-            d = datetime.fromtimestamp(now.timestamp() - i * 30 * 86400, tz=timezone.utc)
-            as_of, label = d.isoformat(), d.strftime("%b")
+            d = datetime.fromtimestamp(now.timestamp() - i * step, tz=timezone.utc)
+            as_of = d.isoformat()
         try:
             assets   = _count_asof(mgr, "Asset", as_of)
             terms    = _count_asof(mgr, "GlossaryTerm", as_of)
@@ -550,12 +710,12 @@ def get_growth(
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview growth: snapshot {i} failed: {exc}")
             assets = terms = governed = products = None
-        points.append({"label": label, "date": d.strftime("%d %b %Y"),
+        series.append({"label": _growth_label(d, span_s), "date": d.strftime(date_fmt),
                        "assets": assets, "terms": terms, "governed": governed, "products": products})
 
-    payload = {"series": points, "months": months,
-               "rangeFrom": points[0]["date"] if points else None,
-               "rangeTo": points[-1]["date"] if points else None,
+    payload = {"series": series, "window": window, "points": n,
+               "rangeFrom": series[0]["date"] if series else None,
+               "rangeTo": series[-1]["date"] if series else None,
                "partial": False, "source": "live:growth"}
     _cache[ckey] = (time.time(), payload)
     return JSONResponse(payload)
