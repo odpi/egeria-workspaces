@@ -27,6 +27,8 @@
   .hdr-right { margin-left:auto; display:flex; align-items:center; gap:10px; }
   .chip { background:var(--border); border-radius:20px; padding:5px 13px; font-size:.78rem; display:inline-flex; gap:7px; align-items:center; }
   .chip .role { color:var(--muted); font-size:.7rem; }
+  .range-wrap { display:inline-flex; align-items:center; gap:5px; font-size:.9rem; }
+  .range-sel { background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:7px; padding:5px 8px; font-size:.78rem; font-family:inherit; cursor:pointer; }
   .seg { display:flex; border:1px solid var(--border); border-radius:7px; overflow:hidden; }
   .seg button { background:transparent; color:var(--muted); border:none; padding:5px 12px; font-size:.76rem; cursor:pointer; font-family:inherit; }
   .seg button.on { background:var(--accent); color:#fff; }
@@ -220,12 +222,18 @@
     <div class="hdr-sub">Catalog Health &amp; Governance KPIs</div>
   </div>
   <div class="hdr-right">
-    <div class="seg" id="range">
-      <button data-r="30">30d</button>
-      <button data-r="90" class="on">90d</button>
-      <button data-r="180">6mo</button>
-      <button data-r="365">1yr</button>
-    </div>
+    <label class="range-wrap" title="Growth chart window & granularity (via Egeria asOfTime)">📈
+      <select id="range-sel" class="range-sel">
+        <option value="8h">8 hours</option>
+        <option value="1d">1 day</option>
+        <option value="3d">3 days</option>
+        <option value="7d">1 week</option>
+        <option value="30d">30 days</option>
+        <option value="90d">90 days</option>
+        <option value="6mo" selected>6 months</option>
+        <option value="1y">1 year</option>
+      </select>
+    </label>
     <span class="chip">Peter Profile <span class="role">· Data Owner</span></span>
     <button class="btn">⤓ Export</button>
   </div>
@@ -318,7 +326,7 @@
       <div class="panel-head">
         <div>
           <h3>Catalog Growth</h3>
-          <div class="ph-sub">Monthly snapshots via Egeria <code style="font-size:.7rem">asOfTime</code> historical queries</div>
+          <div class="ph-sub" id="growth-sub">Snapshots via Egeria <code style="font-size:.7rem">asOfTime</code> historical queries</div>
         </div>
         <div class="legend" style="margin-top:0">
           <span><i class="dot" style="background:var(--c2)"></i>Assets</span>
@@ -1122,11 +1130,7 @@ document.addEventListener('click',e=>{ const el=e.target.closest('[data-drill]')
 // donut clickable
 const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn.parentElement.parentElement.setAttribute('data-drill','governed'); }
 
-// range segmented control (cosmetic in mockup)
-document.querySelectorAll('#range button').forEach(b=>b.onclick=()=>{
-  document.querySelectorAll('#range button').forEach(x=>x.classList.remove('on'));
-  b.classList.add('on');
-});
+// (growth-window dropdown is wired inside the bootstrap IIFE, where CREDS lives)
 
 // ==== LIVE DATA BOOTSTRAP ====
 // The layout above renders a full *sample* baseline so the page is always useful.
@@ -1227,14 +1231,16 @@ document.querySelectorAll('#range button').forEach(b=>b.onclick=()=>{
     // Feed the KPI sparklines + time reference from the same real series.
     LIVE.series = live;
     LIVE.rangeFrom = d.rangeFrom; LIVE.rangeTo = d.rangeTo;
-    var span = s.length + 'mo';
-    var delta = function(a, b){ return a != null && b != null ? ((a - b >= 0 ? '▲ ' : '▼ ') + fmt(Math.abs(a - b)) + ' / ' + span) : null; };
+    var win = d.window || '';
+    var delta = function(a, b){ return a != null && b != null ? ((a - b >= 0 ? '▲ ' : '▼ ') + fmt(Math.abs(a - b)) + (win ? ' / ' + win : '')) : null; };
     var first = s[0], last = s[s.length - 1];
     LIVE.assetsDelta   = delta(last.assets,   first.assets);
     LIVE.termsDelta    = delta(last.terms,    first.terms);
     LIVE.productsDelta = delta(last.products, first.products);
+    var sub = document.getElementById('growth-sub');
+    if (sub) sub.innerHTML = s.length + ' snapshots over ' + (win || 'the window') + ' · ' + d.rangeFrom + ' → ' + d.rangeTo + ' (via Egeria <code style="font-size:.7rem">asOfTime</code>)';
     var noteEl = document.getElementById('kpi-trend-note');
-    if (noteEl && d.rangeFrom) noteEl.textContent = 'Trend sparklines & Growth chart: ' + s.length + ' monthly snapshots, ' + d.rangeFrom + ' → ' + d.rangeTo + ' (via Egeria asOfTime).';
+    if (noteEl && d.rangeFrom) noteEl.textContent = 'Trend sparklines & Growth chart: ' + s.length + ' snapshots over ' + (win || 'the window') + ', ' + d.rangeFrom + ' → ' + d.rangeTo + ' (via Egeria asOfTime).';
     renderKPIs();
   }
 
@@ -1243,6 +1249,13 @@ document.querySelectorAll('#range button').forEach(b=>b.onclick=()=>{
   function getJSON(path, asOf){
     var q = asOf ? (path.indexOf('?') === -1 ? '?' : '&') + 'as_of_time=' + encodeURIComponent(asOf) : '';
     return egeriaFetch(path + q, CREDS).then(function(r){ if (!r.ok) throw 0; return r.json(); });
+  }
+  // Growth chart for a given window (8h..1y); granularity follows the window server-side.
+  function loadGrowth(win){
+    var sub = document.getElementById('growth-sub');
+    if (sub) sub.textContent = 'Loading ' + win + ' snapshots…';
+    return getJSON('/api/overview/growth?window=' + encodeURIComponent(win || '6mo'), null)
+      .then(applyGrowth).catch(function(){ if (sub) sub.textContent = 'Growth unavailable'; });
   }
   // Fetch the four point-in-time endpoints (optionally as-of) into a store.
   // Renders after EACH resolves so fast endpoints (summary ~3s) show immediately
@@ -1302,6 +1315,8 @@ document.querySelectorAll('#range button').forEach(b=>b.onclick=()=>{
       var c = document.getElementById('cmp-toggle'); if (c) { c.checked = false; c.disabled = true; }
       refresh();
     });
+    var rs = document.getElementById('range-sel');
+    if (rs) rs.addEventListener('change', function(){ loadGrowth(rs.value); });
   }
 
   // Resolve creds: who am I → (demo) persona → egeria token. Degrade to env-default
@@ -1310,7 +1325,8 @@ document.querySelectorAll('#range button').forEach(b=>b.onclick=()=>{
     CREDS = creds;
     wireControls();
     loadSet(LIVE, null, true).then(function(){ renderKPIs(); setBadge('live'); });
-    getJSON('/api/overview/growth?months=6', null).then(applyGrowth).catch(function(){});   // growth is a trend, fetched once
+    var rs = document.getElementById('range-sel');
+    loadGrowth(rs ? rs.value : '6mo');
     stamp();
   }
   function boot(){

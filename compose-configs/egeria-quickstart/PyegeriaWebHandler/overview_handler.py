@@ -619,18 +619,48 @@ def _count_asof(mgr, type_name: Optional[str], as_of: Optional[str], classificat
     return _element_count(mgr, body, as_of)   # native count when available, else len(find)
 
 
+# Time-window → (total span seconds, default #points). asOfTime lets us snapshot
+# at any granularity; granularity follows the window so we always get ~6–12 points.
+_WINDOWS = {
+    "8h":  (8 * 3600,       8),
+    "1d":  (86400,          6),
+    "3d":  (3 * 86400,      6),
+    "7d":  (7 * 86400,      7),
+    "30d": (30 * 86400,     6),
+    "90d": (90 * 86400,     7),
+    "6mo": (180 * 86400,    6),
+    "1y":  (365 * 86400,    12),
+}
+
+
+def _growth_label(d, span_s: int) -> str:
+    if span_s <= 2 * 86400:
+        return d.strftime("%H:00")          # hourly / intraday
+    if span_s <= 120 * 86400:
+        return d.strftime("%-d %b")         # daily / weekly
+    return d.strftime("%b")                 # monthly
+
+
 @router.get("/api/overview/growth", summary="Catalog growth via asOfTime snapshots")
 def get_growth(
-    months: int = Query(6, ge=2, le=12),
+    window: str = Query("6mo", description="8h|1d|3d|7d|30d|90d|6mo|1y"),
+    points: Optional[int] = Query(None, ge=2, le=24, description="override #snapshots"),
+    months: Optional[int] = Query(None, ge=2, le=12, description="deprecated — use window"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
-    """Real growth series: one capped find per snapshot date with asOfTime set —
-    Egeria answers historical queries natively, so no separate time-series store is
-    needed. Snapshots assets (Asset supertype), glossary terms, and governed
-    elements at monthly points. Cached 15 min (this is the expensive endpoint)."""
+    """Real growth series: one count per snapshot date with asOfTime set — Egeria
+    answers historical queries natively, so no separate time-series store is needed.
+    The window sets the span and (by default) the granularity; points can override
+    the snapshot count. Snapshots assets / terms / governed / data-products.
+    Cached 15 min (this is the expensive endpoint until the count API lands)."""
     from datetime import datetime, timezone
-    ckey = f"growth|{months}|{url}|{server}|{user_id}"
+    if months:                              # back-compat: months → an N*30d window
+        window = f"{months * 30}d"
+    span_s, default_pts = _WINDOWS.get(window, _WINDOWS["6mo"])
+    n = points or default_pts
+
+    ckey = f"growth|{window}|{n}|{url}|{server}|{user_id}"
     hit = _cache.get(ckey)
     if hit and (time.time() - hit[0]) < _GROWTH_TTL:
         return JSONResponse(hit[1])
@@ -641,15 +671,15 @@ def get_growth(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     now = datetime.now(timezone.utc)
-    points = []
-    for i in range(months - 1, -1, -1):
-        # i months back — approximate a month as 30 days; None asOfTime = "now" for i==0
+    step = span_s / (n - 1)
+    date_fmt = "%d %b %Y %H:%M" if span_s <= 2 * 86400 else "%d %b %Y"
+    series = []
+    for i in range(n - 1, -1, -1):
         if i == 0:
-            d = now
-            as_of, label = None, d.strftime("%b")
+            d, as_of = now, None
         else:
-            d = datetime.fromtimestamp(now.timestamp() - i * 30 * 86400, tz=timezone.utc)
-            as_of, label = d.isoformat(), d.strftime("%b")
+            d = datetime.fromtimestamp(now.timestamp() - i * step, tz=timezone.utc)
+            as_of = d.isoformat()
         try:
             assets   = _count_asof(mgr, "Asset", as_of)
             terms    = _count_asof(mgr, "GlossaryTerm", as_of)
@@ -658,12 +688,12 @@ def get_growth(
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview growth: snapshot {i} failed: {exc}")
             assets = terms = governed = products = None
-        points.append({"label": label, "date": d.strftime("%d %b %Y"),
+        series.append({"label": _growth_label(d, span_s), "date": d.strftime(date_fmt),
                        "assets": assets, "terms": terms, "governed": governed, "products": products})
 
-    payload = {"series": points, "months": months,
-               "rangeFrom": points[0]["date"] if points else None,
-               "rangeTo": points[-1]["date"] if points else None,
+    payload = {"series": series, "window": window, "points": n,
+               "rangeFrom": series[0]["date"] if series else None,
+               "rangeTo": series[-1]["date"] if series else None,
                "partial": False, "source": "live:growth"}
     _cache[ckey] = (time.time(), payload)
     return JSONResponse(payload)
