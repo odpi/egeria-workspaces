@@ -9,8 +9,18 @@ The purpose of these workbooks is to help you understand how to use Egeria and e
 
 ## Where to start
 
-- **Getting Started**: Begin with the [Quickstart Guide]([quickstart.md](https://egeria-project.org/egeria-workspaces/quick-start/overview/)) to set up your environment.
+- **Getting Started**: Begin with the [Quickstart Guide](https://egeria-project.org/egeria-workspaces/quick-start/overview/) to set up your environment.
 - **Exploring Workbooks**: The numbering of the workbook folders offers a logical flow through the workbooks. However, you can run them in the order that interests you.  There are some dependencies between the workbooks and these are explicitly called out.
+
+  - [0. Data Governance Program](0.%20data-governance-program/README.md) - load core governance definitions created by the governance leaders.
+  - [1. Coco Data Hub](1.%20coco-data-hub/README.md) - set up a data sharing hub to exchange data between different business units.
+  - [2. Clinical Trials](2.%20clinical-trials/receive-data-from-hospitals.ipynb) - set up and run the clinical trial data pipeline and observe lineage and data quality checks. Builds on the Coco Data Hub.
+  - [3. Sustainability](3.%20sustainability/README.md) - configures Egeria to support their sustainability initiative.
+  - [4. Keeping Safe](4.%20keeping-safe/README.md) - looks at some security scenarios.
+  - [5. Data Field Naming](5.%20data-field-naming/README.md) builds a dataa field naming glossary.
+
+<br>
+
 - **Contributing**: If you want to contribute, check out the [Egeria Community](https://egeria-project.org/community/)
 
 ## Setting up your Obsidian environment
@@ -33,3 +43,7 @@ Create a new vault for this directory:
 
 **Check the Egeria plugin is installed and close (top right)**
 ![Check Plugins](start-up-images/check-plugins.png)
+
+----
+License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/),
+Copyright Contributors to the ODPi Egeria project.
