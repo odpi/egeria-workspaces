@@ -100,7 +100,10 @@ this is real, not a bug.
 | **People / Contributors** | 🟢 | Count of `Person` actor profiles | `ActorManager.find_actor_profiles`, bucketed by `typeName` | 1 query (all profiles) |
 | **Teams / Organizations / IT Profiles** | 🟢 | Counts of `Team` / `Organization` / `ITProfile` | same single query | — |
 | **Active Communities** | 🟢 | Count of communities | `CommunityMatters.find_communities` | 1 query |
-| Karma / Feedback items / Leaderboard / Engagement / Most-engaged | ⚪ | Contribution reputation + likes/ratings/comments/tags | Community Profile + Collaboration OMAS aggregation — deferred | per-element feedback fan-out (needs a rollup API) |
+| **Feedback Items** | 🟢 | Σ of AttachedRating/Comment/Like/Tag/NoteLog relationship counts | `ClassificationExplorer.get_relationships` per type | 5 queries |
+| **Feedback by type** | 🟢 | the five counts above | — | — |
+| **Karma records** | 🟢 | Count of `ContributionRecord` elements | `find_metadata_elements` | 1 query |
+| Leaderboard / Engagement trend / Most-engaged | ⚪ | Per-person karma rollup + weekly feedback trend | needs per-person aggregation — deferred | fan-out (rollup API) |
 
 ---
 
