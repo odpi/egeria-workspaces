@@ -1245,12 +1245,17 @@ document.querySelectorAll('#range button').forEach(b=>b.onclick=()=>{
     return egeriaFetch(path + q, CREDS).then(function(r){ if (!r.ok) throw 0; return r.json(); });
   }
   // Fetch the four point-in-time endpoints (optionally as-of) into a store.
+  // Renders after EACH resolves so fast endpoints (summary ~3s) show immediately
+  // instead of waiting on the slowest (people ~48s until the count API lands).
   function loadSet(store, asOf, primary){
+    var step = function(apply){
+      return function(d){ apply(d, store, primary); renderKPIs(); };
+    };
     return Promise.allSettled([
-      getJSON('/api/overview/summary',       asOf).then(function(d){ applySummary(d, store, primary); }),
-      getJSON('/api/overview/people',        asOf).then(function(d){ applyPeople(d, store, primary); }),
-      getJSON('/api/overview/usage-context', asOf).then(function(d){ applyUsage(d, store, primary); }),
-      getJSON('/api/overview/ai-context',    asOf).then(function(d){ applyAI(d, store, primary); })
+      getJSON('/api/overview/summary',       asOf).then(step(applySummary)),
+      getJSON('/api/overview/people',        asOf).then(step(applyPeople)),
+      getJSON('/api/overview/usage-context', asOf).then(step(applyUsage)),
+      getJSON('/api/overview/ai-context',    asOf).then(step(applyAI))
     ]);
   }
   function setBadge(mode, label){

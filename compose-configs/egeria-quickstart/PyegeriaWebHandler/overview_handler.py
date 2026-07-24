@@ -158,22 +158,76 @@ def _find(mgr, body: dict, page_size: int = _DEFAULT_CAP) -> list:
         return []
 
 
+# ── count seam — ready for a native server-side count API ────────────────────
+# pyegeria has no count method today (verified), so these fall back to
+# len(find/get) — i.e. they materialize the full result set just to size it, which
+# is the main cost (esp. for as-of queries). When the OMVS ships
+# metadata-elements/count and relationships/{type}/count (see OVERVIEW_NEXT_STEPS.md
+# → "count API"), add the method name to the candidate tuple below and every count
+# in this handler — including the as-of time-machine — drops to sub-second with no
+# other change. The result is normalized from int or {"count": N}.
+_ELEMENT_COUNT_CANDIDATES = ("count_metadata_elements", "get_metadata_element_count")
+_REL_COUNT_CANDIDATES     = ("count_relationships", "get_relationship_count")
+_count_caps: dict[str, Optional[str]] = {}   # cache: which native method (if any) a client class exposes
+
+
+def _native_count_method(mgr, candidates, cache_key: str) -> Optional[str]:
+    if cache_key not in _count_caps:
+        name = next((c for c in candidates if callable(getattr(mgr, c, None))), None)
+        _count_caps[cache_key] = name
+        logger.info(f"overview count seam [{cache_key}]: "
+                    + (f"native via {name}" if name else "fallback to len(find/get)"))
+    return _count_caps[cache_key]
+
+
+def _as_count(res) -> Optional[int]:
+    if isinstance(res, int):
+        return res
+    if isinstance(res, dict) and res.get("count") is not None:
+        return int(res["count"])
+    return None
+
+
+def _element_count(mgr, body: dict, as_of: Optional[str] = None) -> int:
+    """Count elements matching a FindRequestBody — native when available, else
+    len(find_metadata_elements(...))."""
+    b = dict(body)
+    if as_of:
+        b["asOfTime"] = as_of
+    name = _native_count_method(mgr, _ELEMENT_COUNT_CANDIDATES, "elem:" + type(mgr).__name__)
+    if name:
+        try:
+            c = _as_count(getattr(mgr, name)(b))
+            if c is not None:
+                return c
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"native element count failed, falling back: {exc}")
+    return len(_find(mgr, b))
+
+
 def _count_type(mgr, type_name: Optional[str], as_of: Optional[str] = None) -> tuple[int, bool]:
-    """Capped count of ACTIVE elements of a type, optionally as of a past time.
-    Returns (count, capped)."""
+    """Count of ACTIVE elements of a type, optionally as of a past time. Returns
+    (count, capped) — `capped` kept for call-site compatibility."""
     body: dict = {"class": "FindRequestBody", "limitResultsByStatus": ["ACTIVE"]}
     if type_name:
         body["metadataElementTypeName"] = type_name
-    if as_of:
-        body["asOfTime"] = as_of
-    hits = _find(mgr, body)
-    return len(hits), len(hits) >= _DEFAULT_CAP
+    n = _element_count(mgr, body, as_of)
+    return n, n >= _DEFAULT_CAP
 
 
 def _rel_count(ce, rel_type: str, as_of: Optional[str] = None) -> Optional[int]:
-    """Count relationships of a type, optionally as of a past time. asOfTime goes in
-    the ResultsRequestBody (get_relationships has no as_of_time kwarg — same
-    mechanism as audit_handler). None on failure."""
+    """Count relationships of a type, optionally as of a past time — native when
+    available, else len(get_relationships(...)). asOfTime goes in the
+    ResultsRequestBody (get_relationships has no as_of_time kwarg — audit_handler
+    mechanism). None on failure."""
+    name = _native_count_method(ce, _REL_COUNT_CANDIDATES, "rel:" + type(ce).__name__)
+    if name:
+        try:
+            c = _as_count(getattr(ce, name)(rel_type, as_of) if as_of else getattr(ce, name)(rel_type))
+            if c is not None:
+                return c
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"native rel count failed, falling back: {exc}")
     try:
         body = {"class": "ResultsRequestBody", "asOfTime": as_of} if as_of else None
         return len(_json_list(ce.get_relationships(
@@ -562,9 +616,7 @@ def _count_asof(mgr, type_name: Optional[str], as_of: Optional[str], classificat
     if classifications:
         body["matchClassifications"] = {"class": "SearchClassifications", "matchCriteria": "ANY",
                                          "conditions": [{"name": n} for n in classifications]}
-    if as_of:
-        body["asOfTime"] = as_of
-    return len(_find(mgr, body, page_size=5000))
+    return _element_count(mgr, body, as_of)   # native count when available, else len(find)
 
 
 @router.get("/api/overview/growth", summary="Catalog growth via asOfTime snapshots")
