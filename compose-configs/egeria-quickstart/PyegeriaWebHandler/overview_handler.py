@@ -522,6 +522,28 @@ def get_people(
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview people: community query failed: {exc}")
 
+    # Crowd-sourced feedback — Collaboration OMAS relationship counts (cheap). Often
+    # sparse in demo data, but real. Leaderboard/engagement need per-person rollups
+    # (deferred). karma = count of ContributionRecord elements.
+    feedback_by_type = None
+    feedback_items = None
+    karma = None
+    try:
+        ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
+        fb = {}
+        for rel, key in (("AttachedRating", "ratings"), ("AttachedComment", "comments"),
+                         ("AttachedLike", "likes"), ("AttachedTag", "tags"),
+                         ("AttachedNoteLog", "noteLogs")):
+            fb[key] = _rel_count(ce, rel, as_of_time) or 0
+        feedback_by_type = fb
+        feedback_items = sum(fb.values())
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview people: feedback query failed: {exc}")
+    try:
+        karma, _ = _count_type(_expert(url, server, user_id, user_pwd), "ContributionRecord", as_of_time)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview people: karma query failed: {exc}")
+
     payload = {
         "asOfTime":           as_of_time,
         "activeContributors": persons,
@@ -529,11 +551,11 @@ def get_people(
         "organizations":      orgs,
         "itProfiles":         it_profiles,
         "communities":        communities,
-        "karmaAwarded":       None,   # ContributionRecord — sparse in demo; TODO engagement fallback
-        "feedbackItems":      None,   # likes+ratings+comments — Collaboration OMAS; TODO
-        "leaderboard":        None,
-        "engagementSeries":   None,
-        "feedbackByType":     None,
+        "karmaRecords":       karma,             # count of ContributionRecord elements
+        "feedbackItems":      feedback_items,    # Σ ratings+comments+likes+tags+noteLogs
+        "feedbackByType":     feedback_by_type,
+        "leaderboard":        None,              # per-person karma rollup — deferred
+        "engagementSeries":   None,              # weekly feedback trend — deferred
         "partial":            True,
         "source":             "live:people",
     }

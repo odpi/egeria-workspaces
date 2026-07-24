@@ -732,7 +732,7 @@ renderGrowth();
 // ---- Horizontal bar helper (row = [lab,val,col,drillKey?]) ----
 function hbars(id,rows,max){
   const el=document.getElementById(id);
-  const mx=max||Math.max(...rows.map(r=>r[1]));
+  const mx=max||Math.max(...rows.map(r=>r[1]))||1;
   el.innerHTML=rows.map(([lab,val,col,dk])=>
     `<div class="hbar-row${dk?' drill':''}"${dk?` data-drill="${dk}"`:''}><span class="lab" title="${lab}">${lab}</span>`+
     `<div class="hbar-track"><div class="hbar-fill" style="width:${Math.max(3,100*val/mx)}%;background:${col||'var(--c2)'}"></div></div>`+
@@ -1190,6 +1190,21 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
       setTxt('kpi-orgs-sub', (d.teams || 0) + ' teams · ' + (d.organizations || 0) + ' orgs');
     }
     setTxt('kpi-communities', fmt(d.communities));
+    // Crowd-sourced feedback (Collaboration OMAS) — real, though sparse in demo.
+    if (d.feedbackItems != null) {
+      setTxt('kpi-feedback', fmt(d.feedbackItems));
+      var fsub = document.querySelector('#kpi-feedback + .k-sub');
+      var fb = d.feedbackByType || {};
+      if (fsub) fsub.textContent = (fb.comments||0) + ' comments · ' + (fb.ratings||0) + ' ratings · ' + (fb.tags||0) + ' tags';
+    }
+    if (d.feedbackByType && typeof hbars === 'function') {
+      var t = d.feedbackByType;
+      hbars('fbType', [
+        ['Ratings ★', t.ratings||0, 'var(--c4)'], ['Comments', t.comments||0, 'var(--c1)'],
+        ['Tags', t.tags||0, 'var(--c3)'], ['Likes', t.likes||0, 'var(--c2)'],
+        ['Note logs', t.noteLogs||0, 'var(--c6)']
+      ]);
+    }
   }
 
   function applyUsage(d, store, primary){
