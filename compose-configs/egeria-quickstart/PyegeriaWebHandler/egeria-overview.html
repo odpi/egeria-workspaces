@@ -27,6 +27,8 @@
   .hdr-right { margin-left:auto; display:flex; align-items:center; gap:10px; }
   .chip { background:var(--border); border-radius:20px; padding:5px 13px; font-size:.78rem; display:inline-flex; gap:7px; align-items:center; }
   .chip .role { color:var(--muted); font-size:.7rem; }
+  .range-wrap { display:inline-flex; align-items:center; gap:5px; font-size:.9rem; }
+  .range-sel { background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:7px; padding:5px 8px; font-size:.78rem; font-family:inherit; cursor:pointer; }
   .seg { display:flex; border:1px solid var(--border); border-radius:7px; overflow:hidden; }
   .seg button { background:transparent; color:var(--muted); border:none; padding:5px 12px; font-size:.76rem; cursor:pointer; font-family:inherit; }
   .seg button.on { background:var(--accent); color:#fff; }
@@ -38,6 +40,13 @@
   .pagehead h1 { font-size:1.35rem; font-weight:700; }
   .pagehead p { color:var(--muted); font-size:.85rem; margin-top:3px; }
   .asof { font-size:.74rem; color:var(--muted); }
+  .tm { display:inline-flex; align-items:center; gap:8px; margin-top:6px; font-size:.74rem; color:var(--muted); }
+  .tm-lab { font-weight:600; color:var(--c3); }
+  .tm-date { background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:3px 7px; font-size:.74rem; font-family:inherit; color-scheme:dark; }
+  .tm-cmp { display:inline-flex; align-items:center; gap:4px; cursor:pointer; }
+  .tm-cmp input { accent-color:var(--c3); }
+  .tm-cmp input:disabled + span, label.tm-cmp:has(input:disabled) { opacity:.5; }
+  .tm-now { padding:3px 10px; font-size:.74rem; }
   .asof b { color:var(--text); font-weight:600; }
 
   .section-label { font-size:.7rem; font-weight:700; letter-spacing:.11em; text-transform:uppercase; color:var(--muted); margin:26px 0 12px; display:flex; align-items:center; gap:8px; }
@@ -213,12 +222,18 @@
     <div class="hdr-sub">Catalog Health &amp; Governance KPIs</div>
   </div>
   <div class="hdr-right">
-    <div class="seg" id="range">
-      <button data-r="30">30d</button>
-      <button data-r="90" class="on">90d</button>
-      <button data-r="180">6mo</button>
-      <button data-r="365">1yr</button>
-    </div>
+    <label class="range-wrap" title="Growth chart window & granularity (via Egeria asOfTime)">📈
+      <select id="range-sel" class="range-sel">
+        <option value="8h">8 hours</option>
+        <option value="1d">1 day</option>
+        <option value="3d">3 days</option>
+        <option value="7d">1 week</option>
+        <option value="30d">30 days</option>
+        <option value="90d">90 days</option>
+        <option value="6mo" selected>6 months</option>
+        <option value="1y">1 year</option>
+      </select>
+    </label>
     <span class="chip">Peter Profile <span class="role">· Data Owner</span></span>
     <button class="btn">⤓ Export</button>
   </div>
@@ -231,7 +246,15 @@
       <h1>Coco Pharmaceuticals — Metadata Landscape</h1>
       <p>A single-glance summary of what Egeria knows: scale, governance coverage, quality, and how they're trending. <span class="drill-hint" style="margin-left:6px">tiles &amp; bars are clickable — drill in or jump to the app</span></p>
     </div>
-    <div class="asof" id="dataSrc">Snapshot as of <b id="asofTime">—</b> · <span id="srcBadge" style="color:var(--muted)">○ connecting…</span> · <span id="srcServer">qs-view-server</span></div>
+    <div style="text-align:right">
+      <div class="asof" id="dataSrc">Snapshot as of <b id="asofTime">—</b> · <span id="srcBadge" style="color:var(--muted)">○ connecting…</span> · <span id="srcServer">qs-view-server</span></div>
+      <div class="tm" title="Egeria answers historical queries natively (asOfTime) — no time-series store">
+        <span class="tm-lab">⏳ Time machine</span>
+        <input type="date" id="asof-date" class="tm-date" max="2026-07-23">
+        <label class="tm-cmp"><input type="checkbox" id="cmp-toggle" disabled> Compare to now</label>
+        <button class="btn tm-now" id="asof-now">Now</button>
+      </div>
+    </div>
   </div>
 
   <!-- ── PERSPECTIVE RIBBON ── -->
@@ -303,7 +326,7 @@
       <div class="panel-head">
         <div>
           <h3>Catalog Growth</h3>
-          <div class="ph-sub">Monthly snapshots via Egeria <code style="font-size:.7rem">asOfTime</code> historical queries</div>
+          <div class="ph-sub" id="growth-sub">Snapshots via Egeria <code style="font-size:.7rem">asOfTime</code> historical queries</div>
         </div>
         <div class="legend" style="margin-top:0">
           <span><i class="dot" style="background:var(--c2)"></i>Assets</span>
@@ -709,7 +732,7 @@ renderGrowth();
 // ---- Horizontal bar helper (row = [lab,val,col,drillKey?]) ----
 function hbars(id,rows,max){
   const el=document.getElementById(id);
-  const mx=max||Math.max(...rows.map(r=>r[1]));
+  const mx=max||Math.max(...rows.map(r=>r[1]))||1;
   el.innerHTML=rows.map(([lab,val,col,dk])=>
     `<div class="hbar-row${dk?' drill':''}"${dk?` data-drill="${dk}"`:''}><span class="lab" title="${lab}">${lab}</span>`+
     `<div class="hbar-track"><div class="hbar-fill" style="width:${Math.max(3,100*val/mx)}%;background:${col||'var(--c2)'}"></div></div>`+
@@ -826,7 +849,17 @@ const PERSPECTIVES = {
 // LIVE holds the latest values fetched from /api/overview/*; METRICS renders a tile
 // from LIVE (sample fallback), and each perspective picks its own 6 headline metrics.
 const LIVE = {};
+const BASE = {};              // as-of baseline store, used in Compare mode
+let COMPARE = false;          // Compare toggle: show now vs as-of deltas
+let ASOF_LABEL = '';          // human date label for the baseline
 let CUR_PERSP = 'governance';
+// Numeric accessor per metric, so the KPI band can compute now-vs-as-of deltas.
+const RAW = {
+  assets:s=>s.assets, terms:s=>s.terms, governed:s=>s.governedPctNum,
+  certs:s=>s.certs, products:s=>s.products, exceptions:s=>s.exceptions,
+  people:s=>s.people, communities:s=>s.communities, isc:s=>s.isc,
+  blueprints:s=>s.blueprints, grounding:s=>s.groundingPct
+};
 const num = n => (n != null ? Number(n).toLocaleString() : null);
 // A KPI shows a sparkline ONLY when we have a real historical series for it
 // (from /api/overview/growth asOfTime snapshots). `hist` names the series field;
@@ -876,11 +909,24 @@ const PERSP_KPIS = {
 function renderKPIs(){
   const band = document.getElementById('kpi-band'); if (!band) return;
   const keys = PERSP_KPIS[CUR_PERSP] || PERSP_KPIS.governance;
+  const comparing = COMPARE && Object.keys(BASE).length > 0;
   band.innerHTML = keys.map(k => {
     const m = METRICS[k]; if (!m) return '';
     const s = m.get();
+    // Compare mode: replace the sub-label with a real delta vs the as-of baseline.
+    let sub = s.sub || '';
+    if (comparing && RAW[k]) {
+      const cur = RAW[k](LIVE), base = RAW[k](BASE);
+      if (cur != null && base != null) {
+        const dv = cur - base, unit = (k === 'governed' || k === 'grounding') ? ' pts' : '';
+        sub = `<span class="delta ${dv >= 0 ? 'up' : 'down'}">${dv >= 0 ? '▲' : '▼'} ${Math.abs(dv).toLocaleString()}${unit}</span> `+
+              `<span style="color:var(--muted)">since ${ASOF_LABEL}</span>`;
+      } else {
+        sub = `<span style="color:var(--muted)">no data at ${ASOF_LABEL}</span>`;
+      }
+    }
     let spark = '';
-    const pts = (m.hist && LIVE.series) ? sparkPts(LIVE.series[m.hist]) : null;
+    const pts = (!comparing && m.hist && LIVE.series) ? sparkPts(LIVE.series[m.hist]) : null;
     if (pts) {
       const tip = LIVE.rangeFrom ? `${LIVE.rangeFrom} → ${LIVE.rangeTo}` : 'trend';
       spark = `<svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none"><title>${tip}</title>`+
@@ -888,7 +934,7 @@ function renderKPIs(){
     }
     return `<div class="kpi${m.drill ? ' clickable' : ''}"${m.drill ? ` data-drill="${m.drill}"` : ''}>`+
       `<span class="k-ico">${m.ico}</span><span class="k-label">${m.label}</span>`+
-      `<span class="k-val">${s.val}</span><span class="k-sub">${s.sub || ''}</span>${spark}</div>`;
+      `<span class="k-val">${s.val}</span><span class="k-sub">${sub}</span>${spark}</div>`;
   }).join('');
 }
 
@@ -1084,11 +1130,7 @@ document.addEventListener('click',e=>{ const el=e.target.closest('[data-drill]')
 // donut clickable
 const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn.parentElement.parentElement.setAttribute('data-drill','governed'); }
 
-// range segmented control (cosmetic in mockup)
-document.querySelectorAll('#range button').forEach(b=>b.onclick=()=>{
-  document.querySelectorAll('#range button').forEach(x=>x.classList.remove('on'));
-  b.classList.add('on');
-});
+// (growth-window dropdown is wired inside the bootstrap IIFE, where CREDS lives)
 
 // ==== LIVE DATA BOOTSTRAP ====
 // The layout above renders a full *sample* baseline so the page is always useful.
@@ -1104,24 +1146,27 @@ document.querySelectorAll('#range button').forEach(b=>b.onclick=()=>{
 
   // Each apply* writes into the LIVE store, then re-renders the (per-perspective)
   // KPI band + any section widgets it feeds. Sample values remain the fallback.
-  function applySummary(d){
+  // Each apply* writes numeric values into `store` (LIVE or the as-of BASE).
+  // Section widgets + drill patches only update for the primary (displayed) store.
+  function applySummary(d, store, primary){
     if (!d) return;
-    LIVE.assets = d.assetTotal; LIVE.terms = d.termCount;
-    LIVE.governedCount = d.governedCount;
+    store.assets = d.assetTotal; store.terms = d.termCount;
+    store.governedCount = d.governedCount;
     if (d.assetTotal && d.governedCount != null) {
-      LIVE.governedPct = Math.round(100 * d.governedCount / Math.max(d.assetTotal, d.governedCount)) + '%';
-      LIVE.governedSub = fmt(d.governedCount) + ' of ' + fmt(d.assetTotal) + ' assets';
+      store.governedPctNum = Math.round(100 * d.governedCount / Math.max(d.assetTotal, d.governedCount));
+      store.governedPct = store.governedPctNum + '%';
+      store.governedSub = fmt(d.governedCount) + ' of ' + fmt(d.assetTotal) + ' assets';
     }
     if (d.certifications != null) {
-      LIVE.certs = d.certifications;
+      store.certs = d.certifications;
       var parts = [];
       if (d.certExpiring90) parts.push(d.certExpiring90 + ' expiring ≤90d');
       if (d.licenses != null) parts.push(d.licenses + ' licenses');
-      LIVE.certsSub = parts.join(' · ') || 'none active';
+      store.certsSub = parts.join(' · ') || 'none active';
     }
-    if (d.dataProducts != null) LIVE.products = d.dataProducts;
-    if (d.openExceptions != null) LIVE.exceptions = d.openExceptions;
-    renderKPIs();
+    if (d.dataProducts != null) store.products = d.dataProducts;
+    if (d.openExceptions != null) store.exceptions = d.openExceptions;
+    if (!primary) return;
     // Assets-by-type live overlay (composition section)
     if (Array.isArray(d.byType) && d.byType.length && typeof hbars === 'function') {
       var keymap = {DataStore:'type-datastore', DataSet:'type-dataset', DeployedSoftwareComponent:'type-swcomp',
@@ -1133,11 +1178,11 @@ document.querySelectorAll('#range button').forEach(b=>b.onclick=()=>{
     }
   }
 
-  function applyPeople(d){
+  function applyPeople(d, store, primary){
     if (!d) return;
-    LIVE.people = d.activeContributors; LIVE.communities = d.communities;
-    LIVE.teams = d.teams; LIVE.orgs = d.organizations;
-    renderKPIs();
+    store.people = d.activeContributors; store.communities = d.communities;
+    store.teams = d.teams; store.orgs = d.organizations;
+    if (!primary) return;
     // People & Community section sub-band
     setTxt('kpi-people', fmt(d.activeContributors));
     if (d.teams != null || d.organizations != null) {
@@ -1145,12 +1190,27 @@ document.querySelectorAll('#range button').forEach(b=>b.onclick=()=>{
       setTxt('kpi-orgs-sub', (d.teams || 0) + ' teams · ' + (d.organizations || 0) + ' orgs');
     }
     setTxt('kpi-communities', fmt(d.communities));
+    // Crowd-sourced feedback (Collaboration OMAS) — real, though sparse in demo.
+    if (d.feedbackItems != null) {
+      setTxt('kpi-feedback', fmt(d.feedbackItems));
+      var fsub = document.querySelector('#kpi-feedback + .k-sub');
+      var fb = d.feedbackByType || {};
+      if (fsub) fsub.textContent = (fb.comments||0) + ' comments · ' + (fb.ratings||0) + ' ratings · ' + (fb.tags||0) + ' tags';
+    }
+    if (d.feedbackByType && typeof hbars === 'function') {
+      var t = d.feedbackByType;
+      hbars('fbType', [
+        ['Ratings ★', t.ratings||0, 'var(--c4)'], ['Comments', t.comments||0, 'var(--c1)'],
+        ['Tags', t.tags||0, 'var(--c3)'], ['Likes', t.likes||0, 'var(--c2)'],
+        ['Note logs', t.noteLogs||0, 'var(--c6)']
+      ]);
+    }
   }
 
-  function applyUsage(d){
+  function applyUsage(d, store, primary){
     if (!d) return;
-    LIVE.isc = d.informationSupplyChains; LIVE.blueprints = d.blueprints;
-    renderKPIs();
+    store.isc = d.informationSupplyChains; store.blueprints = d.blueprints;
+    if (!primary) return;
     setTxt('uc-isc', fmt(d.informationSupplyChains));
     setTxt('uc-bp',  fmt(d.blueprints));
     if (d.contextualisedPct != null) setTxt('uc-cov', d.contextualisedPct + '%');
@@ -1160,11 +1220,11 @@ document.querySelectorAll('#range button').forEach(b=>b.onclick=()=>{
     }
   }
 
-  function applyAI(d){
+  function applyAI(d, store, primary){
     if (!d) return;
-    if (d.groundingPct != null) LIVE.groundingPct = d.groundingPct;
-    if (d.groundingLinks != null) LIVE.groundingLinks = d.groundingLinks;
-    renderKPIs();
+    if (d.groundingPct != null) store.groundingPct = d.groundingPct;
+    if (d.groundingLinks != null) store.groundingLinks = d.groundingLinks;
+    if (!primary) return;
     // AI section grounding tile + funnel (cataloged/classified live)
     if (d.groundingPct != null) setTxt('ai-grounding', d.groundingPct + '%');
     var f = d.funnel || {};
@@ -1186,57 +1246,120 @@ document.querySelectorAll('#range button').forEach(b=>b.onclick=()=>{
     // Feed the KPI sparklines + time reference from the same real series.
     LIVE.series = live;
     LIVE.rangeFrom = d.rangeFrom; LIVE.rangeTo = d.rangeTo;
-    var span = s.length + 'mo';
-    var delta = function(a, b){ return a != null && b != null ? ((a - b >= 0 ? '▲ ' : '▼ ') + fmt(Math.abs(a - b)) + ' / ' + span) : null; };
+    var win = d.window || '';
+    var delta = function(a, b){ return a != null && b != null ? ((a - b >= 0 ? '▲ ' : '▼ ') + fmt(Math.abs(a - b)) + (win ? ' / ' + win : '')) : null; };
     var first = s[0], last = s[s.length - 1];
     LIVE.assetsDelta   = delta(last.assets,   first.assets);
     LIVE.termsDelta    = delta(last.terms,    first.terms);
     LIVE.productsDelta = delta(last.products, first.products);
+    var sub = document.getElementById('growth-sub');
+    if (sub) sub.innerHTML = s.length + ' snapshots over ' + (win || 'the window') + ' · ' + d.rangeFrom + ' → ' + d.rangeTo + ' (via Egeria <code style="font-size:.7rem">asOfTime</code>)';
     var noteEl = document.getElementById('kpi-trend-note');
-    if (noteEl && d.rangeFrom) noteEl.textContent = 'Trend sparklines & Growth chart: ' + s.length + ' monthly snapshots, ' + d.rangeFrom + ' → ' + d.rangeTo + ' (via Egeria asOfTime).';
+    if (noteEl && d.rangeFrom) noteEl.textContent = 'Trend sparklines & Growth chart: ' + s.length + ' snapshots over ' + (win || 'the window') + ', ' + d.rangeFrom + ' → ' + d.rangeTo + ' (via Egeria asOfTime).';
     renderKPIs();
   }
 
-  function loadAll(creds){
-    stamp();
-    var live = false, any = false;
-    var done = function(ok){ any = true; if (ok) live = true; };
-    var finish = function(){
-      if (!any) return;
-      badge(live ? '● live' : '○ sample (Egeria unavailable)', live ? 'var(--green)' : 'var(--c4)');
+  var CREDS = null;
+
+  function getJSON(path, asOf){
+    var q = asOf ? (path.indexOf('?') === -1 ? '?' : '&') + 'as_of_time=' + encodeURIComponent(asOf) : '';
+    return egeriaFetch(path + q, CREDS).then(function(r){ if (!r.ok) throw 0; return r.json(); });
+  }
+  // Growth chart for a given window (8h..1y); granularity follows the window server-side.
+  function loadGrowth(win){
+    var sub = document.getElementById('growth-sub');
+    if (sub) sub.textContent = 'Loading ' + win + ' snapshots…';
+    return getJSON('/api/overview/growth?window=' + encodeURIComponent(win || '6mo'), null)
+      .then(applyGrowth).catch(function(){ if (sub) sub.textContent = 'Growth unavailable'; });
+  }
+  // Fetch the four point-in-time endpoints (optionally as-of) into a store.
+  // Renders after EACH resolves so fast endpoints (summary ~3s) show immediately
+  // instead of waiting on the slowest (people ~48s until the count API lands).
+  function loadSet(store, asOf, primary){
+    var step = function(apply){
+      return function(d){ apply(d, store, primary); renderKPIs(); };
     };
-    var get = function(path, apply){
-      return egeriaFetch(path, creds).then(function(r){ if(!r.ok) throw 0; return r.json(); })
-        .then(function(d){ apply(d); done(true); })
-        .catch(function(){ done(false); });
-    };
-    Promise.allSettled([
-      get('/api/overview/summary',       applySummary),
-      get('/api/overview/people',        applyPeople),
-      get('/api/overview/usage-context', applyUsage),
-      get('/api/overview/ai-context',    applyAI),
-      get('/api/overview/growth?months=6', applyGrowth)
-    ]).then(finish);
+    return Promise.allSettled([
+      getJSON('/api/overview/summary',       asOf).then(step(applySummary)),
+      getJSON('/api/overview/people',        asOf).then(step(applyPeople)),
+      getJSON('/api/overview/usage-context', asOf).then(step(applyUsage)),
+      getJSON('/api/overview/ai-context',    asOf).then(step(applyAI))
+    ]);
+  }
+  function setBadge(mode, label){
+    if (mode === 'asof')    return badge('◷ as of ' + label, 'var(--c4)');
+    if (mode === 'compare') return badge('⇄ now vs ' + label, 'var(--c3)');
+    if (mode === 'sample')  return badge('○ sample (Egeria unavailable)', 'var(--c4)');
+    badge('● live', 'var(--green)');
+  }
+
+  // ── Time-machine orchestration ──
+  function refresh(){
+    var dateEl = document.getElementById('asof-date');
+    var cmpEl  = document.getElementById('cmp-toggle');
+    var dateVal = dateEl ? dateEl.value : '';
+    COMPARE = !!(cmpEl && cmpEl.checked && dateVal);
+    if (cmpEl) cmpEl.disabled = !dateVal;
+    var asOf = dateVal ? new Date(dateVal + 'T00:00:00').toISOString() : null;
+    ASOF_LABEL = dateVal ? new Date(dateVal + 'T00:00:00').toLocaleDateString([], {month:'short', day:'numeric', year:'numeric'}) : '';
+    Object.keys(BASE).forEach(function(k){ delete BASE[k]; });   // clear baseline
+    badge('◌ querying Egeria…', 'var(--muted)');   // as-of queries are slow (see count-API TODO)
+
+    if (!asOf) {
+      loadSet(LIVE, null, true).then(function(){ renderKPIs(); setBadge('live'); });
+      stamp();
+    } else if (!COMPARE) {
+      // Time-machine: the whole dashboard shows the metadata as of the chosen date.
+      loadSet(LIVE, asOf, true).then(function(){ renderKPIs(); setBadge('asof', ASOF_LABEL); });
+      setTxt('asofTime', ASOF_LABEL);
+    } else {
+      // Compare: LIVE = now, BASE = as-of; KPIs show now-vs-then deltas.
+      Promise.all([ loadSet(LIVE, null, true), loadSet(BASE, asOf, false) ])
+        .then(function(){ renderKPIs(); setBadge('compare', ASOF_LABEL); });
+      stamp();
+    }
+  }
+
+  function wireControls(){
+    ['asof-date', 'cmp-toggle'].forEach(function(id){
+      var el = document.getElementById(id); if (el) el.addEventListener('change', refresh);
+    });
+    var nowBtn = document.getElementById('asof-now');
+    if (nowBtn) nowBtn.addEventListener('click', function(){
+      var d = document.getElementById('asof-date'); if (d) d.value = '';
+      var c = document.getElementById('cmp-toggle'); if (c) { c.checked = false; c.disabled = true; }
+      refresh();
+    });
+    var rs = document.getElementById('range-sel');
+    if (rs) rs.addEventListener('change', function(){ loadGrowth(rs.value); });
   }
 
   // Resolve creds: who am I → (demo) persona → egeria token. Degrade to env-default
   // server-side creds (no token) if any step is unavailable.
+  function start(creds){
+    CREDS = creds;
+    wireControls();
+    loadSet(LIVE, null, true).then(function(){ renderKPIs(); setBadge('live'); });
+    var rs = document.getElementById('range-sel');
+    loadGrowth(rs ? rs.value : '6mo');
+    stamp();
+  }
   function boot(){
     if (typeof egeriaFetch !== 'function') {   // shared UI not loaded — sample only
       badge('○ sample (offline)', 'var(--c4)'); stamp(); return;
     }
+    var server = 'qs-view-server';
     fetch('/api/auth/me').then(function(r){ return r.ok ? r.json() : null; }).then(function(me){
-      var server = 'qs-view-server';
       if (me && me.egeria_user) {
         fetch('/api/egeria-token', { method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ user_id: me.egeria_user, password: me.egeria_password || '' }) })
           .then(function(r){ return r.ok ? r.json() : {}; })
-          .then(function(t){ loadAll({ server: server, userId: me.egeria_user, token: t.token || '' }); })
-          .catch(function(){ loadAll({ server: server, userId: me.egeria_user }); });
+          .then(function(t){ start({ server: server, userId: me.egeria_user, token: t.token || '' }); })
+          .catch(function(){ start({ server: server, userId: me.egeria_user }); });
       } else {
-        loadAll({ server: server });   // server falls back to env-default user
+        start({ server: server });   // server falls back to env-default user
       }
-    }).catch(function(){ loadAll({ server: 'qs-view-server' }); });
+    }).catch(function(){ start({ server: server }); });
   }
   boot();
 })();
