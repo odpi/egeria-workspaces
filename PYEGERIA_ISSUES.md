@@ -765,6 +765,130 @@ missing cross-links the same way — not yet audited beyond Action Center.
 
 ---
 
+## PY-18: `count_relationships_between_elements("Exception")` (276) disagrees with `ClassificationExplorer.get_relationships("Exception")` (55)
+
+**Status:** open — needs Egeria-side investigation. Found 2026-07-24 while wiring
+the Egeria Overview dashboard to the new native counting from odpi/egeria#9168.
+pyegeria with the `count_metadata_elements` / `count_relationships_between_elements`
+methods; a #9168-capable view server.
+
+**Summary:** the OMF metadata-expert **native relationship count** and the
+classification-explorer **`get_relationships`** return materially different totals
+for the `Exception` relationship type — and *only* that type, among those tested.
+
+**How to trigger:**
+```python
+from pyegeria import MetadataExpert, ClassificationExplorer
+me = MetadataExpert(view_server="qs-view-server", platform_url="https://localhost:9443",
+                    user_id="erinoverview", user_pwd="secret"); me.create_egeria_bearer_token()
+ce = ClassificationExplorer(view_server="qs-view-server", platform_url="https://localhost:9443",
+                    user_id="erinoverview", user_pwd="secret"); ce.create_egeria_bearer_token()
+
+me.count_relationships_between_elements({"class":"FindRelationshipRequestBody","relationshipTypeName":"Exception"})
+# -> 276
+len(ce.get_relationships(relationship_type="Exception", output_format="JSON", start_from=0, page_size=5000))
+# -> 55  (all 55 have exact typeName "Exception"; no effectivity dates)
+```
+
+**What it is NOT:**
+- Not the type filter — `count(relationshipTypeName="ZZBogus")` errors, and
+  `count("SemanticAssignment")` = 397 = `get_relationships` = 397; `License` 2 = 2;
+  `Certification` 0 = 0; `AttachedRating` 0 = 0. **Every other tested type matches**;
+  only `Exception` diverges (276 vs 55).
+- Not status/effectivity — `count("Exception")` is 276 with `limitResultsByStatus=[ACTIVE]`,
+  with `effectiveTime=<now>`, and with neither; the 55 `get_relationships` results
+  carry no `effectiveFromTime`/`effectiveToTime`.
+- `count(no relationshipTypeName)` = 31857 (all relationships), so 276 is a genuine
+  type-scoped subset, not "count ignores the filter".
+
+**Open question for Egeria:** what does the metadata-expert count include for
+`Exception` that the classification-explorer traversal excludes (subtypes counted
+under the supertype? relationships to non-visible / anchored / dangling ends?
+access/zone filtering that differs between the two OMVS)? Whichever is "true", the
+two APIs should agree for a given type — or the difference should be documented.
+
+**Impact / workaround:** the Overview dashboard keeps **relationship** counts on
+`ClassificationExplorer.get_relationships` (so "Open Exceptions" stays consistent
+with the Audit app at 55) and uses native counting only for **element** counts.
+See `overview_handler.py` `_rel_count` and `OVERVIEW_METRICS.md`.
+
+---
+
+## PY-19: `MetadataExpert.find_relationships_between_elements(relationshipTypeName=…)` returns "No elements found" even when the matching count is non-zero
+
+**Status:** open — found 2026-07-24 alongside PY-18. Same env.
+
+**How to trigger:**
+```python
+me.count_relationships_between_elements({"class":"FindRelationshipRequestBody","relationshipTypeName":"SemanticAssignment"})
+# -> 397
+me.find_relationships_between_elements({"class":"FindRelationshipRequestBody","relationshipTypeName":"SemanticAssignment"},
+                                       start_from=0, page_size=5000)
+# -> "No elements found"   (same for "Exception", which counts 276)
+```
+
+**Expected:** a plain type-scoped `find_relationships_between_elements` should return
+the relationships the sibling `count_relationships_between_elements` counts (or the
+two methods should document why they differ).
+
+**Actual:** the find returns the empty-result string for a bare `relationshipTypeName`
+query even though the count is non-zero — suggesting the find needs anchor element
+GUIDs (or has a bug), while the count does not.
+
+**Impact / workaround:** none in the dashboard — element counts use
+`count_metadata_elements`; relationship counts/lists use
+`ClassificationExplorer.get_relationships`, which works. Flagged because the
+count/find asymmetry within the same OMVS is confusing and blocks using the
+metadata-expert find as a fallback for the native relationship count.
+
+---
+
+## PY-20: Paging / sequencing strategy for "load-all" list endpoints — DESIGN DISCUSSION (high priority)
+
+**Status:** open — **design discussion, not a confirmed bug.** High-priority
+follow-up. Raised 2026-07-24 from the glossary-term aliases fix: aliased terms were
+missing from the default listing because of how the portal loads and sorts lists.
+
+**Observations (repro, `find_glossary_terms`, qs-view-server, 388 terms):**
+```python
+# start_from paging works — each page is a different, non-overlapping slice:
+m.find_glossary_terms(search_string="*", start_from=0,  page_size=10, output_format="JSON")   # 10 terms
+m.find_glossary_terms(search_string="*", start_from=10, page_size=10, output_format="JSON")   # next 10, no overlap
+
+# BUT sequencing is not reflected in the result order:
+m.find_glossary_terms(search_string="*", page_size=10, output_format="JSON",
+                      sequencing_order="PROPERTY_ASCENDING", sequencing_property="displayName")
+# -> ['Rolling base year','Carbon Intensity','Megawatt Hour','Inventory','Shall', ...]  (server-internal order, not A→Z)
+```
+
+So the portal's **"load-all up to a page-size ceiling, then sort/filter in JS"**
+pattern (glossary, insights, catalog, …) silently returns an *arbitrary* subset
+when a collection exceeds the ceiling: e.g. default `page_size=200` on 388 terms
+returns some 200, the endpoint re-sorts *those 200* by `displayName`, and terms
+outside that slice (incl. alphabetically-early ones) simply never appear.
+
+**Open questions to decide (not asserting any of these is a defect):**
+1. Is `sequencing_order`/`sequencing_property` expected to order the result here,
+   or is that behaviour config/connector-dependent? (Determines whether true
+   server-side paged UIs are even feasible, or whether fetch-all-then-sort-in-JS
+   remains the only reliable sort.)
+2. Preferred model: **bounded server-side fetch-all** (loop `start_from` until the
+   native `count_metadata_elements` total is reached or a ceiling is hit, return a
+   `truncated`/`total` flag) vs a true paged UI. Fetch-all keeps the existing
+   instant client-side search; paged UI needs #1 resolved first.
+3. **Page-size ceiling is bounded by the view server's configured `maxPageSize`**
+   (OMAG server config) — likely well below 5000. Any fetch-all loop must chunk at
+   ≤ that limit; the overall load ceiling is a separate product decision. **TBD —
+   to be chosen in discussion.**
+4. Apply the chosen strategy consistently via a shared helper across all
+   "load-all" endpoints, rather than per-handler.
+
+**Current mitigation:** none beyond raising `page_size`, which only lowers the odds
+(a single page is still unsorted, so it sorts an arbitrary slice). Tracked for a
+deliberate fix once the strategy + `maxPageSize` are agreed.
+
+---
+
 ## Quick reference: which OMVS client class for which purpose
 
 | Need | Class | Notes |

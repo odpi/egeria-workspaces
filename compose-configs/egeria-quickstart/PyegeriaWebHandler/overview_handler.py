@@ -236,11 +236,14 @@ def _count_type(mgr, type_name: Optional[str], as_of: Optional[str] = None) -> t
 def _rel_count(ce, rel_type: str, as_of: Optional[str] = None, expert=None) -> Optional[int]:
     """Count relationships of a type, optionally as of a past time.
 
-    Prefers Egeria's native count via MetadataExpert.count_relationships_between_elements
-    (odpi/egeria#9168) with a FindRelationshipRequestBody, passed as `expert`. Falls
-    back to len(ClassificationExplorer.get_relationships(...)) — the proven path —
-    when there's no expert, no native support, or the native call fails. asOfTime
-    goes in the request body. None on total failure."""
+    Uses len(ClassificationExplorer.get_relationships(...)) — the path the Audit app
+    uses, so counts stay consistent portal-wide. A native
+    MetadataExpert.count_relationships_between_elements fast-path is available when an
+    `expert` is passed, but callers deliberately do NOT pass one: the two OMVS layers
+    disagree for some relationship types (e.g. Exception counts 276 natively vs 55 via
+    get_relationships — see the count-semantics note), and matching the Audit app
+    matters more than the speed here (relationship counts were never the bottleneck).
+    asOfTime goes in the request body. None on total failure."""
     if expert is not None and not _native_disabled(expert):
         name = _native_count_method(expert, _REL_COUNT_CANDIDATES, "rel:" + type(expert).__name__)
         if name:
@@ -353,7 +356,7 @@ def get_summary(
     data_products, _ = _count_type(mgr, "DigitalProduct", as_of_time)
 
     # Certifications, licenses & open exceptions (governance relationships).
-    certs = _certifications(url, server, user_id, user_pwd, as_of_time, expert=mgr)
+    certs = _certifications(url, server, user_id, user_pwd, as_of_time)
 
     payload = {
         "asOfTime":         as_of_time,
@@ -399,10 +402,10 @@ def _rel_end_date(rel: dict):
     return None
 
 
-def _certifications(url, server, user_id, user_pwd, as_of: Optional[str] = None, expert=None) -> dict:
+def _certifications(url, server, user_id, user_pwd, as_of: Optional[str] = None) -> dict:
     """Count active certifications, those expiring within 90 days, a soonest list,
     the license count, and open governance exceptions — optionally as of a past
-    time. `expert` (a MetadataExpert) enables native relationship counts.
+    time, via ClassificationExplorer.get_relationships (Audit-app consistent).
     Degrades to zeros on any failure (demo may have none)."""
     from datetime import datetime, timezone, timedelta
     out = {"active": None, "expiring90": None, "soon": [], "licenses": None, "exceptions": None}
@@ -439,8 +442,8 @@ def _certifications(url, server, user_id, user_pwd, as_of: Optional[str] = None,
         out["soon"] = soon[:5]
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview certifications: query failed: {exc}")
-    out["licenses"] = _rel_count(ce, "License", as_of, expert=expert)
-    out["exceptions"] = _rel_count(ce, "Exception", as_of, expert=expert)
+    out["licenses"] = _rel_count(ce, "License", as_of)
+    out["exceptions"] = _rel_count(ce, "Exception", as_of)
     return out
 
 
@@ -480,7 +483,7 @@ def get_ai_context(
     grounding_pct = None
     try:
         ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
-        grounding_links = _rel_count(ce, "SemanticAssignment", as_of_time, expert=mgr)
+        grounding_links = _rel_count(ce, "SemanticAssignment", as_of_time)
         if cataloged and grounding_links is not None:
             grounding_pct = min(100, round(100 * grounding_links / cataloged))
     except Exception as exc:  # noqa: BLE001
@@ -513,41 +516,29 @@ def get_people(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
-    """People counts (persons / teams / orgs / communities) are live from Actor +
-    Community managers. Karma / feedback aggregates need the Collaboration OMAS and
-    stay null (SPA keeps its sample baseline)."""
+    """People counts (persons / teams / orgs / communities) via native element
+    counts — one `count_metadata_elements` per type (SELECT COUNT(*)), so this is
+    sub-second where the old find-and-bucket approach materialized every profile.
+    NB: native counts every entity of the type; the previous ActorManager
+    find-and-bucket returned a curated set, so a few totals differ (that raw count
+    is the authoritative repository count). Karma / feedback below."""
     as_of_time = _norm_asof(as_of_time)
     ckey = f"people|{as_of_time}|{url}|{server}|{user_id}"
     cached = _cache_get(ckey)
     if cached is not None:
         return JSONResponse(cached)
 
-    persons = teams = orgs = it_profiles = None
+    persons = teams = orgs = it_profiles = communities = None
+    expert = None
     try:
-        am = _make("ActorManager", url, server, user_id, user_pwd)
-        profiles = _json_list(am.find_actor_profiles(search_string="*", output_format="JSON",
-                                                     start_from=0, page_size=_DEFAULT_CAP,
-                                                     as_of_time=as_of_time or None))
-        counts: dict[str, int] = {}
-        for p in profiles:
-            tn = ((p.get("elementHeader") or {}).get("type") or {}).get("typeName") or "?"
-            counts[tn] = counts.get(tn, 0) + 1
-        persons     = counts.get("Person", 0)
-        teams       = counts.get("Team", 0)
-        orgs        = counts.get("Organization", 0)
-        it_profiles = counts.get("ITProfile", 0)
+        expert = _expert(url, server, user_id, user_pwd)
+        persons, _     = _count_type(expert, "Person", as_of_time)
+        teams, _       = _count_type(expert, "Team", as_of_time)
+        orgs, _        = _count_type(expert, "Organization", as_of_time)
+        it_profiles, _ = _count_type(expert, "ITProfile", as_of_time)
+        communities, _ = _count_type(expert, "Community", as_of_time)
     except Exception as exc:  # noqa: BLE001
-        logger.debug(f"overview people: actor query failed: {exc}")
-
-    communities = None
-    try:
-        cm = _make("CommunityMatters", url, server, user_id, user_pwd)
-        communities = len(_json_list(cm.find_communities(
-            search_string="*", starts_with=False, output_format="JSON",
-            graph_query_depth=0, start_from=0, page_size=_DEFAULT_CAP,
-            as_of_time=as_of_time or None)))
-    except Exception as exc:  # noqa: BLE001
-        logger.debug(f"overview people: community query failed: {exc}")
+        logger.debug(f"overview people: identity counts failed: {exc}")
 
     # Crowd-sourced feedback — Collaboration OMAS relationship counts (cheap). Often
     # sparse in demo data, but real. Leaderboard/engagement need per-person rollups
@@ -555,18 +546,13 @@ def get_people(
     feedback_by_type = None
     feedback_items = None
     karma = None
-    expert = None
-    try:
-        expert = _expert(url, server, user_id, user_pwd)   # for native counts (feedback + karma)
-    except Exception as exc:  # noqa: BLE001
-        logger.debug(f"overview people: expert build failed: {exc}")
     try:
         ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
         fb = {}
         for rel, key in (("AttachedRating", "ratings"), ("AttachedComment", "comments"),
                          ("AttachedLike", "likes"), ("AttachedTag", "tags"),
                          ("AttachedNoteLog", "noteLogs")):
-            fb[key] = _rel_count(ce, rel, as_of_time, expert=expert) or 0
+            fb[key] = _rel_count(ce, rel, as_of_time) or 0
         feedback_by_type = fb
         feedback_items = sum(fb.values())
     except Exception as exc:  # noqa: BLE001
@@ -606,37 +592,20 @@ def get_usage_context(
 ):
     """ISCs and Blueprints are what put assets in a *usage context* — "this store
     feeds the Clinical Trial supply chain", "this component realises the Sales
-    blueprint". Counts are live; the "% of assets contextualised" coverage figure
-    needs graph traversal and is deferred (SPA shows its sample baseline)."""
+    blueprint". Counted natively (count_metadata_elements) — sub-second, vs the old
+    find-and-filter that materialized every element. The "% of assets contextualised"
+    coverage figure needs graph traversal and is deferred (SPA shows sample)."""
     as_of_time = _norm_asof(as_of_time)
     ckey = f"usage|{as_of_time}|{url}|{server}|{user_id}"
     cached = _cache_get(ckey)
     if cached is not None:
         return JSONResponse(cached)
 
-    # SolutionArchitect find methods take asOfTime via `body` (no as_of_time kwarg).
-    # Best-effort: if the body shape is rejected we degrade to null for that call.
-    def _sa_count(fn, as_of):
-        if as_of:
-            try:
-                # SolutionArchitect OMVS takes as-of via a SearchStringRequestBody
-                # (confirmed by test_overview_asof.py — FilterRequestBody is rejected).
-                return len([e for e in _json_list(fn(
-                    body={"class": "SearchStringRequestBody", "searchString": "*", "asOfTime": as_of},
-                    output_format="JSON", start_from=0, page_size=_DEFAULT_CAP))
-                    if not _is_template_el(e)])
-            except Exception as exc:  # noqa: BLE001
-                logger.debug(f"overview usage-context: as-of query failed: {exc}")
-                return None
-        return len([e for e in _json_list(fn(
-            search_string="*", output_format="JSON", start_from=0, page_size=_DEFAULT_CAP))
-            if not _is_template_el(e)])
-
     iscs = blueprints = None
     try:
-        sa = _make("SolutionArchitect", url, server, user_id, user_pwd)
-        iscs = _sa_count(sa.find_information_supply_chains, as_of_time)
-        blueprints = _sa_count(sa.find_solution_blueprints, as_of_time)
+        mgr = _expert(url, server, user_id, user_pwd)
+        iscs, _       = _count_type(mgr, "InformationSupplyChain", as_of_time)
+        blueprints, _ = _count_type(mgr, "SolutionBlueprint", as_of_time)
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview usage-context: query failed: {exc}")
 

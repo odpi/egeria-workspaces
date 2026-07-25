@@ -6,10 +6,15 @@
 Reference for every number the **Egeria Overview** dashboard (`/egeria-overview`)
 shows: what it means, how it is computed, its data source, cost, and caveats.
 
-**Status legend**
-- 🟢 **live** — computed from Egeria via `pyegeria`.
-- 🟡 **partial** — live where cheap; some sub-fields still sample.
-- ⚪ **sample** — illustrative placeholder; not yet wired (labeled in the UI).
+**Status legend** (mirrors the dashboard's in-UI provenance badges: the header
+carries a legend and every section-label shows ● live / ◐ mixed / ○ illustrative)
+- 🟢 **live** — computed from Egeria via `pyegeria` (section badge: ● live).
+- 🟡 **partial / mixed** — live where cheap; some sub-fields still sample (◐ mixed).
+- ⚪ **sample** — illustrative placeholder; not yet wired (○ illustrative).
+
+Section provenance in the UI: KPI band = live; Business Value, Quality & Attention,
+Recent Activity = illustrative; Growth & Trends, Composition, Usage Context, AI &
+Context Intelligence, People & Community = mixed.
 
 Backend: `overview_handler.py`. All endpoints share a 60 s TTL cache
 (`_CACHE_TTL`); `/api/overview/growth` uses a 15 min cache (`_GROWTH_TTL`).
@@ -31,6 +36,16 @@ and transfer the full result set (the historical cost driver, esp. for as-of
 queries). A per-server capability cache means a single failed native probe on an
 older server disables further attempts — no repeated failed round-trips. Same
 result either way; native is just far cheaper.
+
+**Native vs find — a semantics note.** A native `count_metadata_elements` returns
+the raw repository count of matching entities; the older find-and-materialize
+approach returns a *curated* graph view, so totals differ slightly (e.g. summed
+asset types ≈ +6%, `Team` 45→66, `ITProfile` 32→62 — the native count is the
+authoritative one). **Relationship** counts are the exception: the metadata-expert
+`count_relationships_between_elements` and the classification-explorer
+`get_relationships` disagree for some types (`Exception` 276 vs 55), so the
+dashboard keeps relationship counts on `get_relationships` to stay consistent with
+the Audit app. Element counts use native; relationship counts do not.
 
 `page_size` is set high (500–5000). In this environment `find_metadata_elements`
 returns the complete list regardless of `page_size` (verified: `Asset` = 1729,
@@ -80,8 +95,8 @@ this is real, not a bug.
 
 | Metric | Status | Definition | Source | Cost |
 |---|---|---|---|---|
-| **Information Supply Chains** | 🟢 | Count of non-template ISCs | `SolutionArchitect.find_information_supply_chains` | 1 query |
-| **Solution Blueprints** | 🟢 | Count of non-template blueprints | `SolutionArchitect.find_solution_blueprints` | 1 query |
+| **Information Supply Chains** | 🟢 | Count of `InformationSupplyChain` | native `count_metadata_elements` | 1 count |
+| **Solution Blueprints** | 🟢 | Count of `SolutionBlueprint` | native `count_metadata_elements` | 1 count |
 | **% Contextualised** | ⚪ | % of assets participating in ≥1 ISC/blueprint | needs graph traversal per asset — deferred | (would be expensive without a server API) |
 
 ---
@@ -102,9 +117,9 @@ this is real, not a bug.
 
 | Metric | Status | Definition | Source | Cost |
 |---|---|---|---|---|
-| **People / Contributors** | 🟢 | Count of `Person` actor profiles | `ActorManager.find_actor_profiles`, bucketed by `typeName` | 1 query (all profiles) |
+| **People / Contributors** | 🟢 | Count of `Person` | native `count_metadata_elements` | 1 count |
 | **Teams / Organizations / IT Profiles** | 🟢 | Counts of `Team` / `Organization` / `ITProfile` | same single query | — |
-| **Active Communities** | 🟢 | Count of communities | `CommunityMatters.find_communities` | 1 query |
+| **Active Communities** | 🟢 | Count of `Community` | native `count_metadata_elements` | 1 count |
 | **Feedback Items** | 🟢 | Σ of AttachedRating/Comment/Like/Tag/NoteLog relationship counts | `ClassificationExplorer.get_relationships` per type | 5 queries |
 | **Feedback by type** | 🟢 | the five counts above | — | — |
 | **Karma records** | 🟢 | Count of `ContributionRecord` elements | `find_metadata_elements` | 1 query |
