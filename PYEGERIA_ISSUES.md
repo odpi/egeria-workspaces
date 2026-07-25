@@ -843,6 +843,52 @@ metadata-expert find as a fallback for the native relationship count.
 
 ---
 
+## PY-20: Paging / sequencing strategy for "load-all" list endpoints — DESIGN DISCUSSION (high priority)
+
+**Status:** open — **design discussion, not a confirmed bug.** High-priority
+follow-up. Raised 2026-07-24 from the glossary-term aliases fix: aliased terms were
+missing from the default listing because of how the portal loads and sorts lists.
+
+**Observations (repro, `find_glossary_terms`, qs-view-server, 388 terms):**
+```python
+# start_from paging works — each page is a different, non-overlapping slice:
+m.find_glossary_terms(search_string="*", start_from=0,  page_size=10, output_format="JSON")   # 10 terms
+m.find_glossary_terms(search_string="*", start_from=10, page_size=10, output_format="JSON")   # next 10, no overlap
+
+# BUT sequencing is not reflected in the result order:
+m.find_glossary_terms(search_string="*", page_size=10, output_format="JSON",
+                      sequencing_order="PROPERTY_ASCENDING", sequencing_property="displayName")
+# -> ['Rolling base year','Carbon Intensity','Megawatt Hour','Inventory','Shall', ...]  (server-internal order, not A→Z)
+```
+
+So the portal's **"load-all up to a page-size ceiling, then sort/filter in JS"**
+pattern (glossary, insights, catalog, …) silently returns an *arbitrary* subset
+when a collection exceeds the ceiling: e.g. default `page_size=200` on 388 terms
+returns some 200, the endpoint re-sorts *those 200* by `displayName`, and terms
+outside that slice (incl. alphabetically-early ones) simply never appear.
+
+**Open questions to decide (not asserting any of these is a defect):**
+1. Is `sequencing_order`/`sequencing_property` expected to order the result here,
+   or is that behaviour config/connector-dependent? (Determines whether true
+   server-side paged UIs are even feasible, or whether fetch-all-then-sort-in-JS
+   remains the only reliable sort.)
+2. Preferred model: **bounded server-side fetch-all** (loop `start_from` until the
+   native `count_metadata_elements` total is reached or a ceiling is hit, return a
+   `truncated`/`total` flag) vs a true paged UI. Fetch-all keeps the existing
+   instant client-side search; paged UI needs #1 resolved first.
+3. **Page-size ceiling is bounded by the view server's configured `maxPageSize`**
+   (OMAG server config) — likely well below 5000. Any fetch-all loop must chunk at
+   ≤ that limit; the overall load ceiling is a separate product decision. **TBD —
+   to be chosen in discussion.**
+4. Apply the chosen strategy consistently via a shared helper across all
+   "load-all" endpoints, rather than per-handler.
+
+**Current mitigation:** none beyond raising `page_size`, which only lowers the odds
+(a single page is still unsorted, so it sorts an arbitrary slice). Tracked for a
+deliberate fix once the strategy + `maxPageSize` are agreed.
+
+---
+
 ## Quick reference: which OMVS client class for which purpose
 
 | Need | Class | Notes |
