@@ -6,10 +6,15 @@
 Reference for every number the **Egeria Overview** dashboard (`/egeria-overview`)
 shows: what it means, how it is computed, its data source, cost, and caveats.
 
-**Status legend**
-- 🟢 **live** — computed from Egeria via `pyegeria`.
-- 🟡 **partial** — live where cheap; some sub-fields still sample.
-- ⚪ **sample** — illustrative placeholder; not yet wired (labeled in the UI).
+**Status legend** (mirrors the dashboard's in-UI provenance badges: the header
+carries a legend and every section-label shows ● live / ◐ mixed / ○ illustrative)
+- 🟢 **live** — computed from Egeria via `pyegeria` (section badge: ● live).
+- 🟡 **partial / mixed** — live where cheap; some sub-fields still sample (◐ mixed).
+- ⚪ **sample** — illustrative placeholder; not yet wired (○ illustrative).
+
+Section provenance in the UI: KPI band = live; Business Value, Quality & Attention,
+Recent Activity = illustrative; Growth & Trends, Composition, Usage Context, AI &
+Context Intelligence, People & Community = mixed.
 
 Backend: `overview_handler.py`. All endpoints share a 60 s TTL cache
 (`_CACHE_TTL`); `/api/overview/growth` uses a 15 min cache (`_GROWTH_TTL`).

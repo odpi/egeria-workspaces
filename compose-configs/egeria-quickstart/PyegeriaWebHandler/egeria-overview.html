@@ -51,6 +51,14 @@
 
   .section-label { font-size:.7rem; font-weight:700; letter-spacing:.11em; text-transform:uppercase; color:var(--muted); margin:26px 0 12px; display:flex; align-items:center; gap:8px; }
   .section-label::after { content:""; flex:1; height:1px; background:var(--border); }
+  /* data-provenance badges — is a section live from Egeria, mixed, or illustrative? */
+  .prov { font-size:.6rem; font-weight:700; letter-spacing:.04em; padding:2px 7px; border-radius:20px; text-transform:none; white-space:nowrap; }
+  .prov-live   { background:rgba(76,175,80,.16);  color:var(--green); }
+  .prov-mix    { background:rgba(245,183,78,.16); color:var(--c4); }
+  .prov-sample { background:rgba(139,147,167,.16); color:var(--muted); }
+  .prov-legend { display:flex; align-items:center; gap:12px; flex-wrap:wrap; font-size:.7rem; color:var(--muted); margin-top:6px; }
+  .prov-legend a { color:var(--c2); text-decoration:none; }
+  .prov-legend a:hover { text-decoration:underline; }
 
   /* KPI band */
   .kpis { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; }
@@ -245,6 +253,12 @@
     <div>
       <h1>Coco Pharmaceuticals — Metadata Landscape</h1>
       <p>A single-glance summary of what Egeria knows: scale, governance coverage, quality, and how they're trending. <span class="drill-hint" style="margin-left:6px">tiles &amp; bars are clickable — drill in or jump to the app</span></p>
+      <div class="prov-legend">Data source per section:
+        <span><span class="prov prov-live">● live</span> queried from Egeria now</span>
+        <span><span class="prov prov-mix">◐ mixed</span> some live, some illustrative</span>
+        <span><span class="prov prov-sample">○ illustrative</span> sample, pending wiring</span>
+        <a href="/docs/" target="_blank" rel="noopener" title="OVERVIEW_METRICS.md — per-metric definitions, sources &amp; status">ⓘ about these metrics</a>
+      </div>
     </div>
     <div style="text-align:right">
       <div class="asof" id="dataSrc">Snapshot as of <b id="asofTime">—</b> · <span id="srcBadge" style="color:var(--muted)">○ connecting…</span> · <span id="srcServer">qs-view-server</span></div>
@@ -291,7 +305,7 @@
   <div id="kpi-trend-note" style="font-size:.7rem;color:var(--muted);margin-top:8px;display:flex;align-items:center;gap:6px">Trend sparklines show real monthly snapshots (loading…).</div>
 
   <!-- ── BUSINESS VALUE LENS ── -->
-  <div class="section-label">Business Value <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— what these numbers mean to the business</span></div>
+  <div class="section-label">Business Value <span class="prov prov-sample">○ illustrative</span> <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— what these numbers mean to the business</span></div>
   <div class="grid g-3" style="grid-template-columns:repeat(4,1fr)">
     <div class="panel" style="border-left:3px solid var(--c5)">
       <h3>🛡️ Risk &amp; Compliance</h3>
@@ -320,7 +334,7 @@
   </div>
 
   <!-- ── TRENDS ── -->
-  <div class="section-label">Growth &amp; Trends</div>
+  <div class="section-label">Growth &amp; Trends <span class="prov prov-mix">◐ mixed</span></div>
   <div class="grid g-2">
     <div class="panel">
       <div class="panel-head">
@@ -358,7 +372,7 @@
   </div>
 
   <!-- ── COMPOSITION ── -->
-  <div class="section-label">Catalog Composition</div>
+  <div class="section-label">Catalog Composition <span class="prov prov-mix">◐ mixed</span></div>
   <div class="grid g-3">
     <div class="panel">
       <h3>Assets by Type</h3>
@@ -378,7 +392,7 @@
   </div>
 
   <!-- ── USAGE CONTEXT (ISC + BLUEPRINTS) ── -->
-  <div class="section-label">Usage Context <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— supply chains &amp; blueprints put assets in a business context, not just a list</span></div>
+  <div class="section-label">Usage Context <span class="prov prov-mix">◐ mixed</span> <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— supply chains &amp; blueprints put assets in a business context, not just a list</span></div>
   <div class="grid g-3">
     <div class="panel clickable" data-drill="isc" style="border-left:3px solid var(--c2)">
       <h3>🔗 Information Supply Chains</h3>
@@ -401,7 +415,7 @@
   </div>
 
   <!-- ── QUALITY + ATTENTION ── -->
-  <div class="section-label">Quality &amp; Things Needing Attention</div>
+  <div class="section-label">Quality &amp; Things Needing Attention <span class="prov prov-sample">○ illustrative</span></div>
   <div class="grid g-2">
     <div class="panel">
       <h3>Attention Queue</h3>
@@ -481,7 +495,7 @@
   </div>
 
   <!-- ── AI & CONTEXT INTELLIGENCE ── -->
-  <div class="section-label">AI &amp; Context Intelligence <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— turning governed metadata into trustworthy context for apps &amp; agents</span></div>
+  <div class="section-label">AI &amp; Context Intelligence <span class="prov prov-mix">◐ mixed</span> <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— turning governed metadata into trustworthy context for apps &amp; agents</span></div>
 
   <div class="kpis" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
     <div class="kpi clickable" data-drill="ai-ready">
@@ -538,7 +552,7 @@
   </div>
 
   <!-- ── PEOPLE & COMMUNITY ── -->
-  <div class="section-label">People &amp; Community <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— the human engagement behind the metadata (Community Profile + Collaboration OMAS)</span></div>
+  <div class="section-label">People &amp; Community <span class="prov prov-mix">◐ mixed</span> <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— the human engagement behind the metadata (Community Profile + Collaboration OMAS)</span></div>
 
   <div class="kpis" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
     <div class="kpi">
@@ -620,7 +634,7 @@
   </div>
 
   <!-- ── ACTIVITY ── -->
-  <div class="section-label">Recent Activity</div>
+  <div class="section-label">Recent Activity <span class="prov prov-sample">○ illustrative</span></div>
   <div class="grid g-12">
     <div class="panel">
       <h3>Metadata Change Stream</h3>
@@ -1027,32 +1041,32 @@ const DRILL = {
   'context-products': { eb:'AI & context intelligence', t:'🧩 Context Products', s:'14 curated context products served to apps via MCP / API',
     stats:[['14','products'],['7','consumers'],['9.6k','calls /30d']],
     list:[['Clinical semantic layer',3900],['Sales metrics context',2100],['Reference/valid values',1800],['Glossary grounding set',1200]],
-    cta:['Open Digital Products','/tech-catalog'], sec:['MCP usage docs','/docs/'],
+    cta:['Digital Products in Explorer','/egeria-explorer#digital-products'], sec:['MCP usage docs','/docs/'],
     note:'Context products = governed collections exposed to AI via the Egeria MCP server &amp; API.' },
   'ai-consumers': { eb:'AI & context intelligence', t:'🔌 Active AI Consumers', s:'7 apps/agents pulling Egeria context in the last 30 days',
     stats:[['7','consumers'],['9.6k','calls'],['100%','audited']],
     list:[['Egeria Advisor (agent)',4100],['Claude / MCP',2800],['Clinical RAG bot',1600],['Sales Copilot',640],['Notebook / pyegeria',510]],
-    cta:['Open Egeria Advisor','/advisor'], sec:['Context audit trail','/egeria-audit'],
+    cta:['AI &amp; MCP docs','/docs/'], sec:['Context audit trail','/egeria-audit'],
     note:'Every context request is logged with provenance — which agent saw which asset.' },
   grounding: { eb:'AI & context intelligence', t:'🧠 Semantic Grounding', s:'61% of assets are linked to glossary terms — the meaning layer that grounds AI',
     stats:[['61%','grounded'],['▲9 pts','/90d'],['742','terms']],
     list:[['Assets with term links',783],['Terms linked to assets',452],['Orphan terms',47]],
-    cta:['Open Glossary in Explorer','/egeria-explorer'], sec:null,
+    cta:['Open Glossary in Explorer','/egeria-explorer#glossary'], sec:null,
     note:'Semantic assignments (term ↔ asset) from the Glossary handler.' },
   products: { eb:'Data products', t:'📦 Data Products', s:'Curated, governed data products published for consumption',
     stats:[['23','products'],['—','published'],['★4.3','avg rating']],
     list:[['Clinical Trial Results DW',1],['Patient Demographics',1],['Weekly Sales Snapshot',1],['Drug Interaction Ref Data',1]],
-    cta:['Open Digital Products','/tech-catalog'], sec:['Governance in Insights','/egeria-insights'],
+    cta:['Digital Products in Explorer','/egeria-explorer#digital-products'], sec:['Governance in Insights','/egeria-insights'],
     note:'Live count of <code>DigitalProduct</code> elements. Publication status &amp; ratings are a later slice.' },
   exceptions: { eb:'Governance control', t:'⚠️ Open Exceptions', s:'Governance exceptions awaiting steward review or remediation',
     stats:[['12','open'],['—','aging &gt;30d'],['—','assigned']],
     list:[['Suspected duplicates',1],['Missing owner',1],['Classification conflicts',1],['Retention overdue',1]],
-    cta:['Open Egeria Audit','/egeria-audit'], sec:['Duplicate review','/egeria-explorer'],
+    cta:['Open Egeria Audit','/egeria-audit'], sec:null,
     note:'Live count of <code>Exception</code> governance relationships from ClassificationExplorer.' },
   people: { eb:'People & community', t:'👥 People &amp; Community', s:'The human network behind the metadata — people, teams, organizations and communities',
     stats:[['34','people'],['—','teams'],['—','communities']],
     list:[['Registered persons',248],['Teams',45],['Organizations',21],['Communities',15]],
-    cta:['Open My Egeria','/my-egeria/'], sec:['Actors in Audit','/egeria-audit'],
+    cta:['Open My Egeria','/my-egeria/'], sec:['Actors in Explorer','/egeria-explorer#actors'],
     note:'Live counts from ActorManager (Person/Team/Organization) &amp; CommunityMatters. Karma/feedback aggregates are a later slice.' },
   isc: { eb:'Usage context', t:'🔗 Information Supply Chains', s:'End-to-end flows that carry data through the business — the context that makes an asset meaningful',
     stats:[['18','supply chains'],['—','assets in flows'],['—','stages']],
@@ -1062,13 +1076,13 @@ const DRILL = {
   blueprints: { eb:'Usage context', t:'🧱 Solution Blueprints', s:'Reusable solution designs that assets realise or participate in — the "why" behind an asset',
     stats:[['30','blueprints'],['—','components'],['—','realised by']],
     list:[['Clinical data platform',1],['Customer 360',1],['Regulatory reporting',1],['Data lakehouse',1]],
-    cta:['Explore blueprints','/egeria-explorer#blueprints'], sec:null,
+    cta:['Explore blueprints','/egeria-explorer#solution-architect'], sec:null,
     note:'Live count from <code>find_solution_blueprints</code> (SolutionArchitect). Blueprints link designs to the components that implement them.' },
 };
 ['datastore','dataset','swcomp','infra','api','proc','feed'].forEach(k=>{});
 function typeDrill(name,count){ return { eb:'Catalog · asset type', t:'🗂️ '+name, s:count+' '+name.toLowerCase()+' in the catalog',
   stats:[[String(count),'assets'],['—','surveyed'],['—','owned']], list:[['Governed',Math.round(count*.68)],['Documented',Math.round(count*.71)],['Surveyed',Math.round(count*.55)]],
-  cta:['Filter The Catalog','/tech-catalog'], sec:['Search in Insights','/egeria-insights'],
+  cta:['Open The Catalog','/tech-catalog'], sec:['Search in Insights','/egeria-insights'],
   note:'Would deep-link to a pre-filtered Catalog view for this type.' }; }
 function zoneDrill(name,count){ return { eb:'Governance zone', t:'📁 '+name, s:count+' elements are members of the '+name+' zone',
   stats:[[String(count),'members'],['—','confidential'],['—','owners']], list:[['Data Stores',Math.round(count*.4)],['Data Sets',Math.round(count*.35)],['Other',Math.round(count*.25)]],
@@ -1084,7 +1098,7 @@ function drillFor(key){
     return { eb:'Context readiness', t:'🚦 '+m[0], s:m[2]+' — '+m[1]+' assets ('+Math.round(m[1]/1284*100)+'% of catalog)',
       stats:[[String(m[1]),'assets'],[Math.round(m[1]/1284*100)+'%','of catalog'],['—','gap to next']],
       list:[['Reaches this stage',m[1]],['Drops off before',1284-m[1]]],
-      cta:['See these in The Catalog','/tech-catalog'], sec:['Fix gaps via Insights','/egeria-insights'],
+      cta:['Open The Catalog','/tech-catalog'], sec:['Fix gaps via Insights','/egeria-insights'],
       note:'Each funnel stage is a saved query; the drop-off is the actionable backlog for stewards.' }; }
   return { eb:'Detail', t:key, s:'Breakdown', stats:[], list:[], cta:['Open portal','/'], sec:null, note:'' };
 }
@@ -1117,8 +1131,11 @@ function openDrill(key){
   let h='';
   if(d.stats&&d.stats.length){ h+='<div class="d-stat">'+d.stats.map(([b,s])=>`<div class="ds"><b>${b}</b><small>${s}</small></div>`).join('')+'</div>'; }
   if(d.list&&d.list.length){ h+='<div class="d-list">'+d.list.map(([l,v])=>`<div class="dli"><span>${l}</span><span class="m">${typeof v==='number'?v.toLocaleString():v}</span></div>`).join('')+'</div>'; }
-  if(d.cta){ h+=`<a class="d-cta" href="${d.cta[1]}">${d.cta[0]} →</a>`; }
-  if(d.sec){ h+=`<a class="d-cta sec" href="${d.sec[1]}">${d.sec[0]} →</a>`; }
+  // Cross-app links open in a new tab (↗) so the dashboard stays put; each points
+  // at the real destination page/section (deep-link where the target supports it,
+  // otherwise the app's landing view — no false promise of element-level nav).
+  if(d.cta){ h+=`<a class="d-cta" href="${d.cta[1]}" target="_blank" rel="noopener">${d.cta[0]} ↗</a>`; }
+  if(d.sec){ h+=`<a class="d-cta sec" href="${d.sec[1]}" target="_blank" rel="noopener">${d.sec[0]} ↗</a>`; }
   if(d.note){ h+=`<div class="d-note">${d.note}</div>`; }
   document.getElementById('d-body').innerHTML=h;
   document.getElementById('ovl').classList.add('open');
