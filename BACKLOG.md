@@ -19,57 +19,85 @@ Status: `open` · `in-progress` · `done` · `deferred`
 | NEXT-2 | Make "Relationships" sections foldable/collapsible everywhere | done                                         | Fixed by making `RelationshipSection` (type-explorer.html, both envs — the single shared component backing ~30 call sites: every Detail panel's relationship groups, plus `GenericRelationshipsSection`) delegate to the existing shared `Collapsible` component (`static/egeria-shared-ui.js`) instead of a plain always-expanded `<div>`. Also fixed Tech Catalog's asset-detail "Relationships" block (`tech-catalog.html`, both envs — previously the one place with an inline, non-componentized relationships list) the same way. No other generic relationship-rendering pattern found in egeria-audit.html/egeria-operations.html/egeria-insights.html (those have their own specialized, already-tabbed relationship UIs, not this generic pattern). |
 | NEXT-3 | Move Schema section above Relationships (Tech Catalog asset detail, at least) | done                                         | Moved the Schema/Lineage/Annotations sub-panes block above the Relationships block in `tech-catalog.html`'s asset detail (both envs) — only one such ordering existed in the file, now fixed. |
 | NEXT-4 | Large, clearly-animated fold/expand triangle, applied as a general rule across all foldable sections | done                                         | See "Fix: Foldable section indicator" section below. |
-| NEXT-5 | Investigate: community relationships not showing up on Actor detail (Egeria Explorer) | done                                         | See "Investigate: missing relationships on Actor detail" section below — one PersonRole confirmed a real community member, but its detail fetch shows no relationship key back to the community at all, even in the raw payload at `graph_query_depth=1`. |
-| NEXT-6 | Audit other tools/apps (Tech Catalog especially, possibly others) for the same class of missing/incomplete relationship or classification data | open                                         | Dan asked to check The Catalog and others for the same kind of gap found on Actors (NEXT-5) and earlier this session on Tech Catalog schema classifications (AssetCatalog.get_asset_graph_by_guid not populating elementHeader.classifications on related elements) — i.e., systematically check whether other relationship/classification fetches across the app are silently truncated by fetch method or graph_query_depth choice, not just the two instances already found. |
+| NEXT-5 | Investigate: community relationships not showing up on Actor detail (Egeria Explorer) | done (2026-07-26) | **False alarm** — root cause was testing the wrong pyegeria method (see below). The Role detail page already shows its Community correctly; no code fix needed. See "NEXT-5 / NEXT-6" section below. |
+| NEXT-6 | Audit other tools/apps (Tech Catalog especially, possibly others) for the same class of missing/incomplete relationship or classification data | done (2026-07-26) | Systematic pass across all ~30 metadata-detail handlers found this bug class was **already closed** via the shared `common_serialize._generic_relationships`/`_classifications` helpers, adopted (directly or via a structurally-equivalent local extractor) almost everywhere. No further gaps found. See "NEXT-5 / NEXT-6" section below. |
 | NEXT-7 | **Overview dashboard: rethink "Contextualized coverage"** | open — **HIGH, needs discussion + research** | Coined term, not industry-standard; ISC/blueprint-only is an oversimplification (ignores semantic assignment, classification, lineage, ownership). Replace with specific coverages (lineage/doc/ownership) and/or a composite "context richness" score grounded in FAIR/catalog-completeness frameworks. Detail: OVERVIEW_NEXT_STEPS.md R-1 |
 | NEXT-8 | **Overview dashboard: define "AI-ready" per AI purpose** | open — **HIGH, research/best-practices**     | No universal AI-readiness (cf. Gartner AI-ready data) — needs per-purpose lenses (RAG / training / agent-tool) mapped to Egeria classifications/relationships, incorporating data scope/grain/datalens. Deliver a best-practices brief + readiness model before wiring a metric. Biggest item. Detail: OVERVIEW_NEXT_STEPS.md R-2 |
 | NEXT-9 | **Overview dashboard: ground business-value metrics** (Productivity, Trust & Adoption, Risk, Cost) | open — **HIGH**                              | Currently synthetic. Give each a precise definition + real source + honest "leading-indicator/proxy" framing; reword labels to what's measured; wire real data. Detail: OVERVIEW_NEXT_STEPS.md R-3 |
 | NEXT-10 | **Reporting/Dashboard model on ReportSpec (FormatSet)** — architectural | open — design (2026-07-25)                   | Build dashboards declaratively on pyegeria ReportSpec/FormatSet (already models what/how-computed/how-displayed/drill + `question_spec.perspectives`). 5-layer model (attribute→spec→container→dashboard→store); new Container/placement Dr.Egeria commands (nestable/reusable); generalize output_formats (kpi/series/funnel, Vega-Lite, backward-compat); perspective = scoped lens; endgame = Egeria `GovernanceMetric`/Perspective/Question metadata; enables user/project/org-authored dashboards. Incremental P0–P4. Full design + 5 open decisions: **OVERVIEW_REPORTING_MODEL.md** |
 
 ---
-## Investigate: missing relationships on Actor detail, and elsewhere (2026-07-22) — 🔍 open
+## NEXT-5 / NEXT-6 — Actor community relationships + systematic audit (2026-07-22 → 2026-07-26) — ✅ done
 
-Dan asked why community relationships don't show up for actors. Investigation
-so far:
+**Original report:** community relationships weren't showing up on Actor
+detail; Dan asked for the same class of gap (relationships/classifications
+silently missing because of which pyegeria call/depth a screen happens to
+use) to be audited across other tools too, not just fixed one-off.
 
-- Found a real example: community "Data Science special interest group"
-  (`8d990e4a-8bd1-4c27-88eb-81f1e7eb875d`) lists `assignedActors` including
-  PersonRole `ac694a80-c063-44cd-bd65-abc87cab646e`, whose own `displayName`
-  is literally "Community Member of Data Science special interest group" —
-  unambiguous confirmation this is a real membership link, not demo-data
-  noise.
-- That PersonRole's own detail fetch (`/api/actors/roles/{guid}`, which calls
-  `mgr.get_actor_role_by_guid(guid, graph_query_depth=1)`) only returns
-  `rolePerformers` and `assignmentScope` relationship keys — no key pointing
-  back to the community.
-- Checked the *raw* Egeria payload directly (`/api/debug/raw/{guid}`, which
-  defaults to `MetadataExpert.get_metadata_element_by_guid(graph_query_depth=1)`)
-  for the same guid: top-level keys are just
-  `headerVersion/status/type/origin/versions/elementGUID/classifications/elementProperties`
-  — no relationship-shaped key at all at this depth via this method.
-- `actor_handler.py`'s serializer (`_serialize_actor_element`) is already
-  fully generic — any top-level list of `relatedElement`-shaped entries
-  becomes a relationship section automatically (see `_authored_fields`-style
-  centralization elsewhere this session) — so this isn't a serialization bug,
-  it's that the specific fetch call for actor roles doesn't request/return
-  the community-membership relationship at all at the depth/method used.
+**NEXT-5 resolution — false alarm, root-caused 2026-07-26.** The original
+investigation concluded PersonRole `ac694a80-c063-44cd-bd65-abc87cab646e`
+("Community Member of Data Science special interest group") had *no*
+relationship key pointing back to its community, "even in the raw payload."
+That check used `/api/debug/raw/{guid}`, which defaults to
+`MetadataExpert.get_metadata_element_by_guid` — and per **PY-17** (confirmed
+"working as designed," not a bug), that specific method never returns
+relationships at *any* `graph_query_depth`. The investigation was
+inadvertently testing the wrong pyegeria method, not the one the app
+actually uses.
 
-**Next steps:** find the actual Egeria relationship type name for
-community-to-member links (likely something in the `CommunityMembership`
-family), and check whether a higher `graph_query_depth`, a different pyegeria
-method, or an explicit relationship-type filter on the actor-role fetch
-surfaces it. This is the same *shape* of gap as the Tech Catalog schema
-classifications fix earlier this session (`AssetCatalog.get_asset_graph_by_guid`
-silently not populating `elementHeader.classifications` on related elements,
-even though the top-level asset fetch for the same guid did) — a fetch-method/
-depth choice quietly truncating data, not a rendering bug.
+The real app code path — `ActorManager.get_actor_role_by_guid(guid,
+graph_query_depth=1)`, called from `actor_handler.py`'s own
+`GET /api/actors/roles/{guid}` — **already returns the community correctly**,
+via the role's `assignmentScope` relationship. Confirmed live two ways:
+- API: `relationships.assignmentScope[0]` = `{typeName: "Community",
+  displayName: "Data Science special interest group", ...}`.
+- UI: the Role detail page's mermaid diagram shows a `Contributor
+  [Assignment Scope]` edge straight to the Community node, and the page
+  needs no code change — `_serialize_actor_element`'s generic
+  relationship-section logic already surfaces it.
 
-**Broader ask (NEXT-6):** Dan wants other tools — The Catalog especially,
-possibly others (Egeria Audit, Operations, Insights) — checked for the same
-class of issue: relationships or classifications that exist in Egeria but
-are silently missing from a specific screen because of which pyegeria call/
-depth that screen happens to use. Worth a systematic pass rather than
-one-off fixes as each gets reported.
+No fix was needed. (Separately, `actor_handler.py` already has a real,
+deliberate enrichment — `_enrich_person_communities` — for the *Person's own*
+detail page, which needs a second hop since `assignmentScope` sits on the
+Role, not directly on the Person; that one **was** a genuine gap and was
+already fixed earlier this session.)
+
+**NEXT-6 audit — systematic pass across all handlers, 2026-07-26.** Result:
+**this bug class was already systematically closed**, earlier in the
+project, via a shared `common_serialize.py` module:
+- `_generic_relationships(element, skip=...)` — groups every top-level
+  relationship-shaped key (list-of-dicts or single dict, `RelatedMetadataElementSummary`-shaped)
+  into relationship sections, replacing hand-picked key lists that silently
+  drop anything not explicitly named. (`business_capability_handler.py`'s own
+  docstring cites this exact problem and a regression test:
+  `test_business_capability_dependency_relationship_key`.)
+- `_classifications(element)` / `_classifications_from_metadata_expert(element)`
+  — the same dual-shape classification extraction as
+  `tech_catalog_handler.py`'s original fix, centralized so every handler gets
+  it free.
+- Adopted by 21 of ~30 metadata-detail handlers directly; `actor_handler.py`,
+  `community_handler.py`, `context_events_handler.py`,
+  `digital_products_handler.py` (+ `agreements_handler.py`/
+  `collections_handler.py`, which reuse its `_extract_all_rels`),
+  `perspectives_handler.py`, and `glossary_handler.py` each carry a local,
+  structurally-equivalent generic extractor (glossary's also has a dedicated
+  `_group_related_terms` for term-to-term semantics, plus a generic
+  `_extract_extra_rels` catch-all for anything else).
+- Checked every collection/project/solution-architect/digital-product **tree**
+  endpoint (the other bug shape — classifications missing on *traversed*
+  nodes, per the original Tech Catalog schema fix): all delegate to
+  serializers that already call `_classifications`/`_extract_classifications`,
+  so tree nodes aren't missing them either. `lineage_handler.py` also calls
+  `AssetCatalog.get_asset_graph_by_guid` (the method with the known
+  classification gap) but never attempts to surface node classifications at
+  all, so there's nothing to silently drop there.
+- No other genuine instance of this bug class found.
+
+**Conclusion:** no further code changes required for either item. Worth
+remembering for *future* handlers: use `common_serialize._generic_relationships`/
+`_classifications` from the start rather than hand-picking keys, and don't
+trust `/api/debug/raw/{guid}` (or any `MetadataExpert.get_metadata_element_by_guid`
+call) as evidence that a relationship doesn't exist — see PY-17.
 
 ---
 ## Feature: Raw JSON debug viewer for advanced users (2026-07-22) — ✅ done

@@ -758,10 +758,18 @@ at any depth.
 `get_all_related_elements` for relationships — and merges them via
 `_relationships_from_related_elements()`. Both envs.
 
-**Worth checking**: whether other handlers in this codebase that assumed
-`graph_query_depth=1` on a by-guid call would surface relationships (several
-were built on that assumption before this was caught) are actually silently
-missing cross-links the same way — not yet audited beyond Action Center.
+**Audited 2026-07-26 (BACKLOG.md NEXT-6):** checked every other handler for
+this same trap. None found — every other by-guid detail call in the codebase
+uses a proper OMVS-specific method (`ActorManager.get_actor_role_by_guid`,
+`CommunityManager.get_community_by_guid`, etc.), not `MetadataExpert.
+get_metadata_element_by_guid`, so this specific trap is contained to the two
+places already known: `action_center_handler.py` (fixed above) and the raw
+debug-JSON viewer (`/api/debug/raw/{guid}`, expected/by-design — it exists to
+show MetadataExpert's raw shape). One near-miss found: the original NEXT-5
+investigation used the debug viewer to conclude an Actor Role had no
+community relationship, which was a false negative caused by exactly this
+trap — the real app endpoint (`get_actor_role_by_guid`) returns it fine. See
+BACKLOG.md's "NEXT-5 / NEXT-6" section for the full writeup.
 
 ---
 
