@@ -297,6 +297,22 @@ def serve_overview():
                         headers={"Cache-Control": "no-store, must-revalidate"})
 
 
+# ── Tile registry (NEXT-10 P0) ───────────────────────────────────────────────
+
+@router.get("/api/overview/specs",
+            summary="Dashboard tile definitions (FormatSet-shaped registry, NEXT-10 P0)")
+def get_specs():
+    """Serve the single source-of-truth registry of dashboard KPI tiles as
+    FormatSet-shaped definitions (see overview_specs.py / OVERVIEW_REPORTING_MODEL.md).
+    Static definitions — no Egeria call, no creds required."""
+    try:
+        from overview_specs import specs_payload
+        return JSONResponse(specs_payload())
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("overview: failed to build tile specs")
+        raise HTTPException(status_code=500, detail=f"Spec registry failed: {exc}")
+
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 @router.get("/api/overview/summary", summary="Headline KPI counts for the Overview dashboard")

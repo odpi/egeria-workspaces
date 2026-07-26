@@ -24,7 +24,7 @@ Status: `open` · `in-progress` · `done` · `deferred`
 | NEXT-7 | **Overview dashboard: rethink "Contextualized coverage"** | open — **HIGH, needs discussion + research** | Coined term, not industry-standard; ISC/blueprint-only is an oversimplification (ignores semantic assignment, classification, lineage, ownership). Replace with specific coverages (lineage/doc/ownership) and/or a composite "context richness" score grounded in FAIR/catalog-completeness frameworks. Detail: OVERVIEW_NEXT_STEPS.md R-1 |
 | NEXT-8 | **Overview dashboard: define "AI-ready" per AI purpose** | open — **HIGH, research/best-practices**     | No universal AI-readiness (cf. Gartner AI-ready data) — needs per-purpose lenses (RAG / training / agent-tool) mapped to Egeria classifications/relationships, incorporating data scope/grain/datalens. Deliver a best-practices brief + readiness model before wiring a metric. Biggest item. Detail: OVERVIEW_NEXT_STEPS.md R-2 |
 | NEXT-9 | **Overview dashboard: ground business-value metrics** (Productivity, Trust & Adoption, Risk, Cost) | open — **HIGH**                              | Currently synthetic. Give each a precise definition + real source + honest "leading-indicator/proxy" framing; reword labels to what's measured; wire real data. Detail: OVERVIEW_NEXT_STEPS.md R-3 |
-| NEXT-10 | **Reporting/Dashboard model on ReportSpec (FormatSet)** — architectural | open — design (2026-07-25)                   | Build dashboards declaratively on pyegeria ReportSpec/FormatSet (already models what/how-computed/how-displayed/drill + `question_spec.perspectives`). 5-layer model (attribute→spec→container→dashboard→store); new Container/placement Dr.Egeria commands (nestable/reusable); generalize output_formats (kpi/series/funnel, Vega-Lite, backward-compat); perspective = scoped lens; endgame = Egeria `GovernanceMetric`/Perspective/Question metadata; enables user/project/org-authored dashboards. Incremental P0–P4. Full design + 5 open decisions: **OVERVIEW_REPORTING_MODEL.md** |
+| NEXT-10 | **Reporting/Dashboard model on ReportSpec (FormatSet)** — architectural | **P0 done (2026-07-26)**; P1–P4 open | Build dashboards declaratively on pyegeria ReportSpec/FormatSet (already models what/how-computed/how-displayed/drill + `question_spec.perspectives`). 5-layer model (attribute→spec→container→dashboard→store); new Container/placement Dr.Egeria commands (nestable/reusable); generalize output_formats (kpi/series/funnel, Vega-Lite, backward-compat); perspective = scoped lens; endgame = Egeria `GovernanceMetric`/Perspective/Question metadata; enables user/project/org-authored dashboards. Incremental P0–P4. Full design + 5 open decisions: **OVERVIEW_REPORTING_MODEL.md**. **P0 shipped:** `overview_specs.py` (11 KPI tiles as real `FormatSet` objects = single source of truth), `GET /api/overview/specs`, `gen_overview_metrics.py` (generates the KPI catalog/provenance block of OVERVIEW_METRICS.md), `test_overview_specs.py` (242-check drift guard over registry ↔ frontend maps ↔ generated doc). See "NEXT-10 P0" section below. |
 
 ---
 ## NEXT-5 / NEXT-6 — Actor community relationships + systematic audit (2026-07-22 → 2026-07-26) — ✅ done
@@ -98,6 +98,53 @@ remembering for *future* handlers: use `common_serialize._generic_relationships`
 `_classifications` from the start rather than hand-picking keys, and don't
 trust `/api/debug/raw/{guid}` (or any `MetadataExpert.get_metadata_element_by_guid`
 call) as evidence that a relationship doesn't exist — see PY-17.
+
+---
+## NEXT-10 P0 — Reporting/dashboard model, first slice (2026-07-26) — ✅ done
+
+First incremental slice of the ReportSpec/FormatSet dashboard model
+(`OVERVIEW_REPORTING_MODEL.md`). P0's goal: make the dashboard's KPI tiles a
+single declarative source of truth instead of ~6 hand-synced places
+(`overview_handler.py` compute, the frontend `METRICS`/`DRILL`/`PERSP_KPIS`
+maps + `apply*`, the provenance badges, and `OVERVIEW_METRICS.md`). Shipped:
+
+- **`overview_specs.py`** — the registry: all 11 KPI tiles built as **real
+  pyegeria `FormatSet` objects** (imported from `pyegeria.view._output_format_models`,
+  the shape the deployed container uses). Each tile carries: `heading`/`description`
+  (what), `target_type` (the OM type), `action: ActionParameter` (how it's
+  computed — the P3 report-runner hook), a `Format(types=["kpi"])` with an
+  `Attribute` naming the backend payload field (`key`) + the drill target
+  (`detail_spec`), `question_spec.perspectives` (who it's for — the inverse of
+  `PERSP_KPIS`) + example questions, and dashboard extensions in `annotations`
+  (`render_kind`, `provenance`, `endpoint`, `icon`, `color`, `series`, `unit`).
+  Render-kind/provenance live in `annotations` deliberately — generalizing
+  `Format` itself is P1 + upstream, per the design doc §5/§10. `PERSP_KPIS` is
+  defined here as the source of truth; `perspectives_for()` inverts it.
+- **`GET /api/overview/specs`** (in `overview_handler.py`) — serves the registry
+  (ordered tiles + `perspectiveKpis` + per-tile `FormatSet.dict()`). Static, no
+  Egeria call, no creds. Verified live (HTTP 200, 11 tiles).
+- **`gen_overview_metrics.py`** — generates the "KPI tile registry" block of
+  `OVERVIEW_METRICS.md` from the registry (marker-delimited so the surrounding
+  curated prose is untouched). `--check` mode for CI/tests; `--stdout` to preview.
+- **`test_overview_specs.py`** — the drift guard (242 checks): registry internals
+  (render-kind, provenance/endpoint vocab, non-empty value key + drill target,
+  drill target exists in the frontend `DRILL` map), agreement with the frontend
+  `METRICS` map (label/icon/color/drill/series) and `PERSP_KPIS` (exact),
+  `perspectives_for()` inversion, and that the generated doc block is current.
+  **Proven non-vacuous** — injecting a drift makes it fail.
+
+Scope notes: overview app is **quickstart-only** (freshstart has no overview
+files), so no both-envs duplication. Frontend still holds its own tile maps —
+now guard-locked to the registry; having the SPA render *from*
+`/api/overview/specs` is P1. The 5 open decisions (layout primitive,
+output-format generalization + Vega-Lite, execution unification, storage
+ownership, Container-as-metadata) affect P1–P4 and remain open for discussion.
+
+To regenerate/verify (pyegeria must be importable → run in the container):
+```
+docker exec quickstart-pyegeria-web sh -c "cd /app && python3 gen_overview_metrics.py"
+docker exec quickstart-pyegeria-web sh -c "cd /app && python3 test_overview_specs.py"
+```
 
 ---
 ## Feature: Raw JSON debug viewer for advanced users (2026-07-22) — ✅ done

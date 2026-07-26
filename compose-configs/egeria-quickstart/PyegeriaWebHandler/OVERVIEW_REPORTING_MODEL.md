@@ -3,8 +3,17 @@
 
 # Egeria Reporting & Dashboard Model — design
 
-**Status:** design / discussion (2026-07-25). Not yet implemented. Companion to
-`OVERVIEW_README.md`, `OVERVIEW_METRICS.md`, `OVERVIEW_NEXT_STEPS.md`.
+**Status:** design / discussion (2026-07-25). **P0 landed 2026-07-26** (see §9).
+Companion to `OVERVIEW_README.md`, `OVERVIEW_METRICS.md`, `OVERVIEW_NEXT_STEPS.md`.
+
+**P0 shipped:** `overview_specs.py` (the single source-of-truth tile registry, 11
+KPIs as real pyegeria `FormatSet` objects), served at `GET /api/overview/specs`;
+`gen_overview_metrics.py` generates the KPI catalog + provenance block of
+`OVERVIEW_METRICS.md` from it; `test_overview_specs.py` (242 checks) guards that
+the registry, the frontend `METRICS`/`PERSP_KPIS`/`DRILL` maps, and the generated
+doc block never silently diverge. The five open decisions (§10) affect P1–P4 only
+and remain open. Frontend still holds its own tile maps (now guard-locked to the
+registry); having the SPA render *from* `/api/overview/specs` is P1 work.
 
 **Purpose:** define how the Egeria Overview dashboard — and dashboards/reports in
 general — should be *declaratively defined* on top of the existing pyegeria
@@ -167,7 +176,7 @@ author metrics/containers (same pipeline as Perspectives). Chain:
 
 | Phase | Scope | Unlocks / de-risks |
 |---|---|---|
-| **P0** | Formalize each *current* tile as a FormatSet-shaped definition served from the backend (attributes + action-ref + render-kind + `detail_spec` + `question_spec`). Generate `OVERVIEW_METRICS.md` + provenance from it. | Kills the drift-bug class; proves the model; pays for itself in maintainability. No container/user-auth. |
+| **P0 ✅** | **DONE 2026-07-26.** Each current tile formalized as a `FormatSet` in `overview_specs.py` (attributes + action + render-kind + `detail_spec` + `question_spec` + provenance), served at `/api/overview/specs`; `OVERVIEW_METRICS.md` KPI catalog + provenance generated from it (`gen_overview_metrics.py`); drift guarded by `test_overview_specs.py` (242 checks). | Kills the drift-bug class; proves the model on real pyegeria `FormatSet` objects; pays for itself in maintainability. No container/user-auth. |
 | **P1** | Generalize output formats (`kpi`/`series`/`funnel`, Vega-backed `bar`/`pie`), backward-compatible. Dashboard renders from render-kind. | Display model covers dashboard widgets. |
 | **P2** | Container model + Dr.Egeria commands; rebuild Overview *as* a container of specs; perspective = filter/scope over placements. | Composition + reuse; perspective becomes a real lens. |
 | **P3** | Move specs + containers into pyegeria-managed storage; unify on the report runner; back with Egeria metadata (`GovernanceMetric`/Perspective/Question/Container). | Generic execution; governed storage. |
