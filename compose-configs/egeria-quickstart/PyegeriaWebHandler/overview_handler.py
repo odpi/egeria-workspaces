@@ -313,6 +313,29 @@ def get_specs():
         raise HTTPException(status_code=500, detail=f"Spec registry failed: {exc}")
 
 
+@router.get("/api/overview/container",
+            summary="Overview dashboard as a Container of placements (NEXT-10 P2)")
+def get_container(
+    name: str = Query("overview-dashboard", description="Container name"),
+    perspective: Optional[str] = Query(None, description="Filter/reorder placements for this perspective"),
+):
+    """Serve a Container — an ordered, resolved placement list — optionally
+    filtered/reordered for a perspective (perspective as a scoped lens over
+    placements, see OVERVIEW_REPORTING_MODEL.md §6). Static definitions — no
+    Egeria call, no creds required."""
+    try:
+        from overview_containers import CONTAINERS, container_payload
+        container = CONTAINERS.get(name)
+        if container is None:
+            raise HTTPException(status_code=404, detail=f"Container {name!r} not found")
+        return JSONResponse(container_payload(container, perspective))
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("overview: failed to build container payload")
+        raise HTTPException(status_code=500, detail=f"Container resolution failed: {exc}")
+
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 @router.get("/api/overview/summary", summary="Headline KPI counts for the Overview dashboard")

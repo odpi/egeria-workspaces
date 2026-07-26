@@ -149,6 +149,29 @@ def main() -> int:
           f"OVERVIEW_METRICS.md generated block is stale (run gen_overview_metrics.py): "
           f"{res.stdout.strip()} {res.stderr.strip()}")
 
+    # 6. Container (NEXT-10 P2): the Overview dashboard container's declared
+    # placement order matches overview_specs.TILE_ORDER, every ref resolves,
+    # and each perspective's filtered view matches PERSP_KPIS exactly (order
+    # included) — the same drift class this whole registry exists to prevent,
+    # now checked one layer up.
+    import overview_containers as containers
+
+    refs = [p.ref for p in containers.OVERVIEW_CONTAINER.placements]
+    check(refs == specs.TILE_ORDER,
+          f"Container placement order != TILE_ORDER:\n  container={refs}\n  registry={specs.TILE_ORDER}")
+
+    resolved = containers.resolve(containers.OVERVIEW_CONTAINER)
+    check(len(resolved) == len(specs.TILE_ORDER), "Container did not resolve one placement per tile")
+    for rp in resolved:
+        check(rp.kind == "tile", f"[{rp.ref}] resolved kind={rp.kind!r} (expected 'tile')")
+        fs = specs.SPECS[rp.ref]
+        check(rp.heading == fs.heading, f"[{rp.ref}] resolved heading != FormatSet heading")
+
+    for persp, expected in specs.PERSP_KPIS.items():
+        view = [rp.ref for rp in containers.view_for_perspective(containers.OVERVIEW_CONTAINER, persp)]
+        check(view == expected,
+              f"[{persp}] container perspective view != PERSP_KPIS:\n  view={view}\n  expected={expected}")
+
     # Report.
     print(f"ran {_checks} checks over {len(reg_keys)} tiles / {len(specs.PERSP_KPIS)} perspectives")
     if _failures:

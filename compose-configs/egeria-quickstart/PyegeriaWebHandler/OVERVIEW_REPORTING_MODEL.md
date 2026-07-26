@@ -3,17 +3,36 @@
 
 # Egeria Reporting & Dashboard Model — design
 
-**Status:** design / discussion (2026-07-25). **P0 landed 2026-07-26** (see §9).
-Companion to `OVERVIEW_README.md`, `OVERVIEW_METRICS.md`, `OVERVIEW_NEXT_STEPS.md`.
+**Status:** design / discussion (2026-07-25). **P0 landed 2026-07-26** (see §9);
+**P2 core landed 2026-07-26** (Container model, ahead of P1 — see below; P1 itself
+is not yet built). Companion to `OVERVIEW_README.md`, `OVERVIEW_METRICS.md`,
+`OVERVIEW_NEXT_STEPS.md`.
 
 **P0 shipped:** `overview_specs.py` (the single source-of-truth tile registry, 11
 KPIs as real pyegeria `FormatSet` objects), served at `GET /api/overview/specs`;
 `gen_overview_metrics.py` generates the KPI catalog + provenance block of
-`OVERVIEW_METRICS.md` from it; `test_overview_specs.py` (242 checks) guards that
-the registry, the frontend `METRICS`/`PERSP_KPIS`/`DRILL` maps, and the generated
-doc block never silently diverge. The five open decisions (§10) affect P1–P4 only
-and remain open. Frontend still holds its own tile maps (now guard-locked to the
-registry); having the SPA render *from* `/api/overview/specs` is P1 work.
+`OVERVIEW_METRICS.md` from it; `test_overview_specs.py` guards that the registry,
+the frontend `METRICS`/`PERSP_KPIS`/`DRILL` maps, and the generated doc block
+never silently diverge.
+
+**P2 core shipped (ahead of P1):** `overview_containers.py` — a pyegeria-local
+`Container`/`Placement` model (§4.3), per the open-decision resolution below
+(storage stays local, not Egeria metadata, for now). The "Overview" dashboard is
+now expressed as one `Container` (`OVERVIEW_CONTAINER`) whose placement order
+mirrors `overview_specs.TILE_ORDER`. **Perspective is a real filtered/reordered
+view over placements** (§6), not a separate hardcoded list — `view_for_perspective()`
+derives it from each tile's own `question_spec.perspectives`, matching
+`PERSP_KPIS` exactly (order included, drift-guarded). Served at
+`GET /api/overview/container?perspective=<p>`. `test_overview_specs.py` (274
+checks total) extended to cover container resolution + all 8 perspective views.
+**Not yet built:** the Dr.Egeria markdown commands to *author* containers (§4.3's
+`Create Container` proposal) — that's authoring-pipeline work in the separate
+egeria-python `md_processing` repo, a distinct increment from the container model
+itself, and the frontend SPA does not yet render from `/api/overview/container`
+(still reads its own `PERSP_KPIS` map, now guard-locked to match). Chart-engine
+work (§5, Mermaid + Vega-Lite two-tier) is P1 and not started.
+
+The five open decisions (§10) are now **resolved** — see below.
 
 **Purpose:** define how the Egeria Overview dashboard — and dashboards/reports in
 general — should be *declaratively defined* on top of the existing pyegeria
@@ -176,21 +195,40 @@ author metrics/containers (same pipeline as Perspectives). Chain:
 
 | Phase | Scope | Unlocks / de-risks |
 |---|---|---|
-| **P0 ✅** | **DONE 2026-07-26.** Each current tile formalized as a `FormatSet` in `overview_specs.py` (attributes + action + render-kind + `detail_spec` + `question_spec` + provenance), served at `/api/overview/specs`; `OVERVIEW_METRICS.md` KPI catalog + provenance generated from it (`gen_overview_metrics.py`); drift guarded by `test_overview_specs.py` (242 checks). | Kills the drift-bug class; proves the model on real pyegeria `FormatSet` objects; pays for itself in maintainability. No container/user-auth. |
-| **P1** | Generalize output formats (`kpi`/`series`/`funnel`, Vega-backed `bar`/`pie`), backward-compatible. Dashboard renders from render-kind. | Display model covers dashboard widgets. |
-| **P2** | Container model + Dr.Egeria commands; rebuild Overview *as* a container of specs; perspective = filter/scope over placements. | Composition + reuse; perspective becomes a real lens. |
+| **P0 ✅** | **DONE 2026-07-26.** Each current tile formalized as a `FormatSet` in `overview_specs.py` (attributes + action + render-kind + `detail_spec` + `question_spec` + provenance), served at `/api/overview/specs`; `OVERVIEW_METRICS.md` KPI catalog + provenance generated from it (`gen_overview_metrics.py`); drift guarded by `test_overview_specs.py` (242 checks at P0, 274 after P2). | Kills the drift-bug class; proves the model on real pyegeria `FormatSet` objects; pays for itself in maintainability. No container/user-auth. |
+| **P1** | Generalize output formats (`kpi`/`series`/`funnel`, Mermaid `xychart-beta`/`pie` for the markdown-native tier + Vega-Lite for funnel/KPI+sparkline/interactive), backward-compatible. Dashboard renders from render-kind. | Display model covers dashboard widgets. |
+| **P2 (core ✅, Dr.Egeria commands not started)** | **DONE 2026-07-26 (core):** `overview_containers.py` — pyegeria-local `Container`/`Placement` model; Overview rebuilt *as* a `Container` of the P0 specs; perspective = real filter/scope over placements (`view_for_perspective()`), served at `/api/overview/container`. **Still open:** Dr.Egeria `Create Container` authoring commands (separate egeria-python repo work); SPA rendering from the container endpoint. | Composition + reuse; perspective becomes a real lens. |
 | **P3** | Move specs + containers into pyegeria-managed storage; unify on the report runner; back with Egeria metadata (`GovernanceMetric`/Perspective/Question/Container). | Generic execution; governed storage. |
 | **P4** | User/project/org-authored dashboards; sharing/governance; Advisor-generated dashboards. | The multi-dashboard vision. |
 
 P0–P1 stand alone and are worth doing regardless of whether P3–P4 ship.
 
-## 10. Open decisions
+## 10. Open decisions — resolved (2026-07-26)
 
-1. **Layout primitive:** ordered-flow + span (recommended) vs grid coordinates vs named slots?
-2. **Output-format generalization:** render-hint `{kind, options}` with legacy mapping (recommended), and **commit to Vega-Lite** as the chart engine?
-3. **Execution:** commit to unifying on the **report runner** at P3 (required for P4), keeping bespoke handlers only through P1–P2?
-4. **Storage/ownership:** pyegeria-managed store near-term, Egeria-native metadata endgame — both, with a migration path?
-5. **Container as metadata:** new `Container`/`Dashboard` type vs reuse `Collection` for layout?
+1. **Layout primitive:** ordered-flow + span — **confirmed**, proceed as recommended.
+2. **Output-format generalization / chart engine — DECIDED: Mermaid + Vega-Lite, two-tier, not a single engine.**
+   Mermaid (already loaded portal-wide, `mermaid@11`, and already has a pie-chart
+   convention in FormatSet) is the markdown-native tier — its text DSL
+   (`xychart-beta` for bar/line/trend, `pie` for composition) is directly
+   authorable/generatable as plain text, the same shape Dr.Egeria commands want
+   for Container placements, with **zero new dependency**. Vega-Lite is kept for
+   render kinds Mermaid can't express: **funnel**, **KPI+sparkline** composites,
+   and anything needing real interactivity (tooltip/zoom/brush). The render-hint
+   `{kind, options}` abstraction absorbs this cleanly — `kind` resolves to either
+   a Mermaid string or a Vega-Lite spec depending on what the tile needs. Backward
+   compatibility for existing FormatSets remains a hard requirement either way.
+3. **Execution — P2 approved, "worth trying," may need tweaking as it's built.**
+   Proceed into Container model + Dr.Egeria commands now. Full unification on the
+   generic report runner stays a P3 commitment (required for P4); bespoke handlers
+   are fine through P1–P2.
+4. **Storage/ownership — P3 explicitly backlogged** ("will be a few weeks").
+   Continue with the **current local approach pyegeria already takes** (Python/JSON-
+   defined FormatSets, as `overview_specs.py` does) — no move to Egeria-native
+   metadata storage yet. P2's Container model is therefore also pyegeria-local
+   (a Pydantic model + Python/JSON definitions), **not** new Egeria element types —
+   that step waits for the P3 storage decision.
+5. **Container as metadata — deferred with P3/P4** (both backlogged); revisit
+   alongside the storage decision.
 
 ## 11. Risks / caveats
 
