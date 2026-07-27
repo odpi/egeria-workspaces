@@ -2581,7 +2581,11 @@ function SearchResultCard({ item, query, onNavigate }) {
     if (onNavigate && (nav || (item.categoryId && item.categoryId !== 'other'))) {
       onNavigate({ guid: item.guid, displayName: item.displayName, section: nav ? nav.section : item.categoryId, tab: nav && nav.tab });
     } else {
-      window.location.href = '/tech-catalog?guid=' + encodeURIComponent(item.guid);
+      // categoryId 'other' with no TYPE_TO_NAV match means this isn't a type The
+      // Catalog owns (e.g. a Valid Value or Actor) — reloading into
+      // /tech-catalog?guid= used to silently wrap it in Data Assets chrome. Hand
+      // off to Egeria Explorer instead, which does own these types.
+      window.open('/egeria-explorer?q=' + encodeURIComponent(item.displayName || item.guid) + '#search', '_blank');
     }
   }
   var q = (query || '').trim();
@@ -2995,6 +2999,35 @@ var SECTIONS_BY_ID = {};
 ALL_SECTIONS.forEach(function(s) { SECTIONS_BY_ID[s.id] = s; });
 SECTIONS_BY_ID['search'] = { id: 'search', icon: '🔎', label: 'Search', desc: 'Cross-catalog keyword search — find assets, glossary terms, tech types, surveys, and more in one place.' };
 
+// Shown instead of Splash when a ?guid= deep-link (typically a search result)
+// resolves to an element type The Catalog doesn't own — e.g. a Valid Value or
+// an Actor. Rather than silently wrapping it in Data Assets chrome (the bug
+// this fixes), say so plainly and hand off to Egeria Explorer, which does own
+// those types.
+function UnresolvedElement({ nav, onDismiss }) {
+  var explorerUrl = '/egeria-explorer?q=' + encodeURIComponent(nav.displayName || nav.guid) + '#search';
+  return React.createElement('div', { style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' } },
+    React.createElement('div', { style: { maxWidth: 460, textAlign: 'center', padding: '32px 36px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8 } },
+      React.createElement('div', { style: { fontSize: 28, marginBottom: 10 } }, '🔎'),
+      React.createElement('div', { style: { fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 } }, nav.displayName || nav.guid),
+      React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)', lineHeight: 1.5, marginBottom: 4 } },
+        nav.typeName
+          ? 'This is a ' + nav.typeName + ' — it isn\'t part of The Catalog.'
+          : 'This element isn\'t part of The Catalog.'
+      ),
+      React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', fontFamily: 'ui-monospace,monospace', marginBottom: 20 } }, nav.guid),
+      React.createElement('a', {
+        href: explorerUrl, target: '_blank', rel: 'noopener',
+        style: { display: 'inline-block', padding: '7px 16px', borderRadius: 5, border: '1px solid rgba(96,165,250,.3)', background: 'rgba(96,165,250,.1)', color: 'var(--accent)', textDecoration: 'none', fontSize: 12, fontWeight: 600, marginRight: 8 }
+      }, 'Open in Egeria Explorer ↗'),
+      React.createElement('button', {
+        onClick: onDismiss,
+        style: { padding: '7px 16px', borderRadius: 5, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', fontSize: 12 }
+      }, '⌂ The Catalog home')
+    )
+  );
+}
+
 function Splash({ onSelect, authUser, activePersona, creds, demoMode, srvManaged, saveCreds }) {
   var cardStyle = {
     background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8,
@@ -3124,6 +3157,11 @@ function App() {
   var _demoMode  = useState(false), demoMode   = _demoMode[0],  setDemoMode   = _demoMode[1];
   var _ready     = useState(false), ready      = _ready[0],     setReady      = _ready[1];
   var _navTarget = useState(null), navTarget  = _navTarget[0], setNavTarget  = _navTarget[1];
+  // Set when a ?guid= deep-link resolves to a type The Catalog doesn't own
+  // (e.g. a Valid Value or Actor reached via search) — shows an honest
+  // "not part of The Catalog" panel instead of silently defaulting into the
+  // Data Assets section (see UnresolvedElement below).
+  var _unresolvedNav = useState(null), unresolvedNav = _unresolvedNav[0], setUnresolvedNav = _unresolvedNav[1];
 
   // Deep-link: resolve ?guid= to the correct section+tab once creds are ready
   var _deepLinkGuid = useRef((function() {
@@ -3166,9 +3204,17 @@ function App() {
             if (nav) break;
           }
         }
-        var sec  = (nav && nav.section) || 'data-assets';
-        var tab  = nav && nav.tab;
         var disp = (d && d.displayName) || guid;
+        if (!nav) {
+          // Type isn't one The Catalog owns (e.g. a Valid Value or Actor reached
+          // via search) — do NOT default into Data Assets (that silently wraps
+          // the wrong element in Catalog chrome). Show an honest unresolved panel.
+          setUnresolvedNav({ guid: guid, typeName: typeName || null, displayName: disp });
+          history.replaceState(null, '', window.location.pathname);
+          return;
+        }
+        var sec = nav.section;
+        var tab = nav.tab;
         setSection(sec);
         setNavTarget({ guid: guid, section: sec, tab: tab, displayName: disp });
         // Deep link consumed — drop ?guid= from the URL so a page refresh lands on
@@ -3176,9 +3222,10 @@ function App() {
         history.replaceState(null, '', window.location.pathname + '#' + sec);
       })
       .catch(function() {
-        setSection('data-assets');
-        setNavTarget({ guid: guid, section: 'data-assets' });
-        history.replaceState(null, '', window.location.pathname + '#data-assets');
+        // Lookup itself failed (unknown guid, transient error, etc.) — same honest
+        // panel, just without a resolved type name.
+        setUnresolvedNav({ guid: guid, typeName: null, displayName: guid });
+        history.replaceState(null, '', window.location.pathname);
       });
   }, [creds]);
 
@@ -3278,7 +3325,9 @@ function App() {
     ),
     section
       ? React.createElement(SectionView, { sectionId: section, creds: creds, navTarget: navTarget, onNavigate: handleNavigate, searchQuery: searchQ })
-      : React.createElement(Splash, { onSelect: function(id, q) { if (q) setSearchQ(q); setSection(id); }, authUser: authUser, activePersona: activePersona, creds: creds, demoMode: demoMode, srvManaged: srvManaged, saveCreds: setCreds }),
+      : unresolvedNav
+        ? React.createElement(UnresolvedElement, { nav: unresolvedNav, onDismiss: function() { setUnresolvedNav(null); } })
+        : React.createElement(Splash, { onSelect: function(id, q) { if (q) setSearchQ(q); setSection(id); }, authUser: authUser, activePersona: activePersona, creds: creds, demoMode: demoMode, srvManaged: srvManaged, saveCreds: setCreds }),
     React.createElement(FeedbackButton, { section: section, persona: null, demoMode: demoMode, srvManaged: srvManaged, pagePrefix: 'tech-catalog/' })
   )));
 }
