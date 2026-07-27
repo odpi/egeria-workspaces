@@ -736,6 +736,12 @@
 
 <!-- Shared portal helpers: egeriaFetch (adds creds + auto 401-refresh), crossAppNavigate -->
 <script src="/static/egeria-shared-ui.js?v=2026-07-22c"></script>
+<!-- Vega-Lite chart rendering (NEXT-10 P1) — same CDN trio pyegeria's own
+     vega_to_html() assumes. Backend sends ready Vega-Lite specs; renderVega()
+     below just embeds them. -->
+<script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
 <script>
 // ---- Feedback widget (vanilla — this dashboard has no React runtime) ----
 // Same /api/demo-feedback contract & field shape as the shared React FeedbackButton
@@ -877,6 +883,34 @@ renderGrowth();
   });
   svg.innerHTML=g;
 })();
+
+// ---- Vega-Lite rendering (NEXT-10 P1) ----
+// Renders a backend-generated Vega-Lite spec into a container, replacing its
+// current content (typically a sample hbars() chart). Falls back to leaving
+// the existing content in place — sample or a prior live hbars() render — if
+// vega-embed hasn't loaded or the spec is missing, so a slow/blocked CDN never
+// leaves a panel blank.
+// Known gap: Vega bars don't carry the per-bar "click to drill" affordance
+// hbars() rows have (tooltips-on-hover partially compensate); see NEXT-10 P1
+// follow-up notes in OVERVIEW_REPORTING_MODEL.md.
+// Dark-theme config merged onto every spec so charts match the dashboard
+// instead of rendering in Vega-Lite's white-background default. Only fills in
+// keys the backend spec didn't already set.
+var VEGA_DARK_CONFIG = {
+  background: 'transparent',
+  title:  { color: '#e0e0e0' },
+  axis:   { labelColor: '#8b93a7', titleColor: '#8b93a7', gridColor: 'rgba(255,255,255,.08)', domainColor: 'rgba(255,255,255,.2)', tickColor: 'rgba(255,255,255,.2)' },
+  legend: { labelColor: '#8b93a7', titleColor: '#8b93a7' },
+  view:   { stroke: 'transparent' },
+};
+function renderVega(id, spec){
+  if (!spec || typeof window.vegaEmbed !== 'function') return false;
+  var el = document.getElementById(id); if (!el) return false;
+  var themed = Object.assign({}, spec, { config: Object.assign({}, VEGA_DARK_CONFIG, spec.config || {}) });
+  window.vegaEmbed('#' + id, themed, { actions: false, renderer: 'svg' })
+    .catch(function(err){ console.error('renderVega failed for #' + id, err); });
+  return true;
+}
 
 // ---- Horizontal bar helper (row = [lab,val,col,drillKey?]) ----
 function hbars(id,rows,max){
@@ -1319,8 +1353,11 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (d.dataProducts != null) store.products = d.dataProducts;
     if (d.openExceptions != null) store.exceptions = d.openExceptions;
     if (!primary) return;
-    // Assets-by-type live overlay (composition section)
-    if (Array.isArray(d.byType) && d.byType.length && typeof hbars === 'function') {
+    // Assets-by-type live overlay (composition section) — real Vega-Lite bar
+    // chart when the backend has one (NEXT-10 P1); falls back to hbars() rows
+    // (which keep the per-bar drill click Vega doesn't have yet) otherwise.
+    if (!renderVega('byType', d.byTypeChart) &&
+        Array.isArray(d.byType) && d.byType.length && typeof hbars === 'function') {
       var keymap = {DataStore:'type-datastore', DataSet:'type-dataset', DeployedSoftwareComponent:'type-swcomp',
                     ITInfrastructure:'type-infra', DeployedAPI:'type-api', Process:'type-proc', DataFeed:'type-feed'};
       var rows = d.byType.filter(function(r){ return r.count > 0; })
@@ -1349,7 +1386,9 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
       var fb = d.feedbackByType || {};
       if (fsub) fsub.textContent = (fb.comments||0) + ' comments · ' + (fb.ratings||0) + ' ratings · ' + (fb.tags||0) + ' tags';
     }
-    if (d.feedbackByType && typeof hbars === 'function') {
+    // Real Vega-Lite bar chart when the backend has one (NEXT-10 P1); falls
+    // back to hbars() rows otherwise.
+    if (!renderVega('fbType', d.feedbackChart) && d.feedbackByType && typeof hbars === 'function') {
       var t = d.feedbackByType;
       hbars('fbType', [
         ['Ratings ★', t.ratings||0, 'var(--c4)'], ['Comments', t.comments||0, 'var(--c1)'],

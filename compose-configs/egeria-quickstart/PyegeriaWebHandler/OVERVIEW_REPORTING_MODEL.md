@@ -4,9 +4,10 @@
 # Egeria Reporting & Dashboard Model — design
 
 **Status:** design / discussion (2026-07-25). **P0 landed 2026-07-26** (see §9);
-**P2 core landed 2026-07-26** (Container model, ahead of P1 — see below; P1 itself
-is not yet built). Companion to `OVERVIEW_README.md`, `OVERVIEW_METRICS.md`,
-`OVERVIEW_NEXT_STEPS.md`.
+**P2 core landed 2026-07-26** (Container model, ahead of P1); **P1 core landed
+2026-07-27** (Vega-Lite chart-engine decision + generator library + two
+dashboard charts live-verified — see §5/§9). Companion to `OVERVIEW_README.md`,
+`OVERVIEW_METRICS.md`, `OVERVIEW_NEXT_STEPS.md`.
 
 **P0 shipped:** `overview_specs.py` (the single source-of-truth tile registry, 11
 KPIs as real pyegeria `FormatSet` objects), served at `GET /api/overview/specs`;
@@ -141,10 +142,61 @@ REPORT` keep working). New kinds needed for dashboards:
 - first-class **`bar` / `pie`** — generalize today's `*BarGraph`/`*PieGraph`
   attribute-key convention into an explicit kind
 
-**Chart engine: commit to Vega-Lite** (already in the renderer) — a chart Format's
-`options` can compile to a Vega-Lite spec, rather than inventing a viz grammar.
-Attributes stay the data; the kind decides presentation. **Backward compatibility is
-a hard requirement** (per direction): existing FormatSets must render unchanged.
+**Chart engine — DECIDED (2026-07-27, revised): Vega-Lite is the default/primary
+engine whenever there's a choice** — it renders visibly richer output than
+Mermaid and, as of this revision, covers far more chart shapes (see below).
+Mermaid is not treated as a competing "markdown-native tier" for new chart
+types; it remains the right choice only for the structural diagrams it
+already owns (entity/relationship graphs, mind maps, its existing pie-chart
+convention) — nothing about that changes. (This revises the 2026-07-26 "two-tier
+Mermaid + Vega-Lite" call in §10 #2's history below; superseded per direction:
+"vega-lite generates nicer graphs than mermaid — so we should use them when
+there is a choice.")
+
+Both engines already share one convention worth keeping: **rendered output is
+a fenced markdown code block** (```` ```vega-lite ```` / ```` ```mermaid ````
+containing the spec/graph text), auto-detected today by an attribute
+key-suffix convention (`_is_vega_attribute`/`_is_mermaid_attribute` in
+pyegeria's `output_formatter.py`). A chart Format's `options` compiles to
+one of these — not a bespoke viz grammar. **Backward compatibility is a hard
+requirement** (per direction): existing FormatSets must render unchanged.
+
+**Landed (2026-07-27, ahead of the rest of P1):** pyegeria already shipped
+`generate_vega_bar_chart`/`generate_vega_pie_chart` (`pyegeria/view/vega_utilities.py`)
+plus a **generic auto-promotion pass** in `output_formatter.py` that finds any
+nested `{str: number}` "categorical counts" shape in an extracted element and
+auto-generates bar+pie Vega specs for it, with zero per-type configuration —
+this alone covers a lot of dashboard composition needs for free. Extended
+2026-07-27 with `generate_vega_line_chart`/`generate_vega_area_chart`
+(multi-series via a `fold` transform over wide-format records — no reshaping
+needed by callers), `generate_vega_scatter_chart`, `generate_vega_funnel_chart`
+(ordered horizontal bars — Vega-Lite has no native funnel mark), and a
+low-level **`generate_vega_chart(values, mark, encoding, title, ...)`
+escape hatch** for any chart shape without a named generator — deliberately
+open-ended, since "we don't know what kind of graphs users will want — we
+know only what we currently need" (direction, 2026-07-27). 16 unit tests,
+`egeria-python` commit `319b177`.
+
+**Wired into the Overview dashboard (2026-07-27):** `overview_handler.py` now
+returns ready Vega-Lite specs — `byTypeChart` (assets-by-type composition),
+`feedbackChart` (people feedback-by-type), `growthChart` (multi-series growth
+trend), `funnelChart` (context-readiness funnel) — and `egeria-overview.html`
+renders them via a new `renderVega()` helper (loads `vega-embed`, merges a
+dark-theme `config` so charts match the dashboard instead of Vega-Lite's
+white-background default). **Verified live: `byTypeChart` and `feedbackChart`**
+(both use only the pre-existing `generate_vega_bar_chart`, already on the
+deployed pyegeria 6.0.17.2). **`growthChart`/`funnelChart` cannot be verified
+yet** — the deployed pyegeria is pinned via `requirements.txt` to a PyPI
+release that predates `generate_vega_line_chart`/`generate_vega_funnel_chart`;
+the handler imports them defensively (`try/except ImportError` → `None`) so
+the app runs fine either way, and both fields will activate automatically once
+the pin is bumped to a release that includes them — no further dashboard code
+changes needed. **Known gap, not yet closed:** the Vega bar charts replacing
+`hbars()` rows lose the per-bar "click to drill" affordance (Vega tooltips
+partially compensate); revisit once wiring `growthChart`/`funnelChart` forces
+a broader look at drill-parity (both the old growth SVG and the funnel rows
+are also click-drillable today and were deliberately left alone until they can
+be verified, rather than guessing at replacement UX blind).
 
 ## 6. Perspective as a parameterized lens (facets 1–3)
 
@@ -196,7 +248,7 @@ author metrics/containers (same pipeline as Perspectives). Chain:
 | Phase | Scope | Unlocks / de-risks |
 |---|---|---|
 | **P0 ✅** | **DONE 2026-07-26.** Each current tile formalized as a `FormatSet` in `overview_specs.py` (attributes + action + render-kind + `detail_spec` + `question_spec` + provenance), served at `/api/overview/specs`; `OVERVIEW_METRICS.md` KPI catalog + provenance generated from it (`gen_overview_metrics.py`); drift guarded by `test_overview_specs.py` (242 checks at P0, 274 after P2). | Kills the drift-bug class; proves the model on real pyegeria `FormatSet` objects; pays for itself in maintainability. No container/user-auth. |
-| **P1** | Generalize output formats (`kpi`/`series`/`funnel`, Mermaid `xychart-beta`/`pie` for the markdown-native tier + Vega-Lite for funnel/KPI+sparkline/interactive), backward-compatible. Dashboard renders from render-kind. | Display model covers dashboard widgets. |
+| **P1 (core ✅, `kpi`/`series` render-kind generalization not started)** | **DONE 2026-07-27 (core):** chart-engine decision revised to Vega-Lite-primary (§5/§10 #2); pyegeria `vega_utilities.py` extended with line/area/scatter/funnel generators + a generic escape hatch (16 tests, commit `319b177`); Overview wired for 4 chart fields (`byTypeChart`/`feedbackChart`/`growthChart`/`funnelChart`), 2 of 4 **live-verified** (byType, feedback — both dark-themed via a new `renderVega()` helper), 2 deferred pending a pyegeria version bump (growth, funnel — wired defensively, `None` on the current pin). **Still open:** the `{kind, options}` render-hint generalization on `Format` itself, `kpi`/`series` render kinds, and drill-click parity for the new Vega bars (known gap — see §5). | Display model covers dashboard widgets. |
 | **P2 (core ✅, Dr.Egeria commands not started)** | **DONE 2026-07-26 (core):** `overview_containers.py` — pyegeria-local `Container`/`Placement` model; Overview rebuilt *as* a `Container` of the P0 specs; perspective = real filter/scope over placements (`view_for_perspective()`), served at `/api/overview/container`. **Still open:** Dr.Egeria `Create Container` authoring commands (separate egeria-python repo work); SPA rendering from the container endpoint. | Composition + reuse; perspective becomes a real lens. |
 | **P3** | Move specs + containers into pyegeria-managed storage; unify on the report runner; back with Egeria metadata (`GovernanceMetric`/Perspective/Question/Container). | Generic execution; governed storage. |
 | **P4** | User/project/org-authored dashboards; sharing/governance; Advisor-generated dashboards. | The multi-dashboard vision. |
@@ -206,16 +258,24 @@ P0–P1 stand alone and are worth doing regardless of whether P3–P4 ship.
 ## 10. Open decisions — resolved (2026-07-26)
 
 1. **Layout primitive:** ordered-flow + span — **confirmed**, proceed as recommended.
-2. **Output-format generalization / chart engine — DECIDED: Mermaid + Vega-Lite, two-tier, not a single engine.**
-   Mermaid (already loaded portal-wide, `mermaid@11`, and already has a pie-chart
-   convention in FormatSet) is the markdown-native tier — its text DSL
-   (`xychart-beta` for bar/line/trend, `pie` for composition) is directly
-   authorable/generatable as plain text, the same shape Dr.Egeria commands want
-   for Container placements, with **zero new dependency**. Vega-Lite is kept for
-   render kinds Mermaid can't express: **funnel**, **KPI+sparkline** composites,
-   and anything needing real interactivity (tooltip/zoom/brush). The render-hint
-   `{kind, options}` abstraction absorbs this cleanly — `kind` resolves to either
-   a Mermaid string or a Vega-Lite spec depending on what the tile needs. Backward
+2. **Output-format generalization / chart engine — DECIDED (revised 2026-07-27):
+   Vega-Lite is the default engine whenever there's a choice; Mermaid is not a
+   competing tier for new chart types.**
+   *(History: on 2026-07-26 this was first decided as a Mermaid + Vega-Lite
+   two-tier split — Mermaid as the "markdown-native" default for bar/line/pie,
+   Vega-Lite only for funnel/KPI+sparkline/interactivity. Superseded the next
+   day per direction: "vega-lite generates nicer graphs than mermaid — so we
+   should use them when there is a choice," plus "we should look at adding
+   more vega-lite types... we don't know what kind of graphs users will want.")*
+   Mermaid remains the right choice only for what it already structurally owns
+   (entity/relationship diagrams, mind maps, its existing pie-chart convention)
+   — not the default for new dashboard chart types. Both engines still share
+   the same fenced-markdown-block rendering convention (§5), so this isn't a
+   storage-shape fork, just an engine preference. Extensibility answer: rather
+   than trying to enumerate every future chart type up front, pyegeria's
+   `vega_utilities.py` now has named generators for the known shapes
+   (bar/pie/line/area/scatter/funnel) **plus** a generic `generate_vega_chart()`
+   escape hatch for anything else — see §5 "Landed" for what shipped. Backward
    compatibility for existing FormatSets remains a hard requirement either way.
 3. **Execution — P2 approved, "worth trying," may need tweaking as it's built.**
    Proceed into Container model + Dr.Egeria commands now. Full unification on the

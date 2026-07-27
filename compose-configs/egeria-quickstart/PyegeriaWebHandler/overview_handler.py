@@ -45,6 +45,19 @@ from loguru import logger
 
 from egeria_auth import apply_token
 
+# generate_vega_bar_chart/generate_vega_pie_chart ship with pyegeria (the
+# requirements.txt-pinned version has them). generate_vega_line_chart and
+# generate_vega_funnel_chart are newer additions not yet on the pinned PyPI
+# release — imported defensively so an older pyegeria degrades those two
+# chart fields to None instead of crashing the whole app at import time.
+# Drop this try/except once requirements.txt's pin includes them.
+from pyegeria.view.vega_utilities import generate_vega_bar_chart
+try:
+    from pyegeria.view.vega_utilities import generate_vega_line_chart, generate_vega_funnel_chart
+except ImportError:
+    generate_vega_line_chart = None
+    generate_vega_funnel_chart = None
+
 router = APIRouter(tags=["egeria-overview"])
 
 _HERE = Path(__file__).parent
@@ -391,6 +404,13 @@ def get_summary(
     term_count, term_capped = _count_type(mgr, "GlossaryTerm", as_of_time)
     top_zones = sorted(zone_counts.items(), key=lambda kv: -kv[1])[:8]
 
+    # Vega-Lite bar chart for the assets-by-type composition (real chart —
+    # supersedes the hand-drawn SVG bars; see OVERVIEW_REPORTING_MODEL.md P1).
+    by_type_chart = generate_vega_bar_chart(
+        {r["label"]: r["count"] for r in by_type if r["count"]},
+        title="Assets by Type", x_label="Assets", y_label="Type",
+    )
+
     # Data products (DigitalProduct) — live count.
     data_products, _ = _count_type(mgr, "DigitalProduct", as_of_time)
 
@@ -401,6 +421,7 @@ def get_summary(
         "asOfTime":         as_of_time,
         "assetTotal":       asset_total,
         "byType":           by_type,
+        "byTypeChart":      by_type_chart,
         "termCount":        term_count,
         "governedCount":    len(governed_hits),
         "governedCapped":   len(governed_hits) >= _DEFAULT_CAP,
@@ -528,15 +549,30 @@ def get_ai_context(
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview ai-context: grounding query failed: {exc}")
 
+    funnel = {
+        "Cataloged":       cataloged or None,
+        "Documented":      None,          # needs a description-present filter — best-effort TODO
+        "Classified":      classified or None,
+        "Lineage-traced":  None,          # needs lineage-relationship presence — TODO
+        "AI-Ready":        None,          # composite gate — TODO
+    }
+    # Vega-Lite funnel chart (ordered horizontal bars — Vega-Lite has no native
+    # funnel mark). Renders whichever stages are non-null today; gains the
+    # deferred stages automatically once they're wired. None on an older
+    # pyegeria (see the defensive import at module top).
+    funnel_chart = generate_vega_funnel_chart(funnel, title="Context Readiness Funnel") \
+        if generate_vega_funnel_chart else None
+
     payload = {
         "asOfTime":  as_of_time,
         "funnel": {
-            "cataloged":  cataloged or None,
-            "documented": None,          # needs a description-present filter — best-effort TODO
-            "classified": classified or None,
-            "lineage":    None,          # needs lineage-relationship presence — TODO
-            "aiReady":    None,          # composite gate — TODO
+            "cataloged":  funnel["Cataloged"],
+            "documented": funnel["Documented"],
+            "classified": funnel["Classified"],
+            "lineage":    funnel["Lineage-traced"],
+            "aiReady":    funnel["AI-Ready"],
         },
+        "funnelChart":     funnel_chart,
         "consumers":       None,         # not natively tracked (MCP/API access logs)
         "guardrails":      None,
         "groundingLinks":  grounding_links,
@@ -602,6 +638,11 @@ def get_people(
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview people: karma query failed: {exc}")
 
+    feedback_chart = generate_vega_bar_chart(
+        {k: v for k, v in (feedback_by_type or {}).items() if v},
+        title="Feedback by Type", x_label="Items", y_label="Type",
+    ) if feedback_by_type else None
+
     payload = {
         "asOfTime":           as_of_time,
         "activeContributors": persons,
@@ -612,6 +653,7 @@ def get_people(
         "karmaRecords":       karma,             # count of ContributionRecord elements
         "feedbackItems":      feedback_items,    # Σ ratings+comments+likes+tags+noteLogs
         "feedbackByType":     feedback_by_type,
+        "feedbackChart":      feedback_chart,
         "leaderboard":        None,              # per-person karma rollup — deferred
         "engagementSeries":   None,              # weekly feedback trend — deferred
         "partial":            True,
@@ -754,9 +796,20 @@ def get_growth(
         series.append({"label": _growth_label(d, span_s), "date": d.strftime(date_fmt),
                        "assets": assets, "terms": terms, "governed": governed, "products": products})
 
+    # Vega-Lite multi-series line chart — supersedes the hand-drawn SVG growth
+    # chart once available (needs a newer pyegeria than requirements.txt pins
+    # today; see the defensive import at module top). None on an older pyegeria.
+    growth_chart = None
+    if generate_vega_line_chart and len(series) >= 2:
+        growth_chart = generate_vega_line_chart(
+            series, x_field="label", y_fields=["assets", "terms", "governed", "products"],
+            title="Catalog Growth", x_label="Snapshot", y_label="Count",
+        )
+
     payload = {"series": series, "window": window, "points": n,
                "rangeFrom": series[0]["date"] if series else None,
                "rangeTo": series[-1]["date"] if series else None,
+               "growthChart": growth_chart,
                "partial": False, "source": "live:growth"}
     _cache[ckey] = (time.time(), payload)
     return JSONResponse(payload)

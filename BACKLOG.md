@@ -25,7 +25,7 @@ Status: `open` · `in-progress` · `done` · `deferred`
 | NEXT-7 | **Overview dashboard: rethink "Contextualized coverage"** | open — **HIGH, needs discussion + research** | Coined term, not industry-standard; ISC/blueprint-only is an oversimplification (ignores semantic assignment, classification, lineage, ownership). Replace with specific coverages (lineage/doc/ownership) and/or a composite "context richness" score grounded in FAIR/catalog-completeness frameworks. Detail: OVERVIEW_NEXT_STEPS.md R-1 |
 | NEXT-8 | **Overview dashboard: define "AI-ready" per AI purpose** | open — **HIGH, research/best-practices**     | No universal AI-readiness (cf. Gartner AI-ready data) — needs per-purpose lenses (RAG / training / agent-tool) mapped to Egeria classifications/relationships, incorporating data scope/grain/datalens. Deliver a best-practices brief + readiness model before wiring a metric. Biggest item. Detail: OVERVIEW_NEXT_STEPS.md R-2 |
 | NEXT-9 | **Overview dashboard: ground business-value metrics** (Productivity, Trust & Adoption, Risk, Cost) | open — **HIGH**                              | Currently synthetic. Give each a precise definition + real source + honest "leading-indicator/proxy" framing; reword labels to what's measured; wire real data. Detail: OVERVIEW_NEXT_STEPS.md R-3 |
-| NEXT-10 | **Reporting/Dashboard model on ReportSpec (FormatSet)** — architectural | **P0 done (2026-07-26)**; P1–P4 open | Build dashboards declaratively on pyegeria ReportSpec/FormatSet (already models what/how-computed/how-displayed/drill + `question_spec.perspectives`). 5-layer model (attribute→spec→container→dashboard→store); new Container/placement Dr.Egeria commands (nestable/reusable); generalize output_formats (kpi/series/funnel, Vega-Lite, backward-compat); perspective = scoped lens; endgame = Egeria `GovernanceMetric`/Perspective/Question metadata; enables user/project/org-authored dashboards. Incremental P0–P4 — full phase descriptions are in **OVERVIEW_REPORTING_MODEL.md §9 "Incremental roadmap"** (also mirrored in the P0 row here and the "NEXT-10 P0" section below). Full design + 5 open decisions: **OVERVIEW_REPORTING_MODEL.md**. **P0 shipped:** `overview_specs.py` (11 KPI tiles as real `FormatSet` objects = single source of truth), `GET /api/overview/specs`, `gen_overview_metrics.py` (generates the KPI catalog/provenance block of OVERVIEW_METRICS.md), `test_overview_specs.py` (drift guard over registry ↔ frontend maps ↔ generated doc, now 274 checks incl. P2). **P2 core shipped 2026-07-26 (ahead of P1):** `overview_containers.py` — pyegeria-local `Container`/`Placement` model (per resolved decision #4 — no Egeria metadata storage yet); Overview dashboard rebuilt as one `Container`; perspective is now a real filtered/reordered view over placements (`view_for_perspective()`, matches `PERSP_KPIS` exactly); `GET /api/overview/container?perspective=`. **Not yet built:** Dr.Egeria `Create Container` authoring commands (separate egeria-python repo), SPA rendering from the container endpoint, and all of P1 (Mermaid+Vega-Lite two-tier chart engine — see the 5 resolved open decisions in OVERVIEW_REPORTING_MODEL.md §10). See "NEXT-10 P0" and "NEXT-10 P2" sections below. |
+| NEXT-10 | **Reporting/Dashboard model on ReportSpec (FormatSet)** — architectural | **P0/P2-core/P1-core done (2026-07-26/27)**; render-hint generalization + P3–P4 open | Build dashboards declaratively on pyegeria ReportSpec/FormatSet (already models what/how-computed/how-displayed/drill + `question_spec.perspectives`). 5-layer model (attribute→spec→container→dashboard→store); new Container/placement Dr.Egeria commands (nestable/reusable); generalize output_formats (kpi/series/funnel, backward-compat); perspective = scoped lens; endgame = Egeria `GovernanceMetric`/Perspective/Question metadata; enables user/project/org-authored dashboards. Incremental P0–P4 — full phase descriptions are in **OVERVIEW_REPORTING_MODEL.md §9 "Incremental roadmap"**. Full design + 5 resolved open decisions: **OVERVIEW_REPORTING_MODEL.md §10**. **P0 shipped:** `overview_specs.py` (11 KPI tiles as real `FormatSet` objects = single source of truth), `GET /api/overview/specs`, `gen_overview_metrics.py`, `test_overview_specs.py` (drift guard, 274 checks incl. P2). **P2 core shipped:** `overview_containers.py` — pyegeria-local `Container`/`Placement` model; Overview dashboard rebuilt as one `Container`; perspective is a real filtered/reordered view over placements; `GET /api/overview/container?perspective=`. **P1 core shipped 2026-07-27:** chart engine decided **Vega-Lite-primary** (revised from an initial Mermaid+Vega-Lite two-tier call — "vega-lite generates nicer graphs... use them when there is a choice"); `egeria-python`'s `vega_utilities.py` extended with line/area/scatter/funnel generators + a generic `generate_vega_chart()` escape hatch for unforeseen chart needs (commit `319b177`, 16 tests); Overview wired for 4 chart fields, **2 live-verified** (assets-by-type, feedback-by-type — dark-themed via new `renderVega()`), 2 deferred pending a pyegeria version bump on the deployed pin (growth trend, context-readiness funnel — wired defensively, degrade to `null`). **Not yet built:** Dr.Egeria `Create Container` authoring commands (separate egeria-python repo), SPA rendering from `/api/overview/container`, the `{kind,options}` render-hint generalization on `Format` itself, and drill-click parity for the new Vega bars (known gap). See "NEXT-10 P0", "NEXT-10 P2", and "NEXT-10 P1" sections below. |
 | NEXT-11 | **Port Egeria Overview dashboard to freshstart** | open — **MEDIUM** | The Overview app (`egeria-overview.html`, `overview_handler.py`, `overview_specs.py`, `gen_overview_metrics.py`, `test_overview_specs.py`, `OVERVIEW_*.md`) is currently **quickstart-only** — freshstart has no overview files at all (confirmed 2026-07-26 while shipping NEXT-10 P0). Porting means: copying/adapting the handler + SPA to freshstart's auth model (`SERVER_MANAGED_AUTH` / per-user Egeria token, not demo-persona creds — same seam already used by the shared Explorer handlers), registering the router + portal tile, and adding the Apache `<Location>` block (the exact class of bug already hit once for quickstart's own `/egeria-overview` route). Medium, not high: valuable for parity but no user has hit a gap yet, and it's independent of the NEXT-10 P1–P4 architectural work. |
 | NEXT-12 | **Consider promoting Search to a Portal-level bar** (instead of living inside The Catalog / Egeria Explorer) | open — **LOW, needs discussion** | Raised 2026-07-27 alongside the "outer Catalog frame" bug (fixed same day — see "Search: wrong outer frame for non-Catalog results" below). The frame bug is fixed independently of this; this item is the separate, bigger architecture question it prompted: `/api/catalog/search` already fans out across every element type via `ClassificationExplorer`, but it's Catalog-shaped (category vocabulary in `catalog_search_handler.py`'s `_TYPE_CATEGORY` only covers Catalog's own types — everything else, including Valid Values/Actors/Communities/Perspectives/etc., buckets to generic "Other") and is duplicated verbatim into two apps (`tech-catalog.html`'s `SearchView`, `type-explorer.html`'s `ExplorerSearchView`) rather than living once at the Portal. Worth weighing: a single Portal-level omni-search fanning out to the right app per result (reusing the cross-app deep-link/handoff patterns already built for this fix and for the Overview dashboard's drill-downs) vs. keeping per-app search but broadening the category vocabulary and de-duplicating the two near-identical view components. Low priority — no user-facing gap forcing this, just a UX/architecture cleanup opportunity. |
 
@@ -183,18 +183,75 @@ uses for FormatSets, not a new Egeria element type.
 - The frontend SPA does not yet render from `/api/overview/container` — it still
   reads its own `PERSP_KPIS` map (now guard-locked to match the registry).
   Rendering from the container endpoint is P1/P2-frontend work.
-- P1 itself (output-format generalization / chart engine) has not started.
-  Decided (§10 #2): **Mermaid** (`xychart-beta`/`pie` — already loaded portal-wide
-  as `mermaid@11`, zero new dependency, and the only one of the two with an
-  actual markdown-embeddable text syntax) for the markdown-native tier; **Vega-Lite**
-  kept for render kinds Mermaid can't express (funnel, KPI+sparkline composites,
-  real interactivity).
+- The `{kind, options}` render-hint generalization on `Format` itself, and the
+  `kpi`/`series` render kinds — see "NEXT-10 P1" below for what *has* shipped
+  on the chart-engine front (superseded the Mermaid-tier plan noted here
+  originally).
 
 To regenerate/verify (pyegeria must be importable → run in the container):
 ```
 docker exec quickstart-pyegeria-web sh -c "cd /app && python3 gen_overview_metrics.py"
 docker exec quickstart-pyegeria-web sh -c "cd /app && python3 test_overview_specs.py"
 ```
+
+---
+## NEXT-10 P1 (core) — Vega-Lite chart engine + generator library (2026-07-27) — core ✅, render-hint generalization not started
+
+Chart-engine decision **revised** from the 2026-07-26 Mermaid+Vega-Lite two-tier
+call: "vega-lite generates nicer graphs than mermaid — so we should use them
+when there is a choice" — Vega-Lite is now the default engine whenever there's
+a choice; Mermaid stays only for what it already structurally owns
+(entity/relationship diagrams, mind maps, its existing pie convention), not a
+competing tier for new dashboard chart types. Full reasoning + history:
+OVERVIEW_REPORTING_MODEL.md §5/§10 #2.
+
+- **`egeria-python` `pyegeria/view/vega_utilities.py` extended** (commit
+  `319b177`, signed, pushed to main): the existing `generate_vega_bar_chart`/
+  `generate_vega_pie_chart` are joined by `generate_vega_line_chart`/
+  `generate_vega_area_chart` (multi-series via a Vega-Lite `fold` transform
+  over wide-format records — callers don't reshape data), `generate_vega_scatter_chart`,
+  `generate_vega_funnel_chart` (ordered horizontal bars — Vega-Lite has no
+  native funnel mark), and a low-level **`generate_vega_chart(values, mark,
+  encoding, title, ...)` escape hatch** for any shape without a named
+  generator — per direction: "we don't know what kind of graphs users will
+  want — we know only what we currently need." `_is_vega_attribute` in
+  `output_formatter.py` extended to recognise the new key suffixes
+  (`LineGraph`/`AreaGraph`/`ScatterGraph`/`FunnelGraph`) as an explicit
+  allowlist, not a blanket `endswith("Graph")` check — Mermaid's own keys
+  (e.g. `organizationTreeMermaidGraph`) also end in "Graph" and would
+  otherwise be misrouted into the vega-lite fence. 16 new unit tests in
+  `tests/micro-tests/test_vega_utilities.py`.
+- **Wired into the Overview dashboard**: `overview_handler.py` now returns
+  `byTypeChart` (assets-by-type), `feedbackChart` (people feedback-by-type),
+  `growthChart` (multi-series growth trend), `funnelChart` (context-readiness
+  funnel). New `renderVega()` in `egeria-overview.html` loads `vega-embed`
+  (CDN, matching the trio `vega_utilities.py`'s own `vega_to_html()` already
+  assumes) and merges a dark-theme `config` onto every spec (Vega-Lite
+  defaults to a white background, which clashed badly with the dashboard's
+  dark theme — fixed by overriding `background`/`axis`/`legend`/`title`
+  colors client-side, only where the backend spec doesn't already set them).
+- **Live-verified (2 of 4):** `byTypeChart` and `feedbackChart` — both route
+  through the pre-existing `generate_vega_bar_chart`, already present on the
+  deployed pyegeria 6.0.17.2 (from PyPI, per `requirements.txt`'s pin).
+  Screenshotted in-browser: correctly dark-themed, values match the API.
+- **Not verifiable yet: `growthChart`/`funnelChart`.** The deployed pyegeria
+  is a PyPI release that predates today's `generate_vega_line_chart`/
+  `generate_vega_funnel_chart` additions. `overview_handler.py` imports them
+  defensively (`try/except ImportError` → `None`) so the app runs fine either
+  way — confirmed live, both endpoints return `200` with the new fields
+  `null` rather than crashing. They'll activate automatically once
+  `requirements.txt`'s `pyegeria>=` pin is bumped to a release that includes
+  them — no further dashboard code changes needed then, just a rebuild.
+- **Known gap, deliberately not closed this pass:** Vega bar charts don't
+  carry the per-bar "click to drill" affordance the `hbars()` rows they
+  replace have (Vega tooltips-on-hover partially compensate). The existing
+  growth-trend SVG (dual-axis: counts + % governed) and the funnel's
+  `.funnel-row` divs are *also* click-drillable today — deliberately left
+  wired to their old rendering rather than guessing at a replacement's
+  drill-parity design before `growthChart`/`funnelChart` can even be seen
+  live. Revisit drill-parity (likely via Vega's `view.addEventListener('click',
+  ...)` and a `drillKey` field threaded through the chart data) once a
+  pyegeria bump makes those two verifiable.
 
 ---
 ## Feature: Raw JSON debug viewer for advanced users (2026-07-22) — ✅ done
