@@ -65,17 +65,14 @@ ENV PATH="/home/${NB_USER}/.local/bin:${PATH}"
 # permission errors — e.g. `pip install --upgrade pyegeria` from a JupyterLab
 # terminal, no rebuild needed.
 USER ${NB_UID}
-RUN python -m pip install --no-cache-dir \
-	rich \
-	unitycatalog \
-	pipx \
-	textual \
-	textual-dev \
-	apache-airflow-client \
-	jupyterlab_execute_time \
-	mermaid.py \
-	plotly \
-	dash
+RUN python -m pip install --no-cache-dir --retries 10 --timeout 60 rich pipx
+RUN python -m pip install --no-cache-dir --retries 10 --timeout 60 textual textual-dev
+RUN python -m pip install --no-cache-dir --retries 10 --timeout 60 plotly dash
+RUN python -m pip install --no-cache-dir --retries 10 --timeout 60 \
+    unitycatalog \
+    apache-airflow-client \
+    jupyterlab-execute-time \
+    mermaid.py
 
 # pyegeria in its own layer. Docker caches this layer, so a plain rebuild keeps
 # the previously-installed version. To pull a fresh build, bump the cache key or
@@ -85,7 +82,7 @@ RUN python -m pip install --no-cache-dir \
 ARG PYEGERIA_VERSION=pyegeria
 ARG PYEGERIA_BUST=0
 RUN echo "pyegeria layer ${PYEGERIA_BUST}" \
-	&& python -m pip install --no-cache-dir --upgrade ${PYEGERIA_VERSION}
+	&& python -m pip install --no-cache-dir --upgrade --retries 10 --timeout 60 ${PYEGERIA_VERSION}
 
 RUN python -m pipx ensurepath \
 	&& python -m pipx install --force ${PYEGERIA_VERSION}
