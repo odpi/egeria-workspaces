@@ -10,7 +10,7 @@ email-validator
 loguru
 rich
 click
-mcp >=1.15.0
+mcp >=1.15.0,<2.0.0  # 2.0.0 renamed FastMCP -> MCPServer and moved mcp.server.fastmcp -> mcp.server.mcpserver; mcp_server.py isn't migrated yet
 
 # Demo-mode dependencies
 sqlalchemy

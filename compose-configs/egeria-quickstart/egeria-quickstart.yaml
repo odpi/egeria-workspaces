@@ -50,6 +50,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile-jupyter
+      network: host
+      extra_hosts:
+        - "files.pythonhosted.org:151.101.128.223"
+        - "pypi.org:151.101.128.223"
+        - "deb.debian.org:151.101.114.132"
     volumes:
       - ./before-notebook.d:/usr/local/bin/before-notebook.d
       - ../../work:/home/jovyan/work
@@ -113,6 +118,10 @@ services:
     build:
       context: ./PyegeriaWebHandler
       dockerfile: ./Dockerfile-fast-api
+      network: host
+      extra_hosts:
+        - "files.pythonhosted.org:151.101.128.223"
+        - "pypi.org:151.101.128.223"
     ports:
       - "8800:8000" # host 8800 -> container 8000 (moved off 8000; see BACKLOG Ports & Networking)
     networks:
@@ -182,6 +191,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile-apache-web
+      network: host
+      extra_hosts:
+        - "files.pythonhosted.org:151.101.128.223"
+        - "pypi.org:151.101.128.223"
+        - "deb.debian.org:151.101.114.132"
     container_name: quickstart-web-server
     ports:
       - "8885:8085"
@@ -216,6 +230,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile-my-egeria
+      network: host
+      extra_hosts:
+        - "files.pythonhosted.org:151.101.128.223"
+        - "pypi.org:151.101.128.223"
     networks:
       - egeria_network
     ports:
