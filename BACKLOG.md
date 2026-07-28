@@ -193,6 +193,9 @@ To regenerate/verify (pyegeria must be importable → run in the container):
 docker exec quickstart-pyegeria-web sh -c "cd /app && python3 gen_overview_metrics.py"
 docker exec quickstart-pyegeria-web sh -c "cd /app && python3 test_overview_specs.py"
 ```
+| NEXT-8 | **Overview dashboard: define "AI-ready" per AI purpose** | open — **HIGH, research/best-practices** | No universal AI-readiness (cf. Gartner AI-ready data) — needs per-purpose lenses (RAG / training / agent-tool) mapped to Egeria classifications/relationships, incorporating data scope/grain/datalens. Deliver a best-practices brief + readiness model before wiring a metric. Biggest item. Detail: OVERVIEW_NEXT_STEPS.md R-2 |
+| NEXT-9 | **Overview dashboard: ground business-value metrics** (Productivity, Trust & Adoption, Risk, Cost) | open — **HIGH** | Currently synthetic. Give each a precise definition + real source + honest "leading-indicator/proxy" framing; reword labels to what's measured; wire real data. Detail: OVERVIEW_NEXT_STEPS.md R-3 |
+| NEXT-10 | **Migrate `mcp_server.py` off the deprecated `FastMCP`/`mcp.server.fastmcp` API to `mcp`'s 2.0.0 `MCPServer`/`mcp.server.mcpserver`** | open — **HIGH** | `mcp` 2.0.0 renamed `FastMCP` -> `MCPServer` and moved `mcp.server.fastmcp` -> `mcp.server.mcpserver`. `requirements.txt` currently pinned `mcp >=1.15.0,<2.0.0` (2026-07-28) as an emergency fix after this broke `pyegeria-web` on startup (`ModuleNotFoundError`, whole portal down). Single known call site — `mcp_server.py:77` import, `:82` `server = FastMCP(...)` instantiation — but the 2.0.0 constructor/decorator/`run()` surface hasn't been audited for other breaking changes, so this needs real testing before removing the version cap. |
 
 ---
 ## NEXT-10 P1 (core) — Vega-Lite chart engine + generator library (2026-07-27) — core ✅, render-hint generalization not started

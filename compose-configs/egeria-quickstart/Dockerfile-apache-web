@@ -11,7 +11,8 @@ COPY ./sites-available/fastapi-proxy.conf /usr/local/apache2/conf/extra/fastapi-
 # Install necessary libraries for Python and Apache
 # Use HTTPS apt sources to avoid environments that block outbound HTTP.
 RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/*.sources && \
-    apt-get update && apt-get install -y --no-install-recommends \
+    apt-get -o Acquire::Retries=10 update && \
+    apt-get install -y --no-install-recommends \
     ca-certificates \
     libsqlite3-0 \
     libexpat1 \
@@ -36,8 +37,8 @@ WORKDIR /usr/local/apache2
 RUN python3 -m venv /usr/local/apache2/venv
 
 # Install pyegeria and other required Python packages in the virtual environment
-RUN /usr/local/apache2/venv/bin/pip install --upgrade pip && \
-    /usr/local/apache2/venv/bin/pip install pyegeria
+RUN /usr/local/apache2/venv/bin/pip install --no-cache-dir --retries 10 --timeout 60 --upgrade pip && \
+    /usr/local/apache2/venv/bin/pip install --no-cache-dir --retries 10 --timeout 60 pyegeria
 
 
 # Make sure the CGI scripts directory exists
