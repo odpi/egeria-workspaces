@@ -3,65 +3,258 @@
 Consolidated work list. Update status when items start or finish.  
 Status: `open` · `in-progress` · `done` · `deferred`
 ---
-## Next up (queued 2026-07-21, pick up next session)
+## Fixes (2026-07-26) — ✅ done
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| NEXT-1 | Re-verify Lineage Explorer end-to-end | done | Dan confirmed working live (2026-07-22). Note: the Chrome browser automation tool was unreliable again this session — not just misreporting network requests, `javascript_tool`'s actual `fetch()` calls returned fabricated data (e.g. claiming `demo_mode: true` when the real server, confirmed via curl and direct Python inspection, said `false`), reproduced in two separate tabs. Verification fell back to direct backend curl calls + served-file checks instead. |
-| NEXT-2 | Make "Relationships" sections foldable/collapsible everywhere | done | Fixed by making `RelationshipSection` (type-explorer.html, both envs — the single shared component backing ~30 call sites: every Detail panel's relationship groups, plus `GenericRelationshipsSection`) delegate to the existing shared `Collapsible` component (`static/egeria-shared-ui.js`) instead of a plain always-expanded `<div>`. Also fixed Tech Catalog's asset-detail "Relationships" block (`tech-catalog.html`, both envs — previously the one place with an inline, non-componentized relationships list) the same way. No other generic relationship-rendering pattern found in egeria-audit.html/egeria-operations.html/egeria-insights.html (those have their own specialized, already-tabbed relationship UIs, not this generic pattern). |
-| NEXT-3 | Move Schema section above Relationships (Tech Catalog asset detail, at least) | done | Moved the Schema/Lineage/Annotations sub-panes block above the Relationships block in `tech-catalog.html`'s asset detail (both envs) — only one such ordering existed in the file, now fixed. |
-| NEXT-4 | Large, clearly-animated fold/expand triangle, applied as a general rule across all foldable sections | done | See "Fix: Foldable section indicator" section below. |
-| NEXT-5 | Investigate: community relationships not showing up on Actor detail (Egeria Explorer) | open | See "Investigate: missing relationships on Actor detail" section below — one PersonRole confirmed a real community member, but its detail fetch shows no relationship key back to the community at all, even in the raw payload at `graph_query_depth=1`. |
-| NEXT-6 | Audit other tools/apps (Tech Catalog especially, possibly others) for the same class of missing/incomplete relationship or classification data | open | Dan asked to check The Catalog and others for the same kind of gap found on Actors (NEXT-5) and earlier this session on Tech Catalog schema classifications (AssetCatalog.get_asset_graph_by_guid not populating elementHeader.classifications on related elements) — i.e., systematically check whether other relationship/classification fetches across the app are silently truncated by fetch method or graph_query_depth choice, not just the two instances already found. |
+| FIX-1 | The Catalog — Technology Type detail showed `[object Object]` instead of the description text | done | Root cause: `TechTypeDetail` (`tech-catalog.html`, both envs) wrapped `renderMd(item.description)` in `dangerouslySetInnerHTML: { __html: ... }` — but `renderMd()` (shared `egeria-shared-ui.js`) returns a **React element**, not an HTML string (it already applies its own `dangerouslySetInnerHTML` internally). Setting `__html` to a React element object coerces it to the string `"[object Object]"` when the browser sets `innerHTML`. Every other call site (e.g. `GlossaryTermDetail`) already uses the correct pattern — `renderMd(...)` rendered directly as a child. Fixed by rendering it as a child instead of re-wrapping. Verified live against `CSV Data File`'s Technology Type detail. |
+| FIX-2 | Egeria Overview dashboard — "Back to Portal" link was broken (pointed to `/`, the FastAPI health-check JSON endpoint, not `/portal`); dashboard also had no "Share your feedback" affordance, unlike every other portal app | done | `egeria-overview.html`: fixed the header link to `/portal` (was silently landing on `{"status":"ok",...}`). Added a vanilla-JS "💬 Feedback" floating button + panel (this app has no React runtime, unlike the other SPAs) posting to the same `/api/demo-feedback` endpoint with the same field shape as the shared React `FeedbackButton` component, so entries land in the same `feedback` table/admin-review flow (FB-5..FB-9). Verified live: opens, submits, shows the thank-you state, `POST /api/demo-feedback` → 200. |
+| FIX-3 | Search (The Catalog + Egeria Explorer) — clicking a search result for a type The Catalog doesn't own (Valid Values, Actors, etc.) silently wrapped the correct detail content in **The Catalog's "Data Assets" chrome**, mislabeling every such result as Catalog content | done | Root cause: `tech-catalog.html`'s `?guid=` deep-link resolver (`App`'s element-nav effect) defaulted `sec = (nav && nav.section) \|\| 'data-assets'` whenever the resolved type wasn't in `TYPE_TO_NAV` — so any non-Catalog type landed in the Data Assets section instead of an honest "not found" state. Both search paths fed this: The Catalog's own `SearchResultCard` reload-to-`/tech-catalog?guid=` fallback for `categoryId==='other'` results, and Egeria Explorer's `ExplorerSearchView` → `↗ Catalog` fallback for types outside its own (more complete but not exhaustive) `_elementIsLinkable` allowlist. **Fix:** removed the `data-assets` default; unresolved types now show a new `UnresolvedElement` panel ("This is a ‹Type› — it isn't part of The Catalog", guid shown, "Open in Egeria Explorer ↗" + "⌂ Catalog home") instead of any Catalog section chrome. Both the guid-resolver and `SearchResultCard`'s fallback now hand off to Egeria Explorer's search tab pre-filled with the query (`/egeria-explorer?q=…#search` — added `?q=` seeding to `type-explorer.html`'s top-level `searchQuery` init, mirroring its existing `glossaryNavGuid`/`digitalProductNavGuid` deep-link pattern). Verified live end-to-end: a `ValidMetadataValue` search result now hands off correctly from both apps (Explorer search re-runs pre-filled, 46 results); a direct `?guid=` link to the same element shows the new panel; a legitimate `GlossaryTerm`/Catalog-owned guid still resolves in-app with no regression. Broader "should Search live at the Portal level instead of per-app" question captured separately as **NEXT-12** (low priority, needs discussion). |
+
+---
+## Next up (queued 2026-07-21, pick up next session)
+
+| # | Item | Status                                       | Notes |
+|---|------|----------------------------------------------|-------|
+| NEXT-1 | Re-verify Lineage Explorer end-to-end | done                                         | Dan confirmed working live (2026-07-22). Note: the Chrome browser automation tool was unreliable again this session — not just misreporting network requests, `javascript_tool`'s actual `fetch()` calls returned fabricated data (e.g. claiming `demo_mode: true` when the real server, confirmed via curl and direct Python inspection, said `false`), reproduced in two separate tabs. Verification fell back to direct backend curl calls + served-file checks instead. |
+| NEXT-2 | Make "Relationships" sections foldable/collapsible everywhere | done                                         | Fixed by making `RelationshipSection` (type-explorer.html, both envs — the single shared component backing ~30 call sites: every Detail panel's relationship groups, plus `GenericRelationshipsSection`) delegate to the existing shared `Collapsible` component (`static/egeria-shared-ui.js`) instead of a plain always-expanded `<div>`. Also fixed Tech Catalog's asset-detail "Relationships" block (`tech-catalog.html`, both envs — previously the one place with an inline, non-componentized relationships list) the same way. No other generic relationship-rendering pattern found in egeria-audit.html/egeria-operations.html/egeria-insights.html (those have their own specialized, already-tabbed relationship UIs, not this generic pattern). |
+| NEXT-3 | Move Schema section above Relationships (Tech Catalog asset detail, at least) | done                                         | Moved the Schema/Lineage/Annotations sub-panes block above the Relationships block in `tech-catalog.html`'s asset detail (both envs) — only one such ordering existed in the file, now fixed. |
+| NEXT-4 | Large, clearly-animated fold/expand triangle, applied as a general rule across all foldable sections | done                                         | See "Fix: Foldable section indicator" section below. |
+| NEXT-5 | Investigate: community relationships not showing up on Actor detail (Egeria Explorer) | done (2026-07-26) | **False alarm** — root cause was testing the wrong pyegeria method (see below). The Role detail page already shows its Community correctly; no code fix needed. See "NEXT-5 / NEXT-6" section below. |
+| NEXT-6 | Audit other tools/apps (Tech Catalog especially, possibly others) for the same class of missing/incomplete relationship or classification data | done (2026-07-26) | Systematic pass across all ~30 metadata-detail handlers found this bug class was **already closed** via the shared `common_serialize._generic_relationships`/`_classifications` helpers, adopted (directly or via a structurally-equivalent local extractor) almost everywhere. No further gaps found. See "NEXT-5 / NEXT-6" section below. |
 | NEXT-7 | **Overview dashboard: rethink "Contextualized coverage"** | open — **HIGH, needs discussion + research** | Coined term, not industry-standard; ISC/blueprint-only is an oversimplification (ignores semantic assignment, classification, lineage, ownership). Replace with specific coverages (lineage/doc/ownership) and/or a composite "context richness" score grounded in FAIR/catalog-completeness frameworks. Detail: OVERVIEW_NEXT_STEPS.md R-1 |
+| NEXT-8 | **Overview dashboard: define "AI-ready" per AI purpose** | open — **HIGH, research/best-practices**     | No universal AI-readiness (cf. Gartner AI-ready data) — needs per-purpose lenses (RAG / training / agent-tool) mapped to Egeria classifications/relationships, incorporating data scope/grain/datalens. Deliver a best-practices brief + readiness model before wiring a metric. Biggest item. Detail: OVERVIEW_NEXT_STEPS.md R-2 |
+| NEXT-9 | **Overview dashboard: ground business-value metrics** (Productivity, Trust & Adoption, Risk, Cost) | open — **HIGH**                              | Currently synthetic. Give each a precise definition + real source + honest "leading-indicator/proxy" framing; reword labels to what's measured; wire real data. Detail: OVERVIEW_NEXT_STEPS.md R-3 |
+| NEXT-10 | **Reporting/Dashboard model on ReportSpec (FormatSet)** — architectural | **P0/P2-core/P1-core done (2026-07-26/27)**; render-hint generalization + P3–P4 open | Build dashboards declaratively on pyegeria ReportSpec/FormatSet (already models what/how-computed/how-displayed/drill + `question_spec.perspectives`). 5-layer model (attribute→spec→container→dashboard→store); new Container/placement Dr.Egeria commands (nestable/reusable); generalize output_formats (kpi/series/funnel, backward-compat); perspective = scoped lens; endgame = Egeria `GovernanceMetric`/Perspective/Question metadata; enables user/project/org-authored dashboards. Incremental P0–P4 — full phase descriptions are in **OVERVIEW_REPORTING_MODEL.md §9 "Incremental roadmap"**. Full design + 5 resolved open decisions: **OVERVIEW_REPORTING_MODEL.md §10**. **P0 shipped:** `overview_specs.py` (11 KPI tiles as real `FormatSet` objects = single source of truth), `GET /api/overview/specs`, `gen_overview_metrics.py`, `test_overview_specs.py` (drift guard, 274 checks incl. P2). **P2 core shipped:** `overview_containers.py` — pyegeria-local `Container`/`Placement` model; Overview dashboard rebuilt as one `Container`; perspective is a real filtered/reordered view over placements; `GET /api/overview/container?perspective=`. **P1 core shipped 2026-07-27:** chart engine decided **Vega-Lite-primary** (revised from an initial Mermaid+Vega-Lite two-tier call — "vega-lite generates nicer graphs... use them when there is a choice"); `egeria-python`'s `vega_utilities.py` extended with line/area/scatter/funnel generators + a generic `generate_vega_chart()` escape hatch for unforeseen chart needs (commit `319b177`, 16 tests); Overview wired for 4 chart fields, **2 live-verified** (assets-by-type, feedback-by-type — dark-themed via new `renderVega()`), 2 deferred pending a pyegeria version bump on the deployed pin (growth trend, context-readiness funnel — wired defensively, degrade to `null`). **Not yet built:** Dr.Egeria `Create Container` authoring commands (separate egeria-python repo), SPA rendering from `/api/overview/container`, the `{kind,options}` render-hint generalization on `Format` itself, and drill-click parity for the new Vega bars (known gap). See "NEXT-10 P0", "NEXT-10 P2", and "NEXT-10 P1" sections below. |
+| NEXT-11 | **Port Egeria Overview dashboard to freshstart** | open — **MEDIUM** | The Overview app (`egeria-overview.html`, `overview_handler.py`, `overview_specs.py`, `gen_overview_metrics.py`, `test_overview_specs.py`, `OVERVIEW_*.md`) is currently **quickstart-only** — freshstart has no overview files at all (confirmed 2026-07-26 while shipping NEXT-10 P0). Porting means: copying/adapting the handler + SPA to freshstart's auth model (`SERVER_MANAGED_AUTH` / per-user Egeria token, not demo-persona creds — same seam already used by the shared Explorer handlers), registering the router + portal tile, and adding the Apache `<Location>` block (the exact class of bug already hit once for quickstart's own `/egeria-overview` route). Medium, not high: valuable for parity but no user has hit a gap yet, and it's independent of the NEXT-10 P1–P4 architectural work. |
+| NEXT-12 | **Consider promoting Search to a Portal-level bar** (instead of living inside The Catalog / Egeria Explorer) | open — **LOW, needs discussion** | Raised 2026-07-27 alongside the "outer Catalog frame" bug (fixed same day — see "Search: wrong outer frame for non-Catalog results" below). The frame bug is fixed independently of this; this item is the separate, bigger architecture question it prompted: `/api/catalog/search` already fans out across every element type via `ClassificationExplorer`, but it's Catalog-shaped (category vocabulary in `catalog_search_handler.py`'s `_TYPE_CATEGORY` only covers Catalog's own types — everything else, including Valid Values/Actors/Communities/Perspectives/etc., buckets to generic "Other") and is duplicated verbatim into two apps (`tech-catalog.html`'s `SearchView`, `type-explorer.html`'s `ExplorerSearchView`) rather than living once at the Portal. Worth weighing: a single Portal-level omni-search fanning out to the right app per result (reusing the cross-app deep-link/handoff patterns already built for this fix and for the Overview dashboard's drill-downs) vs. keeping per-app search but broadening the category vocabulary and de-duplicating the two near-identical view components. Low priority — no user-facing gap forcing this, just a UX/architecture cleanup opportunity. |
+
+---
+## NEXT-5 / NEXT-6 — Actor community relationships + systematic audit (2026-07-22 → 2026-07-26) — ✅ done
+
+**Original report:** community relationships weren't showing up on Actor
+detail; Dan asked for the same class of gap (relationships/classifications
+silently missing because of which pyegeria call/depth a screen happens to
+use) to be audited across other tools too, not just fixed one-off.
+
+**NEXT-5 resolution — false alarm, root-caused 2026-07-26.** The original
+investigation concluded PersonRole `ac694a80-c063-44cd-bd65-abc87cab646e`
+("Community Member of Data Science special interest group") had *no*
+relationship key pointing back to its community, "even in the raw payload."
+That check used `/api/debug/raw/{guid}`, which defaults to
+`MetadataExpert.get_metadata_element_by_guid` — and per **PY-17** (confirmed
+"working as designed," not a bug), that specific method never returns
+relationships at *any* `graph_query_depth`. The investigation was
+inadvertently testing the wrong pyegeria method, not the one the app
+actually uses.
+
+The real app code path — `ActorManager.get_actor_role_by_guid(guid,
+graph_query_depth=1)`, called from `actor_handler.py`'s own
+`GET /api/actors/roles/{guid}` — **already returns the community correctly**,
+via the role's `assignmentScope` relationship. Confirmed live two ways:
+- API: `relationships.assignmentScope[0]` = `{typeName: "Community",
+  displayName: "Data Science special interest group", ...}`.
+- UI: the Role detail page's mermaid diagram shows a `Contributor
+  [Assignment Scope]` edge straight to the Community node, and the page
+  needs no code change — `_serialize_actor_element`'s generic
+  relationship-section logic already surfaces it.
+
+No fix was needed. (Separately, `actor_handler.py` already has a real,
+deliberate enrichment — `_enrich_person_communities` — for the *Person's own*
+detail page, which needs a second hop since `assignmentScope` sits on the
+Role, not directly on the Person; that one **was** a genuine gap and was
+already fixed earlier this session.)
+
+**NEXT-6 audit — systematic pass across all handlers, 2026-07-26.** Result:
+**this bug class was already systematically closed**, earlier in the
+project, via a shared `common_serialize.py` module:
+- `_generic_relationships(element, skip=...)` — groups every top-level
+  relationship-shaped key (list-of-dicts or single dict, `RelatedMetadataElementSummary`-shaped)
+  into relationship sections, replacing hand-picked key lists that silently
+  drop anything not explicitly named. (`business_capability_handler.py`'s own
+  docstring cites this exact problem and a regression test:
+  `test_business_capability_dependency_relationship_key`.)
+- `_classifications(element)` / `_classifications_from_metadata_expert(element)`
+  — the same dual-shape classification extraction as
+  `tech_catalog_handler.py`'s original fix, centralized so every handler gets
+  it free.
+- Adopted by 21 of ~30 metadata-detail handlers directly; `actor_handler.py`,
+  `community_handler.py`, `context_events_handler.py`,
+  `digital_products_handler.py` (+ `agreements_handler.py`/
+  `collections_handler.py`, which reuse its `_extract_all_rels`),
+  `perspectives_handler.py`, and `glossary_handler.py` each carry a local,
+  structurally-equivalent generic extractor (glossary's also has a dedicated
+  `_group_related_terms` for term-to-term semantics, plus a generic
+  `_extract_extra_rels` catch-all for anything else).
+- Checked every collection/project/solution-architect/digital-product **tree**
+  endpoint (the other bug shape — classifications missing on *traversed*
+  nodes, per the original Tech Catalog schema fix): all delegate to
+  serializers that already call `_classifications`/`_extract_classifications`,
+  so tree nodes aren't missing them either. `lineage_handler.py` also calls
+  `AssetCatalog.get_asset_graph_by_guid` (the method with the known
+  classification gap) but never attempts to surface node classifications at
+  all, so there's nothing to silently drop there.
+- No other genuine instance of this bug class found.
+
+**Conclusion:** no further code changes required for either item. Worth
+remembering for *future* handlers: use `common_serialize._generic_relationships`/
+`_classifications` from the start rather than hand-picking keys, and don't
+trust `/api/debug/raw/{guid}` (or any `MetadataExpert.get_metadata_element_by_guid`
+call) as evidence that a relationship doesn't exist — see PY-17.
+
+---
+## NEXT-10 P0 — Reporting/dashboard model, first slice (2026-07-26) — ✅ done
+
+First incremental slice of the ReportSpec/FormatSet dashboard model
+(`OVERVIEW_REPORTING_MODEL.md`). P0's goal: make the dashboard's KPI tiles a
+single declarative source of truth instead of ~6 hand-synced places
+(`overview_handler.py` compute, the frontend `METRICS`/`DRILL`/`PERSP_KPIS`
+maps + `apply*`, the provenance badges, and `OVERVIEW_METRICS.md`). Shipped:
+
+- **`overview_specs.py`** — the registry: all 11 KPI tiles built as **real
+  pyegeria `FormatSet` objects** (imported from `pyegeria.view._output_format_models`,
+  the shape the deployed container uses). Each tile carries: `heading`/`description`
+  (what), `target_type` (the OM type), `action: ActionParameter` (how it's
+  computed — the P3 report-runner hook), a `Format(types=["kpi"])` with an
+  `Attribute` naming the backend payload field (`key`) + the drill target
+  (`detail_spec`), `question_spec.perspectives` (who it's for — the inverse of
+  `PERSP_KPIS`) + example questions, and dashboard extensions in `annotations`
+  (`render_kind`, `provenance`, `endpoint`, `icon`, `color`, `series`, `unit`).
+  Render-kind/provenance live in `annotations` deliberately — generalizing
+  `Format` itself is P1 + upstream, per the design doc §5/§10. `PERSP_KPIS` is
+  defined here as the source of truth; `perspectives_for()` inverts it.
+- **`GET /api/overview/specs`** (in `overview_handler.py`) — serves the registry
+  (ordered tiles + `perspectiveKpis` + per-tile `FormatSet.dict()`). Static, no
+  Egeria call, no creds. Verified live (HTTP 200, 11 tiles).
+- **`gen_overview_metrics.py`** — generates the "KPI tile registry" block of
+  `OVERVIEW_METRICS.md` from the registry (marker-delimited so the surrounding
+  curated prose is untouched). `--check` mode for CI/tests; `--stdout` to preview.
+- **`test_overview_specs.py`** — the drift guard (242 checks at P0; 274 after P2):
+  registry internals (render-kind, provenance/endpoint vocab, non-empty value key
+  + drill target, drill target exists in the frontend `DRILL` map), agreement
+  with the frontend `METRICS` map (label/icon/color/drill/series) and
+  `PERSP_KPIS` (exact), `perspectives_for()` inversion, and that the generated
+  doc block is current. **Proven non-vacuous** — injecting a drift makes it fail.
+
+Scope notes: overview app is **quickstart-only** (freshstart has no overview
+files — see NEXT-11), so no both-envs duplication. Frontend still holds its own
+tile maps — now guard-locked to the registry; having the SPA render *from*
+`/api/overview/specs` is P1. The 5 open decisions were resolved 2026-07-26 (see
+OVERVIEW_REPORTING_MODEL.md §10) — see "NEXT-10 P2" below for what that unlocked.
+
+## NEXT-10 P2 (core) — Container model + perspective as a real lens (2026-07-26) — core ✅, authoring commands not started
+
+Ahead of P1 in the roadmap table, because the user approved "worth trying" and it
+builds directly on P0 without needing the chart-engine decision first. Storage
+decision (open decision #4) resolved as **pyegeria-local, not Egeria metadata**
+("continue with current local approach pyegeria already takes... will be a few
+weeks" before any Egeria-native storage move) — so the Container model below is a
+Pydantic model + Python definitions, the same pattern `overview_specs.py` already
+uses for FormatSets, not a new Egeria element type.
+
+- **`overview_containers.py`** — `Container` (name/heading/description/ordered
+  `Placement` list) + `Placement` (`ref` → a tile key in `overview_specs.SPECS` or
+  another Container's name, `span`, `emphasis`). `OVERVIEW_CONTAINER` expresses
+  the current Overview dashboard as one Container, placement order matching
+  `overview_specs.TILE_ORDER`. `resolve()` joins placements with their target's
+  display facts (icon/color/value field/endpoint/detail_spec/series/unit/
+  provenance) without callers needing to know FormatSet's internal shape.
+- **Perspective as a real lens (§6), not a second hardcoded list:**
+  `view_for_perspective(container, persp)` filters placements by each tile's own
+  `question_spec.perspectives` (the same data `perspectives_for()` already
+  exposes from P0) and orders by `overview_specs.PERSP_KPIS[persp]` — verified to
+  match `PERSP_KPIS` exactly, order included, for all 8 perspectives.
+- **`GET /api/overview/container?name=&perspective=`** (in `overview_handler.py`)
+  — serves a resolved (optionally perspective-filtered) container. Static, no
+  Egeria call, no creds. Verified live: unfiltered (11 placements, TILE_ORDER
+  order) and per-perspective (e.g. `?perspective=owner` → `products, governed,
+  certs, exceptions, people, grounding`, matching `PERSP_KPIS.owner`); 404 for an
+  unknown container name.
+- **`test_overview_specs.py`** extended (+32 checks, 242→274): container
+  placement order == `TILE_ORDER`, every placement resolves to `kind="tile"`
+  with a heading matching its FormatSet, and all 8 perspective views match
+  `PERSP_KPIS` exactly.
+
+**Not built (separate, larger increments):**
+- Dr.Egeria `Create Container` / placement-authoring markdown commands (§4.3) —
+  this is authoring-pipeline work in the egeria-python `md_processing` repo
+  (new `DrECommand` type, a processor, dispatcher registration), a distinct
+  effort from the container *model* shipped here.
+- The frontend SPA does not yet render from `/api/overview/container` — it still
+  reads its own `PERSP_KPIS` map (now guard-locked to match the registry).
+  Rendering from the container endpoint is P1/P2-frontend work.
+- The `{kind, options}` render-hint generalization on `Format` itself, and the
+  `kpi`/`series` render kinds — see "NEXT-10 P1" below for what *has* shipped
+  on the chart-engine front (superseded the Mermaid-tier plan noted here
+  originally).
+
+To regenerate/verify (pyegeria must be importable → run in the container):
+```
+docker exec quickstart-pyegeria-web sh -c "cd /app && python3 gen_overview_metrics.py"
+docker exec quickstart-pyegeria-web sh -c "cd /app && python3 test_overview_specs.py"
+```
 | NEXT-8 | **Overview dashboard: define "AI-ready" per AI purpose** | open — **HIGH, research/best-practices** | No universal AI-readiness (cf. Gartner AI-ready data) — needs per-purpose lenses (RAG / training / agent-tool) mapped to Egeria classifications/relationships, incorporating data scope/grain/datalens. Deliver a best-practices brief + readiness model before wiring a metric. Biggest item. Detail: OVERVIEW_NEXT_STEPS.md R-2 |
 | NEXT-9 | **Overview dashboard: ground business-value metrics** (Productivity, Trust & Adoption, Risk, Cost) | open — **HIGH** | Currently synthetic. Give each a precise definition + real source + honest "leading-indicator/proxy" framing; reword labels to what's measured; wire real data. Detail: OVERVIEW_NEXT_STEPS.md R-3 |
 | NEXT-10 | **Migrate `mcp_server.py` off the deprecated `FastMCP`/`mcp.server.fastmcp` API to `mcp`'s 2.0.0 `MCPServer`/`mcp.server.mcpserver`** | open — **HIGH** | `mcp` 2.0.0 renamed `FastMCP` -> `MCPServer` and moved `mcp.server.fastmcp` -> `mcp.server.mcpserver`. `requirements.txt` currently pinned `mcp >=1.15.0,<2.0.0` (2026-07-28) as an emergency fix after this broke `pyegeria-web` on startup (`ModuleNotFoundError`, whole portal down). Single known call site — `mcp_server.py:77` import, `:82` `server = FastMCP(...)` instantiation — but the 2.0.0 constructor/decorator/`run()` surface hasn't been audited for other breaking changes, so this needs real testing before removing the version cap. |
 
 ---
-## Investigate: missing relationships on Actor detail, and elsewhere (2026-07-22) — 🔍 open
+## NEXT-10 P1 (core) — Vega-Lite chart engine + generator library (2026-07-27) — core ✅, render-hint generalization not started
 
-Dan asked why community relationships don't show up for actors. Investigation
-so far:
+Chart-engine decision **revised** from the 2026-07-26 Mermaid+Vega-Lite two-tier
+call: "vega-lite generates nicer graphs than mermaid — so we should use them
+when there is a choice" — Vega-Lite is now the default engine whenever there's
+a choice; Mermaid stays only for what it already structurally owns
+(entity/relationship diagrams, mind maps, its existing pie convention), not a
+competing tier for new dashboard chart types. Full reasoning + history:
+OVERVIEW_REPORTING_MODEL.md §5/§10 #2.
 
-- Found a real example: community "Data Science special interest group"
-  (`8d990e4a-8bd1-4c27-88eb-81f1e7eb875d`) lists `assignedActors` including
-  PersonRole `ac694a80-c063-44cd-bd65-abc87cab646e`, whose own `displayName`
-  is literally "Community Member of Data Science special interest group" —
-  unambiguous confirmation this is a real membership link, not demo-data
-  noise.
-- That PersonRole's own detail fetch (`/api/actors/roles/{guid}`, which calls
-  `mgr.get_actor_role_by_guid(guid, graph_query_depth=1)`) only returns
-  `rolePerformers` and `assignmentScope` relationship keys — no key pointing
-  back to the community.
-- Checked the *raw* Egeria payload directly (`/api/debug/raw/{guid}`, which
-  defaults to `MetadataExpert.get_metadata_element_by_guid(graph_query_depth=1)`)
-  for the same guid: top-level keys are just
-  `headerVersion/status/type/origin/versions/elementGUID/classifications/elementProperties`
-  — no relationship-shaped key at all at this depth via this method.
-- `actor_handler.py`'s serializer (`_serialize_actor_element`) is already
-  fully generic — any top-level list of `relatedElement`-shaped entries
-  becomes a relationship section automatically (see `_authored_fields`-style
-  centralization elsewhere this session) — so this isn't a serialization bug,
-  it's that the specific fetch call for actor roles doesn't request/return
-  the community-membership relationship at all at the depth/method used.
-
-**Next steps:** find the actual Egeria relationship type name for
-community-to-member links (likely something in the `CommunityMembership`
-family), and check whether a higher `graph_query_depth`, a different pyegeria
-method, or an explicit relationship-type filter on the actor-role fetch
-surfaces it. This is the same *shape* of gap as the Tech Catalog schema
-classifications fix earlier this session (`AssetCatalog.get_asset_graph_by_guid`
-silently not populating `elementHeader.classifications` on related elements,
-even though the top-level asset fetch for the same guid did) — a fetch-method/
-depth choice quietly truncating data, not a rendering bug.
-
-**Broader ask (NEXT-6):** Dan wants other tools — The Catalog especially,
-possibly others (Egeria Audit, Operations, Insights) — checked for the same
-class of issue: relationships or classifications that exist in Egeria but
-are silently missing from a specific screen because of which pyegeria call/
-depth that screen happens to use. Worth a systematic pass rather than
-one-off fixes as each gets reported.
+- **`egeria-python` `pyegeria/view/vega_utilities.py` extended** (commit
+  `319b177`, signed, pushed to main): the existing `generate_vega_bar_chart`/
+  `generate_vega_pie_chart` are joined by `generate_vega_line_chart`/
+  `generate_vega_area_chart` (multi-series via a Vega-Lite `fold` transform
+  over wide-format records — callers don't reshape data), `generate_vega_scatter_chart`,
+  `generate_vega_funnel_chart` (ordered horizontal bars — Vega-Lite has no
+  native funnel mark), and a low-level **`generate_vega_chart(values, mark,
+  encoding, title, ...)` escape hatch** for any shape without a named
+  generator — per direction: "we don't know what kind of graphs users will
+  want — we know only what we currently need." `_is_vega_attribute` in
+  `output_formatter.py` extended to recognise the new key suffixes
+  (`LineGraph`/`AreaGraph`/`ScatterGraph`/`FunnelGraph`) as an explicit
+  allowlist, not a blanket `endswith("Graph")` check — Mermaid's own keys
+  (e.g. `organizationTreeMermaidGraph`) also end in "Graph" and would
+  otherwise be misrouted into the vega-lite fence. 16 new unit tests in
+  `tests/micro-tests/test_vega_utilities.py`.
+- **Wired into the Overview dashboard**: `overview_handler.py` now returns
+  `byTypeChart` (assets-by-type), `feedbackChart` (people feedback-by-type),
+  `growthChart` (multi-series growth trend), `funnelChart` (context-readiness
+  funnel). New `renderVega()` in `egeria-overview.html` loads `vega-embed`
+  (CDN, matching the trio `vega_utilities.py`'s own `vega_to_html()` already
+  assumes) and merges a dark-theme `config` onto every spec (Vega-Lite
+  defaults to a white background, which clashed badly with the dashboard's
+  dark theme — fixed by overriding `background`/`axis`/`legend`/`title`
+  colors client-side, only where the backend spec doesn't already set them).
+- **Live-verified (2 of 4):** `byTypeChart` and `feedbackChart` — both route
+  through the pre-existing `generate_vega_bar_chart`, already present on the
+  deployed pyegeria 6.0.17.2 (from PyPI, per `requirements.txt`'s pin).
+  Screenshotted in-browser: correctly dark-themed, values match the API.
+- **Not verifiable yet: `growthChart`/`funnelChart`.** The deployed pyegeria
+  is a PyPI release that predates today's `generate_vega_line_chart`/
+  `generate_vega_funnel_chart` additions. `overview_handler.py` imports them
+  defensively (`try/except ImportError` → `None`) so the app runs fine either
+  way — confirmed live, both endpoints return `200` with the new fields
+  `null` rather than crashing. They'll activate automatically once
+  `requirements.txt`'s `pyegeria>=` pin is bumped to a release that includes
+  them — no further dashboard code changes needed then, just a rebuild.
+- **Known gap, deliberately not closed this pass:** Vega bar charts don't
+  carry the per-bar "click to drill" affordance the `hbars()` rows they
+  replace have (Vega tooltips-on-hover partially compensate). The existing
+  growth-trend SVG (dual-axis: counts + % governed) and the funnel's
+  `.funnel-row` divs are *also* click-drillable today — deliberately left
+  wired to their old rendering rather than guessing at a replacement's
+  drill-parity design before `growthChart`/`funnelChart` can even be seen
+  live. Revisit drill-parity (likely via Vega's `view.addEventListener('click',
+  ...)` and a `drillKey` field threaded through the chart data) once a
+  pyegeria bump makes those two verifiable.
 
 ---
 ## Feature: Raw JSON debug viewer for advanced users (2026-07-22) — ✅ done
@@ -650,7 +843,7 @@ Jupyter runs on the host.
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| INFRA-1 | Egeria metadata-store leaks PostgreSQL connections over time | in-progress | The `qs-metadata-store` Postgres repository connector ("PostgreSQL JDBC Driver") accumulates `idle` and `idle in transaction` sessions on the shared `egeria` DB (port 5442) until the 1000-slot pool is exhausted → all metadata queries 500 with `POSTGRES-REPOSITORY-CONNECTOR-500-001 … FATAL: remaining connection slots are reserved for roles with the SUPERUSER attribute`. First hit 2026-06-23: 994/1000 used (833 idle + 161 idle-in-transaction stuck **20+ hrs** on `classification_attribute_value`). Surfaced as Operations-page 500s. **Stopgap:** `docker restart quickstart-egeria-main` (drops to 0; view servers auto-restart ~10s later). **Safety net (done 2026-06-23):** `idle_in_transaction_session_timeout=1800000` (30 min) added to `shared-infra.yaml` postgres `command:`; leaked idle-in-transaction sessions now self-reap rather than accumulating indefinitely. Takes effect on next `docker compose up` of shared-infra. **Still open:** investigate Egeria Postgres connector pool config (max pool size / session release on the connector side) to prevent accumulation in the first place. Watch `idle in transaction` count as the leading indicator (`SELECT state,count(*) FROM pg_stat_activity WHERE usename='egeria_user' GROUP BY state;`). |
+| INFRA-1 | Egeria metadata-store leaks PostgreSQL connections over time | in-progress | The `qs-metadata-store` Postgres repository connector ("PostgreSQL JDBC Driver") accumulates `idle` and `idle in transaction` sessions on the shared `egeria` DB (port 5442) until the 1000-slot pool is exhausted → all metadata queries 500 with `POSTGRES-REPOSITORY-CONNECTOR-500-001 … FATAL: remaining connection slots are reserved for roles with the SUPERUSER attribute`. First hit 2026-06-23: 994/1000 used (833 idle + 161 idle-in-transaction stuck **20+ hrs** on `classification_attribute_value`). Surfaced as Operations-page 500s. **Stopgap:** `docker restart quickstart-egeria-main` (drops to 0; view servers auto-restart ~10s later). **Safety net (done 2026-06-23):** `idle_in_transaction_session_timeout=1800000` (30 min) added to `shared-infra.yaml` postgres `command:`; leaked idle-in-transaction sessions now self-reap rather than accumulating indefinitely. Takes effect on next `docker compose up` of shared-infra. **Still open:** investigate Egeria Postgres connector pool config (max pool size / session release on the connector side) to prevent accumulation in the first place. Watch `idle in transaction` count as the leading indicator (`SELECT state,count(*) FROM pg_stat_activity WHERE usename='egeria_user' GROUP BY state;`). **Recurred 2026-07-26:** the 30-min timeout is reaping the sessions (no pool exhaustion this time), but the underlying leak is still live — `docker logs egeria-shared-postgres` showed repeated `FATAL: terminating connection due to idle-in-transaction timeout` batches (several/minute) throughout the session, and Tech Catalog's `/tech-types/hierarchy` and `/tech-types/{qn}` endpoints intermittently 500'd (`POSTGRES-REPOSITORY-CONNECTOR-500-001`) until a retry succeeded. Safety net is working as designed; the root-cause investigation is still open. |
 
 ---
 
@@ -806,7 +999,7 @@ underlying relationship, so they show flat. **Re-verify once the data is seeded.
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| RS-1 | Building / editing Report Specs from the UI | open | Large feature; spec TBD — form-driven composition of report specs |
+| RS-1 | Building / editing Report Specs from the UI | open | Large feature; spec TBD — form-driven composition of report specs. Overlaps significantly with **NEXT-10**'s ReportSpec/FormatSet dashboard-container model (`OVERVIEW_REPORTING_MODEL.md`) — a UI for authoring report specs is a natural extension of that same architecture (§7 "user-authored dashboards"). Worth deciding together rather than independently once NEXT-10's open decisions are resolved. |
 | RS-2 | Subscribe to a Digital Product | open | Exploratory — notification or watch mechanism when product changes |
 | RS-3 | Filter Report Specs list by Perspective and/or Question | **done** | Perspective dropdown + name/description/question search implemented in `ReportSpecView`; perspectives derived client-side from `question_spec[].perspectives` |
 
@@ -822,7 +1015,7 @@ Spec: `demo_plan.md`
 | QS-2 | Portal — prompt users to star egeria / egeria-workspaces / egeria-python repos | open | Best-practice UX for this TBD |
 | QS-3 | Persona picker page — link to Coco Pharmaceuticals overview | done | Already in persona picker modal and nav bar in `demo-portal.html` |
 | QS-4 | Reset scheduler (APScheduler) + Reset Now admin control | open | Coco archive load ≈ 5 min; pre-notify users 30 min before |
-| QS-5 | Usage analytics + event logging (registrations, logins, tab views, persona selections) | open | `events` table in `demo` schema in Postgres |
+| QS-5 | Usage analytics + event logging (registrations, logins, tab views, persona selections) | open | Schema groundwork already exists — `Event` model / `events` table in the `demo` Postgres schema (`demo_db.py`, migrated on startup) — but nothing currently constructs/writes an `Event(...)` row anywhere in the handlers; the table is unpopulated. Remaining work is the actual instrumentation calls, not the storage. |
 | QS-6 | Obsidian integration in demo environment | open | Exploratory — Egeria already has Obsidian integration |
 | QS-7 | Guided tour Level 1 (Intro.js via CDN) | deferred | After core demo is stable |
 

@@ -22,6 +22,46 @@ Client factories build tokened `pyegeria` clients per request.
 
 ---
 
+## KPI tile registry (generated)
+
+<!-- BEGIN GENERATED: overview-kpi-catalog -->
+
+The Overview dashboard's KPI tiles are defined once in `overview_specs.py` as FormatSet-shaped specs (NEXT-10 P0) and served at `/api/overview/specs`. This table — provenance, drill targets, and the per-perspective selection — is generated from that registry, the single source of truth.
+
+| Tile | Metric | Prov. | Type | Source (endpoint → field) | Render | Drill → | Perspectives |
+|---|---|---|---|---|---|---|---|
+| `assets` | Cataloged Assets | 🟢 live | — | summary → `assetTotal` | kpi | `assets` | governance, steward, engineer, builder, privacy, community |
+| `terms` | Glossary Terms | 🟢 live | GlossaryTerm | summary → `termCount` | kpi | `grounding` | governance, steward, consumer, community |
+| `governed` | Governed Coverage | 🟢 live | — | summary → `governedCount` | kpi | `governed` | governance, steward, owner, engineer, builder, privacy, community |
+| `certs` | Active Certifications | 🟢 live | — | summary → `certifications` | kpi | `certs` | governance, steward, owner, privacy |
+| `products` | Data Products | 🟢 live | DigitalProduct | summary → `dataProducts` | kpi | `products` | governance, owner, consumer, builder, privacy, community |
+| `exceptions` | Open Exceptions | 🟢 live | — | summary → `openExceptions` | kpi | `exceptions` | governance, steward, owner, engineer, privacy |
+| `people` | People / Contributors | 🟢 live | Person | people → `activeContributors` | kpi | `people` | owner, consumer, community |
+| `communities` | Active Communities | 🟢 live | Community | people → `communities` | kpi | `people` | community |
+| `isc` | Supply Chains | 🟢 live | InformationSupplyChain | usage-context → `informationSupplyChains` | kpi | `isc` | consumer, engineer, builder |
+| `blueprints` | Solution Blueprints | 🟢 live | SolutionBlueprint | usage-context → `blueprints` | kpi | `blueprints` | consumer, engineer, builder |
+| `grounding` | Semantic Grounding | 🟢 live | — | ai-context → `groundingPct` | kpi | `grounding` | steward, owner, consumer, engineer, builder, privacy |
+
+**Compute** (each spec's `action` — the how-it's-computed / P3 report-runner hook):
+
+- `assets` — `overview.sum_type_counts(types=['DataStore', 'DataSet', 'DeployedSoftwareComponent', 'ITInfrastructure', 'DeployedAPI', 'Process', 'DataFeed'])`
+- `terms` — `MetadataExpert.count_metadata_elements(type_name=GlossaryTerm)`
+- `governed` — `MetadataExpert.find_metadata_elements(matchClassifications=['ZoneMembership', 'Confidentiality', 'Criticality', 'Impact', 'Retention'], matchCriteria=ANY)`
+- `certs` — `ClassificationExplorer.get_relationships(relationship_type=Certification)`
+- `products` — `MetadataExpert.count_metadata_elements(type_name=DigitalProduct)`
+- `exceptions` — `ClassificationExplorer.get_relationships(relationship_type=Exception)`
+- `people` — `MetadataExpert.count_metadata_elements(type_name=Person)`
+- `communities` — `MetadataExpert.count_metadata_elements(type_name=Community)`
+- `isc` — `MetadataExpert.count_metadata_elements(type_name=InformationSupplyChain)`
+- `blueprints` — `MetadataExpert.count_metadata_elements(type_name=SolutionBlueprint)`
+- `grounding` — `ClassificationExplorer.get_relationships(relationship_type=SemanticAssignment, as=percent_of_assets)`
+
+**Provenance tally:** 11 live · 0 mixed · 0 illustrative.
+
+<!-- END GENERATED: overview-kpi-catalog -->
+
+---
+
 ## How counts are computed (important)
 
 Counts flow through a **count seam** (`_element_count` / `_rel_count` in

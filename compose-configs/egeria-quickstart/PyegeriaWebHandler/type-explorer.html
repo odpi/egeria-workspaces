@@ -10035,7 +10035,14 @@ function App() {
       'data-design','perspectives','dr-egeria','isc','locations','actors','communities','business-capabilities','notelogs','governance','naming-vocabulary','policy-enforcement','action-center','duplicate-review','projects','informal-tags','context-events','external-references','external-identifiers','agreements','search']);
     return valid.has(hash) ? hash : 'splash';
   });
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(function() {
+    // Cold deep-link e.g. /egeria-explorer?q=X#search (used by The Catalog's
+    // handoff for element types it doesn't own) — seed the search box so the
+    // query runs immediately instead of landing on a blank search tab.
+    var hash = window.location.hash.slice(1).split('?')[0];
+    var p = new URLSearchParams(window.location.search);
+    return hash === 'search' ? (p.get('q') || '') : '';
+  });
   const [glossaryNavGuid, setGlossaryNavGuid] = useState(function() {
     var hash = window.location.hash.slice(1).split('?')[0];
     var p = new URLSearchParams(window.location.search);

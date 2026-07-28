@@ -218,12 +218,36 @@
 
   text { font-family:system-ui,sans-serif; }
   @media (max-width:1100px){ .kpis{grid-template-columns:repeat(3,1fr);} .g-2,.g-12{grid-template-columns:1fr;} .g-3{grid-template-columns:1fr;} }
+
+  /* feedback (matches the "Share your feedback" floating widget on other portal apps) */
+  .fb-btn { position:fixed; bottom:20px; right:20px; z-index:900; background:var(--accent); color:#fff; border:none;
+    border-radius:20px; padding:7px 15px; font-size:12px; font-weight:600; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.3);
+    letter-spacing:.02em; font-family:inherit; }
+  .fb-ovl { position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,.45); display:none; align-items:flex-end; justify-content:flex-end; padding:24px; }
+  .fb-ovl.open { display:flex; }
+  .fb-panel { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:22px 26px; width:340px; box-shadow:0 8px 32px rgba(0,0,0,.3); }
+  .fb-panel h4 { font-size:14px; font-weight:700; margin-bottom:4px; }
+  .fb-page { font-size:11px; color:var(--muted); margin-bottom:12px; }
+  .fb-page code { color:var(--text); font-family:ui-monospace,monospace; font-size:10px; }
+  .fb-stars { display:flex; gap:3px; margin-bottom:10px; }
+  .fb-stars span { font-size:26px; cursor:pointer; color:var(--muted); line-height:1; }
+  .fb-stars span.on { color:#f59e0b; }
+  .fb-inp { width:100%; box-sizing:border-box; background:var(--bg); border:1px solid var(--border); border-radius:6px;
+    padding:7px 9px; color:var(--text); font-size:12px; font-family:inherit; outline:none; margin-bottom:8px; }
+  textarea.fb-inp { resize:vertical; }
+  .fb-chk { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); margin-bottom:6px; }
+  .fb-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; }
+  .fb-actions button { padding:6px 14px; border-radius:6px; font-size:12px; cursor:pointer; font-family:inherit; }
+  .fb-cancel { border:1px solid var(--border); background:transparent; color:var(--text); }
+  .fb-send { border:none; background:var(--accent); color:#fff; font-weight:600; }
+  .fb-send:disabled { opacity:.45; cursor:default; }
+  .fb-thanks { text-align:center; padding:16px 0; color:var(--accent); font-size:15px; font-weight:600; }
 </style>
 </head>
 <body>
 
 <div class="hdr">
-  <a href="/" class="btn" style="padding:5px 10px" title="Back to Portal">←</a>
+  <a href="/portal" class="btn" style="padding:5px 10px" title="Back to Portal">← Portal</a>
   <span class="logo">📊</span>
   <div>
     <div class="hdr-title">Egeria Overview</div>
@@ -680,8 +704,125 @@
   <div class="db" id="d-body"></div>
 </aside>
 
+<!-- ── FEEDBACK ── -->
+<button class="fb-btn" id="fb-open" title="Share your feedback">💬 Feedback</button>
+<div class="fb-ovl" id="fb-ovl">
+  <div class="fb-panel">
+    <div id="fb-form">
+      <h4>Share your feedback</h4>
+      <div class="fb-page">Page: <code>overview</code></div>
+      <div class="fb-stars" id="fb-stars">
+        <span data-n="1">☆</span><span data-n="2">☆</span><span data-n="3">☆</span><span data-n="4">☆</span><span data-n="5">☆</span>
+      </div>
+      <select class="fb-inp" id="fb-category">
+        <option value="">Category (optional)</option>
+        <option value="bug">Bug</option>
+        <option value="confusing">Confusing</option>
+        <option value="suggestion">Suggestion</option>
+        <option value="praise">Praise</option>
+      </select>
+      <textarea class="fb-inp" id="fb-comment" rows="3" placeholder="What's on your mind?"></textarea>
+      <input class="fb-inp" id="fb-email" type="email" placeholder="Email for follow-up (optional)">
+      <label class="fb-chk"><input type="checkbox" id="fb-wants"> I'd like a response</label>
+      <label class="fb-chk"><input type="checkbox" id="fb-consent"> OK to contact me about this feedback</label>
+      <div class="fb-actions">
+        <button class="fb-cancel" id="fb-cancel">Cancel</button>
+        <button class="fb-send" id="fb-send" disabled>Send</button>
+      </div>
+    </div>
+    <div class="fb-thanks" id="fb-thanks" style="display:none">✓ Thank you for your feedback!</div>
+  </div>
+</div>
+
 <!-- Shared portal helpers: egeriaFetch (adds creds + auto 401-refresh), crossAppNavigate -->
 <script src="/static/egeria-shared-ui.js?v=2026-07-22c"></script>
+<!-- Vega-Lite chart rendering (NEXT-10 P1) — same CDN trio pyegeria's own
+     vega_to_html() assumes. Backend sends ready Vega-Lite specs; renderVega()
+     below just embeds them. -->
+<script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+<script>
+// ---- Feedback widget (vanilla — this dashboard has no React runtime) ----
+// Same /api/demo-feedback contract & field shape as the shared React FeedbackButton
+// (egeria-shared-ui.js), so entries from this app land in the same feedback store.
+(function(){
+  var SESSION_ID = (function(){
+    try {
+      var id = sessionStorage.getItem('_egeria_session_id');
+      if (!id) { id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).substr(2)); sessionStorage.setItem('_egeria_session_id', id); }
+      return id;
+    } catch(e) { return 'anon-' + Date.now(); }
+  })();
+  var rating = 0, hover = 0;
+  var ovl = document.getElementById('fb-ovl'), openBtn = document.getElementById('fb-open'),
+      cancelBtn = document.getElementById('fb-cancel'), sendBtn = document.getElementById('fb-send'),
+      form = document.getElementById('fb-form'), thanks = document.getElementById('fb-thanks'),
+      stars = document.getElementById('fb-stars'), comment = document.getElementById('fb-comment'),
+      email = document.getElementById('fb-email'), category = document.getElementById('fb-category'),
+      wants = document.getElementById('fb-wants'), consent = document.getElementById('fb-consent');
+
+  function paintStars(){
+    var n = hover || rating;
+    Array.prototype.forEach.call(stars.children, function(s){
+      var on = Number(s.dataset.n) <= n;
+      s.textContent = on ? '★' : '☆';
+      s.classList.toggle('on', on);
+    });
+  }
+  Array.prototype.forEach.call(stars.children, function(s){
+    s.addEventListener('click', function(){ rating = Number(s.dataset.n); paintStars(); updateSendState(); });
+    s.addEventListener('mouseenter', function(){ hover = Number(s.dataset.n); paintStars(); });
+    s.addEventListener('mouseleave', function(){ hover = 0; paintStars(); });
+  });
+
+  function updateSendState(){ sendBtn.disabled = !(rating > 0 || comment.value.trim().length > 0); }
+  comment.addEventListener('input', updateSendState);
+
+  function reset(){
+    rating = 0; hover = 0; paintStars();
+    comment.value = ''; email.value = ''; category.value = '';
+    wants.checked = false; consent.checked = false;
+    updateSendState();
+    form.style.display = ''; thanks.style.display = 'none';
+  }
+  function open(){ ovl.classList.add('open'); }
+  function close(){ ovl.classList.remove('open'); reset(); }
+
+  openBtn.addEventListener('click', open);
+  cancelBtn.addEventListener('click', close);
+  ovl.addEventListener('click', function(e){ if (e.target === ovl) close(); });
+
+  sendBtn.addEventListener('click', function(){
+    if (sendBtn.disabled) return;
+    sendBtn.disabled = true; sendBtn.textContent = 'Sending…';
+    fetch('/api/demo-feedback', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: SESSION_ID,
+        page: 'overview',
+        rating: rating || null,
+        category: category.value || null,
+        message: comment.value.trim() || null,
+        email: email.value.trim() || null,
+        wants_response: wants.checked,
+        consent_to_contact: consent.checked,
+        persona: (window.CURRENT_USER || null),
+        env: 'quickstart-demo',
+        viewport: window.innerWidth + 'x' + window.innerHeight,
+        locale: navigator.language || null,
+      }),
+    }).then(function(){
+      form.style.display = 'none'; thanks.style.display = '';
+      setTimeout(close, 2000);
+    }).catch(function(){
+      updateSendState();
+    }).finally(function(){
+      sendBtn.textContent = 'Send';
+    });
+  });
+})();
+</script>
 <script>
 // ---- Catalog growth (dual-axis) — sample by default, live series when available ----
 function renderGrowth(live){
@@ -742,6 +883,34 @@ renderGrowth();
   });
   svg.innerHTML=g;
 })();
+
+// ---- Vega-Lite rendering (NEXT-10 P1) ----
+// Renders a backend-generated Vega-Lite spec into a container, replacing its
+// current content (typically a sample hbars() chart). Falls back to leaving
+// the existing content in place — sample or a prior live hbars() render — if
+// vega-embed hasn't loaded or the spec is missing, so a slow/blocked CDN never
+// leaves a panel blank.
+// Known gap: Vega bars don't carry the per-bar "click to drill" affordance
+// hbars() rows have (tooltips-on-hover partially compensate); see NEXT-10 P1
+// follow-up notes in OVERVIEW_REPORTING_MODEL.md.
+// Dark-theme config merged onto every spec so charts match the dashboard
+// instead of rendering in Vega-Lite's white-background default. Only fills in
+// keys the backend spec didn't already set.
+var VEGA_DARK_CONFIG = {
+  background: 'transparent',
+  title:  { color: '#e0e0e0' },
+  axis:   { labelColor: '#8b93a7', titleColor: '#8b93a7', gridColor: 'rgba(255,255,255,.08)', domainColor: 'rgba(255,255,255,.2)', tickColor: 'rgba(255,255,255,.2)' },
+  legend: { labelColor: '#8b93a7', titleColor: '#8b93a7' },
+  view:   { stroke: 'transparent' },
+};
+function renderVega(id, spec){
+  if (!spec || typeof window.vegaEmbed !== 'function') return false;
+  var el = document.getElementById(id); if (!el) return false;
+  var themed = Object.assign({}, spec, { config: Object.assign({}, VEGA_DARK_CONFIG, spec.config || {}) });
+  window.vegaEmbed('#' + id, themed, { actions: false, renderer: 'svg' })
+    .catch(function(err){ console.error('renderVega failed for #' + id, err); });
+  return true;
+}
 
 // ---- Horizontal bar helper (row = [lab,val,col,drillKey?]) ----
 function hbars(id,rows,max){
@@ -1184,8 +1353,11 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (d.dataProducts != null) store.products = d.dataProducts;
     if (d.openExceptions != null) store.exceptions = d.openExceptions;
     if (!primary) return;
-    // Assets-by-type live overlay (composition section)
-    if (Array.isArray(d.byType) && d.byType.length && typeof hbars === 'function') {
+    // Assets-by-type live overlay (composition section) — real Vega-Lite bar
+    // chart when the backend has one (NEXT-10 P1); falls back to hbars() rows
+    // (which keep the per-bar drill click Vega doesn't have yet) otherwise.
+    if (!renderVega('byType', d.byTypeChart) &&
+        Array.isArray(d.byType) && d.byType.length && typeof hbars === 'function') {
       var keymap = {DataStore:'type-datastore', DataSet:'type-dataset', DeployedSoftwareComponent:'type-swcomp',
                     ITInfrastructure:'type-infra', DeployedAPI:'type-api', Process:'type-proc', DataFeed:'type-feed'};
       var rows = d.byType.filter(function(r){ return r.count > 0; })
@@ -1214,7 +1386,9 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
       var fb = d.feedbackByType || {};
       if (fsub) fsub.textContent = (fb.comments||0) + ' comments · ' + (fb.ratings||0) + ' ratings · ' + (fb.tags||0) + ' tags';
     }
-    if (d.feedbackByType && typeof hbars === 'function') {
+    // Real Vega-Lite bar chart when the backend has one (NEXT-10 P1); falls
+    // back to hbars() rows otherwise.
+    if (!renderVega('fbType', d.feedbackChart) && d.feedbackByType && typeof hbars === 'function') {
       var t = d.feedbackByType;
       hbars('fbType', [
         ['Ratings ★', t.ratings||0, 'var(--c4)'], ['Comments', t.comments||0, 'var(--c1)'],
@@ -1368,6 +1542,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     var server = 'qs-view-server';
     fetch('/api/auth/me').then(function(r){ return r.ok ? r.json() : null; }).then(function(me){
       if (me && me.egeria_user) {
+        window.CURRENT_USER = me.egeria_user;
         fetch('/api/egeria-token', { method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ user_id: me.egeria_user, password: me.egeria_password || '' }) })
           .then(function(r){ return r.ok ? r.json() : {}; })
