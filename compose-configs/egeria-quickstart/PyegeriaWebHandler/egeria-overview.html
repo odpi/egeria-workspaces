@@ -373,6 +373,7 @@
         </div>
       </div>
       <svg viewBox="0 0 720 260" width="100%" height="260" id="growth"></svg>
+      <div id="growthVega" style="display:none;min-height:260px"></div>
     </div>
 
     <div class="panel">
@@ -1433,7 +1434,19 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
       products: s.map(function(p){ return p.products || 0; }),
       gov:    s.map(function(p){ return (p.assets && p.governed != null) ? Math.round(100 * p.governed / p.assets) : 0; })
     };
-    if (typeof renderGrowth === 'function') renderGrowth(live);
+    // Real Vega-Lite multi-series line chart when the backend has one (NEXT-10
+    // P1); falls back to the hand-drawn dual-axis SVG (which frames "% governed"
+    // on a second axis — a distinction the Vega chart doesn't make yet) otherwise.
+    var growthSvg = document.getElementById('growth');
+    var growthVegaEl = document.getElementById('growthVega');
+    if (renderVega('growthVega', d.growthChart)) {
+      if (growthSvg) growthSvg.style.display = 'none';
+      if (growthVegaEl) growthVegaEl.style.display = '';
+    } else {
+      if (growthSvg) growthSvg.style.display = '';
+      if (growthVegaEl) growthVegaEl.style.display = 'none';
+      if (typeof renderGrowth === 'function') renderGrowth(live);
+    }
     // Feed the KPI sparklines + time reference from the same real series.
     LIVE.series = live;
     LIVE.rangeFrom = d.rangeFrom; LIVE.rangeTo = d.rangeTo;
