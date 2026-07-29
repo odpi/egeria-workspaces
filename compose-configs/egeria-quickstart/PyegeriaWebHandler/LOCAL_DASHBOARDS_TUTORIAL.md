@@ -46,6 +46,37 @@ touching Python.
   `/egeria-explorer#report-specs`, or `GET /api/report-specs` — each one's
   `name` (or any of its `aliases`) is what a Placement's `ref` needs.
 
+### Where `dr_egeria` has to run — this is the #1 gotcha
+
+`Create Dashboard Sheet` and `Link Report to Dashboard Sheet` don't write to
+Egeria — they write to a **local JSON file** on whatever machine/container
+runs `dr_egeria` (`PYEGERIA_DASHBOARD_SHEETS_STORE`, default
+`~/.pyegeria/dashboard_sheets.json`). The Local Dashboards portal app only
+ever reads the copy of that file **inside the running
+`quickstart-pyegeria-web` container** (`/root/.pyegeria/dashboard_sheets.json`)
+— that path is *not* bind-mounted to the host.
+
+So if you run `dr_egeria` on your own machine (your laptop's `~/.pyegeria/`),
+the run succeeds, but it writes to a completely different file the portal
+never sees — the dashboard looks unchanged even though `dr_egeria` reported
+`SUCCESS`. There's no error to catch this; the file paths just quietly
+don't match.
+
+**Always run it inside the container** that's actually serving the portal:
+
+```bash
+docker cp my-dashboard.dr-egeria.md quickstart-pyegeria-web:/tmp/my-dashboard.md
+docker exec quickstart-pyegeria-web dr_egeria --validate /tmp/my-dashboard.md
+docker exec quickstart-pyegeria-web dr_egeria --process  /tmp/my-dashboard.md
+```
+
+If you edit an existing sheet's `.dr-egeria.md` file in the repo and rerun
+it this way, `Create` commands upsert and placements merge by `ref`, so
+it's always safe to rerun the whole file — no need to hand-pick just the
+new commands. If you want to sanity-check which file the running portal is
+actually reading before or after a run, `GET /api/local-dashboards`'s
+`storePath` field tells you.
+
 ## Step 1 — Pick your Report Specs
 
 Every Dashboard Sheet is only as useful as what it places. Two things
@@ -160,6 +191,7 @@ response matches where `dr_egeria` actually wrote (same
 | "Needs parameters: X" | The spec's `action.required_params` has something other than just `search_string` | Follow the "open in Report Spec Browser" link to run it with real params, or pick a different spec for the dashboard |
 | Tile renders "No results." | Auto-fill ran (`search_string=""`) but the query found nothing | Expected if the underlying data doesn't exist yet — not a bug |
 | Sheet doesn't appear in the list at all | Wrong store path, or `--validate` was the last run instead of `--process` | Compare `storePath` from `GET /api/local-dashboards` against your `PYEGERIA_DASHBOARD_SHEETS_STORE`; re-run with `--process` |
+| `dr_egeria` reports `SUCCESS` but the dashboard doesn't change at all — new/edited placement never shows up | Ran `dr_egeria` on the wrong machine — most likely your host instead of inside `quickstart-pyegeria-web` (see "Where `dr_egeria` has to run" above) | Re-run via `docker exec quickstart-pyegeria-web dr_egeria --process ...`; it's safe to rerun the whole file |
 | Nested sheet placement | Currently shows an "Open nested sheet →" link, not inline rendering | By design for now — recursive inline rendering needs cycle detection first (see the Next Steps dashboard below) |
 
 ## Worked example: the "Next Steps" dashboard
