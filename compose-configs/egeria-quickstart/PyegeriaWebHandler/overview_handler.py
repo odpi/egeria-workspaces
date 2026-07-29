@@ -58,17 +58,30 @@ except ImportError:
     generate_vega_line_chart = None
     generate_vega_funnel_chart = None
 
+# Reusable metric/KPI palette (pyegeria >= 6.0.17.4) — this handler now delegates
+# every count/tally computation here and keeps only client construction, caching,
+# route wiring and Vega chart assembly local (see overview_metrics.py's module
+# docstring for the design boundary).
+from pyegeria.view.overview_metrics import (
+    WINDOWS as _WINDOWS,
+    count_elements,
+    counts_by_type,
+    governed_coverage,
+    certifications_summary,
+    semantic_grounding,
+    context_readiness_funnel,
+    people_counts,
+    feedback_summary,
+    usage_context_counts,
+    growth_series,
+)
+
 router = APIRouter(tags=["egeria-overview"])
 
 _HERE = Path(__file__).parent
 _HTML = _HERE / "egeria-overview.html"
 
-_DEFAULT_CAP = 500            # same ceiling used elsewhere in the app
 _CACHE_TTL   = 60.0          # seconds; summary is not real-time critical
-
-# Governed-data classifications that count as "governed" (single-condition tallies
-# only — PY-15 makes any 2+ classification ANY/ALL query return zero).
-_GOVERNANCE_CLASSIFICATIONS = ("ZoneMembership", "Confidentiality", "Criticality", "Impact", "Retention")
 
 # Base open-metadata type names for the headline "assets by type" tally. Kept as a
 # small, override-safe list — a wrong/unknown type just yields 0 for that row
@@ -147,159 +160,6 @@ def _norm_asof(s: Optional[str]) -> Optional[str]:
     return re.sub(r" (\d{2}:\d{2})$", r"+\1", s.strip())
 
 
-def _json_list(raw) -> list:
-    """Normalise a pyegeria output_format='JSON' result to a list of dicts.
-    Empty results come back as a 'No … found' string; some calls wrap in a dict."""
-    if isinstance(raw, list):
-        return [r for r in raw if isinstance(r, dict)]
-    if isinstance(raw, dict):
-        for k in ("elements", "items", "relationships", "list"):
-            if isinstance(raw.get(k), list):
-                return [r for r in raw[k] if isinstance(r, dict)]
-    return []
-
-
-# ── find helpers ─────────────────────────────────────────────────────────────
-
-def _find(mgr, body: dict, page_size: int = _DEFAULT_CAP) -> list:
-    """Run a FindRequestBody, always returning a (possibly empty) list. Never raises."""
-    try:
-        raw = mgr.find_metadata_elements(body, start_from=0, page_size=page_size, graph_query_depth=0)
-        return [el for el in (raw if isinstance(raw, list) else []) if isinstance(el, dict)]
-    except Exception as exc:  # noqa: BLE001 — best-effort tile, degrade don't fail
-        logger.debug(f"overview _find failed for {body.get('metadataElementTypeName')!r}: {exc}")
-        return []
-
-
-# ── count seam — uses Egeria native instance counting when available ─────────
-# Egeria added native counting in odpi/egeria#9168 (MetadataExpert.count_metadata_elements
-# / count_relationships_between_elements → SELECT COUNT(*), no result-set
-# materialization). We use it when BOTH the pyegeria client exposes the method AND
-# the target server supports it; otherwise we fall back to len(find/get) — same
-# result, just heavier. This makes every count here — including the as-of
-# time-machine and the N-snapshot growth series — sub-second on a #9168 server, and
-# still correct on older ones. The result is normalized from int or {"count": N}.
-_ELEMENT_COUNT_CANDIDATES = ("count_metadata_elements", "get_metadata_element_count")
-_REL_COUNT_CANDIDATES     = ("count_relationships_between_elements", "count_relationships")
-_count_caps: dict[str, Optional[str]] = {}   # cache: which native method (if any) a client class exposes
-_native_server_ok: dict[str, bool] = {}      # cache: does this server support native count? (False after a probe fails)
-
-
-def _server_key(mgr) -> str:
-    return f"{getattr(mgr, 'platform_url', '')}|{getattr(mgr, 'view_server', '')}"
-
-
-def _native_disabled(mgr) -> bool:
-    """True once a native count call has failed for this server — so we don't pay a
-    failed round-trip on every subsequent count against an older server."""
-    return _native_server_ok.get(_server_key(mgr)) is False
-
-
-def _disable_native(mgr, exc) -> None:
-    if not _native_disabled(mgr):
-        logger.info(f"overview count seam: native count not supported by "
-                    f"{_server_key(mgr)} — using len(find/get) fallback ({exc})")
-    _native_server_ok[_server_key(mgr)] = False
-
-
-def _native_count_method(mgr, candidates, cache_key: str) -> Optional[str]:
-    if cache_key not in _count_caps:
-        name = next((c for c in candidates if callable(getattr(mgr, c, None))), None)
-        _count_caps[cache_key] = name
-        logger.info(f"overview count seam [{cache_key}]: "
-                    + (f"native via {name}" if name else "fallback to len(find/get)"))
-    return _count_caps[cache_key]
-
-
-def _as_count(res) -> Optional[int]:
-    if isinstance(res, int):
-        return res
-    if isinstance(res, dict) and res.get("count") is not None:
-        return int(res["count"])
-    return None
-
-
-def _element_count(mgr, body: dict, as_of: Optional[str] = None) -> int:
-    """Count elements matching a FindRequestBody — native (count_metadata_elements)
-    when the client + server support it, else len(find_metadata_elements(...))."""
-    b = dict(body)
-    if as_of:
-        b["asOfTime"] = as_of
-    name = _native_count_method(mgr, _ELEMENT_COUNT_CANDIDATES, "elem:" + type(mgr).__name__)
-    if name and not _native_disabled(mgr):
-        try:
-            c = _as_count(getattr(mgr, name)(b))
-            if c is not None:
-                return c
-        except Exception as exc:  # noqa: BLE001 — old server: mark unsupported, fall back
-            _disable_native(mgr, exc)
-    return len(_find(mgr, b))
-
-
-def _count_type(mgr, type_name: Optional[str], as_of: Optional[str] = None) -> tuple[int, bool]:
-    """Count of ACTIVE elements of a type, optionally as of a past time. Returns
-    (count, capped) — `capped` kept for call-site compatibility."""
-    body: dict = {"class": "FindRequestBody", "limitResultsByStatus": ["ACTIVE"]}
-    if type_name:
-        body["metadataElementTypeName"] = type_name
-    n = _element_count(mgr, body, as_of)
-    return n, n >= _DEFAULT_CAP
-
-
-def _rel_count(ce, rel_type: str, as_of: Optional[str] = None, expert=None) -> Optional[int]:
-    """Count relationships of a type, optionally as of a past time.
-
-    Uses len(ClassificationExplorer.get_relationships(...)) — the path the Audit app
-    uses, so counts stay consistent portal-wide. A native
-    MetadataExpert.count_relationships_between_elements fast-path is available when an
-    `expert` is passed, but callers deliberately do NOT pass one: the two OMVS layers
-    disagree for some relationship types (e.g. Exception counts 276 natively vs 55 via
-    get_relationships — see the count-semantics note), and matching the Audit app
-    matters more than the speed here (relationship counts were never the bottleneck).
-    asOfTime goes in the request body. None on total failure."""
-    if expert is not None and not _native_disabled(expert):
-        name = _native_count_method(expert, _REL_COUNT_CANDIDATES, "rel:" + type(expert).__name__)
-        if name:
-            body = {"class": "FindRelationshipRequestBody", "relationshipTypeName": rel_type,
-                    "limitResultsByStatus": ["ACTIVE"]}
-            if as_of:
-                body["asOfTime"] = as_of
-            try:
-                c = _as_count(getattr(expert, name)(body))
-                if c is not None:
-                    return c
-            except Exception as exc:  # noqa: BLE001 — old server: mark unsupported, fall back
-                _disable_native(expert, exc)
-    try:
-        body = {"class": "ResultsRequestBody", "asOfTime": as_of} if as_of else None
-        return len(_json_list(ce.get_relationships(
-            relationship_type=rel_type, output_format="JSON",
-            start_from=0, page_size=5000, body=body)))
-    except Exception as exc:  # noqa: BLE001
-        logger.debug(f"overview _rel_count({rel_type}) failed: {exc}")
-        return None
-
-
-def _classifications_of(el: dict) -> set[str]:
-    out: set[str] = set()
-    for c in el.get("classifications") or []:
-        if isinstance(c, dict) and c.get("classificationName"):
-            out.add(c["classificationName"])
-    return out
-
-
-def _zone_names(el: dict) -> list:
-    for c in el.get("classifications") or []:
-        if isinstance(c, dict) and c.get("classificationName") == "ZoneMembership":
-            pvm = (c.get("classificationProperties") or {}).get("propertyValueMap") or {}
-            zv = pvm.get("zoneMembership")
-            if isinstance(zv, dict) and zv.get("class") == "ArrayTypePropertyValue":
-                arr = (zv.get("arrayValues") or {}).get("propertyValueMap") or {}
-                return [arr[k].get("primitiveValue") for k in sorted(arr, key=lambda k: int(k) if k.isdigit() else 0)
-                        if isinstance(arr.get(k), dict)]
-    return []
-
-
 # ── SPA ──────────────────────────────────────────────────────────────────────
 
 @router.get("/egeria-overview", include_in_schema=False)
@@ -372,37 +232,13 @@ def get_summary(
     # Governed tally — single ANY over governance classifications (PY-15 note: this
     # 5-classification ANY is affected by the server bug; still correct at 0/1
     # conditions and used here as a best-effort coverage proxy).
-    gov_body = {
-        "class": "FindRequestBody",
-        "matchClassifications": {
-            "class": "SearchClassifications",
-            "matchCriteria": "ANY",
-            "conditions": [{"name": n} for n in _GOVERNANCE_CLASSIFICATIONS],
-        },
-        "limitResultsByStatus": ["ACTIVE"],
-    }
-    if as_of_time:
-        gov_body["asOfTime"] = as_of_time
-    governed_hits = _find(mgr, gov_body)
-    by_classification: dict[str, int] = {}
-    zone_counts: dict[str, int] = {}
-    for el in governed_hits:
-        for name in _classifications_of(el):
-            by_classification[name] = by_classification.get(name, 0) + 1
-        for z in _zone_names(el):
-            if z:
-                zone_counts[z] = zone_counts.get(z, 0) + 1
+    gov = governed_coverage(mgr, as_of_time)
 
     # Assets by type (best-effort; unknown types yield 0).
-    by_type = []
-    asset_total = 0
-    for label, tname in _ASSET_TYPES:
-        c, _ = _count_type(mgr, tname, as_of_time)
-        by_type.append({"label": label, "type": tname, "count": c})
-        asset_total += c
+    by_type = counts_by_type(mgr, _ASSET_TYPES, as_of_time)
+    asset_total = sum(r["count"] for r in by_type)
 
-    term_count, term_capped = _count_type(mgr, "GlossaryTerm", as_of_time)
-    top_zones = sorted(zone_counts.items(), key=lambda kv: -kv[1])[:8]
+    term_count = count_elements(mgr, "GlossaryTerm", as_of_time)
 
     # Vega-Lite bar chart for the assets-by-type composition (real chart —
     # supersedes the hand-drawn SVG bars; see OVERVIEW_REPORTING_MODEL.md P1).
@@ -412,7 +248,7 @@ def get_summary(
     )
 
     # Data products (DigitalProduct) — live count.
-    data_products, _ = _count_type(mgr, "DigitalProduct", as_of_time)
+    data_products = count_elements(mgr, "DigitalProduct", as_of_time)
 
     # Certifications, licenses & open exceptions (governance relationships).
     certs = _certifications(url, server, user_id, user_pwd, as_of_time)
@@ -423,10 +259,10 @@ def get_summary(
         "byType":           by_type,
         "byTypeChart":      by_type_chart,
         "termCount":        term_count,
-        "governedCount":    len(governed_hits),
-        "governedCapped":   len(governed_hits) >= _DEFAULT_CAP,
-        "byClassification": by_classification,
-        "topZones":         [{"zone": z, "count": c} for z, c in top_zones],
+        "governedCount":    gov["governedCount"],
+        "governedCapped":   gov["governedCapped"],
+        "byClassification": gov["byClassification"],
+        "topZones":         gov["topZones"],
         "certifications":   certs["active"],
         "certExpiring90":   certs["expiring90"],
         "certSoon":         certs["soon"],
@@ -441,70 +277,16 @@ def get_summary(
 
 # ── certifications & licenses ────────────────────────────────────────────────
 
-def _rel_end_date(rel: dict):
-    """Best-effort expiry date for a Certification relationship: try the domain
-    property, then relationship effectivity. Returns a datetime or None."""
-    from datetime import datetime
-    props = rel.get("relationshipProperties") or {}
-    header = rel.get("relationshipHeader") or {}
-    candidates = [props.get(k) for k in ("coverageEnd", "end", "endDate", "expiry", "expirationDate")]
-    candidates.append((header.get("effectivityDates") or {}).get("effectiveToTime"))
-    candidates.append(header.get("effectiveToTime"))
-    for v in candidates:
-        if not v:
-            continue
-        s = str(v).replace("Z", "+00:00")
-        for parse in (lambda x: datetime.fromisoformat(x),):
-            try:
-                return parse(s)
-            except Exception:  # noqa: BLE001
-                pass
-    return None
-
-
 def _certifications(url, server, user_id, user_pwd, as_of: Optional[str] = None) -> dict:
-    """Count active certifications, those expiring within 90 days, a soonest list,
-    the license count, and open governance exceptions — optionally as of a past
-    time, via ClassificationExplorer.get_relationships (Audit-app consistent).
-    Degrades to zeros on any failure (demo may have none)."""
-    from datetime import datetime, timezone, timedelta
+    """Build a ClassificationExplorer and delegate to overview_metrics.certifications_summary.
+    Degrades to zeros/None on client-build failure (demo may have none)."""
     out = {"active": None, "expiring90": None, "soon": [], "licenses": None, "exceptions": None}
     try:
         ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview certifications: client build failed: {exc}")
         return out
-    body = {"class": "ResultsRequestBody", "asOfTime": as_of} if as_of else None
-    try:
-        certs = _json_list(ce.get_relationships(relationship_type="Certification",
-                                                output_format="JSON", start_from=0,
-                                                page_size=_DEFAULT_CAP, body=body))
-        # "expiring soon" is anchored to the snapshot time, not always wall-clock now.
-        now = datetime.fromisoformat(as_of.replace("Z", "+00:00")) if as_of else datetime.now(timezone.utc)
-        if now.tzinfo is None:
-            now = now.replace(tzinfo=timezone.utc)
-        horizon = now + timedelta(days=90)
-        soon = []
-        expiring = 0
-        for r in certs:
-            end = _rel_end_date(r)
-            if end is not None:
-                if end.tzinfo is None:
-                    end = end.replace(tzinfo=timezone.utc)
-                if now <= end <= horizon:
-                    expiring += 1
-                    end2 = (r.get("end2") or {})
-                    name = ((end2.get("properties") or end2) or {}).get("displayName") or "certification"
-                    soon.append({"name": name, "days": (end - now).days})
-        soon.sort(key=lambda s: s["days"])
-        out["active"] = len(certs)
-        out["expiring90"] = expiring
-        out["soon"] = soon[:5]
-    except Exception as exc:  # noqa: BLE001
-        logger.debug(f"overview certifications: query failed: {exc}")
-    out["licenses"] = _rel_count(ce, "License", as_of)
-    out["exceptions"] = _rel_count(ce, "Exception", as_of)
-    return out
+    return certifications_summary(ce, as_of)
 
 
 # ── AI & Context Intelligence ────────────────────────────────────────────────
@@ -527,15 +309,7 @@ def get_ai_context(
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
-    cataloged, _ = _count_type(mgr, "Asset", as_of_time)   # broad supertype
-    class_body = {                                          # any governance classification
-        "class": "FindRequestBody", "limitResultsByStatus": ["ACTIVE"],
-        "matchClassifications": {"class": "SearchClassifications", "matchCriteria": "ANY",
-                                  "conditions": [{"name": n} for n in _GOVERNANCE_CLASSIFICATIONS]},
-    }
-    if as_of_time:
-        class_body["asOfTime"] = as_of_time
-    classified = len(_find(mgr, class_body))
+    readiness = context_readiness_funnel(mgr, as_of_time)
 
     # Semantic grounding: SemanticAssignment relationships (term ↔ asset) — the
     # meaning layer that grounds AI. Count of assignments as a proxy for grounded links.
@@ -543,18 +317,18 @@ def get_ai_context(
     grounding_pct = None
     try:
         ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
-        grounding_links = _rel_count(ce, "SemanticAssignment", as_of_time)
-        if cataloged and grounding_links is not None:
-            grounding_pct = min(100, round(100 * grounding_links / cataloged))
+        grounding = semantic_grounding(mgr, ce, as_of_time)
+        grounding_links = grounding["groundingLinks"]
+        grounding_pct = grounding["groundingPct"]
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview ai-context: grounding query failed: {exc}")
 
     funnel = {
-        "Cataloged":       cataloged or None,
-        "Documented":      None,          # needs a description-present filter — best-effort TODO
-        "Classified":      classified or None,
-        "Lineage-traced":  None,          # needs lineage-relationship presence — TODO
-        "AI-Ready":        None,          # composite gate — TODO
+        "Cataloged":       readiness["cataloged"],
+        "Documented":      readiness["documented"],
+        "Classified":      readiness["classified"],
+        "Lineage-traced":  readiness["lineage"],
+        "AI-Ready":        readiness["aiReady"],
     }
     # Vega-Lite funnel chart (ordered horizontal bars — Vega-Lite has no native
     # funnel mark). Renders whichever stages are non-null today; gains the
@@ -607,11 +381,12 @@ def get_people(
     expert = None
     try:
         expert = _expert(url, server, user_id, user_pwd)
-        persons, _     = _count_type(expert, "Person", as_of_time)
-        teams, _       = _count_type(expert, "Team", as_of_time)
-        orgs, _        = _count_type(expert, "Organization", as_of_time)
-        it_profiles, _ = _count_type(expert, "ITProfile", as_of_time)
-        communities, _ = _count_type(expert, "Community", as_of_time)
+        people = people_counts(expert, as_of_time)
+        persons     = people["persons"]
+        teams       = people["teams"]
+        orgs        = people["organizations"]
+        it_profiles = people["itProfiles"]
+        communities = people["communities"]
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview people: identity counts failed: {exc}")
 
@@ -623,18 +398,14 @@ def get_people(
     karma = None
     try:
         ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
-        fb = {}
-        for rel, key in (("AttachedRating", "ratings"), ("AttachedComment", "comments"),
-                         ("AttachedLike", "likes"), ("AttachedTag", "tags"),
-                         ("AttachedNoteLog", "noteLogs")):
-            fb[key] = _rel_count(ce, rel, as_of_time) or 0
-        feedback_by_type = fb
-        feedback_items = sum(fb.values())
+        fb = feedback_summary(ce, as_of_time)
+        feedback_by_type = fb["byType"]
+        feedback_items = fb["total"]
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview people: feedback query failed: {exc}")
     try:
         if expert is not None:
-            karma, _ = _count_type(expert, "ContributionRecord", as_of_time)
+            karma = count_elements(expert, "ContributionRecord", as_of_time)
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview people: karma query failed: {exc}")
 
@@ -685,8 +456,9 @@ def get_usage_context(
     iscs = blueprints = None
     try:
         mgr = _expert(url, server, user_id, user_pwd)
-        iscs, _       = _count_type(mgr, "InformationSupplyChain", as_of_time)
-        blueprints, _ = _count_type(mgr, "SolutionBlueprint", as_of_time)
+        usage = usage_context_counts(mgr, as_of_time)
+        iscs       = usage["informationSupplyChains"]
+        blueprints = usage["blueprints"]
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview usage-context: query failed: {exc}")
 
@@ -714,38 +486,6 @@ def _is_template_el(el: dict) -> bool:
 _GROWTH_TTL = 900.0   # 15 min — growth is expensive (N snapshots) and slow-moving
 
 
-def _count_asof(mgr, type_name: Optional[str], as_of: Optional[str], classifications=None) -> int:
-    body: dict = {"class": "FindRequestBody", "limitResultsByStatus": ["ACTIVE"]}
-    if type_name:
-        body["metadataElementTypeName"] = type_name
-    if classifications:
-        body["matchClassifications"] = {"class": "SearchClassifications", "matchCriteria": "ANY",
-                                         "conditions": [{"name": n} for n in classifications]}
-    return _element_count(mgr, body, as_of)   # native count when available, else len(find)
-
-
-# Time-window → (total span seconds, default #points). asOfTime lets us snapshot
-# at any granularity; granularity follows the window so we always get ~6–12 points.
-_WINDOWS = {
-    "8h":  (8 * 3600,       8),
-    "1d":  (86400,          6),
-    "3d":  (3 * 86400,      6),
-    "7d":  (7 * 86400,      7),
-    "30d": (30 * 86400,     6),
-    "90d": (90 * 86400,     7),
-    "6mo": (180 * 86400,    6),
-    "1y":  (365 * 86400,    12),
-}
-
-
-def _growth_label(d, span_s: int) -> str:
-    if span_s <= 2 * 86400:
-        return d.strftime("%H:00")          # hourly / intraday
-    if span_s <= 120 * 86400:
-        return d.strftime("%-d %b")         # daily / weekly
-    return d.strftime("%b")                 # monthly
-
-
 @router.get("/api/overview/growth", summary="Catalog growth via asOfTime snapshots")
 def get_growth(
     window: str = Query("6mo", description="8h|1d|3d|7d|30d|90d|6mo|1y"),
@@ -759,9 +499,9 @@ def get_growth(
     The window sets the span and (by default) the granularity; points can override
     the snapshot count. Snapshots assets / terms / governed / data-products.
     Cached 15 min (this is the expensive endpoint until the count API lands)."""
-    from datetime import datetime, timezone
     if months:                              # back-compat: months → an N*30d window
         window = f"{months * 30}d"
+
     span_s, default_pts = _WINDOWS.get(window, _WINDOWS["6mo"])
     n = points or default_pts
 
@@ -775,26 +515,7 @@ def get_growth(
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
-    now = datetime.now(timezone.utc)
-    step = span_s / (n - 1)
-    date_fmt = "%d %b %Y %H:%M" if span_s <= 2 * 86400 else "%d %b %Y"
-    series = []
-    for i in range(n - 1, -1, -1):
-        if i == 0:
-            d, as_of = now, None
-        else:
-            d = datetime.fromtimestamp(now.timestamp() - i * step, tz=timezone.utc)
-            as_of = d.isoformat()
-        try:
-            assets   = _count_asof(mgr, "Asset", as_of)
-            terms    = _count_asof(mgr, "GlossaryTerm", as_of)
-            governed = _count_asof(mgr, None, as_of, classifications=_GOVERNANCE_CLASSIFICATIONS)
-            products = _count_asof(mgr, "DigitalProduct", as_of)
-        except Exception as exc:  # noqa: BLE001
-            logger.debug(f"overview growth: snapshot {i} failed: {exc}")
-            assets = terms = governed = products = None
-        series.append({"label": _growth_label(d, span_s), "date": d.strftime(date_fmt),
-                       "assets": assets, "terms": terms, "governed": governed, "products": products})
+    series = growth_series(mgr, window=window, points=n)
 
     # Vega-Lite multi-series line chart — supersedes the hand-drawn SVG growth
     # chart once available (needs a newer pyegeria than requirements.txt pins
