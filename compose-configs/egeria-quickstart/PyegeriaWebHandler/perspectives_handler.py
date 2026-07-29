@@ -259,6 +259,13 @@ def get_questions(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
+        # NOTE: sequencing_order + include_only_classified_elements together is a
+        # confirmed server/connector bug — combined, this call silently returns
+        # ZERO results even though each filter alone works fine (verified live:
+        # classification filter alone -> 33 hits; sequencing_order alone -> 200
+        # hits; both together -> 0). Dropping sequencing_order/sequencing_property
+        # here is not a feature loss — the results are already sorted client-side
+        # below. See PYEGERIA_ISSUES.md PY-21.
         raw = mgr.find_glossary_terms(
             search_string="*",
             starts_with=True,
@@ -269,8 +276,6 @@ def get_questions(
             output_format="JSON",
             start_from=start_from,
             page_size=page_size,
-            sequencing_order="PROPERTY_ASCENDING",
-            sequencing_property="displayName",
         )
     except Exception as exc:
         logger.exception("find_glossary_terms (Question) failed")
