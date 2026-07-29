@@ -209,12 +209,24 @@ function renderPlacementBody(p, i) {
     return;
   }
   // kind === 'spec'
-  if (p.requiredParams && p.requiredParams.length) {
-    target.innerHTML = '<div class="p-note">Needs parameters: <b>' + p.requiredParams.map(esc).join(', ') + '</b>'
+  // The single most common Dr.Egeria "find" convention is one required param,
+  // `search_string` — and an empty string means "match everything" (capped),
+  // not "match nothing" (see report_specs_handler.py / format_set_executor's
+  // action_mode="find" normalization). Auto-fill that one case so ordinary
+  // find-backed report specs still render on a dashboard tile without the
+  // reader having to type anything; anything else genuinely needs input, so
+  // it points at the full Report Spec Browser instead of guessing values.
+  var params = {};
+  var required = p.requiredParams || [];
+  var autoFillable = required.length === 0 || (required.length === 1 && required[0] === 'search_string');
+  if (!autoFillable) {
+    target.innerHTML = '<div class="p-note">Needs parameters: <b>' + required.map(esc).join(', ') + '</b>'
       + ' — <a href="/egeria-explorer?name=' + encodeURIComponent(p.ref) + '#report-specs" target="_blank" rel="noopener">'
       + 'open in Report Spec Browser →</a></div>';
     return;
   }
+  if (required.length === 1) params.search_string = '';
+
   var fmt = p.outputTypes && p.outputTypes.includes('REPORT') ? 'REPORT'
           : p.outputTypes && p.outputTypes.includes('TABLE')  ? 'TABLE'
           : (p.outputTypes && p.outputTypes[0]) || 'DICT';
@@ -223,7 +235,7 @@ function renderPlacementBody(p, i) {
   fetch('/api/report-specs/execute', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ spec_name: p.ref, output_format: fmt, params: {} }),
+    body: JSON.stringify({ spec_name: p.ref, output_format: fmt, params: params }),
   })
     .then(function(r) {
       if (!r.ok) return r.text().then(function(t) {
@@ -240,7 +252,13 @@ function renderPlacementBody(p, i) {
 function renderExecResultHtml(result) {
   if (!result || result.kind === 'empty') return '<div class="p-loading">No results.</div>';
   if (result.kind === 'text') return renderMdToHtml(result.content);
-  if (result.kind === 'json') return renderJsonTableHtml(result.data);
+  if (result.kind === 'json') {
+    // Some auto-generated "Basic" report specs return pre-rendered markdown
+    // text even under kind:"json" (their TABLE format isn't truly tabular) —
+    // render it as markdown rather than showing an empty table.
+    if (typeof result.data === 'string') return renderMdToHtml(result.data);
+    return renderJsonTableHtml(result.data);
+  }
   return '<pre style="font-size:11px">' + esc(JSON.stringify(result, null, 2)) + '</pre>';
 }
 
