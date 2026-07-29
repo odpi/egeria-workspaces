@@ -98,6 +98,15 @@ function esc(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+// JSON.stringify() produces double-quoted JS string literals — splicing that
+// straight into a double-quoted HTML attribute (onclick="...") lets the
+// value's own quotes terminate the attribute early and mangle everything
+// after it. Escape those quotes for safe embedding; the browser HTML-decodes
+// the attribute back to a normal JS string literal before executing it.
+function attrJson(v) {
+  return JSON.stringify(v).replace(/"/g, '&quot;');
+}
+
 function spanClass(span) {
   return span === 'full' ? 'span-full' : (span === '2' ? 'span-2' : 'span-1');
 }
@@ -141,7 +150,7 @@ function renderList() {
         return;
       }
       body.innerHTML = '<div class="sheet-grid">' + data.sheets.map(function(s) {
-        return '<div class="sheet-card" onclick="navigateToSheet(' + JSON.stringify(s.name) + ')">'
+        return '<div class="sheet-card" onclick="navigateToSheet(' + attrJson(s.name) + ')">'
           + '<h3>' + esc(s.heading || s.name) + '</h3>'
           + '<div class="desc">' + esc(s.description || 'No description.') + '</div>'
           + '<div class="meta">'
@@ -205,7 +214,7 @@ function renderPlacementBody(p, i) {
   }
   if (p.kind === 'sheet') {
     target.innerHTML = '<a href="#" class="btn" onclick="event.preventDefault();navigateToSheet('
-      + JSON.stringify(p.ref) + ')">Open nested sheet →</a>';
+      + attrJson(p.ref) + ')">Open nested sheet →</a>';
     return;
   }
   // kind === 'spec'
