@@ -220,3 +220,22 @@ full
 panel
 
 ___
+
+
+## Link Report to Dashboard Sheet
+> Link a Report Spec (placement) into a Dashboard Sheet.
+
+### Dashboard Sheet Name
+local-dashboards-next-steps
+
+### Report Spec
+Collections
+
+### Metadata Element Type
+WorkItemList
+
+### Placement Span
+full
+
+### Placement Emphasis
+panel

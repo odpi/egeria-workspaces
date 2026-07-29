@@ -74,6 +74,23 @@
     .placements { grid-template-columns:1fr; }
     .placement.span-1, .placement.span-2 { grid-column:span 1; }
   }
+
+  /* ── Run Dr.Egeria Document panel ── */
+  #run-doc-panel { background:var(--card); border-bottom:1px solid var(--border); padding:16px 24px; }
+  #run-doc-panel .rd-inner { max-width:1280px; margin:0 auto; }
+  #run-doc-panel textarea { width:100%; min-height:220px; background:var(--card2); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12.5px; line-height:1.5; resize:vertical; }
+  #run-doc-panel .rd-hint { font-size:.76rem; color:var(--muted); margin-bottom:8px; line-height:1.5; }
+  #run-doc-panel .rd-actions { display:flex; gap:8px; margin-top:10px; align-items:center; }
+  .btn-primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .btn-primary:hover { opacity:.9; background:var(--accent); }
+  #run-doc-result { margin-top:14px; }
+  .rd-summary { font-size:.82rem; padding:8px 12px; border-radius:6px; margin-bottom:8px; }
+  .rd-summary.ok { background:rgba(76,175,80,.12); border:1px solid rgba(76,175,80,.35); color:#8ee69c; }
+  .rd-summary.bad { background:rgba(233,69,96,.1); border:1px solid rgba(233,69,96,.35); color:#ff9db1; }
+  .rd-summary.partial { background:rgba(245,183,78,.1); border:1px solid rgba(245,183,78,.35); color:var(--amber); }
+  .rd-errors { font-size:.78rem; color:#ff9db1; margin-top:6px; }
+  .rd-errors li { margin-bottom:4px; }
+  #run-doc-output { font-size:11.5px; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; max-height:280px; overflow:auto; white-space:pre-wrap; margin-top:8px; }
 </style>
 </head>
 <body>
@@ -84,6 +101,25 @@
   <div>
     <div class="hdr-title">Local Dashboards</div>
     <div class="hdr-sub">User-authored Dashboard Sheets (Dr.Egeria)</div>
+  </div>
+  <button class="btn" style="margin-left:auto" onclick="toggleRunDocPanel()" title="Create or update a Dashboard Sheet without shell/Docker access">▶ Run Dr.Egeria Document</button>
+</div>
+
+<div id="run-doc-panel" style="display:none">
+  <div class="rd-inner">
+    <div class="rd-hint">
+      Paste a full Dr.Egeria markdown document — e.g. <code>Create Dashboard Sheet</code> /
+      <code>Link Report to Dashboard Sheet</code> commands — and run it here. This executes in the
+      same backend process that serves this page, so (unlike running <code>dr_egeria</code> on your
+      own machine) it always writes to the store this portal actually reads. Validate first, then Process.
+    </div>
+    <textarea id="run-doc-textarea" placeholder="___&#10;&#10;## Link Report to Dashboard Sheet&#10;&gt; Link a Report Spec (placement) into a Dashboard Sheet.&#10;&#10;### Dashboard Sheet Name&#10;my-dashboard&#10;&#10;### Report Spec&#10;Collections&#10;&#10;### Placement Span&#10;1&#10;&#10;### Placement Emphasis&#10;kpi&#10;&#10;___"></textarea>
+    <div class="rd-actions">
+      <button class="btn" onclick="runDocument('validate')">Validate</button>
+      <button class="btn btn-primary" onclick="runDocument('process')">Process</button>
+      <span id="run-doc-status" style="font-size:.78rem;color:var(--muted)"></span>
+    </div>
+    <div id="run-doc-result"></div>
   </div>
 </div>
 
@@ -339,6 +375,78 @@ function renderJsonTableHtml(data) {
   html += '</tbody></table>';
   if (rows.length > 25) html += '<div style="font-size:.7rem;color:var(--muted);margin-top:4px">+' + (rows.length - 25) + ' more rows</div>';
   return html;
+}
+
+// ── Run Dr.Egeria Document panel ─────────────────────────────────────────────
+// Lets a user with no shell/Docker access create or update a Dashboard Sheet
+// straight from the browser: paste a multi-command Dr.Egeria markdown
+// document, validate or process it via POST /api/dr-egeria/execute-document
+// (runs in this same backend process — always the store this page reads,
+// unlike running `dr_egeria` on a different machine; see
+// LOCAL_DASHBOARDS_TUTORIAL.md).
+
+function toggleRunDocPanel() {
+  var panel = document.getElementById('run-doc-panel');
+  panel.style.display = panel.style.display === 'none' ? '' : 'none';
+}
+
+function runDocument(directive) {
+  var content = document.getElementById('run-doc-textarea').value;
+  var status = document.getElementById('run-doc-status');
+  var resultEl = document.getElementById('run-doc-result');
+  if (!content.trim()) {
+    resultEl.innerHTML = '<div class="rd-summary bad">Paste a Dr.Egeria markdown document first.</div>';
+    return;
+  }
+  status.textContent = (directive === 'process' ? 'Processing…' : 'Validating…');
+  resultEl.innerHTML = '';
+
+  fetch('/api/dr-egeria/execute-document', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content: content, directive: directive }),
+  })
+    .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+    .then(function(res) {
+      status.textContent = '';
+      renderRunDocResult(res.data, directive);
+      // If anything actually changed, refresh whatever the user's looking at.
+      if (directive === 'process' && res.data && res.data.commands_succeeded > 0) {
+        render();
+      }
+    })
+    .catch(function(err) {
+      status.textContent = '';
+      resultEl.innerHTML = '<div class="rd-summary bad">Request failed: ' + esc(err.message) + '</div>';
+    });
+}
+
+function renderRunDocResult(data, directive) {
+  var resultEl = document.getElementById('run-doc-result');
+  if (!data) { resultEl.innerHTML = '<div class="rd-summary bad">No response.</div>'; return; }
+
+  var cls = data.success ? 'ok' : (data.partial ? 'partial' : 'bad');
+  var verb = directive === 'process' ? 'Processed' : 'Validated';
+  var html = '<div class="rd-summary ' + cls + '">' + verb + ': '
+    + data.commands_succeeded + '/' + data.commands_total + ' command(s) succeeded'
+    + (data.commands_failed ? ', ' + data.commands_failed + ' failed' : '') + '</div>';
+
+  var allErrors = (data.validation_errors || []).concat(data.execution_errors || []);
+  if (allErrors.length) {
+    html += '<ul class="rd-errors">' + allErrors.map(function(e) {
+      return '<li><b>' + esc(e.command || '?') + '</b>: ' + esc(e.message) + '</li>';
+    }).join('') + '</ul>';
+  }
+  if (data.created_elements && data.created_elements.length) {
+    html += '<ul class="rd-errors" style="color:var(--muted)">' + data.created_elements.map(function(e) {
+      return '<li>' + esc(e.command || '') + (e.display_name ? ': <b>' + esc(e.display_name) + '</b>' : '')
+        + (e.guid ? ' (' + esc(e.guid) + ')' : '') + '</li>';
+    }).join('') + '</ul>';
+  }
+  if (data.output) {
+    html += '<div id="run-doc-output">' + esc(data.output) + '</div>';
+  }
+  resultEl.innerHTML = html;
 }
 
 render();

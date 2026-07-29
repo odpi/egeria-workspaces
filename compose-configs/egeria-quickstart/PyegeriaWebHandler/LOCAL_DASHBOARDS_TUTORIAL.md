@@ -77,6 +77,23 @@ new commands. If you want to sanity-check which file the running portal is
 actually reading before or after a run, `GET /api/local-dashboards`'s
 `storePath` field tells you.
 
+### No shell/Docker access? Run it from the browser instead
+
+The Local Dashboards page itself has a **▶ Run Dr.Egeria Document** button
+in the header. It opens a panel where you paste a full Dr.Egeria markdown
+document (single command or many, same syntax as any `.dr-egeria.md` file)
+and hit Validate or Process. This calls
+`POST /api/dr-egeria/execute-document`
+(`dr_egeria_commands_handler.py`), which runs in the same backend process
+that serves this page — so it always writes to the store this portal reads,
+sidestepping the "wrong machine" problem above entirely. On a successful
+Process the page refreshes itself, so a newly-added placement shows up
+immediately.
+
+This is the recommended path for anyone without `docker exec` access; the
+`docker cp`/`dr_egeria` CLI route above is equivalent and only worth using
+for scripting or bulk/CI-style runs.
+
 ## Step 1 — Pick your Report Specs
 
 Every Dashboard Sheet is only as useful as what it places. Two things
