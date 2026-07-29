@@ -94,9 +94,27 @@ This is the recommended path for anyone without `docker exec` access; the
 `docker cp`/`dr_egeria` CLI route above is equivalent and only worth using
 for scripting or bulk/CI-style runs.
 
+### Where to keep your `.dr-egeria.md` file
+
+Put it in **`exchange-quickstart/loading-bay/dr-egeria-inbox/Local Dashboards/`**
+— a shared, read-only folder that's already bind-mounted into
+`quickstart-pyegeria-web` (it rides along on the existing `loading-bay`
+volume; no new mount needed). The Run Dr.Egeria Document panel lists every
+`.md` file there as a clickable chip — click one to load its content into
+the editor, review it, then Validate/Process. This is the canonical shared
+place for dashboard-definition documents: anyone with access to the repo
+(or the file share behind it) can drop a file there and immediately browse
+and run it from the portal, no pasting required.
+
+`GET /api/local-dashboards/documents` lists what's there (and the exact
+path it's reading, via `docsPath`, useful if the folder ever looks empty);
+`GET /api/local-dashboards/documents/{filename}` returns one file's raw
+content. Override the folder with `LOCAL_DASHBOARDS_DOCS_PATH` if you need
+a different location.
+
 ## Step 1 — Pick your Report Specs
 
-Every Dashboard Sheet is only as useful as what it places. Two things
+Every Dashboard Sheet is only as useful as what it places. Three things
 matter about a candidate Report Spec:
 
 1. **Does it need required parameters?** Local Dashboards auto-runs a
@@ -105,9 +123,38 @@ matter about a candidate Report Spec:
    convention — an empty string means "match everything, capped", not
    "match nothing"). Anything else shows a "Needs parameters" note with a
    link to the full Report Spec Browser instead of guessing values.
-2. **What output format renders best?** Local Dashboards prefers `REPORT`
-   (markdown text) over `TABLE` over `DICT`/whatever's first available —
-   same preference order as Egeria Explorer's own report runner.
+2. **You cannot choose the output format per placement — confirmed, not
+   hypothetical.** Local Dashboards always renders with a *fixed*
+   preference order — `REPORT` (markdown text) over `TABLE` over
+   `DICT`/whatever's first available, same order as Egeria Explorer's own
+   report runner — no matter what you put in the command. If you add an
+   `### Output Format` attribute to a `Link Report to Dashboard Sheet`
+   block (e.g. `TABLE`), it is silently dropped: `Placement` (egeria-python
+   `_output_dashboard_sheet_models.py`) has no `output_format` field, the
+   `Report to Dashboard Sheet Link Base` bundle has no such attribute
+   either, so the value never even reaches the local JSON store — the tile
+   renders as `REPORT` regardless. Confirmed live 2026-07-29. Tracked as
+   **NEXT-14** in `BACKLOG.md`; until it's built, the only way to control
+   output format for a spec is to run it directly in the Report Spec
+   Browser (`/egeria-explorer#report-specs`), not from a dashboard tile.
+   Mermaid is a partial exception: Local Dashboards deliberately does
+   **not** prefer `MERMAID` as an output format (see point 3), but if the
+   rendered `REPORT`/`TABLE` text *itself* contains a
+   ```` ```mermaid ```` fenced block, that block is rendered as a real
+   diagram (mermaid.js, loaded on this page) — same as any other app in the
+   portal.
+3. **No per-placement scoping either.** Same root cause as point 2 — a
+   Placement has no way to carry a fixed `search_string` or other query
+   parameter, only whatever's auto-filled (an empty `search_string`,
+   meaning "match everything, capped"). For a narrow spec that's fine; for
+   something broad like the generic `Collections` spec, "everything" can
+   mean the *entire* dataset — observed up to 150KB from one placement.
+   Rendered content is capped at 20,000 characters as a safety net (you'll
+   see a "*(truncated...)*" note), but the underlying fix is the same one
+   as point 2: give Placements real fixed parameters (NEXT-14). Until then,
+   pick Report Specs that are naturally narrow (like
+   `Work-Item-List-DrE-Basic`, which only ever returns Work Item List
+   collections, not arbitrary ones) rather than broad multi-purpose ones.
 
 You can check both from `GET /api/report-specs`: look at `action.
 required_params` and `output_types`.
@@ -206,15 +253,19 @@ response matches where `dr_egeria` actually wrote (same
 |---|---|---|
 | "Unresolved reference — no matching Report Spec or Dashboard Sheet" | `ref` doesn't match any Report Spec name/alias or Dashboard Sheet name | Check `GET /api/report-specs` for the exact name; typos and case matter |
 | "Needs parameters: X" | The spec's `action.required_params` has something other than just `search_string` | Follow the "open in Report Spec Browser" link to run it with real params, or pick a different spec for the dashboard |
+| Tile renders as `REPORT` even though `### Output Format` was set to `TABLE` (or anything else) in the `Link Report to Dashboard Sheet` command | Confirmed, not a fluke: there's no `output_format` field on `Placement` or on the `Report to Dashboard Sheet Link Base` bundle, so the attribute is silently dropped — Local Dashboards always uses its own fixed REPORT→TABLE→DICT preference | Not fixable per-placement today (NEXT-14); run the spec directly in the Report Spec Browser (`/egeria-explorer#report-specs`) if you need a specific output format |
 | Tile renders "No results." | Auto-fill ran (`search_string=""`) but the query found nothing | Expected if the underlying data doesn't exist yet — not a bug |
 | Sheet doesn't appear in the list at all | Wrong store path, or `--validate` was the last run instead of `--process` | Compare `storePath` from `GET /api/local-dashboards` against your `PYEGERIA_DASHBOARD_SHEETS_STORE`; re-run with `--process` |
 | `dr_egeria` reports `SUCCESS` but the dashboard doesn't change at all — new/edited placement never shows up | Ran `dr_egeria` on the wrong machine — most likely your host instead of inside `quickstart-pyegeria-web` (see "Where `dr_egeria` has to run" above) | Re-run via `docker exec quickstart-pyegeria-web dr_egeria --process ...`; it's safe to rerun the whole file |
 | Nested sheet placement | Currently shows an "Open nested sheet →" link, not inline rendering | By design for now — recursive inline rendering needs cycle detection first (see the Next Steps dashboard below) |
+| Tile shows a huge, unrelated wall of text/diagram, or a "*(truncated...)*" note | The placement's Report Spec has no scoping param, so an auto-filled blank `search_string` matched the whole dataset | Expected given today's model (see "No per-placement scoping yet" above) — pick a narrower spec, or open the full Report Spec Browser and supply a real `search_string` |
+| Diagram doesn't render, raw ` ```mermaid ` text shows instead | Content was truncated mid-diagram by the 20,000-character cap, so the fence never closes | The diagram was too large to render at all; same underlying scoping gap as above |
 
 ## Worked example: the "Next Steps" dashboard
 
-Rather than a toy example, [`LOCAL_DASHBOARDS_ROADMAP.dr-egeria.md`](LOCAL_DASHBOARDS_ROADMAP.dr-egeria.md)
-in this directory is a complete, runnable Dr.Egeria document that:
+Rather than a toy example, the shared folder's
+[`LOCAL_DASHBOARDS_ROADMAP.dr-egeria.md`](../../../exchange-quickstart/loading-bay/dr-egeria-inbox/Local%20Dashboards/LOCAL_DASHBOARDS_ROADMAP.dr-egeria.md)
+is a complete, runnable Dr.Egeria document that:
 
 1. Creates a real **Work Item List** collection, `Local Dashboards - Next
    Steps`.
@@ -222,12 +273,18 @@ in this directory is a complete, runnable Dr.Egeria document that:
    (funnel chart wiring, nested-sheet inline rendering, chart drill-click
    parity, the Advisor dashboard editor, and the `find_method` gap on
    Dashboard Sheet commands) and adds each as a member of the Work Item
-   List.
+   List — split out into its own file,
+   [`LOCAL_DASHBOARDS_WORK_ITEMS.dr-egeria.md`](../../../exchange-quickstart/loading-bay/dr-egeria-inbox/Local%20Dashboards/LOCAL_DASHBOARDS_WORK_ITEMS.dr-egeria.md),
+   so the work items can be recreated/re-linked without recreating the Work
+   Item List or Dashboard Sheet.
 3. Creates a Dashboard Sheet, `local-dashboards-next-steps`, and places the
    auto-generated `Work-Item-List-DrE-Basic` report spec on it (span
    `full`, emphasis `panel`).
 
-Run it the same way as any Dr.Egeria document:
+Both files live in the shared **Local Dashboards** folder (see "Where to
+keep your `.dr-egeria.md` file" above) — load either one straight from the
+Run Dr.Egeria Document panel's file chips, or run via the CLI the same way
+as any Dr.Egeria document:
 
 ```bash
 dr_egeria --validate LOCAL_DASHBOARDS_ROADMAP.dr-egeria.md

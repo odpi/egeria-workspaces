@@ -239,3 +239,6 @@ full
 
 ### Placement Emphasis
 panel
+
+### Output Format
+REPORT
