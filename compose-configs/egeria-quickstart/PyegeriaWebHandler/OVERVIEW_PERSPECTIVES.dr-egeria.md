@@ -17,1356 +17,1356 @@
 
 # Data Governance Lead — perspective
 
-# Create Perspective
+## Create Perspective
 
-## Display Name
+### Display Name
 Data Governance Lead
 
-## Category
+### Category
 Overview Dashboard Perspective
 
-## Description
+### Description
 Are we in control, and is it improving?  (Egeria Overview dashboard perspective.)
 
-## Qualified Name
+### Qualified Name
 Perspective::overview-governance
 
-## Version Identifier
+### Version Identifier
 1.0
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 What share of critical assets is governed (owned, classified, certified)?
 
-## Summary
+### Summary
 What share of critical assets is governed (owned, classified, certified)?
 
-## Usage
+### Usage
 DCAM · Governance → Business value: regulatory exposure & audit-readiness
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-governance-01
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-governance
 
-## Question Name
+### Question Name
 Question::overview-governance-01
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 Is governance coverage improving period over period?
 
-## Summary
+### Summary
 Is governance coverage improving period over period?
 
-## Usage
+### Usage
 DAMA maturity → Business value: demonstrable program ROI to the board
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-governance-02
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-governance
 
-## Question Name
+### Question Name
 Question::overview-governance-02
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 Where is our regulatory exposure concentrated?
 
-## Summary
+### Summary
 Where is our regulatory exposure concentrated?
 
-## Usage
+### Usage
 FAIR + Privacy → Business value: avoided fines, breach-cost reduction
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-governance-03
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-governance
 
-## Question Name
+### Question Name
 Question::overview-governance-03
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 How many policy exceptions are open, and are they aging down?
 
-## Summary
+### Summary
 How many policy exceptions are open, and are they aging down?
 
-## Usage
+### Usage
 DCAM · Control → Business value: operational risk & SLA to remediation
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-governance-04
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-governance
 
-## Question Name
+### Question Name
 Question::overview-governance-04
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 Is the community actively curating & trusting the catalog?
 
-## Summary
+### Summary
 Is the community actively curating & trusting the catalog?
 
-## Usage
+### Usage
 Adoption → Business value: self-service, less steward toil
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-governance-05
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-governance
 
-## Question Name
+### Question Name
 Question::overview-governance-05
 
-## Label
+### Label
 ScopedBy
 
 ---
 
 # Data Steward — perspective
 
-# Create Perspective
+## Create Perspective
 
-## Display Name
+### Display Name
 Data Steward
 
-## Category
+### Category
 Overview Dashboard Perspective
 
-## Description
+### Description
 What in my domain needs my attention?  (Egeria Overview dashboard perspective.)
 
-## Qualified Name
+### Qualified Name
 Perspective::overview-steward
 
-## Version Identifier
+### Version Identifier
 1.0
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 Which assets lack an owner, classification, or description?
 
-## Summary
+### Summary
 Which assets lack an owner, classification, or description?
 
-## Usage
+### Usage
 DAMA · Metadata → Value: trustable, findable catalog
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-steward-01
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-steward
 
-## Question Name
+### Question Name
 Question::overview-steward-01
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 Which glossary terms are unlinked or awaiting approval?
 
-## Summary
+### Summary
 Which glossary terms are unlinked or awaiting approval?
 
-## Usage
+### Usage
 FAIR · Findable → Value: semantic coverage
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-steward-02
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-steward
 
-## Question Name
+### Question Name
 Question::overview-steward-02
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 Which data stores have never been surveyed / profiled?
 
-## Summary
+### Summary
 Which data stores have never been surveyed / profiled?
 
-## Usage
+### Usage
 DataOps · quality → Value: known data quality
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-steward-03
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-steward
 
-## Question Name
+### Question Name
 Question::overview-steward-03
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 What changed in my domain since I last looked?
 
-## Summary
+### Summary
 What changed in my domain since I last looked?
 
-## Usage
+### Usage
 Observability → Value: stay ahead of drift
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-steward-04
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-steward
 
-## Question Name
+### Question Name
 Question::overview-steward-04
 
-## Label
+### Label
 ScopedBy
 
 ---
 
 # Data Owner — perspective
 
-# Create Perspective
+## Create Perspective
 
-## Display Name
+### Display Name
 Data Owner
 
-## Category
+### Category
 Overview Dashboard Perspective
 
-## Description
+### Description
 Is my data healthy, used, and trusted?  (Egeria Overview dashboard perspective.)
 
-## Qualified Name
+### Qualified Name
 Perspective::overview-owner
 
-## Version Identifier
+### Version Identifier
 1.0
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 Who is using my data products, and how much?
 
-## Summary
+### Summary
 Who is using my data products, and how much?
 
-## Usage
+### Usage
 Data-as-product → Value: demonstrate impact
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-owner-01
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-owner
 
-## Question Name
+### Question Name
 Question::overview-owner-01
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 What is the quality & freshness of assets I own?
 
-## Summary
+### Summary
 What is the quality & freshness of assets I own?
 
-## Usage
+### Usage
 DataOps → Value: reliability
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-owner-02
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-owner
 
-## Question Name
+### Question Name
 Question::overview-owner-02
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 Are there open issues or low ratings on my assets?
 
-## Summary
+### Summary
 Are there open issues or low ratings on my assets?
 
-## Usage
+### Usage
 Feedback → Value: trust signal
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-owner-03
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-owner
 
-## Question Name
+### Question Name
 Question::overview-owner-03
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 Is my data properly classified & access-controlled?
 
-## Summary
+### Summary
 Is my data properly classified & access-controlled?
 
-## Usage
+### Usage
 DCAM → Value: compliance
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-owner-04
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-owner
 
-## Question Name
+### Question Name
 Question::overview-owner-04
 
-## Label
+### Label
 ScopedBy
 
 ---
 
 # Data Consumer / Analyst — perspective
 
-# Create Perspective
+## Create Perspective
 
-## Display Name
+### Display Name
 Data Consumer / Analyst
 
-## Category
+### Category
 Overview Dashboard Perspective
 
-## Description
+### Description
 Can I find and trust the data I need?  (Egeria Overview dashboard perspective.)
 
-## Qualified Name
+### Qualified Name
 Perspective::overview-consumer
 
-## Version Identifier
+### Version Identifier
 1.0
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 What certified data products exist for my domain?
 
-## Summary
+### Summary
 What certified data products exist for my domain?
 
-## Usage
+### Usage
 FAIR · Findable → Value: faster time-to-data
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-consumer-01
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-consumer
 
-## Question Name
+### Question Name
 Question::overview-consumer-01
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 Where did this data come from, and how fresh is it?
 
-## Summary
+### Summary
 Where did this data come from, and how fresh is it?
 
-## Usage
+### Usage
 FAIR · lineage → Value: trust
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-consumer-02
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-consumer
 
-## Question Name
+### Question Name
 Question::overview-consumer-02
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 What do peers say — ratings, comments, most-used?
 
-## Summary
+### Summary
 What do peers say — ratings, comments, most-used?
 
-## Usage
+### Usage
 Collaboration → Value: social proof
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-consumer-03
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-consumer
 
-## Question Name
+### Question Name
 Question::overview-consumer-03
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 Which datasets are safe to use with an LLM/agent?
 
-## Summary
+### Summary
 Which datasets are safe to use with an LLM/agent?
 
-## Usage
+### Usage
 AI governance → Value: safe reuse
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-consumer-04
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-consumer
 
-## Question Name
+### Question Name
 Question::overview-consumer-04
 
-## Label
+### Label
 ScopedBy
 
 ---
 
 # Data Engineer / Platform — perspective
 
-# Create Perspective
+## Create Perspective
 
-## Display Name
+### Display Name
 Data Engineer / Platform
 
-## Category
+### Category
 Overview Dashboard Perspective
 
-## Description
+### Description
 Is the pipeline healthy and complete?  (Egeria Overview dashboard perspective.)
 
-## Qualified Name
+### Qualified Name
 Perspective::overview-engineer
 
-## Version Identifier
+### Version Identifier
 1.0
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 Which assets are unsurveyed / missing schema?
 
-## Summary
+### Summary
 Which assets are unsurveyed / missing schema?
 
-## Usage
+### Usage
 DataOps → Value: coverage
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-engineer-01
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-engineer
 
-## Question Name
+### Question Name
 Question::overview-engineer-01
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 How complete is lineage — any orphan nodes?
 
-## Summary
+### Summary
 How complete is lineage — any orphan nodes?
 
-## Usage
+### Usage
 FAIR · lineage → Value: impact analysis
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-engineer-02
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-engineer
 
-## Question Name
+### Question Name
 Question::overview-engineer-02
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 What supply chains / blueprints do assets participate in?
 
-## Summary
+### Summary
 What supply chains / blueprints do assets participate in?
 
-## Usage
+### Usage
 Architecture → Value: change safety
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-engineer-03
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-engineer
 
-## Question Name
+### Question Name
 Question::overview-engineer-03
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 What structural change happened recently?
 
-## Summary
+### Summary
 What structural change happened recently?
 
-## Usage
+### Usage
 Observability → Value: detect drift
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-engineer-04
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-engineer
 
-## Question Name
+### Question Name
 Question::overview-engineer-04
 
-## Label
+### Label
 ScopedBy
 
 ---
 
 # App / AI Builder — perspective
 
-# Create Perspective
+## Create Perspective
 
-## Display Name
+### Display Name
 App / AI Builder
 
-## Category
+### Category
 Overview Dashboard Perspective
 
-## Description
+### Description
 How much governed context can I safely build on?  (Egeria Overview dashboard perspective.)
 
-## Qualified Name
+### Qualified Name
 Perspective::overview-builder
 
-## Version Identifier
+### Version Identifier
 1.0
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 How much data is AI-ready — governed, documented, lineage-traced?
 
-## Summary
+### Summary
 How much data is AI-ready — governed, documented, lineage-traced?
 
-## Usage
+### Usage
 AI governance → Value: trustworthy AI faster
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-builder-01
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-builder
 
-## Question Name
+### Question Name
 Question::overview-builder-01
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 What context products can I consume via MCP / API?
 
-## Summary
+### Summary
 What context products can I consume via MCP / API?
 
-## Usage
+### Usage
 Context intelligence → Value: ship without re-plumbing
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-builder-02
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-builder
 
-## Question Name
+### Question Name
 Question::overview-builder-02
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 What is semantically grounded (glossary-linked)?
 
-## Summary
+### Summary
 What is semantically grounded (glossary-linked)?
 
-## Usage
+### Usage
 RAG grounding → Value: fewer hallucinations
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-builder-03
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-builder
 
-## Question Name
+### Question Name
 Question::overview-builder-03
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 What guardrails keep confidential data out of AI context?
 
-## Summary
+### Summary
 What guardrails keep confidential data out of AI context?
 
-## Usage
+### Usage
 AI safety → Value: defensible AI
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-builder-04
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-builder
 
-## Question Name
+### Question Name
 Question::overview-builder-04
 
-## Label
+### Label
 ScopedBy
 
 ---
 
 # Privacy / Risk Officer — perspective
 
-# Create Perspective
+## Create Perspective
 
-## Display Name
+### Display Name
 Privacy / Risk Officer
 
-## Category
+### Category
 Overview Dashboard Perspective
 
-## Description
+### Description
 Where is our risk and exposure?  (Egeria Overview dashboard perspective.)
 
-## Qualified Name
+### Qualified Name
 Perspective::overview-privacy
 
-## Version Identifier
+### Version Identifier
 1.0
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 Where is PII / sensitive data, and is it in the right zones?
 
-## Summary
+### Summary
 Where is PII / sensitive data, and is it in the right zones?
 
-## Usage
+### Usage
 Privacy → Value: breach-cost reduction
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-privacy-01
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-privacy
 
-## Question Name
+### Question Name
 Question::overview-privacy-01
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 What is our retention / certification compliance posture?
 
-## Summary
+### Summary
 What is our retention / certification compliance posture?
 
-## Usage
+### Usage
 DCAM · Control → Value: avoided fines
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-privacy-02
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-privacy
 
-## Question Name
+### Question Name
 Question::overview-privacy-02
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 Who / what can access restricted data (incl. AI agents)?
 
-## Summary
+### Summary
 Who / what can access restricted data (incl. AI agents)?
 
-## Usage
+### Usage
 Access control → Value: least privilege
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-privacy-03
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-privacy
 
-## Question Name
+### Question Name
 Question::overview-privacy-03
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 Is confidential data blocked from AI training/RAG?
 
-## Summary
+### Summary
 Is confidential data blocked from AI training/RAG?
 
-## Usage
+### Usage
 AI safety → Value: defensible AI
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-privacy-04
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-privacy
 
-## Question Name
+### Question Name
 Question::overview-privacy-04
 
-## Label
+### Label
 ScopedBy
 
 ---
 
 # Community Lead — perspective
 
-# Create Perspective
+## Create Perspective
 
-## Display Name
+### Display Name
 Community Lead
 
-## Category
+### Category
 Overview Dashboard Perspective
 
-## Description
+### Description
 Is the community healthy and engaged?  (Egeria Overview dashboard perspective.)
 
-## Qualified Name
+### Qualified Name
 Perspective::overview-community
 
-## Version Identifier
+### Version Identifier
 1.0
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 Who are our most active contributors (karma leaders)?
 
-## Summary
+### Summary
 Who are our most active contributors (karma leaders)?
 
-## Usage
+### Usage
 Community Profile → Value: recognise curation
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-community-01
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-community
 
-## Question Name
+### Question Name
 Question::overview-community-01
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 Is engagement (comments, ratings, tags) growing?
 
-## Summary
+### Summary
 Is engagement (comments, ratings, tags) growing?
 
-## Usage
+### Usage
 Adoption → Value: trusted & used catalog
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-community-02
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-community
 
-## Question Name
+### Question Name
 Question::overview-community-02
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 Which communities / teams are most (and least) engaged?
 
-## Summary
+### Summary
 Which communities / teams are most (and least) engaged?
 
-## Usage
+### Usage
 Collaboration → Value: target enablement
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-community-03
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-community
 
-## Question Name
+### Question Name
 Question::overview-community-03
 
-## Label
+### Label
 ScopedBy
 
 ---
 
-# Create Question
+## Create Question
 
-## Display Name
+### Display Name
 What questions are being asked but not answered?
 
-## Summary
+### Summary
 What questions are being asked but not answered?
 
-## Usage
+### Usage
 Q&A → Value: new views to build
 
-## Category
+### Category
 Overview Dashboard Question
 
-## Content Status
+### Content Status
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 Question::overview-community-04
 
-## Version Identifier
+### Version Identifier
 1.0
 
-# Link Perspective to Question
+## Link Perspective to Question
 
-## Perspective Name
+### Perspective Name
 Perspective::overview-community
 
-## Question Name
+### Question Name
 Question::overview-community-04
 
-## Label
+### Label
 ScopedBy
 
 ---

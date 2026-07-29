@@ -208,6 +208,8 @@ from digital_products_handler import router as digital_products_router
 app.include_router(digital_products_router)
 from collections_handler import router as collections_router
 app.include_router(collections_router)
+from subject_area_handler import router as subject_area_router
+app.include_router(subject_area_router)
 from valid_values_handler import router as valid_values_router
 app.include_router(valid_values_router)
 from mermaid_handler import router as mermaid_router
@@ -268,6 +270,8 @@ from insights_handler import router as insights_router
 app.include_router(insights_router)
 from overview_handler import router as overview_router
 app.include_router(overview_router)
+from local_dashboards_handler import router as local_dashboards_router
+app.include_router(local_dashboards_router)
 from operations_handler import router as operations_router
 app.include_router(operations_router)
 from lineage_handler import router as lineage_router

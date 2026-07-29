@@ -897,6 +897,57 @@ deliberate fix once the strategy + `maxPageSize` are agreed.
 
 ---
 
+## PY-21: `find_glossary_terms(sequencing_order=..., include_only_classified_elements=...)` returns ZERO results when combined — each filter alone works fine
+
+**Status:** confirmed bug — found 2026-07-28 debugging Egeria Explorer's Perspectives
+page showing Perspectives but no Questions. Related to PY-20 (same broken parameter,
+different — and more severe — failure mode: not just wrong order, but zero rows).
+
+**How to trigger** (`GlossaryManager.find_glossary_terms`, qs-view-server, 33
+`GlossaryTerm`s classified `Question`):
+```python
+# classification filter alone: 33 hits
+mgr.find_glossary_terms(search_string="*", starts_with=True, output_format="JSON",
+                        page_size=200, graph_query_depth=0,
+                        include_only_classified_elements=["Question"])
+
+# sequencing_order alone (no classification filter): 200 hits (unrelated terms, page_size ceiling)
+mgr.find_glossary_terms(search_string="*", starts_with=True, output_format="JSON",
+                        page_size=200, graph_query_depth=0,
+                        sequencing_order="PROPERTY_ASCENDING")
+
+# BOTH together: 0 hits
+mgr.find_glossary_terms(search_string="*", starts_with=True, output_format="JSON",
+                        page_size=200, graph_query_depth=0,
+                        sequencing_order="PROPERTY_ASCENDING",
+                        include_only_classified_elements=["Question"])
+# -> []  (or a "No elements found" string, depending on call shape)
+```
+Isolated further: `sequencing_order="PROPERTY_ASCENDING"` is the trigger —
+`sequencing_property` alone (no `sequencing_order`) does **not** break it (still 33
+hits). It's specifically `sequencing_order` + a classification filter.
+
+**Expected:** the classification filter's 33 matches, sorted by the given
+sequencing property (or, per PY-20, at least returned in server-internal order —
+but not silently emptied).
+
+**Actual:** zero rows, with no error — the query silently looks like "nothing
+matches" rather than failing loudly, which is what made this hard to spot (the
+egeria-workspaces `/api/questions` endpoint returned `{"total": 0}` with a 200
+status; only comparing against a live count of Question-classified terms in Egeria
+surfaced that this was wrong, not just an empty demo).
+
+**Impact / workaround:** `perspectives_handler.py`'s `get_questions()` used exactly
+this broken combination. Fixed by dropping `sequencing_order`/`sequencing_property`
+from the call — the endpoint already sorts client-side (`questions.sort(...)` by
+`displayName`), so the server-side sequencing was redundant even before this bug was
+found. No other known callers currently combine `sequencing_order` with a
+classification filter, but worth checking `include_only_classified_elements`/
+`matchClassifications` callers generally if new zero-result reports show up
+elsewhere.
+
+---
+
 ## Quick reference: which OMVS client class for which purpose
 
 | Need | Class | Notes |

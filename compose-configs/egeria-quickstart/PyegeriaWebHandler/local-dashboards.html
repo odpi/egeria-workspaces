@@ -1,0 +1,348 @@
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+<!-- Copyright Contributors to the ODPi Egeria project. -->
+<!-- Local Dashboards — browse user-authored Dashboard Sheets (Dr.Egeria `Create Dashboard Sheet`). -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Local Dashboards · Egeria</title>
+<style>
+  :root {
+    --bg:#1a1a2e; --card:#16213e; --card2:#12203c; --border:#0f3460;
+    --accent:#e94560; --text:#e0e0e0; --muted:#8b93a7; --green:#4caf50; --amber:#f5b74e;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,sans-serif; min-height:100vh; }
+  a { color:inherit; }
+
+  .hdr { background:var(--card); border-bottom:1px solid var(--border); padding:10px 24px; display:flex; align-items:center; gap:14px; position:sticky; top:0; z-index:10; }
+  .hdr .logo { font-size:1.3rem; }
+  .hdr-title { font-size:1rem; font-weight:700; }
+  .hdr-sub { font-size:.72rem; color:var(--muted); }
+  .btn { padding:5px 12px; border-radius:6px; border:1px solid var(--border); background:transparent; color:var(--text); cursor:pointer; font-size:.78rem; font-family:inherit; text-decoration:none; display:inline-block; }
+  .btn:hover { background:var(--border); }
+
+  .wrap { max-width:1280px; margin:0 auto; padding:22px 24px 60px; }
+  .pagehead { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+  .pagehead h1 { font-size:1.35rem; font-weight:700; }
+  .pagehead p { color:var(--muted); font-size:.85rem; margin-top:3px; }
+
+  .badge { font-size:.68rem; font-weight:600; padding:2px 8px; border-radius:20px; background:rgba(139,147,167,.16); color:var(--muted); display:inline-block; }
+  .badge-fam { background:rgba(79,156,249,.16); color:#4f9cf9; }
+
+  /* ── list view ── */
+  .sheet-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; margin-top:8px; }
+  .sheet-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px 18px; cursor:pointer; transition:border-color .15s; display:flex; flex-direction:column; gap:6px; }
+  .sheet-card:hover { border-color:var(--accent); }
+  .sheet-card h3 { font-size:1rem; font-weight:650; }
+  .sheet-card .desc { font-size:.8rem; color:var(--muted); line-height:1.4; flex:1; }
+  .sheet-card .meta { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:4px; }
+  .sheet-card .count { font-size:.72rem; color:var(--muted); }
+
+  .empty { padding:40px 20px; text-align:center; color:var(--muted); border:1px dashed var(--border); border-radius:12px; margin-top:12px; }
+  .empty code { background:var(--card2); padding:2px 6px; border-radius:4px; font-size:.85em; }
+  .err { padding:14px 16px; background:rgba(233,69,96,.1); border:1px solid rgba(233,69,96,.35); border-radius:8px; color:#ff9db1; font-size:.85rem; margin-top:12px; }
+
+  /* ── detail view ── */
+  .back { margin-bottom:14px; }
+  .placements { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:16px; }
+  .placement { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px 18px; overflow:auto; }
+  .placement.span-1 { grid-column:span 1; }
+  .placement.span-2 { grid-column:span 2; }
+  .placement.span-full { grid-column:1 / -1; }
+  .placement.emph-panel { padding:20px 22px; }
+  .placement.kind-missing { border-color:rgba(233,69,96,.5); background:rgba(233,69,96,.06); }
+  .placement.kind-sheet { border-style:dashed; }
+  .placement h4 { font-size:.92rem; font-weight:650; margin-bottom:4px; display:flex; align-items:center; gap:8px; }
+  .placement .p-desc { font-size:.78rem; color:var(--muted); margin-bottom:10px; }
+  .placement .p-body { font-size:.82rem; line-height:1.6; }
+  .placement .p-body table { border-collapse:collapse; font-size:12px; }
+  .placement .p-body th, .placement .p-body td { padding:5px 8px; border:1px solid var(--border); text-align:left; }
+  .placement .p-body th { color:var(--muted); white-space:nowrap; }
+  .placement .p-loading { color:var(--muted); font-size:.8rem; font-style:italic; }
+  .placement .p-note { font-size:.76rem; color:var(--amber); background:rgba(245,183,78,.08); border:1px solid rgba(245,183,78,.25); border-radius:6px; padding:8px 10px; margin-top:4px; }
+  .placement .p-note a { color:#4f9cf9; text-decoration:underline; }
+  .spinner { width:16px; height:16px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; display:inline-block; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  @media (max-width:900px) {
+    .placements { grid-template-columns:repeat(2,1fr); }
+    .placement.span-2 { grid-column:span 2; }
+  }
+  @media (max-width:600px) {
+    .placements { grid-template-columns:1fr; }
+    .placement.span-1, .placement.span-2 { grid-column:span 1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <a href="/portal" class="btn" title="Back to Portal">← Portal</a>
+  <span class="logo">🗂️</span>
+  <div>
+    <div class="hdr-title">Local Dashboards</div>
+    <div class="hdr-sub">User-authored Dashboard Sheets (Dr.Egeria)</div>
+  </div>
+</div>
+
+<div class="wrap" id="app">
+  <div style="padding:40px;text-align:center;color:var(--muted)"><span class="spinner"></span> Loading…</div>
+</div>
+
+<script>
+var app = document.getElementById('app');
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// JSON.stringify() produces double-quoted JS string literals — splicing that
+// straight into a double-quoted HTML attribute (onclick="...") lets the
+// value's own quotes terminate the attribute early and mangle everything
+// after it. Escape those quotes for safe embedding; the browser HTML-decodes
+// the attribute back to a normal JS string literal before executing it.
+function attrJson(v) {
+  return JSON.stringify(v).replace(/"/g, '&quot;');
+}
+
+function spanClass(span) {
+  return span === 'full' ? 'span-full' : (span === '2' ? 'span-2' : 'span-1');
+}
+
+function currentSheetName() {
+  var m = /[?&]sheet=([^&]+)/.exec(window.location.search);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function navigateToSheet(name) {
+  var url = name ? ('/local-dashboards?sheet=' + encodeURIComponent(name)) : '/local-dashboards';
+  history.pushState({}, '', url);
+  render();
+}
+
+window.addEventListener('popstate', render);
+
+function render() {
+  var name = currentSheetName();
+  if (name) renderDetail(name);
+  else renderList();
+}
+
+// ── list view ──────────────────────────────────────────────────────────────
+
+function renderList() {
+  app.innerHTML = '<div class="pagehead"><div><h1>Local Dashboards</h1>'
+    + '<p>Dashboard Sheets authored locally via the Dr.Egeria <code>Create Dashboard Sheet</code> command — '
+    + 'each an ordered layout of Report Spec placements.</p></div></div>'
+    + '<div id="list-body"><div style="padding:40px;text-align:center;color:var(--muted)"><span class="spinner"></span> Loading…</div></div>';
+
+  fetch('/api/local-dashboards')
+    .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(data) {
+      var body = document.getElementById('list-body');
+      if (!data.sheets || !data.sheets.length) {
+        body.innerHTML = '<div class="empty">No Dashboard Sheets yet.<br><br>'
+          + 'Author one with the Dr.Egeria <code>Create Dashboard Sheet</code> command, then '
+          + '<code>Link Report to Dashboard Sheet</code> to add placements.<br><br>'
+          + '<span style="font-size:.72rem">Store: <code>' + esc(data.storePath) + '</code></span></div>';
+        return;
+      }
+      body.innerHTML = '<div class="sheet-grid">' + data.sheets.map(function(s) {
+        return '<div class="sheet-card" onclick="navigateToSheet(' + attrJson(s.name) + ')">'
+          + '<h3>' + esc(s.heading || s.name) + '</h3>'
+          + '<div class="desc">' + esc(s.description || 'No description.') + '</div>'
+          + '<div class="meta">'
+          + (s.family ? '<span class="badge badge-fam">' + esc(s.family) + '</span>' : '')
+          + '<span class="count">' + s.placementCount + ' placement' + (s.placementCount === 1 ? '' : 's') + '</span>'
+          + '</div></div>';
+      }).join('') + '</div>';
+    })
+    .catch(function(err) {
+      document.getElementById('list-body').innerHTML = '<div class="err">Failed to load Dashboard Sheets: ' + esc(err.message) + '</div>';
+    });
+}
+
+// ── detail view ────────────────────────────────────────────────────────────
+
+function renderDetail(name) {
+  app.innerHTML = '<div class="back"><a href="#" class="btn" onclick="event.preventDefault();navigateToSheet(null)">← All Dashboards</a></div>'
+    + '<div id="detail-body"><div style="padding:40px;text-align:center;color:var(--muted)"><span class="spinner"></span> Loading…</div></div>';
+
+  fetch('/api/local-dashboards/' + encodeURIComponent(name))
+    .then(function(r) {
+      if (!r.ok) return r.json().catch(function(){ return {}; }).then(function(b) {
+        throw new Error(b.detail || ('HTTP ' + r.status));
+      });
+      return r.json();
+    })
+    .then(function(sheet) {
+      var body = document.getElementById('detail-body');
+      body.innerHTML = '<div class="pagehead"><div><h1>' + esc(sheet.heading || sheet.name) + '</h1>'
+        + '<p>' + esc(sheet.description || '') + '</p></div>'
+        + (sheet.family ? '<span class="badge badge-fam">' + esc(sheet.family) + '</span>' : '') + '</div>'
+        + '<div class="placements" id="placements"></div>';
+
+      var grid = document.getElementById('placements');
+      if (!sheet.placements || !sheet.placements.length) {
+        grid.outerHTML = '<div class="empty">This Dashboard Sheet has no placements yet. Use the Dr.Egeria '
+          + '<code>Link Report to Dashboard Sheet</code> command to add one.</div>';
+        return;
+      }
+      sheet.placements.forEach(function(p, i) {
+        var el = document.createElement('div');
+        el.className = 'placement ' + spanClass(p.span) + ' emph-' + (p.emphasis || 'kpi') + ' kind-' + p.kind;
+        el.id = 'placement-' + i;
+        el.innerHTML = '<h4>' + esc(p.heading) + '</h4>'
+          + (p.description ? '<div class="p-desc">' + esc(p.description) + '</div>' : '')
+          + '<div class="p-body" id="placement-body-' + i + '"></div>';
+        grid.appendChild(el);
+        renderPlacementBody(p, i);
+      });
+    })
+    .catch(function(err) {
+      document.getElementById('detail-body').innerHTML = '<div class="err">Failed to load Dashboard Sheet: ' + esc(err.message) + '</div>';
+    });
+}
+
+function renderPlacementBody(p, i) {
+  var target = document.getElementById('placement-body-' + i);
+  if (p.kind === 'missing') {
+    target.innerHTML = '<div class="p-note">⚠ ' + esc(p.description) + '</div>';
+    return;
+  }
+  if (p.kind === 'sheet') {
+    target.innerHTML = '<a href="#" class="btn" onclick="event.preventDefault();navigateToSheet('
+      + attrJson(p.ref) + ')">Open nested sheet →</a>';
+    return;
+  }
+  // kind === 'spec'
+  // The single most common Dr.Egeria "find" convention is one required param,
+  // `search_string` — and an empty string means "match everything" (capped),
+  // not "match nothing" (see report_specs_handler.py / format_set_executor's
+  // action_mode="find" normalization). Auto-fill that one case so ordinary
+  // find-backed report specs still render on a dashboard tile without the
+  // reader having to type anything; anything else genuinely needs input, so
+  // it points at the full Report Spec Browser instead of guessing values.
+  var params = {};
+  var required = p.requiredParams || [];
+  var autoFillable = required.length === 0 || (required.length === 1 && required[0] === 'search_string');
+  if (!autoFillable) {
+    target.innerHTML = '<div class="p-note">Needs parameters: <b>' + required.map(esc).join(', ') + '</b>'
+      + ' — <a href="/egeria-explorer?name=' + encodeURIComponent(p.ref) + '#report-specs" target="_blank" rel="noopener">'
+      + 'open in Report Spec Browser →</a></div>';
+    return;
+  }
+  if (required.length === 1) params.search_string = '';
+
+  var fmt = p.outputTypes && p.outputTypes.includes('REPORT') ? 'REPORT'
+          : p.outputTypes && p.outputTypes.includes('TABLE')  ? 'TABLE'
+          : (p.outputTypes && p.outputTypes[0]) || 'DICT';
+
+  target.innerHTML = '<div class="p-loading"><span class="spinner"></span> Running report…</div>';
+  fetch('/api/report-specs/execute', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ spec_name: p.ref, output_format: fmt, params: params }),
+  })
+    .then(function(r) {
+      if (!r.ok) return r.text().then(function(t) {
+        var detail = null;
+        try { detail = JSON.parse(t).detail; } catch (e) {}
+        throw new Error(detail || ('HTTP ' + r.status));
+      });
+      return r.json();
+    })
+    .then(function(result) { target.innerHTML = renderExecResultHtml(result); })
+    .catch(function(err) { target.innerHTML = '<div class="p-note">⚠ ' + esc(err.message) + '</div>'; });
+}
+
+function renderExecResultHtml(result) {
+  if (!result || result.kind === 'empty') return '<div class="p-loading">No results.</div>';
+  if (result.kind === 'text') return renderMdToHtml(result.content);
+  if (result.kind === 'json') {
+    // Some auto-generated "Basic" report specs return pre-rendered markdown
+    // text even under kind:"json" (their TABLE format isn't truly tabular) —
+    // render it as markdown rather than showing an empty table.
+    if (typeof result.data === 'string') return renderMdToHtml(result.data);
+    return renderJsonTableHtml(result.data);
+  }
+  return '<pre style="font-size:11px">' + esc(JSON.stringify(result, null, 2)) + '</pre>';
+}
+
+// Minimal markdown → HTML (tables + bold/italic/code + headings + lists), no
+// React dependency — this page deliberately has no React runtime (mirrors
+// egeria-overview.html). Trimmed from static/egeria-shared-ui.js's
+// _renderMdHtml (that one needs React.createContext at module load time).
+function renderMdToHtml(rawText) {
+  if (!rawText || !rawText.trim()) return '';
+  var inlineMarkup = function(s) {
+    return s
+      .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*\n]+?)\*/g, '<em>$1</em>')
+      .replace(/`([^`\n]+)`/g, '<code style="background:var(--card2);padding:1px 4px;border-radius:3px;font-size:.9em">$1</code>');
+  };
+  var lines = rawText.split('\n');
+  var parts = [];
+  var i = 0;
+  while (i < lines.length) {
+    if (i + 1 < lines.length && /^\|.+\|/.test(lines[i]) && /^\|[\s\-:|]+\|/.test(lines[i + 1])) {
+      var tlines = [];
+      while (i < lines.length && /^\|/.test(lines[i].trim())) { tlines.push(lines[i]); i++; }
+      var headers = tlines[0].split('|').slice(1, -1).map(function(h) { return h.trim(); });
+      var rows    = tlines.slice(2).map(function(r) { return r.split('|').slice(1, -1).map(function(c) { return c.trim(); }); });
+      var t = '<table><thead><tr>' + headers.map(function(h) { return '<th>' + inlineMarkup(esc(h)) + '</th>'; }).join('') + '</tr></thead><tbody>';
+      rows.forEach(function(row) {
+        t += '<tr>' + headers.map(function(_, j) { return '<td>' + inlineMarkup(esc(row[j] || '')) + '</td>'; }).join('') + '</tr>';
+      });
+      t += '</tbody></table>';
+      parts.push(t);
+    } else {
+      var nonTable = [];
+      while (i < lines.length && !(i + 1 < lines.length && /^\|.+\|/.test(lines[i]) && /^\|[\s\-:|]+\|/.test(lines[i + 1]))) {
+        nonTable.push(lines[i]); i++;
+      }
+      if (nonTable.length > 0) {
+        parts.push(inlineMarkup(esc(nonTable.join('\n')))
+          .replace(/^### (.+)$/gm, '<b style="font-size:12px;display:block;margin:8px 0 2px;color:var(--accent)">$1</b>')
+          .replace(/^## (.+)$/gm,  '<b style="font-size:13px;display:block;margin:10px 0 2px;color:var(--accent)">$1</b>')
+          .replace(/^# (.+)$/gm,   '<b style="font-size:14px;display:block;margin:12px 0 4px;color:var(--accent)">$1</b>')
+          .replace(/^[-*] (.+)$/gm, '<span style="display:block;padding-left:12px">• $1</span>')
+          .replace(/^(\d+)\. (.+)$/gm, '<span style="display:block;padding-left:12px">$1. $2</span>')
+          .replace(/\n\n/g, '<br><br>')
+          .replace(/\n/g, '<br>'));
+      }
+    }
+  }
+  return parts.join('');
+}
+
+function renderJsonTableHtml(data) {
+  var rows = Array.isArray(data) ? data : (data && typeof data === 'object' ? [data] : []);
+  if (!rows.length) return '<div class="p-loading">No results.</div>';
+  var cols = [];
+  var seen = {};
+  rows.forEach(function(r) {
+    if (r && typeof r === 'object') Object.keys(r).forEach(function(k) { if (!seen[k]) { seen[k] = true; cols.push(k); } });
+  });
+  cols = cols.slice(0, 8);   // keep tile-sized tables readable
+  var html = '<table><thead><tr>' + cols.map(function(c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr></thead><tbody>';
+  rows.slice(0, 25).forEach(function(r) {
+    html += '<tr>' + cols.map(function(c) {
+      var v = r ? r[c] : undefined;
+      if (v && typeof v === 'object') v = JSON.stringify(v);
+      return '<td>' + esc(v == null ? '' : v) + '</td>';
+    }).join('') + '</tr>';
+  });
+  html += '</tbody></table>';
+  if (rows.length > 25) html += '<div style="font-size:.7rem;color:var(--muted);margin-top:4px">+' + (rows.length - 25) + ' more rows</div>';
+  return html;
+}
+
+render();
+</script>
+
+</body>
+</html>

@@ -2533,7 +2533,7 @@ function ReportSpecView() {
 // (shared with the Tech Catalog). The tree node takes a fetchJson(path) prop;
 // GlossaryView supplies one below.
 
-function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) {
+function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(254);
   const [glossaryState, setGlossaryState] = useState('loading');
@@ -2838,6 +2838,161 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
                     ? React.createElement("span", { style: { color: 'var(--muted)' } }, "Loading…")
                     : React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a term or folder to view details")
                 )
+    )
+  );
+}
+
+// ── Subject Area Explorer ─────────────────────────────────────────────────────
+// SubjectArea is a Collection subtype, nested via the SubjectAreaHierarchy
+// relationship (broaderSubjectArea / nestedSubjectAreas). /api/subject-areas
+// returns the whole taxonomy already nested (it's small — a governance
+// classification tree, not a data catalog), so no lazy per-node fetch is
+// needed here, unlike CollectionsView/DigitalProductsView. Selecting a node
+// reuses /api/collections/{guid} (any Collection subtype works there
+// unmodified) to show its CollectionMembers and their own cross-links via
+// the shared DigitalProductDetail component.
+
+function SubjectAreaTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggleNode }) {
+  const isExp = expanded.has(node.guid);
+  const isSel = selectedGuid === node.guid;
+  const paddingLeft = 8 + depth * 20;
+  const kids = node.children || [];
+  const hasKids = kids.length > 0;
+
+  return React.createElement(React.Fragment, null,
+    React.createElement("div", {
+      className: "tree-item" + (isSel ? " sel" : ""),
+      style: { paddingLeft },
+      title: node.description || node.qualifiedName || '',
+      onClick: function() {
+        onSelect(node.guid, node);
+        if (hasKids) toggleNode(node.guid);
+      }
+    },
+      hasKids
+        ? React.createElement("span", { style: { width: 16, display: 'inline-block', flexShrink: 0, fontSize: 10, textAlign: 'center', color: isExp ? 'var(--accent)' : 'var(--muted)' } }, isExp ? '▼' : '▶')
+        : React.createElement("span", { style: { width: 16, display: 'inline-block', flexShrink: 0 } }),
+      React.createElement("span", { className: "type-name" }, node.displayName || node.qualifiedName || node.guid)
+    ),
+    isExp && hasKids && kids.map(function(child) {
+      return React.createElement(SubjectAreaTreeNode, {
+        key: child.guid, node: child, depth: depth + 1,
+        selectedGuid: selectedGuid, onSelect: onSelect, expanded: expanded, toggleNode: toggleNode,
+      });
+    })
+  );
+}
+
+function SubjectAreasTab({ onNavigateToElement }) {
+  const creds = React.useContext(CredContext);
+  const [sideW, onDivDown] = useResizable(300);
+  const [hierState, setHierState] = useState('loading');
+  const [hierAttempt, setHierAttempt] = useState(0);
+  const [hierError, setHierError] = useState('');
+  const [roots, setRoots] = useState([]);
+  const [inclTempl, setInclTempl] = useState(false);
+  const [expanded, setExpanded] = useState(new Set());
+  const [selectedGuid, setSelectedGuid] = useState(null);
+  const [selectedNodeObj, setSelectedNodeObj] = useState(null);
+  const [nodeDetail, setNodeDetail] = useState(null);
+
+  useEffect(() => {
+    setHierState('loading'); setHierError('');
+    egeriaFetch('/api/subject-areas' + (inclTempl ? '?include_templates=true' : ''), creds)
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(data => { setRoots(data.roots || []); setHierState('ready'); })
+      .catch(err => { setHierError(err.message); setHierState('error'); });
+  }, [hierAttempt, inclTempl]);
+
+  const toggleNode = useCallback(guid => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(guid)) next.delete(guid); else next.add(guid);
+      return next;
+    });
+  }, []);
+
+  const handleSelect = useCallback((guid, nodeObj) => {
+    setSelectedGuid(guid); setSelectedNodeObj(nodeObj); setNodeDetail(null);
+  }, []);
+
+  // Fetch CollectionMembers + relationships for the selected subject area.
+  // SubjectArea is just another Collection subtype, so the generic Collections
+  // detail endpoint (shared with Collections/Digital Products) already returns
+  // everything needed — no subject-area-specific detail endpoint required.
+  useEffect(() => {
+    if (!selectedGuid) { setNodeDetail(null); return; }
+    egeriaFetch('/api/collections/' + encodeURIComponent(selectedGuid), creds)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setNodeDetail(data); })
+      .catch(() => {});
+  }, [selectedGuid]);
+
+  if (hierState === 'loading') return React.createElement("div", { className: "body", style: { alignItems: 'center', justifyContent: 'center' } },
+    React.createElement("div", { className: "center" }, "Loading subject areas…")
+  );
+  if (hierState === 'error') return React.createElement("div", { className: "body", style: { alignItems: 'center', justifyContent: 'center' } },
+    React.createElement("div", { className: "center" },
+      React.createElement("div", { style: { color: 'var(--muted)', marginBottom: 8 } }, "Error: " + hierError),
+      React.createElement("button", { className: "view-tab on", onClick: () => setHierAttempt(a => a + 1) }, "Retry")
+    )
+  );
+
+  // Members (and their own cross-links, once you navigate into one) come from
+  // nodeDetail; the hierarchy node itself only carries nested subject areas —
+  // clear that placeholder so a stale list can't flash before nodeDetail loads.
+  const detailProduct = (selectedNodeObj || nodeDetail)
+    ? Object.assign({}, selectedNodeObj, { children: undefined }, nodeDetail || {})
+    : null;
+
+  return React.createElement("div", { className: "body" },
+    React.createElement("div", { style: { width: sideW, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid var(--border)' } },
+      React.createElement("div", { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
+        React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } }, "Subject Area Hierarchy"),
+        React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
+          React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
+          "Include templates"
+        )
+      ),
+      React.createElement("div", { className: "tree-scroll" },
+        roots.length === 0
+          ? React.createElement("div", { style: { padding: '12px 10px', fontSize: 12, color: 'var(--dim)' } }, "No subject areas found")
+          : roots.map(node => React.createElement(SubjectAreaTreeNode, {
+              key: node.guid, node: node, depth: 0,
+              selectedGuid: selectedGuid, onSelect: handleSelect, expanded: expanded, toggleNode: toggleNode,
+            }))
+      )
+    ),
+    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
+    React.createElement("div", { className: "main" },
+      detailProduct
+        ? React.createElement(DigitalProductDetail, { product: detailProduct, onNavigateToElement: onNavigateToElement, creds: creds })
+        : React.createElement("div", { className: "center" },
+            React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a subject area to view its members and cross-links")
+          )
+    )
+  );
+}
+
+function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) {
+  const [glossaryTab, setGlossaryTab] = useState('glossaries'); // 'glossaries' | 'subject-areas'
+
+  return React.createElement("div", { className: "body", style: { flexDirection: 'column' } },
+    React.createElement("div", { style: { display: 'flex', gap: 0, borderBottom: '1px solid var(--border)',
+      flexShrink: 0, background: 'var(--panel)' } },
+      React.createElement("button", {
+        className: "view-tab" + (glossaryTab === 'glossaries' ? " on" : ""),
+        onClick: function() { setGlossaryTab('glossaries'); }
+      }, "Glossaries"),
+      React.createElement("button", {
+        className: "view-tab" + (glossaryTab === 'subject-areas' ? " on" : ""),
+        onClick: function() { setGlossaryTab('subject-areas'); }
+      }, "Subject Areas")
+    ),
+    React.createElement("div", { style: { flex: 1, minHeight: 0, display: 'flex' } },
+      glossaryTab === 'glossaries'
+        ? React.createElement(GlossaryTermsTab, { navGuid: navGuid, onNavigateToDataDesign: onNavigateToDataDesign, onNavigateToElement: onNavigateToElement })
+        : React.createElement(SubjectAreasTab, { onNavigateToElement: onNavigateToElement })
     )
   );
 }
