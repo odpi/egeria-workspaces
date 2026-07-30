@@ -1994,10 +1994,20 @@ function DictResultView({ rows, columns, depth }) {
     scalarCols = resolved.filter(function(c) { return !c.detailSpec; });
     detailCols  = resolved.filter(function(c) { return !!c.detailSpec; });
   } else {
-    scalarCols = Object.keys(sample0)
-      .filter(function(k) { var v = sample0[k]; return v === null || v === undefined || typeof v !== 'object'; })
-      .slice(0, 8)
-      .map(function(k) { return { key: k, name: k, dataKey: k }; });
+    // A single row with no declared columns is the analytic-result shape
+    // (a report spec with no fixed attribute list, e.g. every
+    // "Analytic Demo - *" spec) -- show every top-level field, including
+    // nested dict/list ones (governed_coverage's byClassification/topZones,
+    // feedback_summary's byType, ...), since for a single dict result the
+    // nested fields usually ARE the content, not clutter. Cell rendering
+    // below already JSON.stringifies object values. Multiple rows (a real,
+    // undeclared element list -- rare, but possible) keep the old
+    // scalar-only filter so a big table doesn't get unreadable.
+    var keys = Object.keys(sample0);
+    if (rows.length > 1) {
+      keys = keys.filter(function(k) { var v = sample0[k]; return v === null || v === undefined || typeof v !== 'object'; });
+    }
+    scalarCols = keys.slice(0, 10).map(function(k) { return { key: k, name: k, dataKey: k }; });
     detailCols = [];
   }
 
@@ -2120,6 +2130,25 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
                 : (p === 'start_from' || p === 'page_size') ? '0'
                 : '';
       });
+      // Analytic params (extra_find) — analytic_spec_params are DEFAULTS, not
+      // pins (the executor lets a caller-supplied value override them, same
+      // key), so pre-fill the editable field with the report spec's own
+      // default rather than blank. Only scalar-valued defaults (str/number/
+      // bool) become plain-text editable inputs here — a list/dict default
+      // (e.g. counts_by_type's type_map) isn't something a single text field
+      // can round-trip safely, so it stays a fixed, non-editable default for
+      // now (shown read-only in the description/badge above, not here).
+      // as_of is offered generically for any analytic report — every
+      // pyegeria.view.overview_metrics function accepts it — even when the
+      // spec doesn't declare it as a default.
+      if (action.analytic_function) {
+        Object.entries(action.analytic_spec_params || {}).forEach(function(entry) {
+          var v = entry[1];
+          if (v !== null && typeof v === 'object') return; // list/dict — not editable here
+          init[entry[0]] = v == null ? '' : String(v);
+        });
+        if (!('as_of' in init)) init['as_of'] = '';
+      }
     }
     setExecParams(init);
   }, [spec.name]);
@@ -2181,7 +2210,23 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
     }
     if (execResult.kind === 'json') {
       var rawData = execResult.data;
-      var rows = Array.isArray(rawData) ? rawData : (rawData && typeof rawData === 'object' ? [rawData] : []);
+      // A SERIES/analytic-chart result IS a Vega-Lite spec at the top level
+      // (not nested under a field the way AvailableCharts scans for) — render
+      // it directly rather than falling into the table path, where it would
+      // show up as a garbled dump of the spec's own internal structure.
+      var topLevelChart = _asVegaLiteSpec(rawData);
+      if (topLevelChart) {
+        return React.createElement(VegaChart, { spec: topLevelChart });
+      }
+      // A scalar analytic result (e.g. count_elements -> a bare int) has no
+      // rows/columns to tabulate — DictResultView only accepts objects/arrays
+      // and silently shows "No data." for anything else. Show it directly.
+      if (rawData == null || typeof rawData !== 'object') {
+        return React.createElement('div', {
+          style: { fontSize: 32, fontWeight: 700, padding: '16px 0', color: 'var(--text)' }
+        }, rawData == null ? '—' : String(rawData));
+      }
+      var rows = Array.isArray(rawData) ? rawData : [rawData];
       var fmtForCols = sentFmt || execFmt;
       var fmtObj = (spec.formats || []).find(function(f) { return (f.types || []).includes(fmtForCols); });
       var columns = fmtObj ? (fmtObj.attributes || []) : [];
@@ -2212,6 +2257,13 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
     spec.action && React.createElement('div', { style: { marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' } },
       React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 } }, 'Run Report'),
       spec.action.function && React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginBottom: 10 } }, spec.action.function),
+      spec.action.analytic_function && React.createElement('div', { style: { marginBottom: 10 } },
+        React.createElement('span', { className: 'badge', style: BADGE_STYLE.classif, title: 'This report spec runs an analytic function (Dr.Egeria extra_find) — pick SERIES to get a chart, or DICT/JSON for the raw result.' }, 'ANALYTIC'),
+        React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginTop: 4 } }, spec.action.analytic_function),
+        Object.keys(spec.action.analytic_spec_params || {}).length > 0 && React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 3 } },
+          'Fixed params: ' + JSON.stringify(spec.action.analytic_spec_params)
+        )
+      ),
       React.createElement('div', { style: { padding: 16, background: 'rgba(0,0,0,.15)', borderRadius: 8 } },
         // Required params
         spec.action.required_params.length > 0 && React.createElement('div', { style: { marginBottom: 12 } },
@@ -2251,6 +2303,36 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
               );
             })
           )
+        ),
+        // Analytic Parameters — scalar-valued analytic_spec_params defaults
+        // (plus a generic as_of) as directly editable inputs. Unlike the
+        // find-path's "Advanced" spec_params below (fixed pins from the
+        // report spec, never sent as overrides), these ARE the knobs a
+        // caller is meant to adjust — kept visible by default, not
+        // collapsed, since for an analytic-only report spec this is usually
+        // the main way to use it at all.
+        spec.action.analytic_function && React.createElement('div', { style: { marginBottom: 12 } },
+          React.createElement('div', { style: { fontSize: 11, color: '#5eead4', fontWeight: 600, marginBottom: 6 } }, 'Analytic Parameters'),
+          Object.keys(spec.action.analytic_spec_params || {})
+            .filter(function(p) { var v = spec.action.analytic_spec_params[p]; return v === null || typeof v !== 'object'; })
+            .concat(['as_of'])
+            .filter(function(p, i, arr) { return arr.indexOf(p) === i; })
+            .map(function(p) {
+              var defaultVal = spec.action.analytic_spec_params[p];
+              return React.createElement('div', { key: p, style: { marginBottom: 8 } },
+                React.createElement('label', { style: { display: 'block', fontSize: 11, color: 'var(--dim)', marginBottom: 3 } },
+                  snakeToLabel(p),
+                  defaultVal != null && React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)', fontStyle: 'italic', marginLeft: 6 } }, '(default: ' + defaultVal + ')'),
+                  p === 'as_of' && React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)', fontStyle: 'italic', marginLeft: 6 } }, '(ISO-8601; blank = now)')
+                ),
+                React.createElement(ParamInput, {
+                  name: p,
+                  value: execParams[p] != null ? execParams[p] : '',
+                  onChange: function(v) { setExecParams(function(prev) { var n = Object.assign({}, prev); n[p] = v; return n; }); },
+                  required: false,
+                })
+              );
+            })
         ),
         // Advanced — spec_params (editable overrides)
         spec.action.spec_params && Object.keys(spec.action.spec_params).length > 0 && React.createElement('div', { style: { marginBottom: 12 } },
@@ -2522,6 +2604,194 @@ function ReportSpecView() {
         : React.createElement('div', { className: 'center' },
             React.createElement('span', { style: { color: 'var(--muted)' } }, 'Select a report spec from the sidebar')
           )
+    )
+  );
+}
+
+// ── Analytic Functions Browser ────────────────────────────────────────────────
+// Read-only reference view over pyegeria.view.analytic_registry — the
+// routines a Report Spec's `analytic_function` (Dr.Egeria's `extra_find`)
+// can point at. Deliberately no "run"/"use in a report spec" affordance here
+// (that's Egeria Advisor's report-spec builder, a separate app) — this is
+// purely browse/reference, mirroring ReportSpecView's list+detail shape.
+
+function AnalyticsDetail({ spec }) {
+  var params = spec.params || [];
+  return React.createElement('div', { className: 'detail', style: { overflowY: 'auto', height: '100%' } },
+    React.createElement('div', { className: 'detail-name' }, spec.name),
+    React.createElement('div', { style: { display: 'flex', gap: 6, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' } },
+      React.createElement('span', {
+        className: 'badge',
+        style: spec.generic ? BADGE_STYLE.classif : BADGE_STYLE.rel,
+        title: spec.generic
+          ? 'What this counts is a parameter — retarget it freely via analytic_spec_params'
+          : 'What this counts is hardcoded in the function body — always the same metric'
+      }, spec.generic ? 'GENERIC' : 'FIXED METRIC'),
+      spec.returns && React.createElement('span', { className: 'badge', style: BADGE_STYLE.entity }, spec.returns),
+      React.createElement(CopyJsonButton, { data: spec })
+    ),
+    React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginTop: 10 } }, spec.function),
+    spec.description && React.createElement('div', { className: 'detail-desc', style: { marginTop: 10 } }, spec.description),
+    !spec.generic && spec.bindingNote && React.createElement('div', {
+      style: { marginTop: 8, fontSize: 12, color: '#fbbf24', background: 'rgba(251,191,36,.08)', border: '1px solid rgba(251,191,36,.25)', borderRadius: 6, padding: '8px 10px' }
+    }, spec.bindingNote),
+    spec.demoReportSpec && React.createElement('div', { style: { marginTop: 10, fontSize: 12, color: 'var(--dim)' } },
+      'Demo report spec: ',
+      React.createElement('code', { style: { color: 'var(--accent)' } }, spec.demoReportSpec),
+      ' — find it in the Report Specs browser.'
+    ),
+    React.createElement('div', { style: { marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' } },
+      React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 } },
+        'Parameters' + (params.length ? ' (' + params.length + ')' : '')
+      ),
+      params.length === 0
+        ? React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', fontStyle: 'italic' } },
+            'Takes no parameters beyond its leading client argument(s).')
+        : React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 } },
+            React.createElement('thead', null,
+              React.createElement('tr', null,
+                ['Name', 'Type', 'Required', 'Default', 'Description'].map(function(h) {
+                  return React.createElement('th', {
+                    key: h,
+                    style: { textAlign: 'left', padding: '4px 8px', borderBottom: '1px solid var(--border)', color: 'var(--dim)', fontWeight: 600 }
+                  }, h);
+                })
+              )
+            ),
+            React.createElement('tbody', null,
+              params.map(function(p) {
+                return React.createElement('tr', { key: p.name },
+                  React.createElement('td', { style: { padding: '4px 8px', borderBottom: '1px solid rgba(26,45,72,.4)' } },
+                    React.createElement('code', null, p.name)),
+                  React.createElement('td', { style: { padding: '4px 8px', borderBottom: '1px solid rgba(26,45,72,.4)', color: 'var(--dim)' } }, p.type),
+                  React.createElement('td', { style: { padding: '4px 8px', borderBottom: '1px solid rgba(26,45,72,.4)' } },
+                    p.required && React.createElement('span', { style: { color: '#86efac', fontWeight: 600 } }, 'yes')),
+                  React.createElement('td', { style: { padding: '4px 8px', borderBottom: '1px solid rgba(26,45,72,.4)', color: 'var(--dim)' } },
+                    p.default != null ? String(p.default) : ''),
+                  React.createElement('td', { style: { padding: '4px 8px', borderBottom: '1px solid rgba(26,45,72,.4)' } }, p.description)
+                );
+              })
+            )
+          )
+    )
+  );
+}
+
+function AnalyticsView() {
+  const [loadState, setLoadState] = useState('loading');
+  const [attempt, setAttempt]     = useState(0);
+  const [sideW, onDivDown] = useResizable(254);
+  const [functions, setFunctions] = useState([]);
+  const [selected, setSelected]   = useState(null);
+  const [search, setSearch]       = useState('');
+  const [error, setError]         = useState('');
+
+  useEffect(() => {
+    setLoadState('loading');
+    setError('');
+    fetch('/api/analytics')
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(data => {
+        const list = data.functions || [];
+        setFunctions(list);
+        setLoadState('ready');
+        if (list.length > 0) setSelected(list[0].name);
+      })
+      .catch(err => { setError(err.message); setLoadState('error'); });
+  }, [attempt]);
+
+  const filtered = useMemo(() => {
+    const sq = search.toLowerCase().trim();
+    if (!sq) return functions;
+    return functions.filter(f =>
+      f.name.toLowerCase().includes(sq)
+      || f.description.toLowerCase().includes(sq)
+      || f.function.toLowerCase().includes(sq)
+    );
+  }, [functions, search]);
+
+  const selectedFn = functions.find(f => f.name === selected) || null;
+
+  if (loadState === 'loading') return React.createElement('div', { className: 'body', style: { alignItems: 'center', justifyContent: 'center' } },
+    React.createElement('div', { className: 'center' },
+      React.createElement('div', { className: 'spinner' }),
+      React.createElement('span', null, 'Loading analytic functions…')
+    )
+  );
+  if (loadState === 'error') return React.createElement('div', { className: 'body', style: { alignItems: 'center', justifyContent: 'center' } },
+    React.createElement('div', { className: 'center' },
+      React.createElement('span', { style: { fontSize: 24 } }, '⚠'),
+      React.createElement('span', { style: { color: '#f87171' } }, 'Failed to load analytic functions'),
+      React.createElement('span', { style: { fontSize: 12 } }, error),
+      React.createElement('button', {
+        onClick: () => setAttempt(a => a + 1),
+        style: { marginTop: 8, padding: '6px 16px', background: 'rgba(96,165,250,.1)', border: '1px solid rgba(96,165,250,.3)', color: 'var(--accent)', borderRadius: 5, cursor: 'pointer', fontSize: 13 }
+      }, 'Retry')
+    )
+  );
+
+  return React.createElement('div', { className: 'body' },
+    React.createElement('div', { className: 'sidebar', style: { width: sideW } },
+      React.createElement('div', { className: 'search-wrap' },
+        React.createElement('input', {
+          className: 'search-input',
+          placeholder: 'Search name, description, path…',
+          value: search,
+          onChange: e => setSearch(e.target.value)
+        })
+      ),
+      React.createElement('div', { className: 'stats' },
+        React.createElement('span', null,
+          React.createElement('span', { style: { color: 'var(--accent)' } }, filtered.length),
+          ' of ',
+          React.createElement('span', { style: { color: 'var(--accent)' } }, functions.length),
+          ' functions'
+        )
+      ),
+      React.createElement('div', { className: 'tree-scroll' },
+        filtered.map(f => React.createElement('div', {
+          key: f.name,
+          className: 'tree-item' + (selected === f.name ? ' sel' : ''),
+          onClick: () => setSelected(f.name)
+        }, React.createElement('span', { className: 'type-name' }, f.name)))
+      )
+    ),
+    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
+    React.createElement('div', { className: 'main' },
+      selectedFn
+        ? React.createElement('div', { style: { flex: 1, overflowY: 'auto' } },
+            React.createElement(AnalyticsDetail, { spec: selectedFn })
+          )
+        : React.createElement('div', { className: 'center' },
+            React.createElement('span', { style: { color: 'var(--muted)' } }, 'Select an analytic function from the sidebar')
+          )
+    )
+  );
+}
+
+// ── Reports (Report Specs + Analytic Functions, sub-tabbed) ─────────────────
+// Same two-tab shape as ValidValuesView — building a report spec means
+// picking an analytic function (or a find method) first, so the palette of
+// available functions needs to stay one click away from the specs
+// themselves, not live in a separate top-level nav section.
+function ReportsView({ initialTab }) {
+  const [tab, setTab] = useState(initialTab || 'specs');
+  return React.createElement("div", { className: "body", style: { flexDirection: 'column' } },
+    React.createElement("div", { style: { display: 'flex', gap: 0, borderBottom: '1px solid var(--border)',
+      flexShrink: 0, background: 'var(--panel)' } },
+      React.createElement("button", {
+        className: "view-tab" + (tab === 'specs' ? " on" : ""),
+        onClick: function() { setTab('specs'); }
+      }, "Report Specs"),
+      React.createElement("button", {
+        className: "view-tab" + (tab === 'analytics' ? " on" : ""),
+        onClick: function() { setTab('analytics'); }
+      }, "Analytic Functions")
+    ),
+    React.createElement("div", { style: { flex: 1, minHeight: 0, display: 'flex' } },
+      tab === 'specs'
+        ? React.createElement(ReportSpecView, null)
+        : React.createElement(AnalyticsView, null)
     )
   );
 }
@@ -4234,6 +4504,7 @@ const SECTION_LABELS = {
   'perspectives':      'Perspectives',
   'governance':        'Governance Definitions',
   'report-specs':      'Reports',
+  'analytics':         'Analytic Functions',
   'digital-products':  'Digital Products',
   'collections':       'Collections',
   'projects':          'Projects',
@@ -4692,6 +4963,13 @@ const _SPLASH_CAPABILITIES = [
     icon: '⊟',
     title: 'Reports',
     description: 'Explore report specifications and their links to data assets. View the structure and metadata of reporting artefacts managed in Egeria.',
+  },
+  {
+    section: 'analytics',
+    group: 'act',
+    icon: '📊',
+    title: 'Analytic Functions',
+    description: 'Browse the registered analytic routines a Report Spec can run for KPI/aggregation-style output — counts, breakdowns, and time-series metrics, each with its parameters.',
   },
   {
     section: 'digital-products',
@@ -10186,7 +10464,7 @@ function App() {
     // leaked into the hash fragment instead of the query string.
     var hash = window.location.hash.slice(1).split('?')[0];
     var valid = new Set(['type-system','reference-data','digital-products','collections','glossary',
-      'report-specs','valid-values','rest-apis','python-api','solution-architect',
+      'report-specs','analytics','valid-values','rest-apis','python-api','solution-architect',
       'data-design','perspectives','dr-egeria','isc','locations','actors','communities','business-capabilities','notelogs','governance','naming-vocabulary','policy-enforcement','action-center','duplicate-review','projects','informal-tags','context-events','external-references','external-identifiers','agreements','search']);
     return valid.has(hash) ? hash : 'splash';
   });
@@ -10519,10 +10797,11 @@ function App() {
         }),
         React.createElement(NavGroup, {
           label: 'Explore', connected: connected, currentSection: section,
-          isActive: ['report-specs','digital-products','dr-egeria'].includes(section),
+          isActive: ['report-specs','analytics','digital-products','dr-egeria'].includes(section),
           onSelect: setSection,
           items: [
             { id: 'report-specs',     label: 'Report Specs',     needsConnect: true },
+            { id: 'analytics',        label: 'Analytic Functions', needsConnect: true },
             { id: 'digital-products', label: 'Digital Products', needsConnect: true },
             { id: 'dr-egeria',        label: 'Dr. Egeria' },
           ]
@@ -10580,7 +10859,9 @@ function App() {
     : section === 'splash'
       ? React.createElement(SplashScreen, { onNavigate: function(s, q) { if (q) setSearchQuery(q); setSection(s); if (s === 'type-system') setView('types'); }, saveCreds: saveCreds, demoMode: demoMode, srvManaged: srvManaged, authUser: authUser })
       : section === 'report-specs'
-      ? React.createElement(ReportSpecView, { key: credsKey })
+      ? React.createElement(ReportsView, { key: credsKey, initialTab: 'specs' })
+      : section === 'analytics'
+      ? React.createElement(ReportsView, { key: credsKey + '-analytics', initialTab: 'analytics' })
       : section === 'glossary'
       ? React.createElement(GlossaryView, { key: credsKey, navGuid: glossaryNavGuid, onNavigateToDataDesign: onNavigateToDataDesign, onNavigateToElement: onNavigateToElement })
       : section === 'reference-data'

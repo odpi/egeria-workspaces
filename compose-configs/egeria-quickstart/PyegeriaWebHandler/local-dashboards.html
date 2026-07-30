@@ -7,6 +7,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Local Dashboards · Egeria</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
 <style>
   :root {
     --bg:#1a1a2e; --card:#16213e; --card2:#12203c; --border:#0f3460;
@@ -61,6 +65,10 @@
   .placement .p-body th, .placement .p-body td { padding:5px 8px; border:1px solid var(--border); text-align:left; }
   .placement .p-body th { color:var(--muted); white-space:nowrap; }
   .placement .p-loading { color:var(--muted); font-size:.8rem; font-style:italic; }
+  .mermaid-block { margin:10px 0; overflow-x:auto; }
+  .mermaid-block svg { max-width:100%; }
+  .vega-block { margin:10px 0; overflow-x:auto; min-height:120px; }
+  .vega-block svg, .vega-block canvas { max-width:100%; }
   .placement .p-note { font-size:.76rem; color:var(--amber); background:rgba(245,183,78,.08); border:1px solid rgba(245,183,78,.25); border-radius:6px; padding:8px 10px; margin-top:4px; }
   .placement .p-note a { color:#4f9cf9; text-decoration:underline; }
   .spinner { width:16px; height:16px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; display:inline-block; }
@@ -74,6 +82,29 @@
     .placements { grid-template-columns:1fr; }
     .placement.span-1, .placement.span-2 { grid-column:span 1; }
   }
+
+  /* ── Run Dr.Egeria Document panel ── */
+  #run-doc-panel { background:var(--card); border-bottom:1px solid var(--border); padding:16px 24px; }
+  #run-doc-panel .rd-inner { max-width:1280px; margin:0 auto; }
+  #run-doc-panel textarea { width:100%; min-height:220px; background:var(--card2); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12.5px; line-height:1.5; resize:vertical; }
+  #run-doc-panel .rd-hint { font-size:.76rem; color:var(--muted); margin-bottom:8px; line-height:1.5; }
+  #run-doc-library { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+  .doc-chip { display:flex; align-items:center; gap:6px; background:var(--card2); border:1px solid var(--border); border-radius:20px; padding:5px 12px; font-size:.76rem; cursor:pointer; }
+  .doc-chip:hover { border-color:var(--accent); }
+  .doc-chip .doc-icon { opacity:.7; }
+  .doc-chip.loading-error { color:var(--muted); font-style:italic; cursor:default; }
+  .doc-chip.loading-error:hover { border-color:var(--border); }
+  #run-doc-panel .rd-actions { display:flex; gap:8px; margin-top:10px; align-items:center; }
+  .btn-primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .btn-primary:hover { opacity:.9; background:var(--accent); }
+  #run-doc-result { margin-top:14px; }
+  .rd-summary { font-size:.82rem; padding:8px 12px; border-radius:6px; margin-bottom:8px; }
+  .rd-summary.ok { background:rgba(76,175,80,.12); border:1px solid rgba(76,175,80,.35); color:#8ee69c; }
+  .rd-summary.bad { background:rgba(233,69,96,.1); border:1px solid rgba(233,69,96,.35); color:#ff9db1; }
+  .rd-summary.partial { background:rgba(245,183,78,.1); border:1px solid rgba(245,183,78,.35); color:var(--amber); }
+  .rd-errors { font-size:.78rem; color:#ff9db1; margin-top:6px; }
+  .rd-errors li { margin-bottom:4px; }
+  #run-doc-output { font-size:11.5px; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; max-height:280px; overflow:auto; white-space:pre-wrap; margin-top:8px; }
 </style>
 </head>
 <body>
@@ -84,6 +115,27 @@
   <div>
     <div class="hdr-title">Local Dashboards</div>
     <div class="hdr-sub">User-authored Dashboard Sheets (Dr.Egeria)</div>
+  </div>
+  <button class="btn" style="margin-left:auto" onclick="toggleRunDocPanel()" title="Create or update a Dashboard Sheet without shell/Docker access">▶ Run Dr.Egeria Document</button>
+</div>
+
+<div id="run-doc-panel" style="display:none">
+  <div class="rd-inner">
+    <div class="rd-hint">
+      Pick a shared document below, or paste a full Dr.Egeria markdown document — e.g.
+      <code>Create Dashboard Sheet</code> / <code>Link Report to Dashboard Sheet</code> commands —
+      and run it here. This executes in the same backend process that serves this page, so (unlike
+      running <code>dr_egeria</code> on your own machine) it always writes to the store this portal
+      actually reads. Validate first, then Process.
+    </div>
+    <div id="run-doc-library"></div>
+    <textarea id="run-doc-textarea" placeholder="___&#10;&#10;## Link Report to Dashboard Sheet&#10;&gt; Link a Report Spec (placement) into a Dashboard Sheet.&#10;&#10;### Dashboard Sheet Name&#10;my-dashboard&#10;&#10;### Report Spec&#10;Collections&#10;&#10;### Placement Span&#10;1&#10;&#10;### Placement Emphasis&#10;kpi&#10;&#10;___"></textarea>
+    <div class="rd-actions">
+      <button class="btn" onclick="runDocument('validate')">Validate</button>
+      <button class="btn btn-primary" onclick="runDocument('process')">Process</button>
+      <span id="run-doc-status" style="font-size:.78rem;color:var(--muted)"></span>
+    </div>
+    <div id="run-doc-result"></div>
   </div>
 </div>
 
@@ -96,6 +148,22 @@ var app = document.getElementById('app');
 
 function esc(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// A Report's additionalProperties uses camelCase keys (searchString,
+// graphQueryDepth, ...) — matches ReportProcessor's _REPORT_PARAM_ATTRS in
+// egeria-python's md_processing/v2/report.py. required_params from the
+// Report Spec's action use snake_case (search_string, ...), the same
+// convention /api/report-specs/execute expects. Convert between them rather
+// than hardcode a name map twice.
+function snakeKey(camel) {
+  return camel.replace(/([A-Z])/g, function(m) { return '_' + m.toLowerCase(); });
+}
+function camelKey(snake) {
+  return snake.replace(/_([a-z])/g, function(_, c) { return c.toUpperCase(); });
+}
+function haveSearchString(p) {
+  return p.params && 'searchString' in p.params;
 }
 
 // JSON.stringify() produces double-quoted JS string literals — splicing that
@@ -217,34 +285,78 @@ function renderPlacementBody(p, i) {
       + attrJson(p.ref) + ')">Open nested sheet →</a>';
     return;
   }
-  // kind === 'spec'
-  // The single most common Dr.Egeria "find" convention is one required param,
-  // `search_string` — and an empty string means "match everything" (capped),
-  // not "match nothing" (see report_specs_handler.py / format_set_executor's
-  // action_mode="find" normalization). Auto-fill that one case so ordinary
-  // find-backed report specs still render on a dashboard tile without the
-  // reader having to type anything; anything else genuinely needs input, so
-  // it points at the full Report Spec Browser instead of guessing values.
-  var params = {};
+  if (p.kind === 'text') {
+    // Inline markdown (Dr.Egeria "Add Text on Dashboard Sheet") — no fetch,
+    // no live Egeria lookup, renders synchronously via the same
+    // markdown+mermaid path a report's text/kind:"text" execute result uses.
+    var out = renderMdWithMermaid(p.content || '');
+    target.innerHTML = out.html;
+    renderMermaidBlocks(out.mermaidBlocks);
+    return;
+  }
+  // kind === 'report', outputFormat === 'SERIES' — an analytic-function-backed
+  // spec (extra_find/analytic_function on the Report Spec, e.g. growth_series)
+  // rather than a find-oriented one. Params come from the Report's own
+  // Analytic Parameters dict (already {name: value}, no snake/camel
+  // conversion needed — analytic functions take **kwargs directly, not the
+  // find-method's fixed required_params/optional_params vocabulary), and the
+  // requiredParams/haveSearchString gating below doesn't apply.
+  if (p.outputFormat === 'SERIES') {
+    target.innerHTML = '<div class="p-loading"><span class="spinner"></span> Running analytic…</div>';
+    fetch('/api/report-specs/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ spec_name: p.reportSpec, output_format: p.outputFormat, params: p.analyticParams || {} }),
+    })
+      .then(function(r) {
+        if (!r.ok) return r.text().then(function(t) {
+          var detail = null;
+          try { detail = JSON.parse(t).detail; } catch (e) {}
+          throw new Error(detail || ('HTTP ' + r.status));
+        });
+        return r.json();
+      })
+      .then(function(result) {
+        var out = renderExecResult(result);
+        target.innerHTML = out.html;
+        renderMermaidBlocks(out.mermaidBlocks);
+        renderVegaBlocks(out.vegaBlocks);
+      })
+      .catch(function(err) { target.innerHTML = '<div class="p-note">⚠ ' + esc(err.message) + '</div>'; });
+    return;
+  }
+
+  // kind === 'report' — a real Egeria Report element, carrying its own
+  // stored output format + execution params (search_string, etc.) in
+  // additionalProperties. Use them as-is: no more guessing/auto-fill, no
+  // more fixed format preference — the whole point of the Report layer
+  // (BACKLOG.md NEXT-14) is that a placement can finally be genuinely
+  // scoped/parameterized instead of always matching "everything, capped".
   var required = p.requiredParams || [];
-  var autoFillable = required.length === 0 || (required.length === 1 && required[0] === 'search_string');
-  if (!autoFillable) {
-    target.innerHTML = '<div class="p-note">Needs parameters: <b>' + required.map(esc).join(', ') + '</b>'
-      + ' — <a href="/egeria-explorer?name=' + encodeURIComponent(p.ref) + '#report-specs" target="_blank" rel="noopener">'
+  var haveOutputFormat = !!p.outputFormat;
+  var haveAllRequired = required.every(function(r) { return camelKey(r) in (p.params || {}) || (r === 'search_string' && haveSearchString(p)); });
+  if (!haveOutputFormat || !haveAllRequired) {
+    var missing = required.filter(function(r) { return !(camelKey(r) in (p.params || {})) && !(r === 'search_string' && haveSearchString(p)); });
+    target.innerHTML = '<div class="p-note">'
+      + (haveOutputFormat ? '' : 'Report has no Output Format set. ')
+      + (missing.length ? 'Missing: <b>' + missing.map(esc).join(', ') + '</b>. ' : '')
+      + '<a href="/egeria-explorer?name=' + encodeURIComponent(p.reportSpec || '') + '#report-specs" target="_blank" rel="noopener">'
       + 'open in Report Spec Browser →</a></div>';
     return;
   }
-  if (required.length === 1) params.search_string = '';
 
-  var fmt = p.outputTypes && p.outputTypes.includes('REPORT') ? 'REPORT'
-          : p.outputTypes && p.outputTypes.includes('TABLE')  ? 'TABLE'
-          : (p.outputTypes && p.outputTypes[0]) || 'DICT';
+  var params = {};
+  Object.keys(p.params || {}).forEach(function(camelName) {
+    var v = p.params[camelName];
+    if (typeof v === 'string' && v.trim().charAt(0) === '[') return; // skip stringified-list junk (a known attribute-default quirk, not real data)
+    params[snakeKey(camelName)] = v;
+  });
 
   target.innerHTML = '<div class="p-loading"><span class="spinner"></span> Running report…</div>';
   fetch('/api/report-specs/execute', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ spec_name: p.ref, output_format: fmt, params: params }),
+    body: JSON.stringify({ spec_name: p.reportSpec, output_format: p.outputFormat, params: params }),
   })
     .then(function(r) {
       if (!r.ok) return r.text().then(function(t) {
@@ -254,21 +366,129 @@ function renderPlacementBody(p, i) {
       });
       return r.json();
     })
-    .then(function(result) { target.innerHTML = renderExecResultHtml(result); })
+    .then(function(result) {
+      var out = renderExecResult(result);
+      target.innerHTML = out.html;
+      renderMermaidBlocks(out.mermaidBlocks);
+      renderVegaBlocks(out.vegaBlocks);
+    })
     .catch(function(err) { target.innerHTML = '<div class="p-note">⚠ ' + esc(err.message) + '</div>'; });
 }
 
-function renderExecResultHtml(result) {
-  if (!result || result.kind === 'empty') return '<div class="p-loading">No results.</div>';
-  if (result.kind === 'text') return renderMdToHtml(result.content);
+// Returns {html, mermaidBlocks, vegaBlocks}: mermaidBlocks/vegaBlocks are rendered into their
+// placeholder <div>s asynchronously by renderMermaidBlocks() after the HTML
+// is inserted into the DOM (mermaid.render() needs the target attached).
+// A placement with no scoping params (e.g. an auto-filled blank
+// search_string — "match everything, capped") can return a report/diagram
+// of the ENTIRE dataset rather than anything specific to that tile —
+// observed up to 150KB from a single broad spec. Cap what actually gets
+// parsed/rendered so one such placement can't make the whole page huge or
+// unresponsive (mermaid.js parsing a giant diagram is the slowest part).
+var _MAX_RENDER_CHARS = 20000;
+
+var _vegaSeq = 0;
+
+function renderExecResult(result) {
+  if (!result || result.kind === 'empty') return { html: '<div class="p-loading">No results.</div>', mermaidBlocks: [], vegaBlocks: [] };
+  if (result.kind === 'text') return Object.assign({ vegaBlocks: [] }, renderMdWithMermaid(_capContent(result.content)));
   if (result.kind === 'json') {
+    // A SERIES/analytic-function result comes back as a ready-made Vega-Lite
+    // spec dict (produced by generate_vega_line_chart in format_set_executor.py)
+    // rather than a list of elements — detect it by its $schema and hand off
+    // to vega-embed instead of the generic JSON table renderer, which would
+    // otherwise render the spec's own internal structure as a garbled table.
+    if (result.data && typeof result.data === 'object' && !Array.isArray(result.data)
+        && typeof result.data.$schema === 'string' && result.data.$schema.indexOf('vega-lite') !== -1) {
+      var id = 'vega-' + (++_vegaSeq);
+      return {
+        html: '<div class="vega-block" id="' + id + '"><span class="p-loading">Rendering chart…</span></div>',
+        mermaidBlocks: [],
+        vegaBlocks: [{ id: id, spec: result.data }],
+      };
+    }
     // Some auto-generated "Basic" report specs return pre-rendered markdown
     // text even under kind:"json" (their TABLE format isn't truly tabular) —
     // render it as markdown rather than showing an empty table.
-    if (typeof result.data === 'string') return renderMdToHtml(result.data);
-    return renderJsonTableHtml(result.data);
+    if (typeof result.data === 'string') return Object.assign({ vegaBlocks: [] }, renderMdWithMermaid(_capContent(result.data)));
+    return { html: renderJsonTableHtml(result.data), mermaidBlocks: [], vegaBlocks: [] };
   }
-  return '<pre style="font-size:11px">' + esc(JSON.stringify(result, null, 2)) + '</pre>';
+  return { html: '<pre style="font-size:11px">' + esc(JSON.stringify(result, null, 2)) + '</pre>', mermaidBlocks: [], vegaBlocks: [] };
+}
+
+// Dark-theme config merged onto every spec so charts match the dashboard
+// instead of Vega-Lite's white-background default (same convention as
+// egeria-overview.html's VEGA_DARK_CONFIG/renderVega). Only fills in keys the
+// backend spec didn't already set.
+var VEGA_DARK_CONFIG = {
+  background: 'transparent',
+  title:  { color: '#e0e0e0' },
+  axis:   { labelColor: '#8b93a7', titleColor: '#8b93a7', gridColor: 'rgba(255,255,255,.08)', domainColor: 'rgba(255,255,255,.2)', tickColor: 'rgba(255,255,255,.2)' },
+  legend: { labelColor: '#8b93a7', titleColor: '#8b93a7' },
+  view:   { stroke: 'transparent' },
+};
+
+function renderVegaBlocks(blocks) {
+  if (!blocks || !blocks.length) return;
+  blocks.forEach(function(b) {
+    var tryRender = function() {
+      if (typeof window.vegaEmbed !== 'function') { setTimeout(tryRender, 150); return; }
+      var el = document.getElementById(b.id);
+      if (!el) return; // navigated away before vega-embed finished loading
+      var themed = Object.assign({}, b.spec, { config: Object.assign({}, VEGA_DARK_CONFIG, b.spec.config || {}) });
+      window.vegaEmbed('#' + b.id, themed, { actions: false, renderer: 'svg' })
+        .catch(function(err) {
+          var el2 = document.getElementById(b.id);
+          if (el2) el2.innerHTML = '<div class="p-note">⚠ Chart render failed: ' + esc(String(err)) + '</div>';
+        });
+    };
+    tryRender();
+  });
+}
+
+function _capContent(text) {
+  if (!text || text.length <= _MAX_RENDER_CHARS) return text;
+  return text.slice(0, _MAX_RENDER_CHARS)
+    + '\n\n*(truncated — this placement has no query scope, so it matched far '
+    + 'more than fits here; see "No scoping params yet" in LOCAL_DASHBOARDS_TUTORIAL.md)*';
+}
+
+// Splits markdown on ```mermaid fences (same contract as static/egeria-
+// shared-ui.js's renderMd()) — non-mermaid segments go through
+// renderMdToHtml(); each mermaid segment becomes a placeholder <div>, filled
+// in by renderMermaidBlocks() once mermaid.js has rendered it to SVG.
+var _mermaidSeq = 0;
+function renderMdWithMermaid(rawText) {
+  if (!rawText) return { html: '', mermaidBlocks: [] };
+  var re = /```mermaid\n([\s\S]*?)```/g;
+  var last = 0, m, parts = [], blocks = [];
+  while ((m = re.exec(rawText)) !== null) {
+    if (m.index > last) parts.push(renderMdToHtml(rawText.slice(last, m.index)));
+    var id = 'mmd-' + (++_mermaidSeq);
+    blocks.push({ id: id, code: m[1].trim() });
+    parts.push('<div class="mermaid-block" id="' + id + '"><span class="p-loading">Rendering diagram…</span></div>');
+    last = m.index + m[0].length;
+  }
+  if (last < rawText.length) parts.push(renderMdToHtml(rawText.slice(last)));
+  return { html: parts.join(''), mermaidBlocks: blocks };
+}
+
+function renderMermaidBlocks(blocks) {
+  if (!blocks || !blocks.length) return;
+  blocks.forEach(function(b) {
+    var tryRender = function() {
+      if (!(window.mermaid && window.mermaid.render)) { setTimeout(tryRender, 150); return; }
+      var el = document.getElementById(b.id);
+      if (!el) return; // navigated away before mermaid.js finished loading
+      try { window.mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' }); } catch (e) {}
+      window.mermaid.render(b.id + '-svg', b.code)
+        .then(function(res) { var el2 = document.getElementById(b.id); if (el2) el2.innerHTML = res.svg || ''; })
+        .catch(function(err) {
+          var el2 = document.getElementById(b.id);
+          if (el2) el2.innerHTML = '<div class="p-note">⚠ Mermaid render failed: ' + esc(String(err)) + '</div>';
+        });
+    };
+    tryRender();
+  });
 }
 
 // Minimal markdown → HTML (tables + bold/italic/code + headings + lists), no
@@ -339,6 +559,128 @@ function renderJsonTableHtml(data) {
   html += '</tbody></table>';
   if (rows.length > 25) html += '<div style="font-size:.7rem;color:var(--muted);margin-top:4px">+' + (rows.length - 25) + ' more rows</div>';
   return html;
+}
+
+// ── Run Dr.Egeria Document panel ─────────────────────────────────────────────
+// Lets a user with no shell/Docker access create or update a Dashboard Sheet
+// straight from the browser: paste a multi-command Dr.Egeria markdown
+// document, validate or process it via POST /api/dr-egeria/execute-document
+// (runs in this same backend process — always the store this page reads,
+// unlike running `dr_egeria` on a different machine; see
+// LOCAL_DASHBOARDS_TUTORIAL.md).
+
+var _runDocLibraryLoaded = false;
+
+function toggleRunDocPanel() {
+  var panel = document.getElementById('run-doc-panel');
+  var opening = panel.style.display === 'none';
+  panel.style.display = opening ? '' : 'none';
+  if (opening && !_runDocLibraryLoaded) {
+    _runDocLibraryLoaded = true;
+    loadRunDocLibrary();
+  }
+}
+
+// Shared, read-only folder of .dr-egeria.md files (exchange-quickstart/
+// loading-bay/dr-egeria-inbox/Local Dashboards) — browse and load one into
+// the textarea instead of pasting content by hand.
+function loadRunDocLibrary() {
+  var lib = document.getElementById('run-doc-library');
+  fetch('/api/local-dashboards/documents')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.documents || !data.documents.length) {
+        lib.innerHTML = '<div class="doc-chip loading-error">No shared documents found'
+          + (data.error ? ' — ' + esc(data.error) : ' in ' + esc(data.docsPath)) + '</div>';
+        return;
+      }
+      lib.innerHTML = data.documents.map(function(d) {
+        return '<div class="doc-chip" onclick="loadRunDocFile(' + attrJson(d.filename) + ')" '
+          + 'title="Load ' + esc(d.filename) + ' into the editor below">'
+          + '<span class="doc-icon">📄</span>' + esc(d.filename) + '</div>';
+      }).join('');
+    })
+    .catch(function(err) {
+      lib.innerHTML = '<div class="doc-chip loading-error">Failed to list shared documents: ' + esc(err.message) + '</div>';
+    });
+}
+
+function loadRunDocFile(filename) {
+  var status = document.getElementById('run-doc-status');
+  status.textContent = 'Loading ' + filename + '…';
+  fetch('/api/local-dashboards/documents/' + encodeURIComponent(filename))
+    .then(function(r) {
+      if (!r.ok) return r.json().then(function(b) { throw new Error(b.detail || ('HTTP ' + r.status)); });
+      return r.json();
+    })
+    .then(function(data) {
+      document.getElementById('run-doc-textarea').value = data.content;
+      status.textContent = 'Loaded ' + filename + ' — review, then Validate or Process.';
+    })
+    .catch(function(err) {
+      status.textContent = '';
+      document.getElementById('run-doc-result').innerHTML =
+        '<div class="rd-summary bad">Failed to load ' + esc(filename) + ': ' + esc(err.message) + '</div>';
+    });
+}
+
+function runDocument(directive) {
+  var content = document.getElementById('run-doc-textarea').value;
+  var status = document.getElementById('run-doc-status');
+  var resultEl = document.getElementById('run-doc-result');
+  if (!content.trim()) {
+    resultEl.innerHTML = '<div class="rd-summary bad">Paste a Dr.Egeria markdown document first.</div>';
+    return;
+  }
+  status.textContent = (directive === 'process' ? 'Processing…' : 'Validating…');
+  resultEl.innerHTML = '';
+
+  fetch('/api/dr-egeria/execute-document', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content: content, directive: directive }),
+  })
+    .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+    .then(function(res) {
+      status.textContent = '';
+      renderRunDocResult(res.data, directive);
+      // If anything actually changed, refresh whatever the user's looking at.
+      if (directive === 'process' && res.data && res.data.commands_succeeded > 0) {
+        render();
+      }
+    })
+    .catch(function(err) {
+      status.textContent = '';
+      resultEl.innerHTML = '<div class="rd-summary bad">Request failed: ' + esc(err.message) + '</div>';
+    });
+}
+
+function renderRunDocResult(data, directive) {
+  var resultEl = document.getElementById('run-doc-result');
+  if (!data) { resultEl.innerHTML = '<div class="rd-summary bad">No response.</div>'; return; }
+
+  var cls = data.success ? 'ok' : (data.partial ? 'partial' : 'bad');
+  var verb = directive === 'process' ? 'Processed' : 'Validated';
+  var html = '<div class="rd-summary ' + cls + '">' + verb + ': '
+    + data.commands_succeeded + '/' + data.commands_total + ' command(s) succeeded'
+    + (data.commands_failed ? ', ' + data.commands_failed + ' failed' : '') + '</div>';
+
+  var allErrors = (data.validation_errors || []).concat(data.execution_errors || []);
+  if (allErrors.length) {
+    html += '<ul class="rd-errors">' + allErrors.map(function(e) {
+      return '<li><b>' + esc(e.command || '?') + '</b>: ' + esc(e.message) + '</li>';
+    }).join('') + '</ul>';
+  }
+  if (data.created_elements && data.created_elements.length) {
+    html += '<ul class="rd-errors" style="color:var(--muted)">' + data.created_elements.map(function(e) {
+      return '<li>' + esc(e.command || '') + (e.display_name ? ': <b>' + esc(e.display_name) + '</b>' : '')
+        + (e.guid ? ' (' + esc(e.guid) + ')' : '') + '</li>';
+    }).join('') + '</ul>';
+  }
+  if (data.output) {
+    html += '<div id="run-doc-output">' + esc(data.output) + '</div>';
+  }
+  resultEl.innerHTML = html;
 }
 
 render();

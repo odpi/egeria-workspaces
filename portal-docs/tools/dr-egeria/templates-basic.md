@@ -132,12 +132,47 @@ Name: Glossary review — finance terms
 
 ---
 
-## General
+## Reports & Dashboards
 
 ### View a report
 ```markdown
 # Report
 Report Spec: [report spec name, e.g. 'Digital-Products', 'Collections']
+```
+
+### Create a report (with default parameters, for placing on a dashboard)
+```markdown
+## Create Report
+Display Name: Governance Coverage
+Report Spec: Analytic Demo - Governance Coverage
+Output Format: DICT
+```
+
+### Create a dashboard sheet
+```markdown
+## Create Dashboard Sheet
+Display Name: Governance Overview
+Dashboard Sheet Heading: Governance Overview
+Dashboard Sheet Name: governance-overview
+```
+
+### Place a report on a dashboard sheet
+```markdown
+## Link Report to Dashboard Sheet
+Dashboard Sheet Name: governance-overview
+Report Name: Governance Coverage
+Placement Span: full
+Placement Emphasis: panel
+```
+
+### Add explanatory text to a dashboard sheet
+```markdown
+## Add Text on Dashboard Sheet
+Dashboard Sheet Name: governance-overview
+Placement Name: Intro Caption
+MD Content: This dashboard tracks **governance classification coverage** across the catalog.
+Placement Span: full
+Placement Emphasis: panel
 ```
 
 ---

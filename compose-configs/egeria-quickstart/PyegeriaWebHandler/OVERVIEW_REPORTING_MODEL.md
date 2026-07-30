@@ -310,3 +310,62 @@ P0–P1 stand alone and are worth doing regardless of whether P3–P4 ship.
 - pyegeria `pyegeria/view/_output_format_models.py` (`FormatSet`/`Format`/`Column`/`ActionParameter`/`QuestionSpec`), `base_report_formats.py`, `output_formatter.py`.
 - egeria-advisor `advisor/report_spec_*.py`, `report_spec_agent.py` (the report runner), `report_spec_elicitor.py`.
 - `OVERVIEW_PERSPECTIVES.dr-egeria.md` + `gen_perspectives.py` — the Perspective/Question authoring pattern to mirror for metrics/containers.
+- `LOCAL_DASHBOARDS_TUTORIAL.md` — user-facing guide to §13's Dashboard Sheet track.
+
+## 13. Update — the Dashboard Sheet / Report track actually shipped §9's P3 goals, via a different path (2026-07-29 → 2026-07-30)
+
+§9's roadmap framed "generic action execution" and "user-authored dashboards"
+as P3/P4 work gated on migrating the **Container** model into Egeria-native
+storage. What actually got built instead — driven by real user feedback, not
+a planned continuation of P2 — is a **parallel, simpler track** that reaches
+much of the same destination without that migration:
+
+- **`Report`** (Dr.Egeria `Create Report`) — a real Egeria asset (not
+  pyegeria-local) naming a Report Spec plus its own default execution
+  parameters. Fixes the exact problem `overview_containers.py`'s pyegeria-local
+  `Container`/`Placement` model never solved: a placement can finally be
+  genuinely scoped/parameterized instead of a bare Report Spec reference with
+  no way to carry fixed values.
+- **`Dashboard Sheet`** (`pyegeria/view/_output_dashboard_sheet_models.py`,
+  Dr.Egeria `Create Dashboard Sheet`/`Link Report to Dashboard Sheet`/`Add
+  Text on Dashboard Sheet`) — the user-authored analog of `Container`, still
+  pyegeria-local (JSON store, not Egeria-native — P3's storage question is
+  still open), but real and shipping today via `local-dashboards.html`/
+  `local_dashboards_handler.py` (egeria-workspaces-fs), documented in
+  `LOCAL_DASHBOARDS_TUTORIAL.md`.
+- **Generic analytic execution — §9 P3's "unify on the report runner" landed**,
+  but via a second `ActionParameter` execution path (`analytic_function` /
+  Dr.Egeria's `extra_find`) rather than migrating `action_function`'s
+  client-method-call path. `format_set_executor.py`'s `exec_report_spec()` now
+  runs either path per `FormatSet`, and `SERIES`/`BAR`/`PIE` output formats
+  wrap an analytic function's result as a Vega-Lite chart — the `kpi`/`series`
+  render-kind generalization §5 called for, achieved without touching
+  `Format.types`'s string-based shape at all (dispatched before the normal
+  Format-row lookup instead).
+- **Analytic function registry** (`pyegeria/view/analytic_registry.py`) +
+  **demo report specs** (`analytic_demo_specs.py`, 10 specs, family
+  `"Analytic Function Demo"`) — a discoverable catalog of what's runnable,
+  each function marked `generic` (what it counts is a parameter) or a fixed
+  metric (hardcoded vocabulary), browsable in Egeria Explorer's new
+  "Analytic Functions" sub-tab (under Reports) and cross-linked to its demo
+  spec.
+- **Config-driven, zero-registration-call visibility** — `get_report_registry()`
+  auto-loads a CONFIG tier (`settings.Environment.pyegeria_report_spec_modules`
+  / `PYEGERIA_REPORT_SPEC_MODULES`) on first call, so the demo specs (and any
+  future extra report-spec source) are visible to `dr_egeria`, `hey_egeria`,
+  the Portal, and any other pyegeria consumer without each one remembering to
+  register anything.
+
+**What this does *not* close** — the real gap list from re-assessing "is this
+enough to rewrite the Overview dashboard on Dashboard Sheets" (2026-07-30):
+no composite/derived metrics (`overview_handler.py`'s `assetTotal =
+sum(counts_by_type(...))` has no analytic-function equivalent yet), no
+perspective lens on Dashboard Sheets/Placements (§6 is still `Container`-only),
+no compact KPI-tile-band rendering (Local Dashboards renders full cards, not
+icon+number+sparkline tiles), no sparklines-in-tile, no drill-down (§5's
+"known gap" still applies here too), and no caching (every Local Dashboards
+placement re-queries live on every page load, unlike Overview's 60–900s TTLs).
+Tracked as `egeria-workspaces-fs` `BACKLOG.md` NEXT-16 (rename "Usage Context
+Counts") and NEXT-17 (more comprehensive metrics); the KPI-tile-band/
+perspective/drill-down/caching gaps aren't backlog items yet — surfaced here,
+not yet triaged.
