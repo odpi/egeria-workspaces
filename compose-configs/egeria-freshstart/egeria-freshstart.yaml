@@ -16,6 +16,11 @@ services:
     ports:
       - "7888:7888"
       - "7889:5678"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       JUPYTER_ENABLE_LAB: "yes"
       JUPYTER_TOKEN: "egeria"
@@ -56,6 +61,11 @@ services:
     ports:
       - '8443:8443'
       - '5006:5005'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       startup.server.list: "fs-metadata-store,fs-engine-host,fs-integration-daemon,fs-view-server"
       server.port: "8443"
@@ -94,6 +104,11 @@ services:
         - "pypi.org:151.101.128.223"
     ports:
       - "7800:8000"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - egeria_network
     environment:
@@ -161,6 +176,11 @@ services:
     container_name: freshstart-web-server
     ports:
       - "7885:8085"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - egeria_network
     volumes:
