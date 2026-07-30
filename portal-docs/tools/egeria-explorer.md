@@ -16,7 +16,7 @@ A quick-start subset of the most commonly used tabs, shown on the splash screen 
 |---|---|
 | **Glossary** | Business glossaries, terms, definitions, and semantic relationships — folders, cross-glossary search, synonyms, antonyms, and related terms |
 | **Collections** | The collection hierarchy — digital products, families, blueprints, folios, dictionaries, and more, regardless of collection subtype |
-| **Reports** | Report specifications and their links to data assets |
+| **Reports** | Two sub-tabs: **Report Specs** (report specifications, their links to data assets, and a Run Report panel) and **Analytic Functions** (the catalog of Python routines a report spec's `analytic_function` can run — each marked GENERIC or FIXED METRIC, cross-linked to its demo report spec) |
 | **Digital Products** | Data products with governance metadata, lineage, and associated glossary terms |
 | **Dr. Egeria Commands** | The full library of Dr. Egeria markdown command templates, organised by level and family — see [Dr. Egeria Execute panel](#dr-egeria-execute-panel) below |
 

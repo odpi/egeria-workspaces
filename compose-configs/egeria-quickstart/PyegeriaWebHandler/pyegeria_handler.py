@@ -200,6 +200,8 @@ from type_system_handler import router as type_system_router
 app.include_router(type_system_router)
 from report_specs_handler import router as report_specs_router
 app.include_router(report_specs_router)
+from analytics_registry_handler import router as analytics_registry_router
+app.include_router(analytics_registry_router)
 from glossary_handler import router as glossary_router
 app.include_router(glossary_router)
 from reference_data_handler import router as reference_data_router
