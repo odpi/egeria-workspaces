@@ -355,6 +355,30 @@ The `-multi-host` scripts omit that mapping and expect `HOST_FQDN` to resolve vi
 
 ---
 
+## Demo data synchronization
+
+The `user-sync` command (and the `--sync-*` flags in `quick-start-local`) allows you to synchronize the demo portal's user database and feedback data between different machines. This is particularly useful for maintaining a consistent state across multiple demo environments.
+
+```bash
+# Pull demo data from a remote host to your local machine
+./user-sync --sync-from hedwig:egeria-workspaces/runtime-volumes/demo-sync
+
+# Push local demo data to a remote host
+./user-sync --sync-to hedwig:egeria-workspaces/runtime-volumes/demo-sync
+
+# Use specific SSH credentials if needed
+./user-sync --sync-to remote-host:path --remote-user myuser --remote-password mypass
+```
+
+Synchronization targets the `demo_auth` (users) and `demo` (feedback/audit) schemas in the PostgreSQL `coco_pharma` database.
+
+For more details on integration with the full startup process, see the help text:
+```bash
+./quick-start-local --help
+```
+
+---
+
 ## Repository layout
 
 ```

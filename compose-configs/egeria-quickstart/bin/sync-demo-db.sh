@@ -31,6 +31,10 @@ export PGPASSWORD="${PGPASSWORD:-egeria}"
 PGDATABASE="${PGDATABASE:-coco_pharma}"
 SCHEMAS=(demo_auth demo)
 
+# Remote SSH settings
+REMOTE_USER="${REMOTE_USER:-}"
+REMOTE_PASSWORD="${REMOTE_PASSWORD:-}"
+
 # The app connects as this role (demo_config.py's DEMO_DB_USER), which
 # originally owned these tables by having created them itself — the app
 # also runs schema-migration DDL (ALTER TABLE ... ADD COLUMN) as this role
@@ -87,6 +91,69 @@ _dump_cmd() {
 _psql() {
   $CONTAINER_ENGINE exec -i -e PGPASSWORD="$PGPASSWORD" "$CONTAINER_NAME" \
     psql -h localhost -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" "$@"
+}
+
+_ssh() {
+  local host="$1"
+  shift
+  local ssh_cmd=("ssh" "-o" "StrictHostKeyChecking=no")
+  local target="${host}"
+  if [[ -n "${REMOTE_USER}" && "${host}" != *@* ]]; then
+    target="${REMOTE_USER}@${host}"
+  fi
+  
+  if [[ -n "${REMOTE_PASSWORD}" ]]; then
+    if command -v sshpass >/dev/null 2>&1; then
+      sshpass -p "${REMOTE_PASSWORD}" "${ssh_cmd[@]}" "${target}" "$@"
+    else
+      log "WARNING: REMOTE_PASSWORD set but 'sshpass' not found. SSH may prompt for password."
+      "${ssh_cmd[@]}" "${target}" "$@"
+    fi
+  else
+    "${ssh_cmd[@]}" "${target}" "$@"
+  fi
+}
+
+_scp_to() {
+  local local_file="$1"
+  local remote_host="$2"
+  local remote_path="$3"
+  local scp_cmd=("scp" "-o" "StrictHostKeyChecking=no")
+  local target="${remote_host}:${remote_path}"
+  if [[ -n "${REMOTE_USER}" && "${remote_host}" != *@* ]]; then
+    target="${REMOTE_USER}@${remote_host}:${remote_path}"
+  fi
+
+  if [[ -n "${REMOTE_PASSWORD}" ]]; then
+    if command -v sshpass >/dev/null 2>&1; then
+      sshpass -p "${REMOTE_PASSWORD}" "${scp_cmd[@]}" "${local_file}" "${target}"
+    else
+      "${scp_cmd[@]}" "${local_file}" "${target}"
+    fi
+  else
+    "${scp_cmd[@]}" "${local_file}" "${target}"
+  fi
+}
+
+_scp_from() {
+  local remote_host="$1"
+  local remote_path="$2"
+  local local_file="$3"
+  local scp_cmd=("scp" "-o" "StrictHostKeyChecking=no")
+  local target="${remote_host}:${remote_path}"
+  if [[ -n "${REMOTE_USER}" && "${remote_host}" != *@* ]]; then
+    target="${REMOTE_USER}@${remote_host}:${remote_path}"
+  fi
+
+  if [[ -n "${REMOTE_PASSWORD}" ]]; then
+    if command -v sshpass >/dev/null 2>&1; then
+      sshpass -p "${REMOTE_PASSWORD}" "${scp_cmd[@]}" "${target}" "${local_file}"
+    else
+      "${scp_cmd[@]}" "${target}" "${local_file}"
+    fi
+  else
+    "${scp_cmd[@]}" "${target}" "${local_file}"
+  fi
 }
 
 # Reassign ownership of every table in a schema to DEMO_DB_USER (loop, not
@@ -207,9 +274,10 @@ cmd_push() {
   local remote_dir="${2:?usage: sync-demo-db.sh push <remote-host> <remote-dir>}"
   local outfile
   outfile="$(cmd_export)"
-  ssh "$remote_host" "mkdir -p '${remote_dir}'"
+  _ssh "$remote_host" "mkdir -p '${remote_dir}'"
   log "Copying $(basename "$outfile") and latest.dump -> ${remote_host}:${remote_dir}/"
-  scp "$outfile" "${SYNC_DIR}/latest.dump" "${remote_host}:${remote_dir}/"
+  _scp_to "$outfile" "$remote_host" "${remote_dir}/"
+  _scp_to "${SYNC_DIR}/latest.dump" "$remote_host" "${remote_dir}/"
   log "Pushed. On ${remote_host}, run: sync-demo-db.sh import ${remote_dir}/latest.dump"
 }
 
@@ -220,7 +288,7 @@ cmd_pull() {
   mkdir -p "$SYNC_DIR"
   local local_file="${SYNC_DIR}/pulled_latest.dump"
   log "Copying ${remote_host}:${remote_dir}/latest.dump -> ${local_file}"
-  scp "${remote_host}:${remote_dir}/latest.dump" "$local_file"
+  _scp_from "$remote_host" "${remote_dir}/latest.dump" "$local_file"
   cmd_import "$local_file" "$auto_yes"
 }
 
