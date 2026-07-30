@@ -80,6 +80,43 @@ Structure: [qualified name or display name]
 
 ---
 
+## Reports & Dashboards (analytic functions)
+
+Some report specs run an **analytic function** (a Python routine returning an
+already-aggregated count/breakdown/series, e.g. `overview_metrics.growth_series`)
+instead of querying Egeria elements directly — see the "Analytic Demo - \*"
+report specs in Egeria Explorer's Report Specs browser. Set `Analytic
+Parameters` to override that function's defaults; run with `Output Format:
+SERIES` for a time-series line chart, `BAR`/`PIE` for a category breakdown.
+
+### Create a report against an analytic function, with overridden parameters
+```markdown
+## Create Report
+Display Name: Terms Growth (90 Days)
+Report Spec: Analytic Demo - Catalog Growth Trend
+Output Format: SERIES
+Analytic Parameters:
+  window: 90d
+  points: 12
+```
+
+### Create a report against a generic analytic function, retargeted at a different type
+```markdown
+## Create Report
+Display Name: Digital Product Count
+Report Spec: Analytic Demo - Element Count by Type
+Output Format: DICT
+Analytic Parameters:
+  type_name: DigitalProduct
+```
+
+> `Analytic Parameters` set here are **defaults**, not fixed pins — a caller
+> (or a later `Update Report`) can still override the same keys. See
+> `docs/output-formats-and-report-specs.md` (egeria-python) for the full
+> generic-vs-fixed-metric distinction.
+
+---
+
 ## Batch processing
 
 Dr. Egeria processes one command block per note. For batch operations, create a note with multiple commands separated by horizontal rules — each block is processed in sequence:

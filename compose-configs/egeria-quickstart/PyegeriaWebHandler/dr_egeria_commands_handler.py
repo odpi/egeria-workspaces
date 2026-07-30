@@ -10,7 +10,18 @@ level (basic/advanced) and family.
 
 Endpoints:
   GET /api/dr-egeria/commands         → all commands grouped by level and family
-  POST /api/dr-egeria/execute         → build and execute a command block
+  POST /api/dr-egeria/execute         → build and execute a single command block
+  POST /api/dr-egeria/execute-document → validate/process a full, possibly
+                                          multi-command Dr.Egeria markdown
+                                          document pasted/uploaded by the user
+
+/execute-document exists so a user with no shell/Docker access — who can't
+`docker exec ... dr_egeria --process some-file.md` — can still run a
+multi-command Dr.Egeria document (e.g. a Dashboard Sheet + several
+placements) purely through the browser. It reuses the exact same
+_write_and_execute()/_build_execute_response() plumbing as /execute, just
+skipping _build_markdown_block() since the content is already a complete
+document rather than one title+params form.
 """
 
 import os
@@ -347,6 +358,52 @@ def execute_command(req: ExecuteRequest):
         raw = _write_and_execute(block, req.directive, url, server, user_id, user_pwd)
     except Exception as exc:
         logger.exception("Dr. Egeria execute failed")
+        return JSONResponse(
+            {"success": False, "partial": False, "output": f"❌ Execution failed: {exc}",
+             "directive": req.directive, "validation_errors": [], "execution_errors": [],
+             "commands_total": 0, "commands_succeeded": 0, "commands_failed": 0},
+            status_code=500,
+        )
+
+    return JSONResponse(_build_execute_response(raw, req.directive))
+
+
+class ExecuteDocumentRequest(BaseModel):
+    content:   str
+    directive: str = "validate"
+    url:       Optional[str] = None
+    server:    Optional[str] = None
+    user_id:   Optional[str] = None
+    user_pwd:  Optional[str] = None
+
+
+@router.post("/api/dr-egeria/execute-document",
+            summary="Validate/process a full Dr. Egeria markdown document (no shell/Docker access needed)")
+def execute_document(req: ExecuteDocumentRequest):
+    """Run a complete, possibly multi-command Dr.Egeria markdown document —
+    e.g. a Dashboard Sheet plus several placements — exactly as `dr_egeria
+    --validate|--process some-file.md` would, but through the browser. Runs
+    in this same backend process, so it always writes to the store this
+    portal actually reads (the #1 gotcha with running dr_egeria from a
+    different machine — see LOCAL_DASHBOARDS_TUTORIAL.md)."""
+    if not req.content.strip():
+        return JSONResponse({"success": False, "partial": False, "output": "Empty document.",
+                             "directive": req.directive, "validation_errors": [], "execution_errors": [],
+                             "commands_total": 0, "commands_succeeded": 0, "commands_failed": 0},
+                            status_code=400)
+
+    url      = req.url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://egeria-main:9443")
+    server   = req.server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id  = req.user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = req.user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+
+    logger.info(f"Dr. Egeria execute-document: directive={req.directive!r} "
+                f"({len(req.content)} chars)")
+
+    try:
+        raw = _write_and_execute(req.content, req.directive, url, server, user_id, user_pwd)
+    except Exception as exc:
+        logger.exception("Dr. Egeria execute-document failed")
         return JSONResponse(
             {"success": False, "partial": False, "output": f"❌ Execution failed: {exc}",
              "directive": req.directive, "validation_errors": [], "execution_errors": [],
