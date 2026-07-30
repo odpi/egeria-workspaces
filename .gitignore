@@ -234,3 +234,4 @@ runtime-volumes/obsidian-config/
 
 # gen-env.sh backup of exchange-quickstart config
 exchange-quickstart/config/config_workspaces.json.bak
+/Dan Notes

@@ -24,9 +24,16 @@ Options:
                       (demo_auth + demo schemas) from another machine that
                       isn't running the Portal right now — e.g.
                       --sync-from hedwig:egeria-workspaces/runtime-volumes/demo-sync
-                      Requires key-based SSH to HOST already working. Failure
-                      only warns; startup continues with local data.
-                      See compose-configs/egeria-quickstart/bin/sync-demo-db.sh
+                      Requires key-based SSH to HOST already working (unless
+                      --remote-password is used). Failure only warns;
+                      startup continues with local data.
+  --sync-to HOST:REMOTE_DIR
+                      Push the latest local demo user/feedback data to
+                      another machine.
+  --remote-user USER  SSH user for remote sync operations.
+  --remote-password PASS
+                      SSH password for remote sync operations (requires sshpass).
+  --only-sync         Perform sync operations and exit without starting Egeria.
   -h, --help          Show this help text.
 EOF
 }
@@ -34,6 +41,10 @@ EOF
 REFRESH_PLATFORM=0
 DEMO_MODE_FLAG=0
 SYNC_FROM=""
+SYNC_TO=""
+REMOTE_USER="${REMOTE_USER:-}"
+REMOTE_PASSWORD="${REMOTE_PASSWORD:-}"
+ONLY_SYNC=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --refresh-platform)
@@ -47,6 +58,22 @@ while [[ $# -gt 0 ]]; do
     --sync-from)
       SYNC_FROM="$2"
       shift 2
+      ;;
+    --sync-to)
+      SYNC_TO="$2"
+      shift 2
+      ;;
+    --remote-user)
+      REMOTE_USER="$2"
+      shift 2
+      ;;
+    --remote-password)
+      REMOTE_PASSWORD="$2"
+      shift 2
+      ;;
+    --only-sync)
+      ONLY_SYNC=1
+      shift
       ;;
     -h|--help)
       print_usage
@@ -163,6 +190,8 @@ cp compose-configs/egeria-quickstart/secrets/*.omsecrets "$RUNTIME_SECRETS_DIR"/
 compose-configs/shared-infra/ensure-shared-infra.sh
 compose-configs/egeria-quickstart/bin/apply-postgres-init.sh
 
+export REMOTE_USER REMOTE_PASSWORD
+
 if [[ -n "$SYNC_FROM" ]]; then
   _sync_host="${SYNC_FROM%%:*}"
   _sync_dir="${SYNC_FROM#*:}"
@@ -170,6 +199,20 @@ if [[ -n "$SYNC_FROM" ]]; then
   if ! compose-configs/egeria-quickstart/bin/sync-demo-db.sh pull "$_sync_host" "$_sync_dir" -y; then
     echo "[quick-start-local] WARNING: Could not pull demo data from ${SYNC_FROM} — continuing with local data." >&2
   fi
+fi
+
+if [[ -n "$SYNC_TO" ]]; then
+  _sync_host="${SYNC_TO%%:*}"
+  _sync_dir="${SYNC_TO#*:}"
+  echo "[quick-start-local] Pushing latest demo user/feedback data to ${_sync_host}:${_sync_dir}..."
+  if ! compose-configs/egeria-quickstart/bin/sync-demo-db.sh push "$_sync_host" "$_sync_dir"; then
+    echo "[quick-start-local] WARNING: Could not push demo data to ${SYNC_TO}." >&2
+  fi
+fi
+
+if [[ "$ONLY_SYNC" -eq 1 ]]; then
+  echo "[quick-start-local] Sync complete (--only-sync). Exiting."
+  exit 0
 fi
 
 pushd compose-configs/egeria-quickstart >/dev/null

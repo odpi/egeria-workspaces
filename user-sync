@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# user-sync — sync user databases between demo machines.
+#
+# This is a focused command for syncing the demo Portal's user + feedback 
+# data (the demo_auth and demo schemas in coco_pharma) between machines.
+#
+# It leverages the sync logic in quick-start-local but exits immediately
+# after the sync operations are complete without starting the Egeria stack.
+
+# Always run from repo root (this script lives at repo root)
+cd "$(dirname "$0")"
+
+if [[ $# -eq 0 || "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  cat <<EOF
+Usage: ./user-sync [OPTIONS]
+
+Options:
+  --sync-from HOST:REMOTE_DIR   Pull data from a remote machine to local.
+  --sync-to HOST:REMOTE_DIR     Push local data to a remote machine.
+  --remote-user USER            SSH user for remote sync.
+  --remote-password PASS        SSH password for remote sync (requires sshpass).
+  -h, --help                    Show this help text.
+
+Example:
+  ./user-sync --sync-from hedwig:egeria-workspaces/runtime-volumes/demo-sync
+EOF
+  exit 0
+fi
+
+./quick-start-local "$@" --only-sync

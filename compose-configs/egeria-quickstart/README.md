@@ -117,6 +117,24 @@ The runner is idempotent and will only apply the SQL if the migration marker is 
 ./compose-configs/egeria-quickstart/bin/apply-postgres-init.sh
 ```
 
+## Demo data synchronization
+
+The Quickstart environment supports synchronizing the demo portal's user and feedback data
+between machines using the `user-sync` root command or `--sync-*` flags in `./quick-start-local`.
+
+This workflow:
+1.  **Exports** the `demo_auth` and `demo` schemas from the `coco_pharma` database.
+2.  **Transfers** the dump files via SSH/SCP.
+3.  **Imports** the data into the target machine's PostgreSQL instance.
+
+It requires `ssh` (and optionally `sshpass` for password-based auth) to be available on the
+host machine.
+
+Example:
+```bash
+./quick-start-local --sync-from demo-host:path/to/sync-dir
+```
+
 **Using the legacy schema script:**
 Alternatively, if you only need the Coco Pharmaceuticals schemas:
 

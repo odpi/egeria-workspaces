@@ -34,7 +34,11 @@ services:
     ports:
       - 8888:7888
       - 8889:5678
-
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       JUPYTER_ENABLE_LAB: "yes"
       JUPYTER_TOKEN: "egeria"
@@ -80,6 +84,11 @@ services:
     ports:
       - '9443:9443'
       - '5005:5005'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       XTDB_ENABLE_BYTEUTILS_SHA1: "True"
       XTDB_DISABLE_LIBCRYPTO: "True"
@@ -124,8 +133,19 @@ services:
         - "pypi.org:151.101.128.223"
     ports:
       - "8800:8000" # host 8800 -> container 8000 (moved off 8000; see BACKLOG Ports & Networking)
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - egeria_network
+    # Docker Desktop's internal DNS proxy (127.0.0.11 -> vpnkit) intermittently
+    # fails to resolve some external hosts (seen with api.resend.com, github.com)
+    # while others succeed — pin public resolvers to bypass the flaky proxy.
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     environment:
       EGERIA_PLATFORM_URL: https://host.docker.internal:9443
       EGERIA_VIEW_SERVER: qs-view-server
@@ -201,6 +221,11 @@ services:
       - "8885:8085"
       # SSL (port 443) — disabled by default. See demo-mode.md § SSL / HTTPS.
       # - "443:443"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - egeria_network
     volumes:
@@ -238,6 +263,11 @@ services:
       - egeria_network
     ports:
       - "8820:8020"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       EGERIA_PLATFORM_URL:  "https://host.docker.internal:9443"
       EGERIA_VIEW_SERVER:   "qs-view-server"
