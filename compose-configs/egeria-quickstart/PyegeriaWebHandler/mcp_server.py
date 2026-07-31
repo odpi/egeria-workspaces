@@ -74,21 +74,19 @@ except ImportError:
 import dr_egeria_md  # type: ignore
 
 # MCP server primitives
-from mcp.server.fastmcp import FastMCP, Context
-from mcp.shared.exceptions import McpError
-# from mcp.types import INTERNAL_ERROR
-from mcp.server.transport_security import TransportSecuritySettings
+from mcp.server.mcpserver import MCPServer, Context
 
-server = FastMCP(
+server = MCPServer(
     "dr-egeria-mcp",
     instructions="Model Context Protocol server exposing Egeria via Dr. Egeria markdown commands.",
 )
 
-# Disable DNS rebinding protection to allow connection from Obsidian (app://obsidian.md)
-# and other origins/hosts in the docker environment.
-server.settings.transport_security = TransportSecuritySettings(
-    enable_dns_rebinding_protection=False
-)
+# DNS rebinding protection (the old server.settings.transport_security knob)
+# only applies to SSE/HTTP transport in mcp 2.0.0 -- it's a per-call kwarg to
+# run_sse_async()/run_streamable_http_async() now, not a settings field, and
+# this server only ever runs stdio transport (see main() below), where DNS
+# rebinding isn't an applicable threat model at all. The old assignment was
+# already a no-op for stdio; nothing to replace it with here.
 
 
 def _run_and_capture(func, *args, **kwargs) -> str:

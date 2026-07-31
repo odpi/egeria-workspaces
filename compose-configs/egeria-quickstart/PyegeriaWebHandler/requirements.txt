@@ -4,13 +4,13 @@ pydantic
 requests
 httpx
 
-pyegeria>=6.0.16.16  # 6.0.14.4/.5 break get_notes_for_note_log (Note Logs tab); 6.0.16.16 adds External Identifier support (find/get_external_identifier(s), ExternalIdLink)
+pyegeria>=6.0.17.5  # 6.0.14.4/.5 break get_notes_for_note_log (Note Logs tab); 6.0.16.16 adds External Identifier support (find/get_external_identifier(s), ExternalIdLink); 6.0.17.5 adds support for AI-ready data metrics and Vega-Lite chart generators
 nest_asyncio
 email-validator
 loguru
 rich
 click
-mcp >=1.15.0,<2.0.0  # 2.0.0 renamed FastMCP -> MCPServer and moved mcp.server.fastmcp -> mcp.server.mcpserver; mcp_server.py isn't migrated yet
+mcp >=1.15.0,<2.0.0  # BOTH local mcp servers migrated to mcp.server.mcpserver.MCPServer 2026-07-31, verified live against real mcp 2.0.0: pyegeria/core/mcp_server.py (egeria-python source -- NOT YET in a published pyegeria release; pyegeria>=6.0.17.5 above is the same version this fix landed after) and this directory's own mcp_server.py (source-fixed directly here -- FastMCP->MCPServer, dropped the dead server.settings.transport_security assignment, which only ever applied to SSE/HTTP transport and this server is stdio-only). Bump this cap to >=2.0.0 (and drop the old floor) only once a pyegeria release containing the mcp_server.py fix is published and this file's pyegeria pin is bumped past it -- doing it before that will crash the container the same way this cap was added to prevent, just inverted (old pyegeria + new mcp = ImportError on mcp.server.fastmcp).
 
 # Demo-mode dependencies
 sqlalchemy

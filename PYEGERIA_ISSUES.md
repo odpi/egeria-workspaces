@@ -168,7 +168,7 @@ found"` for a genuinely empty log. **Gotcha:** do NOT pass
 the Docker build pulled 6.0.14.4 from PyPI (a point release had been yanked/
 reordered), silently emptying the Egeria Explorer Note Logs tab in production.
 
-**Mitigation shipped:** floor-pinned `pyegeria>=6.0.14.6` in both
+**Mitigation shipped:** floor-pinned `pyegeria>=6.0.17.5` in both
 `Dockerfile-fast-api` and `requirements.txt` (freshstart + quickstart). Note
 that `uvicorn --reload` only watches `.py` files — a package upgrade needs an
 explicit container/worker restart to take effect, which is why the regression
@@ -252,12 +252,15 @@ r_now  = mgr.find_note_logs("*", graph_query_depth=0)
 r_2000 = mgr.find_note_logs("*", graph_query_depth=0, as_of_time="2000-01-01T00:00:00Z")
 print(len(r_now), r_2000)   # 4 "No elements found"
 ```
-`find_information_supply_chains` and `find_governance_definitions` were not
-independently re-verified with real demo data (none loaded for those types in
-this environment) but route through the same shared `_async_find_request`
-helper as `find_note_logs`/`find_data_structures` above, so the fix should
-apply equally — flag if that assumption doesn't hold when tested against data
-that actually exists for those types.
+**Independently re-verified 2026-07-31** (real demo data now loaded for both
+types) — same before/after recipe, against the deployed container:
+
+| Method | Class used | "now" result | `as_of_time="2000-01-01T00:00:00Z"` result |
+|---|---|---|---|
+| `find_information_supply_chains` | `SolutionArchitect` (moved off `GovernanceOfficer` since this issue was first filed — no `find_information_supply_chains` method exists on `GovernanceOfficer` anymore) | `18` ISCs | `"No elements found"` |
+| `find_governance_definitions` | `GovernanceOfficer` | `100` definitions | `"No elements found"` |
+
+Both confirmed genuinely time-scoped, not silently-accepted.
 
 **`get_valid_metadata_values` reclassified, not a pyegeria fix:** checked the
 ground-truth `.http` files — `get-valid-metadata-values/{propertyName}` is a
@@ -304,14 +307,48 @@ r_now  = mgr.get_collection_members(guid)
 r_2000 = mgr.get_collection_members(guid, as_of_time="2000-01-01T00:00:00Z")
 print(len(r_now), r_2000)   # 12 "No elements found"
 ```
-`get_linked_projects` also takes the kwarg without a `TypeError` (tested with
-a real GUID, though the guid used didn't have linked projects to show a
-count difference — the important part is no exception, consistent with the
-other two). `get_data_field_by_guid` not independently data-verified in this
-pass (no convenient test GUID at hand) but has the same `**kwargs` signature.
+**`get_data_field_by_guid` — confirmed 2026-07-31** with a real `DataField`
+GUID (`DataDesigner.find_data_fields("*", graph_query_depth=0)`, picked
+`52c5868b-b8d9-4315-8965-8dd92256d6c7`): "now" returns the real element;
+`as_of_time="2000-01-01T00:00:00Z"` raises `PyegeriaAPIException` /
+`OMAG-REPOSITORY-HANDLER-404-007` ("not found") — the correct by-guid-getter
+equivalent of a find method's `"No elements found"` (same 404-for-not-yet-
+existing-at-that-time semantics already documented for PY-10's
+`get_asset_by_guid`). Genuinely time-scoped, confirmed.
 
-**Fix needed:** none — this is resolved on the currently deployed package.
-No pyegeria release/deploy action required beyond what's already shipped.
+**`get_linked_projects` — real, separate correctness bug found 2026-07-31,
+independent of `as_of_time`.** Checked all 29 qs demo projects
+(`ProjectManager.find_projects("*", graph_query_depth=0)`) —
+`get_linked_projects(guid)` returns `"No elements found"` for every single
+one, including `"Sustainability Campaign"`
+(`5d0057f6-7bb5-4693-961c-48cec3ea5307`), which demonstrably **does** have a
+real `ProjectHierarchy` relationship: `ProjectManager.get_project_by_guid(guid)`
+returns it directly in its own `managedProjects` field
+(`RelatedMetadataHierarchySummary`, `typeName: "ProjectHierarchy"`). So
+`get_linked_projects` itself doesn't surface real relationship data at all
+today, "now" or otherwise — this can't be attributed to a lack of test data
+(the earlier note above, "the guid used didn't have linked projects," was an
+incomplete test — a guid *with* real links does exist and still shows
+nothing via this method). Substituted `get_project_by_guid`'s
+`managedProjects` field for the `as_of_time` check instead, since that's the
+field that actually carries the relationship: "now" call succeeds with real
+`managedProjects` data; `as_of_time="2000-01-01T00:00:00Z"` raises the same
+404 `PyegeriaAPIException` as `get_data_field_by_guid` above — so
+`as_of_time` itself is confirmed working on `get_project_by_guid`, but
+`get_linked_projects`'s own relationship-resolution logic needs its own,
+separate investigation — filed as PY-22 below.
+
+`find_data_value_specifications` (PY-1) still has no `DataValueSpecification`
+demo data loaded as of 2026-07-31 (same as 2026-07-15) — both "now" and
+year-2000 calls return `"No elements found"`, still genuinely inconclusive
+either way. Loading real `DataValueSpecification` test data would close this
+out definitively; not done here (writes to the shared demo environment,
+deliberately not done without being asked).
+
+**Fix needed:** none for `as_of_time` itself — that part is resolved on the
+currently deployed package for every method checked. `get_linked_projects`'s
+relationship-resolution bug is unrelated to `as_of_time` and needs its own
+fix/investigation.
 
 ---
 
@@ -945,6 +982,57 @@ found. No other known callers currently combine `sequencing_order` with a
 classification filter, but worth checking `include_only_classified_elements`/
 `matchClassifications` callers generally if new zero-result reports show up
 elsewhere.
+
+---
+
+## PY-22: `ProjectManager.get_linked_projects()` doesn't surface real `ProjectHierarchy` relationships
+
+**Status:** open — found 2026-07-31 while finishing the PY-7/8/9/11 `as_of_time`
+verification remainder (this method was one of the "not yet confirmed" ones,
+originally attributed to "the guid used didn't have linked projects").
+
+**Environment:** deployed `quickstart-pyegeria-web` container, live server.
+
+**How to trigger:**
+```python
+from pyegeria import ProjectManager
+import pyegeria
+pyegeria.enable_ssl_check = False
+pyegeria.disable_ssl_warnings = True
+pm = ProjectManager(view_server="qs-view-server", platform_url="https://localhost:9443",
+                     user_id="peterprofile", user_pwd="secret")
+pm.create_egeria_bearer_token()
+
+guid = "5d0057f6-7bb5-4693-961c-48cec3ea5307"  # "Sustainability Campaign"
+
+# Returns "No elements found" -- wrong, this project has real child projects.
+print(pm.get_linked_projects(guid))
+
+# The same relationship IS there, in get_project_by_guid's own response:
+p = pm.get_project_by_guid(guid)
+print(p["managedProjects"])  # RelatedMetadataHierarchySummary, typeName "ProjectHierarchy" -- real data
+```
+
+**Confirmed not a data-availability problem:** checked all 29 qs demo
+projects (`find_projects("*", graph_query_depth=0)`) — `get_linked_projects`
+returns `"No elements found"` for every single one, including several with
+an obvious parent/child naming pattern ("Sustainability Campaign" →
+"Design/Define/Implement/Run the sustainability..."). `get_project_by_guid`'s
+`managedProjects` field confirms the real relationship exists for at least
+"Sustainability Campaign". So `get_linked_projects` itself isn't resolving
+`ProjectHierarchy` (or whatever relationship type it's meant to cover) at
+all today, independent of any `as_of_time` question.
+
+**Impact:** any caller relying on `get_linked_projects` for project hierarchy
+(e.g. Egeria Explorer's Projects tab, if it uses this method for the
+parent/child tree) is silently missing real relationship data.
+
+**Not yet investigated:** whether this is a wrong relationship-type filter
+inside `get_linked_projects`'s implementation, a wrong request-body shape, or
+an Egeria-server-side gap specific to that endpoint (cf. PY-18's "two OMVS
+layers can disagree" pattern, and PY-19's structurally similar "count > 0 but
+find returns nothing" symptom for a different method) — needs a source read
+of `ProjectManager._async_get_linked_projects` next.
 
 ---
 
