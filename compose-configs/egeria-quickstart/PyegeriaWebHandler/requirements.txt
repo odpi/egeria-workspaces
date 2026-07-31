@@ -4,13 +4,13 @@ pydantic
 requests
 httpx
 
-pyegeria>=6.0.16.16  # 6.0.14.4/.5 break get_notes_for_note_log (Note Logs tab); 6.0.16.16 adds External Identifier support (find/get_external_identifier(s), ExternalIdLink)
+pyegeria>=6.0.17.5  # 6.0.14.4/.5 break get_notes_for_note_log (Note Logs tab); 6.0.16.16 adds External Identifier support (find/get_external_identifier(s), ExternalIdLink); 6.0.17.5 adds support for AI-ready data metrics and Vega-Lite chart generators
 nest_asyncio
 email-validator
 loguru
 rich
 click
-mcp >=1.15.0,<2.0.0  # 2.0.0 renamed FastMCP -> MCPServer and moved mcp.server.fastmcp -> mcp.server.mcpserver; mcp_server.py isn't migrated yet
+mcp >=2.0.0  # This directory's own mcp_server.py (source-fixed 2026-07-31: FastMCP->mcp.server.mcpserver.MCPServer, dropped the dead server.settings.transport_security assignment) is the only mcp server this container actually imports/runs (pyegeria_handler.py:198 does `from mcp_server import server`) -- confirmed pyegeria's own pyegeria/core/mcp_server.py is NOT imported anywhere in this container (no reference to pyegeria.core.mcp_server or the `pyegeria-mcp` console script here), so this pin is independent of whether pyegeria has published its own mcp_server.py fix yet. Previously left at <2.0.0 out of caution for that unrelated file, which just meant this container's own already-migrated code had no matching mcp installed -- ModuleNotFoundError: No module named 'mcp.server.mcpserver'. If this container ever starts importing pyegeria.core.mcp_server directly, re-check that it's compatible with mcp>=2.0.0 (i.e. a pyegeria release containing the mcp_server.py fix) before relying on this pin.
 
 # Demo-mode dependencies
 sqlalchemy
