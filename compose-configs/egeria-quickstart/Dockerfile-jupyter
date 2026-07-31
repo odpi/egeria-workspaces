@@ -29,7 +29,7 @@ ENV JUPYTER_ENABLE_LAB=yes
 #    fix-permissions "${CONDA_DIR}" && \
 #    fix-permissions "/home/${NB_USER}"
 #
-#RUN "${CONDA_DIR}/envs/${env_name}/bin/pip3" install --no-cache-dir 'pyegeria>=0.5.5.16'
+#RUN "${CONDA_DIR}/envs/${env_name}/bin/pip3" install --no-cache-dir 'pyegeria>=6.0.17.5'
 #RUN "${CONDA_DIR}/envs/${env_name}/bin/pip3" install --no-cache-dir 'rich'
 #RUN "${CONDA_DIR}/envs/${env_name}/bin/pip3" install --no-cache-dir 'unitycatalog'
 #RUN "${CONDA_DIR}/envs/${env_name}/bin/pip3" install --no-cache-dir 'pipx'

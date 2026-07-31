@@ -4,7 +4,7 @@ pydantic
 requests
 httpx
 
-pyegeria>=6.0.16.16  # 6.0.14.4/.5 break get_notes_for_note_log (Note Logs tab); 6.0.16.16 adds External Identifier support (find/get_external_identifier(s), ExternalIdLink)
+pyegeria>=6.0.17.5  # 6.0.14.4/.5 break get_notes_for_note_log (Note Logs tab); 6.0.16.16 adds External Identifier support (find/get_external_identifier(s), ExternalIdLink); 6.0.17.5 adds support for AI-ready data metrics and Vega-Lite chart generators
 nest_asyncio
 email-validator
 loguru

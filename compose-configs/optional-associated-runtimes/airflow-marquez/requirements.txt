@@ -2,7 +2,7 @@ apache-airflow-providers-openlineage>=1.2.0
 apache-airflow-providers-postgres
 confluent-kafka>=2.0.2
 
-pyegeria>=5.5.3.15
+pyegeria>=6.0.17.5
 apache-airflow-providers-apache-kafka
 
 unitycatalog
