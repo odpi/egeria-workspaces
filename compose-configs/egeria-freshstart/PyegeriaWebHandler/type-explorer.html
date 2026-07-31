@@ -2102,6 +2102,7 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
   const [execError, setExecError]         = useState('');
   const [showOptParams, setShowOptParams] = useState(false);
   const [showAdvanced, setShowAdvanced]   = useState(false);
+  const [showRawSpec, setShowRawSpec]     = useState(false);
 
   useEffect(function() {
     setExecState('idle');
@@ -2110,6 +2111,7 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
     setSentFmt('');
     setShowOptParams(false);
     setShowAdvanced(false);
+    setShowRawSpec(false);
     var types = spec.output_types || [];
     setExecFmt(types.includes('REPORT') ? 'REPORT' : types.includes('TABLE') ? 'TABLE' : 'DICT');
     var init = {};
@@ -2207,6 +2209,20 @@ function ReportSpecDetail({ spec, onSelectSpec }) {
     spec.description && React.createElement('div', { className: 'detail-desc', style: { marginTop: 6 } }, spec.description),
     spec.aliases && spec.aliases.length > 0 && React.createElement('div', { style: { marginTop: 8, fontSize: 11, color: 'var(--dim)' } },
       'Aliases: ' + spec.aliases.join(', ')
+    ),
+    // ── Raw spec definition — foldable ──────────────────────────────────────
+    React.createElement('div', { style: { marginTop: 12 } },
+      React.createElement('div', {
+        style: { fontSize: 12, color: 'var(--text)', cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(148,163,184,.08)', border: '1px solid rgba(148,163,184,.2)', borderRadius: 5, padding: '6px 10px' },
+        onClick: function() { setShowRawSpec(function(v) { return !v; }); },
+      },
+        React.createElement(FoldTriangle, { open: showRawSpec, size: 13, style: { color: 'var(--dim)' } }),
+        React.createElement('span', { style: { fontWeight: 600 } }, 'Report Spec Definition'),
+        React.createElement('span', { style: { fontSize: 10, fontStyle: 'italic', color: 'var(--dim)', marginLeft: 2 } }, '— full raw spec')
+      ),
+      showRawSpec && React.createElement('pre', {
+        style: { marginTop: 8, padding: 12, background: 'rgba(0,0,0,.2)', borderRadius: 6, fontSize: 11, lineHeight: 1.5, overflowX: 'auto', maxHeight: 400, overflowY: 'auto' }
+      }, JSON.stringify(spec, null, 2))
     ),
     // ── Execute panel ───────────────────────────────────────────────────────
     spec.action && React.createElement('div', { style: { marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' } },
@@ -3421,7 +3437,7 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
 
 // ── Collections (root collections → type-agnostic hierarchy) ─────────────────
 
-function CollectionsView({ onNavigateToElement }) {
+function CollectionsView({ navGuid, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(254);
   const [treeW, onTreeDivDown] = useResizable(300);
@@ -3445,6 +3461,10 @@ function CollectionsView({ onNavigateToElement }) {
   const childrenRef = useRef({});
   useEffect(() => { childrenRef.current = childrenByGuid; }, [childrenByGuid]);
 
+  // Tracks the active deep-link guid so root/tree load effects don't stomp it
+  const navGuidRef = useRef(navGuid);
+  useEffect(() => { navGuidRef.current = navGuid; }, [navGuid]);
+
   // Load root collections on mount
   useEffect(() => {
     setRootState('loading'); setRootError('');
@@ -3454,7 +3474,7 @@ function CollectionsView({ onNavigateToElement }) {
         const list = (data.roots || []).slice().sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
         setRoots(list);
         setRootState('ready');
-        if (list.length > 0) setSelectedRoot(list[0].guid);
+        if (list.length > 0 && !navGuidRef.current) setSelectedRoot(list[0].guid);
       })
       .catch(err => { setRootError(err.message); setRootState('error'); });
   }, [rootAttempt, inclTempl]);
@@ -3463,7 +3483,7 @@ function CollectionsView({ onNavigateToElement }) {
   useEffect(() => {
     if (!selectedRoot) return;
     setTreeState('loading'); setTreeError(''); setTreeData(null);
-    setSelectedNode(null); setSelectedNodeObj(null);
+    if (!navGuidRef.current) { setSelectedNode(null); setSelectedNodeObj(null); }
     egeriaFetch('/api/collections/' + encodeURIComponent(selectedRoot) + '/tree' + (asOfTime ? '?as_of_time=' + encodeURIComponent(asOfTime) : ''), creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => { setTreeData(data); setChildrenByGuid({}); setTreeState('ready'); setExpanded(new Set()); })
@@ -3514,6 +3534,14 @@ function CollectionsView({ onNavigateToElement }) {
       .catch(() => {});
     return () => { cancelled = true; };
   }, [selectedNode]);
+
+  // Handle deep-link navigation: select the given GUID without requiring tree traversal
+  useEffect(() => {
+    if (!navGuid) return;
+    setSelectedNode(navGuid);
+    setSelectedNodeObj(null);
+    setNodeDetail(null);
+  }, [navGuid]);
 
   if (rootState === 'loading') return React.createElement("div", { className: "body", style: { alignItems: 'center', justifyContent: 'center' } },
     React.createElement("div", { className: "center" }, "Loading collections…")
@@ -9574,6 +9602,15 @@ function App() {
     setSection('digital-products');
   }, []);
 
+  const [collectionsNavGuid, setCollectionsNavGuid] = useState(function() {
+    var p = new URLSearchParams(window.location.search);
+    return window.location.hash.slice(1) === 'collections' ? (p.get('guid') || null) : null;
+  });
+  const onNavigateToCollection = useCallback(function(guid) {
+    setCollectionsNavGuid(guid || null);
+    setSection('collections');
+  }, []);
+
   const [governanceNav, setGovernanceNav] = useState({ typeName: null, guid: null });
   const onNavigateToGovernance = useCallback(function(typeNameOrGuid, maybeGuid) {
     // Backward compatible: existing call sites pass just (guid); new ones pass (typeName, guid).
@@ -9686,14 +9723,15 @@ function App() {
     var actorKind = _actorKindForType(typeName, superTypes);
     if (actorKind) { onNavigateToActor(actorKind, guid); return; }
     if (superTypes.indexOf('GovernanceDefinition') !== -1) { onNavigateToGovernance(typeName, guid); return; }
-    // Generic Collection fallback (e.g. Folio) — Digital Products' by-guid lookup
-    // works for any Collection subtype even though it isn't in the catalog tree.
-    if (superTypes.indexOf('Collection') !== -1) { onNavigateToDigitalProduct(guid); return; }
+    // Generic Collection fallback (e.g. Folio, WorkItemList) — routes to the
+    // Collections tab, which supports by-guid lookup for any Collection subtype
+    // even though it isn't in the Digital Products catalog tree.
+    if (superTypes.indexOf('Collection') !== -1) { onNavigateToCollection(guid); return; }
     // Tech Catalog asset — open externally (mirrors RelatedElementRow's dedicated
     // "↗ Tech Catalog" link, for callers that route everything through this
     // single dispatcher instead of rendering that link separately).
     if (superTypes.indexOf('Asset') !== -1) { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
-  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToAction, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToProject]);
+  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToCollection, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToAction, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToProject]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254);
 
@@ -9900,7 +9938,7 @@ function App() {
       : section === 'digital-products'
       ? React.createElement(DigitalProductsView, { key: credsKey, navGuid: digitalProductNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'collections'
-      ? React.createElement(CollectionsView, { key: credsKey, onNavigateToElement: onNavigateToElement })
+      ? React.createElement(CollectionsView, { key: credsKey, navGuid: collectionsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'valid-values'
       ? React.createElement(ValidValuesView, { key: credsKey, navProp: validValuesNavProp })
       : section === 'rest-apis'

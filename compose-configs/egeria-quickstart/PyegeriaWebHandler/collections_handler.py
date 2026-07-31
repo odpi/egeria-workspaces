@@ -30,6 +30,7 @@ from loguru import logger
 from digital_products_handler import (
     _get_manager, _serialize_node, _header, _type_name, _extract_all_rels, _is_template,
 )
+from egeria_error_mapping import raise_egeria_http_error, EGERIA_ERROR_RESPONSES
 
 router = APIRouter(tags=["collections"])
 
@@ -81,7 +82,7 @@ def _children_level(mgr, collection_guid: str, as_of_time: Optional[str] = None)
     return nodes
 
 
-@router.get("/api/collections/roots", summary="List RootCollection elements")
+@router.get("/api/collections/roots", summary="List RootCollection elements", responses=EGERIA_ERROR_RESPONSES)
 def get_roots(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
@@ -93,8 +94,7 @@ def get_roots(
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
-        logger.exception("Failed to create CollectionManager")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        raise_egeria_http_error(exc, "Failed to create CollectionManager")
 
     try:
         raw = mgr.find_collections(
@@ -108,8 +108,7 @@ def get_roots(
             metadata_element_type_name="RootCollection",
         )
     except Exception as exc:
-        logger.exception("RootCollection discovery failed")
-        raise HTTPException(status_code=500, detail=f"Root retrieval failed: {exc}")
+        raise_egeria_http_error(exc, "RootCollection discovery failed")
 
     if not include_templates:
         raw = [c for c in raw if isinstance(c, dict) and not _is_template(c)]
@@ -118,7 +117,7 @@ def get_roots(
     return JSONResponse({"roots": roots, "total": len(roots)})
 
 
-@router.get("/api/collections/{root_guid}/tree", summary="Member hierarchy from a collection")
+@router.get("/api/collections/{root_guid}/tree", summary="Member hierarchy from a collection", responses=EGERIA_ERROR_RESPONSES)
 def get_tree(
     root_guid: str,
     url:      Optional[str] = Query(None),
@@ -131,8 +130,7 @@ def get_tree(
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
-        logger.exception("Failed to create CollectionManager")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        raise_egeria_http_error(exc, "Failed to create CollectionManager")
 
     cache_key = f"{root_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}"
     cached = _TREE_CACHE.get(cache_key)
@@ -150,7 +148,8 @@ def get_tree(
 
 
 @router.get("/api/collections/{node_guid}/children",
-            summary="Direct members of a collection node (lazy tree loading, PERF-2)")
+            summary="Direct members of a collection node (lazy tree loading, PERF-2)",
+            responses=EGERIA_ERROR_RESPONSES)
 def get_node_children(
     node_guid: str,
     url:      Optional[str] = Query(None),
@@ -163,8 +162,7 @@ def get_node_children(
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
-        logger.exception("Failed to create CollectionManager")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        raise_egeria_http_error(exc, "Failed to create CollectionManager")
 
     cache_key = f"children|{node_guid}|{url or ''}|{server or ''}|{user_id or ''}|{as_of_time or ''}"
     cached = _TREE_CACHE.get(cache_key)
@@ -176,7 +174,7 @@ def get_node_children(
     return JSONResponse(result)
 
 
-@router.get("/api/collections/{node_guid}", summary="Detail for one collection node")
+@router.get("/api/collections/{node_guid}", summary="Detail for one collection node", responses=EGERIA_ERROR_RESPONSES)
 def get_node(
     node_guid: str,
     url:      Optional[str] = Query(None),
@@ -188,8 +186,7 @@ def get_node(
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
-        logger.exception("Failed to create CollectionManager")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        raise_egeria_http_error(exc, "Failed to create CollectionManager")
 
     raw = None
     try:

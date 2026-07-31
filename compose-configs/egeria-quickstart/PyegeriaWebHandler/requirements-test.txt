@@ -1,0 +1,10 @@
+# Test-only dependencies for tests/ — layered on top of requirements.txt,
+# NOT installed into the production image (keeps it lean; pytest has been
+# present in the running quickstart-pyegeria-web image without being
+# declared anywhere, which is why this file exists now).
+#
+# Install inside the container before running tests:
+#   docker exec quickstart-pyegeria-web pip install -r requirements-test.txt
+
+pytest>=8.4
+schemathesis>=3.39

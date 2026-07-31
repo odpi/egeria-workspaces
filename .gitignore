@@ -237,6 +237,13 @@ contexts/
 # Obsidian container runtime config (persisted by the linuxserver/obsidian container)
 runtime-volumes/obsidian-config/
 
+# Portal test-harness generated output (JUnit XML, triage reports) — regenerated
+# by tests/analyze.py on every run, not source
+compose-configs/*/PyegeriaWebHandler/tests/_results_*.xml
+compose-configs/*/PyegeriaWebHandler/tests/browser/_results_*.xml
+compose-configs/*/PyegeriaWebHandler/tests/TRIAGE_REPORT.md
+compose-configs/*/PyegeriaWebHandler/tests/browser/.venv/
+
 # gen-env.sh backup of exchange-quickstart config
 exchange-quickstart/config/config_workspaces.json.bak
 /Dan Notes
