@@ -663,12 +663,21 @@ function renderRunDocResult(data, directive) {
   var verb = directive === 'process' ? 'Processed' : 'Validated';
   var html = '<div class="rd-summary ' + cls + '">' + verb + ': '
     + data.commands_succeeded + '/' + data.commands_total + ' command(s) succeeded'
+    + (data.commands_warned ? ', ' + data.commands_warned + ' warned' : '')
     + (data.commands_failed ? ', ' + data.commands_failed + ' failed' : '') + '</div>';
 
   var allErrors = (data.validation_errors || []).concat(data.execution_errors || []);
   if (allErrors.length) {
     html += '<ul class="rd-errors">' + allErrors.map(function(e) {
       return '<li><b>' + esc(e.command || '?') + '</b>: ' + esc(e.message) + '</li>';
+    }).join('') + '</ul>';
+  }
+  if (data.warnings && data.warnings.length) {
+    // Most commonly "No processor registered for '<command>'" -- the command
+    // block parsed cleanly but nothing was actually created; distinct from a
+    // hard failure, but still needs to be visible, not silently dropped.
+    html += '<ul class="rd-errors" style="color:#b8860b">' + data.warnings.map(function(w) {
+      return '<li>⚠️ <b>' + esc(w.command || '?') + '</b>: ' + esc(w.message) + '</li>';
     }).join('') + '</ul>';
   }
   if (data.created_elements && data.created_elements.length) {

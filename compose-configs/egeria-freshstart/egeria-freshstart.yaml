@@ -153,6 +153,11 @@ services:
       - ../../templates:/app/templates
       - ../../runtime-volumes/freshstart-demo-data:/app/demo-data
       - ../../runtime-volumes/freshstart-platform-data/secrets/egeria-user-directory.omsecrets:/secrets/user-directory.omsecrets
+      # Dr.Egeria's local (not-yet-Egeria-native) Dashboard Sheet store --
+      # ~/.pyegeria/dashboard_sheets.json inside the container. Without this
+      # mount it's container-local ephemeral state, wiped on every rebuild/
+      # recreate. See egeria-quickstart.yaml's pyegeria-web for the same mount.
+      - ../../runtime-volumes/freshstart-pyegeria-state:/root/.pyegeria
       # TC-13: read-only data dirs at the same /deployments/* paths the Egeria
       # platform sees, so file Data Assets' pathName resolves for tabular preview.
       - ../../exchange-freshstart/loading-bay:/deployments/loading-bay:ro
