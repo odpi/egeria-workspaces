@@ -46,3 +46,4 @@
 - Do not break shared network/ports contract (`egeria_network`, Kafka `9192/9193/9194`, Postgres `5442`, proxy `6000/6001`).
 - Preserve host-mounted persistence paths under `runtime-volumes/` and `exchange-*`.
 - If editing compose/env generation, verify both startup scripts and matching README sections remain aligned.
+- **Never write an absolute, machine-specific filesystem path (e.g. `/Users/<name>/...`, `/home/<user>/...`) into anything committed** — compose bind mounts, docs, scripts, CLAUDE.md/AGENTS.md notes. This repo is cloned onto multiple machines with different absolute paths (see CLAUDE.md's "If you're Claude running on a different machine than usual"). Compose bind mounts must stay relative to the compose file's own directory (`../../runtime-volumes/...`, matching every existing mount) — never the checkout's absolute path on whichever machine happened to write them.
