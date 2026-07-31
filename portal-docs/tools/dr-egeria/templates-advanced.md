@@ -115,6 +115,28 @@ Analytic Parameters:
 > `docs/output-formats-and-report-specs.md` (egeria-python) for the full
 > generic-vs-fixed-metric distinction.
 
+Some report specs need a parameter their own action requires that isn't
+part of the standard find/search set (`Search String`, `Output Format`,
+`Page Size`, ...) and isn't an analytic-function parameter either — e.g.
+the `Collection Members` report needs a `collection_guid` to know which
+collection to list members of. Use `Report Parameters` for these — same
+mechanism as `Analytic Parameters`, different keys.
+
+### Create a report needing a report-spec-specific parameter
+```markdown
+## Create Report
+Display Name: Local Dashboards Tasks
+Report Spec: Collection Members
+Output Format: TABLE
+Report Parameters:
+  collection_guid: 0affb580-fa81-4d00-9438-b26faf11845d
+```
+
+> Keys under `Report Parameters` must match exactly what the target report
+> spec's action expects (snake_case, e.g. `collection_guid`) — there's no
+> aliasing. Also works on `View Report` for a one-off ad-hoc run instead of
+> a persisted Report.
+
 ---
 
 ## Batch processing

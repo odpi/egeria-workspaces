@@ -83,6 +83,44 @@ Local Dashboards - Next Steps
 
 ___
 
+## Create Report
+> Defines a report with optional default parameters set, that can be placed on a Dashboard.
+
+### Display Name
+Tasks
+
+### Description
+Tasks for the project
+
+### Report Spec
+Collection Members
+
+### Output Format
+MERMAID
+
+### Report Parameters
+collection_guid : 0affb580-fa81-4d00-9438-b26faf11845d
+
+### OUTPUT Format
+TABLE
+
+---
+## Link Report to Dashboard Sheet
+> Link a Report Spec (placement) into a Dashboard Sheet.
+
+### Dashboard Sheet Name
+local-dashboards-next-steps
+
+### Report Name
+Tasks
+
+### Placement Span
+2
+
+### Placement Emphasis
+kpi
+---
+
 ## Link Report to Dashboard Sheet
 > Link a Report Spec (placement) into a Dashboard Sheet.
 

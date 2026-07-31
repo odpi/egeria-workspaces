@@ -203,9 +203,6 @@ ___
 ### Display Name
 local-dashboards-next-steps
 
-### Dashboard Sheet Name
-local-dashboards-next-steps
-
 ### Dashboard Sheet Heading
 Local Dashboards — Next Steps
 
