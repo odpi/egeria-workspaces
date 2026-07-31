@@ -15,6 +15,16 @@
 > expected mid-file and clears up on PROCESS (each step runs in order and
 > earlier Creates have already landed in Egeria by the time each Add Member
 > step runs).
+>
+> **The two `Link Report to Dashboard Sheet` steps below are EXPECTED to
+> fail** with "Missing required attribute: 'Report Name'" — they still use
+> the original `Report Spec` attribute, which predates the hard cutover to
+> `Report Name` (a bare Report Spec can't carry fixed/scoped parameters; see
+> `LOCAL_DASHBOARDS_NEXT_STEPS_REPORTS.dr-egeria.md` and BACKLOG.md NEXT-14).
+> They're left as-is deliberately, as the worked example of the *original*
+> placement approach — run `LOCAL_DASHBOARDS_NEXT_STEPS_REPORTS.dr-egeria.md`
+> immediately afterward to create the two Reports and re-link them correctly;
+> that's what actually populates the Dashboard Sheet's placements.
 
 ___
 
