@@ -148,6 +148,76 @@ but the label overclaims. For each of the four tiles: one-line definition + sour
 the explicit causal claim, reword labels to what's measured, wire real data where it
 exists. Medium effort; overlaps with the provenance work.
 
+### R-4 — Per-perspective section CONTENT variants (not just visibility)
+
+**Status: two-axis navigation shipped 2026-08-01 (Perspective × Topic); this
+item is the deliberately-deferred next layer, design principle captured here
+so it isn't lost.**
+
+**What's done:** Overview now has two independent, orthogonal filter axes —
+**Perspective** (*who* — a persona/role: Governance Lead, Steward, Data
+Owner, Consumer, Engineer, App/AI Builder, Privacy Officer, Community Lead)
+and **Topic** (*what domain of concern* — AI/Context Intelligence, Security/
+Privacy, Quality, Popularity/Usage; "Any" = no filter). Both now control the
+**whole dashboard**, not just the KPI band:
+- KPI band: `currentKpiKeys()` — Perspective's tile list ∩ Topic's tile list,
+  falling back to the Topic-only list if the intersection is empty.
+- Section visibility/order: `currentSections()` — same intersection/fallback
+  logic, over `PERSPECTIVES[x].show` ∩ `TOPIC_SECTIONS[topic]`.
+
+Both axes are hand-authored dicts (`PERSP_KPIS`/`TOPIC_KPIS` for tiles,
+`PERSPECTIVES[x].show`/`TOPIC_SECTIONS` for sections) — `PERSP_KPIS`/
+`TOPIC_KPIS` have a Python-side mirror (`overview_specs.py`) and a
+frontend/backend drift guard (`test_overview_specs.py`, 348 checks); the
+section-level lists (`show`/`TOPIC_SECTIONS`) are frontend-only with no
+backend mirror, since "sections" aren't a concept the tile registry models
+at all today.
+
+**What's deferred, and why it's a different shape of problem, not just more
+filtering:** right now, whichever sections are *visible* show identical
+content to every viewer — a shown section is complete, not itself filtered.
+The design discussion (2026-08-01) surfaced a concrete example: **"Usage
+Context" should plausibly look different for a Privacy Officer than a Data
+Owner** — not just "shown or hidden," but genuinely different content within
+it (a Privacy Officer's Usage Context view might emphasize which supply
+chains touch regulated data; a Data Owner's might emphasize which blueprints
+their own assets participate in).
+
+**The key design call: solve this with per-perspective section *variants*,
+not runtime filtering of one shared section.** Two different-shaped
+solutions were on the table:
+1. *Filter the content within one shared "Usage Context" section* by
+   Perspective/Topic tags — the same mechanism `currentKpiKeys()` already
+   uses, extended down a level.
+2. *Author multiple section variants* — "Usage Context — Privacy Officer,"
+   "Usage Context — Data Owner," etc. as distinct, independently-authored
+   sections, and the Perspective/Topic resolution picks which variant to
+   show instead of filtering one shared one.
+
+(2) was the explicit call, for a real reason: most of a section's content
+isn't in the tile registry at all — it's hardcoded HTML/JS blocks (Attention
+Queue rows, Karma Leaderboard, Certifications table, most of "Usage
+Context"'s own cards). Making (1) work means either migrating all of that
+into the FormatSet/registry model first (a large refactor — this is exactly
+the still-not-started "Format's own render-kind/provenance generalization"
+work already flagged as P1 in this dashboard's own docstrings/
+`OVERVIEW_REPORTING_MODEL.md`), or building a second, parallel tagging
+system just for section-internal content (drift risk against the first).
+(2) sidesteps that: authoring a new named section variant is additive (write
+new content, give it a name, wire it into a per-(perspective,topic) lookup)
+rather than requiring every existing hardcoded block to become
+registry-aware before anything can vary. It also avoids the "why is half my
+section missing" surprise a filtered-but-incomplete shared section risks.
+
+**Not scoped yet.** Needs, at minimum: a decision on the lookup key shape
+(pure per-Perspective variants, per-Topic variants, or full per-(Perspective,
+Topic) — likely overkill given the sparsity a full cross product would
+imply), a decision on where variant content is authored (still hand-written
+HTML/JS in `egeria-overview.html`, or migrated toward the FormatSet/
+Container model as part of doing this at all), and a concrete first example
+(Usage Context — Privacy Officer vs. Data Owner, as raised) to prove the
+mechanism before generalizing.
+
 ## Remaining app wiring (independent of the API work)
 
 - **Data products** publication status + ratings (currently just a count).

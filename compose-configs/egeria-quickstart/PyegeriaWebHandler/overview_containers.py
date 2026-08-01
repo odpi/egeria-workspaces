@@ -99,6 +99,7 @@ class ResolvedPlacement(BaseModel):
     series: Optional[str] = None
     unit: Optional[str] = None
     provenance: Optional[str] = None
+    topics: List[str] = Field(default_factory=list)
 
 
 def _resolve_placement(p: Placement) -> ResolvedPlacement:
@@ -117,6 +118,7 @@ def _resolve_placement(p: Placement) -> ResolvedPlacement:
             series=(ann.get("series") or [None])[0],
             unit=(ann.get("unit") or [None])[0],
             provenance=(ann.get("provenance") or [None])[0],
+            topics=list(ann.get("topics") or []),
         )
     sub = CONTAINERS.get(p.ref)
     if sub is not None:
@@ -153,14 +155,63 @@ def view_for_perspective(container: Container, perspective: str) -> List[Resolve
     return kept
 
 
-def container_payload(container: Container, perspective: Optional[str] = None) -> dict:
-    """JSON-ready payload for a container, optionally filtered to a perspective."""
-    placements = (view_for_perspective(container, perspective) if perspective
-                  else resolve(container))
+def view_for_topic(container: Container, topic: str) -> List[ResolvedPlacement]:
+    """Topic as a filtered, reordered view over a Container — same mechanism as
+    `view_for_perspective` but over the independent Topic axis (§ discussion
+    2026-08-01: Perspective is *who* — a persona/role; Topic is *what domain of
+    concern* — AI-readiness, security/privacy, quality, usage. Orthogonal axes,
+    same filtering mechanism, different source list)."""
+    resolved = resolve(container)
+    order = specs.TOPIC_KPIS.get(topic, [])
+    rank = {ref: i for i, ref in enumerate(order)}
+
+    def included(rp: ResolvedPlacement) -> bool:
+        if rp.kind == "container":
+            return True
+        return topic in specs.topics_for(rp.ref)
+
+    kept = [rp for rp in resolved if included(rp)]
+    kept.sort(key=lambda rp: rank.get(rp.ref, len(order) + resolved.index(rp)))
+    return kept
+
+
+def view_for(container: Container, perspective: Optional[str] = None,
+             topic: Optional[str] = None) -> List[ResolvedPlacement]:
+    """The combined two-axis view: Perspective and Topic are independent filters,
+    each optional ("Any" = None = no filter on that axis). Semantics:
+
+    - Neither set: declaration order (the whole container, unfiltered).
+    - Perspective only: exactly `view_for_perspective` (today's behavior).
+    - Topic only: exactly `view_for_topic` — a cross-persona view of one domain.
+    - Both set: the INTERSECTION, ordered by the Perspective's ranking (a
+      Perspective view narrowed to the selected Topic). If the intersection is
+      empty (e.g. this persona has no tiles tagged with this topic yet), falls
+      back to the Topic-only view rather than showing nothing — a thin/absent
+      intersection is a real, honest state (see overview_specs.py's TOPIC_KPIS
+      docstring on "quality" being deliberately small), not an error.
+    """
+    if perspective and topic:
+        persp_view = view_for_perspective(container, perspective)
+        topic_keys = set(specs.TOPIC_KPIS.get(topic, []))
+        intersected = [rp for rp in persp_view if rp.kind == "container" or rp.ref in topic_keys]
+        return intersected if intersected else view_for_topic(container, topic)
+    if perspective:
+        return view_for_perspective(container, perspective)
+    if topic:
+        return view_for_topic(container, topic)
+    return resolve(container)
+
+
+def container_payload(container: Container, perspective: Optional[str] = None,
+                       topic: Optional[str] = None) -> dict:
+    """JSON-ready payload for a container, optionally filtered to a perspective
+    and/or a topic (independent axes — see `view_for`)."""
+    placements = view_for(container, perspective, topic)
     return {
         "name": container.name,
         "heading": container.heading,
         "description": container.description,
         "perspective": perspective,
+        "topic": topic,
         "placements": [p.dict() for p in placements],
     }
