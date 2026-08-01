@@ -27,14 +27,14 @@ Answers are saved to `compose-configs/egeria-quickstart/.env.demo` (mode 600, gi
 
 ## What starts
 
-| Service | URL |
-|---------|-----|
-| Portal (HTTP) | `http://<HOST_FQDN>:8085` |
-| Portal (HTTPS) | `https://<HOST_FQDN>` (port 443, or `HTTPS_PORT`) |
-| Login | `https://<HOST_FQDN>/login` |
-| Jupyter | `http://<HOST_FQDN>:7888` (password: `egeria`) |
-| Egeria platform | `https://<HOST_FQDN>:9443` |
-| Obsidian (local) | `http://localhost:3000` |
+| Service           | URL |
+|-------------------|-----|
+| Portal (HTTP)     | `http://<HOST_FQDN>:8085` |
+| Portal (HTTPS)    | `https://<HOST_FQDN>` (port 443, or `HTTPS_PORT`) |
+| Login             | `https://<HOST_FQDN>/login` |
+| JupyterHub        | `http://<HOST_FQDN>:7888` (password: `egeria`) |
+| Egeria platform   | `https://<HOST_FQDN>:9443` |
+| Obsidian (local)  | `http://localhost:3000` |
 | Obsidian (remote) | `https://<HOST_FQDN>:3001` (self-signed cert — accept once) |
 
 ---

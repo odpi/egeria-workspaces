@@ -1,12 +1,42 @@
 # Building the Governance Program
 
-This directory contains three Dr.Egeria markdown files [built by the Governance Leaders](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/building-the-governance-team/overview/) in Coco Pharmaceuticals.
+This directory contains five Dr.Egeria Markdown files.  The first two were created by [Jules Keeper](https://egeria-project.org/practices/coco-pharmaceuticals/personas/jules-keeper/) to describe his plan for the first 90 days at Coco Pharmaceuticals and his data strategy framework. 
+
+The other documents are [built by the Governance Leaders](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/building-the-governance-team/overview/) in Coco Pharmaceuticals.
 
 ![Governance leaders](https://raw.githubusercontent.com/odpi/egeria-docs/main/site/docs/practices/coco-pharmaceuticals/scenarios/building-the-governance-team/meeting-of-the-governance-leaders-2.png)
 
-The first one lays out the basic definitions that they can then all build from.  The others build out from there.
-
 The files themselves are worth browsing.  They contain a narrative describing the definitions and the rationale behind them.  The instructions below describe how to load these definitions into Egeria.  Then you can browse the results in [Egeria Explorer](https://egeria-project.org/user-interfaces/egeria-explorer/overview/) in the Egeria Portal.  Select the **Collections** card and then **Governance Folios**.
+
+-----
+
+## The 90 Day Plan - First Version
+
+The file [jules-90-day-plan.md](jules-90-day-plan.md) loads the project plan that Jules Keeper created to guide his work when he first started at Coco Pharmaceuticals.  The data reflects his thinking [just after his 30 day review with the board](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-the-data-strategy/overview/#the-first-data-strategy-review).  
+
+You can load the definitions into Egeria in one of two ways:
+
+1. From Obsidian - open the `jules-90-day-plan.md` file and click the suitcase icon labeled "Call Dr. Egeria (MCP)"
+2. From the command line in JupyterLab. Make sure you are in this directory and issue the command:
+
+    ```
+    dr_egeria --directive process jules-90-day-plan.md
+     
+    ```
+
+-----
+## The Data Strategy Framework
+
+The file [data-stategy-framework.md](data-stategy-framework.md) defines a solution blueprint and a glossary defining the initial capabilities that Coco Pharmaceuticals needed to develop to enable them to safely share data between the business units.
+
+You can load the definitions into Egeria in one of two ways:
+
+1. From Obsidian - open the `data-stategy-framework.md` file and click the suitcase icon labeled "Call Dr. Egeria (MCP)"
+2. From the command line in JupyterLab. Make sure you are in this directory and issue the command:
+
+    ```
+    dr_egeria --directive process data-stategy-framework.md
+     
 
 -----
 
@@ -16,7 +46,7 @@ The file [data-governance-program.md](data-governance-program.md) contains a ser
 
 You can load the definitions into Egeria in one of two ways:
 
-1. From Obsidian - open the data-governance-program.md file and click the suitcase icon labeled "Call Dr. Egeria (MCP)"
+1. From Obsidian - open the `data-governance-program.md` file and click the suitcase icon labeled "Call Dr. Egeria (MCP)"
 2. From the command line in JupyterLab. Make sure you are in this directory and issue the command:
 
     ```
@@ -32,7 +62,7 @@ The file [risk register.md](risk-register.md) contains the Dr.Egeria commands to
 
 You can load the definitions into Egeria in one of two ways:
 
-1. From Obsidian - open the risk-register.md file and click the suitcase icon labeled "Call Dr. Egeria (MCP)"
+1. From Obsidian - open the `risk-register.md` file and click the suitcase icon labeled "Call Dr. Egeria (MCP)"
 2. From the command line in JupyterLab. Make sure you are in this directory and issue the command:
 
     ```
@@ -49,7 +79,7 @@ The file [data-security-program.md](data-security-program.md) contains the Dr.Eg
 
 You can load the definitions into Egeria in one of two ways:
 
-1. From Obsidian - open the data-security-program.md file and click the suitcase icon labeled "Call Dr. Egeria (MCP)"
+1. From Obsidian - open the `data-security-program.md` file and click the suitcase icon labeled "Call Dr. Egeria (MCP)"
 2. From the command line in JupyterLab. Make sure you are in this directory and issue the command:
 
     ```
