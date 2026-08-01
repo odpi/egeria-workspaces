@@ -1,0 +1,16 @@
+# Browser/E2E test tier (Phase 2 of the Portal test strategy) — runs from the
+# HOST, not inside the quickstart-pyegeria-web container. These are black-box
+# tests against the already-running server (http://localhost:8800), so they
+# don't need in-process access to pyegeria_handler.app the way the
+# container-side tests/ suite does, and installing a full browser + its
+# system deps into a shared, live demo container isn't worth the footprint
+# for this.
+#
+# Setup (once, from this directory):
+#   python3 -m venv .venv && source .venv/bin/activate
+#   pip install -r requirements.txt
+#   python3 -m playwright install chromium
+
+pytest>=8.4
+playwright>=1.61
+pytest-playwright>=0.5

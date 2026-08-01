@@ -153,13 +153,12 @@ Output Format: DICT
 ## Create Dashboard Sheet
 Display Name: Governance Overview
 Dashboard Sheet Heading: Governance Overview
-Dashboard Sheet Name: governance-overview
 ```
 
 ### Place a report on a dashboard sheet
 ```markdown
 ## Link Report to Dashboard Sheet
-Dashboard Sheet Name: governance-overview
+Dashboard Sheet Name: Governance Overview
 Report Name: Governance Coverage
 Placement Span: full
 Placement Emphasis: panel
@@ -168,7 +167,7 @@ Placement Emphasis: panel
 ### Add explanatory text to a dashboard sheet
 ```markdown
 ## Add Text on Dashboard Sheet
-Dashboard Sheet Name: governance-overview
+Dashboard Sheet Name: Governance Overview
 Placement Name: Intro Caption
 MD Content: This dashboard tracks **governance classification coverage** across the catalog.
 Placement Span: full

@@ -186,6 +186,12 @@ services:
       - ../../coco-workbooks:/coco-workbooks
       - ../../templates:/app/templates
       - ../../runtime-volumes/quickstart-demo-data:/app/demo-data
+      # Dr.Egeria's local (not-yet-Egeria-native) Dashboard Sheet store --
+      # ~/.pyegeria/dashboard_sheets.json inside the container. Without this
+      # mount it's container-local ephemeral state, wiped on every rebuild/
+      # recreate (this is what caused a "Create Dashboard Sheet ran fine but
+      # nothing showed up" report right after a container rebuild).
+      - ../../runtime-volumes/quickstart-pyegeria-state:/root/.pyegeria
       # TC-13: read-only data dirs at the same /deployments/* paths the Egeria
       # platform sees, so file Data Assets' pathName resolves for tabular preview.
       - ../../exchange-quickstart/loading-bay:/deployments/loading-bay:ro

@@ -41,9 +41,7 @@ def test_write_block_to_inbox_and_formatting(tmp_path, monkeypatch):
     setup_temp_env(tmp_path)
 
     # Import mcp_server fresh to pick up env
-    mcp_server = importlib.import_module(
-        "compose-configs.egeria-quickstart.PyegeriaWebHandler.mcp_server".replace("-", "_")
-    )
+    mcp_server = importlib.import_module("mcp_server")
 
     # Ensure dr_egeria_md.EgeriaTech is a fake to avoid any network
     monkeypatch.setattr(mcp_server.dr_egeria_md, "EgeriaTech", FakeEgeriaTech, raising=True)
@@ -63,9 +61,7 @@ def test_write_block_to_inbox_and_formatting(tmp_path, monkeypatch):
 
 def test_run_block_unknown_command_returns_message(tmp_path, monkeypatch):
     setup_temp_env(tmp_path)
-    mcp_server = importlib.import_module(
-        "compose-configs.egeria-quickstart.PyegeriaWebHandler.mcp_server".replace("-", "_")
-    )
+    mcp_server = importlib.import_module("mcp_server")
 
     # Stub EgeriaTech to prevent real calls
     monkeypatch.setattr(mcp_server.dr_egeria_md, "EgeriaTech", FakeEgeriaTech, raising=True)
@@ -98,9 +94,7 @@ def test_run_block_unknown_command_returns_message(tmp_path, monkeypatch):
 
 def test_wrapper_tools_delegate_to_run_block(tmp_path, monkeypatch):
     setup_temp_env(tmp_path)
-    mcp_server = importlib.import_module(
-        "compose-configs.egeria-quickstart.PyegeriaWebHandler.mcp_server".replace("-", "_")
-    )
+    mcp_server = importlib.import_module("mcp_server")
 
     # Monkeypatch the underlying runner to avoid relying on dr_egeria_md plumbing
     async def fake_run_block(ctx, markdown_block, url, server_name, user_id, user_pass, directive="process", output_folder=""):
