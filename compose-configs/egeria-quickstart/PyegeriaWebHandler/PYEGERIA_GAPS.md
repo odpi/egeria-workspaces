@@ -163,6 +163,31 @@ matching what `collections_handler.py` already does correctly.
 
 ---
 
+## 6. `Analytic Parameters`/`Report Parameters` stringify every value, breaking list-valued params (e.g. `type_map`)
+
+**Status:** fixed-upstream (2026-08-01) — full write-up (repro, exact stack
+trace, fix, live verification) is in egeria-python's `PYEGERIA_ISSUES.md`
+(ISSUE-20), the canonical tracker; this entry is just a pointer so it's
+discoverable from this app's own gaps file too. **Not yet in a published
+pyegeria release** — this repo's `requirements.txt` is still pinned to
+`6.0.17.8`, which predates the fix; needs a version bump once the next
+pyegeria release goes out.
+
+**What:** `md_processing/v2/report.py`'s `_report_additional_properties()`
+does `str(v)` on every `Analytic Parameters`/`Report Parameters` value
+before JSON-encoding the whole dict. A scalar value (`type_name: Project`)
+survives that fine; a value that's meant to be a list (`counts_by_type`'s
+`type_map: [["Projects", "Project"], ["Terms", "GlossaryTerm"]]`) gets
+double-encoded — stored as a JSON string of the list's text, not a real
+JSON array — so it comes back out as a Python `str`, and the analytic
+function crashes trying to unpack it (`not enough values to unpack`).
+
+**Where seen:** building the Local Dashboards sample's Projects/Terms
+analytic-function demo — worked around by sticking to scalar params only
+(`count_elements(type_name=...)`) instead of `counts_by_type`'s list param.
+
+---
+
 *(Add new entries above this line as they're found. Keep the format:
 status, what, where seen, candidate fix — so entries are self-contained
 enough to hand to whoever eventually reviews/fixes them upstream.)*

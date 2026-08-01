@@ -43,6 +43,11 @@
   .sheet-card .desc { font-size:.8rem; color:var(--muted); line-height:1.4; flex:1; }
   .sheet-card .meta { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:4px; }
   .sheet-card .count { font-size:.72rem; color:var(--muted); }
+  .sheet-card .card-top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+  .icon-btn { background:transparent; border:1px solid transparent; color:var(--muted); border-radius:6px; padding:3px 6px; cursor:pointer; font-size:.85rem; line-height:1; flex-shrink:0; }
+  .icon-btn:hover { color:var(--accent); border-color:rgba(233,69,96,.35); background:rgba(233,69,96,.08); }
+  .btn-danger { border-color:rgba(233,69,96,.4); color:#ff9db1; }
+  .btn-danger:hover { background:rgba(233,69,96,.14); border-color:var(--accent); }
 
   .empty { padding:40px 20px; text-align:center; color:var(--muted); border:1px dashed var(--border); border-radius:12px; margin-top:12px; }
   .empty code { background:var(--card2); padding:2px 6px; border-radius:4px; font-size:.85em; }
@@ -65,6 +70,7 @@
   .placement .p-body th, .placement .p-body td { padding:5px 8px; border:1px solid var(--border); text-align:left; overflow-wrap:break-word; }
   .placement .p-body th { color:var(--muted); }
   .placement .p-loading { color:var(--muted); font-size:.8rem; font-style:italic; }
+  .placement .p-kpi-number { font-size:2.4rem; font-weight:650; color:var(--accent); line-height:1.1; }
   .mermaid-block { margin:10px 0; overflow-x:auto; }
   .mermaid-block svg { max-width:100%; }
   .vega-block { margin:10px 0; overflow-x:auto; min-height:120px; }
@@ -198,6 +204,31 @@ function render() {
   else renderList();
 }
 
+// Delete a Dashboard Sheet (DELETE /api/local-dashboards/{name}). Used from
+// both the list view (a card's 🗑 icon) and the detail view (the "Delete
+// Dashboard" button) -- same confirm-then-call-then-navigate flow either
+// way. NOTE: this deletes the local Dashboard Sheet record only, never the
+// underlying Egeria Report elements any placement referenced (see the
+// backend endpoint's own docstring) -- and the whole delete mechanism is
+// local-JSON-store-specific; it'll need to change to a real Egeria delete
+// once Dashboard Sheet becomes a Collection subtype.
+function deleteSheet(name, heading) {
+  if (!confirm('Delete dashboard "' + heading + '"?\n\nThis removes the Dashboard Sheet and its placements only -- any Reports it references are left untouched. This cannot be undone.')) return;
+  fetch('/api/local-dashboards/' + encodeURIComponent(name), { method: 'DELETE' })
+    .then(function(r) {
+      if (!r.ok) return r.json().catch(function(){ return {}; }).then(function(b) {
+        throw new Error(b.detail || ('HTTP ' + r.status));
+      });
+      return r.json();
+    })
+    .then(function() {
+      navigateToSheet(null);
+    })
+    .catch(function(err) {
+      alert('Failed to delete dashboard: ' + err.message);
+    });
+}
+
 // ── list view ──────────────────────────────────────────────────────────────
 
 function renderList() {
@@ -219,7 +250,9 @@ function renderList() {
       }
       body.innerHTML = '<div class="sheet-grid">' + data.sheets.map(function(s) {
         return '<div class="sheet-card" onclick="navigateToSheet(' + attrJson(s.name) + ')">'
-          + '<h3>' + esc(s.heading || s.name) + '</h3>'
+          + '<div class="card-top"><h3>' + esc(s.heading || s.name) + '</h3>'
+          + '<button class="icon-btn" title="Delete this Dashboard Sheet" '
+          + 'onclick="event.stopPropagation();deleteSheet(' + attrJson(s.name) + ',' + attrJson(s.heading || s.name) + ')">🗑</button></div>'
           + '<div class="desc">' + esc(s.description || 'No description.') + '</div>'
           + '<div class="meta">'
           + (s.family ? '<span class="badge badge-fam">' + esc(s.family) + '</span>' : '')
@@ -249,7 +282,10 @@ function renderDetail(name) {
       var body = document.getElementById('detail-body');
       body.innerHTML = '<div class="pagehead"><div><h1>' + esc(sheet.heading || sheet.name) + '</h1>'
         + '<p>' + esc(sheet.description || '') + '</p></div>'
-        + (sheet.family ? '<span class="badge badge-fam">' + esc(sheet.family) + '</span>' : '') + '</div>'
+        + '<div style="display:flex;align-items:center;gap:8px">'
+        + (sheet.family ? '<span class="badge badge-fam">' + esc(sheet.family) + '</span>' : '')
+        + '<button class="btn btn-danger" onclick="deleteSheet(' + attrJson(sheet.name) + ',' + attrJson(sheet.heading || sheet.name) + ')">Delete Dashboard</button>'
+        + '</div></div>'
         + '<div class="placements" id="placements"></div>';
 
       var grid = document.getElementById('placements');
@@ -294,14 +330,21 @@ function renderPlacementBody(p, i) {
     renderMermaidBlocks(out.mermaidBlocks);
     return;
   }
-  // kind === 'report', outputFormat === 'SERIES' — an analytic-function-backed
-  // spec (extra_find/analytic_function on the Report Spec, e.g. growth_series)
-  // rather than a find-oriented one. Params come from the Report's own
-  // Analytic Parameters dict (already {name: value}, no snake/camel
-  // conversion needed — analytic functions take **kwargs directly, not the
-  // find-method's fixed required_params/optional_params vocabulary), and the
-  // requiredParams/haveSearchString gating below doesn't apply.
-  if (p.outputFormat === 'SERIES') {
+  // kind === 'report', isAnalytic === true — an analytic-function-backed spec
+  // (extra_find/analytic_function on the Report Spec, e.g. count_elements,
+  // growth_series) rather than a find-oriented one. Params come from the
+  // Report's own Analytic Parameters dict (already {name: value}, no
+  // snake/camel conversion needed — analytic functions take **kwargs
+  // directly, not the find-method's fixed required_params/optional_params
+  // vocabulary), and the requiredParams/haveSearchString gating below
+  // doesn't apply. NOTE: this used to check outputFormat === 'SERIES'
+  // instead of isAnalytic — wrong, since an analytic function can render as
+  // DICT/JSON too (not just a SERIES/BAR/PIE chart); that older check sent
+  // the standard find params (search_string, graph_query_depth, ...) to
+  // analytic functions whenever they weren't rendered as a chart, which
+  // those functions reject outright (TypeError: unexpected keyword argument
+  // 'search_string').
+  if (p.isAnalytic) {
     target.innerHTML = '<div class="p-loading"><span class="spinner"></span> Running analytic…</div>';
     fetch('/api/report-specs/execute', {
       method: 'POST',
@@ -410,6 +453,16 @@ function renderExecResult(result) {
     // text even under kind:"json" (their TABLE format isn't truly tabular) —
     // render it as markdown rather than showing an empty table.
     if (typeof result.data === 'string') return Object.assign({ vegaBlocks: [] }, renderMdWithMermaid(_capContent(result.data)));
+    // A scalar analytic result (e.g. count_elements' "scalar (int)" result
+    // shape — see analytic_demo_specs.py) isn't a row/column table at all —
+    // renderJsonTableHtml only handles arrays/objects, so a bare number or
+    // boolean fell through to its empty-rows branch and silently rendered
+    // "No results." even for a real, nonzero count. Render it as a big KPI
+    // number instead. Checked by typeof, not truthiness, so a real 0 count
+    // still renders (not mistaken for "no data").
+    if (typeof result.data === 'number' || typeof result.data === 'boolean') {
+      return { html: '<div class="p-kpi-number">' + esc(String(result.data)) + '</div>', mermaidBlocks: [], vegaBlocks: [] };
+    }
     return { html: renderJsonTableHtml(result.data), mermaidBlocks: [], vegaBlocks: [] };
   }
   return { html: '<pre style="font-size:11px">' + esc(JSON.stringify(result, null, 2)) + '</pre>', mermaidBlocks: [], vegaBlocks: [] };

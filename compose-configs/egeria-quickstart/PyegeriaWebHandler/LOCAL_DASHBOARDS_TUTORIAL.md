@@ -72,13 +72,29 @@ runs `dr_egeria` (`PYEGERIA_DASHBOARD_SHEETS_STORE`, default
 `~/.pyegeria/dashboard_sheets.json`). The Local Dashboards portal app only
 ever reads the copy of that file **inside the running
 `quickstart-pyegeria-web` container** (`/root/.pyegeria/dashboard_sheets.json`)
-— that path is *not* bind-mounted to the host.
+— that path **is** bind-mounted to the host, at
+`runtime-volumes/quickstart-pyegeria-state/dashboard_sheets.json` (verified
+2026-07-31 via `docker inspect quickstart-pyegeria-web`; an earlier version
+of this doc said "not bind-mounted", which was wrong — it just isn't the
+*default* path, so running `dr_egeria` with no override still misses it).
 
-So if you run `dr_egeria` on your own machine (your laptop's `~/.pyegeria/`),
-the run succeeds, but it writes to a completely different file the portal
-never sees — the dashboard looks unchanged even though `dr_egeria` reported
-`SUCCESS`. There's no error to catch this; the file paths just quietly
-don't match.
+So if you run `dr_egeria` on your own machine with default settings (your
+laptop's `~/.pyegeria/`), the run succeeds, but it writes to a completely
+different file the portal never sees — the dashboard looks unchanged even
+though `dr_egeria` reported `SUCCESS`. There's no error to catch this; the
+file paths just quietly don't match.
+
+**Recommended fix: point `dr_egeria` at the bind-mounted path directly**,
+so it updates the exact file the container reads, in place — no separate
+copy step, and no risk of clobbering other placements a `docker cp` of a
+stale host file would overwrite (see the warning at the end of this
+section):
+
+```bash
+export PYEGERIA_DASHBOARD_SHEETS_STORE="/path/to/egeria-workspaces-fs/runtime-volumes/quickstart-pyegeria-state/dashboard_sheets.json"
+dr_egeria --validate my-dashboard.dr-egeria.md
+dr_egeria --process  my-dashboard.dr-egeria.md
+```
 
 **Always run it inside the container** that's actually serving the portal:
 
@@ -102,12 +118,26 @@ release published to PyPI — so they aren't available via `docker exec
 quickstart-pyegeria-web dr_egeria ...` (that container's installed pyegeria
 predates them) until the next release lands. Until then, run those two
 commands from `egeria-python`'s own `.venv` (`source .venv/bin/activate`,
-same host/container distinction applies to *that* run too), then `docker cp`
-the resulting `~/.pyegeria/dashboard_sheets.json` into the container
-afterward. `Create Dashboard Sheet` and the original `Link Report to
-Dashboard Sheet` (pre-cutover) both still work fine via `docker exec` as
-described above — only the two Report-related commands need this extra
-step for now.
+same host/container distinction applies to *that* run too) with
+`PYEGERIA_DASHBOARD_SHEETS_STORE` set to the bind-mounted path shown above.
+`Create Dashboard Sheet` and the original `Link Report to Dashboard Sheet`
+(pre-cutover) both still work fine via `docker exec` as described above —
+only the two Report-related commands need the venv/store-path workaround
+for now.
+
+**⚠️ If you use `docker cp` instead of the store-path override above,
+`docker cp` *replaces* the destination file — it doesn't merge.** Copying
+in a host `~/.pyegeria/dashboard_sheets.json` that's missing placements the
+container's copy already has (e.g. ones added earlier via the browser's Run
+Dr.Egeria Document panel, which always writes straight to the container's
+own file) silently deletes those placements — no warning, no error. Hit
+this firsthand while building the Analytics Demo addition below: a
+`docker cp` from a stale host file dropped three placements
+(`Tasks`/`Test-MD`/`My own mermaid`) that only existed in the container's
+copy, recovered by re-running the source `.dr-egeria.md` files (upsert-safe)
+against the bind-mounted path directly. Prefer the
+`PYEGERIA_DASHBOARD_SHEETS_STORE` override — it updates the live file in
+place, so there's nothing to merge or lose.
 
 ### No shell/Docker access? Run it from the browser instead
 
@@ -311,6 +341,53 @@ Link it exactly like any other Report (`Link Report to Dashboard Sheet`,
 automatically once the placement's `outputFormat` is `SERIES`/`BAR`/`PIE`, no
 extra placement-level configuration needed.
 
+**Analytic functions don't only render as charts.** A **GENERIC** function's
+result can be shown as `DICT`/`JSON` too (a plain KPI number or a small
+table), not just `SERIES`/`BAR`/`PIE` — `count_elements`, for instance,
+returns a scalar `int` regardless of output format; the chart formats just
+wrap the *same* result differently. Two Reports pointed at the same
+`count_elements` function, retargeted at different types via `Analytic
+Parameters: type_name`, is the clearest illustration of what "generic"
+means:
+
+```markdown
+## Create Report
+Display Name: Project Count
+Report Spec: Analytic Demo - Element Count by Type
+Output Format: DICT
+Analytic Parameters:
+  type_name: Project
+
+## Create Report
+Display Name: Term Count
+Report Spec: Analytic Demo - Element Count by Type
+Output Format: DICT
+Analytic Parameters:
+  type_name: GlossaryTerm
+```
+
+Same Report Spec, same Python function, two different Reports — no code
+change needed to count a different type. Contrast this with a **FIXED**
+function like `term_definition_completeness`: its metric (share of
+GlossaryTerms with a non-empty description) is hardcoded in the function
+body, so its `Create Report` needs no `Analytic Parameters` at all — it's a
+genuinely different function from `count_elements`, not just a different
+parameter binding of the same one. See the worked example below for both
+side by side.
+
+**Known gap — list-valued `Analytic Parameters` don't work yet.** Every
+`Analytic Parameters`/`Report Parameters` value is stringified before
+storage (`md_processing/v2/report.py`), which is transparent for scalar
+values (`type_name: Project`, `window: 90d`) but breaks any parameter whose
+real type is a list or dict — e.g. `counts_by_type`'s `type_map: [["Projects",
+"Project"], ["Terms", "GlossaryTerm"]]` gets double-encoded and comes back
+out as a Python `str`, not a list, so the analytic function crashes trying
+to unpack it (`not enough values to unpack`). Until this is fixed
+(egeria-python `PYEGERIA_ISSUES.md` ISSUE-20 / this repo's
+`PYEGERIA_GAPS.md` #6), stick to scalar-valued `Analytic Parameters` —
+retarget a generic function at one type per Report (as above), not several
+types in one comparison chart.
+
 ### Adding explanatory text (no Report needed)
 
 For section headers or captions — content that isn't backed by a Report Spec
@@ -342,6 +419,28 @@ If nothing shows up: check `storePath` in `GET /api/local-dashboards`'s
 response matches where `dr_egeria` actually wrote (same
 `PYEGERIA_DASHBOARD_SHEETS_STORE` env var, same container/host).
 
+### Deleting a Dashboard Sheet
+
+Both the list view (a 🗑 icon on each card) and the detail view (a "Delete
+Dashboard" button next to the heading) let you delete a Dashboard Sheet
+after a confirmation prompt — backed by `DELETE
+/api/local-dashboards/{name}`. This removes the Sheet and its Placement
+list only; it never deletes the underlying Egeria `Report` elements any
+placement referenced, since a Report is an independent, reusable object
+that may be linked from other sheets too. If some other sheet nests the
+deleted one as a Placement, that placement just starts rendering
+"Unresolved reference" on its next load — the same graceful degrade every
+other missing reference already gets, not a hard constraint this endpoint
+enforces.
+
+**This is a local-JSON-store operation today, not an Egeria delete** — see
+the "Concepts" section above and `_output_dashboard_sheet_models.py`'s own
+docstring: Dashboard Sheet isn't yet a real Egeria element. When it becomes
+one (a planned `Collection` subtype migration, not yet started), this
+endpoint's implementation changes to a real Egeria delete instead of a
+dict pop + JSON rewrite — the frontend delete flow (confirm → call → return
+to list) shouldn't need to change, only what's behind the endpoint.
+
 ## Troubleshooting
 
 | Symptom in the UI | Cause | Fix |
@@ -350,6 +449,8 @@ response matches where `dr_egeria` actually wrote (same
 | "Needs parameters" / "Report has no Output Format set" note, links to Report Spec Browser | The Report's underlying spec still has required params the Report's stored `params` don't cover, or `Create Report` never had `Output Format` set | Rerun `Create Report` for that Report with the missing attributes filled in — upserts, safe to rerun |
 | A `Report Parameters` key (e.g. `collection_guid`) shows "Missing" here even though `Create Report` set it and validated clean | Fixed 2026-07-31 (egeria-python `md_processing/v2/report.py`) — `Report Parameters` keys used to persist unconverted, but this page's `camelKey()` presence check assumes every stored param is camelCase (matching every other execution param) | Confirm the installed pyegeria includes this fix; if it does and this still happens, check `Create Report`'s persisted `additionalProperties` directly (`GET` the Report element) for the actual stored key casing |
 | Tile renders "No results." | The Report's stored `Search String`/filters matched nothing | Expected if the underlying data doesn't exist yet — not a bug; double-check the `Search String` is actually scoped to something real |
+| Analytic-function tile (e.g. `count_elements`) renders "No results." even though the count is real | Fixed 2026-07-31 (`local-dashboards.html`) — two bugs: (1) any analytic Report not rendered as `SERIES` was routed through the find-method code path, sending `search_string`/etc. that the function rejects outright; (2) even once routed correctly, a bare scalar result (`int`/`bool`) had no rendering path and fell through to the empty-table case | Confirm the installed `local-dashboards.html` includes both fixes (the placement JSON should carry `"isAnalytic": true`, and a scalar result renders as a large KPI number, not a table) |
+| Analytic-function tile errors `Execution failed: <function>() got an unexpected keyword argument 'search_string'` | Same root cause as the row above, pre-fix — the analytic function was called with the standard find-vocabulary params instead of its own `Analytic Parameters` | Same fix as above |
 | Sheet doesn't appear in the list at all | Wrong store path, or `--validate` was the last run instead of `--process` | Compare `storePath` from `GET /api/local-dashboards` against your `PYEGERIA_DASHBOARD_SHEETS_STORE`; re-run with `--process` |
 | `dr_egeria` reports `SUCCESS` but the dashboard doesn't change at all — new/edited placement never shows up | Either ran on the wrong machine (host instead of inside `quickstart-pyegeria-web` — see "Where `dr_egeria` has to run" above), or `Create Report`/the updated `Link Report to Dashboard Sheet` aren't in the pyegeria version that machine has installed yet | Re-run via `docker exec quickstart-pyegeria-web dr_egeria --process ...` once those commands are in a published pyegeria release; until then, run from the egeria-python dev checkout's own `.venv` and `docker cp` the resulting `~/.pyegeria/dashboard_sheets.json` into the container afterward |
 | Nested sheet placement | Currently shows an "Open nested sheet →" link, not inline rendering | By design for now — recursive inline rendering needs cycle detection first (see the Next Steps dashboard below) |
@@ -379,8 +480,25 @@ is a complete, runnable Dr.Egeria document that:
    them on the sheet: one showing the Work Item List's own attributes, one a
    Mermaid diagram of the list and its Task members, correctly *scoped* with
    a real `Search String` rather than matching the whole dataset.
+5. A fourth file,
+   [`LOCAL_DASHBOARDS_ANALYTICS_DEMO.dr-egeria.md`](../../../exchange-quickstart/loading-bay/dr-egeria-inbox/Local%20Dashboards/LOCAL_DASHBOARDS_ANALYTICS_DEMO.dr-egeria.md),
+   adds three more Reports demonstrating **analytic-function-backed** Report
+   Specs (see "Analytic reports" above): `Project Count` and `Term Count`
+   both run the same **GENERIC** `count_elements` function retargeted at two
+   different types via `Analytic Parameters`, and `Term Definition
+   Completeness` runs a genuinely different, **FIXED** function that's
+   inherently Term-specific. Building this surfaced two real bugs, both
+   fixed as part of adding it: `local-dashboards.html` was routing any
+   non-`SERIES` analytic Report through the find-method code path instead of
+   sending its `Analytic Parameters` (fixed via a new `isAnalytic` flag from
+   the backend, not an `outputFormat === 'SERIES'` guess), and a scalar
+   analytic result (a bare `int`/`bool`, e.g. `count_elements`'s count) had
+   no rendering path at all and silently showed "No results." (fixed with a
+   dedicated KPI-number renderer). A third issue — list-valued `Analytic
+   Parameters` — is a genuine pyegeria gap, not fixed; see the "Known gap"
+   callout above.
 
-All three files live in the shared **Local Dashboards** folder (see "Where
+All four files live in the shared **Local Dashboards** folder (see "Where
 to keep your `.dr-egeria.md` file" above) — load any of them straight from
 the Run Dr.Egeria Document panel's file chips, or run via the CLI the same
 way as any Dr.Egeria document:
