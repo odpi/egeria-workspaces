@@ -123,28 +123,22 @@ These are not quick fixes — they need product/research discussion before build
 Captured verbatim so they don't get lost.
 
 ### R-1 — "Contextualized coverage" is an oversimplification (and not a standard term)
-Coined here; **not** an industry KPI, and defining it as "assets not in an ISC/
-blueprint" is weak — that context is sparse and grows over time, and it ignores
-other context signals (semantic/glossary assignment, classifications, lineage,
-ownership, zones). What the industry actually measures is narrower, named things:
-**lineage coverage** (observability vendors), **documentation / ownership /
-classification coverage** (catalog "completeness" — Collibra/Alation/Atlan), **FAIR
-maturity indicators**. Decide: replace with those specific coverages, and/or a
-**composite "context richness" score** (explicit weighted blend) — weights grounded
-in one of those frameworks. Needs a short research pass + design.
+**Resolved 2026-08-01 — see [`OVERVIEW_CONTEXT_INTELLIGENCE.md`](OVERVIEW_CONTEXT_INTELLIGENCE.md)**
+for the full research pass, design, and phased plan. Short version: replace the
+single number with named Tier-1 "Capture" sub-tiles (Semantic Richness, Ownership
+Coverage, Governance Classification Coverage, Data Contract Coverage, Graph
+Connectivity Depth, Operational + Design/Business Lineage Coverage), shown against
+maturity bands, not collapsed into one composite. No further research needed —
+Phase A/B in that doc are buildable now.
 
 ### R-2 — "AI-ready assets" needs a best-practices/research effort, not a metric tweak
-Current gate (governed + documented + lineage) is naive. Key truth (cf. Gartner
-"AI-ready data"): there is **no universal AI-readiness** — data must be qualified
-**for a specific AI purpose**. Rough lenses: **RAG-ready** (semantic grounding,
-provenance/citation, freshness, access-controlled, PII-handled); **training-ready**
-(quality, labeling, representativeness/bias, licensing/consent, reproducible
-lineage); **agent/tool-ready** (stable schema/contract, described semantics,
-permissions). Fold in the domain concepts already introduced — **data scope, grain,
-datalens** — plus other classifications/relationships. Deliverables: (1) a
-best-practices brief mapping AI-readiness-per-purpose to Egeria classifications/
-relationships; (2) a per-purpose readiness *model* (checklist over real signals);
-only then a metric. This is the biggest item; drive with domain input.
+**Resolved 2026-08-01 — see [`OVERVIEW_CONTEXT_INTELLIGENCE.md`](OVERVIEW_CONTEXT_INTELLIGENCE.md)
+§2.5.** Confirmed no universal AI-readiness (matches Gartner's own framing).
+Replacement isn't a metric at all — it's a **Data Lens Conformance report spec**,
+parameterized per project/purpose, living in Egeria Explorer's Report Spec browser
+or a scoped Local Dashboards placement, not an Overview KPI tile. Data Scope/Grain/
+Lens are now fully defined (grounded in the PDR blog series, see the design doc's
+§1.2). Plan Phase C item 9.
 
 ### R-3 — Business-value metrics (Productivity, Trust & Adoption, Risk, Cost) are synthetic
 Today these are narrative/sample. They can be honest with: a precise definition, a
