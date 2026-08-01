@@ -147,6 +147,18 @@
   .dash-sec { min-width:0; }
   .persp-tabs button:hover:not(.on){ border-color:var(--c3); color:var(--text); }
 
+  /* topic strip — a second, independent axis (what domain of concern) from
+     perspective (who). Same interaction pattern, distinct accent (c1 vs c3)
+     so the two strips read as separate facets, not one long button row. */
+  .topic-bar { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
+    background:var(--card2); border:1px solid var(--border); border-left:3px solid var(--c1);
+    border-radius:10px; padding:8px 16px; margin-bottom:12px; }
+  .topic-tabs { display:flex; gap:6px; flex-wrap:wrap; }
+  .topic-tabs button { background:transparent; border:1px solid var(--border); color:var(--muted); border-radius:20px;
+    padding:4px 11px; font-size:.72rem; cursor:pointer; font-family:inherit; white-space:nowrap; }
+  .topic-tabs button.on { background:var(--c1); border-color:var(--c1); color:#1a1a2e; font-weight:650; }
+  .topic-tabs button:hover:not(.on){ border-color:var(--c1); color:var(--text); }
+
   .qpanel { max-height:0; overflow:hidden; transition:max-height .3s ease; }
   .qpanel.open { max-height:900px; }
   .qpanel-inner { background:var(--card); border:1px solid var(--border); border-radius:11px; padding:15px 18px; margin-bottom:6px; }
@@ -313,6 +325,21 @@
       <button data-persp="privacy">Privacy&nbsp;Officer</button>
       <button data-persp="community">Community&nbsp;Lead</button>
       <button onclick="document.getElementById('qpanel').classList.toggle('open')" style="border-color:var(--c3);color:var(--c3)">❓ Questions ▾</button>
+    </div>
+  </div>
+
+  <!-- ── TOPIC STRIP — independent axis: what domain of concern, not who. "Any"
+       (default) means no topic filter; picking one narrows the KPI band within
+       whichever perspective is active (or shows a cross-persona topic view if
+       the intersection is empty). ── -->
+  <div class="topic-bar">
+    <div class="persp-eyebrow">Topic</div>
+    <div class="topic-tabs">
+      <button data-topic="" class="on">Any</button>
+      <button data-topic="ai-context">AI&nbsp;/&nbsp;Context&nbsp;Intelligence</button>
+      <button data-topic="security-privacy">Security&nbsp;/&nbsp;Privacy</button>
+      <button data-topic="quality">Quality</button>
+      <button data-topic="usage">Popularity&nbsp;/&nbsp;Usage</button>
     </div>
   </div>
 
@@ -1071,7 +1098,10 @@ const METRICS = {
                 get:()=>({ val: LIVE.blueprints != null ? String(LIVE.blueprints) : '30', sub: 'reusable designs' }) },
   grounding:  { label:'Semantic Grounding',    ico:'🧠', color:'var(--c1)', drill:'grounding',
                 get:()=>({ val: LIVE.groundingPct != null ? LIVE.groundingPct + '%' : '61%',
-                           sub: LIVE.groundingLinks != null ? num(LIVE.groundingLinks) + ' term links' : 'glossary-linked' }) }
+                           sub: LIVE.groundingLinks != null ? num(LIVE.groundingLinks) + ' term links' : 'glossary-linked' }) },
+  ownership:  { label:'Ownership Coverage',    ico:'🧑‍💼', color:'var(--c4)', drill:'ownership',
+                get:()=>({ val: LIVE.ownershipPct != null ? LIVE.ownershipPct + '%' : '—',
+                           sub: LIVE.ownershipCount != null ? num(LIVE.ownershipCount) + ' owned assets' : 'named owner assigned' }) }
 };
 // Map an array of values to a polyline within the 120x26 sparkline viewbox.
 function sparkPts(vals){
@@ -1090,9 +1120,67 @@ const PERSP_KPIS = {
   privacy:    ['governed','certs','exceptions','assets','grounding','products'],
   community:  ['people','communities','products','terms','governed','assets']
 };
+// Topic — a second, independent axis from Perspective (who). Topic is *what
+// domain of concern*: AI-readiness, security/privacy, quality, usage/
+// popularity. "" (empty string) = Any = no topic filter. Keep this in exact
+// sync with overview_specs.py's TOPIC_KPIS — test_overview_specs.py guards it
+// the same way it already guards PERSP_KPIS.
+const TOPIC_KPIS = {
+  'ai-context':       ['grounding','ownership','governed'],
+  'security-privacy': ['governed','certs'],
+  'quality':          ['exceptions'],
+  'usage':            ['products','isc','blueprints','people','communities']
+};
+var CUR_TOPIC = '';
+// Topic → section visibility, same mechanism as Perspective's own `show` list
+// (buildSections()'s .dash-sec keys: value/growth/composition/usage/quality/
+// ai/people/activity). Closes the consistency gap between the two axes: both
+// now control which whole sections appear, not just Perspective. Deliberately
+// NOT attempting to filter content *within* a section yet — most of that
+// content isn't in the tile registry at all (hardcoded HTML blocks), and the
+// better long-term fix for "Usage Context should look different for a Privacy
+// Officer than a Data Owner" is dedicated per-perspective section VARIANTS,
+// not runtime filtering of one shared section (2026-08-01 design discussion)
+// — that's real, separate follow-up work, not this pass.
+const TOPIC_SECTIONS = {
+  'ai-context':       ['ai'],
+  'security-privacy': ['value','composition','quality'],
+  'quality':          ['quality'],
+  'usage':            ['usage','people','activity']
+};
+// The visible section list: Perspective's own `show` ∩ Topic's sections when
+// both are set, falling back to the Topic's own section list if that
+// intersection is empty — identical fallback philosophy to currentKpiKeys().
+function currentSections(){
+  const p = PERSPECTIVES[CUR_PERSP];
+  if (!p) return [];
+  if (!CUR_TOPIC) return p.show;
+  const topicSecs = TOPIC_SECTIONS[CUR_TOPIC] || [];
+  const intersected = p.show.filter(s => topicSecs.includes(s));
+  return intersected.length ? intersected : topicSecs;
+}
+function renderSections(){
+  const order = currentSections();
+  document.querySelectorAll('.dash-sec').forEach(sec => {
+    const idx = order.indexOf(sec.dataset.sec);
+    if (idx === -1) { sec.style.display = 'none'; }
+    else { sec.style.display = ''; sec.style.order = idx; }
+  });
+}
+// The KPI band's actual key list: Perspective ∩ Topic when both are set,
+// falling back to the Topic-only list if that intersection is empty (a thin/
+// absent intersection is a real, honest state — e.g. this persona has no
+// tiles tagged with this topic yet — not an error to hide).
+function currentKpiKeys(){
+  const perspKeys = PERSP_KPIS[CUR_PERSP] || PERSP_KPIS.governance;
+  if (!CUR_TOPIC) return perspKeys;
+  const topicKeys = TOPIC_KPIS[CUR_TOPIC] || [];
+  const intersected = perspKeys.filter(k => topicKeys.includes(k));
+  return intersected.length ? intersected : topicKeys;
+}
 function renderKPIs(){
   const band = document.getElementById('kpi-band'); if (!band) return;
-  const keys = PERSP_KPIS[CUR_PERSP] || PERSP_KPIS.governance;
+  const keys = currentKpiKeys();
   const comparing = COMPARE && Object.keys(BASE).length > 0;
   band.innerHTML = keys.map(k => {
     const m = METRICS[k]; if (!m) return '';
@@ -1160,29 +1248,60 @@ function renderQuestions(list){
     `<div class="q-src">${q.src}</div></div><span class="q-badge ${q.bc}">${q.b}</span></div>`).join('');
 }
 
+const TOPIC_LABELS = {
+  '':                 '',
+  'ai-context':       '🧠 AI / Context Intelligence',
+  'security-privacy': '🔒 Security / Privacy',
+  'quality':          '✅ Quality',
+  'usage':            '📈 Popularity / Usage'
+};
+function renderPerspCur(){
+  const p = PERSPECTIVES[CUR_PERSP]; if (!p) return;
+  const topicSuffix = CUR_TOPIC
+    ? ` <span style="font-size:.72rem;color:var(--c1);font-weight:600">· Topic: ${TOPIC_LABELS[CUR_TOPIC]}</span>`
+    : '';
+  document.getElementById('persp-cur').innerHTML =
+    `${p.icon} ${p.label} <span style="font-size:.72rem;color:var(--muted);font-weight:400">— ${p.q}</span>${topicSuffix}`;
+}
 function applyPerspective(key){
   const p = PERSPECTIVES[key]; if (!p) return;
   CUR_PERSP = key;
   renderKPIs();
-  document.getElementById('persp-cur').innerHTML =
-    `${p.icon} ${p.label} <span style="font-size:.72rem;color:var(--muted);font-weight:400">— ${p.q}</span>`;
+  renderPerspCur();
   document.querySelectorAll('.persp-tabs button[data-persp]').forEach(b =>
     b.classList.toggle('on', b.getAttribute('data-persp') === key));
-  const order = p.show;
-  document.querySelectorAll('.dash-sec').forEach(sec => {
-    const idx = order.indexOf(sec.dataset.sec);
-    if (idx === -1) { sec.style.display = 'none'; }
-    else { sec.style.display = ''; sec.style.order = idx; }
-  });
+  renderSections();
   renderQuestions(p.questions);
   try { localStorage.setItem('overview-perspective', key); } catch(e) {}
+}
+// Topic re-filters the KPI band AND section visibility (both via the same
+// intersection/fallback logic as currentKpiKeys()/currentSections()) — it does
+// NOT touch the question list, which stays Perspective-only (who's asking,
+// not what domain), and it does NOT filter content *within* a shown section
+// (see currentSections()'s comment on why that's separate follow-up work).
+function applyTopic(key){
+  CUR_TOPIC = key || '';
+  renderKPIs();
+  renderPerspCur();
+  document.querySelectorAll('.topic-tabs button[data-topic]').forEach(b =>
+    b.classList.toggle('on', b.getAttribute('data-topic') === CUR_TOPIC));
+  renderSections();
+  try { localStorage.setItem('overview-topic', CUR_TOPIC); } catch(e) {}
 }
 
 buildSections();
 document.querySelectorAll('.persp-tabs button[data-persp]').forEach(b =>
   b.addEventListener('click', () => applyPerspective(b.getAttribute('data-persp'))));
+document.querySelectorAll('.topic-tabs button[data-topic]').forEach(b =>
+  b.addEventListener('click', () => applyTopic(b.getAttribute('data-topic'))));
 var _savedPersp = 'governance';
 try { _savedPersp = localStorage.getItem('overview-perspective') || 'governance'; } catch(e) {}
+var _savedTopic = '';
+try { _savedTopic = localStorage.getItem('overview-topic') || ''; } catch(e) {}
+if (_savedTopic && !(_savedTopic in TOPIC_KPIS)) _savedTopic = '';
+CUR_TOPIC = _savedTopic;
+document.querySelectorAll('.topic-tabs button[data-topic]').forEach(b =>
+  b.classList.toggle('on', b.getAttribute('data-topic') === CUR_TOPIC));
 applyPerspective(PERSPECTIVES[_savedPersp] ? _savedPersp : 'governance');
 
 // ==== DRILL-DOWN ====
@@ -1223,6 +1342,11 @@ const DRILL = {
     list:[['Assets with term links',783],['Terms linked to assets',452],['Orphan terms',47]],
     cta:['Open Glossary in Explorer','/egeria-explorer#glossary'], sec:null,
     note:'Semantic assignments (term ↔ asset) from the Glossary handler.' },
+  ownership: { eb:'AI & context intelligence', t:'🧑‍💼 Ownership Coverage', s:'Share of assets carrying a named, accountable owner (Ownership classification)',
+    stats:[['—','owned'],['—','owner types'],['—','unowned']],
+    list:[],
+    cta:['Open Egeria Explorer','/egeria-explorer'], sec:null,
+    note:'Ownership classification coverage — a Context Intelligence Tier-1 "Capture" signal (OVERVIEW_CONTEXT_INTELLIGENCE.md), distinct from Governed Coverage.' },
   products: { eb:'Data products', t:'📦 Data Products', s:'Curated, governed data products published for consumption',
     stats:[['23','products'],['—','published'],['★4.3','avg rating']],
     list:[['Clinical Trial Results DW',1],['Patient Demographics',1],['Weekly Sales Snapshot',1],['Drug Interaction Ref Data',1]],
@@ -1282,6 +1406,10 @@ function drillLivePatch(key, d){
   if (key in map) set(map[key]);
   if (key === 'governed' && LIVE.governedPct) { d.stats[0][0] = LIVE.governedPct; if (LIVE.governedSub) d.s = LIVE.governedSub + ' carry ≥1 governance classification'; }
   if (key === 'grounding' && LIVE.groundingPct != null) { d.stats[0][0] = LIVE.groundingPct + '%'; }
+  if (key === 'ownership' && LIVE.ownershipPct != null) {
+    d.stats[0][0] = LIVE.ownershipPct + '%';
+    if (LIVE.ownershipCount != null) d.s = num(LIVE.ownershipCount) + ' assets carry a named, accountable owner (Ownership classification)';
+  }
   if (key === 'people') {
     if (LIVE.teams != null) d.stats[1][0] = String(LIVE.teams);
     if (LIVE.communities != null) d.stats[2][0] = String(LIVE.communities);
@@ -1416,6 +1544,8 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (!d) return;
     if (d.groundingPct != null) store.groundingPct = d.groundingPct;
     if (d.groundingLinks != null) store.groundingLinks = d.groundingLinks;
+    if (d.ownershipPct != null) store.ownershipPct = d.ownershipPct;
+    if (d.ownershipCount != null) store.ownershipCount = d.ownershipCount;
     if (!primary) return;
     // AI section grounding tile + funnel (cataloged/classified live)
     if (d.groundingPct != null) setTxt('ai-grounding', d.groundingPct + '%');

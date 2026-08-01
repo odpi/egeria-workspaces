@@ -90,6 +90,11 @@ def _load_sheets():
     return DashboardSheetDict()
 
 
+def _save_sheets(sheets) -> None:
+    from pyegeria.view._output_dashboard_sheet_models import save_dashboard_sheets_to_json
+    save_dashboard_sheets_to_json(sheets, _store_path())
+
+
 def _report_registry() -> dict:
     from pyegeria.view.base_report_formats import get_report_registry
     return get_report_registry()
@@ -207,6 +212,17 @@ def _serialize_placement(p, sheets, registry, mgr) -> dict:
             "outputTypes":    sorted({str(t) for fmt in (getattr(fs, "formats", []) or [])
                                        for t in (getattr(fmt, "types", []) or [])}) if fs else [],
             "requiredParams": list(getattr(action, "required_params", []) or []) if action else [],
+            # True iff the underlying FormatSet's action runs an analytic function
+            # (extra_find) rather than a live find-method query -- the frontend uses
+            # this, not outputFormat=='SERIES', to decide whether to send
+            # analyticParams or the standard find-vocabulary params. SERIES is one
+            # possible rendering of an analytic result (a chart), not the signal
+            # for "this is analytic" -- an analytic function can render as DICT/JSON
+            # too (see analytic_demo_specs.py's count_elements demos), and using
+            # outputFormat as the proxy silently sent search_string/graphQueryDepth
+            # etc. to functions that don't accept them (TypeError: unexpected
+            # keyword argument 'search_string').
+            "isAnalytic":     bool(getattr(action, "analytic_function", None)) if action else False,
         }
     sub = sheets.get(p.ref)
     if sub is not None:
@@ -328,3 +344,52 @@ def get_local_dashboard(
         "family":      sheet.family,
         "placements":  [_serialize_placement(p, sheets, registry, mgr) for p in sheet.placements],
     })
+
+
+@router.delete("/api/local-dashboards/{name}", summary="Delete a Dashboard Sheet")
+def delete_local_dashboard(name: str):
+    """
+    Delete a Dashboard Sheet from the local JSON store.
+
+    Removes the Sheet and its own Placement list only -- never the
+    underlying Egeria `Report` elements any placement referenced (a Report
+    is an independent, reusable object that may be linked from other
+    sheets too; deleting a sheet must not delete data other dashboards
+    depend on). If some other sheet nests this one as a Placement
+    (`kind: "sheet"`), that placement will render as "missing" on its next
+    load -- the same graceful-degrade behavior every other unresolved
+    reference already gets here, not a hard foreign-key constraint this
+    endpoint enforces or blocks on.
+
+    NOTE -- implementation will change when Dashboard Sheet becomes a real
+    Egeria element: this store is local-JSON-only today (see this module's
+    docstring / pyegeria's `_output_dashboard_sheet_models.py`), so "delete"
+    here is just a dict pop + full-file rewrite, with no soft-delete,
+    cascade, or audit trail. Once Dashboard Sheet migrates to an Egeria
+    `Collection` subtype (planned, not yet started), this needs to become a
+    real Egeria delete (e.g. `CollectionManager.delete_collection`) instead.
+    Kept deliberately thin for that reason.
+    """
+    try:
+        sheets = _load_sheets()
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("local-dashboards: failed to load store")
+        raise HTTPException(status_code=500, detail=f"Dashboard Sheet store unavailable: {exc}")
+
+    sheet = sheets.get(name)
+    if sheet is None:
+        raise HTTPException(status_code=404, detail=f"Dashboard Sheet {name!r} not found")
+
+    # sheets.get() resolves name-or-alias; delete by the sheet's own
+    # canonical `.name` (the real dict key), not the possibly-aliased path
+    # param, so deleting by an alias doesn't KeyError.
+    del sheets[sheet.name]
+
+    try:
+        _save_sheets(sheets)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("local-dashboards: failed to save store after delete")
+        raise HTTPException(status_code=500, detail=f"Failed to persist deletion: {exc}")
+
+    logger.info(f"local-dashboards: deleted Dashboard Sheet {sheet.name!r}")
+    return JSONResponse({"deleted": sheet.name})

@@ -98,6 +98,36 @@ def perspectives_for(kpi_key: str) -> List[str]:
     return [p for p, keys in PERSP_KPIS.items() if kpi_key in keys]
 
 
+# Topic → ordered KPI selection — a second, independent axis from Perspective.
+# Perspective is *who* (a persona/role); Topic is *what domain of concern*
+# (AI-readiness, security/privacy, quality, usage/popularity). The two are
+# orthogonal: a tile can belong to several perspectives AND several topics, and
+# the dashboard's KPI band is the intersection of whichever one(s) the user has
+# selected (see egeria-overview.html's currentKpiKeys()). Mirrors PERSP_KPIS's
+# shape exactly, including the frontend/backend drift guard in
+# test_overview_specs.py. "Any" (no topic selected) is not a key here — it's
+# the absence of a topic filter, handled by the caller.
+#
+# v1 taxonomy is deliberately small (4 topics) and some tiles are left
+# untagged (assets, terms, exceptions, certs, communities) — they're scale/
+# baseline metrics or don't yet have a clean single-topic home; they still
+# show up whenever Topic is "Any". "quality" is intentionally thin today (one
+# tile) — Survey Annotation Coverage (OVERVIEW_CONTEXT_INTELLIGENCE.md Tier 2,
+# not yet built) is its natural second member, not invented here to pad it out.
+TOPIC_KPIS: Dict[str, List[str]] = {
+    "ai-context":       ["grounding", "ownership", "governed"],
+    "security-privacy": ["governed", "certs"],
+    "quality":          ["exceptions"],
+    "usage":            ["products", "isc", "blueprints", "people", "communities"],
+}
+
+
+def topics_for(kpi_key: str) -> List[str]:
+    """Topics whose KPI selection includes ``kpi_key`` (TOPIC_KPIS inverted),
+    in a stable topic order."""
+    return [t for t, keys in TOPIC_KPIS.items() if kpi_key in keys]
+
+
 # ── Tile definitions ─────────────────────────────────────────────────────────
 # One dict per tile carrying the raw facts; _build() turns each into a FormatSet.
 # Field notes:
@@ -204,6 +234,18 @@ _TILES = [
                     {"relationship_type": "SemanticAssignment", "as": "percent_of_assets"}),
         "questions": ["How well grounded is the catalog for AI?"],
     },
+    {
+        "key": "ownership", "label": "Ownership Coverage", "icon": "🧑‍💼", "color": "var(--c4)",
+        "description": "Share of assets carrying an Ownership classification — a named "
+                       "owner responsible for management/governance decisions. Distinct "
+                       "from Governed Coverage (classification-based); data mesh names "
+                       "'clean, owned, product-based data' as its own foundation for "
+                       "trustworthy AI consumption.",
+        "target_type": None, "endpoint": "ai-context", "value_field": "ownershipPct",
+        "detail_spec": "ownership", "series": None, "unit": "percent", "provenance": "live",
+        "compute": ("pyegeria.view.overview_metrics.ownership_coverage", {}),
+        "questions": ["How much of the catalog has a named, accountable owner?"],
+    },
 ]
 
 # Stable tile order (the order tiles are declared above).
@@ -225,6 +267,9 @@ def _build(tile: dict) -> FormatSet:
         annotations["series"] = [tile["series"]]
     if tile.get("unit"):
         annotations["unit"] = [tile["unit"]]
+    topics = topics_for(tile["key"])
+    if topics:
+        annotations["topics"] = topics
 
     return FormatSet(
         target_type=tile["target_type"],
@@ -264,6 +309,7 @@ def specs_payload() -> dict:
         "family": FAMILY,
         "order": TILE_ORDER,
         "perspectiveKpis": PERSP_KPIS,
+        "topicKpis": TOPIC_KPIS,
         "specs": specs_as_dicts(),
         "source": "overview_specs.py (NEXT-10 P0)",
     }

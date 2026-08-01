@@ -76,6 +76,17 @@ from pyegeria.view.overview_metrics import (
     growth_series,
 )
 
+# ownership_coverage is new (2026-08-01), not yet in a published pyegeria release
+# (same "container runs the published package, not this dev checkout" gap already
+# documented for Create Report/Dashboard Sheet commands in LOCAL_DASHBOARDS_TUTORIAL.md
+# — this import crashed the whole app on an installed pyegeria that predates it,
+# taking down every /api/overview/* route, not just ai-context). Defensive import,
+# matching the vega_utilities pattern just above this block.
+try:
+    from pyegeria.view.overview_metrics import ownership_coverage
+except ImportError:
+    ownership_coverage = None
+
 router = APIRouter(tags=["egeria-overview"])
 
 _HERE = Path(__file__).parent
@@ -190,18 +201,20 @@ def get_specs():
             summary="Overview dashboard as a Container of placements (NEXT-10 P2)")
 def get_container(
     name: str = Query("overview-dashboard", description="Container name"),
-    perspective: Optional[str] = Query(None, description="Filter/reorder placements for this perspective"),
+    perspective: Optional[str] = Query(None, description="Filter/reorder placements for this perspective (who — a persona/role)"),
+    topic: Optional[str] = Query(None, description="Filter/reorder placements for this topic (what domain of concern — independent of perspective)"),
 ):
     """Serve a Container — an ordered, resolved placement list — optionally
-    filtered/reordered for a perspective (perspective as a scoped lens over
-    placements, see OVERVIEW_REPORTING_MODEL.md §6). Static definitions — no
-    Egeria call, no creds required."""
+    filtered/reordered by Perspective and/or Topic, two independent axes
+    (Perspective = who, Topic = what domain of concern; see
+    overview_specs.py's TOPIC_KPIS docstring and OVERVIEW_REPORTING_MODEL.md
+    §6). Static definitions — no Egeria call, no creds required."""
     try:
         from overview_containers import CONTAINERS, container_payload
         container = CONTAINERS.get(name)
         if container is None:
             raise HTTPException(status_code=404, detail=f"Container {name!r} not found")
-        return JSONResponse(container_payload(container, perspective))
+        return JSONResponse(container_payload(container, perspective, topic))
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
@@ -323,6 +336,21 @@ def get_ai_context(
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview ai-context: grounding query failed: {exc}")
 
+    # Ownership coverage: Context Intelligence / NEXT-7 Tier-1 "Capture" signal
+    # (OVERVIEW_CONTEXT_INTELLIGENCE.md §2.2) — data-mesh literature names "clean,
+    # owned, product-based data" as its own foundation for trustworthy AI
+    # consumption, distinct from governance-classification coverage above.
+    ownership_count = None
+    ownership_pct = None
+    try:
+        ownership = ownership_coverage(mgr, as_of_time)
+        ownership_count = ownership["ownershipCount"]
+        total = readiness.get("cataloged")
+        if total:
+            ownership_pct = round(100 * ownership_count / total, 1)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview ai-context: ownership query failed: {exc}")
+
     funnel = {
         "Cataloged":       readiness["cataloged"],
         "Documented":      readiness["documented"],
@@ -351,6 +379,8 @@ def get_ai_context(
         "guardrails":      None,
         "groundingLinks":  grounding_links,
         "groundingPct":    grounding_pct,
+        "ownershipCount":  ownership_count,
+        "ownershipPct":    ownership_pct,
         "partial":         True,
         "source":          "live:ai-context",
     }

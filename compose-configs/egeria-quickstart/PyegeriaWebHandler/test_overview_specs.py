@@ -73,6 +73,16 @@ def parse_persp_kpis(html: str) -> dict:
     return out
 
 
+def parse_topic_kpis(html: str) -> dict:
+    """Parse the frontend TOPIC_KPIS map → {topic: [kpi, ...]}."""
+    block = _slice_object(html, "const TOPIC_KPIS = {")
+    out = {}
+    for m in re.finditer(r"^\s*'?([\w-]+)'?:\s*\[([^\]]*)\]", block, re.MULTILINE):
+        topic, arr = m.groups()
+        out[topic] = [x.strip().strip("'\"") for x in arr.split(",") if x.strip()]
+    return out
+
+
 def parse_drill_keys(html: str) -> set:
     """Top-level keys of the frontend DRILL map (drill targets that exist)."""
     block = _slice_object(html, "const DRILL = {")
@@ -89,6 +99,7 @@ def main() -> int:
     html = _HTML.read_text()
     metrics = parse_metrics(html)
     persp_kpis = parse_persp_kpis(html)
+    topic_kpis = parse_topic_kpis(html)
     drill_keys = parse_drill_keys(html)
 
     reg_keys = set(specs.SPECS.keys())
@@ -140,6 +151,20 @@ def main() -> int:
             check(k in specs.PERSP_KPIS.get(persp, []),
                   f"perspectives_for({k!r}) claims {persp!r} but PERSP_KPIS disagrees")
 
+    # 4b. TOPIC_KPIS: frontend == registry (exact, order included) — same drift
+    # guard as PERSP_KPIS, for the independent Topic axis.
+    check(topic_kpis == specs.TOPIC_KPIS,
+          f"TOPIC_KPIS mismatch:\n  frontend={topic_kpis}\n  registry={specs.TOPIC_KPIS}")
+
+    for topic, keys in specs.TOPIC_KPIS.items():
+        for k in keys:
+            check(topic in specs.topics_for(k),
+                  f"topics_for({k!r}) missing {topic!r}")
+    for k in reg_keys:
+        for topic in specs.topics_for(k):
+            check(k in specs.TOPIC_KPIS.get(topic, []),
+                  f"topics_for({k!r}) claims {topic!r} but TOPIC_KPIS disagrees")
+
     # 5. The generated metrics-doc block is up to date.
     res = subprocess.run(
         [sys.executable, str(_HERE / "gen_overview_metrics.py"), "--check"],
@@ -172,8 +197,25 @@ def main() -> int:
         check(view == expected,
               f"[{persp}] container perspective view != PERSP_KPIS:\n  view={view}\n  expected={expected}")
 
+    # 6b. Same check for the Topic axis, and for the combined view_for()
+    # intersection (Perspective ∩ Topic, falling back to Topic-only when the
+    # intersection is empty).
+    for topic, expected in specs.TOPIC_KPIS.items():
+        view = [rp.ref for rp in containers.view_for_topic(containers.OVERVIEW_CONTAINER, topic)]
+        check(view == expected,
+              f"[{topic}] container topic view != TOPIC_KPIS:\n  view={view}\n  expected={expected}")
+
+    for persp, persp_keys in specs.PERSP_KPIS.items():
+        for topic, topic_keys in specs.TOPIC_KPIS.items():
+            expected_intersection = [k for k in persp_keys if k in topic_keys]
+            expected = expected_intersection if expected_intersection else topic_keys
+            view = [rp.ref for rp in containers.view_for(containers.OVERVIEW_CONTAINER, persp, topic)]
+            check(view == expected,
+                  f"[{persp}+{topic}] view_for() != expected intersection/fallback:\n  view={view}\n  expected={expected}")
+
     # Report.
-    print(f"ran {_checks} checks over {len(reg_keys)} tiles / {len(specs.PERSP_KPIS)} perspectives")
+    print(f"ran {_checks} checks over {len(reg_keys)} tiles / {len(specs.PERSP_KPIS)} perspectives / "
+          f"{len(specs.TOPIC_KPIS)} topics")
     if _failures:
         print(f"\nFAILED ({len(_failures)}):")
         for f in _failures:

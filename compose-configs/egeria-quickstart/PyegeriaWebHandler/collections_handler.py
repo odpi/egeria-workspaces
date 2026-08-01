@@ -4,14 +4,18 @@ Copyright Contributors to the ODPi Egeria project.
 
 Collections Explorer — FastAPI router.
 
-A type-agnostic view of the collection landscape: the left nav lists the
-RootCollection elements (the genuine top-level collections, identified by the
-RootCollection open metadata type), and from each root you can walk the member
-hierarchy regardless of the specific collection subtype (DigitalProduct,
+A type-agnostic view of the collection landscape: the left nav lists, by
+default, every collection with no parent collection (any Collection subtype
+whose guid never appears as another collection's member) — this surfaces
+collections that were created standalone and never linked under a
+RootCollection, not just the ones deliberately classified RootCollection.
+An `only_root_type` toggle narrows the list back down to the genuine
+RootCollection-typed elements. From any listed collection you can walk the
+member hierarchy regardless of the specific collection subtype (DigitalProduct,
 DigitalProductFamily, SolutionBlueprint, Folio, plain Collection, …).
 
 Endpoints:
-  GET /api/collections/roots          → list RootCollection elements (left nav)
+  GET /api/collections/roots          → list parentless (or RootCollection-only) elements (left nav)
   GET /api/collections/{guid}/tree     → recursive member hierarchy from a root
   GET /api/collections/{guid}          → detail for one collection node
 
@@ -45,6 +49,48 @@ def _is_collection(node: dict) -> bool:
         return True
     tn = node.get("typeName") or ""
     return tn == "Collection" or tn.endswith("Collection")
+
+
+def _rel_guid(entry) -> Optional[str]:
+    """Extract the related element's guid from a single RelatedMetadataElementSummary dict."""
+    if not isinstance(entry, dict):
+        return None
+    re = entry.get("relatedElement") or {}
+    return (re.get("elementHeader") or {}).get("guid") or None
+
+
+def _find_all_collections_with_members(mgr) -> list:
+    """Page through every Collection (any subtype), depth=1, so each element's own
+    `collectionMembers` (its children) comes back embedded in the same call — this is
+    what lets us compute "has a parent" for every collection with one paginated scan
+    instead of one get_collection_members call per collection.
+    """
+    all_elements = {}
+    start_from = 0
+    page_size = 200
+    max_pages = 50  # safety cap: 10000 collections max
+    for _ in range(max_pages):
+        try:
+            raw = mgr.find_collections(
+                search_string="*",
+                starts_with=True,
+                ignore_case=True,
+                output_format="JSON",
+                start_from=start_from,
+                page_size=page_size,
+                graph_query_depth=1,
+            )
+        except Exception as exc:
+            logger.warning(f"find_collections page {start_from} failed: {exc}")
+            break
+        if not isinstance(raw, list) or not raw:
+            break
+        for e in raw:
+            g = _header(e).get("guid", "")
+            if g and g not in all_elements:
+                all_elements[g] = e
+        start_from += page_size
+    return list(all_elements.values())
 
 
 def _children_level(mgr, collection_guid: str, as_of_time: Optional[str] = None) -> list:
@@ -82,37 +128,62 @@ def _children_level(mgr, collection_guid: str, as_of_time: Optional[str] = None)
     return nodes
 
 
-@router.get("/api/collections/roots", summary="List RootCollection elements", responses=EGERIA_ERROR_RESPONSES)
+@router.get("/api/collections/roots", summary="List parentless (or RootCollection-only) elements", responses=EGERIA_ERROR_RESPONSES)
 def get_roots(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
     user_id:  Optional[str] = Query(None),
     user_pwd: Optional[str] = Query(None),
     include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
+    only_root_type: bool = Query(False, description="When True, restrict to the RootCollection open metadata type instead of any parentless collection"),
 ):
-    """Return the RootCollection-typed collections that anchor the hierarchy."""
+    """Default: every collection (any subtype) that is not itself a member of any
+    other collection. When only_root_type=True: just the RootCollection-typed
+    elements, as before.
+    """
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
         raise_egeria_http_error(exc, "Failed to create CollectionManager")
 
-    try:
-        raw = mgr.find_collections(
-            search_string="*",
-            starts_with=True,
-            ignore_case=True,
-            output_format="JSON",
-            start_from=0,
-            page_size=500,
-            graph_query_depth=0,
-            metadata_element_type_name="RootCollection",
-        )
-    except Exception as exc:
-        raise_egeria_http_error(exc, "RootCollection discovery failed")
+    if only_root_type:
+        try:
+            raw = mgr.find_collections(
+                search_string="*",
+                starts_with=True,
+                ignore_case=True,
+                output_format="JSON",
+                start_from=0,
+                page_size=500,
+                graph_query_depth=0,
+                metadata_element_type_name="RootCollection",
+            )
+        except Exception as exc:
+            raise_egeria_http_error(exc, "RootCollection discovery failed")
 
+        if not include_templates:
+            raw = [c for c in raw if isinstance(c, dict) and not _is_template(c)]
+        roots = [_serialize_node(c) for c in raw if isinstance(c, dict)]
+        roots.sort(key=lambda c: (c.get("displayName") or c.get("qualifiedName") or "").lower())
+        return JSONResponse({"roots": roots, "total": len(roots)})
+
+    try:
+        all_elements = _find_all_collections_with_members(mgr)
+    except Exception as exc:
+        raise_egeria_http_error(exc, "Collection discovery failed")
+
+    all_guids = {_header(e).get("guid", ""): e for e in all_elements if _header(e).get("guid")}
+    has_parent = set()
+    for element in all_elements:
+        for entry in (element.get("collectionMembers") or []):
+            child_guid = _rel_guid(entry)
+            if child_guid and child_guid in all_guids:
+                has_parent.add(child_guid)
+
+    parentless = [e for g, e in all_guids.items() if g not in has_parent]
     if not include_templates:
-        raw = [c for c in raw if isinstance(c, dict) and not _is_template(c)]
-    roots = [_serialize_node(c) for c in raw if isinstance(c, dict)]
+        parentless = [e for e in parentless if not _is_template(e)]
+    roots = [_serialize_node(e) for e in parentless]
     roots.sort(key=lambda c: (c.get("displayName") or c.get("qualifiedName") or "").lower())
     return JSONResponse({"roots": roots, "total": len(roots)})
 
