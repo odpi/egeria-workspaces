@@ -572,9 +572,9 @@
     <div class="panel">
       <div class="panel-head"><div><h3>🚦 Context Readiness Funnel</h3><div class="ph-sub">How much cataloged data becomes trustworthy AI context</div></div><span class="drill-hint">click a stage</span></div>
       <div class="funnel-row" data-drill="funnel-cataloged"><span class="lab">Cataloged</span><div class="funnel-track"><div class="funnel-fill" style="width:100%;background:var(--c2)"><span id="uc-cataloged">1,284</span></div></div><span class="conv">100%</span></div>
-      <div class="funnel-row" data-drill="funnel-documented"><span class="lab">Documented</span><div class="funnel-track"><div class="funnel-fill" style="width:71%;background:var(--c1)">912</div></div><span class="conv">71%</span></div>
+      <div class="funnel-row" data-drill="funnel-documented"><span class="lab">Documented</span><div class="funnel-track"><div class="funnel-fill" style="width:71%;background:var(--c1)"><span id="uc-documented">912</span></div></div><span class="conv">71%</span></div>
       <div class="funnel-row" data-drill="funnel-classified"><span class="lab">Classified</span><div class="funnel-track"><div class="funnel-fill" style="width:68%;background:var(--c6)"><span id="uc-classified">873</span></div></div><span class="conv">68%</span></div>
-      <div class="funnel-row" data-drill="funnel-lineage"><span class="lab">Lineage-traced</span><div class="funnel-track"><div class="funnel-fill" style="width:55%;background:var(--c3)">705</div></div><span class="conv">55%</span></div>
+      <div class="funnel-row" data-drill="funnel-lineage"><span class="lab">Lineage-traced</span><div class="funnel-track"><div class="funnel-fill" style="width:55%;background:var(--c3)"><span id="uc-lineage">705</span></div></div><span class="conv">55%</span></div>
       <div class="funnel-row" data-drill="funnel-airead"><span class="lab" style="font-weight:700">AI-Ready</span><div class="funnel-track"><div class="funnel-fill" style="width:48%;background:var(--c4)">612</div></div><span class="conv">48%</span></div>
       <div style="margin-top:11px;font-size:.74rem;color:var(--muted);line-height:1.5;border-top:1px solid var(--border);padding-top:9px"><b style="color:var(--text)">Business value:</b> grounded, lineage-backed context = fewer hallucinations and a full audit trail of what an agent was allowed to see.</div>
     </div>
@@ -1547,11 +1547,15 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (d.ownershipPct != null) store.ownershipPct = d.ownershipPct;
     if (d.ownershipCount != null) store.ownershipCount = d.ownershipCount;
     if (!primary) return;
-    // AI section grounding tile + funnel (cataloged/classified live)
+    // AI section grounding tile + funnel (cataloged/classified/documented/
+    // lineage live as of 2026-08-01 — see context_readiness_funnel's own
+    // docstring; aiReady still isn't computed, so that row stays sample data)
     if (d.groundingPct != null) setTxt('ai-grounding', d.groundingPct + '%');
     var f = d.funnel || {};
     if (f.cataloged != null) setTxt('uc-cataloged', fmt(f.cataloged));
     if (f.classified != null) setTxt('uc-classified', fmt(f.classified));
+    if (f.documented != null) setTxt('uc-documented', fmt(f.documented));
+    if (f.lineage != null) setTxt('uc-lineage', fmt(f.lineage));
   }
 
   function applyGrowth(d){

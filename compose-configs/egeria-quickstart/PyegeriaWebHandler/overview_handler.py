@@ -322,14 +322,42 @@ def get_ai_context(
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
-    readiness = context_readiness_funnel(mgr, as_of_time)
+    try:
+        ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview ai-context: ClassificationExplorer construction failed: {exc}")
+        ce = None
+
+    # documented/lineage now computed live (2026-08-01) -- see
+    # context_readiness_funnel's own docstring for exactly what each stage
+    # means; aiReady is still None (needs a true cross-criteria intersection,
+    # tracked under NEXT-18). This is a SIGNATURE change to an existing
+    # function (mgr, as_of) -> (mgr, ce, as_of), not a new one -- an older
+    # installed pyegeria still has the 2-arg form, so try the new signature
+    # first and fall back to the old one on TypeError, rather than letting
+    # cataloged/classified (which worked fine before this change) go dark
+    # too just because documented/lineage aren't available yet.
+    try:
+        readiness = context_readiness_funnel(mgr, ce, as_of_time)
+    except TypeError:
+        try:
+            readiness = context_readiness_funnel(mgr, as_of_time)  # pre-2026-08-01 pyegeria
+            readiness.setdefault("documented", None)
+            readiness.setdefault("lineage", None)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview ai-context: readiness funnel query failed (old signature): {exc}")
+            readiness = {"cataloged": None, "documented": None, "classified": None,
+                         "lineage": None, "aiReady": None}
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview ai-context: readiness funnel query failed: {exc}")
+        readiness = {"cataloged": None, "documented": None, "classified": None,
+                     "lineage": None, "aiReady": None}
 
     # Semantic grounding: SemanticAssignment relationships (term ↔ asset) — the
     # meaning layer that grounds AI. Count of assignments as a proxy for grounded links.
     grounding_links = None
     grounding_pct = None
     try:
-        ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
         grounding = semantic_grounding(mgr, ce, as_of_time)
         grounding_links = grounding["groundingLinks"]
         grounding_pct = grounding["groundingPct"]
