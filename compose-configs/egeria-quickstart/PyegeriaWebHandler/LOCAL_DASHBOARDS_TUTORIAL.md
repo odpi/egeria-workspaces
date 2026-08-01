@@ -171,7 +171,15 @@ Report Spec" above). Two things matter when picking the underlying spec:
    shouldn't come close to that.
 
 Check `GET /api/report-specs` for a spec's `action.required_params` and
-`output_types` before authoring the Report.
+`output_types` before authoring the Report. If `required_params` lists
+something outside the standard 22 (e.g. `Collection Members`'s
+`collection_guid`), set it via `Report Parameters` (added 2026-07-31) —
+a Dictionary attribute, keys matching the required param name exactly:
+
+```markdown
+### Report Parameters
+collection_guid: 0affb580-fa81-4d00-9438-b26faf11845d
+```
 
 ## Step 2 — Create the Dashboard Sheet
 
@@ -186,9 +194,6 @@ ___
 ### Display Name
 my-team-dashboard
 
-### Dashboard Sheet Name
-my-team-dashboard
-
 ### Dashboard Sheet Heading
 My Team Dashboard
 
@@ -198,14 +203,16 @@ Whatever this dashboard is for.
 ___
 ```
 
-Two gotchas worth knowing up front:
+One gotcha worth knowing up front:
 
-- **Both `Display Name` and `Dashboard Sheet Name` are required**, and in
-  practice you want them equal. `Display Name` satisfies validation
-  (Dashboard Sheet's bundle inherits Collection Base's required-attribute
-  check); `Dashboard Sheet Name` is what the processor actually keys the
-  local JSON store on and what every `Link Report to Dashboard Sheet`
-  placement's `Dashboard Sheet Name` must match.
+- `Display Name` is what the processor keys the local JSON store on — it's
+  also what every `Link Report to Dashboard Sheet`/`Add Text on Dashboard
+  Sheet` placement's `Dashboard Sheet Name` attribute must match exactly
+  (that attribute references an *existing* sheet by name; it's a different
+  attribute, from the Link bundle, not the one you just set here — see Step
+  3). (Changed 2026-07-31: `Create Dashboard Sheet` used to have its own
+  separate `Dashboard Sheet Name` attribute alongside `Display Name` — now
+  it's `Display Name` only.)
 - Re-running `Create Dashboard Sheet` with the same name **upserts** — it
   merges into the existing record rather than erroring, so it's safe to
   re-run this step while iterating on heading/description text.
@@ -341,6 +348,7 @@ response matches where `dr_egeria` actually wrote (same
 |---|---|---|
 | "Unresolved reference — no matching Report or Dashboard Sheet" | `ref` (a `Report Name`) doesn't match any Report's exact `Display Name`, or any Dashboard Sheet name | Check the Report actually exists (`Create Report` ran, not just validated) and the name matches exactly — case and whitespace matter |
 | "Needs parameters" / "Report has no Output Format set" note, links to Report Spec Browser | The Report's underlying spec still has required params the Report's stored `params` don't cover, or `Create Report` never had `Output Format` set | Rerun `Create Report` for that Report with the missing attributes filled in — upserts, safe to rerun |
+| A `Report Parameters` key (e.g. `collection_guid`) shows "Missing" here even though `Create Report` set it and validated clean | Fixed 2026-07-31 (egeria-python `md_processing/v2/report.py`) — `Report Parameters` keys used to persist unconverted, but this page's `camelKey()` presence check assumes every stored param is camelCase (matching every other execution param) | Confirm the installed pyegeria includes this fix; if it does and this still happens, check `Create Report`'s persisted `additionalProperties` directly (`GET` the Report element) for the actual stored key casing |
 | Tile renders "No results." | The Report's stored `Search String`/filters matched nothing | Expected if the underlying data doesn't exist yet — not a bug; double-check the `Search String` is actually scoped to something real |
 | Sheet doesn't appear in the list at all | Wrong store path, or `--validate` was the last run instead of `--process` | Compare `storePath` from `GET /api/local-dashboards` against your `PYEGERIA_DASHBOARD_SHEETS_STORE`; re-run with `--process` |
 | `dr_egeria` reports `SUCCESS` but the dashboard doesn't change at all — new/edited placement never shows up | Either ran on the wrong machine (host instead of inside `quickstart-pyegeria-web` — see "Where `dr_egeria` has to run" above), or `Create Report`/the updated `Link Report to Dashboard Sheet` aren't in the pyegeria version that machine has installed yet | Re-run via `docker exec quickstart-pyegeria-web dr_egeria --process ...` once those commands are in a published pyegeria release; until then, run from the egeria-python dev checkout's own `.venv` and `docker cp` the resulting `~/.pyegeria/dashboard_sheets.json` into the container afterward |

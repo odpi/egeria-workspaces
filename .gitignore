@@ -213,6 +213,11 @@ runtime-volumes/quickstart-apache-web/ssl-define.conf
 # Demo auth SQLite runtime data (now on Postgres; file retained for reference)
 runtime-volumes/quickstart-demo-data/
 
+# Dr.Egeria's local Dashboard Sheet store (~/.pyegeria/dashboard_sheets.json) --
+# runtime state, bind-mounted so it survives container rebuilds
+runtime-volumes/quickstart-pyegeria-state/
+runtime-volumes/freshstart-pyegeria-state/
+
 # sync-demo-db.sh dump files (contain real user emails/password hashes)
 runtime-volumes/demo-sync/
 
@@ -231,6 +236,13 @@ contexts/
 
 # Obsidian container runtime config (persisted by the linuxserver/obsidian container)
 runtime-volumes/obsidian-config/
+
+# Portal test-harness generated output (JUnit XML, triage reports) — regenerated
+# by tests/analyze.py on every run, not source
+compose-configs/*/PyegeriaWebHandler/tests/_results_*.xml
+compose-configs/*/PyegeriaWebHandler/tests/browser/_results_*.xml
+compose-configs/*/PyegeriaWebHandler/tests/TRIAGE_REPORT.md
+compose-configs/*/PyegeriaWebHandler/tests/browser/.venv/
 
 # gen-env.sh backup of exchange-quickstart config
 exchange-quickstart/config/config_workspaces.json.bak
