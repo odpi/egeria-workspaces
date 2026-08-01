@@ -61,9 +61,9 @@
   .placement h4 { font-size:.92rem; font-weight:650; margin-bottom:4px; display:flex; align-items:center; gap:8px; }
   .placement .p-desc { font-size:.78rem; color:var(--muted); margin-bottom:10px; }
   .placement .p-body { font-size:.82rem; line-height:1.6; }
-  .placement .p-body table { border-collapse:collapse; font-size:12px; }
-  .placement .p-body th, .placement .p-body td { padding:5px 8px; border:1px solid var(--border); text-align:left; }
-  .placement .p-body th { color:var(--muted); white-space:nowrap; }
+  .placement .p-body table { border-collapse:collapse; font-size:12px; width:100%; table-layout:fixed; }
+  .placement .p-body th, .placement .p-body td { padding:5px 8px; border:1px solid var(--border); text-align:left; overflow-wrap:break-word; }
+  .placement .p-body th { color:var(--muted); }
   .placement .p-loading { color:var(--muted); font-size:.8rem; font-style:italic; }
   .mermaid-block { margin:10px 0; overflow-x:auto; }
   .mermaid-block svg { max-width:100%; }
