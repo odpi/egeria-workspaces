@@ -70,6 +70,15 @@
   .delta { font-size:.72rem; font-weight:600; display:inline-flex; align-items:center; gap:3px; }
   .up { color:var(--green); } .down { color:var(--accent); } .flat { color:var(--muted); }
   .kpi .spark { position:absolute; bottom:0; left:0; right:0; height:26px; opacity:.55; }
+  .k-info { position:absolute; right:10px; bottom:9px; z-index:2; background:none; border:none; padding:0;
+            font-size:.85rem; line-height:1; color:var(--muted); opacity:.55; cursor:pointer; }
+  .k-info:hover { opacity:1; color:var(--accent); }
+  .k-info-popover { position:fixed; z-index:50; width:320px; max-width:calc(100vw - 16px);
+                     background:var(--card); border:1px solid var(--border); border-radius:10px;
+                     padding:12px 14px; box-shadow:0 8px 24px rgba(0,0,0,.25); font-size:.78rem; line-height:1.45; }
+  .k-info-summary { font-weight:600; margin-bottom:6px; }
+  .k-info-usage { color:var(--muted); }
+  .k-info-usage strong { color:inherit; font-weight:600; }
 
   /* generic panel */
   .grid { display:grid; gap:14px; }
@@ -1103,6 +1112,14 @@ const METRICS = {
                 get:()=>({ val: LIVE.ownershipPct != null ? LIVE.ownershipPct + '%' : '—',
                            sub: LIVE.ownershipCount != null ? num(LIVE.ownershipCount) + ' owned assets' : 'named owner assigned' }) }
 };
+// Per-tile summary/usage text for the "ⓘ" info bubble (NEXT-24). Populated
+// live from /api/overview/specs — the same overview_specs.py _TILES data
+// that backs the generated Egeria Glossary — not hand-duplicated here, since
+// these are long free-text caveats and a second hand-synced copy would be a
+// worse drift risk than the short label/icon fields METRICS already
+// duplicates. Empty until loadTileInfo() resolves; the bubble just doesn't
+// render for a tile with no entry yet.
+var TILE_INFO = {};
 // Map an array of values to a polyline within the 120x26 sparkline viewbox.
 function sparkPts(vals){
   const v = vals.filter(x => x != null);
@@ -1204,11 +1221,56 @@ function renderKPIs(){
       spark = `<svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none"><title>${tip}</title>`+
               `<polyline fill="none" stroke="${m.color}" stroke-width="2" points="${pts}"/></svg>`;
     }
+    const info = TILE_INFO[k]
+      ? `<button type="button" class="k-info" data-info="${k}" title="What does this measure?" aria-label="What does this measure?">ⓘ</button>`
+      : '';
     return `<div class="kpi${m.drill ? ' clickable' : ''}"${m.drill ? ` data-drill="${m.drill}"` : ''}>`+
-      `<span class="k-ico">${m.ico}</span><span class="k-label">${m.label}</span>`+
+      `<span class="k-ico">${m.ico}</span><span class="k-label">${m.label}</span>${info}`+
       `<span class="k-val">${s.val}</span><span class="k-sub">${sub}</span>${spark}</div>`;
   }).join('');
 }
+// loadTileInfo() is defined further below, inside the IIFE that owns CREDS
+// (it needs the resolved Egeria credentials to call egeriaFetch).
+// Toggle/close the info popover. Appended to <body> with fixed positioning
+// (not inside the .kpi tile) because .kpi has overflow:hidden for the
+// sparkline — an absolutely-positioned child there would get clipped.
+function closeInfoPopover(){
+  var existing = document.querySelector('.k-info-popover');
+  if (existing) existing.remove();
+  closeInfoPopover._lastKey = null;
+}
+function toggleInfoPopover(btn, key){
+  var openForSameKey = closeInfoPopover._lastKey === key;
+  closeInfoPopover();
+  if (openForSameKey) return;   // was already open on this tile — just closed it
+  var info = TILE_INFO[key]; if (!info) return;
+  var pop = document.createElement('div');
+  pop.className = 'k-info-popover';
+  pop.dataset.forKey = key;
+  pop.innerHTML = (info.summary ? `<div class="k-info-summary">${info.summary}</div>` : '') +
+    (info.usage ? `<div class="k-info-usage"><strong>Usage notes:</strong> ${info.usage}</div>` : '');
+  document.body.appendChild(pop);
+  var r = btn.getBoundingClientRect();
+  var left = Math.min(r.left, window.innerWidth - 340);   // keep on-screen; popover is ~320px
+  pop.style.left = Math.max(8, left) + 'px';
+  pop.style.top = (r.bottom + 6) + 'px';
+  closeInfoPopover._lastKey = key;
+}
+document.addEventListener('click', function(e){
+  var btn = e.target.closest && e.target.closest('.k-info');
+  if (btn) {
+    // stopImmediatePropagation, not just stopPropagation: the drill-down
+    // handler (openDrill via [data-drill]) is a SEPARATE document-level
+    // listener registered later, and the ⓘ button sits inside a .kpi div
+    // that itself carries data-drill — plain stopPropagation only stops
+    // bubbling to ancestors, not sibling listeners on the same document
+    // target, so it would still open the drill view underneath the popover.
+    e.stopImmediatePropagation(); e.preventDefault();
+    toggleInfoPopover(btn, btn.getAttribute('data-info'));
+    return;
+  }
+  if (!e.target.closest || !e.target.closest('.k-info-popover')) closeInfoPopover();
+});
 
 // ── Section provenance badges — computed, not hand-maintained ──────────────
 // Every section's "● live / ◐ mixed / ○ illustrative" badge used to be
@@ -1771,12 +1833,29 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (rs) rs.addEventListener('change', function(){ loadGrowth(rs.value); });
   }
 
+  // Fetch summary/usage text for the info bubble from the same registry that
+  // backs the generated Egeria Glossary (see TILE_INFO's own comment).
+  function loadTileInfo(){
+    return egeriaFetch('/api/overview/specs', CREDS).then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        if (!d || !d.specs) return;
+        Object.keys(d.specs).forEach(function(k){
+          var ann = d.specs[k].annotations || {};
+          var summary = (ann.summary || [])[0];
+          var usage = (ann.usage || [])[0];
+          if (summary || usage) TILE_INFO[k] = { summary: summary || '', usage: usage || '' };
+        });
+        renderKPIs();
+      }).catch(function(){ /* info bubble is optional decoration — degrade silently */ });
+  }
+
   // Resolve creds: who am I → (demo) persona → egeria token. Degrade to env-default
   // server-side creds (no token) if any step is unavailable.
   function start(creds){
     CREDS = creds;
     wireControls();
     loadSet(LIVE, null, true).then(function(){ renderKPIs(); setBadge('live'); });
+    loadTileInfo();
     var rs = document.getElementById('range-sel');
     loadGrowth(rs ? rs.value : '6mo');
     stamp();
