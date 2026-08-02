@@ -163,6 +163,12 @@ _TILES = [
         "detail_spec": "grounding", "series": "terms", "unit": None, "provenance": "live",
         "compute": ("MetadataExpert.count_metadata_elements", {"type_name": "GlossaryTerm"}),
         "questions": ["How rich is our business vocabulary?"],
+        "summary": "Native count of active GlossaryTerm elements across all glossaries.",
+        "usage": "Vocabulary SIZE, not vocabulary UTILIZATION -- a Term counts here whether or "
+                 "not it is ever linked to an asset via SemanticAssignment (see Semantic "
+                 "Grounding's own caveat for how unreliable that linkage signal currently is). "
+                 "No status filter is passed to the underlying query, so a DRAFT or DEPRECATED "
+                 "term counts the same as a published, in-use one.",
     },
     {
         "key": "governed", "label": "Governed Coverage", "icon": "🛡️", "color": "var(--c6)",
@@ -193,6 +199,13 @@ _TILES = [
         "detail_spec": "certs", "series": None, "unit": None, "provenance": "live",
         "compute": ("ClassificationExplorer.get_relationships", {"relationship_type": "Certification"}),
         "questions": ["What's certified, and what's expiring?"],
+        "summary": "Count of Certification relationships currently attached to any element.",
+        "usage": "Despite the \"Active\" in the tile label, this is a raw count of every "
+                 "Certification relationship fetched (up to a 500-relationship cap) -- there is "
+                 "no filter for whether the certification's own validity window has actually "
+                 "expired. The expiring-within-90-days and licenses sub-stats shown in the drill "
+                 "view are computed from that same fetch, but the headline number itself is not "
+                 "narrowed to \"currently valid\".",
     },
     {
         "key": "products", "label": "Data Products", "icon": "📦", "color": "var(--c3)",
@@ -201,6 +214,11 @@ _TILES = [
         "detail_spec": "products", "series": "products", "unit": None, "provenance": "live",
         "compute": ("MetadataExpert.count_metadata_elements", {"type_name": "DigitalProduct"}),
         "questions": ["What data products are available?"],
+        "summary": "Native count of DigitalProduct elements defined in the catalog.",
+        "usage": "No lifecycle/status filter is applied -- a DigitalProduct still in DRAFT and "
+                 "never released to consumers counts identically to one that is PUBLISHED and "
+                 "actively subscribed to. This is a count of product DEFINITIONS, not a measure "
+                 "of adoption or usage.",
     },
     {
         "key": "exceptions", "label": "Open Exceptions", "icon": "⚠️", "color": "var(--c5)",
@@ -209,6 +227,14 @@ _TILES = [
         "detail_spec": "exceptions", "series": None, "unit": None, "provenance": "live",
         "compute": ("ClassificationExplorer.get_relationships", {"relationship_type": "Exception"}),
         "questions": ["What governance issues are open?"],
+        "summary": "Count of Exception relationships currently attached to any element.",
+        "usage": "Despite the \"Open\" in the tile label, no open/resolved status filter is "
+                 "applied -- this counts every Exception relationship that exists. Also: "
+                 "pyegeria's own count_relationships() docstring flags that this "
+                 "get_relationships-based path can disagree materially with a native "
+                 "MetadataExpert count for this exact relationship type (one comparison found "
+                 "55 vs 276 -- tracked as PY-18 in egeria-python's PYEGERIA_ISSUES.md). Treat "
+                 "this number as one counting method's answer, not a verified ground truth.",
     },
     {
         "key": "people", "label": "People / Contributors", "icon": "👥", "color": "var(--c2)",
@@ -232,6 +258,10 @@ _TILES = [
         "detail_spec": "people", "series": None, "unit": None, "provenance": "live",
         "compute": ("MetadataExpert.count_metadata_elements", {"type_name": "Community"}),
         "questions": ["What communities are active?"],
+        "summary": "Native count of Community elements in the repository.",
+        "usage": "Same shape as People/Contributors' caveat: despite \"Active\" in the tile "
+                 "label, there is no participation/activity filter -- a Community with no "
+                 "members or posts counts the same as a thriving one.",
     },
     {
         "key": "isc", "label": "Supply Chains", "icon": "🔗", "color": "var(--c2)",
@@ -241,6 +271,11 @@ _TILES = [
         "detail_spec": "isc", "series": None, "unit": None, "provenance": "live",
         "compute": ("MetadataExpert.count_metadata_elements", {"type_name": "InformationSupplyChain"}),
         "questions": ["How does data flow through the business?"],
+        "summary": "Native count of InformationSupplyChain elements in the repository.",
+        "usage": "Counts chain DEFINITIONS regardless of whether they have any segments or "
+                 "implementation wired up -- a supply chain that is just a name with no linked "
+                 "solution components beneath it counts the same as a fully modeled one. Not a "
+                 "measure of how much of the business is actually mapped end-to-end.",
     },
     {
         "key": "blueprints", "label": "Solution Blueprints", "icon": "🧱", "color": "var(--c3)",
@@ -249,6 +284,10 @@ _TILES = [
         "detail_spec": "blueprints", "series": None, "unit": None, "provenance": "live",
         "compute": ("MetadataExpert.count_metadata_elements", {"type_name": "SolutionBlueprint"}),
         "questions": ["What solution designs exist?"],
+        "summary": "Native count of SolutionBlueprint elements in the repository.",
+        "usage": "Counts blueprint DEFINITIONS regardless of composition depth -- a blueprint "
+                 "with no SolutionComponents actually linked beneath it counts the same as a "
+                 "fully detailed one.",
     },
     {
         "key": "grounding", "label": "Semantic Grounding", "icon": "🧠", "color": "var(--c1)",
@@ -315,6 +354,10 @@ def _build(tile: dict) -> FormatSet:
         annotations["series"] = [tile["series"]]
     if tile.get("unit"):
         annotations["unit"] = [tile["unit"]]
+    if tile.get("summary"):
+        annotations["summary"] = [tile["summary"]]
+    if tile.get("usage"):
+        annotations["usage"] = [tile["usage"]]
     topics = topics_for(tile["key"])
     if topics:
         annotations["topics"] = topics

@@ -202,6 +202,51 @@ Term::overview-kpi-assets
 ## Create Glossary Term
 
 ### Display Name
+Glossary Terms
+
+### Summary
+Native count of active GlossaryTerm elements across all glossaries.
+
+### Description
+Count of GlossaryTerm elements — the business vocabulary.
+
+### Usage
+Vocabulary SIZE, not vocabulary UTILIZATION -- a Term counts here whether or not it is ever linked to an asset via SemanticAssignment (see Semantic Grounding's own caveat for how unreliable that linkage signal currently is). No status filter is passed to the underlying query, so a DRAFT or DEPRECATED term counts the same as a published, in-use one.
+
+### Glossary Name
+Egeria Dashboard Analytics
+
+### Qualified Name
+Term::overview-kpi-terms
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Overview KPIs
+
+### Element Id
+Term::overview-kpi-terms
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Live Metrics
+
+### Element Id
+Term::overview-kpi-terms
+
+---
+
+## Create Glossary Term
+
+### Display Name
 Governed Coverage
 
 ### Summary
@@ -247,6 +292,141 @@ Term::overview-kpi-governed
 ## Create Glossary Term
 
 ### Display Name
+Active Certifications
+
+### Summary
+Count of Certification relationships currently attached to any element.
+
+### Description
+Count of active Certification relationships (with expiring/licenses sub-stats).
+
+### Usage
+Despite the "Active" in the tile label, this is a raw count of every Certification relationship fetched (up to a 500-relationship cap) -- there is no filter for whether the certification's own validity window has actually expired. The expiring-within-90-days and licenses sub-stats shown in the drill view are computed from that same fetch, but the headline number itself is not narrowed to "currently valid".
+
+### Glossary Name
+Egeria Dashboard Analytics
+
+### Qualified Name
+Term::overview-kpi-certs
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Overview KPIs
+
+### Element Id
+Term::overview-kpi-certs
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Live Metrics
+
+### Element Id
+Term::overview-kpi-certs
+
+---
+
+## Create Glossary Term
+
+### Display Name
+Data Products
+
+### Summary
+Native count of DigitalProduct elements defined in the catalog.
+
+### Description
+Count of DigitalProduct elements published for consumption.
+
+### Usage
+No lifecycle/status filter is applied -- a DigitalProduct still in DRAFT and never released to consumers counts identically to one that is PUBLISHED and actively subscribed to. This is a count of product DEFINITIONS, not a measure of adoption or usage.
+
+### Glossary Name
+Egeria Dashboard Analytics
+
+### Qualified Name
+Term::overview-kpi-products
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Overview KPIs
+
+### Element Id
+Term::overview-kpi-products
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Live Metrics
+
+### Element Id
+Term::overview-kpi-products
+
+---
+
+## Create Glossary Term
+
+### Display Name
+Open Exceptions
+
+### Summary
+Count of Exception relationships currently attached to any element.
+
+### Description
+Count of open Exception governance relationships awaiting review.
+
+### Usage
+Despite the "Open" in the tile label, no open/resolved status filter is applied -- this counts every Exception relationship that exists. Also: pyegeria's own count_relationships() docstring flags that this get_relationships-based path can disagree materially with a native MetadataExpert count for this exact relationship type (one comparison found 55 vs 276 -- tracked as PY-18 in egeria-python's PYEGERIA_ISSUES.md). Treat this number as one counting method's answer, not a verified ground truth.
+
+### Glossary Name
+Egeria Dashboard Analytics
+
+### Qualified Name
+Term::overview-kpi-exceptions
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Overview KPIs
+
+### Element Id
+Term::overview-kpi-exceptions
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Live Metrics
+
+### Element Id
+Term::overview-kpi-exceptions
+
+---
+
+## Create Glossary Term
+
+### Display Name
 People / Contributors
 
 ### Summary
@@ -286,6 +466,141 @@ Collection::Live Metrics
 
 ### Element Id
 Term::overview-kpi-people
+
+---
+
+## Create Glossary Term
+
+### Display Name
+Active Communities
+
+### Summary
+Native count of Community elements in the repository.
+
+### Description
+Count of Community elements — collaboration groups.
+
+### Usage
+Same shape as People/Contributors' caveat: despite "Active" in the tile label, there is no participation/activity filter -- a Community with no members or posts counts the same as a thriving one.
+
+### Glossary Name
+Egeria Dashboard Analytics
+
+### Qualified Name
+Term::overview-kpi-communities
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Overview KPIs
+
+### Element Id
+Term::overview-kpi-communities
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Live Metrics
+
+### Element Id
+Term::overview-kpi-communities
+
+---
+
+## Create Glossary Term
+
+### Display Name
+Supply Chains
+
+### Summary
+Native count of InformationSupplyChain elements in the repository.
+
+### Description
+Count of InformationSupplyChain elements — end-to-end data flows.
+
+### Usage
+Counts chain DEFINITIONS regardless of whether they have any segments or implementation wired up -- a supply chain that is just a name with no linked solution components beneath it counts the same as a fully modeled one. Not a measure of how much of the business is actually mapped end-to-end.
+
+### Glossary Name
+Egeria Dashboard Analytics
+
+### Qualified Name
+Term::overview-kpi-isc
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Overview KPIs
+
+### Element Id
+Term::overview-kpi-isc
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Live Metrics
+
+### Element Id
+Term::overview-kpi-isc
+
+---
+
+## Create Glossary Term
+
+### Display Name
+Solution Blueprints
+
+### Summary
+Native count of SolutionBlueprint elements in the repository.
+
+### Description
+Count of SolutionBlueprint elements — reusable solution designs.
+
+### Usage
+Counts blueprint DEFINITIONS regardless of composition depth -- a blueprint with no SolutionComponents actually linked beneath it counts the same as a fully detailed one.
+
+### Glossary Name
+Egeria Dashboard Analytics
+
+### Qualified Name
+Term::overview-kpi-blueprints
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Overview KPIs
+
+### Element Id
+Term::overview-kpi-blueprints
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Live Metrics
+
+### Element Id
+Term::overview-kpi-blueprints
 
 ---
 

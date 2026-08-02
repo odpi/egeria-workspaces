@@ -29,6 +29,11 @@ Structure produced:
 Command attribute names verified against the live compact command specs
 (commands_glossary_compact.json / commands_collections_compact.json)
 2026-08-01 before writing this — not assumed.
+
+Usage:
+    python3 gen_dashboard_glossary.py            # (re)write OVERVIEW_ANALYTICS_GLOSSARY.dr-egeria.md
+    python3 gen_dashboard_glossary.py --check     # exit 1 if the file is stale (CI/test guard)
+    python3 gen_dashboard_glossary.py --stdout    # print the doc, don't write
 """
 import sys
 from pathlib import Path
@@ -54,11 +59,11 @@ def _block(lines):
     return "\n".join(lines) + "\n"
 
 
-def main():
+def build_doc() -> str:
+    """Return the full generated doc text, or "" if no tile carries a summary yet."""
     tiles = [t for t in specs._TILES if t.get("summary")]
     if not tiles:
-        print("No tiles carry a 'summary' field yet -- nothing to generate.")
-        return
+        return ""
 
     out = [_block([
         "<!-- SPDX-License-Identifier: CC-BY-4.0 -->",
@@ -165,9 +170,38 @@ def main():
             "---", "",
         ]))
 
-    OUT.write_text("".join(out))
-    print(f"wrote {OUT}\nterms={len(tiles)} sub_collections={len(sub_collections)}")
+    return "".join(out)
+
+
+def main(argv) -> int:
+    doc = build_doc()
+    if not doc:
+        print("No tiles carry a 'summary' field yet -- nothing to generate.")
+        return 0
+
+    if "--stdout" in argv:
+        print(doc)
+        return 0
+
+    current = OUT.read_text() if OUT.exists() else None
+    if "--check" in argv:
+        if current != doc:
+            sys.stderr.write(
+                f"{OUT.name} is OUT OF DATE relative to overview_specs.py's _TILES. "
+                f"Run: python3 {Path(__file__).name}\n"
+            )
+            return 1
+        print(f"{OUT.name} is up to date.")
+        return 0
+
+    if current != doc:
+        OUT.write_text(doc)
+        n_tiles = len([t for t in specs._TILES if t.get("summary")])
+        print(f"wrote {OUT} (terms={n_tiles})")
+    else:
+        print(f"{OUT.name} already up to date.")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main(sys.argv[1:]))
