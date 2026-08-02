@@ -8,6 +8,25 @@ finding while investigating the Semantic Grounding drill-down (see §1.1) —
 this document is the design + plan for fixing the underlying class of
 problem, not just that one metric.
 
+> **Status (2026-08-02): Phases A, B, and C are done.** All 12 tiles carry
+> `summary`/`usage`; `gen_dashboard_glossary.py` exists and generates
+> `OVERVIEW_ANALYTICS_GLOSSARY.dr-egeria.md` from `overview_specs.py`'s
+> `_TILES` (Create/Update-idempotent — Terms already created get an Update
+> pass, not a duplicate Create); it has been run and validated/processed
+> against a live server (Glossary "Egeria Dashboard Analytics", RootCollection
+> "Egeria Dashboard", 4 sub-collections, 12 Terms — all confirmed browsable in
+> Egeria Explorer's Collections view via `/api/collections/roots` +
+> `/{guid}/tree`). The `test_overview_specs.py` §2.6 guards are in (every
+> tile must carry non-empty `summary`/`usage`; the generated `.dr-egeria.md`
+> has its own `--check` staleness guard) — 373 checks total. The "ⓘ" info
+> bubble is live on the dashboard, fetching `summary`/`usage` from
+> `/api/overview/specs` (a click popover, not a hover tooltip — see Phase C
+> notes below for why). §2's "exact command syntax to confirm" caveat is
+> resolved: `Create Root Collection`/`Create Collection`/`Add Member to
+> Collection`/`Create Glossary Term` all matched the design as written, no
+> syntax surprises. Only **Phase D** (illustrative-tile usage notes +
+> Topic/Perspective sub-collections) remains.
+
 ---
 
 ## Part 1 — Rationale
@@ -219,39 +238,51 @@ can't ship without them), and — once the generator exists — a check that
 
 ## Part 3 — Plan
 
-### Phase A — Prove the pattern on a small slice (do this first, per 2026-08-01 discussion)
+### Phase A — Prove the pattern on a small slice (do this first, per 2026-08-01 discussion) — ✅ done
 
-1. Add `summary`/`usage` fields to `_TILES` for **5 tiles**: `grounding`
+1. ✅ Add `summary`/`usage` fields to `_TILES` for **5 tiles**: `grounding`
    (the one with the real finding — do this one properly, it's the
    motivating case), `governed`, `ownership`, `assets`, `people`. Mix of
    simple/clean metrics and one with a genuine caveat, to prove the schema
    handles both.
-2. Confirm exact Dr.Egeria command syntax for `Create Root Collection` /
+2. ✅ Confirm exact Dr.Egeria command syntax for `Create Root Collection` /
    `Create Collection` / `Add Member to Collection` (validate against live
    compact specs before writing the generator).
-3. Write `gen_dashboard_glossary.py` for just those 5 tiles + the
+3. ✅ Write `gen_dashboard_glossary.py` for just those 5 tiles + the
    Collection structure (§2.2, v1 scope: app + provenance sub-collections).
-4. Run it, `--validate` then `--process` against a live server, confirm
+4. ✅ Run it, `--validate` then `--process` against a live server, confirm
    the Glossary/Collections/Terms actually land and are browsable in
    Egeria Explorer's Collections view.
-5. Do NOT build the info bubble UI yet — confirm the data model first.
+5. ✅ Do NOT build the info bubble UI yet — confirm the data model first.
 
-### Phase B — Complete the audit + generator for all `live`/`mixed` tiles
+### Phase B — Complete the audit + generator for all `live`/`mixed` tiles — ✅ done
 
-6. Extend `_TILES`' `summary`/`usage` fields to the remaining `live` tiles,
-   then `mixed` tiles' live sub-parts (§2.4's ordering).
-7. Regenerate the full Glossary/Collection doc; re-run against the live
+6. ✅ Extend `_TILES`' `summary`/`usage` fields to the remaining `live` tiles
+   (`terms`, `certs`, `products`, `exceptions`, `communities`, `isc`,
+   `blueprints` — all 12 tiles are `live` provenance today; no `mixed` tiles
+   exist yet, so that half of §2.4's ordering didn't apply).
+7. ✅ Regenerate the full Glossary/Collection doc; re-run against the live
    server.
-8. Add the `test_overview_specs.py` guards from §2.6.
+8. ✅ Add the `test_overview_specs.py` guards from §2.6.
 
-### Phase C — The info bubble UI
+### Phase C — The info bubble UI — ✅ done
 
-9. Design pass (quick mockup) for how the "ⓘ" affordance actually looks/
-   behaves — hover tooltip vs. click popover vs. inline expand.
-10. Wire `/api/overview/specs`' existing payload to carry `summary`/`usage`
-    per tile (already mostly there structurally — `specs_as_dicts()` already
-    serializes the full FormatSet).
-11. Build the frontend affordance, verified live.
+9. ✅ Design pass: a **click popover**, not a hover tooltip — usage notes run
+   to several sentences, too long to read comfortably in a hover-triggered
+   box that disappears if the cursor drifts. Popover is appended to
+   `<body>` with fixed positioning (the `.kpi` tile has `overflow:hidden`
+   for its sparkline, which would clip an absolutely-positioned child).
+10. ✅ Wire `/api/overview/specs`' existing payload to carry `summary`/`usage`
+    per tile (added to `_build()`'s `annotations` dict, alongside the
+    existing `icon`/`color` pattern).
+11. ✅ Build the frontend affordance, verified live. Fetched once per page
+    load into a `TILE_INFO` JS object (not hand-duplicated into `METRICS`
+    the way `label`/`icon` are — these are long free-text caveats, and a
+    second hand-synced copy of paragraph-length text is a worse drift risk
+    than the short fields `METRICS` already carries). Uses
+    `stopImmediatePropagation` to avoid also triggering the tile's
+    drill-down click handler, since the ⓘ button sits inside the same
+    `data-drill`-bearing `.kpi` div.
 
 ### Phase D — Illustrative tiles + follow-on sub-collections
 

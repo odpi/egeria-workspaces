@@ -43,6 +43,10 @@ are materialisable as real Egeria elements — see `OVERVIEW_PERSPECTIVES.dr-ege
   business context, not just a list).
 - **AI & Context Intelligence** — AI-ready funnel, semantic grounding, guardrails.
 - **People & Community** — persons/teams/orgs/communities + crowd-sourced feedback.
+- **Per-tile "ⓘ" info bubble** — click for a summary + usage notes on what each KPI
+  actually measures (scoping caveats included, e.g. Semantic Grounding's numerator not
+  being Asset-scoped). Same data that generates the "Egeria Dashboard Analytics"
+  Glossary — see `OVERVIEW_METRIC_GOVERNANCE.md`.
 
 ## Architecture
 
@@ -108,4 +112,7 @@ the `page_size=5000`+as-of 500s (both fixed / guarded).
 | `OVERVIEW_NEXT_STEPS.md` | roadmap, temporal axes, the count-API spec |
 | `OVERVIEW_PERSPECTIVES.dr-egeria.md` | loadable Dr.Egeria Perspective/Question library (VALIDATE → PROCESS to load) |
 | `gen_perspectives.py` | regenerates the above from the SPA `PERSPECTIVES` |
+| `OVERVIEW_METRIC_GOVERNANCE.md` | design/plan for governing the dashboard's own metrics as real Egeria elements (NEXT-24) |
+| `OVERVIEW_ANALYTICS_GLOSSARY.dr-egeria.md` | loadable Dr.Egeria doc: "Egeria Dashboard Analytics" Glossary + "Egeria Dashboard" RootCollection, one GlossaryTerm per KPI tile |
+| `gen_dashboard_glossary.py` | regenerates the above from `overview_specs.py`'s `_TILES` `summary`/`usage` fields |
 | `test_overview_asof.py` | reproducible as-of test cases |

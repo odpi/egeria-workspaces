@@ -8,6 +8,7 @@ The Egeria Workspaces portal includes several integrated tools for exploring, ma
 
 | Tool | URL | Purpose |
 |---|---|---|
+| [Egeria Overview](egeria-overview.md) | `/egeria-overview` | Executive summary dashboard — scale, governance coverage, quality, AI-readiness, and trends, each tied to a business-value lens with drill-through |
 | [Tech Catalog](tech-catalog.md) | `/tech-catalog` | Search and browse technical assets — infrastructure, data stores, APIs, processes, and technology types — with schemas, context diagrams, and lineage |
 | [Egeria Explorer](egeria-explorer.md) | `/egeria-explorer` | Browse the type system, glossary terms, governance structures, digital products, information supply chains, external identifiers, and more — one tab per element category |
 | [Lineage Explorer](lineage-explorer.md) | `/lineage` | Trace data flow end-to-end; local and full lineage graphs, field-level mappings, time-travel queries, and information supply chain filtering |
