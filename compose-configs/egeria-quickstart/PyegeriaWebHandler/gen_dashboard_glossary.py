@@ -1,0 +1,173 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Contributors to the ODPi Egeria project.
+"""
+Generate a loadable Dr.Egeria doc governing the Overview dashboard's own
+metrics as real Egeria elements — one GlossaryTerm per tile, grouped under a
+RootCollection with sub-collections. Single source of truth is
+`overview_specs.py`'s `_TILES` (no HTML-scraping needed here, unlike
+`gen_perspectives.py` — the tile registry already lives in Python).
+
+Design: OVERVIEW_METRIC_GOVERNANCE.md (NEXT-24). Only tiles carrying a
+`summary` field are included — Phase A deliberately covers 5 tiles
+(grounding, governed, ownership, assets, people) as a first slice; adding a
+`summary`/`usage` pair to another tile in `_TILES` is all a future run needs
+to pick it up, no change to this script required.
+
+Structure produced:
+  Create Glossary               "Egeria Dashboard Analytics"           (once)
+  Create Root Collection        "Egeria Dashboard"                     (once)
+  Create Collection             "Overview KPIs"                        (once, app grouping)
+  Create Collection             "Live Metrics" / "Mixed Metrics" /
+                                 "Illustrative Metrics"                 (once each, provenance grouping)
+  Add Member to Collection      (each sub-collection -> Egeria Dashboard)
+  --- per tile with a summary ---
+  Create Glossary Term          (Display Name/Summary/Description/Usage from the tile)
+  Add Member to Collection      (Term -> Overview KPIs)
+  Add Member to Collection      (Term -> its provenance collection)
+
+Command attribute names verified against the live compact command specs
+(commands_glossary_compact.json / commands_collections_compact.json)
+2026-08-01 before writing this — not assumed.
+"""
+import sys
+from pathlib import Path
+
+_HERE = Path(__file__).parent
+sys.path.insert(0, str(_HERE))
+
+import overview_specs as specs  # noqa: E402
+
+OUT = _HERE / "OVERVIEW_ANALYTICS_GLOSSARY.dr-egeria.md"
+
+GLOSSARY_NAME = "Egeria Dashboard Analytics"
+ROOT_COLLECTION_NAME = "Egeria Dashboard"
+APP_COLLECTION_NAME = "Overview KPIs"
+PROVENANCE_COLLECTIONS = {
+    "live": "Live Metrics",
+    "mixed": "Mixed Metrics",
+    "illustrative": "Illustrative Metrics",
+}
+
+
+def _block(lines):
+    return "\n".join(lines) + "\n"
+
+
+def main():
+    tiles = [t for t in specs._TILES if t.get("summary")]
+    if not tiles:
+        print("No tiles carry a 'summary' field yet -- nothing to generate.")
+        return
+
+    out = [_block([
+        "<!-- SPDX-License-Identifier: CC-BY-4.0 -->",
+        "<!-- Copyright Contributors to the ODPi Egeria project. -->",
+        "",
+        "# Egeria Dashboard Analytics — Glossary & Collections",
+        "",
+        "> Loadable **Dr.Egeria** document that governs the Overview dashboard's own",
+        "> metrics as real Egeria elements: one **GlossaryTerm** per metric (Summary/",
+        "> Description/Usage — Usage carries caveats, e.g. scoping mismatches found",
+        "> during the NEXT-24 audit), grouped under a **RootCollection** with",
+        "> sub-collections (by app, by provenance). Generated from `overview_specs.py`'s",
+        "> `_TILES` — the single source of truth. Regenerate with",
+        "> `gen_dashboard_glossary.py` after editing a tile's `summary`/`description`/",
+        "> `usage` fields.",
+        ">",
+        "> Design: `OVERVIEW_METRIC_GOVERNANCE.md` (NEXT-24), Phase A.",
+        "> **Run with VALIDATE first, then PROCESS.** Create commands carry user-specified",
+        "> Qualified Names so later commands in this doc can cross-reference them.",
+        "",
+        "---",
+        "",
+    ])]
+
+    # ── Glossary ──────────────────────────────────────────────────────────
+    out.append(_block([
+        "## Create Glossary", "",
+        "### Display Name", GLOSSARY_NAME, "",
+        "### Description",
+        "Definitions for the Overview dashboard's own metrics/KPI tiles — what each one "
+        "actually measures, including known scoping caveats. Generated from "
+        "overview_specs.py; see OVERVIEW_METRIC_GOVERNANCE.md (NEXT-24).", "",
+        "### Qualified Name", f"Glossary::{GLOSSARY_NAME}", "",
+        "### Version Identifier", "1.0", "",
+        "---", "",
+    ]))
+
+    # ── Root Collection + sub-collections ────────────────────────────────
+    root_qn = f"RootCollection::{ROOT_COLLECTION_NAME}"
+    out.append(_block([
+        "## Create Root Collection", "",
+        "### Display Name", ROOT_COLLECTION_NAME, "",
+        "### Description",
+        "Master collection for everything describing the Egeria Portal's own dashboards "
+        "(starting with Overview) -- what each metric measures, grouped a few different "
+        "ways since an element can belong to more than one collection at once.", "",
+        "### Qualified Name", root_qn, "",
+        "### Version Identifier", "1.0", "",
+        "---", "",
+    ]))
+
+    sub_collections = [(APP_COLLECTION_NAME,
+                        "Metrics belonging to the Egeria Overview dashboard app.")]
+    sub_collections += [(name, f"Metrics whose provenance is currently \"{prov}\".")
+                         for prov, name in PROVENANCE_COLLECTIONS.items()]
+
+    sub_qns = {}
+    for name, desc in sub_collections:
+        qn = f"Collection::{name}"
+        sub_qns[name] = qn
+        out.append(_block([
+            "## Create Collection", "",
+            "### Display Name", name, "",
+            "### Description", desc, "",
+            "### Qualified Name", qn, "",
+            "### Version Identifier", "1.0", "",
+            "---", "",
+        ]))
+        out.append(_block([
+            "## Add Member to Collection", "",
+            "### Collection Id", root_qn, "",
+            "### Element Id", qn, "",
+            "---", "",
+        ]))
+
+    # ── One GlossaryTerm per tile ─────────────────────────────────────────
+    for tile in tiles:
+        key = tile["key"]
+        term_qn = f"Term::overview-kpi-{key}"
+        prov = tile.get("provenance", "illustrative")
+        prov_collection = sub_qns[PROVENANCE_COLLECTIONS.get(prov, "Illustrative Metrics")]
+
+        out.append(_block([
+            "## Create Glossary Term", "",
+            "### Display Name", tile["label"], "",
+            "### Summary", tile["summary"], "",
+            "### Description", tile["description"], "",
+            "### Usage", tile.get("usage", "Not yet audited — no known caveats documented."), "",
+            "### Glossary Name", GLOSSARY_NAME, "",
+            "### Qualified Name", term_qn, "",
+            "### Version Identifier", "1.0", "",
+            "---", "",
+        ]))
+        out.append(_block([
+            "## Add Member to Collection", "",
+            "### Collection Id", sub_qns[APP_COLLECTION_NAME], "",
+            "### Element Id", term_qn, "",
+            "---", "",
+        ]))
+        out.append(_block([
+            "## Add Member to Collection", "",
+            "### Collection Id", prov_collection, "",
+            "### Element Id", term_qn, "",
+            "---", "",
+        ]))
+
+    OUT.write_text("".join(out))
+    print(f"wrote {OUT}\nterms={len(tiles)} sub_collections={len(sub_collections)}")
+
+
+if __name__ == "__main__":
+    main()

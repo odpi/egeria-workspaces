@@ -552,7 +552,7 @@
   <div class="kpis" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
     <div class="kpi clickable" data-drill="ai-ready">
       <span class="k-ico">🤖</span><span class="k-label">AI-Ready Assets</span>
-      <span class="k-val">612</span><span class="k-sub">48% — governed + documented + lineage</span>
+      <span class="k-val" id="uc-ai-ready">612</span><span class="k-sub" id="uc-ai-ready-sub">48% — governed + documented + lineage</span>
     </div>
     <div class="kpi clickable" data-drill="context-products">
       <span class="k-ico">🧩</span><span class="k-label">Context Products</span>
@@ -575,7 +575,7 @@
       <div class="funnel-row" data-drill="funnel-documented"><span class="lab">Documented</span><div class="funnel-track"><div class="funnel-fill" style="width:71%;background:var(--c1)"><span id="uc-documented">912</span></div></div><span class="conv">71%</span></div>
       <div class="funnel-row" data-drill="funnel-classified"><span class="lab">Classified</span><div class="funnel-track"><div class="funnel-fill" style="width:68%;background:var(--c6)"><span id="uc-classified">873</span></div></div><span class="conv">68%</span></div>
       <div class="funnel-row" data-drill="funnel-lineage"><span class="lab">Lineage-traced</span><div class="funnel-track"><div class="funnel-fill" style="width:55%;background:var(--c3)"><span id="uc-lineage">705</span></div></div><span class="conv">55%</span></div>
-      <div class="funnel-row" data-drill="funnel-airead"><span class="lab" style="font-weight:700">AI-Ready</span><div class="funnel-track"><div class="funnel-fill" style="width:48%;background:var(--c4)">612</div></div><span class="conv">48%</span></div>
+      <div class="funnel-row" data-drill="funnel-airead"><span class="lab" style="font-weight:700">AI-Ready</span><div class="funnel-track"><div class="funnel-fill" style="width:48%;background:var(--c4)"><span id="uc-airead">612</span></div></div><span class="conv">48%</span></div>
       <div style="margin-top:11px;font-size:.74rem;color:var(--muted);line-height:1.5;border-top:1px solid var(--border);padding-top:9px"><b style="color:var(--text)">Business value:</b> grounded, lineage-backed context = fewer hallucinations and a full audit trail of what an agent was allowed to see.</div>
     </div>
 
@@ -1210,6 +1210,97 @@ function renderKPIs(){
   }).join('');
 }
 
+// ── Section provenance badges — computed, not hand-maintained ──────────────
+// Every section's "● live / ◐ mixed / ○ illustrative" badge used to be
+// static HTML text, disconnected from what's actually wired — confirmed
+// 2026-08-01 while adding documented/lineage to the AI section: the badge
+// hadn't been touched and nobody had been keeping it in sync. This is the
+// fix: enumerate each section's real sub-items (audited against
+// overview_handler.py's actual endpoint payloads, not guessed from the UI)
+// and compute the badge from that list, so a section's badge can never
+// silently drift the way the static text just did.
+//
+// Per-item status here reflects the *backend*, not this browser's demo
+// deployment specifically — an item is "live" if the endpoint computes and
+// returns a real value for it (even if this particular container's pinned
+// pyegeria hasn't caught up yet and it's showing None today; see
+// overview_handler.py's own signature-compatibility fallback for
+// documented/lineage). It's "illustrative" only if there is genuinely no
+// backend computation for it yet — confirmed per-section by reading
+// overview_handler.py's endpoint bodies directly, not inferred from the
+// frontend HTML.
+const SECTION_PROVENANCE = {
+  value: [
+    { name: 'Risk & Compliance',   status: 'illustrative' },
+    { name: 'Productivity',        status: 'illustrative' },
+    { name: 'Trust & Adoption',    status: 'illustrative' },
+    { name: 'Cost Avoidance',      status: 'illustrative' },
+  ],
+  growth: [
+    { name: 'Catalog Growth chart (assets/terms/governed/products)', status: 'live' },      // /api/overview/growth, real asOfTime snapshots
+    { name: 'Governed vs Ungoverned %',                              status: 'live' },      // governed_coverage
+    { name: 'Fully/Partial/Ungoverned breakdown',                    status: 'illustrative' }, // 3-bucket split not returned by governed_coverage's byClassification shape
+  ],
+  composition: [
+    { name: 'Assets by Type',                status: 'live' },  // counts_by_type via /api/overview/summary
+    { name: 'Elements by Governance Zone',    status: 'live' },  // governed_coverage's topZones
+    { name: 'Confidentiality Distribution',   status: 'illustrative' }, // hardcoded sample array, no endpoint field
+  ],
+  usage: [
+    { name: 'Information Supply Chains',  status: 'live' },  // usage_context_counts
+    { name: 'Solution Blueprints',        status: 'live' },  // usage_context_counts
+    { name: 'Contextualised Coverage %',  status: 'illustrative' }, // /api/overview/usage-context returns contextualisedPct: null (traversal TODO -- see NEXT-7)
+  ],
+  quality: [
+    { name: 'Attention Queue',              status: 'illustrative' },
+    { name: 'Data Quality Coverage',        status: 'illustrative' },
+    { name: 'Certifications Expiring Soon', status: 'illustrative' },
+  ],
+  ai: [
+    { name: 'Semantic Grounding',      status: 'live' },  // semantic_grounding
+    { name: 'Ownership Coverage',      status: 'live' },  // ownership_coverage
+    { name: 'Cataloged / Classified',  status: 'live' },  // context_readiness_funnel
+    { name: 'Documented / Lineage-traced', status: 'live' }, // context_readiness_funnel, added 2026-08-01
+    { name: 'AI-Ready (composite)',    status: 'live' }, // ai_ready_assets -- true cross-criteria intersection, added 2026-08-01, closes NEXT-18's first worked example
+    { name: 'Context Products',        status: 'illustrative' },
+    { name: 'Active AI Consumers',     status: 'illustrative' }, // ai-context payload: consumers: null
+    { name: 'AI Guardrails',           status: 'illustrative' }, // ai-context payload: guardrails: null
+  ],
+  people: [
+    { name: 'People / Teams / Orgs / Communities', status: 'live' },  // people_counts
+    { name: 'Karma Records',                       status: 'live' },  // count_elements(ContributionRecord)
+    { name: 'Feedback Items / by Type',            status: 'live' },  // feedback_summary
+    { name: 'Karma Leaderboard',                   status: 'illustrative' }, // people payload: leaderboard: null (per-person rollup deferred)
+    { name: 'Engagement Over Time',                status: 'illustrative' }, // people payload: engagementSeries: null
+    { name: 'Most-Engaged Assets',                 status: 'illustrative' },
+  ],
+  activity: [
+    { name: 'Metadata Change Stream', status: 'illustrative' }, // no /api/overview/activity endpoint exists
+    { name: 'Activity by Type',       status: 'illustrative' },
+    { name: 'Most Active Stewards',   status: 'illustrative' },
+  ],
+};
+function computeSectionBadge(sectionKey){
+  const items = SECTION_PROVENANCE[sectionKey];
+  if (!items || !items.length) return null;
+  const statuses = new Set(items.map(i => i.status));
+  if (statuses.size === 1) return statuses.has('live') ? 'live' : 'illustrative';
+  return 'mixed';
+}
+const PROV_BADGE_HTML = {
+  live:         '<span class="prov prov-live">● live</span>',
+  mixed:        '<span class="prov prov-mix">◐ mixed</span>',
+  illustrative: '<span class="prov prov-sample">○ illustrative</span>',
+};
+function renderSectionBadges(){
+  document.querySelectorAll('.dash-sec').forEach(sec => {
+    const badgeKind = computeSectionBadge(sec.dataset.sec);
+    if (!badgeKind) return; // no SECTION_PROVENANCE entry -- leave static markup as-is
+    const badgeEl = sec.querySelector('.section-label .prov');
+    if (badgeEl) badgeEl.outerHTML = PROV_BADGE_HTML[badgeKind];
+  });
+}
+
 // Group each section-label + its content grids into a reorderable .dash-sec.
 function buildSections(){
   const wrap = document.querySelector('.wrap');
@@ -1290,6 +1381,7 @@ function applyTopic(key){
 }
 
 buildSections();
+renderSectionBadges();
 document.querySelectorAll('.persp-tabs button[data-persp]').forEach(b =>
   b.addEventListener('click', () => applyPerspective(b.getAttribute('data-persp'))));
 document.querySelectorAll('.topic-tabs button[data-topic]').forEach(b =>
@@ -1546,16 +1638,23 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (d.groundingLinks != null) store.groundingLinks = d.groundingLinks;
     if (d.ownershipPct != null) store.ownershipPct = d.ownershipPct;
     if (d.ownershipCount != null) store.ownershipCount = d.ownershipCount;
+    if (d.aiReadyPct != null) store.aiReadyPct = d.aiReadyPct;
     if (!primary) return;
-    // AI section grounding tile + funnel (cataloged/classified/documented/
-    // lineage live as of 2026-08-01 — see context_readiness_funnel's own
-    // docstring; aiReady still isn't computed, so that row stays sample data)
+    // AI section grounding tile + funnel — cataloged/classified/documented/
+    // lineage/aiReady all live as of 2026-08-01 (aiReady is the true
+    // composite from ai_ready_assets: governed AND documented AND
+    // lineage-traced simultaneously, not three independent counts — see
+    // NEXT-18). Context Products/Active AI Consumers/AI Guardrails remain
+    // sample — no backend signal for those yet.
     if (d.groundingPct != null) setTxt('ai-grounding', d.groundingPct + '%');
     var f = d.funnel || {};
     if (f.cataloged != null) setTxt('uc-cataloged', fmt(f.cataloged));
     if (f.classified != null) setTxt('uc-classified', fmt(f.classified));
     if (f.documented != null) setTxt('uc-documented', fmt(f.documented));
     if (f.lineage != null) setTxt('uc-lineage', fmt(f.lineage));
+    if (f.aiReady != null) setTxt('uc-airead', fmt(f.aiReady));
+    if (f.aiReady != null) setTxt('uc-ai-ready', fmt(f.aiReady));
+    if (d.aiReadyPct != null) setTxt('uc-ai-ready-sub', d.aiReadyPct + '% — governed + documented + lineage');
   }
 
   function applyGrowth(d){

@@ -146,6 +146,15 @@ _TILES = [
                     {"types": ["DataStore", "DataSet", "DeployedSoftwareComponent",
                                "ITInfrastructure", "DeployedAPI", "Process", "DataFeed"]}),
         "questions": ["How much is cataloged?", "How is the catalog growing?"],
+        "summary": "Sum of active elements across 7 named asset/infrastructure types.",
+        "usage": "Fixed to a hand-picked list of 7 type names (DataStore, DataSet, "
+                 "DeployedSoftwareComponent, ITInfrastructure, DeployedAPI, Process, DataFeed) "
+                 "-- NOT every Asset subtype in the type system, and NOT the same population "
+                 "context_readiness_funnel's 'cataloged' stage uses (that one counts the broad "
+                 "Asset supertype directly, a different, usually larger number). Treat this as "
+                 "\"the types we've chosen to headline\", not a canonical total asset count -- "
+                 "see OVERVIEW_NEXT_STEPS.md's \"Asset definition\" open decision for the "
+                 "unresolved discrepancy between this and the growth-chart's own asset series.",
     },
     {
         "key": "terms", "label": "Glossary Terms", "icon": "📖", "color": "var(--c1)",
@@ -166,6 +175,16 @@ _TILES = [
                                               "Criticality", "Impact", "Retention"],
                      "matchCriteria": "ANY"}),
         "questions": ["Are we in control of the catalog?", "What's ungoverned?"],
+        "summary": "Count of elements carrying at least one governance classification, as a "
+                   "percentage of Assets.",
+        "usage": "The numerator (governance-classified elements) is NOT scoped to Asset -- ANY "
+                 "element type carrying one of the 5 classifications counts, matched ANY not ALL "
+                 "(one classification is enough). The denominator (percentage base) IS Asset-only. "
+                 "So this can legitimately exceed a naive expectation if many non-Asset elements "
+                 "(e.g. GovernanceDefinitions, Projects) are classified -- it is a coverage signal, "
+                 "not literally \"the fraction of assets meeting the label\". Also capped at "
+                 "DEFAULT_CAP (500) server elements per query -- governedCapped=true in the raw "
+                 "payload means the true count is a floor, not exact.",
     },
     {
         "key": "certs", "label": "Active Certifications", "icon": "📜", "color": "var(--c4)",
@@ -198,6 +217,13 @@ _TILES = [
         "detail_spec": "people", "series": None, "unit": None, "provenance": "live",
         "compute": ("MetadataExpert.count_metadata_elements", {"type_name": "Person"}),
         "questions": ["Who contributes to the catalog?"],
+        "summary": "Native count of active Person elements in the repository.",
+        "usage": "Despite the tile label \"People / Contributors\", this counts every Person "
+                 "element that exists, not people who have actually contributed anything -- "
+                 "there is no activity/contribution filter here. A person registered in the "
+                 "repository but who has never edited, rated, or commented on anything still "
+                 "counts. \"Feedback Items\" (a separate signal, same People & Community section) "
+                 "is the closer proxy for actual contribution activity.",
     },
     {
         "key": "communities", "label": "Active Communities", "icon": "🌐", "color": "var(--c6)",
@@ -233,6 +259,19 @@ _TILES = [
         "compute": ("ClassificationExplorer.get_relationships",
                     {"relationship_type": "SemanticAssignment", "as": "percent_of_assets"}),
         "questions": ["How well grounded is the catalog for AI?"],
+        "summary": "Count and percentage of SemanticAssignment relationships, as a proxy for "
+                   "assets grounded with business meaning for AI.",
+        "usage": "CAVEAT, confirmed live 2026-08-01: SemanticAssignment is NOT Asset-scoped. In "
+                 "this dataset, of 397 SemanticAssignment relationships, 348 (87.7%) connect to "
+                 "GovernanceActionProcess elements (governance workflow automation, e.g. "
+                 "subscription-management processes) -- not data assets. The remainder connect to "
+                 "schema-level elements (DataField, TabularColumn, APIParameter, ...), which are "
+                 "not Asset-typed themselves either (they'd need one more hop to their anchor "
+                 "Asset). Zero of the 397 relationships connect directly to an Asset element. "
+                 "Treat this percentage as an upper bound on true asset grounding, not a measured "
+                 "grounded-asset rate, until NEXT-24's audit resolves the scoping (e.g. by "
+                 "filtering to relationships whose non-term end is Asset-typed, or by following "
+                 "schema elements up to their anchor Asset).",
     },
     {
         "key": "ownership", "label": "Ownership Coverage", "icon": "🧑‍💼", "color": "var(--c4)",
@@ -245,6 +284,15 @@ _TILES = [
         "detail_spec": "ownership", "series": None, "unit": "percent", "provenance": "live",
         "compute": ("pyegeria.view.overview_metrics.ownership_coverage", {}),
         "questions": ["How much of the catalog has a named, accountable owner?"],
+        "summary": "Count and percentage of elements carrying an Ownership classification, as a "
+                   "percentage of Assets.",
+        "usage": "Same scoping shape as Governed Coverage's caveat: the numerator (Ownership-"
+                 "classified elements) is NOT Asset-scoped -- ANY element type with the "
+                 "classification counts -- while the denominator (percentage base) IS Asset-only. "
+                 "Not yet fully audited for exactly which element types carry Ownership in this "
+                 "dataset (spot-checked live 2026-08-01: at least SolutionActorRole appears as an "
+                 "owner-type value) -- a fuller by-owner-type breakdown is what `byOwnerType` in "
+                 "the raw payload already returns, just not yet surfaced in this tile's UI.",
     },
 ]
 

@@ -87,6 +87,15 @@ try:
 except ImportError:
     ownership_coverage = None
 
+# ai_ready_assets is new (2026-08-01) -- same defensive-import reasoning as
+# ownership_coverage above. This is the true composite (governed AND
+# documented AND lineage-traced simultaneously) that context_readiness_
+# funnel's own aiReady field deliberately still leaves None -- see NEXT-18.
+try:
+    from pyegeria.view.overview_metrics import ai_ready_assets
+except ImportError:
+    ai_ready_assets = None
+
 router = APIRouter(tags=["egeria-overview"])
 
 _HERE = Path(__file__).parent
@@ -379,6 +388,23 @@ def get_ai_context(
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview ai-context: ownership query failed: {exc}")
 
+    # True AI-Ready composite (governed AND documented AND lineage-traced
+    # simultaneously) — the actual claim the "AI-Ready Assets" tile already
+    # makes in its own copy ("governed + documented + lineage"), not three
+    # independent counts. First real use of the composite/derived analytic
+    # metric pattern (NEXT-18). Feeds both the funnel's aiReady stage and the
+    # standalone AI-Ready Assets KPI tile.
+    ai_ready_count = None
+    ai_ready_pct = None
+    try:
+        ready = ai_ready_assets(mgr, ce, as_of_time)
+        ai_ready_count = ready["aiReadyCount"]
+        if ready["total"]:
+            ai_ready_pct = round(100 * ai_ready_count / ready["total"], 1)
+        readiness["aiReady"] = ai_ready_count
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview ai-context: ai_ready_assets query failed: {exc}")
+
     funnel = {
         "Cataloged":       readiness["cataloged"],
         "Documented":      readiness["documented"],
@@ -409,6 +435,7 @@ def get_ai_context(
         "groundingPct":    grounding_pct,
         "ownershipCount":  ownership_count,
         "ownershipPct":    ownership_pct,
+        "aiReadyPct":      ai_ready_pct,
         "partial":         True,
         "source":          "live:ai-context",
     }

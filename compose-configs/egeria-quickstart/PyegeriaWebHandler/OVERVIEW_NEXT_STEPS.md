@@ -218,6 +218,26 @@ Container model as part of doing this at all), and a concrete first example
 (Usage Context — Privacy Officer vs. Data Owner, as raised) to prove the
 mechanism before generalizing.
 
+### R-5 — Metrics need governance: an audit, a Glossary, Collections, and an info bubble
+
+**Status: design done 2026-08-01, see [`OVERVIEW_METRIC_GOVERNANCE.md`](OVERVIEW_METRIC_GOVERNANCE.md)
+for the full design + phased plan (NEXT-24).**
+
+Triggered by a live finding while drilling into Semantic Grounding: the
+number is well-computed but measures something different from its own
+label (87.7% of its underlying relationships connect to governance
+workflow processes, not data assets — see the design doc §1.1 for the
+full data). Rather than a one-off fix, this generalizes the check to every
+`live`/`mixed`-tagged tile, and — following the exact pattern already
+proven for Perspectives/Questions (`gen_perspectives.py`) — generates a
+real Egeria `GlossaryTerm` per metric (carrying `summary`/`description`/
+`usage`, `usage` being where caveats like this one live structurally, not
+as a Python comment) grouped under a new RootCollection ("Egeria
+Dashboard") with sub-collections, feeding a dashboard info-bubble UI.
+`overview_specs.py` stays the single source of truth throughout — the
+Glossary/Collections are generated downstream artifacts, not a second
+thing to hand-maintain.
+
 ## Remaining app wiring (independent of the API work)
 
 - **Data products** publication status + ratings (currently just a count).
