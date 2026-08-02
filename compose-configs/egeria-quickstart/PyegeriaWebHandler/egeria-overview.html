@@ -453,8 +453,16 @@
   </div>
 
   <!-- ── USAGE CONTEXT (ISC + BLUEPRINTS) ── -->
+  <!-- NEXT-23: this section's inner grid is a per-Perspective CONTENT variant
+       (not just visibility — see currentSections()'s comment and
+       SECTION_VARIANTS below). The markup below is the "default" variant,
+       replaced by applySectionVariants() for perspectives with their own
+       authored variant (currently: privacy, owner). uc-isc/uc-bp/uc-cov ids
+       and the data-drill attributes are kept identical across every variant
+       so applyUsage()'s live-value wiring and drill-click both keep working
+       no matter which variant is currently in the DOM. -->
   <div class="section-label">Usage Context <span class="prov prov-mix">◐ mixed</span> <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— supply chains &amp; blueprints put assets in a business context, not just a list</span></div>
-  <div class="grid g-3">
+  <div class="grid g-3" id="usage-grid">
     <div class="panel clickable" data-drill="isc" style="border-left:3px solid var(--c2)">
       <h3>🔗 Information Supply Chains</h3>
       <div style="font-size:1.9rem;font-weight:700;margin:6px 0 2px" id="uc-isc">18</div>
@@ -1165,6 +1173,102 @@ const TOPIC_SECTIONS = {
   'quality':          ['quality'],
   'usage':            ['usage','people','activity']
 };
+
+// NEXT-23: per-Perspective section CONTENT variants (not just visibility) —
+// the deferred layer from the 2026-08-01 design discussion (OVERVIEW_NEXT_STEPS.md
+// R-4). Key shape is per-Perspective only (not per-Topic, not a full
+// (Perspective,Topic) cross product — R-4's own call, a full cross product
+// would be mostly-empty given how sparse the content actually varies).
+// Authored as hand-written HTML template strings here, not migrated into the
+// FormatSet/Container model — most of a section's content (this one
+// included) isn't tile-registry-driven at all, so that migration is a much
+// bigger, separate piece of work than proving this mechanism.
+//
+// First concrete example (as raised in the design discussion): "Usage
+// Context" reads differently for a Privacy Officer (which chains/designs
+// need reviewing for regulated-data handling) vs. a Data Owner (their own
+// assets' participation) vs. everyone else (the general framing). All three
+// variants deliberately show the SAME real numbers (uc-isc/uc-bp/uc-cov are
+// live-wired by applyUsage() regardless of which variant is in the DOM) —
+// only the labels/captions/caveats change. No new cross-referenced metric
+// (e.g. "chains carrying confidential data," "my own assets") is invented
+// here; each variant's caveat says so explicitly rather than faking a
+// scoped number the backend doesn't compute yet.
+//
+// A perspective with no entry here just keeps the section's static
+// "default" HTML already in the page -- adding a variant is additive, never
+// required.
+const SECTION_VARIANTS = {
+  usage: {
+    privacy: [
+      '<div class="panel clickable" data-drill="isc" style="border-left:3px solid var(--c2)">',
+      '<h3>🔗 Information Supply Chains</h3>',
+      '<div style="font-size:1.9rem;font-weight:700;margin:6px 0 2px" id="uc-isc">18</div>',
+      '<div class="ph-sub" style="margin-bottom:8px">data flows to review for regulated-data handling</div>',
+      '<div style="font-size:.76rem;color:var(--muted);line-height:1.5">Real count of all Information Supply Chain definitions catalogued — this view does not yet filter to chains carrying confidential/regulated data specifically (that cross-reference isn\'t wired). Use it as the full population to prioritise reviewing, not a pre-filtered risk list.</div>',
+      '</div>',
+      '<div class="panel clickable" data-drill="blueprints" style="border-left:3px solid var(--c3)">',
+      '<h3>🧱 Solution Blueprints</h3>',
+      '<div style="font-size:1.9rem;font-weight:700;margin:6px 0 2px" id="uc-bp">30</div>',
+      '<div class="ph-sub" style="margin-bottom:8px">designs to check for confidential-data handling patterns</div>',
+      '<div style="font-size:.76rem;color:var(--muted);line-height:1.5">Real count of all Solution Blueprint definitions — same caveat as Supply Chains: not yet filtered to designs that specifically handle confidential data.</div>',
+      '</div>',
+      '<div class="panel" style="border-left:3px solid var(--c6)">',
+      '<h3>🎯 Contextualised Coverage</h3>',
+      '<div style="font-size:1.9rem;font-weight:700;margin:6px 0 2px" id="uc-cov">57%</div>',
+      '<div class="ph-sub" style="margin-bottom:8px">assets with any documented business context <span style="color:var(--c4)">(sample)</span></div>',
+      '<div style="font-size:.76rem;color:var(--muted);line-height:1.5">Same catalog-wide number shown to every perspective. A Privacy Officer\'s real question — which UNcontextualised assets are ALSO confidential — isn\'t computed yet; treat this as a general prioritisation signal, not that intersection.</div>',
+      '</div>',
+    ].join(''),
+    owner: [
+      '<div class="panel clickable" data-drill="isc" style="border-left:3px solid var(--c2)">',
+      '<h3>🔗 Information Supply Chains</h3>',
+      '<div style="font-size:1.9rem;font-weight:700;margin:6px 0 2px" id="uc-isc">18</div>',
+      '<div class="ph-sub" style="margin-bottom:8px">chains your assets may feed into</div>',
+      '<div style="font-size:.76rem;color:var(--muted);line-height:1.5">Real count of all Information Supply Chain definitions in the catalog — not yet scoped to "assets I own" (no per-user ownership filter is wired into this view). Use as the full population to search within, not a personalised list.</div>',
+      '</div>',
+      '<div class="panel clickable" data-drill="blueprints" style="border-left:3px solid var(--c3)">',
+      '<h3>🧱 Solution Blueprints</h3>',
+      '<div style="font-size:1.9rem;font-weight:700;margin:6px 0 2px" id="uc-bp">30</div>',
+      '<div class="ph-sub" style="margin-bottom:8px">designs your assets may participate in</div>',
+      '<div style="font-size:.76rem;color:var(--muted);line-height:1.5">Same caveat as Supply Chains — this is the full catalog count, not filtered to your own assets yet.</div>',
+      '</div>',
+      '<div class="panel" style="border-left:3px solid var(--c6)">',
+      '<h3>🎯 Contextualised Coverage</h3>',
+      '<div style="font-size:1.9rem;font-weight:700;margin:6px 0 2px" id="uc-cov">57%</div>',
+      '<div class="ph-sub" style="margin-bottom:8px">assets with any documented business context <span style="color:var(--c4)">(sample)</span></div>',
+      '<div style="font-size:.76rem;color:var(--muted);line-height:1.5">Catalog-wide number, not scoped to your own assets. A true "my assets" view needs an ownership-based filter this dashboard doesn\'t have yet — Ownership Coverage (AI &amp; Context Intelligence section) is the closest existing signal.</div>',
+      '</div>',
+    ].join(''),
+  },
+};
+// Cache the section's original ("default") innerHTML the first time it's
+// swapped, so switching back to a perspective with no authored variant
+// restores the real default instead of leaving a stale variant in place.
+var _sectionDefaults = {};
+function applySectionVariants(){
+  // Inlined DOM-set/number-format helpers rather than calling the IIFE-local
+  // setTxt()/fmt() (defined later in the file, inside a separate closure
+  // this top-level function can't reach).
+  var setText = function(id, v){ var el = document.getElementById(id); if (el && v != null) el.textContent = v; };
+  var fmtNum = function(n){ return (typeof n === 'number') ? n.toLocaleString() : n; };
+
+  Object.keys(SECTION_VARIANTS).forEach(function(secKey){
+    var grid = document.getElementById(secKey + '-grid');
+    if (!grid) return;
+    if (!(secKey in _sectionDefaults)) _sectionDefaults[secKey] = grid.innerHTML;
+    var variant = SECTION_VARIANTS[secKey][CUR_PERSP];
+    grid.innerHTML = variant || _sectionDefaults[secKey];
+  });
+  // uc-isc/uc-bp are re-applied from the already-fetched LIVE store so a
+  // freshly-swapped-in variant isn't left showing static sample numbers
+  // when live data has already loaded (uc-cov stays sample -- it always is,
+  // regardless of variant; see each variant's own "(sample)" label).
+  if (typeof LIVE !== 'undefined' && LIVE) {
+    if (LIVE.isc != null) setText('uc-isc', fmtNum(LIVE.isc));
+    if (LIVE.blueprints != null) setText('uc-bp', fmtNum(LIVE.blueprints));
+  }
+}
 // The visible section list: Perspective's own `show` ∩ Topic's sections when
 // both are set, falling back to the Topic's own section list if that
 // intersection is empty — identical fallback philosophy to currentKpiKeys().
@@ -1428,6 +1532,7 @@ function applyPerspective(key){
   document.querySelectorAll('.persp-tabs button[data-persp]').forEach(b =>
     b.classList.toggle('on', b.getAttribute('data-persp') === key));
   renderSections();
+  applySectionVariants();
   renderQuestions(p.questions);
   try { localStorage.setItem('overview-perspective', key); } catch(e) {}
 }

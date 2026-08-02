@@ -140,6 +140,21 @@ or a scoped Local Dashboards placement, not an Overview KPI tile. Data Scope/Gra
 Lens are now fully defined (grounded in the PDR blog series, see the design doc's
 §1.2). Plan Phase C item 9.
 
+**2026-08-02 update:** a second, independent Gartner/NIST AI RMF/IEEE P2807
+research pass (§1.8) converged with this design rather than overturning it, and
+**§1.9 now resolves direction** on the three items it left open: Modality tag is
+derived automatically from existing Open Metadata type (no new classification);
+DRL bands (Raw → Analytics-Ready → RAG-Ready → AI-Ready/Contextualized) are
+cumulative gate checklists, not score cutoffs, with AI-Ready composing the
+already-shipped `ai_ready_assets` intersection; and band membership is
+represented via a `Classification` (cheap, always-current, queryable like
+`Confidentiality`) for live state, with a periodically-materialized
+`Certification` (provenance/expiry) reserved for Analytics-Ready and AI-Ready
+specifically — RAG-Ready stays computed-only. Exact thresholds, per-modality
+Structural-Readiness sub-checks, and Certification mechanics (certifying-actor
+identity, re-evaluation cadence) remain as implementation-detail open items,
+listed in the design doc's "Open decisions" section.
+
 ### R-3 — Business-value metrics (Productivity, Trust & Adoption, Risk, Cost) are synthetic — ✅ done (2026-08-02)
 
 Wired to real data via a new `business_value_signals(mgr, as_of)` (egeria-python
@@ -169,9 +184,35 @@ newer shape — no fix needed anywhere, existing code was already correct.
 Logged here rather than in PYEGERIA_ISSUES.md since it resolved to
 "working as intended," not an open gap.
 
-### R-4 — Per-perspective section CONTENT variants (not just visibility)
+### R-4 — Per-perspective section CONTENT variants (not just visibility) — ✅ mechanism proven, 2026-08-02
 
-**Status: two-axis navigation shipped 2026-08-01 (Perspective × Topic); this
+**Resolved the 3 open design decisions this item was waiting on:**
+1. **Lookup key shape: per-Perspective only**, not per-Topic and not a full
+   (Perspective, Topic) cross product — matches this doc's own lean toward
+   avoiding a mostly-empty cross product.
+2. **Authored as hand-written HTML template strings** in `egeria-overview.html`
+   (a new `SECTION_VARIANTS` object), not migrated into the FormatSet/
+   Container model — that migration is real, separate, much larger work.
+3. **First concrete example built: "Usage Context"**, exactly as raised in
+   the design discussion — `privacy` and `owner` variants, reframing the
+   same 3 cards (Information Supply Chains / Solution Blueprints /
+   Contextualised Coverage) with audience-specific labels and caveats.
+   Deliberately does **not** invent new cross-referenced numbers ("chains
+   carrying confidential data," "my own assets") the backend doesn't
+   compute — each variant's caveat says so explicitly rather than faking a
+   scoped figure. `uc-isc`/`uc-bp`/`uc-cov` ids and `data-drill` attributes
+   are identical across every variant, so `applyUsage()`'s live-value
+   wiring and drill-click both keep working regardless of which variant is
+   in the DOM. A perspective with no authored variant (6 of 8 today) keeps
+   the section's original "default" markup — `applySectionVariants()`
+   caches it on first swap and restores it, verified live switching
+   Governance Lead → Privacy Officer → Data Owner → back to Governance Lead.
+
+Mechanism is proven and additive: authoring a variant for another section
+or another perspective is just adding an entry to `SECTION_VARIANTS`, no
+further plumbing needed.
+
+**Status before this fix: two-axis navigation shipped 2026-08-01 (Perspective × Topic); this
 item is the deliberately-deferred next layer, design principle captured here
 so it isn't lost.**
 
