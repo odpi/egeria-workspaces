@@ -140,13 +140,34 @@ or a scoped Local Dashboards placement, not an Overview KPI tile. Data Scope/Gra
 Lens are now fully defined (grounded in the PDR blog series, see the design doc's
 §1.2). Plan Phase C item 9.
 
-### R-3 — Business-value metrics (Productivity, Trust & Adoption, Risk, Cost) are synthetic
-Today these are narrative/sample. They can be honest with: a precise definition, a
-real source, and framing as **leading indicators/proxies** not direct measures. E.g.
-"Productivity 71%" = "% assets documented & findable" — a proxy for time-to-data,
-but the label overclaims. For each of the four tiles: one-line definition + source +
-the explicit causal claim, reword labels to what's measured, wire real data where it
-exists. Medium effort; overlaps with the provenance work.
+### R-3 — Business-value metrics (Productivity, Trust & Adoption, Risk, Cost) are synthetic — ✅ done (2026-08-02)
+
+Wired to real data via a new `business_value_signals(mgr, as_of)` (egeria-python
+`overview_metrics.py`, NEXT-9) — same defensive-import pattern as
+`ownership_coverage`/`ai_ready_assets`. One Asset-hierarchy fetch answers two
+of the four fields (per-element checks, same shape `context_readiness_funnel`
+uses); duplicate detection is a separate classification count; Trust & Adoption
+reuses the already-live `dataProducts` count rather than duplicating it.
+
+| Tile | Old (synthetic) | New (real) | Causal-claim caveat |
+|---|---|---|---|
+| Risk & Compliance | "↓38% ungoverned confidential assets, YoY" | Count of **Asset-typed** elements carrying `Confidentiality` — verified live 2026-08-02: 1 of 1,737 in a real dataset | Proxy for regulatory exposure surface, not itself a risk-control measure. **Distinct from `governed_coverage`'s own `byClassification["Confidentiality"]`, which is NOT Asset-scoped** — the two numbers can legitimately differ a lot (5 vs 1 in the same dataset) and both are correct, just different populations |
+| Productivity | "71% assets documented & findable" | `describedCount / assetTotal` — non-empty-description share of the Asset hierarchy (23% live) | Proxy for self-service findability; doesn't measure actual query/access frequency |
+| Trust & Adoption | "18 products · ★4.3 avg" | Live `dataProducts` count (121); rating avg dropped entirely | No `AttachedRating` relationships exist against `DigitalProduct` in a typical demo dataset (confirmed live) — honestly omitted rather than faked |
+| Cost Avoidance | "153 stale/duplicate assets flagged" | Count of `ConsolidatedDuplicate`-classified elements (0 in the demo dataset) | A real zero is an honest answer here, not a placeholder — this dataset has no detected duplicates |
+
+**A real investigation dead-end worth recording:** while building the
+Confidentiality check, an early test used `matchClassifications`'s older
+flat `classificationNames` body shape and got 925 hits — looked like a
+serious undercount bug in the newer `SearchClassifications`/`conditions`
+shape `governed_coverage`/`ownership_coverage` already use. Cross-checked
+against `ClassificationExplorer.get_elements_by_classification('Confidentiality')`
+(purpose-built, most reliable ground truth): only 5 such elements exist
+total, 4 of them typed `Referenceable` not `Asset`. The 925-hit flat-shape
+query was the actual bug (silently ignored/near-unfiltered), not the
+newer shape — no fix needed anywhere, existing code was already correct.
+Logged here rather than in PYEGERIA_ISSUES.md since it resolved to
+"working as intended," not an open gap.
 
 ### R-4 — Per-perspective section CONTENT variants (not just visibility)
 

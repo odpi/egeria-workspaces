@@ -339,6 +339,68 @@ _TILES = [
 TILE_ORDER: List[str] = [t["key"] for t in _TILES]
 
 
+# ── Business Value tiles (NEXT-9) ────────────────────────────────────────────
+# NOT FormatSet-shaped like _TILES -- these live outside the KPI-band/
+# Perspective/Topic model entirely (R-4's finding: most of a dashboard
+# section's content, including this whole one, is hardcoded HTML, not tile-
+# registry-driven). They still get the same summary/usage/info-bubble/
+# Glossary-governance treatment as _TILES (NEXT-24's pattern), just via this
+# smaller, separate list rather than a second FormatSet family — a plain
+# dict shape reused as-is by gen_dashboard_glossary.py and by /api/overview/
+# specs' "businessValue" key (loadTileInfo() in egeria-overview.html reads
+# both that and "specs" into the same TILE_INFO map for the ⓘ bubble).
+_BUSINESS_VALUE = [
+    {
+        "key": "bv-risk", "label": "Risk & Compliance", "provenance": "live",
+        "description": "Count of Asset-typed elements carrying a Confidentiality classification.",
+        "summary": "Count of Asset-typed elements classified Confidentiality, out of all "
+                    "Asset-hierarchy elements checked.",
+        "usage": "Proxy for regulatory exposure surface -- more classified elements need active "
+                 "governance, this is not itself a measure of risk being controlled. Scoped to "
+                 "the Asset type hierarchy specifically -- distinct from Governed Coverage's own "
+                 "`byClassification[\"Confidentiality\"]`, which is NOT Asset-scoped (any element "
+                 "type carrying the classification counts there). The two numbers can legitimately "
+                 "differ a lot in the same dataset (e.g. 5 vs 1) and both are correct -- different "
+                 "populations, not a discrepancy.",
+    },
+    {
+        "key": "bv-productivity", "label": "Productivity", "provenance": "live",
+        "description": "Share of Asset-hierarchy elements with a non-empty description.",
+        "summary": "Percentage of Asset-hierarchy elements carrying a non-empty description, "
+                    "out of all elements checked.",
+        "usage": "Proxy for self-service findability -- a described asset is easier to evaluate "
+                 "without a steward's help. Doesn't measure actual query/access frequency, so "
+                 "treat it as a leading indicator, not a usage measure.",
+    },
+    {
+        "key": "bv-trust", "label": "Trust & Adoption", "provenance": "live",
+        "description": "Count of published DigitalProduct definitions.",
+        "summary": "Count of published DigitalProduct definitions (reuses the same live count "
+                    "the Data Products KPI tile shows).",
+        "usage": "Counts product DEFINITIONS, not adoption -- no rating/usage signal is wired. "
+                 "No `AttachedRating` relationships exist against DigitalProduct in a typical demo "
+                 "dataset (confirmed live), so a rating average is honestly omitted rather than "
+                 "faked; a real adoption signal would need one wired (e.g. subscription counts).",
+    },
+    {
+        "key": "bv-cost", "label": "Cost Avoidance", "provenance": "live",
+        "description": "Count of elements classified ConsolidatedDuplicate.",
+        "summary": "Count of elements carrying the ConsolidatedDuplicate classification (absorbed "
+                    "a detected duplicate).",
+        "usage": "A candidate-for-archival signal, not a cost figure -- no dollar estimate is "
+                 "attached. A real zero in a dataset with no duplicate-detection activity yet run "
+                 "is an honest answer, not evidence the feature is broken.",
+    },
+]
+
+
+def business_value_as_dicts() -> Dict[str, dict]:
+    """The Business Value registry serialized the same shape as specs_as_dicts()'s per-tile
+    dicts need for the frontend's TILE_INFO/loadTileInfo() and for gen_dashboard_glossary.py --
+    just {key: {label, description, summary, usage, provenance}}, no FormatSet wrapping."""
+    return {t["key"]: t for t in _BUSINESS_VALUE}
+
+
 def _build(tile: dict) -> FormatSet:
     """Turn one raw tile dict into a FormatSet."""
     func, spec_params = tile["compute"]
@@ -402,5 +464,6 @@ def specs_payload() -> dict:
         "perspectiveKpis": PERSP_KPIS,
         "topicKpis": TOPIC_KPIS,
         "specs": specs_as_dicts(),
+        "businessValue": business_value_as_dicts(),
         "source": "overview_specs.py (NEXT-10 P0)",
     }

@@ -96,6 +96,13 @@ try:
 except ImportError:
     ai_ready_assets = None
 
+# business_value_signals is new (2026-08-02, NEXT-9) -- same defensive-import
+# reasoning as ownership_coverage/ai_ready_assets above.
+try:
+    from pyegeria.view.overview_metrics import business_value_signals
+except ImportError:
+    business_value_signals = None
+
 router = APIRouter(tags=["egeria-overview"])
 
 _HERE = Path(__file__).parent
@@ -275,6 +282,16 @@ def get_summary(
     # Certifications, licenses & open exceptions (governance relationships).
     certs = _certifications(url, server, user_id, user_pwd, as_of_time)
 
+    # Business Value tiles (NEXT-9) -- defensive: business_value_signals is
+    # new, not yet in a published pyegeria release (see the import above).
+    biz_value: dict = {"assetTotal": None, "assetCapped": None, "confidentialCount": None,
+                        "describedCount": None, "duplicateCount": None}
+    if business_value_signals is not None:
+        try:
+            biz_value = business_value_signals(mgr, as_of_time)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview summary: business_value_signals failed: {exc}")
+
     payload = {
         "asOfTime":         as_of_time,
         "assetTotal":       asset_total,
@@ -291,6 +308,11 @@ def get_summary(
         "licenses":         certs["licenses"],
         "dataProducts":     data_products,
         "openExceptions":   certs["exceptions"],
+        "bvAssetTotal":       biz_value["assetTotal"],
+        "bvAssetCapped":      biz_value["assetCapped"],
+        "bvConfidentialCount": biz_value["confidentialCount"],
+        "bvDescribedCount":   biz_value["describedCount"],
+        "bvDuplicateCount":   biz_value["duplicateCount"],
         "partial":          True,
         "source":           "live:summary",
     }

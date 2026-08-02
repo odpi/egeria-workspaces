@@ -365,31 +365,31 @@
   <div id="kpi-trend-note" style="font-size:.7rem;color:var(--muted);margin-top:8px;display:flex;align-items:center;gap:6px">Trend sparklines show real monthly snapshots (loading…).</div>
 
   <!-- ── BUSINESS VALUE LENS ── -->
-  <div class="section-label">Business Value <span class="prov prov-sample">○ illustrative</span> <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— what these numbers mean to the business</span></div>
+  <div class="section-label" id="bv-section-label">Business Value <span class="prov prov-sample" id="bv-prov">○ illustrative</span> <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— what these numbers mean to the business</span></div>
   <div class="grid g-3" style="grid-template-columns:repeat(4,1fr)">
     <div class="panel" style="border-left:3px solid var(--c5)">
-      <h3>🛡️ Risk &amp; Compliance</h3>
-      <div style="font-size:1.5rem;font-weight:700;margin:6px 0 2px">↓ 38%</div>
-      <div class="ph-sub" style="margin-bottom:8px">ungoverned confidential assets, YoY</div>
-      <div style="font-size:.76rem;color:var(--muted);line-height:1.5">873 assets now certified &amp; classified · <b style="color:var(--text)">audit-ready</b>. Est. exposure on remaining <b style="color:#ff6b81">24</b> unmitigated.</div>
+      <h3>🛡️ Risk &amp; Compliance <button type="button" class="k-info" data-info="bv-risk" style="position:static;display:none;vertical-align:middle" title="What does this measure?" aria-label="What does this measure?">ⓘ</button></h3>
+      <div style="font-size:1.5rem;font-weight:700;margin:6px 0 2px" id="bv-risk-val">45</div>
+      <div class="ph-sub" style="margin-bottom:8px" id="bv-risk-sub">Confidential-classified assets (sample)</div>
+      <div style="font-size:.76rem;color:var(--muted);line-height:1.5" id="bv-risk-note">Proxy for regulatory exposure surface — more classified elements need active governance, this is not itself a measure of risk being controlled. Scoped to the Asset type hierarchy specifically.</div>
     </div>
     <div class="panel" style="border-left:3px solid var(--c2)">
-      <h3>⚡ Productivity</h3>
-      <div style="font-size:1.5rem;font-weight:700;margin:6px 0 2px">71%</div>
-      <div class="ph-sub" style="margin-bottom:8px">assets documented &amp; findable</div>
-      <div style="font-size:.76rem;color:var(--muted);line-height:1.5"><b style="color:var(--text)">Faster time-to-data</b>: analysts self-serve instead of hunting. 61% terms linked to real assets.</div>
+      <h3>⚡ Productivity <button type="button" class="k-info" data-info="bv-productivity" style="position:static;display:none;vertical-align:middle" title="What does this measure?" aria-label="What does this measure?">ⓘ</button></h3>
+      <div style="font-size:1.5rem;font-weight:700;margin:6px 0 2px" id="bv-prod-val">23%</div>
+      <div class="ph-sub" style="margin-bottom:8px" id="bv-prod-sub">assets with a description on file (sample)</div>
+      <div style="font-size:.76rem;color:var(--muted);line-height:1.5">Proxy for self-service findability — a described asset is easier to evaluate without a steward's help. Doesn't measure actual query/access frequency.</div>
     </div>
     <div class="panel" style="border-left:3px solid var(--c6)">
-      <h3>📈 Trust &amp; Adoption</h3>
-      <div style="font-size:1.5rem;font-weight:700;margin:6px 0 2px">18</div>
-      <div class="ph-sub" style="margin-bottom:8px">published data products · ★4.3 avg</div>
-      <div style="font-size:.76rem;color:var(--muted);line-height:1.5"><b style="color:var(--text)">Reuse over rebuild</b>: rated, certified products drive consumption &amp; cut duplicate pipelines.</div>
+      <h3>📈 Trust &amp; Adoption <button type="button" class="k-info" data-info="bv-trust" style="position:static;display:none;vertical-align:middle" title="What does this measure?" aria-label="What does this measure?">ⓘ</button></h3>
+      <div style="font-size:1.5rem;font-weight:700;margin:6px 0 2px" id="bv-trust-val">18</div>
+      <div class="ph-sub" style="margin-bottom:8px" id="bv-trust-sub">published data products (sample)</div>
+      <div style="font-size:.76rem;color:var(--muted);line-height:1.5">Count of published <code style="font-size:.7rem">DigitalProduct</code> definitions. No rating/adoption signal is wired yet — no feedback ratings exist against products in this dataset.</div>
     </div>
     <div class="panel" style="border-left:3px solid var(--c4)">
-      <h3>💰 Cost Avoidance</h3>
-      <div style="font-size:1.5rem;font-weight:700;margin:6px 0 2px">153</div>
-      <div class="ph-sub" style="margin-bottom:8px">stale/duplicate assets flagged</div>
-      <div style="font-size:.76rem;color:var(--muted);line-height:1.5">Candidates for archival &amp; storage reclaim · <b style="color:var(--text)">less steward toil</b> via crowd-sourced curation.</div>
+      <h3>💰 Cost Avoidance <button type="button" class="k-info" data-info="bv-cost" style="position:static;display:none;vertical-align:middle" title="What does this measure?" aria-label="What does this measure?">ⓘ</button></h3>
+      <div style="font-size:1.5rem;font-weight:700;margin:6px 0 2px" id="bv-cost-val">0</div>
+      <div class="ph-sub" style="margin-bottom:8px" id="bv-cost-sub">elements flagged as consolidated duplicates (sample)</div>
+      <div style="font-size:.76rem;color:var(--muted);line-height:1.5">Elements classified <code style="font-size:.7rem">ConsolidatedDuplicate</code> — a candidate for archival/storage reclaim. A real zero in this dataset is an honest answer, not a placeholder.</div>
     </div>
   </div>
 
@@ -1293,10 +1293,14 @@ document.addEventListener('click', function(e){
 // frontend HTML.
 const SECTION_PROVENANCE = {
   value: [
-    { name: 'Risk & Compliance',   status: 'illustrative' },
-    { name: 'Productivity',        status: 'illustrative' },
-    { name: 'Trust & Adoption',    status: 'illustrative' },
-    { name: 'Cost Avoidance',      status: 'illustrative' },
+    // NEXT-9, 2026-08-02: backed by business_value_signals() -- new pyegeria,
+    // not yet in a published release, so a container on the old package
+    // still shows the "(sample)" fallback text until it publishes (same
+    // documented gap as ownership_coverage/ai_ready_assets above).
+    { name: 'Risk & Compliance',   status: 'live' },      // business_value_signals: confidentialCount
+    { name: 'Productivity',        status: 'live' },      // business_value_signals: describedCount
+    { name: 'Trust & Adoption',    status: 'live' },      // dataProducts (already-published count); no rating signal exists in this dataset
+    { name: 'Cost Avoidance',      status: 'live' },      // business_value_signals: duplicateCount
   ],
   growth: [
     { name: 'Catalog Growth chart (assets/terms/governed/products)', status: 'live' },      // /api/overview/growth, real asOfTime snapshots
@@ -1617,6 +1621,47 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
   // KPI band + any section widgets it feeds. Sample values remain the fallback.
   // Each apply* writes numeric values into `store` (LIVE or the as-of BASE).
   // Section widgets + drill patches only update for the primary (displayed) store.
+  // Reveal each Business Value card's ⓘ button once TILE_INFO has an entry
+  // for it (loaded from /api/overview/specs' businessValue key) — hidden by
+  // default so there's no dead button if that fetch fails.
+  function renderBusinessValueInfoButtons(){
+    ['bv-risk', 'bv-productivity', 'bv-trust', 'bv-cost'].forEach(function(key){
+      if (!TILE_INFO[key]) return;
+      var btn = document.querySelector('.k-info[data-info="' + key + '"]');
+      if (btn) btn.style.display = 'inline';
+    });
+  }
+
+  // Business Value tiles (NEXT-9) — real signals from business_value_signals(),
+  // overlaid onto the sample baseline the same way every other section works.
+  // Degrades per-field: business_value_signals is new pyegeria (2026-08-02),
+  // so on a container whose installed package predates it every bv* field is
+  // null and this function is a no-op, leaving the "(sample)" text in place.
+  function renderBusinessValue(store){
+    var total = store.bvAssetTotal;
+    if (total == null) return;   // not live yet on this deployment — keep sample
+    setTxt('bv-prov', '● live'); var provEl = document.getElementById('bv-prov');
+    if (provEl) { provEl.className = 'prov prov-live'; }
+
+    if (store.bvConfidentialCount != null) {
+      setTxt('bv-risk-val', String(store.bvConfidentialCount));
+      setTxt('bv-risk-sub', 'Confidential-classified assets, of ' + num(total) + ' checked');
+    }
+    if (store.bvDescribedCount != null) {
+      var pct = total ? Math.round(100 * store.bvDescribedCount / total) : 0;
+      setTxt('bv-prod-val', pct + '%');
+      setTxt('bv-prod-sub', num(store.bvDescribedCount) + ' of ' + num(total) + ' assets have a description on file');
+    }
+    if (store.products != null) {
+      setTxt('bv-trust-val', String(store.products));
+      setTxt('bv-trust-sub', 'published data products');
+    }
+    if (store.bvDuplicateCount != null) {
+      setTxt('bv-cost-val', String(store.bvDuplicateCount));
+      setTxt('bv-cost-sub', 'elements flagged as consolidated duplicates');
+    }
+  }
+
   function applySummary(d, store, primary){
     if (!d) return;
     store.assets = d.assetTotal; store.terms = d.termCount;
@@ -1635,6 +1680,11 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     }
     if (d.dataProducts != null) store.products = d.dataProducts;
     if (d.openExceptions != null) store.exceptions = d.openExceptions;
+    store.bvAssetTotal = d.bvAssetTotal; store.bvAssetCapped = d.bvAssetCapped;
+    store.bvConfidentialCount = d.bvConfidentialCount;
+    store.bvDescribedCount = d.bvDescribedCount;
+    store.bvDuplicateCount = d.bvDuplicateCount;
+    if (primary) renderBusinessValue(store);
     if (!primary) return;
     // Assets-by-type live overlay (composition section) — real Vega-Lite bar
     // chart when the backend has one (NEXT-10 P1); falls back to hbars() rows
@@ -1838,14 +1888,25 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
   function loadTileInfo(){
     return egeriaFetch('/api/overview/specs', CREDS).then(function(r){ return r.ok ? r.json() : null; })
       .then(function(d){
-        if (!d || !d.specs) return;
-        Object.keys(d.specs).forEach(function(k){
-          var ann = d.specs[k].annotations || {};
-          var summary = (ann.summary || [])[0];
-          var usage = (ann.usage || [])[0];
-          if (summary || usage) TILE_INFO[k] = { summary: summary || '', usage: usage || '' };
-        });
+        if (!d) return;
+        if (d.specs) {
+          Object.keys(d.specs).forEach(function(k){
+            var ann = d.specs[k].annotations || {};
+            var summary = (ann.summary || [])[0];
+            var usage = (ann.usage || [])[0];
+            if (summary || usage) TILE_INFO[k] = { summary: summary || '', usage: usage || '' };
+          });
+        }
+        // Business Value tiles (NEXT-9) — plain dicts, not FormatSet/annotations-shaped,
+        // so read straight off the field names (see overview_specs.py's business_value_as_dicts()).
+        if (d.businessValue) {
+          Object.keys(d.businessValue).forEach(function(k){
+            var t = d.businessValue[k];
+            if (t.summary || t.usage) TILE_INFO[k] = { summary: t.summary || '', usage: t.usage || '' };
+          });
+        }
         renderKPIs();
+        renderBusinessValueInfoButtons();
       }).catch(function(){ /* info bubble is optional decoration — degrade silently */ });
   }
 

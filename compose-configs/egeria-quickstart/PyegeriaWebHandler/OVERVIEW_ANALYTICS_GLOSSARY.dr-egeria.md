@@ -7,12 +7,13 @@
 > metrics as real Egeria elements: one **GlossaryTerm** per metric (Summary/
 > Description/Usage — Usage carries caveats, e.g. scoping mismatches found
 > during the NEXT-24 audit), grouped under a **RootCollection** with
-> sub-collections (by app, by provenance). Generated from `overview_specs.py`'s
+> sub-collections (by app, by provenance, by Topic, by Perspective). Generated
+> from `overview_specs.py`'s
 > `_TILES` — the single source of truth. Regenerate with
 > `gen_dashboard_glossary.py` after editing a tile's `summary`/`description`/
 > `usage` fields.
 >
-> Design: `OVERVIEW_METRIC_GOVERNANCE.md` (NEXT-24), Phase A.
+> Design: `OVERVIEW_METRIC_GOVERNANCE.md` (NEXT-24), Phases A-D.
 > **Run with VALIDATE first, then PROCESS.** Create commands carry user-specified
 > Qualified Names so later commands in this doc can cross-reference them.
 
@@ -73,6 +74,32 @@ RootCollection::Egeria Dashboard
 
 ### Element Id
 Collection::Overview KPIs
+
+---
+
+## Create Collection
+
+### Display Name
+Business Value Signals
+
+### Description
+The Overview dashboard's Business Value tiles (Risk & Compliance, Productivity, Trust & Adoption, Cost Avoidance) -- shown to every Perspective/Topic, not filtered like the KPI-band tiles.
+
+### Qualified Name
+Collection::Business Value Signals
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+RootCollection::Egeria Dashboard
+
+### Element Id
+Collection::Business Value Signals
 
 ---
 
@@ -154,6 +181,318 @@ Collection::Illustrative Metrics
 
 ---
 
+## Create Collection
+
+### Display Name
+AI / Context Intelligence Metrics
+
+### Description
+Metrics shown when the Overview dashboard's Topic filter is set to "AI / Context Intelligence Metrics" (topics_for()'s 'ai-context').
+
+### Qualified Name
+Collection::AI / Context Intelligence Metrics
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+RootCollection::Egeria Dashboard
+
+### Element Id
+Collection::AI / Context Intelligence Metrics
+
+---
+
+## Create Collection
+
+### Display Name
+Security / Privacy Metrics
+
+### Description
+Metrics shown when the Overview dashboard's Topic filter is set to "Security / Privacy Metrics" (topics_for()'s 'security-privacy').
+
+### Qualified Name
+Collection::Security / Privacy Metrics
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+RootCollection::Egeria Dashboard
+
+### Element Id
+Collection::Security / Privacy Metrics
+
+---
+
+## Create Collection
+
+### Display Name
+Quality Metrics
+
+### Description
+Metrics shown when the Overview dashboard's Topic filter is set to "Quality Metrics" (topics_for()'s 'quality').
+
+### Qualified Name
+Collection::Quality Metrics
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+RootCollection::Egeria Dashboard
+
+### Element Id
+Collection::Quality Metrics
+
+---
+
+## Create Collection
+
+### Display Name
+Popularity / Usage Metrics
+
+### Description
+Metrics shown when the Overview dashboard's Topic filter is set to "Popularity / Usage Metrics" (topics_for()'s 'usage').
+
+### Qualified Name
+Collection::Popularity / Usage Metrics
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+RootCollection::Egeria Dashboard
+
+### Element Id
+Collection::Popularity / Usage Metrics
+
+---
+
+## Create Collection
+
+### Display Name
+Data Governance Lead View
+
+### Description
+Metrics shown to the "Data Governance Lead" Perspective on the Overview dashboard (perspectives_for()'s 'governance').
+
+### Qualified Name
+Collection::Data Governance Lead View
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+RootCollection::Egeria Dashboard
+
+### Element Id
+Collection::Data Governance Lead View
+
+---
+
+## Create Collection
+
+### Display Name
+Data Steward View
+
+### Description
+Metrics shown to the "Data Steward" Perspective on the Overview dashboard (perspectives_for()'s 'steward').
+
+### Qualified Name
+Collection::Data Steward View
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+RootCollection::Egeria Dashboard
+
+### Element Id
+Collection::Data Steward View
+
+---
+
+## Create Collection
+
+### Display Name
+Data Owner View
+
+### Description
+Metrics shown to the "Data Owner" Perspective on the Overview dashboard (perspectives_for()'s 'owner').
+
+### Qualified Name
+Collection::Data Owner View
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+RootCollection::Egeria Dashboard
+
+### Element Id
+Collection::Data Owner View
+
+---
+
+## Create Collection
+
+### Display Name
+Data Consumer / Analyst View
+
+### Description
+Metrics shown to the "Data Consumer / Analyst" Perspective on the Overview dashboard (perspectives_for()'s 'consumer').
+
+### Qualified Name
+Collection::Data Consumer / Analyst View
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+RootCollection::Egeria Dashboard
+
+### Element Id
+Collection::Data Consumer / Analyst View
+
+---
+
+## Create Collection
+
+### Display Name
+Data Engineer / Platform View
+
+### Description
+Metrics shown to the "Data Engineer / Platform" Perspective on the Overview dashboard (perspectives_for()'s 'engineer').
+
+### Qualified Name
+Collection::Data Engineer / Platform View
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+RootCollection::Egeria Dashboard
+
+### Element Id
+Collection::Data Engineer / Platform View
+
+---
+
+## Create Collection
+
+### Display Name
+App / AI Builder View
+
+### Description
+Metrics shown to the "App / AI Builder" Perspective on the Overview dashboard (perspectives_for()'s 'builder').
+
+### Qualified Name
+Collection::App / AI Builder View
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+RootCollection::Egeria Dashboard
+
+### Element Id
+Collection::App / AI Builder View
+
+---
+
+## Create Collection
+
+### Display Name
+Privacy / Risk Officer View
+
+### Description
+Metrics shown to the "Privacy / Risk Officer" Perspective on the Overview dashboard (perspectives_for()'s 'privacy').
+
+### Qualified Name
+Collection::Privacy / Risk Officer View
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+RootCollection::Egeria Dashboard
+
+### Element Id
+Collection::Privacy / Risk Officer View
+
+---
+
+## Create Collection
+
+### Display Name
+Community Lead View
+
+### Description
+Metrics shown to the "Community Lead" Perspective on the Overview dashboard (perspectives_for()'s 'community').
+
+### Qualified Name
+Collection::Community Lead View
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+RootCollection::Egeria Dashboard
+
+### Element Id
+Collection::Community Lead View
+
+---
+
 ## Create Glossary Term
 
 ### Display Name
@@ -193,6 +532,66 @@ Term::overview-kpi-assets
 
 ### Collection Id
 Collection::Live Metrics
+
+### Element Id
+Term::overview-kpi-assets
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Governance Lead View
+
+### Element Id
+Term::overview-kpi-assets
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Steward View
+
+### Element Id
+Term::overview-kpi-assets
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Engineer / Platform View
+
+### Element Id
+Term::overview-kpi-assets
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::App / AI Builder View
+
+### Element Id
+Term::overview-kpi-assets
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Privacy / Risk Officer View
+
+### Element Id
+Term::overview-kpi-assets
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Community Lead View
 
 ### Element Id
 Term::overview-kpi-assets
@@ -244,6 +643,46 @@ Term::overview-kpi-terms
 
 ---
 
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Governance Lead View
+
+### Element Id
+Term::overview-kpi-terms
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Steward View
+
+### Element Id
+Term::overview-kpi-terms
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Consumer / Analyst View
+
+### Element Id
+Term::overview-kpi-terms
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Community Lead View
+
+### Element Id
+Term::overview-kpi-terms
+
+---
+
 ## Create Glossary Term
 
 ### Display Name
@@ -283,6 +722,96 @@ Term::overview-kpi-governed
 
 ### Collection Id
 Collection::Live Metrics
+
+### Element Id
+Term::overview-kpi-governed
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::AI / Context Intelligence Metrics
+
+### Element Id
+Term::overview-kpi-governed
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Security / Privacy Metrics
+
+### Element Id
+Term::overview-kpi-governed
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Governance Lead View
+
+### Element Id
+Term::overview-kpi-governed
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Steward View
+
+### Element Id
+Term::overview-kpi-governed
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Owner View
+
+### Element Id
+Term::overview-kpi-governed
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Engineer / Platform View
+
+### Element Id
+Term::overview-kpi-governed
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::App / AI Builder View
+
+### Element Id
+Term::overview-kpi-governed
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Privacy / Risk Officer View
+
+### Element Id
+Term::overview-kpi-governed
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Community Lead View
 
 ### Element Id
 Term::overview-kpi-governed
@@ -334,6 +863,56 @@ Term::overview-kpi-certs
 
 ---
 
+## Add Member to Collection
+
+### Collection Id
+Collection::Security / Privacy Metrics
+
+### Element Id
+Term::overview-kpi-certs
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Governance Lead View
+
+### Element Id
+Term::overview-kpi-certs
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Steward View
+
+### Element Id
+Term::overview-kpi-certs
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Owner View
+
+### Element Id
+Term::overview-kpi-certs
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Privacy / Risk Officer View
+
+### Element Id
+Term::overview-kpi-certs
+
+---
+
 ## Create Glossary Term
 
 ### Display Name
@@ -373,6 +952,76 @@ Term::overview-kpi-products
 
 ### Collection Id
 Collection::Live Metrics
+
+### Element Id
+Term::overview-kpi-products
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Popularity / Usage Metrics
+
+### Element Id
+Term::overview-kpi-products
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Governance Lead View
+
+### Element Id
+Term::overview-kpi-products
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Owner View
+
+### Element Id
+Term::overview-kpi-products
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Consumer / Analyst View
+
+### Element Id
+Term::overview-kpi-products
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::App / AI Builder View
+
+### Element Id
+Term::overview-kpi-products
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Privacy / Risk Officer View
+
+### Element Id
+Term::overview-kpi-products
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Community Lead View
 
 ### Element Id
 Term::overview-kpi-products
@@ -424,6 +1073,66 @@ Term::overview-kpi-exceptions
 
 ---
 
+## Add Member to Collection
+
+### Collection Id
+Collection::Quality Metrics
+
+### Element Id
+Term::overview-kpi-exceptions
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Governance Lead View
+
+### Element Id
+Term::overview-kpi-exceptions
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Steward View
+
+### Element Id
+Term::overview-kpi-exceptions
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Owner View
+
+### Element Id
+Term::overview-kpi-exceptions
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Engineer / Platform View
+
+### Element Id
+Term::overview-kpi-exceptions
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Privacy / Risk Officer View
+
+### Element Id
+Term::overview-kpi-exceptions
+
+---
+
 ## Create Glossary Term
 
 ### Display Name
@@ -463,6 +1172,46 @@ Term::overview-kpi-people
 
 ### Collection Id
 Collection::Live Metrics
+
+### Element Id
+Term::overview-kpi-people
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Popularity / Usage Metrics
+
+### Element Id
+Term::overview-kpi-people
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Owner View
+
+### Element Id
+Term::overview-kpi-people
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Consumer / Analyst View
+
+### Element Id
+Term::overview-kpi-people
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Community Lead View
 
 ### Element Id
 Term::overview-kpi-people
@@ -514,6 +1263,26 @@ Term::overview-kpi-communities
 
 ---
 
+## Add Member to Collection
+
+### Collection Id
+Collection::Popularity / Usage Metrics
+
+### Element Id
+Term::overview-kpi-communities
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Community Lead View
+
+### Element Id
+Term::overview-kpi-communities
+
+---
+
 ## Create Glossary Term
 
 ### Display Name
@@ -553,6 +1322,46 @@ Term::overview-kpi-isc
 
 ### Collection Id
 Collection::Live Metrics
+
+### Element Id
+Term::overview-kpi-isc
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Popularity / Usage Metrics
+
+### Element Id
+Term::overview-kpi-isc
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Consumer / Analyst View
+
+### Element Id
+Term::overview-kpi-isc
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Engineer / Platform View
+
+### Element Id
+Term::overview-kpi-isc
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::App / AI Builder View
 
 ### Element Id
 Term::overview-kpi-isc
@@ -604,6 +1413,46 @@ Term::overview-kpi-blueprints
 
 ---
 
+## Add Member to Collection
+
+### Collection Id
+Collection::Popularity / Usage Metrics
+
+### Element Id
+Term::overview-kpi-blueprints
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Consumer / Analyst View
+
+### Element Id
+Term::overview-kpi-blueprints
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Engineer / Platform View
+
+### Element Id
+Term::overview-kpi-blueprints
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::App / AI Builder View
+
+### Element Id
+Term::overview-kpi-blueprints
+
+---
+
 ## Create Glossary Term
 
 ### Display Name
@@ -643,6 +1492,76 @@ Term::overview-kpi-grounding
 
 ### Collection Id
 Collection::Live Metrics
+
+### Element Id
+Term::overview-kpi-grounding
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::AI / Context Intelligence Metrics
+
+### Element Id
+Term::overview-kpi-grounding
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Steward View
+
+### Element Id
+Term::overview-kpi-grounding
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Owner View
+
+### Element Id
+Term::overview-kpi-grounding
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Consumer / Analyst View
+
+### Element Id
+Term::overview-kpi-grounding
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Data Engineer / Platform View
+
+### Element Id
+Term::overview-kpi-grounding
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::App / AI Builder View
+
+### Element Id
+Term::overview-kpi-grounding
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Privacy / Risk Officer View
 
 ### Element Id
 Term::overview-kpi-grounding
@@ -691,6 +1610,196 @@ Collection::Live Metrics
 
 ### Element Id
 Term::overview-kpi-ownership
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::AI / Context Intelligence Metrics
+
+### Element Id
+Term::overview-kpi-ownership
+
+---
+
+## Create Glossary Term
+
+### Display Name
+Risk & Compliance
+
+### Summary
+Count of Asset-typed elements classified Confidentiality, out of all Asset-hierarchy elements checked.
+
+### Description
+Count of Asset-typed elements carrying a Confidentiality classification.
+
+### Usage
+Proxy for regulatory exposure surface -- more classified elements need active governance, this is not itself a measure of risk being controlled. Scoped to the Asset type hierarchy specifically -- distinct from Governed Coverage's own `byClassification["Confidentiality"]`, which is NOT Asset-scoped (any element type carrying the classification counts there). The two numbers can legitimately differ a lot in the same dataset (e.g. 5 vs 1) and both are correct -- different populations, not a discrepancy.
+
+### Glossary Name
+Egeria Dashboard Analytics
+
+### Qualified Name
+Term::overview-kpi-bv-risk
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Business Value Signals
+
+### Element Id
+Term::overview-kpi-bv-risk
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Live Metrics
+
+### Element Id
+Term::overview-kpi-bv-risk
+
+---
+
+## Create Glossary Term
+
+### Display Name
+Productivity
+
+### Summary
+Percentage of Asset-hierarchy elements carrying a non-empty description, out of all elements checked.
+
+### Description
+Share of Asset-hierarchy elements with a non-empty description.
+
+### Usage
+Proxy for self-service findability -- a described asset is easier to evaluate without a steward's help. Doesn't measure actual query/access frequency, so treat it as a leading indicator, not a usage measure.
+
+### Glossary Name
+Egeria Dashboard Analytics
+
+### Qualified Name
+Term::overview-kpi-bv-productivity
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Business Value Signals
+
+### Element Id
+Term::overview-kpi-bv-productivity
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Live Metrics
+
+### Element Id
+Term::overview-kpi-bv-productivity
+
+---
+
+## Create Glossary Term
+
+### Display Name
+Trust & Adoption
+
+### Summary
+Count of published DigitalProduct definitions (reuses the same live count the Data Products KPI tile shows).
+
+### Description
+Count of published DigitalProduct definitions.
+
+### Usage
+Counts product DEFINITIONS, not adoption -- no rating/usage signal is wired. No `AttachedRating` relationships exist against DigitalProduct in a typical demo dataset (confirmed live), so a rating average is honestly omitted rather than faked; a real adoption signal would need one wired (e.g. subscription counts).
+
+### Glossary Name
+Egeria Dashboard Analytics
+
+### Qualified Name
+Term::overview-kpi-bv-trust
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Business Value Signals
+
+### Element Id
+Term::overview-kpi-bv-trust
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Live Metrics
+
+### Element Id
+Term::overview-kpi-bv-trust
+
+---
+
+## Create Glossary Term
+
+### Display Name
+Cost Avoidance
+
+### Summary
+Count of elements carrying the ConsolidatedDuplicate classification (absorbed a detected duplicate).
+
+### Description
+Count of elements classified ConsolidatedDuplicate.
+
+### Usage
+A candidate-for-archival signal, not a cost figure -- no dollar estimate is attached. A real zero in a dataset with no duplicate-detection activity yet run is an honest answer, not evidence the feature is broken.
+
+### Glossary Name
+Egeria Dashboard Analytics
+
+### Qualified Name
+Term::overview-kpi-bv-cost
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Business Value Signals
+
+### Element Id
+Term::overview-kpi-bv-cost
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Live Metrics
+
+### Element Id
+Term::overview-kpi-bv-cost
 
 ---
 
