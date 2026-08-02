@@ -4355,7 +4355,7 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
   const [loadingGuids, setLoadingGuids]     = useState(new Set());
   const [asOfTime, setAsOfTime]             = useState(null);
   const [inclTempl, setInclTempl]           = useState(false);
-  const [onlyRootType, setOnlyRootType]     = useState(false);
+  const [onlyRootType, setOnlyRootType]     = useState(true);
   const childrenRef = useRef({});
   useEffect(() => { childrenRef.current = childrenByGuid; }, [childrenByGuid]);
 

@@ -174,6 +174,16 @@ def main() -> int:
           f"OVERVIEW_METRICS.md generated block is stale (run gen_overview_metrics.py): "
           f"{res.stdout.strip()} {res.stderr.strip()}")
 
+    # 5b. The generated metric-governance glossary doc (NEXT-24) is up to date
+    # relative to _TILES' summary/usage fields.
+    res = subprocess.run(
+        [sys.executable, str(_HERE / "gen_dashboard_glossary.py"), "--check"],
+        capture_output=True, text=True,
+    )
+    check(res.returncode == 0,
+          f"OVERVIEW_ANALYTICS_GLOSSARY.dr-egeria.md is stale (run gen_dashboard_glossary.py): "
+          f"{res.stdout.strip()} {res.stderr.strip()}")
+
     # 6. Container (NEXT-10 P2): the Overview dashboard container's declared
     # placement order matches overview_specs.TILE_ORDER, every ref resolves,
     # and each perspective's filtered view matches PERSP_KPIS exactly (order
@@ -212,6 +222,14 @@ def main() -> int:
             view = [rp.ref for rp in containers.view_for(containers.OVERVIEW_CONTAINER, persp, topic)]
             check(view == expected,
                   f"[{persp}+{topic}] view_for() != expected intersection/fallback:\n  view={view}\n  expected={expected}")
+
+    # 7. NEXT-24 metric-governance guard: every tile must carry non-empty
+    # summary/usage fields (§2.6) -- a new tile can't ship undocumented.
+    for tile in specs._TILES:
+        check(bool(tile.get("summary")),
+              f"[{tile['key']}] missing a non-empty 'summary' field (required by NEXT-24)")
+        check(bool(tile.get("usage")),
+              f"[{tile['key']}] missing a non-empty 'usage' field (required by NEXT-24)")
 
     # Report.
     print(f"ran {_checks} checks over {len(reg_keys)} tiles / {len(specs.PERSP_KPIS)} perspectives / "

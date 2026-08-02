@@ -140,17 +140,79 @@ or a scoped Local Dashboards placement, not an Overview KPI tile. Data Scope/Gra
 Lens are now fully defined (grounded in the PDR blog series, see the design doc's
 §1.2). Plan Phase C item 9.
 
-### R-3 — Business-value metrics (Productivity, Trust & Adoption, Risk, Cost) are synthetic
-Today these are narrative/sample. They can be honest with: a precise definition, a
-real source, and framing as **leading indicators/proxies** not direct measures. E.g.
-"Productivity 71%" = "% assets documented & findable" — a proxy for time-to-data,
-but the label overclaims. For each of the four tiles: one-line definition + source +
-the explicit causal claim, reword labels to what's measured, wire real data where it
-exists. Medium effort; overlaps with the provenance work.
+**2026-08-02 update:** a second, independent Gartner/NIST AI RMF/IEEE P2807
+research pass (§1.8) converged with this design rather than overturning it, and
+**§1.9 now resolves direction** on the three items it left open: Modality tag is
+derived automatically from existing Open Metadata type (no new classification);
+DRL bands (Raw → Analytics-Ready → RAG-Ready → AI-Ready/Contextualized) are
+cumulative gate checklists, not score cutoffs, with AI-Ready composing the
+already-shipped `ai_ready_assets` intersection; and band membership is
+represented via a `Classification` (cheap, always-current, queryable like
+`Confidentiality`) for live state, with a periodically-materialized
+`Certification` (provenance/expiry) reserved for Analytics-Ready and AI-Ready
+specifically — RAG-Ready stays computed-only. Exact thresholds, per-modality
+Structural-Readiness sub-checks, and Certification mechanics (certifying-actor
+identity, re-evaluation cadence) remain as implementation-detail open items,
+listed in the design doc's "Open decisions" section.
 
-### R-4 — Per-perspective section CONTENT variants (not just visibility)
+### R-3 — Business-value metrics (Productivity, Trust & Adoption, Risk, Cost) are synthetic — ✅ done (2026-08-02)
 
-**Status: two-axis navigation shipped 2026-08-01 (Perspective × Topic); this
+Wired to real data via a new `business_value_signals(mgr, as_of)` (egeria-python
+`overview_metrics.py`, NEXT-9) — same defensive-import pattern as
+`ownership_coverage`/`ai_ready_assets`. One Asset-hierarchy fetch answers two
+of the four fields (per-element checks, same shape `context_readiness_funnel`
+uses); duplicate detection is a separate classification count; Trust & Adoption
+reuses the already-live `dataProducts` count rather than duplicating it.
+
+| Tile | Old (synthetic) | New (real) | Causal-claim caveat |
+|---|---|---|---|
+| Risk & Compliance | "↓38% ungoverned confidential assets, YoY" | Count of **Asset-typed** elements carrying `Confidentiality` — verified live 2026-08-02: 1 of 1,737 in a real dataset | Proxy for regulatory exposure surface, not itself a risk-control measure. **Distinct from `governed_coverage`'s own `byClassification["Confidentiality"]`, which is NOT Asset-scoped** — the two numbers can legitimately differ a lot (5 vs 1 in the same dataset) and both are correct, just different populations |
+| Productivity | "71% assets documented & findable" | `describedCount / assetTotal` — non-empty-description share of the Asset hierarchy (23% live) | Proxy for self-service findability; doesn't measure actual query/access frequency |
+| Trust & Adoption | "18 products · ★4.3 avg" | Live `dataProducts` count (121); rating avg dropped entirely | No `AttachedRating` relationships exist against `DigitalProduct` in a typical demo dataset (confirmed live) — honestly omitted rather than faked |
+| Cost Avoidance | "153 stale/duplicate assets flagged" | Count of `ConsolidatedDuplicate`-classified elements (0 in the demo dataset) | A real zero is an honest answer here, not a placeholder — this dataset has no detected duplicates |
+
+**A real investigation dead-end worth recording:** while building the
+Confidentiality check, an early test used `matchClassifications`'s older
+flat `classificationNames` body shape and got 925 hits — looked like a
+serious undercount bug in the newer `SearchClassifications`/`conditions`
+shape `governed_coverage`/`ownership_coverage` already use. Cross-checked
+against `ClassificationExplorer.get_elements_by_classification('Confidentiality')`
+(purpose-built, most reliable ground truth): only 5 such elements exist
+total, 4 of them typed `Referenceable` not `Asset`. The 925-hit flat-shape
+query was the actual bug (silently ignored/near-unfiltered), not the
+newer shape — no fix needed anywhere, existing code was already correct.
+Logged here rather than in PYEGERIA_ISSUES.md since it resolved to
+"working as intended," not an open gap.
+
+### R-4 — Per-perspective section CONTENT variants (not just visibility) — ✅ mechanism proven, 2026-08-02
+
+**Resolved the 3 open design decisions this item was waiting on:**
+1. **Lookup key shape: per-Perspective only**, not per-Topic and not a full
+   (Perspective, Topic) cross product — matches this doc's own lean toward
+   avoiding a mostly-empty cross product.
+2. **Authored as hand-written HTML template strings** in `egeria-overview.html`
+   (a new `SECTION_VARIANTS` object), not migrated into the FormatSet/
+   Container model — that migration is real, separate, much larger work.
+3. **First concrete example built: "Usage Context"**, exactly as raised in
+   the design discussion — `privacy` and `owner` variants, reframing the
+   same 3 cards (Information Supply Chains / Solution Blueprints /
+   Contextualised Coverage) with audience-specific labels and caveats.
+   Deliberately does **not** invent new cross-referenced numbers ("chains
+   carrying confidential data," "my own assets") the backend doesn't
+   compute — each variant's caveat says so explicitly rather than faking a
+   scoped figure. `uc-isc`/`uc-bp`/`uc-cov` ids and `data-drill` attributes
+   are identical across every variant, so `applyUsage()`'s live-value
+   wiring and drill-click both keep working regardless of which variant is
+   in the DOM. A perspective with no authored variant (6 of 8 today) keeps
+   the section's original "default" markup — `applySectionVariants()`
+   caches it on first swap and restores it, verified live switching
+   Governance Lead → Privacy Officer → Data Owner → back to Governance Lead.
+
+Mechanism is proven and additive: authoring a variant for another section
+or another perspective is just adding an entry to `SECTION_VARIANTS`, no
+further plumbing needed.
+
+**Status before this fix: two-axis navigation shipped 2026-08-01 (Perspective × Topic); this
 item is the deliberately-deferred next layer, design principle captured here
 so it isn't lost.**
 
@@ -217,6 +279,26 @@ HTML/JS in `egeria-overview.html`, or migrated toward the FormatSet/
 Container model as part of doing this at all), and a concrete first example
 (Usage Context — Privacy Officer vs. Data Owner, as raised) to prove the
 mechanism before generalizing.
+
+### R-5 — Metrics need governance: an audit, a Glossary, Collections, and an info bubble
+
+**Status: design done 2026-08-01, see [`OVERVIEW_METRIC_GOVERNANCE.md`](OVERVIEW_METRIC_GOVERNANCE.md)
+for the full design + phased plan (NEXT-24).**
+
+Triggered by a live finding while drilling into Semantic Grounding: the
+number is well-computed but measures something different from its own
+label (87.7% of its underlying relationships connect to governance
+workflow processes, not data assets — see the design doc §1.1 for the
+full data). Rather than a one-off fix, this generalizes the check to every
+`live`/`mixed`-tagged tile, and — following the exact pattern already
+proven for Perspectives/Questions (`gen_perspectives.py`) — generates a
+real Egeria `GlossaryTerm` per metric (carrying `summary`/`description`/
+`usage`, `usage` being where caveats like this one live structurally, not
+as a Python comment) grouped under a new RootCollection ("Egeria
+Dashboard") with sub-collections, feeding a dashboard info-bubble UI.
+`overview_specs.py` stays the single source of truth throughout — the
+Glossary/Collections are generated downstream artifacts, not a second
+thing to hand-maintain.
 
 ## Remaining app wiring (independent of the API work)
 

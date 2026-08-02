@@ -70,6 +70,15 @@
   .delta { font-size:.72rem; font-weight:600; display:inline-flex; align-items:center; gap:3px; }
   .up { color:var(--green); } .down { color:var(--accent); } .flat { color:var(--muted); }
   .kpi .spark { position:absolute; bottom:0; left:0; right:0; height:26px; opacity:.55; }
+  .k-info { position:absolute; right:10px; bottom:9px; z-index:2; background:none; border:none; padding:0;
+            font-size:.85rem; line-height:1; color:var(--muted); opacity:.55; cursor:pointer; }
+  .k-info:hover { opacity:1; color:var(--accent); }
+  .k-info-popover { position:fixed; z-index:50; width:320px; max-width:calc(100vw - 16px);
+                     background:var(--card); border:1px solid var(--border); border-radius:10px;
+                     padding:12px 14px; box-shadow:0 8px 24px rgba(0,0,0,.25); font-size:.78rem; line-height:1.45; }
+  .k-info-summary { font-weight:600; margin-bottom:6px; }
+  .k-info-usage { color:var(--muted); }
+  .k-info-usage strong { color:inherit; font-weight:600; }
 
   /* generic panel */
   .grid { display:grid; gap:14px; }
@@ -356,31 +365,31 @@
   <div id="kpi-trend-note" style="font-size:.7rem;color:var(--muted);margin-top:8px;display:flex;align-items:center;gap:6px">Trend sparklines show real monthly snapshots (loading…).</div>
 
   <!-- ── BUSINESS VALUE LENS ── -->
-  <div class="section-label">Business Value <span class="prov prov-sample">○ illustrative</span> <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— what these numbers mean to the business</span></div>
+  <div class="section-label" id="bv-section-label">Business Value <span class="prov prov-sample" id="bv-prov">○ illustrative</span> <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— what these numbers mean to the business</span></div>
   <div class="grid g-3" style="grid-template-columns:repeat(4,1fr)">
     <div class="panel" style="border-left:3px solid var(--c5)">
-      <h3>🛡️ Risk &amp; Compliance</h3>
-      <div style="font-size:1.5rem;font-weight:700;margin:6px 0 2px">↓ 38%</div>
-      <div class="ph-sub" style="margin-bottom:8px">ungoverned confidential assets, YoY</div>
-      <div style="font-size:.76rem;color:var(--muted);line-height:1.5">873 assets now certified &amp; classified · <b style="color:var(--text)">audit-ready</b>. Est. exposure on remaining <b style="color:#ff6b81">24</b> unmitigated.</div>
+      <h3>🛡️ Risk &amp; Compliance <button type="button" class="k-info" data-info="bv-risk" style="position:static;display:none;vertical-align:middle" title="What does this measure?" aria-label="What does this measure?">ⓘ</button></h3>
+      <div style="font-size:1.5rem;font-weight:700;margin:6px 0 2px" id="bv-risk-val">45</div>
+      <div class="ph-sub" style="margin-bottom:8px" id="bv-risk-sub">Confidential-classified assets (sample)</div>
+      <div style="font-size:.76rem;color:var(--muted);line-height:1.5" id="bv-risk-note">Proxy for regulatory exposure surface — more classified elements need active governance, this is not itself a measure of risk being controlled. Scoped to the Asset type hierarchy specifically.</div>
     </div>
     <div class="panel" style="border-left:3px solid var(--c2)">
-      <h3>⚡ Productivity</h3>
-      <div style="font-size:1.5rem;font-weight:700;margin:6px 0 2px">71%</div>
-      <div class="ph-sub" style="margin-bottom:8px">assets documented &amp; findable</div>
-      <div style="font-size:.76rem;color:var(--muted);line-height:1.5"><b style="color:var(--text)">Faster time-to-data</b>: analysts self-serve instead of hunting. 61% terms linked to real assets.</div>
+      <h3>⚡ Productivity <button type="button" class="k-info" data-info="bv-productivity" style="position:static;display:none;vertical-align:middle" title="What does this measure?" aria-label="What does this measure?">ⓘ</button></h3>
+      <div style="font-size:1.5rem;font-weight:700;margin:6px 0 2px" id="bv-prod-val">23%</div>
+      <div class="ph-sub" style="margin-bottom:8px" id="bv-prod-sub">assets with a description on file (sample)</div>
+      <div style="font-size:.76rem;color:var(--muted);line-height:1.5">Proxy for self-service findability — a described asset is easier to evaluate without a steward's help. Doesn't measure actual query/access frequency.</div>
     </div>
     <div class="panel" style="border-left:3px solid var(--c6)">
-      <h3>📈 Trust &amp; Adoption</h3>
-      <div style="font-size:1.5rem;font-weight:700;margin:6px 0 2px">18</div>
-      <div class="ph-sub" style="margin-bottom:8px">published data products · ★4.3 avg</div>
-      <div style="font-size:.76rem;color:var(--muted);line-height:1.5"><b style="color:var(--text)">Reuse over rebuild</b>: rated, certified products drive consumption &amp; cut duplicate pipelines.</div>
+      <h3>📈 Trust &amp; Adoption <button type="button" class="k-info" data-info="bv-trust" style="position:static;display:none;vertical-align:middle" title="What does this measure?" aria-label="What does this measure?">ⓘ</button></h3>
+      <div style="font-size:1.5rem;font-weight:700;margin:6px 0 2px" id="bv-trust-val">18</div>
+      <div class="ph-sub" style="margin-bottom:8px" id="bv-trust-sub">published data products (sample)</div>
+      <div style="font-size:.76rem;color:var(--muted);line-height:1.5">Count of published <code style="font-size:.7rem">DigitalProduct</code> definitions. No rating/adoption signal is wired yet — no feedback ratings exist against products in this dataset.</div>
     </div>
     <div class="panel" style="border-left:3px solid var(--c4)">
-      <h3>💰 Cost Avoidance</h3>
-      <div style="font-size:1.5rem;font-weight:700;margin:6px 0 2px">153</div>
-      <div class="ph-sub" style="margin-bottom:8px">stale/duplicate assets flagged</div>
-      <div style="font-size:.76rem;color:var(--muted);line-height:1.5">Candidates for archival &amp; storage reclaim · <b style="color:var(--text)">less steward toil</b> via crowd-sourced curation.</div>
+      <h3>💰 Cost Avoidance <button type="button" class="k-info" data-info="bv-cost" style="position:static;display:none;vertical-align:middle" title="What does this measure?" aria-label="What does this measure?">ⓘ</button></h3>
+      <div style="font-size:1.5rem;font-weight:700;margin:6px 0 2px" id="bv-cost-val">0</div>
+      <div class="ph-sub" style="margin-bottom:8px" id="bv-cost-sub">elements flagged as consolidated duplicates (sample)</div>
+      <div style="font-size:.76rem;color:var(--muted);line-height:1.5">Elements classified <code style="font-size:.7rem">ConsolidatedDuplicate</code> — a candidate for archival/storage reclaim. A real zero in this dataset is an honest answer, not a placeholder.</div>
     </div>
   </div>
 
@@ -444,8 +453,16 @@
   </div>
 
   <!-- ── USAGE CONTEXT (ISC + BLUEPRINTS) ── -->
+  <!-- NEXT-23: this section's inner grid is a per-Perspective CONTENT variant
+       (not just visibility — see currentSections()'s comment and
+       SECTION_VARIANTS below). The markup below is the "default" variant,
+       replaced by applySectionVariants() for perspectives with their own
+       authored variant (currently: privacy, owner). uc-isc/uc-bp/uc-cov ids
+       and the data-drill attributes are kept identical across every variant
+       so applyUsage()'s live-value wiring and drill-click both keep working
+       no matter which variant is currently in the DOM. -->
   <div class="section-label">Usage Context <span class="prov prov-mix">◐ mixed</span> <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— supply chains &amp; blueprints put assets in a business context, not just a list</span></div>
-  <div class="grid g-3">
+  <div class="grid g-3" id="usage-grid">
     <div class="panel clickable" data-drill="isc" style="border-left:3px solid var(--c2)">
       <h3>🔗 Information Supply Chains</h3>
       <div style="font-size:1.9rem;font-weight:700;margin:6px 0 2px" id="uc-isc">18</div>
@@ -552,7 +569,7 @@
   <div class="kpis" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
     <div class="kpi clickable" data-drill="ai-ready">
       <span class="k-ico">🤖</span><span class="k-label">AI-Ready Assets</span>
-      <span class="k-val">612</span><span class="k-sub">48% — governed + documented + lineage</span>
+      <span class="k-val" id="uc-ai-ready">612</span><span class="k-sub" id="uc-ai-ready-sub">48% — governed + documented + lineage</span>
     </div>
     <div class="kpi clickable" data-drill="context-products">
       <span class="k-ico">🧩</span><span class="k-label">Context Products</span>
@@ -572,10 +589,10 @@
     <div class="panel">
       <div class="panel-head"><div><h3>🚦 Context Readiness Funnel</h3><div class="ph-sub">How much cataloged data becomes trustworthy AI context</div></div><span class="drill-hint">click a stage</span></div>
       <div class="funnel-row" data-drill="funnel-cataloged"><span class="lab">Cataloged</span><div class="funnel-track"><div class="funnel-fill" style="width:100%;background:var(--c2)"><span id="uc-cataloged">1,284</span></div></div><span class="conv">100%</span></div>
-      <div class="funnel-row" data-drill="funnel-documented"><span class="lab">Documented</span><div class="funnel-track"><div class="funnel-fill" style="width:71%;background:var(--c1)">912</div></div><span class="conv">71%</span></div>
+      <div class="funnel-row" data-drill="funnel-documented"><span class="lab">Documented</span><div class="funnel-track"><div class="funnel-fill" style="width:71%;background:var(--c1)"><span id="uc-documented">912</span></div></div><span class="conv">71%</span></div>
       <div class="funnel-row" data-drill="funnel-classified"><span class="lab">Classified</span><div class="funnel-track"><div class="funnel-fill" style="width:68%;background:var(--c6)"><span id="uc-classified">873</span></div></div><span class="conv">68%</span></div>
-      <div class="funnel-row" data-drill="funnel-lineage"><span class="lab">Lineage-traced</span><div class="funnel-track"><div class="funnel-fill" style="width:55%;background:var(--c3)">705</div></div><span class="conv">55%</span></div>
-      <div class="funnel-row" data-drill="funnel-airead"><span class="lab" style="font-weight:700">AI-Ready</span><div class="funnel-track"><div class="funnel-fill" style="width:48%;background:var(--c4)">612</div></div><span class="conv">48%</span></div>
+      <div class="funnel-row" data-drill="funnel-lineage"><span class="lab">Lineage-traced</span><div class="funnel-track"><div class="funnel-fill" style="width:55%;background:var(--c3)"><span id="uc-lineage">705</span></div></div><span class="conv">55%</span></div>
+      <div class="funnel-row" data-drill="funnel-airead"><span class="lab" style="font-weight:700">AI-Ready</span><div class="funnel-track"><div class="funnel-fill" style="width:48%;background:var(--c4)"><span id="uc-airead">612</span></div></div><span class="conv">48%</span></div>
       <div style="margin-top:11px;font-size:.74rem;color:var(--muted);line-height:1.5;border-top:1px solid var(--border);padding-top:9px"><b style="color:var(--text)">Business value:</b> grounded, lineage-backed context = fewer hallucinations and a full audit trail of what an agent was allowed to see.</div>
     </div>
 
@@ -1103,6 +1120,14 @@ const METRICS = {
                 get:()=>({ val: LIVE.ownershipPct != null ? LIVE.ownershipPct + '%' : '—',
                            sub: LIVE.ownershipCount != null ? num(LIVE.ownershipCount) + ' owned assets' : 'named owner assigned' }) }
 };
+// Per-tile summary/usage text for the "ⓘ" info bubble (NEXT-24). Populated
+// live from /api/overview/specs — the same overview_specs.py _TILES data
+// that backs the generated Egeria Glossary — not hand-duplicated here, since
+// these are long free-text caveats and a second hand-synced copy would be a
+// worse drift risk than the short label/icon fields METRICS already
+// duplicates. Empty until loadTileInfo() resolves; the bubble just doesn't
+// render for a tile with no entry yet.
+var TILE_INFO = {};
 // Map an array of values to a polyline within the 120x26 sparkline viewbox.
 function sparkPts(vals){
   const v = vals.filter(x => x != null);
@@ -1148,6 +1173,102 @@ const TOPIC_SECTIONS = {
   'quality':          ['quality'],
   'usage':            ['usage','people','activity']
 };
+
+// NEXT-23: per-Perspective section CONTENT variants (not just visibility) —
+// the deferred layer from the 2026-08-01 design discussion (OVERVIEW_NEXT_STEPS.md
+// R-4). Key shape is per-Perspective only (not per-Topic, not a full
+// (Perspective,Topic) cross product — R-4's own call, a full cross product
+// would be mostly-empty given how sparse the content actually varies).
+// Authored as hand-written HTML template strings here, not migrated into the
+// FormatSet/Container model — most of a section's content (this one
+// included) isn't tile-registry-driven at all, so that migration is a much
+// bigger, separate piece of work than proving this mechanism.
+//
+// First concrete example (as raised in the design discussion): "Usage
+// Context" reads differently for a Privacy Officer (which chains/designs
+// need reviewing for regulated-data handling) vs. a Data Owner (their own
+// assets' participation) vs. everyone else (the general framing). All three
+// variants deliberately show the SAME real numbers (uc-isc/uc-bp/uc-cov are
+// live-wired by applyUsage() regardless of which variant is in the DOM) —
+// only the labels/captions/caveats change. No new cross-referenced metric
+// (e.g. "chains carrying confidential data," "my own assets") is invented
+// here; each variant's caveat says so explicitly rather than faking a
+// scoped number the backend doesn't compute yet.
+//
+// A perspective with no entry here just keeps the section's static
+// "default" HTML already in the page -- adding a variant is additive, never
+// required.
+const SECTION_VARIANTS = {
+  usage: {
+    privacy: [
+      '<div class="panel clickable" data-drill="isc" style="border-left:3px solid var(--c2)">',
+      '<h3>🔗 Information Supply Chains</h3>',
+      '<div style="font-size:1.9rem;font-weight:700;margin:6px 0 2px" id="uc-isc">18</div>',
+      '<div class="ph-sub" style="margin-bottom:8px">data flows to review for regulated-data handling</div>',
+      '<div style="font-size:.76rem;color:var(--muted);line-height:1.5">Real count of all Information Supply Chain definitions catalogued — this view does not yet filter to chains carrying confidential/regulated data specifically (that cross-reference isn\'t wired). Use it as the full population to prioritise reviewing, not a pre-filtered risk list.</div>',
+      '</div>',
+      '<div class="panel clickable" data-drill="blueprints" style="border-left:3px solid var(--c3)">',
+      '<h3>🧱 Solution Blueprints</h3>',
+      '<div style="font-size:1.9rem;font-weight:700;margin:6px 0 2px" id="uc-bp">30</div>',
+      '<div class="ph-sub" style="margin-bottom:8px">designs to check for confidential-data handling patterns</div>',
+      '<div style="font-size:.76rem;color:var(--muted);line-height:1.5">Real count of all Solution Blueprint definitions — same caveat as Supply Chains: not yet filtered to designs that specifically handle confidential data.</div>',
+      '</div>',
+      '<div class="panel" style="border-left:3px solid var(--c6)">',
+      '<h3>🎯 Contextualised Coverage</h3>',
+      '<div style="font-size:1.9rem;font-weight:700;margin:6px 0 2px" id="uc-cov">57%</div>',
+      '<div class="ph-sub" style="margin-bottom:8px">assets with any documented business context <span style="color:var(--c4)">(sample)</span></div>',
+      '<div style="font-size:.76rem;color:var(--muted);line-height:1.5">Same catalog-wide number shown to every perspective. A Privacy Officer\'s real question — which UNcontextualised assets are ALSO confidential — isn\'t computed yet; treat this as a general prioritisation signal, not that intersection.</div>',
+      '</div>',
+    ].join(''),
+    owner: [
+      '<div class="panel clickable" data-drill="isc" style="border-left:3px solid var(--c2)">',
+      '<h3>🔗 Information Supply Chains</h3>',
+      '<div style="font-size:1.9rem;font-weight:700;margin:6px 0 2px" id="uc-isc">18</div>',
+      '<div class="ph-sub" style="margin-bottom:8px">chains your assets may feed into</div>',
+      '<div style="font-size:.76rem;color:var(--muted);line-height:1.5">Real count of all Information Supply Chain definitions in the catalog — not yet scoped to "assets I own" (no per-user ownership filter is wired into this view). Use as the full population to search within, not a personalised list.</div>',
+      '</div>',
+      '<div class="panel clickable" data-drill="blueprints" style="border-left:3px solid var(--c3)">',
+      '<h3>🧱 Solution Blueprints</h3>',
+      '<div style="font-size:1.9rem;font-weight:700;margin:6px 0 2px" id="uc-bp">30</div>',
+      '<div class="ph-sub" style="margin-bottom:8px">designs your assets may participate in</div>',
+      '<div style="font-size:.76rem;color:var(--muted);line-height:1.5">Same caveat as Supply Chains — this is the full catalog count, not filtered to your own assets yet.</div>',
+      '</div>',
+      '<div class="panel" style="border-left:3px solid var(--c6)">',
+      '<h3>🎯 Contextualised Coverage</h3>',
+      '<div style="font-size:1.9rem;font-weight:700;margin:6px 0 2px" id="uc-cov">57%</div>',
+      '<div class="ph-sub" style="margin-bottom:8px">assets with any documented business context <span style="color:var(--c4)">(sample)</span></div>',
+      '<div style="font-size:.76rem;color:var(--muted);line-height:1.5">Catalog-wide number, not scoped to your own assets. A true "my assets" view needs an ownership-based filter this dashboard doesn\'t have yet — Ownership Coverage (AI &amp; Context Intelligence section) is the closest existing signal.</div>',
+      '</div>',
+    ].join(''),
+  },
+};
+// Cache the section's original ("default") innerHTML the first time it's
+// swapped, so switching back to a perspective with no authored variant
+// restores the real default instead of leaving a stale variant in place.
+var _sectionDefaults = {};
+function applySectionVariants(){
+  // Inlined DOM-set/number-format helpers rather than calling the IIFE-local
+  // setTxt()/fmt() (defined later in the file, inside a separate closure
+  // this top-level function can't reach).
+  var setText = function(id, v){ var el = document.getElementById(id); if (el && v != null) el.textContent = v; };
+  var fmtNum = function(n){ return (typeof n === 'number') ? n.toLocaleString() : n; };
+
+  Object.keys(SECTION_VARIANTS).forEach(function(secKey){
+    var grid = document.getElementById(secKey + '-grid');
+    if (!grid) return;
+    if (!(secKey in _sectionDefaults)) _sectionDefaults[secKey] = grid.innerHTML;
+    var variant = SECTION_VARIANTS[secKey][CUR_PERSP];
+    grid.innerHTML = variant || _sectionDefaults[secKey];
+  });
+  // uc-isc/uc-bp are re-applied from the already-fetched LIVE store so a
+  // freshly-swapped-in variant isn't left showing static sample numbers
+  // when live data has already loaded (uc-cov stays sample -- it always is,
+  // regardless of variant; see each variant's own "(sample)" label).
+  if (typeof LIVE !== 'undefined' && LIVE) {
+    if (LIVE.isc != null) setText('uc-isc', fmtNum(LIVE.isc));
+    if (LIVE.blueprints != null) setText('uc-bp', fmtNum(LIVE.blueprints));
+  }
+}
 // The visible section list: Perspective's own `show` ∩ Topic's sections when
 // both are set, falling back to the Topic's own section list if that
 // intersection is empty — identical fallback philosophy to currentKpiKeys().
@@ -1204,10 +1325,150 @@ function renderKPIs(){
       spark = `<svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none"><title>${tip}</title>`+
               `<polyline fill="none" stroke="${m.color}" stroke-width="2" points="${pts}"/></svg>`;
     }
+    const info = TILE_INFO[k]
+      ? `<button type="button" class="k-info" data-info="${k}" title="What does this measure?" aria-label="What does this measure?">ⓘ</button>`
+      : '';
     return `<div class="kpi${m.drill ? ' clickable' : ''}"${m.drill ? ` data-drill="${m.drill}"` : ''}>`+
-      `<span class="k-ico">${m.ico}</span><span class="k-label">${m.label}</span>`+
+      `<span class="k-ico">${m.ico}</span><span class="k-label">${m.label}</span>${info}`+
       `<span class="k-val">${s.val}</span><span class="k-sub">${sub}</span>${spark}</div>`;
   }).join('');
+}
+// loadTileInfo() is defined further below, inside the IIFE that owns CREDS
+// (it needs the resolved Egeria credentials to call egeriaFetch).
+// Toggle/close the info popover. Appended to <body> with fixed positioning
+// (not inside the .kpi tile) because .kpi has overflow:hidden for the
+// sparkline — an absolutely-positioned child there would get clipped.
+function closeInfoPopover(){
+  var existing = document.querySelector('.k-info-popover');
+  if (existing) existing.remove();
+  closeInfoPopover._lastKey = null;
+}
+function toggleInfoPopover(btn, key){
+  var openForSameKey = closeInfoPopover._lastKey === key;
+  closeInfoPopover();
+  if (openForSameKey) return;   // was already open on this tile — just closed it
+  var info = TILE_INFO[key]; if (!info) return;
+  var pop = document.createElement('div');
+  pop.className = 'k-info-popover';
+  pop.dataset.forKey = key;
+  pop.innerHTML = (info.summary ? `<div class="k-info-summary">${info.summary}</div>` : '') +
+    (info.usage ? `<div class="k-info-usage"><strong>Usage notes:</strong> ${info.usage}</div>` : '');
+  document.body.appendChild(pop);
+  var r = btn.getBoundingClientRect();
+  var left = Math.min(r.left, window.innerWidth - 340);   // keep on-screen; popover is ~320px
+  pop.style.left = Math.max(8, left) + 'px';
+  pop.style.top = (r.bottom + 6) + 'px';
+  closeInfoPopover._lastKey = key;
+}
+document.addEventListener('click', function(e){
+  var btn = e.target.closest && e.target.closest('.k-info');
+  if (btn) {
+    // stopImmediatePropagation, not just stopPropagation: the drill-down
+    // handler (openDrill via [data-drill]) is a SEPARATE document-level
+    // listener registered later, and the ⓘ button sits inside a .kpi div
+    // that itself carries data-drill — plain stopPropagation only stops
+    // bubbling to ancestors, not sibling listeners on the same document
+    // target, so it would still open the drill view underneath the popover.
+    e.stopImmediatePropagation(); e.preventDefault();
+    toggleInfoPopover(btn, btn.getAttribute('data-info'));
+    return;
+  }
+  if (!e.target.closest || !e.target.closest('.k-info-popover')) closeInfoPopover();
+});
+
+// ── Section provenance badges — computed, not hand-maintained ──────────────
+// Every section's "● live / ◐ mixed / ○ illustrative" badge used to be
+// static HTML text, disconnected from what's actually wired — confirmed
+// 2026-08-01 while adding documented/lineage to the AI section: the badge
+// hadn't been touched and nobody had been keeping it in sync. This is the
+// fix: enumerate each section's real sub-items (audited against
+// overview_handler.py's actual endpoint payloads, not guessed from the UI)
+// and compute the badge from that list, so a section's badge can never
+// silently drift the way the static text just did.
+//
+// Per-item status here reflects the *backend*, not this browser's demo
+// deployment specifically — an item is "live" if the endpoint computes and
+// returns a real value for it (even if this particular container's pinned
+// pyegeria hasn't caught up yet and it's showing None today; see
+// overview_handler.py's own signature-compatibility fallback for
+// documented/lineage). It's "illustrative" only if there is genuinely no
+// backend computation for it yet — confirmed per-section by reading
+// overview_handler.py's endpoint bodies directly, not inferred from the
+// frontend HTML.
+const SECTION_PROVENANCE = {
+  value: [
+    // NEXT-9, 2026-08-02: backed by business_value_signals() -- new pyegeria,
+    // not yet in a published release, so a container on the old package
+    // still shows the "(sample)" fallback text until it publishes (same
+    // documented gap as ownership_coverage/ai_ready_assets above).
+    { name: 'Risk & Compliance',   status: 'live' },      // business_value_signals: confidentialCount
+    { name: 'Productivity',        status: 'live' },      // business_value_signals: describedCount
+    { name: 'Trust & Adoption',    status: 'live' },      // dataProducts (already-published count); no rating signal exists in this dataset
+    { name: 'Cost Avoidance',      status: 'live' },      // business_value_signals: duplicateCount
+  ],
+  growth: [
+    { name: 'Catalog Growth chart (assets/terms/governed/products)', status: 'live' },      // /api/overview/growth, real asOfTime snapshots
+    { name: 'Governed vs Ungoverned %',                              status: 'live' },      // governed_coverage
+    { name: 'Fully/Partial/Ungoverned breakdown',                    status: 'illustrative' }, // 3-bucket split not returned by governed_coverage's byClassification shape
+  ],
+  composition: [
+    { name: 'Assets by Type',                status: 'live' },  // counts_by_type via /api/overview/summary
+    { name: 'Elements by Governance Zone',    status: 'live' },  // governed_coverage's topZones
+    { name: 'Confidentiality Distribution',   status: 'illustrative' }, // hardcoded sample array, no endpoint field
+  ],
+  usage: [
+    { name: 'Information Supply Chains',  status: 'live' },  // usage_context_counts
+    { name: 'Solution Blueprints',        status: 'live' },  // usage_context_counts
+    { name: 'Contextualised Coverage %',  status: 'illustrative' }, // /api/overview/usage-context returns contextualisedPct: null (traversal TODO -- see NEXT-7)
+  ],
+  quality: [
+    { name: 'Attention Queue',              status: 'illustrative' },
+    { name: 'Data Quality Coverage',        status: 'illustrative' },
+    { name: 'Certifications Expiring Soon', status: 'illustrative' },
+  ],
+  ai: [
+    { name: 'Semantic Grounding',      status: 'live' },  // semantic_grounding
+    { name: 'Ownership Coverage',      status: 'live' },  // ownership_coverage
+    { name: 'Cataloged / Classified',  status: 'live' },  // context_readiness_funnel
+    { name: 'Documented / Lineage-traced', status: 'live' }, // context_readiness_funnel, added 2026-08-01
+    { name: 'AI-Ready (composite)',    status: 'live' }, // ai_ready_assets -- true cross-criteria intersection, added 2026-08-01, closes NEXT-18's first worked example
+    { name: 'Context Products',        status: 'illustrative' },
+    { name: 'Active AI Consumers',     status: 'illustrative' }, // ai-context payload: consumers: null
+    { name: 'AI Guardrails',           status: 'illustrative' }, // ai-context payload: guardrails: null
+  ],
+  people: [
+    { name: 'People / Teams / Orgs / Communities', status: 'live' },  // people_counts
+    { name: 'Karma Records',                       status: 'live' },  // count_elements(ContributionRecord)
+    { name: 'Feedback Items / by Type',            status: 'live' },  // feedback_summary
+    { name: 'Karma Leaderboard',                   status: 'illustrative' }, // people payload: leaderboard: null (per-person rollup deferred)
+    { name: 'Engagement Over Time',                status: 'illustrative' }, // people payload: engagementSeries: null
+    { name: 'Most-Engaged Assets',                 status: 'illustrative' },
+  ],
+  activity: [
+    { name: 'Metadata Change Stream', status: 'illustrative' }, // no /api/overview/activity endpoint exists
+    { name: 'Activity by Type',       status: 'illustrative' },
+    { name: 'Most Active Stewards',   status: 'illustrative' },
+  ],
+};
+function computeSectionBadge(sectionKey){
+  const items = SECTION_PROVENANCE[sectionKey];
+  if (!items || !items.length) return null;
+  const statuses = new Set(items.map(i => i.status));
+  if (statuses.size === 1) return statuses.has('live') ? 'live' : 'illustrative';
+  return 'mixed';
+}
+const PROV_BADGE_HTML = {
+  live:         '<span class="prov prov-live">● live</span>',
+  mixed:        '<span class="prov prov-mix">◐ mixed</span>',
+  illustrative: '<span class="prov prov-sample">○ illustrative</span>',
+};
+function renderSectionBadges(){
+  document.querySelectorAll('.dash-sec').forEach(sec => {
+    const badgeKind = computeSectionBadge(sec.dataset.sec);
+    if (!badgeKind) return; // no SECTION_PROVENANCE entry -- leave static markup as-is
+    const badgeEl = sec.querySelector('.section-label .prov');
+    if (badgeEl) badgeEl.outerHTML = PROV_BADGE_HTML[badgeKind];
+  });
 }
 
 // Group each section-label + its content grids into a reorderable .dash-sec.
@@ -1271,6 +1532,7 @@ function applyPerspective(key){
   document.querySelectorAll('.persp-tabs button[data-persp]').forEach(b =>
     b.classList.toggle('on', b.getAttribute('data-persp') === key));
   renderSections();
+  applySectionVariants();
   renderQuestions(p.questions);
   try { localStorage.setItem('overview-perspective', key); } catch(e) {}
 }
@@ -1290,6 +1552,7 @@ function applyTopic(key){
 }
 
 buildSections();
+renderSectionBadges();
 document.querySelectorAll('.persp-tabs button[data-persp]').forEach(b =>
   b.addEventListener('click', () => applyPerspective(b.getAttribute('data-persp'))));
 document.querySelectorAll('.topic-tabs button[data-topic]').forEach(b =>
@@ -1463,6 +1726,47 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
   // KPI band + any section widgets it feeds. Sample values remain the fallback.
   // Each apply* writes numeric values into `store` (LIVE or the as-of BASE).
   // Section widgets + drill patches only update for the primary (displayed) store.
+  // Reveal each Business Value card's ⓘ button once TILE_INFO has an entry
+  // for it (loaded from /api/overview/specs' businessValue key) — hidden by
+  // default so there's no dead button if that fetch fails.
+  function renderBusinessValueInfoButtons(){
+    ['bv-risk', 'bv-productivity', 'bv-trust', 'bv-cost'].forEach(function(key){
+      if (!TILE_INFO[key]) return;
+      var btn = document.querySelector('.k-info[data-info="' + key + '"]');
+      if (btn) btn.style.display = 'inline';
+    });
+  }
+
+  // Business Value tiles (NEXT-9) — real signals from business_value_signals(),
+  // overlaid onto the sample baseline the same way every other section works.
+  // Degrades per-field: business_value_signals is new pyegeria (2026-08-02),
+  // so on a container whose installed package predates it every bv* field is
+  // null and this function is a no-op, leaving the "(sample)" text in place.
+  function renderBusinessValue(store){
+    var total = store.bvAssetTotal;
+    if (total == null) return;   // not live yet on this deployment — keep sample
+    setTxt('bv-prov', '● live'); var provEl = document.getElementById('bv-prov');
+    if (provEl) { provEl.className = 'prov prov-live'; }
+
+    if (store.bvConfidentialCount != null) {
+      setTxt('bv-risk-val', String(store.bvConfidentialCount));
+      setTxt('bv-risk-sub', 'Confidential-classified assets, of ' + num(total) + ' checked');
+    }
+    if (store.bvDescribedCount != null) {
+      var pct = total ? Math.round(100 * store.bvDescribedCount / total) : 0;
+      setTxt('bv-prod-val', pct + '%');
+      setTxt('bv-prod-sub', num(store.bvDescribedCount) + ' of ' + num(total) + ' assets have a description on file');
+    }
+    if (store.products != null) {
+      setTxt('bv-trust-val', String(store.products));
+      setTxt('bv-trust-sub', 'published data products');
+    }
+    if (store.bvDuplicateCount != null) {
+      setTxt('bv-cost-val', String(store.bvDuplicateCount));
+      setTxt('bv-cost-sub', 'elements flagged as consolidated duplicates');
+    }
+  }
+
   function applySummary(d, store, primary){
     if (!d) return;
     store.assets = d.assetTotal; store.terms = d.termCount;
@@ -1481,6 +1785,11 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     }
     if (d.dataProducts != null) store.products = d.dataProducts;
     if (d.openExceptions != null) store.exceptions = d.openExceptions;
+    store.bvAssetTotal = d.bvAssetTotal; store.bvAssetCapped = d.bvAssetCapped;
+    store.bvConfidentialCount = d.bvConfidentialCount;
+    store.bvDescribedCount = d.bvDescribedCount;
+    store.bvDuplicateCount = d.bvDuplicateCount;
+    if (primary) renderBusinessValue(store);
     if (!primary) return;
     // Assets-by-type live overlay (composition section) — real Vega-Lite bar
     // chart when the backend has one (NEXT-10 P1); falls back to hbars() rows
@@ -1546,12 +1855,23 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (d.groundingLinks != null) store.groundingLinks = d.groundingLinks;
     if (d.ownershipPct != null) store.ownershipPct = d.ownershipPct;
     if (d.ownershipCount != null) store.ownershipCount = d.ownershipCount;
+    if (d.aiReadyPct != null) store.aiReadyPct = d.aiReadyPct;
     if (!primary) return;
-    // AI section grounding tile + funnel (cataloged/classified live)
+    // AI section grounding tile + funnel — cataloged/classified/documented/
+    // lineage/aiReady all live as of 2026-08-01 (aiReady is the true
+    // composite from ai_ready_assets: governed AND documented AND
+    // lineage-traced simultaneously, not three independent counts — see
+    // NEXT-18). Context Products/Active AI Consumers/AI Guardrails remain
+    // sample — no backend signal for those yet.
     if (d.groundingPct != null) setTxt('ai-grounding', d.groundingPct + '%');
     var f = d.funnel || {};
     if (f.cataloged != null) setTxt('uc-cataloged', fmt(f.cataloged));
     if (f.classified != null) setTxt('uc-classified', fmt(f.classified));
+    if (f.documented != null) setTxt('uc-documented', fmt(f.documented));
+    if (f.lineage != null) setTxt('uc-lineage', fmt(f.lineage));
+    if (f.aiReady != null) setTxt('uc-airead', fmt(f.aiReady));
+    if (f.aiReady != null) setTxt('uc-ai-ready', fmt(f.aiReady));
+    if (d.aiReadyPct != null) setTxt('uc-ai-ready-sub', d.aiReadyPct + '% — governed + documented + lineage');
   }
 
   function applyGrowth(d){
@@ -1668,12 +1988,40 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (rs) rs.addEventListener('change', function(){ loadGrowth(rs.value); });
   }
 
+  // Fetch summary/usage text for the info bubble from the same registry that
+  // backs the generated Egeria Glossary (see TILE_INFO's own comment).
+  function loadTileInfo(){
+    return egeriaFetch('/api/overview/specs', CREDS).then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        if (!d) return;
+        if (d.specs) {
+          Object.keys(d.specs).forEach(function(k){
+            var ann = d.specs[k].annotations || {};
+            var summary = (ann.summary || [])[0];
+            var usage = (ann.usage || [])[0];
+            if (summary || usage) TILE_INFO[k] = { summary: summary || '', usage: usage || '' };
+          });
+        }
+        // Business Value tiles (NEXT-9) — plain dicts, not FormatSet/annotations-shaped,
+        // so read straight off the field names (see overview_specs.py's business_value_as_dicts()).
+        if (d.businessValue) {
+          Object.keys(d.businessValue).forEach(function(k){
+            var t = d.businessValue[k];
+            if (t.summary || t.usage) TILE_INFO[k] = { summary: t.summary || '', usage: t.usage || '' };
+          });
+        }
+        renderKPIs();
+        renderBusinessValueInfoButtons();
+      }).catch(function(){ /* info bubble is optional decoration — degrade silently */ });
+  }
+
   // Resolve creds: who am I → (demo) persona → egeria token. Degrade to env-default
   // server-side creds (no token) if any step is unavailable.
   function start(creds){
     CREDS = creds;
     wireControls();
     loadSet(LIVE, null, true).then(function(){ renderKPIs(); setBadge('live'); });
+    loadTileInfo();
     var rs = document.getElementById('range-sel');
     loadGrowth(rs ? rs.value : '6mo');
     stamp();

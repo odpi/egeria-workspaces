@@ -87,6 +87,22 @@ try:
 except ImportError:
     ownership_coverage = None
 
+# ai_ready_assets is new (2026-08-01) -- same defensive-import reasoning as
+# ownership_coverage above. This is the true composite (governed AND
+# documented AND lineage-traced simultaneously) that context_readiness_
+# funnel's own aiReady field deliberately still leaves None -- see NEXT-18.
+try:
+    from pyegeria.view.overview_metrics import ai_ready_assets
+except ImportError:
+    ai_ready_assets = None
+
+# business_value_signals is new (2026-08-02, NEXT-9) -- same defensive-import
+# reasoning as ownership_coverage/ai_ready_assets above.
+try:
+    from pyegeria.view.overview_metrics import business_value_signals
+except ImportError:
+    business_value_signals = None
+
 router = APIRouter(tags=["egeria-overview"])
 
 _HERE = Path(__file__).parent
@@ -266,6 +282,16 @@ def get_summary(
     # Certifications, licenses & open exceptions (governance relationships).
     certs = _certifications(url, server, user_id, user_pwd, as_of_time)
 
+    # Business Value tiles (NEXT-9) -- defensive: business_value_signals is
+    # new, not yet in a published pyegeria release (see the import above).
+    biz_value: dict = {"assetTotal": None, "assetCapped": None, "confidentialCount": None,
+                        "describedCount": None, "duplicateCount": None}
+    if business_value_signals is not None:
+        try:
+            biz_value = business_value_signals(mgr, as_of_time)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview summary: business_value_signals failed: {exc}")
+
     payload = {
         "asOfTime":         as_of_time,
         "assetTotal":       asset_total,
@@ -282,6 +308,11 @@ def get_summary(
         "licenses":         certs["licenses"],
         "dataProducts":     data_products,
         "openExceptions":   certs["exceptions"],
+        "bvAssetTotal":       biz_value["assetTotal"],
+        "bvAssetCapped":      biz_value["assetCapped"],
+        "bvConfidentialCount": biz_value["confidentialCount"],
+        "bvDescribedCount":   biz_value["describedCount"],
+        "bvDuplicateCount":   biz_value["duplicateCount"],
         "partial":          True,
         "source":           "live:summary",
     }
@@ -322,14 +353,42 @@ def get_ai_context(
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
-    readiness = context_readiness_funnel(mgr, as_of_time)
+    try:
+        ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview ai-context: ClassificationExplorer construction failed: {exc}")
+        ce = None
+
+    # documented/lineage now computed live (2026-08-01) -- see
+    # context_readiness_funnel's own docstring for exactly what each stage
+    # means; aiReady is still None (needs a true cross-criteria intersection,
+    # tracked under NEXT-18). This is a SIGNATURE change to an existing
+    # function (mgr, as_of) -> (mgr, ce, as_of), not a new one -- an older
+    # installed pyegeria still has the 2-arg form, so try the new signature
+    # first and fall back to the old one on TypeError, rather than letting
+    # cataloged/classified (which worked fine before this change) go dark
+    # too just because documented/lineage aren't available yet.
+    try:
+        readiness = context_readiness_funnel(mgr, ce, as_of_time)
+    except TypeError:
+        try:
+            readiness = context_readiness_funnel(mgr, as_of_time)  # pre-2026-08-01 pyegeria
+            readiness.setdefault("documented", None)
+            readiness.setdefault("lineage", None)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview ai-context: readiness funnel query failed (old signature): {exc}")
+            readiness = {"cataloged": None, "documented": None, "classified": None,
+                         "lineage": None, "aiReady": None}
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview ai-context: readiness funnel query failed: {exc}")
+        readiness = {"cataloged": None, "documented": None, "classified": None,
+                     "lineage": None, "aiReady": None}
 
     # Semantic grounding: SemanticAssignment relationships (term ↔ asset) — the
     # meaning layer that grounds AI. Count of assignments as a proxy for grounded links.
     grounding_links = None
     grounding_pct = None
     try:
-        ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
         grounding = semantic_grounding(mgr, ce, as_of_time)
         grounding_links = grounding["groundingLinks"]
         grounding_pct = grounding["groundingPct"]
@@ -350,6 +409,23 @@ def get_ai_context(
             ownership_pct = round(100 * ownership_count / total, 1)
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview ai-context: ownership query failed: {exc}")
+
+    # True AI-Ready composite (governed AND documented AND lineage-traced
+    # simultaneously) — the actual claim the "AI-Ready Assets" tile already
+    # makes in its own copy ("governed + documented + lineage"), not three
+    # independent counts. First real use of the composite/derived analytic
+    # metric pattern (NEXT-18). Feeds both the funnel's aiReady stage and the
+    # standalone AI-Ready Assets KPI tile.
+    ai_ready_count = None
+    ai_ready_pct = None
+    try:
+        ready = ai_ready_assets(mgr, ce, as_of_time)
+        ai_ready_count = ready["aiReadyCount"]
+        if ready["total"]:
+            ai_ready_pct = round(100 * ai_ready_count / ready["total"], 1)
+        readiness["aiReady"] = ai_ready_count
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview ai-context: ai_ready_assets query failed: {exc}")
 
     funnel = {
         "Cataloged":       readiness["cataloged"],
@@ -381,6 +457,7 @@ def get_ai_context(
         "groundingPct":    grounding_pct,
         "ownershipCount":  ownership_count,
         "ownershipPct":    ownership_pct,
+        "aiReadyPct":      ai_ready_pct,
         "partial":         True,
         "source":          "live:ai-context",
     }

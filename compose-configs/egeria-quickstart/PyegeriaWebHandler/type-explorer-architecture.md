@@ -34,7 +34,11 @@ Browser
   │  GET /api/digital-products/{guid}
   │
   │  ── Collections ────────────────────────────────────────────────────────────
-  │  GET /api/collections/roots[?include_templates=true]
+  │  GET /api/collections/roots[?include_templates=true&only_root_type=true]
+  │      only_root_type defaults to False server-side (all parentless
+  │      collections), but the frontend defaults its checkbox to True
+  │      (Root Collections only) — see type-explorer.html's onlyRootType
+  │      useState default.
   │  GET /api/collections/{guid}/tree
   │  GET /api/collections/{guid}
   │

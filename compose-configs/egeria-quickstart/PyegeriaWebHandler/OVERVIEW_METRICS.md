@@ -20,6 +20,20 @@ Backend: `overview_handler.py`. All endpoints share a 60 s TTL cache
 (`_CACHE_TTL`); `/api/overview/growth` uses a 15 min cache (`_GROWTH_TTL`).
 Client factories build tokened `pyegeria` clients per request.
 
+**Per-tile caveats (NEXT-24):** every tile below also carries a `summary` +
+`usage` text — the same content behind the dashboard's click-to-open "ⓘ"
+info bubble (fetched from `/api/overview/specs`) and behind a generated
+Egeria Glossary ("Egeria Dashboard Analytics", one GlossaryTerm per tile,
+under the "Egeria Dashboard" RootCollection — browsable in Egeria
+Explorer's Collections view). Several tiles have real scoping caveats
+(e.g. "Governed Coverage"'s numerator is not Asset-scoped while its
+denominator is; "Semantic Grounding" is dominated by
+`GovernanceActionProcess` elements, not `Asset`s). See
+`OVERVIEW_METRIC_GOVERNANCE.md` for the design and
+`OVERVIEW_ANALYTICS_GLOSSARY.dr-egeria.md` for the generated doc — this
+table itself doesn't repeat the full `usage` text, use the ⓘ bubble or the
+Glossary Term for that.
+
 ---
 
 ## KPI tile registry (generated)
