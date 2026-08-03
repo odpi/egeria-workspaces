@@ -518,6 +518,9 @@ ___
 ### Display Name
 Authoritative Source
 
+### Summary
+The trusted, best source of a particular type of information.
+
 ### Description
 The "best" source of a particular type of information — a system formally designated and overseen by the organisation (or a trusted external party) as the trusted origin of that information.
 
@@ -552,6 +555,9 @@ Information Supply Chain
 
 ### Abbreviation
 ISC
+
+### Summary
+A high-level view of how data and control move through a digital environment.
 
 ### Description
 A high-level depiction of how data and control move through a digital environment. It presents data flow at a level meaningful to business users and regulators, and connects to the underlying lineage-producing components that actually execute the flow so that activity, errors and volumetrics can be rolled up and audited.
@@ -588,6 +594,9 @@ Artificial Intelligence
 ### Abbreviation
 AI
 
+### Summary
+Techniques that let systems perform tasks normally requiring human intelligence.
+
 ### Description
 Computer systems and techniques, such as machine learning, that perform tasks which typically require human intelligence — including discovery, prediction, analysis and decision-making — over the data made available through Continuous Analytics and AI.
 
@@ -616,6 +625,9 @@ ___
 
 ### Display Name
 Subject Area
+
+### Summary
+A topic or domain of knowledge important to the organisation.
 
 ### Description
 A topic or domain of knowledge that is important to the organisation. Subject areas typically cover data that is widely shared across the business, where keeping values consistent across multiple copies has real business value.
@@ -649,6 +661,9 @@ ___
 ### Display Name
 Glossary
 
+### Summary
+A collection of semantic definitions for the meaning of data.
+
 ### Description
 A collection of semantic definitions, typically focused on defining the meaning of data. A glossary's content — glossary terms, categories, term relationships and classifications — should have a clearly identified owner responsible for its quality.
 
@@ -680,6 +695,9 @@ ___
 
 ### Display Name
 Multi-faceted Governance
+
+### Summary
+Coordinated governance spanning data, infrastructure, privacy, security and operations.
 
 ### Description
 An integrated governance program covering data, infrastructure, privacy, security and corporate operations, coordinated across multiple governance leaders rather than being handed to a single team.
@@ -713,6 +731,9 @@ ___
 ### Display Name
 Data Hub
 
+### Summary
+A collector of authoritative data stores suitable for sharing.
+
 ### Description
 A collector of data stores that contain authoritative data that is suitable for sharing.
 
@@ -744,6 +765,9 @@ ___
 
 ### Display Name
 Data Dictionary
+
+### Summary
+A curated reference collection of data definitions.
 
 ### Description
 An organized and curated collection of data definitions that can serve as a reference for data professionals — describing the data fields found in a particular data store, or the typical data fields within a subject area.
@@ -777,6 +801,9 @@ ___
 ### Display Name
 Glossary Term
 
+### Summary
+A defined meaning for a word or phrase.
+
 ### Description
 Describes the meaning of a word or phrase. The definition includes examples, abbreviations and a detailed description, and the same term may have several distinct meanings, each recorded as its own glossary term.
 
@@ -808,6 +835,9 @@ ___
 
 ### Display Name
 Solution Blueprint
+
+### Summary
+A collection of components that together deliver a business solution.
 
 ### Description
 A collection that assembles the solution components that together deliver a business solution, visualized at a level of abstraction suited to team discussion and stakeholder agreement rather than technical specification.
@@ -841,6 +871,9 @@ ___
 ### Display Name
 Governance
 
+### Summary
+Directing, monitoring and controlling an organisation's use of its data.
+
 ### Description
 The people, processes and technology used to direct, monitor and control an organisation's use of its data and information assets, so that they are managed consistently, securely and ethically.
 
@@ -869,6 +902,9 @@ ___
 
 ### Display Name
 Schema
+
+### Summary
+Describes the structure of the data held by an asset.
 
 ### Description
 Describes the structure of the data associated with an asset. Schemas are represented as linked subgraphs of schema elements, starting with a root schema type and made up of schema attributes that describe individual data fields.
@@ -902,6 +938,9 @@ ___
 ### Display Name
 Lineage
 
+### Summary
+Shows how data flows and is processed from origin to destination.
+
 ### Description
 Shows how data flows from its origins to its various destinations, including details of the processing along the way. Lineage supports traceability, impact analysis when changes occur, and validation that operational processes are executing correctly.
 
@@ -934,6 +973,9 @@ ___
 ### Display Name
 Data Sharing Agreement
 
+### Summary
+An agreement covering the sharing of data between parties.
+
 ### Description
 An agreement that indicates its subject relates to the sharing of data. The related data specifications can be attached as members of the agreement, and the responsibilities of each party are identified through agreement actor relationships.
 
@@ -945,6 +987,41 @@ Glossary::DataSharingGlossary::DataSharingAgreement
 
 ### URL
 https://egeria-project.org/types/7/0711-Agreements/
+
+### Authors
+- Jules Keeper
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+---
+
+___
+
+## Create Glossary Term
+
+### Display Name
+Literate Governance
+
+### Summary
+Documenting governance decisions in plain language alongside the commands that implement them.
+
+### Description
+A concept, borrowed from Donald Knuth's Literate Programming, that emphasises documentation and communication in the governance process. Rather than disconnected code or rigid forms, governance officers, data stewards and engineers author integrated documents that explain _why_ a structure exists in plain natural language, right alongside the precise commands that _create_ it — so that governance decisions are made in a transparent and consistent manner.
+
+### Glossary Name
+Glossary::DataSharingGlossary
+
+### Qualified Name
+Glossary::DataSharingGlossary::LiterateGovernance
+
+### URL
+https://egeria-project.org/concepts/literate-governance/
 
 ### Authors
 - Jules Keeper

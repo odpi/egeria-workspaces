@@ -2,11 +2,13 @@
 
 This directory contains five Dr.Egeria Markdown files.  The first two were created by [Jules Keeper](https://egeria-project.org/practices/coco-pharmaceuticals/personas/jules-keeper/) to describe his plan for the first 90 days at Coco Pharmaceuticals and his data strategy framework. 
 
+![Governance leaders](https://raw.githubusercontent.com/odpi/egeria-docs/main/site/docs/practices/coco-pharmaceuticals/scenarios/defining-the-data-strategy/jules-writing-data-strategy.png)
+
 The other documents are [built by the Governance Leaders](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/building-the-governance-team/overview/) in Coco Pharmaceuticals.
 
 ![Governance leaders](https://raw.githubusercontent.com/odpi/egeria-docs/main/site/docs/practices/coco-pharmaceuticals/scenarios/building-the-governance-team/meeting-of-the-governance-leaders-2.png)
 
-The files themselves are worth browsing.  They contain a narrative describing the definitions and the rationale behind them.  The instructions below describe how to load these definitions into Egeria.  Then you can browse the results in [Egeria Explorer](https://egeria-project.org/user-interfaces/egeria-explorer/overview/) in the Egeria Portal.  Select the **Collections** card and then **Governance Folios**.
+The files themselves are worth browsing.  They contain a narrative describing the definitions and the rationale behind them.  The instructions below describe how to load these definitions into Egeria.  Then you can browse the results in [Egeria Explorer](https://egeria-project.org/user-interfaces/egeria-explorer/overview/) in the Egeria Portal.
 
 -----
 
@@ -24,19 +26,26 @@ You can load the definitions into Egeria in one of two ways:
      
     ```
 
+Once loaded, you can browse the results in [Egeria Explorer](https://egeria-project.org/user-interfaces/egeria-explorer/overview/) in the Egeria Portal.  Select the **Projects** card and then **My Ninety Day Plan**.
+
+![My 90 Day Plan](egeria-90-day-plan.png)
 -----
 ## The Data Strategy Framework
 
-The file [data-stategy-framework.md](data-stategy-framework.md) defines a solution blueprint and a glossary defining the initial capabilities that Coco Pharmaceuticals needed to develop to enable them to safely share data between the business units.
+The file [data-strategy-framework.md](data-strategy-framework.md) defines a solution blueprint and a glossary defining the initial capabilities that Coco Pharmaceuticals needed to develop to enable them to safely share data between the business units.
 
 You can load the definitions into Egeria in one of two ways:
 
-1. From Obsidian - open the `data-stategy-framework.md` file and click the suitcase icon labeled "Call Dr. Egeria (MCP)"
+1. From Obsidian - open the `data-strategy-framework.md` file and click the suitcase icon labeled "Call Dr. Egeria (MCP)"
 2. From the command line in JupyterLab. Make sure you are in this directory and issue the command:
 
     ```
-    dr_egeria --directive process data-stategy-framework.md
-     
+    dr_egeria --directive process data-strategy-framework.md
+    ```
+
+Once loaded, you can browse the results in [Egeria Explorer](https://egeria-project.org/user-interfaces/egeria-explorer/overview/) in the Egeria Portal.  Select the **Solution Architect** card and then **Data Strategy Framework**.
+
+![Data Strategy Framework](egeria-data-strategy-framework.png)
 
 -----
 
