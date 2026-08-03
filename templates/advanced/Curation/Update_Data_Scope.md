@@ -1,32 +1,14 @@
 ___
 
-## Create Journal Activity
-> Journal about your actiity.
+## Update Data Scope
+> Update the Data Scope classification (0210) already applied to an element.
 
-### Display Name
+### Target Element
 >	**Input Required**: True
 
->	**Attribute Type**: Simple
+>	**Attribute Type**: Reference Name
 
->	**Description**: The common name of an element.
-
->	**Alternative Labels**: "Term Name"
-
-
-### Expected Behavior
->	**Input Required**: False
-
->	**Attribute Type**: Simple
-
->	**Description**: Optionally descibe action to be taken.
-
-
-### Situation
->	**Input Required**: False
-
->	**Attribute Type**: Simple
-
->	**Description**: Describe the notification (title/summary)
+>	**Description**: Qualified name of the existing element being classified or linked.
 
 
 ### Journal Entry
@@ -45,14 +27,6 @@ ___
 >	**Description**: A description.
 
 
-### Qualified Name
->	**Input Required**: False
-
->	**Attribute Type**: QN
-
->	**Description**: The unique, text name of an element.
-
-
 ### Category
 >	**Input Required**: False
 
@@ -63,14 +37,12 @@ ___
 >	**Alternative Labels**: Category Name
 
 
-### GUID
+### Qualified Name
 >	**Input Required**: False
 
->	**Attribute Type**: GUID
+>	**Attribute Type**: QN
 
->	**Description**: A unique identifier - typically of an element in this context.
-
->	**Alternative Labels**: guid; Guid
+>	**Description**: A unique qualified name for the element. Generated using the qualified name pattern  if not user specified.
 
 
 ### Version Identifier
@@ -93,6 +65,16 @@ ___
 >	**Description**: role identifier
 
 >	**Alternative Labels**: ID
+
+
+### GUID
+>	**Input Required**: False
+
+>	**Attribute Type**: GUID
+
+>	**Description**: A system generated unique identifier.
+
+>	**Alternative Labels**: Guid; guid
 
 
 ### URL
@@ -173,6 +155,18 @@ ___
 >	**Attribute Type**: Simple
 
 >	**Description**: A user provided or system generated request id for a conversation.
+
+
+### Additional Properties
+>	**Input Required**: False
+
+>	**Attribute Type**: Dictionary
+
+>	**Description**: Additional Properties  allow arbitrary properties not defined in the type definitions to be added to any referenceable element.
+
+>	| Parameter Name | Parameter Value |
+>	|---|---|
+>	| example_key | example_value |
 
 
 ### Status
@@ -273,18 +267,6 @@ ___
 >	**Alternative Labels**: Merge
 
 >	**Default Value**: True
-
-
-### Additional Properties
->	**Input Required**: False
-
->	**Attribute Type**: Dictionary
-
->	**Description**: Additional user defined values organized as name value pairs in a dictionary.
-
->	| Parameter Name | Parameter Value |
->	|---|---|
->	| example_key | example_value |
 
 
 ### Supplementary Properties

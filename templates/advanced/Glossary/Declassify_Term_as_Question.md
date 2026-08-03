@@ -1,32 +1,16 @@
 ___
 
-## Create Journal Activity
-> Journal about your actiity.
+## Declassify Term as Question
+> Remove the Question classification from a glossary term
 
-### Display Name
+### Term Name
 >	**Input Required**: True
 
->	**Attribute Type**: Simple
+>	**Attribute Type**: Reference Name
 
->	**Description**: The common name of an element.
+>	**Description**: The name of a term.
 
->	**Alternative Labels**: "Term Name"
-
-
-### Expected Behavior
->	**Input Required**: False
-
->	**Attribute Type**: Simple
-
->	**Description**: Optionally descibe action to be taken.
-
-
-### Situation
->	**Input Required**: False
-
->	**Attribute Type**: Simple
-
->	**Description**: Describe the notification (title/summary)
+>	**Alternative Labels**: Term; Term Name
 
 
 ### Journal Entry
@@ -35,22 +19,6 @@ ___
 >	**Attribute Type**: Simple
 
 >	**Description**: A text entry into a journal.
-
-
-### Description
->	**Input Required**: False
-
->	**Attribute Type**: Simple
-
->	**Description**: A description.
-
-
-### Qualified Name
->	**Input Required**: False
-
->	**Attribute Type**: QN
-
->	**Description**: The unique, text name of an element.
 
 
 ### Category
@@ -63,14 +31,12 @@ ___
 >	**Alternative Labels**: Category Name
 
 
-### GUID
+### Qualified Name
 >	**Input Required**: False
 
->	**Attribute Type**: GUID
+>	**Attribute Type**: QN
 
->	**Description**: A unique identifier - typically of an element in this context.
-
->	**Alternative Labels**: guid; Guid
+>	**Description**: A unique qualified name for the element. Generated using the qualified name pattern  if not user specified.
 
 
 ### Version Identifier
@@ -93,6 +59,16 @@ ___
 >	**Description**: role identifier
 
 >	**Alternative Labels**: ID
+
+
+### GUID
+>	**Input Required**: False
+
+>	**Attribute Type**: GUID
+
+>	**Description**: A system generated unique identifier.
+
+>	**Alternative Labels**: Guid; guid
 
 
 ### URL

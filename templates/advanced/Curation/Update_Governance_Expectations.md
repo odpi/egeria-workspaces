@@ -1,32 +1,26 @@
 ___
 
-## Create Journal Activity
-> Journal about your actiity.
+## Update Governance Expectations
+> Update the Governance Expectations classification (0450) already applied to an element.
 
-### Display Name
+### Target Element
 >	**Input Required**: True
 
->	**Attribute Type**: Simple
+>	**Attribute Type**: Reference Name
 
->	**Description**: The common name of an element.
-
->	**Alternative Labels**: "Term Name"
+>	**Description**: Qualified name of the existing element being classified or linked.
 
 
-### Expected Behavior
+### Governance Expectations Counts
 >	**Input Required**: False
 
->	**Attribute Type**: Simple
+>	**Attribute Type**: Dictionary
 
->	**Description**: Optionally descibe action to be taken.
+>	**Description**: Map of named governance expectation counts/thresholds (0450 GovernanceExpectations classification).
 
-
-### Situation
->	**Input Required**: False
-
->	**Attribute Type**: Simple
-
->	**Description**: Describe the notification (title/summary)
+>	| Parameter Name | Parameter Value |
+>	|---|---|
+>	| example_key | example_value |
 
 
 ### Journal Entry
@@ -35,22 +29,6 @@ ___
 >	**Attribute Type**: Simple
 
 >	**Description**: A text entry into a journal.
-
-
-### Description
->	**Input Required**: False
-
->	**Attribute Type**: Simple
-
->	**Description**: A description.
-
-
-### Qualified Name
->	**Input Required**: False
-
->	**Attribute Type**: QN
-
->	**Description**: The unique, text name of an element.
 
 
 ### Category
@@ -63,14 +41,12 @@ ___
 >	**Alternative Labels**: Category Name
 
 
-### GUID
+### Qualified Name
 >	**Input Required**: False
 
->	**Attribute Type**: GUID
+>	**Attribute Type**: QN
 
->	**Description**: A unique identifier - typically of an element in this context.
-
->	**Alternative Labels**: guid; Guid
+>	**Description**: A unique qualified name for the element. Generated using the qualified name pattern  if not user specified.
 
 
 ### Version Identifier
@@ -93,6 +69,16 @@ ___
 >	**Description**: role identifier
 
 >	**Alternative Labels**: ID
+
+
+### GUID
+>	**Input Required**: False
+
+>	**Attribute Type**: GUID
+
+>	**Description**: A system generated unique identifier.
+
+>	**Alternative Labels**: Guid; guid
 
 
 ### URL

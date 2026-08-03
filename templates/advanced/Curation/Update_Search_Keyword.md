@@ -1,32 +1,40 @@
 ___
 
-## Create Journal Activity
-> Journal about your actiity.
+## Update Search Keyword
+> Update a search keyword already attached to an element (0012 SearchKeyword).
 
-### Display Name
+### Target Element
+>	**Input Required**: True
+
+>	**Attribute Type**: Reference Name
+
+>	**Description**: Qualified name of the existing element being classified or linked.
+
+
+### Keyword
 >	**Input Required**: True
 
 >	**Attribute Type**: Simple
 
->	**Description**: The common name of an element.
-
->	**Alternative Labels**: "Term Name"
+>	**Description**: Text of the search keyword being attached to the element (0012 SearchKeyword).
 
 
-### Expected Behavior
+### Label
 >	**Input Required**: False
 
 >	**Attribute Type**: Simple
 
->	**Description**: Optionally descibe action to be taken.
+>	**Description**: A label used to identify or categorise a relationship link.
+
+>	**Alternative Labels**: Wire Label
 
 
-### Situation
+### Keyword Description
 >	**Input Required**: False
 
 >	**Attribute Type**: Simple
 
->	**Description**: Describe the notification (title/summary)
+>	**Description**: Description of the search keyword (0012 SearchKeyword).
 
 
 ### Journal Entry
@@ -45,14 +53,6 @@ ___
 >	**Description**: A description.
 
 
-### Qualified Name
->	**Input Required**: False
-
->	**Attribute Type**: QN
-
->	**Description**: The unique, text name of an element.
-
-
 ### Category
 >	**Input Required**: False
 
@@ -63,14 +63,12 @@ ___
 >	**Alternative Labels**: Category Name
 
 
-### GUID
+### Qualified Name
 >	**Input Required**: False
 
->	**Attribute Type**: GUID
+>	**Attribute Type**: QN
 
->	**Description**: A unique identifier - typically of an element in this context.
-
->	**Alternative Labels**: guid; Guid
+>	**Description**: A unique qualified name for the element. Generated using the qualified name pattern  if not user specified.
 
 
 ### Version Identifier
@@ -93,6 +91,16 @@ ___
 >	**Description**: role identifier
 
 >	**Alternative Labels**: ID
+
+
+### GUID
+>	**Input Required**: False
+
+>	**Attribute Type**: GUID
+
+>	**Description**: A system generated unique identifier.
+
+>	**Alternative Labels**: Guid; guid
 
 
 ### URL
@@ -173,6 +181,24 @@ ___
 >	**Attribute Type**: Simple
 
 >	**Description**: A user provided or system generated request id for a conversation.
+
+
+### Anchor Scope IDs
+>	**Input Required**: False
+
+>	**Attribute Type**: Reference Name List
+
+>	**Description**: A list of IDs that are anchor scopes for this element.
+
+
+### Make Anchor
+>	**Input Required**: False
+
+>	**Attribute Type**: Bool
+
+>	**Description**: Is the element at end2 an anchor to end1?
+
+>	**Default Value**: false
 
 
 ### Status

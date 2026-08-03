@@ -1,7 +1,7 @@
 ___
 
-## Create Journal Activity
-> Journal about your actiity.
+## Create Note
+> PARSE-ONLY STUB: no NoteProperties/NoteLogEntryProperties type exists anywhere in pyegeria yet — a new Egeria type is in progress. Template/help generation only; do NOT wire a processor for this command until the type ships and is confirmed.
 
 ### Display Name
 >	**Input Required**: True
@@ -13,20 +13,44 @@ ___
 >	**Alternative Labels**: "Term Name"
 
 
-### Expected Behavior
->	**Input Required**: False
-
->	**Attribute Type**: Simple
-
->	**Description**: Optionally descibe action to be taken.
-
-
 ### Situation
 >	**Input Required**: False
 
 >	**Attribute Type**: Simple
 
 >	**Description**: Describe the notification (title/summary)
+
+
+### Objective
+>	**Input Required**: False
+
+>	**Attribute Type**: Simple
+
+>	**Description**: The intended outcome/goal of a Meeting, ToDo, or Review person action.
+
+
+### Priority
+>	**Input Required**: False
+
+>	**Attribute Type**: Simple Int
+
+>	**Description**: An integer priority for the project.
+
+
+### Requested Start Time
+>	**Input Required**: False
+
+>	**Attribute Type**: Simple
+
+>	**Description**: Requested start date/time for a Meeting, ToDo, or Review person action.
+
+
+### Due Time
+>	**Input Required**: False
+
+>	**Attribute Type**: Simple
+
+>	**Description**: Due date/time for a Meeting, ToDo, or Review person action.
 
 
 ### Journal Entry
@@ -45,14 +69,6 @@ ___
 >	**Description**: A description.
 
 
-### Qualified Name
->	**Input Required**: False
-
->	**Attribute Type**: QN
-
->	**Description**: The unique, text name of an element.
-
-
 ### Category
 >	**Input Required**: False
 
@@ -63,14 +79,24 @@ ___
 >	**Alternative Labels**: Category Name
 
 
-### GUID
+### Qualified Name
 >	**Input Required**: False
 
->	**Attribute Type**: GUID
+>	**Attribute Type**: QN
 
->	**Description**: A unique identifier - typically of an element in this context.
+>	**Description**: A unique qualified name for the element. Generated using the qualified name pattern  if not user specified.
 
->	**Alternative Labels**: guid; Guid
+
+### Activity Status
+>	**Input Required**: False
+
+>	**Attribute Type**: Valid Value
+
+>	**Description**: The status of an activity - one of an enumerated set of values.
+
+>	**Valid Values**: REQUESTED,APPROVED,WAITING,ACTIVATING,IN_PROGRESS,PAUSED,COMPLETED,INVALID,IGNORED,FAILED,CANCELLED,ABANDONED,OTHER
+
+>	**Default Value**: REQUESTED
 
 
 ### Version Identifier
@@ -93,6 +119,16 @@ ___
 >	**Description**: role identifier
 
 >	**Alternative Labels**: ID
+
+
+### GUID
+>	**Input Required**: False
+
+>	**Attribute Type**: GUID
+
+>	**Description**: A system generated unique identifier.
+
+>	**Alternative Labels**: Guid; guid
 
 
 ### URL
