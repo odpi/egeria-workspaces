@@ -103,6 +103,16 @@ try:
 except ImportError:
     business_value_signals = None
 
+# drl_readiness_gates is new (2026-08-02/03, NEXT-8 §1.9) -- same defensive-
+# import reasoning as the three above. Not a full DRL band distribution (see
+# its own docstring): a recency-narrowed view of ai_ready_assets plus a
+# modality breakdown, until Survey Annotation coverage and a Structural
+# Readiness sub-check exist to certify the Analytics-Ready/RAG-Ready rungs.
+try:
+    from pyegeria.view.overview_metrics import drl_readiness_gates
+except ImportError:
+    drl_readiness_gates = None
+
 router = APIRouter(tags=["egeria-overview"])
 
 _HERE = Path(__file__).parent
@@ -441,6 +451,22 @@ def get_ai_context(
     funnel_chart = generate_vega_funnel_chart(funnel, title="Context Readiness Funnel") \
         if generate_vega_funnel_chart else None
 
+    # DRL (Data Readiness Level) recency + modality (NEXT-8 §1.9) -- not a full
+    # band distribution, see drl_readiness_gates' own docstring for exactly
+    # what this is/isn't. None on an older pyegeria (see defensive import above).
+    drl_recent_count = None
+    drl_recent_pct = None
+    drl_by_modality = None
+    if drl_readiness_gates is not None:
+        try:
+            drl = drl_readiness_gates(mgr, ce, as_of_time)
+            drl_recent_count = drl["aiReadyRecentCount"]
+            if drl["aiReadyCount"]:
+                drl_recent_pct = round(100 * drl_recent_count / drl["aiReadyCount"], 1)
+            drl_by_modality = drl["byModality"]
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview ai-context: drl_readiness_gates query failed: {exc}")
+
     payload = {
         "asOfTime":  as_of_time,
         "funnel": {
@@ -458,6 +484,9 @@ def get_ai_context(
         "ownershipCount":  ownership_count,
         "ownershipPct":    ownership_pct,
         "aiReadyPct":      ai_ready_pct,
+        "drlRecentCount":  drl_recent_count,
+        "drlRecentPct":    drl_recent_pct,
+        "drlByModality":   drl_by_modality,
         "partial":         True,
         "source":          "live:ai-context",
     }
