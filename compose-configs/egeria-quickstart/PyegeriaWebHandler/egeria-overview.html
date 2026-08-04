@@ -594,6 +594,7 @@
       <div class="funnel-row" data-drill="funnel-lineage"><span class="lab">Lineage-traced</span><div class="funnel-track"><div class="funnel-fill" style="width:55%;background:var(--c3)"><span id="uc-lineage">705</span></div></div><span class="conv">55%</span></div>
       <div class="funnel-row" data-drill="funnel-airead"><span class="lab" style="font-weight:700">AI-Ready</span><div class="funnel-track"><div class="funnel-fill" style="width:48%;background:var(--c4)"><span id="uc-airead">612</span></div></div><span class="conv">48%</span></div>
       <div style="margin-top:11px;font-size:.74rem;color:var(--muted);line-height:1.5;border-top:1px solid var(--border);padding-top:9px"><b style="color:var(--text)">Business value:</b> grounded, lineage-backed context = fewer hallucinations and a full audit trail of what an agent was allowed to see.</div>
+      <div id="drl-line" style="margin-top:7px;font-size:.74rem;color:var(--muted);line-height:1.5"><b style="color:var(--text)">DRL readiness:</b> <span id="drl-recent">—</span> · <span id="drl-modality">—</span></div>
     </div>
 
     <div class="panel">
@@ -1872,6 +1873,18 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (f.aiReady != null) setTxt('uc-airead', fmt(f.aiReady));
     if (f.aiReady != null) setTxt('uc-ai-ready', fmt(f.aiReady));
     if (d.aiReadyPct != null) setTxt('uc-ai-ready-sub', d.aiReadyPct + '% — governed + documented + lineage');
+    // DRL recency + modality (NEXT-8 §1.9) — a narrowing of AI-Ready by last-
+    // update recency, not yet a full Analytics-Ready/RAG-Ready band
+    // distribution (Survey Annotation + Structural Readiness gates are still
+    // open decisions — see OVERVIEW_CONTEXT_INTELLIGENCE.md §1.9). Left as
+    // "—" rather than faked when the backend hasn't computed it yet.
+    if (d.drlRecentPct != null) {
+      setTxt('drl-recent', d.drlRecentPct + '% of AI-Ready assets updated recently');
+    }
+    if (d.drlByModality) {
+      var m = d.drlByModality;
+      setTxt('drl-modality', fmt(m.tabular) + ' tabular · ' + fmt(m.text_media) + ' text/media · ' + fmt(m.other) + ' other');
+    }
   }
 
   function applyGrowth(d){
