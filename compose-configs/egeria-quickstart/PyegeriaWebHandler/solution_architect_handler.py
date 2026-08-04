@@ -153,7 +153,13 @@ def _serialize_component_summary(element: dict) -> dict:
         "displayName":       props.get("displayName") or props.get("name") or "",
         "qualifiedName":     props.get("qualifiedName") or "",
         "description":       props.get("description") or "",
-        "componentType":     props.get("componentType") or "",
+        # Real Egeria property is "solutionComponentType" (SolutionComponentProperties.java);
+        # "componentType" was never a real field, so this always came back empty.
+        "componentType":     props.get("solutionComponentType") or "",
+        "plannedDeployedImplementationType": props.get("plannedDeployedImplementationType") or "",
+        # Inherited from DesignModelElementProperties (shared by every "design model
+        # element" type -- SolutionComponent, SolutionPort, ConceptBead*).
+        "canonicalName":     props.get("canonicalName") or "",
         "versionIdentifier": props.get("versionIdentifier") or "",
         "lifecycleStatus":   props.get("lifecycleStatus") or "",
         "userDefinedStatus": props.get("userDefinedStatus") or "",
