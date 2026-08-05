@@ -2118,10 +2118,15 @@ def _fetch_detail(mgr, guid: str, section: Optional[str], as_of_time: Optional[s
     # metadata element type, including non-Assets (Referenceable subtypes, etc.)
     try:
         ce = _classification_explorer_from_asset_maker(mgr)
-        body = {"class": "GetRequestBody", "graphQueryDepth": 3}
+        # When `body` is an explicit dict, pyegeria's _async_get_guid_request validates
+        # it AS-IS and ignores the graph_query_depth/max_mermaid_node_count kwargs below
+        # entirely -- graphQueryDepth/maxMermaidNodeCount must live in the body dict
+        # itself. Default max_mermaid_node_count=5 otherwise truncates any mermaid
+        # diagram on this node -- see egeria-python PYEGERIA_ISSUES.md ISSUE-23.
+        body = {"class": "GetRequestBody", "graphQueryDepth": 3, "maxMermaidNodeCount": 250}
         if as_of_time:
             body["asOfTime"] = as_of_time
-        raw = ce.get_element_by_guid(guid=guid, graph_query_depth=3, output_format="JSON", body=body)
+        raw = ce.get_element_by_guid(guid=guid, output_format="JSON", body=body)
         el = raw[0] if isinstance(raw, list) and raw else (raw if isinstance(raw, dict) else None)
         if el and isinstance(el, dict):
             return el

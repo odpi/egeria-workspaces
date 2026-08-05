@@ -356,6 +356,99 @@ each is settled:
    truth for both. Sub-certifications (purpose/domain-scoped variants)
    remain explicitly backlogged, not designed.
 
+### 1.10 Asset-level visibility, and "AI-Ready Data Products" as a curation pipeline (2026-08-04, NEXT-25)
+
+Raised directly in discussion, prompted by the live AI-Ready number landing
+at 4 (0.2%) with lineage as the binding gate (§2.2's live-data caveat, new
+`ai-ready` tile). Two related but distinct asks:
+
+**1. Asset-level drill-down — "which assets", not just "how many". RESOLVED
+2026-08-04: home is Egeria Insights, generalized beyond just lineage.** Every
+Tier 1/2/3 tile so far is a count or percentage; none let a user see *which*
+assets are/aren't documented, *which* classifications a given asset carries,
+or *what kind* of lineage it has. Consistent with Overview's own "glance →
+inspect → act (jump to owning app)" principle (deliberately not a full asset
+browser itself), the receiving app is **Egeria Insights** — it already had
+compound classification/zone/property search (`POST /api/insights/search`);
+extended with:
+- **Relationship conditions** — "has/lacks a relationship of type X",
+  combined ALL/ANY/NONE same as classification conditions. Computed
+  client-side (`_relationship_guid_set`/`_annotate_relationships`/
+  `_filter_by_relationships` in `insights_handler.py`) since Egeria's find
+  API has no relationship-presence filter — same GUID-set pattern
+  `overview_metrics.ai_ready_assets` already used, generalized to N
+  relationship types. "lacks" is the enrichment-backlog case this section's
+  point 2 needs. Results carry a `relationships: {type: bool}` field;
+  aggregates show has/lacks tallies; an honest `relationshipFilterNote`
+  warns when the filter only covers a fetched page, not the full matching
+  population (non-`full_count` mode).
+- **A real bug found and fixed along the way**: `find_metadata_elements`
+  silently ignores `start_from`/`page_size` on this server/client
+  combination and returns the full matching set on every call (previously
+  known from `overview_metrics.growth_series`, not yet connected to this
+  file) — the pre-existing `full_count` pagination loop assumed real
+  pagination and kept re-appending the same ~1,700 elements until hitting
+  the hard cap, silently multiplying `total`/`aggregates`. Fixed by
+  deduping on GUID as pages accumulate and stopping once a page adds zero
+  new GUIDs — correct whether or not the server actually paginates.
+- **Sorting**: click-to-sort in the results table already existed
+  (`RESULT_COLUMNS`); extended with a `Relationships` column, sortable the
+  same way — sorting it descending surfaces "closest to ready, missing just
+  one thing" first.
+- **Deep-link seeding**: `/egeria-insights?type=Asset&rel=DataFlow:lacks`
+  (comma-separated `Type:presence` pairs) pre-fills the search and jumps
+  straight to the Governance Search tab — no `?tab=` needed. Overview's
+  `ai-ready` drill drawer's primary CTA now points here ("Find assets
+  missing lineage"), replacing a link to an illustrative-only tile.
+  Live-verified end-to-end against the real dataset: only 1 of ~1,700
+  Assets is Confidentiality-classified (matches NEXT-9's earlier finding),
+  and only 10 distinct elements graph-wide participate in any `DataFlow`
+  relationship — the real, honest reason `ai-ready` reads 0.2%.
+
+**2. "AI-Ready Data Products" — reframing AI-readiness from a passive
+filter to an active curation pipeline.** The core idea: instead of only
+*measuring* what fraction of the existing catalog happens to already be
+governed+documented+lineage-traced (a largely passive, backward-looking
+number — and one this dataset shows is often low simply because most
+assets were never curated with AI consumption in mind), model an explicit
+**process**: identify a valuable/interesting asset or asset cluster → *enrich*
+it (add the missing description, classification, lineage) → bundle the
+enriched result into a `DigitalProduct` → certify *the product* (not the
+raw asset) as AI-Ready. This reframes the low "4 assets" number from "the
+catalog is failing" into "here is the enrichment backlog" — a work queue,
+not just a score.
+
+This connects several pieces already in this project rather than requiring
+a new mechanism from scratch:
+- **`DigitalProduct`** is already a first-class Overview concept (the Data
+  Products KPI tile, Trust & Adoption's business-value framing) — "AI-Ready
+  Data Product" is a natural refinement of it, not a new type.
+- **§1.9's Certification discussion** becomes cleaner reframed this way:
+  Certification fits a deliberately-published, curated thing (a Product)
+  far more naturally than an arbitrary raw catalog Asset — this may resolve
+  which target §1.9 left implicit. Open question: does certifying the
+  Product also imply/cascade something about its member Assets, or is the
+  Product's certification independent of its members' individual DRL bands?
+- **The Context Readiness Funnel's own steepest-drop diagnostic** (now
+  written into the `ai-ready` tile's `usage` text) is effectively the
+  *candidate list* for this pipeline's first step — "which gate is binding"
+  per asset is exactly what an enrichment backlog needs to prioritize.
+- **Data Lens Conformance (§2.5)** is the natural *purpose* filter for
+  picking which assets are worth enriching in the first place — "valuable
+  for a RAG chatbot" and "valuable for a forecasting agent" would surface
+  different candidate assets, same per-purpose parameterization already
+  designed there.
+
+**Not yet designed, deliberately** (this is a direction, not a build-ready
+spec): what "enhance" means operationally (a manual steward workflow? a
+Dr.Egeria-assisted guided command? automated suggestions from the funnel's
+own gap data?); what triggers bundling enriched assets into a
+`DigitalProduct` (steward-initiated? a threshold-based suggestion?); and
+whether this becomes a Dr.Egeria command family (in the shape of
+`Create Dashboard Sheet`'s own local-first precedent, or fully
+Egeria-native from the start since `DigitalProduct`/`Certification` are
+already real Egeria types, unlike Dashboard Sheet). BACKLOG.md NEXT-25.
+
 ---
 
 ## Part 2 — Design

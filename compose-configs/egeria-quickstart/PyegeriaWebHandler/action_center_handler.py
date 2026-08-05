@@ -197,7 +197,15 @@ def get_action(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
-        element = mgr.get_metadata_element_by_guid(guid, graph_query_depth=1, output_format="JSON")
+        # get_metadata_element_by_guid builds its own body internally when body=None
+        # and does NOT forward **kwargs to the underlying request -- max_mermaid_node_count
+        # must be set via an explicit body dict, or it's silently dropped (defaults to
+        # 5, truncating any mermaid diagram for this element). See egeria-python
+        # PYEGERIA_ISSUES.md ISSUE-23.
+        element = mgr.get_metadata_element_by_guid(
+            guid, output_format="JSON",
+            body={"class": "GetRequestBody", "graphQueryDepth": 1, "maxMermaidNodeCount": 250},
+        )
     except Exception as exc:
         logger.exception(f"get_metadata_element_by_guid failed for {guid}")
         raise HTTPException(status_code=500, detail=f"Action detail retrieval failed: {exc}")

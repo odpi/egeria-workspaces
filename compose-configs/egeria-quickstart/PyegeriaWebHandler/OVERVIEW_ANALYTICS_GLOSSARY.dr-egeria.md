@@ -1626,6 +1626,61 @@ Term::overview-kpi-ownership
 ## Create Glossary Term
 
 ### Display Name
+AI-Ready Assets
+
+### Summary
+Count and percentage of Asset elements carrying >=1 governance classification AND a non-empty description AND >=1 DataFlow relationship, simultaneously -- a true composite (NEXT-18), not three independent counts.
+
+### Description
+Count of Asset elements that are simultaneously governed, documented, and lineage-traced -- the composite gate for "safe to serve as AI context".
+
+### Usage
+The AND-gate means the true bottleneck is whichever underlying signal is weakest, and that's very often lineage, not governance or documentation -- confirmed live 2026-08-04 on this dataset: 1,743 cataloged, 365 documented (21%), 584 classified (governance, not Asset-scoped -- can exceed cataloged, see Governed Coverage's own caveat), but only 8 assets carry any DataFlow relationship at all, so AI-Ready lands at 4 (0.2%) even though documentation and classification are both far higher individually. Read a low number here as "go look at the funnel stage with the steepest drop" (usually lineage), not as "nothing here is AI-ready-adjacent" -- see the Context Readiness Funnel panel for the per-stage breakdown that explains which gate is binding.
+
+### Glossary Name
+Egeria Dashboard Analytics
+
+### Qualified Name
+Term::overview-kpi-ai-ready
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Overview KPIs
+
+### Element Id
+Term::overview-kpi-ai-ready
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Live Metrics
+
+### Element Id
+Term::overview-kpi-ai-ready
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::AI / Context Intelligence Metrics
+
+### Element Id
+Term::overview-kpi-ai-ready
+
+---
+
+## Create Glossary Term
+
+### Display Name
 Risk & Compliance
 
 ### Summary

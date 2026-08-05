@@ -63,9 +63,13 @@ Comment: This dataset needs quality review before use in reporting.
 ### Create a journal entry
 ```markdown
 # Create Journal Entry
-Subject: Data quality review — Q2 2026
-Entry: Completed initial review of clinical trial datasets. Three tables flagged for remediation.
+Display Name: Data quality review — Q2 2026
+Description: Completed initial review of clinical trial datasets. Three tables flagged for remediation.
 ```
+A private entry in your own activity journal — see also `Create Activity
+Entry` (public, tracks completion status) and `Create Blog Entry` (public,
+broadcasts more widely). All three post to your own profile; use `Create
+Note` instead to attach an opinion/annotation to any *other* element.
 
 ---
 

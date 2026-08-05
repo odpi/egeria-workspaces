@@ -178,7 +178,10 @@ def get_community(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
-        element = mgr.get_community_by_guid(guid, output_format="JSON", graph_query_depth=1)
+        # max_mermaid_node_count defaults to 5 (pyegeria shared get-by-guid helper),
+        # truncating any mermaid diagram for this element -- see egeria-python
+        # PYEGERIA_ISSUES.md ISSUE-23.
+        element = mgr.get_community_by_guid(guid, output_format="JSON", graph_query_depth=1, max_mermaid_node_count=250)
     except Exception as exc:
         logger.exception(f"get_community_by_guid failed for {guid}")
         raise HTTPException(status_code=500, detail=f"Community detail retrieval failed: {exc}")

@@ -224,6 +224,10 @@ def get_perspective(
             page_size=200,
             metadata_element_type="Perspective",
             graph_query_depth=1,
+            # max_mermaid_node_count defaults to 5 (pyegeria shared find helper),
+            # truncating any mermaid diagram for this element -- see egeria-python
+            # PYEGERIA_ISSUES.md ISSUE-23.
+            max_mermaid_node_count=250,
             sequencing_order="PROPERTY_ASCENDING",
             sequencing_property="displayName",
         )
@@ -325,10 +329,14 @@ def get_question(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
+        # maxMermaidNodeCount must live in the body dict itself -- a sibling kwarg is
+        # ignored once an explicit body is passed. Default max_mermaid_node_count=5
+        # otherwise truncates any mermaid diagram for this element -- see
+        # egeria-python PYEGERIA_ISSUES.md ISSUE-23.
         raw = mgr.get_term_by_guid(
             question_guid,
             output_format="JSON",
-            body={"class": "GetRequestBody", "graphQueryDepth": 2},
+            body={"class": "GetRequestBody", "graphQueryDepth": 2, "maxMermaidNodeCount": 250},
         )
     except Exception as exc:
         logger.exception("get_term_by_guid failed")

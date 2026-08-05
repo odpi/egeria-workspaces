@@ -40,15 +40,23 @@ Verified live against qs-view-server 2026-07-15. Two things worth knowing:
   elementHeader/properties wrapper — see the parsing helpers below), not the
   converter-normalized shape other handlers get from calls like
   AssetMaker.get_asset_by_guid(output_format="JSON").
-- KNOWN SERVER BUG (PY-15 in PYEGERIA_ISSUES.md): the Postgres repository
-  connector ignores matchCriteria for matchClassifications entirely once
-  there are 2+ classification conditions — ANY/ALL/NONE all behave as if
-  every named classification must be present on the same entity
-  simultaneously, so any query naming 2+ classifications returns zero
-  results. `get_summary()`'s 5-classification ANY tally and any
-  multi-classification compound search are affected; both are still correct
-  with 0 or 1 classification condition. No client-side workaround is applied
-  here — see PY-15 for the server-side fix.
+- PY-15 (Postgres connector ignoring matchCriteria on 2+ classification
+  conditions) is FIXED and CLOSED server-side (verified 2026-07-17,
+  PYEGERIA_ISSUES.md) — multi-classification compound search is safe to use
+  now. Kept as a historical note since `get_summary()`'s 5-classification
+  ANY tally and this module predate the fix.
+
+Relationship conditions (2026-08-04, NEXT-25): `matchClassifications` has no
+equivalent for "has/lacks a relationship of type X" — Egeria's find API
+filters on element properties/classifications only. Relationship presence is
+therefore computed client-side, same pattern `overview_metrics.ai_ready_assets`
+already uses: fetch each distinct relationship type's full GUID set once via
+`ClassificationExplorer.get_relationships`, then filter the already-fetched
+classification/type hits by set membership. IMPORTANT interaction: relationship
+filtering runs AFTER classification/type paging, so with `full_count=false`
+(the default) a relationship condition filters only the fetched page, not the
+whole matching population — `relationshipFilterNote` in the response says so
+explicitly rather than silently under-counting.
 """
 import os
 from pathlib import Path
@@ -90,6 +98,22 @@ def _expert(url=None, server=None, user_id=None, user_pwd=None):
     return mgr
 
 
+def _ce(url=None, server=None, user_id=None, user_pwd=None):
+    """ClassificationExplorer factory — needed alongside MetadataExpert only for
+    relationship queries (get_relationships), same split overview_handler.py uses."""
+    from pyegeria import ClassificationExplorer
+    import pyegeria
+    pyegeria.enable_ssl_check = False
+    pyegeria.disable_ssl_warnings = True
+    url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    ce = ClassificationExplorer(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    apply_token(ce)
+    return ce
+
+
 # ── search-condition body construction ──────────────────────────────────────
 
 class Condition(BaseModel):
@@ -100,10 +124,20 @@ class Condition(BaseModel):
     value_type: str = "string"          # string | int | boolean
 
 
+class RelationshipCondition(BaseModel):
+    relationship_type: str
+    presence: str = "has"               # has | lacks — "lacks" is the enrichment-backlog case
+                                         # (NEXT-25: "which assets DON'T have lineage yet")
+
+
 class SearchBody(BaseModel):
     type_name: Optional[str] = None     # metadataElementTypeName; omit = search all types
     match_criteria: str = "ALL"         # ALL | ANY | NONE across the conditions
     conditions: List[Condition] = []
+    relationship_conditions: List[RelationshipCondition] = []
+    relationship_match_criteria: str = "ALL"   # ALL | ANY | NONE across relationship_conditions
+    sort_by: Optional[str] = None       # displayName | typeName | qualifiedName | matchCount
+    sort_dir: str = "asc"               # asc | desc
     as_of_time: Optional[str] = None
     full_count: bool = False
     start_from: int = 0
@@ -231,6 +265,103 @@ def _serialize_hit(el: dict) -> dict:
 def _zone_names(el: dict) -> list:
     zm = _extract_classifications(el).get("zoneMembership", {}).get("zoneMembership") or []
     return zm if isinstance(zm, list) else []
+
+
+# ── relationship presence (client-side — see module docstring) ──────────────
+
+def _json_list(raw) -> list:
+    if isinstance(raw, list):
+        return [r for r in raw if isinstance(r, dict)]
+    if isinstance(raw, dict):
+        for k in ("elements", "items", "relationships", "list"):
+            if isinstance(raw.get(k), list):
+                return [r for r in raw[k] if isinstance(r, dict)]
+    return []
+
+
+def _relationship_guid_set(ce, relationship_type: str, as_of: Optional[str] = None) -> set:
+    """Every element GUID (either end) that participates in >=1 relationship of
+    this type — same end1/end2 extraction `overview_metrics.ai_ready_assets`
+    already verified live (a relationship's own GUID key is plain "guid", NOT
+    "elementGUID" like a find_metadata_elements hit — two different key names
+    for the same concept depending on which API path returned the data)."""
+    out: set = set()
+    try:
+        body = {"class": "ResultsRequestBody", "asOfTime": as_of} if as_of else None
+        rels = _json_list(ce.get_relationships(
+            relationship_type=relationship_type, output_format="JSON",
+            start_from=0, page_size=5000, body=body))
+        for r in rels:
+            for end_key in ("end1", "end2"):
+                g = ((r.get(end_key) or {}) if isinstance(r, dict) else {}).get("guid")
+                if g:
+                    out.add(g)
+    except Exception as exc:  # noqa: BLE001 — best-effort, degrade don't fail the whole search
+        logger.debug(f"insights: relationship query failed for {relationship_type!r}: {exc}")
+    return out
+
+
+def _annotate_relationships(
+    results: List[dict], ce, conds: List["RelationshipCondition"], as_of: Optional[str] = None,
+) -> List[dict]:
+    """Add a "relationships": {type: bool} dict to every result — always run
+    over the FULL fetched population (before any relationship filtering
+    shrinks it), so aggregates below reflect what was actually fetched, not
+    just what survived the filter."""
+    if not conds:
+        return results
+    by_type = {c.relationship_type: c for c in conds}  # de-dup by type
+    guid_sets = {t: _relationship_guid_set(ce, t, as_of) for t in by_type}
+    out = []
+    for r in results:
+        r = dict(r)
+        r["relationships"] = {t: (r["guid"] in guid_sets[t]) for t in by_type}
+        out.append(r)
+    return out
+
+
+def _filter_by_relationships(
+    results: List[dict], conds: List["RelationshipCondition"], match_criteria: str,
+) -> List[dict]:
+    """Filter already-annotated results (see _annotate_relationships) by
+    has/lacks per condition, combined via ALL/ANY/NONE — same semantics as
+    classification match_criteria."""
+    if not conds:
+        return results
+    mc = (match_criteria or "ALL").upper()
+
+    def _satisfies(r: dict) -> bool:
+        rels = r.get("relationships") or {}
+        checks = [rels.get(c.relationship_type, False) if c.presence == "has"
+                  else not rels.get(c.relationship_type, False) for c in conds]
+        if mc == "ANY":
+            return any(checks)
+        if mc == "NONE":
+            return not any(checks)
+        return all(checks)
+
+    return [r for r in results if _satisfies(r)]
+
+
+_SORT_FIELDS = {
+    "displayName":   lambda r: (r.get("displayName") or "").lower(),
+    "typeName":      lambda r: (r.get("typeName") or "").lower(),
+    "qualifiedName": lambda r: (r.get("qualifiedName") or "").lower(),
+    # matchCount: how many of the queried relationship conditions this result
+    # satisfies "has" on — surfaces the closest-to-ready assets first when
+    # sorted desc (e.g. "governed + documented, only missing lineage").
+    "matchCount":    lambda r: sum(1 for v in (r.get("relationships") or {}).values() if v),
+}
+
+
+def _sort_results(results: List[dict], sort_by: Optional[str], sort_dir: str) -> List[dict]:
+    """Always sorted client-side — Egeria's own sequencing_order/sequencing_property
+    is unreliable (NEXT-20 in egeria-workspaces BACKLOG.md: silently ignored once
+    a classification filter is also present), so this module never relies on it."""
+    key = _SORT_FIELDS.get(sort_by)
+    if not key:
+        return results
+    return sorted(results, key=key, reverse=(sort_dir == "desc"))
 
 
 # ── SPA ───────────────────────────────────────────────────────────────────────
@@ -372,7 +503,22 @@ def search_elements(body: SearchBody = Body(...)):
     capped = False
 
     if body.full_count:
+        # BUG FOUND 2026-08-04 (NEXT-25): find_metadata_elements silently ignores
+        # start_from/page_size on this server/client combo and returns the FULL
+        # matching set on every call (independently confirmed elsewhere in this
+        # project — see overview_metrics.py's growth_series investigation notes).
+        # The naive "extend + advance start_from" loop below this comment used to
+        # assume real pagination, so it kept re-appending the same ~1.7k elements
+        # on every iteration until hitting _FULL_COUNT_HARD_CAP — silently
+        # inflating `total`/`aggregates` with duplicates (surfaced by the new
+        # relationship filter: 10 real matches came back as "60" once ~6x
+        # duplication was multiplied through). Fixed by deduping on GUID as we
+        # accumulate and stopping as soon as a page adds zero NEW guids — this
+        # is correct whether the server does real pagination (a stable loop
+        # exit once every real page has been seen) or not (exits after the
+        # first fetch, since the second identical page adds nothing new).
         start = 0
+        seen_guids: set = set()
         while True:
             try:
                 page = mgr.find_metadata_elements(find_body, start_from=start, page_size=page_size, graph_query_depth=0)
@@ -380,9 +526,16 @@ def search_elements(body: SearchBody = Body(...)):
                 logger.exception("insights: full-count search page failed")
                 raise HTTPException(status_code=500, detail=str(exc))
             page = [el for el in (page if isinstance(page, list) else []) if isinstance(el, dict)]
-            hits.extend(page)
-            if len(page) < page_size or len(hits) >= _FULL_COUNT_HARD_CAP:
-                truncated = len(page) == page_size and len(hits) >= _FULL_COUNT_HARD_CAP
+            added = 0
+            for el in page:
+                g = el.get("elementGUID")
+                if g and g in seen_guids:
+                    continue
+                seen_guids.add(g)
+                hits.append(el)
+                added += 1
+            if added == 0 or len(page) < page_size or len(hits) >= _FULL_COUNT_HARD_CAP:
+                truncated = added > 0 and len(hits) >= _FULL_COUNT_HARD_CAP
                 break
             start += page_size
     else:
@@ -395,6 +548,26 @@ def search_elements(body: SearchBody = Body(...)):
         capped = len(hits) >= page_size
 
     results = [_serialize_hit(el) for el in hits]
+    fetched_count = len(results)
+
+    # Relationship presence (NEXT-25) — client-side, see module docstring.
+    # Annotate over the FULL fetched population first so aggregates reflect
+    # what was fetched, then filter.
+    relationship_filter_note = None
+    if body.relationship_conditions:
+        try:
+            ce = _ce(body.url, body.server, body.user_id, body.user_pwd)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("insights: failed to create ClassificationExplorer for relationship conditions")
+            raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        results = _annotate_relationships(results, ce, body.relationship_conditions, body.as_of_time)
+        if not body.full_count:
+            relationship_filter_note = (
+                f"Relationship condition(s) were applied to the {fetched_count} elements fetched by the "
+                f"classification/type filter{' (a capped page, not the full matching population)' if capped else ''} "
+                "— not to every matching element server-wide. Use \"Exact count\" (full_count) for a complete answer."
+            )
+        results = _filter_by_relationships(results, body.relationship_conditions, body.relationship_match_criteria)
 
     # Aggregate counts per queried classification/property, tallied from whatever
     # was actually fetched (see `capped` / `truncated` for how complete that is).
@@ -412,11 +585,24 @@ def search_elements(body: SearchBody = Body(...)):
         if tally:
             aggregates[agg_key] = tally
 
+    # Relationship presence tally — counted over the annotated set before this
+    # response's own filter narrowed `results` down to just the matches, so it
+    # still shows "12 have DataFlow, 41 don't" even for a "lacks" query.
+    relationship_aggregates: dict = {}
+    if body.relationship_conditions:
+        for c in body.relationship_conditions:
+            has = sum(1 for r in results if (r.get("relationships") or {}).get(c.relationship_type))
+            relationship_aggregates[c.relationship_type] = {"has": has, "lacks": len(results) - has}
+
+    results = _sort_results(results, body.sort_by, body.sort_dir)
+
     return JSONResponse({
-        "results":    results,
-        "total":      len(results),
-        "capped":     capped,
-        "truncated":  truncated,
-        "fullCount":  body.full_count,
-        "aggregates": aggregates,
+        "results":                results,
+        "total":                  len(results),
+        "capped":                 capped,
+        "truncated":              truncated,
+        "fullCount":              body.full_count,
+        "aggregates":             aggregates,
+        "relationshipAggregates": relationship_aggregates,
+        "relationshipFilterNote": relationship_filter_note,
     })

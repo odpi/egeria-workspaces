@@ -447,11 +447,17 @@ def get_node(
             from pyegeria import ClassificationExplorer
             ce = ClassificationExplorer(view_server=svr_val, platform_url=url_val, user_id=uid, user_pwd=pwd)
             apply_token(ce)
+            # NOTE: when `body` is an explicit dict, pyegeria's _async_get_guid_request
+            # validates it AS-IS and ignores the graph_query_depth/max_mermaid_node_count
+            # kwargs entirely (they only get merged into an auto-built body when body=None)
+            # -- so graphQueryDepth/maxMermaidNodeCount must be set directly in the body
+            # dict itself, not passed as sibling kwargs. Default max_mermaid_node_count=5
+            # otherwise truncates any mermaid diagram on this node -- see egeria-python
+            # PYEGERIA_ISSUES.md ISSUE-23.
             raw = ce.get_element_by_guid(
                 guid=node_guid,
-                graph_query_depth=2,
                 output_format="JSON",
-                body={"class": "GetRequestBody"},
+                body={"class": "GetRequestBody", "graphQueryDepth": 2, "maxMermaidNodeCount": 250},
             )
         except Exception as exc:
             logger.exception("ClassificationExplorer.get_element_by_guid failed for %s", node_guid)

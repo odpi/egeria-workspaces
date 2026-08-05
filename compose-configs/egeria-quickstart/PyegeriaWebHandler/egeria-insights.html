@@ -730,11 +730,17 @@ function typeCatalog(creds, setCatalog, setCatState) {
 // Columns for the results table — shared by the row renderer and the sort/filter
 // logic below. Each entry is [label, getter(item)]; the trailing '' column (the
 // cross-nav button) has no getter since it isn't sortable/filterable.
+// 'Relationships' (NEXT-25) only has content when the search included
+// relationship_conditions — reuses the same click-to-sort mechanism every
+// other column already has (localeCompare on the getter's string), no new
+// sort UI needed. Sorting by presence naturally groups "has all queried
+// relationships" together — the closest-to-ready assets, sorted first.
 var RESULT_COLUMNS = [
   ['Name',            function(it){ return it.displayName; }],
   ['Type',            function(it){ return it.typeName; }],
   ['Zones',           function(it){ return ((it.classifications && it.classifications.zoneMembership && it.classifications.zoneMembership.zoneMembership) || []).join(', '); }],
   ['Classifications', function(it){ return Object.keys(it.classifications || {}).filter(function(k){ return k !== 'zoneMembership'; }).join(', '); }],
+  ['Relationships',   function(it){ return Object.keys(it.relationships || {}).sort().map(function(k){ return k + (it.relationships[k] ? '✓' : '✗'); }).join(' '); }],
   ['',                null],
 ];
 
@@ -791,6 +797,23 @@ function SearchResults({ results }) {
           );
         })
       ),
+    // Relationship aggregates + the honest capping caveat (NEXT-25) — tallied
+    // over the fetched-and-annotated population, not the (possibly narrower)
+    // filtered `results.results`, so a "lacks X" search still shows both sides.
+    results.relationshipAggregates && Object.keys(results.relationshipAggregates).length > 0 &&
+      el('div', { style: { marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8 } },
+        Object.keys(results.relationshipAggregates).map(function(k) {
+          var t = results.relationshipAggregates[k];
+          return el('div', { key: k },
+            el('div', { style: { fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--dim)', marginBottom: 4 } }, k + ' relationship'),
+            el('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+              el('span', { className: 'chip', style: { cursor: 'default' } }, 'has · ' + t.has),
+              el('span', { className: 'chip', style: { cursor: 'default' } }, 'lacks · ' + t.lacks)
+            )
+          );
+        }),
+        results.relationshipFilterNote && el('div', { style: { fontSize: 11, color: 'var(--dim)', fontStyle: 'italic' } }, '⚠ ' + results.relationshipFilterNote)
+      ),
     items.length === 0
       ? el('div', { style: { fontSize: 13, color: 'var(--dim)', padding: '20px 0' } }, 'No matches.')
       : vis.length === 0
@@ -809,12 +832,19 @@ function SearchResults({ results }) {
             el('tbody', null, vis.map(function(it) {
               var zm = (it.classifications && it.classifications.zoneMembership && it.classifications.zoneMembership.zoneMembership) || [];
               var clsNames = Object.keys(it.classifications || {}).filter(function(k){ return k !== 'zoneMembership'; });
+              var relNames = Object.keys(it.relationships || {}).sort();
               var nav = resolveElementNav(it);
               return el('tr', { key: it.guid },
                 el('td', { style: td }, it.displayName, el('div', { style: { fontSize: 10.5, color: 'var(--dim)' } }, it.qualifiedName)),
                 el('td', { style: Object.assign({}, td, { fontFamily: 'monospace' }) }, it.typeName),
                 el('td', { style: td, title: zm.join(', ') }, zm.join(', ')),
                 el('td', { style: td, title: clsNames.join(', ') }, clsNames.join(', ')),
+                el('td', { style: td },
+                  relNames.map(function(k){
+                    return el('span', { key: k, className: 'chip', style: { cursor: 'default', marginRight: 4,
+                        color: it.relationships[k] ? 'var(--good, #4caf50)' : 'var(--dim)' } }, k + (it.relationships[k] ? ' ✓' : ' ✗'));
+                  })
+                ),
                 el('td', { style: td }, nav && el('button', {
                     onClick: function(){ crossAppNavigate(it, nav); },
                     style: { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' }
@@ -826,20 +856,41 @@ function SearchResults({ results }) {
   );
 }
 
-function GovernanceSearch({ creds, focusZone }) {
+function GovernanceSearch({ creds, focusZone, focusType, focusRel }) {
   var _cat = useState(null),      catalog = _cat[0],   setCatalog = _cat[1];
   var _cst = useState('loading'), catState = _cst[0],  setCatState = _cst[1];
   var _zone = useState(focusZone || null), selectedZone = _zone[0], setSelectedZone = _zone[1];
   var _mc  = useState('ALL'), matchCriteria = _mc[0], setMatchCriteria = _mc[1];
   var _cond = useState([]), conditions = _cond[0], setConditions = _cond[1];
+  // Relationship conditions (NEXT-25) — "has/lacks a relationship of type X",
+  // combined ALL/ANY/NONE same as classification conditions. Seeded from
+  // ?rel=Type:presence,Type2:presence (e.g. from Overview's drill-through —
+  // see egeria-overview.html's "Open in Insights" link).
+  var _relMc = useState('ALL'), relMatchCriteria = _relMc[0], setRelMatchCriteria = _relMc[1];
+  var _relCond = useState(function(){ return focusRel || []; }), relConditions = _relCond[0], setRelConditions = _relCond[1];
   var _res = useState(null), results = _res[0], setResults = _res[1];
   var _rst = useState('idle'), resState = _rst[0], setResState = _rst[1];
   var _full = useState(false), fullCount = _full[0], setFullCount = _full[1];
-  var _typeName = useState(''), typeName = _typeName[0], setTypeName = _typeName[1];
+  var _typeName = useState(focusType || ''), typeName = _typeName[0], setTypeName = _typeName[1];
   var _valueOpts = useState({}), valueOpts = _valueOpts[0], setValueOpts = _valueOpts[1];
   var _zoneW = useResizable(240, 160, 480), zoneWidth = _zoneW[0], onZoneResizeDown = _zoneW[1];
 
   useEffect(function(){ typeCatalog(creds, setCatalog, setCatState); }, [creds && creds.userId]);
+
+  var relationshipTypeNames = useMemo(function() {
+    if (!catalog || !catalog.relationships) return [];
+    return Object.keys(catalog.relationships).sort();
+  }, [catalog]);
+
+  function addRelCondition() {
+    setRelConditions(relConditions.concat([{ relationship_type: relationshipTypeNames[0] || '', presence: 'has' }]));
+  }
+  function updateRelCondition(i, patch) {
+    setRelConditions(relConditions.map(function(c, idx){ return idx === i ? Object.assign({}, c, patch) : c; }));
+  }
+  function removeRelCondition(i) {
+    setRelConditions(relConditions.filter(function(_, idx){ return idx !== i; }));
+  }
 
   // Seed / replace a ZoneMembership condition when a zone is selected from the tree —
   // browsing by zone and building a compound query are the same mechanism.
@@ -889,6 +940,10 @@ function GovernanceSearch({ creds, focusZone }) {
         return { classification: c.classification, property: c.property || null, operator: c.operator,
                  value: (c.operator === 'IS_NULL' || c.operator === 'NOT_NULL') ? null : c.value, value_type: c.value_type };
       }),
+      relationship_conditions: relConditions.filter(function(c){ return c.relationship_type; }).map(function(c) {
+        return { relationship_type: c.relationship_type, presence: c.presence };
+      }),
+      relationship_match_criteria: relMatchCriteria,
       full_count: !!full, start_from: 0, page_size: 200,
       server: creds && creds.server, user_id: creds && creds.userId, url: creds && creds.url,
     };
@@ -901,7 +956,8 @@ function GovernanceSearch({ creds, focusZone }) {
       .catch(function(e) { setResState('error'); setResults({ error: e.message }); });
   }
 
-  var canFullCount = conditions.some(function(c){ return c.classification; }) || !!typeName;
+  var canFullCount = conditions.some(function(c){ return c.classification; }) || !!typeName
+                      || relConditions.some(function(c){ return c.relationship_type; });
 
   return el('div', { style: { display: 'flex', height: '100%' } },
     el(ZoneTree, { creds: creds, selectedZone: selectedZone, onSelectZone: setSelectedZone, width: zoneWidth }),
@@ -954,9 +1010,38 @@ function GovernanceSearch({ creds, focusZone }) {
                 style: { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, '✕')
           );
         }),
+        // Relationship conditions (NEXT-25) — a second, independent condition
+        // list, same builder shape as classifications above. "lacks" is the
+        // enrichment-backlog case ("which assets don't have lineage yet").
+        relConditions.length > 0 && el('div', { style: { fontSize: 11, color: 'var(--dim)', margin: '10px 0 4px' } }, 'Relationships'),
+        relConditions.length > 0 && el('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' } },
+          el('span', { style: { fontSize: 12, color: 'var(--muted)' } }, 'Match'),
+          el('select', { className: 'area-select', value: relMatchCriteria, onChange: function(e){ setRelMatchCriteria(e.target.value); } },
+            el('option', { value: 'ALL' }, 'ALL relationships (AND)'),
+            el('option', { value: 'ANY' }, 'ANY relationship (OR)'),
+            el('option', { value: 'NONE' }, 'NONE of the relationships')
+          )
+        ),
+        relConditions.map(function(c, i) {
+          return el('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' } },
+            el('select', { className: 'area-select', value: c.relationship_type,
+                onChange: function(e){ updateRelCondition(i, { relationship_type: e.target.value }); } },
+              relationshipTypeNames.map(function(n){ return el('option', { key: n, value: n }, n); })
+            ),
+            el('select', { className: 'area-select', value: c.presence,
+                onChange: function(e){ updateRelCondition(i, { presence: e.target.value }); } },
+              el('option', { value: 'has' }, 'has'),
+              el('option', { value: 'lacks' }, 'lacks')
+            ),
+            el('button', { onClick: function(){ removeRelCondition(i); },
+                style: { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, '✕')
+          );
+        }),
         el('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' } },
           el('button', { onClick: addCondition, disabled: catState !== 'ready',
               style: { fontSize: 12, padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' } }, '+ Add condition'),
+          el('button', { onClick: addRelCondition, disabled: catState !== 'ready',
+              style: { fontSize: 12, padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' } }, '+ Add relationship'),
           el('button', { onClick: function(){ runSearch(false); },
               style: { fontSize: 12, padding: '5px 16px', borderRadius: 4, border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 600, cursor: 'pointer' } }, 'Search'),
           el('label', { style: { fontSize: 12, color: canFullCount ? 'var(--muted)' : 'var(--dim)', display: 'flex', alignItems: 'center', gap: 5 } },
@@ -989,9 +1074,22 @@ function App() {
   var _fp = useState(''),  fp = _fp[0], setFp = _fp[1];
   var _ce = useState(''),  cerr = _ce[0], setCerr = _ce[1];
   var focusZone = params.get('zone') || null;
+  // Deep-link seeding for a pre-filled compound search (NEXT-25) — e.g. from
+  // Overview's "Open in Insights" drill-through: ?type=Asset&rel=DataFlow:lacks
+  // (rel is comma-separated Type:presence pairs; presence defaults to "has"
+  // if omitted, e.g. ?rel=SemanticAssignment).
+  var focusType = params.get('type') || null;
+  var focusRel = (params.get('rel') || '').split(',').filter(Boolean).map(function(pair) {
+    var parts = pair.split(':');
+    return { relationship_type: parts[0], presence: parts[1] === 'lacks' ? 'lacks' : 'has' };
+  });
   var _t = useState(function() {
     var h = params.get('tab') || window.location.hash.slice(1);
-    return TABS.some(function(t){ return t.id === h; }) ? h : 'dashboard';
+    if (TABS.some(function(t){ return t.id === h; })) return h;
+    // A deep-linked search (zone/type/relationship) implies the search tab
+    // even without an explicit ?tab=search — one fewer param the linking app
+    // (e.g. Overview's drill-through) has to remember to set.
+    return (focusZone || focusType || focusRel.length > 0) ? 'search' : 'dashboard';
   }), tab = _t[0], setTab = _t[1];
   function go(id){ setTab(id); try { window.location.hash = id; } catch(e){} }
   var active = TABS.find(function(t){ return t.id === tab; }) || TABS[0];
@@ -1052,7 +1150,7 @@ function App() {
     ? el('div', { style: pad }, 'Connecting…')
     : active.id === 'dashboard'
       ? el(Dashboard, { key: 'dash@' + credKey, creds: creds, onOpenSearch: function(){ go('search'); } })
-      : el(GovernanceSearch, { key: 'search@' + credKey, creds: creds, focusZone: focusZone });
+      : el(GovernanceSearch, { key: 'search@' + credKey, creds: creds, focusZone: focusZone, focusType: focusType, focusRel: focusRel });
 
   var inp = { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', outline: 'none' };
   var showConnBar = ready && !srvManaged && (showConn || !who);

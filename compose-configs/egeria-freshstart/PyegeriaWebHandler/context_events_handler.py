@@ -223,10 +223,14 @@ def get_context_event(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
+        # max_mermaid_node_count defaults to 5 (pyegeria shared get-by-guid helper),
+        # truncating any mermaid diagram for this element -- see egeria-python
+        # PYEGERIA_ISSUES.md ISSUE-23.
         raw = mgr.get_context_event_by_guid(
             guid=guid,
             output_format="JSON",
             graph_query_depth=3,
+            max_mermaid_node_count=250,
         )
     except Exception as exc:
         logger.warning(f"get_context_event_by_guid({guid}) failed: {exc}")

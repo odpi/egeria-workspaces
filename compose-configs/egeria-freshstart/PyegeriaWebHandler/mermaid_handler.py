@@ -5,7 +5,7 @@ Copyright Contributors to the ODPi Egeria project.
 Mermaid Graph Handler — FastAPI router.
 
 Endpoints:
-  GET /api/mermaid/{guid}           → context diagram via get_metadata_element_by_guid (graph_query_depth=5)
+  GET /api/mermaid/{guid}           → context diagram via get_metadata_element_by_guid (graph_query_depth=10, max_mermaid_node_count=250)
   GET /api/mermaid/{guid}/anchored  → full anchored element graph via get_anchored_element_graph
 """
 
@@ -17,6 +17,14 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 router = APIRouter(tags=["mermaid"])
+
+# pyegeria's shared find/get request helpers default graph_query_depth=3 and,
+# critically, max_mermaid_node_count=5 -- the server truncates the generated
+# mermaid diagram to at most 5 nodes unless told otherwise. This endpoint's
+# whole purpose is rendering a complete diagram for one element, so a generous
+# override is safe here (see egeria-python PYEGERIA_ISSUES.md ISSUE-23).
+_MERMAID_GRAPH_QUERY_DEPTH = 10
+_MERMAID_MAX_NODES = 250
 
 
 def _get_classifier(url=None, server=None, user_id=None, user_pwd=None):
@@ -105,7 +113,7 @@ def get_anchored_graph(
     return JSONResponse({"guid": guid, "mermaidGraph": graph})
 
 
-@router.get("/api/mermaid/{guid}", summary="Get context diagram for an element (graph_query_depth=5)")
+@router.get("/api/mermaid/{guid}", summary="Get context diagram for an element (graph_query_depth=10, max_mermaid_node_count=250)")
 def get_mermaid_graph(
     guid: str,
     url:      Optional[str] = Query(None),
@@ -125,7 +133,11 @@ def get_mermaid_graph(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
-        element = mgr.get_element_by_guid(guid, output_format="JSON")
+        element = mgr.get_element_by_guid(
+            guid, output_format="JSON",
+            graph_query_depth=_MERMAID_GRAPH_QUERY_DEPTH,
+            max_mermaid_node_count=_MERMAID_MAX_NODES,
+        )
         graphs = {}
         if isinstance(element, dict):
             lower_map = {k.lower(): v for k, v in element.items()}
