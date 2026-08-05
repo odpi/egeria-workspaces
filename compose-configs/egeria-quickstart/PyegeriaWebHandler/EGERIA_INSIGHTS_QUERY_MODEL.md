@@ -260,12 +260,27 @@ result set is a natural pairing once both exist properly.
   `remove_from_collection` first. The shipped delete endpoint does this
   automatically; worth remembering for the eventual Dr.Egeria `Delete
   Query` command too.
-- **Performance caveat, not yet addressed:** materializing a 200-element
-  result set takes ~20s live, because `add_to_collection` is one HTTP round
-  trip per element with no batch/bulk endpoint in pyegeria today. Fine for
-  Track A's prototype scale; worth a real look (client-side concurrency, or
-  a batched server call if one exists) before this is pushed as a
-  general-purpose feature rather than a prototype.
+- **Performance caveat, not yet addressed — and NOT fixed by Track B alone.**
+  Materializing a 200-element result set takes ~20s live. It's important to
+  be precise about *which* half of "run the query" this slowness is in,
+  since it's easy to conflate the two:
+  - **Finding the results** (the search itself) is already fast — real
+    body-based paging (ISSUE-34's fix), and the upcoming combined-query
+    method (§1.1, Track B) will mostly improve *correctness* here
+    (relationship conditions move server-side) plus some speed on
+    relationship-heavy queries.
+  - **Writing the results into `CollectionMembership`** is the actual
+    bottleneck, and it's a completely separate code path: one
+    `add_to_collection` HTTP round-trip per result guid, because pyegeria
+    has no bulk-membership endpoint. Track B's better search method doesn't
+    touch this loop at all.
+  So the real fix is Track C, not Track B: once `Query` is a first-class
+  Egeria element with a relationship to its `ResultsSet`, the natural design
+  has Egeria itself execute the query *and* populate membership server-side
+  in one operation (most likely a governance action service) — eliminating
+  our app's N-round-trip loop entirely, not just speeding it up. Until then,
+  a cheaper interim mitigation (client-side concurrency on the
+  `add_to_collection` loop) is possible but not yet done.
 
 ### 2.4 Lifecycle
 
@@ -337,7 +352,9 @@ Two tracks that don't block each other:
   deserve a dedicated simple form in the query editor, and design those
   forms; independent of the general-builder work.
 
-**Track B — depends on the new combined-query method landing:**
+**Track B — depends on the new combined-query method landing. Improves
+correctness and read-side speed, does NOT fix the materialization
+performance caveat (see the Track A build notes above) — that needs C.1.**
 - B.1: wire Insights to prefer the new method when a query's shape needs
   genuine N-way classification+relationship+value combination; keep using
   the narrower pairwise methods (§1.1's table) or `find_metadata_elements`
@@ -345,7 +362,11 @@ Two tracks that don't block each other:
 
 **Track C — later, Egeria-native:**
 - C.1: design + build the real `Query` element type + its relationship to
-  `ResultsSet`, migrate off `additionalProperties`.
+  `ResultsSet`, migrate off `additionalProperties`. **This is where the
+  refresh-performance fix actually belongs** — Egeria executing the query
+  and populating `CollectionMembership` server-side in one operation
+  (likely a governance action service), eliminating the N-round-trip
+  `add_to_collection` loop Track A's refresh currently does client-side.
 - C.2: Dr.Egeria lifecycle commands (Create/Update/Refresh/Delete) for the
   real type.
 - C.3: connect saved queries to the `FormatSet`/dashboard model (§1.2 b/c)
