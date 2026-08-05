@@ -137,10 +137,25 @@ class RelationshipCondition(BaseModel):
                                          # real role1/role2 names (from /api/types) as the two options.
 
 
+class ValueCondition(BaseModel):
+    property: str
+    operator: str = "EQ"                # same vocabulary as Condition.operator
+    value: Optional[Any] = None
+    value_type: str = "string"          # string | int | boolean
+
+
 class SearchBody(BaseModel):
     type_name: Optional[str] = None     # metadataElementTypeName; omit = search all types
     match_criteria: str = "ALL"         # ALL | ANY | NONE across the conditions
     conditions: List[Condition] = []
+    value_conditions: List[ValueCondition] = []
+    value_match_criteria: str = "ALL"   # ALL | ANY | NONE across value_conditions -- element-level
+                                         # property search (FindRequestBody's top-level
+                                         # searchProperties), distinct from `conditions`
+                                         # above (classification-scoped property search,
+                                         # matchClassifications[].searchProperties). Egeria
+                                         # combines both in ONE server call -- see
+                                         # Egeria-api-metadata-expert.http's worked example.
     relationship_conditions: List[RelationshipCondition] = []
     relationship_match_criteria: str = "ALL"   # ALL | ANY | NONE across relationship_conditions
     sort_by: Optional[str] = None       # displayName | typeName | qualifiedName | matchCount | totalRelationshipCount
@@ -182,6 +197,13 @@ def _classification_condition(c: Condition) -> dict:
     return cond
 
 
+def _value_condition(v: ValueCondition) -> dict:
+    cond: dict = {"property": v.property, "operator": v.operator}
+    if v.operator not in ("IS_NULL", "NOT_NULL"):
+        cond["value"] = _prop_value(v.value, v.value_type)
+    return cond
+
+
 def _build_find_body(search: SearchBody) -> dict:
     body: dict = {"class": "FindRequestBody", "limitResultsByStatus": ["ACTIVE"]}
     if search.type_name:
@@ -191,6 +213,18 @@ def _build_find_body(search: SearchBody) -> dict:
             "class": "SearchClassifications",
             "matchCriteria": search.match_criteria or "ALL",
             "conditions": [_classification_condition(c) for c in search.conditions],
+        }
+    if search.value_conditions:
+        # Element-level property search (FindRequestBody's top-level
+        # searchProperties) -- distinct from matchClassifications above
+        # (which only searches WITHIN a classification's own properties) and
+        # combinable with it in the SAME server call, confirmed against
+        # Egeria-api-metadata-expert.http's worked "nested condition" example
+        # (both searchProperties and matchClassifications set at once).
+        body["searchProperties"] = {
+            "class": "SearchProperties",
+            "matchCriteria": search.value_match_criteria or "ALL",
+            "conditions": [_value_condition(v) for v in search.value_conditions],
         }
     if search.as_of_time:
         body["asOfTime"] = search.as_of_time
@@ -209,7 +243,8 @@ def _build_find_body(search: SearchBody) -> dict:
     # nothing else to filter on, never overriding an explicit
     # type_name/conditions choice. The frontend surfaces this default in a
     # hint so it isn't a silent surprise.
-    if not search.type_name and not search.conditions and search.relationship_conditions:
+    if (not search.type_name and not search.conditions and not search.value_conditions
+            and search.relationship_conditions):
         body["metadataElementTypeName"] = "Asset"
     return body
 
@@ -613,12 +648,12 @@ def search_elements(body: SearchBody = Body(...)):
 
     find_body = _build_find_body(body)
     defaulted_type_note = (
-        f"No type or classification given for this relationship search — defaulted to "
-        f"metadataElementTypeName={find_body['metadataElementTypeName']!r} (a relationship-only "
-        f"search against every element in the repository times out; add a type or classification "
-        f"to search a different scope)."
-    ) if (not body.type_name and not body.conditions and body.relationship_conditions
-          and find_body.get("metadataElementTypeName")) else None
+        f"No type, classification, or property-value condition given for this relationship search — "
+        f"defaulted to metadataElementTypeName={find_body['metadataElementTypeName']!r} (a "
+        f"relationship-only search against every element in the repository times out; add a type, "
+        f"classification, or property condition to search a different scope)."
+    ) if (not body.type_name and not body.conditions and not body.value_conditions
+          and body.relationship_conditions and find_body.get("metadataElementTypeName")) else None
     page_size = max(1, min(body.page_size, 500))
 
     hits: List[dict] = []

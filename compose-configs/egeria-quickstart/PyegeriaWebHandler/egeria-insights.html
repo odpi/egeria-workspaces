@@ -614,6 +614,14 @@ var OPERATORS = [
   ['EQ', '='], ['NEQ', '≠'], ['GT', '>'], ['GTE', '≥'], ['LT', '<'], ['LTE', '≤'],
   ['LIKE', 'contains'], ['IS_NULL', 'is empty'], ['NOT_NULL', 'is set'],
 ];
+// Common Referenceable-level properties, as suggestions (not a closed list —
+// no canonical "all property names" catalog exists server-side, unlike
+// classification/relationship types which come from /api/types) for the
+// advanced-search Property values condition builder.
+var COMMON_ELEMENT_PROPS = [
+  'displayName', 'qualifiedName', 'description', 'name', 'versionIdentifier',
+  'summary', 'identifier', 'category', 'namespace',
+];
 
 function cardStyle() {
   return { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10,
@@ -960,6 +968,13 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse }
   // see egeria-overview.html's "Open in Insights" link).
   var _relMc = useState('ALL'), relMatchCriteria = _relMc[0], setRelMatchCriteria = _relMc[1];
   var _relCond = useState(function(){ return focusRel || []; }), relConditions = _relCond[0], setRelConditions = _relCond[1];
+  // Property-value conditions (advanced search, NEXT-25 follow-up) — search
+  // on the ELEMENT's own properties (displayName/qualifiedName/description/...),
+  // distinct from a classification's properties (`conditions` above). Egeria
+  // combines both, plus type, in one FindRequestBody server call — see
+  // insights_handler.py's _build_find_body / SearchBody.value_conditions.
+  var _valMc = useState('ALL'), valueMatchCriteria = _valMc[0], setValueMatchCriteria = _valMc[1];
+  var _valCond = useState([]), valueConditions = _valCond[0], setValueConditions = _valCond[1];
   // Left rail shows either the Zone tree or the Relationship tree — Dashboard's
   // Relationship Coverage card jumps straight into 'relationships' mode via
   // focusBrowse; otherwise defaults to zones (the original, more-used mode).
@@ -1007,6 +1022,20 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse }
       if (idx !== -1) return prev.filter(function(_, i){ return i !== idx; });
       return prev.concat([{ relationship_type: type, presence: 'has', end: 'any' }]);
     });
+  }
+
+  // Property-value condition builder — element-level (not classification-scoped).
+  // No canonical "all property names" catalog exists server-side, so this is a
+  // free-text input with a small curated suggestion list (COMMON_ELEMENT_PROPS)
+  // via <datalist>, not a closed dropdown like classification/relationship type.
+  function addValueCondition() {
+    setValueConditions(valueConditions.concat([{ property: '', operator: 'EQ', value: '', value_type: 'string' }]));
+  }
+  function updateValueCondition(i, patch) {
+    setValueConditions(valueConditions.map(function(c, idx){ return idx === i ? Object.assign({}, c, patch) : c; }));
+  }
+  function removeValueCondition(i) {
+    setValueConditions(valueConditions.filter(function(_, idx){ return idx !== i; }));
   }
 
   // Seed / replace a ZoneMembership condition when a zone is selected from the tree —
@@ -1061,6 +1090,11 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse }
         return { relationship_type: c.relationship_type, presence: c.presence, end: c.end || 'any' };
       }),
       relationship_match_criteria: relMatchCriteria,
+      value_conditions: valueConditions.filter(function(c){ return c.property; }).map(function(c) {
+        return { property: c.property, operator: c.operator,
+                 value: (c.operator === 'IS_NULL' || c.operator === 'NOT_NULL') ? null : c.value, value_type: c.value_type };
+      }),
+      value_match_criteria: valueMatchCriteria,
       full_count: !!full, start_from: 0, page_size: 200,
       server: creds && creds.server, user_id: creds && creds.userId, url: creds && creds.url,
     };
@@ -1074,7 +1108,8 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse }
   }
 
   var canFullCount = conditions.some(function(c){ return c.classification; }) || !!typeName
-                      || relConditions.some(function(c){ return c.relationship_type; });
+                      || relConditions.some(function(c){ return c.relationship_type; })
+                      || valueConditions.some(function(c){ return c.property; });
 
   var browseTabBtn = function(mode, label) {
     var on = browseMode === mode;
@@ -1174,11 +1209,41 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse }
                 style: { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, '✕')
           );
         }),
+        // Property values (advanced search, NEXT-25 follow-up) — element-level
+        // property search, third independent condition dimension alongside
+        // Classifications and Relationships, all combinable in one query.
+        valueConditions.length > 0 && el('div', { style: { fontSize: 11, color: 'var(--dim)', margin: '10px 0 4px' } }, 'Property values'),
+        valueConditions.length > 0 && el('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' } },
+          el('span', { style: { fontSize: 12, color: 'var(--muted)' } }, 'Match'),
+          el('select', { className: 'area-select', value: valueMatchCriteria, onChange: function(e){ setValueMatchCriteria(e.target.value); } },
+            el('option', { value: 'ALL' }, 'ALL properties (AND)'),
+            el('option', { value: 'ANY' }, 'ANY property (OR)'),
+            el('option', { value: 'NONE' }, 'NONE of the properties')
+          )
+        ),
+        valueConditions.map(function(c, i) {
+          return el('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' } },
+            el('input', { className: 'search-input', style: { width: 160 }, placeholder: 'property name', list: 'common-props',
+                value: c.property, onChange: function(e){ updateValueCondition(i, { property: e.target.value }); } }),
+            el('select', { className: 'area-select', value: c.operator,
+                onChange: function(e){ updateValueCondition(i, { operator: e.target.value }); } },
+              OPERATORS.map(function(o){ return el('option', { key: o[0], value: o[0] }, o[1]); })
+            ),
+            c.operator !== 'IS_NULL' && c.operator !== 'NOT_NULL' && el('input', { className: 'search-input', style: { width: 140 }, placeholder: 'value',
+                value: c.value == null ? '' : c.value,
+                onChange: function(e){ updateValueCondition(i, { value: e.target.value }); } }),
+            el('button', { onClick: function(){ removeValueCondition(i); },
+                style: { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, '✕')
+          );
+        }),
+        el('datalist', { id: 'common-props' }, COMMON_ELEMENT_PROPS.map(function(p){ return el('option', { key: p, value: p }); })),
         el('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' } },
           el('button', { onClick: addCondition, disabled: catState !== 'ready',
               style: { fontSize: 12, padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' } }, '+ Add condition'),
           el('button', { onClick: addRelCondition, disabled: catState !== 'ready',
               style: { fontSize: 12, padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' } }, '+ Add relationship'),
+          el('button', { onClick: addValueCondition,
+              style: { fontSize: 12, padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' } }, '+ Add property value'),
           el('button', { onClick: function(){ runSearch(false); },
               style: { fontSize: 12, padding: '5px 16px', borderRadius: 4, border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 600, cursor: 'pointer' } }, 'Search'),
           el('label', { style: { fontSize: 12, color: canFullCount ? 'var(--muted)' : 'var(--dim)', display: 'flex', alignItems: 'center', gap: 5 } },
