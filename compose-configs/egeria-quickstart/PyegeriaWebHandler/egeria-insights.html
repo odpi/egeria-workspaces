@@ -1073,7 +1073,11 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse, 
 
   function propsFor(clsName) {
     if (!catalog || !catalog.classifications[clsName]) return [];
-    return catalog.classifications[clsName].props || [];
+    // Alphabetized for the picker below — the server returns these in
+    // Egeria's own typedef declaration order, which isn't a useful browse
+    // order for "find the property I want in a dropdown."
+    return (catalog.classifications[clsName].props || []).slice()
+      .sort(function(a, b) { return (a.name || '').localeCompare(b.name || ''); });
   }
 
   function addCondition() {
