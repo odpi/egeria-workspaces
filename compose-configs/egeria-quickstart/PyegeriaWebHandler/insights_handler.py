@@ -40,11 +40,18 @@ Verified live against qs-view-server 2026-07-15. Two things worth knowing:
   elementHeader/properties wrapper — see the parsing helpers below), not the
   converter-normalized shape other handlers get from calls like
   AssetMaker.get_asset_by_guid(output_format="JSON").
-- PY-15 (Postgres connector ignoring matchCriteria on 2+ classification
-  conditions) is FIXED and CLOSED server-side (verified 2026-07-17,
-  PYEGERIA_ISSUES.md) — multi-classification compound search is safe to use
-  now. Kept as a historical note since `get_summary()`'s 5-classification
-  ANY tally and this module predate the fix.
+- ISSUE-35/PY-15 (Postgres connector ignoring matchCriteria on 2+
+  classification conditions) is FIXED and CLOSED server-side (verified
+  2026-07-17, egeria-python's PYEGERIA_ISSUES.md — the canonical tracker as
+  of 2026-08-05; this repo's own copy is now a pointer) — multi-classification
+  compound search is safe to use now. Kept as a historical note since
+  `get_summary()`'s 5-classification ANY tally and this module predate the
+  fix.
+- ISSUE-34, egeria-python's PYEGERIA_ISSUES.md: `find_metadata_elements`'s
+  `start_from`/`page_size` are NOT separate parameters anymore — set
+  `"startFrom"`/`"pageSize"` directly in the FindRequestBody dict passed to
+  it. Passing them as kwargs is silently a no-op (absorbed by `**kwargs`),
+  not an error.
 
 Relationship conditions (2026-08-04, NEXT-25): `matchClassifications` has no
 equivalent for "has/lacks a relationship of type X" — Egeria's find API
@@ -484,7 +491,15 @@ def get_summary(
         "limitResultsByStatus": ["ACTIVE"],
     }
     try:
-        raw = mgr.find_metadata_elements(body, start_from=0, page_size=_DEFAULT_CAP, graph_query_depth=0)
+        # startFrom/pageSize/graphQueryDepth go in the body itself now, not
+        # as separate kwargs -- pyegeria's find_metadata_elements stopped
+        # accepting those as parameters (PYEGERIA_ISSUES.md ISSUE-34:
+        # startFrom/pageSize used to be URL query params for this endpoint,
+        # then silently stopped working once Egeria moved pagination for it
+        # into the request body; passing them as kwargs here is now a
+        # silent no-op, not an error).
+        body = {**body, "graphQueryDepth": 0, "startFrom": 0, "pageSize": _DEFAULT_CAP}
+        raw = mgr.find_metadata_elements(body)
     except Exception as exc:
         logger.exception("insights: summary search failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -522,9 +537,10 @@ def get_zones(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     zone_body = {"class": "FindRequestBody", "metadataElementTypeName": "GovernanceZone",
-                 "limitResultsByStatus": ["ACTIVE"]}
+                 "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0,
+                 "startFrom": 0, "pageSize": 500}  # ISSUE-34 -- body fields, not kwargs (see get_summary)
     try:
-        raw_zones = mgr.find_metadata_elements(zone_body, start_from=0, page_size=500, graph_query_depth=0)
+        raw_zones = mgr.find_metadata_elements(zone_body)
     except Exception as exc:
         logger.exception("insights: zone definitions query failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -551,12 +567,13 @@ def get_zones(
         "class": "FindRequestBody",
         "matchClassifications": {"class": "SearchClassifications", "matchCriteria": "ANY",
                                   "conditions": [{"name": "ZoneMembership"}]},
-        "limitResultsByStatus": ["ACTIVE"],
+        "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0,
+        "startFrom": 0, "pageSize": _DEFAULT_CAP,  # ISSUE-34 -- body fields, not kwargs
     }
     zone_counts: dict = {}
     counts_capped = False
     try:
-        raw_usage = mgr.find_metadata_elements(usage_body, start_from=0, page_size=_DEFAULT_CAP, graph_query_depth=0)
+        raw_usage = mgr.find_metadata_elements(usage_body)
         hits = [el for el in (raw_usage if isinstance(raw_usage, list) else []) if isinstance(el, dict)]
         counts_capped = len(hits) >= _DEFAULT_CAP
         for el in hits:
@@ -661,29 +678,32 @@ def search_elements(body: SearchBody = Body(...)):
     capped = False
 
     if body.full_count:
-        # BUG FOUND 2026-08-04, ROOT-CAUSED 2026-08-05 (NEXT-25, PYEGERIA_ISSUES.md
-        # PY-23): find_metadata_elements returns the FULL matching set on every
-        # call regardless of start_from/page_size. This is confirmed EGERIA-
-        # SERVER-SIDE, not a pyegeria client bug — pyegeria 6.0.17.15 fixed its
-        # own dropped-parameter bug (now sends the correct ?startFrom=&pageSize=
-        # query string, verified via a request-spy) and the server still ignores
-        # both. Do not remove this workaround just because pyegeria gets
-        # upgraded; see PY-23 before assuming a newer pyegeria alone fixes it.
-        # The naive "extend + advance start_from" loop below this comment used to
-        # assume real pagination, so it kept re-appending the same ~1.7k elements
-        # on every iteration until hitting _FULL_COUNT_HARD_CAP — silently
-        # inflating `total`/`aggregates` with duplicates (surfaced by the
-        # relationship filter: 10 real matches came back as "60" once ~6x
-        # duplication was multiplied through). Fixed by deduping on GUID as we
-        # accumulate and stopping as soon as a page adds zero NEW guids — this
-        # is correct whether the server ever starts doing real pagination (a
-        # stable loop exit once every real page has been seen) or not (exits after the
-        # first fetch, since the second identical page adds nothing new).
+        # BUG FOUND 2026-08-04, ROOT-CAUSED 2026-08-05 (PYEGERIA_ISSUES.md
+        # ISSUE-34, formerly egeria-workspaces-fs's own PY-23). CORRECTED
+        # diagnosis, same day: this was never an Egeria-server-side bug --
+        # find_metadata_elements' pagination moved from URL query params to
+        # request-body fields months ago, and pyegeria was (until just now)
+        # still sending startFrom/pageSize as URL params for this endpoint,
+        # which the server silently ignores. Real pagination DOES work once
+        # startFrom/pageSize are set as BODY fields (confirmed live: two
+        # distinct, non-overlapping pages, not the same full set twice).
+        # pyegeria's find_metadata_elements no longer accepts start_from/
+        # page_size as parameters at all (ISSUE-34's fix) -- set them in
+        # find_body directly below, every iteration.
+        #
+        # The GUID-dedup loop below predates this fix (written when pagination
+        # genuinely didn't work, to avoid the same ~1.7k elements being
+        # re-appended every iteration until the hard cap). Left in place even
+        # though real pagination now works -- it's a no-op safety net once
+        # pages are genuinely distinct (each page contributes only new GUIDs,
+        # so `added` naturally reaches 0 right after the last real page), and
+        # it stays correct if this endpoint's pagination ever regresses again.
         start = 0
         seen_guids: set = set()
         while True:
             try:
-                page = mgr.find_metadata_elements(find_body, start_from=start, page_size=page_size, graph_query_depth=0)
+                page = mgr.find_metadata_elements({**find_body, "graphQueryDepth": 0,
+                                                     "startFrom": start, "pageSize": page_size})
             except Exception as exc:
                 logger.exception("insights: full-count search page failed")
                 raise HTTPException(status_code=500, detail=str(exc))
@@ -702,7 +722,8 @@ def search_elements(body: SearchBody = Body(...)):
             start += page_size
     else:
         try:
-            page = mgr.find_metadata_elements(find_body, start_from=body.start_from, page_size=page_size, graph_query_depth=0)
+            page = mgr.find_metadata_elements({**find_body, "graphQueryDepth": 0,
+                                                 "startFrom": body.start_from, "pageSize": page_size})
         except Exception as exc:
             logger.exception("insights: search failed")
             raise HTTPException(status_code=500, detail=str(exc))
