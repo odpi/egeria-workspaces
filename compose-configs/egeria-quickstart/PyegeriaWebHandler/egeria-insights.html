@@ -979,7 +979,18 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse }
   }, [catalog]);
 
   function addRelCondition() {
-    setRelConditions(relConditions.concat([{ relationship_type: relationshipTypeNames[0] || '', presence: 'has' }]));
+    setRelConditions(relConditions.concat([{ relationship_type: relationshipTypeNames[0] || '', presence: 'has', end: 'any' }]));
+  }
+  // Direction options for one relationship type — role1/role2 (from /api/types,
+  // the actual relationship-definition end names, e.g. "dataSupplier"/
+  // "dataConsumer") when available, falling back to the end1/end2 entity type
+  // names, since "source"/"target" doesn't universally apply (SemanticAssignment's
+  // ends are "elements"/"meanings", not a directional flow).
+  function relEndOptions(typeName) {
+    var def = catalog && catalog.relationships && catalog.relationships[typeName];
+    var l1 = (def && (def.role1 || def.end1)) || 'end1';
+    var l2 = (def && (def.role2 || def.end2)) || 'end2';
+    return [['any', 'either end'], ['end1', 'as ' + l1], ['end2', 'as ' + l2]];
   }
   function updateRelCondition(i, patch) {
     setRelConditions(relConditions.map(function(c, idx){ return idx === i ? Object.assign({}, c, patch) : c; }));
@@ -994,7 +1005,7 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse }
     setRelConditions(function(prev) {
       var idx = prev.findIndex(function(c){ return c.relationship_type === type; });
       if (idx !== -1) return prev.filter(function(_, i){ return i !== idx; });
-      return prev.concat([{ relationship_type: type, presence: 'has' }]);
+      return prev.concat([{ relationship_type: type, presence: 'has', end: 'any' }]);
     });
   }
 
@@ -1047,7 +1058,7 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse }
                  value: (c.operator === 'IS_NULL' || c.operator === 'NOT_NULL') ? null : c.value, value_type: c.value_type };
       }),
       relationship_conditions: relConditions.filter(function(c){ return c.relationship_type; }).map(function(c) {
-        return { relationship_type: c.relationship_type, presence: c.presence };
+        return { relationship_type: c.relationship_type, presence: c.presence, end: c.end || 'any' };
       }),
       relationship_match_criteria: relMatchCriteria,
       full_count: !!full, start_from: 0, page_size: 200,
@@ -1147,13 +1158,17 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse }
         relConditions.map(function(c, i) {
           return el('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' } },
             el('select', { className: 'area-select', value: c.relationship_type,
-                onChange: function(e){ updateRelCondition(i, { relationship_type: e.target.value }); } },
+                onChange: function(e){ updateRelCondition(i, { relationship_type: e.target.value, end: 'any' }); } },
               relationshipTypeNames.map(function(n){ return el('option', { key: n, value: n }, n); })
             ),
             el('select', { className: 'area-select', value: c.presence,
                 onChange: function(e){ updateRelCondition(i, { presence: e.target.value }); } },
               el('option', { value: 'has' }, 'has'),
               el('option', { value: 'lacks' }, 'lacks')
+            ),
+            el('select', { className: 'area-select', value: c.end || 'any', title: 'Which end of the relationship',
+                onChange: function(e){ updateRelCondition(i, { end: e.target.value }); } },
+              relEndOptions(c.relationship_type).map(function(o){ return el('option', { key: o[0], value: o[0] }, o[1]); })
             ),
             el('button', { onClick: function(){ removeRelCondition(i); },
                 style: { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, '✕')

@@ -128,6 +128,13 @@ class RelationshipCondition(BaseModel):
     relationship_type: str
     presence: str = "has"               # has | lacks — "lacks" is the enrichment-backlog case
                                          # (NEXT-25: "which assets DON'T have lineage yet")
+    end: str = "any"                    # any | end1 | end2 — role/direction-aware (NEXT-25 follow-up).
+                                         # "any" = either end (original behavior). end1/end2 match
+                                         # Egeria's own relationship-definition ends, not a generic
+                                         # "source/target" label — those don't universally apply
+                                         # (e.g. SemanticAssignment's ends are "elements"/"meanings",
+                                         # not a source->target flow). The frontend shows each type's
+                                         # real role1/role2 names (from /api/types) as the two options.
 
 
 class SearchBody(BaseModel):
@@ -297,49 +304,66 @@ def _json_list(raw) -> list:
 
 
 def _relationship_guid_counts(ce, relationship_type: str, as_of: Optional[str] = None,
-                               page_size: int = 5000) -> Dict[str, int]:
+                               page_size: int = 5000, end: str = "any") -> Dict[str, int]:
     """{guid: occurrence count} for every element that participates in >=1
-    relationship of this type — counts each end separately (an element that's
-    end1 twice and end2 once counts 3), same end1/end2 extraction
-    `overview_metrics.ai_ready_assets` already verified live (a relationship's
-    own GUID key is plain "guid", NOT "elementGUID" like a
+    relationship of this type — counts each occurrence separately (an element
+    that's end1 twice and end2 once counts 3 when end="any"), same end1/end2
+    extraction `overview_metrics.ai_ready_assets` already verified live (a
+    relationship's own GUID key is plain "guid", NOT "elementGUID" like a
     find_metadata_elements hit — two different key names for the same concept
     depending on which API path returned the data). Presence (has/lacks) is
     just `guid in counts`; the count itself is what lets a caller distinguish
     "1 DataFlow" from "12 DataFlows" (a much stronger enrichment signal, and
-    a legitimate sort key — see matchCount/totalRelationshipCount below)."""
+    a legitimate sort key — see matchCount/totalRelationshipCount below).
+
+    `end`: "any" (default, both ends — original behavior) | "end1" | "end2" —
+    role/direction-aware search (NEXT-25 follow-up). Restricting to one end
+    answers "which elements are the SOURCE of a DataFlow" vs "which are the
+    TARGET", not just "which participate at all"."""
     out: Dict[str, int] = {}
+    end_keys = ("end1", "end2") if end == "any" else (end,)
     try:
         body = {"class": "ResultsRequestBody", "asOfTime": as_of} if as_of else None
         rels = _json_list(ce.get_relationships(
             relationship_type=relationship_type, output_format="JSON",
             start_from=0, page_size=page_size, body=body))
         for r in rels:
-            for end_key in ("end1", "end2"):
+            for end_key in end_keys:
                 g = ((r.get(end_key) or {}) if isinstance(r, dict) else {}).get("guid")
                 if g:
                     out[g] = out.get(g, 0) + 1
     except Exception as exc:  # noqa: BLE001 — best-effort, degrade don't fail the whole search
-        logger.debug(f"insights: relationship query failed for {relationship_type!r}: {exc}")
+        logger.debug(f"insights: relationship query failed for {relationship_type!r} end={end!r}: {exc}")
     return out
+
+
+def _cond_key(c: "RelationshipCondition") -> str:
+    """Result/aggregate dict key for one relationship condition — plain type
+    name when end="any" (backward compatible with the pre-direction-aware
+    shape), "Type:end1"/"Type:end2" when a specific end was asked for, so an
+    "as source" and "as target" condition on the SAME type can coexist as two
+    distinct entries rather than colliding."""
+    return c.relationship_type if c.end == "any" else f"{c.relationship_type}:{c.end}"
 
 
 def _annotate_relationships(
     results: List[dict], ce, conds: List["RelationshipCondition"], as_of: Optional[str] = None,
 ) -> List[dict]:
-    """Add a "relationships": {type: bool} + "relationshipCounts": {type: int}
-    pair to every result — always run over the FULL fetched population
-    (before any relationship filtering shrinks it), so aggregates below
-    reflect what was actually fetched, not just what survived the filter."""
+    """Add a "relationships": {key: bool} + "relationshipCounts": {key: int}
+    pair to every result (key = _cond_key(condition)) — always run over the
+    FULL fetched population (before any relationship filtering shrinks it),
+    so aggregates below reflect what was actually fetched, not just what
+    survived the filter."""
     if not conds:
         return results
-    by_type = {c.relationship_type: c for c in conds}  # de-dup by type
-    guid_counts = {t: _relationship_guid_counts(ce, t, as_of) for t in by_type}
+    by_key = {_cond_key(c): c for c in conds}  # de-dup by (type, end) composite
+    guid_counts = {k: _relationship_guid_counts(ce, c.relationship_type, as_of, end=c.end)
+                   for k, c in by_key.items()}
     out = []
     for r in results:
         r = dict(r)
-        r["relationships"] = {t: (r["guid"] in guid_counts[t]) for t in by_type}
-        r["relationshipCounts"] = {t: guid_counts[t].get(r["guid"], 0) for t in by_type}
+        r["relationships"] = {k: (r["guid"] in guid_counts[k]) for k in by_key}
+        r["relationshipCounts"] = {k: guid_counts[k].get(r["guid"], 0) for k in by_key}
         out.append(r)
     return out
 
@@ -356,8 +380,8 @@ def _filter_by_relationships(
 
     def _satisfies(r: dict) -> bool:
         rels = r.get("relationships") or {}
-        checks = [rels.get(c.relationship_type, False) if c.presence == "has"
-                  else not rels.get(c.relationship_type, False) for c in conds]
+        checks = [rels.get(_cond_key(c), False) if c.presence == "has"
+                  else not rels.get(_cond_key(c), False) for c in conds]
         if mc == "ANY":
             return any(checks)
         if mc == "NONE":
@@ -602,19 +626,23 @@ def search_elements(body: SearchBody = Body(...)):
     capped = False
 
     if body.full_count:
-        # BUG FOUND 2026-08-04 (NEXT-25): find_metadata_elements silently ignores
-        # start_from/page_size on this server/client combo and returns the FULL
-        # matching set on every call (independently confirmed elsewhere in this
-        # project — see overview_metrics.py's growth_series investigation notes).
+        # BUG FOUND 2026-08-04, ROOT-CAUSED 2026-08-05 (NEXT-25, PYEGERIA_ISSUES.md
+        # PY-23): find_metadata_elements returns the FULL matching set on every
+        # call regardless of start_from/page_size. This is confirmed EGERIA-
+        # SERVER-SIDE, not a pyegeria client bug — pyegeria 6.0.17.15 fixed its
+        # own dropped-parameter bug (now sends the correct ?startFrom=&pageSize=
+        # query string, verified via a request-spy) and the server still ignores
+        # both. Do not remove this workaround just because pyegeria gets
+        # upgraded; see PY-23 before assuming a newer pyegeria alone fixes it.
         # The naive "extend + advance start_from" loop below this comment used to
         # assume real pagination, so it kept re-appending the same ~1.7k elements
         # on every iteration until hitting _FULL_COUNT_HARD_CAP — silently
-        # inflating `total`/`aggregates` with duplicates (surfaced by the new
+        # inflating `total`/`aggregates` with duplicates (surfaced by the
         # relationship filter: 10 real matches came back as "60" once ~6x
         # duplication was multiplied through). Fixed by deduping on GUID as we
         # accumulate and stopping as soon as a page adds zero NEW guids — this
-        # is correct whether the server does real pagination (a stable loop
-        # exit once every real page has been seen) or not (exits after the
+        # is correct whether the server ever starts doing real pagination (a
+        # stable loop exit once every real page has been seen) or not (exits after the
         # first fetch, since the second identical page adds nothing new).
         start = 0
         seen_guids: set = set()
@@ -690,10 +718,11 @@ def search_elements(body: SearchBody = Body(...)):
     relationship_aggregates: dict = {}
     if body.relationship_conditions:
         for c in body.relationship_conditions:
-            has = sum(1 for r in results if (r.get("relationships") or {}).get(c.relationship_type))
-            counts = [(r.get("relationshipCounts") or {}).get(c.relationship_type, 0) for r in results]
+            key = _cond_key(c)
+            has = sum(1 for r in results if (r.get("relationships") or {}).get(key))
+            counts = [(r.get("relationshipCounts") or {}).get(key, 0) for r in results]
             total = sum(counts)
-            relationship_aggregates[c.relationship_type] = {
+            relationship_aggregates[key] = {
                 "has": has, "lacks": len(results) - has,
                 "totalInstances": total,
                 "avgPerHaving": round(total / has, 1) if has else 0,

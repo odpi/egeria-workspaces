@@ -1036,6 +1036,54 @@ of `ProjectManager._async_get_linked_projects` next.
 
 ---
 
+## PY-23: `MetadataExpert.find_metadata_elements` — pyegeria's own dropped-parameter bug is FIXED (6.0.17.15), but Egeria's server still ignores `startFrom`/`pageSize` on this endpoint
+
+**Status: pyegeria side FIXED, Egeria server side still open.** Found
+2026-08-04/05 while building Egeria Insights' relationship search
+(`insights_handler.py`) — the `full_count` pagination loop kept re-appending
+the same ~1,700 elements on every page until hitting its hard cap, because
+`_async_find_metadata_elements` silently dropped `start_from`/`page_size`/
+`graph_query_depth` entirely (same "dead parameter" bug shape as ISSUE-25).
+Fixed client-side in pyegeria 6.0.17.15 (`startFrom`/`pageSize` now sent as
+URL query params, `graphQueryDepth` merged into the body, per the `.http`
+ground truth) — see egeria-python `ISSUE-25`/commit `df053ec`.
+
+**But the fix alone doesn't restore real pagination.** Re-verified live
+2026-08-05 against `qs-view-server` on the upgraded client (6.0.17.15,
+confirmed via a request-spy that the correct URL — `?startFrom=0&pageSize=5`
+— actually reaches the wire):
+
+```python
+p1 = mgr.find_metadata_elements(body, start_from=0, page_size=5, graph_query_depth=0)
+p2 = mgr.find_metadata_elements(body, start_from=5, page_size=5, graph_query_depth=0)
+# len(p1) == len(p2) == 1837 (the FULL Asset population, both times)
+# set(guids in p1) == set(guids in p2) -- 100% overlap, not two distinct pages
+```
+
+The client now sends the spec-correct request; the server returns the same
+full, unpaginated result set regardless of what `startFrom`/`pageSize` it was
+given. This is an Egeria-server-side gap in the
+`metadata-expert/metadata-elements/by-search-conditions` endpoint's handling
+of those two query parameters specifically — not yet root-caused on the Java
+side (no source read done yet, unlike PY-15's `QueryBuilder` deep-dive).
+
+**Workaround still required and still in place**:
+`insights_handler.py`'s `search_elements()` full_count loop dedupes by GUID
+while accumulating pages and stops once a page contributes zero new GUIDs —
+correct regardless of whether the server ever starts respecting real
+pagination (if it does, the loop naturally terminates after the first real
+empty/short page instead of after a same-content detection). Do **not**
+remove this workaround on the assumption that 6.0.17.15 alone fixes it — it
+doesn't.
+
+**Not yet investigated:** whether this affects other `find_*` methods that
+share the same `metadata-expert` OMVS service, or is specific to
+`by-search-conditions`; whether other repository connectors (this
+environment runs Postgres — cf. PY-15's connector-specific root cause) behave
+the same way.
+
+---
+
 ## Quick reference: which OMVS client class for which purpose
 
 | Need | Class | Notes |
@@ -1049,6 +1097,7 @@ of `ProjectManager._async_get_linked_projects` next.
 | Solution blueprints/components (any pyegeria version) | `SolutionArchitect.find_solution_blueprints/components(search_string="*")` | Avoid `find_all_*` variants (PY-3) |
 | Note logs (list) | `find_note_logs("*", graph_query_depth=0)` | PY-6 |
 | Multi-classification search (`matchClassifications`, 2+ conditions) | `MetadataExpert.find_metadata_elements` | Fixed in Egeria (PY-15) — re-verify once the fixed server is deployed here |
+| Paging a large `find_metadata_elements` result (`start_from`/`page_size`) | Don't rely on it | Egeria server ignores both regardless of pyegeria version (PY-23, open) — dedupe by GUID client-side while accumulating pages instead |
 | Peer-duplicate linking | `ClassificationExplorer.link_elements_as_peer_duplicates` | Fixed in pyegeria 6.0.16.20 (PY-16) — safe to call directly now |
 | Relationships for a single element by guid | `MetadataExpert.get_all_related_elements(guid)` | **Not** `get_metadata_element_by_guid` — that call never returns relationships, by design (PY-17, not a bug) |
 | Note logs (entries) | `get_notes_for_note_log(guid, page_size=100)` | PY-5 — never pass `metadata_element_type_name="NoteLog"` |
