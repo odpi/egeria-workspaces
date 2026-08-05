@@ -167,8 +167,16 @@ def list_actions(
     results = []
     for t in types:
         try:
-            body = {"class": "FindRequestBody", "metadataElementTypeName": t, "limitResultsByStatus": ["ACTIVE"]}
-            raw = mgr.find_metadata_elements(body, start_from=start_from, page_size=page_size, graph_query_depth=0)
+            # start_from/page_size/graph_query_depth go in the body itself,
+            # not as kwargs -- pyegeria's find_metadata_elements stopped
+            # accepting those as parameters (PYEGERIA_ISSUES.md ISSUE-34).
+            # Passing them as kwargs here was a silent no-op regression
+            # (found 2026-08-05 while fixing the Action Center routing bug --
+            # this call site was missed when insights_handler.py's 5 call
+            # sites were fixed for the same regression).
+            body = {"class": "FindRequestBody", "metadataElementTypeName": t, "limitResultsByStatus": ["ACTIVE"],
+                     "startFrom": start_from, "pageSize": page_size, "graphQueryDepth": 0}
+            raw = mgr.find_metadata_elements(body)
         except Exception as exc:
             logger.exception(f"find_metadata_elements failed for {t}")
             raise HTTPException(status_code=500, detail=f"Action center retrieval failed for {t}: {exc}")

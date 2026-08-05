@@ -643,11 +643,15 @@ function OpsToolbar({ platforms, platform, onPlatform, servers, server, onServer
     el('span', { style: { fontSize:12, color:'var(--dim)' } }, 'Platform'),
     el('select', { value: platform ? platform.guid : '', onChange: function(e){ onPlatform(platforms.find(function(p){ return p.guid === e.target.value; }) || null); }, style: sel },
       (platforms.length ? platforms : []).length === 0 ? el('option', { value:'' }, 'No platforms')
-        : platforms.map(function(p){ return el('option', { key:p.guid, value:p.guid }, p.displayName); })),
+        // Alphabetized for the dropdown only — `platforms` itself is left as
+        // passed in (other consumers of the prop may rely on its order).
+        : platforms.slice().sort(function(a, b) { return (a.displayName || '').localeCompare(b.displayName || ''); })
+            .map(function(p){ return el('option', { key:p.guid, value:p.guid }, p.displayName); })),
     onServer && el('span', { style: { fontSize:12, color:'var(--dim)' } }, serverLabel || 'Server'),
     onServer && el('select', { value: server ? server.guid : '', onChange: function(e){ onServer((servers||[]).find(function(s){ return s.guid === e.target.value; }) || null); }, style: sel },
       [el('option', { key:'_', value:'' }, (servers && servers.length) ? 'Select a server…' : 'No matching servers')]
-        .concat((servers||[]).map(function(s){ return el('option', { key:s.guid, value:s.guid }, _shortName(s.displayName || s.serverName)); }))),
+        .concat((servers||[]).slice().sort(function(a, b) { return _shortName(a.displayName || a.serverName || '').localeCompare(_shortName(b.displayName || b.serverName || '')); })
+          .map(function(s){ return el('option', { key:s.guid, value:s.guid }, _shortName(s.displayName || s.serverName)); }))),
     children,
     el('div', { style: { marginLeft:'auto' } }, el(RefreshControl, { onRefresh: onRefresh, busy: busy })));
 }

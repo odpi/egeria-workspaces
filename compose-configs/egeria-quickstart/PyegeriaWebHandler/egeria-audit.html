@@ -752,7 +752,12 @@ function UsersTab({ creds }) {
       el('span', { style: { fontSize: 12, color: 'var(--dim)' } }, 'Platform:'),
       el('select', { value: plat ? plat.guid : '', onChange: function(e){ setPlat(plats.find(function(p){ return p.guid === e.target.value; }) || null); },
         style: { fontSize: 12, padding: '4px 8px', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 4 } },
-        plats.length === 0 ? el('option', { value: '' }, platErr ? 'Error loading platforms' : 'No platforms') : plats.map(function(p){ return el('option', { key: p.guid, value: p.guid }, p.displayName); })),
+        plats.length === 0 ? el('option', { value: '' }, platErr ? 'Error loading platforms' : 'No platforms')
+          // Alphabetized for the dropdown only — `plats` itself stays in its
+          // original (server-returned) order, since the default-selection
+          // logic above (`ps[ps.length - 1]`) depends on that order.
+          : plats.slice().sort(function(a, b) { return (a.displayName || '').localeCompare(b.displayName || ''); })
+              .map(function(p){ return el('option', { key: p.guid, value: p.guid }, p.displayName); })),
       platErr && el('span', { style: { fontSize: 11, color: '#f87171', marginLeft: 8 } }, platErr),
       el('span', { style: { fontSize: 11, color: 'var(--dim)', marginLeft: 'auto' } }, 'Status changes require an admin account')
     ),
