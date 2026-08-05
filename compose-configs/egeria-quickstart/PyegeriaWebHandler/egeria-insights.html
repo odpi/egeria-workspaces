@@ -601,6 +601,7 @@ var pad = { padding: '24px', color: 'var(--muted)', fontSize: 13 };
 var TABS = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'search',    label: 'Governance Search' },
+  { id: 'saved',     label: 'Saved Queries' },
 ];
 
 // Mirrors insights_handler.py's _GOVERNANCE_CLASSIFICATIONS / LEVEL_FIELDS —
@@ -956,25 +957,35 @@ function SearchResults({ results }) {
   );
 }
 
-function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse }) {
+function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse, loadedQuery, onClearLoaded }) {
+  // loadedQuery (Track A saved queries, EGERIA_INSIGHTS_QUERY_MODEL.md) —
+  // {guid, name, description, spec} from "Open in builder" on the Saved
+  // Queries tab. spec is the same shape SearchBody's filter fields take
+  // (see insights_handler.py's _search_spec) — used only as an initializer
+  // here (useState(fn) pattern, same as focusZone/focusType/focusRel already
+  // use), so switching to a *different* saved query needs App() to remount
+  // this component (see App()'s key derivation) rather than relying on a
+  // prop-change effect.
+  var lq = loadedQuery ? (loadedQuery.spec || {}) : {};
   var _cat = useState(null),      catalog = _cat[0],   setCatalog = _cat[1];
   var _cst = useState('loading'), catState = _cst[0],  setCatState = _cst[1];
   var _zone = useState(focusZone || null), selectedZone = _zone[0], setSelectedZone = _zone[1];
-  var _mc  = useState('ALL'), matchCriteria = _mc[0], setMatchCriteria = _mc[1];
-  var _cond = useState([]), conditions = _cond[0], setConditions = _cond[1];
+  var _mc  = useState(lq.match_criteria || 'ALL'), matchCriteria = _mc[0], setMatchCriteria = _mc[1];
+  var _cond = useState(function(){ return lq.conditions || []; }), conditions = _cond[0], setConditions = _cond[1];
   // Relationship conditions (NEXT-25) — "has/lacks a relationship of type X",
   // combined ALL/ANY/NONE same as classification conditions. Seeded from
   // ?rel=Type:presence,Type2:presence (e.g. from Overview's drill-through —
-  // see egeria-overview.html's "Open in Insights" link).
-  var _relMc = useState('ALL'), relMatchCriteria = _relMc[0], setRelMatchCriteria = _relMc[1];
-  var _relCond = useState(function(){ return focusRel || []; }), relConditions = _relCond[0], setRelConditions = _relCond[1];
+  // see egeria-overview.html's "Open in Insights" link) or from a loaded
+  // saved query's spec.
+  var _relMc = useState(lq.relationship_match_criteria || 'ALL'), relMatchCriteria = _relMc[0], setRelMatchCriteria = _relMc[1];
+  var _relCond = useState(function(){ return lq.relationship_conditions || focusRel || []; }), relConditions = _relCond[0], setRelConditions = _relCond[1];
   // Property-value conditions (advanced search, NEXT-25 follow-up) — search
   // on the ELEMENT's own properties (displayName/qualifiedName/description/...),
   // distinct from a classification's properties (`conditions` above). Egeria
   // combines both, plus type, in one FindRequestBody server call — see
   // insights_handler.py's _build_find_body / SearchBody.value_conditions.
-  var _valMc = useState('ALL'), valueMatchCriteria = _valMc[0], setValueMatchCriteria = _valMc[1];
-  var _valCond = useState([]), valueConditions = _valCond[0], setValueConditions = _valCond[1];
+  var _valMc = useState(lq.value_match_criteria || 'ALL'), valueMatchCriteria = _valMc[0], setValueMatchCriteria = _valMc[1];
+  var _valCond = useState(function(){ return lq.value_conditions || []; }), valueConditions = _valCond[0], setValueConditions = _valCond[1];
   // Left rail shows either the Zone tree or the Relationship tree — Dashboard's
   // Relationship Coverage card jumps straight into 'relationships' mode via
   // focusBrowse; otherwise defaults to zones (the original, more-used mode).
@@ -982,9 +993,16 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse }
   var _res = useState(null), results = _res[0], setResults = _res[1];
   var _rst = useState('idle'), resState = _rst[0], setResState = _rst[1];
   var _full = useState(false), fullCount = _full[0], setFullCount = _full[1];
-  var _typeName = useState(focusType || ''), typeName = _typeName[0], setTypeName = _typeName[1];
+  var _typeName = useState(focusType || lq.type_name || ''), typeName = _typeName[0], setTypeName = _typeName[1];
   var _valueOpts = useState({}), valueOpts = _valueOpts[0], setValueOpts = _valueOpts[1];
   var _zoneW = useResizable(240, 160, 480), zoneWidth = _zoneW[0], onZoneResizeDown = _zoneW[1];
+  // Save / update (Track A saved queries) —
+  var _savedGuid = useState(loadedQuery ? loadedQuery.guid : null), savedGuid = _savedGuid[0], setSavedGuid = _savedGuid[1];
+  var _saveName  = useState(loadedQuery ? loadedQuery.name : ''), saveName = _saveName[0], setSaveName = _saveName[1];
+  var _saveDesc  = useState(loadedQuery ? (loadedQuery.description || '') : ''), saveDesc = _saveDesc[0], setSaveDesc = _saveDesc[1];
+  var _showSave  = useState(false), showSavePanel = _showSave[0], setShowSavePanel = _showSave[1];
+  var _saveState = useState('idle'), saveState = _saveState[0], setSaveState = _saveState[1]; // idle|saving|saved|error
+  var _saveErr   = useState(''), saveErr = _saveErr[0], setSaveErr = _saveErr[1];
 
   useEffect(function(){ typeCatalog(creds, setCatalog, setCatState); }, [creds && creds.userId]);
 
@@ -1111,6 +1129,49 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse }
                       || relConditions.some(function(c){ return c.relationship_type; })
                       || valueConditions.some(function(c){ return c.property; });
 
+  // Save / update / save-as (Track A saved queries, EGERIA_INSIGHTS_QUERY_MODEL.md).
+  // The persisted spec is exactly what /api/insights/search itself takes —
+  // same shape runSearch() posts, minus paging/connection fields the backend
+  // strips on its side (_search_spec) regardless.
+  function currentSearchBody() {
+    return {
+      type_name: typeName || null,
+      match_criteria: matchCriteria,
+      conditions: conditions.filter(function(c){ return c.classification; }).map(function(c) {
+        return { classification: c.classification, property: c.property || null, operator: c.operator,
+                 value: (c.operator === 'IS_NULL' || c.operator === 'NOT_NULL') ? null : c.value, value_type: c.value_type };
+      }),
+      relationship_conditions: relConditions.filter(function(c){ return c.relationship_type; }).map(function(c) {
+        return { relationship_type: c.relationship_type, presence: c.presence, end: c.end || 'any' };
+      }),
+      relationship_match_criteria: relMatchCriteria,
+      value_conditions: valueConditions.filter(function(c){ return c.property; }).map(function(c) {
+        return { property: c.property, operator: c.operator,
+                 value: (c.operator === 'IS_NULL' || c.operator === 'NOT_NULL') ? null : c.value, value_type: c.value_type };
+      }),
+      value_match_criteria: valueMatchCriteria,
+    };
+  }
+
+  function saveQuery(asNew) {
+    if (!saveName.trim()) { setSaveState('error'); setSaveErr('Name is required.'); return; }
+    var isUpdate = savedGuid && !asNew;
+    var reqUrl = isUpdate ? ('/api/insights/queries/' + savedGuid) : '/api/insights/queries';
+    var payload = {
+      name: saveName.trim(), description: saveDesc || '', search: currentSearchBody(),
+      server: creds && creds.server, user_id: creds && creds.userId, url: creds && creds.url,
+    };
+    setSaveState('saving'); setSaveErr('');
+    egeriaFetch(reqUrl, creds, {
+      method: isUpdate ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+    }).then(function(r) {
+      if (!r.ok) return r.json().then(function(e){ throw new Error(e.detail || ('HTTP ' + r.status)); });
+      return r.json();
+    }).then(function(d) {
+      setSavedGuid(d.guid); setSaveState('saved'); setShowSavePanel(false);
+    }).catch(function(e) { setSaveState('error'); setSaveErr(e.message || 'Save failed'); });
+  }
+
   var browseTabBtn = function(mode, label) {
     var on = browseMode === mode;
     return el('button', { key: mode, onClick: function(){ setBrowseMode(mode); },
@@ -1140,7 +1201,7 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse }
             el('option', { value: 'NONE' }, 'NONE of the conditions')
           ),
           el('span', { style: { fontSize: 12, color: 'var(--muted)', marginLeft: 10 } }, 'Element type'),
-          el('input', { className: 'search-input', style: { width: 180 }, placeholder: 'e.g. Asset (optional)',
+          el('input', { className: 'search-input', style: { width: 180 }, placeholder: 'e.g. Asset (optional)', list: 'entity-types',
                         value: typeName, onChange: function(e){ setTypeName(e.target.value); } })
         ),
         catState === 'loading' && el('div', { style: { fontSize: 12, color: 'var(--dim)', marginBottom: 8 } }, 'Loading classification catalog…'),
@@ -1149,10 +1210,9 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse }
           var props = propsFor(c.classification);
           var opts = valueOpts[c.property];
           return el('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' } },
-            el('select', { className: 'area-select', value: c.classification,
-                onChange: function(e){ updateCondition(i, { classification: e.target.value, property: '' }); } },
-              classificationNames.map(function(n){ return el('option', { key: n, value: n }, n); })
-            ),
+            el('input', { className: 'search-input', style: { width: 190 }, placeholder: 'classification', list: 'classification-names',
+                value: c.classification,
+                onChange: function(e){ updateCondition(i, { classification: e.target.value, property: '' }); } }),
             el('select', { className: 'area-select', value: c.property,
                 onChange: function(e){ updateCondition(i, { property: e.target.value }); if (e.target.value) loadValueOptions(e.target.value); } },
               el('option', { value: '' }, '(has classification)'),
@@ -1192,10 +1252,9 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse }
         ),
         relConditions.map(function(c, i) {
           return el('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' } },
-            el('select', { className: 'area-select', value: c.relationship_type,
-                onChange: function(e){ updateRelCondition(i, { relationship_type: e.target.value, end: 'any' }); } },
-              relationshipTypeNames.map(function(n){ return el('option', { key: n, value: n }, n); })
-            ),
+            el('input', { className: 'search-input', style: { width: 190 }, placeholder: 'relationship type', list: 'relationship-types',
+                value: c.relationship_type,
+                onChange: function(e){ updateRelCondition(i, { relationship_type: e.target.value, end: 'any' }); } }),
             el('select', { className: 'area-select', value: c.presence,
                 onChange: function(e){ updateRelCondition(i, { presence: e.target.value }); } },
               el('option', { value: 'has' }, 'has'),
@@ -1237,6 +1296,16 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse }
           );
         }),
         el('datalist', { id: 'common-props' }, COMMON_ELEMENT_PROPS.map(function(p){ return el('option', { key: p, value: p }); })),
+        // Searchable dropdowns (Track A.1, EGERIA_INSIGHTS_QUERY_MODEL.md §2.5)
+        // — real catalog values via <datalist>-backed text inputs, same
+        // pattern COMMON_ELEMENT_PROPS above already established for property
+        // names. Built once here and shared by every condition row's input.
+        el('datalist', { id: 'entity-types' },
+          (catalog && catalog.entities ? Object.keys(catalog.entities).sort() : []).map(function(n){ return el('option', { key: n, value: n }); })),
+        el('datalist', { id: 'classification-names' },
+          classificationNames.map(function(n){ return el('option', { key: n, value: n }); })),
+        el('datalist', { id: 'relationship-types' },
+          relationshipTypeNames.map(function(n){ return el('option', { key: n, value: n }); })),
         el('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' } },
           el('button', { onClick: addCondition, disabled: catState !== 'ready',
               style: { fontSize: 12, padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' } }, '+ Add condition'),
@@ -1251,7 +1320,29 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse }
             'Exact count (may take a while)'
           ),
           fullCount && el('button', { onClick: function(){ runSearch(true); }, disabled: !canFullCount,
-              style: { fontSize: 12, padding: '5px 14px', borderRadius: 4, border: '1px solid var(--rel)', background: 'transparent', color: 'var(--rel)', cursor: 'pointer' } }, 'Run exact count')
+              style: { fontSize: 12, padding: '5px 14px', borderRadius: 4, border: '1px solid var(--rel)', background: 'transparent', color: 'var(--rel)', cursor: 'pointer' } }, 'Run exact count'),
+          el('span', { style: { flex: 1 } }),
+          // Save / update / save-as (Track A saved queries) —
+          savedGuid && el('span', { className: 'chip', style: { cursor: 'default' }, title: saveDesc || '' }, '📌 ' + saveName),
+          savedGuid && onClearLoaded && el('button', { onClick: onClearLoaded,
+              style: { fontSize: 11, padding: '3px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, '+ New search'),
+          el('button', { onClick: function(){ setShowSavePanel(!showSavePanel); setSaveState('idle'); },
+              style: { fontSize: 12, padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' } },
+            '💾 ' + (savedGuid ? 'Save…' : 'Save query…'))
+        ),
+        showSavePanel && el('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, flexWrap: 'wrap',
+              background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 10px' } },
+          el('input', { className: 'search-input', style: { width: 200 }, placeholder: 'Query name',
+              value: saveName, onChange: function(e){ setSaveName(e.target.value); } }),
+          el('input', { className: 'search-input', style: { width: 260 }, placeholder: 'Description (optional)',
+              value: saveDesc, onChange: function(e){ setSaveDesc(e.target.value); } }),
+          el('button', { onClick: function(){ saveQuery(false); }, disabled: saveState === 'saving',
+              style: { fontSize: 12, padding: '4px 12px', borderRadius: 4, border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 600, cursor: 'pointer' } },
+            saveState === 'saving' ? 'Saving…' : (savedGuid ? 'Update' : 'Save')),
+          savedGuid && el('button', { onClick: function(){ saveQuery(true); }, disabled: saveState === 'saving',
+              style: { fontSize: 12, padding: '4px 12px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' } }, 'Save as new'),
+          saveState === 'saved' && el('span', { style: { fontSize: 12, color: '#4ade80' } }, 'Saved ✓'),
+          saveState === 'error' && el('span', { style: { fontSize: 12, color: '#f87171' } }, saveErr)
         )
       ),
       el('div', { style: { flex: 1, overflowY: 'auto', padding: '14px 20px' } },
@@ -1260,6 +1351,112 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse }
         resState === 'error'   && el('div', { style: { fontSize: 13, color: '#f87171' } }, (results && results.error) || 'Search failed.'),
         resState === 'ready'   && el(SearchResults, { results: results })
       )
+    )
+  );
+}
+
+/* ── Saved Queries (Track A, EGERIA_INSIGHTS_QUERY_MODEL.md) ─────────────────
+   Browse/open/refresh/delete over the ResultsSet-backed saved queries
+   insights_handler.py's /api/insights/queries* endpoints expose. "Open in
+   builder" hands the full {guid, name, description, spec} object up to
+   App(), which remounts GovernanceSearch with it as an initializer (see
+   that component's loadedQuery prop). Staleness is shown as an explicit
+   "as of <time>" badge, never re-run silently (§2.4 — "I'm ok showing last
+   cached results as long as its clear"). */
+function fmtAsOf(iso) {
+  if (!iso) return 'never refreshed';
+  try { return 'as of ' + new Date(iso).toLocaleString(); } catch (e) { return 'as of ' + iso; }
+}
+
+function SavedQueries({ creds, onOpenInBuilder }) {
+  var _q  = useState([]),        queries = _q[0],  setQueries = _q[1];
+  var _st = useState('loading'), state   = _st[0], setState   = _st[1];
+  var _busy = useState(null),    busyGuid = _busy[0], setBusyGuid = _busy[1];
+  var _exp  = useState(null),    expandedGuid = _exp[0], setExpandedGuid = _exp[1];
+  var _cache = useState({}),     cached = _cache[0], setCached = _cache[1]; // guid -> {results, total}
+
+  function load() {
+    setState('loading');
+    egeriaFetch('/api/insights/queries', creds).then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function(d) { setQueries(d.queries || []); setState('ready'); })
+      .catch(function() { setState('error'); });
+  }
+  useEffect(load, [creds && creds.userId]);
+
+  function doRefresh(q) {
+    setBusyGuid(q.guid);
+    egeriaFetch('/api/insights/queries/' + q.guid + '/refresh', creds, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
+    }).then(function(r) { return r.json(); })
+      .then(function() {
+        setBusyGuid(null);
+        setCached(function(prev) { var next = Object.assign({}, prev); delete next[q.guid]; return next; }); // force a re-fetch if expanded
+        load();
+      }).catch(function() { setBusyGuid(null); });
+  }
+  function doDelete(q) {
+    if (!window.confirm('Delete saved query "' + q.name + '"? This cannot be undone.')) return;
+    setBusyGuid(q.guid);
+    egeriaFetch('/api/insights/queries/' + q.guid, creds, { method: 'DELETE' })
+      .then(function() { setBusyGuid(null); load(); })
+      .catch(function() { setBusyGuid(null); });
+  }
+  function toggleResults(q) {
+    if (expandedGuid === q.guid) { setExpandedGuid(null); return; }
+    setExpandedGuid(q.guid);
+    if (!cached[q.guid]) {
+      egeriaFetch('/api/insights/queries/' + q.guid + '/results', creds).then(function(r) { return r.json(); })
+        .then(function(d) { setCached(function(prev) { var next = Object.assign({}, prev); next[q.guid] = d; return next; }); })
+        .catch(function() {});
+    }
+  }
+
+  return el('div', { style: { padding: 24, overflowY: 'auto', height: '100%' } },
+    el('div', { style: { fontSize: 13, color: 'var(--muted)', marginBottom: 18, maxWidth: 640 } },
+      'Queries saved from Governance Search — each is a ResultsSet whose last-materialized ' +
+      'results are shown here as-of the time it was last refreshed. Refresh re-runs the query ' +
+      'and updates its membership; nothing re-runs automatically just by viewing it.'),
+    state === 'loading' && el('div', { className: 'center', style: { height: 160 } }, el('div', { className: 'spinner' })),
+    state === 'error'   && el('div', { style: { fontSize: 13, color: '#f87171' } }, 'Failed to load saved queries.'),
+    state === 'ready' && queries.length === 0 &&
+      el('div', { style: { fontSize: 13, color: 'var(--dim)' } }, 'No saved queries yet — build one in Governance Search, then "💾 Save query…".'),
+    state === 'ready' && queries.length > 0 && el('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 900 } },
+      queries.map(function(q) {
+        var busy = busyGuid === q.guid;
+        var isOpen = expandedGuid === q.guid;
+        return el('div', { key: q.guid, className: 'rel-card' },
+          el('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 10 } },
+            el('div', { style: { flex: 1, minWidth: 0 } },
+              el('div', { style: { fontSize: 14, fontWeight: 700 } }, q.name),
+              q.description && el('div', { style: { fontSize: 12, color: 'var(--muted)', marginTop: 2 } }, q.description),
+              el('div', { style: { fontSize: 11, color: 'var(--dim)', marginTop: 6, display: 'flex', gap: 10, flexWrap: 'wrap' } },
+                el('span', null, fmtAsOf(q.lastRefreshedTime)),
+                q.resultCount != null && el('span', null, q.resultCount + ' materialized result' + (q.resultCount === 1 ? '' : 's')),
+                q.spec && q.spec.type_name && el('span', { className: 'mono' }, 'type=' + q.spec.type_name)
+              )
+            ),
+            el('div', { style: { display: 'flex', gap: 6, flexShrink: 0 } },
+              el('button', { onClick: function(){ onOpenInBuilder(q); }, disabled: busy,
+                  style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' } }, 'Open in builder'),
+              el('button', { onClick: function(){ toggleResults(q); }, disabled: busy,
+                  style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' } }, isOpen ? 'Hide results' : 'View results'),
+              el('button', { onClick: function(){ doRefresh(q); }, disabled: busy,
+                  style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' } }, busy ? '…' : 'Refresh'),
+              el('button', { onClick: function(){ doDelete(q); }, disabled: busy,
+                  style: { fontSize: 11, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: '#f87171', cursor: 'pointer' } }, 'Delete')
+            )
+          ),
+          isOpen && el('div', { style: { marginTop: 10, borderTop: '1px solid var(--border)', paddingTop: 10 } },
+            !cached[q.guid]
+              ? el('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'Loading cached results…')
+              : cached[q.guid].results.length === 0
+              ? el('div', { style: { fontSize: 12, color: 'var(--dim)' } }, 'No materialized results yet — click Refresh to run this query.')
+              : el(SearchResults, { results: { results: cached[q.guid].results, total: cached[q.guid].total } })
+          )
+        );
+      })
     )
   );
 }
@@ -1276,6 +1473,10 @@ function App() {
   var _fp = useState(''),  fp = _fp[0], setFp = _fp[1];
   var _ce = useState(''),  cerr = _ce[0], setCerr = _ce[1];
   var _bh = useState(params.get('browse') || null), browseHint = _bh[0], setBrowseHint = _bh[1];
+  // Track A saved queries (EGERIA_INSIGHTS_QUERY_MODEL.md) — the query
+  // opened from the Saved Queries tab's "Open in builder". null = a fresh,
+  // unsaved search.
+  var _lq = useState(null), loadedQuery = _lq[0], setLoadedQuery = _lq[1];
   var focusZone = params.get('zone') || null;
   // Deep-link seeding for a pre-filled compound search (NEXT-25) — e.g. from
   // Overview's "Open in Insights" drill-through: ?type=Asset&rel=DataFlow:lacks
@@ -1349,11 +1550,19 @@ function App() {
 
   // re-key on the connected identity so tabs re-fetch when you connect/switch
   var credKey = (who ? who.label : 'anon');
+  // GovernanceSearch's loadedQuery is only read as a useState initializer
+  // (see that component's comment) — keying on the loaded query's guid (or
+  // 'new') forces a remount, and therefore a re-init, whenever a *different*
+  // saved query is opened or the search is cleared back to blank.
+  var searchKey = 'search@' + credKey + '@' + (loadedQuery ? loadedQuery.guid : 'new');
   var content = !ready
     ? el('div', { style: pad }, 'Connecting…')
     : active.id === 'dashboard'
       ? el(Dashboard, { key: 'dash@' + credKey, creds: creds, onOpenSearch: function(mode){ if (mode) setBrowseHint(mode); go('search'); } })
-      : el(GovernanceSearch, { key: 'search@' + credKey, creds: creds, focusZone: focusZone, focusType: focusType, focusRel: focusRel, focusBrowse: browseHint });
+      : active.id === 'saved'
+      ? el(SavedQueries, { key: 'saved@' + credKey, creds: creds, onOpenInBuilder: function(q){ setLoadedQuery(q); go('search'); } })
+      : el(GovernanceSearch, { key: searchKey, creds: creds, focusZone: focusZone, focusType: focusType, focusRel: focusRel,
+                                focusBrowse: browseHint, loadedQuery: loadedQuery, onClearLoaded: function(){ setLoadedQuery(null); } });
 
   var inp = { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', outline: 'none' };
   var showConnBar = ready && !srvManaged && (showConn || !who);
