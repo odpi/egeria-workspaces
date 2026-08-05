@@ -40,11 +40,18 @@ Verified live against qs-view-server 2026-07-15. Two things worth knowing:
   elementHeader/properties wrapper — see the parsing helpers below), not the
   converter-normalized shape other handlers get from calls like
   AssetMaker.get_asset_by_guid(output_format="JSON").
-- PY-15 (Postgres connector ignoring matchCriteria on 2+ classification
-  conditions) is FIXED and CLOSED server-side (verified 2026-07-17,
-  PYEGERIA_ISSUES.md) — multi-classification compound search is safe to use
-  now. Kept as a historical note since `get_summary()`'s 5-classification
-  ANY tally and this module predate the fix.
+- ISSUE-35/PY-15 (Postgres connector ignoring matchCriteria on 2+
+  classification conditions) is FIXED and CLOSED server-side (verified
+  2026-07-17, egeria-python's PYEGERIA_ISSUES.md — the canonical tracker as
+  of 2026-08-05; this repo's own copy is now a pointer) — multi-classification
+  compound search is safe to use now. Kept as a historical note since
+  `get_summary()`'s 5-classification ANY tally and this module predate the
+  fix.
+- ISSUE-34, egeria-python's PYEGERIA_ISSUES.md: `find_metadata_elements`'s
+  `start_from`/`page_size` are NOT separate parameters anymore — set
+  `"startFrom"`/`"pageSize"` directly in the FindRequestBody dict passed to
+  it. Passing them as kwargs is silently a no-op (absorbed by `**kwargs`),
+  not an error.
 
 Relationship conditions (2026-08-04, NEXT-25): `matchClassifications` has no
 equivalent for "has/lacks a relationship of type X" — Egeria's find API
@@ -60,7 +67,7 @@ explicitly rather than silently under-counting.
 """
 import os
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Body, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse
@@ -128,15 +135,37 @@ class RelationshipCondition(BaseModel):
     relationship_type: str
     presence: str = "has"               # has | lacks — "lacks" is the enrichment-backlog case
                                          # (NEXT-25: "which assets DON'T have lineage yet")
+    end: str = "any"                    # any | end1 | end2 — role/direction-aware (NEXT-25 follow-up).
+                                         # "any" = either end (original behavior). end1/end2 match
+                                         # Egeria's own relationship-definition ends, not a generic
+                                         # "source/target" label — those don't universally apply
+                                         # (e.g. SemanticAssignment's ends are "elements"/"meanings",
+                                         # not a source->target flow). The frontend shows each type's
+                                         # real role1/role2 names (from /api/types) as the two options.
+
+
+class ValueCondition(BaseModel):
+    property: str
+    operator: str = "EQ"                # same vocabulary as Condition.operator
+    value: Optional[Any] = None
+    value_type: str = "string"          # string | int | boolean
 
 
 class SearchBody(BaseModel):
     type_name: Optional[str] = None     # metadataElementTypeName; omit = search all types
     match_criteria: str = "ALL"         # ALL | ANY | NONE across the conditions
     conditions: List[Condition] = []
+    value_conditions: List[ValueCondition] = []
+    value_match_criteria: str = "ALL"   # ALL | ANY | NONE across value_conditions -- element-level
+                                         # property search (FindRequestBody's top-level
+                                         # searchProperties), distinct from `conditions`
+                                         # above (classification-scoped property search,
+                                         # matchClassifications[].searchProperties). Egeria
+                                         # combines both in ONE server call -- see
+                                         # Egeria-api-metadata-expert.http's worked example.
     relationship_conditions: List[RelationshipCondition] = []
     relationship_match_criteria: str = "ALL"   # ALL | ANY | NONE across relationship_conditions
-    sort_by: Optional[str] = None       # displayName | typeName | qualifiedName | matchCount
+    sort_by: Optional[str] = None       # displayName | typeName | qualifiedName | matchCount | totalRelationshipCount
     sort_dir: str = "asc"               # asc | desc
     as_of_time: Optional[str] = None
     full_count: bool = False
@@ -175,6 +204,13 @@ def _classification_condition(c: Condition) -> dict:
     return cond
 
 
+def _value_condition(v: ValueCondition) -> dict:
+    cond: dict = {"property": v.property, "operator": v.operator}
+    if v.operator not in ("IS_NULL", "NOT_NULL"):
+        cond["value"] = _prop_value(v.value, v.value_type)
+    return cond
+
+
 def _build_find_body(search: SearchBody) -> dict:
     body: dict = {"class": "FindRequestBody", "limitResultsByStatus": ["ACTIVE"]}
     if search.type_name:
@@ -185,8 +221,38 @@ def _build_find_body(search: SearchBody) -> dict:
             "matchCriteria": search.match_criteria or "ALL",
             "conditions": [_classification_condition(c) for c in search.conditions],
         }
+    if search.value_conditions:
+        # Element-level property search (FindRequestBody's top-level
+        # searchProperties) -- distinct from matchClassifications above
+        # (which only searches WITHIN a classification's own properties) and
+        # combinable with it in the SAME server call, confirmed against
+        # Egeria-api-metadata-expert.http's worked "nested condition" example
+        # (both searchProperties and matchClassifications set at once).
+        body["searchProperties"] = {
+            "class": "SearchProperties",
+            "matchCriteria": search.value_match_criteria or "ALL",
+            "conditions": [_value_condition(v) for v in search.value_conditions],
+        }
     if search.as_of_time:
         body["asOfTime"] = search.as_of_time
+    # BUG FOUND 2026-08-05 (NEXT-25): a relationship-only search (no type_name,
+    # no classification conditions) sends a near-empty FindRequestBody, and
+    # Egeria's findMetadataElements rejects it server-side --
+    # OMAG-COMMON-400-006 "the metadataElementTypeName parameter ... is null"
+    # (confirmed live: reproduces with relationship_conditions=[DataFlow:has]
+    # and nothing else). Tried "Referenceable" (the universal base type) as
+    # the default first -- that's literally every element in the repository,
+    # and timed out live (30s, TIMEOUT_ERROR_408) since find_metadata_elements
+    # ignores page_size and returns everything at once. "Asset" is the
+    # practical, bounded default instead -- most governance/relationship
+    # questions are Asset-scoped anyway (same assumption overview_metrics.py's
+    # composite functions already make) -- only applied when the caller gave
+    # nothing else to filter on, never overriding an explicit
+    # type_name/conditions choice. The frontend surfaces this default in a
+    # hint so it isn't a silent surprise.
+    if (not search.type_name and not search.conditions and not search.value_conditions
+            and search.relationship_conditions):
+        body["metadataElementTypeName"] = "Asset"
     return body
 
 
@@ -279,43 +345,67 @@ def _json_list(raw) -> list:
     return []
 
 
-def _relationship_guid_set(ce, relationship_type: str, as_of: Optional[str] = None) -> set:
-    """Every element GUID (either end) that participates in >=1 relationship of
-    this type — same end1/end2 extraction `overview_metrics.ai_ready_assets`
-    already verified live (a relationship's own GUID key is plain "guid", NOT
-    "elementGUID" like a find_metadata_elements hit — two different key names
-    for the same concept depending on which API path returned the data)."""
-    out: set = set()
+def _relationship_guid_counts(ce, relationship_type: str, as_of: Optional[str] = None,
+                               page_size: int = 5000, end: str = "any") -> Dict[str, int]:
+    """{guid: occurrence count} for every element that participates in >=1
+    relationship of this type — counts each occurrence separately (an element
+    that's end1 twice and end2 once counts 3 when end="any"), same end1/end2
+    extraction `overview_metrics.ai_ready_assets` already verified live (a
+    relationship's own GUID key is plain "guid", NOT "elementGUID" like a
+    find_metadata_elements hit — two different key names for the same concept
+    depending on which API path returned the data). Presence (has/lacks) is
+    just `guid in counts`; the count itself is what lets a caller distinguish
+    "1 DataFlow" from "12 DataFlows" (a much stronger enrichment signal, and
+    a legitimate sort key — see matchCount/totalRelationshipCount below).
+
+    `end`: "any" (default, both ends — original behavior) | "end1" | "end2" —
+    role/direction-aware search (NEXT-25 follow-up). Restricting to one end
+    answers "which elements are the SOURCE of a DataFlow" vs "which are the
+    TARGET", not just "which participate at all"."""
+    out: Dict[str, int] = {}
+    end_keys = ("end1", "end2") if end == "any" else (end,)
     try:
         body = {"class": "ResultsRequestBody", "asOfTime": as_of} if as_of else None
         rels = _json_list(ce.get_relationships(
             relationship_type=relationship_type, output_format="JSON",
-            start_from=0, page_size=5000, body=body))
+            start_from=0, page_size=page_size, body=body))
         for r in rels:
-            for end_key in ("end1", "end2"):
+            for end_key in end_keys:
                 g = ((r.get(end_key) or {}) if isinstance(r, dict) else {}).get("guid")
                 if g:
-                    out.add(g)
+                    out[g] = out.get(g, 0) + 1
     except Exception as exc:  # noqa: BLE001 — best-effort, degrade don't fail the whole search
-        logger.debug(f"insights: relationship query failed for {relationship_type!r}: {exc}")
+        logger.debug(f"insights: relationship query failed for {relationship_type!r} end={end!r}: {exc}")
     return out
+
+
+def _cond_key(c: "RelationshipCondition") -> str:
+    """Result/aggregate dict key for one relationship condition — plain type
+    name when end="any" (backward compatible with the pre-direction-aware
+    shape), "Type:end1"/"Type:end2" when a specific end was asked for, so an
+    "as source" and "as target" condition on the SAME type can coexist as two
+    distinct entries rather than colliding."""
+    return c.relationship_type if c.end == "any" else f"{c.relationship_type}:{c.end}"
 
 
 def _annotate_relationships(
     results: List[dict], ce, conds: List["RelationshipCondition"], as_of: Optional[str] = None,
 ) -> List[dict]:
-    """Add a "relationships": {type: bool} dict to every result — always run
-    over the FULL fetched population (before any relationship filtering
-    shrinks it), so aggregates below reflect what was actually fetched, not
-    just what survived the filter."""
+    """Add a "relationships": {key: bool} + "relationshipCounts": {key: int}
+    pair to every result (key = _cond_key(condition)) — always run over the
+    FULL fetched population (before any relationship filtering shrinks it),
+    so aggregates below reflect what was actually fetched, not just what
+    survived the filter."""
     if not conds:
         return results
-    by_type = {c.relationship_type: c for c in conds}  # de-dup by type
-    guid_sets = {t: _relationship_guid_set(ce, t, as_of) for t in by_type}
+    by_key = {_cond_key(c): c for c in conds}  # de-dup by (type, end) composite
+    guid_counts = {k: _relationship_guid_counts(ce, c.relationship_type, as_of, end=c.end)
+                   for k, c in by_key.items()}
     out = []
     for r in results:
         r = dict(r)
-        r["relationships"] = {t: (r["guid"] in guid_sets[t]) for t in by_type}
+        r["relationships"] = {k: (r["guid"] in guid_counts[k]) for k in by_key}
+        r["relationshipCounts"] = {k: guid_counts[k].get(r["guid"], 0) for k in by_key}
         out.append(r)
     return out
 
@@ -332,8 +422,8 @@ def _filter_by_relationships(
 
     def _satisfies(r: dict) -> bool:
         rels = r.get("relationships") or {}
-        checks = [rels.get(c.relationship_type, False) if c.presence == "has"
-                  else not rels.get(c.relationship_type, False) for c in conds]
+        checks = [rels.get(_cond_key(c), False) if c.presence == "has"
+                  else not rels.get(_cond_key(c), False) for c in conds]
         if mc == "ANY":
             return any(checks)
         if mc == "NONE":
@@ -351,6 +441,10 @@ _SORT_FIELDS = {
     # satisfies "has" on — surfaces the closest-to-ready assets first when
     # sorted desc (e.g. "governed + documented, only missing lineage").
     "matchCount":    lambda r: sum(1 for v in (r.get("relationships") or {}).values() if v),
+    # totalRelationshipCount: sum of occurrence counts across all queried
+    # relationship types — distinguishes "1 DataFlow" from "12 DataFlows"
+    # where matchCount alone (both "has DataFlow") can't.
+    "totalRelationshipCount": lambda r: sum((r.get("relationshipCounts") or {}).values()),
 }
 
 
@@ -397,7 +491,15 @@ def get_summary(
         "limitResultsByStatus": ["ACTIVE"],
     }
     try:
-        raw = mgr.find_metadata_elements(body, start_from=0, page_size=_DEFAULT_CAP, graph_query_depth=0)
+        # startFrom/pageSize/graphQueryDepth go in the body itself now, not
+        # as separate kwargs -- pyegeria's find_metadata_elements stopped
+        # accepting those as parameters (PYEGERIA_ISSUES.md ISSUE-34:
+        # startFrom/pageSize used to be URL query params for this endpoint,
+        # then silently stopped working once Egeria moved pagination for it
+        # into the request body; passing them as kwargs here is now a
+        # silent no-op, not an error).
+        body = {**body, "graphQueryDepth": 0, "startFrom": 0, "pageSize": _DEFAULT_CAP}
+        raw = mgr.find_metadata_elements(body)
     except Exception as exc:
         logger.exception("insights: summary search failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -435,9 +537,10 @@ def get_zones(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     zone_body = {"class": "FindRequestBody", "metadataElementTypeName": "GovernanceZone",
-                 "limitResultsByStatus": ["ACTIVE"]}
+                 "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0,
+                 "startFrom": 0, "pageSize": 500}  # ISSUE-34 -- body fields, not kwargs (see get_summary)
     try:
-        raw_zones = mgr.find_metadata_elements(zone_body, start_from=0, page_size=500, graph_query_depth=0)
+        raw_zones = mgr.find_metadata_elements(zone_body)
     except Exception as exc:
         logger.exception("insights: zone definitions query failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -464,12 +567,13 @@ def get_zones(
         "class": "FindRequestBody",
         "matchClassifications": {"class": "SearchClassifications", "matchCriteria": "ANY",
                                   "conditions": [{"name": "ZoneMembership"}]},
-        "limitResultsByStatus": ["ACTIVE"],
+        "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0,
+        "startFrom": 0, "pageSize": _DEFAULT_CAP,  # ISSUE-34 -- body fields, not kwargs
     }
     zone_counts: dict = {}
     counts_capped = False
     try:
-        raw_usage = mgr.find_metadata_elements(usage_body, start_from=0, page_size=_DEFAULT_CAP, graph_query_depth=0)
+        raw_usage = mgr.find_metadata_elements(usage_body)
         hits = [el for el in (raw_usage if isinstance(raw_usage, list) else []) if isinstance(el, dict)]
         counts_capped = len(hits) >= _DEFAULT_CAP
         for el in hits:
@@ -485,6 +589,70 @@ def get_zones(
     return JSONResponse({"zones": zones, "countsCapped": counts_capped, "total": len(zones)})
 
 
+# ── Relationships (NEXT-25) ──────────────────────────────────────────────────
+# A curated subset, not all ~734 Egeria relationship types — each type here
+# costs one full get_relationships fetch, so this stays a "commonly
+# interesting" browse list (lineage/meaning/governance/collaboration), same
+# curation philosophy _GOVERNANCE_CLASSIFICATIONS already uses for
+# classifications. The Governance Search condition-builder is NOT limited to
+# this list (it offers the full /api/types catalog) — this is only for the
+# browse/summary views (RelationshipTree, Dashboard's Relationship Coverage
+# card), where fetching all ~734 types live on every page load would be
+# impractical.
+_INTERESTING_RELATIONSHIP_TYPES = (
+    ("DataFlow",             "🔀", "Data movement between assets/processes — operational lineage"),
+    ("ControlFlow",          "🔀", "Process control-flow sequencing — operational lineage"),
+    ("DataMapping",          "🔀", "Field-to-field data mapping — operational lineage"),
+    ("SemanticAssignment",   "🧠", "Element linked to a glossary term — the meaning layer"),
+    ("CollectionMembership", "🗂️", "Element belongs to a Collection (DigitalProduct, DataDictionary, ...)"),
+    ("Certification",        "📜", "Formal certification against a CertificationType"),
+    ("License",               "📄", "Formal license against a LicenseType"),
+    ("Exception",             "⚠️", "Open governance exception"),
+    ("AttachedComment",       "💬", "Crowd-sourced comment"),
+    ("AttachedRating",        "⭐", "Crowd-sourced rating"),
+    ("AttachedLike",          "👍", "Crowd-sourced like"),
+    ("AttachedTag",           "🏷️", "Informal tag"),
+    ("AttachedNoteLog",       "📝", "Attached note log"),
+)
+
+
+@router.get("/api/insights/relationships", summary="Relationship-type usage counts (curated set, capped tally)")
+def get_relationships(
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    try:
+        ce = _ce(url, server, user_id, user_pwd)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("insights: failed to create ClassificationExplorer for relationships")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+    out = []
+    any_capped = False
+    for rel_type, icon, desc in _INTERESTING_RELATIONSHIP_TYPES:
+        try:
+            rels = _json_list(ce.get_relationships(
+                relationship_type=rel_type, output_format="JSON",
+                start_from=0, page_size=_DEFAULT_CAP, body=None))
+        except Exception:
+            logger.debug(f"insights: relationship usage query failed for {rel_type!r}")
+            rels = []
+        participants: set = set()
+        for r in rels:
+            for end_key in ("end1", "end2"):
+                g = ((r.get(end_key) or {}) if isinstance(r, dict) else {}).get("guid")
+                if g:
+                    participants.add(g)
+        capped = len(rels) >= _DEFAULT_CAP
+        any_capped = any_capped or capped
+        out.append({
+            "type": rel_type, "icon": icon, "description": desc,
+            "instanceCount": len(rels), "participantCount": len(participants), "capped": capped,
+        })
+    out.sort(key=lambda r: -r["instanceCount"])
+    return JSONResponse({"relationships": out, "anyCapped": any_capped})
+
+
 # ── Compound search ───────────────────────────────────────────────────────────
 
 @router.post("/api/insights/search", summary="Compound classification/zone/property search")
@@ -496,6 +664,13 @@ def search_elements(body: SearchBody = Body(...)):
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     find_body = _build_find_body(body)
+    defaulted_type_note = (
+        f"No type, classification, or property-value condition given for this relationship search — "
+        f"defaulted to metadataElementTypeName={find_body['metadataElementTypeName']!r} (a "
+        f"relationship-only search against every element in the repository times out; add a type, "
+        f"classification, or property condition to search a different scope)."
+    ) if (not body.type_name and not body.conditions and not body.value_conditions
+          and body.relationship_conditions and find_body.get("metadataElementTypeName")) else None
     page_size = max(1, min(body.page_size, 500))
 
     hits: List[dict] = []
@@ -503,25 +678,32 @@ def search_elements(body: SearchBody = Body(...)):
     capped = False
 
     if body.full_count:
-        # BUG FOUND 2026-08-04 (NEXT-25): find_metadata_elements silently ignores
-        # start_from/page_size on this server/client combo and returns the FULL
-        # matching set on every call (independently confirmed elsewhere in this
-        # project — see overview_metrics.py's growth_series investigation notes).
-        # The naive "extend + advance start_from" loop below this comment used to
-        # assume real pagination, so it kept re-appending the same ~1.7k elements
-        # on every iteration until hitting _FULL_COUNT_HARD_CAP — silently
-        # inflating `total`/`aggregates` with duplicates (surfaced by the new
-        # relationship filter: 10 real matches came back as "60" once ~6x
-        # duplication was multiplied through). Fixed by deduping on GUID as we
-        # accumulate and stopping as soon as a page adds zero NEW guids — this
-        # is correct whether the server does real pagination (a stable loop
-        # exit once every real page has been seen) or not (exits after the
-        # first fetch, since the second identical page adds nothing new).
+        # BUG FOUND 2026-08-04, ROOT-CAUSED 2026-08-05 (PYEGERIA_ISSUES.md
+        # ISSUE-34, formerly egeria-workspaces-fs's own PY-23). CORRECTED
+        # diagnosis, same day: this was never an Egeria-server-side bug --
+        # find_metadata_elements' pagination moved from URL query params to
+        # request-body fields months ago, and pyegeria was (until just now)
+        # still sending startFrom/pageSize as URL params for this endpoint,
+        # which the server silently ignores. Real pagination DOES work once
+        # startFrom/pageSize are set as BODY fields (confirmed live: two
+        # distinct, non-overlapping pages, not the same full set twice).
+        # pyegeria's find_metadata_elements no longer accepts start_from/
+        # page_size as parameters at all (ISSUE-34's fix) -- set them in
+        # find_body directly below, every iteration.
+        #
+        # The GUID-dedup loop below predates this fix (written when pagination
+        # genuinely didn't work, to avoid the same ~1.7k elements being
+        # re-appended every iteration until the hard cap). Left in place even
+        # though real pagination now works -- it's a no-op safety net once
+        # pages are genuinely distinct (each page contributes only new GUIDs,
+        # so `added` naturally reaches 0 right after the last real page), and
+        # it stays correct if this endpoint's pagination ever regresses again.
         start = 0
         seen_guids: set = set()
         while True:
             try:
-                page = mgr.find_metadata_elements(find_body, start_from=start, page_size=page_size, graph_query_depth=0)
+                page = mgr.find_metadata_elements({**find_body, "graphQueryDepth": 0,
+                                                     "startFrom": start, "pageSize": page_size})
             except Exception as exc:
                 logger.exception("insights: full-count search page failed")
                 raise HTTPException(status_code=500, detail=str(exc))
@@ -540,7 +722,8 @@ def search_elements(body: SearchBody = Body(...)):
             start += page_size
     else:
         try:
-            page = mgr.find_metadata_elements(find_body, start_from=body.start_from, page_size=page_size, graph_query_depth=0)
+            page = mgr.find_metadata_elements({**find_body, "graphQueryDepth": 0,
+                                                 "startFrom": body.start_from, "pageSize": page_size})
         except Exception as exc:
             logger.exception("insights: search failed")
             raise HTTPException(status_code=500, detail=str(exc))
@@ -591,8 +774,16 @@ def search_elements(body: SearchBody = Body(...)):
     relationship_aggregates: dict = {}
     if body.relationship_conditions:
         for c in body.relationship_conditions:
-            has = sum(1 for r in results if (r.get("relationships") or {}).get(c.relationship_type))
-            relationship_aggregates[c.relationship_type] = {"has": has, "lacks": len(results) - has}
+            key = _cond_key(c)
+            has = sum(1 for r in results if (r.get("relationships") or {}).get(key))
+            counts = [(r.get("relationshipCounts") or {}).get(key, 0) for r in results]
+            total = sum(counts)
+            relationship_aggregates[key] = {
+                "has": has, "lacks": len(results) - has,
+                "totalInstances": total,
+                "avgPerHaving": round(total / has, 1) if has else 0,
+                "maxPerElement": max(counts) if counts else 0,
+            }
 
     results = _sort_results(results, body.sort_by, body.sort_dir)
 
@@ -605,4 +796,5 @@ def search_elements(body: SearchBody = Body(...)):
         "aggregates":             aggregates,
         "relationshipAggregates": relationship_aggregates,
         "relationshipFilterNote": relationship_filter_note,
+        "defaultedTypeNote": defaulted_type_note,
     })
