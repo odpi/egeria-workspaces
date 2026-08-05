@@ -117,10 +117,14 @@ def client_tests(as_of):
     # find_metadata_elements — asOfTime in FindRequestBody
     try:
         me = mk(MetadataExpert)
-        base = {"class": "FindRequestBody", "limitResultsByStatus": ["ACTIVE"], "metadataElementTypeName": "Asset"}
-        now_n = jlen(me.find_metadata_elements(base, start_from=0, page_size=5000, graph_query_depth=0))
+        # start_from/page_size/graph_query_depth go in the body itself, not
+        # as kwargs (PYEGERIA_ISSUES.md ISSUE-34) -- found stale here 2026-08-05
+        # alongside the same regression in action_center_handler.py.
+        base = {"class": "FindRequestBody", "limitResultsByStatus": ["ACTIVE"], "metadataElementTypeName": "Asset",
+                "startFrom": 0, "pageSize": 5000, "graphQueryDepth": 0}
+        now_n = jlen(me.find_metadata_elements(base))
         ao = dict(base); ao["asOfTime"] = as_of
-        ao_n = jlen(me.find_metadata_elements(ao, start_from=0, page_size=5000, graph_query_depth=0))
+        ao_n = jlen(me.find_metadata_elements(ao))
         check("find_metadata_elements: as-of runs & is historical (asof<=now)", ao_n <= now_n, f"now={now_n} asof={ao_n}")
     except Exception as exc:  # noqa: BLE001
         record("find_metadata_elements as-of", "FAIL", str(exc)[:100])

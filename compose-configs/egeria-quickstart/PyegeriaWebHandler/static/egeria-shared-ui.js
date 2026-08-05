@@ -1298,6 +1298,18 @@ function _isCatalogType(item) {
 
 /* Unified element-nav: prefer an Explorer panel, else the Tech Catalog. Returns
  * { app, hash?, kind? } or null. */
+// Notification/Meeting/ToDo/Review are real Action -> Process -> Asset
+// subtypes (see action_center_handler.py's _ACTION_TYPES) — being an Asset
+// subtype is a modeling/lineage convenience, not an indication these belong
+// in Tech Catalog's asset browser. A personal ToDo carries no ZoneMembership/
+// CollectionMembership (Tech Catalog's scoping mechanism), so routing it
+// there dead-ends with "isn't part of the Catalog" (confirmed live
+// 2026-08-05, qs-view-server) — same bug class as the EngineAction case just
+// below, same fix: a dedicated-view special-case checked before the generic
+// Asset-supertype fallback. Egeria Explorer's Action Center tab is exactly
+// that dedicated view and already supports a ?guid= deep-link.
+var _ACTION_CENTER_TYPES = { Notification: 1, Meeting: 1, ToDo: 1, Review: 1 };
+
 function resolveElementNav(item) {
   if (!item) return null;
   // EngineAction already has a dedicated view (Egeria Operations' Engine Actions
@@ -1305,6 +1317,7 @@ function resolveElementNav(item) {
   // which would otherwise route it to Tech Catalog's generic mixed "Actions"
   // tab (metadata_element_type="Action", no per-subtype detail).
   if ((item.typeName || '') === 'EngineAction') return { app: 'egeria-operations' };
+  if (_ACTION_CENTER_TYPES[item.typeName || '']) return { app: 'egeria-explorer', hash: 'action-center' };
   var ex = resolveExplorerNav(item);
   if (ex) return { app: 'egeria-explorer', hash: ex.hash, kind: ex.kind };
   if (_isCatalogType(item)) return { app: 'tech-catalog' };

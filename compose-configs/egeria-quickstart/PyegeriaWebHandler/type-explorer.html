@@ -7459,8 +7459,20 @@ function _elementIsLinkable(item) {
   return false;
 }
 
+// Action -> Process -> Asset subtypes (Notification/Meeting/ToDo/Review) are
+// technically Asset subtypes but are personal/workflow items with their own
+// dedicated Action Center view (_elementIsLinkable already special-cases
+// them) — NOT curated data/technology assets meant for Tech Catalog. A
+// personal ToDo carries no ZoneMembership/CollectionMembership (Tech
+// Catalog's scoping mechanism), so routing it there dead-ends with "isn't
+// part of the Catalog" (confirmed live 2026-08-05, qs-view-server). Kept as
+// its own set (not just reusing _elementIsLinkable's list) since this only
+// needs to know which types are Action-Center-routed, not every linkable type.
+var _ACTION_CENTER_ROW_TYPES = { Notification: 1, Meeting: 1, ToDo: 1, Review: 1 };
+
 function RelatedElementRow({ item, onNavigateToElement }) {
-  var isAsset = (item.superTypeNames || []).indexOf('Asset') !== -1;
+  var isActionCenterType = !!_ACTION_CENTER_ROW_TYPES[item.typeName || ''];
+  var isAsset = !isActionCenterType && (item.superTypeNames || []).indexOf('Asset') !== -1;
   var clickable = !isAsset && !!onNavigateToElement && _elementIsLinkable(item);
 
   return React.createElement("div", {
@@ -8327,7 +8339,14 @@ function ActionCenterView({ onNavigateToElement, navGuid }) {
   const [state, setState]   = useState('loading');
   const [items, setItems]   = useState([]);
   const [error, setError]   = useState('');
-  const [selected, setSelected] = useState(null);
+  // Cold deep-link e.g. /egeria-explorer?guid=X#action-center (crossAppNavigate
+  // opens a NEW tab, so App()'s in-app-only actionCenterNavGuid state is still
+  // null on first mount here) — read ?guid= directly, same fallback pattern
+  // InformationSupplyChainView/etc. already use for their `selected` initializer.
+  const [selected, setSelected] = useState(function() {
+    var params = new URLSearchParams(window.location.search);
+    return navGuid || params.get('guid') || null;
+  });
   const [detail, setDetail] = useState(null);
   const [detailState, setDetailState] = useState('idle');
 
