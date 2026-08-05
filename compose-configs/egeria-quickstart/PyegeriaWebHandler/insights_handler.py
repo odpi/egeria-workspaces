@@ -60,7 +60,7 @@ explicitly rather than silently under-counting.
 """
 import os
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Body, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse
@@ -136,7 +136,7 @@ class SearchBody(BaseModel):
     conditions: List[Condition] = []
     relationship_conditions: List[RelationshipCondition] = []
     relationship_match_criteria: str = "ALL"   # ALL | ANY | NONE across relationship_conditions
-    sort_by: Optional[str] = None       # displayName | typeName | qualifiedName | matchCount
+    sort_by: Optional[str] = None       # displayName | typeName | qualifiedName | matchCount | totalRelationshipCount
     sort_dir: str = "asc"               # asc | desc
     as_of_time: Optional[str] = None
     full_count: bool = False
@@ -187,6 +187,23 @@ def _build_find_body(search: SearchBody) -> dict:
         }
     if search.as_of_time:
         body["asOfTime"] = search.as_of_time
+    # BUG FOUND 2026-08-05 (NEXT-25): a relationship-only search (no type_name,
+    # no classification conditions) sends a near-empty FindRequestBody, and
+    # Egeria's findMetadataElements rejects it server-side --
+    # OMAG-COMMON-400-006 "the metadataElementTypeName parameter ... is null"
+    # (confirmed live: reproduces with relationship_conditions=[DataFlow:has]
+    # and nothing else). Tried "Referenceable" (the universal base type) as
+    # the default first -- that's literally every element in the repository,
+    # and timed out live (30s, TIMEOUT_ERROR_408) since find_metadata_elements
+    # ignores page_size and returns everything at once. "Asset" is the
+    # practical, bounded default instead -- most governance/relationship
+    # questions are Asset-scoped anyway (same assumption overview_metrics.py's
+    # composite functions already make) -- only applied when the caller gave
+    # nothing else to filter on, never overriding an explicit
+    # type_name/conditions choice. The frontend surfaces this default in a
+    # hint so it isn't a silent surprise.
+    if not search.type_name and not search.conditions and search.relationship_conditions:
+        body["metadataElementTypeName"] = "Asset"
     return body
 
 
@@ -279,23 +296,29 @@ def _json_list(raw) -> list:
     return []
 
 
-def _relationship_guid_set(ce, relationship_type: str, as_of: Optional[str] = None) -> set:
-    """Every element GUID (either end) that participates in >=1 relationship of
-    this type — same end1/end2 extraction `overview_metrics.ai_ready_assets`
-    already verified live (a relationship's own GUID key is plain "guid", NOT
-    "elementGUID" like a find_metadata_elements hit — two different key names
-    for the same concept depending on which API path returned the data)."""
-    out: set = set()
+def _relationship_guid_counts(ce, relationship_type: str, as_of: Optional[str] = None,
+                               page_size: int = 5000) -> Dict[str, int]:
+    """{guid: occurrence count} for every element that participates in >=1
+    relationship of this type — counts each end separately (an element that's
+    end1 twice and end2 once counts 3), same end1/end2 extraction
+    `overview_metrics.ai_ready_assets` already verified live (a relationship's
+    own GUID key is plain "guid", NOT "elementGUID" like a
+    find_metadata_elements hit — two different key names for the same concept
+    depending on which API path returned the data). Presence (has/lacks) is
+    just `guid in counts`; the count itself is what lets a caller distinguish
+    "1 DataFlow" from "12 DataFlows" (a much stronger enrichment signal, and
+    a legitimate sort key — see matchCount/totalRelationshipCount below)."""
+    out: Dict[str, int] = {}
     try:
         body = {"class": "ResultsRequestBody", "asOfTime": as_of} if as_of else None
         rels = _json_list(ce.get_relationships(
             relationship_type=relationship_type, output_format="JSON",
-            start_from=0, page_size=5000, body=body))
+            start_from=0, page_size=page_size, body=body))
         for r in rels:
             for end_key in ("end1", "end2"):
                 g = ((r.get(end_key) or {}) if isinstance(r, dict) else {}).get("guid")
                 if g:
-                    out.add(g)
+                    out[g] = out.get(g, 0) + 1
     except Exception as exc:  # noqa: BLE001 — best-effort, degrade don't fail the whole search
         logger.debug(f"insights: relationship query failed for {relationship_type!r}: {exc}")
     return out
@@ -304,18 +327,19 @@ def _relationship_guid_set(ce, relationship_type: str, as_of: Optional[str] = No
 def _annotate_relationships(
     results: List[dict], ce, conds: List["RelationshipCondition"], as_of: Optional[str] = None,
 ) -> List[dict]:
-    """Add a "relationships": {type: bool} dict to every result — always run
-    over the FULL fetched population (before any relationship filtering
-    shrinks it), so aggregates below reflect what was actually fetched, not
-    just what survived the filter."""
+    """Add a "relationships": {type: bool} + "relationshipCounts": {type: int}
+    pair to every result — always run over the FULL fetched population
+    (before any relationship filtering shrinks it), so aggregates below
+    reflect what was actually fetched, not just what survived the filter."""
     if not conds:
         return results
     by_type = {c.relationship_type: c for c in conds}  # de-dup by type
-    guid_sets = {t: _relationship_guid_set(ce, t, as_of) for t in by_type}
+    guid_counts = {t: _relationship_guid_counts(ce, t, as_of) for t in by_type}
     out = []
     for r in results:
         r = dict(r)
-        r["relationships"] = {t: (r["guid"] in guid_sets[t]) for t in by_type}
+        r["relationships"] = {t: (r["guid"] in guid_counts[t]) for t in by_type}
+        r["relationshipCounts"] = {t: guid_counts[t].get(r["guid"], 0) for t in by_type}
         out.append(r)
     return out
 
@@ -351,6 +375,10 @@ _SORT_FIELDS = {
     # satisfies "has" on — surfaces the closest-to-ready assets first when
     # sorted desc (e.g. "governed + documented, only missing lineage").
     "matchCount":    lambda r: sum(1 for v in (r.get("relationships") or {}).values() if v),
+    # totalRelationshipCount: sum of occurrence counts across all queried
+    # relationship types — distinguishes "1 DataFlow" from "12 DataFlows"
+    # where matchCount alone (both "has DataFlow") can't.
+    "totalRelationshipCount": lambda r: sum((r.get("relationshipCounts") or {}).values()),
 }
 
 
@@ -485,6 +513,70 @@ def get_zones(
     return JSONResponse({"zones": zones, "countsCapped": counts_capped, "total": len(zones)})
 
 
+# ── Relationships (NEXT-25) ──────────────────────────────────────────────────
+# A curated subset, not all ~734 Egeria relationship types — each type here
+# costs one full get_relationships fetch, so this stays a "commonly
+# interesting" browse list (lineage/meaning/governance/collaboration), same
+# curation philosophy _GOVERNANCE_CLASSIFICATIONS already uses for
+# classifications. The Governance Search condition-builder is NOT limited to
+# this list (it offers the full /api/types catalog) — this is only for the
+# browse/summary views (RelationshipTree, Dashboard's Relationship Coverage
+# card), where fetching all ~734 types live on every page load would be
+# impractical.
+_INTERESTING_RELATIONSHIP_TYPES = (
+    ("DataFlow",             "🔀", "Data movement between assets/processes — operational lineage"),
+    ("ControlFlow",          "🔀", "Process control-flow sequencing — operational lineage"),
+    ("DataMapping",          "🔀", "Field-to-field data mapping — operational lineage"),
+    ("SemanticAssignment",   "🧠", "Element linked to a glossary term — the meaning layer"),
+    ("CollectionMembership", "🗂️", "Element belongs to a Collection (DigitalProduct, DataDictionary, ...)"),
+    ("Certification",        "📜", "Formal certification against a CertificationType"),
+    ("License",               "📄", "Formal license against a LicenseType"),
+    ("Exception",             "⚠️", "Open governance exception"),
+    ("AttachedComment",       "💬", "Crowd-sourced comment"),
+    ("AttachedRating",        "⭐", "Crowd-sourced rating"),
+    ("AttachedLike",          "👍", "Crowd-sourced like"),
+    ("AttachedTag",           "🏷️", "Informal tag"),
+    ("AttachedNoteLog",       "📝", "Attached note log"),
+)
+
+
+@router.get("/api/insights/relationships", summary="Relationship-type usage counts (curated set, capped tally)")
+def get_relationships(
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    try:
+        ce = _ce(url, server, user_id, user_pwd)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("insights: failed to create ClassificationExplorer for relationships")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+    out = []
+    any_capped = False
+    for rel_type, icon, desc in _INTERESTING_RELATIONSHIP_TYPES:
+        try:
+            rels = _json_list(ce.get_relationships(
+                relationship_type=rel_type, output_format="JSON",
+                start_from=0, page_size=_DEFAULT_CAP, body=None))
+        except Exception:
+            logger.debug(f"insights: relationship usage query failed for {rel_type!r}")
+            rels = []
+        participants: set = set()
+        for r in rels:
+            for end_key in ("end1", "end2"):
+                g = ((r.get(end_key) or {}) if isinstance(r, dict) else {}).get("guid")
+                if g:
+                    participants.add(g)
+        capped = len(rels) >= _DEFAULT_CAP
+        any_capped = any_capped or capped
+        out.append({
+            "type": rel_type, "icon": icon, "description": desc,
+            "instanceCount": len(rels), "participantCount": len(participants), "capped": capped,
+        })
+    out.sort(key=lambda r: -r["instanceCount"])
+    return JSONResponse({"relationships": out, "anyCapped": any_capped})
+
+
 # ── Compound search ───────────────────────────────────────────────────────────
 
 @router.post("/api/insights/search", summary="Compound classification/zone/property search")
@@ -496,6 +588,13 @@ def search_elements(body: SearchBody = Body(...)):
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     find_body = _build_find_body(body)
+    defaulted_type_note = (
+        f"No type or classification given for this relationship search — defaulted to "
+        f"metadataElementTypeName={find_body['metadataElementTypeName']!r} (a relationship-only "
+        f"search against every element in the repository times out; add a type or classification "
+        f"to search a different scope)."
+    ) if (not body.type_name and not body.conditions and body.relationship_conditions
+          and find_body.get("metadataElementTypeName")) else None
     page_size = max(1, min(body.page_size, 500))
 
     hits: List[dict] = []
@@ -592,7 +691,14 @@ def search_elements(body: SearchBody = Body(...)):
     if body.relationship_conditions:
         for c in body.relationship_conditions:
             has = sum(1 for r in results if (r.get("relationships") or {}).get(c.relationship_type))
-            relationship_aggregates[c.relationship_type] = {"has": has, "lacks": len(results) - has}
+            counts = [(r.get("relationshipCounts") or {}).get(c.relationship_type, 0) for r in results]
+            total = sum(counts)
+            relationship_aggregates[c.relationship_type] = {
+                "has": has, "lacks": len(results) - has,
+                "totalInstances": total,
+                "avgPerHaving": round(total / has, 1) if has else 0,
+                "maxPerElement": max(counts) if counts else 0,
+            }
 
     results = _sort_results(results, body.sort_by, body.sort_dir)
 
@@ -605,4 +711,5 @@ def search_elements(body: SearchBody = Body(...)):
         "aggregates":             aggregates,
         "relationshipAggregates": relationship_aggregates,
         "relationshipFilterNote": relationship_filter_note,
+        "defaultedTypeNote": defaulted_type_note,
     })

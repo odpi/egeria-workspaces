@@ -625,6 +625,8 @@ function cardStyle() {
 function Dashboard({ creds, onOpenSearch }) {
   var _s = useState(null), summary = _s[0], setSummary = _s[1];
   var _st = useState('loading'), state = _st[0], setState = _st[1];
+  var _r = useState(null), relSummary = _r[0], setRelSummary = _r[1];
+  var _rst = useState('loading'), relState = _rst[0], setRelState = _rst[1];
 
   useEffect(function() {
     setState('loading');
@@ -635,8 +637,18 @@ function Dashboard({ creds, onOpenSearch }) {
       .catch(function() { setState('error'); });
   }, [creds && creds.userId]);
 
+  useEffect(function() {
+    setRelState('loading');
+    egeriaFetch('/api/insights/relationships', creds).then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function(d) { setRelSummary(d); setRelState('ready'); })
+      .catch(function() { setRelState('error'); });
+  }, [creds && creds.userId]);
+
   var countLabel = state === 'loading' ? '…' : state === 'error' ? '—'
     : (summary.classifiedCount + (summary.capped ? '+' : ''));
+  var topRel = relState === 'ready' && relSummary && relSummary.relationships && relSummary.relationships[0];
 
   return el('div', { style: { padding: 24, overflowY: 'auto', height: '100%' } },
     el('div', { style: { fontSize: 13, color: 'var(--muted)', marginBottom: 18, maxWidth: 640 } },
@@ -655,13 +667,18 @@ function Dashboard({ creds, onOpenSearch }) {
             el('span', { style: { color: 'var(--dim)' } }, 'top zone: ', summary.topZones[0].zone, ' (', summary.topZones[0].count, ')')
         )
       ),
-      el('div', { style: Object.assign(cardStyle(), { cursor: 'default', opacity: 0.55 }) },
+      el('div', { style: Object.assign(cardStyle(), { borderColor: 'var(--rel, #fbbf24)' }),
+          onClick: function(){ onOpenSearch('relationships'); } },
         el('div', { style: { fontSize: 22 } }, '🕸️'),
         el('div', { style: { fontSize: 15, fontWeight: 700 } }, 'Relationship Explorer'),
         el('div', { style: { fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.5 } },
-          'Find elements connected through a specific combination of relationships — e.g. components that implement a confidential asset.'),
-        el('div', { style: { marginTop: 6 } },
-          el('span', { className: 'badge', style: { background: 'rgba(251,191,36,.12)', color: 'var(--rel)' } }, 'Coming soon'))
+          'Find elements by has/lacks a relationship (DataFlow, SemanticAssignment, Certification, ...) — combined with classification conditions and AND / OR / NONE.'),
+        el('div', { style: { marginTop: 6, display: 'flex', gap: 14, fontSize: 12, flexWrap: 'wrap' } },
+          topRel && el('span', null, el('b', { style: { color: 'var(--rel, #fbbf24)' } }, topRel.instanceCount + (topRel.capped ? '+' : '')),
+            ' ', topRel.type, (topRel.capped ? ' (capped)' : '')),
+          !topRel && relState === 'loading' && el('span', { style: { color: 'var(--dim)' } }, 'loading…'),
+          !topRel && relState === 'error' && el('span', { style: { color: 'var(--dim)' } }, 'unavailable')
+        )
       )
     ),
     summary && summary.byClassification && Object.keys(summary.byClassification).length > 0 &&
@@ -670,6 +687,21 @@ function Dashboard({ creds, onOpenSearch }) {
         el('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
           Object.keys(summary.byClassification).sort().map(function(k) {
             return el('span', { key: k, className: 'chip', style: { cursor: 'default' } }, k + ' ' + summary.byClassification[k]);
+          })
+        )
+      ),
+    // Relationship Coverage (NEXT-25) — same curated set the Relationship
+    // tree browses; a click jumps to Governance Search with that type
+    // pre-toggled, same as clicking it in the tree would.
+    relSummary && relSummary.relationships && relSummary.relationships.length > 0 &&
+      el('div', { style: { marginTop: 26, maxWidth: 900 } },
+        el('div', { style: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--muted)', marginBottom: 8 } },
+          'Relationship coverage (curated set, capped tally)'),
+        el('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+          relSummary.relationships.map(function(r) {
+            return el('span', { key: r.type, className: 'chip', title: r.description || '',
+                style: { cursor: 'pointer' }, onClick: function(){ onOpenSearch('relationships'); } },
+              (r.icon || '🔗') + ' ' + r.type + ' · ' + r.instanceCount + (r.capped ? '+' : ''));
           })
         )
       )
@@ -717,6 +749,58 @@ function ZoneTree({ creds, selectedZone, onSelectZone, width }) {
   );
 }
 
+/* ── Relationship tree (left rail, NEXT-25) ──────────────────────────────────
+   Mirrors ZoneTree's shape, but multi-select (not single-select like zones):
+   relationship conditions are naturally combinable (ALL/ANY/NONE), so a
+   click toggles that type in/out of relConditions rather than replacing a
+   single selection. Backed by a curated "commonly interesting" list (see
+   insights_handler.py's _INTERESTING_RELATIONSHIP_TYPES) — the condition
+   builder itself still offers the FULL type catalog via "+ Add relationship",
+   this tree is a browse/summary shortcut, not the only way in. */
+function RelationshipTree({ creds, relConditions, onToggleType, width }) {
+  var _r = useState([]), rels = _r[0], setRels = _r[1];
+  var _st = useState('loading'), state = _st[0], setState = _st[1];
+  var _capped = useState(false), capped = _capped[0], setCapped = _capped[1];
+
+  useEffect(function() {
+    setState('loading');
+    egeriaFetch('/api/insights/relationships', creds).then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function(d) { setRels(d.relationships || []); setCapped(!!d.anyCapped); setState('ready'); })
+      .catch(function() { setState('error'); });
+  }, [creds && creds.userId]);
+
+  var selectedTypes = (relConditions || []).map(function(c){ return c.relationship_type; });
+
+  return el('div', { className: 'sidebar', style: { width: width || 240, minWidth: 160, borderRight: 'none', flexShrink: 0, overflow: 'hidden' } },
+    el('div', { className: 'search-wrap' },
+      el('div', { style: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--muted)' } }, 'Relationships'),
+      el('div', { style: { fontSize: 10.5, color: 'var(--dim)', marginTop: 4 } }, 'click to toggle · combine with Match below'),
+      capped && el('div', { style: { fontSize: 10.5, color: 'var(--dim)', marginTop: 2 } }, 'some counts capped at 500')
+    ),
+    el('div', { className: 'tree-scroll' },
+      state === 'loading' && el('div', { style: { padding: 12, fontSize: 12, color: 'var(--dim)' } }, 'Loading relationship usage…'),
+      state === 'error'   && el('div', { style: { padding: 12, fontSize: 12, color: '#f87171' } }, 'Failed to load relationship usage.'),
+      state === 'ready' && rels.map(function(r) {
+        var sel = selectedTypes.indexOf(r.type) !== -1;
+        return el('div', {
+          key: r.type,
+          className: 'tree-item' + (sel ? ' sel' : ''),
+          onClick: function(){ onToggleType(r.type); },
+          title: r.description || ''
+        },
+          el('span', { style: { marginRight: 5 } }, r.icon || '🔗'),
+          el('span', { className: 'type-name', style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' } }, r.type),
+          el('span', { className: 'badge', style: { background: 'var(--hover)', color: 'var(--muted)' } },
+            r.instanceCount + (r.capped ? '+' : ''))
+        );
+      }),
+      state === 'ready' && rels.length === 0 && el('div', { style: { padding: 12, fontSize: 12, color: 'var(--dim)' } }, 'No relationship usage data.')
+    )
+  );
+}
+
 /* ── Governance Search ────────────────────────────────────────────────────── */
 function typeCatalog(creds, setCatalog, setCatState) {
   setCatState('loading');
@@ -740,7 +824,10 @@ var RESULT_COLUMNS = [
   ['Type',            function(it){ return it.typeName; }],
   ['Zones',           function(it){ return ((it.classifications && it.classifications.zoneMembership && it.classifications.zoneMembership.zoneMembership) || []).join(', '); }],
   ['Classifications', function(it){ return Object.keys(it.classifications || {}).filter(function(k){ return k !== 'zoneMembership'; }).join(', '); }],
-  ['Relationships',   function(it){ return Object.keys(it.relationships || {}).sort().map(function(k){ return k + (it.relationships[k] ? '✓' : '✗'); }).join(' '); }],
+  ['Relationships',   function(it){ return Object.keys(it.relationships || {}).sort().map(function(k){
+                          var n = (it.relationshipCounts || {})[k] || 0;
+                          return k + (it.relationships[k] ? ('✓' + (n > 1 ? 'x' + n : '')) : '✗');
+                        }).join(' '); }],
   ['',                null],
 ];
 
@@ -797,7 +884,7 @@ function SearchResults({ results }) {
           );
         })
       ),
-    // Relationship aggregates + the honest capping caveat (NEXT-25) — tallied
+    // Relationship aggregates + the honest capping caveats (NEXT-25) — tallied
     // over the fetched-and-annotated population, not the (possibly narrower)
     // filtered `results.results`, so a "lacks X" search still shows both sides.
     results.relationshipAggregates && Object.keys(results.relationshipAggregates).length > 0 &&
@@ -808,11 +895,14 @@ function SearchResults({ results }) {
             el('div', { style: { fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--dim)', marginBottom: 4 } }, k + ' relationship'),
             el('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
               el('span', { className: 'chip', style: { cursor: 'default' } }, 'has · ' + t.has),
-              el('span', { className: 'chip', style: { cursor: 'default' } }, 'lacks · ' + t.lacks)
+              el('span', { className: 'chip', style: { cursor: 'default' } }, 'lacks · ' + t.lacks),
+              t.has > 0 && el('span', { className: 'chip', style: { cursor: 'default' } }, 'avg ' + t.avgPerHaving + ' per element'),
+              t.maxPerElement > 1 && el('span', { className: 'chip', style: { cursor: 'default' } }, 'max ' + t.maxPerElement + ' on one element')
             )
           );
         }),
-        results.relationshipFilterNote && el('div', { style: { fontSize: 11, color: 'var(--dim)', fontStyle: 'italic' } }, '⚠ ' + results.relationshipFilterNote)
+        results.relationshipFilterNote && el('div', { style: { fontSize: 11, color: 'var(--dim)', fontStyle: 'italic' } }, '⚠ ' + results.relationshipFilterNote),
+        results.defaultedTypeNote && el('div', { style: { fontSize: 11, color: 'var(--dim)', fontStyle: 'italic' } }, 'ℹ ' + results.defaultedTypeNote)
       ),
     items.length === 0
       ? el('div', { style: { fontSize: 13, color: 'var(--dim)', padding: '20px 0' } }, 'No matches.')
@@ -841,8 +931,10 @@ function SearchResults({ results }) {
                 el('td', { style: td, title: clsNames.join(', ') }, clsNames.join(', ')),
                 el('td', { style: td },
                   relNames.map(function(k){
+                    var n = (it.relationshipCounts || {})[k] || 0;
                     return el('span', { key: k, className: 'chip', style: { cursor: 'default', marginRight: 4,
-                        color: it.relationships[k] ? 'var(--good, #4caf50)' : 'var(--dim)' } }, k + (it.relationships[k] ? ' ✓' : ' ✗'));
+                        color: it.relationships[k] ? 'var(--good, #4caf50)' : 'var(--dim)' } },
+                      k + (it.relationships[k] ? (' ✓' + (n > 1 ? '×' + n : '')) : ' ✗'));
                   })
                 ),
                 el('td', { style: td }, nav && el('button', {
@@ -856,7 +948,7 @@ function SearchResults({ results }) {
   );
 }
 
-function GovernanceSearch({ creds, focusZone, focusType, focusRel }) {
+function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse }) {
   var _cat = useState(null),      catalog = _cat[0],   setCatalog = _cat[1];
   var _cst = useState('loading'), catState = _cst[0],  setCatState = _cst[1];
   var _zone = useState(focusZone || null), selectedZone = _zone[0], setSelectedZone = _zone[1];
@@ -868,6 +960,10 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel }) {
   // see egeria-overview.html's "Open in Insights" link).
   var _relMc = useState('ALL'), relMatchCriteria = _relMc[0], setRelMatchCriteria = _relMc[1];
   var _relCond = useState(function(){ return focusRel || []; }), relConditions = _relCond[0], setRelConditions = _relCond[1];
+  // Left rail shows either the Zone tree or the Relationship tree — Dashboard's
+  // Relationship Coverage card jumps straight into 'relationships' mode via
+  // focusBrowse; otherwise defaults to zones (the original, more-used mode).
+  var _browse = useState(focusBrowse === 'relationships' ? 'relationships' : 'zones'), browseMode = _browse[0], setBrowseMode = _browse[1];
   var _res = useState(null), results = _res[0], setResults = _res[1];
   var _rst = useState('idle'), resState = _rst[0], setResState = _rst[1];
   var _full = useState(false), fullCount = _full[0], setFullCount = _full[1];
@@ -890,6 +986,16 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel }) {
   }
   function removeRelCondition(i) {
     setRelConditions(relConditions.filter(function(_, idx){ return idx !== i; }));
+  }
+  // Toggling from the Relationship tree (multi-select, unlike zones' single-
+  // select) — click a type not yet in the list to add it ("has", the common
+  // case), click again to remove it.
+  function toggleRelType(type) {
+    setRelConditions(function(prev) {
+      var idx = prev.findIndex(function(c){ return c.relationship_type === type; });
+      if (idx !== -1) return prev.filter(function(_, i){ return i !== idx; });
+      return prev.concat([{ relationship_type: type, presence: 'has' }]);
+    });
   }
 
   // Seed / replace a ZoneMembership condition when a zone is selected from the tree —
@@ -959,8 +1065,24 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel }) {
   var canFullCount = conditions.some(function(c){ return c.classification; }) || !!typeName
                       || relConditions.some(function(c){ return c.relationship_type; });
 
+  var browseTabBtn = function(mode, label) {
+    var on = browseMode === mode;
+    return el('button', { key: mode, onClick: function(){ setBrowseMode(mode); },
+      style: { flex: 1, fontSize: 11, padding: '5px 0', cursor: 'pointer', border: 'none',
+               borderBottom: on ? '2px solid var(--accent)' : '2px solid transparent',
+               background: 'transparent', color: on ? 'var(--accent)' : 'var(--muted)', fontWeight: on ? 700 : 400 } }, label);
+  };
+
   return el('div', { style: { display: 'flex', height: '100%' } },
-    el(ZoneTree, { creds: creds, selectedZone: selectedZone, onSelectZone: setSelectedZone, width: zoneWidth }),
+    el('div', { style: { width: zoneWidth || 240, minWidth: 160, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
+      el('div', { style: { display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
+        browseTabBtn('zones', 'Zones'), browseTabBtn('relationships', 'Relationships')),
+      el('div', { style: { flex: 1, overflow: 'hidden' } },
+        browseMode === 'zones'
+          ? el(ZoneTree, { creds: creds, selectedZone: selectedZone, onSelectZone: setSelectedZone, width: '100%' })
+          : el(RelationshipTree, { creds: creds, relConditions: relConditions, onToggleType: toggleRelType, width: '100%' })
+      )
+    ),
     el(ResizeDivider, { onMouseDown: onZoneResizeDown }),
     el('div', { className: 'main', style: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
       el('div', { style: { padding: '14px 20px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
@@ -1073,6 +1195,7 @@ function App() {
   var _fu = useState(''),  fu = _fu[0], setFu = _fu[1];
   var _fp = useState(''),  fp = _fp[0], setFp = _fp[1];
   var _ce = useState(''),  cerr = _ce[0], setCerr = _ce[1];
+  var _bh = useState(params.get('browse') || null), browseHint = _bh[0], setBrowseHint = _bh[1];
   var focusZone = params.get('zone') || null;
   // Deep-link seeding for a pre-filled compound search (NEXT-25) — e.g. from
   // Overview's "Open in Insights" drill-through: ?type=Asset&rel=DataFlow:lacks
@@ -1089,7 +1212,7 @@ function App() {
     // A deep-linked search (zone/type/relationship) implies the search tab
     // even without an explicit ?tab=search — one fewer param the linking app
     // (e.g. Overview's drill-through) has to remember to set.
-    return (focusZone || focusType || focusRel.length > 0) ? 'search' : 'dashboard';
+    return (focusZone || focusType || focusRel.length > 0 || browseHint) ? 'search' : 'dashboard';
   }), tab = _t[0], setTab = _t[1];
   function go(id){ setTab(id); try { window.location.hash = id; } catch(e){} }
   var active = TABS.find(function(t){ return t.id === tab; }) || TABS[0];
@@ -1149,8 +1272,8 @@ function App() {
   var content = !ready
     ? el('div', { style: pad }, 'Connecting…')
     : active.id === 'dashboard'
-      ? el(Dashboard, { key: 'dash@' + credKey, creds: creds, onOpenSearch: function(){ go('search'); } })
-      : el(GovernanceSearch, { key: 'search@' + credKey, creds: creds, focusZone: focusZone, focusType: focusType, focusRel: focusRel });
+      ? el(Dashboard, { key: 'dash@' + credKey, creds: creds, onOpenSearch: function(mode){ if (mode) setBrowseHint(mode); go('search'); } })
+      : el(GovernanceSearch, { key: 'search@' + credKey, creds: creds, focusZone: focusZone, focusType: focusType, focusRel: focusRel, focusBrowse: browseHint });
 
   var inp = { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', outline: 'none' };
   var showConnBar = ready && !srvManaged && (showConn || !who);
