@@ -115,7 +115,7 @@ def perspectives_for(kpi_key: str) -> List[str]:
 # tile) — Survey Annotation Coverage (OVERVIEW_CONTEXT_INTELLIGENCE.md Tier 2,
 # not yet built) is its natural second member, not invented here to pad it out.
 TOPIC_KPIS: Dict[str, List[str]] = {
-    "ai-context":       ["grounding", "ownership", "governed"],
+    "ai-context":       ["grounding", "ownership", "governed", "ai-ready"],
     "security-privacy": ["governed", "certs"],
     "quality":          ["exceptions"],
     "usage":            ["products", "isc", "blueprints", "people", "communities"],
@@ -332,6 +332,30 @@ _TILES = [
                  "dataset (spot-checked live 2026-08-01: at least SolutionActorRole appears as an "
                  "owner-type value) -- a fuller by-owner-type breakdown is what `byOwnerType` in "
                  "the raw payload already returns, just not yet surfaced in this tile's UI.",
+    },
+    {
+        "key": "ai-ready", "label": "AI-Ready Assets", "icon": "🤖", "color": "var(--c1)",
+        "description": "Count of Asset elements that are simultaneously governed, documented, "
+                       "and lineage-traced -- the composite gate for \"safe to serve as AI "
+                       "context\".",
+        "target_type": "Asset", "endpoint": "ai-context", "value_field": "aiReadyPct",
+        "detail_spec": "ai-ready", "series": None, "unit": "percent", "provenance": "live",
+        "compute": ("pyegeria.view.overview_metrics.ai_ready_assets", {}),
+        "questions": ["Which assets are safe to serve as AI context?",
+                      "What's the single biggest thing blocking more assets from being AI-ready?"],
+        "summary": "Count and percentage of Asset elements carrying >=1 governance "
+                   "classification AND a non-empty description AND >=1 DataFlow relationship, "
+                   "simultaneously -- a true composite (NEXT-18), not three independent counts.",
+        "usage": "The AND-gate means the true bottleneck is whichever underlying signal is "
+                 "weakest, and that's very often lineage, not governance or documentation -- "
+                 "confirmed live 2026-08-04 on this dataset: 1,743 cataloged, 365 documented "
+                 "(21%), 584 classified (governance, not Asset-scoped -- can exceed cataloged, "
+                 "see Governed Coverage's own caveat), but only 8 assets carry any DataFlow "
+                 "relationship at all, so AI-Ready lands at 4 (0.2%) even though documentation "
+                 "and classification are both far higher individually. Read a low number here "
+                 "as \"go look at the funnel stage with the steepest drop\" (usually lineage), "
+                 "not as \"nothing here is AI-ready-adjacent\" -- see the Context Readiness "
+                 "Funnel panel for the per-stage breakdown that explains which gate is binding.",
     },
 ]
 

@@ -508,7 +508,11 @@ def get_term(
         _raise_http(exc, "Failed to create GlossaryManager")
 
     try:
-        body = {"class": "GetRequestBody", "graphQueryDepth": 1}
+        # maxMermaidNodeCount must live in the body dict itself -- a sibling kwarg is
+        # ignored once an explicit body is passed. Default max_mermaid_node_count=5
+        # otherwise truncates any mermaid diagram for this term -- see egeria-python
+        # PYEGERIA_ISSUES.md ISSUE-23.
+        body = {"class": "GetRequestBody", "graphQueryDepth": 1, "maxMermaidNodeCount": 250}
         if as_of_time:
             body["asOfTime"] = as_of_time
         raw = mgr.get_term_by_guid(term_guid, output_format="JSON", body=body)

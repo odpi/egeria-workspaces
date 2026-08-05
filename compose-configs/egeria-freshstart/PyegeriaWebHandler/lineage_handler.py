@@ -165,10 +165,14 @@ def get_asset_graph(
     """
     try:
         ac = _asset_catalog(url, server, _token_from_request(request))
+        # max_mermaid_node_count defaults to 5 (pyegeria shared results-body helper),
+        # truncating localLineageGraph/fieldLevelLineageGraph -- see egeria-python
+        # PYEGERIA_ISSUES.md ISSUE-23.
         raw = ac.get_asset_graph_by_guid(
             guid,
             output_format="JSON",
             as_of_time=as_of_time or None,
+            max_mermaid_node_count=250,
         )
         if isinstance(raw, list):
             el = raw[0]

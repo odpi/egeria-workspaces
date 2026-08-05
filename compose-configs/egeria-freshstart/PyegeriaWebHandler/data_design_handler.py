@@ -406,7 +406,10 @@ def get_spec(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
-        raw = mgr.get_collection_by_guid(guid, output_format="JSON")
+        # max_mermaid_node_count defaults to 5 (pyegeria shared get-by-guid helper),
+        # truncating any mermaid diagram for this element -- see egeria-python
+        # PYEGERIA_ISSUES.md ISSUE-23.
+        raw = mgr.get_collection_by_guid(guid, output_format="JSON", max_mermaid_node_count=250)
         element = _first(raw)
         if not element:
             raise HTTPException(status_code=404, detail=f"Spec {guid!r} not found")
@@ -460,7 +463,7 @@ def get_structure(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
-        raw = mgr.get_data_structure_by_guid(guid, output_format="JSON")
+        raw = mgr.get_data_structure_by_guid(guid, output_format="JSON", max_mermaid_node_count=250)
         element = _first(raw)
         if not element:
             raise HTTPException(status_code=404, detail=f"Structure {guid!r} not found")
@@ -487,7 +490,7 @@ def get_field(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
-        raw = mgr.get_data_field_by_guid(guid, output_format="JSON")
+        raw = mgr.get_data_field_by_guid(guid, output_format="JSON", max_mermaid_node_count=250)
         element = _first(raw)
         if not element:
             raise HTTPException(status_code=404, detail=f"Field {guid!r} not found")
@@ -514,7 +517,7 @@ def get_grain(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
-        raw = mgr.get_data_grain_by_guid(guid, output_format="JSON")
+        raw = mgr.get_data_grain_by_guid(guid, output_format="JSON", max_mermaid_node_count=250)
         element = _first(raw)
         if not element:
             raise HTTPException(status_code=404, detail=f"Grain {guid!r} not found")
@@ -541,7 +544,7 @@ def get_class(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
-        raw = mgr.get_data_class_by_guid(guid, output_format="JSON")
+        raw = mgr.get_data_class_by_guid(guid, output_format="JSON", max_mermaid_node_count=250)
         element = _first(raw)
         if not element:
             raise HTTPException(status_code=404, detail=f"DataClass {guid!r} not found")

@@ -25,6 +25,20 @@ from common_serialize import _authored_fields, _header_summary, _generic_relatio
 
 router = APIRouter(tags=["solution-architect"])
 
+# get_solution_blueprint_by_guid / get_solution_component_by_guid hit a dedicated
+# ".../retrieve" REST endpoint whose own graph_query_depth parameter is dead (never
+# reaches the request) -- passing an explicit AnyTimeRequestBody with
+# graphQueryDepth/maxMermaidNodeCount set is the only way to raise them above the
+# server's default cap (max_mermaid_node_count defaults to 5 elsewhere in pyegeria;
+# this endpoint's un-overridden default truncates mermaid diagrams the same way --
+# see egeria-python PYEGERIA_ISSUES.md ISSUE-23). Verified live: raises a blueprint's
+# mermaidGraph from 74 to 187 lines.
+_DETAIL_GRAPH_BODY = {
+    "class": "AnyTimeRequestBody",
+    "graphQueryDepth": 10,
+    "maxMermaidNodeCount": 250,
+}
+
 
 def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     from pyegeria import SolutionArchitect
@@ -349,7 +363,7 @@ def get_blueprint(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
-        raw = mgr.get_solution_blueprint_by_guid(guid, output_format="JSON")
+        raw = mgr.get_solution_blueprint_by_guid(guid, body=_DETAIL_GRAPH_BODY, output_format="JSON")
     except Exception as exc:
         logger.exception("get_solution_blueprint_by_guid failed")
         raise HTTPException(status_code=500, detail=f"Blueprint retrieval failed: {exc}")
@@ -495,7 +509,7 @@ def get_component(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
-        raw = mgr.get_solution_component_by_guid(guid, output_format="JSON")
+        raw = mgr.get_solution_component_by_guid(guid, body=_DETAIL_GRAPH_BODY, output_format="JSON")
     except Exception as exc:
         logger.exception("get_solution_component_by_guid failed")
         raise HTTPException(status_code=500, detail=f"Component retrieval failed: {exc}")

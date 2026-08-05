@@ -56,6 +56,7 @@ The Overview dashboard's KPI tiles are defined once in `overview_specs.py` as Fo
 | `blueprints` | Solution Blueprints | 🟢 live | SolutionBlueprint | usage-context → `blueprints` | kpi | `blueprints` | consumer, engineer, builder |
 | `grounding` | Semantic Grounding | 🟢 live | — | ai-context → `groundingPct` | kpi | `grounding` | steward, owner, consumer, engineer, builder, privacy |
 | `ownership` | Ownership Coverage | 🟢 live | — | ai-context → `ownershipPct` | kpi | `ownership` |  |
+| `ai-ready` | AI-Ready Assets | 🟢 live | Asset | ai-context → `aiReadyPct` | kpi | `ai-ready` |  |
 
 **Compute** (each spec's `action` — the how-it's-computed / P3 report-runner hook):
 
@@ -71,8 +72,9 @@ The Overview dashboard's KPI tiles are defined once in `overview_specs.py` as Fo
 - `blueprints` — `MetadataExpert.count_metadata_elements(type_name=SolutionBlueprint)`
 - `grounding` — `ClassificationExplorer.get_relationships(relationship_type=SemanticAssignment, as=percent_of_assets)`
 - `ownership` — `pyegeria.view.overview_metrics.ownership_coverage()`
+- `ai-ready` — `pyegeria.view.overview_metrics.ai_ready_assets()`
 
-**Provenance tally:** 12 live · 0 mixed · 0 illustrative.
+**Provenance tally:** 13 live · 0 mixed · 0 illustrative.
 
 <!-- END GENERATED: overview-kpi-catalog -->
 

@@ -21,6 +21,17 @@ from common_serialize import _authored_fields, _header_summary, _classifications
 
 router = APIRouter(tags=["isc"])
 
+# pyegeria's shared find/get request helpers (_server_client.py) default
+# graph_query_depth=3 and, critically, max_mermaid_node_count=5 -- the server
+# truncates the generated mermaid flowchart to at most 5 nodes unless told
+# otherwise. Any information supply chain with more than a handful of
+# collectionMembers/segments (the norm for the Coco Pharmaceuticals demo data)
+# gets a visibly incomplete chain diagram as a result. Override both explicitly
+# for ISC list/detail -- this is a "show me everything about one chain" view,
+# not a broad unbounded listing, so a generous cap is safe here.
+_ISC_GRAPH_QUERY_DEPTH = 10
+_ISC_MAX_MERMAID_NODES = 250
+
 
 def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     from pyegeria import SolutionArchitect
@@ -207,6 +218,8 @@ def list_isc(
             add_implementation=True,
             sequencing_order="PROPERTY_ASCENDING",
             sequencing_property="displayName",
+            graph_query_depth=_ISC_GRAPH_QUERY_DEPTH,
+            max_mermaid_node_count=_ISC_MAX_MERMAID_NODES,
         )
     except Exception as exc:
         logger.exception("find_information_supply_chains failed")
@@ -238,7 +251,11 @@ def get_isc(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
-        element = exp.get_element_by_guid(guid, output_format="JSON")
+        element = exp.get_element_by_guid(
+            guid, output_format="JSON",
+            graph_query_depth=_ISC_GRAPH_QUERY_DEPTH,
+            max_mermaid_node_count=_ISC_MAX_MERMAID_NODES,
+        )
     except Exception as exc:
         logger.exception(f"get_element_by_guid failed for ISC {guid}")
         raise HTTPException(status_code=500, detail=f"ISC detail retrieval failed: {exc}")

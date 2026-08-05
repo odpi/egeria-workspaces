@@ -568,7 +568,7 @@
 
   <div class="kpis" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
     <div class="kpi clickable" data-drill="ai-ready">
-      <span class="k-ico">🤖</span><span class="k-label">AI-Ready Assets</span>
+      <span class="k-ico">🤖</span><span class="k-label">AI-Ready Assets</span><button type="button" id="ai-ctx-info-ai-ready" class="k-info" data-info="ai-ready" style="display:none" title="What does this measure?" aria-label="What does this measure?">ⓘ</button>
       <span class="k-val" id="uc-ai-ready">612</span><span class="k-sub" id="uc-ai-ready-sub">48% — governed + documented + lineage</span>
     </div>
     <div class="kpi clickable" data-drill="context-products">
@@ -580,7 +580,7 @@
       <span class="k-val">7</span><span class="k-sub">agents · MCP clients · Advisor</span>
     </div>
     <div class="kpi clickable" data-drill="grounding">
-      <span class="k-ico">🧠</span><span class="k-label">Semantic Grounding</span>
+      <span class="k-ico">🧠</span><span class="k-label">Semantic Grounding</span><button type="button" id="ai-ctx-info-grounding" class="k-info" data-info="grounding" style="display:none" title="What does this measure?" aria-label="What does this measure?">ⓘ</button>
       <span class="k-val" id="ai-grounding">61%</span><span class="delta up">▲ 9 pts <span style="color:var(--muted);font-weight:400">·  glossary-linked</span></span>
     </div>
   </div>
@@ -1119,7 +1119,10 @@ const METRICS = {
                            sub: LIVE.groundingLinks != null ? num(LIVE.groundingLinks) + ' term links' : 'glossary-linked' }) },
   ownership:  { label:'Ownership Coverage',    ico:'🧑‍💼', color:'var(--c4)', drill:'ownership',
                 get:()=>({ val: LIVE.ownershipPct != null ? LIVE.ownershipPct + '%' : '—',
-                           sub: LIVE.ownershipCount != null ? num(LIVE.ownershipCount) + ' owned assets' : 'named owner assigned' }) }
+                           sub: LIVE.ownershipCount != null ? num(LIVE.ownershipCount) + ' owned assets' : 'named owner assigned' }) },
+  'ai-ready': { label:'AI-Ready Assets',       ico:'🤖', color:'var(--c1)', drill:'ai-ready',
+                get:()=>({ val: LIVE.aiReadyPct != null ? LIVE.aiReadyPct + '%' : '—',
+                           sub: LIVE.aiReadyCount != null ? num(LIVE.aiReadyCount) + ' assets, all gates' : 'governed + documented + lineage' }) }
 };
 // Per-tile summary/usage text for the "ⓘ" info bubble (NEXT-24). Populated
 // live from /api/overview/specs — the same overview_specs.py _TILES data
@@ -1152,7 +1155,7 @@ const PERSP_KPIS = {
 // sync with overview_specs.py's TOPIC_KPIS — test_overview_specs.py guards it
 // the same way it already guards PERSP_KPIS.
 const TOPIC_KPIS = {
-  'ai-context':       ['grounding','ownership','governed'],
+  'ai-context':       ['grounding','ownership','governed','ai-ready'],
   'security-privacy': ['governed','certs'],
   'quality':          ['exceptions'],
   'usage':            ['products','isc','blueprints','people','communities']
@@ -1589,7 +1592,7 @@ const DRILL = {
   'ai-ready': { eb:'AI & context intelligence', t:'🤖 AI-Ready Assets', s:'612 assets are governed + documented + lineage-traced — safe to serve as AI context',
     stats:[['612','AI-ready'],['48%','of catalog'],['24','held back']],
     list:[['Documented',912],['Classified',873],['Lineage-traced',705],['AI-ready (all gates)',612],['Blocked: confidential',24]],
-    cta:['Explore context products','/tech-catalog'], sec:['View lineage','/lineage'],
+    cta:['Find assets missing lineage','/egeria-insights?type=Asset&rel=DataFlow:lacks'], sec:['View lineage','/lineage'],
     note:'A composite gate over documentation, classification and lineage completeness. This is the metric App/AI builders care about most.' },
   'context-products': { eb:'AI & context intelligence', t:'🧩 Context Products', s:'14 curated context products served to apps via MCP / API',
     stats:[['14','products'],['7','consumers'],['9.6k','calls /30d']],
@@ -1674,6 +1677,23 @@ function drillLivePatch(key, d){
     d.stats[0][0] = LIVE.ownershipPct + '%';
     if (LIVE.ownershipCount != null) d.s = num(LIVE.ownershipCount) + ' assets carry a named, accountable owner (Ownership classification)';
   }
+  // 'ai-ready' drawer used to show only its hardcoded sample stats/list
+  // (612/48%/24) regardless of the real live value shown on the tile itself
+  // — overlay the live composite (governed AND documented AND lineage-traced
+  // simultaneously, from ai_ready_assets) the same way every other drawer here
+  // already does. aiReadyPct is undefined until this session's ai-context
+  // fetch resolves, same degrade-to-sample convention as the rest of this fn.
+  if (key === 'ai-ready' && LIVE.aiReadyCount != null) {
+    d.stats[0][0] = String(LIVE.aiReadyCount);
+    if (LIVE.aiReadyPct != null) d.stats[1][0] = LIVE.aiReadyPct + '%';
+    d.s = num(LIVE.aiReadyCount) + ' assets are governed + documented + lineage-traced — safe to serve as AI context';
+    d.list = [
+      ['Documented',      LIVE.documented != null ? LIVE.documented : d.list[0][1]],
+      ['Classified',      LIVE.classified != null ? LIVE.classified : d.list[1][1]],
+      ['Lineage-traced',  LIVE.lineage != null ? LIVE.lineage : d.list[2][1]],
+      ['AI-ready (all gates)', LIVE.aiReadyCount],
+    ];
+  }
   if (key === 'people') {
     if (LIVE.teams != null) d.stats[1][0] = String(LIVE.teams);
     if (LIVE.communities != null) d.stats[2][0] = String(LIVE.communities);
@@ -1734,6 +1754,19 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     ['bv-risk', 'bv-productivity', 'bv-trust', 'bv-cost'].forEach(function(key){
       if (!TILE_INFO[key]) return;
       var btn = document.querySelector('.k-info[data-info="' + key + '"]');
+      if (btn) btn.style.display = 'inline';
+    });
+  }
+
+  // Same reveal pattern for the AI & Context Intelligence section's two
+  // static tiles that duplicate a governed _TILES entry (grounding) or may
+  // gain one later (ai-ready — not yet registered, so this is a no-op for it
+  // today; the button stays hidden until overview_specs.py's _TILES/a
+  // similar registry actually carries an 'ai-ready' summary/usage pair).
+  function renderAiContextInfoButtons(){
+    ['ai-ready', 'grounding'].forEach(function(key){
+      if (!TILE_INFO[key]) return;
+      var btn = document.getElementById('ai-ctx-info-' + key);
       if (btn) btn.style.display = 'inline';
     });
   }
@@ -1857,6 +1890,12 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (d.ownershipPct != null) store.ownershipPct = d.ownershipPct;
     if (d.ownershipCount != null) store.ownershipCount = d.ownershipCount;
     if (d.aiReadyPct != null) store.aiReadyPct = d.aiReadyPct;
+    if (d.funnel) {
+      if (d.funnel.aiReady != null)   store.aiReadyCount = d.funnel.aiReady;
+      if (d.funnel.documented != null) store.documented = d.funnel.documented;
+      if (d.funnel.classified != null) store.classified = d.funnel.classified;
+      if (d.funnel.lineage != null)    store.lineage = d.funnel.lineage;
+    }
     if (!primary) return;
     // AI section grounding tile + funnel — cataloged/classified/documented/
     // lineage/aiReady all live as of 2026-08-01 (aiReady is the true
@@ -2025,6 +2064,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
         }
         renderKPIs();
         renderBusinessValueInfoButtons();
+        renderAiContextInfoButtons();
       }).catch(function(){ /* info bubble is optional decoration — degrade silently */ });
   }
 

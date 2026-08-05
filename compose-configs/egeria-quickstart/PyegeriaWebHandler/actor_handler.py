@@ -257,10 +257,14 @@ def get_actor_profile(
         logger.exception("Failed to create ActorManager for profile detail")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
-        body = {"class": "GetRequestBody"}
+        # graphQueryDepth/maxMermaidNodeCount must live in the body dict itself --
+        # the sibling graph_query_depth= kwarg is ignored once an explicit body is
+        # passed. Default max_mermaid_node_count=5 otherwise truncates any mermaid
+        # diagram for this element -- see egeria-python PYEGERIA_ISSUES.md ISSUE-23.
+        body = {"class": "GetRequestBody", "graphQueryDepth": 1, "maxMermaidNodeCount": 250}
         if as_of_time:
             body["asOfTime"] = as_of_time
-        element = mgr.get_actor_profile_by_guid(guid, output_format="JSON", graph_query_depth=1, body=body)
+        element = mgr.get_actor_profile_by_guid(guid, output_format="JSON", body=body)
     except Exception as exc:
         logger.exception(f"get_actor_profile_by_guid failed for {guid}")
         raise HTTPException(status_code=500, detail=f"Actor profile retrieval failed: {exc}")
@@ -307,10 +311,12 @@ def get_actor_role(
         logger.exception("Failed to create ActorManager for role detail")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
-        body = {"class": "GetRequestBody"}
+        # See get_actor_profile above re: embedding graphQueryDepth/maxMermaidNodeCount
+        # in the body dict (PYEGERIA_ISSUES.md ISSUE-23).
+        body = {"class": "GetRequestBody", "graphQueryDepth": 1, "maxMermaidNodeCount": 250}
         if as_of_time:
             body["asOfTime"] = as_of_time
-        element = mgr.get_actor_role_by_guid(guid, output_format="JSON", graph_query_depth=1, body=body)
+        element = mgr.get_actor_role_by_guid(guid, output_format="JSON", body=body)
     except Exception as exc:
         logger.exception(f"get_actor_role_by_guid failed for {guid}")
         raise HTTPException(status_code=500, detail=f"Actor role retrieval failed: {exc}")
@@ -356,10 +362,12 @@ def get_user_identity(
         logger.exception("Failed to create ActorManager for identity detail")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
-        body = {"class": "GetRequestBody"}
+        # See get_actor_profile above re: embedding graphQueryDepth/maxMermaidNodeCount
+        # in the body dict (PYEGERIA_ISSUES.md ISSUE-23).
+        body = {"class": "GetRequestBody", "graphQueryDepth": 1, "maxMermaidNodeCount": 250}
         if as_of_time:
             body["asOfTime"] = as_of_time
-        element = mgr.get_user_identity_by_guid(guid, output_format="JSON", graph_query_depth=1, body=body)
+        element = mgr.get_user_identity_by_guid(guid, output_format="JSON", body=body)
     except Exception as exc:
         logger.exception(f"get_user_identity_by_guid failed for {guid}")
         raise HTTPException(status_code=500, detail=f"User identity retrieval failed: {exc}")

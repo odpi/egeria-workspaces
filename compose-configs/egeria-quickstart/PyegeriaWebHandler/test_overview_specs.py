@@ -53,7 +53,7 @@ def parse_metrics(html: str) -> dict:
     block = _slice_object(html, "const METRICS = {")
     out = {}
     pat = re.compile(
-        r"^\s*(\w+):\s*\{\s*label:'([^']*)',\s*ico:'([^']*)',\s*color:'([^']*)',"
+        r"^\s*'?([\w-]+)'?:\s*\{\s*label:'([^']*)',\s*ico:'([^']*)',\s*color:'([^']*)',"
         r"\s*drill:'([^']*)'(?:,\s*hist:'([^']*)')?",
         re.MULTILINE,
     )
