@@ -93,7 +93,7 @@ services:
     # runs tight. Capping it keeps one runaway heap from starving everything
     # else; raise this (and the VM's total allocation) if Egeria itself needs
     # more headroom.
-    mem_limit: 4g
+    mem_limit: 6g
     logging:
       driver: "json-file"
       options:
