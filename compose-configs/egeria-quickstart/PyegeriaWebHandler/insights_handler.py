@@ -609,6 +609,42 @@ def get_summary(
     })
 
 
+# ── Classification browse (2026-08-05) ───────────────────────────────────────
+# Generalizes the left-rail browse beyond ZoneMembership (which stays the
+# default, cheaply enumerable via GovernanceZone definitions) to ANY
+# classification the caller picks — one on-demand tally per selection, not
+# a pre-computed count for the whole type system (same cost-shape reasoning
+# as _INTERESTING_RELATIONSHIP_TYPES below: computing this for every
+# classification up front would mean one full query per type).
+
+@router.get("/api/insights/classification-count", summary="Capped tally of elements carrying one named classification")
+def get_classification_count(
+    name: str = Query(..., description="Classification type name, e.g. Confidentiality"),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    try:
+        mgr = _expert(url, server, user_id, user_pwd)
+    except Exception as exc:
+        logger.exception("insights: failed to create MetadataExpert for classification-count")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+    body = {
+        "class": "FindRequestBody",
+        "matchClassifications": {"class": "SearchClassifications", "matchCriteria": "ANY",
+                                  "conditions": [{"name": name}]},
+        "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0,
+        "startFrom": 0, "pageSize": _DEFAULT_CAP,
+    }
+    try:
+        raw = mgr.find_metadata_elements(body)
+    except Exception as exc:
+        logger.exception(f"insights: classification-count query failed for {name!r}")
+        raise HTTPException(status_code=500, detail=str(exc))
+    hits = [el for el in (raw if isinstance(raw, list) else []) if isinstance(el, dict)]
+    return JSONResponse({"name": name, "count": len(hits), "capped": len(hits) >= _DEFAULT_CAP})
+
+
 # ── Zones ─────────────────────────────────────────────────────────────────────
 
 @router.get("/api/insights/zones", summary="Governance zone definitions with usage counts")
@@ -702,6 +738,29 @@ _INTERESTING_RELATIONSHIP_TYPES = (
 )
 
 
+def _relationship_type_stats(ce, rel_type: str) -> dict:
+    """One relationship type's instance/participant tally — the per-type cost
+    _INTERESTING_RELATIONSHIP_TYPES is curated to avoid paying for all ~734
+    types at once. Factored out so the curated browse list (get_relationships)
+    and the on-demand single-type lookup (get_relationship_count, for
+    anything outside that curated list) share one implementation."""
+    try:
+        rels = _json_list(ce.get_relationships(
+            relationship_type=rel_type, output_format="JSON",
+            start_from=0, page_size=_DEFAULT_CAP, body=None))
+    except Exception:
+        logger.debug(f"insights: relationship usage query failed for {rel_type!r}")
+        rels = []
+    participants: set = set()
+    for r in rels:
+        for end_key in ("end1", "end2"):
+            g = ((r.get(end_key) or {}) if isinstance(r, dict) else {}).get("guid")
+            if g:
+                participants.add(g)
+    capped = len(rels) >= _DEFAULT_CAP
+    return {"instanceCount": len(rels), "participantCount": len(participants), "capped": capped}
+
+
 @router.get("/api/insights/relationships", summary="Relationship-type usage counts (curated set, capped tally)")
 def get_relationships(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
@@ -716,27 +775,26 @@ def get_relationships(
     out = []
     any_capped = False
     for rel_type, icon, desc in _INTERESTING_RELATIONSHIP_TYPES:
-        try:
-            rels = _json_list(ce.get_relationships(
-                relationship_type=rel_type, output_format="JSON",
-                start_from=0, page_size=_DEFAULT_CAP, body=None))
-        except Exception:
-            logger.debug(f"insights: relationship usage query failed for {rel_type!r}")
-            rels = []
-        participants: set = set()
-        for r in rels:
-            for end_key in ("end1", "end2"):
-                g = ((r.get(end_key) or {}) if isinstance(r, dict) else {}).get("guid")
-                if g:
-                    participants.add(g)
-        capped = len(rels) >= _DEFAULT_CAP
-        any_capped = any_capped or capped
-        out.append({
-            "type": rel_type, "icon": icon, "description": desc,
-            "instanceCount": len(rels), "participantCount": len(participants), "capped": capped,
-        })
+        stats = _relationship_type_stats(ce, rel_type)
+        any_capped = any_capped or stats["capped"]
+        out.append({"type": rel_type, "icon": icon, "description": desc, **stats})
     out.sort(key=lambda r: -r["instanceCount"])
     return JSONResponse({"relationships": out, "anyCapped": any_capped})
+
+
+@router.get("/api/insights/relationship-count", summary="On-demand instance/participant tally for ANY relationship type (not just the curated set)")
+def get_relationship_count(
+    rel_type: str = Query(..., alias="type", description="Relationship type name, e.g. DataFlow"),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    try:
+        ce = _ce(url, server, user_id, user_pwd)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("insights: failed to create ClassificationExplorer for relationship-count")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+    stats = _relationship_type_stats(ce, rel_type)
+    return JSONResponse({"type": rel_type, **stats})
 
 
 # ── Compound search ───────────────────────────────────────────────────────────
@@ -759,11 +817,32 @@ def search_elements(body: SearchBody = Body(...)):
           and body.relationship_conditions and find_body.get("metadataElementTypeName")) else None
     page_size = max(1, min(body.page_size, 500))
 
+    # BUG FOUND 2026-08-05 (live-reported: "DataFlow shows 8 in the tree,
+    # but Search with no other clauses returns 0"). Root cause: a
+    # relationship-only search defaults to metadataElementTypeName="Asset"
+    # (see `defaulted_type_note` above) with nothing else narrowing scope,
+    # but the default (non-exhaustive) fetch only pulls ONE capped page
+    # (page_size, default 200) out of the FULL Asset population (~1,900+ in
+    # this demo) in Egeria's own arbitrary server order. Confirmed live:
+    # DataFlow's 10 real participants (SoftwareServer/Topic, genuine Asset
+    # subtypes) simply weren't among the first 200 assets returned --
+    # full_count=true correctly found all 10, a plain page found 0. The
+    # `relationshipFilterNote` caveat already existed and was technically
+    # honest, but for this specific combination (type defaulted AND nothing
+    # else narrowing scope) a single page is essentially never
+    # representative -- relationship matches are typically a small fraction
+    # of a whole type population, so silently returning "0 results" from a
+    # near-random sample is actively misleading, not just incomplete.
+    # Fix: force the exhaustive (paginate-everything) path automatically in
+    # exactly this situation, regardless of what the caller passed for
+    # full_count -- reflected honestly in the response's own `fullCount`.
+    effective_full_count = body.full_count or bool(defaulted_type_note)
+
     hits: List[dict] = []
     truncated = False
     capped = False
 
-    if body.full_count:
+    if effective_full_count:
         # BUG FOUND 2026-08-04, ROOT-CAUSED 2026-08-05 (PYEGERIA_ISSUES.md
         # ISSUE-34, formerly egeria-workspaces-fs's own PY-23). CORRECTED
         # diagnosis, same day: this was never an Egeria-server-side bug --
@@ -855,7 +934,7 @@ def search_elements(body: SearchBody = Body(...)):
             logger.exception("insights: failed to create ClassificationExplorer for relationship conditions")
             raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
         results = _annotate_relationships(results, ce, body.relationship_conditions, body.as_of_time)
-        if not body.full_count:
+        if not effective_full_count:
             relationship_filter_note = (
                 f"Relationship condition(s) were applied to the {fetched_count} elements fetched by the "
                 f"classification/type filter{' (a capped page, not the full matching population)' if capped else ''} "
@@ -903,7 +982,7 @@ def search_elements(body: SearchBody = Body(...)):
         "total":                  len(results),
         "capped":                 capped,
         "truncated":              truncated,
-        "fullCount":              body.full_count,
+        "fullCount":              effective_full_count,
         "aggregates":             aggregates,
         "relationshipAggregates": relationship_aggregates,
         "relationshipFilterNote": relationship_filter_note,
@@ -964,6 +1043,7 @@ def _saved_query_summary(el: dict) -> dict:
         "spec":              spec,
         "lastRefreshedTime": additional.get("lastRefreshedTime") or None,
         "resultCount":       int(result_count) if result_count.isdigit() else None,
+        "favorite":          additional.get("favorite") == "true",
     }
 
 
@@ -993,6 +1073,7 @@ def create_saved_query(body: SavedQueryBody = Body(...)):
                 "queryBody": json.dumps(spec),
                 "lastRefreshedTime": "",
                 "resultCount": "",
+                "favorite": "false",
             },
         },
     }
@@ -1090,6 +1171,49 @@ def update_saved_query(guid: str, body: SavedQueryBody = Body(...)):
         logger.exception(f"insights: saved-query update failed for {guid}")
         raise HTTPException(status_code=500, detail=str(exc))
     return JSONResponse({"guid": guid, "name": body.name})
+
+
+class FavoriteBody(BaseModel):
+    favorite: bool
+    url: Optional[str] = None
+    server: Optional[str] = None
+    user_id: Optional[str] = None
+    user_pwd: Optional[str] = None
+
+
+@router.post("/api/insights/queries/{guid}/favorite", summary="Star/unstar a saved query (shown on the Dashboard's Favorite Queries card)")
+def set_saved_query_favorite(guid: str, body: FavoriteBody = Body(...)):
+    try:
+        cm = _cm(body.url, body.server, body.user_id, body.user_pwd)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+    try:
+        el = cm.get_collection_by_guid(guid, output_format="JSON")
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail=f"Saved query not found: {exc}")
+    props = (el or {}).get("properties") or {}
+    existing_additional = props.get("additionalProperties") or {}
+    if existing_additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
+        raise HTTPException(status_code=404, detail="Not a saved Insights query")
+
+    additional = dict(existing_additional)
+    additional["favorite"] = "true" if body.favorite else "false"
+    update_body = {
+        "class": "UpdateElementRequestBody",
+        "properties": {
+            "class": "CollectionProperties",
+            "qualifiedName": props.get("qualifiedName"),
+            "displayName": props.get("displayName"),
+            "description": props.get("description") or "",
+            "additionalProperties": additional,
+        },
+    }
+    try:
+        cm.update_collection(guid, update_body)
+    except Exception as exc:
+        logger.exception(f"insights: saved-query favorite toggle failed for {guid}")
+        raise HTTPException(status_code=500, detail=str(exc))
+    return JSONResponse({"guid": guid, "favorite": body.favorite})
 
 
 @router.delete("/api/insights/queries/{guid}", summary="Delete a saved query")
