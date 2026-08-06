@@ -808,6 +808,25 @@ def search_elements(body: SearchBody = Body(...)):
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     find_body = _build_find_body(body)
+
+    # BUG FOUND 2026-08-05 (live-reported: user typed a classification into
+    # the Classifications browse picker, saw its count, but clicked Search
+    # directly instead of "+ Add condition" first -- so the search itself
+    # carried NO type/classification/relationship/value condition at all).
+    # _build_find_body's Asset-default guard only covers the
+    # relationship-conditions-only case; a genuinely empty SearchBody falls
+    # through with no metadataElementTypeName AND no matchClassifications/
+    # searchProperties, and Egeria correctly (but unhelpfully) 400s with a
+    # raw exception trace ("metadataElementTypeName ... is null") -- this
+    # guard catches it before ever calling Egeria, with an actionable
+    # message instead of a stack trace surfacing in the UI.
+    if not any(k in find_body for k in ("metadataElementTypeName", "matchClassifications", "searchProperties")):
+        raise HTTPException(
+            status_code=400,
+            detail="Add an element type, classification, relationship, or property-value condition "
+                   "before searching — an unscoped search would match the entire repository.",
+        )
+
     defaulted_type_note = (
         f"No type, classification, or property-value condition given for this relationship search — "
         f"defaulted to metadataElementTypeName={find_body['metadataElementTypeName']!r} (a "
