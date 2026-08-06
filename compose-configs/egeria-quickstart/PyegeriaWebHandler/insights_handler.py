@@ -299,24 +299,38 @@ def _build_find_body(search: SearchBody) -> dict:
         }
     if search.as_of_time:
         body["asOfTime"] = search.as_of_time
-    # BUG FOUND 2026-08-05 (NEXT-25): a relationship-only search (no type_name,
-    # no classification conditions) sends a near-empty FindRequestBody, and
-    # Egeria's findMetadataElements rejects it server-side --
-    # OMAG-COMMON-400-006 "the metadataElementTypeName parameter ... is null"
-    # (confirmed live: reproduces with relationship_conditions=[DataFlow:has]
-    # and nothing else). Tried "Referenceable" (the universal base type) as
-    # the default first -- that's literally every element in the repository,
-    # and timed out live (30s, TIMEOUT_ERROR_408) since find_metadata_elements
-    # ignores page_size and returns everything at once. "Asset" is the
-    # practical, bounded default instead -- most governance/relationship
-    # questions are Asset-scoped anyway (same assumption overview_metrics.py's
-    # composite functions already make) -- only applied when the caller gave
-    # nothing else to filter on, never overriding an explicit
-    # type_name/conditions choice. The frontend surfaces this default in a
-    # hint so it isn't a silent surprise.
-    if (not search.type_name and not search.conditions and not search.value_conditions
-            and search.relationship_conditions):
-        body["metadataElementTypeName"] = "Asset"
+    # A relationship-only search (no type_name, no classification/value
+    # conditions) is NOT given a metadataElementTypeName here at all -- see
+    # search_elements()'s "relationship_only" branch for why. Short version
+    # of a three-step history worth knowing if this changes again:
+    #   1. (2026-08-05) Left unset entirely -> Egeria rejects the near-empty
+    #      body outright (OMAG-COMMON-400-006, "metadataElementTypeName ...
+    #      is null").
+    #   2. Defaulted to "Asset" ("most governance/relationship questions are
+    #      Asset-scoped anyway") -- true for DataFlow, silently WRONG for
+    #      SemanticAssignment (real participants are GovernanceActionProcess/
+    #      DataField/TabularColumn/APIParameter/EventSchemaAttribute/
+    #      RelationalColumn/GlossaryTerm -- zero Asset subtypes).
+    #   3. (2026-08-06) Tried "Referenceable" (the universal base type,
+    #      declared as SemanticAssignment's own end1 type in Egeria's type
+    #      system) instead, reasoning no narrower guess is safe for every
+    #      relationship. CONFIRMED LIVE this is worse than useless: an
+    #      exhaustive Referenceable-scoped find_metadata_elements silently
+    #      returns a small, arbitrary subset (3,999 elements in this demo)
+    #      instead of the true population -- missing 387 of 410 known
+    #      SemanticAssignment participants entirely (only 22 of ~378 real
+    #      GovernanceActionProcess, only 241 of ~450 real GlossaryTerm),
+    #      while a DIRECTLY-typed search for the SAME types
+    #      (metadataElementTypeName="GlossaryTerm", etc.) finds them all
+    #      correctly. This is a genuine Egeria-server-side gap in how a
+    #      base-type-wide scan enumerates real subtypes -- no client-side
+    #      pagination fix can work around it, since the server itself
+    #      silently stops short of the true population.
+    # No single type name is ever going to be right here. search_elements()
+    # instead derives the REAL set of participant types directly from the
+    # relationship data itself (already fetched, already proven complete —
+    # see _relationship_participant_types) and runs one directly-typed,
+    # exhaustive search per real type, merging the results.
     return body
 
 
@@ -462,6 +476,37 @@ def _relationship_guid_counts(ce, relationship_type: str, as_of: Optional[str] =
                     out[g] = out.get(g, 0) + 1
     except Exception as exc:  # noqa: BLE001 — best-effort, degrade don't fail the whole search
         logger.debug(f"insights: relationship query failed for {relationship_type!r} end={end!r}: {exc}")
+    return out
+
+
+def _relationship_participant_types(ce, relationship_type: str, as_of: Optional[str] = None,
+                                     end: str = "any") -> set:
+    """Distinct REAL typeNames observed among a relationship's participants
+    (same end1/end2/any scoping as _relationship_guid_counts). Exists
+    because there is no single Egeria type name that safely scopes a
+    relationship-only search — see _build_find_body's docstring for the
+    full history, including the confirmed-live finding that Egeria's own
+    "Referenceable" base type silently returns an incomplete, arbitrary
+    subset when scanned type-wide, while directly-typed searches for the
+    SAME real types find every element correctly. This gives
+    search_elements() the real, complete set of types to search directly,
+    derived from data (the relationship traversal) already proven
+    complete, not from a guess."""
+    out: set = set()
+    end_keys = ("end1", "end2") if end == "any" else (end,)
+    try:
+        body = {"class": "ResultsRequestBody", "asOfTime": as_of} if as_of else None
+        rels = _json_list(ce.get_relationships(
+            relationship_type=relationship_type, output_format="JSON",
+            start_from=0, page_size=5000, body=body))
+        for r in rels:
+            for end_key in end_keys:
+                e = ((r.get(end_key) or {}) if isinstance(r, dict) else {})
+                t = (e.get("type") or {}).get("typeName")
+                if t:
+                    out.add(t)
+    except Exception as exc:  # noqa: BLE001 — best-effort, same degrade-don't-fail posture as _relationship_guid_counts
+        logger.debug(f"insights: relationship participant-types query failed for {relationship_type!r} end={end!r}: {exc}")
     return out
 
 
@@ -808,60 +853,103 @@ def search_elements(body: SearchBody = Body(...)):
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     find_body = _build_find_body(body)
+    page_size = max(1, min(body.page_size, 500))
+
+    # relationship_only: nothing but relationship condition(s) given. No
+    # single metadataElementTypeName is safe to guess here — see
+    # _build_find_body's docstring for the full three-step history of why
+    # (including the confirmed-live finding that even Egeria's own
+    # "Referenceable" base type silently returns an incomplete population
+    # when scanned type-wide). Handled as its own branch below: derive the
+    # REAL participant types from the relationship data itself and search
+    # each directly.
+    relationship_only = (not body.type_name and not body.conditions and not body.value_conditions
+                          and bool(body.relationship_conditions))
 
     # BUG FOUND 2026-08-05 (live-reported: user typed a classification into
     # the Classifications browse picker, saw its count, but clicked Search
     # directly instead of "+ Add condition" first -- so the search itself
     # carried NO type/classification/relationship/value condition at all).
-    # _build_find_body's Asset-default guard only covers the
-    # relationship-conditions-only case; a genuinely empty SearchBody falls
-    # through with no metadataElementTypeName AND no matchClassifications/
-    # searchProperties, and Egeria correctly (but unhelpfully) 400s with a
-    # raw exception trace ("metadataElementTypeName ... is null") -- this
-    # guard catches it before ever calling Egeria, with an actionable
-    # message instead of a stack trace surfacing in the UI.
-    if not any(k in find_body for k in ("metadataElementTypeName", "matchClassifications", "searchProperties")):
+    # A genuinely empty SearchBody has none of these three keys AND isn't
+    # relationship_only either -- Egeria would otherwise 400 with a raw
+    # exception trace ("metadataElementTypeName ... is null"); this guard
+    # catches it before ever calling Egeria, with an actionable message.
+    if not relationship_only and not any(
+        k in find_body for k in ("metadataElementTypeName", "matchClassifications", "searchProperties")
+    ):
         raise HTTPException(
             status_code=400,
             detail="Add an element type, classification, relationship, or property-value condition "
                    "before searching — an unscoped search would match the entire repository.",
         )
 
-    defaulted_type_note = (
-        f"No type, classification, or property-value condition given for this relationship search — "
-        f"defaulted to metadataElementTypeName={find_body['metadataElementTypeName']!r} (a "
-        f"relationship-only search against every element in the repository times out; add a type, "
-        f"classification, or property condition to search a different scope)."
-    ) if (not body.type_name and not body.conditions and not body.value_conditions
-          and body.relationship_conditions and find_body.get("metadataElementTypeName")) else None
-    page_size = max(1, min(body.page_size, 500))
-
-    # BUG FOUND 2026-08-05 (live-reported: "DataFlow shows 8 in the tree,
-    # but Search with no other clauses returns 0"). Root cause: a
-    # relationship-only search defaults to metadataElementTypeName="Asset"
-    # (see `defaulted_type_note` above) with nothing else narrowing scope,
-    # but the default (non-exhaustive) fetch only pulls ONE capped page
-    # (page_size, default 200) out of the FULL Asset population (~1,900+ in
-    # this demo) in Egeria's own arbitrary server order. Confirmed live:
-    # DataFlow's 10 real participants (SoftwareServer/Topic, genuine Asset
-    # subtypes) simply weren't among the first 200 assets returned --
-    # full_count=true correctly found all 10, a plain page found 0. The
-    # `relationshipFilterNote` caveat already existed and was technically
-    # honest, but for this specific combination (type defaulted AND nothing
-    # else narrowing scope) a single page is essentially never
-    # representative -- relationship matches are typically a small fraction
-    # of a whole type population, so silently returning "0 results" from a
-    # near-random sample is actively misleading, not just incomplete.
-    # Fix: force the exhaustive (paginate-everything) path automatically in
-    # exactly this situation, regardless of what the caller passed for
-    # full_count -- reflected honestly in the response's own `fullCount`.
-    effective_full_count = body.full_count or bool(defaulted_type_note)
-
+    defaulted_type_note = None
     hits: List[dict] = []
     truncated = False
     capped = False
+    ce = None  # created here if relationship_only needs it early; reused below for annotation either way
 
-    if effective_full_count:
+    if relationship_only:
+        # BUG FOUND 2026-08-05 ("DataFlow shows 8 in the tree, but Search
+        # returns 0") then CORRECTED 2026-08-06 (SemanticAssignment: "shows
+        # 397, Search returns 0") -- see _build_find_body's docstring for
+        # the full history. Fix: search each REAL participant type directly
+        # and exhaustively, merging results -- never guess a single scope.
+        try:
+            ce = _ce(body.url, body.server, body.user_id, body.user_pwd)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("insights: failed to create ClassificationExplorer for relationship-only search")
+            raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+        rel_type_names = sorted({c.relationship_type for c in body.relationship_conditions})
+        participant_types: set = set()
+        for c in body.relationship_conditions:
+            participant_types |= _relationship_participant_types(ce, c.relationship_type, body.as_of_time, c.end)
+
+        if not participant_types:
+            defaulted_type_note = (
+                f"{', '.join(rel_type_names)} currently has zero real instances, so there's nothing "
+                f"to search — this isn't a fetch problem, the relationship condition(s) you added "
+                f"simply have no participants right now."
+            )
+        else:
+            defaulted_type_note = (
+                f"No type, classification, or property-value condition given — searched the "
+                f"{len(participant_types)} real element type(s) that actually participate in "
+                f"{', '.join(rel_type_names)} ({', '.join(sorted(participant_types))}) directly and "
+                f"exhaustively. No single Egeria type name (not even the universal 'Referenceable') "
+                f"reliably covers a relationship's real participants — confirmed live: an exhaustive "
+                f"Referenceable-scoped search silently returns an incomplete, arbitrary subset, while "
+                f"directly-typed searches for the same real types find every element correctly."
+            )
+            seen_guids: set = set()
+            for t in sorted(participant_types):
+                type_body = {**find_body, "metadataElementTypeName": t}
+                start = 0
+                while True:
+                    try:
+                        page = mgr.find_metadata_elements({**type_body, "graphQueryDepth": 0,
+                                                             "startFrom": start, "pageSize": page_size})
+                    except Exception as exc:
+                        logger.exception(f"insights: relationship-only search failed for type {t!r}")
+                        raise HTTPException(status_code=500, detail=str(exc))
+                    page = [el for el in (page if isinstance(page, list) else []) if isinstance(el, dict)]
+                    added = 0
+                    for el in page:
+                        g = el.get("elementGUID")
+                        if g and g in seen_guids:
+                            continue
+                        seen_guids.add(g)
+                        hits.append(el)
+                        added += 1
+                    if added == 0 or len(page) < page_size or len(hits) >= _FULL_COUNT_HARD_CAP:
+                        truncated = truncated or (added > 0 and len(hits) >= _FULL_COUNT_HARD_CAP)
+                        break
+                    start += page_size
+                if len(hits) >= _FULL_COUNT_HARD_CAP:
+                    break
+        effective_full_count = True  # this path always searches the true population per type, by construction
+    elif body.full_count:
         # BUG FOUND 2026-08-04, ROOT-CAUSED 2026-08-05 (PYEGERIA_ISSUES.md
         # ISSUE-34, formerly egeria-workspaces-fs's own PY-23). CORRECTED
         # diagnosis, same day: this was never an Egeria-server-side bug --
@@ -904,6 +992,7 @@ def search_elements(body: SearchBody = Body(...)):
                 truncated = added > 0 and len(hits) >= _FULL_COUNT_HARD_CAP
                 break
             start += page_size
+        effective_full_count = True
     else:
         try:
             page = mgr.find_metadata_elements({**find_body, "graphQueryDepth": 0,
@@ -913,6 +1002,7 @@ def search_elements(body: SearchBody = Body(...)):
             raise HTTPException(status_code=500, detail=str(exc))
         hits = [el for el in (page if isinstance(page, list) else []) if isinstance(el, dict)]
         capped = len(hits) >= page_size
+        effective_full_count = False
 
     results = [_serialize_hit(el) for el in hits]
 
@@ -947,11 +1037,12 @@ def search_elements(body: SearchBody = Body(...)):
     # what was fetched, then filter.
     relationship_filter_note = None
     if body.relationship_conditions:
-        try:
-            ce = _ce(body.url, body.server, body.user_id, body.user_pwd)
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("insights: failed to create ClassificationExplorer for relationship conditions")
-            raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        if ce is None:  # relationship_only already created one above; reuse it rather than connecting twice
+            try:
+                ce = _ce(body.url, body.server, body.user_id, body.user_pwd)
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("insights: failed to create ClassificationExplorer for relationship conditions")
+                raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
         results = _annotate_relationships(results, ce, body.relationship_conditions, body.as_of_time)
         if not effective_full_count:
             relationship_filter_note = (
