@@ -16,6 +16,14 @@ services:
       DEMO_MODE: "true"
       SITE_URL: "${DEMO_SITE_URL}"
       DEMO_DB_HOST: "host.docker.internal"
+    volumes:
+      # demo_reset_handler.py's scheduled reset (DEMO_MODE-gated) stops/starts
+      # EGERIA_CONTAINER_NAME directly via the Docker API — without this mount
+      # it fails at the first scheduled tick with "Ensure /var/run/docker.sock
+      # is mounted into this container." Discovered 2026-08-06: DEMO_MODE was
+      # on but this mount was missing, so scheduled resets could never have
+      # run even with reset_interval_hours > 0.
+      - /var/run/docker.sock:/var/run/docker.sock
 
   apache-web:
     ports:

@@ -84,6 +84,16 @@ services:
     ports:
       - '9443:9443'
       - '5005:5005'
+    # Restart automatically after a crash/OOM-kill (exit 137) instead of
+    # staying dead silently. See MEMORY egeria-oom-kill-docker-desktop-vm-limit.
+    restart: unless-stopped
+    # Docker Desktop's VM has a single shared memory pool across all containers
+    # (check Settings -> Resources -> Memory) — this JVM is normally the
+    # heaviest consumer and the kernel OOM-killer's first target when the VM
+    # runs tight. Capping it keeps one runaway heap from starving everything
+    # else; raise this (and the VM's total allocation) if Egeria itself needs
+    # more headroom.
+    mem_limit: 4g
     logging:
       driver: "json-file"
       options:
@@ -118,6 +128,38 @@ services:
       - ../../exchange-quickstart/treasury-dts-history:/deployments/treasury-dts-history
       - ../../work:/deployments/work
       - ../../runtime-volumes/quickstart-platform-data/quickstart.application.properties:/deployments/application.properties
+
+  # Watches quickstart-egeria-main for crashes/OOM-kills via the Docker socket
+  # and emails ALERT_EMAIL_TO through Resend when it dies. See the OOM-kill
+  # investigated 2026-08-06 (exit 137, Docker Desktop VM memory pool) that
+  # prompted this — restart: unless-stopped above recovers the container
+  # automatically, this just makes sure a human finds out it happened.
+  egeria-watchdog:
+    build:
+      context: ./watchdog
+      dockerfile: Dockerfile-watchdog
+    container_name: quickstart-egeria-watchdog
+    restart: unless-stopped
+    # Same Docker Desktop DNS-proxy flake noted on pyegeria-web above — pin
+    # public resolvers so api.resend.com reliably resolves.
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    environment:
+      WATCH_CONTAINER: "quickstart-egeria-main"
+      RESEND_API_KEY: "${RESEND_API_KEY:-}"
+      RESEND_FROM: "${RESEND_FROM:-}"
+      ALERT_EMAIL_TO: "${ALERT_EMAIL_TO:-}"
+    volumes:
+      # Read-only, but note this still grants effective control over the host's
+      # Docker daemon (standard tradeoff for any container that watches
+      # `docker events`) — acceptable here since this is a single-user dev box.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # Define your FastAPI application service
   pyegeria-web:
