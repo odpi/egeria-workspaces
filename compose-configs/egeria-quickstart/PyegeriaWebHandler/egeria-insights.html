@@ -913,6 +913,9 @@ function SearchResults({ results }) {
         results.relationshipFilterNote && el('div', { style: { fontSize: 11, color: 'var(--dim)', fontStyle: 'italic' } }, '⚠ ' + results.relationshipFilterNote),
         results.defaultedTypeNote && el('div', { style: { fontSize: 11, color: 'var(--dim)', fontStyle: 'italic' } }, 'ℹ ' + results.defaultedTypeNote)
       ),
+    // Independent of relationshipAggregates — exclude_types applies to any search.
+    results.excludedTypeNote &&
+      el('div', { style: { marginBottom: 16, fontSize: 11, color: 'var(--dim)', fontStyle: 'italic' } }, 'ℹ ' + results.excludedTypeNote),
     items.length === 0
       ? el('div', { style: { fontSize: 13, color: 'var(--dim)', padding: '20px 0' } }, 'No matches.')
       : vis.length === 0
@@ -994,6 +997,13 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse, 
   var _rst = useState('idle'), resState = _rst[0], setResState = _rst[1];
   var _full = useState(false), fullCount = _full[0], setFullCount = _full[1];
   var _typeName = useState(focusType || lq.type_name || ''), typeName = _typeName[0], setTypeName = _typeName[1];
+  // Exclude types (2026-08-05) — comma-separated free text, matched against
+  // both typeName and superTypeNames server-side after fetch (see
+  // insights_handler.py's SearchBody.exclude_types docstring for why this
+  // has to be client-side: Egeria's find API has no "NOT type X" operator,
+  // and the documented metadataElementSubtypeNames allow-list field is
+  // confirmed to have no effect — PYEGERIA_ISSUES.md ISSUE-45/ISSUE-46).
+  var _exclTypes = useState((lq.exclude_types || []).join(', ')), excludeTypesText = _exclTypes[0], setExcludeTypesText = _exclTypes[1];
   var _valueOpts = useState({}), valueOpts = _valueOpts[0], setValueOpts = _valueOpts[1];
   var _zoneW = useResizable(240, 160, 480), zoneWidth = _zoneW[0], onZoneResizeDown = _zoneW[1];
   // Save / update (Track A saved queries) —
@@ -1099,6 +1109,10 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse, 
       .catch(function(){});
   }
 
+  function excludeTypesList() {
+    return excludeTypesText.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+  }
+
   function runSearch(full) {
     setResState('loading');
     var body = {
@@ -1117,6 +1131,7 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse, 
                  value: (c.operator === 'IS_NULL' || c.operator === 'NOT_NULL') ? null : c.value, value_type: c.value_type };
       }),
       value_match_criteria: valueMatchCriteria,
+      exclude_types: excludeTypesList(),
       full_count: !!full, start_from: 0, page_size: 200,
       server: creds && creds.server, user_id: creds && creds.userId, url: creds && creds.url,
     };
@@ -1154,6 +1169,7 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse, 
                  value: (c.operator === 'IS_NULL' || c.operator === 'NOT_NULL') ? null : c.value, value_type: c.value_type };
       }),
       value_match_criteria: valueMatchCriteria,
+      exclude_types: excludeTypesList(),
     };
   }
 
@@ -1206,7 +1222,10 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse, 
           ),
           el('span', { style: { fontSize: 12, color: 'var(--muted)', marginLeft: 10 } }, 'Element type'),
           el('input', { className: 'search-input', style: { width: 180 }, placeholder: 'e.g. Asset (optional)', list: 'entity-types',
-                        value: typeName, onChange: function(e){ setTypeName(e.target.value); } })
+                        value: typeName, onChange: function(e){ setTypeName(e.target.value); } }),
+          el('span', { style: { fontSize: 12, color: 'var(--muted)', marginLeft: 10 }, title: 'Applied client-side after fetch — Egeria\'s find API has no server-side type exclusion (PYEGERIA_ISSUES.md ISSUE-45/ISSUE-46). Matches typeName or any supertype, e.g. "Action" drops ToDo/Meeting/Review/Notification together.' }, 'Exclude types'),
+          el('input', { className: 'search-input', style: { width: 220 }, placeholder: 'e.g. Notification, Action (optional)', list: 'entity-types',
+                        value: excludeTypesText, onChange: function(e){ setExcludeTypesText(e.target.value); } })
         ),
         catState === 'loading' && el('div', { style: { fontSize: 12, color: 'var(--dim)', marginBottom: 8 } }, 'Loading classification catalog…'),
         catState === 'error'   && el('div', { style: { fontSize: 12, color: '#f87171', marginBottom: 8 } }, 'Failed to load the type system — condition builder unavailable.'),

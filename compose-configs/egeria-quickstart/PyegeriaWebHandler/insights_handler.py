@@ -190,6 +190,18 @@ class SearchBody(BaseModel):
                                          # Egeria-api-metadata-expert.http's worked example.
     relationship_conditions: List[RelationshipCondition] = []
     relationship_match_criteria: str = "ALL"   # ALL | ANY | NONE across relationship_conditions
+    exclude_types: List[str] = []       # type/supertype names to drop from results, client-side, after
+                                         # fetch. Egeria's find API has no "NOT type X" operator at all --
+                                         # metadataElementTypeName is a single positive inclusion filter,
+                                         # and metadataElementSubtypeNames (a documented allow-list field)
+                                         # is confirmed live to have zero effect on results (PYEGERIA_ISSUES.md
+                                         # ISSUE-45, Egeria-server-side). Even a working allow-list wouldn't
+                                         # be true exclusion anyway -- see ISSUE-46. This is the interim
+                                         # workaround that entry names: applied over the fetched page only
+                                         # (same caveat class as relationship_conditions below), matched
+                                         # against a result's own typeName OR any of its superTypeNames --
+                                         # excluding "Action" drops every ToDo/Meeting/Review/Notification
+                                         # at once, not just literal "Action" instances.
     sort_by: Optional[str] = None       # displayName | typeName | qualifiedName | matchCount | totalRelationshipCount
     sort_dir: str = "asc"               # asc | desc
     as_of_time: Optional[str] = None
@@ -805,6 +817,31 @@ def search_elements(body: SearchBody = Body(...)):
         capped = len(hits) >= page_size
 
     results = [_serialize_hit(el) for el in hits]
+
+    # Type exclusion (2026-08-05) — client-side, applied before everything
+    # else below (aggregates, relationship annotation/filtering, sorting)
+    # so excluded elements are treated as if they'd never been fetched, not
+    # just hidden at the last step. See SearchBody.exclude_types' docstring
+    # for why this can't be pushed server-side.
+    excluded_type_note = None
+    if body.exclude_types:
+        exclude_set = {t for t in body.exclude_types if t}
+        if exclude_set:
+            before_exclude = len(results)
+            results = [
+                r for r in results
+                if r["typeName"] not in exclude_set
+                and not (set(r.get("superTypeNames") or []) & exclude_set)
+            ]
+            removed = before_exclude - len(results)
+            if removed:
+                excluded_type_note = (
+                    f"Excluded {removed} of {before_exclude} fetched element(s) matching type "
+                    f"{', '.join(sorted(exclude_set))} (or a subtype) — applied to the fetched page "
+                    "only, not server-wide (Egeria's find API has no server-side type-exclusion; see "
+                    "PYEGERIA_ISSUES.md ISSUE-45/ISSUE-46)."
+                )
+
     fetched_count = len(results)
 
     # Relationship presence (NEXT-25) — client-side, see module docstring.
@@ -871,6 +908,7 @@ def search_elements(body: SearchBody = Body(...)):
         "relationshipAggregates": relationship_aggregates,
         "relationshipFilterNote": relationship_filter_note,
         "defaultedTypeNote": defaulted_type_note,
+        "excludedTypeNote": excluded_type_note,
     })
 
 
@@ -900,7 +938,7 @@ _QUERY_MARKER_VALUE = "true"
 _SEARCH_SPEC_FIELDS = (
     "type_name", "match_criteria", "conditions", "value_conditions",
     "value_match_criteria", "relationship_conditions",
-    "relationship_match_criteria", "sort_by", "sort_dir", "as_of_time",
+    "relationship_match_criteria", "exclude_types", "sort_by", "sort_dir", "as_of_time",
 )
 
 

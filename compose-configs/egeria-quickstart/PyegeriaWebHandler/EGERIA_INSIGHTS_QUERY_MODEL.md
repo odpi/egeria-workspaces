@@ -351,6 +351,18 @@ Two tracks that don't block each other:
   `find_authored_elements`/`find_root_elements`/`find_elements_for_anchor*`
   deserve a dedicated simple form in the query editor, and design those
   forms; independent of the general-builder work.
+- A.6 **(shipped 2026-08-05):** "Exclude types" condition — client-side
+  post-filter (`exclude_types`), the interim workaround `PYEGERIA_ISSUES.md`
+  ISSUE-46 names. Matches a result's `typeName` OR any `superTypeNames`
+  entry, so excluding a base type (e.g. `Action`) drops every subtype
+  (`ToDo`/`Meeting`/`Review`/`Notification`) at once. Applied before
+  aggregates/relationship-annotation/sorting, so excluded elements are
+  treated as never having been fetched, not just hidden at the last step.
+  Persists through Track A save/load like any other spec field. Prompted
+  by trying (and disproving, see ISSUE-45) whether Egeria's documented
+  `metadataElementSubtypeNames` allow-list could do this server-side —
+  confirmed live it has no effect at all, so this stays a client-side,
+  fetched-page-only filter until Egeria ships real exclude semantics.
 
 **Track B — depends on the new combined-query method landing. Improves
 correctness and read-side speed, does NOT fix the materialization
