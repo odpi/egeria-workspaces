@@ -716,7 +716,7 @@ def get_zones(
 # costs one full get_relationships fetch, so this stays a "commonly
 # interesting" browse list (lineage/meaning/governance/collaboration), same
 # curation philosophy _GOVERNANCE_CLASSIFICATIONS already uses for
-# classifications. The Governance Search condition-builder is NOT limited to
+# classifications. The Search tab's condition-builder is NOT limited to
 # this list (it offers the full /api/types catalog) — this is only for the
 # browse/summary views (RelationshipTree, Dashboard's Relationship Coverage
 # card), where fetching all ~734 types live on every page load would be

@@ -586,8 +586,10 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 <script>
 'use strict';
 // ── Egeria Insights SPA ──────────────────────────────────────────────────────
-// Two tabs: Dashboard (card launcher with live capped counts) and Governance
-// Search (zone + classification faceted search). "Governance Search" maps
+// Two tabs (plus Saved Queries): Dashboard (card launcher with live capped
+// counts) and Search — labelled just "Search" in the UI (was "Governance
+// Search"; the GovernanceSearch component name is unchanged, internal
+// only) — zone + classification + relationship faceted search. Maps
 // directly onto Egeria's native FindRequestBody.matchClassifications — see
 // insights_handler.py's module docstring for the full design rationale.
 // Cross-links use the shared crossAppNavigate() from egeria-shared-ui.js —
@@ -600,7 +602,7 @@ var pad = { padding: '24px', color: 'var(--muted)', fontSize: 13 };
 
 var TABS = [
   { id: 'dashboard', label: 'Dashboard' },
-  { id: 'search',    label: 'Governance Search' },
+  { id: 'search',    label: 'Search' },
   { id: 'saved',     label: 'Saved Queries' },
 ];
 
@@ -703,7 +705,7 @@ function Dashboard({ creds, onOpenSearch, onOpenQueryInBuilder }) {
     el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14, maxWidth: 900 } },
       el('div', { style: Object.assign(cardStyle(), { borderColor: 'var(--accent)' }), onClick: onOpenSearch },
         el('div', { style: { fontSize: 22 } }, '🧭'),
-        el('div', { style: { fontSize: 15, fontWeight: 700 } }, 'Governance Search'),
+        el('div', { style: { fontSize: 15, fontWeight: 700 } }, 'Search'),
         el('div', { style: { fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.5 } },
           'Find elements by zone, confidentiality, criticality, retention, and impact — combined with AND / OR / NONE.'),
         el('div', { style: { marginTop: 6, display: 'flex', gap: 14, fontSize: 12, flexWrap: 'wrap' } },
@@ -736,7 +738,7 @@ function Dashboard({ creds, onOpenSearch, onOpenQueryInBuilder }) {
         )
       ),
     // Relationship Coverage (NEXT-25) — same curated set the Relationship
-    // tree browses; a click jumps to Governance Search with that type
+    // tree browses; a click jumps to the Search tab with that type
     // pre-toggled, same as clicking it in the tree would.
     relSummary && relSummary.relationships && relSummary.relationships.length > 0 &&
       el('div', { style: { marginTop: 26, maxWidth: 900 } },
@@ -938,7 +940,7 @@ function ClassificationBrowsePanel({ creds, selectedZone, onSelectZone, onAddCla
   );
 }
 
-/* ── Governance Search ────────────────────────────────────────────────────── */
+/* ── Search (component name unchanged; UI label is just "Search") ───────── */
 function typeCatalog(creds, setCatalog, setCatState) {
   setCatState('loading');
   egeriaFetch('/api/types', creds).then(function(r) {
@@ -1132,6 +1134,13 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse, 
   // and the documented metadataElementSubtypeNames allow-list field is
   // confirmed to have no effect — PYEGERIA_ISSUES.md ISSUE-45/ISSUE-46).
   var _exclTypes = useState((lq.exclude_types || []).join(', ')), excludeTypesText = _exclTypes[0], setExcludeTypesText = _exclTypes[1];
+  // Tracks the classification (if any) most recently added via the
+  // ClassificationBrowsePanel picker's own "+ Add condition" button — lets
+  // picking a DIFFERENT classification there replace it instead of piling
+  // conditions up, same as ZoneTree already does for ZoneMembership below.
+  // Conditions added via the main builder's own "+ Add condition" are
+  // untouched by this — only the picker's own additions get swapped.
+  var _pickerCls = useState(null), pickerAddedClassification = _pickerCls[0], setPickerAddedClassification = _pickerCls[1];
   var _valueOpts = useState({}), valueOpts = _valueOpts[0], setValueOpts = _valueOpts[1];
   var _zoneW = useResizable(240, 160, 480), zoneWidth = _zoneW[0], onZoneResizeDown = _zoneW[1];
   // Save / update (Track A saved queries) —
@@ -1224,10 +1233,23 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse, 
   // Bare presence condition ("carries this classification, any value") for
   // a classification picked in the left-rail ClassificationBrowsePanel —
   // same shape addCondition() creates, just pre-filled with the browsed
-  // name instead of defaulting to the first alphabetical one.
+  // name instead of defaulting to the first alphabetical one. Browsing to a
+  // NEW classification replaces whatever the picker last added (tracked via
+  // pickerAddedClassification) rather than piling conditions up — mirrors
+  // ZoneTree's own select-replaces-select behavior for ZoneMembership below.
+  // Conditions added through the main builder's own "+ Add condition" are
+  // never touched by this.
   function addBareClassificationCondition(name) {
     if (!name) return;
-    setConditions(conditions.concat([{ classification: name, property: '', operator: 'EQ', value: '', value_type: 'string' }]));
+    setConditions(function(prev) {
+      var withoutPicked = pickerAddedClassification
+        ? prev.filter(function(c){ return c.classification !== pickerAddedClassification; })
+        : prev;
+      var alreadyThere = withoutPicked.some(function(c){ return c.classification === name; });
+      return alreadyThere ? withoutPicked
+        : withoutPicked.concat([{ classification: name, property: '', operator: 'EQ', value: '', value_type: 'string' }]);
+    });
+    setPickerAddedClassification(name);
   }
   function updateCondition(i, patch) {
     setConditions(conditions.map(function(c, idx){ return idx === i ? Object.assign({}, c, patch) : c; }));
@@ -1235,6 +1257,7 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse, 
   function removeCondition(i) {
     setConditions(conditions.filter(function(_, idx){ return idx !== i; }));
     if (conditions[i] && conditions[i].classification === 'ZoneMembership') setSelectedZone(null);
+    if (conditions[i] && conditions[i].classification === pickerAddedClassification) setPickerAddedClassification(null);
   }
 
   function loadValueOptions(propName) {
@@ -1589,13 +1612,13 @@ function SavedQueries({ creds, onOpenInBuilder }) {
 
   return el('div', { style: { padding: 24, overflowY: 'auto', height: '100%' } },
     el('div', { style: { fontSize: 13, color: 'var(--muted)', marginBottom: 18, maxWidth: 640 } },
-      'Queries saved from Governance Search — each is a ResultsSet whose last-materialized ' +
+      'Queries saved from Search — each is a ResultsSet whose last-materialized ' +
       'results are shown here as-of the time it was last refreshed. Refresh re-runs the query ' +
       'and updates its membership; nothing re-runs automatically just by viewing it.'),
     state === 'loading' && el('div', { className: 'center', style: { height: 160 } }, el('div', { className: 'spinner' })),
     state === 'error'   && el('div', { style: { fontSize: 13, color: '#f87171' } }, 'Failed to load saved queries.'),
     state === 'ready' && queries.length === 0 &&
-      el('div', { style: { fontSize: 13, color: 'var(--dim)' } }, 'No saved queries yet — build one in Governance Search, then "💾 Save query…".'),
+      el('div', { style: { fontSize: 13, color: 'var(--dim)' } }, 'No saved queries yet — build one in Search, then "💾 Save query…".'),
     state === 'ready' && queries.length > 0 && el('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 900 } },
       queries.map(function(q) {
         var busy = busyGuid === q.guid;
