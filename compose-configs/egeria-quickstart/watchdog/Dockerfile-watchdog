@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Contributors to the Egeria project
+FROM docker:27-cli
+RUN apk add --no-cache curl jq
+COPY watch-egeria.sh /watch-egeria.sh
+RUN chmod +x /watch-egeria.sh
+ENTRYPOINT ["/watch-egeria.sh"]

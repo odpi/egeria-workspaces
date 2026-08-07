@@ -383,6 +383,8 @@ EOF
   ensure_service_image pyegeria-web egeria-quickstart-pyegeria-web:latest 1
   ensure_service_image jupyter-hub egeria-quickstart-jupyter:local 1
   ensure_service_image my-profile egeria-quickstart-my-profile:local 1
+  # Optional: alerts on egeria-main crashing/OOM-killing; harmless if the build fails.
+  ensure_service_image egeria-watchdog egeria-quickstart-egeria-watchdog:latest 0
 
   APACHE_BUILD_OK=1
   echo "[quick-start-local] Ensuring apache-web image is available (optional)..."
@@ -404,18 +406,18 @@ EOF
     # Use timeout: containers are created in ~30s; health may take minutes (handled below).
     timeout 60 $COMPOSE_CMD -p egeria-quickstart \
       "${COMPOSE_FILES[@]}" \
-      up -d egeria-main pyegeria-web jupyter-hub obsidian 2>&1 || true
+      up -d egeria-main pyegeria-web jupyter-hub obsidian egeria-watchdog 2>&1 || true
     _podman_fix_network quickstart-egeria-main quickstart-pyegeria-web \
                         quickstart-jupyter-work-full obsidian-quickstart
     # Apache hasn't started yet — no DNS restart needed here
   else
     if ! $COMPOSE_CMD -p egeria-quickstart \
       "${COMPOSE_FILES[@]}" \
-      up -d ${COMPOSE_PULL_FLAGS} egeria-main pyegeria-web jupyter-hub obsidian; then
+      up -d ${COMPOSE_PULL_FLAGS} egeria-main pyegeria-web jupyter-hub obsidian egeria-watchdog; then
       echo "[quick-start-local] Pull-enabled core up failed; retrying without pull and without build..."
       $COMPOSE_CMD -p egeria-quickstart \
         "${COMPOSE_FILES[@]}" \
-        up -d --no-build egeria-main pyegeria-web jupyter-hub obsidian
+        up -d --no-build egeria-main pyegeria-web jupyter-hub obsidian egeria-watchdog
     fi
   fi
 
