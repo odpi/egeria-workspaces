@@ -21,7 +21,7 @@ PGUSER="${PGUSER:-egeria_admin}"
 export PGPASSWORD="${PGPASSWORD:-admin4egeria}"
 PGDATABASE="${PGDATABASE:-postgres}"
 
-MIGRATION_ID="egeria-quickstart-init-egeria-v1"
+MIGRATION_ID="egeria-quickstart-init-egeria-v2"
 CONTAINER_NAME="egeria-shared-postgres"
 
 # Wrapper to run psql. Use local psql if available, otherwise use docker/podman exec
