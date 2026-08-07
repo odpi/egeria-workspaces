@@ -351,6 +351,47 @@ Two tracks that don't block each other:
   `find_authored_elements`/`find_root_elements`/`find_elements_for_anchor*`
   deserve a dedicated simple form in the query editor, and design those
   forms; independent of the general-builder work.
+- A.6 **(shipped 2026-08-05):** "Exclude types" condition — client-side
+  post-filter (`exclude_types`), the interim workaround `PYEGERIA_ISSUES.md`
+  ISSUE-46 names. Matches a result's `typeName` OR any `superTypeNames`
+  entry, so excluding a base type (e.g. `Action`) drops every subtype
+  (`ToDo`/`Meeting`/`Review`/`Notification`) at once. Applied before
+  aggregates/relationship-annotation/sorting, so excluded elements are
+  treated as never having been fetched, not just hidden at the last step.
+  Persists through Track A save/load like any other spec field. Prompted
+  by trying (and disproving, see ISSUE-45) whether Egeria's documented
+  `metadataElementSubtypeNames` allow-list could do this server-side —
+  confirmed live it has no effect at all, so this stays a client-side,
+  fetched-page-only filter until Egeria ships real exclude semantics.
+- A.7 **(shipped 2026-08-05):** Favorite queries — a `favorite` flag in
+  the same `additionalProperties` bag as `lastRefreshedTime`/`resultCount`
+  (not the portal's separate cross-app "My Bookmarks" mechanism, which is
+  page/section-scoped and demo-persona-gated — a saved query is an object
+  *within* Insights, not a page, and Track A's whole point is that
+  everything lives in the query's own element regardless of auth mode).
+  ★/☆ toggle on each Saved Queries card; a "⭐ Favorite Queries" section on
+  the Dashboard tab (only shown once something's actually starred) renders
+  them as cards, each opening straight into the builder via the same
+  `openQueryInBuilder` path "Open in builder" already used.
+
+**Also fixed 2026-08-05, found live-testing the Relationships browse tab:**
+a relationship-only search (nothing else narrowing scope) was silently
+wrong, not just incomplete — it defaults `metadataElementTypeName` to
+`Asset` (§ existing note) but only fetched ONE capped page (200) out of the
+whole Asset population (~1,900+ in this demo) in Egeria's arbitrary order,
+so a relationship whose real matches are a small fraction of that
+population (confirmed: DataFlow's 8 dashboard-shown instances / 10
+participants) had almost no chance of appearing in that one page — search
+silently returned 0 while the browse tree correctly showed 8. Fixed:
+`search_elements` now forces the exhaustive (paginate-everything) path
+automatically whenever nothing else narrows scope, regardless of what the
+caller passed for `full_count` — reflected honestly in the response's own
+`fullCount` field. Also generalized the left-rail browse — "Zones" tab
+renamed "Classifications" with a searchable picker (any classification,
+on-demand single-tally count, defaults to `ZoneMembership`/today's zone
+list), and "Relationships" gained the same searchable full-catalog lookup
+next to its curated 13-type list — both explain and fix the "why can't I
+see X" question the curated lists otherwise raise silently.
 
 **Track B — depends on the new combined-query method landing. Improves
 correctness and read-side speed, does NOT fix the materialization

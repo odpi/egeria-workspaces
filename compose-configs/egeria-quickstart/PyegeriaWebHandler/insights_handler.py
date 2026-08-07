@@ -190,6 +190,18 @@ class SearchBody(BaseModel):
                                          # Egeria-api-metadata-expert.http's worked example.
     relationship_conditions: List[RelationshipCondition] = []
     relationship_match_criteria: str = "ALL"   # ALL | ANY | NONE across relationship_conditions
+    exclude_types: List[str] = []       # type/supertype names to drop from results, client-side, after
+                                         # fetch. Egeria's find API has no "NOT type X" operator at all --
+                                         # metadataElementTypeName is a single positive inclusion filter,
+                                         # and metadataElementSubtypeNames (a documented allow-list field)
+                                         # is confirmed live to have zero effect on results (PYEGERIA_ISSUES.md
+                                         # ISSUE-45, Egeria-server-side). Even a working allow-list wouldn't
+                                         # be true exclusion anyway -- see ISSUE-46. This is the interim
+                                         # workaround that entry names: applied over the fetched page only
+                                         # (same caveat class as relationship_conditions below), matched
+                                         # against a result's own typeName OR any of its superTypeNames --
+                                         # excluding "Action" drops every ToDo/Meeting/Review/Notification
+                                         # at once, not just literal "Action" instances.
     sort_by: Optional[str] = None       # displayName | typeName | qualifiedName | matchCount | totalRelationshipCount
     sort_dir: str = "asc"               # asc | desc
     as_of_time: Optional[str] = None
@@ -287,24 +299,38 @@ def _build_find_body(search: SearchBody) -> dict:
         }
     if search.as_of_time:
         body["asOfTime"] = search.as_of_time
-    # BUG FOUND 2026-08-05 (NEXT-25): a relationship-only search (no type_name,
-    # no classification conditions) sends a near-empty FindRequestBody, and
-    # Egeria's findMetadataElements rejects it server-side --
-    # OMAG-COMMON-400-006 "the metadataElementTypeName parameter ... is null"
-    # (confirmed live: reproduces with relationship_conditions=[DataFlow:has]
-    # and nothing else). Tried "Referenceable" (the universal base type) as
-    # the default first -- that's literally every element in the repository,
-    # and timed out live (30s, TIMEOUT_ERROR_408) since find_metadata_elements
-    # ignores page_size and returns everything at once. "Asset" is the
-    # practical, bounded default instead -- most governance/relationship
-    # questions are Asset-scoped anyway (same assumption overview_metrics.py's
-    # composite functions already make) -- only applied when the caller gave
-    # nothing else to filter on, never overriding an explicit
-    # type_name/conditions choice. The frontend surfaces this default in a
-    # hint so it isn't a silent surprise.
-    if (not search.type_name and not search.conditions and not search.value_conditions
-            and search.relationship_conditions):
-        body["metadataElementTypeName"] = "Asset"
+    # A relationship-only search (no type_name, no classification/value
+    # conditions) is NOT given a metadataElementTypeName here at all -- see
+    # search_elements()'s "relationship_only" branch for why. Short version
+    # of a three-step history worth knowing if this changes again:
+    #   1. (2026-08-05) Left unset entirely -> Egeria rejects the near-empty
+    #      body outright (OMAG-COMMON-400-006, "metadataElementTypeName ...
+    #      is null").
+    #   2. Defaulted to "Asset" ("most governance/relationship questions are
+    #      Asset-scoped anyway") -- true for DataFlow, silently WRONG for
+    #      SemanticAssignment (real participants are GovernanceActionProcess/
+    #      DataField/TabularColumn/APIParameter/EventSchemaAttribute/
+    #      RelationalColumn/GlossaryTerm -- zero Asset subtypes).
+    #   3. (2026-08-06) Tried "Referenceable" (the universal base type,
+    #      declared as SemanticAssignment's own end1 type in Egeria's type
+    #      system) instead, reasoning no narrower guess is safe for every
+    #      relationship. CONFIRMED LIVE this is worse than useless: an
+    #      exhaustive Referenceable-scoped find_metadata_elements silently
+    #      returns a small, arbitrary subset (3,999 elements in this demo)
+    #      instead of the true population -- missing 387 of 410 known
+    #      SemanticAssignment participants entirely (only 22 of ~378 real
+    #      GovernanceActionProcess, only 241 of ~450 real GlossaryTerm),
+    #      while a DIRECTLY-typed search for the SAME types
+    #      (metadataElementTypeName="GlossaryTerm", etc.) finds them all
+    #      correctly. This is a genuine Egeria-server-side gap in how a
+    #      base-type-wide scan enumerates real subtypes -- no client-side
+    #      pagination fix can work around it, since the server itself
+    #      silently stops short of the true population.
+    # No single type name is ever going to be right here. search_elements()
+    # instead derives the REAL set of participant types directly from the
+    # relationship data itself (already fetched, already proven complete —
+    # see _relationship_participant_types) and runs one directly-typed,
+    # exhaustive search per real type, merging the results.
     return body
 
 
@@ -453,6 +479,37 @@ def _relationship_guid_counts(ce, relationship_type: str, as_of: Optional[str] =
     return out
 
 
+def _relationship_participant_types(ce, relationship_type: str, as_of: Optional[str] = None,
+                                     end: str = "any") -> set:
+    """Distinct REAL typeNames observed among a relationship's participants
+    (same end1/end2/any scoping as _relationship_guid_counts). Exists
+    because there is no single Egeria type name that safely scopes a
+    relationship-only search — see _build_find_body's docstring for the
+    full history, including the confirmed-live finding that Egeria's own
+    "Referenceable" base type silently returns an incomplete, arbitrary
+    subset when scanned type-wide, while directly-typed searches for the
+    SAME real types find every element correctly. This gives
+    search_elements() the real, complete set of types to search directly,
+    derived from data (the relationship traversal) already proven
+    complete, not from a guess."""
+    out: set = set()
+    end_keys = ("end1", "end2") if end == "any" else (end,)
+    try:
+        body = {"class": "ResultsRequestBody", "asOfTime": as_of} if as_of else None
+        rels = _json_list(ce.get_relationships(
+            relationship_type=relationship_type, output_format="JSON",
+            start_from=0, page_size=5000, body=body))
+        for r in rels:
+            for end_key in end_keys:
+                e = ((r.get(end_key) or {}) if isinstance(r, dict) else {})
+                t = (e.get("type") or {}).get("typeName")
+                if t:
+                    out.add(t)
+    except Exception as exc:  # noqa: BLE001 — best-effort, same degrade-don't-fail posture as _relationship_guid_counts
+        logger.debug(f"insights: relationship participant-types query failed for {relationship_type!r} end={end!r}: {exc}")
+    return out
+
+
 def _cond_key(c: "RelationshipCondition") -> str:
     """Result/aggregate dict key for one relationship condition — plain type
     name when end="any" (backward compatible with the pre-direction-aware
@@ -597,6 +654,42 @@ def get_summary(
     })
 
 
+# ── Classification browse (2026-08-05) ───────────────────────────────────────
+# Generalizes the left-rail browse beyond ZoneMembership (which stays the
+# default, cheaply enumerable via GovernanceZone definitions) to ANY
+# classification the caller picks — one on-demand tally per selection, not
+# a pre-computed count for the whole type system (same cost-shape reasoning
+# as _INTERESTING_RELATIONSHIP_TYPES below: computing this for every
+# classification up front would mean one full query per type).
+
+@router.get("/api/insights/classification-count", summary="Capped tally of elements carrying one named classification")
+def get_classification_count(
+    name: str = Query(..., description="Classification type name, e.g. Confidentiality"),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    try:
+        mgr = _expert(url, server, user_id, user_pwd)
+    except Exception as exc:
+        logger.exception("insights: failed to create MetadataExpert for classification-count")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+    body = {
+        "class": "FindRequestBody",
+        "matchClassifications": {"class": "SearchClassifications", "matchCriteria": "ANY",
+                                  "conditions": [{"name": name}]},
+        "limitResultsByStatus": ["ACTIVE"], "graphQueryDepth": 0,
+        "startFrom": 0, "pageSize": _DEFAULT_CAP,
+    }
+    try:
+        raw = mgr.find_metadata_elements(body)
+    except Exception as exc:
+        logger.exception(f"insights: classification-count query failed for {name!r}")
+        raise HTTPException(status_code=500, detail=str(exc))
+    hits = [el for el in (raw if isinstance(raw, list) else []) if isinstance(el, dict)]
+    return JSONResponse({"name": name, "count": len(hits), "capped": len(hits) >= _DEFAULT_CAP})
+
+
 # ── Zones ─────────────────────────────────────────────────────────────────────
 
 @router.get("/api/insights/zones", summary="Governance zone definitions with usage counts")
@@ -668,7 +761,7 @@ def get_zones(
 # costs one full get_relationships fetch, so this stays a "commonly
 # interesting" browse list (lineage/meaning/governance/collaboration), same
 # curation philosophy _GOVERNANCE_CLASSIFICATIONS already uses for
-# classifications. The Governance Search condition-builder is NOT limited to
+# classifications. The Search tab's condition-builder is NOT limited to
 # this list (it offers the full /api/types catalog) — this is only for the
 # browse/summary views (RelationshipTree, Dashboard's Relationship Coverage
 # card), where fetching all ~734 types live on every page load would be
@@ -690,6 +783,29 @@ _INTERESTING_RELATIONSHIP_TYPES = (
 )
 
 
+def _relationship_type_stats(ce, rel_type: str) -> dict:
+    """One relationship type's instance/participant tally — the per-type cost
+    _INTERESTING_RELATIONSHIP_TYPES is curated to avoid paying for all ~734
+    types at once. Factored out so the curated browse list (get_relationships)
+    and the on-demand single-type lookup (get_relationship_count, for
+    anything outside that curated list) share one implementation."""
+    try:
+        rels = _json_list(ce.get_relationships(
+            relationship_type=rel_type, output_format="JSON",
+            start_from=0, page_size=_DEFAULT_CAP, body=None))
+    except Exception:
+        logger.debug(f"insights: relationship usage query failed for {rel_type!r}")
+        rels = []
+    participants: set = set()
+    for r in rels:
+        for end_key in ("end1", "end2"):
+            g = ((r.get(end_key) or {}) if isinstance(r, dict) else {}).get("guid")
+            if g:
+                participants.add(g)
+    capped = len(rels) >= _DEFAULT_CAP
+    return {"instanceCount": len(rels), "participantCount": len(participants), "capped": capped}
+
+
 @router.get("/api/insights/relationships", summary="Relationship-type usage counts (curated set, capped tally)")
 def get_relationships(
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
@@ -704,27 +820,26 @@ def get_relationships(
     out = []
     any_capped = False
     for rel_type, icon, desc in _INTERESTING_RELATIONSHIP_TYPES:
-        try:
-            rels = _json_list(ce.get_relationships(
-                relationship_type=rel_type, output_format="JSON",
-                start_from=0, page_size=_DEFAULT_CAP, body=None))
-        except Exception:
-            logger.debug(f"insights: relationship usage query failed for {rel_type!r}")
-            rels = []
-        participants: set = set()
-        for r in rels:
-            for end_key in ("end1", "end2"):
-                g = ((r.get(end_key) or {}) if isinstance(r, dict) else {}).get("guid")
-                if g:
-                    participants.add(g)
-        capped = len(rels) >= _DEFAULT_CAP
-        any_capped = any_capped or capped
-        out.append({
-            "type": rel_type, "icon": icon, "description": desc,
-            "instanceCount": len(rels), "participantCount": len(participants), "capped": capped,
-        })
+        stats = _relationship_type_stats(ce, rel_type)
+        any_capped = any_capped or stats["capped"]
+        out.append({"type": rel_type, "icon": icon, "description": desc, **stats})
     out.sort(key=lambda r: -r["instanceCount"])
     return JSONResponse({"relationships": out, "anyCapped": any_capped})
+
+
+@router.get("/api/insights/relationship-count", summary="On-demand instance/participant tally for ANY relationship type (not just the curated set)")
+def get_relationship_count(
+    rel_type: str = Query(..., alias="type", description="Relationship type name, e.g. DataFlow"),
+    url: Optional[str] = Query(None), server: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
+):
+    try:
+        ce = _ce(url, server, user_id, user_pwd)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("insights: failed to create ClassificationExplorer for relationship-count")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+    stats = _relationship_type_stats(ce, rel_type)
+    return JSONResponse({"type": rel_type, **stats})
 
 
 # ── Compound search ───────────────────────────────────────────────────────────
@@ -738,20 +853,103 @@ def search_elements(body: SearchBody = Body(...)):
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     find_body = _build_find_body(body)
-    defaulted_type_note = (
-        f"No type, classification, or property-value condition given for this relationship search — "
-        f"defaulted to metadataElementTypeName={find_body['metadataElementTypeName']!r} (a "
-        f"relationship-only search against every element in the repository times out; add a type, "
-        f"classification, or property condition to search a different scope)."
-    ) if (not body.type_name and not body.conditions and not body.value_conditions
-          and body.relationship_conditions and find_body.get("metadataElementTypeName")) else None
     page_size = max(1, min(body.page_size, 500))
 
+    # relationship_only: nothing but relationship condition(s) given. No
+    # single metadataElementTypeName is safe to guess here — see
+    # _build_find_body's docstring for the full three-step history of why
+    # (including the confirmed-live finding that even Egeria's own
+    # "Referenceable" base type silently returns an incomplete population
+    # when scanned type-wide). Handled as its own branch below: derive the
+    # REAL participant types from the relationship data itself and search
+    # each directly.
+    relationship_only = (not body.type_name and not body.conditions and not body.value_conditions
+                          and bool(body.relationship_conditions))
+
+    # BUG FOUND 2026-08-05 (live-reported: user typed a classification into
+    # the Classifications browse picker, saw its count, but clicked Search
+    # directly instead of "+ Add condition" first -- so the search itself
+    # carried NO type/classification/relationship/value condition at all).
+    # A genuinely empty SearchBody has none of these three keys AND isn't
+    # relationship_only either -- Egeria would otherwise 400 with a raw
+    # exception trace ("metadataElementTypeName ... is null"); this guard
+    # catches it before ever calling Egeria, with an actionable message.
+    if not relationship_only and not any(
+        k in find_body for k in ("metadataElementTypeName", "matchClassifications", "searchProperties")
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Add an element type, classification, relationship, or property-value condition "
+                   "before searching — an unscoped search would match the entire repository.",
+        )
+
+    defaulted_type_note = None
     hits: List[dict] = []
     truncated = False
     capped = False
+    ce = None  # created here if relationship_only needs it early; reused below for annotation either way
 
-    if body.full_count:
+    if relationship_only:
+        # BUG FOUND 2026-08-05 ("DataFlow shows 8 in the tree, but Search
+        # returns 0") then CORRECTED 2026-08-06 (SemanticAssignment: "shows
+        # 397, Search returns 0") -- see _build_find_body's docstring for
+        # the full history. Fix: search each REAL participant type directly
+        # and exhaustively, merging results -- never guess a single scope.
+        try:
+            ce = _ce(body.url, body.server, body.user_id, body.user_pwd)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("insights: failed to create ClassificationExplorer for relationship-only search")
+            raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+        rel_type_names = sorted({c.relationship_type for c in body.relationship_conditions})
+        participant_types: set = set()
+        for c in body.relationship_conditions:
+            participant_types |= _relationship_participant_types(ce, c.relationship_type, body.as_of_time, c.end)
+
+        if not participant_types:
+            defaulted_type_note = (
+                f"{', '.join(rel_type_names)} currently has zero real instances, so there's nothing "
+                f"to search — this isn't a fetch problem, the relationship condition(s) you added "
+                f"simply have no participants right now."
+            )
+        else:
+            defaulted_type_note = (
+                f"No type, classification, or property-value condition given — searched the "
+                f"{len(participant_types)} real element type(s) that actually participate in "
+                f"{', '.join(rel_type_names)} ({', '.join(sorted(participant_types))}) directly and "
+                f"exhaustively. No single Egeria type name (not even the universal 'Referenceable') "
+                f"reliably covers a relationship's real participants — confirmed live: an exhaustive "
+                f"Referenceable-scoped search silently returns an incomplete, arbitrary subset, while "
+                f"directly-typed searches for the same real types find every element correctly."
+            )
+            seen_guids: set = set()
+            for t in sorted(participant_types):
+                type_body = {**find_body, "metadataElementTypeName": t}
+                start = 0
+                while True:
+                    try:
+                        page = mgr.find_metadata_elements({**type_body, "graphQueryDepth": 0,
+                                                             "startFrom": start, "pageSize": page_size})
+                    except Exception as exc:
+                        logger.exception(f"insights: relationship-only search failed for type {t!r}")
+                        raise HTTPException(status_code=500, detail=str(exc))
+                    page = [el for el in (page if isinstance(page, list) else []) if isinstance(el, dict)]
+                    added = 0
+                    for el in page:
+                        g = el.get("elementGUID")
+                        if g and g in seen_guids:
+                            continue
+                        seen_guids.add(g)
+                        hits.append(el)
+                        added += 1
+                    if added == 0 or len(page) < page_size or len(hits) >= _FULL_COUNT_HARD_CAP:
+                        truncated = truncated or (added > 0 and len(hits) >= _FULL_COUNT_HARD_CAP)
+                        break
+                    start += page_size
+                if len(hits) >= _FULL_COUNT_HARD_CAP:
+                    break
+        effective_full_count = True  # this path always searches the true population per type, by construction
+    elif body.full_count:
         # BUG FOUND 2026-08-04, ROOT-CAUSED 2026-08-05 (PYEGERIA_ISSUES.md
         # ISSUE-34, formerly egeria-workspaces-fs's own PY-23). CORRECTED
         # diagnosis, same day: this was never an Egeria-server-side bug --
@@ -794,6 +992,7 @@ def search_elements(body: SearchBody = Body(...)):
                 truncated = added > 0 and len(hits) >= _FULL_COUNT_HARD_CAP
                 break
             start += page_size
+        effective_full_count = True
     else:
         try:
             page = mgr.find_metadata_elements({**find_body, "graphQueryDepth": 0,
@@ -803,8 +1002,34 @@ def search_elements(body: SearchBody = Body(...)):
             raise HTTPException(status_code=500, detail=str(exc))
         hits = [el for el in (page if isinstance(page, list) else []) if isinstance(el, dict)]
         capped = len(hits) >= page_size
+        effective_full_count = False
 
     results = [_serialize_hit(el) for el in hits]
+
+    # Type exclusion (2026-08-05) — client-side, applied before everything
+    # else below (aggregates, relationship annotation/filtering, sorting)
+    # so excluded elements are treated as if they'd never been fetched, not
+    # just hidden at the last step. See SearchBody.exclude_types' docstring
+    # for why this can't be pushed server-side.
+    excluded_type_note = None
+    if body.exclude_types:
+        exclude_set = {t for t in body.exclude_types if t}
+        if exclude_set:
+            before_exclude = len(results)
+            results = [
+                r for r in results
+                if r["typeName"] not in exclude_set
+                and not (set(r.get("superTypeNames") or []) & exclude_set)
+            ]
+            removed = before_exclude - len(results)
+            if removed:
+                excluded_type_note = (
+                    f"Excluded {removed} of {before_exclude} fetched element(s) matching type "
+                    f"{', '.join(sorted(exclude_set))} (or a subtype) — applied to the fetched page "
+                    "only, not server-wide (Egeria's find API has no server-side type-exclusion; see "
+                    "PYEGERIA_ISSUES.md ISSUE-45/ISSUE-46)."
+                )
+
     fetched_count = len(results)
 
     # Relationship presence (NEXT-25) — client-side, see module docstring.
@@ -812,13 +1037,14 @@ def search_elements(body: SearchBody = Body(...)):
     # what was fetched, then filter.
     relationship_filter_note = None
     if body.relationship_conditions:
-        try:
-            ce = _ce(body.url, body.server, body.user_id, body.user_pwd)
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("insights: failed to create ClassificationExplorer for relationship conditions")
-            raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        if ce is None:  # relationship_only already created one above; reuse it rather than connecting twice
+            try:
+                ce = _ce(body.url, body.server, body.user_id, body.user_pwd)
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("insights: failed to create ClassificationExplorer for relationship conditions")
+                raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
         results = _annotate_relationships(results, ce, body.relationship_conditions, body.as_of_time)
-        if not body.full_count:
+        if not effective_full_count:
             relationship_filter_note = (
                 f"Relationship condition(s) were applied to the {fetched_count} elements fetched by the "
                 f"classification/type filter{' (a capped page, not the full matching population)' if capped else ''} "
@@ -866,11 +1092,12 @@ def search_elements(body: SearchBody = Body(...)):
         "total":                  len(results),
         "capped":                 capped,
         "truncated":              truncated,
-        "fullCount":              body.full_count,
+        "fullCount":              effective_full_count,
         "aggregates":             aggregates,
         "relationshipAggregates": relationship_aggregates,
         "relationshipFilterNote": relationship_filter_note,
         "defaultedTypeNote": defaulted_type_note,
+        "excludedTypeNote": excluded_type_note,
     })
 
 
@@ -900,7 +1127,7 @@ _QUERY_MARKER_VALUE = "true"
 _SEARCH_SPEC_FIELDS = (
     "type_name", "match_criteria", "conditions", "value_conditions",
     "value_match_criteria", "relationship_conditions",
-    "relationship_match_criteria", "sort_by", "sort_dir", "as_of_time",
+    "relationship_match_criteria", "exclude_types", "sort_by", "sort_dir", "as_of_time",
 )
 
 
@@ -926,6 +1153,7 @@ def _saved_query_summary(el: dict) -> dict:
         "spec":              spec,
         "lastRefreshedTime": additional.get("lastRefreshedTime") or None,
         "resultCount":       int(result_count) if result_count.isdigit() else None,
+        "favorite":          additional.get("favorite") == "true",
     }
 
 
@@ -955,6 +1183,7 @@ def create_saved_query(body: SavedQueryBody = Body(...)):
                 "queryBody": json.dumps(spec),
                 "lastRefreshedTime": "",
                 "resultCount": "",
+                "favorite": "false",
             },
         },
     }
@@ -1052,6 +1281,49 @@ def update_saved_query(guid: str, body: SavedQueryBody = Body(...)):
         logger.exception(f"insights: saved-query update failed for {guid}")
         raise HTTPException(status_code=500, detail=str(exc))
     return JSONResponse({"guid": guid, "name": body.name})
+
+
+class FavoriteBody(BaseModel):
+    favorite: bool
+    url: Optional[str] = None
+    server: Optional[str] = None
+    user_id: Optional[str] = None
+    user_pwd: Optional[str] = None
+
+
+@router.post("/api/insights/queries/{guid}/favorite", summary="Star/unstar a saved query (shown on the Dashboard's Favorite Queries card)")
+def set_saved_query_favorite(guid: str, body: FavoriteBody = Body(...)):
+    try:
+        cm = _cm(body.url, body.server, body.user_id, body.user_pwd)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+    try:
+        el = cm.get_collection_by_guid(guid, output_format="JSON")
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail=f"Saved query not found: {exc}")
+    props = (el or {}).get("properties") or {}
+    existing_additional = props.get("additionalProperties") or {}
+    if existing_additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
+        raise HTTPException(status_code=404, detail="Not a saved Insights query")
+
+    additional = dict(existing_additional)
+    additional["favorite"] = "true" if body.favorite else "false"
+    update_body = {
+        "class": "UpdateElementRequestBody",
+        "properties": {
+            "class": "CollectionProperties",
+            "qualifiedName": props.get("qualifiedName"),
+            "displayName": props.get("displayName"),
+            "description": props.get("description") or "",
+            "additionalProperties": additional,
+        },
+    }
+    try:
+        cm.update_collection(guid, update_body)
+    except Exception as exc:
+        logger.exception(f"insights: saved-query favorite toggle failed for {guid}")
+        raise HTTPException(status_code=500, detail=str(exc))
+    return JSONResponse({"guid": guid, "favorite": body.favorite})
 
 
 @router.delete("/api/insights/queries/{guid}", summary="Delete a saved query")
