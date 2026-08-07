@@ -92,8 +92,9 @@ services:
     # heaviest consumer and the kernel OOM-killer's first target when the VM
     # runs tight. Capping it keeps one runaway heap from starving everything
     # else; raise this (and the VM's total allocation) if Egeria itself needs
-    # more headroom.
-    mem_limit: 6g
+    # more headroom. Configurable via EGERIA_MEM_LIMIT (see gen-env.sh) —
+    # ./quick-start-local --egeria-memory <SIZE> sets it for you; 6g if unset.
+    mem_limit: ${EGERIA_MEM_LIMIT:-6g}
     logging:
       driver: "json-file"
       options:

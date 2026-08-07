@@ -85,15 +85,32 @@ if [[ -z "$KAFKA_CLUSTER_ID_VAL" || "$KAFKA_CLUSTER_ID_VAL" == "<stable-cluster-
   KAFKA_CLUSTER_ID_VAL="42"
 fi
 
+# Determine EGERIA_MEM_LIMIT (freshstart-egeria-main's mem_limit — see
+# egeria-freshstart.yaml, mirrored from quickstart). Same priority as
+# KAFKA_CLUSTER_ID above: already-exported env var (set by
+# ./fresh-start-local --egeria-memory) > existing .env value (so a value set
+# once persists across plain re-runs without the flag) > default 6g.
+EGERIA_MEM_LIMIT_VAL="${EGERIA_MEM_LIMIT:-}"
+if [[ -z "$EGERIA_MEM_LIMIT_VAL" && -f .env ]]; then
+  EXISTING_MEM="$(grep -E '^EGERIA_MEM_LIMIT=' .env | head -n1 | cut -d= -f2- || true)"
+  if [[ -n "$EXISTING_MEM" ]]; then
+    EGERIA_MEM_LIMIT_VAL="$EXISTING_MEM"
+  fi
+fi
+if [[ -z "$EGERIA_MEM_LIMIT_VAL" ]]; then
+  EGERIA_MEM_LIMIT_VAL="6g"
+fi
+
 TMP_ENV=".env.tmp"
 cat > "$TMP_ENV" <<EOF
 HOST_FQDN=${HOST_FQDN}
 KAFKA_CLUSTER_ID=${KAFKA_CLUSTER_ID_VAL}
 KAFKA_BOOTSTRAP_SERVERS=${HOST_FQDN}:9194
 HOST_GATEWAY_IP=${HOST_GATEWAY_IP}
+EGERIA_MEM_LIMIT=${EGERIA_MEM_LIMIT_VAL}
 CONFIG_JSON="${CONFIG_JSON_ESCAPED}"
 EOF
 mv -f "$TMP_ENV" .env
 
-echo "[gen-env.sh] Wrote .env with HOST_FQDN=${HOST_FQDN}, KAFKA_CLUSTER_ID=${KAFKA_CLUSTER_ID_VAL}" >&2
+echo "[gen-env.sh] Wrote .env with HOST_FQDN=${HOST_FQDN}, KAFKA_CLUSTER_ID=${KAFKA_CLUSTER_ID_VAL}, EGERIA_MEM_LIMIT=${EGERIA_MEM_LIMIT_VAL}" >&2
 

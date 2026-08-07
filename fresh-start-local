@@ -8,20 +8,34 @@ source compose-configs/shared-infra/compose-build-flags.sh
 
 print_usage() {
   cat <<'EOF'
-Usage: ./fresh-start-local [--refresh-platform]
+Usage: ./fresh-start-local [--refresh-platform] [--egeria-memory SIZE]
 
 Options:
   --refresh-platform  Force rebuild of freshstart-egeria-main so Docker pulls the latest base image.
+  --egeria-memory SIZE
+                      Set freshstart-egeria-main's container memory cap (Docker/Podman
+                      `mem_limit` syntax, e.g. 4g, 8g, 10240m). Defaults to 6g
+                      if never set. Persists in
+                      compose-configs/egeria-freshstart/.env, so it only needs
+                      to be passed once — plain re-runs without this flag keep
+                      using the last value set. Raise this if freshstart-egeria-main
+                      is being OOM-killed (exit 137); lower it if your machine's
+                      total memory is tight and other containers are starving.
   -h, --help          Show this help text.
 EOF
 }
 
 REFRESH_PLATFORM=0
+EGERIA_MEM_LIMIT="${EGERIA_MEM_LIMIT:-}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --refresh-platform)
       REFRESH_PLATFORM=1
       shift
+      ;;
+    --egeria-memory)
+      EGERIA_MEM_LIMIT="$2"
+      shift 2
       ;;
     -h|--help)
       print_usage
@@ -123,6 +137,10 @@ cp -r compose-configs/egeria-quickstart/servers/fs-* "$TARGET_SERVER_DIR"/
 compose-configs/shared-infra/ensure-shared-infra.sh
 
 pushd compose-configs/egeria-freshstart >/dev/null
+  # gen-env.sh runs as a separate process -- EGERIA_MEM_LIMIT must be
+  # exported (not just set) for its --egeria-memory value to be visible
+  # there as the highest-priority tier (see gen-env.sh).
+  export EGERIA_MEM_LIMIT
   ./gen-env.sh
 
   echo "[fresh-start-local] Ensuring core images are available (platform, pyegeria-web, jupyter)..."
@@ -168,8 +186,10 @@ popd >/dev/null
 echo "[fresh-start-local] Done. Useful URLs:"
 HOST_FQDN_PRINT=$(grep '^HOST_FQDN=' compose-configs/egeria-freshstart/.env | cut -d= -f2- || echo "localhost")
 KAFKA_CLUSTER_ID_PRINT=$(grep '^KAFKA_CLUSTER_ID=' compose-configs/egeria-freshstart/.env | cut -d= -f2- || echo "42")
+EGERIA_MEM_LIMIT_PRINT=$(grep '^EGERIA_MEM_LIMIT=' compose-configs/egeria-freshstart/.env | cut -d= -f2- || echo "6g")
 echo "  - Effective HOST_FQDN: ${HOST_FQDN_PRINT}"
 echo "  - Effective KAFKA_CLUSTER_ID: ${KAFKA_CLUSTER_ID_PRINT}"
+echo "  - Effective EGERIA_MEM_LIMIT: ${EGERIA_MEM_LIMIT_PRINT}"
 echo "  - Egeria (platform): https://${HOST_FQDN_PRINT:-localhost}:8443"
 echo "  - JupyterHub:        http://${HOST_FQDN_PRINT:-localhost}:7888   (password: egeria)"
 echo "  - Egeria Portal:     http://${HOST_FQDN_PRINT:-localhost}:7885"
