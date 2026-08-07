@@ -85,6 +85,65 @@ if [[ -z "$TARGET_HOST" || -z "$REMOTE_DIR" ]]; then
   exit 1
 fi
 
+# SSH target ("user@host" or bare "host") — built once, reused for the
+# $HOME lookup below and for the remote import at the end.
+_target="${TARGET_HOST}"
+if [[ -n "${REMOTE_USER}" && "${TARGET_HOST}" != *@* ]]; then
+  _target="${REMOTE_USER}@${TARGET_HOST}"
+fi
+_ssh_cmd=("ssh" "-o" "StrictHostKeyChecking=no")
+
+# Run a command on the target and capture its stdout, honoring REMOTE_PASSWORD.
+_ssh_run() {
+  if [[ -n "${REMOTE_PASSWORD}" ]]; then
+    if command -v sshpass >/dev/null 2>&1; then
+      sshpass -p "${REMOTE_PASSWORD}" "${_ssh_cmd[@]}" "${_target}" "$@"
+    else
+      echo "[demo-failback] WARNING: REMOTE_PASSWORD set but 'sshpass' not found. SSH may prompt for password." >&2
+      "${_ssh_cmd[@]}" "${_target}" "$@"
+    fi
+  else
+    "${_ssh_cmd[@]}" "${_target}" "$@"
+  fi
+}
+
+# Resolve a leading "~" against the TARGET's own $HOME over SSH, so nothing
+# downstream ever has to pass a tilde through a shell again. This matters
+# because there are two different ways a tilde bites here, and only this
+# fixes both: (1) an unquoted ~/... as its own argument gets expanded by
+# THIS shell against THIS machine's $HOME before demo-failback ever sees
+# it — the confusing symptom is "mkdir: Permission denied" deep inside
+# sync-demo-db.sh, with no hint of the real cause; (2) even a correctly
+# quoted '~/...' breaks once this script re-quotes it for the remote `cd`
+# command below — single quotes suppress tilde expansion on the remote
+# shell exactly as they do locally, so `cd '~/foo'` fails there too.
+_resolve_remote_tilde() {
+  local path="$1"
+  case "$path" in
+    "~")   printf '%s' "$(_ssh_run 'printf %s "$HOME"')" ;;
+    "~/"*) printf '%s/%s' "$(_ssh_run 'printf %s "$HOME"')" "${path#\~/}" ;;
+    *)     printf '%s' "$path" ;;
+  esac
+}
+
+REMOTE_DIR="$(_resolve_remote_tilde "$REMOTE_DIR")"
+[[ -n "$REMOTE_REPO_DIR" ]] && REMOTE_REPO_DIR="$(_resolve_remote_tilde "$REMOTE_REPO_DIR")"
+
+# Now that any tilde is fully resolved against the TARGET's $HOME: if the
+# result still sits under THIS machine's own home directory, that's a
+# strong signal the caller typed --remote-dir ~/foo unquoted and it was
+# already (wrongly) expanded locally before we ever got a chance to fix it.
+if [[ "$REMOTE_DIR" == "$HOME" || "$REMOTE_DIR" == "$HOME"/* ]]; then
+  echo "[demo-failback] ERROR: --remote-dir (${REMOTE_DIR}) is under THIS machine's" >&2
+  echo "[demo-failback]   home directory (${HOME}), not ${TARGET_HOST}'s." >&2
+  echo "[demo-failback]   If you typed --remote-dir ~/... unquoted, your shell already" >&2
+  echo "[demo-failback]   expanded it to your own home dir before demo-failback ran --" >&2
+  echo "[demo-failback]   it needs ${TARGET_HOST}'s path instead. Fix: pass the target's" >&2
+  echo "[demo-failback]   actual absolute path, or quote a literal tilde ('~/...') so it" >&2
+  echo "[demo-failback]   reaches ${TARGET_HOST} unexpanded and resolves remotely." >&2
+  exit 1
+fi
+
 if [[ -z "$REMOTE_REPO_DIR" ]]; then
   REMOTE_REPO_DIR="${REMOTE_DIR%/runtime-volumes/demo-sync}"
   if [[ "$REMOTE_REPO_DIR" == "$REMOTE_DIR" ]]; then
@@ -109,23 +168,10 @@ echo "[demo-failback] Exporting local data and pushing to ${TARGET_HOST}:${REMOT
 "$SYNC_SCRIPT" push "$TARGET_HOST" "$REMOTE_DIR"
 
 echo "[demo-failback] Importing on ${TARGET_HOST}..."
-_ssh_cmd=("ssh" "-o" "StrictHostKeyChecking=no")
-_target="${TARGET_HOST}"
-if [[ -n "${REMOTE_USER}" && "${TARGET_HOST}" != *@* ]]; then
-  _target="${REMOTE_USER}@${TARGET_HOST}"
-fi
-_remote_import="cd '${REMOTE_REPO_DIR}' && ${SYNC_SCRIPT} import '${REMOTE_DIR}/latest.dump' -y"
-
-if [[ -n "${REMOTE_PASSWORD}" ]]; then
-  if command -v sshpass >/dev/null 2>&1; then
-    sshpass -p "${REMOTE_PASSWORD}" "${_ssh_cmd[@]}" "${_target}" "$_remote_import"
-  else
-    echo "[demo-failback] WARNING: REMOTE_PASSWORD set but 'sshpass' not found. SSH may prompt for password." >&2
-    "${_ssh_cmd[@]}" "${_target}" "$_remote_import"
-  fi
-else
-  "${_ssh_cmd[@]}" "${_target}" "$_remote_import"
-fi
+# REMOTE_DIR/REMOTE_REPO_DIR are fully-resolved absolute paths by this point
+# (see _resolve_remote_tilde above) — safe to quote normally, no tilde left
+# to worry about.
+_ssh_run "cd '${REMOTE_REPO_DIR}' && ${SYNC_SCRIPT} import '${REMOTE_DIR}/latest.dump' -y"
 
 echo "[demo-failback] Done. ${TARGET_HOST} now has this machine's data."
 echo "[demo-failback] Next steps:"
