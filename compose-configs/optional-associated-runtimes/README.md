@@ -10,6 +10,7 @@ Currently there are compose configurations for:
     * Dagster - used for orchestrating pipelines and metadata harvesting with Egeria and OpenLineage.
     * Prefect - used for workflow automation and Egeria catalog integrations.
     * Milvus - a vector database used in AI workloads.
+    * DuckDB - a federation server used for querying across multiple data sources like Postgres, S3, and Iceberg.
     * Superset—an analytics and reporting dashboard that we use to present Egeria survey results.
     * Unity Catalog—The Open Source version of Unity Catalog—we use for demonstrating Egeria's integration with other catalogs.
         * Two deployments - one using Postgres and one native.
