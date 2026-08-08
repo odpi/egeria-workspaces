@@ -6,6 +6,16 @@ Access it from the portal tile or directly at `/egeria-explorer`.
 
 ---
 
+## Search
+
+A full-width **Search** card sits at the top of the Home screen — keyword search across *every* element type in one call, not scoped to whichever tab you're in.
+
+- After a search runs, a "Types in these results" row of chips shows the real types actually found (e.g. `RelationalColumn (12)`, `GlossaryTerm (4)`) — not a fixed pre-search category list, since Egeria has several hundred entity types and a curated picker can only ever cover a slice of them.
+- Clicking a chip re-runs the search scoped to that exact type, giving you a complete count for it rather than whatever fit in the first page of unscoped results.
+- Results are headed by their real type name, so even uncommon types get their own clearly labelled section instead of being lumped under a generic "Other" heading.
+
+---
+
 ## Tabs overview
 
 ### Explore
@@ -14,7 +24,7 @@ A quick-start subset of the most commonly used tabs, shown on the splash screen 
 
 | Tab | What it shows |
 |---|---|
-| **Glossary** | Business glossaries, terms, definitions, and semantic relationships — folders, cross-glossary search, synonyms, antonyms, and related terms |
+| **Glossary** | Business glossaries, terms, definitions, and semantic relationships — folders, cross-glossary search, synonyms, antonyms, and related terms. A term's detail panel includes **"Where is this used?"** — every physical (schema column, etc.) and logical (Data Field, etc.) element assigned that term, shown together even though they live in different tabs |
 | **Collections** | The collection hierarchy — digital products, families, blueprints, folios, dictionaries, and more, regardless of collection subtype. Defaults to **Root Collections only**; uncheck the box to see all collections with no parent (a broader, noisier set) |
 | **Reports** | Two sub-tabs: **Report Specs** (report specifications, their links to data assets, and a Run Report panel) and **Analytic Functions** (the catalog of Python routines a report spec's `analytic_function` can run — each marked GENERIC or FIXED METRIC, cross-linked to its demo report spec) |
 | **Digital Products** | Data products with governance metadata, lineage, and associated glossary terms |
@@ -28,7 +38,7 @@ The full set of element-category browsers — most support search, filtering, cr
 |---|---|
 | **Glossary** | Same as above |
 | **Reference Data** | Valid value sets and definitions — the allowed values for property fields in your Egeria environment |
-| **Data Design** | Data Specs, Data Structures, Data Fields, and Data Grains, cross-referenced with glossary terms |
+| **Data Design** | Data Specs, Data Structures, Data Fields, and Data Grains, cross-referenced with glossary terms — a field's assigned glossary term(s) and data class(es) are called out distinctly (🧠 / 🏷️) rather than buried among other relationships |
 | **Collections** | Same as above |
 | **Solution Architect** | Solution blueprints and component hierarchies — actor assignments, wiring relationships, concrete implementations |
 | **Information Supply Chains** | ISC scope, segments, and concrete technical implementations as Mermaid diagrams |

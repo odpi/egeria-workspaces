@@ -10,13 +10,14 @@ Access it from the portal tile or directly at `/catalog`.
 
 | Section | What it shows | Sub-tabs |
 |---|---|---|
+| **Search** | Cross-catalog keyword search — every element type in one call, with results headed by real type and toggleable type facets computed from what's actually found. See [Searching](#searching) below | — |
 | **IT Infrastructure** | Servers, hosts, applications, and their software capabilities | IT Infrastructure, Software Capabilities, Endpoints |
 | **Data Assets** | Data stores, feeds, and sets | Data Stores, Data Feeds, Data Sets |
 | **APIs** | Deployed API definitions | APIs |
 | **Processes** | Running software components, actions, and governance action process definitions | Software Components, Actions, Governance Processes |
 | **Discovery & Analysis** | Survey run results and the individual findings (annotations) they produced | Survey Reports, Annotations |
 | **Technology Types** | Egeria's registered technology classifications | Types list, Hierarchy |
-| **Glossary** | Business terms, folders, and their relationships | Glossary terms |
+| **Glossary** | Business terms, folders, and their relationships — a term's detail includes **"Where is this used?"**, listing every physical (schema column) and logical (Data Field) element assigned that term | Glossary terms |
 
 ---
 
@@ -28,7 +29,7 @@ Selecting any item opens a detail pane on the right. For most asset types this i
 - **Context Diagram** — Mermaid diagram showing the element in its broader context (rendered immediately when available)
 - **Additional diagrams** — lineage, field-level, supply-chain, and other diagrams where present
 - **Relationships** — related elements with "View →" navigation links
-- **Schema** — column / attribute list (data assets only)
+- **Schema** — column / attribute list (data assets only). A column carrying a glossary-term assignment shows a 🧠 badge — click to expand and jump straight to that term
 - **Lineage** — direct lineage graph and link to Lineage Explorer
 
 ---
@@ -81,7 +82,10 @@ The button shows **✓ Copied** (green) on success or **✕ Failed** (red) on fa
 
 ## Searching
 
-Each section has a search box that filters by display name, qualified name, and description. Leaving the search box empty returns all elements.
+Two different kinds of search, worth telling apart:
+
+- **Per-section filter box** — each section (IT Infrastructure, Data Assets, etc.) has its own search box that filters *within that section's already-loaded list* by display name, qualified name, and description. Leaving it empty returns all elements in that section.
+- **Search section** (top of the section list, 🔎) — a global keyword search across *every* element type at once, not limited to one section. After it runs, a row of type chips ("Types in these results") shows the real types actually found, each with a count; clicking one re-searches scoped to that exact type and headings switch to the real type name (so a less-common type like `PersonRole` gets its own clear heading instead of a generic "Other" bucket). There's no pre-search category picker — Egeria has several hundred entity types, more than any fixed list could usefully cover.
 
 ---
 

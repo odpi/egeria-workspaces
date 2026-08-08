@@ -266,7 +266,7 @@ Output: Available glossaries:
 
 ## Egeria Explorer
 
-The PyegeriaWebHandler includes a built-in **Egeria Explorer** — an interactive browser for the live Egeria metadata ecosystem. It is a single-page application, all read-only, all backed by live Egeria API calls. Tabs are grouped into three nav groups in the header bar: **Type System** (Type Explorer, Valid Values, REST APIs, Python API), **Review** (Glossary, Reference Data, Data Design, Collections, Solution Architect, Supply Chains, Locations, Actors, Communities, Business Capabilities, Note Logs, Naming Vocabulary, Policy Enforcement, Action Center, Duplicate Review, Perspectives, Governance Definitions, Projects, Informal Tags, Context Events, External References, External Identifiers, Agreements), and **Act** (Digital Products, Report Specs, Dr. Egeria). Many sections include a **TimeSlider** ("As of date") for point-in-time browsing.
+The PyegeriaWebHandler includes a built-in **Egeria Explorer** — an interactive browser for the live Egeria metadata ecosystem. It is a single-page application, all read-only, all backed by live Egeria API calls. Tabs are grouped into three nav groups in the header bar: **Reference** (Type Explorer, Valid Values, REST APIs, Python API), **Review** (Glossary, Reference Data, Data Design, Collections, Solution Architect, Supply Chains, Locations, Actors, Communities, Business Capabilities, Note Logs, Naming Vocabulary, Policy Enforcement, Action Center, Duplicate Review, Perspectives, Governance Definitions, Projects, Informal Tags, Context Events, External References, External Identifiers, Agreements), and **Explore** (Digital Products, Report Specs, Analytic Functions, Dr. Egeria). **Search** (cross-catalog keyword search) is a fourth capability reached from the Home splash screen rather than a persistent nav group. Many sections include a **TimeSlider** ("As of date") for point-in-time browsing.
 
 ![Egeria Explorer — Glossary tab](../../../../docs/images/Glossary.png)
 
@@ -297,6 +297,18 @@ The explorer opens to a **Home** splash screen on first load. Tabs are grouped i
 The initial view shown when the application loads. It presents a one-paragraph description of the tool and a card for each capability, grouped the same way as the nav bar. Each card shows an icon, title, and short description of what that section does. Clicking **Open →** on any card navigates directly to that section. The **⌂ Home** tab in the header returns to this screen from any section.
 
 No Egeria connection or data fetch is required to display the splash screen.
+
+#### Search
+
+A full-width card at the top of the Home splash screen (`ExplorerSearchView` in `type-explorer.html`, backed by `GET /api/catalog/search` in `catalog_search_handler.py`) — cross-catalog keyword search across every element type in one call, not a per-tab filter.
+
+- Searches `displayName`, `qualifiedName`, `description`, and `name` via `ClassificationExplorer.find_elements_by_property_value`, with `graph_query_depth=0` (results never use relationship-graph data, so the default depth-3 traversal was pure waste on every keystroke search).
+- Results are grouped into headed sections by real `typeName` (e.g. "RelationalColumn (12)"), **not** by the curated `_TYPE_CATEGORY` bucket a type happens to fall into — that bucket only covers ~40 of several hundred real Egeria types, so grouping by it collapsed most results under a generic "Other" heading. `categoryId` is still used to pick a decorative icon per heading, never as the label.
+- **Type facets** ("Types in these results:") are computed from the actual result set and shown as toggleable chips — there is no pre-search type/category picker, since a curated list can only ever cover a slice of the real type system (and one earlier entry, `DeployedImplementationType`, turned out to be a classification rather than an entity type, 400ing the whole search the moment it was used as an Egeria `metadata_element_subtypes` filter).
+- Selecting a facet chip re-searches **server-side**, scoped to that exact `typeName` via `metadata_element_subtypes` — safe here because the type name came from a real prior result, not a guess. This also fixes a completeness gap plain client-side filtering would have: `page_size` caps the base search, so a less-common type could be crowded out of that first page; scoping the search itself gets a complete count for it. The base search's facet list stays visible across scoped re-searches (a scoped response's own facets would only ever show the type it was scoped to).
+- If a previously-valid type turns out stale (server's type system changed), the endpoint retries unrestricted and flags `typeFilterDropped: true` in the response rather than 500ing.
+
+The Catalog's `SearchView` (`tech-catalog.html`) hits the same `/api/catalog/search` endpoint and behaves identically.
 
 #### Type System
 
@@ -343,6 +355,7 @@ Browses glossaries, folders, and terms.
 - Term detail shows all term properties (display name, summary, description, examples, usage, abbreviation, content status, activity status) plus folder memberships.
 - **Template substitutes** — terms carrying the `TemplateSubstitute` classification are template placeholder entries, not real user-facing terms. They are hidden by default. A checkbox in the middle pane header ("Show template substitutes") reveals them; hidden ones are counted in a "N templates hidden" note. Template substitutes appear in the list with an amber `template` badge; when opened in the detail panel they are labelled **Template Substitute**. Terms copied from a template (but not themselves substitutes) show a lighter **From Template** badge.
 - Click **▦ Load Context Diagram** on any term to render its diagram.
+- **Assigned Elements** ("Where is this used?", click-to-load) — the reverse of a schema/data-field's assigned-term badge (see The Catalog's Schema pane and Data Design's `assignedMeanings` below): every physical and logical element `SemanticAssignment`-linked to this term, split into two lists, so a physical `RelationalColumn` and a logical `DataField` that mean the same thing show up together even though they live in different apps/tabs. Backed by `GET /api/glossary/term/{guid}/assigned-elements`; shared component `AssignedElementsSection` in `egeria-shared-ui.js`, used identically by The Catalog.
 
 #### Report Specs
 
@@ -431,6 +444,8 @@ Five sub-navigations in the left sidebar:
 - **Classes** — `DataClass` elements, reusable data type classifications.
 
 Each sub-view has a search filter and shows element cards. Selecting an element opens its detail panel with all properties plus linked related elements (e.g., the parent structure for a field, or the data class assigned to a field). Context diagrams are available for all element types.
+
+A Data Field's or Data Structure's `SemanticAssignment`/`DataValueAssignment` links (the logical-side half of the physical↔logical↔semantic bridge — see Glossary's Assigned Elements and The Catalog's Schema pane above) already come back generically as `assignedMeanings`/`assignedDataClasses` keys (`_extract_all_rels` in `data_design_handler.py` scans every list-typed key on the element response, relationship-type-agnostic). `renderAllRels` in `type-explorer.html` gives these two keys distinct labels/icons (🧠 Assigned Glossary Terms, 🏷️ Assigned Data Classes) instead of the raw camelCase every other relationship-list key gets, since they're the bridge's logical-side endpoint.
 
 #### Perspectives
 
@@ -606,6 +621,18 @@ All Glossary endpoints accept an optional `as_of_time` query param (ISO 8601 tim
 Query param: `q` (search string, default `*`).
 
 **`GET /api/glossary/term/{guid}`** — Single term by GUID.
+
+**`GET /api/glossary/term/{guid}/assigned-elements`** — Physical and logical elements assigned this term via `SemanticAssignment`.
+
+Backed by `semantic_links.py` (one bounded `SemanticAssignment` relationship fetch, reusing the pattern `insights_handler.py` already debugged for this relationship type — see its module docstring for the confirmed-live participant-type caveat). Response: `{ termGuid, physical: [...], logical: [...], other: [...], total }`, split via `catalog_search_handler.py`'s `_TYPE_CATEGORY` map (logical = `DataField`/`DataStructure`/`DataClass`/`DataGrain`).
+
+#### Search
+
+**`GET /api/catalog/search`** — Cross-catalog keyword search. See the [Search](#search) UI section above for behaviour; documented here as it's shared by both Egeria Explorer and The Catalog.
+
+Query params: `q` (required, min length 1), `types` (repeatable — exact typeNames to scope the search to, expected to come from a prior response's `typeFacets`, not a curated/guessed list), `page_size` (default 100, max 500), plus standard connection params.
+
+Response: `{ query, typeFacets: [{typeName, categoryId, count}, ...], total, groups: [{categoryId, categoryLabel, items, count}, ...], typeFilterDropped }`. Each item carries `guid`, `typeName`, `superTypeNames`, `displayName`, `qualifiedName`, `description`, `categoryId`, `categoryLabel`.
 
 #### Digital Products
 
@@ -884,6 +911,7 @@ The **Catalog** (`🐱` tile) is a multi-section SPA for browsing all asset type
 
 | Section | What it shows |
 |---------|---------------|
+| Search | Cross-catalog keyword search — see [Search](#search) under Egeria Explorer above; same `/api/catalog/search` endpoint, same behaviour |
 | Infrastructure Assets | Servers, storage, networks, software capabilities, endpoints |
 | Data Assets | Data stores, data feeds, data sets |
 | APIs | Deployed APIs and endpoints |
@@ -893,6 +921,8 @@ The **Catalog** (`🐱` tile) is a multi-section SPA for browsing all asset type
 | Technology Types | Open metadata type definitions, catalog templates, governance processes |
 
 Each section has a searchable list on the left and a detail panel on the right. The detail panel shows properties, classifications, relationships (with cross-links to other sections or Egeria Explorer), schema (if present), lineage (for asset types), and annotations (for survey reports).
+
+**Schema pane** — physical schema attributes (`RelationalColumn`, etc.) that carry a `SemanticAssignment` show a 🧠 badge with a fold-out listing the assigned glossary term(s), each clickable via the same "View →" navigation as elsewhere (`SchemaRow`/`SchemaPane` in `tech-catalog.html`, `semantic_links.terms_for_element_guids` batched once per schema-tree load rather than per-node). This is the physical-side half of the physical↔logical↔semantic bridge — see Egeria Explorer's Glossary and Data Design sections above for the logical side and the reverse "Where is this used?" lookup.
 
 Point-in-time browsing (As-Of time slider) is supported on asset sections. Resizable columns in tables, resizable list/detail split panes throughout.
 
