@@ -34,6 +34,22 @@ Options:
   --remote-password PASS
                       SSH password for remote sync operations (requires sshpass).
   --only-sync         Perform sync operations and exit without starting Egeria.
+  --egeria-memory SIZE
+                      Set egeria-main's container memory cap (Docker/Podman
+                      `mem_limit` syntax, e.g. 4g, 8g, 10240m). Defaults to 6g
+                      if never set. Persists in
+                      compose-configs/egeria-quickstart/.env, so it only needs
+                      to be passed once — plain re-runs without this flag keep
+                      using the last value set. Raise this if egeria-main is
+                      being OOM-killed (exit 137); lower it if your machine's
+                      total memory is tight and other containers are starving.
+  --skip-unity-catalog
+                      Don't deploy the Unity Catalog demo containers (the two
+                      Unity Catalog servers + UIs from
+                      compose-configs/optional-associated-runtimes/unity-catalog,
+                      used for the Coco Pharmaceuticals clinical_trials
+                      scenario). Deployed automatically by default; failure
+                      only warns, startup continues either way.
   -h, --help          Show this help text.
 EOF
 }
@@ -45,6 +61,8 @@ SYNC_TO=""
 REMOTE_USER="${REMOTE_USER:-}"
 REMOTE_PASSWORD="${REMOTE_PASSWORD:-}"
 ONLY_SYNC=0
+EGERIA_MEM_LIMIT="${EGERIA_MEM_LIMIT:-}"
+SKIP_UNITY_CATALOG=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --refresh-platform)
@@ -53,6 +71,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --demo)
       DEMO_MODE_FLAG=1
+      shift
+      ;;
+    --egeria-memory)
+      EGERIA_MEM_LIMIT="$2"
+      shift 2
+      ;;
+    --skip-unity-catalog)
+      SKIP_UNITY_CATALOG=1
       shift
       ;;
     --sync-from)
@@ -329,6 +355,10 @@ EOF
   fi
 
   # Generate/update .env and normalize exchange-quickstart/config/config.json
+  # gen-env.sh runs as a separate process -- EGERIA_MEM_LIMIT must be
+  # exported (not just set) for its --egeria-memory value to be visible
+  # there as the highest-priority tier (see gen-env.sh).
+  export EGERIA_MEM_LIMIT
   ./gen-env.sh
 
   # Append demo vars to .env immediately after gen-env.sh (which rewrites it each run)
@@ -491,15 +521,32 @@ else
 fi
 popd >/dev/null
 
+if [[ "$SKIP_UNITY_CATALOG" -eq 0 ]]; then
+  echo "[quick-start-local] Starting Unity Catalog demo containers (clinical_trials scenario)..."
+  UC_COMPOSE_DIR="compose-configs/optional-associated-runtimes/unity-catalog"
+  if [[ -f "${UC_COMPOSE_DIR}/uc-ui-compose.yaml" ]]; then
+    $COMPOSE_CMD -f "${UC_COMPOSE_DIR}/uc-ui-compose.yaml" -p unitycatalog-egeria up -d \
+      || echo "[quick-start-local] WARNING: Unity Catalog containers did not start. Core services are unaffected. Skip with --skip-unity-catalog." >&2
+  else
+    echo "[quick-start-local] WARNING: ${UC_COMPOSE_DIR}/uc-ui-compose.yaml not found; skipping Unity Catalog." >&2
+  fi
+fi
+
 echo "[quick-start-local] Done. Useful URLs:"
 HOST_FQDN_PRINT=$(grep '^HOST_FQDN=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "localhost")
 KAFKA_CLUSTER_ID_PRINT=$(grep '^KAFKA_CLUSTER_ID=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "42")
+EGERIA_MEM_LIMIT_PRINT=$(grep '^EGERIA_MEM_LIMIT=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "6g")
 echo "  - Effective HOST_FQDN: ${HOST_FQDN_PRINT}"
 echo "  - Effective KAFKA_CLUSTER_ID: ${KAFKA_CLUSTER_ID_PRINT}"
+echo "  - Effective EGERIA_MEM_LIMIT: ${EGERIA_MEM_LIMIT_PRINT}"
 echo "  - Egeria (platform): https://${HOST_FQDN_PRINT:-localhost}:9443"
 echo "  - JupyterHub:        http://${HOST_FQDN_PRINT:-localhost}:8888  (password: egeria)"
 echo "  - Obsidian (local):  http://localhost:8860  (WebRTC works on localhost only)"
 echo "  - Obsidian (remote): https://${HOST_FQDN_PRINT:-localhost}:8861 (accept self-signed cert in browser)"
+if [[ "$SKIP_UNITY_CATALOG" -eq 0 ]]; then
+  echo "  - Unity Catalog (coco):    http://${HOST_FQDN_PRINT:-localhost}:8087  (UI: http://${HOST_FQDN_PRINT:-localhost}:3010)"
+  echo "  - Unity Catalog (server2): http://${HOST_FQDN_PRINT:-localhost}:8187  (UI: http://${HOST_FQDN_PRINT:-localhost}:3020)"
+fi
 if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
   _https_port_final="${_https_port:-443}"
   _site_url_final="$(grep '^DEMO_SITE_URL=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "https://${HOST_FQDN_PRINT:-localhost}")"

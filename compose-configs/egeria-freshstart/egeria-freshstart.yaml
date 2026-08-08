@@ -61,6 +61,12 @@ services:
     ports:
       - '8443:8443'
       - '5006:5005'
+    # Mirrors quickstart's egeria-main memory cap (see egeria-quickstart.yaml)
+    # — same rationale: the JVM is normally the heaviest consumer in a shared
+    # Docker Desktop VM memory pool. Configurable via EGERIA_MEM_LIMIT (see
+    # gen-env.sh) — ./fresh-start-local --egeria-memory <SIZE> sets it; 6g if
+    # unset.
+    mem_limit: ${EGERIA_MEM_LIMIT:-6g}
     logging:
       driver: "json-file"
       options:
