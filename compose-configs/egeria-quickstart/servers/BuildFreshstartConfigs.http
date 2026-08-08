@@ -182,6 +182,38 @@ Content-Type: text/plain
 content-packs/PostgresContentPack.omarchive
 
 ###
+# Add the file name for an open Metadata Archive that should be loaded each time the server starts.
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-metadata-store/open-metadata-archives/file
+Authorization: Bearer {{token}}
+Content-Type: text/plain
+
+content-packs/MSSQLContentPack.omarchive
+
+###
+# Add the file name for an open Metadata Archive that should be loaded each time the server starts.
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-metadata-store/open-metadata-archives/file
+Authorization: Bearer {{token}}
+Content-Type: text/plain
+
+content-packs/OracleContentPack.omarchive
+
+###
+# Add the file name for an open Metadata Archive that should be loaded each time the server starts.
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-metadata-store/open-metadata-archives/file
+Authorization: Bearer {{token}}
+Content-Type: text/plain
+
+content-packs/DB2LUWContentPack.omarchive
+
+###
+# Add the file name for an open Metadata Archive that should be loaded each time the server starts.
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-metadata-store/open-metadata-archives/file
+Authorization: Bearer {{token}}
+Content-Type: text/plain
+
+content-packs/DuckDBContentPack.omarchive
+
+###
 # Add the file name for an Open Metadata Archive that should be loaded each time the server starts.
 POST {{baseURL}}/open-metadata/admin-services/servers/fs-metadata-store/open-metadata-archives/file
 Authorization: Bearer {{token}}
@@ -457,6 +489,94 @@ Content-Type: application/json
     },
     {
       "class": "EngineConfig",
+      "engineId": "1bed801f-1a2d-4662-a5d1-bbd83086845a",
+      "engineQualifiedName": "MSSQLSurvey",
+      "engineUserId": "mssqlsurveyengine",
+      "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
+      "omagserverName": "fs-metadata-store",
+      "secretsStoreProvider" : "~{secretsStoreProvider}~",
+      "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
+      "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~"
+    },
+    {
+      "class": "EngineConfig",
+      "engineId": "544c33c8-2222-4bcb-a2bd-e3c496d4dd5e",
+      "engineQualifiedName": "MSSQLGovernance",
+      "engineUserId": "mssqlgovernanceengine",
+      "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
+      "omagserverName": "fs-metadata-store",
+      "secretsStoreProvider" : "~{secretsStoreProvider}~",
+      "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
+      "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~"
+    },
+    {
+      "class": "EngineConfig",
+      "engineId": "11b4e590-cd3e-4d1b-89d9-978ab615ad6a",
+      "engineQualifiedName": "OracleSurvey",
+      "engineUserId": "oraclesurveyengine",
+      "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
+      "omagserverName": "fs-metadata-store",
+      "secretsStoreProvider" : "~{secretsStoreProvider}~",
+      "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
+      "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~"
+    },
+    {
+      "class": "EngineConfig",
+      "engineId": "3b3771fb-6472-4bde-a993-d9584f02db68",
+      "engineQualifiedName": "OracleGovernance",
+      "engineUserId": "oraclegovernanceengine",
+      "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
+      "omagserverName": "fs-metadata-store",
+      "secretsStoreProvider" : "~{secretsStoreProvider}~",
+      "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
+      "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~"
+    },
+    {
+      "class": "EngineConfig",
+      "engineId": "c9942409-dc51-4c9a-8c10-cef6472bad1f",
+      "engineQualifiedName": "DB2LUWSurvey",
+      "engineUserId": "db2luwsurveyengine",
+      "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
+      "omagserverName": "fs-metadata-store",
+      "secretsStoreProvider" : "~{secretsStoreProvider}~",
+      "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
+      "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~"
+    },
+    {
+      "class": "EngineConfig",
+      "engineId": "2620f5cc-67d2-43b6-a715-a79f06dd1ee4",
+      "engineQualifiedName": "DB2LUWGovernance",
+      "engineUserId": "db2luwgovernanceengine",
+      "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
+      "omagserverName": "fs-metadata-store",
+      "secretsStoreProvider" : "~{secretsStoreProvider}~",
+      "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
+      "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~"
+    },
+    {
+      "class": "EngineConfig",
+      "engineId": "95cecd7a-c9f9-4d94-8ee2-fff85943ee4b",
+      "engineQualifiedName": "DuckDBSurvey",
+      "engineUserId": "duckdbsurveyengine",
+      "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
+      "omagserverName": "fs-metadata-store",
+      "secretsStoreProvider" : "~{secretsStoreProvider}~",
+      "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
+      "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~"
+    },
+    {
+      "class": "EngineConfig",
+      "engineId": "63c71fad-c7ea-4781-9ef6-0bcb2d169ace",
+      "engineQualifiedName": "DuckDBGovernance",
+      "engineUserId": "duckdbgovernanceengine",
+      "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
+      "omagserverName": "fs-metadata-store",
+      "secretsStoreProvider" : "~{secretsStoreProvider}~",
+      "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
+      "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~"
+    },
+    {
+      "class": "EngineConfig",
       "engineId": "9b7a1da6-7882-41c7-b838-0e297787972f",
       "engineQualifiedName": "ApacheAtlasSurvey",
       "engineUserId": "apacheatlassurveyengine",
@@ -608,7 +728,7 @@ Content-Type: application/json
 ###
 # Set up the common properties needed to call your event bus.  The value of ~{kafkaEndpoint}~ is resolved in the
 # application.properties file using the `platform.placeholder.variables` property.
-POST {{baseURL}}/open-metadata/admin-services/servers/fs-engine-host/event-bus
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-integration-daemon/event-bus
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -652,6 +772,15 @@ Content-Type: application/json
     },
     {
       "class": "IntegrationGroupConfig",
+      "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:Database",
+      "omagserverName": "fs-metadata-store",
+      "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
+      "secretsStoreProvider" : "~{secretsStoreProvider}~",
+      "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
+      "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~"
+    },
+    {
+      "class": "IntegrationGroupConfig",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
       "omagserverName" : "fs-metadata-store",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
@@ -667,15 +796,6 @@ Content-Type: application/json
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
       "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~",
       "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:OpenLineage"
-    },
-    {
-      "class": "IntegrationGroupConfig",
-      "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
-      "omagserverName" : "fs-metadata-store",
-      "secretsStoreProvider" : "~{secretsStoreProvider}~",
-      "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
-      "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~",
-      "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:Egeria"
     },
     {
       "class": "IntegrationGroupConfig",
@@ -715,6 +835,15 @@ Content-Type: application/json
     },
     {
       "class": "IntegrationGroupConfig",
+      "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
+      "omagserverName" : "fs-metadata-store",
+      "secretsStoreProvider" : "~{secretsStoreProvider}~",
+      "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
+      "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~",
+      "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:MSSQL"
+    },
+    {
+      "class": "IntegrationGroupConfig",
       "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:UnityCatalog",
       "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
@@ -724,18 +853,168 @@ Content-Type: application/json
     },
     {
       "class": "IntegrationGroupConfig",
-      "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:Jacquard",
-      "omagserverName": "fs-metadata-store",
       "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
+      "omagserverName" : "fs-metadata-store",
       "secretsStoreProvider" : "~{secretsStoreProvider}~",
       "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
-      "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~"
+      "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~",
+      "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:Oracle"
+    },
+    {
+      "class": "IntegrationGroupConfig",
+      "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
+      "omagserverName" : "fs-metadata-store",
+      "secretsStoreProvider" : "~{secretsStoreProvider}~",
+      "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
+      "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~",
+      "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:DB2LUW"
+    },
+    {
+      "class": "IntegrationGroupConfig",
+      "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
+      "omagserverName" : "fs-metadata-store",
+      "secretsStoreProvider" : "~{secretsStoreProvider}~",
+      "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
+      "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~",
+      "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:DuckDB"
     }
 ]
 
 ###
 # Set up the connection for the server security connector.  This connector verifies the authorization of any user calling the server's services.
 POST {{baseURL}}/open-metadata/admin-services/servers/fs-integration-daemon/security/connection
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "class": "VirtualConnection",
+  "connectorType": {
+    "class": "ConnectorType",
+    "connectorProviderClassName": "org.odpi.openmetadata.metadatasecurity.accessconnector.OpenMetadataAccessSecurityProvider"
+  },
+  "embeddedConnections" : [{
+    "class": "EmbeddedConnection",
+    "embeddedConnection" :
+    {
+      "class" : "Connection",
+      "connectorType" :
+      {
+        "class" : "ConnectorType",
+        "connectorProviderClassName" : "~{secretsStoreProvider}~"
+      },
+      "endpoint" :
+      {
+        "class" : "Endpoint",
+        "networkAddress" : "~{userDirectorySecretsStore}~"
+      },
+      "configurationProperties" :
+      {
+        "secretsCollectionName" : "~{userDirectorySecretsCollectionName}~"
+      }
+    }
+  }
+  ]
+}
+
+###
+# ---------------------------------------
+# Integration Daemon: fs-nanny-daemon
+#
+###
+# Set up the basic properties of the server.
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-nanny-daemon/server-properties
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "class" : "ServerPropertiesRequestBody",
+  "localServerDescription" : "A server that runs integration connectors that monitor, extract and analyse metadata to create new insight and digital products.",
+  "organizationName" : "~{organizationName}~",
+  "localServerURL" : "~{egeriaEndpoint}~",
+  "localServerUserId" : "fsnannynpa",
+  "secretsStoreProvider" : "~{secretsStoreProvider}~",
+  "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
+  "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~",
+  "maxPageSize" : 1000
+}
+
+###
+# Set up the common properties needed to call your event bus.  The value of ~{kafkaEndpoint}~ is resolved in the
+# application.properties file using the `platform.placeholder.variables` property.
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-nanny-daemon/event-bus
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "producer":
+  {
+    "bootstrap.servers":"~{kafkaEndpoint}~"
+  },
+  "consumer":
+  {
+    "bootstrap.servers":"~{kafkaEndpoint}~"
+  }
+}
+
+###
+# Add the event topic audit log destination to the server's configuration document.  The list of severities that are sent to this destination are passed on the request body.  An empty list means all severities.
+# The server may have multiple audit log destinations configured.  Typically each destination has a different subset of the severities configured.
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-nanny-daemon/audit-log-destinations/event-topic?topicName=egeria.omag.server.quickstart.ffdc.audit-logs
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+["Error", "Exception", "Activity", "Action", "Decision", "Security", "Cohort"]
+
+
+###
+# Set up the qualified name of the integration group that this server supports and the location of the
+# metadata access store fs-metadata-store
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-nanny-daemon/integration-groups/configuration/all
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+[
+  {
+    "class": "IntegrationGroupConfig",
+    "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:Egeria",
+    "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
+    "omagserverName" : "fs-metadata-store",
+    "secretsStoreProvider" : "~{secretsStoreProvider}~",
+    "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
+    "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~"
+  },
+  {
+    "class": "IntegrationGroupConfig",
+    "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:Jacquard",
+    "omagserverName": "fs-metadata-store",
+    "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
+    "secretsStoreProvider" : "~{secretsStoreProvider}~",
+    "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
+    "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~"
+  },
+  {
+    "class": "IntegrationGroupConfig",
+    "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:Babbage",
+    "omagserverName": "fs-metadata-store",
+    "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
+    "secretsStoreProvider" : "~{secretsStoreProvider}~",
+    "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
+    "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~"
+  },
+  {
+    "class": "IntegrationGroupConfig",
+    "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:Liskov",
+    "omagserverName": "fs-metadata-store",
+    "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
+    "secretsStoreProvider" : "~{secretsStoreProvider}~",
+    "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
+    "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~"
+  }
+]
+
+###
+# Set up the connection for the server security connector.  This connector verifies the authorization of any user calling the server's services.
+POST {{baseURL}}/open-metadata/admin-services/servers/fs-nanny-daemon/security/connection
 Authorization: Bearer {{token}}
 Content-Type: application/json
 

@@ -1033,3 +1033,287 @@ https://egeria-project.org/concepts/literate-governance/
 ACTIVE
 
 ___
+
+---
+
+## Part 5: Worked Example — Data Sharing Agreement
+
+Authoritative Sources are only useful once the terms on which they may be consumed are made explicit. This worked
+example uses the new `Create Data Sharing Agreement` command to instantiate a real agreement, and attaches it to
+the Authoritative Sources solution component as a resource.
+
+___
+
+## Create Data Sharing Agreement
+
+### Display Name
+Authoritative Sources Data Sharing Agreement
+
+### Agreement Type
+Data Sharing Agreement
+
+### Description
+Defines the terms under which the systems designated as Authoritative Sources make their data available for consumption by Continuous Analytics and AI, and for propagation through the Optimized Information Supply Chains.
+
+### Qualified Name
+CocoPharma::Agreement::AuthoritativeSourcesDataSharingAgreement
+
+### Authors
+- Jules Keeper
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+---
+
+___
+
+## Attach Collection to Resource
+
+### Element Id
+CocoPharma::SolutionComponent::AuthoritativeSources
+
+### Label
+Data Sharing Agreement
+
+### Description
+Links the Authoritative Sources solution component to the agreement that governs how its data may be shared.
+
+### Resource Use
+Related Information
+
+### Collection Id
+CocoPharma::Agreement::AuthoritativeSourcesDataSharingAgreement
+
+___
+
+---
+
+## Part 6: More Information — Solution Components to Glossary Terms
+
+Each solution component is linked, via `Link More Information`, to the glossary term(s) in the Data Sharing
+Glossary that best explain it.
+
+___
+
+## Link More Information
+
+### Target Element
+CocoPharma::SolutionComponent::MultiFacetedGovernanceModel
+
+### More Information Resource
+Glossary::DataSharingGlossary::Governance
+
+### Label
+Governance
+
+___
+
+---
+
+___
+
+## Link More Information
+
+### Target Element
+CocoPharma::SolutionComponent::MultiFacetedGovernanceModel
+
+### More Information Resource
+Glossary::DataSharingGlossary::MultiFacetedGovernance
+
+### Label
+Multi-faceted Governance
+
+___
+
+---
+
+___
+
+## Link More Information
+
+### Target Element
+CocoPharma::SolutionComponent::DataEnabledEmployees
+
+### More Information Resource
+Glossary::DataSharingGlossary::Glossary
+
+### Label
+Glossary
+
+___
+
+---
+
+___
+
+## Link More Information
+
+### Target Element
+CocoPharma::SolutionComponent::DataEnabledEmployees
+
+### More Information Resource
+Glossary::DataSharingGlossary::DataDictionary
+
+### Label
+Data Dictionary
+
+___
+
+---
+
+___
+
+## Link More Information
+
+### Target Element
+CocoPharma::SolutionComponent::ContinuousAnalyticsAndAI
+
+### More Information Resource
+Glossary::DataSharingGlossary::ArtificialIntelligence
+
+### Label
+Artificial Intelligence
+
+___
+
+---
+
+___
+
+## Link More Information
+
+### Target Element
+CocoPharma::SolutionComponent::AuthoritativeSources
+
+### More Information Resource
+Glossary::DataSharingGlossary::AuthoritativeSource
+
+### Label
+Authoritative Source
+
+___
+
+---
+
+___
+
+## Link More Information
+
+### Target Element
+CocoPharma::SolutionComponent::AuthoritativeSources
+
+### More Information Resource
+Glossary::DataSharingGlossary::DataSharingAgreement
+
+### Label
+Data Sharing Agreement
+
+___
+
+---
+
+___
+
+## Link More Information
+
+### Target Element
+CocoPharma::SolutionComponent::OptimizedInformationSupplyChains
+
+### More Information Resource
+Glossary::DataSharingGlossary::InformationSupplyChain
+
+### Label
+Information Supply Chain
+
+___
+
+---
+
+___
+
+## Link More Information
+
+### Target Element
+CocoPharma::SolutionComponent::OptimizedInformationSupplyChains
+
+### More Information Resource
+Glossary::DataSharingGlossary::Lineage
+
+### Label
+Lineage
+
+___
+
+---
+
+___
+
+## Link More Information
+
+### Target Element
+CocoPharma::SolutionComponent::DataDrivenSystemsArchitecture
+
+### More Information Resource
+Glossary::DataSharingGlossary::DataHub
+
+### Label
+Data Hub
+
+___
+
+---
+
+___
+
+## Link More Information
+
+### Target Element
+CocoPharma::SolutionComponent::DataDrivenSystemsArchitecture
+
+### More Information Resource
+Glossary::DataSharingGlossary::Schema
+
+### Label
+Schema
+
+___
+
+---
+
+___
+
+## Link More Information
+
+### Target Element
+CocoPharma::SolutionComponent::CommonDataDefinitions
+
+### More Information Resource
+Glossary::DataSharingGlossary::GlossaryTerm
+
+### Label
+Glossary Term
+
+___
+
+---
+
+___
+
+## Link More Information
+
+### Target Element
+CocoPharma::SolutionComponent::CommonDataDefinitions
+
+### More Information Resource
+Glossary::DataSharingGlossary::SubjectArea
+
+### Label
+Subject Area
+
+___
