@@ -2,7 +2,7 @@
 # These commands rebuild the sample configuration documents for fs-metadata-store,
 # fs-view-server, fs-engine-host and fs-integration-daemon.  They use IntelliJ's HTTP Client.
 #
-@baseURL=https://localhost:9443
+@baseURL=https://localhost:7443
 @adminUserId=garygeeke
 @auditLogTopic=logging
 
@@ -1009,6 +1009,15 @@ Content-Type: application/json
     "secretsStoreProvider" : "~{secretsStoreProvider}~",
     "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
     "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~"
+  },
+  {
+    "class": "IntegrationGroupConfig",
+    "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
+    "omagserverName" : "fs-metadata-store",
+    "secretsStoreProvider" : "~{secretsStoreProvider}~",
+    "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
+    "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~",
+    "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:SmartCollections"
   }
 ]
 

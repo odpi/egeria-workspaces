@@ -2,7 +2,7 @@
 # These commands rebuild the sample configuration documents for qs-metadata-store,
 # qs-view-server, qs-engine-host and qs-integration-daemon.  They use IntelliJ's HTTP Client.
 #
-@baseURL=https://localhost:9443
+@baseURL=https://localhost:7443
 @adminUserId=garygeeke
 @auditLogTopic=logging
 
@@ -1057,6 +1057,15 @@ Content-Type: application/json
     "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
     "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~",
     "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:Liskov"
+  },
+  {
+    "class": "IntegrationGroupConfig",
+    "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
+    "omagserverName" : "qs-metadata-store",
+    "secretsStoreProvider" : "~{secretsStoreProvider}~",
+    "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
+    "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~",
+    "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:SmartCollections"
   }
 ]
 
