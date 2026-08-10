@@ -653,6 +653,33 @@ def _serialize_schema(el: dict, mgr=None) -> dict:
         return nodes
 
     attributes = _children_of(schema_type_guid, {schema_type_guid})
+
+    # Badge each node with its assigned glossary term(s), if any -- one bounded
+    # SemanticAssignment fetch for the whole tree (see semantic_links.py), not
+    # one relationship call per node.
+    if mgr is not None and attributes:
+        def _collect_guids(nodes, out):
+            for n in nodes:
+                if n.get("guid"):
+                    out.add(n["guid"])
+                _collect_guids(n.get("children") or [], out)
+            return out
+
+        try:
+            from semantic_links import terms_for_element_guids
+            ce = _classification_explorer_from_asset_maker(mgr)
+            terms_by_guid = terms_for_element_guids(ce, _collect_guids(attributes, set()))
+        except Exception:
+            logger.debug("schema tree: could not resolve assigned glossary terms")
+            terms_by_guid = {}
+
+        if terms_by_guid:
+            def _apply_terms(nodes):
+                for n in nodes:
+                    n["assignedTerms"] = terms_by_guid.get(n.get("guid"), [])
+                    _apply_terms(n.get("children") or [])
+            _apply_terms(attributes)
+
     return {"schemaType": schema_type, "attributes": attributes}
 
 

@@ -9,7 +9,7 @@ Endpoints:
 """
 
 import os
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
@@ -128,6 +128,17 @@ def _token_from_request(request: Request) -> Optional[str]:
     return request.headers.get("X-Egeria-Token") or None
 
 
+def _is_unrecognized_type_error(exc: Exception) -> bool:
+    """True if `exc` looks like Egeria's OMAG-COMMON-400-018 ("type name ...
+    is not recognized"), the error a bad/stale metadata_element_subtypes entry
+    produces. Used to fall back to an unrestricted search rather than 500 the
+    whole request when a scoped re-search's type turns out to be invalid
+    (e.g. the connected server's type system changed since a stale typeFacets
+    value was cached client-side)."""
+    s = str(exc)
+    return "OMAG-COMMON-400-018" in s or "is not recognized" in s
+
+
 def _classification_explorer(url, server, user_id, user_pwd, token=None):
     resolved_url, resolved_server, resolved_uid, resolved_pwd = _creds(url, server, user_id, user_pwd)
     ce = ClassificationExplorer(
@@ -180,6 +191,11 @@ def _serialize_search_result(el: dict) -> Optional[dict]:
 def catalog_search(
     request: Request,
     q: str = Query(..., min_length=1, description="Search query"),
+    types: Optional[List[str]] = Query(
+        None,
+        description="Restrict to these exact typeNames — expected to come from a prior "
+                    "response's typeFacets (already-validated real type names), not a "
+                    "client-guessed list. See docstring for why."),
     page_size: int = Query(_DEFAULT_PAGE_SIZE, ge=1, le=500),
     url: Optional[str] = Query(None),
     server: Optional[str] = Query(None),
@@ -188,27 +204,66 @@ def catalog_search(
 ):
     """Search across all element types using ClassificationExplorer.
 
-    Returns results grouped by category (glossary, data-assets, infrastructure, etc.).
-    Each item includes guid, typeName, displayName, qualifiedName, description, and
-    categoryId/categoryLabel for routing to the correct section in the UI.
+    Returns results grouped by category (glossary, data-assets, infrastructure, etc.),
+    plus ``typeFacets`` — the distinct real typeNames actually present in this
+    result set, each with a count. There's no pre-search category filter: Egeria
+    has several hundred entity types, so a fixed pre-search picker can only ever
+    cover a curated, incomplete slice (and, worse, one that's easy to get subtly
+    wrong -- see git history on this file for a type that turned out to be a
+    classification, not an entity type, and 400'd the whole search the moment it
+    was used as a metadata_element_subtypes filter).
+
+    ``types``, by contrast, IS applied server-side via metadata_element_subtypes
+    -- it's populated from a real prior result set, so it's known-valid (or was,
+    as of that response) rather than curated/guessed. This also fixes a
+    completeness gap plain client-side facet filtering has: `page_size` caps the
+    unrestricted first search, so a less-common type can be crowded out of that
+    page entirely; scoping the search itself to one type gets a complete count
+    for it, not whatever survived the cap. If the type turns out to be stale
+    (server's type system changed since the caller's typeFacets were fetched),
+    _is_unrecognized_type_error() catches Egeria's rejection and this endpoint
+    retries unrestricted rather than 500ing.
     """
     # Egeria treats '*' as None in the request body → 400 error.
     if q.strip() in ("*", ""):
         raise HTTPException(status_code=400, detail="Wildcard '*' search is not supported. Enter a specific search term.")
-    try:
-        ce = _classification_explorer(url, server, user_id, user_pwd, token=_token_from_request(request))
-        raw = ce.find_elements_by_property_value(
+
+    subtypes = sorted(set(types)) if types else None
+    type_filter_dropped = False
+    token = _token_from_request(request)
+
+    def _do_search(subtypes_):
+        ce = _classification_explorer(url, server, user_id, user_pwd, token=token)
+        return ce.find_elements_by_property_value(
             property_value=q,
             property_names=_SEARCH_PROPS,
+            metadata_element_subtypes=subtypes_,
             starts_with=False,
             ends_with=False,
             ignore_case=True,
+            # Search results (_serialize_search_result) only ever read
+            # elementHeader/properties, never relationship-graph data -- asking
+            # Egeria for the default graph_query_depth=3 traversal on every
+            # keystroke search was pure waste.
+            graph_query_depth=0,
             page_size=page_size,
             output_format="JSON",
         )
+
+    try:
+        raw = _do_search(subtypes)
     except Exception as exc:
-        logger.exception("catalog_search failed for q=%r", q)
-        raise HTTPException(status_code=500, detail=str(exc))
+        if subtypes and _is_unrecognized_type_error(exc):
+            logger.warning(f"catalog_search: type filter {subtypes} rejected by server, retrying unrestricted: {exc}")
+            type_filter_dropped = True
+            try:
+                raw = _do_search(None)
+            except Exception as exc2:
+                logger.exception("catalog_search failed for q=%r (unrestricted retry)", q)
+                raise HTTPException(status_code=500, detail=str(exc2))
+        else:
+            logger.exception("catalog_search failed for q=%r", q)
+            raise HTTPException(status_code=500, detail=str(exc))
 
     items = []
     for el in (raw if isinstance(raw, list) else []):
@@ -242,8 +297,19 @@ def catalog_search(
         if by_cat[cid]
     ]
 
+    # Facet on the real typeNames present in this result set (not the curated
+    # category list) -- see docstring above for why.
+    type_counts: dict[str, dict] = {}
+    for item in unique:
+        tn = item["typeName"] or "(unknown)"
+        entry = type_counts.setdefault(tn, {"typeName": tn, "categoryId": item["categoryId"], "count": 0})
+        entry["count"] += 1
+    type_facets = sorted(type_counts.values(), key=lambda t: (-t["count"], t["typeName"]))
+
     return JSONResponse({
         "query":  q,
+        "typeFacets": type_facets,
         "total":  len(unique),
         "groups": groups,
+        "typeFilterDropped": type_filter_dropped,
     })

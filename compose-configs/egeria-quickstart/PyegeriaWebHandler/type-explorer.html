@@ -1673,27 +1673,33 @@ function Sidebar({
 
 // ── Attribute Index ───────────────────────────────────────────────────────────
 
-function buildAttrIndex(rawData) {
+function buildAttrIndex(rawData, hideDeprecated) {
   const idx = {};
   const add = (attrName, entry) => {
     if (!idx[attrName]) idx[attrName] = [];
     idx[attrName].push(entry);
   };
-  for (const [n, t] of Object.entries(rawData.entities || {}))
+  for (const [n, t] of Object.entries(rawData.entities || {})) {
+    if (hideDeprecated && t.deprecated) continue;
     for (const p of (t.props || [])) add(p.name, { kind: 'entity', typeName: n, propType: p.type, req: p.req });
-  for (const [n, c] of Object.entries(rawData.classifications || {}))
+  }
+  for (const [n, c] of Object.entries(rawData.classifications || {})) {
+    if (hideDeprecated && c.deprecated) continue;
     for (const p of (c.props || [])) add(p.name, { kind: 'classification', typeName: n, propType: p.type, req: p.req });
-  for (const [n, r] of Object.entries(rawData.relationships || {}))
+  }
+  for (const [n, r] of Object.entries(rawData.relationships || {})) {
+    if (hideDeprecated && r.deprecated) continue;
     for (const p of (r.props || [])) add(p.name, { kind: 'relationship', typeName: n, propType: p.type, req: p.req });
+  }
   return idx;
 }
 
-function AttrIndexView({ rawData, onNavigateToType }) {
+function AttrIndexView({ rawData, onNavigateToType, hideDeprecated }) {
   const [search, setSearch] = useState('');
   const [selAttr, setSelAttr] = useState(null);
   const [sideW, onDivDown] = useResizable(254);
 
-  const attrIndex = useMemo(() => rawData ? buildAttrIndex(rawData) : {}, [rawData]);
+  const attrIndex = useMemo(() => rawData ? buildAttrIndex(rawData, hideDeprecated) : {}, [rawData, hideDeprecated]);
   const attrNames = useMemo(() => {
     const q = search.toLowerCase();
     return Object.keys(attrIndex).filter(k => !q || k.toLowerCase().includes(q)).sort();
@@ -4876,6 +4882,27 @@ const EXPLORER_SEARCH_CATEGORY_ICONS = {
   'apis':'🔗','processes':'⚙️','projects':'◉','surveys':'🔍','other':'📦',
 };
 
+// Result-list section headers group by real typeName, not categoryId --
+// categoryId/categoryLabel (_TYPE_CATEGORY in catalog_search_handler.py) only
+// curates ~40 of several hundred real Egeria types, so grouping the visible
+// list by it means most headings read as the generic "Other" bucket even
+// when a search was scoped to one exact, known type (e.g. selecting the
+// PersonRole facet still headed the list "Other"). Regrouping by typeName
+// here matches the same "trust the real result, not the curated bucket"
+// principle typeFacets already uses. categoryId is kept per-type only for
+// picking a (harmless, decorative) icon.
+function _groupExplorerSearchItemsByType(groups) {
+  const byType = {};
+  (groups || []).forEach(g => {
+    g.items.forEach(it => {
+      const key = it.typeName || '(unknown)';
+      if (!byType[key]) byType[key] = { typeName: key, categoryId: it.categoryId, items: [] };
+      byType[key].items.push(it);
+    });
+  });
+  return Object.values(byType).sort((a, b) => b.items.length - a.items.length || a.typeName.localeCompare(b.typeName));
+}
+
 function _explorerHlEsc(s) { return s.replace(/[&<>"]/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 function _explorerHl(text, q) {
   if (!text) return '';
@@ -4942,6 +4969,7 @@ function ExplorerSearchView({ creds, initialQuery, onNavigateToElement }) {
 
   const hasResults = data && data.total > 0;
   const facets = baseFacets || [];
+  const typeGroups = hasResults ? _groupExplorerSearchItemsByType(data.groups) : [];
 
   return React.createElement('div', { style: { display: 'flex', flex: 1, flexDirection: 'column', overflow: 'hidden' } },
     React.createElement('div', { style: { padding: '16px 20px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
@@ -4979,12 +5007,12 @@ function ExplorerSearchView({ creds, initialQuery, onNavigateToElement }) {
       err     && React.createElement('div', { style: { color: '#f87171', fontSize: 13, padding: 8 } }, 'Error: ' + err),
       !loading && !err && !data && q.trim().length < 2 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, padding: 8, textAlign: 'center', marginTop: 40 } }, 'Type at least 2 characters to search.'),
       !loading && data && data.total === 0 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, padding: 8, textAlign: 'center', marginTop: 40 } }, 'No results found for ' + JSON.stringify(data.query) + '.'),
-      !loading && hasResults && data.groups.map(grp =>
-        React.createElement('div', { key: grp.categoryId, style: { marginBottom: 20 } },
+      !loading && hasResults && typeGroups.map(grp =>
+        React.createElement('div', { key: grp.typeName, style: { marginBottom: 20 } },
           React.createElement('div', { style: { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 } },
             React.createElement('span', null, EXPLORER_SEARCH_CATEGORY_ICONS[grp.categoryId] || '📦'),
-            grp.categoryLabel,
-            React.createElement('span', { style: { fontWeight: 400, color: 'var(--dim)', textTransform: 'none', letterSpacing: 0 } }, '(' + grp.count + ')')
+            grp.typeName,
+            React.createElement('span', { style: { fontWeight: 400, color: 'var(--dim)', textTransform: 'none', letterSpacing: 0 } }, '(' + grp.items.length + ')')
           ),
           grp.items.map((item, i) =>
             React.createElement('div', { key: item.guid || i, style: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' } },
@@ -5000,7 +5028,12 @@ function ExplorerSearchView({ creds, initialQuery, onNavigateToElement }) {
                 ? React.createElement('button', {
                     onClick: function() { onNavigateToElement(item); },
                     style: { fontSize: 10, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }
-                  }, '↗ ' + (item.categoryLabel || 'View'))
+                  // Real typeName is already shown as its own badge above (line ~4994)
+                  // -- this used to fall back to item.categoryLabel, which is wrong/
+                  // misleading for the majority of real Egeria types: _TYPE_CATEGORY
+                  // only curates ~40 of several hundred, so most results showed the
+                  // generic "↗ Other" here regardless of their actual type.
+                  }, '↗ View')
                 : React.createElement('a', {
                     href: '/tech-catalog?guid=' + encodeURIComponent(item.guid),
                     target: '_blank',
@@ -10567,6 +10600,7 @@ function App() {
   const [error, setError]         = useState('');
   const [rawData, setRawData]     = useState(null);
   const [areaFilter, setAreaFilter] = useState('all');
+  const [hideDeprecated, setHideDeprecated] = useState(false);
   const [selected, setSelected]   = useState({ kind: 'type', name: '' });
   const [theme, setTheme]         = useState('dark');
   const [view, setView]           = useState('types'); // 'types' | 'attrs'
@@ -10801,16 +10835,22 @@ function App() {
     document.documentElement.classList.toggle('light', theme === 'light');
   }, [theme]);
 
-  // Filter entities by selected area (ancestors included in tree via visibleInTree)
+  // Filter entities by selected area and (optionally) deprecation status.
+  // Ancestors of a visible entity are always included in the tree via
+  // visibleInTree, same mechanism the area filter already relied on -- a
+  // deprecated (or off-area) supertype with a live descendant still shows up
+  // as scaffolding, just not as a directly-matching row. TreeNode's own
+  // `entities` prop is always the FULL unfiltered map (allEntities, see the
+  // root TreeNode call in Sidebar) so getSubs()/supertype lookups never break;
+  // visibleInTree is the only thing that decides what actually renders.
   const data = useMemo(() => {
     if (!rawData) return null;
     const area = areaFilter === 'all' ? null : parseInt(areaFilter);
-    const filteredEntities = area === null
-      ? rawData.entities
-      : Object.fromEntries(Object.entries(rawData.entities).filter(([, t]) => t.area === area));
+    const passesFilter = t => (area === null || t.area === area) && (!hideDeprecated || !t.deprecated);
+    const filteredEntities = Object.fromEntries(Object.entries(rawData.entities).filter(([, t]) => passesFilter(t)));
     const visibleInTree = new Set();
     Object.entries(rawData.entities).forEach(([n, t]) => {
-      if (area === null || t.area === area) {
+      if (passesFilter(t)) {
         let curr = n;
         while (curr && !visibleInTree.has(curr)) {
           visibleInTree.add(curr);
@@ -10818,8 +10858,19 @@ function App() {
         }
       }
     });
-    return { ...rawData, entities: filteredEntities, allEntities: rawData.entities, visibleInTree };
-  }, [rawData, areaFilter]);
+    const filteredClassifications = !hideDeprecated ? rawData.classifications
+      : Object.fromEntries(Object.entries(rawData.classifications).filter(([, c]) => !c.deprecated));
+    const filteredRelationships = !hideDeprecated ? rawData.relationships
+      : Object.fromEntries(Object.entries(rawData.relationships).filter(([, r]) => !r.deprecated));
+    return {
+      ...rawData,
+      entities: filteredEntities,
+      classifications: filteredClassifications,
+      relationships: filteredRelationships,
+      allEntities: rawData.entities,
+      visibleInTree,
+    };
+  }, [rawData, areaFilter, hideDeprecated]);
 
   const onSelect = useCallback((kind, name) => setSelected({ kind, name }), []);
 
@@ -10967,6 +11018,33 @@ function App() {
           if (first) setSelected({ kind: 'type', name: first });
         }
       }, Object.entries(AREA_NAMES).map(([k, v]) => /*#__PURE__*/React.createElement("option", { key: k, value: k }, v))),
+      /*#__PURE__*/React.createElement("label", {
+        style: { display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', color: 'var(--dim)', userSelect: 'none' },
+        title: "Hide deprecated entity types, classifications, and relationships (still marked, never removed, in Egeria itself)"
+      },
+        /*#__PURE__*/React.createElement("input", {
+          type: "checkbox",
+          checked: hideDeprecated,
+          onChange: e => {
+            const next = e.target.checked;
+            setHideDeprecated(next);
+            // If the currently-selected type just got hidden, jump to the
+            // first still-visible one in the current area -- same pattern
+            // the area-select's onChange already uses below.
+            if (next && selected.kind === 'type') {
+              const cur = rawData && rawData.entities[selected.name];
+              if (cur && cur.deprecated) {
+                const area = areaFilter === 'all' ? null : parseInt(areaFilter);
+                const first = Object.keys((rawData === null || rawData === void 0 ? void 0 : rawData.entities) || {})
+                  .find(n => (area === null || rawData.entities[n].area === area) && !rawData.entities[n].deprecated);
+                if (first) setSelected({ kind: 'type', name: first });
+              }
+            }
+          },
+          style: { margin: 0 }
+        }),
+        "Hide deprecated"
+      ),
       /*#__PURE__*/React.createElement("button", { className: "view-tab" + (view === 'attrs' ? " on" : ""), onClick: () => setView('attrs') }, "Attribute Index"),
       /*#__PURE__*/React.createElement("div", { style: { flex: 1 } }),
       view === 'types' && /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', display: 'flex', gap: 12 } },
@@ -11043,7 +11121,7 @@ function App() {
       : section !== 'type-system'
       ? /*#__PURE__*/React.createElement(PlaceholderView, { section: section })
       : view === 'attrs'
-        ? /*#__PURE__*/React.createElement(AttrIndexView, { rawData: rawData, onNavigateToType: onNavigateToType })
+        ? /*#__PURE__*/React.createElement(AttrIndexView, { rawData: rawData, onNavigateToType: onNavigateToType, hideDeprecated: hideDeprecated })
         : /*#__PURE__*/React.createElement("div", { className: "body" },
           /*#__PURE__*/React.createElement(Sidebar, { selected: selected, onSelect: onSelect, data: data, width: typeSideW }),
           /*#__PURE__*/React.createElement(ResizeDivider, { onMouseDown: onTypeDivDown }),

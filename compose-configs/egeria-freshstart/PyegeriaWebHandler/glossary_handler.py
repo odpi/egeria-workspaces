@@ -10,6 +10,7 @@ Endpoints:
   GET /api/glossary/{guid}/terms              → terms in a glossary or folder (by collection membership)
   GET /api/glossary-terms                     → cross-glossary term search
   GET /api/glossary/term/{guid}               → full detail for a single term
+  GET /api/glossary/term/{guid}/assigned-elements → physical/logical elements assigned this term
 """
 
 import os
@@ -65,6 +66,19 @@ def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     mgr = GlossaryManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
     apply_token(mgr)
     return mgr
+
+
+def _get_classification_explorer(url=None, server=None, user_id=None, user_pwd=None):
+    """ClassificationExplorer factory — needed alongside GlossaryManager only for
+    the assigned-elements lookup (get_relationships), same split other handlers use."""
+    from pyegeria import ClassificationExplorer
+    url     = url     or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server  = server  or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id = user_id or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    ce = ClassificationExplorer(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    apply_token(ce)
+    return ce
 
 
 def _props(element: dict) -> dict:
@@ -523,3 +537,50 @@ def get_term(
         raise HTTPException(status_code=404, detail=f"Term {term_guid!r} not found")
 
     return JSONResponse(_serialize_term(raw))
+
+
+@router.get("/api/glossary/term/{term_guid}/assigned-elements",
+            summary="Elements (physical and logical) assigned this term via SemanticAssignment")
+def get_term_assigned_elements(
+    term_guid: str,
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
+    """The reverse of a schema/data-field's "assigned terms" badge: given a
+    term, everything SemanticAssignment-linked to it, split physical vs
+    logical using catalog_search_handler's category map so the UI can show
+    "lives in these physical columns" and "modeled by these logical fields"
+    as two lists rather than one undifferentiated blob.
+    """
+    from catalog_search_handler import _TYPE_CATEGORY
+    from semantic_links import elements_for_term_guid
+
+    try:
+        ce = _get_classification_explorer(url, server, user_id, user_pwd)
+    except Exception as exc:
+        _raise_http(exc, "Failed to create ClassificationExplorer")
+
+    try:
+        elements = elements_for_term_guid(ce, term_guid)
+    except Exception as exc:
+        _raise_http(exc, "elements_for_term_guid failed")
+
+    physical, logical, other = [], [], []
+    _LOGICAL_TYPES = {"DataField", "DataStructure", "DataClass", "DataGrain"}
+    for el in elements:
+        if el["typeName"] in _LOGICAL_TYPES:
+            logical.append(el)
+        elif el["typeName"] in _TYPE_CATEGORY:
+            physical.append(el)
+        else:
+            other.append(el)
+
+    return JSONResponse({
+        "termGuid": term_guid,
+        "physical": physical,
+        "logical":  logical,
+        "other":    other,
+        "total":    len(elements),
+    })

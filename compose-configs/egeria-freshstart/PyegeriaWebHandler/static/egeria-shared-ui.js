@@ -864,6 +864,61 @@ function MermaidSection({ guid }) {
   );
 }
 
+/* Reverse SemanticAssignment lookup for a glossary term: "which physical and
+ * logical elements are assigned this term?" — split into two groups server-
+ * side (glossary_handler.py's /assigned-elements, backed by semantic_links.py)
+ * so a schema column and a Data Design DataField that mean the same thing
+ * show up together here, even though they live in different apps/tabs.
+ * Click-to-load, same convention as DiagramPanel above. */
+function AssignedElementsSection({ termGuid, onNavigateToElement, isElementLinkable }) {
+  const [data, setData]       = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [visible, setVisible] = React.useState(false);
+  const creds = React.useContext(CredContext);
+  var btnStyle = { fontSize: 12, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' };
+
+  function toggle() {
+    if (data === null && !loading) {
+      setLoading(true); setVisible(true);
+      egeriaFetch('/api/glossary/term/' + encodeURIComponent(termGuid) + '/assigned-elements', creds)
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(j) { setData(j || { physical: [], logical: [], other: [], total: 0 }); setLoading(false); })
+        .catch(function() { setData({ physical: [], logical: [], other: [], total: 0 }); setLoading(false); });
+    } else {
+      setVisible(function(v) { return !v; });
+    }
+  }
+
+  var btnLabel = visible ? '▦ Hide assigned elements'
+               : (data !== null ? '▦ Show assigned elements' : '▦ Where is this used? (physical & logical elements)');
+
+  function renderGroup(title, items) {
+    if (!items || !items.length) return null;
+    return React.createElement('div', { style: { marginBottom: 10 } },
+      React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', fontWeight: 600, marginBottom: 4 } }, title + ' (' + items.length + ')'),
+      items.map(function(el) {
+        var linkable = onNavigateToElement && isElementLinkable && isElementLinkable(el);
+        return React.createElement('div', { key: el.guid, style: { display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0', borderTop: '1px solid var(--border)' } },
+          React.createElement('span', { style: { flex: 1, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: el.qualifiedName || el.guid }, el.displayName || el.qualifiedName || el.guid),
+          el.typeName && React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)', flexShrink: 0 } }, el.typeName),
+          linkable && React.createElement('button', { onClick: function() { onNavigateToElement(el); }, style: { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(96,165,250,.4)', background: 'rgba(96,165,250,.08)', color: 'var(--accent)', cursor: 'pointer' } }, 'View →')
+        );
+      })
+    );
+  }
+
+  return React.createElement('div', { style: { margin: '4px 0 12px' } },
+    React.createElement('button', { onClick: toggle, style: btnStyle }, btnLabel),
+    visible && loading && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '6px 0' } }, 'Looking up assigned elements…'),
+    visible && !loading && data && data.total === 0 && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', padding: '4px 0' } }, 'No physical or logical elements are assigned this term yet.'),
+    visible && !loading && data && data.total > 0 && React.createElement('div', { style: { marginTop: 8 } },
+      renderGroup('Physical elements', data.physical),
+      renderGroup('Logical elements', data.logical),
+      renderGroup('Other', data.other)
+    )
+  );
+}
+
 /* ──────────────────────────────────────────────────────────────────────────
  * Glossary detail panes — shared by both SPAs. Visual design = the Tech
  * Catalog's (Properties / Classifications section headers + cards). The folder
@@ -985,6 +1040,10 @@ function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign, on
           })
         );
       })
+    ),
+    React.createElement('div', { style: { marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' } },
+      React.createElement('div', { style: sHdr }, 'Assigned Elements'),
+      React.createElement(AssignedElementsSection, { termGuid: term.guid, onNavigateToElement: onNavigateToElement, isElementLinkable: isElementLinkable })
     ),
     relGroups.length > 0 && React.createElement('div', { style: { marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' } },
       React.createElement('div', { style: sHdr }, 'Relationships'),

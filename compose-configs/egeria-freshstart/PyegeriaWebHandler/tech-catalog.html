@@ -1303,30 +1303,48 @@ function _flattenSchemaTree(nodes, depth, out) {
 // sub-row (same Collapsible/FoldTriangle pattern as everywhere else) when the
 // node carries any — needs its own component (not a plain row-builder
 // function) so each row can hold its own expand/collapse state.
-function SchemaRow({ row, tdStyle, tdDim }) {
+function SchemaRow({ row, tdStyle, tdDim, onNavigate }) {
   var _o = React.useState(false), open = _o[0], setOpen = _o[1];
   var a = row.node;
   var classifs = a.classifications || [];
+  var terms = a.assignedTerms || [];
   var hasClassifs = classifs.length > 0;
+  var hasTerms = terms.length > 0;
+  var hasExtra = hasClassifs || hasTerms;
+  function openTerm(t, e) {
+    e.stopPropagation();
+    if (onNavigate) onNavigate({ guid: t.guid, displayName: t.displayName, section: 'glossary' });
+  }
   return React.createElement(React.Fragment, null,
     React.createElement('tr', {
-      style: hasClassifs ? { cursor: 'pointer' } : null,
-      onClick: hasClassifs ? function() { setOpen(!open); } : undefined,
+      style: hasExtra ? { cursor: 'pointer' } : null,
+      onClick: hasExtra ? function() { setOpen(!open); } : undefined,
     },
       React.createElement('td', { style: Object.assign({}, tdStyle, { paddingLeft: 4 + row.depth * 16 }) },
         React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 4 } },
           row.depth > 0 && React.createElement('span', { style: { color: 'var(--dim)' } }, '↳ '),
-          hasClassifs && React.createElement(FoldTriangle, { open: open, size: 10 }),
+          hasExtra && React.createElement(FoldTriangle, { open: open, size: 10 }),
           a.displayName,
-          hasClassifs && React.createElement('span', { style: { fontSize: 10, color: 'var(--classif)', border: '1px solid var(--classif)', borderRadius: 8, padding: '0 5px' } }, classifs.length)
+          hasClassifs && React.createElement('span', { style: { fontSize: 10, color: 'var(--classif)', border: '1px solid var(--classif)', borderRadius: 8, padding: '0 5px' } }, classifs.length),
+          hasTerms && React.createElement('span', { title: terms.map(function(t) { return t.displayName; }).join(', '), style: { fontSize: 10, color: 'var(--accent)', border: '1px solid var(--accent)', borderRadius: 8, padding: '0 5px' } }, '🧠 ' + terms.length)
         )
       ),
       React.createElement('td', { style: tdDim }, a.dataType || a.typeName || ''),
       React.createElement('td', { style: tdDim }, a.required ? 'Yes' : ''),
       React.createElement('td', { style: Object.assign({}, tdStyle, { color: 'var(--muted)' }) }, a.description || '')
     ),
-    open && hasClassifs && React.createElement('tr', null,
+    open && hasExtra && React.createElement('tr', null,
       React.createElement('td', { colSpan: 4, style: { padding: '2px 8px 10px', paddingLeft: 4 + row.depth * 16 + 14, borderBottom: '1px solid var(--border)' } },
+        hasTerms && React.createElement('div', { style: { borderLeft: '3px solid var(--accent)', paddingLeft: 8, marginTop: 4, marginBottom: hasClassifs ? 6 : 0 } },
+          React.createElement('div', { style: { fontSize: 11, fontWeight: 600, color: 'var(--accent)' } }, '🧠 Assigned glossary terms'),
+          terms.map(function(t) {
+            return React.createElement('div', { key: t.guid, style: { fontSize: 11, color: 'var(--text)' } },
+              onNavigate
+                ? React.createElement('a', { href: '#', onClick: function(e) { openTerm(t, e); }, style: { color: 'var(--accent)', textDecoration: 'none' } }, t.displayName)
+                : t.displayName
+            );
+          })
+        ),
         classifs.map(function(c) {
           return React.createElement('div', { key: c.typeName, style: { borderLeft: '3px solid var(--classif)', paddingLeft: 8, marginTop: 4 } },
             React.createElement('div', { style: { fontSize: 11, fontWeight: 600, color: 'var(--classif)' } }, c.typeName),
@@ -1342,7 +1360,7 @@ function SchemaRow({ row, tdStyle, tdDim }) {
 }
 
 // SchemaPane: renders schemaType + the real nested attribute structure
-function SchemaPane({ guid, creds }) {
+function SchemaPane({ guid, creds, onNavigate }) {
   function renderSchema(data) {
     var st = data.schemaType;
     var rows = _flattenSchemaTree(data.attributes || [], 0, []);
@@ -1370,7 +1388,7 @@ function SchemaPane({ guid, creds }) {
             ),
             React.createElement('tbody', null,
               rows.map(function(row, i) {
-                return React.createElement(SchemaRow, { key: row.node.guid || i, row: row, tdStyle: tdStyle, tdDim: tdDim });
+                return React.createElement(SchemaRow, { key: row.node.guid || i, row: row, tdStyle: tdStyle, tdDim: tdDim, onNavigate: onNavigate });
               })
             )
           )
@@ -1792,7 +1810,7 @@ function AssetDetail({ item, detailLoading, onNavigate, creds, sectionId }) {
     // Sub-panes: Schema and Lineage (lazy-loaded on first open) — moved above
     // Relationships so the specific, structured views aren't buried below the
     // generic flattened relationship dump.
-    item.hasSchema      && React.createElement(SchemaPane,         { guid: item.guid, creds: creds }),
+    item.hasSchema      && React.createElement(SchemaPane,         { guid: item.guid, creds: creds, onNavigate: onNavigate }),
     item.hasLineage     && React.createElement(LineagePane,        { guid: item.guid }),
     item.hasAnnotations && React.createElement(AnnotationsSubPane, { guid: item.guid, creds: creds, onNavigate: onNavigate }),
 
@@ -2547,9 +2565,33 @@ var SEARCH_CATEGORY_ICONS = {
   'infrastructure':'🖧',
   'apis':          '🔗',
   'processes':     '⚙️',
+  'projects':      '📁',
   'surveys':       '🔍',
   'other':         '📦',
 };
+
+// Result-list section headers group by real typeName, not categoryId --
+// categoryId/categoryLabel (_TYPE_CATEGORY in catalog_search_handler.py) only
+// curates ~40 of several hundred real Egeria types, so grouping the visible
+// list by it means most headings read as the generic "Other" bucket even
+// when a search was scoped to one exact, known type (e.g. selecting the
+// PersonRole facet still headed the list "Other"). Regrouping by typeName
+// here matches the same "trust the real result, not the curated bucket"
+// principle typeFacets already uses. categoryId is kept per-type only for
+// picking a (harmless, decorative) icon.
+function _groupSearchItemsByType(groups) {
+  var byType = {};
+  (groups || []).forEach(function(g) {
+    g.items.forEach(function(it) {
+      var key = it.typeName || '(unknown)';
+      if (!byType[key]) byType[key] = { typeName: key, categoryId: it.categoryId, items: [] };
+      byType[key].items.push(it);
+    });
+  });
+  return Object.values(byType).sort(function(a, b) {
+    return b.items.length - a.items.length || a.typeName.localeCompare(b.typeName);
+  });
+}
 
 function _hlEscape(s) { return s.replace(/[&<>"]/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 function highlightHtml(text, q) {
@@ -2602,34 +2644,60 @@ function SearchView({ creds, onNavigate, initialQuery }) {
   var _data   = useState(null), data = _data[0], setData = _data[1];
   var _err    = useState(null), err  = _err[0],  setErr  = _err[1];
   var _loading = useState(false), loading = _loading[0], setLoading = _loading[1];
+  // Facet chips come from the BASE (unrestricted) search's typeFacets, kept
+  // stable across scoped re-searches so the full breadth stays visible for
+  // further toggling — a scoped response's own typeFacets would only ever
+  // show the type(s) it was scoped to. Toggling a chip re-searches server-side
+  // (metadata_element_subtypes) rather than filtering client-side: page_size
+  // caps the base search, so a less-common type can be crowded out of that
+  // page entirely — scoping the search itself gets a complete count for it.
+  // Safe to do here (unlike a pre-search picker) because these typeNames came
+  // from a real prior result, not a curated/guessed list.
+  var _baseFacets = useState(null), baseFacets = _baseFacets[0], setBaseFacets = _baseFacets[1];
+  var _selTypes   = useState([]), selTypes = _selTypes[0], setSelTypes = _selTypes[1];
   var _timer  = useRef(null);
 
-  function doSearch(query) {
+  function doSearch(query, typeList) {
     var trimmed = (query || '').trim();
     if (!trimmed || trimmed === '*') { setData(null); setErr(null); return; }
     setLoading(true); setErr(null);
-    fetchWithToken('/api/catalog/search?q=' + encodeURIComponent(query.trim()) + '&page_size=200', creds)
+    var url = '/api/catalog/search?q=' + encodeURIComponent(trimmed) + '&page_size=200';
+    (typeList || []).forEach(function(t) { url += '&types=' + encodeURIComponent(t); });
+    fetchWithToken(url, creds)
       .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || r.status); }); })
-      .then(function(j) { setData(j); setLoading(false); })
+      .then(function(j) {
+        setData(j); setLoading(false);
+        if (!typeList || !typeList.length) setBaseFacets(j.typeFacets || []);
+        if (j.typeFilterDropped) setSelTypes([]); // server couldn't apply it — don't show a filter that isn't real
+      })
       .catch(function(e) { setErr(e.message || String(e)); setLoading(false); });
   }
 
   function handleInput(e) {
     var val = e.target.value;
     setQ(val);
+    setSelTypes([]); setBaseFacets(null);
     clearTimeout(_timer.current);
     if (val.trim().length >= 2) {
-      _timer.current = setTimeout(function() { doSearch(val); }, 400);
+      _timer.current = setTimeout(function() { doSearch(val, []); }, 400);
     } else {
       setData(null);
     }
   }
 
+  function toggleType(tn) {
+    var next = selTypes.indexOf(tn) === -1 ? selTypes.concat([tn]) : selTypes.filter(function(t) { return t !== tn; });
+    setSelTypes(next);
+    doSearch(q, next);
+  }
+
   useEffect(function() {
-    if (initialQuery && initialQuery.trim().length >= 2) doSearch(initialQuery);
+    if (initialQuery && initialQuery.trim().length >= 2) doSearch(initialQuery, []);
   }, []);
 
   var hasResults = data && data.total > 0;
+  var facets = baseFacets || [];
+  var typeGroups = hasResults ? _groupSearchItemsByType(data.groups) : [];
 
   return React.createElement('div', { style: { display: 'flex', flex: 1, flexDirection: 'column', overflow: 'hidden' } },
     React.createElement('div', { style: { padding: '16px 20px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
@@ -2643,8 +2711,26 @@ function SearchView({ creds, onNavigate, initialQuery }) {
         }),
         React.createElement('span', { style: { position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 15, pointerEvents: 'none', color: 'var(--dim)' } }, '🔎')
       ),
+      facets.length > 1 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 8 } },
+        React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Types in these results:'),
+        facets.map(function(f) {
+          var active = selTypes.indexOf(f.typeName) !== -1;
+          return React.createElement('button', {
+            key: f.typeName, onClick: function() { toggleType(f.typeName); },
+            title: active ? 'Click to remove filter' : 'Click to restrict search to ' + f.typeName,
+            style: {
+              fontSize: 11, padding: '3px 9px', borderRadius: 12, cursor: 'pointer',
+              border: '1px solid ' + (active ? 'var(--accent)' : 'var(--border)'),
+              background: active ? 'var(--accent)' : 'transparent',
+              color: active ? 'var(--bg)' : 'var(--dim)',
+            }
+          }, (SEARCH_CATEGORY_ICONS[f.categoryId] || '') + ' ' + f.typeName + ' (' + f.count + ')');
+        })
+      ),
       data && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginTop: 6 } },
-        data.total + ' result' + (data.total === 1 ? '' : 's') + ' for ' + JSON.stringify(data.query)
+        data.total + ' result' + (data.total === 1 ? '' : 's') + ' for ' + JSON.stringify(data.query) +
+        (selTypes.length ? ' (' + selTypes.length + ' type' + (selTypes.length === 1 ? '' : 's') + ' selected)' : ''),
+        data.typeFilterDropped && React.createElement('span', { style: { color: '#fbbf24', marginLeft: 6 } }, '⚠ type filter unavailable, showing unrestricted results')
       )
     ),
     React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: '12px 20px' } },
@@ -2652,12 +2738,12 @@ function SearchView({ creds, onNavigate, initialQuery }) {
       err     && React.createElement('div', { style: { color: '#f87171', fontSize: 13, padding: 8 } }, 'Error: ' + err),
       !loading && !err && !data && q.trim().length < 2 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, padding: 8, textAlign: 'center', marginTop: 40 } },
         'Type at least 2 characters to search.'),
-      hasResults && data.groups.map(function(grp) {
-        return React.createElement('div', { key: grp.categoryId, style: { marginBottom: 20 } },
+      !loading && hasResults && typeGroups.map(function(grp) {
+        return React.createElement('div', { key: grp.typeName, style: { marginBottom: 20 } },
           React.createElement('div', { style: { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 } },
             React.createElement('span', null, SEARCH_CATEGORY_ICONS[grp.categoryId] || '📦'),
-            grp.categoryLabel,
-            React.createElement('span', { style: { fontWeight: 400, color: 'var(--dim)', textTransform: 'none', letterSpacing: 0 } }, '(' + grp.count + ')')
+            grp.typeName,
+            React.createElement('span', { style: { fontWeight: 400, color: 'var(--dim)', textTransform: 'none', letterSpacing: 0 } }, '(' + grp.items.length + ')')
           ),
           grp.items.map(function(item, i) {
             return React.createElement(SearchResultCard, { key: item.guid || i, item: item, query: q, onNavigate: onNavigate });

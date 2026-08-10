@@ -125,14 +125,10 @@ def _ce(url=None, server=None, user_id=None, user_pwd=None):
 
 
 def _cm(url=None, server=None, user_id=None, user_pwd=None):
-    """CollectionManager factory — used only by the saved-query endpoints below
-    (Track A of EGERIA_INSIGHTS_QUERY_MODEL.md's phased plan). Saved queries are
-    stored as `ResultsSet` collections (NOT "ResultSet" — that's the pyegeria
-    FormatSet alias's spelling; the real Egeria entity type, confirmed live
-    2026-08-05 against qs-view-server's /api/types entity catalog, is
-    `ResultsSet`), with the query spec in `additionalProperties` — the doc's
-    explicitly-short-term interim state (§2.3) ahead of a real `Query` element
-    type + relationship to `ResultSet`."""
+    """CollectionManager factory — used by the saved-query endpoints below for
+    the `ResultsSet` (materialized-results Collection) half of the model, and
+    for the `SmartQuery` relationship that binds it to a `SavedQuery` (see
+    `_am()` and the Track C module docstring below)."""
     from pyegeria import CollectionManager
     import pyegeria
     pyegeria.enable_ssl_check = False
@@ -144,6 +140,24 @@ def _cm(url=None, server=None, user_id=None, user_pwd=None):
     cm = CollectionManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
     apply_token(cm)
     return cm
+
+
+def _am(url=None, server=None, user_id=None, user_pwd=None):
+    """AssetMaker factory — used by the saved-query endpoints below for the
+    `SavedQuery` (an Asset/DataSet, not a Collection) half of the model. See
+    the Track C module docstring below for why this is a separate client from
+    `_cm()`."""
+    from pyegeria import AssetMaker
+    import pyegeria
+    pyegeria.enable_ssl_check = False
+    pyegeria.disable_ssl_warnings = True
+    url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    am = AssetMaker(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    apply_token(am)
+    return am
 
 
 # ── search-condition body construction ──────────────────────────────────────
@@ -1101,21 +1115,49 @@ def search_elements(body: SearchBody = Body(...)):
     })
 
 
-# ── Saved queries (Track A, EGERIA_INSIGHTS_QUERY_MODEL.md) ─────────────────
-# Prototype of the doc's §2.3 interim state: a saved query is a `ResultsSet`
-# collection (real Egeria Collection subtype — confirmed live 2026-08-05, see
-# _cm()'s docstring for the "ResultSet" vs "ResultsSet" naming trap) whose
-# `additionalProperties` holds the mechanism-agnostic spec (§2.1: a real,
-# re-postable {url, httpMethod, body} — here specifically {"/api/insights/
-# search", "POST", <SearchBody-shaped JSON>}, not a pyegeria-method-centric
-# abstraction) and whose CollectionMembership holds the last-materialized
-# results (§2.4's staleness model — "as of <lastRefreshedTime>", refresh is
-# explicit, not automatic on every view).
+# ── Saved queries (Track C, EGERIA_INSIGHTS_QUERY_MODEL.md) ─────────────────
+# Migrated 2026-08-10 off Track A's `ResultsSet.additionalProperties` interim
+# storage (§2.3) onto the real Egeria types that state was always waiting
+# for: `SavedQuery` (an Asset/DataSet subtype, 0725 Smart Collections) holds
+# the query itself — `formula` is the mechanism-agnostic spec (§2.1: the same
+# re-postable {url, httpMethod, body} shape, JSON-encoded, unchanged from
+# Track A) and `formulaType` labels its format — and a `SmartQuery`
+# relationship binds it to a `ResultsSet` (unchanged from Track A: a
+# Collection subtype whose CollectionMembership holds the last-materialized
+# results, §2.4's staleness model). This is the "separate the question
+# (Query) from the answer (ResultsSet)" design §2.3 always called for; the
+# only thing that changed is the question finally has its own real type.
 #
-# Marked with additionalProperties["pyegeriaInsightsQuery"] = "true" so this
-# module's listing only surfaces Insights-authored ResultsSets, not any other
-# ResultsSet that might exist in the repository for an unrelated purpose.
-_QUERY_TYPE = "ResultsSet"
+# Confirmed live 2026-08-10 against qs-view-server (pyegeria 6.0.17.18):
+# - `SavedQuery` creation has no dedicated pyegeria wrapper -- it rides
+#   `AssetMaker.create_asset(asset_type=["SavedQueryProperties"], body={...
+#   "properties": {"class": "SavedQueryProperties", "typeName": "SavedQuery",
+#   ...}})`, same generic-asset path `Report` already uses. `formula`/
+#   `formulaType` round-trip losslessly through `get_asset_by_guid` exactly
+#   like any other DataSet-inherited property.
+# - `SmartQuery` has no bespoke view-service endpoint of its own (types/
+#   properties only) -- `CollectionManager.link_saved_query_to_results_set(
+#   results_set_guid, saved_query_guid)` / `detach_saved_query_from_results_set
+#   (relationship_guid)` wrap the generic typeName-based related-elements call
+#   and are the only new pyegeria methods this migration needed.
+# - `MetadataExpert.get_metadata_element_relationships(end1, end2, "SmartQuery",
+#   body={"class": "ResultsRequestBody"})` returned "No elements found" for a
+#   relationship confirmed to exist via `ClassificationExplorer.
+#   get_relationships(relationship_type="SmartQuery")` -- looks like a real
+#   gap in that lookup-by-two-guids path as of 6.0.17.18, not a body-shape
+#   mistake (tried both `{}` and the documented `ResultsRequestBody`). Sidesteps
+#   it entirely: `link_saved_query_to_results_set` already returns the new
+#   relationship's own GUID, stored directly in the SavedQuery's
+#   additionalProperties (`smartQueryRelGuid`) so delete never needs to look
+#   the relationship back up by its endpoints.
+#
+# Still marked with additionalProperties["pyegeriaInsightsQuery"] = "true" —
+# now belt-and-suspenders rather than the sole discriminator (the real type
+# name already scopes `find_assets` to SavedQuery), but kept since SavedQuery
+# isn't necessarily Insights-exclusive long-term (any future tool could save
+# a query the same way) and cheap to keep filtering on.
+_QUERY_TYPE = "SavedQuery"
+_RESULTS_TYPE = "ResultsSet"
 _QUERY_MARKER_KEY = "pyegeriaInsightsQuery"
 _QUERY_MARKER_VALUE = "true"
 
@@ -1130,6 +1172,8 @@ _SEARCH_SPEC_FIELDS = (
     "relationship_match_criteria", "exclude_types", "sort_by", "sort_dir", "as_of_time",
 )
 
+_QUERY_FORMULA_TYPE = "egeria-insights-search-v1"
+
 
 def _search_spec(search: SearchBody) -> dict:
     d = search.dict()
@@ -1141,7 +1185,7 @@ def _saved_query_summary(el: dict) -> dict:
     props = el.get("properties") or {}
     additional = props.get("additionalProperties") or {}
     try:
-        spec = json.loads(additional.get("queryBody") or "{}")
+        spec = json.loads(props.get("formula") or "{}")
     except Exception:  # noqa: BLE001 — a corrupted spec shouldn't break the whole list
         spec = {}
     result_count = additional.get("resultCount") or ""
@@ -1154,61 +1198,130 @@ def _saved_query_summary(el: dict) -> dict:
         "lastRefreshedTime": additional.get("lastRefreshedTime") or None,
         "resultCount":       int(result_count) if result_count.isdigit() else None,
         "favorite":          additional.get("favorite") == "true",
+        "resultsSetGuid":    additional.get("resultsSetGuid") or None,
     }
 
 
-@router.post("/api/insights/queries", summary="Save a query (Track A prototype)")
+@router.post("/api/insights/queries", summary="Save a query")
 def create_saved_query(body: SavedQueryBody = Body(...)):
     try:
         cm = _cm(body.url, body.server, body.user_id, body.user_pwd)
+        am = _am(body.url, body.server, body.user_id, body.user_pwd)
     except Exception as exc:
-        logger.exception("insights: failed to create CollectionManager for saved-query create")
+        logger.exception("insights: failed to create clients for saved-query create")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     spec = _search_spec(body.search)
-    qualified_name = f"ResultsSet::insights-query::{body.name}::{uuid.uuid4().hex[:8]}"
-    create_body = {
-        "class": "NewElementRequestBody",
-        "isOwnAnchor": True,
-        "properties": {
-            "class": "CollectionProperties",
-            "typeName": _QUERY_TYPE,
-            "qualifiedName": qualified_name,
-            "displayName": body.name,
-            "description": body.description or "",
-            "additionalProperties": {
-                _QUERY_MARKER_KEY: _QUERY_MARKER_VALUE,
-                "queryUrl": "/api/insights/search",
-                "queryHttpMethod": "POST",
-                "queryBody": json.dumps(spec),
-                "lastRefreshedTime": "",
-                "resultCount": "",
-                "favorite": "false",
-            },
-        },
-    }
+    suffix = uuid.uuid4().hex[:8]
+
+    # ResultsSet first (empty — nothing materialized yet), so its GUID can be
+    # embedded in the SavedQuery's additionalProperties at creation time
+    # rather than needing a second update round-trip for that half.
+    results_set_guid = None
     try:
-        guid = cm.create_collection(body=create_body)
+        results_set_guid = cm.create_collection(body={
+            "class": "NewElementRequestBody",
+            "isOwnAnchor": True,
+            "properties": {
+                "class": "CollectionProperties",
+                "typeName": _RESULTS_TYPE,
+                "qualifiedName": f"ResultsSet::insights-query::{body.name}::{suffix}",
+                "displayName": f"{body.name} (results)",
+                "description": "",
+            },
+        })
     except Exception as exc:
-        logger.exception("insights: saved-query create failed")
+        logger.exception("insights: saved-query create failed (ResultsSet)")
         raise HTTPException(status_code=500, detail=str(exc))
-    return JSONResponse({"guid": guid, "name": body.name})
+
+    try:
+        saved_query_guid = am.create_asset(asset_type=["SavedQueryProperties"], body={
+            "class": "NewElementRequestBody",
+            "isOwnAnchor": True,
+            "properties": {
+                "class": "SavedQueryProperties",
+                "typeName": _QUERY_TYPE,
+                "qualifiedName": f"SavedQuery::insights-query::{body.name}::{suffix}",
+                "displayName": body.name,
+                "description": body.description or "",
+                "formula": json.dumps(spec),
+                "formulaType": _QUERY_FORMULA_TYPE,
+                "additionalProperties": {
+                    _QUERY_MARKER_KEY: _QUERY_MARKER_VALUE,
+                    "queryUrl": "/api/insights/search",
+                    "queryHttpMethod": "POST",
+                    "resultsSetGuid": results_set_guid,
+                    "lastRefreshedTime": "",
+                    "resultCount": "",
+                    "favorite": "false",
+                },
+            },
+        })
+    except Exception as exc:
+        logger.exception("insights: saved-query create failed (SavedQuery)")
+        try:
+            cm.delete_collection(results_set_guid)  # best-effort rollback of the orphaned ResultsSet
+        except Exception:  # noqa: BLE001
+            logger.debug(f"insights: failed to roll back orphaned ResultsSet {results_set_guid}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    try:
+        rel_guid = cm.link_saved_query_to_results_set(results_set_guid, saved_query_guid)
+    except Exception as exc:
+        logger.exception("insights: saved-query create failed (SmartQuery link)")
+        try:
+            am.delete_asset(saved_query_guid)  # best-effort rollback of both halves
+            cm.delete_collection(results_set_guid)
+        except Exception:  # noqa: BLE001
+            logger.debug(f"insights: failed to roll back saved query {saved_query_guid} / ResultsSet {results_set_guid}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    # Stamp the relationship's own GUID onto the SavedQuery so delete never
+    # needs to look it back up by its two endpoint GUIDs — see the module
+    # docstring above on why that lookup path isn't relied on here.
+    try:
+        am.update_asset(saved_query_guid, {
+            "class": "UpdateElementRequestBody",
+            "properties": {
+                "class": "SavedQueryProperties",
+                "qualifiedName": f"SavedQuery::insights-query::{body.name}::{suffix}",
+                "displayName": body.name,
+                "description": body.description or "",
+                "formula": json.dumps(spec),
+                "formulaType": _QUERY_FORMULA_TYPE,
+                "additionalProperties": {
+                    _QUERY_MARKER_KEY: _QUERY_MARKER_VALUE,
+                    "queryUrl": "/api/insights/search",
+                    "queryHttpMethod": "POST",
+                    "resultsSetGuid": results_set_guid,
+                    "smartQueryRelGuid": rel_guid,
+                    "lastRefreshedTime": "",
+                    "resultCount": "",
+                    "favorite": "false",
+                },
+            },
+        })
+    except Exception:  # noqa: BLE001 — the query is fully created and linked; missing this stamp only
+        # means delete falls back to (currently flaky, see module docstring) relationship lookup by GUID
+        logger.exception(f"insights: failed to stamp smartQueryRelGuid on saved query {saved_query_guid}")
+
+    return JSONResponse({"guid": saved_query_guid, "name": body.name})
 
 
-@router.get("/api/insights/queries", summary="List saved queries (Track A prototype)")
+@router.get("/api/insights/queries", summary="List saved queries")
 def list_saved_queries(
     search_string: str = Query("*"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     try:
-        cm = _cm(url, server, user_id, user_pwd)
+        am = _am(url, server, user_id, user_pwd)
     except Exception as exc:
-        logger.exception("insights: failed to create CollectionManager for saved-query list")
+        logger.exception("insights: failed to create AssetMaker for saved-query list")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
-        found = cm.find_collections(search_string=search_string or "*", starts_with=False,
-                                     metadata_element_type_name=_QUERY_TYPE, output_format="JSON", page_size=200)
+        found = am.find_assets(search_string=search_string or "*", starts_with=False,
+                                metadata_element_type=_QUERY_TYPE, output_format="JSON", page_size=200)
     except Exception as exc:
         logger.exception("insights: saved-query list failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -1218,7 +1331,7 @@ def list_saved_queries(
             continue
         additional = (el.get("properties") or {}).get("additionalProperties") or {}
         if additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
-            continue  # a ResultsSet from elsewhere in the repo, not an Insights-authored saved query
+            continue  # a SavedQuery from elsewhere in the repo, not an Insights-authored one
         out.append(_saved_query_summary(el))
     out.sort(key=lambda q: (q["name"] or "").lower())
     return JSONResponse({"queries": out, "total": len(out)})
@@ -1231,11 +1344,11 @@ def get_saved_query(
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     try:
-        cm = _cm(url, server, user_id, user_pwd)
+        am = _am(url, server, user_id, user_pwd)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
-        el = cm.get_collection_by_guid(guid, output_format="JSON")
+        el = am.get_asset_by_guid(guid, output_format="JSON")
     except Exception as exc:
         raise HTTPException(status_code=404, detail=f"Saved query not found: {exc}")
     additional = ((el or {}).get("properties") or {}).get("additionalProperties") or {}
@@ -1247,11 +1360,11 @@ def get_saved_query(
 @router.put("/api/insights/queries/{guid}", summary="Update a saved query in place (rename/re-describe/edit conditions)")
 def update_saved_query(guid: str, body: SavedQueryBody = Body(...)):
     try:
-        cm = _cm(body.url, body.server, body.user_id, body.user_pwd)
+        am = _am(body.url, body.server, body.user_id, body.user_pwd)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
-        el = cm.get_collection_by_guid(guid, output_format="JSON")
+        el = am.get_asset_by_guid(guid, output_format="JSON")
     except Exception as exc:
         raise HTTPException(status_code=404, detail=f"Saved query not found: {exc}")
     props = (el or {}).get("properties") or {}
@@ -1263,20 +1376,20 @@ def update_saved_query(guid: str, body: SavedQueryBody = Body(...)):
     # Editing the filter logic doesn't itself materialize new results —
     # lastRefreshedTime/resultCount carry over untouched; use the refresh
     # action for that.
-    additional = dict(existing_additional)
-    additional["queryBody"] = json.dumps(spec)
     update_body = {
         "class": "UpdateElementRequestBody",
         "properties": {
-            "class": "CollectionProperties",
+            "class": "SavedQueryProperties",
             "qualifiedName": props.get("qualifiedName"),  # must be preserved — Egeria requires it on update
             "displayName": body.name,
             "description": body.description or "",
-            "additionalProperties": additional,
+            "formula": json.dumps(spec),
+            "formulaType": props.get("formulaType") or _QUERY_FORMULA_TYPE,
+            "additionalProperties": existing_additional,
         },
     }
     try:
-        cm.update_collection(guid, update_body)
+        am.update_asset(guid, update_body)
     except Exception as exc:
         logger.exception(f"insights: saved-query update failed for {guid}")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -1294,11 +1407,11 @@ class FavoriteBody(BaseModel):
 @router.post("/api/insights/queries/{guid}/favorite", summary="Star/unstar a saved query (shown on the Dashboard's Favorite Queries card)")
 def set_saved_query_favorite(guid: str, body: FavoriteBody = Body(...)):
     try:
-        cm = _cm(body.url, body.server, body.user_id, body.user_pwd)
+        am = _am(body.url, body.server, body.user_id, body.user_pwd)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
-        el = cm.get_collection_by_guid(guid, output_format="JSON")
+        el = am.get_asset_by_guid(guid, output_format="JSON")
     except Exception as exc:
         raise HTTPException(status_code=404, detail=f"Saved query not found: {exc}")
     props = (el or {}).get("properties") or {}
@@ -1311,15 +1424,17 @@ def set_saved_query_favorite(guid: str, body: FavoriteBody = Body(...)):
     update_body = {
         "class": "UpdateElementRequestBody",
         "properties": {
-            "class": "CollectionProperties",
+            "class": "SavedQueryProperties",
             "qualifiedName": props.get("qualifiedName"),
             "displayName": props.get("displayName"),
             "description": props.get("description") or "",
+            "formula": props.get("formula"),
+            "formulaType": props.get("formulaType") or _QUERY_FORMULA_TYPE,
             "additionalProperties": additional,
         },
     }
     try:
-        cm.update_collection(guid, update_body)
+        am.update_asset(guid, update_body)
     except Exception as exc:
         logger.exception(f"insights: saved-query favorite toggle failed for {guid}")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -1333,37 +1448,60 @@ def delete_saved_query(
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     try:
+        am = _am(url, server, user_id, user_pwd)
         cm = _cm(url, server, user_id, user_pwd)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
-        el = cm.get_collection_by_guid(guid, output_format="JSON")
+        el = am.get_asset_by_guid(guid, output_format="JSON")
     except Exception as exc:
         raise HTTPException(status_code=404, detail=f"Saved query not found: {exc}")
     additional = ((el or {}).get("properties") or {}).get("additionalProperties") or {}
     if additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
         raise HTTPException(status_code=404, detail="Not a saved Insights query")
 
-    # BUG FOUND 2026-08-05 (live-verified while building this): Egeria's
-    # cascade delete only removes elements the collection OWNS (isOwnAnchor);
+    results_set_guid = additional.get("resultsSetGuid")
+    rel_guid = additional.get("smartQueryRelGuid")
+
+    # Detach the SmartQuery relationship first — same reason as the
+    # membership-unlink below: Egeria's cascade delete only removes elements
+    # the deleted element OWNS (isOwnAnchor), and both the ResultsSet and the
+    # SmartQuery link are independently anchored, so leaving either in place
+    # blocks the deletes below with OMAG-GENERIC-HANDLERS-403-005.
+    if rel_guid:
+        try:
+            cm.detach_saved_query_from_results_set(rel_guid)
+        except Exception:  # noqa: BLE001
+            logger.debug(f"insights: failed to detach SmartQuery relationship {rel_guid} for saved query {guid}")
+
+    # BUG FOUND 2026-08-05 (live-verified building Track A): Egeria's cascade
+    # delete only removes elements the collection OWNS (isOwnAnchor);
     # CollectionMembership links to independently-anchored elements (every
     # real search result is one) block a plain delete with
     # OMAG-GENERIC-HANDLERS-403-005 ("still has a dependent ... element")
     # even with cascade=True. Unlink materialized members first, then delete
     # the now-empty ResultsSet.
+    if results_set_guid:
+        try:
+            members = cm.get_collection_members(collection_guid=results_set_guid, output_format="JSON",
+                                                 page_size=500) or []
+        except Exception:  # noqa: BLE001
+            members = []
+        for m in (members if isinstance(members, list) else []):
+            g = ((m or {}).get("elementHeader") or {}).get("guid")
+            if g:
+                try:
+                    cm.remove_from_collection(results_set_guid, g)
+                except Exception:  # noqa: BLE001
+                    logger.debug(f"insights: failed to unlink member {g} while deleting saved query {guid}")
+        try:
+            cm.delete_collection(results_set_guid)
+        except Exception:  # noqa: BLE001 — the SavedQuery is the primary resource; an orphaned empty
+            # ResultsSet is a cleanup nuisance, not a reason to fail the whole delete
+            logger.exception(f"insights: failed to delete ResultsSet {results_set_guid} for saved query {guid}")
+
     try:
-        members = cm.get_collection_members(collection_guid=guid, output_format="JSON", page_size=500) or []
-    except Exception:  # noqa: BLE001
-        members = []
-    for m in (members if isinstance(members, list) else []):
-        g = ((m or {}).get("elementHeader") or {}).get("guid")
-        if g:
-            try:
-                cm.remove_from_collection(guid, g)
-            except Exception:  # noqa: BLE001
-                logger.debug(f"insights: failed to unlink member {g} while deleting saved query {guid}")
-    try:
-        cm.delete_collection(guid)
+        am.delete_asset(guid)
     except Exception as exc:
         logger.exception(f"insights: saved-query delete failed for {guid}")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -1377,11 +1515,22 @@ def get_saved_query_results(
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     try:
+        am = _am(url, server, user_id, user_pwd)
         cm = _cm(url, server, user_id, user_pwd)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
-        members = cm.get_collection_members(collection_guid=guid, output_format="JSON", page_size=500)
+        el = am.get_asset_by_guid(guid, output_format="JSON")
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail=f"Saved query not found: {exc}")
+    additional = ((el or {}).get("properties") or {}).get("additionalProperties") or {}
+    if additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
+        raise HTTPException(status_code=404, detail="Not a saved Insights query")
+    results_set_guid = additional.get("resultsSetGuid")
+    if not results_set_guid:
+        return JSONResponse({"results": [], "total": 0})
+    try:
+        members = cm.get_collection_members(collection_guid=results_set_guid, output_format="JSON", page_size=500)
     except Exception as exc:
         logger.exception(f"insights: failed to fetch cached members for saved query {guid}")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -1392,20 +1541,24 @@ def get_saved_query_results(
 @router.post("/api/insights/queries/{guid}/refresh", summary="Re-execute a saved query and materialize its ResultsSet membership")
 def refresh_saved_query(guid: str, body: RefreshQueryBody = Body(...)):
     try:
+        am = _am(body.url, body.server, body.user_id, body.user_pwd)
         cm = _cm(body.url, body.server, body.user_id, body.user_pwd)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
-        el = cm.get_collection_by_guid(guid, output_format="JSON")
+        el = am.get_asset_by_guid(guid, output_format="JSON")
     except Exception as exc:
         raise HTTPException(status_code=404, detail=f"Saved query not found: {exc}")
     props = (el or {}).get("properties") or {}
     additional = props.get("additionalProperties") or {}
     if additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
         raise HTTPException(status_code=404, detail="Not a saved Insights query")
+    results_set_guid = additional.get("resultsSetGuid")
+    if not results_set_guid:
+        raise HTTPException(status_code=500, detail="Saved query has no linked ResultsSet — cannot materialize results")
 
     try:
-        spec = json.loads(additional.get("queryBody") or "{}")
+        spec = json.loads(props.get("formula") or "{}")
     except Exception:  # noqa: BLE001
         spec = {}
     if body.overrides:
@@ -1428,7 +1581,8 @@ def refresh_saved_query(guid: str, body: RefreshQueryBody = Body(...)):
 
     # Diff against the ResultsSet's current CollectionMembership.
     try:
-        current_members = cm.get_collection_members(collection_guid=guid, output_format="JSON", page_size=500) or []
+        current_members = cm.get_collection_members(collection_guid=results_set_guid, output_format="JSON",
+                                                     page_size=500) or []
     except Exception:  # noqa: BLE001
         current_members = []
     current_guids = {
@@ -1441,7 +1595,7 @@ def refresh_saved_query(guid: str, body: RefreshQueryBody = Body(...)):
     removed = current_guids - hit_guids
     for g in added:
         try:
-            cm.add_to_collection(guid, g, body={
+            cm.add_to_collection(results_set_guid, g, body={
                 "class": "NewRelationshipRequestBody",
                 "properties": {"class": "CollectionMembershipProperties",
                                 "membershipRationale": "Insights saved-query result"},
@@ -1450,7 +1604,7 @@ def refresh_saved_query(guid: str, body: RefreshQueryBody = Body(...)):
             logger.debug(f"insights: failed to add member {g} to saved query {guid}")
     for g in removed:
         try:
-            cm.remove_from_collection(guid, g)
+            cm.remove_from_collection(results_set_guid, g)
         except Exception:  # noqa: BLE001
             logger.debug(f"insights: failed to remove stale member {g} from saved query {guid}")
 
@@ -1461,15 +1615,17 @@ def refresh_saved_query(guid: str, body: RefreshQueryBody = Body(...)):
     update_body = {
         "class": "UpdateElementRequestBody",
         "properties": {
-            "class": "CollectionProperties",
+            "class": "SavedQueryProperties",
             "qualifiedName": props.get("qualifiedName"),
             "displayName": props.get("displayName"),
             "description": props.get("description") or "",
+            "formula": props.get("formula"),
+            "formulaType": props.get("formulaType") or _QUERY_FORMULA_TYPE,
             "additionalProperties": additional,
         },
     }
     try:
-        cm.update_collection(guid, update_body)
+        am.update_asset(guid, update_body)
     except Exception:  # noqa: BLE001 — the refresh itself succeeded; failing to stamp the badge shouldn't fail the call
         logger.exception(f"insights: failed to stamp lastRefreshedTime on saved query {guid}")
 

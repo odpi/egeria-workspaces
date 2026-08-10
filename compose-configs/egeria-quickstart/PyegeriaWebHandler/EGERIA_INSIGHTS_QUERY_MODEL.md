@@ -3,14 +3,21 @@
 
 # Egeria Insights — Saved Query Model (design)
 
-**Status:** design + Track A **shipped and live-verified** (2026-08-05).
-Track A of Part 3's plan (A.1–A.4: query-editor searchable dropdowns,
-save/load via `ResultsSet.additionalProperties`, `CollectionMembership`
-materialization + staleness UI, the Saved Queries tab) is built, tested end
-to end against the running qs-view-server, and about to be committed — see
-the "Track A build notes" callout after §2.3 for what was learned building
-it (in particular: the real Egeria type is spelled **`ResultsSet`**, not
-`ResultSet`). Tracks B and C (§ Part 3) remain design-only. Companion to
+**Status:** design + Track A + **Track C.1 shipped and live-verified**
+(2026-08-10). Track A of Part 3's plan (A.1–A.4: query-editor searchable
+dropdowns, save/load via `ResultsSet.additionalProperties`,
+`CollectionMembership` materialization + staleness UI, the Saved Queries
+tab) shipped 2026-08-05 — see the "Track A build notes" callout after §2.3
+for what was learned building it (in particular: the real Egeria type is
+spelled **`ResultsSet`**, not `ResultSet`). **Track C.1 shipped 2026-08-10**:
+Egeria added the real `SavedQuery`/`SmartQuery` types §2.3 was waiting for
+(name landed on `SavedQuery`, one of the three candidates), pyegeria
+6.0.17.18 added the one relationship-side method needed
+(`CollectionManager.link_saved_query_to_results_set`/
+`detach_saved_query_from_results_set`), and `insights_handler.py` now
+migrated fully onto them — `ResultsSet.additionalProperties` storage is
+retired. See the "Track C.1 build notes" callout after §2.3. Track B and
+the rest of Track C (C.2/C.3, § Part 3) remain design-only. Companion to
 `OVERVIEW_REPORTING_MODEL.md` (the sibling design doc this one converges
 with — see §2).
 
@@ -191,7 +198,7 @@ mechanism being invented from scratch, it's the same pattern that command
 already establishes for `ReportSpec`/`FormatSet` execution, applied here
 to queries specifically.
 
-### 2.3 Storage location: a new `Query` element, related to `ResultsSet` — `ResultsSet.additionalProperties` is the short-term stopgap only
+### 2.3 Storage location: `SavedQuery`, related to `ResultsSet` via `SmartQuery` — shipped 2026-08-10, `ResultsSet.additionalProperties` retired
 
 > **Naming trap (found building Track A, 2026-08-05):** the real Egeria
 > entity type is spelled **`ResultsSet`** (with an "s"), confirmed live
@@ -211,34 +218,34 @@ spec in `ResultsSet.additionalProperties` works mechanically but overloads
 the type's own semantic — confirmed with the user this is understood and
 deliberate as a **short-term workaround only**.
 
-**Target design:** a new element type (name TBD — "Query", "SavedQuery",
-"QuerySpecification" are candidates, not decided) holds the
-`{url, httpMethod, body}` payload as its own properties, and a
-**new, purpose-built relationship type** (expected — not a reuse of an
-existing generic relationship) binds that `Query` element to a
-`ResultsSet`, whose `CollectionMembership` holds the currently-materialized
-results (re-run → diff membership → update). This cleanly separates "the
-question" (`Query`) from "the answer" (`ResultsSet`), each in the
-element/relationship shape Egeria already models this kind of thing with,
-rather than conflating both into one overloaded type. The relationship's
-exact name/properties still need real design work (§ Open Decisions) —
-"new relationship type" is the expected shape, not yet the finished
-design.
+**Target design, shipped (2026-08-10):** Egeria's `SavedQuery` (Area 6,
+`0725 Smart Collections`, a `DataSet` subtype — one of the three original
+name candidates, confirmed via `/api/types` after the redeploy) holds the
+`{url, httpMethod, body}` payload — `formula` (inherited from `DataSet`)
+carries the JSON-encoded spec unchanged from §2.1, `formulaType` labels it
+`"egeria-insights-search-v1"`. The **new, purpose-built relationship**
+§2.3 called for is `SmartQuery` (`SavedQuery` –`populatedUsingQuery`→
+`ResultsSet` –`resultsStoredIn`), binding it to a `ResultsSet` exactly as
+predicted — its own `CollectionMembership` still holds the
+currently-materialized results (re-run → diff membership → update,
+unchanged from Track A). This is the "question" (`SavedQuery`) cleanly
+separated from "the answer" (`ResultsSet`) design §2.3 called for, now
+real rather than proposed. See the Track C.1 build notes below for what
+shipping it against the live server surfaced.
 
-**Interim state (Track A, shipped 2026-08-05):** `ResultsSet` alone,
-`additionalProperties` holding the query spec (as the literal
-`{url, httpMethod, body}` JSON, per §2.1 — not a pyegeria-specific
-shape, so nothing has to change when the real `Query` type exists,
-just where the spec is read from), `CollectionMembership` used for
-materialized results from day one. See the build notes below for what
-else this surfaced.
+**Track A interim state (shipped 2026-08-05, superseded 2026-08-10):**
+`ResultsSet` alone, `additionalProperties` holding the query spec. Exactly
+as anticipated when this was written — "nothing has to change when the
+real `Query` type exists, just where the spec is read from" — the spec's
+own shape (§2.1's `{url, httpMethod, body}` JSON) carried over unchanged
+into `SavedQuery.formula`; only its storage location moved.
 
 This mirrors the same trajectory `Dashboard Sheet` already went through —
 pyegeria-local model first, explicit plan to converge onto a real Egeria
 Collection-family type later (`OVERVIEW_REPORTING_MODEL.md` §10.4's
 `Collection Base` note). Worth watching for where these two efforts might
-eventually meet — a Dashboard Sheet placement pointing at a `Query`-backed
-result set is a natural pairing once both exist properly.
+eventually meet — a Dashboard Sheet placement pointing at a `SavedQuery`-
+backed result set is a natural pairing now that both exist properly.
 
 **Track A build notes (2026-08-05, live-verified against qs-view-server):**
 - `CollectionManager.create_collection(body={...typeName: "ResultsSet",
@@ -281,6 +288,53 @@ result set is a natural pairing once both exist properly.
   our app's N-round-trip loop entirely, not just speeding it up. Until then,
   a cheaper interim mitigation (client-side concurrency on the
   `add_to_collection` loop) is possible but not yet done.
+  **Correction, 2026-08-10:** Track C.1 (below) delivered the storage-model
+  half of this — `SavedQuery`/`SmartQuery` now exist — but *not* the
+  server-side execution half described here. `refresh_saved_query` still
+  does the same client-side N-round-trip `add_to_collection` diff loop, now
+  against the `ResultsSet` a `SmartQuery` relationship points to instead of
+  the `SavedQuery` itself, but the loop itself is unchanged. The
+  governance-action-service idea above remains genuinely open, not yet
+  scoped as its own tracked item.
+
+**Track C.1 build notes (2026-08-10, live-verified against qs-view-server,
+pyegeria 6.0.17.18 — full lifecycle create/list/get/update/favorite/
+refresh/results/delete exercised end-to-end through the actual
+`/api/insights/queries*` HTTP endpoints, not just in isolation):**
+- **`SavedQuery` creation has no dedicated pyegeria wrapper.** It rides
+  `AssetMaker.create_asset(asset_type=["SavedQueryProperties"], body={...
+  "properties": {"class": "SavedQueryProperties", "typeName": "SavedQuery",
+  ...}})` — the same generic-asset path `Report` already uses, per a
+  comment in pyegeria's own `collection_manager.py`. `formula`/
+  `formulaType` round-trip losslessly through `get_asset_by_guid`, same as
+  any other `DataSet`-inherited property.
+- **`SmartQuery` got exactly one new pyegeria method pair**:
+  `CollectionManager.link_saved_query_to_results_set(results_set_guid,
+  saved_query_guid)` / `detach_saved_query_from_results_set
+  (relationship_guid)` (sync + async). Both are thin wrappers over the
+  generic typeName-based related-elements call — `SmartQuery` has no
+  bespoke view-service endpoint of its own (confirmed against Egeria PR
+  #9200: types/properties only, zero new REST endpoints).
+- **Looking the relationship back up by its two endpoint GUIDs doesn't
+  work** — `MetadataExpert.get_metadata_element_relationships(end1, end2,
+  "SmartQuery", body={"class": "ResultsRequestBody"})` returned "No
+  elements found" for a relationship independently confirmed to exist via
+  `ClassificationExplorer.get_relationships(relationship_type="SmartQuery")`.
+  Filed as `PYEGERIA_ISSUES.md` ISSUE-49. Sidestepped rather than blocked
+  on: `link_saved_query_to_results_set()` already returns the new
+  relationship's own GUID, so it's captured and stored directly in the
+  `SavedQuery`'s `additionalProperties` (`smartQueryRelGuid`) at creation
+  time — delete never needs the lookup at all.
+- **Delete needed one more step than Track A's**, in the same spirit as the
+  membership-unlink-before-delete finding above: detach the `SmartQuery`
+  relationship *before* unlinking `ResultsSet` membership and deleting
+  both halves, since the relationship independently anchors across the two
+  elements the same way `CollectionMembership` does.
+- **External API contract is unchanged.** Same routes, same response JSON
+  shape (`spec`, `guid`, `lastRefreshedTime`, `resultCount`, `favorite`,
+  plus one new `resultsSetGuid` field) — `egeria-insights.html` needed zero
+  changes; confirmed it has no dependency on the internal storage details
+  that moved.
 
 ### 2.4 Lifecycle
 
@@ -401,32 +455,42 @@ performance caveat (see the Track A build notes above) — that needs C.1.**
   the narrower pairwise methods (§1.1's table) or `find_metadata_elements`
   where they already suffice.
 
-**Track C — later, Egeria-native:**
-- C.1: design + build the real `Query` element type + its relationship to
-  `ResultsSet`, migrate off `additionalProperties`. **This is where the
-  refresh-performance fix actually belongs** — Egeria executing the query
-  and populating `CollectionMembership` server-side in one operation
-  (likely a governance action service), eliminating the N-round-trip
-  `add_to_collection` loop Track A's refresh currently does client-side.
-- C.2: Dr.Egeria lifecycle commands (Create/Update/Refresh/Delete) for the
-  real type.
+**Track C — Egeria-native:**
+- **C.1 — DONE, 2026-08-10.** The real `SavedQuery` element type + its
+  `SmartQuery` relationship to `ResultsSet` now exist (Egeria PR #9200) and
+  `insights_handler.py` is fully migrated off `additionalProperties` — see
+  §2.3's Track C.1 build notes. **Split out, still open:** the
+  refresh-performance fix this item originally bundled in — Egeria
+  executing the query and populating `CollectionMembership` server-side in
+  one operation (likely a governance action service), eliminating the
+  N-round-trip `add_to_collection` loop — was NOT part of what shipped.
+  `refresh_saved_query` still does that same client-side loop, just against
+  the `ResultsSet` a `SmartQuery` relationship now points to. Worth its own
+  item (call it **C.1b**) rather than assuming C.1's completion implies this
+  too.
+- C.2: Dr.Egeria lifecycle commands (Create/Update/Refresh/Delete) for
+  `SavedQuery` — still open; `md_processing/v2/dashboard_sheet.py`
+  (referenced in §2.4) remains the closest existing template.
 - C.3: connect saved queries to the `FormatSet`/dashboard model (§1.2 b/c)
   — a saved query becomes a usable `ActionParameter` for a report spec /
-  dashboard placement.
+  dashboard placement. Still open.
 
 ---
 
 ## Open decisions
 
-- **Naming** for the new `Query`/`SavedQuery` element type — not decided.
+- ~~**Naming** for the new `Query`/`SavedQuery` element type — not decided.~~
+  **Decided, shipped 2026-08-10: `SavedQuery`** (Egeria PR #9200, Area 6,
+  `0725 Smart Collections`).
 - **Override mechanism** (§2.2): shallow-merge `overrides` dict at
   invocation time (simple, no per-query declaration) vs. a per-query
   declared allowlist of override-able body keys (more explicit, more
   authoring overhead). Leaning toward the former; not decided.
-- **Relationship shape** between `Query` and `ResultsSet` (§2.3) — a new,
-  purpose-built relationship type is expected (not reuse of an existing
-  generic one), but its name/properties need the same kind of Egeria-side
-  type design `Dashboard Sheet` went through — not scoped yet.
+- ~~**Relationship shape** between `Query` and `ResultsSet` (§2.3) — a new,
+  purpose-built relationship type is expected...~~ **Decided, shipped
+  2026-08-10: `SmartQuery`** (`SavedQuery` –`populatedUsingQuery`→
+  `ResultsSet` –`resultsStoredIn`, no relationship-specific properties of
+  its own). See §2.3's Track C.1 build notes.
 - **Functionality-selector UI** (§1.1 brainstorm) — which narrower methods
   (`find_authored_elements`, `find_root_elements`,
   `find_elements_for_anchor`/`_anchor_domain`/`_anchor_scope`) get a

@@ -3965,6 +3965,27 @@ const EXPLORER_SEARCH_CATEGORY_ICONS = {
   'apis':'🔗','processes':'⚙️','projects':'◉','surveys':'🔍','other':'📦',
 };
 
+// Result-list section headers group by real typeName, not categoryId --
+// categoryId/categoryLabel (_TYPE_CATEGORY in catalog_search_handler.py) only
+// curates ~40 of several hundred real Egeria types, so grouping the visible
+// list by it means most headings read as the generic "Other" bucket even
+// when a search was scoped to one exact, known type (e.g. selecting the
+// PersonRole facet still headed the list "Other"). Regrouping by typeName
+// here matches the same "trust the real result, not the curated bucket"
+// principle typeFacets already uses. categoryId is kept per-type only for
+// picking a (harmless, decorative) icon.
+function _groupExplorerSearchItemsByType(groups) {
+  const byType = {};
+  (groups || []).forEach(g => {
+    g.items.forEach(it => {
+      const key = it.typeName || '(unknown)';
+      if (!byType[key]) byType[key] = { typeName: key, categoryId: it.categoryId, items: [] };
+      byType[key].items.push(it);
+    });
+  });
+  return Object.values(byType).sort((a, b) => b.items.length - a.items.length || a.typeName.localeCompare(b.typeName));
+}
+
 function _explorerHlEsc(s) { return s.replace(/[&<>"]/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 function _explorerHl(text, q) {
   if (!text) return '';
@@ -3981,29 +4002,57 @@ function ExplorerSearchView({ creds, initialQuery, onNavigateToElement }) {
   const [data, setData]     = React.useState(null);
   const [err, setErr]       = React.useState(null);
   const [loading, setLoading] = React.useState(false);
+  // Facet chips come from the BASE (unrestricted) search's typeFacets, kept
+  // stable across scoped re-searches so the full breadth stays visible for
+  // further toggling — a scoped response's own typeFacets would only ever
+  // show the type(s) it was scoped to. Toggling a chip re-searches server-side
+  // (metadata_element_subtypes) rather than filtering client-side: page_size
+  // caps the base search, so a less-common type can be crowded out of that
+  // page entirely — scoping the search itself gets a complete count for it.
+  // Safe to do here (unlike a pre-search picker) because these typeNames came
+  // from a real prior result, not a curated/guessed list.
+  const [baseFacets, setBaseFacets] = React.useState(null);
+  const [selTypes, setSelTypes]     = React.useState([]);
   const timer = React.useRef(null);
 
-  function doSearch(query) {
+  function doSearch(query, typeList) {
     const trimmed = (query || '').trim();
     if (!trimmed || trimmed === '*') { setData(null); setErr(null); return; }
     setLoading(true); setErr(null);
-    egeriaFetch('/api/catalog/search?q=' + encodeURIComponent(trimmed) + '&page_size=200', creds)
+    let url = '/api/catalog/search?q=' + encodeURIComponent(trimmed) + '&page_size=200';
+    (typeList || []).forEach(t => { url += '&types=' + encodeURIComponent(t); });
+    egeriaFetch(url, creds)
       .then(r => r.ok ? r.json() : r.json().then(e => { throw new Error(e.detail || r.status); }))
-      .then(j => { setData(j); setLoading(false); })
+      .then(j => {
+        setData(j); setLoading(false);
+        if (!typeList || !typeList.length) setBaseFacets(j.typeFacets || []);
+        if (j.typeFilterDropped) setSelTypes([]); // server couldn't apply it — don't show a filter that isn't real
+      })
       .catch(e => { setErr(e.message || String(e)); setLoading(false); });
   }
 
   function handleInput(e) {
     const val = e.target.value;
     setQ(val);
+    setSelTypes([]); setBaseFacets(null);
     clearTimeout(timer.current);
-    if (val.trim().length >= 2) timer.current = setTimeout(() => doSearch(val), 400);
+    if (val.trim().length >= 2) timer.current = setTimeout(() => doSearch(val, []), 400);
     else setData(null);
   }
 
+  function toggleType(tn) {
+    const next = selTypes.indexOf(tn) === -1 ? selTypes.concat([tn]) : selTypes.filter(t => t !== tn);
+    setSelTypes(next);
+    doSearch(q, next);
+  }
+
   React.useEffect(() => {
-    if (initialQuery && initialQuery.trim().length >= 2) doSearch(initialQuery);
+    if (initialQuery && initialQuery.trim().length >= 2) doSearch(initialQuery, []);
   }, []);
+
+  const hasResults = data && data.total > 0;
+  const facets = baseFacets || [];
+  const typeGroups = hasResults ? _groupExplorerSearchItemsByType(data.groups) : [];
 
   return React.createElement('div', { style: { display: 'flex', flex: 1, flexDirection: 'column', overflow: 'hidden' } },
     React.createElement('div', { style: { padding: '16px 20px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
@@ -4015,20 +4064,38 @@ function ExplorerSearchView({ creds, initialQuery, onNavigateToElement }) {
         }),
         React.createElement('span', { style: { position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 15, pointerEvents: 'none', color: 'var(--dim)' } }, '🔎')
       ),
+      facets.length > 1 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 8 } },
+        React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Types in these results:'),
+        facets.map(f => {
+          const active = selTypes.indexOf(f.typeName) !== -1;
+          return React.createElement('button', {
+            key: f.typeName, onClick: () => toggleType(f.typeName),
+            title: active ? 'Click to remove filter' : 'Click to restrict search to ' + f.typeName,
+            style: {
+              fontSize: 11, padding: '3px 9px', borderRadius: 12, cursor: 'pointer',
+              border: '1px solid ' + (active ? 'var(--accent)' : 'var(--border)'),
+              background: active ? 'var(--accent)' : 'transparent',
+              color: active ? 'var(--bg)' : 'var(--dim)',
+            }
+          }, (EXPLORER_SEARCH_CATEGORY_ICONS[f.categoryId] || '') + ' ' + f.typeName + ' (' + f.count + ')');
+        })
+      ),
       data && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginTop: 6 } },
-        data.total + ' result' + (data.total === 1 ? '' : 's') + ' for ' + JSON.stringify(data.query))
+        data.total + ' result' + (data.total === 1 ? '' : 's') + ' for ' + JSON.stringify(data.query) +
+        (selTypes.length ? ' (' + selTypes.length + ' type' + (selTypes.length === 1 ? '' : 's') + ' selected)' : ''),
+        data.typeFilterDropped && React.createElement('span', { style: { color: '#fbbf24', marginLeft: 6 } }, '⚠ type filter unavailable, showing unrestricted results'))
     ),
     React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: '12px 20px' } },
       loading && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12, padding: 8 } }, 'Searching…'),
       err     && React.createElement('div', { style: { color: '#f87171', fontSize: 13, padding: 8 } }, 'Error: ' + err),
       !loading && !err && !data && q.trim().length < 2 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, padding: 8, textAlign: 'center', marginTop: 40 } }, 'Type at least 2 characters to search.'),
-      data && data.total === 0 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, padding: 8, textAlign: 'center', marginTop: 40 } }, 'No results found for ' + JSON.stringify(data.query) + '.'),
-      data && data.groups && data.groups.map(grp =>
-        React.createElement('div', { key: grp.categoryId, style: { marginBottom: 20 } },
+      !loading && data && data.total === 0 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, padding: 8, textAlign: 'center', marginTop: 40 } }, 'No results found for ' + JSON.stringify(data.query) + '.'),
+      !loading && hasResults && typeGroups.map(grp =>
+        React.createElement('div', { key: grp.typeName, style: { marginBottom: 20 } },
           React.createElement('div', { style: { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 } },
             React.createElement('span', null, EXPLORER_SEARCH_CATEGORY_ICONS[grp.categoryId] || '📦'),
-            grp.categoryLabel,
-            React.createElement('span', { style: { fontWeight: 400, color: 'var(--dim)', textTransform: 'none', letterSpacing: 0 } }, '(' + grp.count + ')')
+            grp.typeName,
+            React.createElement('span', { style: { fontWeight: 400, color: 'var(--dim)', textTransform: 'none', letterSpacing: 0 } }, '(' + grp.items.length + ')')
           ),
           grp.items.map((item, i) =>
             React.createElement('div', { key: item.guid || i, style: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' } },
@@ -4044,7 +4111,12 @@ function ExplorerSearchView({ creds, initialQuery, onNavigateToElement }) {
                 ? React.createElement('button', {
                     onClick: function() { onNavigateToElement(item); },
                     style: { fontSize: 10, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }
-                  }, '↗ ' + (item.categoryLabel || 'View'))
+                  // Real typeName is already shown as its own badge above
+                  // -- this used to fall back to item.categoryLabel, which is wrong/
+                  // misleading for the majority of real Egeria types: _TYPE_CATEGORY
+                  // only curates ~40 of several hundred, so most results showed the
+                  // generic "↗ Other" here regardless of their actual type.
+                  }, '↗ View')
                 : React.createElement('a', {
                     href: '/tech-catalog?guid=' + encodeURIComponent(item.guid),
                     target: '_blank',
@@ -5357,6 +5429,16 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
     );
   }
 
+  // Overrides for keys that are otherwise indistinguishable generic camelCase
+  // labels mixed in among a dozen other relationship-list keys — these two are
+  // the physical<->logical<->semantic bridge (see semantic_links.py) and are
+  // worth calling out visually rather than reading as "Assigned Meanings"/
+  // "Assigned Data Classes".
+  var _DD_REL_LABEL_OVERRIDES = {
+    assignedMeanings:     '🧠 Assigned Glossary Terms',
+    assignedDataClasses:  '🏷️ Assigned Data Classes',
+  };
+
   function renderAllRels(relationships) {
     if (!relationships) return null;
     function camelToLabel(s) {
@@ -5364,7 +5446,7 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
     }
     return Object.entries(relationships).map(function(entry) {
       var key = entry[0], items = entry[1];
-      return relSection(camelToLabel(key), items);
+      return relSection(_DD_REL_LABEL_OVERRIDES[key] || camelToLabel(key), items);
     });
   }
 
