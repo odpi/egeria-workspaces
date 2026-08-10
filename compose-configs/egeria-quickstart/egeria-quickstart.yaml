@@ -103,7 +103,7 @@ services:
     environment:
       XTDB_ENABLE_BYTEUTILS_SHA1: "True"
       XTDB_DISABLE_LIBCRYPTO: "True"
-      startup.server.list: "qs-metadata-store,qs-engine-host,qs-integration-daemon,qs-view-server"
+      startup.server.list: "qs-metadata-store,qs-engine-host,qs-integration-daemon,qs-view-server,qs-nanny-daemon"
       server.port: "9443"
       HOST_FQDN: "${HOST_FQDN}"
       KAFKA_BOOTSTRAP_SERVERS: "${KAFKA_BOOTSTRAP_SERVERS:-host.docker.internal:9194}"
