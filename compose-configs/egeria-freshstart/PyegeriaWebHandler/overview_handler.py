@@ -164,7 +164,7 @@ def _expert(url=None, server=None, user_id=None, user_pwd=None):
     pyegeria.enable_ssl_check = False
     pyegeria.disable_ssl_warnings = True
     url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
-    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "fs-view-server")
     user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
     user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
     mgr = MetadataExpert(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
@@ -175,7 +175,7 @@ def _expert(url=None, server=None, user_id=None, user_pwd=None):
 def _env(url, server, user_id, user_pwd):
     return (
         url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443"),
-        server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server"),
+        server   or os.environ.get("EGERIA_VIEW_SERVER",   "fs-view-server"),
         user_id  or os.environ.get("EGERIA_USER",          "erinoverview"),
         user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret"),
     )

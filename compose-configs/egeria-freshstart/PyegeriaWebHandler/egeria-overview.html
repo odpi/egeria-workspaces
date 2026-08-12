@@ -306,7 +306,7 @@
       </div>
     </div>
     <div style="text-align:right">
-      <div class="asof" id="dataSrc">Snapshot as of <b id="asofTime">—</b> · <span id="srcBadge" style="color:var(--muted)">○ connecting…</span> · <span id="srcServer">qs-view-server</span></div>
+      <div class="asof" id="dataSrc">Snapshot as of <b id="asofTime">—</b> · <span id="srcBadge" style="color:var(--muted)">○ connecting…</span> · <span id="srcServer">fs-view-server</span></div>
       <div class="tm" title="Egeria answers historical queries natively (asOfTime) — no time-series store">
         <span class="tm-lab">⏳ Time machine</span>
         <input type="date" id="asof-date" class="tm-date" max="2026-07-23">
@@ -854,7 +854,7 @@
         wants_response: wants.checked,
         consent_to_contact: consent.checked,
         persona: (window.CURRENT_USER || null),
-        env: 'quickstart-demo',
+        env: 'freshstart-demo',
         viewport: window.innerWidth + 'x' + window.innerHeight,
         locale: navigator.language || null,
       }),
@@ -2083,19 +2083,28 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (typeof egeriaFetch !== 'function') {   // shared UI not loaded — sample only
       badge('○ sample (offline)', 'var(--c4)'); stamp(); return;
     }
-    var server = 'qs-view-server';
+    // Freshstart port (NEXT-11, BACKLOG.md): mirrors tech-catalog.html's boot
+    // effect for this environment — server_managed_auth means the connection
+    // is server-managed via the portal JWT + env vars, not a demo-persona
+    // password exchange. No `server` literal here either way: every backend
+    // route falls through to its own EGERIA_VIEW_SERVER env default
+    // ("fs-view-server") when the query param is omitted.
     fetch('/api/auth/me').then(function(r){ return r.ok ? r.json() : null; }).then(function(me){
+      if (me && me.server_managed_auth) {
+        start({});   // empty creds — env-var service account answers every query
+        return;
+      }
       if (me && me.egeria_user) {
         window.CURRENT_USER = me.egeria_user;
         fetch('/api/egeria-token', { method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ user_id: me.egeria_user, password: me.egeria_password || '' }) })
           .then(function(r){ return r.ok ? r.json() : {}; })
-          .then(function(t){ start({ server: server, userId: me.egeria_user, token: t.token || '' }); })
-          .catch(function(){ start({ server: server, userId: me.egeria_user }); });
+          .then(function(t){ start({ userId: me.egeria_user, token: t.token || '' }); })
+          .catch(function(){ start({ userId: me.egeria_user }); });
       } else {
-        start({ server: server });   // server falls back to env-default user
+        start({});   // falls back to env-default service account
       }
-    }).catch(function(){ start({ server: server }); });
+    }).catch(function(){ start({}); });
   }
   boot();
 })();

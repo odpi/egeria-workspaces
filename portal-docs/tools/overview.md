@@ -33,6 +33,7 @@ The tools are designed to work together. Common cross-tool flows:
 - **Egeria Operations → Tech Catalog** — "Open in The Catalog" on a server row jumps to that server's asset detail
 - **Bookmarking** — most tools let you bookmark a specific screen or item (☐ / ☑ toggle) to **My Bookmarks** on the portal home page, for one-click return later
 - **Portal → any tool** — all tools are accessible as tiles on the main portal page
+- **Portal search** — the search bar in the portal header searches the whole metadata catalog (the same cross-type search Tech Catalog and Egeria Explorer each already offer, see [Searching](tech-catalog.md#searching)) and opens each result directly in whichever tool owns that element type. Use it when you don't yet know which tool has what you're looking for; once you're inside a tool, its own in-app search stays the faster option since it doesn't leave the page.
 
 ---
 

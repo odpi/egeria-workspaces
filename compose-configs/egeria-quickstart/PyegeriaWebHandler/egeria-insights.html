@@ -587,10 +587,13 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 'use strict';
 // ── Egeria Insights SPA ──────────────────────────────────────────────────────
 // Two tabs (plus Saved Queries): Dashboard (card launcher with live capped
-// counts) and Search — labelled just "Search" in the UI (was "Governance
-// Search"; the GovernanceSearch component name is unchanged, internal
-// only) — zone + classification + relationship faceted search. Maps
-// directly onto Egeria's native FindRequestBody.matchClassifications — see
+// counts) and Query — labelled "Query" in the UI (was "Search", before that
+// "Governance Search"; the GovernanceSearch component name is unchanged,
+// internal only) — zone + classification + relationship faceted search in
+// one screen (the "Relationship Explorer" dashboard card was dropped
+// 2026-08-11: it only ever pre-selected this same screen's Relationships
+// browse tab, never a separate feature — see BACKLOG.md). Maps directly
+// onto Egeria's native FindRequestBody.matchClassifications — see
 // insights_handler.py's module docstring for the full design rationale.
 // Cross-links use the shared crossAppNavigate() from egeria-shared-ui.js —
 // no bespoke navigation logic here.
@@ -602,7 +605,7 @@ var pad = { padding: '24px', color: 'var(--muted)', fontSize: 13 };
 
 var TABS = [
   { id: 'dashboard', label: 'Dashboard' },
-  { id: 'search',    label: 'Search' },
+  { id: 'search',    label: 'Query' },
   { id: 'saved',     label: 'Saved Queries' },
 ];
 
@@ -702,29 +705,21 @@ function Dashboard({ creds, onOpenSearch, onOpenQueryInBuilder }) {
           })
         )
       ),
+    // Single Query card (2026-08-11: dropped the separate "Relationship
+    // Explorer" card — it only ever pre-selected the Relationships browse
+    // tab inside this same Query screen, never a distinct feature).
     el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14, maxWidth: 900 } },
       el('div', { style: Object.assign(cardStyle(), { borderColor: 'var(--accent)' }), onClick: onOpenSearch },
         el('div', { style: { fontSize: 22 } }, '🧭'),
-        el('div', { style: { fontSize: 15, fontWeight: 700 } }, 'Search'),
+        el('div', { style: { fontSize: 15, fontWeight: 700 } }, 'Query'),
         el('div', { style: { fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.5 } },
-          'Find elements by zone, confidentiality, criticality, retention, and impact — combined with AND / OR / NONE.'),
+          'Find elements by zone, classification (confidentiality, criticality, retention, impact, ...), or relationship (DataFlow, SemanticAssignment, Certification, ...) — combined with AND / OR / NONE.'),
         el('div', { style: { marginTop: 6, display: 'flex', gap: 14, fontSize: 12, flexWrap: 'wrap' } },
           el('span', null, el('b', { style: { color: 'var(--accent)' } }, countLabel), ' classified elements'),
+          topRel && el('span', null, el('b', { style: { color: 'var(--rel, #fbbf24)' } }, topRel.instanceCount + (topRel.capped ? '+' : '')),
+            ' ', topRel.type),
           summary && summary.topZones && summary.topZones[0] &&
             el('span', { style: { color: 'var(--dim)' } }, 'top zone: ', summary.topZones[0].zone, ' (', summary.topZones[0].count, ')')
-        )
-      ),
-      el('div', { style: Object.assign(cardStyle(), { borderColor: 'var(--rel, #fbbf24)' }),
-          onClick: function(){ onOpenSearch('relationships'); } },
-        el('div', { style: { fontSize: 22 } }, '🕸️'),
-        el('div', { style: { fontSize: 15, fontWeight: 700 } }, 'Relationship Explorer'),
-        el('div', { style: { fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.5 } },
-          'Find elements by has/lacks a relationship (DataFlow, SemanticAssignment, Certification, ...) — combined with classification conditions and AND / OR / NONE.'),
-        el('div', { style: { marginTop: 6, display: 'flex', gap: 14, fontSize: 12, flexWrap: 'wrap' } },
-          topRel && el('span', null, el('b', { style: { color: 'var(--rel, #fbbf24)' } }, topRel.instanceCount + (topRel.capped ? '+' : '')),
-            ' ', topRel.type, (topRel.capped ? ' (capped)' : '')),
-          !topRel && relState === 'loading' && el('span', { style: { color: 'var(--dim)' } }, 'loading…'),
-          !topRel && relState === 'error' && el('span', { style: { color: 'var(--dim)' } }, 'unavailable')
         )
       )
     ),
@@ -738,7 +733,7 @@ function Dashboard({ creds, onOpenSearch, onOpenQueryInBuilder }) {
         )
       ),
     // Relationship Coverage (NEXT-25) — same curated set the Relationship
-    // tree browses; a click jumps to the Search tab with that type
+    // tree browses; a click jumps to the Query tab with that type
     // pre-toggled, same as clicking it in the tree would.
     relSummary && relSummary.relationships && relSummary.relationships.length > 0 &&
       el('div', { style: { marginTop: 26, maxWidth: 900 } },
@@ -940,7 +935,7 @@ function ClassificationBrowsePanel({ creds, selectedZone, onSelectZone, onAddCla
   );
 }
 
-/* ── Search (component name unchanged; UI label is just "Search") ───────── */
+/* ── Query (component name unchanged; UI label is just "Query") ─────────── */
 function typeCatalog(creds, setCatalog, setCatState) {
   setCatState('loading');
   egeriaFetch('/api/types', creds).then(function(r) {
@@ -1150,6 +1145,9 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse, 
   var _showSave  = useState(false), showSavePanel = _showSave[0], setShowSavePanel = _showSave[1];
   var _saveState = useState('idle'), saveState = _saveState[0], setSaveState = _saveState[1]; // idle|saving|saved|error
   var _saveErr   = useState(''), saveErr = _saveErr[0], setSaveErr = _saveErr[1];
+  // Smart Collection registration (https://egeria-project.org/egeria-solutions/smart-collections/overview/) —
+  // see insights_handler.py's "Smart Collections registration" section for what this actually does.
+  var _saveSmart = useState(loadedQuery ? !!loadedQuery.smartCollection : false), saveSmartCollection = _saveSmart[0], setSaveSmartCollection = _saveSmart[1];
 
   useEffect(function(){ typeCatalog(creds, setCatalog, setCatState); }, [creds && creds.userId]);
 
@@ -1307,6 +1305,15 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse, 
                       || relConditions.some(function(c){ return c.relationship_type; })
                       || valueConditions.some(function(c){ return c.property; });
 
+  // Smart Collection registration needs a single Egeria REST call it can hand
+  // to SmartCollectionsMembershipManager verbatim — a type, classification, or
+  // property-value condition. A relationship-only search is resolved by this
+  // app fanning out client-side across each participant type (see
+  // _is_relationship_only in insights_handler.py) and isn't expressible that
+  // way, so it's disabled (not silently ignored) in exactly that case.
+  var canSmartCollection = !!typeName || conditions.some(function(c){ return c.classification; })
+                            || valueConditions.some(function(c){ return c.property; });
+
   // Save / update / save-as (Track A saved queries, EGERIA_INSIGHTS_QUERY_MODEL.md).
   // The persisted spec is exactly what /api/insights/search itself takes —
   // same shape runSearch() posts, minus paging/connection fields the backend
@@ -1338,6 +1345,7 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse, 
     var reqUrl = isUpdate ? ('/api/insights/queries/' + savedGuid) : '/api/insights/queries';
     var payload = {
       name: saveName.trim(), description: saveDesc || '', search: currentSearchBody(),
+      make_smart_collection: canSmartCollection && saveSmartCollection,
       server: creds && creds.server, user_id: creds && creds.userId, url: creds && creds.url,
     };
     setSaveState('saving'); setSaveErr('');
@@ -1348,6 +1356,10 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse, 
       return r.json();
     }).then(function(d) {
       setSavedGuid(d.guid); setSaveState('saved'); setShowSavePanel(false);
+      setSaveSmartCollection(!!d.smartCollection);
+      if (payload.make_smart_collection && !d.smartCollection) {
+        setSaveErr('Smart Collection registration failed (check the app logs) — the query and its ResultsSet were still saved.');
+      }
     }).catch(function(e) { setSaveState('error'); setSaveErr(e.message || 'Save failed'); });
   }
 
@@ -1500,7 +1512,7 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse, 
               title: canFullCount ? '' : 'Add an element type, classification, relationship, or property value first — an unscoped search isn\'t allowed (it would try to match the entire repository).',
               style: { fontSize: 12, padding: '5px 16px', borderRadius: 4, border: 'none',
                        background: canFullCount ? 'var(--accent)' : 'var(--border)', color: canFullCount ? '#fff' : 'var(--dim)',
-                       fontWeight: 600, cursor: canFullCount ? 'pointer' : 'not-allowed' } }, 'Search'),
+                       fontWeight: 600, cursor: canFullCount ? 'pointer' : 'not-allowed' } }, 'Run query'),
           el('label', { style: { fontSize: 12, color: canFullCount ? 'var(--muted)' : 'var(--dim)', display: 'flex', alignItems: 'center', gap: 5 } },
             el('input', { type: 'checkbox', checked: fullCount, disabled: !canFullCount, onChange: function(e){ setFullCount(e.target.checked); } }),
             'Exact count (may take a while)'
@@ -1511,7 +1523,7 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse, 
           // Save / update / save-as (Track A saved queries) —
           savedGuid && el('span', { className: 'chip', style: { cursor: 'default' }, title: saveDesc || '' }, '📌 ' + saveName),
           savedGuid && onClearLoaded && el('button', { onClick: onClearLoaded,
-              style: { fontSize: 11, padding: '3px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, '+ New search'),
+              style: { fontSize: 11, padding: '3px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, '+ New query'),
           el('button', { onClick: function(){ setShowSavePanel(!showSavePanel); setSaveState('idle'); },
               style: { fontSize: 12, padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' } },
             '💾 ' + (savedGuid ? 'Save…' : 'Save query…'))
@@ -1522,19 +1534,29 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse, 
               value: saveName, onChange: function(e){ setSaveName(e.target.value); } }),
           el('input', { className: 'search-input', style: { width: 260 }, placeholder: 'Description (optional)',
               value: saveDesc, onChange: function(e){ setSaveDesc(e.target.value); } }),
+          el('label', { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 12,
+                color: canSmartCollection ? 'var(--text)' : 'var(--dim)', cursor: canSmartCollection ? 'pointer' : 'default' },
+              title: canSmartCollection
+                ? 'Registers this query with Egeria\'s SmartCollectionsMembershipManager integration connector, which keeps a ResultsSet collection of the live matches, refreshed automatically (~every 30 min, or on demand) — see the Egeria Solutions "Smart Collections" docs.'
+                : 'Needs a type, classification, or property-value condition — a relationship-only search is resolved client-side across multiple types and can\'t be expressed as the single REST call this needs.' },
+            el('input', { type: 'checkbox', checked: canSmartCollection && saveSmartCollection, disabled: !canSmartCollection,
+                onChange: function(e){ setSaveSmartCollection(e.target.checked); } }),
+            '🔄 Keep live (Smart Collection)'
+          ),
           el('button', { onClick: function(){ saveQuery(false); }, disabled: saveState === 'saving',
               style: { fontSize: 12, padding: '4px 12px', borderRadius: 4, border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 600, cursor: 'pointer' } },
             saveState === 'saving' ? 'Saving…' : (savedGuid ? 'Update' : 'Save')),
           savedGuid && el('button', { onClick: function(){ saveQuery(true); }, disabled: saveState === 'saving',
               style: { fontSize: 12, padding: '4px 12px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' } }, 'Save as new'),
-          saveState === 'saved' && el('span', { style: { fontSize: 12, color: '#4ade80' } }, 'Saved ✓'),
+          saveState === 'saved' && !saveErr && el('span', { style: { fontSize: 12, color: '#4ade80' } }, 'Saved ✓'),
+          saveState === 'saved' && saveErr && el('span', { style: { fontSize: 12, color: '#facc15' } }, 'Saved, but: ' + saveErr),
           saveState === 'error' && el('span', { style: { fontSize: 12, color: '#f87171' } }, saveErr)
         )
       ),
       el('div', { style: { flex: 1, overflowY: 'auto', padding: '14px 20px' } },
-        resState === 'idle'    && el('div', { style: { fontSize: 13, color: 'var(--dim)' } }, 'Add conditions (or pick a zone on the left) and run a search.'),
+        resState === 'idle'    && el('div', { style: { fontSize: 13, color: 'var(--dim)' } }, 'Add conditions (or pick a zone on the left) and run the query.'),
         resState === 'loading' && el('div', { className: 'center', style: { height: 200 } }, el('div', { className: 'spinner' })),
-        resState === 'error'   && el('div', { style: { fontSize: 13, color: '#f87171' } }, (results && results.error) || 'Search failed.'),
+        resState === 'error'   && el('div', { style: { fontSize: 13, color: '#f87171' } }, (results && results.error) || 'Query failed.'),
         resState === 'ready'   && el(SearchResults, { results: results })
       )
     )
@@ -1612,13 +1634,13 @@ function SavedQueries({ creds, onOpenInBuilder }) {
 
   return el('div', { style: { padding: 24, overflowY: 'auto', height: '100%' } },
     el('div', { style: { fontSize: 13, color: 'var(--muted)', marginBottom: 18, maxWidth: 640 } },
-      'Queries saved from Search — each is a ResultsSet whose last-materialized ' +
+      'Queries saved from Query — each is a ResultsSet whose last-materialized ' +
       'results are shown here as-of the time it was last refreshed. Refresh re-runs the query ' +
       'and updates its membership; nothing re-runs automatically just by viewing it.'),
     state === 'loading' && el('div', { className: 'center', style: { height: 160 } }, el('div', { className: 'spinner' })),
     state === 'error'   && el('div', { style: { fontSize: 13, color: '#f87171' } }, 'Failed to load saved queries.'),
     state === 'ready' && queries.length === 0 &&
-      el('div', { style: { fontSize: 13, color: 'var(--dim)' } }, 'No saved queries yet — build one in Search, then "💾 Save query…".'),
+      el('div', { style: { fontSize: 13, color: 'var(--dim)' } }, 'No saved queries yet — build one in Query, then "💾 Save query…".'),
     state === 'ready' && queries.length > 0 && el('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 900 } },
       queries.map(function(q) {
         var busy = busyGuid === q.guid;
@@ -1630,7 +1652,14 @@ function SavedQueries({ creds, onOpenInBuilder }) {
                 style: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '0 2px',
                          color: q.favorite ? '#fbbf24' : 'var(--dim)', flexShrink: 0 } }, q.favorite ? '★' : '☆'),
             el('div', { style: { flex: 1, minWidth: 0 } },
-              el('div', { style: { fontSize: 14, fontWeight: 700 } }, q.name),
+              el('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                el('span', { style: { fontSize: 14, fontWeight: 700 } }, q.name),
+                q.smartCollection && el('span', {
+                    title: 'Registered as a Smart Collection — SmartCollectionsMembershipManager keeps its ResultsSet refreshed automatically (~every 30 min, or on demand), independent of this app\'s own Refresh button.',
+                    style: { fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 10,
+                             background: 'rgba(74,222,128,.12)', color: '#4ade80', border: '1px solid rgba(74,222,128,.35)' } },
+                  '🔄 Live')
+              ),
               q.description && el('div', { style: { fontSize: 12, color: 'var(--muted)', marginTop: 2 } }, q.description),
               el('div', { style: { fontSize: 11, color: 'var(--dim)', marginTop: 6, display: 'flex', gap: 10, flexWrap: 'wrap' } },
                 el('span', null, fmtAsOf(q.lastRefreshedTime)),
@@ -1787,7 +1816,7 @@ function App() {
       el('div', { style: { display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px', height: 46, borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0 } },
         el('span', { style: { fontSize: 18 } }, '🧭'),
         el('span', { style: { fontSize: 15, fontWeight: 700 } }, 'Egeria Insights'),
-        el('span', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Governance search across the metadata ecosystem'),
+        el('span', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Governance query across the metadata ecosystem'),
         el('div', { style: { flex: 1 } }),
         who && el('span', { title: who.sub || '', style: { fontSize: 12, color: 'var(--accent)', background: 'rgba(96,165,250,.1)', border: '1px solid rgba(96,165,250,.3)', borderRadius: 12, padding: '2px 10px' } }, who.label),
         who && !srvManaged && el('button', { onClick: disconnect, title: 'Switch user', style: { fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' } }, 'Switch'),

@@ -52,6 +52,28 @@ Everything **else** in `PyegeriaWebHandler/` (the Explorer/Catalog handlers,
 byte-identical** and relies on the runtime flags above. Apply changes to those in
 **both** envs.
 
+**Now also converged (2026-08-12): `egeria-overview.html` + `overview_handler.py`
++ `overview_specs.py` + `overview_containers.py`.** Ported from quickstart-only
+to freshstart (BACKLOG.md NEXT-11) using the same pattern `tech-catalog.html`
+already established: `egeria-overview.html`'s `boot()` branches on
+`me.server_managed_auth` internally (mirroring `tech-catalog.html`'s own boot
+effect), rather than the two envs' copies diverging structurally. Apply future
+changes to both.
+
+**`demo-portal.html`'s Portal-level omni-search (2026-08-12, NEXT-12) is a
+deliberate exception worth calling out explicitly**, since it's new code
+inside a file this doc's own per-env list says never to copy across envs: the
+search bar (CSS + HTML + the `PORTAL_EXPLORER_NAV`/`portalResolveNav`/
+`portalOpenResult`/search-panel JS block, all under a "Portal-level omni-search"
+comment header) was added by hand to **each** env's own copy separately — not
+by copying one file over the other, following this doc's own checklist. The
+routing-table portion additionally duplicates (not shares) `egeria-shared-ui.js`'s
+`EGERIA_EXPLORER_NAV`/`resolveElementNav` — that file can't be loaded into this
+plain-vanilla-JS landing page (it has a top-level `React.createContext()` call
+that throws without React also loaded). If you add a type to one, add it to
+both `egeria-shared-ui.js` copies **and** both `demo-portal.html` copies —
+four places, not two.
+
 ---
 
 ## Known regressions this guard would have prevented (2026-06-18/19)
