@@ -11,28 +11,37 @@ Browse and copy individual files from the full template library:
 
 ### View all glossaries
 ```markdown
-# View Glossaries
+## View Glossaries
 ```
 
 ### View terms in a glossary
 ```markdown
-# View Glossary Terms
-Glossary: Business Glossary
+## View Glossary Terms
+### Glossary Name
+Business Glossary
 ```
 
 ### Create a glossary term
 ```markdown
-# Create Glossary Term
-Term: Customer
-Glossary: Business Glossary
-Summary: A person or organisation that purchases products or services.
+## Create Glossary Term
+### Display Name
+Customer
+
+### Glossary Name
+Business Glossary
+
+### Summary
+A person or organisation that purchases products or services.
 ```
 
 ### Create an informal tag
 ```markdown
-# Create Informal Tag
-Tag Name: confidential
-Description: Marks assets containing sensitive information.
+## Create Informal Tag
+### Display Name
+confidential
+
+### Description
+Marks assets containing sensitive information.
 ```
 
 ---
@@ -41,12 +50,12 @@ Description: Marks assets containing sensitive information.
 
 ### View governance zones
 ```markdown
-# View Governance Zones
+## View Governance Zones
 ```
 
 ### View governance definitions
 ```markdown
-# View Governance Definitions
+## View Governance Definitions
 ```
 
 ---
@@ -55,16 +64,22 @@ Description: Marks assets containing sensitive information.
 
 ### Create a comment
 ```markdown
-# Create Comment
-Element: [GUID or qualified name]
-Comment: This dataset needs quality review before use in reporting.
+## Create Comment
+### Commented On Element
+[GUID or qualified name]
+
+### Description
+This dataset needs quality review before use in reporting.
 ```
 
 ### Create a journal entry
 ```markdown
-# Create Journal Entry
-Display Name: Data quality review — Q2 2026
-Description: Completed initial review of clinical trial datasets. Three tables flagged for remediation.
+## Create Journal Entry
+### Display Name
+Data quality review — Q2 2026
+
+### Description
+Completed initial review of clinical trial datasets. Three tables flagged for remediation.
 ```
 A private entry in your own activity journal — see also `Create Activity
 Entry` (public, tracks completion status) and `Create Blog Entry` (public,
@@ -77,44 +92,63 @@ Note` instead to attach an opinion/annotation to any *other* element.
 
 ### View solution blueprints
 ```markdown
-# View Solution Blueprints
+## View Solution Blueprint
 ```
 
 ### Create a solution blueprint
 ```markdown
-# Create Solution Blueprint
-Name: Clinical Data Pipeline
-Description: End-to-end pipeline from lab systems to analytics platform.
+## Create Solution Blueprint
+### Display Name
+Clinical Data Pipeline
+
+### Description
+End-to-end pipeline from lab systems to analytics platform.
 ```
 
 ### Create a design pattern
 ```markdown
-# Create Design Pattern
-Name: Batch Ingestion Pattern
-Description: Periodic bulk load of source data into a staging area.
-Problem Statement: Source systems only expose full-file exports on a schedule, not real-time events.
-Solution Description: Land the file in staging, validate, then merge into the target on a fixed cadence.
+## Create Design Pattern
+### Display Name
+Batch Ingestion Pattern
+
+### Description
+Periodic bulk load of source data into a staging area.
+
+### Problem Statement
+Source systems only expose full-file exports on a schedule, not real-time events.
+
+### Solution Description
+Land the file in staging, validate, then merge into the target on a fixed cadence.
 ```
 
 ### Link two design patterns as nested
 ```markdown
-# Link Nested Design Patterns
-Parent Design Pattern: DesignPattern::Batch Ingestion Pattern
-Nested Design Pattern: DesignPattern::File Validation Pattern
+## Link Nested Design Patterns
+### Parent Design Pattern
+DesignPattern::Batch Ingestion Pattern
+
+### Nested Design Pattern
+DesignPattern::File Validation Pattern
 ```
 
 ### Link a specialized design pattern
 ```markdown
-# Link Specialized Design Patterns
-General Design Pattern: DesignPattern::Batch Ingestion Pattern
-Specialized Design Pattern: DesignPattern::CSV Batch Ingestion Pattern
+## Link Specialized Design Patterns
+### General Design Pattern
+DesignPattern::Batch Ingestion Pattern
+
+### Specialized Design Pattern
+DesignPattern::CSV Batch Ingestion Pattern
 ```
 
 ### Link two related design patterns
 ```markdown
-# Link Related Design Patterns
-Design Pattern 1: DesignPattern::Batch Ingestion Pattern
-Design Pattern 2: DesignPattern::Event Streaming Pattern
+## Link Related Design Patterns
+### Design Pattern 1
+DesignPattern::Batch Ingestion Pattern
+
+### Design Pattern 2
+DesignPattern::Event Streaming Pattern
 ```
 
 ---
@@ -123,15 +157,19 @@ Design Pattern 2: DesignPattern::Event Streaming Pattern
 
 ### Create a project
 ```markdown
-# Create Project
-Name: Data Governance Initiative 2026
-Description: Programme to improve data quality across all Coco systems.
+## Create Project
+### Display Name
+Data Governance Initiative 2026
+
+### Description
+Programme to improve data quality across all Coco systems.
 ```
 
 ### Create a personal project
 ```markdown
-# Create Personal Project
-Name: Glossary review — finance terms
+## Create Personal Project
+### Display Name
+Glossary review — finance terms
 ```
 
 ---
@@ -140,42 +178,67 @@ Name: Glossary review — finance terms
 
 ### View a report
 ```markdown
-# Report
-Report Spec: [report spec name, e.g. 'Digital-Products', 'Collections']
+## View Report
+### Report Spec
+[report spec name, e.g. 'Digital-Products', 'Collections']
 ```
 
 ### Create a report (with default parameters, for placing on a dashboard)
 ```markdown
 ## Create Report
-Display Name: Governance Coverage
-Report Spec: Analytic Demo - Governance Coverage
-Output Format: DICT
+### Display Name
+Governance Coverage
+
+### Report Spec
+Analytic Demo - Governance Coverage
+
+### Output Format
+DICT
 ```
 
 ### Create a dashboard sheet
 ```markdown
 ## Create Dashboard Sheet
-Display Name: Governance Overview
-Dashboard Sheet Heading: Governance Overview
+### Display Name
+Governance Overview
+
+### Dashboard Sheet Heading
+Governance Overview
 ```
 
 ### Place a report on a dashboard sheet
 ```markdown
 ## Link Report to Dashboard Sheet
-Dashboard Sheet Name: Governance Overview
-Report Name: Governance Coverage
-Placement Span: full
-Placement Emphasis: panel
+### Dashboard Sheet Name
+Governance Overview
+
+### Report Name
+Governance Coverage
+
+### Placement Span
+full
+
+### Placement Emphasis
+panel
 ```
 
 ### Add explanatory text to a dashboard sheet
 ```markdown
 ## Add Text on Dashboard Sheet
-Dashboard Sheet Name: Governance Overview
-Placement Name: Intro Caption
-MD Content: This dashboard tracks **governance classification coverage** across the catalog.
-Placement Span: full
-Placement Emphasis: panel
+### Dashboard Sheet Name
+Governance Overview
+
+### Placement Name
+Intro Caption
+
+### MD Content
+This dashboard tracks **governance classification coverage** across the catalog.
+
+### Placement Span
+full
+
+### Placement Emphasis
+panel
 ```
 
 ---

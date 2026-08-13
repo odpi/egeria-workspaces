@@ -4879,7 +4879,7 @@ function PlaceholderView({ section }) {
 
 const EXPLORER_SEARCH_CATEGORY_ICONS = {
   'glossary':'📖','tech-types':'🔧','data-assets':'🗄️','infrastructure':'🖧',
-  'apis':'🔗','processes':'⚙️','projects':'◉','surveys':'🔍','other':'📦',
+  'apis':'🔗','processes':'⚙️','projects':'◉','surveys':'🔍','valid-values':'✅','other':'📦',
 };
 
 // Result-list section headers group by real typeName, not categoryId --
@@ -7530,6 +7530,11 @@ function _elementIsLinkable(item) {
   if (item.typeName === 'SolutionBlueprint' || superTypes.indexOf('SolutionBlueprint') !== -1) return true;
   if (item.typeName === 'Perspective') return true;
   if (item.typeName === 'Project') return true;
+  // Egeria's internal type-system registry — every entity/relationship/
+  // classification typeName also exists as a ValidMetadataValue, which is why
+  // a search for e.g. "SmartQuery" can legitimately match one. Routes to the
+  // Valid Values viewer via validValueProperty (see catalog_search_handler.py).
+  if (item.typeName === 'ValidMetadataValue') return true;
   // Explicit subtype checks so linkability does not depend on superTypeNames being
   // present on the relationship item (some serializers omit them).
   if (item.typeName === 'CollectionFolder') return true;
@@ -10795,6 +10800,20 @@ function App() {
     if (typeName === 'DigitalProduct') { onNavigateToDigitalProduct(guid); return; }
     if (typeName === 'Perspective') { onNavigateToPerspective(guid); return; }
     if (typeName === 'Project') { onNavigateToProject(guid); return; }
+    if (typeName === 'ValidMetadataValue') {
+      // validValueProperty comes from catalog_search_handler.py's
+      // _serialize_search_result (guid alone doesn't identify a property
+      // name); fall back to parsing it out of the qualifiedName convention
+      // "Egeria:ValidMetadataValue::<property>-(<value>)" for any caller
+      // that didn't come through search with that field populated.
+      var propName = item.validValueProperty;
+      if (!propName && item.qualifiedName) {
+        var m = /^Egeria:ValidMetadataValue::([^-]+)-\(/.exec(item.qualifiedName);
+        if (m) propName = m[1];
+      }
+      if (propName) onNavigateToValidValues(propName);
+      return;
+    }
     // Explicit subtype routing — fires even when the item omits superTypeNames.
     if (typeName === 'CollectionFolder') { onNavigateToDigitalProduct(guid); return; }
     if (typeName === 'GovernanceActionProcess') { onNavigateToGovernance(typeName, guid); return; }
@@ -10812,7 +10831,7 @@ function App() {
     // "↗ Tech Catalog" link, for callers that route everything through this
     // single dispatcher instead of rendering that link separately).
     if (superTypes.indexOf('Asset') !== -1) { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
-  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToCollection, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToAction, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToExternalReference, onNavigateToExternalIdentifier, onNavigateToAgreement, onNavigateToProject]);
+  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToCollection, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToAction, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToExternalReference, onNavigateToExternalIdentifier, onNavigateToAgreement, onNavigateToProject, onNavigateToValidValues]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254);
 
