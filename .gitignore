@@ -122,8 +122,12 @@ work/.obsidian/workspace.json
 # Coco Workbooks
 coco-workbooks/egeria-docs-maintenance/snippets/
 coco-workbooks/dr-egeria-outbox/**
+coco-workbooks/**/dr-egeria-outbox/**
 coco-workbooks/.obsidian/workspace.json
 coco-workbooks/pyegeria/work/mermaid_graphs/**
+
+# Dr.Egeria outbox (generated/runtime, not source)
+/egeria-outbox/
 
 # egeria-workspaces
 exchange-quickstart/distribution-hub/*/**

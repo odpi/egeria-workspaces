@@ -1577,7 +1577,7 @@ const DRILL = {
   assets: { eb:'Catalog · scale', t:'🗂️ Cataloged Assets', s:'1,284 active assets · +63 new in last 90 days',
     stats:[['1,284','total'],['+63','new /90d'],['7','asset types']],
     list:[['Data Stores',312],['Data Sets',268],['Software Components',205],['Infrastructure',160],['APIs',141],['Processes',100],['Data Feeds',98]],
-    cta:['Open in The Catalog','/tech-catalog'], sec:['Search in Egeria Insights','/egeria-insights'],
+    cta:['Open in The Catalog','/tech-catalog'], sec:['Query in Egeria Insights','/egeria-insights'],
     note:'Counts from the Tech Catalog handlers (<code>/api/tech-catalog/*</code>). Trend via <code>asOfTime</code> snapshots.' },
   governed: { eb:'Governance posture', t:'🛡️ Governed Coverage', s:'873 of 1,284 assets carry ≥1 governance classification (68%)',
     stats:[['68%','governed'],['▲5 pts','vs 90d ago'],['170','ungoverned']],
@@ -1643,7 +1643,7 @@ const DRILL = {
 ['datastore','dataset','swcomp','infra','api','proc','feed'].forEach(k=>{});
 function typeDrill(name,count){ return { eb:'Catalog · asset type', t:'🗂️ '+name, s:count+' '+name.toLowerCase()+' in the catalog',
   stats:[[String(count),'assets'],['—','surveyed'],['—','owned']], list:[['Governed',Math.round(count*.68)],['Documented',Math.round(count*.71)],['Surveyed',Math.round(count*.55)]],
-  cta:['Open The Catalog','/tech-catalog'], sec:['Search in Insights','/egeria-insights'],
+  cta:['Open The Catalog','/tech-catalog'], sec:['Query in Insights','/egeria-insights'],
   note:'Would deep-link to a pre-filtered Catalog view for this type.' }; }
 function zoneDrill(name,count){ return { eb:'Governance zone', t:'📁 '+name, s:count+' elements are members of the '+name+' zone',
   stats:[[String(count),'members'],['—','confidential'],['—','owners']], list:[['Data Stores',Math.round(count*.4)],['Data Sets',Math.round(count*.35)],['Other',Math.round(count*.25)]],

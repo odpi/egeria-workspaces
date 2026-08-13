@@ -11,21 +11,30 @@ Browse and copy individual files from the full template library:
 
 ### View information supply chains
 ```markdown
-# View Information Supply Chains
+## View Information Supply Chain DrE Basic
 ```
+> Note: there's currently no plain `Information Supply Chain`/`Information
+> Supply Chains` report-spec alias registered — only the `DrE Basic`/
+> `DrE Advanced` suffixed names resolve. Worth registering a shorter alias.
 
 ### Create an information supply chain
 ```markdown
-# Create Information Supply Chain
-Name: Clinical Trial Data Flow
-Description: Flow of data from lab systems through QA into the clinical data warehouse.
+## Create Information Supply Chain
+### Display Name
+Clinical Trial Data Flow
+
+### Description
+Flow of data from lab systems through QA into the clinical data warehouse.
 ```
 
 ### Link information supply chain peers
 ```markdown
-# Link Information Supply Chain Peers
-ISC 1: Clinical Trial Data Flow
-ISC 2: Regulatory Reporting Pipeline
+## Link Information Supply Chain Peers
+### Element Id
+Clinical Trial Data Flow
+
+### Element2 Id
+Regulatory Reporting Pipeline
 ```
 
 ---
@@ -34,24 +43,35 @@ ISC 2: Regulatory Reporting Pipeline
 
 ### Create a solution component
 ```markdown
-# Create Solution Component
-Name: Lab Data Extractor
-Description: Extracts raw assay data from the LIMS system.
-Blueprint: Clinical Data Pipeline
+## Create Solution Component
+### Display Name
+Lab Data Extractor
+
+### Description
+Extracts raw assay data from the LIMS system.
+
+### In Solution Blueprints
+Clinical Data Pipeline
 ```
 
 ### Create a solution role
 ```markdown
-# Create Solution Role
-Name: Data Steward — Clinical
-Description: Responsible for clinical data quality and compliance.
+## Create Solution Role
+### Display Name
+Data Steward — Clinical
+
+### Description
+Responsible for clinical data quality and compliance.
 ```
 
 ### Link solution component peers
 ```markdown
-# Link Solution Component Peers
-Component 1: Lab Data Extractor
-Component 2: QA Validator
+## Link Solution Components
+### Component1
+Lab Data Extractor
+
+### Component2
+QA Validator
 ```
 
 ---
@@ -60,13 +80,14 @@ Component 2: QA Validator
 
 ### View data structures
 ```markdown
-# View Data Structures
+## View Data Structures
 ```
 
 ### View data fields for a structure
 ```markdown
-# View Data Fields
-Structure: [qualified name or display name]
+## View Data Fields
+### Structure
+[qualified name or display name]
 ```
 
 ---
@@ -75,7 +96,7 @@ Structure: [qualified name or display name]
 
 ### View digital products
 ```markdown
-# View Digital Products
+## View Digital Products
 ```
 
 ---
@@ -92,22 +113,34 @@ SERIES` for a time-series line chart, `BAR`/`PIE` for a category breakdown.
 ### Create a report against an analytic function, with overridden parameters
 ```markdown
 ## Create Report
-Display Name: Terms Growth (90 Days)
-Report Spec: Analytic Demo - Catalog Growth Trend
-Output Format: SERIES
-Analytic Parameters:
-  window: 90d
-  points: 12
+### Display Name
+Terms Growth (90 Days)
+
+### Report Spec
+Analytic Demo - Catalog Growth Trend
+
+### Output Format
+SERIES
+
+### Analytic Parameters
+window: 90d
+points: 12
 ```
 
 ### Create a report against a generic analytic function, retargeted at a different type
 ```markdown
 ## Create Report
-Display Name: Digital Product Count
-Report Spec: Analytic Demo - Element Count by Type
-Output Format: DICT
-Analytic Parameters:
-  type_name: DigitalProduct
+### Display Name
+Digital Product Count
+
+### Report Spec
+Analytic Demo - Element Count by Type
+
+### Output Format
+DICT
+
+### Analytic Parameters
+type_name: DigitalProduct
 ```
 
 > `Analytic Parameters` set here are **defaults**, not fixed pins — a caller
@@ -125,11 +158,17 @@ mechanism as `Analytic Parameters`, different keys.
 ### Create a report needing a report-spec-specific parameter
 ```markdown
 ## Create Report
-Display Name: Local Dashboards Tasks
-Report Spec: Collection Members
-Output Format: TABLE
-Report Parameters:
-  collection_guid: 0affb580-fa81-4d00-9438-b26faf11845d
+### Display Name
+Local Dashboards Tasks
+
+### Report Spec
+Collection Members
+
+### Output Format
+TABLE
+
+### Report Parameters
+collection_guid: 0affb580-fa81-4d00-9438-b26faf11845d
 ```
 
 > Keys under `Report Parameters` must match exactly what the target report
@@ -144,17 +183,27 @@ Report Parameters:
 Dr. Egeria processes one command block per note. For batch operations, create a note with multiple commands separated by horizontal rules — each block is processed in sequence:
 
 ```markdown
-# Create Glossary Term
-Term: Supplier
-Glossary: Business Glossary
-Summary: An organisation that provides goods or services to Coco Pharmaceuticals.
+## Create Glossary Term
+### Display Name
+Supplier
+
+### Glossary Name
+Business Glossary
+
+### Summary
+An organisation that provides goods or services to Coco Pharmaceuticals.
 
 ---
 
-# Create Glossary Term
-Term: Product Batch
-Glossary: Manufacturing Glossary
-Summary: A quantity of product manufactured in a single production run.
+## Create Glossary Term
+### Display Name
+Product Batch
+
+### Glossary Name
+Manufacturing Glossary
+
+### Summary
+A quantity of product manufactured in a single production run.
 ```
 
 > **Note:** Batch support depends on the backend version. Check with `validate` first.

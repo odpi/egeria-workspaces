@@ -1718,6 +1718,13 @@ var TYPE_TO_NAV = (function() {
   m['Community']      = { external: 'egeria-explorer', hash: 'communities' };
   m['GovernanceDefinition'] = { external: 'egeria-explorer', hash: 'governance' };
   m['ReferenceDataValue']   = { external: 'egeria-explorer', hash: 'reference-data' };
+  // Egeria's internal type-system registry (every entity/relationship/
+  // classification typeName also exists as one of these) — lands on
+  // Explorer's Valid Values tab. Unlike the search-result path in
+  // type-explorer.html, a guid-only deep link here can't preselect which
+  // property to look up (element-nav only returns typeName/superTypeNames,
+  // not the property name), so this is a landing, not a full deep link.
+  m['ValidMetadataValue']   = { external: 'egeria-explorer', hash: 'valid-values' };
   // Data Design — Explorer's Data Design tab, sub-tab selected via ?kind=.
   m['DataSpec']      = { external: 'egeria-explorer', hash: 'data-design', kind: 'specs' };
   m['DataStructure'] = { external: 'egeria-explorer', hash: 'data-design', kind: 'structures' };
@@ -2620,8 +2627,15 @@ function SearchResultCard({ item, query, onNavigate }) {
   }
   function handleOpen() {
     if (!item.guid) return;
-    if (onNavigate && (nav || (item.categoryId && item.categoryId !== 'other'))) {
-      onNavigate({ guid: item.guid, displayName: item.displayName, section: nav ? nav.section : item.categoryId, tab: nav && nav.tab });
+    if (onNavigate && nav) {
+      // Spread nav in full — for cross-app entries this carries {external,
+      // hash, kind}, not {section, tab}. Previously this only forwarded
+      // section/tab, which silently dropped `external` and made
+      // handleNavigate() do setSection(undefined) for any TYPE_TO_NAV entry
+      // that routes to Egeria Explorer (Location, Community, ValidMetadataValue, …).
+      onNavigate(Object.assign({ guid: item.guid, displayName: item.displayName }, nav));
+    } else if (onNavigate && item.categoryId && item.categoryId !== 'other') {
+      onNavigate({ guid: item.guid, displayName: item.displayName, section: item.categoryId });
     } else {
       // categoryId 'other' with no TYPE_TO_NAV match means this isn't a type The
       // Catalog owns (e.g. a Valid Value or Actor) — reloading into
