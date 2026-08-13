@@ -10,6 +10,12 @@ print_usage() {
   cat <<'EOF'
 Usage: ./fresh-start-local [--refresh-platform] [--egeria-memory SIZE]
 
+Every run gets HTTPS via Apache on port 7843 by default, using a self-signed
+certificate auto-generated into runtime-volumes/certs-freshstart on first run
+(browsers will warn — accept it once). To use a real certificate instead, put
+"CERT_DIR=/path/to/certs" (containing server.crt, server.key, server-ca.crt)
+in compose-configs/egeria-freshstart/.env.ssl.
+
 Options:
   --refresh-platform  Force rebuild of freshstart-egeria-main so Docker pulls the latest base image.
   --egeria-memory SIZE
@@ -137,11 +143,75 @@ cp -r compose-configs/egeria-quickstart/servers/fs-* "$TARGET_SERVER_DIR"/
 compose-configs/shared-infra/ensure-shared-infra.sh
 
 pushd compose-configs/egeria-freshstart >/dev/null
+  # ── TLS: fall back to a self-signed cert unless the user has already ────
+  # configured one in .env.ssl (or .env).
+  _get_env_var() {
+    local key="$1" file="$2"
+    [[ -f "$file" ]] && grep -E "^${key}=" "$file" | head -n1 | cut -d= -f2- || true
+  }
+
+  ENV_SSL=".env.ssl"
+  _cert_dir="$(_get_env_var CERT_DIR "$ENV_SSL")"
+  [[ -z "$_cert_dir" ]] && _cert_dir="$(_get_env_var CERT_DIR .env)"
+  _https_port="$(_get_env_var HTTPS_PORT "$ENV_SSL")"
+  _site_url_override="$(_get_env_var SITE_URL "$ENV_SSL")"
+
+  if [[ -z "$_cert_dir" ]]; then
+    _cert_dir="$(cd ../.. && pwd)/runtime-volumes/certs-freshstart"
+  fi
+
+  if [[ ! -f "${_cert_dir}/server.crt" || ! -f "${_cert_dir}/server.key" || ! -f "${_cert_dir}/server-ca.crt" ]]; then
+    _cert_host="$(hostname -f 2>/dev/null || hostname)"
+    echo "[fresh-start-local] No TLS certificate found at ${_cert_dir}; generating a self-signed one for ${_cert_host}..."
+    ../../generate-certs.sh "$_cert_dir" "$_cert_host"
+  fi
+
+  _https_port="${_https_port:-7843}"
+
+  # Persist so the same self-signed cert (and chosen port/SITE_URL) is reused
+  # across runs instead of being regenerated — browsers only need to trust a
+  # self-signed cert once. SITE_URL is only written if the user set one
+  # (blank is fine — it's re-derived from HOST_FQDN below on every run).
+  cat > "$ENV_SSL" <<EOF
+CERT_DIR=${_cert_dir}
+HTTPS_PORT=${_https_port}
+SITE_URL=${_site_url_override}
+EOF
+  chmod 600 "$ENV_SSL"
+
   # gen-env.sh runs as a separate process -- EGERIA_MEM_LIMIT must be
   # exported (not just set) for its --egeria-memory value to be visible
   # there as the highest-priority tier (see gen-env.sh).
   export EGERIA_MEM_LIMIT
   ./gen-env.sh
+
+  # Append TLS vars to .env immediately after gen-env.sh (which rewrites it each run).
+  # SITE_URL is the one HTTPS URL the browser actually uses — everything
+  # (cookies' Secure flag, the Pyegeria Publishing Root link) derives from it.
+  _host_fqdn="$(grep '^HOST_FQDN=' .env | cut -d= -f2-)"
+  if [[ -n "$_site_url_override" ]]; then
+    _site_url="$_site_url_override"
+  elif [[ "$_https_port" == "443" ]]; then
+    _site_url="https://${_host_fqdn}"
+  else
+    _site_url="https://${_host_fqdn}:${_https_port}"
+  fi
+  {
+    echo "CERT_DIR=${_cert_dir}"
+    echo "HTTPS_PORT=${_https_port}"
+    echo "SITE_URL=${_site_url}"
+  } >> .env
+
+  # Generate runtime ssl-define.conf (Apache Defines for SSL_SERVER_NAME and
+  # HTTPS_REDIRECT_PORT — the latter is what fastapi-proxy.conf's plain-HTTP
+  # vhost 301-redirects to).
+  SSL_DEFINE_DIR="../../runtime-volumes/freshstart-apache-web"
+  mkdir -p "$SSL_DEFINE_DIR"
+  {
+    printf 'Define SSL_SERVER_NAME %s\n' "${_host_fqdn}"
+    printf 'Define HTTPS_REDIRECT_PORT %s\n' "${_https_port}"
+  } > "${SSL_DEFINE_DIR}/ssl-define.conf"
+  echo "[fresh-start-local]   Self-signed HTTPS on port ${_https_port} (CERT_DIR=${_cert_dir}) — SITE_URL: ${_site_url}"
 
   echo "[fresh-start-local] Ensuring core images are available (platform, pyegeria-web, jupyter)..."
   ensure_service_image freshstart-egeria-main egeria-freshstart-platform:local 1 "$REFRESH_PLATFORM"
@@ -158,11 +228,13 @@ pushd compose-configs/egeria-freshstart >/dev/null
   if ! $COMPOSE_CMD -p egeria-freshstart \
     -f egeria-freshstart.yaml \
     -f egeria-freshstart-local.yaml \
+    -f egeria-freshstart-ssl.yaml \
     up -d ${COMPOSE_PULL_FLAGS} freshstart-egeria-main freshstart-pyegeria-web freshstart-jupyter-hub; then
     echo "[fresh-start-local] Pull-enabled core up failed; retrying without pull and without build..."
     $COMPOSE_CMD -p egeria-freshstart \
       -f egeria-freshstart.yaml \
       -f egeria-freshstart-local.yaml \
+      -f egeria-freshstart-ssl.yaml \
       up -d --no-build freshstart-egeria-main freshstart-pyegeria-web freshstart-jupyter-hub
   fi
 
@@ -171,11 +243,13 @@ pushd compose-configs/egeria-freshstart >/dev/null
     if ! $COMPOSE_CMD -p egeria-freshstart \
       -f egeria-freshstart.yaml \
       -f egeria-freshstart-local.yaml \
+      -f egeria-freshstart-ssl.yaml \
       up -d ${COMPOSE_PULL_FLAGS} freshstart-apache-web; then
       echo "[fresh-start-local] Pull-enabled apache up failed; retrying without pull and without build..."
       if ! $COMPOSE_CMD -p egeria-freshstart \
         -f egeria-freshstart.yaml \
         -f egeria-freshstart-local.yaml \
+        -f egeria-freshstart-ssl.yaml \
         up -d --no-build freshstart-apache-web; then
         echo "[fresh-start-local] WARNING: freshstart-apache-web did not start. Core services are running."
       fi
@@ -190,7 +264,9 @@ EGERIA_MEM_LIMIT_PRINT=$(grep '^EGERIA_MEM_LIMIT=' compose-configs/egeria-freshs
 echo "  - Effective HOST_FQDN: ${HOST_FQDN_PRINT}"
 echo "  - Effective KAFKA_CLUSTER_ID: ${KAFKA_CLUSTER_ID_PRINT}"
 echo "  - Effective EGERIA_MEM_LIMIT: ${EGERIA_MEM_LIMIT_PRINT}"
-echo "  - Egeria (platform): https://${HOST_FQDN_PRINT:-localhost}:8443"
-echo "  - JupyterHub:        http://${HOST_FQDN_PRINT:-localhost}:7888   (password: egeria)"
-echo "  - Egeria Portal:     http://${HOST_FQDN_PRINT:-localhost}:7885"
+_site_url_print=$(grep '^SITE_URL=' compose-configs/egeria-freshstart/.env | cut -d= -f2- || echo "https://${HOST_FQDN_PRINT:-localhost}:7843")
+echo "  - Egeria (platform):      https://${HOST_FQDN_PRINT:-localhost}:8443"
+echo "  - JupyterHub:             http://${HOST_FQDN_PRINT:-localhost}:7888   (password: egeria)"
+echo "  - Egeria Portal (HTTPS):  ${_site_url_print}  (http://…:7885 redirects here)"
+echo "  - Portal is self-signed unless CERT_DIR is set in .env.ssl — accept the cert warning once."
 
