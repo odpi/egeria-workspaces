@@ -11,12 +11,20 @@ print_usage() {
   cat <<'EOF'
 Usage: ./quick-start-local [OPTIONS]
 
+Every run (demo or not) gets HTTPS via Apache on port 8843 by default, using
+a self-signed certificate auto-generated into runtime-volumes/certs-quickstart
+on first run (browsers will warn — accept it once). To use a real certificate
+instead, put "CERT_DIR=/path/to/certs" (containing server.crt, server.key,
+server-ca.crt) in compose-configs/egeria-quickstart/.env.ssl.
+
 Options:
   --refresh-platform  Force rebuild of egeria-main so the container engine pulls
                       the latest base image.
   --demo              Enable demo mode: activates user registration, auth gating,
-                      and HTTPS on port 443. On first run, prompts for the TLS
-                      certificate directory and admin credentials; saves them to
+                      and moves HTTPS to port 443 with a real certificate
+                      instead of the self-signed default above. On first run,
+                      prompts for the TLS certificate directory and admin
+                      credentials; saves them to
                       compose-configs/egeria-quickstart/.env.demo for reuse.
                       See compose-configs/egeria-quickstart/PyegeriaWebHandler/demo-mode.md
   --sync-from HOST:REMOTE_DIR
@@ -243,18 +251,19 @@ fi
 
 pushd compose-configs/egeria-quickstart >/dev/null
 
+  # Read a key from a file without sourcing it (avoids shell injection).
+  _get_env_var() {
+    local key="$1" file="$2"
+    [[ -f "$file" ]] && grep -E "^${key}=" "$file" | head -n1 | cut -d= -f2- || true
+  }
+
   # ── Demo mode: collect / persist credentials ─────────────────────────────
   _jwt="" _cert_dir="" _admin_email="" _admin_pass="" _resend_key="" _resend_from="" _https_port="" _site_url_override="" _advisor_url="" _advisor_secret=""
   if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
     ENV_DEMO=".env.demo"
     echo "[quick-start-local] Demo mode: loading configuration..."
 
-    # Read a key from a file without sourcing it (avoids shell injection).
     # Priority: .env.demo (saved secrets) > .env (primed from existing config).
-    _get_env_var() {
-      local key="$1" file="$2"
-      [[ -f "$file" ]] && grep -E "^${key}=" "$file" | head -n1 | cut -d= -f2- || true
-    }
     _pick() {
       local key="$1"
       local v
@@ -281,27 +290,9 @@ pushd compose-configs/egeria-quickstart >/dev/null
       echo "[quick-start-local]   Generated new JWT_SECRET."
     fi
 
-    # Prompt for TLS cert directory if not set.
-    # Default to runtime-volumes/certs (relative to repo root) if it exists.
-    if [[ -z "$_cert_dir" ]]; then
-      _default_certs="$(cd "../../runtime-volumes/certs" 2>/dev/null && pwd || true)"
-      if [[ -n "$_default_certs" && -d "$_default_certs" ]]; then
-        read -r -p "[quick-start-local]   Certificate directory [${_default_certs}]: " _cert_dir
-        _cert_dir="${_cert_dir:-$_default_certs}"
-      else
-        echo "[quick-start-local]   TLS cert dir must contain: server.crt, server.key, server-ca.crt"
-        read -r -p "[quick-start-local]   Certificate directory path: " _cert_dir
-      fi
-      _cert_dir="${_cert_dir/#\~/$HOME}"
-      if [[ "$_cert_dir" != /* ]]; then
-        _cert_dir="$(cd "$(pwd)/../../${_cert_dir}" 2>/dev/null && pwd)" || _cert_dir="$(pwd)/../../${_cert_dir}"
-      fi
-    fi
-    if [[ ! -d "$_cert_dir" ]]; then
-      echo "[quick-start-local] WARNING: '${_cert_dir}' is not a directory — SSL will fail until CERT_DIR is fixed in ${ENV_DEMO}." >&2
-    fi
-
-    # Prompt for admin credentials if not set
+    # Prompt for admin credentials if not set (needed above the cert-dir
+    # prompt below — the admin email doubles as the Let's Encrypt contact
+    # address if we end up falling back to it).
     if [[ -z "$_admin_email" ]]; then
       read -r -p "[quick-start-local]   Admin bootstrap email: " _admin_email
     fi
@@ -321,7 +312,8 @@ pushd compose-configs/egeria-quickstart >/dev/null
     fi
 
     # Public SITE_URL — may differ from HOST_FQDN (e.g. egeria.pdr-associates.com vs internal hostname)
-    # Used in email verification/reset links and the Secure cookie flag.
+    # Used in email verification/reset links, the Secure cookie flag, and (below)
+    # as the domain requested from Let's Encrypt if no cert directory is given.
     if [[ -z "$_site_url_override" ]]; then
       _https_port_num="${_https_port:-443}"
       _default_site_url="https://$(hostname -f 2>/dev/null || hostname)"
@@ -329,6 +321,41 @@ pushd compose-configs/egeria-quickstart >/dev/null
       echo "[quick-start-local]   Public-facing HTTPS URL (used in email links — must be reachable by recipients)."
       read -r -p "[quick-start-local]   SITE_URL [${_default_site_url}]: " _site_url_override
       _site_url_override="${_site_url_override:-$_default_site_url}"
+    fi
+
+    # Prompt for TLS cert directory if not set. Leave blank to have
+    # quick-start-local obtain one automatically from Let's Encrypt instead
+    # (requires SITE_URL's domain to already resolve to this host and port 80
+    # to be reachable from the internet — see egeria-quickstart-letsencrypt.yaml).
+    _letsencrypt_pending=0
+    _letsencrypt_domain=""
+    if [[ -z "$_cert_dir" ]]; then
+      _default_certs="$(cd "../../runtime-volumes/certs" 2>/dev/null && pwd || true)"
+      echo "[quick-start-local]   TLS cert dir must contain: server.crt, server.key, server-ca.crt"
+      echo "[quick-start-local]   Leave blank to have Let's Encrypt obtain one automatically for ${_site_url_override#https://}."
+      read -r -p "[quick-start-local]   Certificate directory (blank = Let's Encrypt) [${_default_certs}]: " _cert_dir
+      if [[ -z "$_cert_dir" && -z "$_default_certs" ]]; then
+        _letsencrypt_domain="${_site_url_override#https://}"
+        _letsencrypt_domain="${_letsencrypt_domain%%/*}"
+        _letsencrypt_domain="${_letsencrypt_domain%%:*}"
+        _cert_dir="$(cd ../.. && pwd)/runtime-volumes/certs-letsencrypt"
+        _letsencrypt_pending=1
+        echo "[quick-start-local]   Will request a Let's Encrypt certificate for ${_letsencrypt_domain} once apache-web is up."
+        # A cert must already exist for Apache's SSL vhost to start at all —
+        # generate a temporary self-signed one now; letsencrypt-cert.sh
+        # overwrites it with the real cert further down, then apache-web
+        # gets restarted to pick it up (Apache doesn't hot-reload cert files).
+        ../../generate-certs.sh "$_cert_dir" "$_letsencrypt_domain"
+      else
+        _cert_dir="${_cert_dir:-$_default_certs}"
+      fi
+      _cert_dir="${_cert_dir/#\~/$HOME}"
+      if [[ "$_cert_dir" != /* ]]; then
+        _cert_dir="$(cd "$(pwd)/../../${_cert_dir}" 2>/dev/null && pwd)" || _cert_dir="$(pwd)/../../${_cert_dir}"
+      fi
+    fi
+    if [[ ! -d "$_cert_dir" ]]; then
+      echo "[quick-start-local] WARNING: '${_cert_dir}' is not a directory — SSL will fail until CERT_DIR is fixed in ${ENV_DEMO}." >&2
     fi
 
     # Save credentials to .env.demo (mode 600 — contains secrets)
@@ -354,6 +381,40 @@ EOF
     echo "[quick-start-local]   Demo credentials saved to ${ENV_DEMO}."
   fi
 
+  # ── Non-demo mode: fall back to a self-signed cert unless the user has ──
+  # already configured one in .env.ssl (or .env). Demo mode always requires
+  # a real cert (collected above) and is left untouched.
+  if [[ "$DEMO_MODE_FLAG" -eq 0 ]]; then
+    ENV_SSL=".env.ssl"
+    _cert_dir="$(_get_env_var CERT_DIR "$ENV_SSL")"
+    [[ -z "$_cert_dir" ]] && _cert_dir="$(_get_env_var CERT_DIR .env)"
+    _https_port="$(_get_env_var HTTPS_PORT "$ENV_SSL")"
+    _site_url_override="$(_get_env_var SITE_URL "$ENV_SSL")"
+
+    if [[ -z "$_cert_dir" ]]; then
+      _cert_dir="$(cd ../.. && pwd)/runtime-volumes/certs-quickstart"
+    fi
+
+    if [[ ! -f "${_cert_dir}/server.crt" || ! -f "${_cert_dir}/server.key" || ! -f "${_cert_dir}/server-ca.crt" ]]; then
+      _cert_host="$(hostname -f 2>/dev/null || hostname)"
+      echo "[quick-start-local] No TLS certificate found at ${_cert_dir}; generating a self-signed one for ${_cert_host}..."
+      ../../generate-certs.sh "$_cert_dir" "$_cert_host"
+    fi
+
+    _https_port="${_https_port:-8843}"
+
+    # Persist so the same self-signed cert (and chosen port/SITE_URL) is reused
+    # across runs instead of being regenerated — browsers only need to trust
+    # a self-signed cert once. SITE_URL is only written if the user set one
+    # (blank is fine — it's re-derived from HOST_FQDN below on every run).
+    cat > "$ENV_SSL" <<EOF
+CERT_DIR=${_cert_dir}
+HTTPS_PORT=${_https_port}
+SITE_URL=${_site_url_override}
+EOF
+    chmod 600 "$ENV_SSL"
+  fi
+
   # Generate/update .env and normalize exchange-quickstart/config/config.json
   # gen-env.sh runs as a separate process -- EGERIA_MEM_LIMIT must be
   # exported (not just set) for its --egeria-memory value to be visible
@@ -361,21 +422,27 @@ EOF
   export EGERIA_MEM_LIMIT
   ./gen-env.sh
 
-  # Append demo vars to .env immediately after gen-env.sh (which rewrites it each run)
+  # Append demo/TLS vars to .env immediately after gen-env.sh (which rewrites it each run).
+  # SITE_URL is computed the same way in both modes — it's the one HTTPS URL
+  # the browser actually uses, and everything (cookies' Secure flag, myEgeria's
+  # same-origin WebSocket URL, the Pyegeria Publishing Root link) derives from it.
+  _host_fqdn="$(grep '^HOST_FQDN=' .env | cut -d= -f2-)"
   if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
-    _host_fqdn="$(grep '^HOST_FQDN=' .env | cut -d= -f2-)"
-
-    # Use explicit SITE_URL from .env.demo if set; otherwise derive from HOST_FQDN.
-    # The public URL often differs from the internal hostname (e.g. egeria.pdr-associates.com vs cray).
     _https_port_num="${_https_port:-443}"
-    if [[ -n "$_site_url_override" ]]; then
-      _site_url="$_site_url_override"
-    elif [[ "$_https_port_num" == "443" ]]; then
-      _site_url="https://${_host_fqdn}"
-    else
-      _site_url="https://${_host_fqdn}:${_https_port_num}"
-    fi
+  else
+    _https_port_num="${_https_port:-8843}"
+  fi
+  # Use an explicit SITE_URL override if set (e.g. a public domain that differs
+  # from the internal hostname, like egeria.pdr-associates.com vs cray); else derive from HOST_FQDN.
+  if [[ -n "$_site_url_override" ]]; then
+    _site_url="$_site_url_override"
+  elif [[ "$_https_port_num" == "443" ]]; then
+    _site_url="https://${_host_fqdn}"
+  else
+    _site_url="https://${_host_fqdn}:${_https_port_num}"
+  fi
 
+  if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
     {
       echo "JWT_SECRET=${_jwt}"
       echo "CERT_DIR=${_cert_dir}"
@@ -384,28 +451,50 @@ EOF
       echo "RESEND_API_KEY=${_resend_key}"
       echo "RESEND_FROM=${_resend_from}"
       echo "HTTPS_PORT=${_https_port_num}"
-      echo "DEMO_SITE_URL=${_site_url}"
+      echo "SITE_URL=${_site_url}"
       echo "EGERIA_ADVISOR_URL=${_advisor_url}"
       echo "EGERIA_ADVISOR_SSO_SECRET=${_advisor_secret}"
     } >> .env
-
-    # Generate runtime ssl-define.conf (Apache Define for SSL_SERVER_NAME)
-    SSL_DEFINE_DIR="../../runtime-volumes/quickstart-apache-web"
-    mkdir -p "$SSL_DEFINE_DIR"
-    printf 'Define SSL_SERVER_NAME %s\n' "${_host_fqdn}" > "${SSL_DEFINE_DIR}/ssl-define.conf"
     echo "[quick-start-local]   Demo SSL_SERVER_NAME: ${_host_fqdn} — SITE_URL: ${_site_url}"
+  else
+    {
+      echo "CERT_DIR=${_cert_dir}"
+      echo "HTTPS_PORT=${_https_port_num}"
+      echo "SITE_URL=${_site_url}"
+    } >> .env
+    echo "[quick-start-local]   Self-signed HTTPS on port ${_https_port_num} (CERT_DIR=${_cert_dir}) — SITE_URL: ${_site_url}"
   fi
+
+  # Generate runtime ssl-define.conf (Apache Defines for SSL_SERVER_NAME and
+  # HTTPS_REDIRECT_PORT) — needed in both modes, egeria-quickstart-ssl.yaml
+  # mounts it unconditionally. HTTPS_REDIRECT_PORT is what fastapi-proxy.conf's
+  # plain-HTTP vhost 301-redirects to.
+  SSL_DEFINE_DIR="../../runtime-volumes/quickstart-apache-web"
+  mkdir -p "$SSL_DEFINE_DIR"
+  {
+    printf 'Define SSL_SERVER_NAME %s\n' "${_host_fqdn}"
+    printf 'Define HTTPS_REDIRECT_PORT %s\n' "${_https_port_num}"
+  } > "${SSL_DEFINE_DIR}/ssl-define.conf"
 
   # Build the compose file list.
   # - egeria-quickstart-docker.yaml restores service_healthy for Docker
   #   (podman-compose 1.5.0 blocks indefinitely on service_healthy)
-  # - egeria-quickstart-demo.yaml enables DEMO_MODE, port 443, and SSL mounts
-  COMPOSE_FILES=(-f egeria-quickstart.yaml -f egeria-quickstart-local.yaml)
+  # - egeria-quickstart-ssl.yaml enables Apache HTTPS (self-signed by default,
+  #   or a real cert via CERT_DIR) on every run, demo or not
+  # - egeria-quickstart-demo.yaml additionally enables DEMO_MODE (auth/registration)
+  COMPOSE_FILES=(-f egeria-quickstart.yaml -f egeria-quickstart-local.yaml -f egeria-quickstart-ssl.yaml)
   if [[ "$CONTAINER_ENGINE" != "podman" ]]; then
     COMPOSE_FILES+=(-f egeria-quickstart-docker.yaml)
   fi
   if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
     COMPOSE_FILES+=(-f egeria-quickstart-demo.yaml)
+  fi
+  # CERT_DIR pointing at the well-known Let's Encrypt output path (set above,
+  # first run or subsequent) means this demo is using Let's Encrypt — keep
+  # port 80 + the ACME webroot mounted every run, not just the first one,
+  # since renew-certs.sh needs it for renewal too.
+  if [[ "$DEMO_MODE_FLAG" -eq 1 && "$_cert_dir" == *"/runtime-volumes/certs-letsencrypt" ]]; then
+    COMPOSE_FILES+=(-f egeria-quickstart-letsencrypt.yaml)
   fi
 
   echo "[quick-start-local] Ensuring core images are available (platform, pyegeria-web, jupyter, my-profile)..."
@@ -455,11 +544,14 @@ EOF
     echo "[quick-start-local] Starting apache-web..."
     _apache_hint() {
       echo "[quick-start-local] WARNING: apache-web did not start. Core services are running."
-      if [[ "$DEMO_MODE_FLAG" -eq 1 && "${_https_port_num:-443}" -lt 1024 \
-            && "$CONTAINER_ENGINE" == "podman" ]]; then
-        echo "[quick-start-local]   Likely cause: rootless Podman cannot bind privileged port ${_https_port_num:-443}."
-        echo "[quick-start-local]   Fix A (session):   sudo sysctl -w net.ipv4.ip_unprivileged_port_start=${_https_port_num:-443}"
-        echo "[quick-start-local]   Fix B (permanent): set HTTPS_PORT=8443 in .env.demo and re-run --demo"
+      if [[ "${_https_port_num:-8843}" -lt 1024 && "$CONTAINER_ENGINE" == "podman" ]]; then
+        echo "[quick-start-local]   Likely cause: rootless Podman cannot bind privileged port ${_https_port_num:-8843}."
+        echo "[quick-start-local]   Fix A (session):   sudo sysctl -w net.ipv4.ip_unprivileged_port_start=${_https_port_num:-8843}"
+        if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
+          echo "[quick-start-local]   Fix B (permanent): set HTTPS_PORT=8443 in .env.demo and re-run --demo"
+        else
+          echo "[quick-start-local]   Fix B (permanent): set HTTPS_PORT=8843 in .env.ssl"
+        fi
       fi
     }
 
@@ -480,6 +572,25 @@ EOF
           up -d --no-build apache-web; then
           _apache_hint
         fi
+      fi
+    fi
+
+    # apache-web is now up with a temporary self-signed cert and (via
+    # egeria-quickstart-letsencrypt.yaml) port 80 + the ACME webroot mounted,
+    # so it can actually serve the HTTP-01 challenge. Swap in the real cert.
+    if [[ "${_letsencrypt_pending:-0}" -eq 1 ]]; then
+      echo "[quick-start-local] Requesting Let's Encrypt certificate for ${_letsencrypt_domain}..."
+      WEBROOT_DIR="../../runtime-volumes/quickstart-apache-web/acme-challenge"
+      if CONTAINER_ENGINE="$CONTAINER_ENGINE" ../../letsencrypt-cert.sh \
+          "$_cert_dir" "$_letsencrypt_domain" "$_admin_email" "$WEBROOT_DIR" \
+          "../../runtime-volumes/letsencrypt"; then
+        echo "[quick-start-local]   Let's Encrypt certificate installed — restarting apache-web to load it..."
+        $CONTAINER_ENGINE restart quickstart-web-server
+      else
+        echo "[quick-start-local] WARNING: Let's Encrypt request failed — continuing with the temporary" >&2
+        echo "[quick-start-local]   self-signed certificate at ${_cert_dir}. Check that ${_letsencrypt_domain}" >&2
+        echo "[quick-start-local]   already resolves to this host and port 80 is reachable from the" >&2
+        echo "[quick-start-local]   internet, then re-run --demo to retry." >&2
       fi
     fi
   fi
@@ -547,13 +658,11 @@ if [[ "$SKIP_UNITY_CATALOG" -eq 0 ]]; then
   echo "  - Unity Catalog (coco):    http://${HOST_FQDN_PRINT:-localhost}:8087  (UI: http://${HOST_FQDN_PRINT:-localhost}:3010)"
   echo "  - Unity Catalog (server2): http://${HOST_FQDN_PRINT:-localhost}:8187  (UI: http://${HOST_FQDN_PRINT:-localhost}:3020)"
 fi
+_site_url_final="$(grep '^SITE_URL=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "https://${HOST_FQDN_PRINT:-localhost}:8843")"
+echo "  - Egeria Portal (HTTPS):  ${_site_url_final}  (http://…:8885 redirects here)"
 if [[ "$DEMO_MODE_FLAG" -eq 1 ]]; then
-  _https_port_final="${_https_port:-443}"
-  _site_url_final="$(grep '^DEMO_SITE_URL=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "https://${HOST_FQDN_PRINT:-localhost}")"
-  echo "  - Web (HTTP):        http://${HOST_FQDN_PRINT:-localhost}:8885"
-  echo "  - Web (HTTPS):       ${_site_url_final}"
-  echo "  - Login:             ${_site_url_final}/login"
+  echo "  - Login:                  ${_site_url_final}/login"
 else
-  echo "  - Egeria Portal:     http://${HOST_FQDN_PRINT:-localhost}:8885"
-  echo "  - My Profile:        http://${HOST_FQDN_PRINT:-localhost}:8885/my-egeria/"
+  echo "  - Portal is self-signed unless CERT_DIR is set in .env.ssl — accept the cert warning once."
+  echo "  - My Profile:             ${_site_url_final}/my-egeria/"
 fi

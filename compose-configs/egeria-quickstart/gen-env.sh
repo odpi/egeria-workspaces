@@ -11,18 +11,28 @@ source "${SCRIPT_DIR}/../shared-infra/detect-engine.sh"
 EXCHANGE_CONFIG_JSON="../../exchange-quickstart/config/config_workspaces.json"
 EXCHANGE_CONFIG_TEMPLATE="${EXCHANGE_CONFIG_JSON}.template"
 
+# HTTPS_PORT for the "Pyegeria Publishing Root" link below. quick-start-local
+# writes .env.demo / .env.ssl (with the effective HTTPS_PORT) before calling
+# this script, so read it from whichever exists; default to the non-demo
+# self-signed default (8843) otherwise.
+HTTPS_PORT_VAL=""
+[[ -f .env.demo ]] && HTTPS_PORT_VAL="$(grep -E '^HTTPS_PORT=' .env.demo | head -n1 | cut -d= -f2- || true)"
+[[ -z "$HTTPS_PORT_VAL" && -f .env.ssl ]] && HTTPS_PORT_VAL="$(grep -E '^HTTPS_PORT=' .env.ssl | head -n1 | cut -d= -f2- || true)"
+[[ -z "$HTTPS_PORT_VAL" ]] && HTTPS_PORT_VAL="8843"
+
 if [[ ! -f "$EXCHANGE_CONFIG_TEMPLATE" ]]; then
   echo "[gen-env.sh] WARNING: template not found at ${EXCHANGE_CONFIG_TEMPLATE}; skipping config generation" >&2
 else
   cp "$EXCHANGE_CONFIG_TEMPLATE" "$EXCHANGE_CONFIG_JSON"
   if command -v python3 >/dev/null 2>&1; then
     # Substitute HOST_FQDN for localhost/127.0.0.1 and inject qs-* service names.
-    python3 - "$EXCHANGE_CONFIG_JSON" "$HOST_FQDN" <<'PY'
+    python3 - "$EXCHANGE_CONFIG_JSON" "$HOST_FQDN" "$HTTPS_PORT_VAL" <<'PY'
 import json
 import sys
 
 path = sys.argv[1]
 host = sys.argv[2]
+https_port = sys.argv[3]
 
 def rewrite(obj):
     if isinstance(obj, dict):
@@ -48,7 +58,8 @@ if isinstance(env, dict):
     env["Egeria Integration Daemon URL"] = f"https://{host}:9443"
     env["Egeria View Server URL"] = f"https://{host}:9443"
     env["Egeria Kafka Endpoint"] = "host.docker.internal:9194"
-    env["Pyegeria Publishing Root"] = f"http://{host}:8885/dr-egeria-outbox"
+    port_suffix = "" if https_port == "443" else f":{https_port}"
+    env["Pyegeria Publishing Root"] = f"https://{host}{port_suffix}/dr-egeria-outbox"
 
 tmp_path = path + ".tmp"
 with open(tmp_path, "w", encoding="utf-8") as f:

@@ -28,20 +28,20 @@ The script handles everything:
 - Starts Egeria, pyegeria-web, Jupyter, Apache, and Obsidian
 - Waits for Egeria to become healthy (JVM typically takes 2–5 min)
 
-Open the portal at **http://\<your-hostname\>:8085** or **http://localhost:8085**.
+Open the portal at **https://\<your-hostname\>:8843** or **https://localhost:8843** (self-signed by default — accept the browser warning once; see [`docs/SECURITY-CONFIGURATION.md`](../../../docs/SECURITY-CONFIGURATION.md) at the repo root for using a real certificate). The plain-HTTP port (8885) 301-redirects to the HTTPS one.
 
 ---
 
 ## Accessing from a non-localhost hostname
 
-If you open the portal via a hostname (e.g. `http://myserver.local:8885`) rather than `localhost`, you need to set `SITE_URL` so the myEgeria service emits the right WebSocket origin:
+If you open the portal via a hostname (e.g. `https://myserver.local:8843`) rather than `localhost`, you need to set `SITE_URL` so the myEgeria service emits the right WebSocket origin:
 
 ```bash
-# compose-configs/egeria-quickstart/.env
-SITE_URL=http://myserver.local:8885
+# compose-configs/egeria-quickstart/.env.ssl — NOT .env, which is regenerated on every run
+SITE_URL=https://myserver.local:8843
 ```
 
-Without this, `textual-serve` emits `localhost` WebSocket URLs that the browser blocks, causing the myEgeria page to appear blank. The fallback is `http://localhost:8885`, so no change is needed for single-machine local access.
+Without this, `textual-serve` emits `localhost` WebSocket URLs that the browser blocks, causing the myEgeria page to appear blank. The fallback is `https://localhost:8843`, so no change is needed for single-machine local access.
 
 ---
 

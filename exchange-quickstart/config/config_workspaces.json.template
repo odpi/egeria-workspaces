@@ -13,7 +13,7 @@
     "Pyegeria Root": "/home/jovyan",
     "Pyegeria Config Directory": "/home/jovyan/config",
     "Pyegeria Report Specs": "/home/jovyan/config/report_specs",
-    "Pyegeria Publishing Root": "http://localhost:8085/dr-egeria-outbox",
+    "Pyegeria Publishing Root": "https://localhost:8843/dr-egeria-outbox",
     "console_width": 250,
     "Egeria Engine Host": "qs-engine-host",
     "Egeria Integration Daemon": "qs-integration-daemon",

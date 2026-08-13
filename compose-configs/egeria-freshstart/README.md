@@ -107,12 +107,26 @@ Neither overlay changes ports, images, or volumes — the only difference is whe
 
 ## Portal and Authentication
 
-Freshstart includes a web portal at `http://localhost:7885` backed by Egeria's own user store — no SQLite database, no email verification, no self-registration. The admin creates all accounts via the portal's Admin panel.
+Freshstart includes a web portal at `https://localhost:7843` (self-signed by default; `http://localhost:7885` redirects here) backed by Egeria's own user store — no SQLite database, no email verification, no self-registration. The admin creates all accounts via the portal's Admin panel.
+
+`./fresh-start-local` also brings up Apache's HTTPS listener, on port 7843 by default. If no
+certificate is configured, it auto-generates a self-signed one on first run (via
+`generate-certs.sh`, into `runtime-volumes/certs-freshstart`) — your browser will warn once,
+which is expected. To use a real certificate instead, create
+`compose-configs/egeria-freshstart/.env.ssl` (gitignored) with:
+
+```ini
+CERT_DIR=/path/to/dir/containing/server.crt+server.key+server-ca.crt
+```
+
+For the full HTTPS/TLS mechanism across all deployment modes and the auth model differences
+between freshstart/quickstart/`--demo`, see
+[`docs/SECURITY-CONFIGURATION.md`](../../docs/SECURITY-CONFIGURATION.md) at the repo root.
 
 ### First run
 
 1. Start the stack: `./fresh-start-local`
-2. Open `http://localhost:7885/login`
+2. Open `https://localhost:7843/login` (accept the self-signed cert warning once)
 3. Sign in with `bootstrap` / `secret`
 4. If redirected to the password-change form, set a new password and continue
 5. Go to **Admin → Egeria Users** to create accounts for your team

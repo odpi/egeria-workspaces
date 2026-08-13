@@ -19,7 +19,7 @@ Usage
   python test_overview_asof.py
 
   # HTTP-level too, against the Apache proxy or FastAPI app
-  python test_overview_asof.py --base http://localhost:8885
+  python test_overview_asof.py --base https://localhost:8843
   python test_overview_asof.py --base http://localhost:8800 --as-of 2026-03-23T00:00:00+00:00
 
 Env: EGERIA_PLATFORM_URL, EGERIA_VIEW_SERVER, EGERIA_USER, EGERIA_USER_PASSWORD
@@ -257,7 +257,7 @@ def http_tests(base, as_of):
 # ── main ─────────────────────────────────────────────────────────────────────
 def main():
     ap = argparse.ArgumentParser(description="Egeria Overview asOfTime test cases")
-    ap.add_argument("--base", help="HTTP base URL (e.g. http://localhost:8885). Omit to run client-level only.")
+    ap.add_argument("--base", help="HTTP base URL (e.g. https://localhost:8843). Omit to run client-level only.")
     ap.add_argument("--as-of", dest="as_of",
                     default=(datetime.now(timezone.utc) - timedelta(days=120)).replace(microsecond=0).isoformat(),
                     help="ISO 8601 as-of timestamp (default: ~120 days ago)")

@@ -23,6 +23,7 @@ SERVER_MANAGED_AUTH: bool = os.environ.get("SERVER_MANAGED_AUTH", "true").lower(
 DEMO_DB_HOST:     str = os.environ.get("DEMO_DB_HOST",     "egeria-shared-postgres")
 DEMO_DB_PORT:     int = int(os.environ.get("DEMO_DB_PORT", "5442"))
 DEMO_DB_NAME:     str = os.environ.get("DEMO_DB_NAME",     "coco_pharma")
+DEMO_DB_SCHEMA:   str = os.environ.get("DEMO_DB_SCHEMA",   "demo_auth")
 DEMO_DB_USER:     str = os.environ.get("DEMO_DB_USER",     "demo_user")
 DEMO_DB_PASSWORD: str = os.environ.get("DEMO_DB_PASSWORD", "demo4egeria")
 DEMO_DB_URL:      str = (
@@ -54,7 +55,7 @@ EGERIA_ADMIN_USERS: set[str] = {
 
 # ── URLs ───────────────────────────────────────────────────────────────────────
 
-SITE_URL: str = os.environ.get("SITE_URL", "http://localhost:7885").rstrip("/")
+SITE_URL: str = os.environ.get("SITE_URL", "https://localhost:7843").rstrip("/")
 
 # Optional integrations — set in .env, not in yaml
 EGERIA_ADVISOR_URL:  str = os.environ.get("EGERIA_ADVISOR_URL",  "http://localhost:7880/")

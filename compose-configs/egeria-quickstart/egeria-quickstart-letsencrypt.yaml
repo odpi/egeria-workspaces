@@ -1,0 +1,17 @@
+# Let's Encrypt overlay for egeria-quickstart's Apache front end.
+# Applied automatically by quick-start-local --demo whenever CERT_DIR resolves
+# to runtime-volumes/certs-letsencrypt (i.e. no cert directory was supplied,
+# so Let's Encrypt is providing the cert) — first run and every run after,
+# since renew-certs.sh needs this same port/mount for renewal too.
+#
+# Maps host port 80 -> Apache's HTTP vhost (fastapi-proxy.conf), which is
+# otherwise just a redirect-to-HTTPS shell — it exempts
+# /.well-known/acme-challenge/ from that redirect so Let's Encrypt's HTTP-01
+# validator can reach the challenge file letsencrypt-cert.sh's certbot
+# container writes into the webroot mounted here.
+services:
+  apache-web:
+    ports:
+      - "80:8085"
+    volumes:
+      - ../../runtime-volumes/quickstart-apache-web/acme-challenge:/usr/local/apache2/htdocs/.well-known/acme-challenge
