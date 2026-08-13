@@ -1,20 +1,17 @@
 # Demo mode overlay for egeria-quickstart.
 # Applied by ./quick-start-local --demo
 #
-# Activates DEMO_MODE, enables HTTPS on port 443, and mounts TLS certificates.
-#
-# Prerequisites (set in .env.demo, managed by quick-start-local --demo):
-#   CERT_DIR   — absolute path on the host to a directory containing:
-#                  server.crt, server.key, server-ca.crt
-#
-# ssl-define.conf (sets Apache's SSL_SERVER_NAME to the current HOST_FQDN)
-# is generated at runtime by quick-start-local --demo and mounted from
-# runtime-volumes/quickstart-apache-web/ssl-define.conf.
+# Activates DEMO_MODE (user registration/auth) on top of the HTTPS wiring
+# that egeria-quickstart-ssl.yaml already applies on every run. In demo mode
+# CERT_DIR must point to a real cert (see egeria-quickstart-ssl.yaml and
+# PyegeriaWebHandler/demo-mode.md); quick-start-local --demo prompts for it
+# and saves it to .env.demo. SITE_URL is written to .env by quick-start-local
+# for both modes, so pyegeria-web/my-profile pick it up via the base file's
+# ${SITE_URL} default — no override needed here.
 services:
   pyegeria-web:
     environment:
       DEMO_MODE: "true"
-      SITE_URL: "${DEMO_SITE_URL}"
       DEMO_DB_HOST: "host.docker.internal"
     volumes:
       # demo_reset_handler.py's scheduled reset (DEMO_MODE-gated) stops/starts
@@ -24,18 +21,6 @@ services:
       # on but this mount was missing, so scheduled resets could never have
       # run even with reset_interval_hours > 0.
       - /var/run/docker.sock:/var/run/docker.sock
-
-  apache-web:
-    ports:
-      - "${HTTPS_PORT:-443}:443"
-    volumes:
-      - ../../runtime-volumes/quickstart-apache-web/ssl-define.conf:/usr/local/apache2/conf/extra/ssl-define.conf
-      - ./sites-available/fastapi-ssl.conf:/usr/local/apache2/conf/extra/fastapi-ssl.conf
-      - ${CERT_DIR}:/etc/ssl/egeria:ro
-
-  my-profile:
-    environment:
-      MY_EGERIA_PUBLIC_URL: "${DEMO_SITE_URL}/my-egeria"
 
   obsidian:
     volumes:
