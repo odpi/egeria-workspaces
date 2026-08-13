@@ -11,7 +11,7 @@ Items completed in quickstart that still need to be applied or adapted for fresh
 
 ### Security / deployment readiness
 - [ ] **JWT_SECRET** — set a real random value in `compose-configs/egeria-freshstart/.env` before any public deployment (never in the yaml)
-- [ ] **SITE_URL** — update `SITE_URL` in `egeria-freshstart.yaml` to the correct public URL when deploying beyond localhost (currently `http://localhost:7885`)
+- [ ] **SITE_URL** — for a public deployment, set `SITE_URL` in `.env.ssl` to the real public HTTPS URL (fresh-start-local derives a `https://<HOST_FQDN>:7843` default itself otherwise, self-signed unless `CERT_DIR` points to a real cert)
 - [ ] **EGERIA_ADMIN_USERS** — add your own Egeria user ID to the `EGERIA_ADMIN_USERS` list in `egeria-freshstart.yaml` after first login so the `bootstrap` account can be retired
 
 ### Portal / Apache config

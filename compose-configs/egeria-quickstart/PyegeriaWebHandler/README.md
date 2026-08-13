@@ -277,13 +277,13 @@ The PyegeriaWebHandler includes a built-in **Egeria Explorer** — an interactiv
 Once the stack is running, open a browser and navigate to:
 
 ```
-http://localhost:8885/egeria-explorer
+https://localhost:8843/egeria-explorer
 ```
 
 The alias `/type-explorer` is also supported and serves the same application:
 
 ```
-http://localhost:8885/type-explorer
+https://localhost:8843/type-explorer
 ```
 
 Apache proxies both URLs through to the `pyegeria-web` container, which serves the single-page application and its backing API.
@@ -412,13 +412,13 @@ python3 build_request_body_catalog.py /path/to/egeria-platform-X.Y/assembly/opt/
 Or, if `HTTP_COLLECTIONS_PATH` is set in the environment, use the in-app endpoint:
 
 ```
-POST http://localhost:8885/api/request-bodies/rebuild
+POST https://localhost:8843/api/request-bodies/rebuild
 ```
 
 The OpenAPI endpoint data always comes from the live platform and is cached for one hour. Force a re-fetch with:
 
 ```
-POST http://localhost:8885/api/rest-apis/refresh
+POST https://localhost:8843/api/rest-apis/refresh
 ```
 
 #### Solution Architect
@@ -579,6 +579,8 @@ Diagrams are loaded on demand, not pre-fetched, to avoid slowing down list and d
 
 All endpoints are accessible directly in addition to being used by the SPA. Connection parameters default to environment variables (`EGERIA_PLATFORM_URL`, `EGERIA_VIEW_SERVER`, `EGERIA_USER`, `EGERIA_USER_PASSWORD`).
 
+> HTTPS is self-signed by default (see [HTTPS](../README.md#https)) — `curl` needs `-k`/`--insecure` against these example URLs unless `CERT_DIR` points to a real certificate.
+
 #### Type System
 
 **`GET /api/types`** — All entity, relationship, and classification type definitions.
@@ -586,8 +588,8 @@ All endpoints are accessible directly in addition to being used by the SPA. Conn
 Query params: `area` (int, 0–7), `url`, `server`, `user_id`, `user_pwd`.
 
 ```
-GET http://localhost:8885/api/types
-GET http://localhost:8885/api/types?area=4
+GET https://localhost:8843/api/types
+GET https://localhost:8843/api/types?area=4
 ```
 
 Response: `{ areaNames, entities, classifications, relationships }`. Each entity includes `guid`, `area`, `abstract`, `supertype`, `desc`, `wiki`, `deprecated`, `props` (own properties only).

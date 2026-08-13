@@ -5,6 +5,15 @@
 
 ---
 
+> **⚠ Known issue (tracked as SHARE-3 in `BACKLOG.md`):** most of this file was
+> copied from quickstart's equivalent doc and describes quickstart's
+> `--demo`/JWT+email/SQLite-style flow, which **does not apply to freshstart**
+> (freshstart has no `--demo` flag and uses Egeria itself as the user store —
+> see [`compose-configs/egeria-freshstart/README.md`](../README.md)'s "Portal
+> and Authentication" section for what's actually accurate). Only the
+> **SSL / HTTPS** section below has been corrected so far; the rest needs a
+> proper freshstart-specific rewrite.
+
 ## Overview
 
 Demo mode adds user registration, authentication, and persona-based access control to the Egeria demo portal and Egeria Explorer. It is designed for public-facing deployments pre-loaded with Coco Pharmaceuticals data, where you want attendees to register, pick a named persona, and explore the metadata environment from that character's perspective.
@@ -397,102 +406,46 @@ The schema and tables are recreated automatically on the next `quickstart-pyeger
 
 ## SSL / HTTPS
 
-SSL is **off by default**. The web server listens on port 8885 (HTTP) only. HTTPS is enabled automatically when you use `./quick-start-local --demo`.
+> **This section previously described quickstart's `--demo` HTTPS flow, which
+> doesn't apply here (freshstart has no `--demo` flag). Rewritten for
+> freshstart's actual behavior below.**
 
-### Prerequisites
+HTTPS is **on by every run** — `./fresh-start-local` always brings up Apache's HTTPS
+listener, on port 7843 by default. If no certificate is configured, it
+auto-generates a self-signed one on first run (via `generate-certs.sh`, into
+`runtime-volumes/certs-freshstart`) — your browser will warn once, which is
+expected. The plain-HTTP port (7885) always 301-redirects to the HTTPS one.
 
-- A TLS certificate and private key for your domain, with the chain certificate.
-- The certificate files accessible on the host at a stable directory path.
-- Port 443 open on any firewall between users and the host (or use `HTTPS_PORT=8443` for rootless Podman — see below).
-- DNS pointing your domain at the host's IP address.
+### Using a real certificate instead of self-signed
 
-### Enabling SSL (automated via `--demo`)
-
-Run:
-
-```bash
-./quick-start-local --demo
-```
-
-When prompted, provide the path to a directory containing:
-
-```
-server.crt       — TLS certificate for your domain
-server.key       — private key
-server-ca.crt    — CA / chain certificate
-```
-
-The script:
-1. Saves the cert path to `.env.demo` as `CERT_DIR`
-2. Generates `runtime-volumes/quickstart-apache-web/ssl-define.conf` containing `Define SSL_SERVER_NAME <HOST_FQDN>`
-3. Applies `egeria-quickstart-demo.yaml`, which mounts the cert directory, the SSL vhost config, and port 443
-
-`SITE_URL` is automatically set to `https://<HOST_FQDN>` (or `https://<HOST_FQDN>:<port>` when `HTTPS_PORT` is non-443).
-
-#### Using a non-standard HTTPS port (rootless Podman)
-
-Rootless Podman cannot bind privileged ports (<1024) without a sysctl change. To use port 8443 instead:
-
-Add to `compose-configs/egeria-quickstart/.env.demo`:
-```ini
-HTTPS_PORT=8443
-```
-
-Then run `./quick-start-local --demo`. The script sets `SITE_URL=https://<HOST_FQDN>:8443` automatically. Users reach the portal at `https://<HOST_FQDN>:8443`.
-
-### Enabling SSL (manual)
-
-If you need to manage the SSL config manually:
-
-**Step 1 — Create `runtime-volumes/quickstart-apache-web/ssl-define.conf`:**
-
-```apache
-Define SSL_SERVER_NAME your.domain.com
-```
-
-**Step 2 — Set `CERT_DIR` and `SITE_URL` in `compose-configs/egeria-quickstart/.env.demo`:**
+Create `compose-configs/egeria-freshstart/.env.ssl` (gitignored) with:
 
 ```ini
-CERT_DIR=/absolute/path/to/certs
-SITE_URL=https://your.domain.com
+CERT_DIR=/absolute/path/to/dir/containing/server.crt+server.key+server-ca.crt
 ```
 
-**Step 3 — Apply the demo overlay manually:**
-
-```bash
-docker compose \
-  -f egeria-quickstart.yaml \
-  -f egeria-quickstart-local.yaml \
-  -f egeria-quickstart-docker.yaml \
-  -f egeria-quickstart-demo.yaml \
-  up -d apache-web
-```
-
-### Disabling SSL
-
-Run without `--demo`:
-
-```bash
-./quick-start-local
-```
-
-`httpd.conf` uses `IncludeOptional conf/extra/fastapi-ssl.conf` — when the SSL vhost file is not mounted (no demo overlay), Apache starts HTTP-only on port 8885.
-
-### Cookie security
-
-Cookies are set with `Secure=true` automatically when `SITE_URL` starts with `https://`. No additional configuration is required.
+`fresh-start-local` picks it up on the next run — it only auto-generates a
+self-signed cert when `CERT_DIR` isn't already pointing at valid files.
+Optionally also set `HTTPS_PORT` (e.g. `8443` for a non-privileged port) and
+`SITE_URL` (the public HTTPS URL, if it differs from `https://<HOST_FQDN>:<HTTPS_PORT>`)
+in the same file.
 
 ### Certificate renewal
 
-Replace the files in `CERT_DIR` and restart Apache — no rebuild required:
+Replace the files at `CERT_DIR` and restart Apache — no rebuild required:
 
 ```bash
-docker compose \
-  -f egeria-quickstart.yaml \
-  -f egeria-quickstart-local.yaml \
-  -f egeria-quickstart-demo.yaml \
-  restart apache-web
+docker restart freshstart-web-server
 ```
+
+### Cookie security
+
+Cookies are set with `Secure=true` automatically when `SITE_URL` starts with
+`https://` — true by default now that HTTPS is always on.
+
+For the full mechanism (self-signed generation, `.env.ssl`, Let's Encrypt for
+quickstart's `--demo` mode) see [`docs/SECURITY-CONFIGURATION.md`](../../../docs/SECURITY-CONFIGURATION.md)
+at the repo root.
 
 ---
 
