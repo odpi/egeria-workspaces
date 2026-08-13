@@ -167,8 +167,8 @@ Most users should start from the repository root using one of the quick-start sc
    * A Docker network named `egeria_network` will be created automatically by the scripts if needed
 2. Clone the repo: [odpi/egeria-workspaces](https://github.com/odpi/egeria-workspaces.git)
 3. From the repository root, run one of:
-   * `./quick-start-local` — single-machine development (see [Local vs multi-host](#local-vs-multi-host))
-   * `./quick-start-local --demo` — public demo deployment with user auth, registration, and HTTPS (see [Demo mode](#demo-mode--https))
+   * `./quick-start-local` — single-machine development, HTTPS via a self-signed cert by default (see [HTTPS](#https))
+   * `./quick-start-local --demo` — public demo deployment with user auth, registration, and a real-cert HTTPS on 443 (see [Demo mode](#demo-mode))
    * `./quick-start-multi-host` — reachable from other hosts on your network (see [Local vs multi-host](#local-vs-multi-host))
 
 These scripts will:
@@ -279,9 +279,22 @@ To bypass the local build cache during the manual build step, add `--no-cache`:
 docker compose -f egeria-quickstart.yaml build --pull --no-cache
 ```
 
-## Demo mode / HTTPS
+## HTTPS
 
-Demo mode activates user registration, authentication, and HTTPS. Run:
+`./quick-start-local` always brings up Apache's HTTPS listener, on port 8843 by default. If no
+certificate is configured, it auto-generates a self-signed one on first run (via
+`generate-certs.sh`, into `runtime-volumes/certs-quickstart`) — your browser will warn once,
+which is expected. To use a real certificate instead, create
+`compose-configs/egeria-quickstart/.env.ssl` (gitignored) with:
+
+```ini
+CERT_DIR=/path/to/dir/containing/server.crt+server.key+server-ca.crt
+```
+
+### Demo mode
+
+Demo mode additionally activates user registration and authentication, and moves HTTPS to port
+443 with a required real certificate. Run:
 
 ```bash
 ./quick-start-local --demo
@@ -293,6 +306,11 @@ server-name config automatically. Subsequent `--demo` runs reuse the saved value
 
 For full details including manual configuration, see
 [`PyegeriaWebHandler/demo-mode.md`](PyegeriaWebHandler/demo-mode.md).
+
+For the full HTTPS/TLS mechanism across all deployment modes (self-signed generation,
+`.env.ssl`, Let's Encrypt acquisition/renewal) and the auth model differences between
+quickstart/`--demo`/freshstart, see
+[`docs/SECURITY-CONFIGURATION.md`](../../docs/SECURITY-CONFIGURATION.md) at the repo root.
 
 ## Secrets Location for Quickstart
 
@@ -346,19 +364,19 @@ License: CC BY 4.0, Copyright Contributors to the ODPi Egeria project.
 
 ### myEgeria fails to load when accessed via hostname (not localhost)
 
-**Symptom:** The myEgeria / My Profile page shows a blank screen or the textual app never connects when the browser URL uses a hostname other than `localhost` (e.g. `http://myserver.local:8885/my-egeria`).
+**Symptom:** The myEgeria / My Profile page shows a blank screen or the textual app never connects when the browser URL uses a hostname other than `localhost` (e.g. `https://myserver.local:8843/my-egeria`).
 
-**Root cause:** `textual-serve` uses the `MY_EGERIA_PUBLIC_URL` environment variable to emit same-origin WebSocket and static-asset URLs. Without it set correctly, it emits `http://0.0.0.0:8020/...` or `http://localhost:8885/...` URLs that the browser blocks under its same-origin policy.
+**Root cause:** `textual-serve` uses the `MY_EGERIA_PUBLIC_URL` environment variable to emit same-origin WebSocket and static-asset URLs. Without it set correctly, it emits `http://0.0.0.0:8020/...` or `https://localhost:8843/...` URLs that the browser blocks under its same-origin policy.
 
-**Fix:** Set `SITE_URL` in `compose-configs/egeria-quickstart/.env` to the base URL your browser uses to reach the portal (no trailing slash):
+**Fix:** Set `SITE_URL` in `compose-configs/egeria-quickstart/.env.ssl` (or `.env.demo` in `--demo` mode) to the base URL your browser uses to reach the portal (no trailing slash):
 
 ```bash
-SITE_URL=http://myserver.local:8885
+SITE_URL=https://myserver.local:8843
 ```
 
-When `SITE_URL` is set, both the pyegeria-web service and the myEgeria service pick it up automatically. When `SITE_URL` is not set, the default `http://localhost:8885` is used — so no change is needed for single-machine `localhost` access.
+When `SITE_URL` is set, both the pyegeria-web service and the myEgeria service pick it up automatically. When `SITE_URL` is not set, the default `https://localhost:8843` is used — so no change is needed for single-machine `localhost` access.
 
-Note: if the startup script (`quick-start-local`) regenerates `.env` on every run, add `SITE_URL` to `.env.local` (gitignored) or set it in your shell environment so it survives regeneration.
+Note: `quick-start-local` regenerates `.env` on every run — `.env.ssl` (or `.env.demo`) is the persisted file it reads `SITE_URL` from and re-appends to `.env` each time, so it survives regeneration.
 
 ---
 

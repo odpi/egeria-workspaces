@@ -134,7 +134,7 @@ services:
       DEMO_MODE: "false"
       FEEDBACK_DB_PATH: "/app/demo-data/feedback.db"
       JWT_SECRET: "${JWT_SECRET:-change-me-before-going-public}"
-      SITE_URL: "http://localhost:7885"
+      SITE_URL: "${SITE_URL:-https://localhost:7843}"
       # Comma-separated Egeria user IDs that receive portal admin role.
       # Add your own admin userId here after first login.
       EGERIA_ADMIN_USERS: "bootstrap"

@@ -44,7 +44,64 @@ cp -r compose-configs/egeria-quickstart/servers/fs-* "$TARGET_SERVER_DIR"/
 compose-configs/shared-infra/ensure-shared-infra.sh
 
 pushd compose-configs/egeria-freshstart >/dev/null
+  # ── TLS: fall back to a self-signed cert unless the user has already ────
+  # configured one in .env.ssl (or .env) — same mechanism fresh-start-local
+  # uses (this is the same egeria-freshstart compose project, just with the
+  # cluster overlay instead of local, so it shares CERT_DIR/.env.ssl/
+  # ssl-define.conf with it).
+  _get_env_var() {
+    local key="$1" file="$2"
+    [[ -f "$file" ]] && grep -E "^${key}=" "$file" | head -n1 | cut -d= -f2- || true
+  }
+
+  ENV_SSL=".env.ssl"
+  _cert_dir="$(_get_env_var CERT_DIR "$ENV_SSL")"
+  [[ -z "$_cert_dir" ]] && _cert_dir="$(_get_env_var CERT_DIR .env)"
+  _https_port="$(_get_env_var HTTPS_PORT "$ENV_SSL")"
+  _site_url_override="$(_get_env_var SITE_URL "$ENV_SSL")"
+
+  if [[ -z "$_cert_dir" ]]; then
+    _cert_dir="$(cd ../.. && pwd)/runtime-volumes/certs-freshstart"
+  fi
+
+  if [[ ! -f "${_cert_dir}/server.crt" || ! -f "${_cert_dir}/server.key" || ! -f "${_cert_dir}/server-ca.crt" ]]; then
+    _cert_host="$(hostname -f 2>/dev/null || hostname)"
+    echo "[fresh-start-multi-host] No TLS certificate found at ${_cert_dir}; generating a self-signed one for ${_cert_host}..."
+    ../../generate-certs.sh "$_cert_dir" "$_cert_host"
+  fi
+
+  _https_port="${_https_port:-7843}"
+
+  cat > "$ENV_SSL" <<EOF
+CERT_DIR=${_cert_dir}
+HTTPS_PORT=${_https_port}
+SITE_URL=${_site_url_override}
+EOF
+  chmod 600 "$ENV_SSL"
+
   ./gen-env.sh
+
+  _host_fqdn="$(grep '^HOST_FQDN=' .env | cut -d= -f2-)"
+  if [[ -n "$_site_url_override" ]]; then
+    _site_url="$_site_url_override"
+  elif [[ "$_https_port" == "443" ]]; then
+    _site_url="https://${_host_fqdn}"
+  else
+    _site_url="https://${_host_fqdn}:${_https_port}"
+  fi
+  {
+    echo "CERT_DIR=${_cert_dir}"
+    echo "HTTPS_PORT=${_https_port}"
+    echo "SITE_URL=${_site_url}"
+  } >> .env
+
+  SSL_DEFINE_DIR="../../runtime-volumes/freshstart-apache-web"
+  mkdir -p "$SSL_DEFINE_DIR"
+  {
+    printf 'Define SSL_SERVER_NAME %s\n' "${_host_fqdn}"
+    printf 'Define HTTPS_REDIRECT_PORT %s\n' "${_https_port}"
+  } > "${SSL_DEFINE_DIR}/ssl-define.conf"
+  echo "[fresh-start-multi-host]   Self-signed HTTPS on port ${_https_port} (CERT_DIR=${_cert_dir}) — SITE_URL: ${_site_url}"
 
   echo "[fresh-start-multi-host] Building freshstart images (pulling newer base images when available)..."
   $COMPOSE_CMD -p egeria-freshstart -f egeria-freshstart.yaml build "${COMPOSE_BUILD_FLAGS[@]}"
@@ -53,16 +110,19 @@ pushd compose-configs/egeria-freshstart >/dev/null
   $COMPOSE_CMD -p egeria-freshstart \
     -f egeria-freshstart.yaml \
     -f egeria-freshstart-cluster.yaml \
+    -f egeria-freshstart-ssl.yaml \
     up -d ${COMPOSE_PULL_FLAGS}
 popd >/dev/null
 
 echo "[fresh-start-multi-host] Done. Useful notes:"
 HOST_FQDN_PRINT=$(grep '^HOST_FQDN=' compose-configs/egeria-freshstart/.env | cut -d= -f2- || echo "localhost")
 KAFKA_CLUSTER_ID_PRINT=$(grep '^KAFKA_CLUSTER_ID=' compose-configs/egeria-freshstart/.env | cut -d= -f2- || echo "42")
+_site_url_print=$(grep '^SITE_URL=' compose-configs/egeria-freshstart/.env | cut -d= -f2- || echo "https://${HOST_FQDN_PRINT:-localhost}:7843")
 echo "  - Effective HOST_FQDN: ${HOST_FQDN_PRINT}"
 echo "  - Effective KAFKA_CLUSTER_ID: ${KAFKA_CLUSTER_ID_PRINT}"
 echo "  - Egeria (platform):     https://${HOST_FQDN_PRINT:-localhost}:8443 (reachable from other hosts if DNS resolves)"
 echo "  - Kafka external:        ${HOST_FQDN_PRINT:-localhost}:9194"
 echo "  - JupyterHub (local):    http://localhost:7888   (password: egeria)"
-echo "  - Egeria Portal (local): http://localhost:7885"
+echo "  - Egeria Portal (HTTPS): ${_site_url_print}  (http://…:7885 redirects here; reachable from other hosts if DNS resolves)"
+echo "  - Portal is self-signed unless CERT_DIR is set in .env.ssl — accept the cert warning once."
 

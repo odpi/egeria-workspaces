@@ -90,7 +90,7 @@ business-value lens numbers, leaderboard/engagement, activity feed, confidential
 ## Testing
 
 `test_overview_asof.py` — reproducible as-of test cases (client + HTTP layers):
-`python test_overview_asof.py --base http://localhost:8885 --as-of <iso>`. Documents
+`python test_overview_asof.py --base https://localhost:8843 --as-of <iso>`. Documents
 the per-client as-of mechanisms and pins the `+`→space URL-encoding regression and
 the `page_size=5000`+as-of 500s (both fixed / guarded).
 

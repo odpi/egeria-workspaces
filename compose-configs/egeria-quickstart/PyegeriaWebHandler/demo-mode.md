@@ -23,8 +23,8 @@ From the repository root, run:
 
 On first run the script will prompt for:
 
-- **TLS certificate directory** — a host directory containing `server.crt`, `server.key`, and `server-ca.crt`
-- **Admin bootstrap email and password** — the initial admin account created on first startup
+- **TLS certificate directory** — a host directory containing `server.crt`, `server.key`, and `server-ca.crt`. **Leave blank** to have the script request one from **Let's Encrypt** automatically instead (needs `SITE_URL`'s domain to already resolve to this host and port 80 reachable from the internet) — see [SSL / HTTPS](#ssl--https).
+- **Admin bootstrap email and password** — the initial admin account created on first startup (the email also doubles as the Let's Encrypt contact address if you use the automatic option above)
 
 Answers are saved to `compose-configs/egeria-quickstart/.env.demo` (mode 600, gitignored) and reused on subsequent `--demo` runs. To change any value, edit `.env.demo` directly.
 
@@ -35,7 +35,7 @@ The script also generates a JWT secret automatically if one is not already set, 
 
 Once started, the following services are running:
 
-- HTTP portal: `http://<HOST_FQDN>:8885`
+- HTTP portal (301-redirects to HTTPS): `http://<HOST_FQDN>:8885`
 - HTTPS portal: `https://<HOST_FQDN>` (port 443)
 - Login: `https://<HOST_FQDN>/login`
 - Jupyter: `http://<HOST_FQDN>:8888` (password: `egeria`)
@@ -96,7 +96,7 @@ All settings are read from container environment variables at startup.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DEMO_MODE` | `false` | Set `true` to activate demo auth gating |
-| `SITE_URL` | `http://localhost:8885` | Base URL used for email verification/reset links and as the public URL for the myEgeria service (textual-serve WebSocket origin). Must match what the browser uses to reach the portal. No trailing slash. |
+| `SITE_URL` | `https://localhost:8843` | Base URL used for email verification/reset links and as the public URL for the myEgeria service (textual-serve WebSocket origin). Must match what the browser uses to reach the portal. No trailing slash. |
 | `JWT_SECRET` | `change-me-before-going-public` | HS256 signing key — **set in `.env`, never in yaml** |
 | `JWT_EXPIRY_USER_SECONDS` | `7200` | User session lifetime in seconds (2 h) |
 | `JWT_EXPIRY_ADMIN_SECONDS` | `604800` | Admin session lifetime in seconds (7 d) |
@@ -467,14 +467,24 @@ You can also pull automatically at startup with `./quick-start-local --demo --sy
 
 ## SSL / HTTPS
 
-SSL is **off by default**. The web server listens on port 8885 (HTTP) only. HTTPS is enabled automatically when you use `./quick-start-local --demo`.
+HTTPS is **on by every run**, demo or not — `./quick-start-local` always brings up Apache's
+HTTPS listener. Without `--demo` it defaults to port 8843 with a self-signed certificate,
+auto-generated on first run if `CERT_DIR` isn't configured. The plain-HTTP port (8885)
+always 301-redirects to the HTTPS one.
 
-### Prerequisites
+`--demo` moves HTTPS to port 443 and requires a **real** certificate — either supply one
+yourself, or leave the prompt blank and let it request one from **Let's Encrypt**
+automatically. See [`docs/SECURITY-CONFIGURATION.md`](../../../docs/SECURITY-CONFIGURATION.md)
+at the repo root for the full mechanism (self-signed generation, `.env.ssl`, Let's Encrypt
+acquisition/renewal); this section covers only the `--demo`-specific parts.
 
-- A TLS certificate and private key for your domain, with the chain certificate.
-- The certificate files accessible on the host at a stable directory path.
-- Port 443 open on any firewall between users and the host (or use `HTTPS_PORT=8443` for rootless Podman — see below).
-- DNS pointing your domain at the host's IP address.
+### Prerequisites (real certificate, whether supplied or via Let's Encrypt)
+
+- DNS pointing your domain (`SITE_URL`'s host) at this host's IP address.
+- Port 443 open on any firewall between users and the host (or use `HTTPS_PORT=8443` for
+  rootless Podman — see below). Let's Encrypt also needs port **80** reachable from the
+  internet on that domain — `quick-start-local` opens it automatically when it detects
+  `CERT_DIR` is the Let's Encrypt output path.
 
 ### Enabling SSL (automated via `--demo`)
 
@@ -484,18 +494,19 @@ Run:
 ./quick-start-local --demo
 ```
 
-When prompted, provide the path to a directory containing:
-
-```
-server.crt       — TLS certificate for your domain
-server.key       — private key
-server-ca.crt    — CA / chain certificate
-```
+When prompted for a certificate directory:
+- **Supply a path** to a directory containing `server.crt`, `server.key`, `server-ca.crt`
+  for a cert you already have, **or**
+- **Leave it blank** to have Let's Encrypt obtain one automatically for `SITE_URL`'s domain
+  (reusing the admin email you already provided as the contact address).
 
 The script:
 1. Saves the cert path to `.env.demo` as `CERT_DIR`
-2. Generates `runtime-volumes/quickstart-apache-web/ssl-define.conf` containing `Define SSL_SERVER_NAME <HOST_FQDN>`
-3. Applies `egeria-quickstart-demo.yaml`, which mounts the cert directory, the SSL vhost config, and port 443
+2. Generates `runtime-volumes/quickstart-apache-web/ssl-define.conf` containing
+   `Define SSL_SERVER_NAME <HOST_FQDN>` and `Define HTTPS_REDIRECT_PORT <HTTPS_PORT>`
+3. Applies `egeria-quickstart-demo.yaml` (DEMO_MODE) and `egeria-quickstart-ssl.yaml`
+   (port 443, the cert mount, the SSL vhost config) — and, if using Let's Encrypt,
+   `egeria-quickstart-letsencrypt.yaml` (port 80 + the ACME webroot)
 
 `SITE_URL` is automatically set to `https://<HOST_FQDN>` (or `https://<HOST_FQDN>:<port>` when `HTTPS_PORT` is non-443).
 
@@ -510,58 +521,22 @@ HTTPS_PORT=8443
 
 Then run `./quick-start-local --demo`. The script sets `SITE_URL=https://<HOST_FQDN>:8443` automatically. Users reach the portal at `https://<HOST_FQDN>:8443`.
 
-### Enabling SSL (manual)
-
-If you need to manage the SSL config manually:
-
-**Step 1 — Create `runtime-volumes/quickstart-apache-web/ssl-define.conf`:**
-
-```apache
-Define SSL_SERVER_NAME your.domain.com
-```
-
-**Step 2 — Set `CERT_DIR` and `SITE_URL` in `compose-configs/egeria-quickstart/.env.demo`:**
-
-```ini
-CERT_DIR=/absolute/path/to/certs
-SITE_URL=https://your.domain.com
-```
-
-**Step 3 — Apply the demo overlay manually:**
-
-```bash
-docker compose \
-  -f egeria-quickstart.yaml \
-  -f egeria-quickstart-local.yaml \
-  -f egeria-quickstart-docker.yaml \
-  -f egeria-quickstart-demo.yaml \
-  up -d apache-web
-```
-
-### Disabling SSL
-
-Run without `--demo`:
-
-```bash
-./quick-start-local
-```
-
-`httpd.conf` uses `IncludeOptional conf/extra/fastapi-ssl.conf` — when the SSL vhost file is not mounted (no demo overlay), Apache starts HTTP-only on port 8885.
-
 ### Cookie security
 
-Cookies are set with `Secure=true` automatically when `SITE_URL` starts with `https://`. No additional configuration is required.
+Cookies are set with `Secure=true` automatically when `SITE_URL` starts with `https://` —
+true by default in every mode now that HTTPS is always on.
 
 ### Certificate renewal
 
-Replace the files in `CERT_DIR` and restart Apache — no rebuild required:
+**Let's Encrypt certificates**: schedule `renew-certs.sh` via cron/systemd — see
+`docs/SECURITY-CONFIGURATION.md`. It's safe to run daily; it only reissues (and only
+restarts Apache) when the cert is actually close to its 90-day expiry.
+
+**Supplied certificates**: replace the files at `CERT_DIR` and restart Apache — no rebuild
+required:
 
 ```bash
-docker compose \
-  -f egeria-quickstart.yaml \
-  -f egeria-quickstart-local.yaml \
-  -f egeria-quickstart-demo.yaml \
-  restart apache-web
+docker restart quickstart-web-server
 ```
 
 ---

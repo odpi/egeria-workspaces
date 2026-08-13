@@ -55,7 +55,7 @@ RESEND_FROM:    str = os.environ.get("RESEND_FROM",    "")
 
 # ── URLs ───────────────────────────────────────────────────────────────────────
 
-SITE_URL: str = os.environ.get("SITE_URL", "http://localhost:8885").rstrip("/")
+SITE_URL: str = os.environ.get("SITE_URL", "https://localhost:8843").rstrip("/")
 COOKIE_SECURE: bool = SITE_URL.startswith("https://")
 
 # ── Portal tile config ─────────────────────────────────────────────────────────
