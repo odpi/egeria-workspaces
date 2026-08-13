@@ -119,8 +119,75 @@ if [[ "$ONLY_SYNC" -eq 1 ]]; then
 fi
 
 pushd compose-configs/egeria-quickstart >/dev/null
+  # ── TLS: fall back to a self-signed cert unless the user has already ────
+  # configured one in .env.ssl (or .env) — same mechanism quick-start-local
+  # uses for its non-demo path (this is the same egeria-quickstart compose
+  # project as quick-start-local, just with the cluster overlay instead of
+  # local, so it shares CERT_DIR/.env.ssl/ssl-define.conf with it).
+  _get_env_var() {
+    local key="$1" file="$2"
+    [[ -f "$file" ]] && grep -E "^${key}=" "$file" | head -n1 | cut -d= -f2- || true
+  }
+
+  ENV_SSL=".env.ssl"
+  _cert_dir="$(_get_env_var CERT_DIR "$ENV_SSL")"
+  [[ -z "$_cert_dir" ]] && _cert_dir="$(_get_env_var CERT_DIR .env)"
+  _https_port="$(_get_env_var HTTPS_PORT "$ENV_SSL")"
+  _site_url_override="$(_get_env_var SITE_URL "$ENV_SSL")"
+
+  if [[ -z "$_cert_dir" ]]; then
+    _cert_dir="$(cd ../.. && pwd)/runtime-volumes/certs-quickstart"
+  fi
+
+  if [[ ! -f "${_cert_dir}/server.crt" || ! -f "${_cert_dir}/server.key" || ! -f "${_cert_dir}/server-ca.crt" ]]; then
+    _cert_host="$(hostname -f 2>/dev/null || hostname)"
+    echo "[quick-start-multi-host] No TLS certificate found at ${_cert_dir}; generating a self-signed one for ${_cert_host}..."
+    ../../generate-certs.sh "$_cert_dir" "$_cert_host"
+  fi
+
+  _https_port="${_https_port:-8843}"
+
+  # Persist so the same self-signed cert (and chosen port/SITE_URL) is reused
+  # across runs instead of being regenerated — browsers only need to trust a
+  # self-signed cert once. SITE_URL is only written if the user set one
+  # (blank is fine — it's re-derived from HOST_FQDN below on every run).
+  cat > "$ENV_SSL" <<EOF
+CERT_DIR=${_cert_dir}
+HTTPS_PORT=${_https_port}
+SITE_URL=${_site_url_override}
+EOF
+  chmod 600 "$ENV_SSL"
+
   # Generate/update .env and normalize exchange-quickstart/config/config.json
   ./gen-env.sh
+
+  # Append TLS vars to .env immediately after gen-env.sh (which rewrites it each run).
+  # SITE_URL is the one HTTPS URL the browser actually uses — everything
+  # (cookies' Secure flag, the Pyegeria Publishing Root link) derives from it.
+  _host_fqdn="$(grep '^HOST_FQDN=' .env | cut -d= -f2-)"
+  if [[ -n "$_site_url_override" ]]; then
+    _site_url="$_site_url_override"
+  elif [[ "$_https_port" == "443" ]]; then
+    _site_url="https://${_host_fqdn}"
+  else
+    _site_url="https://${_host_fqdn}:${_https_port}"
+  fi
+  {
+    echo "CERT_DIR=${_cert_dir}"
+    echo "HTTPS_PORT=${_https_port}"
+    echo "SITE_URL=${_site_url}"
+  } >> .env
+
+  # Generate runtime ssl-define.conf (Apache Defines for SSL_SERVER_NAME and
+  # HTTPS_REDIRECT_PORT — the latter is what fastapi-proxy.conf's plain-HTTP
+  # vhost 301-redirects to).
+  SSL_DEFINE_DIR="../../runtime-volumes/quickstart-apache-web"
+  mkdir -p "$SSL_DEFINE_DIR"
+  {
+    printf 'Define SSL_SERVER_NAME %s\n' "${_host_fqdn}"
+    printf 'Define HTTPS_REDIRECT_PORT %s\n' "${_https_port}"
+  } > "${SSL_DEFINE_DIR}/ssl-define.conf"
+  echo "[quick-start-multi-host]   Self-signed HTTPS on port ${_https_port} (CERT_DIR=${_cert_dir}) — SITE_URL: ${_site_url}"
 
   echo "[quick-start-multi-host] Building quickstart images (pulling newer base images when available)..."
   $COMPOSE_CMD -p egeria-quickstart -f egeria-quickstart.yaml build "${COMPOSE_BUILD_FLAGS[@]}"
@@ -129,14 +196,17 @@ pushd compose-configs/egeria-quickstart >/dev/null
   $COMPOSE_CMD -p egeria-quickstart \
     -f egeria-quickstart.yaml \
     -f egeria-quickstart-cluster.yaml \
+    -f egeria-quickstart-ssl.yaml \
     up -d ${COMPOSE_PULL_FLAGS}
 popd >/dev/null
 echo "[quick-start-multi-host] Done. Useful notes:"
 HOST_FQDN_PRINT=$(grep '^HOST_FQDN=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "localhost")
 KAFKA_CLUSTER_ID_PRINT=$(grep '^KAFKA_CLUSTER_ID=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "42")
+_site_url_print=$(grep '^SITE_URL=' compose-configs/egeria-quickstart/.env | cut -d= -f2- || echo "https://${HOST_FQDN_PRINT:-localhost}:8843")
 echo "  - Effective HOST_FQDN: ${HOST_FQDN_PRINT}"
 echo "  - Effective KAFKA_CLUSTER_ID: ${KAFKA_CLUSTER_ID_PRINT}"
 echo "  - Egeria (platform):      https://${HOST_FQDN_PRINT:-localhost}:9443 (reachable from other hosts if DNS resolves)"
 echo "  - Kafka external:         ${HOST_FQDN_PRINT:-localhost}:9194"
 echo "  - JupyterHub (local):     http://localhost:8888   (password: egeria)"
-echo "  - Egeria Portal (local):  http://localhost:8885"
+echo "  - Egeria Portal (HTTPS):  ${_site_url_print}  (http://…:8885 redirects here; reachable from other hosts if DNS resolves)"
+echo "  - Portal is self-signed unless CERT_DIR is set in .env.ssl — accept the cert warning once."
