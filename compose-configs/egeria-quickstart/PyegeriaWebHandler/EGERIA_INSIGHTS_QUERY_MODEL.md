@@ -1,7 +1,13 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 <!-- Copyright Contributors to the ODPi Egeria project. -->
 
-# Egeria Insights — Saved Query Model (design)
+# Query (formerly "Egeria Insights") — Saved Query Model (design)
+
+> Renamed "Egeria Insights" → "Query" in the UI 2026-08-14 (BACKLOG.md). This
+> doc's own file name, and every "Egeria Insights" reference in the body text
+> below, are left as-is — they're accurate as historical narrative describing
+> the app under its name at the time each section was written, same
+> convention BACKLOG.md uses.
 
 **Status:** design + Track A + **Track C.1 shipped and live-verified**
 (2026-08-10). Track A of Part 3's plan (A.1–A.4: query-editor searchable

@@ -1,7 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright Contributors to the ODPi Egeria project.
 """
-Egeria Insights — FastAPI router.
+Query (formerly "Egeria Insights" in the UI, renamed 2026-08-14 — see
+BACKLOG.md) — FastAPI router. Module/route/API names kept as
+insights_handler.py / /egeria-insights / /api/insights/* for backward
+compatibility: bookmarks, Apache's proxy Location blocks, and the
+pyegeriaInsightsQuery marker key already written into stored Egeria
+additionalProperties by earlier saved queries all depend on these staying
+put — only user-facing display text changed.
 
 New portal app for cross-cutting governance search: compound classification +
 zone faceted search over Egeria's native find_metadata_elements API. A query
@@ -694,7 +700,7 @@ def _sort_results(results: List[dict], sort_by: Optional[str], sort_dir: str) ->
 @router.get("/egeria-insights", include_in_schema=False)
 def serve_insights():
     if not _HTML.exists():
-        raise HTTPException(status_code=404, detail="Egeria Insights page not found")
+        raise HTTPException(status_code=404, detail="Query page not found")
     return FileResponse(_HTML, media_type="text/html",
                         headers={"Cache-Control": "no-store, must-revalidate"})
 
@@ -1498,7 +1504,7 @@ def get_saved_query(
         raise HTTPException(status_code=404, detail=f"Saved query not found: {exc}")
     additional = ((el or {}).get("properties") or {}).get("additionalProperties") or {}
     if additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
-        raise HTTPException(status_code=404, detail="Not a saved Insights query")
+        raise HTTPException(status_code=404, detail="Not a saved query")
     return JSONResponse(_saved_query_summary(el))
 
 
@@ -1515,7 +1521,7 @@ def update_saved_query(guid: str, body: SavedQueryBody = Body(...)):
     props = (el or {}).get("properties") or {}
     existing_additional = props.get("additionalProperties") or {}
     if existing_additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
-        raise HTTPException(status_code=404, detail="Not a saved Insights query")
+        raise HTTPException(status_code=404, detail="Not a saved query")
 
     was_smart = existing_additional.get("smartCollection") == "true"
     want_smart = body.make_smart_collection
@@ -1619,7 +1625,7 @@ def set_saved_query_favorite(guid: str, body: FavoriteBody = Body(...)):
     props = (el or {}).get("properties") or {}
     existing_additional = props.get("additionalProperties") or {}
     if existing_additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
-        raise HTTPException(status_code=404, detail="Not a saved Insights query")
+        raise HTTPException(status_code=404, detail="Not a saved query")
 
     additional = dict(existing_additional)
     additional["favorite"] = "true" if body.favorite else "false"
@@ -1660,7 +1666,7 @@ def delete_saved_query(
         raise HTTPException(status_code=404, detail=f"Saved query not found: {exc}")
     additional = ((el or {}).get("properties") or {}).get("additionalProperties") or {}
     if additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
-        raise HTTPException(status_code=404, detail="Not a saved Insights query")
+        raise HTTPException(status_code=404, detail="Not a saved query")
 
     results_set_guid = additional.get("resultsSetGuid")
     rel_guid = additional.get("smartQueryRelGuid")
@@ -1727,7 +1733,7 @@ def get_saved_query_results(
         raise HTTPException(status_code=404, detail=f"Saved query not found: {exc}")
     additional = ((el or {}).get("properties") or {}).get("additionalProperties") or {}
     if additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
-        raise HTTPException(status_code=404, detail="Not a saved Insights query")
+        raise HTTPException(status_code=404, detail="Not a saved query")
     results_set_guid = additional.get("resultsSetGuid")
     if not results_set_guid:
         return JSONResponse({"results": [], "total": 0})
@@ -1754,7 +1760,7 @@ def refresh_saved_query(guid: str, body: RefreshQueryBody = Body(...)):
     props = (el or {}).get("properties") or {}
     additional = props.get("additionalProperties") or {}
     if additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
-        raise HTTPException(status_code=404, detail="Not a saved Insights query")
+        raise HTTPException(status_code=404, detail="Not a saved query")
     results_set_guid = additional.get("resultsSetGuid")
     if not results_set_guid:
         raise HTTPException(status_code=500, detail="Saved query has no linked ResultsSet — cannot materialize results")

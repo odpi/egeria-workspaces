@@ -130,8 +130,12 @@ services:
       # (http://egeria-shared-kroki:8000, used by egeria-freshstart/
       # egeria-quickstart), but host processes not on that network (e.g.
       # resource-explorer, run via `uv run` rather than containerized)
-      # need a published port to reach it at all.
-      - "8000:8000"
+      # need a published port to reach it at all. Host side is 6002 (not
+      # 8000) — 8000 is a very common local dev default (e.g. `mkdocs
+      # serve`) and collided with it on this machine; container-internal
+      # port stays 8000 (that's what KROKI_MERMAID_HOST/healthcheck/the
+      # container-to-container EGERIA_KROKI_URL below all assume).
+      - "6002:8000"
     environment:
       KROKI_MERMAID_HOST: kroki-mermaid
     logging:
