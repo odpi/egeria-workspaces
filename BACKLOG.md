@@ -3,6 +3,15 @@
 Consolidated work list. Update status when items start or finish.  
 Status: `open` · `in-progress` · `done` · `deferred`
 ---
+## Fixes (2026-08-14) — ✅ done (quickstart only)
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| FIX-6 | "Egeria Insights" renamed to "Query" — FIX-5 already established "Query" as the accurate term for what the app does (renamed its internal Search tab/buttons), but the app's own name was never updated to match | done | Display-text-only rename, scoped to avoid touching infra just stabilized this session (Apache proxy `<Location>` blocks, bookmarks): `demo-portal.html` (tile name + description), `egeria-insights.html` (`<title>`, loading text, in-app header span, section-divider/cross-link comments), `egeria-overview.html` (8 cross-link button labels + 1 comment, e.g. `Query in Egeria Insights` → `Open in Query`, avoiding an awkward `Query in Query`), `insights_handler.py` (module docstring, the `/egeria-insights` 404 detail, and 6× `"Not a saved Insights query"` → `"Not a saved query"` 404 details). **Left unchanged, deliberately:** file names (`egeria-insights.html`, `insights_handler.py`), routes (`/egeria-insights`), API paths (`/api/insights/*`), and — load-bearing — the `pyegeriaInsightsQuery` `additionalProperties` marker key used to detect saved-query-authored collection memberships in already-stored Egeria data; renaming that key would silently stop recognizing every pre-rename saved query. Historical/dated design docs (`EGERIA_INSIGHTS_QUERY_MODEL.md`, both envs' `OVERVIEW_CONTEXT_INTELLIGENCE.md`) left as narrative history per the same convention this file uses — a pointer note added to the query-model doc's header instead of rewriting its body. `component-feature-matrix.md`'s section header updated (living reference doc, not history). Verified live: `<title>`, portal tile, and 404 details all confirmed via `curl`/`docker exec` diff against the deployed container. Freshstart has no `insights_handler.py`/`egeria-insights.html` at all (feature not yet ported — see SHARE-3), so nothing to sync there. |
+| FIX-7 | Search duplication — tech-catalog.html's `SearchView` and type-explorer.html's `ExplorerSearchView` independently implemented ~90 lines each of near-identical query/debounce/facet-toggle state + fetch logic against the same `/api/catalog/search` backend, plus 3 byte-for-byte-duplicated helper functions (highlight, HTML-escape, group-by-typeName) and a 90%-duplicated category-icon map | done | Extracted a shared `useCatalogSearch(creds, initialQuery, onReset)` hook (`onReset` fires on a fresh query, not a facet-toggle re-search — Catalog passes `selection.clear` to fix the stale-bulk-selection trap FIX from earlier this session; Explorer has no selection concept and omits it) plus `highlightHtml`/`groupCatalogSearchItemsByType`/`CATALOG_SEARCH_CATEGORY_ICONS` (union of the two apps' icon maps — 'projects' picked Catalog's 📁 over Explorer's ◉, purely cosmetic) into `static/egeria-shared-ui.js`. Both apps' search views now call the shared hook; each keeps its OWN result-row rendering, which genuinely differs (Catalog: bulk-select checkboxes + `SearchResultCard`'s `TYPE_TO_NAV` routing; Explorer: a simpler inline card + `onNavigateToElement`/`_elementIsLinkable`). Cache-bust bumped `2026-08-14f`→`g` across all 7 consumer HTML files, all redeployed; verified live via `docker exec` diff (byte-identical to source) and a real `/api/catalog/search` call returning results through the shared code path. Prompted by a user question about moving per-app search to the portal level — investigation found the portal's existing omni-search bar (NEXT-12) already reuses the same backend, and concluded (user-selected option) to keep per-app search but make it more discoverable rather than remove it; this dedup is prep work for that, done first since it makes adding a persistent per-app search bar cleaner. **Follow-up not yet done:** promote each app's search from "buried" (Explorer: Home/Splash-screen-only card; Catalog: one section-tab among eight) to an always-visible header affordance. |
+| FIX-8 | Portal search reported "very slow" (16s/request) — user assumed `graph_query_depth` wasn't 0 | done | Not a query-depth issue (`catalog_search_handler.py` already sets `graph_query_depth=0`, confirmed). Root cause: the already-documented recurring Postgres connection leak on the Egeria metadata store (`postgres_connection_leak.md`) — 26 `idle in transaction` connections on `egeria-shared-postgres` at the time, up from the safety-net's steady-state. Traced via `docker logs -f` timestamps during a live slow request: the bearer-token mint was fast, the actual `by-property-value-search` call was the 16s hop. `docker restart quickstart-egeria-main` dropped idle-in-transaction 26→5 and request time 16s→0.48s (33×), confirmed via repeat `curl` timing before/after. No code change — same stopgap this issue has needed each time it's recurred; the underlying leak itself is still open (see that file). |
+| FIX-9 | Egeria Explorer's search tab had no selection checkboxes/Add-to-Collection, unlike every other list view in the app and unlike The Catalog's own search | done | Pre-existing gap, not a regression from FIX-7's refactor — `ExplorerSearchView` never had `useSelection`/`BulkActionBar` wired, apparently missed when bulk-select was propagated across the rest of `type-explorer.html` (BACKLOG.md tasks #21/#24) since Search isn't one of the app's regular browsable-list sections. Added `useSelection`, a "select all in this group" checkbox per type-group header, a per-row checkbox, `BulkActionBar`, and `AddToCollectionModal` — both **add and remove** actions (matching every other `type-explorer.html` list view's convention, not Catalog's add-only `SearchView`, which was deliberately scoped add-only earlier this session). Verified live: syntax-checked, deployed, `docker exec` diff clean, "Select all in this group" confirmed present exactly once in the served page. |
+
 ## Fixes (2026-08-11) — ✅ done (quickstart only)
 
 | # | Item | Status | Notes |
@@ -596,6 +605,10 @@ container was never doing the rendering.
 - Both `egeria-quickstart.yaml`/`egeria-freshstart.yaml`'s Jupyter service:
   `EGERIA_KROKI_URL: "http://egeria-shared-kroki:8000"`.
 
+**Update (2026-08-14):** kroki's host port was later published (`egeria-shared-kroki's port to the host`,
+b9bcee9a) as `8000:8000`, then moved to `6002:8000` — `8000` collided with `mkdocs serve`'s default port on a dev
+machine. Container-internal port is still `8000` (unaffected); see the port table below and `shared-infra.yaml`.
+
 **Verified live:**
 - `/health` on the new `egeria-shared-kroki` container: healthy, Mermaid 11.15.0.
 - 8 consecutive `/mermaid/svg` renders: byte-identical output every time (no
@@ -866,7 +879,7 @@ pyegeria-web onto the poisoned 8000/9000. The 88xx/78xx blocks are clean (only c
 8888 is Jupyter's own default) and never overlap the fixed services.
 
 **Fixed — do NOT renumber:** egeria-main (quickstart 9443/5005, freshstart 8443/5006),
-shared kafka (9192–9194), shared postgres (5442).
+shared kafka (9192–9194), shared postgres (5442), shared kroki (6002:8000).
 
 ### Current port map (host → container) — after renumbering
 
@@ -885,6 +898,7 @@ shared kafka (9192–9194), shared postgres (5442).
 | shared-infra | openlineage-proxy | `egeria-shared-openlineage-proxy-backend` | 6000:6000, 6001:6001 | fixed |
 | shared-infra | kafka | `egeria-shared-kafka` | 9192:9192, 9193:9193, 9194:9194 | fixed |
 | shared-infra | postgres | `egeria-shared-postgres` | 5442:5442 | fixed (multi-schema) |
+| shared-infra | kroki | `egeria-shared-kroki` | 6002:8000 | fixed; moved off 8000 (collided with `mkdocs serve`) |
 | quickstart | **ProjectExplorer** | *(TBD)* | **8830:8830** *(planned)* | new service — PORT-7 |
 | both | **Egeria Advisor** | *(external, not in compose)* | qs **8880** / fs **7880** | was 8080 (collides w/ Airflow, Spark, new_uc); portal links via `EGERIA_ADVISOR_URL` — PORT-10 |
 
