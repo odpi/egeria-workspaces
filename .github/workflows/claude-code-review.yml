@@ -1,7 +1,23 @@
 name: Claude Code Review
 
+# pull_request_target (not pull_request): PRs from forks are the common case
+# for this repo, and GitHub unconditionally blocks OIDC token issuance
+# (id-token: write, which claude-code-action needs to post review comments)
+# for pull_request-triggered runs originating from a fork -- no permissions
+# block or repo/org setting can override that, regardless of what's declared
+# below. pull_request_target runs the workflow from the base branch instead
+# (trusted, not fork-controlled) and does get OIDC/token access even when
+# the PR itself is from a fork.
+#
+# Safety: this job never checks out or executes the PR's own code -- the
+# checkout step below defaults to the base ref (safe), and the actual review
+# is done by claude-code-action reading the PR diff via the GitHub API, not
+# by running anything from the fork. Do not add `ref:
+# ${{ github.event.pull_request.head.sha }}` to the checkout step (or run
+# any build/test/install step against fork code) without re-evaluating this
+# safety argument -- that's the actual risk pull_request_target introduces.
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, ready_for_review, reopened]
     # Optional: Only run on specific file changes
     # paths:
@@ -24,7 +40,7 @@ jobs:
       pull-requests: read
       issues: read
       id-token: write
-  
+
 
     steps:
       - name: Checkout repository
