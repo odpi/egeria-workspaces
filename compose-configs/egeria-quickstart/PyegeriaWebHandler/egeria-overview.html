@@ -496,7 +496,7 @@
           <div class="a-title">Confidential assets in open zones</div>
           <div class="a-desc">Confidential/Restricted data with no restricted-zone membership</div>
         </div>
-        <div style="text-align:right"><div class="a-count" style="color:#ff6b81">24</div><a class="a-cta" href="#">Review in Insights →</a></div>
+        <div style="text-align:right"><div class="a-count" style="color:#ff6b81">24</div><a class="a-cta" href="#">Review in Query →</a></div>
       </div>
 
       <div class="att">
@@ -781,7 +781,7 @@
 </div>
 
 <!-- Shared portal helpers: egeriaFetch (adds creds + auto 401-refresh), crossAppNavigate -->
-<script src="/static/egeria-shared-ui.js?v=2026-08-06a"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-08-14g"></script>
 <!-- Vega-Lite chart rendering (NEXT-10 P1) — same CDN trio pyegeria's own
      vega_to_html() assumes. Backend sends ready Vega-Lite specs; renderVega()
      below just embeds them. -->
@@ -1577,12 +1577,12 @@ const DRILL = {
   assets: { eb:'Catalog · scale', t:'🗂️ Cataloged Assets', s:'1,284 active assets · +63 new in last 90 days',
     stats:[['1,284','total'],['+63','new /90d'],['7','asset types']],
     list:[['Data Stores',312],['Data Sets',268],['Software Components',205],['Infrastructure',160],['APIs',141],['Processes',100],['Data Feeds',98]],
-    cta:['Open in The Catalog','/tech-catalog'], sec:['Query in Egeria Insights','/egeria-insights'],
+    cta:['Open in The Catalog','/tech-catalog'], sec:['Open in Query','/egeria-insights'],
     note:'Counts from the Tech Catalog handlers (<code>/api/tech-catalog/*</code>). Trend via <code>asOfTime</code> snapshots.' },
   governed: { eb:'Governance posture', t:'🛡️ Governed Coverage', s:'873 of 1,284 assets carry ≥1 governance classification (68%)',
     stats:[['68%','governed'],['▲5 pts','vs 90d ago'],['170','ungoverned']],
     list:[['Fully governed',873],['Partial (zone only)',241],['Ungoverned',170],['↳ of which Confidential',24]],
-    cta:['Review in Egeria Insights','/egeria-insights'], sec:['See exceptions in Audit','/egeria-audit'],
+    cta:['Review in Query','/egeria-insights'], sec:['See exceptions in Audit','/egeria-audit'],
     note:'Classification &amp; zone tallies from <code>/api/insights/summary</code>.' },
   certs: { eb:'Compliance', t:'📜 Active Certifications', s:'47 active · 6 expiring within 90 days',
     stats:[['47','active'],['6','expiring ≤90d'],['41','assets at risk']],
@@ -1617,7 +1617,7 @@ const DRILL = {
   products: { eb:'Data products', t:'📦 Data Products', s:'Curated, governed data products published for consumption',
     stats:[['23','products'],['—','published'],['★4.3','avg rating']],
     list:[['Clinical Trial Results DW',1],['Patient Demographics',1],['Weekly Sales Snapshot',1],['Drug Interaction Ref Data',1]],
-    cta:['Digital Products in Explorer','/egeria-explorer#digital-products'], sec:['Governance in Insights','/egeria-insights'],
+    cta:['Digital Products in Explorer','/egeria-explorer#digital-products'], sec:['Governance in Query','/egeria-insights'],
     note:'Live count of <code>DigitalProduct</code> elements. Publication status &amp; ratings are a later slice.' },
   exceptions: { eb:'Governance control', t:'⚠️ Open Exceptions', s:'Governance exceptions awaiting steward review or remediation',
     stats:[['12','open'],['—','aging &gt;30d'],['—','assigned']],
@@ -1643,12 +1643,12 @@ const DRILL = {
 ['datastore','dataset','swcomp','infra','api','proc','feed'].forEach(k=>{});
 function typeDrill(name,count){ return { eb:'Catalog · asset type', t:'🗂️ '+name, s:count+' '+name.toLowerCase()+' in the catalog',
   stats:[[String(count),'assets'],['—','surveyed'],['—','owned']], list:[['Governed',Math.round(count*.68)],['Documented',Math.round(count*.71)],['Surveyed',Math.round(count*.55)]],
-  cta:['Open The Catalog','/tech-catalog'], sec:['Query in Insights','/egeria-insights'],
+  cta:['Open The Catalog','/tech-catalog'], sec:['Open in Query','/egeria-insights'],
   note:'Would deep-link to a pre-filtered Catalog view for this type.' }; }
 function zoneDrill(name,count){ return { eb:'Governance zone', t:'📁 '+name, s:count+' elements are members of the '+name+' zone',
   stats:[[String(count),'members'],['—','confidential'],['—','owners']], list:[['Data Stores',Math.round(count*.4)],['Data Sets',Math.round(count*.35)],['Other',Math.round(count*.25)]],
-  cta:['Open zone in Insights','/egeria-insights?zone='+encodeURIComponent(name)], sec:null,
-  note:'Deep-links into Egeria Insights faceted by this <code>ZoneMembership</code> value.' }; }
+  cta:['Open zone in Query','/egeria-insights?zone='+encodeURIComponent(name)], sec:null,
+  note:'Deep-links into Query faceted by this <code>ZoneMembership</code> value.' }; }
 const TYPE_NAMES={'type-datastore':['Data Stores',312],'type-dataset':['Data Sets',268],'type-swcomp':['Software Components',205],'type-infra':['Infrastructure',160],'type-api':['APIs',141],'type-proc':['Processes',100],'type-feed':['Data Feeds',98]};
 
 function drillFor(key){
@@ -1659,7 +1659,7 @@ function drillFor(key){
     return { eb:'Context readiness', t:'🚦 '+m[0], s:m[2]+' — '+m[1]+' assets ('+Math.round(m[1]/1284*100)+'% of catalog)',
       stats:[[String(m[1]),'assets'],[Math.round(m[1]/1284*100)+'%','of catalog'],['—','gap to next']],
       list:[['Reaches this stage',m[1]],['Drops off before',1284-m[1]]],
-      cta:['Open The Catalog','/tech-catalog'], sec:['Fix gaps via Insights','/egeria-insights'],
+      cta:['Open The Catalog','/tech-catalog'], sec:['Fix gaps via Query','/egeria-insights'],
       note:'Each funnel stage is a saved query; the drop-off is the actionable backlog for stewards.' }; }
   return { eb:'Detail', t:key, s:'Breakdown', stats:[], list:[], cta:['Open portal','/'], sec:null, note:'' };
 }

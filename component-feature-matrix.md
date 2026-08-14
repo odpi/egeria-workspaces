@@ -72,7 +72,7 @@ each time.
 |---|---|---|---|
 | `DetailPanel` (Servers / Integration Connectors / Governance Engines) | ❌ — deliberately deferred | ❌ | Backend calls (`get_server_report` etc.) return runtime/status DTOs, not metadata elements — no `elementHeader` present. Getting classifications would need an *extra* `ClassificationExplorer.get_element_by_guid` round-trip per row. Every row already has a working "Open in Catalog" cross-link where classifications are visible today, so this was assessed 2026-07-22 as low value for the added latency — intentionally out of scope unless the ops console specifically needs it without leaving. |
 
-## Egeria Insights (`egeria-insights.html`)
+## Query (`egeria-insights.html`, formerly "Egeria Insights" in the UI)
 
 | Component | Classifications | Raw JSON | Notes |
 |---|---|---|---|
