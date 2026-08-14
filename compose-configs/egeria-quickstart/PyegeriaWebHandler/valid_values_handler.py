@@ -19,6 +19,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
+from digital_products_handler import _serialize_node, _extract_all_rels
+
 router = APIRouter(tags=["valid-values"])
 
 _FIND_BODY = {
@@ -373,3 +375,108 @@ def lookup_specification_property_values(
         "values":             raw,
         "total":              len(raw),
     })
+
+
+# Lightweight display-name lookup for an arbitrary element guid — used by the
+# frontend to label folded spec-property/valid-value groups (e.g. the same
+# "versionIdentifier" or "Capture File Counts" spec property registered once per
+# owning GovernanceActionProcess/Type, distinguished only by an embedded owner
+# guid in qualifiedName). graph_query_depth=0 keeps this cheap even though the
+# UI may fire several of these in parallel when a group is expanded — unlike
+# get_valid_value_detail below, callers here don't need relationships, just a
+# name, so there's no reason to pay the depth=2 cost. Two path segments (vs.
+# {guid}'s one) means this can't collide with the catch-all route regardless
+# of declaration order, but it's still placed first for readability.
+@router.get("/api/valid-values/resolve-name/{guid}", summary="Cheap display-name lookup for an arbitrary element guid (group-label resolution)")
+def resolve_element_name(
+    guid: str,
+    url:     Optional[str] = Query(None, description="Egeria platform URL (overrides env)"),
+    server:  Optional[str] = Query(None, description="View server name (overrides env)"),
+    user_id: Optional[str] = Query(None, description="User ID (overrides env)"),
+    user_pwd:Optional[str] = Query(None, description="Password (overrides env)"),
+):
+    from pyegeria import ClassificationExplorer
+    url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    try:
+        ce = ClassificationExplorer(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+        apply_token(ce)
+    except Exception as exc:
+        logger.exception("Failed to create ClassificationExplorer")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+    try:
+        raw = ce.get_element_by_guid(
+            guid=guid, output_format="JSON",
+            body={"class": "GetRequestBody", "graphQueryDepth": 0},
+        )
+    except Exception as exc:
+        logger.info("resolve_element_name: %s not found/resolvable: %s", guid, exc)
+        raise HTTPException(status_code=404, detail=f"Element {guid!r} not found")
+
+    if not raw:
+        raise HTTPException(status_code=404, detail=f"Element {guid!r} not found")
+
+    node = _serialize_node(raw)
+    return JSONResponse({
+        "guid": guid,
+        "displayName": node.get("displayName") or node.get("qualifiedName"),
+        "typeName": node.get("typeName"),
+    })
+
+
+# Must be registered after the literal routes above (properties, lookup,
+# spec-property-types, spec-property-lookup) — FastAPI/Starlette matches
+# routes in declaration order, and a bare {guid} declared first would swallow
+# them as if they were a guid (same class of bug already hit and fixed in
+# collections_handler.py's by-type route — see its comment there).
+@router.get("/api/valid-values/{guid}", summary="Full detail for one valid value or specification property value (relationships, classifications)")
+def get_valid_value_detail(
+    guid: str,
+    url:     Optional[str] = Query(None, description="Egeria platform URL (overrides env)"),
+    server:  Optional[str] = Query(None, description="View server name (overrides env)"),
+    user_id: Optional[str] = Query(None, description="User ID (overrides env)"),
+    user_pwd:Optional[str] = Query(None, description="Password (overrides env)"),
+):
+    """The list endpoints above (lookup / spec-property-lookup) intentionally return flat
+    summaries only, no relationships or classifications — fetching those per-item across a
+    whole list would be the same O(n) graph_query_depth cost this codebase has already hit
+    and fixed twice (Note Logs, digital products). This is the per-item detail fetch for
+    the master-detail 3rd column instead: ClassificationExplorer.get_element_by_guid is the
+    general-purpose "any element type" fetch already used the same way as a fallback in
+    digital_products_handler.py's get_node — ValidMetadataValue/SpecificationPropertyValue
+    elements aren't Collections or Assets, so that's the right tool here directly, not a
+    fallback. graph_query_depth=2 (not 0) is intentional: this is a single-element detail
+    fetch, not a list — the cost that matters elsewhere doesn't apply to one guid."""
+    from pyegeria import ClassificationExplorer
+    url      = url      or os.environ.get("EGERIA_PLATFORM_URL",  "https://localhost:9443")
+    server   = server   or os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server")
+    user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    try:
+        ce = ClassificationExplorer(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+        apply_token(ce)
+    except Exception as exc:
+        logger.exception("Failed to create ClassificationExplorer")
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+    try:
+        # NOTE (see digital_products_handler.py's get_node for the same gotcha): when body
+        # is an explicit dict, pyegeria validates it as-is and ignores graph_query_depth/
+        # max_mermaid_node_count kwargs entirely — they must be set directly in the body.
+        raw = ce.get_element_by_guid(
+            guid=guid, output_format="JSON",
+            body={"class": "GetRequestBody", "graphQueryDepth": 2, "maxMermaidNodeCount": 250},
+        )
+    except Exception as exc:
+        logger.exception("ClassificationExplorer.get_element_by_guid failed for %s", guid)
+        raise HTTPException(status_code=404, detail=f"Value {guid!r} not found: {exc}")
+
+    if not raw:
+        raise HTTPException(status_code=404, detail=f"Value {guid!r} not found")
+
+    node = _serialize_node(raw)
+    node["relationships"] = _extract_all_rels(raw)
+    return JSONResponse(node)

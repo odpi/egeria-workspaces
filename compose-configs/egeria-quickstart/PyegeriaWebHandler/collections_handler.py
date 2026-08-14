@@ -25,11 +25,13 @@ so the tree is not limited to the digital-product container types.
 """
 
 import time
+import uuid
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Body, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
+from pydantic import BaseModel
 
 from digital_products_handler import (
     _get_manager, _serialize_node, _header, _type_name, _extract_all_rels, _is_template,
@@ -245,6 +247,89 @@ def get_node_children(
     return JSONResponse(result)
 
 
+# Must be registered before GET /api/collections/{node_guid} below — FastAPI/
+# Starlette matches routes in declaration order, and a bare "by-type" would
+# otherwise be swallowed by {node_guid} as if it were a guid (confirmed live
+# 2026-08-14: swapping the order made this 404 with "Node 'by-type' not found").
+@router.get("/api/collections/by-type", summary="Existing collections of a given subtype", responses=EGERIA_ERROR_RESPONSES)
+def get_collections_by_type(
+    type_name: str = Query(..., description="Collection subtype, e.g. DigitalProduct, Agreement, or plain Collection"),
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
+    """Feeds the Add-to-Collection picker's second step (subtype already chosen
+    client-side from the /api/types graph — see egeria-shared-ui.js's
+    useTypeGraph/getAllSubs)."""
+    try:
+        mgr = _get_manager(url, server, user_id, user_pwd)
+    except Exception as exc:
+        raise_egeria_http_error(exc, "Failed to create CollectionManager")
+
+    try:
+        # graph_query_depth=0 — live-verified 2026-08-14: the default (3) walks
+        # relationships deep enough to hit a stale/orphaned entity reference and
+        # 500s (OMRS-REPOSITORY-404-002, "entity ... is not known to the open
+        # metadata repository"), and is slow even when it doesn't fail outright
+        # (same ~30s-vs-<0.5s tradeoff documented in digital_products_handler.py).
+        # This picker only needs flat collection headers, no relationship graph.
+        cols = mgr.find_collections(metadata_element_type_name=type_name, output_format="JSON",
+                                     page_size=200, graph_query_depth=0)
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"Failed to find collections of type {type_name}")
+    return JSONResponse([_serialize_node(c) for c in cols] if isinstance(cols, list) else [])
+
+
+class CreateCollectionBody(BaseModel):
+    type_name: str
+    display_name: str
+    description: Optional[str] = None
+    url: Optional[str] = None
+    server: Optional[str] = None
+    user_id: Optional[str] = None
+    user_pwd: Optional[str] = None
+
+
+@router.post("/api/collections", summary="Create a new collection", responses=EGERIA_ERROR_RESPONSES)
+def create_collection(body: CreateCollectionBody = Body(...)):
+    """Feeds the Add-to-Collection modal's "or create new" option (BACKLOG.md
+    Bulk Actions Phase 2). qualifiedName follows the same
+    <Kind>::<name>::<suffix> convention insights_handler.py already uses for
+    its own create_collection calls (ResultsSet/SavedQuery), generalized to
+    an arbitrary subtype/display name instead of hardcoded ones."""
+    try:
+        mgr = _get_manager(body.url, body.server, body.user_id, body.user_pwd)
+    except Exception as exc:
+        raise_egeria_http_error(exc, "Failed to create CollectionManager")
+
+    suffix = uuid.uuid4().hex[:8]
+    try:
+        guid = mgr.create_collection(body={
+            "class": "NewElementRequestBody",
+            "isOwnAnchor": True,
+            "properties": {
+                "class": "CollectionProperties",
+                "typeName": body.type_name,
+                "qualifiedName": f"{body.type_name}::{body.display_name}::{suffix}",
+                "displayName": body.display_name,
+                "description": body.description or "",
+            },
+        })
+    except Exception as exc:
+        raise_egeria_http_error(exc, f"Failed to create collection {body.display_name!r}")
+
+    try:
+        raw = mgr.get_collection_by_guid(guid, output_format="JSON")
+        node = _serialize_node(raw) if raw else None
+    except Exception:
+        node = None
+    if not node:
+        node = {"guid": guid, "typeName": body.type_name, "displayName": body.display_name,
+                "qualifiedName": f"{body.type_name}::{body.display_name}::{suffix}"}
+    return JSONResponse(node)
+
+
 @router.get("/api/collections/{node_guid}", summary="Detail for one collection node", responses=EGERIA_ERROR_RESPONSES)
 def get_node(
     node_guid: str,
@@ -282,3 +367,65 @@ def get_node(
         raw_members = []
     node["children"] = [_serialize_node(m) for m in raw_members] if isinstance(raw_members, list) else []
     return JSONResponse(node)
+
+
+# ── Bulk membership (select N elements elsewhere in the portal, add/remove ──
+# them here) — see BACKLOG.md's Bulk Actions / Collection Membership entry
+# (2026-08-14) for the design. Partial-failure tolerant by design, same
+# pattern as insights_handler.py's saved-query refresh loop: one bad guid
+# doesn't fail the whole batch, the response says exactly what happened to
+# each one.
+
+class BulkMembershipBody(BaseModel):
+    guids: list[str]
+    membership_rationale: Optional[str] = None
+    url: Optional[str] = None
+    server: Optional[str] = None
+    user_id: Optional[str] = None
+    user_pwd: Optional[str] = None
+
+
+@router.post("/api/collections/{collection_guid}/members", summary="Add elements to a collection (bulk)", responses=EGERIA_ERROR_RESPONSES)
+def add_members(collection_guid: str, body: BulkMembershipBody = Body(...)):
+    try:
+        mgr = _get_manager(body.url, body.server, body.user_id, body.user_pwd)
+    except Exception as exc:
+        raise_egeria_http_error(exc, "Failed to create CollectionManager")
+
+    # Re-adding an existing member is a confirmed no-op (live-verified
+    # 2026-08-14: no exception, no duplicate relationship) — Egeria itself
+    # treats it as idempotent, so there's no "already a member" case to detect
+    # here; a guid that doesn't raise always lands in `added`.
+    added, failed = [], []
+    for guid in body.guids:
+        try:
+            mgr.add_to_collection(collection_guid, guid, body={
+                "class": "NewRelationshipRequestBody",
+                "properties": {
+                    "class": "CollectionMembershipProperties",
+                    "membershipRationale": body.membership_rationale or "Added via bulk selection",
+                },
+            })
+            added.append(guid)
+        except Exception as exc:  # noqa: BLE001 — partial-failure tolerant, see module note above
+            logger.debug(f"collections: failed to add member {guid} to {collection_guid}: {exc}")
+            failed.append({"guid": guid, "error": str(exc)})
+    return JSONResponse({"added": added, "failed": failed})
+
+
+@router.delete("/api/collections/{collection_guid}/members", summary="Remove elements from a collection (bulk)", responses=EGERIA_ERROR_RESPONSES)
+def remove_members(collection_guid: str, body: BulkMembershipBody = Body(...)):
+    try:
+        mgr = _get_manager(body.url, body.server, body.user_id, body.user_pwd)
+    except Exception as exc:
+        raise_egeria_http_error(exc, "Failed to create CollectionManager")
+
+    removed, failed = [], []
+    for guid in body.guids:
+        try:
+            mgr.remove_from_collection(collection_guid, guid)
+            removed.append(guid)
+        except Exception as exc:  # noqa: BLE001 — partial-failure tolerant, see module note above
+            logger.debug(f"collections: failed to remove member {guid} from {collection_guid}: {exc}")
+            failed.append({"guid": guid, "error": str(exc)})
+    return JSONResponse({"removed": removed, "failed": failed})
