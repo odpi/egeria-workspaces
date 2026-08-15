@@ -2849,6 +2849,8 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
   const selection = useSelection();
   // null | 'add' | 'remove' — which AddToCollectionModal action, if any, is open.
   const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   const [selectedItem, setSelectedItem] = useState(null);
   // The selected node object (folder or term) — carried so nested tree items
@@ -3121,6 +3123,8 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
         actions: [
           { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
           { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
         ],
       })
     ),
@@ -3146,6 +3150,13 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
       creds: creds,
       action: modalAction,
       onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -3211,6 +3222,8 @@ function SubjectAreasTab({ onNavigateToElement }) {
   const [nodeDetail, setNodeDetail] = useState(null);
   const selection = useSelection();
   const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   useEffect(() => {
     setHierState('loading'); setHierError('');
@@ -3284,6 +3297,8 @@ function SubjectAreasTab({ onNavigateToElement }) {
         actions: [
           { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
           { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
         ],
       })
     ),
@@ -3300,6 +3315,13 @@ function SubjectAreasTab({ onNavigateToElement }) {
       creds: creds,
       action: modalAction,
       onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -3426,6 +3448,8 @@ function ReferenceDataView({ navGuid, onNavigateToElement }) {
   const [inclTempl, setInclTempl] = useState(false);
   const selection = useSelection();
   const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   useEffect(function() {
     setLoadState('loading');
@@ -3539,6 +3563,8 @@ function ReferenceDataView({ navGuid, onNavigateToElement }) {
         actions: [
           { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
           { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
         ],
       })
     ),
@@ -3555,6 +3581,13 @@ function ReferenceDataView({ navGuid, onNavigateToElement }) {
       creds: creds,
       action: modalAction,
       onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -3647,6 +3680,8 @@ function ExternalReferencesView({ navGuid, onNavigateToElement }) {
   const [detailState, setDetailState] = useState('idle');
   const selection = useSelection();
   const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   useEffect(function() {
     setState('loading'); setError('');
@@ -3721,6 +3756,8 @@ function ExternalReferencesView({ navGuid, onNavigateToElement }) {
       actions: [
         { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
         { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
       ],
     })
   );
@@ -3744,6 +3781,13 @@ function ExternalReferencesView({ navGuid, onNavigateToElement }) {
       creds: creds,
       action: modalAction,
       onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -3821,6 +3865,8 @@ function ExternalIdentifiersView({ navGuid, onNavigateToElement }) {
   const [detailState, setDetailState] = useState('idle');
   const selection = useSelection();
   const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   useEffect(function() {
     setState('loading'); setError('');
@@ -3888,6 +3934,8 @@ function ExternalIdentifiersView({ navGuid, onNavigateToElement }) {
       actions: [
         { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
         { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
       ],
     })
   );
@@ -3911,6 +3959,13 @@ function ExternalIdentifiersView({ navGuid, onNavigateToElement }) {
       creds: creds,
       action: modalAction,
       onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -3998,6 +4053,8 @@ function AgreementsView({ navGuid, onNavigateToElement }) {
   const [detailState, setDetailState] = useState('idle');
   const selection = useSelection();
   const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   useEffect(function() {
     setState('loading'); setError('');
@@ -4072,6 +4129,8 @@ function AgreementsView({ navGuid, onNavigateToElement }) {
       actions: [
         { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
         { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
       ],
     })
   );
@@ -4096,6 +4155,13 @@ function AgreementsView({ navGuid, onNavigateToElement }) {
       action: modalAction,
       onClose: function() { setModalAction(null); },
       onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
     })
   );
 }
@@ -4109,6 +4175,8 @@ function DigitalProductDetail({ product, onNavigateToElement, creds, selection }
   if (!product) return null;
   var _previewState = useState(null), previewDs = _previewState[0], setPreviewDs = _previewState[1];
   var _modalActionState = useState(null), modalAction = _modalActionState[0], setModalAction = _modalActionState[1];
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  var _zoneModalAction = useState(null), zoneModalAction = _zoneModalAction[0], setZoneModalAction = _zoneModalAction[1];
 
   // Show every scalar property the element carries (from the backend `props`
   // pass-through), not just a fixed product-specific subset — Qualified Name
@@ -4234,6 +4302,8 @@ function DigitalProductDetail({ product, onNavigateToElement, creds, selection }
         actions: [
           { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
           { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
         ],
       }),
       memberTypeNames.map(function(tn) { return renderMemberGroup(tn, memberGroups[tn]); })
@@ -4258,6 +4328,13 @@ function DigitalProductDetail({ product, onNavigateToElement, creds, selection }
       creds: creds,
       action: modalAction,
       onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -4544,6 +4621,8 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
   const selection = useSelection();
   const memberSelection = useSelection();
   const [treeModalAction, setTreeModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
   useEffect(() => { memberSelection.clear(); }, [selectedNode]); // Members list changed to a different collection
   useEffect(() => { selection.clear(); }, [selectedRoot, asOfTime, inclTempl, onlyRootType]); // tree dataset changed
 
@@ -4697,6 +4776,8 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
         actions: [
           { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setTreeModalAction('add'); } },
           { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setTreeModalAction('remove'); } },
+          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
         ],
       })
     ),
@@ -4716,6 +4797,13 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
       creds: creds,
       action: treeModalAction,
       onClose: function() { setTreeModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -5082,6 +5170,8 @@ function ExplorerSearchView({ creds, initialQuery, onNavigateToElement }) {
   const s = useCatalogSearch(creds, initialQuery, selection.clear);
   // null | 'add' | 'remove' — which AddToCollectionModal action, if any, is open.
   const [modalAction, setModalAction] = React.useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = React.useState(null);
 
   return React.createElement('div', { style: { display: 'flex', flex: 1, flexDirection: 'column', overflow: 'hidden' } },
     React.createElement('div', { style: { padding: '16px 20px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
@@ -5124,6 +5214,8 @@ function ExplorerSearchView({ creds, initialQuery, onNavigateToElement }) {
         actions: [
           { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
           { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
         ],
       }),
       !s.loading && s.hasResults && s.typeGroups.map(grp => {
@@ -5182,6 +5274,13 @@ function ExplorerSearchView({ creds, initialQuery, onNavigateToElement }) {
       creds: creds,
       action: modalAction,
       onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -6586,6 +6685,8 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
   const selection = useSelection();
   // null | 'add' | 'remove' — which AddToCollectionModal action, if any, is open.
   const [modalAction, setModalAction] = React.useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = React.useState(null);
 
   function updateList(nav, patch) {
     setListStates(function(prev) { return Object.assign({}, prev, { [nav]: Object.assign({}, prev[nav], patch) }); });
@@ -6854,6 +6955,8 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
           actions: [
             { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
             { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+            { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+            { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
           ],
         })
       ),
@@ -6865,6 +6968,13 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
       creds: creds,
       action: modalAction,
       onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -7041,6 +7151,8 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
   const [qDetailState, setQDetailState] = useState('idle');
   const selection = useSelection();
   const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   // Internal cross-nav
   function navigateToQuestion(guid) { setSubNav('questions'); setFilter(''); setSelectedQ(guid); }
@@ -7241,6 +7353,8 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
         actions: [
           { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
           { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
         ],
       })
     ),
@@ -7254,6 +7368,13 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
       creds: creds,
       action: modalAction,
       onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -7782,6 +7903,8 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
   const [expandedISC, setExpandedISC] = useState(new Set());
   const selection = useSelection();
   const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   const toggleISC = useCallback(function(guid) {
     setExpandedISC(function(prev) { var n = new Set(prev); if (n.has(guid)) n.delete(guid); else n.add(guid); return n; });
@@ -7868,6 +7991,8 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
       actions: [
         { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
         { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
       ],
     })
   );
@@ -7891,6 +8016,13 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
       creds: creds,
       action: modalAction,
       onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -8175,6 +8307,8 @@ function LocationsView({ navGuid, onNavigateToElement }) {
   }, []);
   const selection = useSelection();
   const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   useEffect(function() {
     setState('loading'); setError('');
@@ -8331,6 +8465,8 @@ function LocationsView({ navGuid, onNavigateToElement }) {
       actions: [
         { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
         { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
       ],
     })
   );
@@ -8357,6 +8493,13 @@ function LocationsView({ navGuid, onNavigateToElement }) {
       creds: creds,
       action: modalAction,
       onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -8467,6 +8610,8 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
   const [asOfTime, setAsOfTime] = useState(null);  // LE-3 point-in-time
   const selection = useSelection();
   const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   const toggleKind = useCallback(function(key) {
     setExpandedKinds(function(prev) { var n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
@@ -8609,6 +8754,8 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
       actions: [
         { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
         { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
       ],
     })
   );
@@ -8635,6 +8782,13 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
       creds: creds,
       action: modalAction,
       onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -8727,6 +8881,8 @@ function NamingVocabularyView() {
   const [error, setError]   = useState('');
   const selection = useSelection();
   const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   useEffect(function() {
     setState('loading'); setError('');
@@ -8756,6 +8912,8 @@ function NamingVocabularyView() {
       actions: [
         { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
         { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
       ],
     }),
     state === 'ready' && GROUP_ORDER.map(function(g) {
@@ -8803,6 +8961,13 @@ function NamingVocabularyView() {
       action: modalAction,
       onClose: function() { setModalAction(null); },
       onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
     })
   );
 }
@@ -8815,6 +8980,8 @@ function PolicyEnforcementView() {
   const [error, setError]   = useState('');
   const selection = useSelection();
   const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   useEffect(function() {
     setState('loading'); setError('');
@@ -8851,6 +9018,8 @@ function PolicyEnforcementView() {
       actions: [
         { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
         { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
       ],
     }),
     state === 'ready' && GROUP_ORDER.map(function(g) {
@@ -8898,6 +9067,13 @@ function PolicyEnforcementView() {
       creds: creds,
       action: modalAction,
       onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -8966,6 +9142,8 @@ function ActionCenterView({ onNavigateToElement, navGuid }) {
   const [detailState, setDetailState] = useState('idle');
   const selection = useSelection();
   const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   useEffect(function() {
     setState('loading'); setError('');
@@ -9049,6 +9227,8 @@ function ActionCenterView({ onNavigateToElement, navGuid }) {
       actions: [
         { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
         { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
       ],
     })
   );
@@ -9071,6 +9251,13 @@ function ActionCenterView({ onNavigateToElement, navGuid }) {
       creds: creds,
       action: modalAction,
       onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -9183,6 +9370,8 @@ function InformalTagsView({ navGuid, onNavigateToElement }) {
   const [showPrivate, setShowPrivate] = useState(true);
   const selection = useSelection();
   const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   useEffect(function() {
     setState('loading'); setError('');
@@ -9251,6 +9440,8 @@ function InformalTagsView({ navGuid, onNavigateToElement }) {
       actions: [
         { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
         { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
       ],
     })
   );
@@ -9275,6 +9466,13 @@ function InformalTagsView({ navGuid, onNavigateToElement }) {
       action: modalAction,
       onClose: function() { setModalAction(null); },
       onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
     })
   );
 }
@@ -9297,6 +9495,8 @@ function CommunityView({ navGuid, onNavigateToElement }) {
   const [inclTempl, setInclTempl] = useState(false);
   const selection = useSelection();
   const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   useEffect(function() {
     setState('loading'); setError('');
@@ -9364,6 +9564,8 @@ function CommunityView({ navGuid, onNavigateToElement }) {
       actions: [
         { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
         { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
       ],
     })
   );
@@ -9387,6 +9589,13 @@ function CommunityView({ navGuid, onNavigateToElement }) {
       creds: creds,
       action: modalAction,
       onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -9443,6 +9652,8 @@ function BusinessCapabilityView({ navGuid, onNavigateToElement }) {
   const [inclTempl, setInclTempl] = useState(false);
   const selection = useSelection();
   const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   useEffect(function() {
     setState('loading'); setError('');
@@ -9511,6 +9722,8 @@ function BusinessCapabilityView({ navGuid, onNavigateToElement }) {
       actions: [
         { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
         { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
       ],
     })
   );
@@ -9534,6 +9747,13 @@ function BusinessCapabilityView({ navGuid, onNavigateToElement }) {
       creds: creds,
       action: modalAction,
       onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -9726,6 +9946,8 @@ function NoteLogView({ navGuid, onNavigateToElement }) {
   const [inclTempl, setInclTempl] = useState(false);
   const selection = useSelection();
   const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   useEffect(function() {
     setState('loading'); setError('');
@@ -9789,6 +10011,8 @@ function NoteLogView({ navGuid, onNavigateToElement }) {
       actions: [
         { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
         { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
       ],
     })
   );
@@ -9812,6 +10036,13 @@ function NoteLogView({ navGuid, onNavigateToElement }) {
       creds: creds,
       action: modalAction,
       onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -9866,6 +10097,8 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   const [inclTempl, setInclTempl] = useState(false);
   const selection = useSelection();
   const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   // When inclTempl changes, reset components to idle so they re-fetch.
   useEffect(function() {
@@ -10094,6 +10327,8 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
       actions: [
         { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
         { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
       ],
     })
   );
@@ -10131,6 +10366,13 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
       creds: creds,
       action: modalAction,
       onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -10305,6 +10547,8 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
   const [inclTempl, setInclTempl] = React.useState(false);
   const selection = useSelection();
   const [modalAction, setModalAction] = React.useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = React.useState(null);
 
   var atParam = asOfTime ? '&as_of_time=' + encodeURIComponent(asOfTime) : '';
   var inclTemplParam = inclTempl ? '&include_templates=true' : '';
@@ -10452,6 +10696,8 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
         actions: [
           { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
           { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
         ],
       })
     ),
@@ -10471,6 +10717,13 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
       creds: creds,
       action: modalAction,
       onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -10656,6 +10909,8 @@ function ContextEventsView({ navGuid, onNavigateToElement }) {
   const [attempt, setAttempt] = useState(0);
   const selection = useSelection();
   const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   // load list
   useEffect(function() {
@@ -10804,6 +11059,8 @@ function ContextEventsView({ navGuid, onNavigateToElement }) {
         actions: [
           { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
           { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
         ],
       })
     ),
@@ -10955,6 +11212,13 @@ function ContextEventsView({ navGuid, onNavigateToElement }) {
       action: modalAction,
       onClose: function() { setModalAction(null); },
       onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
     })
   );
 }
@@ -10983,6 +11247,8 @@ function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
   const [inclTempl, setInclTempl] = useState(false);
   const selection = useSelection();
   const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   // Load governance domain options from valid metadata values
   useEffect(function() {
@@ -11189,6 +11455,8 @@ function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
         actions: [
           { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
           { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
         ],
       })
     ),
@@ -11209,6 +11477,13 @@ function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
     creds: creds,
     action: modalAction,
     onClose: function() { setModalAction(null); },
+    onDone: function() { selection.clear(); },
+  }),
+  zoneModalAction && React.createElement(ZoneMembershipModal, {
+    items: Array.from(selection.selected.values()),
+    creds: creds,
+    action: zoneModalAction,
+    onClose: function() { setZoneModalAction(null); },
     onDone: function() { selection.clear(); },
   }));  // close .body + column wrapper
 }
