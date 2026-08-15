@@ -583,7 +583,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      Cache-Control: no-cache (forces revalidation), but a browser that cached
      this URL *before* that header existed won't revalidate on its own; a new
      URL guarantees a fresh fetch regardless of prior cache state. -->
-<script src="/static/egeria-shared-ui.js?v=2026-08-14g"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-08-14h"></script>
 <script>
 'use strict';
 // React hook aliases (mirror type-explorer.html)
@@ -2632,6 +2632,9 @@ function SearchView({ creds, onNavigate, initialQuery }) {
   var selection = useSelection();
   var s = useCatalogSearch(creds, initialQuery, selection.clear);
   var _showAddModal = useState(false), showAddModal = _showAddModal[0], setShowAddModal = _showAddModal[1];
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  // Pilot for BACKLOG.md task #18 (generalize bulk-action beyond collections).
+  var _zoneModalAction = useState(null), zoneModalAction = _zoneModalAction[0], setZoneModalAction = _zoneModalAction[1];
 
   return React.createElement('div', { style: { display: 'flex', flex: 1, flexDirection: 'column', overflow: 'hidden' } },
     React.createElement('div', { style: { padding: '16px 20px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
@@ -2675,7 +2678,11 @@ function SearchView({ creds, onNavigate, initialQuery }) {
       !s.loading && s.hasResults && React.createElement(BulkActionBar, {
         count: selection.count,
         onClear: selection.clear,
-        actions: [{ id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setShowAddModal(true); } }],
+        actions: [
+          { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setShowAddModal(true); } },
+          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        ],
       }),
       !s.loading && s.hasResults && s.typeGroups.map(function(grp) {
         var groupSelected = grp.items.length > 0 && grp.items.every(function(it) { return it.guid && selection.isSelected(it.guid); });
@@ -2706,6 +2713,13 @@ function SearchView({ creds, onNavigate, initialQuery }) {
       items: Array.from(selection.selected.values()),
       creds: creds,
       onClose: function() { setShowAddModal(false); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );

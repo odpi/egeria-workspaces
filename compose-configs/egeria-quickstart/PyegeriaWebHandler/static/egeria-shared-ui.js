@@ -893,6 +893,143 @@ function AddToCollectionModal({ items, creds, action, onClose, onDone }) {
   );
 }
 
+// Bulk zone-membership add/remove — same overlay/header/submit/result chrome
+// as AddToCollectionModal (deliberately not unified into one shared shell:
+// AddToCollectionModal has ~20 existing call sites across type-explorer.html/
+// tech-catalog.html/egeria-insights.html, and retrofitting it into a
+// config-driven shell right now would touch all of them for zero behavior
+// change — pure risk. This is the second data point; if a third bulk-action
+// type (e.g. classify/declassify, BACKLOG.md task #18) shows up, that's the
+// signal to actually extract the shared shell both of these would plug into).
+//
+// Simpler picker than collections' — no "create new" mode (governance zones
+// are predefined policy concepts, not something a user spins up ad hoc from
+// a bulk-select flow) and no type/subtype selector (one flat list). Backend:
+// governance_zones_handler.py — POST/DELETE /api/zone-membership/{zone}/
+// members. Unlike collection membership (a relationship, pure blind write),
+// zone membership is a classification whose zoneMembership property is a
+// list the backend read-modifies-writes per element — see that handler's
+// module docstring for why.
+function ZoneMembershipModal({ items, creds, action, onClose, onDone }) {
+  var isRemove = action === 'remove';
+  var zonesState = React.useState(null); // null = not yet loaded; [] = loaded, empty
+  var zones = zonesState[0], setZones = zonesState[1];
+  var zonesLoadingState = React.useState(true);
+  var zonesLoading = zonesLoadingState[0], setZonesLoading = zonesLoadingState[1];
+  var zonesErrState = React.useState(null);
+  var zonesError = zonesErrState[0], setZonesError = zonesErrState[1];
+  var targetState = React.useState(null);
+  var target = targetState[0], setTarget = targetState[1]; // the picked zone object ({name, displayName, ...})
+  var submittingState = React.useState(false);
+  var submitting = submittingState[0], setSubmitting = submittingState[1];
+  var resultState = React.useState(null);
+  var result = resultState[0], setResult = resultState[1];
+  var submitErrState = React.useState(null);
+  var submitError = submitErrState[0], setSubmitError = submitErrState[1];
+
+  React.useEffect(function() {
+    setZonesLoading(true);
+    setZonesError(null);
+    egeriaFetch('/api/insights/zones', creds)
+      .then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
+      .then(function(data) { setZones((data && data.zones) || []); setZonesLoading(false); })
+      .catch(function(e) { setZonesError(e.message || String(e)); setZonesLoading(false); });
+  }, []);
+
+  function submit() {
+    if (submitting || !target) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    var url = '/api/zone-membership/' + encodeURIComponent(target.name) + '/members';
+    egeriaFetch(url, creds, {
+      method: isRemove ? 'DELETE' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ guids: items.map(function(i) { return i.guid; }) }),
+    })
+      .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || ('HTTP ' + r.status)); }); })
+      .then(function(res) { setResult(res); setSubmitting(false); if (onDone) onDone(res); })
+      .catch(function(e) { setSubmitError(e.message || String(e)); setSubmitting(false); });
+  }
+
+  var el = React.createElement;
+  var inp = { width: '100%', boxSizing: 'border-box', background: 'var(--bg)', border: '1px solid var(--border)',
+              borderRadius: 6, padding: '7px 9px', color: 'var(--text)', fontSize: 12, fontFamily: 'inherit', outline: 'none' };
+
+  return el('div', {
+    onClick: function(e) { if (e.target === e.currentTarget && !submitting) onClose(); },
+    style: { position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.45)',
+             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  },
+    el('div', { style: { background: 'var(--surface,var(--card))', border: '1px solid var(--border)',
+        borderRadius: 12, padding: '22px 26px', width: 420, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' } },
+
+      el('div', { style: { fontWeight: 700, fontSize: 14, marginBottom: 4 } }, isRemove ? 'Remove from Governance Zone' : 'Add to Governance Zone'),
+      el('div', { style: { fontSize: 11, color: 'var(--muted)', marginBottom: 14 } },
+        items.length + ' element' + (items.length === 1 ? '' : 's') + ' selected'),
+
+      !result && el(React.Fragment, null,
+        el('label', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 3 } }, 'Governance zone'),
+        zonesLoading && el('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '6px 0' } }, 'Loading…'),
+        zonesError && el('div', { style: { fontSize: 12, color: '#f87171', padding: '6px 0' } }, 'Error: ' + zonesError),
+        !zonesLoading && !zonesError && zones && zones.length === 0 &&
+          el('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '6px 0' } }, 'No governance zones defined.'),
+        !zonesLoading && !zonesError && zones && zones.length > 0 &&
+          el('select', {
+            value: (target && target.name) || '',
+            onChange: function(e) {
+              var z = zones.find(function(x) { return x.name === e.target.value; });
+              setTarget(z || null);
+            },
+            style: Object.assign({}, inp, { marginBottom: 10 }),
+          },
+            el('option', { value: '' }, '— choose —'),
+            zones.map(function(z) {
+              return el('option', { key: z.guid || z.name, value: z.name }, (z.displayName || z.name) + ' (' + z.count + ')');
+            })
+          ),
+
+        submitError && el('div', { style: { fontSize: 12, color: '#f87171', marginBottom: 8 } }, 'Error: ' + submitError),
+
+        el('div', { style: { display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 10 } },
+          el('button', {
+            onClick: onClose, disabled: submitting,
+            style: { fontSize: 12, padding: '6px 14px', borderRadius: 6, border: '1px solid var(--border)',
+                     background: 'transparent', color: 'var(--dim)', cursor: submitting ? 'default' : 'pointer' },
+          }, 'Cancel'),
+          el('button', {
+            onClick: submit, disabled: !target || submitting,
+            style: { fontSize: 12, padding: '6px 14px', borderRadius: 6, border: '1px solid var(--accent)',
+                     background: (!target || submitting) ? 'var(--panel)' : 'var(--accent)',
+                     color: (!target || submitting) ? 'var(--dim)' : 'var(--bg)',
+                     cursor: (!target || submitting) ? 'default' : 'pointer' },
+          }, submitting ? (isRemove ? 'Removing…' : 'Adding…') : (isRemove ? 'Remove' : 'Add'))
+        )
+      ),
+
+      result && el(React.Fragment, null,
+        el('div', { style: { fontSize: 13, marginBottom: 6 } },
+          '✓ ', isRemove ? result.removed.length : result.added.length,
+          isRemove ? ' removed from ' : ' added to ', (target && (target.displayName || target.name)) || 'zone', '.'),
+        result.failed && result.failed.length > 0 && el('div', { style: { fontSize: 12, color: '#f87171', marginBottom: 10 } },
+          result.failed.length + ' failed:',
+          el('ul', { style: { margin: '4px 0 0 18px', padding: 0 } },
+            result.failed.map(function(f) {
+              return el('li', { key: f.guid }, f.guid + ' — ' + f.error);
+            })
+          )
+        ),
+        el('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: 10 } },
+          el('button', {
+            onClick: onClose,
+            style: { fontSize: 12, padding: '6px 14px', borderRadius: 6, border: '1px solid var(--accent)',
+                     background: 'var(--accent)', color: 'var(--bg)', cursor: 'pointer' },
+          }, 'Done')
+        )
+      )
+    )
+  );
+}
+
 /* ──────────────────────────────────────────────────────────────────────────
  * Egeria Feedback widgets (likes / ratings / comments) — shared by both SPAs.
  * Behaviour-identical extraction from type-explorer.html (canonical). They use
