@@ -583,7 +583,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      Cache-Control: no-cache (forces revalidation), but a browser that cached
      this URL *before* that header existed won't revalidate on its own; a new
      URL guarantees a fresh fetch regardless of prior cache state. -->
-<script src="/static/egeria-shared-ui.js?v=2026-07-22c"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-08-15a"></script>
 <script>
 'use strict';
 // React hook aliases (mirror type-explorer.html)
@@ -2611,7 +2611,7 @@ function highlightHtml(text, q) {
   } catch(e) { return safe; }
 }
 
-function SearchResultCard({ item, query, onNavigate }) {
+function SearchResultCard({ item, query, onNavigate, selection }) {
   var nav = TYPE_TO_NAV[item.typeName];
   if (!nav) {
     var sup = item.superTypeNames || [];
@@ -2646,6 +2646,12 @@ function SearchResultCard({ item, query, onNavigate }) {
       item.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginTop: 2, lineHeight: 1.5, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }, dangerouslySetInnerHTML: { __html: highlightHtml(item.description, q) } }),
       item.qualifiedName && item.qualifiedName !== item.displayName && React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginTop: 1, wordBreak: 'break-all', whiteSpace: 'normal' }, dangerouslySetInnerHTML: { __html: highlightHtml(item.qualifiedName, q) } })
     ),
+    selection && item.guid && React.createElement('input', {
+      type: 'checkbox',
+      checked: selection.isSelected(item.guid),
+      onChange: function() { selection.toggle({ guid: item.guid, displayName: item.displayName, typeName: item.typeName }); },
+      style: { marginTop: 3, flexShrink: 0, cursor: 'pointer' },
+    }),
     item.guid && React.createElement('button', {
       onClick: handleOpen,
       style: { fontSize: 10, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }
@@ -2654,6 +2660,10 @@ function SearchResultCard({ item, query, onNavigate }) {
 }
 
 function SearchView({ creds, onNavigate, initialQuery }) {
+  var selection = useSelection();
+  var _showAddModal = useState(false), showAddModal = _showAddModal[0], setShowAddModal = _showAddModal[1];
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  var _zoneModalAction = useState(null), zoneModalAction = _zoneModalAction[0], setZoneModalAction = _zoneModalAction[1];
   var _q      = useState(initialQuery || ''), q = _q[0], setQ = _q[1];
   var _data   = useState(null), data = _data[0], setData = _data[1];
   var _err    = useState(null), err  = _err[0],  setErr  = _err[1];
@@ -2691,6 +2701,14 @@ function SearchView({ creds, onNavigate, initialQuery }) {
     var val = e.target.value;
     setQ(val);
     setSelTypes([]); setBaseFacets(null);
+    // A fresh query is a fresh result set — leftover selections from a
+    // previous search are no longer visible as checked boxes anywhere on
+    // screen, so silently carrying them into a later "Add to Collection"
+    // is a trap (live-verified 2026-08-14: reported as "5 added" when only
+    // 1 checkbox was visibly checked). Facet-chip toggles (toggleType) don't
+    // go through this function and correctly keep the selection — narrowing
+    // the same search is a different action from starting a new one.
+    selection.clear();
     clearTimeout(_timer.current);
     if (val.trim().length >= 2) {
       _timer.current = setTimeout(function() { doSearch(val, []); }, 400);
@@ -2752,21 +2770,53 @@ function SearchView({ creds, onNavigate, initialQuery }) {
       err     && React.createElement('div', { style: { color: '#f87171', fontSize: 13, padding: 8 } }, 'Error: ' + err),
       !loading && !err && !data && q.trim().length < 2 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, padding: 8, textAlign: 'center', marginTop: 40 } },
         'Type at least 2 characters to search.'),
+      !loading && hasResults && React.createElement(BulkActionBar, {
+        count: selection.count,
+        onClear: selection.clear,
+        actions: [
+          { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setShowAddModal(true); } },
+          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        ],
+      }),
       !loading && hasResults && typeGroups.map(function(grp) {
+        var groupSelected = grp.items.length > 0 && grp.items.every(function(it) { return it.guid && selection.isSelected(it.guid); });
         return React.createElement('div', { key: grp.typeName, style: { marginBottom: 20 } },
           React.createElement('div', { style: { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 } },
+            React.createElement('input', {
+              type: 'checkbox', checked: groupSelected, title: 'Select all in this group',
+              onChange: function() {
+                var withGuid = grp.items.filter(function(it) { return it.guid; });
+                if (groupSelected) selection.deselectAll(withGuid);
+                else selection.selectAll(withGuid.map(function(it) { return { guid: it.guid, displayName: it.displayName, typeName: it.typeName }; }));
+              },
+              style: { cursor: 'pointer' },
+            }),
             React.createElement('span', null, SEARCH_CATEGORY_ICONS[grp.categoryId] || '📦'),
             grp.typeName,
             React.createElement('span', { style: { fontWeight: 400, color: 'var(--dim)', textTransform: 'none', letterSpacing: 0 } }, '(' + grp.items.length + ')')
           ),
           grp.items.map(function(item, i) {
-            return React.createElement(SearchResultCard, { key: item.guid || i, item: item, query: q, onNavigate: onNavigate });
+            return React.createElement(SearchResultCard, { key: item.guid || i, item: item, query: q, onNavigate: onNavigate, selection: selection });
           })
         );
       }),
       !loading && data && data.total === 0 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, padding: 8, textAlign: 'center', marginTop: 40 } },
         'No results found for ' + JSON.stringify(data.query) + '.')
-    )
+    ),
+    showAddModal && React.createElement(AddToCollectionModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      onClose: function() { setShowAddModal(false); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    })
   );
 }
 

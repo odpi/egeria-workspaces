@@ -587,7 +587,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 })();
 </script>
   <!-- Bump ?v= whenever egeria-shared-ui.js changes — see tech-catalog.html for why. -->
-  <script src="/static/egeria-shared-ui.js?v=2026-07-22c"></script>
+  <script src="/static/egeria-shared-ui.js?v=2026-08-15a"></script>
   <script>"use strict";
 
 const {
@@ -2589,6 +2589,12 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
   const [searchState, setSearchState] = useState('idle');
   const [searchError, setSearchError] = useState('');
 
+  const selection = useSelection();
+  // null | 'add' | 'remove' — which AddToCollectionModal action, if any, is open.
+  const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
+
   const [selectedItem, setSelectedItem] = useState(null);
   // The selected node object (folder or term) — carried so nested tree items
   // resolve without being present in the flat top-level scope arrays.
@@ -2625,6 +2631,7 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
     setSelectedData(null);
     setTermDetail(null);
     setTermDetailState('idle');
+    selection.clear();
   }, [asOfTime]);
 
   // Fetch term when cross-navigated from Digital Products
@@ -2669,6 +2676,7 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
     setTermDetail(null);
     setTermDetailState('idle');
     setFilterText('');
+    selection.clear();
     Promise.all([
       egeriaFetch('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/folders' + atParam, creds).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
       egeriaFetch('/api/glossary/' + encodeURIComponent(currentScopeGuid) + '/terms' + atParam, creds).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
@@ -2692,6 +2700,7 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
     setSelectedItem(null);
     setTermDetail(null);
     setTermDetailState('idle');
+    selection.clear();
     egeriaFetch('/api/glossary-terms?q=' + encodeURIComponent(sq) + atAppend, creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => { setSearchTerms(data.terms || []); setSearchState('ready'); })
@@ -2827,16 +2836,40 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
         )
       ),
       middleError && React.createElement("div", { style: { padding: 10, color: 'var(--muted)', fontSize: 12 } }, "Error: " + middleError),
+      (function() {
+        var visibleTerms = isSearchMode ? filteredSearchTerms : filteredTerms;
+        var withGuid = visibleTerms.filter(function(t) { return t.guid; });
+        var allSelected = withGuid.length > 0 && withGuid.every(function(t) { return selection.isSelected(t.guid); });
+        return withGuid.length > 0 && React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', borderBottom: '1px solid var(--border)' } },
+          React.createElement("input", {
+            type: "checkbox", checked: allSelected,
+            onChange: function() {
+              if (allSelected) selection.deselectAll(withGuid);
+              else selection.selectAll(withGuid.map(function(t) { return { guid: t.guid, displayName: t.displayName, typeName: t.typeName }; }));
+            },
+          }),
+          "Select all visible terms"
+        );
+      })(),
       React.createElement("div", { className: "tree-scroll" },
         isSearchMode
           // All-Terms search results (flat)
-          ? filteredSearchTerms.map(function(t) { return React.createElement(GlossaryTermRow, { key: t.guid, term: t, depth: 0, selected: selectedItem, onSelect: selectItem }); })
+          ? filteredSearchTerms.map(function(t) { return React.createElement(GlossaryTermRow, { key: t.guid, term: t, depth: 0, selected: selectedItem, onSelect: selectItem, selection: selection }); })
           // Glossary scope: expandable folder tree, then top-level terms
           : React.createElement(React.Fragment, null,
-              folders.map(function(f) { return React.createElement(GlossaryTreeNode, { key: f.guid, folder: f, depth: 0, selected: selectedItem, onSelect: selectItem, showTemplates: showTemplates, fetchJson: fetchJson }); }),
-              filteredTerms.map(function(t) { return React.createElement(GlossaryTermRow, { key: t.guid, term: t, depth: 0, selected: selectedItem, onSelect: selectItem }); })
+              folders.map(function(f) { return React.createElement(GlossaryTreeNode, { key: f.guid, folder: f, depth: 0, selected: selectedItem, onSelect: selectItem, showTemplates: showTemplates, fetchJson: fetchJson, selection: selection }); }),
+              filteredTerms.map(function(t) { return React.createElement(GlossaryTermRow, { key: t.guid, term: t, depth: 0, selected: selectedItem, onSelect: selectItem, selection: selection }); })
             )
-      )
+      ),
+      React.createElement(BulkActionBar, {
+        count: selection.count, onClear: selection.clear,
+        actions: [
+          { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
+          { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        ],
+      })
     ),
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
     // Right: detail
@@ -2854,7 +2887,21 @@ function GlossaryView({ navGuid, onNavigateToDataDesign, onNavigateToElement }) 
                     ? React.createElement("span", { style: { color: 'var(--muted)' } }, "Loading…")
                     : React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a term or folder to view details")
                 )
-    )
+    ),
+    modalAction && React.createElement(AddToCollectionModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: modalAction,
+      onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    })
   );
 }
 
@@ -2891,7 +2938,7 @@ function ReferenceDataDetail({ item, onNavigateToElement }) {
   );
 }
 
-function RefDataTreeNode({ item, byGuid, depth, selected, onSelect, expanded, toggleExpanded, search }) {
+function RefDataTreeNode({ item, byGuid, depth, selected, onSelect, expanded, toggleExpanded, search, selection }) {
   const q = search.trim().toLowerCase();
   const children = useMemo(function() {
     return Object.values(byGuid).filter(function(it) {
@@ -2921,13 +2968,18 @@ function RefDataTreeNode({ item, byGuid, depth, selected, onSelect, expanded, to
       hasChildren
         ? React.createElement(FoldTriangle, { open: isExpanded, size: 10, style: { width: 16 } })
         : React.createElement('span', { style: { width: 16, flexShrink: 0 } }),
+      selection && item.guid && React.createElement("input", {
+        type: "checkbox", checked: selection.isSelected(item.guid), style: { flexShrink: 0, cursor: 'pointer', marginRight: 2 },
+        onClick: function(e) { e.stopPropagation(); },
+        onChange: function() { selection.toggle({ guid: item.guid, displayName: item.displayName, typeName: item.typeName }); },
+      }),
       React.createElement('span', { className: 'type-name', style: { flex: 1 } }, label),
       item.isSet && React.createElement('span', { className: 'badge', style: { background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.3)', fontSize: 9, flexShrink: 0 } }, item.typeName || 'Set')
     ),
     isExpanded && hasChildren && children.map(function(child) {
       return React.createElement(RefDataTreeNode, {
         key: child.guid, item: child, byGuid: byGuid, depth: depth + 1,
-        selected: selected, onSelect: onSelect, expanded: expanded, toggleExpanded: toggleExpanded, search: search,
+        selected: selected, onSelect: onSelect, expanded: expanded, toggleExpanded: toggleExpanded, search: search, selection: selection,
       });
     })
   );
@@ -2949,10 +3001,15 @@ function ReferenceDataView({ navGuid, onNavigateToElement }) {
   const [expanded, setExpanded]   = useState(function() { return new Set(); });
   const [error, setError]         = useState('');
   const [inclTempl, setInclTempl] = useState(false);
+  const selection = useSelection();
+  const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   useEffect(function() {
     setLoadState('loading');
     setError('');
+    selection.clear();
     egeriaFetch('/api/reference-data?page_size=500' + (inclTempl ? '&include_templates=true' : ''), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) {
@@ -3052,10 +3109,19 @@ function ReferenceDataView({ navGuid, onNavigateToElement }) {
           return React.createElement(RefDataTreeNode, {
             key: root.guid, item: root, byGuid: byGuid, depth: 0,
             selected: selected, onSelect: setSelected,
-            expanded: expanded, toggleExpanded: toggleExpanded, search: search,
+            expanded: expanded, toggleExpanded: toggleExpanded, search: search, selection: selection,
           });
         })
-      )
+      ),
+      React.createElement(BulkActionBar, {
+        count: selection.count, onClear: selection.clear,
+        actions: [
+          { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
+          { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        ],
+      })
     ),
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
     React.createElement("div", { className: "main" },
@@ -3064,7 +3130,21 @@ function ReferenceDataView({ navGuid, onNavigateToElement }) {
         : React.createElement("div", { className: "center" },
             React.createElement("span", { style: { color: 'var(--muted)' } }, items.length === 0 ? "No valid value definitions found" : "Select an item to view details")
           )
-    )
+    ),
+    modalAction && React.createElement(AddToCollectionModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: modalAction,
+      onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    })
   );
 }
 
@@ -3072,10 +3152,13 @@ function ReferenceDataView({ navGuid, onNavigateToElement }) {
 // Tech Catalog file-asset preview, TC-13). Pass a fetchUrl returning {columns,rows,has_more}.
 // ── Digital Products Explorer ─────────────────────────────────────────────────
 
-function DigitalProductDetail({ product, onNavigateToElement, creds }) {
+function DigitalProductDetail({ product, onNavigateToElement, creds, selection }) {
   var _favPersonaId = React.useContext(PersonaContext);
   if (!product) return null;
   var _previewState = useState(null), previewDs = _previewState[0], setPreviewDs = _previewState[1];
+  var _modalActionState = useState(null), modalAction = _modalActionState[0], setModalAction = _modalActionState[1];
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  var _zoneModalAction = useState(null), zoneModalAction = _zoneModalAction[0], setZoneModalAction = _zoneModalAction[1];
 
   // Show every scalar property the element carries (from the backend `props`
   // pass-through), not just a fixed product-specific subset — Qualified Name
@@ -3115,6 +3198,10 @@ function DigitalProductDetail({ product, onNavigateToElement, creds }) {
       ),
       members.map(function(m) {
         return React.createElement("div", { key: m.guid, style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '5px 0', borderTop: '1px solid var(--border)' } },
+          selection && m.guid && React.createElement("input", {
+            type: "checkbox", checked: selection.isSelected(m.guid), style: { flexShrink: 0, cursor: 'pointer' },
+            onChange: function() { selection.toggle({ guid: m.guid, displayName: m.displayName, typeName: m.typeName || tn }); },
+          }),
           React.createElement("span", { style: { flex: 1 } }, m.displayName || m.qualifiedName || m.guid),
           React.createElement("span", { className: "badge", style: Object.assign({ fontSize: 9 }, memberBadgeStyle(m.typeName || tn)) }, m.typeName || tn),
           isDataSpec && React.createElement("button", {
@@ -3175,7 +3262,32 @@ function DigitalProductDetail({ product, onNavigateToElement, creds }) {
       )
     ),
     memberTypeNames.length > 0 && React.createElement("div", null,
-      React.createElement("div", { style: { fontWeight: 700, fontSize: 13, marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid var(--border)', color: 'var(--accent)' } }, "Members"),
+      React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, paddingBottom: 6, borderBottom: '1px solid var(--border)' } },
+        React.createElement("div", { style: { fontWeight: 700, fontSize: 13, color: 'var(--accent)' } }, "Members"),
+        selection && (function() {
+          var withGuid = children.filter(function(c) { return c.guid; });
+          var allSelected = withGuid.length > 0 && withGuid.every(function(c) { return selection.isSelected(c.guid); });
+          return React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
+            React.createElement("input", {
+              type: "checkbox", checked: allSelected,
+              onChange: function() {
+                if (allSelected) selection.deselectAll(withGuid);
+                else selection.selectAll(withGuid.map(function(c) { return { guid: c.guid, displayName: c.displayName, typeName: c.typeName }; }));
+              },
+            }),
+            "Select all members"
+          );
+        })()
+      ),
+      selection && React.createElement(BulkActionBar, {
+        count: selection.count, onClear: selection.clear,
+        actions: [
+          { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
+          { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        ],
+      }),
       memberTypeNames.map(function(tn) { return renderMemberGroup(tn, memberGroups[tn]); })
     ),
     (function() {
@@ -3192,11 +3304,25 @@ function DigitalProductDetail({ product, onNavigateToElement, creds }) {
     })(),
     React.createElement(ClassificationsAndRawJson, { item: product, creds: creds }),
     React.createElement(EgeriaCommentsSection, { guid: product.guid }),
-    previewDs && React.createElement(TabularPreviewModal, { fetchUrl: '/api/digital-products/' + previewDs.guid + '/tabular', name: previewDs.name, creds: creds, onClose: function() { setPreviewDs(null); } })
+    previewDs && React.createElement(TabularPreviewModal, { fetchUrl: '/api/digital-products/' + previewDs.guid + '/tabular', name: previewDs.name, creds: creds, onClose: function() { setPreviewDs(null); } }),
+    selection && modalAction && React.createElement(AddToCollectionModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: modalAction,
+      onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    })
   );
 }
 
-function DigitalTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggleNode, childrenByGuid, loadingGuids }) {
+function DigitalTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggleNode, childrenByGuid, loadingGuids, selection }) {
   const isExp = expanded.has(node.guid);
   const isSel = selectedGuid === node.guid;
   const paddingLeft = 8 + depth * 24;
@@ -3215,6 +3341,11 @@ function DigitalTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggle
       node.isContainer
         ? React.createElement(FoldTriangle, { open: isExp, size: 11, style: { width: 18, display: 'inline-block' } })
         : React.createElement("span", { style: { width: 18, display: 'inline-block', flexShrink: 0 } }),
+      selection && node.guid && React.createElement("input", {
+        type: "checkbox", checked: selection.isSelected(node.guid), style: { flexShrink: 0, cursor: 'pointer', marginRight: 2 },
+        onClick: function(e) { e.stopPropagation(); },
+        onChange: function() { selection.toggle({ guid: node.guid, displayName: node.displayName, typeName: node.typeName }); },
+      }),
       React.createElement("span", { className: "type-name" }, node.displayName || node.qualifiedName || node.guid),
       node.typeName && React.createElement("span", { className: "badge", style: { background: 'rgba(99,102,241,.1)', color: typeColor, border: '0.5px solid rgba(99,102,241,.3)', fontSize: 9, marginLeft: 4 } }, node.typeName)
     ),
@@ -3237,7 +3368,7 @@ function DigitalTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggle
           key: child.guid, node: child, depth: depth + 1,
           selectedGuid: selectedGuid, onSelect: onSelect,
           expanded: expanded, toggleNode: toggleNode,
-          childrenByGuid: childrenByGuid, loadingGuids: loadingGuids,
+          childrenByGuid: childrenByGuid, loadingGuids: loadingGuids, selection: selection,
         });
       });
     })()
@@ -3458,8 +3589,24 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
   const [loadingGuids, setLoadingGuids]     = useState(new Set());
   const [asOfTime, setAsOfTime]             = useState(null);
   const [inclTempl, setInclTempl]           = useState(false);
+  const [onlyRootType, setOnlyRootType]     = useState(true);
   const childrenRef = useRef({});
   useEffect(() => { childrenRef.current = childrenByGuid; }, [childrenByGuid]);
+  // Two independent selection surfaces sharing the same modal/backend flow:
+  // `selection` covers checkboxes on the hierarchy tree (persists as you click
+  // around to view different nodes' details — that's the whole point of
+  // multi-selecting across branches); `memberSelection` covers checkboxes on
+  // the currently-viewed node's Members list (must clear whenever that list's
+  // contents change, i.e. whenever selectedNode changes) — same rationale as
+  // DataDesignView's tab-switch clear, just two independent instances instead
+  // of one because these two lists don't share a reset trigger.
+  const selection = useSelection();
+  const memberSelection = useSelection();
+  const [treeModalAction, setTreeModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
+  useEffect(() => { memberSelection.clear(); }, [selectedNode]); // Members list changed to a different collection
+  useEffect(() => { selection.clear(); }, [selectedRoot, asOfTime, inclTempl, onlyRootType]); // tree dataset changed
 
   // Tracks the active deep-link guid so root/tree load effects don't stomp it
   const navGuidRef = useRef(navGuid);
@@ -3468,7 +3615,10 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
   // Load root collections on mount
   useEffect(() => {
     setRootState('loading'); setRootError('');
-    egeriaFetch('/api/collections/roots' + (inclTempl ? '?include_templates=true' : ''), creds)
+    const qs = [];
+    if (inclTempl) qs.push('include_templates=true');
+    if (onlyRootType) qs.push('only_root_type=true');
+    egeriaFetch('/api/collections/roots' + (qs.length ? '?' + qs.join('&') : ''), creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
         const list = (data.roots || []).slice().sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
@@ -3477,7 +3627,7 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
         if (list.length > 0 && !navGuidRef.current) setSelectedRoot(list[0].guid);
       })
       .catch(err => { setRootError(err.message); setRootState('error'); });
-  }, [rootAttempt, inclTempl]);
+  }, [rootAttempt, inclTempl, onlyRootType]);
 
   // Load hierarchy for the selected root
   useEffect(() => {
@@ -3557,7 +3707,12 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
     // Root collections (left)
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
       React.createElement("div", { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
-        React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } }, "Root Collections (" + roots.length + ")"),
+        React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } },
+          (onlyRootType ? "Root Collections (" : "Collections Without a Parent (") + roots.length + ")"),
+        React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
+          React.createElement("input", { type: "checkbox", checked: onlyRootType, onChange: function(e) { setOnlyRootType(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
+          "Root Collections only"
+        ),
         React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
           React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
           "Include templates"
@@ -3565,7 +3720,8 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
       ),
       React.createElement("div", { className: "tree-scroll" },
         roots.length === 0
-          ? React.createElement("div", { style: { padding: '12px 10px', fontSize: 12, color: 'var(--dim)' } }, "No root collections found")
+          ? React.createElement("div", { style: { padding: '12px 10px', fontSize: 12, color: 'var(--dim)' } },
+              onlyRootType ? "No root collections found" : "No parentless collections found")
           : roots.map(c =>
             React.createElement("div", {
               key: c.guid,
@@ -3593,22 +3749,45 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
               React.createElement(DigitalTreeNode, {
                 key: node.guid, node, depth: 0,
                 selectedGuid: selectedNode, onSelect: handleSelect, expanded, toggleNode,
-                childrenByGuid, loadingGuids,
+                childrenByGuid, loadingGuids, selection,
               })
             )
-      )
+      ),
+      React.createElement(BulkActionBar, {
+        count: selection.count, onClear: selection.clear,
+        actions: [
+          { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setTreeModalAction('add'); } },
+          { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setTreeModalAction('remove'); } },
+          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        ],
+      })
     ),
     React.createElement(ResizeDivider, { onMouseDown: onTreeDivDown }),
     // Node detail (right)
     React.createElement("div", { className: "main" },
       (selectedNodeObj || nodeDetail)
-        ? React.createElement(DigitalProductDetail, { product: selectedNodeObj ? Object.assign({}, selectedNodeObj, nodeDetail || {}) : nodeDetail, onNavigateToElement: onNavigateToElement, creds: creds })
+        ? React.createElement(DigitalProductDetail, { product: selectedNodeObj ? Object.assign({}, selectedNodeObj, nodeDetail || {}) : nodeDetail, onNavigateToElement: onNavigateToElement, creds: creds, selection: memberSelection })
         : selectedNode
         ? React.createElement("div", { className: "center" }, React.createElement("div", { className: "spinner" }))
         : React.createElement("div", { className: "center" },
             React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a node to view details")
           )
-    )
+    ),
+    treeModalAction && React.createElement(AddToCollectionModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: treeModalAction,
+      onClose: function() { setTreeModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    })
   );
 }
 
@@ -3998,78 +4177,29 @@ function _explorerHl(text, q) {
 }
 
 function ExplorerSearchView({ creds, initialQuery, onNavigateToElement }) {
-  const [q, setQ]           = React.useState(initialQuery || '');
-  const [data, setData]     = React.useState(null);
-  const [err, setErr]       = React.useState(null);
-  const [loading, setLoading] = React.useState(false);
-  // Facet chips come from the BASE (unrestricted) search's typeFacets, kept
-  // stable across scoped re-searches so the full breadth stays visible for
-  // further toggling — a scoped response's own typeFacets would only ever
-  // show the type(s) it was scoped to. Toggling a chip re-searches server-side
-  // (metadata_element_subtypes) rather than filtering client-side: page_size
-  // caps the base search, so a less-common type can be crowded out of that
-  // page entirely — scoping the search itself gets a complete count for it.
-  // Safe to do here (unlike a pre-search picker) because these typeNames came
-  // from a real prior result, not a curated/guessed list.
-  const [baseFacets, setBaseFacets] = React.useState(null);
-  const [selTypes, setSelTypes]     = React.useState([]);
-  const timer = React.useRef(null);
-
-  function doSearch(query, typeList) {
-    const trimmed = (query || '').trim();
-    if (!trimmed || trimmed === '*') { setData(null); setErr(null); return; }
-    setLoading(true); setErr(null);
-    let url = '/api/catalog/search?q=' + encodeURIComponent(trimmed) + '&page_size=200';
-    (typeList || []).forEach(t => { url += '&types=' + encodeURIComponent(t); });
-    egeriaFetch(url, creds)
-      .then(r => r.ok ? r.json() : r.json().then(e => { throw new Error(e.detail || r.status); }))
-      .then(j => {
-        setData(j); setLoading(false);
-        if (!typeList || !typeList.length) setBaseFacets(j.typeFacets || []);
-        if (j.typeFilterDropped) setSelTypes([]); // server couldn't apply it — don't show a filter that isn't real
-      })
-      .catch(e => { setErr(e.message || String(e)); setLoading(false); });
-  }
-
-  function handleInput(e) {
-    const val = e.target.value;
-    setQ(val);
-    setSelTypes([]); setBaseFacets(null);
-    clearTimeout(timer.current);
-    if (val.trim().length >= 2) timer.current = setTimeout(() => doSearch(val, []), 400);
-    else setData(null);
-  }
-
-  function toggleType(tn) {
-    const next = selTypes.indexOf(tn) === -1 ? selTypes.concat([tn]) : selTypes.filter(t => t !== tn);
-    setSelTypes(next);
-    doSearch(q, next);
-  }
-
-  React.useEffect(() => {
-    if (initialQuery && initialQuery.trim().length >= 2) doSearch(initialQuery, []);
-  }, []);
-
-  const hasResults = data && data.total > 0;
-  const facets = baseFacets || [];
-  const typeGroups = hasResults ? _groupExplorerSearchItemsByType(data.groups) : [];
+  const selection = useSelection();
+  const s = useCatalogSearch(creds, initialQuery, selection.clear);
+  // null | 'add' | 'remove' — which AddToCollectionModal action, if any, is open.
+  const [modalAction, setModalAction] = React.useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = React.useState(null);
 
   return React.createElement('div', { style: { display: 'flex', flex: 1, flexDirection: 'column', overflow: 'hidden' } },
     React.createElement('div', { style: { padding: '16px 20px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
       React.createElement('div', { style: { position: 'relative' } },
         React.createElement('input', {
-          type: 'search', value: q, onChange: handleInput, autoFocus: true,
+          type: 'search', value: s.q, onChange: s.handleInput, autoFocus: true,
           placeholder: 'Search across The Catalog — assets, glossary, tech types, surveys…',
           style: { width: '100%', padding: '10px 14px 10px 38px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)', fontSize: 14, boxSizing: 'border-box', outline: 'none' }
         }),
         React.createElement('span', { style: { position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 15, pointerEvents: 'none', color: 'var(--dim)' } }, '🔎')
       ),
-      facets.length > 1 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 8 } },
+      s.facets.length > 1 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 8 } },
         React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Types in these results:'),
-        facets.map(f => {
-          const active = selTypes.indexOf(f.typeName) !== -1;
+        s.facets.map(f => {
+          const active = s.selTypes.indexOf(f.typeName) !== -1;
           return React.createElement('button', {
-            key: f.typeName, onClick: () => toggleType(f.typeName),
+            key: f.typeName, onClick: () => s.toggleType(f.typeName),
             title: active ? 'Click to remove filter' : 'Click to restrict search to ' + f.typeName,
             style: {
               fontSize: 11, padding: '3px 9px', borderRadius: 12, cursor: 'pointer',
@@ -4077,41 +4207,64 @@ function ExplorerSearchView({ creds, initialQuery, onNavigateToElement }) {
               background: active ? 'var(--accent)' : 'transparent',
               color: active ? 'var(--bg)' : 'var(--dim)',
             }
-          }, (EXPLORER_SEARCH_CATEGORY_ICONS[f.categoryId] || '') + ' ' + f.typeName + ' (' + f.count + ')');
+          }, (CATALOG_SEARCH_CATEGORY_ICONS[f.categoryId] || '') + ' ' + f.typeName + ' (' + f.count + ')');
         })
       ),
-      data && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginTop: 6 } },
-        data.total + ' result' + (data.total === 1 ? '' : 's') + ' for ' + JSON.stringify(data.query) +
-        (selTypes.length ? ' (' + selTypes.length + ' type' + (selTypes.length === 1 ? '' : 's') + ' selected)' : ''),
-        data.typeFilterDropped && React.createElement('span', { style: { color: '#fbbf24', marginLeft: 6 } }, '⚠ type filter unavailable, showing unrestricted results'))
+      s.data && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginTop: 6 } },
+        s.data.total + ' result' + (s.data.total === 1 ? '' : 's') + ' for ' + JSON.stringify(s.data.query) +
+        (s.selTypes.length ? ' (' + s.selTypes.length + ' type' + (s.selTypes.length === 1 ? '' : 's') + ' selected)' : ''),
+        s.data.typeFilterDropped && React.createElement('span', { style: { color: '#fbbf24', marginLeft: 6 } }, '⚠ type filter unavailable, showing unrestricted results'))
     ),
     React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: '12px 20px' } },
-      loading && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12, padding: 8 } }, 'Searching…'),
-      err     && React.createElement('div', { style: { color: '#f87171', fontSize: 13, padding: 8 } }, 'Error: ' + err),
-      !loading && !err && !data && q.trim().length < 2 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, padding: 8, textAlign: 'center', marginTop: 40 } }, 'Type at least 2 characters to search.'),
-      !loading && data && data.total === 0 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, padding: 8, textAlign: 'center', marginTop: 40 } }, 'No results found for ' + JSON.stringify(data.query) + '.'),
-      !loading && hasResults && typeGroups.map(grp =>
-        React.createElement('div', { key: grp.typeName, style: { marginBottom: 20 } },
+      s.loading && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12, padding: 8 } }, 'Searching…'),
+      s.err     && React.createElement('div', { style: { color: '#f87171', fontSize: 13, padding: 8 } }, 'Error: ' + s.err),
+      !s.loading && !s.err && !s.data && s.q.trim().length < 2 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, padding: 8, textAlign: 'center', marginTop: 40 } }, 'Type at least 2 characters to search.'),
+      !s.loading && s.data && s.data.total === 0 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, padding: 8, textAlign: 'center', marginTop: 40 } }, 'No results found for ' + JSON.stringify(s.data.query) + '.'),
+      !s.loading && s.hasResults && React.createElement(BulkActionBar, {
+        count: selection.count, onClear: selection.clear,
+        actions: [
+          { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
+          { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        ],
+      }),
+      !s.loading && s.hasResults && s.typeGroups.map(grp => {
+        var withGuid = grp.items.filter(function(it) { return it.guid; });
+        var groupSelected = withGuid.length > 0 && withGuid.every(function(it) { return selection.isSelected(it.guid); });
+        return React.createElement('div', { key: grp.typeName, style: { marginBottom: 20 } },
           React.createElement('div', { style: { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 } },
-            React.createElement('span', null, EXPLORER_SEARCH_CATEGORY_ICONS[grp.categoryId] || '📦'),
+            React.createElement('input', {
+              type: 'checkbox', checked: groupSelected, title: 'Select all in this group',
+              onChange: function() {
+                if (groupSelected) selection.deselectAll(withGuid);
+                else selection.selectAll(withGuid.map(function(it) { return { guid: it.guid, displayName: it.displayName, typeName: it.typeName }; }));
+              },
+              style: { cursor: 'pointer' },
+            }),
+            React.createElement('span', null, CATALOG_SEARCH_CATEGORY_ICONS[grp.categoryId] || '📦'),
             grp.typeName,
             React.createElement('span', { style: { fontWeight: 400, color: 'var(--dim)', textTransform: 'none', letterSpacing: 0 } }, '(' + grp.items.length + ')')
           ),
           grp.items.map((item, i) =>
             React.createElement('div', { key: item.guid || i, style: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' } },
+              item.guid && React.createElement('input', {
+                type: 'checkbox', checked: selection.isSelected(item.guid), style: { marginTop: 3, flexShrink: 0, cursor: 'pointer' },
+                onChange: function() { selection.toggle({ guid: item.guid, displayName: item.displayName, typeName: item.typeName }); },
+              }),
               React.createElement('div', { style: { flex: 1, minWidth: 0 } },
                 React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
-                  React.createElement('span', { style: { fontWeight: 600, fontSize: 13, color: 'var(--fg)', wordBreak: 'break-word' }, dangerouslySetInnerHTML: { __html: _explorerHl(item.displayName || item.qualifiedName || item.guid, q) } }),
+                  React.createElement('span', { style: { fontWeight: 600, fontSize: 13, color: 'var(--fg)', wordBreak: 'break-word' }, dangerouslySetInnerHTML: { __html: highlightHtml(item.displayName || item.qualifiedName || item.guid, s.q) } }),
                   React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)', fontFamily: 'ui-monospace,monospace', background: 'var(--panel)', padding: '0 5px', borderRadius: 3, flexShrink: 0 } }, item.typeName)
                 ),
-                item.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginTop: 2, lineHeight: 1.5, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }, dangerouslySetInnerHTML: { __html: _explorerHl(item.description, q) } }),
-                item.qualifiedName && item.qualifiedName !== item.displayName && React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginTop: 1, wordBreak: 'break-all', whiteSpace: 'normal' }, dangerouslySetInnerHTML: { __html: _explorerHl(item.qualifiedName, q) } })
+                item.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', marginTop: 2, lineHeight: 1.5, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }, dangerouslySetInnerHTML: { __html: highlightHtml(item.description, s.q) } }),
+                item.qualifiedName && item.qualifiedName !== item.displayName && React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginTop: 1, wordBreak: 'break-all', whiteSpace: 'normal' }, dangerouslySetInnerHTML: { __html: highlightHtml(item.qualifiedName, s.q) } })
               ),
               item.guid && (onNavigateToElement && _elementIsLinkable(item)
                 ? React.createElement('button', {
                     onClick: function() { onNavigateToElement(item); },
                     style: { fontSize: 10, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }
-                  // Real typeName is already shown as its own badge above
+                  // Real typeName is already shown as its own badge above (line ~4994)
                   // -- this used to fall back to item.categoryLabel, which is wrong/
                   // misleading for the majority of real Egeria types: _TYPE_CATEGORY
                   // only curates ~40 of several hundred, so most results showed the
@@ -4124,9 +4277,23 @@ function ExplorerSearchView({ creds, initialQuery, onNavigateToElement }) {
                   }, '↗ Catalog'))
             )
           )
-        )
-      )
-    )
+        );
+      })
+    ),
+    modalAction && React.createElement(AddToCollectionModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: modalAction,
+      onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    })
   );
 }
 
@@ -5343,6 +5510,11 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
   const [sideW, onSideDivDown] = useResizable(260);
   const [filter, setFilter] = React.useState('');
   const [inclTempl, setInclTempl] = React.useState(false);
+  const selection = useSelection();
+  // null | 'add' | 'remove' — which AddToCollectionModal action, if any, is open.
+  const [modalAction, setModalAction] = React.useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = React.useState(null);
 
   function updateList(nav, patch) {
     setListStates(function(prev) { return Object.assign({}, prev, { [nav]: Object.assign({}, prev[nav], patch) }); });
@@ -5374,6 +5546,7 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
 
   React.useEffect(function() {
     setListStates({ specs: { st: 'idle', items: [] }, structures: { st: 'idle', items: [] }, fields: { st: 'idle', items: [] }, grains: { st: 'idle', items: [] }, classes: { st: 'idle', items: [] } });
+    selection.clear(); // include_templates toggled — the list contents just changed
   }, [inclTempl]);
 
   React.useEffect(function() { loadItems('specs'); }, [inclTempl]);
@@ -5505,7 +5678,21 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
 
   const curList = listStates[subNav];
 
-  return React.createElement("div", { style: { display: 'flex', flexDirection: 'column', height: '100%' } },
+  // The real root cause of "checkboxes work but Add to Collection never shows"
+  // (my earlier overflow:'hidden' fix on the sidebar column below was necessary
+  // but not sufficient): every other top-level view in this file uses
+  // className:"body" (CSS: display:flex; flex:1; overflow:hidden — see the
+  // <style> block, and compare GlossaryView's identical outer div) as its
+  // outermost element, which participates directly in #root's flex-grow
+  // algorithm to fill the remaining viewport height. This one used inline
+  // `height: '100%'` instead — a percentage height on a flex item's main axis,
+  // which does not reliably resolve the same way (confirmed broken in Safari;
+  // the screenshot showed the item list running on unclamped past the
+  // viewport with no inner scroll region, instead of being clamped to a
+  // properly-bounded, independently-scrollable column). Without a definite
+  // clamped height at THIS level, the overflow:'hidden' fix on the sidebar
+  // column further down had nothing to actually clip against.
+  return React.createElement("div", { className: "body", style: { flexDirection: 'column' } },
     React.createElement("div", { style: { display: 'flex', gap: 4, padding: '8px 12px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 } },
       SUB_NAVS.map(function(n) {
         const st = listStates[n.key];
@@ -5519,6 +5706,7 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
             setDetail(null);
             setDetailSt('idle');
             setFilter('');
+            selection.clear(); // different tab = different element type/result set — same rationale as the tech-catalog/Insights fix
           },
           style: { padding: '5px 14px', borderRadius: 5, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: active ? 700 : 400, background: active ? 'rgba(125,211,252,.15)' : 'transparent', color: active ? n.color : 'var(--dim)', transition: 'all .15s' }
         },
@@ -5528,7 +5716,16 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
       })
     ),
     React.createElement("div", { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
-      React.createElement("div", { style: { width: sideW, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0 } },
+      // overflow:'hidden' is load-bearing, not decorative — this replicates the
+      // .sidebar CSS class's `overflow: hidden` (see <style> block), which every
+      // other 3-column view in this file gets via className:"sidebar" instead of
+      // inline styles. Without it, this flex-column div has no clamped height, so
+      // it grows to fit its full unscrolled content (the item list can be long)
+      // and BulkActionBar — the last child, right after the flex:1 scrollable
+      // list — ends up rendered below the visible/clipped area: present in the
+      // DOM, invisible on screen. Root cause of "checkboxes work but no Add to
+      // Collection button appears" on the Data Design tab.
+      React.createElement("div", { style: { width: sideW, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden' } },
         React.createElement("div", { className: "search-wrap" },
           React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
             onChange: function(e) { setFilter(e.target.value); } }),
@@ -5546,23 +5743,68 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
                 var q = filter.toLowerCase();
                 var visible = curList.items.filter(function(i) { return !q || (i.displayName || i.qualifiedName || '').toLowerCase().includes(q); });
                 if (visible.length === 0 && curList.st === 'ready') return React.createElement("div", { style: { padding: 12, color: 'var(--dim)', fontSize: 13 } }, q ? "No matches" : "None found");
-                return visible.map(function(item) {
+                var withGuid = visible.filter(function(i) { return i.guid; });
+                var allSelected = withGuid.length > 0 && withGuid.every(function(i) { return selection.isSelected(i.guid); });
+                return [
+                  React.createElement("label", { key: '__selectAll', style: { display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', borderBottom: '1px solid var(--border)' } },
+                    React.createElement("input", {
+                      type: "checkbox", checked: allSelected,
+                      onChange: function() {
+                        if (allSelected) selection.deselectAll(withGuid);
+                        else selection.selectAll(withGuid.map(function(i) { return { guid: i.guid, displayName: i.displayName, typeName: i.typeName }; }));
+                      },
+                    }),
+                    "Select all visible"
+                  )
+                ].concat(visible.map(function(item) {
                   const active = item.guid === selGuid;
                   return React.createElement("div", {
                     key: item.guid,
-                    onClick: function() { loadDetail(subNav, item.guid); },
-                    style: { padding: '7px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)', background: active ? 'var(--hover)' : 'transparent', color: active ? 'var(--fg)' : 'var(--muted)' }
+                    style: { display: 'flex', alignItems: 'flex-start', gap: 6, padding: '7px 12px', borderBottom: '1px solid var(--border)', background: active ? 'var(--hover)' : 'transparent' }
                   },
-                    React.createElement("div", { style: { fontSize: 13, fontWeight: active ? 600 : 400, lineHeight: 1.3 } }, item.displayName || item.qualifiedName || item.guid),
-                    item.description && React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, item.description)
+                    item.guid && React.createElement("input", {
+                      type: "checkbox", checked: selection.isSelected(item.guid), style: { marginTop: 3, flexShrink: 0 },
+                      onClick: function(e) { e.stopPropagation(); },
+                      onChange: function() { selection.toggle({ guid: item.guid, displayName: item.displayName, typeName: item.typeName }); },
+                    }),
+                    React.createElement("div", {
+                      onClick: function() { loadDetail(subNav, item.guid); },
+                      style: { flex: 1, minWidth: 0, cursor: 'pointer', color: active ? 'var(--fg)' : 'var(--muted)' }
+                    },
+                      React.createElement("div", { style: { fontSize: 13, fontWeight: active ? 600 : 400, lineHeight: 1.3 } }, item.displayName || item.qualifiedName || item.guid),
+                      item.description && React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, item.description)
+                    )
                   );
-                });
+                }));
               })()
-        )
+        ),
+        React.createElement(BulkActionBar, {
+          count: selection.count, onClear: selection.clear,
+          actions: [
+            { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
+            { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+            { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+            { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+          ],
+        })
       ),
       React.createElement(ResizeDivider, { onMouseDown: onSideDivDown }),
       React.createElement("div", { style: { flex: 1, overflow: 'hidden' } }, renderDetail())
-    )
+    ),
+    modalAction && React.createElement(AddToCollectionModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: modalAction,
+      onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    })
   );
 }
 
@@ -5735,6 +5977,10 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
   const [selectedQ, setSelectedQ]     = useState(null);
   const [qDetail, setQDetail]         = useState(null);
   const [qDetailState, setQDetailState] = useState('idle');
+  const selection = useSelection();
+  const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   // Internal cross-nav
   function navigateToQuestion(guid) { setSubNav('questions'); setFilter(''); setSelectedQ(guid); }
@@ -5745,11 +5991,12 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
   }
 
   // Reset questions so they re-fetch with new inclTempl value
-  useEffect(() => { setQState('idle'); setQList([]); }, [inclTempl]);
+  useEffect(() => { setQState('idle'); setQList([]); selection.clear(); }, [inclTempl]);
 
   // Load perspectives on mount
   useEffect(() => {
     setPerspState('loading');
+    selection.clear();
     var p = [];
     if (asOfTime) p.push('as_of_time=' + encodeURIComponent(asOfTime));
     if (inclTempl) p.push('include_templates=true');
@@ -5891,8 +6138,8 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
     // Left pane
     React.createElement("div", { className: "sidebar", style: { width: sideW, display: 'flex', flexDirection: 'column' } },
       React.createElement("div", { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 6 } },
-        React.createElement("button", { style: subNavStyle('perspectives'), onClick: function() { setSubNav('perspectives'); setFilter(''); } }, "Perspectives"),
-        React.createElement("button", { style: subNavStyle('questions'), onClick: function() { setSubNav('questions'); setFilter(''); } }, "Questions")
+        React.createElement("button", { style: subNavStyle('perspectives'), onClick: function() { setSubNav('perspectives'); setFilter(''); selection.clear(); } }, "Perspectives"),
+        React.createElement("button", { style: subNavStyle('questions'), onClick: function() { setSubNav('questions'); setFilter(''); selection.clear(); } }, "Questions")
       ),
       React.createElement("div", { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)' } }, React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' })),
       React.createElement("div", { style: { padding: '4px 10px 6px', borderBottom: '1px solid var(--border)' } },
@@ -5920,16 +6167,44 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
             title: item.description || item.qualifiedName || '',
             onClick: function() { setActiveSelected(item.guid); }
           },
+            item.guid && React.createElement("input", {
+              type: "checkbox", checked: selection.isSelected(item.guid), style: { flexShrink: 0, cursor: 'pointer', marginRight: 4 },
+              onClick: function(e) { e.stopPropagation(); },
+              onChange: function() { selection.toggle({ guid: item.guid, displayName: item.displayName, typeName: item.typeName }); },
+            }),
             React.createElement("span", { className: "type-name" }, item.displayName || item.qualifiedName || item.guid)
           );
         })
-      )
+      ),
+      React.createElement(BulkActionBar, {
+        count: selection.count, onClear: selection.clear,
+        actions: [
+          { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
+          { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        ],
+      })
     ),
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
     // Right detail pane
     React.createElement("div", { className: "main" },
       renderDetail(activeDetail, activeDetailState, isPerspNav)
-    )
+    ),
+    modalAction && React.createElement(AddToCollectionModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: modalAction,
+      onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    })
   );
 }
 
@@ -6454,6 +6729,10 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
   const [filter, setFilter] = useState('');
   const [inclTempl, setInclTempl] = useState(false);
   const [expandedISC, setExpandedISC] = useState(new Set());
+  const selection = useSelection();
+  const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   const toggleISC = useCallback(function(guid) {
     setExpandedISC(function(prev) { var n = new Set(prev); if (n.has(guid)) n.delete(guid); else n.add(guid); return n; });
@@ -6461,6 +6740,7 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
 
   useEffect(function() {
     setState('loading'); setError('');
+    selection.clear();
     egeriaFetch('/api/isc' + (inclTempl ? '?include_templates=true' : ''), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setItems(data.supply_chains || []); setState('ready'); })
@@ -6508,6 +6788,11 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
               hasSegs
                 ? React.createElement(FoldTriangle, { open: isExp, size: 10, style: { width: 14, display: 'inline-block' } })
                 : React.createElement("span", { style: { width: 14, display: 'inline-block', flexShrink: 0 } }),
+              x.guid && React.createElement("input", {
+                type: "checkbox", checked: selection.isSelected(x.guid), style: { flexShrink: 0, cursor: 'pointer', marginRight: 2 },
+                onClick: function(e) { e.stopPropagation(); },
+                onChange: function() { selection.toggle({ guid: x.guid, displayName: x.displayName, typeName: x.typeName || 'InformationSupplyChain' }); },
+              }),
               React.createElement("span", { className: "type-name" }, x.displayName || x.qualifiedName),
               x.lifecycleStatus && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(94,234,212,.1)', color: '#5eead4', border: '0.5px solid rgba(94,234,212,.3)', marginLeft: 4 } }, x.lifecycleStatus)
             ),
@@ -6516,6 +6801,11 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
                 key: s.guid, className: "tree-item" + (selected === s.guid ? " sel" : ""),
                 style: { paddingLeft: 30 }, onClick: function() { setSelected(s.guid); }, title: s.qualifiedName || s.guid,
               },
+                s.guid && React.createElement("input", {
+                  type: "checkbox", checked: selection.isSelected(s.guid), style: { flexShrink: 0, cursor: 'pointer', marginRight: 4 },
+                  onClick: function(e) { e.stopPropagation(); },
+                  onChange: function() { selection.toggle({ guid: s.guid, displayName: s.displayName, typeName: s.typeName }); },
+                }),
                 React.createElement("span", { className: "type-name" }, s.displayName || s.qualifiedName),
                 s.typeName && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(99,102,241,.1)', color: '#93c5fd', border: '0.5px solid rgba(99,102,241,.3)', marginLeft: 4 } }, s.typeName)
               );
@@ -6523,7 +6813,16 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
           );
         });
       })()
-    )
+    ),
+    React.createElement(BulkActionBar, {
+      count: selection.count, onClear: selection.clear,
+      actions: [
+        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+      ],
+    })
   );
 
   var selectedItem = selected ? items.find(function(x) { return x.guid === selected; }) : null;
@@ -6539,7 +6838,21 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
   return React.createElement("div", { className: "body" },
     sidebar,
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
-    mainPanel
+    mainPanel,
+    modalAction && React.createElement(AddToCollectionModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: modalAction,
+      onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    })
   );
 }
 
@@ -6742,7 +7055,7 @@ function _locationSubtreeMatches(item, byGuid, q, seen) {
   return kids.some(function(k) { return _locationSubtreeMatches(k, byGuid, q, seen); });
 }
 
-function LocationTreeNode({ item, byGuid, depth, selected, onSelect, expanded, toggleExpanded, search }) {
+function LocationTreeNode({ item, byGuid, depth, selected, onSelect, expanded, toggleExpanded, search, selection }) {
   var q = search.trim().toLowerCase();
   var children = (item.childLocations || []).map(function(c) { return byGuid[c.guid]; }).filter(Boolean);
   var hasChildren = children.length > 0;
@@ -6765,13 +7078,18 @@ function LocationTreeNode({ item, byGuid, depth, selected, onSelect, expanded, t
       hasChildren
         ? React.createElement(FoldTriangle, { open: isExpanded, size: 10, style: { width: 16 } })
         : React.createElement('span', { style: { width: 16, flexShrink: 0 } }),
+      selection && item.guid && React.createElement("input", {
+        type: "checkbox", checked: selection.isSelected(item.guid), style: { flexShrink: 0, cursor: 'pointer', marginRight: 2 },
+        onClick: function(e) { e.stopPropagation(); },
+        onChange: function() { selection.toggle({ guid: item.guid, displayName: item.displayName, typeName: item.typeName }); },
+      }),
       React.createElement('span', { className: 'type-name', style: { flex: 1 } }, label),
       React.createElement(LocationKindBadges, { kinds: item.locationKinds })
     ),
     isExpanded && hasChildren && children.map(function(child) {
       return React.createElement(LocationTreeNode, {
         key: child.guid, item: child, byGuid: byGuid, depth: depth + 1,
-        selected: selected, onSelect: onSelect, expanded: expanded, toggleExpanded: toggleExpanded, search: search,
+        selected: selected, onSelect: onSelect, expanded: expanded, toggleExpanded: toggleExpanded, search: search, selection: selection,
       });
     })
   );
@@ -6800,9 +7118,14 @@ function LocationsView({ navGuid, onNavigateToElement }) {
   const toggleLocKind = useCallback(function(k) {
     setExpandedLocKinds(function(prev) { var n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n; });
   }, []);
+  const selection = useSelection();
+  const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   useEffect(function() {
     setState('loading'); setError('');
+    selection.clear();
     var locParams = [];
     if (asOfTime) locParams.push('as_of_time=' + encodeURIComponent(asOfTime));
     if (inclTempl) locParams.push('include_templates=true');
@@ -6876,7 +7199,7 @@ function LocationsView({ navGuid, onNavigateToElement }) {
     React.createElement("div", { style: { display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
       [['geo', 'Geographic'], ['kind', 'By Kind']].map(function(t) {
         return React.createElement("button", {
-          key: t[0], onClick: function() { setLocView(t[0]); },
+          key: t[0], onClick: function() { setLocView(t[0]); selection.clear(); },
           style: { flex: 1, padding: '7px 0', background: 'none', border: 'none', cursor: 'pointer',
                    fontWeight: locView === t[0] ? 700 : 400, color: locView === t[0] ? 'var(--accent)' : 'var(--fg)',
                    borderBottom: locView === t[0] ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 12 },
@@ -6905,7 +7228,7 @@ function LocationsView({ navGuid, onNavigateToElement }) {
                 return React.createElement(LocationTreeNode, {
                   key: root.guid, item: root, byGuid: byGuid, depth: 0,
                   selected: selected, onSelect: setSelected,
-                  expanded: expanded, toggleExpanded: toggleExpanded, search: filter,
+                  expanded: expanded, toggleExpanded: toggleExpanded, search: filter, selection: selection,
                 });
               }))
         // By Kind: collapsible groups by location kind classification (starts collapsed)
@@ -6918,6 +7241,11 @@ function LocationsView({ navGuid, onNavigateToElement }) {
                 key: x.guid, className: "tree-item" + (selected === x.guid ? " sel" : ""),
                 onClick: function() { setSelected(x.guid); }, title: x.qualifiedName || x.guid,
               },
+                x.guid && React.createElement("input", {
+                  type: "checkbox", checked: selection.isSelected(x.guid), style: { flexShrink: 0, cursor: 'pointer', marginRight: 4 },
+                  onClick: function(e) { e.stopPropagation(); },
+                  onChange: function() { selection.toggle({ guid: x.guid, displayName: x.displayName, typeName: x.typeName }); },
+                }),
                 React.createElement("span", { className: "type-name", style: { flex: 1 } }, x.displayName || x.qualifiedName),
                 React.createElement(LocationKindBadges, { kinds: x.locationKinds })
               );
@@ -6944,7 +7272,16 @@ function LocationsView({ navGuid, onNavigateToElement }) {
               );
             });
           })()
-    )
+    ),
+    React.createElement(BulkActionBar, {
+      count: selection.count, onClear: selection.clear,
+      actions: [
+        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+      ],
+    })
   );
 
   var selectedItem = selected ? byGuid[selected] || null : null;
@@ -6963,7 +7300,21 @@ function LocationsView({ navGuid, onNavigateToElement }) {
   return React.createElement("div", { className: "body" },
     sidebar,
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
-    mainPanel
+    mainPanel,
+    modalAction && React.createElement(AddToCollectionModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: modalAction,
+      onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    })
   );
 }
 
@@ -7070,6 +7421,10 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
   // Expanded kind-group headers, keyed "subNav::typeName". Groups start collapsed.
   const [expandedKinds, setExpandedKinds] = useState(new Set());
   const [asOfTime, setAsOfTime] = useState(null);  // LE-3 point-in-time
+  const selection = useSelection();
+  const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   const toggleKind = useCallback(function(key) {
     setExpandedKinds(function(prev) { var n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
@@ -7080,6 +7435,7 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
     setState({ profiles: 'idle', roles: 'idle', identities: 'idle' });
     setItems({ profiles: [], roles: [], identities: [] });
     setSelected({ profiles: null, roles: null, identities: null });
+    selection.clear();
   }, [asOfTime, inclTempl]);
 
   var atSuffix = (function() {
@@ -7141,7 +7497,7 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
     React.createElement("div", { style: { display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
       ACTOR_SUBNAV_ORDER.map(function(tab) {
         return React.createElement("button", {
-          key: tab, onClick: function() { setSubNav(tab); setFilter(''); },
+          key: tab, onClick: function() { setSubNav(tab); setFilter(''); selection.clear(); },
           style: { flex: 1, padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer',
                    fontWeight: subNav === tab ? 700 : 400, color: subNav === tab ? 'var(--accent)' : 'var(--fg)',
                    borderBottom: subNav === tab ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 13 },
@@ -7173,6 +7529,11 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
             onClick: function() { setSelected(function(s) { return Object.assign({}, s, { [subNav]: x.guid }); }); },
             title: x.qualifiedName || x.guid,
           },
+            x.guid && React.createElement("input", {
+              type: "checkbox", checked: selection.isSelected(x.guid), style: { flexShrink: 0, cursor: 'pointer', marginRight: 4 },
+              onClick: function(e) { e.stopPropagation(); },
+              onChange: function() { selection.toggle({ guid: x.guid, displayName: x.displayName, typeName: x.typeName }); },
+            }),
             React.createElement("span", { className: "type-name" }, x.displayName || x.qualifiedName),
             showBadge && React.createElement(ActorTypeBadge, { typeName: x.typeName })
           );
@@ -7200,7 +7561,16 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
           );
         });
       })()
-    )
+    ),
+    React.createElement(BulkActionBar, {
+      count: selection.count, onClear: selection.clear,
+      actions: [
+        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+      ],
+    })
   );
 
   var selectedItem = curSelected ? curItems.find(function(x) { return x.guid === curSelected; }) : null;
@@ -7219,7 +7589,21 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
   return React.createElement("div", { className: "body" },
     sidebar,
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
-    mainPanel
+    mainPanel,
+    modalAction && React.createElement(AddToCollectionModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: modalAction,
+      onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    })
   );
 }
 
@@ -7308,9 +7692,14 @@ function NamingVocabularyView() {
   const [attempt, setAttempt] = useState(0);
   const [groups, setGroups] = useState({});
   const [error, setError]   = useState('');
+  const selection = useSelection();
+  const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   useEffect(function() {
     setState('loading'); setError('');
+    selection.clear();
     egeriaFetch('/api/naming-vocabulary', creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setGroups(data.groups || {}); setState('ready'); })
@@ -7321,7 +7710,9 @@ function NamingVocabularyView() {
   var GROUP_ORDER = ['PrimeWord', 'ClassWord', 'Modifier'];
 
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
-    React.createElement("div", { style: { fontSize: 18, fontWeight: 700, marginBottom: 4 } }, 'Naming Vocabulary'),
+    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, 'Naming Vocabulary')
+    ),
     React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)', marginBottom: 16 } },
       'The word vocabulary used to compose standard names — see the Naming Standard Rules under Governance Definitions for the rules that reference these words.'),
     state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
@@ -7329,11 +7720,32 @@ function NamingVocabularyView() {
       React.createElement("div", { style: { color: '#f87171', fontSize: 13, marginBottom: 8 } }, "Error: " + error),
       React.createElement("button", { className: "view-tab on", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "Retry")
     ),
+    state === 'ready' && React.createElement(BulkActionBar, {
+      count: selection.count, onClear: selection.clear,
+      actions: [
+        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+      ],
+    }),
     state === 'ready' && GROUP_ORDER.map(function(g) {
       var items = groups[g] || [];
+      var withGuid = items.filter(function(it) { return it.guid; });
+      var allSelected = withGuid.length > 0 && withGuid.every(function(it) { return selection.isSelected(it.guid); });
       return React.createElement("div", { key: g, style: { marginBottom: 24 } },
-        React.createElement("div", { style: { fontSize: 13, fontWeight: 600, color: 'var(--dim)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' } },
-          GROUP_LABELS[g] + ' (' + items.length + ')'
+        React.createElement("div", { style: { fontSize: 13, fontWeight: 600, color: 'var(--dim)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 10 } },
+          React.createElement("span", null, GROUP_LABELS[g] + ' (' + items.length + ')'),
+          withGuid.length > 0 && React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontWeight: 400, textTransform: 'none', letterSpacing: 0, cursor: 'pointer', userSelect: 'none' } },
+            React.createElement("input", {
+              type: "checkbox", checked: allSelected,
+              onChange: function() {
+                if (allSelected) selection.deselectAll(withGuid);
+                else selection.selectAll(withGuid.map(function(it) { return { guid: it.guid, displayName: it.displayName, typeName: it.typeName }; }));
+              },
+            }),
+            "Select all"
+          )
         ),
         items.length === 0
           ? React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)' } }, 'None found')
@@ -7342,6 +7754,10 @@ function NamingVocabularyView() {
                 key: it.guid + i,
                 style: { padding: '8px 12px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', gap: 10 }
               },
+                it.guid && React.createElement("input", {
+                  type: "checkbox", checked: selection.isSelected(it.guid), style: { marginTop: 3, flexShrink: 0, cursor: 'pointer' },
+                  onChange: function() { selection.toggle({ guid: it.guid, displayName: it.displayName, typeName: it.typeName }); },
+                }),
                 React.createElement("div", { style: { flex: 1, minWidth: 0 } },
                   React.createElement("div", { style: { fontWeight: 600, fontSize: 13 } }, it.displayName || it.guid),
                   it.description && React.createElement("div", { style: { fontSize: 12, color: 'var(--dim)', marginTop: 2 } }, it.description),
@@ -7351,6 +7767,20 @@ function NamingVocabularyView() {
               );
             })
       );
+    }),
+    modalAction && React.createElement(AddToCollectionModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: modalAction,
+      onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
     })
   );
 }
@@ -7361,9 +7791,14 @@ function PolicyEnforcementView() {
   const [attempt, setAttempt] = useState(0);
   const [groups, setGroups] = useState({});
   const [error, setError]   = useState('');
+  const selection = useSelection();
+  const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   useEffect(function() {
     setState('loading'); setError('');
+    selection.clear();
     egeriaFetch('/api/policy-enforcement', creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setGroups(data.groups || {}); setState('ready'); })
@@ -7391,11 +7826,32 @@ function PolicyEnforcementView() {
       React.createElement("div", { style: { color: '#f87171', fontSize: 13, marginBottom: 8 } }, "Error: " + error),
       React.createElement("button", { className: "view-tab on", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "Retry")
     ),
+    state === 'ready' && React.createElement(BulkActionBar, {
+      count: selection.count, onClear: selection.clear,
+      actions: [
+        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+      ],
+    }),
     state === 'ready' && GROUP_ORDER.map(function(g) {
       var items = groups[g] || [];
+      var withGuid = items.filter(function(it) { return it.guid; });
+      var allSelected = withGuid.length > 0 && withGuid.every(function(it) { return selection.isSelected(it.guid); });
       return React.createElement("div", { key: g, style: { marginBottom: 24 } },
-        React.createElement("div", { style: { fontSize: 13, fontWeight: 600, color: 'var(--dim)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' } },
-          GROUP_LABELS[g] + ' (' + items.length + ')'
+        React.createElement("div", { style: { fontSize: 13, fontWeight: 600, color: 'var(--dim)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 10 } },
+          React.createElement("span", null, GROUP_LABELS[g] + ' (' + items.length + ')'),
+          withGuid.length > 0 && React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontWeight: 400, textTransform: 'none', letterSpacing: 0, cursor: 'pointer', userSelect: 'none' } },
+            React.createElement("input", {
+              type: "checkbox", checked: allSelected,
+              onChange: function() {
+                if (allSelected) selection.deselectAll(withGuid);
+                else selection.selectAll(withGuid.map(function(it) { return { guid: it.guid, displayName: it.displayName, typeName: it.typeName }; }));
+              },
+            }),
+            "Select all"
+          )
         ),
         items.length === 0
           ? React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)' } }, 'None found')
@@ -7405,6 +7861,10 @@ function PolicyEnforcementView() {
                 key: it.guid + i,
                 style: { padding: '8px 12px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', gap: 10 }
               },
+                it.guid && React.createElement("input", {
+                  type: "checkbox", checked: selection.isSelected(it.guid), style: { marginTop: 3, flexShrink: 0, cursor: 'pointer' },
+                  onChange: function() { selection.toggle({ guid: it.guid, displayName: it.displayName, typeName: it.typeName }); },
+                }),
                 React.createElement("div", { style: { flex: 1, minWidth: 0 } },
                   React.createElement("div", { style: { fontWeight: 600, fontSize: 13 } }, it.displayName || it.guid),
                   detail.description && React.createElement("div", { style: { fontSize: 12, color: 'var(--dim)', marginTop: 2 } }, detail.description),
@@ -7414,6 +7874,20 @@ function PolicyEnforcementView() {
               );
             })
       );
+    }),
+    modalAction && React.createElement(AddToCollectionModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: modalAction,
+      onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
     })
   );
 }
@@ -7469,12 +7943,24 @@ function ActionCenterView({ onNavigateToElement, navGuid }) {
   const [state, setState]   = useState('loading');
   const [items, setItems]   = useState([]);
   const [error, setError]   = useState('');
-  const [selected, setSelected] = useState(null);
+  // Cold deep-link e.g. /egeria-explorer?guid=X#action-center (crossAppNavigate
+  // opens a NEW tab, so App()'s in-app-only actionCenterNavGuid state is still
+  // null on first mount here) — read ?guid= directly, same fallback pattern
+  // InformationSupplyChainView/etc. already use for their `selected` initializer.
+  const [selected, setSelected] = useState(function() {
+    var params = new URLSearchParams(window.location.search);
+    return navGuid || params.get('guid') || null;
+  });
   const [detail, setDetail] = useState(null);
   const [detailState, setDetailState] = useState('idle');
+  const selection = useSelection();
+  const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   useEffect(function() {
     setState('loading'); setError('');
+    selection.clear();
     var params = new URLSearchParams({ start_from: String(startFrom), page_size: String(PAGE_SIZE) });
     if (actionType !== 'all') params.set('action_type', actionType);
     egeriaFetch('/api/action-center?' + params.toString(), creds)
@@ -7530,6 +8016,11 @@ function ActionCenterView({ onNavigateToElement, navGuid }) {
               key: it.guid, className: "tree-item" + (selected === it.guid ? " sel" : ""),
               onClick: function() { setSelected(it.guid); }, title: it.qualifiedName || it.guid,
             },
+              it.guid && React.createElement("input", {
+                type: "checkbox", checked: selection.isSelected(it.guid), style: { flexShrink: 0, cursor: 'pointer', marginRight: 4 },
+                onClick: function(e) { e.stopPropagation(); },
+                onChange: function() { selection.toggle({ guid: it.guid, displayName: it.displayName, typeName: it.typeName || it.actionType }); },
+              }),
               React.createElement("div", { style: { flex: 1, minWidth: 0 } },
                 React.createElement("span", { className: "type-name" }, it.displayName || it.qualifiedName || it.guid)
               ),
@@ -7543,7 +8034,16 @@ function ActionCenterView({ onNavigateToElement, navGuid }) {
       React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)' } }, 'From ' + startFrom),
       React.createElement("button", { className: "view-tab", disabled: items.length < PAGE_SIZE,
         onClick: function() { setStartFrom(startFrom + PAGE_SIZE); } }, 'Next →')
-    )
+    ),
+    React.createElement(BulkActionBar, {
+      count: selection.count, onClear: selection.clear,
+      actions: [
+        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+      ],
+    })
   );
 
   var mainPanel = React.createElement("div", { className: "main", style: { flex: 1, overflowY: 'auto' } },
@@ -7558,7 +8058,21 @@ function ActionCenterView({ onNavigateToElement, navGuid }) {
   return React.createElement("div", { className: "body" },
     sidebar,
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
-    mainPanel
+    mainPanel,
+    modalAction && React.createElement(AddToCollectionModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: modalAction,
+      onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    })
   );
 }
 
@@ -7667,9 +8181,14 @@ function InformalTagsView({ navGuid, onNavigateToElement }) {
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter] = useState('');
   const [showPrivate, setShowPrivate] = useState(true);
+  const selection = useSelection();
+  const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   useEffect(function() {
     setState('loading'); setError('');
+    selection.clear();
     egeriaFetch('/api/informal-tags', creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setItems(data.tags || []); setState('ready'); })
@@ -7718,12 +8237,26 @@ function InformalTagsView({ navGuid, onNavigateToElement }) {
             key: x.guid, className: "tree-item" + (selected === x.guid ? " sel" : ""),
             onClick: function() { setSelected(x.guid); }, title: x.description || x.guid,
           },
+            x.guid && React.createElement("input", {
+              type: "checkbox", checked: selection.isSelected(x.guid), style: { flexShrink: 0, cursor: 'pointer', marginRight: 4 },
+              onClick: function(e) { e.stopPropagation(); },
+              onChange: function() { selection.toggle({ guid: x.guid, displayName: x.name, typeName: x.typeName || 'InformalTag' }); },
+            }),
             React.createElement("span", { className: "type-name" }, x.name),
             x.isPrivateTag && React.createElement("span", { style: { fontSize: 10, color: 'var(--dim)', marginLeft: 4 } }, '🔒')
           );
         });
       })()
-    )
+    ),
+    React.createElement(BulkActionBar, {
+      count: selection.count, onClear: selection.clear,
+      actions: [
+        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+      ],
+    })
   );
 
   var selectedItem = selected ? items.find(function(x) { return x.guid === selected; }) : null;
@@ -7739,7 +8272,21 @@ function InformalTagsView({ navGuid, onNavigateToElement }) {
   return React.createElement("div", { className: "body" },
     sidebar,
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
-    mainPanel
+    mainPanel,
+    modalAction && React.createElement(AddToCollectionModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: modalAction,
+      onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    })
   );
 }
 
@@ -7759,9 +8306,14 @@ function CommunityView({ navGuid, onNavigateToElement }) {
   const [filter, setFilter] = useState('');
   const [asOfTime, setAsOfTime] = useState(null);  // LE-3 point-in-time
   const [inclTempl, setInclTempl] = useState(false);
+  const selection = useSelection();
+  const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   useEffect(function() {
     setState('loading'); setError('');
+    selection.clear();
     var p = [];
     if (asOfTime) p.push('as_of_time=' + encodeURIComponent(asOfTime));
     if (inclTempl) p.push('include_templates=true');
@@ -7810,11 +8362,25 @@ function CommunityView({ navGuid, onNavigateToElement }) {
             key: x.guid, className: "tree-item" + (selected === x.guid ? " sel" : ""),
             onClick: function() { setSelected(x.guid); }, title: x.qualifiedName || x.guid,
           },
+            x.guid && React.createElement("input", {
+              type: "checkbox", checked: selection.isSelected(x.guid), style: { flexShrink: 0, cursor: 'pointer', marginRight: 4 },
+              onClick: function(e) { e.stopPropagation(); },
+              onChange: function() { selection.toggle({ guid: x.guid, displayName: x.displayName, typeName: x.typeName }); },
+            }),
             React.createElement("span", { className: "type-name" }, x.displayName || x.qualifiedName)
           );
         });
       })()
-    )
+    ),
+    React.createElement(BulkActionBar, {
+      count: selection.count, onClear: selection.clear,
+      actions: [
+        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+      ],
+    })
   );
 
   var selectedItem = selected ? items.find(function(x) { return x.guid === selected; }) : null;
@@ -7830,7 +8396,21 @@ function CommunityView({ navGuid, onNavigateToElement }) {
   return React.createElement("div", { className: "body" },
     sidebar,
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
-    mainPanel
+    mainPanel,
+    modalAction && React.createElement(AddToCollectionModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: modalAction,
+      onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    })
   );
 }
 
@@ -7883,9 +8463,14 @@ function BusinessCapabilityView({ navGuid, onNavigateToElement }) {
   const [filter, setFilter] = useState('');
   const [asOfTime, setAsOfTime] = useState(null);  // LE-3 point-in-time
   const [inclTempl, setInclTempl] = useState(false);
+  const selection = useSelection();
+  const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   useEffect(function() {
     setState('loading'); setError('');
+    selection.clear();
     var p = [];
     if (asOfTime) p.push('as_of_time=' + encodeURIComponent(asOfTime));
     if (inclTempl) p.push('include_templates=true');
@@ -7934,12 +8519,26 @@ function BusinessCapabilityView({ navGuid, onNavigateToElement }) {
             key: x.guid, className: "tree-item" + (selected === x.guid ? " sel" : ""),
             onClick: function() { setSelected(x.guid); }, title: x.qualifiedName || x.guid,
           },
+            x.guid && React.createElement("input", {
+              type: "checkbox", checked: selection.isSelected(x.guid), style: { flexShrink: 0, cursor: 'pointer', marginRight: 4 },
+              onClick: function(e) { e.stopPropagation(); },
+              onChange: function() { selection.toggle({ guid: x.guid, displayName: x.displayName, typeName: x.typeName }); },
+            }),
             React.createElement("span", { className: "type-name" }, x.displayName || x.qualifiedName),
             x.businessCapabilityType && React.createElement("span", { className: "badge", style: { fontSize: 9, marginLeft: 4, background: 'rgba(96,165,250,.1)', color: 'var(--accent)', border: '0.5px solid rgba(96,165,250,.3)' } }, x.businessCapabilityType)
           );
         });
       })()
-    )
+    ),
+    React.createElement(BulkActionBar, {
+      count: selection.count, onClear: selection.clear,
+      actions: [
+        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+      ],
+    })
   );
 
   var selectedItem = selected ? items.find(function(x) { return x.guid === selected; }) : null;
@@ -7955,7 +8554,21 @@ function BusinessCapabilityView({ navGuid, onNavigateToElement }) {
   return React.createElement("div", { className: "body" },
     sidebar,
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
-    mainPanel
+    mainPanel,
+    modalAction && React.createElement(AddToCollectionModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: modalAction,
+      onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    })
   );
 }
 
@@ -8144,9 +8757,14 @@ function NoteLogView({ navGuid, onNavigateToElement }) {
   const [detailState, setDetailState] = useState('idle');
   const [filter, setFilter] = useState('');
   const [inclTempl, setInclTempl] = useState(false);
+  const selection = useSelection();
+  const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   useEffect(function() {
     setState('loading'); setError('');
+    selection.clear();
     egeriaFetch('/api/notelogs' + (inclTempl ? '?include_templates=true' : ''), creds)
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setItems(data.notelogs || []); setState('ready'); })
@@ -8191,11 +8809,25 @@ function NoteLogView({ navGuid, onNavigateToElement }) {
             key: x.guid, className: "tree-item" + (selected === x.guid ? " sel" : ""),
             onClick: function() { setSelected(x.guid); }, title: x.qualifiedName || x.guid,
           },
+            x.guid && React.createElement("input", {
+              type: "checkbox", checked: selection.isSelected(x.guid), style: { flexShrink: 0, cursor: 'pointer', marginRight: 4 },
+              onClick: function(e) { e.stopPropagation(); },
+              onChange: function() { selection.toggle({ guid: x.guid, displayName: x.displayName, typeName: x.typeName }); },
+            }),
             React.createElement("span", { className: "type-name" }, x.displayName || x.qualifiedName)
           );
         });
       })()
-    )
+    ),
+    React.createElement(BulkActionBar, {
+      count: selection.count, onClear: selection.clear,
+      actions: [
+        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+      ],
+    })
   );
 
   var selectedItem = selected ? items.find(function(x) { return x.guid === selected; }) : null;
@@ -8211,7 +8843,21 @@ function NoteLogView({ navGuid, onNavigateToElement }) {
   return React.createElement("div", { className: "body" },
     sidebar,
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
-    mainPanel
+    mainPanel,
+    modalAction && React.createElement(AddToCollectionModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: modalAction,
+      onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    })
   );
 }
 
@@ -8262,11 +8908,16 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
 
   const [filter, setFilter] = useState('');
   const [inclTempl, setInclTempl] = useState(false);
+  const selection = useSelection();
+  const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   // When inclTempl changes, reset components to idle so they re-fetch.
   useEffect(function() {
     setBpState('loading'); setBlueprints([]);
     setCompState('idle'); setComponents([]);
+    selection.clear();
   }, [inclTempl]);
 
   // Load blueprints
@@ -8363,8 +9014,8 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   const sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
     // Sub-nav toggle
     React.createElement("div", { style: { display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
-      React.createElement("button", { onClick: function() { setSubNav('blueprints'); setFilter(''); }, style: { flex: 1, padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer', fontWeight: subNav === 'blueprints' ? 700 : 400, color: subNav === 'blueprints' ? 'var(--accent)' : 'var(--fg)', borderBottom: subNav === 'blueprints' ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 13 } }, "Blueprints"),
-      React.createElement("button", { onClick: function() { setSubNav('components'); setFilter(''); }, style: { flex: 1, padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer', fontWeight: subNav === 'components' ? 700 : 400, color: subNav === 'components' ? 'var(--accent)' : 'var(--fg)', borderBottom: subNav === 'components' ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 13 } }, "Components")
+      React.createElement("button", { onClick: function() { setSubNav('blueprints'); setFilter(''); selection.clear(); }, style: { flex: 1, padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer', fontWeight: subNav === 'blueprints' ? 700 : 400, color: subNav === 'blueprints' ? 'var(--accent)' : 'var(--fg)', borderBottom: subNav === 'blueprints' ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 13 } }, "Blueprints"),
+      React.createElement("button", { onClick: function() { setSubNav('components'); setFilter(''); selection.clear(); }, style: { flex: 1, padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer', fontWeight: subNav === 'components' ? 700 : 400, color: subNav === 'components' ? 'var(--accent)' : 'var(--fg)', borderBottom: subNav === 'components' ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 13 } }, "Components")
     ),
     // Search bar (shared — resets on sub-nav change)
     React.createElement("div", { className: "search-wrap" },
@@ -8397,6 +9048,11 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
             style: indent ? { paddingLeft: 26 } : null,
             onClick: function() { setSelectedBp(bp.guid); }, title: bp.qualifiedName || bp.guid,
           },
+            bp.guid && React.createElement("input", {
+              type: "checkbox", checked: selection.isSelected(bp.guid), style: { flexShrink: 0, cursor: 'pointer' },
+              onClick: function(e) { e.stopPropagation(); },
+              onChange: function() { selection.toggle({ guid: bp.guid, displayName: bp.displayName, typeName: bp.typeName || 'SolutionBlueprint' }); },
+            }),
             React.createElement("span", { className: "type-name" }, bp.displayName || bp.qualifiedName),
             bp.lifecycleStatus && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)', marginLeft: 4 } }, bp.lifecycleStatus)
           );
@@ -8456,6 +9112,11 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
               key: c.guid, className: "tree-item" + (selectedComp === c.guid ? " sel" : ""),
               onClick: function() { setSelectedComp(c.guid); }, title: c.qualifiedName || c.guid,
             },
+              c.guid && React.createElement("input", {
+                type: "checkbox", checked: selection.isSelected(c.guid), style: { flexShrink: 0, cursor: 'pointer' },
+                onClick: function(e) { e.stopPropagation(); },
+                onChange: function() { selection.toggle({ guid: c.guid, displayName: c.displayName, typeName: c.typeName || 'SolutionComponent' }); },
+              }),
               React.createElement("span", { className: "type-name" }, c.displayName || c.qualifiedName),
               c.componentType && React.createElement("span", { className: "badge", style: { fontSize: 9, background: 'rgba(96,165,250,.1)', color: '#93c5fd', border: '0.5px solid rgba(96,165,250,.3)', marginLeft: 4 } }, c.componentType)
             );
@@ -8469,11 +9130,20 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
             key: node.guid, node: node, depth: 0,
             selectedGuid: selectedComp,
             onSelect: function(guid) { setSelectedComp(guid); },
-            expanded: expandedComps, toggleNode: toggleComp,
+            expanded: expandedComps, toggleNode: toggleComp, selection: selection,
           });
         });
       })()
-    )
+    ),
+    React.createElement(BulkActionBar, {
+      count: selection.count, onClear: selection.clear,
+      actions: [
+        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+      ],
+    })
   );
 
   const mainPanel = React.createElement("div", { className: "main", style: { flex: 1, overflowY: 'auto' } },
@@ -8503,7 +9173,21 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   return React.createElement("div", { className: "body" },
     sidebar,
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
-    mainPanel
+    mainPanel,
+    modalAction && React.createElement(AddToCollectionModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: modalAction,
+      onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    })
   );
 }
 
@@ -8625,7 +9309,7 @@ function ProjectKindBadge({ typeName, properties }) {
   }, typeName);
 }
 
-function ProjectTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggle }) {
+function ProjectTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggle, selection }) {
   var isExp = expanded.has(node.guid);
   var isSel = selectedGuid === node.guid;
   var pad = 8 + depth * 16;
@@ -8637,6 +9321,11 @@ function ProjectTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggle
       node.isContainer
         ? React.createElement(FoldTriangle, { open: isExp, size: 10, style: { width: 14, marginTop: 2 } })
         : React.createElement('span', { style: { width: 14, flexShrink: 0 } }),
+      selection && node.guid && React.createElement("input", {
+        type: "checkbox", checked: selection.isSelected(node.guid), style: { flexShrink: 0, cursor: 'pointer', marginTop: 2 },
+        onClick: function(e) { e.stopPropagation(); },
+        onChange: function() { selection.toggle({ guid: node.guid, displayName: node.displayName, typeName: node.typeName }); },
+      }),
       React.createElement('div', { style: { flex: 1, minWidth: 0 } },
         React.createElement('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: (node.classifications || []).length ? 4 : 0, lineHeight: 1.3 } }, node.displayName || node.qualifiedName || node.guid),
         (node.classifications || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 3 } },
@@ -8645,7 +9334,7 @@ function ProjectTreeNode({ node, depth, selectedGuid, onSelect, expanded, toggle
       )
     ),
     isExp && (node.children || []).map(function(ch) {
-      return React.createElement(ProjectTreeNode, { key: ch.guid, node: ch, depth: depth + 1, selectedGuid: selectedGuid, onSelect: onSelect, expanded: expanded, toggle: toggle });
+      return React.createElement(ProjectTreeNode, { key: ch.guid, node: ch, depth: depth + 1, selectedGuid: selectedGuid, onSelect: onSelect, expanded: expanded, toggle: toggle, selection: selection });
     })
   );
 }
@@ -8669,6 +9358,10 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
   const [depTreeState, setDepTreeState] = React.useState('loading');
   const [expandedProjs, setExpandedProjs] = React.useState(new Set());
   const [inclTempl, setInclTempl] = React.useState(false);
+  const selection = useSelection();
+  const [modalAction, setModalAction] = React.useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = React.useState(null);
 
   var atParam = asOfTime ? '&as_of_time=' + encodeURIComponent(asOfTime) : '';
   var inclTemplParam = inclTempl ? '&include_templates=true' : '';
@@ -8676,6 +9369,7 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
   React.useEffect(function() {
     setState('loading');
     setSelected(null);
+    selection.clear();
     egeriaFetch('/api/projects?start_from=0&page_size=500' + atParam + inclTemplParam, creds)
       .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function(data) {
@@ -8757,7 +9451,7 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
       React.createElement('div', { style: { display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
         [['hierarchy', 'Hierarchy'], ['dependencies', 'Dependencies']].map(function(t) {
           return React.createElement('button', {
-            key: t[0], onClick: function() { setProjSubNav(t[0]); },
+            key: t[0], onClick: function() { setProjSubNav(t[0]); selection.clear(); },
             style: { flex: 1, padding: '7px 0', background: 'none', border: 'none', cursor: 'pointer',
                      fontWeight: projSubNav === t[0] ? 700 : 400, color: projSubNav === t[0] ? 'var(--accent)' : 'var(--fg)',
                      borderBottom: projSubNav === t[0] ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 12 },
@@ -8785,12 +9479,19 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
               ? React.createElement('div', { style: { padding: 16, fontSize: 12, color: 'var(--dim)' } }, 'No projects found.')
               : filtered.map(function(p) {
                   var isActive = selected && selected.guid === p.guid;
-                  return React.createElement('div', { key: p.guid, style: itemStyle(isActive), onClick: function() { setSelected(p); } },
-                    React.createElement('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4, lineHeight: 1.3 } }, p.displayName || p.qualifiedName || p.guid),
-                    (p.classifications || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 3 } },
-                      p.classifications.map(function(c) {
-                        return React.createElement(ProjectKindBadge, { key: c.typeName, typeName: c.typeName, properties: c.properties });
-                      })
+                  return React.createElement('div', { key: p.guid, style: Object.assign({ display: 'flex', alignItems: 'flex-start', gap: 6 }, itemStyle(isActive)), onClick: function() { setSelected(p); } },
+                    p.guid && React.createElement("input", {
+                      type: "checkbox", checked: selection.isSelected(p.guid), style: { flexShrink: 0, cursor: 'pointer', marginTop: 2 },
+                      onClick: function(e) { e.stopPropagation(); },
+                      onChange: function() { selection.toggle({ guid: p.guid, displayName: p.displayName, typeName: p.typeName }); },
+                    }),
+                    React.createElement('div', { style: { flex: 1, minWidth: 0 } },
+                      React.createElement('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4, lineHeight: 1.3 } }, p.displayName || p.qualifiedName || p.guid),
+                      (p.classifications || []).length > 0 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 3 } },
+                        p.classifications.map(function(c) {
+                          return React.createElement(ProjectKindBadge, { key: c.typeName, typeName: c.typeName, properties: c.properties });
+                        })
+                      )
                     )
                   );
                 }))
@@ -8799,10 +9500,19 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
               ? React.createElement('div', { style: { padding: 16, fontSize: 12, color: 'var(--dim)' } }, 'Loading…')
               : (activeForest && activeForest.length
                   ? activeForest.map(function(node) {
-                      return React.createElement(ProjectTreeNode, { key: node.guid, node: node, depth: 0, selectedGuid: selected && selected.guid, onSelect: setSelected, expanded: expandedProjs, toggle: toggleProj });
+                      return React.createElement(ProjectTreeNode, { key: node.guid, node: node, depth: 0, selectedGuid: selected && selected.guid, onSelect: setSelected, expanded: expandedProjs, toggle: toggleProj, selection: selection });
                     })
                   : React.createElement('div', { style: { padding: 16, fontSize: 12, color: 'var(--dim)' } }, emptyForestMsg)))
-      )
+      ),
+      React.createElement(BulkActionBar, {
+        count: selection.count, onClear: selection.clear,
+        actions: [
+          { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
+          { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        ],
+      })
     ),
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
     // Detail panel
@@ -8814,7 +9524,21 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
         : detailState === 'error'
         ? React.createElement('div', { style: { color: '#f87171' } }, 'Failed to load project detail.')
         : detail && React.createElement(ProjectDetail, { project: detail.project, children: detail.children, onSelectChild: setSelected, onNavigateToElement: onNavigateToElement })
-    )
+    ),
+    modalAction && React.createElement(AddToCollectionModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: modalAction,
+      onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    })
   );
 }
 
@@ -8996,12 +9720,17 @@ function ContextEventsView({ navGuid, onNavigateToElement }) {
   const [detail, setDetail]  = useState(null);
   const [detailSt, setDetailSt] = useState('idle');
   const [attempt, setAttempt] = useState(0);
+  const selection = useSelection();
+  const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   // load list
   useEffect(function() {
     if (!creds) return;
     setStatus('loading');
     setEvents([]);
+    selection.clear();
     var url = '/api/context-events?page_size=500' + (inclTempl ? '&include_templates=true' : '');
     egeriaFetch(url, creds)
       .then(function(r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
@@ -9123,13 +9852,30 @@ function ContextEventsView({ navGuid, onNavigateToElement }) {
           return React.createElement('div', {
             key: ev.guid,
             className: 'sidebar-item' + (isActive ? ' selected' : ''),
-            onClick: function() { setSelected(ev.guid); }
+            onClick: function() { setSelected(ev.guid); },
+            style: { display: 'flex', alignItems: 'flex-start', gap: 6, cursor: 'pointer', padding: '6px 10px' },
           },
-            React.createElement('div', { style: { fontWeight: isActive ? 600 : 400, fontSize: 13 } }, ev.displayName || ev.qualifiedName || ev.guid),
-            ev.eventEffect && React.createElement('div', { style: { fontSize: 11, color: 'var(--text-dim)', marginTop: 2 } }, ev.eventEffect)
+            ev.guid && React.createElement("input", {
+              type: "checkbox", checked: selection.isSelected(ev.guid), style: { flexShrink: 0, cursor: 'pointer', marginTop: 2 },
+              onClick: function(e) { e.stopPropagation(); },
+              onChange: function() { selection.toggle({ guid: ev.guid, displayName: ev.displayName, typeName: ev.typeName }); },
+            }),
+            React.createElement('div', { style: { flex: 1, minWidth: 0 } },
+              React.createElement('div', { style: { fontWeight: isActive ? 600 : 400, fontSize: 13 } }, ev.displayName || ev.qualifiedName || ev.guid),
+              ev.eventEffect && React.createElement('div', { style: { fontSize: 11, color: 'var(--text-dim)', marginTop: 2 } }, ev.eventEffect)
+            )
           );
         })
-      )
+      ),
+      React.createElement(BulkActionBar, {
+        count: selection.count, onClear: selection.clear,
+        actions: [
+          { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
+          { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        ],
+      })
     ),
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
     // Main panel
@@ -9272,7 +10018,21 @@ function ContextEventsView({ navGuid, onNavigateToElement }) {
             // ── Comments / feedback ─────────────────────────────────────────
             React.createElement(EgeriaCommentsSection, { guid: detail.guid })
           )
-    )
+    ),
+    modalAction && React.createElement(AddToCollectionModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: modalAction,
+      onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    })
   );
 }
 
@@ -9298,6 +10058,10 @@ function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
   const [domainFilter, setDomainFilter] = useState('all');
   const [domainOptions, setDomainOptions] = useState(null); // null=loading, []=loaded
   const [inclTempl, setInclTempl] = useState(false);
+  const selection = useSelection();
+  const [modalAction, setModalAction] = useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = useState(null);
 
   // Load governance domain options from valid metadata values
   useEffect(function() {
@@ -9344,6 +10108,7 @@ function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
   useEffect(function() {
     if (listState === 'loading') return;
     setListState('loading'); setListError('');
+    selection.clear();
     const params = new URLSearchParams({ type_name: selType, page_size: '200' });
     if (search) params.set('search_string', search);
     if (inclTempl) params.set('include_templates', 'true');
@@ -9466,6 +10231,20 @@ function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
       ),
       listState === 'error' && React.createElement('div', { style: { padding: 12, color: '#f87171', fontSize: 12 } }, listError),
       listState === 'loading' && React.createElement('div', { style: { padding: 24, textAlign: 'center', color: 'var(--dim)', fontSize: 12 } }, 'Loading…'),
+      (function() {
+        var withGuid = visibleDefs.filter(function(d) { return d.guid; });
+        var allSelected = withGuid.length > 0 && withGuid.every(function(d) { return selection.isSelected(d.guid); });
+        return withGuid.length > 0 && React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', borderBottom: '1px solid var(--border)' } },
+          React.createElement('input', {
+            type: 'checkbox', checked: allSelected,
+            onChange: function() {
+              if (allSelected) selection.deselectAll(withGuid);
+              else selection.selectAll(withGuid.map(function(d) { return { guid: d.guid, displayName: d.displayName, typeName: d.typeName }; }));
+            },
+          }),
+          'Select all visible'
+        );
+      })(),
       React.createElement('div', { className: 'tree-scroll' },
         visibleDefs.map(function(def) {
           return React.createElement('div', {
@@ -9474,11 +10253,25 @@ function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
             onClick: function() { setSelGuid(def.guid); },
             title: def.description || def.qualifiedName,
           },
+            def.guid && React.createElement('input', {
+              type: 'checkbox', checked: selection.isSelected(def.guid), style: { flexShrink: 0, cursor: 'pointer' },
+              onClick: function(e) { e.stopPropagation(); },
+              onChange: function() { selection.toggle({ guid: def.guid, displayName: def.displayName, typeName: def.typeName }); },
+            }),
             React.createElement('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13 } }, def.displayName || def.qualifiedName || def.guid),
             def.typeName !== selType && React.createElement('span', { className: 'badge', style: { fontSize: 9, background: 'rgba(167,139,250,.1)', color: '#c4b5fd', border: '0.5px solid rgba(167,139,250,.3)', flexShrink: 0, marginLeft: 4 } }, def.typeName)
           );
         })
-      )
+      ),
+      React.createElement(BulkActionBar, {
+        count: selection.count, onClear: selection.clear,
+        actions: [
+          { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
+          { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        ],
+      })
     ),
     React.createElement(ResizeDivider, { onMouseDown: onListDivDown }),
     // Right: detail
@@ -9491,7 +10284,21 @@ function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
             React.createElement('span', { style: { color: 'var(--muted)' } }, definitions.length === 0 && listState === 'ready' ? 'No definitions found' : 'Select a definition to view details')
           )
     )
-  ));  // close .body + column wrapper
+  ),
+  modalAction && React.createElement(AddToCollectionModal, {
+    items: Array.from(selection.selected.values()),
+    creds: creds,
+    action: modalAction,
+    onClose: function() { setModalAction(null); },
+    onDone: function() { selection.clear(); },
+  }),
+  zoneModalAction && React.createElement(ZoneMembershipModal, {
+    items: Array.from(selection.selected.values()),
+    creds: creds,
+    action: zoneModalAction,
+    onClose: function() { setZoneModalAction(null); },
+    onDone: function() { selection.clear(); },
+  }));  // close .body + column wrapper
 }
 
 // ── App ───────────────────────────────────────────────────────────────────────

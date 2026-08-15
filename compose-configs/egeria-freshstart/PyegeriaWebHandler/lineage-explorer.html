@@ -475,6 +475,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 })();
 </script>
 
+<!-- Provides useSelection/BulkActionBar/AddToCollectionModal/ZoneMembershipModal,
+     used by LinkedAssetsTable below (bulk-action port, 2026-08-15). Loads
+     before this page's own script, whose own MermaidDiagram/TimeSlider/
+     ResizeDivider/useResizable definitions safely take precedence over the
+     shared file's same-named ones (later plain `function` declarations
+     overwrite earlier ones in the same global scope). -->
+<script src="/static/egeria-shared-ui.js?v=2026-08-15a"></script>
+
 </head>
 <body>
 <div id="root"></div>
@@ -780,7 +788,13 @@ function ISCTable({ iscs, selectedISCGuid, onSelect, activePersona }) {
 }
 
 // ── LinkedAssetsTable ─────────────────────────────────────────────────────────
-function LinkedAssetsTable({ assets, onSetFocus }) {
+function LinkedAssetsTable({ assets, onSetFocus, creds }) {
+  const selection = useSelection();
+  // null | 'add' | 'remove' — which AddToCollectionModal action, if any, is open.
+  const [modalAction, setModalAction] = React.useState(null);
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  const [zoneModalAction, setZoneModalAction] = React.useState(null);
+
   if (!assets || assets.length === 0) {
     return React.createElement('div', { className: 'section-empty' }, 'No linked assets found.');
   }
@@ -789,47 +803,87 @@ function LinkedAssetsTable({ assets, onSetFocus }) {
     var d = new Date(v);
     return isNaN(d.getTime()) ? String(v) : d.toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' });
   }
-  return React.createElement('div', { style: { overflowX: 'auto' } },
-    React.createElement('table', null,
-      React.createElement('thead', null,
-        React.createElement('tr', null,
-          React.createElement('th', null, 'Display Name'),
-          React.createElement('th', null, 'Description'),
-          React.createElement('th', null, 'Qualified Name'),
-          React.createElement('th', null, 'GUID'),
-          React.createElement('th', null, 'Created'),
-          React.createElement('th', null, 'Updated'),
-          React.createElement('th', null, 'Actions')
+  var withGuid = assets.filter(function(a) { return a.elementHeader && a.elementHeader.guid; });
+  var allSelected = withGuid.length > 0 && withGuid.every(function(a) { return selection.isSelected(a.elementHeader.guid); });
+  function toggleAll() {
+    var items = withGuid.map(function(a) {
+      return { guid: a.elementHeader.guid, displayName: (a.properties || {}).displayName || (a.properties || {}).qualifiedName || '', typeName: (a.elementHeader.type || {}).typeName || '' };
+    });
+    if (allSelected) selection.deselectAll(items); else selection.selectAll(items);
+  }
+  return React.createElement('div', null,
+    React.createElement('div', { style: { overflowX: 'auto' } },
+      React.createElement('table', null,
+        React.createElement('thead', null,
+          React.createElement('tr', null,
+            React.createElement('th', { style: { width: 24 } },
+              React.createElement('input', { type: 'checkbox', checked: allSelected, onChange: toggleAll, style: { cursor: 'pointer' } })),
+            React.createElement('th', null, 'Display Name'),
+            React.createElement('th', null, 'Description'),
+            React.createElement('th', null, 'Qualified Name'),
+            React.createElement('th', null, 'GUID'),
+            React.createElement('th', null, 'Created'),
+            React.createElement('th', null, 'Updated'),
+            React.createElement('th', null, 'Actions')
+          )
+        ),
+        React.createElement('tbody', null,
+          assets.map(function(asset, i) {
+            var hdr  = asset.elementHeader || {};
+            var prop = asset.properties    || {};
+            var superTypes = ((hdr.type || {}).superTypeNames || []);
+            var isAsset = superTypes.indexOf('Asset') !== -1 || (hdr.type || {}).typeName === 'Asset';
+            return React.createElement('tr', { key: hdr.guid || i },
+              React.createElement('td', null,
+                hdr.guid && React.createElement('input', {
+                  type: 'checkbox', checked: selection.isSelected(hdr.guid), style: { cursor: 'pointer' },
+                  onChange: function() { selection.toggle({ guid: hdr.guid, displayName: prop.displayName || prop.qualifiedName || '', typeName: (hdr.type || {}).typeName || '' }); },
+                })),
+              React.createElement('td', null, prop.displayName || prop.qualifiedName || ''),
+              React.createElement('td', { style: { color: 'var(--muted)', maxWidth: 200 } }, prop.description || ''),
+              React.createElement('td', { className: 'mono td-trunc', title: prop.qualifiedName }, prop.qualifiedName || ''),
+              React.createElement('td', { className: 'guid-cell', title: hdr.guid }, hdr.guid || ''),
+              React.createElement('td', { style: { whiteSpace: 'nowrap' } }, fmtDate((hdr.versions && hdr.versions.createTime) || hdr.createTime)),
+              React.createElement('td', { style: { whiteSpace: 'nowrap' } }, fmtDate((hdr.versions && hdr.versions.updateTime) || hdr.updateTime)),
+              React.createElement('td', { style: { whiteSpace: 'nowrap' } },
+                isAsset && onSetFocus && React.createElement('button', {
+                  className: 'btn btn-focus', style: { marginRight: 4 },
+                  onClick: function() { onSetFocus({ guid: hdr.guid, displayName: prop.displayName || prop.qualifiedName || '', typeName: (hdr.type || {}).typeName || '', qualifiedName: prop.qualifiedName || '', description: prop.description || '' }); }
+                }, 'Set as Focus'),
+                hdr.guid && React.createElement('a', {
+                  href: '/tech-catalog?guid=' + encodeURIComponent(hdr.guid),
+                  target: '_blank',
+                  className: 'btn btn-view', style: { textDecoration: 'none' }
+                }, 'View in Catalog')
+              )
+            );
+          })
         )
-      ),
-      React.createElement('tbody', null,
-        assets.map(function(asset, i) {
-          var hdr  = asset.elementHeader || {};
-          var prop = asset.properties    || {};
-          var superTypes = ((hdr.type || {}).superTypeNames || []);
-          var isAsset = superTypes.indexOf('Asset') !== -1 || (hdr.type || {}).typeName === 'Asset';
-          return React.createElement('tr', { key: hdr.guid || i },
-            React.createElement('td', null, prop.displayName || prop.qualifiedName || ''),
-            React.createElement('td', { style: { color: 'var(--muted)', maxWidth: 200 } }, prop.description || ''),
-            React.createElement('td', { className: 'mono td-trunc', title: prop.qualifiedName }, prop.qualifiedName || ''),
-            React.createElement('td', { className: 'guid-cell', title: hdr.guid }, hdr.guid || ''),
-            React.createElement('td', { style: { whiteSpace: 'nowrap' } }, fmtDate((hdr.versions && hdr.versions.createTime) || hdr.createTime)),
-            React.createElement('td', { style: { whiteSpace: 'nowrap' } }, fmtDate((hdr.versions && hdr.versions.updateTime) || hdr.updateTime)),
-            React.createElement('td', { style: { whiteSpace: 'nowrap' } },
-              isAsset && onSetFocus && React.createElement('button', {
-                className: 'btn btn-focus', style: { marginRight: 4 },
-                onClick: function() { onSetFocus({ guid: hdr.guid, displayName: prop.displayName || prop.qualifiedName || '', typeName: (hdr.type || {}).typeName || '', qualifiedName: prop.qualifiedName || '', description: prop.description || '' }); }
-              }, 'Set as Focus'),
-              hdr.guid && React.createElement('a', {
-                href: '/tech-catalog?guid=' + encodeURIComponent(hdr.guid),
-                target: '_blank',
-                className: 'btn btn-view', style: { textDecoration: 'none' }
-              }, 'View in Catalog')
-            )
-          );
-        })
       )
-    )
+    ),
+    React.createElement(BulkActionBar, {
+      count: selection.count, onClear: selection.clear,
+      actions: [
+        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+      ],
+    }),
+    modalAction && React.createElement(AddToCollectionModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: modalAction,
+      onClose: function() { setModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    zoneModalAction && React.createElement(ZoneMembershipModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: zoneModalAction,
+      onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    })
   );
 }
 
@@ -1061,7 +1115,7 @@ function MainPanel({ focusAsset, creds, onSetFocus, activePersona }) {
             'Linked Assets'),
           React.createElement('div', { className: 'section-desc', style: { marginBottom: 10 } },
             'All assets that appear in the full lineage graph above.'),
-          React.createElement(LinkedAssetsTable, { assets: linkedAssets, onSetFocus: onSetFocus })
+          React.createElement(LinkedAssetsTable, { assets: linkedAssets, onSetFocus: onSetFocus, creds: creds })
         )
       )
     )
