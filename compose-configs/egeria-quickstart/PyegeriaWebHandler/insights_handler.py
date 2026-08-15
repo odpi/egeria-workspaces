@@ -1,7 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright Contributors to the ODPi Egeria project.
 """
-Egeria Insights — FastAPI router.
+Query (formerly "Egeria Insights" in the UI, renamed 2026-08-14 — see
+BACKLOG.md) — FastAPI router. Module/route/API names kept as
+insights_handler.py / /egeria-insights / /api/insights/* for backward
+compatibility: bookmarks, Apache's proxy Location blocks, and the
+pyegeriaInsightsQuery marker key already written into stored Egeria
+additionalProperties by earlier saved queries all depend on these staying
+put — only user-facing display text changed.
 
 New portal app for cross-cutting governance search: compound classification +
 zone faceted search over Egeria's native find_metadata_elements API. A query
@@ -160,6 +166,26 @@ def _am(url=None, server=None, user_id=None, user_pwd=None):
     return am
 
 
+def _rm(url=None, server=None, user_id=None, user_pwd=None):
+    """RuntimeManager factory — used only by the Smart Collection registration
+    step below, to nudge SmartCollectionsMembershipManager to refresh
+    immediately after registering a new catalog target rather than making the
+    user wait for its default ~30 min cycle. `server` here is deliberately
+    NOT the view server the other factories use — refresh_integration_connector
+    needs the INTEGRATION DAEMON that actually runs the connector."""
+    from pyegeria import RuntimeManager
+    import pyegeria
+    pyegeria.enable_ssl_check = False
+    pyegeria.disable_ssl_warnings = True
+    url      = url      or os.environ.get("EGERIA_PLATFORM_URL", "https://localhost:9443")
+    server   = server   or _SMART_COLLECTIONS_DAEMON_SERVER
+    user_id  = user_id  or os.environ.get("EGERIA_USER",          "erinoverview")
+    user_pwd = user_pwd or os.environ.get("EGERIA_USER_PASSWORD", "secret")
+    rm = RuntimeManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+    apply_token(rm)
+    return rm
+
+
 # ── search-condition body construction ──────────────────────────────────────
 
 class Condition(BaseModel):
@@ -238,6 +264,8 @@ class SavedQueryBody(BaseModel):
     name: str
     description: Optional[str] = None
     search: SearchBody
+    make_smart_collection: bool = False   # register with SmartCollectionsMembershipManager — see the
+                                           # "Smart Collections registration" section above create_saved_query
     url: Optional[str] = None
     server: Optional[str] = None
     user_id: Optional[str] = None
@@ -346,6 +374,70 @@ def _build_find_body(search: SearchBody) -> dict:
     # see _relationship_participant_types) and runs one directly-typed,
     # exhaustive search per real type, merging the results.
     return body
+
+
+# ── Smart Collections registration (SavedQuery -> live-refreshed ResultsSet) ─
+#
+# https://egeria-project.org/egeria-solutions/smart-collections/overview/
+#
+# Registering a saved query as a Smart Collection means: (1) the SavedQuery
+# asset carries a REAL Egeria REST call in queryURL/queryRequestBody (not
+# just this app's own /api/insights/search convenience wrapper — the
+# SmartCollectionsMembershipManager connector executes queryURL/
+# queryRequestBody verbatim, so it has to be a genuine Egeria endpoint that
+# returns an OpenMetadataElement list, e.g. MetadataExpert's own
+# metadata-elements/by-search-conditions, the exact endpoint
+# find_metadata_elements() already calls internally — see _build_find_body
+# above), and (2) its ResultsSet is attached to the SmartCollectionsMembershipManager
+# integration connector as a *catalog target*, which is what actually puts it
+# under the connector's management — the SmartQuery relationship alone only
+# says "these two are related", it's the catalog target that tells the
+# connector "keep this one's membership current". Once both are in place,
+# Egeria's own SmartCollectionsMembershipManager (not this app) refreshes
+# membership on its own schedule (default ~30 min) or on-demand — this app
+# never re-executes the query itself for a registered collection, unlike the
+# existing manual "Refresh" action below, which stays app-driven and keeps
+# working (harmlessly redundant) whether or not a query is also registered.
+#
+# Connector GUID is FIXED by its registration in Egeria's core content pack
+# (IntegrationConnectorDefinition.SMART_COLLECTIONS_MEMBERSHIP_MANAGER) —
+# confirmed live against qs-metadata-store 2026-08-12, same GUID documented
+# in core Egeria's own Egeria-smart-collections.http walkthrough. Not
+# per-deployment configuration; every standard Egeria install using the core
+# content pack has this same connector at this same GUID.
+_SMART_COLLECTIONS_CONNECTOR_GUID = "217bd925-b50d-4596-9ade-1d7a940e8874"
+_SMART_COLLECTIONS_CONNECTOR_NAME = "SmartCollectionsMembershipManager"
+_SMART_COLLECTIONS_CATALOG_TARGET_NAME = "resultsSetToMaintain"
+# The integration daemon that actually runs the connector — confirmed live by
+# its config's dynamicIntegrationGroupsConfig carrying
+# "Egeria:IntegrationGroup:SmartCollections" (qs-integration-daemon does not).
+_SMART_COLLECTIONS_DAEMON_SERVER = os.environ.get("EGERIA_SMART_COLLECTIONS_DAEMON", "qs-nanny-daemon")
+
+
+def _is_relationship_only(search: SearchBody) -> bool:
+    """Same predicate search_elements() uses to pick its relationship-only
+    branch (client-side multi-type fan-out+merge, not one Egeria call) —
+    factored out because Smart Collection registration can't express that
+    branch as a single queryURL/queryRequestBody pair and needs the same
+    check to refuse registration cleanly instead of silently registering a
+    query that would never match anything server-side."""
+    return (not search.type_name and not search.conditions and not search.value_conditions
+            and bool(search.relationship_conditions))
+
+
+def _smart_collection_query_call(search: SearchBody, url: Optional[str], server: Optional[str]) -> tuple:
+    """Build the (queryURL, queryRequestBody) pair for a Smart Collection
+    registration — the real Egeria REST call SmartCollectionsMembershipManager
+    will execute verbatim, on its own schedule, forever. Reuses
+    _build_find_body so this is exactly the same FindRequestBody
+    find_metadata_elements() sends for a live (non-full-count) search, just
+    with startFrom/pageSize/graphQueryDepth filled in explicitly since there's
+    no caller left at connector-execution time to supply them."""
+    platform_url = (url or os.environ.get("EGERIA_PLATFORM_URL", "https://localhost:9443")).rstrip("/")
+    view_server  = server or os.environ.get("EGERIA_VIEW_SERVER", "qs-view-server")
+    find_body = {**_build_find_body(search), "graphQueryDepth": 0, "startFrom": 0, "pageSize": 500}
+    query_url = f"{platform_url}/servers/{view_server}/api/open-metadata/metadata-expert/metadata-elements/by-search-conditions"
+    return query_url, json.dumps(find_body)
 
 
 # ── element / classification serialisation ──────────────────────────────────
@@ -608,7 +700,7 @@ def _sort_results(results: List[dict], sort_by: Optional[str], sort_dir: str) ->
 @router.get("/egeria-insights", include_in_schema=False)
 def serve_insights():
     if not _HTML.exists():
-        raise HTTPException(status_code=404, detail="Egeria Insights page not found")
+        raise HTTPException(status_code=404, detail="Query page not found")
     return FileResponse(_HTML, media_type="text/html",
                         headers={"Cache-Control": "no-store, must-revalidate"})
 
@@ -1199,6 +1291,7 @@ def _saved_query_summary(el: dict) -> dict:
         "resultCount":       int(result_count) if result_count.isdigit() else None,
         "favorite":          additional.get("favorite") == "true",
         "resultsSetGuid":    additional.get("resultsSetGuid") or None,
+        "smartCollection":   additional.get("smartCollection") == "true",
     }
 
 
@@ -1211,8 +1304,20 @@ def create_saved_query(body: SavedQueryBody = Body(...)):
         logger.exception("insights: failed to create clients for saved-query create")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
+    if body.make_smart_collection and _is_relationship_only(body.search):
+        raise HTTPException(
+            status_code=400,
+            detail="This query only has relationship condition(s) — those are resolved client-side by "
+                   "fanning out across each participant type, which isn't expressible as the single REST "
+                   "call a Smart Collection registration needs. Add a type, classification, or property "
+                   "condition, or save it without Smart Collection registration.",
+        )
+
     spec = _search_spec(body.search)
     suffix = uuid.uuid4().hex[:8]
+    query_url = query_request_body = None
+    if body.make_smart_collection:
+        query_url, query_request_body = _smart_collection_query_call(body.search, body.url, body.server)
 
     # ResultsSet first (empty — nothing materialized yet), so its GUID can be
     # embedded in the SavedQuery's additionalProperties at creation time
@@ -1234,18 +1339,27 @@ def create_saved_query(body: SavedQueryBody = Body(...)):
         logger.exception("insights: saved-query create failed (ResultsSet)")
         raise HTTPException(status_code=500, detail=str(exc))
 
+    saved_query_props = {
+        "class": "SavedQueryProperties",
+        "typeName": _QUERY_TYPE,
+        "qualifiedName": f"SavedQuery::insights-query::{body.name}::{suffix}",
+        "displayName": body.name,
+        "description": body.description or "",
+        "formula": json.dumps(spec),
+        "formulaType": _QUERY_FORMULA_TYPE,
+    }
+    if body.make_smart_collection:
+        # Typed properties SmartCollectionsMembershipManager reads directly —
+        # see the "Smart Collections registration" section above.
+        saved_query_props["queryURL"] = query_url
+        saved_query_props["queryRequestBody"] = query_request_body
+
     try:
         saved_query_guid = am.create_asset(asset_type=["SavedQueryProperties"], body={
             "class": "NewElementRequestBody",
             "isOwnAnchor": True,
             "properties": {
-                "class": "SavedQueryProperties",
-                "typeName": _QUERY_TYPE,
-                "qualifiedName": f"SavedQuery::insights-query::{body.name}::{suffix}",
-                "displayName": body.name,
-                "description": body.description or "",
-                "formula": json.dumps(spec),
-                "formulaType": _QUERY_FORMULA_TYPE,
+                **saved_query_props,
                 "additionalProperties": {
                     _QUERY_MARKER_KEY: _QUERY_MARKER_VALUE,
                     "queryUrl": "/api/insights/search",
@@ -1254,6 +1368,7 @@ def create_saved_query(body: SavedQueryBody = Body(...)):
                     "lastRefreshedTime": "",
                     "resultCount": "",
                     "favorite": "false",
+                    "smartCollection": "true" if body.make_smart_collection else "false",
                 },
             },
         })
@@ -1276,19 +1391,50 @@ def create_saved_query(body: SavedQueryBody = Body(...)):
             logger.debug(f"insights: failed to roll back saved query {saved_query_guid} / ResultsSet {results_set_guid}")
         raise HTTPException(status_code=500, detail=str(exc))
 
+    # Smart Collection registration, step 2: attach the ResultsSet to
+    # SmartCollectionsMembershipManager as a catalog target. This — not the
+    # SmartQuery relationship above — is what actually puts the ResultsSet
+    # under the connector's management. Best-effort: the SavedQuery/ResultsSet/
+    # SmartQuery trio is already fully created and independently useful (the
+    # app's own manual Refresh action still works against it) even if this
+    # step fails, so a failure here is reported back rather than rolled back.
+    catalog_target_attached = False
+    if body.make_smart_collection:
+        try:
+            am.add_catalog_target(_SMART_COLLECTIONS_CONNECTOR_GUID, results_set_guid, body={
+                "class": "NewRelationshipRequestBody",
+                "properties": {
+                    "class": "CatalogTargetProperties",
+                    "catalogTargetName": _SMART_COLLECTIONS_CATALOG_TARGET_NAME,
+                },
+            })
+            catalog_target_attached = True
+        except Exception:  # noqa: BLE001
+            logger.exception(f"insights: failed to attach ResultsSet {results_set_guid} as a "
+                              f"SmartCollectionsMembershipManager catalog target for saved query {saved_query_guid}")
+        # Nudge an immediate refresh so results appear now instead of after the
+        # connector's default ~30 min cycle — best-effort, same reasoning.
+        if catalog_target_attached:
+            try:
+                rm = _rm(body.url, None, body.user_id, body.user_pwd)
+                rm.refresh_integration_connector(connector_name=_SMART_COLLECTIONS_CONNECTOR_NAME,
+                                                  display_name=_SMART_COLLECTIONS_DAEMON_SERVER)
+            except Exception:  # noqa: BLE001 — the connector's own schedule will pick it up regardless
+                logger.debug(f"insights: on-demand refresh trigger failed for saved query {saved_query_guid} "
+                              f"(will still refresh on {_SMART_COLLECTIONS_CONNECTOR_NAME}'s normal cycle)")
+
     # Stamp the relationship's own GUID onto the SavedQuery so delete never
     # needs to look it back up by its two endpoint GUIDs — see the module
-    # docstring above on why that lookup path isn't relied on here.
+    # docstring above on why that lookup path isn't relied on here. Also
+    # re-sends queryURL/queryRequestBody (update is a full property replace,
+    # not a merge — see every other update_asset call in this file) and
+    # records whether the catalog-target attach above actually succeeded, so
+    # the UI can show an accurate badge rather than assuming success.
     try:
         am.update_asset(saved_query_guid, {
             "class": "UpdateElementRequestBody",
             "properties": {
-                "class": "SavedQueryProperties",
-                "qualifiedName": f"SavedQuery::insights-query::{body.name}::{suffix}",
-                "displayName": body.name,
-                "description": body.description or "",
-                "formula": json.dumps(spec),
-                "formulaType": _QUERY_FORMULA_TYPE,
+                **saved_query_props,
                 "additionalProperties": {
                     _QUERY_MARKER_KEY: _QUERY_MARKER_VALUE,
                     "queryUrl": "/api/insights/search",
@@ -1298,6 +1444,7 @@ def create_saved_query(body: SavedQueryBody = Body(...)):
                     "lastRefreshedTime": "",
                     "resultCount": "",
                     "favorite": "false",
+                    "smartCollection": "true" if catalog_target_attached else "false",
                 },
             },
         })
@@ -1305,7 +1452,11 @@ def create_saved_query(body: SavedQueryBody = Body(...)):
         # means delete falls back to (currently flaky, see module docstring) relationship lookup by GUID
         logger.exception(f"insights: failed to stamp smartQueryRelGuid on saved query {saved_query_guid}")
 
-    return JSONResponse({"guid": saved_query_guid, "name": body.name})
+    return JSONResponse({
+        "guid": saved_query_guid, "name": body.name,
+        "smartCollection": catalog_target_attached,
+        "smartCollectionRequested": body.make_smart_collection,
+    })
 
 
 @router.get("/api/insights/queries", summary="List saved queries")
@@ -1353,7 +1504,7 @@ def get_saved_query(
         raise HTTPException(status_code=404, detail=f"Saved query not found: {exc}")
     additional = ((el or {}).get("properties") or {}).get("additionalProperties") or {}
     if additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
-        raise HTTPException(status_code=404, detail="Not a saved Insights query")
+        raise HTTPException(status_code=404, detail="Not a saved query")
     return JSONResponse(_saved_query_summary(el))
 
 
@@ -1370,22 +1521,79 @@ def update_saved_query(guid: str, body: SavedQueryBody = Body(...)):
     props = (el or {}).get("properties") or {}
     existing_additional = props.get("additionalProperties") or {}
     if existing_additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
-        raise HTTPException(status_code=404, detail="Not a saved Insights query")
+        raise HTTPException(status_code=404, detail="Not a saved query")
+
+    was_smart = existing_additional.get("smartCollection") == "true"
+    want_smart = body.make_smart_collection
+    if want_smart and _is_relationship_only(body.search):
+        raise HTTPException(
+            status_code=400,
+            detail="This query only has relationship condition(s) — not expressible as the single REST "
+                   "call Smart Collection registration needs. Add a type, classification, or property "
+                   "condition, or leave Smart Collection registration off.",
+        )
 
     spec = _search_spec(body.search)
+    results_set_guid = existing_additional.get("resultsSetGuid")
+
+    smart_now = was_smart
+    if want_smart and not was_smart:
+        # Turning it on: attach the catalog target now (same best-effort
+        # posture as create_saved_query — the rest of the save shouldn't fail
+        # just because this step did).
+        try:
+            am.add_catalog_target(_SMART_COLLECTIONS_CONNECTOR_GUID, results_set_guid, body={
+                "class": "NewRelationshipRequestBody",
+                "properties": {
+                    "class": "CatalogTargetProperties",
+                    "catalogTargetName": _SMART_COLLECTIONS_CATALOG_TARGET_NAME,
+                },
+            })
+            smart_now = True
+        except Exception:  # noqa: BLE001
+            logger.exception(f"insights: failed to attach ResultsSet {results_set_guid} as a catalog "
+                              f"target while enabling Smart Collection on saved query {guid}")
+    elif was_smart and not want_smart:
+        # Turning it off: clears queryURL/queryRequestBody below (and this
+        # app stops treating it as registered), but does NOT detach the
+        # existing catalog target relationship in Egeria — finding it back
+        # requires scanning SmartCollectionsMembershipManager's full catalog
+        # target list, not worth the round-trip on a toggle. The connector
+        # will keep refreshing this ResultsSet from its OLD query snapshot
+        # (queryURL/queryRequestBody as they were at the time of the last
+        # attach) until someone detaches it directly. Acceptable for now;
+        # revisit if this proves confusing in practice.
+        logger.info(f"insights: saved query {guid} Smart Collection disabled in this app, but its "
+                     f"SmartCollectionsMembershipManager catalog target was NOT detached — see code comment")
+        smart_now = False
+
+    update_props = {
+        "class": "SavedQueryProperties",
+        "qualifiedName": props.get("qualifiedName"),  # must be preserved — Egeria requires it on update
+        "displayName": body.name,
+        "description": body.description or "",
+        "formula": json.dumps(spec),
+        "formulaType": props.get("formulaType") or _QUERY_FORMULA_TYPE,
+    }
+    if smart_now:
+        # Regenerated from the (possibly just-edited) spec so a registered
+        # collection's live query always matches what's shown in the builder.
+        query_url, query_request_body = _smart_collection_query_call(body.search, body.url, body.server)
+        update_props["queryURL"] = query_url
+        update_props["queryRequestBody"] = query_request_body
+    # else: omitted entirely — a full property replace (see every other
+    # update_asset call in this file), so leaving these out clears them.
+
     # Editing the filter logic doesn't itself materialize new results —
     # lastRefreshedTime/resultCount carry over untouched; use the refresh
     # action for that.
+    new_additional = dict(existing_additional)
+    new_additional["smartCollection"] = "true" if smart_now else "false"
     update_body = {
         "class": "UpdateElementRequestBody",
         "properties": {
-            "class": "SavedQueryProperties",
-            "qualifiedName": props.get("qualifiedName"),  # must be preserved — Egeria requires it on update
-            "displayName": body.name,
-            "description": body.description or "",
-            "formula": json.dumps(spec),
-            "formulaType": props.get("formulaType") or _QUERY_FORMULA_TYPE,
-            "additionalProperties": existing_additional,
+            **update_props,
+            "additionalProperties": new_additional,
         },
     }
     try:
@@ -1393,7 +1601,7 @@ def update_saved_query(guid: str, body: SavedQueryBody = Body(...)):
     except Exception as exc:
         logger.exception(f"insights: saved-query update failed for {guid}")
         raise HTTPException(status_code=500, detail=str(exc))
-    return JSONResponse({"guid": guid, "name": body.name})
+    return JSONResponse({"guid": guid, "name": body.name, "smartCollection": smart_now})
 
 
 class FavoriteBody(BaseModel):
@@ -1417,7 +1625,7 @@ def set_saved_query_favorite(guid: str, body: FavoriteBody = Body(...)):
     props = (el or {}).get("properties") or {}
     existing_additional = props.get("additionalProperties") or {}
     if existing_additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
-        raise HTTPException(status_code=404, detail="Not a saved Insights query")
+        raise HTTPException(status_code=404, detail="Not a saved query")
 
     additional = dict(existing_additional)
     additional["favorite"] = "true" if body.favorite else "false"
@@ -1458,7 +1666,7 @@ def delete_saved_query(
         raise HTTPException(status_code=404, detail=f"Saved query not found: {exc}")
     additional = ((el or {}).get("properties") or {}).get("additionalProperties") or {}
     if additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
-        raise HTTPException(status_code=404, detail="Not a saved Insights query")
+        raise HTTPException(status_code=404, detail="Not a saved query")
 
     results_set_guid = additional.get("resultsSetGuid")
     rel_guid = additional.get("smartQueryRelGuid")
@@ -1525,7 +1733,7 @@ def get_saved_query_results(
         raise HTTPException(status_code=404, detail=f"Saved query not found: {exc}")
     additional = ((el or {}).get("properties") or {}).get("additionalProperties") or {}
     if additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
-        raise HTTPException(status_code=404, detail="Not a saved Insights query")
+        raise HTTPException(status_code=404, detail="Not a saved query")
     results_set_guid = additional.get("resultsSetGuid")
     if not results_set_guid:
         return JSONResponse({"results": [], "total": 0})
@@ -1552,7 +1760,7 @@ def refresh_saved_query(guid: str, body: RefreshQueryBody = Body(...)):
     props = (el or {}).get("properties") or {}
     additional = props.get("additionalProperties") or {}
     if additional.get(_QUERY_MARKER_KEY) != _QUERY_MARKER_VALUE:
-        raise HTTPException(status_code=404, detail="Not a saved Insights query")
+        raise HTTPException(status_code=404, detail="Not a saved query")
     results_set_guid = additional.get("resultsSetGuid")
     if not results_set_guid:
         raise HTTPException(status_code=500, detail="Saved query has no linked ResultsSet — cannot materialize results")

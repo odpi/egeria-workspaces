@@ -1,0 +1,46 @@
+---
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Contributors to the Egeria project
+#
+# Configures a DuckDB federation server using Buenavista (Postgres proxy).
+# This allows PG-compatible clients (like Superset, Egeria, or psql) to query DuckDB,
+# which in turn can federate queries to Postgres, S3, Iceberg, etc.
+#
+# Port 5433 is used to avoid conflict with the shared Postgres (5442).
+
+services:
+  duckdb-federation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: egeria-duckdb-federation
+    ports:
+      - "5433:5433"
+    networks:
+      - egeria_network
+    environment:
+      - DUCKDB_FILE=/data/federation.duckdb
+      - POSTGRES_HOST=egeria-shared-postgres
+      - POSTGRES_PORT=5442
+    volumes:
+      - duckdb_data:/data
+      - ../../../exchange-quickstart:/mnt/exchange-quickstart
+      - ../../../exchange-freshstart:/mnt/exchange-freshstart
+      - ../../../runtime-volumes:/mnt/runtime-volumes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import psycopg2; psycopg2.connect(host=\"localhost\", port=5433, user=\"duckdb\", password=\"password\")'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  duckdb_data:
+    name: egeria_duckdb_data
+    driver: local
+
+networks:
+  egeria_network:
+    name: egeria_network
+    external: true

@@ -58,8 +58,9 @@ pasting it in by hand.
 """
 import json
 import os
+import time
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse
@@ -75,6 +76,40 @@ _DOCS_DIR = Path(os.getenv(
     "/deployments/loading-bay/dr-egeria-inbox/Local Dashboards",
 ))
 
+# ── caching (BACKLOG.md NEXT-22) ─────────────────────────────────────────────
+# Before this, every route re-read/re-parsed the sheet store from disk, re-
+# fetched the report spec registry, and did a live Egeria find per Report-
+# typed placement -- on every single page load. overview_handler.py already
+# solved the equivalent problem for Overview with a tiny TTL cache; mirrored
+# here for the registry/report lookups. The sheet store gets a different
+# (mtime-based, not TTL) strategy below since it's a local file this process
+# doesn't exclusively own -- Dr.Egeria command processing
+# (egeria-python md_processing/v2/dashboard_sheet.py) writes it directly,
+# outside this handler, so a blind TTL could serve stale content after an
+# external write; comparing mtime catches that immediately instead of after
+# up to _CACHE_TTL seconds.
+
+_CACHE_TTL = 60.0  # seconds; matches overview_handler.py's default general TTL
+_cache: dict[str, tuple[float, Any]] = {}
+
+# Sentinel so a cached "no Report found" result is distinguishable from
+# "nothing cached yet" -- _find_report_by_name legitimately returns None for
+# unresolved placements, and that negative result is worth caching too
+# (otherwise a "missing" placement retries its failed lookup every request).
+_MISS = object()
+
+
+def _cache_get(key: str):
+    hit = _cache.get(key)
+    if hit and (time.time() - hit[0]) < _CACHE_TTL:
+        return hit[1]
+    return None
+
+
+def _cache_put(key: str, value: Any):
+    _cache[key] = (time.time(), value)
+    return value
+
 
 def _store_path() -> str:
     return os.path.expanduser(
@@ -82,22 +117,45 @@ def _store_path() -> str:
     )
 
 
+# path -> (mtime, DashboardSheetDict)
+_sheets_cache: dict[str, tuple[float, Any]] = {}
+
+
 def _load_sheets():
     from pyegeria.view._output_dashboard_sheet_models import DashboardSheetDict
     path = _store_path()
-    if os.path.exists(path):
-        return DashboardSheetDict.load_from_json(path)
-    return DashboardSheetDict()
+    if not os.path.exists(path):
+        return DashboardSheetDict()
+    mtime = os.path.getmtime(path)
+    cached = _sheets_cache.get(path)
+    if cached and cached[0] == mtime:
+        return cached[1]
+    sheets = DashboardSheetDict.load_from_json(path)
+    _sheets_cache[path] = (mtime, sheets)
+    return sheets
+
+
+def _invalidate_sheets_cache() -> None:
+    """Force the next _load_sheets() to re-read from disk. Called after this
+    handler's own writes (delete) so a same-second reload doesn't miss the
+    change on filesystems with coarse (1s) mtime resolution -- the mtime
+    check above already covers writes from anywhere else (e.g. Dr.Egeria
+    command processing), this just removes the same-second race for our own."""
+    _sheets_cache.pop(_store_path(), None)
 
 
 def _save_sheets(sheets) -> None:
     from pyegeria.view._output_dashboard_sheet_models import save_dashboard_sheets_to_json
     save_dashboard_sheets_to_json(sheets, _store_path())
+    _invalidate_sheets_cache()
 
 
 def _report_registry() -> dict:
     from pyegeria.view.base_report_formats import get_report_registry
-    return get_report_registry()
+    hit = _cache_get("registry")
+    if hit is not None:
+        return hit
+    return _cache_put("registry", get_report_registry())
 
 
 # ── Live Egeria lookup for Report-typed placements ──────────────────────────
@@ -139,10 +197,28 @@ def _flatten_property_value_map(pvm: dict) -> dict:
     return out
 
 
-def _find_report_by_name(name: str, mgr) -> Optional[dict]:
+def _find_report_by_name(name: str, mgr, url=None, server=None, user_id=None) -> Optional[dict]:
     """Look up a `Report` element by exact display name. Returns a dict with
     guid/heading/description/reportSpec/outputFormat/params, or None if not
-    found (or on any lookup failure -- best-effort, never raises)."""
+    found (or on any lookup failure -- best-effort, never raises).
+
+    Cached for _CACHE_TTL seconds per (name, url, server, user_id) -- this is
+    otherwise a live Egeria find call per Report-typed placement, per page
+    load (BACKLOG.md NEXT-22). url/server/user_id are for cache-key scoping
+    only (mgr already carries the resolved connection); a stale hit within
+    the TTL simply means a Report renamed/reconfigured via Dr.Egeria can take
+    up to _CACHE_TTL seconds to show up here, same tradeoff overview_handler.py
+    already accepts for its own cached endpoints."""
+    ckey = f"report|{name}|{url}|{server}|{user_id}"
+    cached = _cache_get(ckey)
+    if cached is not None:
+        return None if cached is _MISS else cached
+    result = _find_report_by_name_uncached(name, mgr)
+    _cache_put(ckey, result if result is not None else _MISS)
+    return result
+
+
+def _find_report_by_name_uncached(name: str, mgr) -> Optional[dict]:
     try:
         results = mgr.find_metadata_elements_with_string(
             search_string=name, starts_with=False, ends_with=False, ignore_case=False,
@@ -183,7 +259,7 @@ def _find_report_by_name(name: str, mgr) -> Optional[dict]:
     return None
 
 
-def _serialize_placement(p, sheets, registry, mgr) -> dict:
+def _serialize_placement(p, sheets, registry, mgr, url=None, server=None, user_id=None) -> dict:
     # A text placement (Dr.Egeria "Add Text on Dashboard Sheet") carries its
     # content inline -- no Egeria lookup needed at all, so check it before
     # attempting a Report/Sheet resolution (which would otherwise treat a
@@ -192,8 +268,9 @@ def _serialize_placement(p, sheets, registry, mgr) -> dict:
         return {
             "ref": p.ref, "span": p.span, "emphasis": p.emphasis, "kind": "text",
             "heading": p.ref, "content": p.content,
+            "perspectives": list(getattr(p, "perspectives", None) or []),
         }
-    report = _find_report_by_name(p.ref, mgr) if mgr is not None else None
+    report = _find_report_by_name(p.ref, mgr, url, server, user_id) if mgr is not None else None
     if report is not None:
         fs = registry.get(report["reportSpec"]) if report["reportSpec"] else None
         action = getattr(fs, "action", None) if fs is not None else None
@@ -223,17 +300,26 @@ def _serialize_placement(p, sheets, registry, mgr) -> dict:
             # etc. to functions that don't accept them (TypeError: unexpected
             # keyword argument 'search_string').
             "isAnalytic":     bool(getattr(action, "analytic_function", None)) if action else False,
+            "perspectives":   list(getattr(p, "perspectives", None) or []),
+            # BACKLOG.md NEXT-21 (egeria-workspaces-fs) -- drill-down target,
+            # a Report Spec name for local-dashboards.html to run in the
+            # detail drawer. getattr, not p.detail_spec, so this degrades to
+            # None on the currently-deployed pyegeria (predates this field)
+            # instead of raising AttributeError and taking the whole sheet down.
+            "detailSpec":     getattr(p, "detail_spec", None),
         }
     sub = sheets.get(p.ref)
     if sub is not None:
         return {
             "ref": p.ref, "span": p.span, "emphasis": p.emphasis, "kind": "sheet",
             "heading": sub.heading, "description": sub.description or "",
+            "perspectives": list(getattr(p, "perspectives", None) or []),
         }
     return {
         "ref": p.ref, "span": p.span, "emphasis": p.emphasis, "kind": "missing",
         "heading": p.ref,
         "description": "Unresolved reference — no matching Report or Dashboard Sheet.",
+        "perspectives": list(getattr(p, "perspectives", None) or []),
     }
 
 
@@ -306,9 +392,26 @@ def get_document(filename: str):
     return JSONResponse({"filename": filename, "content": content})
 
 
+def _view_for_perspective(placements, perspective: Optional[str]):
+    """Filter+keep-order a Dashboard Sheet's placements for `perspective`
+    (BACKLOG.md NEXT-19, egeria-workspaces-fs) -- mirrors
+    overview_containers.view_for_perspective()'s shape exactly: a placement
+    with no perspectives declared is kept regardless (empty means "relevant
+    to every perspective", fail-open, same as Overview's own sub-container
+    handling), not hidden. No filtering at all when `perspective` is None/
+    empty -- the default, unscoped view."""
+    if not perspective:
+        return placements
+    return [p for p in placements
+            if not (getattr(p, "perspectives", None) or [])
+            or perspective in p.perspectives]
+
+
 @router.get("/api/local-dashboards/{name}", summary="One Dashboard Sheet, placements resolved")
 def get_local_dashboard(
     name: str,
+    perspective: Optional[str] = Query(None, description="Keep only placements tagged with this "
+                                        "perspective, plus any untagged ones (fail-open)."),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
@@ -342,7 +445,9 @@ def get_local_dashboard(
         "heading":     sheet.heading,
         "description": sheet.description,
         "family":      sheet.family,
-        "placements":  [_serialize_placement(p, sheets, registry, mgr) for p in sheet.placements],
+        "placements":  [_serialize_placement(p, sheets, registry, mgr, url, server, user_id)
+                         for p in _view_for_perspective(sheet.placements, perspective)],
+        "perspective": perspective,
     })
 
 

@@ -106,7 +106,7 @@ Add `Dockerfile-my-egeria-app` (copy of `Dockerfile-my-egeria`) that `COPY`s
       EGERIA_USER_PASSWORD: "${QUICKSTART_PERSONA_PASSWORD:-secret}"
       MY_EGERIA_HOST:       "0.0.0.0"
       MY_EGERIA_PORT:       "8021"
-      MY_EGERIA_PUBLIC_URL: "${MY_EGERIA_APP_PUBLIC_URL:-http://localhost:8885/my-egeria}"
+      MY_EGERIA_PUBLIC_URL: "${MY_EGERIA_APP_PUBLIC_URL:-https://localhost:8843/my-egeria}"
     extra_hosts:
       - "${HOST_FQDN}:${HOST_GATEWAY_IP:-host-gateway}"
       - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
@@ -115,8 +115,12 @@ Add `Dockerfile-my-egeria-app` (copy of `Dockerfile-my-egeria`) that `COPY`s
         condition: service_healthy
 ```
 
-In `egeria-quickstart-demo.yaml`, override `MY_EGERIA_PUBLIC_URL` to
-`"${DEMO_SITE_URL}/my-egeria"` (HTTPS) exactly as the `my-profile` block does.
+HTTPS is now on by every run (self-signed by default, real cert in `--demo`
+mode — see `docs/SECURITY-CONFIGURATION.md`), so the base block's
+`MY_EGERIA_PUBLIC_URL` default above already resolves through `${SITE_URL}`;
+no demo-overlay-specific override is needed, exactly as the `my-profile`
+block now works (see `egeria-quickstart.yaml`'s `MY_EGERIA_PUBLIC_URL:
+"${SITE_URL:-https://localhost:8843}/my-egeria"`).
 
 For **freshstart**, same block with host port **`7821:8021`** and **omit**
 `EGERIA_USER` / `EGERIA_USER_PASSWORD` so the app's own login prompts
@@ -163,7 +167,7 @@ container cycle, matching how `my-profile` was added in commit `577fc9b2`.
 | `EGERIA_USER_PASSWORD` | `secret`                            | Password (quickstart only)           |
 | `MY_EGERIA_HOST`       | `0.0.0.0`                           | Listen host (shared by all apps)     |
 | `MY_EGERIA_PORT`       | `8021`                              | Listen port for the full app         |
-| `MY_EGERIA_PUBLIC_URL` | `http://localhost:8885/my-egeria`   | **Required** — same-origin for CSP; demo overlay sets HTTPS |
+| `MY_EGERIA_PUBLIC_URL` | `https://localhost:8843/my-egeria`  | **Required** — same-origin for CSP; resolves via `${SITE_URL}`, HTTPS by default in every mode |
 
 ---
 

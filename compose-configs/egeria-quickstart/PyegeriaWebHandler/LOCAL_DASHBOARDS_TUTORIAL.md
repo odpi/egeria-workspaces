@@ -375,18 +375,19 @@ genuinely different function from `count_elements`, not just a different
 parameter binding of the same one. See the worked example below for both
 side by side.
 
-**Known gap — list-valued `Analytic Parameters` don't work yet.** Every
-`Analytic Parameters`/`Report Parameters` value is stringified before
-storage (`md_processing/v2/report.py`), which is transparent for scalar
-values (`type_name: Project`, `window: 90d`) but breaks any parameter whose
-real type is a list or dict — e.g. `counts_by_type`'s `type_map: [["Projects",
-"Project"], ["Terms", "GlossaryTerm"]]` gets double-encoded and comes back
-out as a Python `str`, not a list, so the analytic function crashes trying
-to unpack it (`not enough values to unpack`). Until this is fixed
-(egeria-python `PYEGERIA_ISSUES.md` ISSUE-20 / this repo's
-`PYEGERIA_GAPS.md` #6), stick to scalar-valued `Analytic Parameters` —
-retarget a generic function at one type per Report (as above), not several
-types in one comparison chart.
+**List-valued `Analytic Parameters` now work (fixed 2026-08-01).** Values
+used to be stringified before storage (`md_processing/v2/report.py`), which
+was transparent for scalars (`type_name: Project`, `window: 90d`) but broke
+any parameter whose real type is a list or dict — e.g. `counts_by_type`'s
+`type_map: [["Projects", "Project"], ["Terms", "GlossaryTerm"]]` used to come
+back as a Python `str`, not a list, crashing the analytic function
+(`not enough values to unpack`). Fixed in `md_processing/v2/report.py`
+(egeria-python `PYEGERIA_ISSUES.md` ISSUE-20): each value is now JSON-decoded
+back to its real type before the analytic function runs. The Assets by Type
+& Location worked example below uses a list-valued `type_map` for its two
+chart Reports as a live demonstration this works — if you hit the old
+"not enough values to unpack" symptom, check the installed pyegeria predates
+this fix.
 
 ### Adding explanatory text (no Report needed)
 
@@ -494,11 +495,99 @@ is a complete, runnable Dr.Egeria document that:
    the backend, not an `outputFormat === 'SERIES'` guess), and a scalar
    analytic result (a bare `int`/`bool`, e.g. `count_elements`'s count) had
    no rendering path at all and silently showed "No results." (fixed with a
-   dedicated KPI-number renderer). A third issue — list-valued `Analytic
-   Parameters` — is a genuine pyegeria gap, not fixed; see the "Known gap"
-   callout above.
+   dedicated KPI-number renderer). A third issue found at the same time —
+   list-valued `Analytic Parameters` — was a genuine pyegeria gap when this
+   file was built; fixed since (2026-08-01, see the callout above) — the
+   Assets by Type & Location example below relies on that fix for its
+   `type_map`-parameterized charts.
 
-All four files live in the shared **Local Dashboards** folder (see "Where
+## Worked example: "Assets by Type & Location"
+
+A second, **standalone** worked example — it doesn't extend the "Next
+Steps" dashboard above, it builds a complete dashboard from scratch in one
+file,
+[`LOCAL_DASHBOARDS_ASSETS_BY_TYPE_LOCATION_DEMO.dr-egeria.md`](../../../exchange-quickstart/loading-bay/dr-egeria-inbox/Local%20Dashboards/LOCAL_DASHBOARDS_ASSETS_BY_TYPE_LOCATION_DEMO.dr-egeria.md).
+Built to answer "how many assets, of which type, are cataloged, and where
+are they" with a mix of techniques on one dashboard:
+
+- Two **KPI** tiles (`Total Cataloged Assets`, `Total Locations Tracked`) —
+  the same **GENERIC** `count_elements` function as the Analytics Demo
+  above, retargeted at `Asset` and `Location` this time.
+- Two **chart** tiles, `PIE` and `BAR`, both running `counts_by_type` with
+  the *same* list-valued `type_map` `Analytic Parameters` — the live proof
+  that the "list-valued Analytic Parameters" gap above is actually fixed,
+  not just a doc claim.
+- One **text/snapshot** panel, `Assets by Location` — the interesting case.
+  There's no live analytic function or Report Spec that groups assets by
+  Location today (unlike by-type, which reuses `counts_by_type`), so this
+  panel is a hand-built Mermaid pie chart + markdown table, computed from
+  real `/api/locations` data at authoring time via `Add Text on Dashboard
+  Sheet` — a real answer, but a **snapshot**, not something that
+  re-queries on every future dashboard visit like the four Report tiles
+  above do. The file's own commentary on that step spells out what a live
+  version would need: either a new registered analytic function (the same
+  shape as `sum_type_counts`, BACKLOG.md NEXT-18, but grouping by
+  `AssetLocation`-linked `Location` instead of by type), or a **Saved
+  Query** (`Create Saved Query`/`Link Saved Query to Results Set` already
+  exist as commands in this same Report family — worth evaluating for
+  exactly this case) — either of which could then also become the Pie
+  Chart tile's drill-down target via `Placement Detail Spec` (see
+  "Perspectives and drill-down" below) instead of sitting beside it as a
+  separate panel.
+
+This file also demonstrates `Placement Emphasis: kpi` genuinely rendering
+as a compact tile (BACKLOG.md NEXT-20) — decided from each placement's
+actual result shape once it resolves, not just the static attribute, so a
+KPI-emphasis placement that happened to return something large would still
+render in full rather than being squeezed into a tiny tile.
+
+## Perspectives and drill-down
+
+Two more `Link Report to Dashboard Sheet` / `Add Text on Dashboard Sheet`
+attributes exist beyond `Placement Span`/`Placement Emphasis`, neither used
+in the worked examples above (both dashboards predate them or didn't need
+them) — added BACKLOG.md NEXT-19/NEXT-21:
+
+- **`Placement Perspectives`** — a comma-separated list of viewer-role tags
+  (`governance, steward, owner, consumer, engineer, builder, privacy,
+  community` — the same vocabulary `egeria-overview.html`'s own perspective
+  picker uses). Available on both `Link Report to Dashboard Sheet` and `Add
+  Text on Dashboard Sheet`. Leave it unset (the default) and the placement
+  shows for every perspective, fail-open — it's an opt-in narrowing, not an
+  opt-in visibility switch. The Local Dashboards detail page has a
+  perspective picker in its header (`?perspective=` in the URL) that
+  filters+keeps-order server-side against this tag.
+- **`Placement Detail Spec`** — `Link Report to Dashboard Sheet` only (a
+  text placement has no result to drill into). Names another Report Spec to
+  run as a drill-down when the viewer clicks the placement's "↗" button —
+  a slide-out drawer, same mechanics as `egeria-overview.html`'s own
+  drill-down, adapted since Local Dashboards placements are arbitrary
+  user-authored Reports rather than a fixed, hand-authored set of drill
+  targets. The drill-down reuses whatever parameters produced the
+  placement's own result (including any viewer override, see below), not
+  an unscoped run of the target spec.
+
+```markdown
+## Link Report to Dashboard Sheet
+Dashboard Sheet Name: my-team-dashboard
+Report Name: Governance Coverage
+Placement Perspectives: governance, steward
+Placement Detail Spec: Collection Members
+```
+
+**Viewer-facing parameter overrides (no Dr.Egeria command needed).**
+Independent of both attributes above: anyone looking at a Local Dashboard
+can click the "⚙" button next to a placement's heading to open an inline
+panel — an `Output Format` dropdown plus one field per parameter the
+Report already carries — edit it, click Run, and that one placement
+re-executes with the override for their current view (transient; resets on
+reload/navigate away, never written back to the Report). This is
+BACKLOG.md NEXT-14 Phase 1 — the *viewer's* way to tailor a placement
+per-use, distinct from `Create Report`'s author-time defaults above. A
+future Phase 2 (not built yet) would let a viewer persist their tailoring
+as their own version of the dashboard.
+
+All five files live in the shared **Local Dashboards** folder (see "Where
 to keep your `.dr-egeria.md` file" above) — load any of them straight from
 the Run Dr.Egeria Document panel's file chips, or run via the CLI the same
 way as any Dr.Egeria document:
@@ -511,16 +600,27 @@ dr_egeria --process  LOCAL_DASHBOARDS_ROADMAP.dr-egeria.md
 Then open `/local-dashboards?sheet=local-dashboards-next-steps` — the
 dashboard itself **is** this feature's remaining to-do list, live from
 Egeria. Add a Task and re-run `Add Member to Collection` for it, and the
-dashboard picks it up on next load — no code change needed.
+dashboard picks it up on next load — no code change needed. For the
+standalone Assets by Type & Location example instead, run
+`LOCAL_DASHBOARDS_ASSETS_BY_TYPE_LOCATION_DEMO.dr-egeria.md` the same way
+and open `/local-dashboards?sheet=Assets%20by%20Type%20and%20Location%20Demo`.
 
 ### Why a Work Item List instead of free text
 
-Dashboard Sheet placements can only be Reports or nested sheets — there
-is no "just show this paragraph" placement kind (deliberately: the model
-mirrors report tiles, not a wiki). Modeling the punch list as a real
-**Work Item List** of **Tasks** means it's not just readable on this one
+This tutorial's "Adding explanatory text" section above shows `Add Text on
+Dashboard Sheet` does give you a "just show this paragraph" placement kind
+now — it didn't when this worked example was first built, which is why the
+"Next Steps" punch list is modeled as a real Work Item List instead (kept
+this way deliberately, not stale — see below for why that's still the
+better choice for *this specific* content). Modeling it as a real **Work
+Item List** of **Tasks** means it's not just readable on this one
 dashboard: it's also a normal Egeria collection, visible in Egeria Explorer,
 queryable by anything else that understands Projects/Tasks, and something a
 teammate can add to with their own Dr.Egeria commands or find via search —
 one write, several consumers, which is the whole point of putting it in
-Egeria rather than a markdown checklist that only this file knows about.
+Egeria rather than a markdown checklist that only this file knows about. Use
+`Add Text on Dashboard Sheet` for genuinely static captions/section headers
+(as the Assets by Type & Location worked example below does for its Location
+snapshot); reach for a real Egeria collection like this one when the content
+is itself worth having as queryable, cross-referenceable metadata, not just
+dashboard decoration.

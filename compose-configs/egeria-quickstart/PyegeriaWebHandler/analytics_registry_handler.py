@@ -13,7 +13,7 @@ They are plain Python functions (not stored in Egeria) and this endpoint
 requires no Egeria connection, mirroring report_specs_handler.py's
 /api/report-specs endpoint for the same reason.
 
-Also makes pyegeria.view.analytic_demo_specs's 10 demo report specs (one per
+Also makes pyegeria.view.analytic_demo_specs's demo report specs (one per
 analytic function, proving each is actually runnable) show up in Egeria
 Explorer's existing Report Specs browser alongside every other spec — see
 analytic_demo_specs.py's module docstring for why these are hand-written

@@ -71,6 +71,48 @@
   .placement .p-body th { color:var(--muted); }
   .placement .p-loading { color:var(--muted); font-size:.8rem; font-style:italic; }
   .placement .p-kpi-number { font-size:2.4rem; font-weight:650; color:var(--accent); line-height:1.1; }
+  /* Compact KPI-tile mode (BACKLOG.md NEXT-20) — applied after a placement's
+     result resolves to a scalar or trend shape (see renderExecResult's
+     isKpiShaped), not from the static `emphasis` field alone: `emphasis`
+     defaults to "kpi" for every placement (pyegeria's own Placement model
+     default), so switching layout on that field alone would squeeze any
+     placement that simply never set it — including a genuinely large table —
+     into a tiny tile. Deciding from the actual result keeps this additive:
+     nothing that already rendered as a table/chart changes shape. */
+  .placement.kpi-tile { display:flex; flex-direction:column; justify-content:center; min-height:88px; padding:14px 16px; }
+  .placement.kpi-tile h4 { font-size:.7rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; margin-bottom:6px; }
+  .placement.kpi-tile .p-desc { display:none; }
+  .placement.kpi-tile .p-kpi-number { font-size:2rem; }
+  .placement .spark { display:block; width:100%; height:22px; margin-top:6px; color:var(--accent); }
+  .drill-btn { margin-left:auto; background:transparent; border:1px solid var(--border); color:var(--muted); border-radius:6px; width:22px; height:22px; line-height:1; cursor:pointer; font-size:.85rem; flex-shrink:0; }
+  .drill-btn:hover { color:var(--accent); border-color:var(--accent); }
+
+  /* ── viewer-facing parameter overrides (BACKLOG.md NEXT-14 Phase 1) ── */
+  .adjust-btn { background:transparent; border:1px solid var(--border); color:var(--muted); border-radius:6px; width:22px; height:22px; line-height:1; cursor:pointer; font-size:.8rem; flex-shrink:0; }
+  .adjust-btn:hover { color:var(--accent); border-color:var(--accent); }
+  .adjust-btn.overridden { color:var(--amber); border-color:var(--amber); }
+  .adjust-panel { background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:10px; display:flex; flex-direction:column; gap:8px; }
+  .adj-row { display:flex; align-items:center; gap:8px; }
+  .adj-row label { font-size:.72rem; color:var(--muted); width:110px; flex-shrink:0; }
+  .adj-row input, .adj-row select { flex:1; min-width:0; padding:4px 8px; border-radius:5px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:.78rem; font-family:inherit; }
+  .adj-actions { display:flex; gap:8px; justify-content:flex-end; }
+  .adj-actions .btn { font-size:.74rem; padding:3px 10px; }
+  .adj-note { font-size:.68rem; color:var(--muted); }
+
+  /* ── drill-down drawer (BACKLOG.md NEXT-21) ── */
+  .drill-ovl { position:fixed; inset:0; background:rgba(0,0,0,.5); opacity:0; pointer-events:none; transition:opacity .15s; z-index:20; }
+  .drill-ovl.open { opacity:1; pointer-events:auto; }
+  .drill-drawer { position:fixed; top:0; right:0; bottom:0; width:min(520px,92vw); background:var(--card); border-left:1px solid var(--border); box-shadow:-8px 0 24px rgba(0,0,0,.35); transform:translateX(100%); transition:transform .18s; z-index:21; display:flex; flex-direction:column; }
+  .drill-drawer.open { transform:translateX(0); }
+  .dd-head { padding:16px 44px 12px 18px; border-bottom:1px solid var(--border); position:relative; flex-shrink:0; }
+  .dd-close { position:absolute; top:12px; right:12px; background:transparent; border:none; color:var(--muted); font-size:1.3rem; line-height:1; cursor:pointer; padding:4px 8px; }
+  .dd-close:hover { color:var(--text); }
+  .dd-eyebrow { font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:2px; }
+  .dd-head h2 { font-size:1.05rem; font-weight:650; }
+  .dd-body { padding:16px 18px; overflow-y:auto; flex:1; font-size:.85rem; line-height:1.6; }
+  .dd-body table { border-collapse:collapse; font-size:12px; width:100%; table-layout:fixed; }
+  .dd-body th, .dd-body td { padding:5px 8px; border:1px solid var(--border); text-align:left; overflow-wrap:break-word; }
+  .dd-body th { color:var(--muted); }
   .mermaid-block { margin:10px 0; overflow-x:auto; }
   .mermaid-block svg { max-width:100%; }
   .vega-block { margin:10px 0; overflow-x:auto; min-height:120px; }
@@ -149,8 +191,33 @@
   <div style="padding:40px;text-align:center;color:var(--muted)"><span class="spinner"></span> Loading…</div>
 </div>
 
+<!-- BACKLOG.md NEXT-21 -- drill-down drawer, same slide-out-panel pattern as
+     egeria-overview.html's #ovl/#drawer, adapted: the drill target here runs
+     another Report Spec (a placement's Placement Detail Spec) via the same
+     /api/report-specs/execute path renderPlacementBody already uses, not a
+     hand-authored DRILL map -- Local Dashboards placements are arbitrary
+     user-authored Reports, so there's no fixed key set to author against. -->
+<div class="drill-ovl" id="drill-ovl" onclick="closeDrillDrawer()"></div>
+<aside class="drill-drawer" id="drill-drawer">
+  <div class="dd-head">
+    <button class="dd-close" onclick="closeDrillDrawer()">×</button>
+    <div class="dd-eyebrow">Detail</div>
+    <h2 id="dd-title">—</h2>
+  </div>
+  <div class="dd-body" id="dd-body"></div>
+</aside>
+
 <script>
 var app = document.getElementById('app');
+
+// BACKLOG.md NEXT-14 (re-scoped 2026-08-12) — viewer-facing parameter
+// overrides. Transient/session-only (Phase 1) -- reset whenever a different
+// sheet loads. Keyed by placement index within the currently-viewed sheet.
+// Phase 2 (persisting an override as a user-specific dashboard version) is
+// deliberately not built here.
+var _currentPlacements = [];
+var _placementOverrides = {};
+var OUTPUT_FORMATS = ['LIST', 'FORM', 'REPORT', 'MERMAID', 'DICT', 'MD', 'TABLE', 'JSON'];
 
 function esc(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -185,18 +252,102 @@ function spanClass(span) {
   return span === 'full' ? 'span-full' : (span === '2' ? 'span-2' : 'span-1');
 }
 
+// ── client-side execute cache (BACKLOG.md NEXT-22) ───────────────────────────
+// Every placement on a sheet re-POSTs to /api/report-specs/execute on every
+// navigation to that sheet -- fine for a handful of demo placements, not fine
+// for a dashboard revisited repeatedly in a session. Deliberately a cache
+// local to this file, not a change to the shared execute endpoint itself:
+// Egeria Explorer's manual Report Specs Run panel hits the same endpoint and
+// must stay live -- a user who just clicked "run" expects a fresh result, not
+// one served from a moment-old cache meant for passive dashboard viewing.
+var EXECUTE_CACHE_TTL_MS = 45000;
+var _executeCache = {};
+
+function fetchExecuteCached(body) {
+  var key = JSON.stringify(body);
+  var hit = _executeCache[key];
+  if (hit && (Date.now() - hit.t) < EXECUTE_CACHE_TTL_MS) {
+    return Promise.resolve(hit.result);
+  }
+  return fetch('/api/report-specs/execute', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then(function(r) {
+    if (!r.ok) return r.text().then(function(t) {
+      var detail = null;
+      try { detail = JSON.parse(t).detail; } catch (e) {}
+      throw new Error(detail || ('HTTP ' + r.status));
+    });
+    return r.json();
+  }).then(function(result) {
+    _executeCache[key] = { t: Date.now(), result: result };
+    return result;
+  });
+}
+
 function currentSheetName() {
   var m = /[?&]sheet=([^&]+)/.exec(window.location.search);
   return m ? decodeURIComponent(m[1]) : null;
 }
 
-function navigateToSheet(name) {
-  var url = name ? ('/local-dashboards?sheet=' + encodeURIComponent(name)) : '/local-dashboards';
+// BACKLOG.md NEXT-19 (egeria-workspaces-fs) -- same 8-tag vocabulary
+// egeria-overview.html's own perspective picker uses (PERSP_KPIS in
+// overview_specs.py), so a placement tagged via Dr.Egeria's "Placement
+// Perspectives" lines up with what a viewer already expects that word to
+// mean from Overview.
+var PERSPECTIVES = ['governance', 'steward', 'owner', 'consumer', 'engineer', 'builder', 'privacy', 'community'];
+
+function currentPerspective() {
+  var m = /[?&]perspective=([^&]+)/.exec(window.location.search);
+  return m ? decodeURIComponent(m[1]) : '';
+}
+
+function navigateToSheet(name, perspective) {
+  var url = name ? ('/local-dashboards?sheet=' + encodeURIComponent(name)
+    + (perspective ? '&perspective=' + encodeURIComponent(perspective) : '')) : '/local-dashboards';
   history.pushState({}, '', url);
   render();
 }
 
+function setPerspective(perspective) {
+  navigateToSheet(currentSheetName(), perspective);
+}
+
 window.addEventListener('popstate', render);
+
+// ── drill-down drawer (BACKLOG.md NEXT-21) ──────────────────────────────────
+function closeDrillDrawer() {
+  document.getElementById('drill-ovl').classList.remove('open');
+  document.getElementById('drill-drawer').classList.remove('open');
+}
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeDrillDrawer(); });
+
+function openDrillDrawer(p, i) {
+  document.getElementById('drill-ovl').classList.add('open');
+  document.getElementById('drill-drawer').classList.add('open');
+  document.getElementById('dd-title').textContent = p.detailSpec;
+  var body = document.getElementById('dd-body');
+  body.innerHTML = '<div class="p-loading"><span class="spinner"></span> Running ' + esc(p.detailSpec) + '…</div>';
+  // Runs the placement's own resolved params against the drill target spec —
+  // a reasonable default scope (same filters that produced this placement's
+  // own result) rather than an unscoped "match everything" run. Reuses the
+  // same cached execute path renderPlacementBody uses. Includes any active
+  // viewer override (BACKLOG.md NEXT-14 Phase 1) -- "more detail" on a
+  // tailored placement should drill into the tailored scope, not the
+  // Report's original stored defaults.
+  var effParams = (i != null && _currentPlacements[i]) ? _effectiveParams(_currentPlacements[i], i) : (p.params || {});
+  fetchExecuteCached({ spec_name: p.detailSpec, output_format: 'DICT', params: effParams })
+    .then(function(result) {
+      var out = renderExecResult(result);
+      body.innerHTML = out.html;
+      renderMermaidBlocks(out.mermaidBlocks);
+      renderVegaBlocks(out.vegaBlocks);
+    })
+    .catch(function(err) {
+      body.innerHTML = '<div class="p-note">⚠ ' + esc(err.message) + '</div>';
+    });
+}
 
 function render() {
   var name = currentSheetName();
@@ -268,10 +419,13 @@ function renderList() {
 // ── detail view ────────────────────────────────────────────────────────────
 
 function renderDetail(name) {
+  var perspective = currentPerspective();
   app.innerHTML = '<div class="back"><a href="#" class="btn" onclick="event.preventDefault();navigateToSheet(null)">← All Dashboards</a></div>'
     + '<div id="detail-body"><div style="padding:40px;text-align:center;color:var(--muted)"><span class="spinner"></span> Loading…</div></div>';
 
-  fetch('/api/local-dashboards/' + encodeURIComponent(name))
+  var url = '/api/local-dashboards/' + encodeURIComponent(name)
+    + (perspective ? '?perspective=' + encodeURIComponent(perspective) : '');
+  fetch(url)
     .then(function(r) {
       if (!r.ok) return r.json().catch(function(){ return {}; }).then(function(b) {
         throw new Error(b.detail || ('HTTP ' + r.status));
@@ -280,26 +434,51 @@ function renderDetail(name) {
     })
     .then(function(sheet) {
       var body = document.getElementById('detail-body');
+      // BACKLOG.md NEXT-19 -- perspective picker; changing it re-fetches with
+      // ?perspective= (server-side filter, same fail-open shape Overview's
+      // view_for_perspective() uses -- an untagged placement is always kept).
+      var perspOptions = '<option value="">All perspectives</option>' + PERSPECTIVES.map(function(p) {
+        return '<option value="' + p + '"' + (p === perspective ? ' selected' : '') + '>' + p.charAt(0).toUpperCase() + p.slice(1) + '</option>';
+      }).join('');
       body.innerHTML = '<div class="pagehead"><div><h1>' + esc(sheet.heading || sheet.name) + '</h1>'
         + '<p>' + esc(sheet.description || '') + '</p></div>'
         + '<div style="display:flex;align-items:center;gap:8px">'
         + (sheet.family ? '<span class="badge badge-fam">' + esc(sheet.family) + '</span>' : '')
+        + '<select class="btn" onchange="setPerspective(this.value)" title="Filter placements by viewer-role perspective">' + perspOptions + '</select>'
         + '<button class="btn btn-danger" onclick="deleteSheet(' + attrJson(sheet.name) + ',' + attrJson(sheet.heading || sheet.name) + ')">Delete Dashboard</button>'
         + '</div></div>'
         + '<div class="placements" id="placements"></div>';
 
       var grid = document.getElementById('placements');
       if (!sheet.placements || !sheet.placements.length) {
-        grid.outerHTML = '<div class="empty">This Dashboard Sheet has no placements yet. Use the Dr.Egeria '
-          + '<code>Link Report to Dashboard Sheet</code> command to add one.</div>';
+        grid.outerHTML = perspective
+          ? '<div class="empty">No placements match the <b>' + esc(perspective) + '</b> perspective.</div>'
+          : '<div class="empty">This Dashboard Sheet has no placements yet. Use the Dr.Egeria '
+            + '<code>Link Report to Dashboard Sheet</code> command to add one.</div>';
         return;
       }
+      // BACKLOG.md NEXT-14 (Phase 1) -- overrides are per-sheet-view, not
+      // per-sheet-forever: reset whenever a (possibly different) sheet loads.
+      _currentPlacements = sheet.placements;
+      _placementOverrides = {};
       sheet.placements.forEach(function(p, i) {
         var el = document.createElement('div');
         el.className = 'placement ' + spanClass(p.span) + ' emph-' + (p.emphasis || 'kpi') + ' kind-' + p.kind;
         el.id = 'placement-' + i;
-        el.innerHTML = '<h4>' + esc(p.heading) + '</h4>'
+        // BACKLOG.md NEXT-21 -- drill-down affordance, only when the
+        // placement's Report declared a Placement Detail Spec.
+        var drillBtn = p.detailSpec
+          ? '<button class="drill-btn" title="More detail" onclick="openDrillDrawer(' + attrJson(p) + ',' + i + ')">↗</button>'
+          : '';
+        // BACKLOG.md NEXT-14 (Phase 1) -- viewer-facing parameter overrides,
+        // only for placements that actually execute something (kind==='report';
+        // text/sheet/missing have no query to tailor).
+        var adjustBtn = p.kind === 'report'
+          ? '<button class="adjust-btn" id="adjust-btn-' + i + '" title="Adjust parameters" onclick="togglePlacementAdjust(' + i + ')">⚙</button>'
+          : '';
+        el.innerHTML = '<h4>' + esc(p.heading) + adjustBtn + drillBtn + '</h4>'
           + (p.description ? '<div class="p-desc">' + esc(p.description) + '</div>' : '')
+          + (p.kind === 'report' ? '<div class="adjust-panel" id="adjust-panel-' + i + '" style="display:none"></div>' : '')
           + '<div class="p-body" id="placement-body-' + i + '"></div>';
         grid.appendChild(el);
         renderPlacementBody(p, i);
@@ -308,6 +487,20 @@ function renderDetail(name) {
     .catch(function(err) {
       document.getElementById('detail-body').innerHTML = '<div class="err">Failed to load Dashboard Sheet: ' + esc(err.message) + '</div>';
     });
+}
+
+// BACKLOG.md NEXT-14 (Phase 1) -- merge a viewer's transient override (if any)
+// on top of the placement's own stored (Report-level) defaults. Overrides are
+// shallow: an override param dict adds/replaces keys, it doesn't need to
+// repeat every existing key to keep them.
+function _effectiveOutputFormat(p, i) {
+  var ov = _placementOverrides[i];
+  return (ov && ov.outputFormat) || p.outputFormat;
+}
+function _effectiveParams(p, i) {
+  var base = p.isAnalytic ? (p.analyticParams || {}) : (p.params || {});
+  var ov = _placementOverrides[i];
+  return ov && ov.params ? Object.assign({}, base, ov.params) : base;
 }
 
 function renderPlacementBody(p, i) {
@@ -346,24 +539,13 @@ function renderPlacementBody(p, i) {
   // 'search_string').
   if (p.isAnalytic) {
     target.innerHTML = '<div class="p-loading"><span class="spinner"></span> Running analytic…</div>';
-    fetch('/api/report-specs/execute', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ spec_name: p.reportSpec, output_format: p.outputFormat, params: p.analyticParams || {} }),
-    })
-      .then(function(r) {
-        if (!r.ok) return r.text().then(function(t) {
-          var detail = null;
-          try { detail = JSON.parse(t).detail; } catch (e) {}
-          throw new Error(detail || ('HTTP ' + r.status));
-        });
-        return r.json();
-      })
+    fetchExecuteCached({ spec_name: p.reportSpec, output_format: _effectiveOutputFormat(p, i), params: _effectiveParams(p, i) })
       .then(function(result) {
         var out = renderExecResult(result);
         target.innerHTML = out.html;
         renderMermaidBlocks(out.mermaidBlocks);
         renderVegaBlocks(out.vegaBlocks);
+        applyKpiTileClass(p, i, out);
       })
       .catch(function(err) { target.innerHTML = '<div class="p-note">⚠ ' + esc(err.message) + '</div>'; });
     return;
@@ -375,11 +557,16 @@ function renderPlacementBody(p, i) {
   // more fixed format preference — the whole point of the Report layer
   // (BACKLOG.md NEXT-14) is that a placement can finally be genuinely
   // scoped/parameterized instead of always matching "everything, capped".
+  // BACKLOG.md NEXT-14 (Phase 1) -- effEntries is the merged (override-on-top-
+  // of-stored-default) param dict; an override can supply a required param
+  // the stored Report itself doesn't have, not just replace existing ones.
+  var effOutputFormat = _effectiveOutputFormat(p, i);
+  var effEntries = _effectiveParams(p, i);
   var required = p.requiredParams || [];
-  var haveOutputFormat = !!p.outputFormat;
-  var haveAllRequired = required.every(function(r) { return camelKey(r) in (p.params || {}) || (r === 'search_string' && haveSearchString(p)); });
+  var haveOutputFormat = !!effOutputFormat;
+  var haveAllRequired = required.every(function(r) { return camelKey(r) in effEntries || (r === 'search_string' && effEntries.searchString); });
   if (!haveOutputFormat || !haveAllRequired) {
-    var missing = required.filter(function(r) { return !(camelKey(r) in (p.params || {})) && !(r === 'search_string' && haveSearchString(p)); });
+    var missing = required.filter(function(r) { return !(camelKey(r) in effEntries) && !(r === 'search_string' && effEntries.searchString); });
     target.innerHTML = '<div class="p-note">'
       + (haveOutputFormat ? '' : 'Report has no Output Format set. ')
       + (missing.length ? 'Missing: <b>' + missing.map(esc).join(', ') + '</b>. ' : '')
@@ -389,33 +576,128 @@ function renderPlacementBody(p, i) {
   }
 
   var params = {};
-  Object.keys(p.params || {}).forEach(function(camelName) {
-    var v = p.params[camelName];
+  Object.keys(effEntries).forEach(function(camelName) {
+    var v = effEntries[camelName];
     if (typeof v === 'string' && v.trim().charAt(0) === '[') return; // skip stringified-list junk (a known attribute-default quirk, not real data)
     params[snakeKey(camelName)] = v;
   });
 
   target.innerHTML = '<div class="p-loading"><span class="spinner"></span> Running report…</div>';
-  fetch('/api/report-specs/execute', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ spec_name: p.reportSpec, output_format: p.outputFormat, params: params }),
-  })
-    .then(function(r) {
-      if (!r.ok) return r.text().then(function(t) {
-        var detail = null;
-        try { detail = JSON.parse(t).detail; } catch (e) {}
-        throw new Error(detail || ('HTTP ' + r.status));
-      });
-      return r.json();
-    })
+  fetchExecuteCached({ spec_name: p.reportSpec, output_format: effOutputFormat, params: params })
     .then(function(result) {
       var out = renderExecResult(result);
       target.innerHTML = out.html;
       renderMermaidBlocks(out.mermaidBlocks);
       renderVegaBlocks(out.vegaBlocks);
+      applyKpiTileClass(p, i, out);
     })
     .catch(function(err) { target.innerHTML = '<div class="p-note">⚠ ' + esc(err.message) + '</div>'; });
+}
+
+// Switches the placement's outer card into compact-tile mode (BACKLOG.md
+// NEXT-20) once the result is known to be scalar/trend-shaped
+// (renderExecResult's isKpiShaped) — deliberately post-hoc, not decided from
+// the static `emphasis` field alone (see the .kpi-tile CSS comment for why).
+// A placement explicitly authored with `Placement Emphasis: panel` opts out
+// even if its result happens to be a bare number, since "panel" is the
+// author's deliberate signal that this placement wants full-card treatment.
+function applyKpiTileClass(p, i, out) {
+  if (!out || !out.isKpiShaped || p.emphasis === 'panel') return;
+  var wrap = document.getElementById('placement-' + i);
+  if (wrap) wrap.classList.add('kpi-tile');
+}
+
+// ── viewer-facing parameter overrides (BACKLOG.md NEXT-14 Phase 1) ─────────────
+// Transient/session-only: lets whoever's looking at a dashboard tailor a
+// placement's Output Format / Search String / other existing params for their
+// own use, without re-authoring a Create Report/Link Report to Dashboard Sheet
+// command. Deliberately does not let a viewer add a param key the Report
+// doesn't already have (Phase 1 scope) or persist the change (Phase 2, not
+// built here — see BACKLOG.md).
+
+function togglePlacementAdjust(i) {
+  var panel = document.getElementById('adjust-panel-' + i);
+  if (!panel) return;
+  var opening = panel.style.display === 'none';
+  if (opening && !panel.dataset.built) {
+    panel.innerHTML = _buildAdjustPanelHtml(i);
+    panel.dataset.built = '1';
+  }
+  panel.style.display = opening ? 'flex' : 'none';
+}
+
+function _buildAdjustPanelHtml(i) {
+  var p = _currentPlacements[i];
+  var eff = _effectiveParams(p, i);
+  var effOutputFormat = _effectiveOutputFormat(p, i);
+  var rows = '';
+
+  var ofOptions = OUTPUT_FORMATS.map(function(f) {
+    return '<option value="' + f + '"' + (f === effOutputFormat ? ' selected' : '') + '>' + f + '</option>';
+  }).join('');
+  rows += '<div class="adj-row"><label>Output Format</label>'
+    + '<select id="adj-outputformat-' + i + '">' + ofOptions + '</select></div>';
+
+  // Standard (find-based) placements: always offer Search String even if the
+  // Report doesn't currently set one -- it's the single most commonly-tuned
+  // knob (see this item's own history). Analytic placements have no such
+  // fixed vocabulary -- just enumerate whatever the Report's Analytic
+  // Parameters already carry.
+  var keys = Object.keys(eff).filter(function(k) {
+    var v = eff[k];
+    return !(typeof v === 'string' && v.trim().charAt(0) === '['); // skip stringified-list junk, same filter renderPlacementBody uses
+  });
+  if (!p.isAnalytic && keys.indexOf('searchString') === -1) keys.unshift('searchString');
+  keys.forEach(function(k) {
+    var v = eff[k];
+    rows += '<div class="adj-row"><label>' + esc(_humanizeParamKey(k)) + '</label>'
+      + '<input type="text" id="adj-param-' + i + '-' + esc(k) + '" data-key="' + esc(k) + '" value="' + esc(v == null ? '' : v) + '"></div>';
+  });
+
+  rows += '<div class="adj-note">Adjusts this placement for your current view only — not saved, and resets if you reload or navigate away.</div>';
+  rows += '<div class="adj-actions">'
+    + '<button class="btn" onclick="resetPlacementOverride(' + i + ')">Reset</button>'
+    + '<button class="btn btn-accent" onclick="applyPlacementOverride(' + i + ')">Run</button>'
+    + '</div>';
+  return rows;
+}
+
+// camelCase -> "Camel Case", best-effort label for an arbitrary param key.
+function _humanizeParamKey(k) {
+  var spaced = k.replace(/([A-Z])/g, ' $1');
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+function applyPlacementOverride(i) {
+  var panel = document.getElementById('adjust-panel-' + i);
+  if (!panel) return;
+  var outputFormat = document.getElementById('adj-outputformat-' + i).value;
+  var params = {};
+  panel.querySelectorAll('[data-key]').forEach(function(el) {
+    var v = el.value.trim();
+    if (v !== '') params[el.dataset.key] = v;
+  });
+  _placementOverrides[i] = { outputFormat: outputFormat, params: params };
+  var btn = document.getElementById('adjust-btn-' + i);
+  if (btn) btn.classList.add('overridden');
+  renderPlacementBody(_currentPlacements[i], i);
+}
+
+function resetPlacementOverride(i) {
+  delete _placementOverrides[i];
+  var btn = document.getElementById('adjust-btn-' + i);
+  if (btn) btn.classList.remove('overridden');
+  var panel = document.getElementById('adjust-panel-' + i);
+  if (panel) {
+    delete panel.dataset.built;
+    // Rebuild immediately if the panel is currently open, rather than
+    // leaving it showing the just-cleared values until next toggle.
+    if (panel.style.display !== 'none') {
+      panel.innerHTML = _buildAdjustPanelHtml(i);
+      panel.dataset.built = '1';
+    }
+  }
+  renderPlacementBody(_currentPlacements[i], i);
 }
 
 // Returns {html, mermaidBlocks, vegaBlocks}: mermaidBlocks/vegaBlocks are rendered into their
@@ -430,6 +712,34 @@ function renderPlacementBody(p, i) {
 var _MAX_RENDER_CHARS = 20000;
 
 var _vegaSeq = 0;
+
+// Ported as-is from egeria-overview.html's sparkPts() — same 120x26 viewBox,
+// same min/max normalization (BACKLOG.md NEXT-20).
+function _sparkPts(vals) {
+  var v = vals.filter(function(x) { return x != null && !isNaN(x); });
+  if (v.length < 2) return null;
+  var mn = Math.min.apply(null, v), mx = Math.max.apply(null, v), rng = (mx - mn) || 1;
+  return v.map(function(x, i) {
+    return (120 * i / (v.length - 1)).toFixed(1) + ',' + (23 - 18 * (x - mn) / rng).toFixed(1);
+  }).join(' ');
+}
+
+// A metric_trend-shaped result (pyegeria's registered analytic function,
+// see BACKLOG.md NEXT-18) rendered as DICT/JSON rather than the SERIES chart
+// format comes back as a plain list of points, each carrying a numeric
+// `value` (or occasionally just a bare number). Detect that shape so it can
+// render as a compact trend tile instead of an unreadable raw table — best-
+// effort: returns null (not time-series-shaped) for anything else, and most
+// placements simply won't match this, which is fine.
+function _seriesValues(data) {
+  if (!Array.isArray(data) || data.length < 2) return null;
+  var vals = data.map(function(pt) {
+    if (typeof pt === 'number') return pt;
+    if (pt && typeof pt === 'object' && typeof pt.value === 'number') return pt.value;
+    return null;
+  });
+  return vals.every(function(v) { return v != null; }) ? vals : null;
+}
 
 function renderExecResult(result) {
   if (!result || result.kind === 'empty') return { html: '<div class="p-loading">No results.</div>', mermaidBlocks: [], vegaBlocks: [] };
@@ -461,7 +771,20 @@ function renderExecResult(result) {
     // number instead. Checked by typeof, not truthiness, so a real 0 count
     // still renders (not mistaken for "no data").
     if (typeof result.data === 'number' || typeof result.data === 'boolean') {
-      return { html: '<div class="p-kpi-number">' + esc(String(result.data)) + '</div>', mermaidBlocks: [], vegaBlocks: [] };
+      return { html: '<div class="p-kpi-number">' + esc(String(result.data)) + '</div>', mermaidBlocks: [], vegaBlocks: [], isKpiShaped: true };
+    }
+    // metric_trend-shaped list-of-points rendered as JSON/DICT (not SERIES,
+    // which already gets the full Vega-Lite chart treatment above) — show
+    // the latest value as the headline number with a sparkline underneath,
+    // instead of an unreadable raw table of {date, value} rows.
+    var seriesVals = _seriesValues(result.data);
+    if (seriesVals) {
+      var pts = _sparkPts(seriesVals);
+      return {
+        html: '<div class="p-kpi-number">' + esc(String(seriesVals[seriesVals.length - 1])) + '</div>'
+          + (pts ? '<svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline fill="none" stroke="currentColor" stroke-width="2" points="' + pts + '"/></svg>' : ''),
+        mermaidBlocks: [], vegaBlocks: [], isKpiShaped: true,
+      };
     }
     return { html: renderJsonTableHtml(result.data), mermaidBlocks: [], vegaBlocks: [] };
   }

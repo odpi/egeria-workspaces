@@ -11,7 +11,7 @@ The shared stack exposes:
 - Kafka on `9192`, `9193`, `9194`
 - PostgreSQL on `5442` (with [pgvector](https://github.com/pgvector/pgvector) extension available)
 - OpenLineage proxy on `6000`, `6001`
-- Kroki (`egeria-shared-kroki` + `egeria-shared-kroki-mermaid` companion), internal-network only, no host port
+- Kroki (`egeria-shared-kroki` + `egeria-shared-kroki-mermaid` companion) on host `6002` (container-internal `8000`)
 - the external Docker network `egeria_network`
 
 ## Kroki (Mermaid diagram rendering)
@@ -23,9 +23,13 @@ own Kroki instance instead: `egeria-shared-kroki` (core) + `egeria-shared-kroki-
 Mermaid needs, given `shm_size: 1gb` — the standard fix for the same class of Docker/Chromium crash kroki.io's own
 infrastructure was hitting).
 
-Jupyter services in both environments set `EGERIA_KROKI_URL=http://egeria-shared-kroki:8000` so pyegeria tries this
-container first. If it's absent or unreachable, pyegeria falls back to rendering the diagram entirely client-side in the
-notebook's browser (no server dependency at all) — nothing hard-depends on this container being present.
+Jupyter services in both environments set `EGERIA_KROKI_URL=http://egeria-shared-kroki:8000` (container-to-container,
+on `egeria_network`) so pyegeria tries this container first. If it's absent or unreachable, pyegeria falls back to
+rendering the diagram entirely client-side in the notebook's browser (no server dependency at all) — nothing
+hard-depends on this container being present. Host processes not on `egeria_network` (e.g. `resource-explorer`, run
+via `uv run` rather than containerized) reach it at `http://localhost:6002` instead — the published host port is
+`6002`, not Kroki's own default `8000`, to avoid colliding with common local dev servers (`mkdocs serve`, etc.) that
+also default to `8000`.
 
 ## PostgreSQL and pgvector
 

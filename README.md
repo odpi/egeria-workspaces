@@ -53,9 +53,9 @@ When you're ready to run your own copy, see [Getting started](#getting-started) 
 
 Both scripts automatically bring up the shared Kafka / PostgreSQL / OpenLineage proxy stack before starting the environment-specific containers.
 
-Then open the web portal:
-- **Quickstart:** `http://localhost:8885`
-- **Freshstart:** `http://localhost:7885`
+Then open the web portal (self-signed HTTPS by default — accept the browser warning once, or see [Configuring Security](docs/SECURITY-CONFIGURATION.md) for a real certificate):
+- **Quickstart:** `https://localhost:8843`
+- **Freshstart:** `https://localhost:7843`
 
 #### Force a clean rebuild
 
@@ -96,7 +96,7 @@ The recommended starting point for learning Egeria. Pre-loaded with [Coco Pharma
 ./quick-start-multi-host   # accessible from other hosts on your network
 ```
 
-Portal: `http://localhost:8885` · Platform: `https://localhost:9443` · Jupyter: `http://localhost:8888`
+Portal: `https://localhost:8843` · Platform: `https://localhost:9443` · Jupyter: `http://localhost:8888`
 
 ### Egeria Freshstart — local, clean slate
 
@@ -107,7 +107,7 @@ An empty Egeria environment for setting up your own metadata, governance policie
 ./fresh-start-multi-host   # accessible from other hosts on your network
 ```
 
-Portal: `http://localhost:7885` · Platform: `https://localhost:8443` · Jupyter: `http://localhost:7888`
+Portal: `https://localhost:7843` · Platform: `https://localhost:8443` · Jupyter: `http://localhost:7888`
 
 ### Quickstart vs Freshstart — detailed comparison
 
@@ -159,7 +159,7 @@ flowchart TB
 
 ## Web portal applications
 
-The portal at `http://localhost:8885` (quickstart) or `http://localhost:7885` (freshstart) groups tiles into three sections, all served by the `pyegeria-web` container:
+The portal at `https://localhost:8843` (quickstart) or `https://localhost:7843` (freshstart) groups tiles into three sections, all served by the `pyegeria-web` container:
 
 ![Full portal tile grid](docs/images/Full%20Portal%20Grid.png)
 

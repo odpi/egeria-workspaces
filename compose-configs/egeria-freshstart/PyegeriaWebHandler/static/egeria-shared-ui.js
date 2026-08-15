@@ -1324,18 +1324,38 @@ var EGERIA_EXPLORER_NAV = {
   Location:              { hash: 'locations' },
   Community:             { hash: 'communities' },
   GovernanceDefinition:  { hash: 'governance' },
+  GovernanceActionProcess: { hash: 'governance' },
   ReferenceDataValue:    { hash: 'reference-data' },
   DataSpec:              { hash: 'data-design', kind: 'specs' },
   DataStructure:         { hash: 'data-design', kind: 'structures' },
   DataField:             { hash: 'data-design', kind: 'fields' },
   DataGrain:             { hash: 'data-design', kind: 'grains' },
   DataClass:             { hash: 'data-design', kind: 'classes' },
+  DataSpecCollection:    { hash: 'data-design', kind: 'specs' },
   CollectionFolder:      { hash: 'digital-products' },
   DigitalProduct:        { hash: 'digital-products' },
   Collection:            { hash: 'digital-products' },
   GlossaryTerm:          { hash: 'glossary' },
   Glossary:              { hash: 'glossary' },
   GlossaryCategory:      { hash: 'glossary' },
+  // BACKLOG.md NEXT-12 — added so this table (already the most complete of
+  // the three overlapping routing tables in the codebase, see that item's
+  // notes) becomes the single canonical one, covering everything
+  // type-explorer.html's own local onNavigateToElement dispatcher used to
+  // know that this shared table didn't.
+  BusinessCapability:    { hash: 'business-capabilities' },
+  NoteLog:               { hash: 'notelogs' },
+  Perspective:           { hash: 'perspectives' },
+  Project:               { hash: 'projects' },
+  ExternalReference:     { hash: 'external-references' },
+  RelatedMedia:          { hash: 'external-references' },
+  CitedDocument:         { hash: 'external-references' },
+  ExternalDataSource:    { hash: 'external-references' },
+  ExternalModelSource:   { hash: 'external-references' },
+  ExternalId:            { hash: 'external-identifiers' },
+  Agreement:             { hash: 'agreements' },
+  DataSharingAgreement:  { hash: 'agreements' },
+  DigitalSubscription:   { hash: 'agreements' },
 };
 
 function resolveExplorerNav(item) {
@@ -1364,6 +1384,14 @@ function resolveElementNav(item) {
   // which would otherwise route it to Tech Catalog's generic mixed "Actions"
   // tab (metadata_element_type="Action", no per-subtype detail).
   if ((item.typeName || '') === 'EngineAction') return { app: 'egeria-operations' };
+  if ((item.typeName || '') === 'ValidMetadataValue') {
+    // Landing only, same degraded case tech-catalog.html's TYPE_TO_NAV
+    // already accepts for this type (BACKLOG.md FIX-4) — no cold-load URL
+    // param exists yet to preselect the property name on a fresh page load,
+    // only an in-app click via type-explorer.html's own
+    // onNavigateToValidValues can do that.
+    return { app: 'egeria-explorer', hash: 'valid-values' };
+  }
   var ex = resolveExplorerNav(item);
   if (ex) return { app: 'egeria-explorer', hash: ex.hash, kind: ex.kind };
   if (_isCatalogType(item)) return { app: 'tech-catalog' };

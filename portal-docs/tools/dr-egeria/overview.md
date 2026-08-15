@@ -51,34 +51,44 @@ The default directive is set in the plugin settings. You can also override it pe
 ---
 directive: validate
 ---
-# View Glossaries
+## View Glossaries
 ```
 
 ---
 
 ## Writing commands
 
-Commands follow a consistent Markdown pattern:
+Commands follow a consistent Markdown pattern — an `##` header naming the
+command, followed by one `###` sub-header per attribute with its value on
+the line(s) beneath:
 
 ```markdown
-# Command Name
-Property: Value
-Another Property: Another Value
+## Command Name
+### Property Name
+Value
+
+### Another Property Name
+Another Value
 ```
 
 For example, to view all glossaries:
 
 ```markdown
-# View Glossaries
+## View Glossaries
 ```
 
 To create a glossary term:
 
 ```markdown
-# Create Glossary Term
-Term: Customer
-Glossary: Business Glossary
-Summary: A person or organisation that purchases products or services.
+## Create Glossary Term
+### Display Name
+Customer
+
+### Glossary Name
+Business Glossary
+
+### Summary
+A person or organisation that purchases products or services.
 ```
 
 See the [Basic Templates](templates-basic.md) and [Advanced Templates](templates-advanced.md) for ready-to-use examples.

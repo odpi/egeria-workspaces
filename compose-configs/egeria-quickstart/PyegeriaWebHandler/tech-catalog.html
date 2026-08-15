@@ -583,7 +583,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      Cache-Control: no-cache (forces revalidation), but a browser that cached
      this URL *before* that header existed won't revalidate on its own; a new
      URL guarantees a fresh fetch regardless of prior cache state. -->
-<script src="/static/egeria-shared-ui.js?v=2026-08-06a"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-08-14g"></script>
 <script>
 'use strict';
 // React hook aliases (mirror type-explorer.html)
@@ -1718,6 +1718,13 @@ var TYPE_TO_NAV = (function() {
   m['Community']      = { external: 'egeria-explorer', hash: 'communities' };
   m['GovernanceDefinition'] = { external: 'egeria-explorer', hash: 'governance' };
   m['ReferenceDataValue']   = { external: 'egeria-explorer', hash: 'reference-data' };
+  // Egeria's internal type-system registry (every entity/relationship/
+  // classification typeName also exists as one of these) — lands on
+  // Explorer's Valid Values tab. Unlike the search-result path in
+  // type-explorer.html, a guid-only deep link here can't preselect which
+  // property to look up (element-nav only returns typeName/superTypeNames,
+  // not the property name), so this is a landing, not a full deep link.
+  m['ValidMetadataValue']   = { external: 'egeria-explorer', hash: 'valid-values' };
   // Data Design — Explorer's Data Design tab, sub-tab selected via ?kind=.
   m['DataSpec']      = { external: 'egeria-explorer', hash: 'data-design', kind: 'specs' };
   m['DataStructure'] = { external: 'egeria-explorer', hash: 'data-design', kind: 'structures' };
@@ -2564,53 +2571,12 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
 // ── Section views (each wraps AssetTabView for its sub-tabs) ─────────────────
 
 // ── Global Search ─────────────────────────────────────────────────────────────
-var SEARCH_CATEGORY_ICONS = {
-  'glossary':      '📖',
-  'tech-types':    '🔧',
-  'data-assets':   '🗄️',
-  'infrastructure':'🖧',
-  'apis':          '🔗',
-  'processes':     '⚙️',
-  'projects':      '📁',
-  'surveys':       '🔍',
-  'other':         '📦',
-};
+// SEARCH_CATEGORY_ICONS / highlightHtml / _groupSearchItemsByType moved to
+// static/egeria-shared-ui.js (CATALOG_SEARCH_CATEGORY_ICONS / highlightHtml /
+// groupCatalogSearchItemsByType) — BACKLOG.md FIX-7, shared with type-explorer.
+// html's ExplorerSearchView, which duplicated all three near-verbatim.
 
-function _hlEscape(s) { return s.replace(/[&<>"]/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
-function highlightHtml(text, q) {
-  if (!text) return '';
-  var safe = _hlEscape(text);
-  if (!q || q.length < 2) return safe;
-  try {
-    var re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
-    return safe.replace(re, '<mark style="background:rgba(251,191,36,.35);color:inherit;border-radius:2px;padding:0 1px">$1</mark>');
-  } catch(e) { return safe; }
-}
-
-// Result-list section headers group by real typeName, not categoryId --
-// categoryId/categoryLabel (_TYPE_CATEGORY in catalog_search_handler.py) only
-// curates ~40 of several hundred real Egeria types, so grouping the visible
-// list by it means most headings read as the generic "Other" bucket even
-// when a search was scoped to one exact, known type (e.g. selecting the
-// PersonRole facet still headed the list "Other"). Regrouping by typeName
-// here matches the same "trust the real result, not the curated bucket"
-// principle typeFacets already uses. categoryId is kept per-type only for
-// picking a (harmless, decorative) icon.
-function _groupSearchItemsByType(groups) {
-  var byType = {};
-  (groups || []).forEach(function(g) {
-    g.items.forEach(function(it) {
-      var key = it.typeName || '(unknown)';
-      if (!byType[key]) byType[key] = { typeName: key, categoryId: it.categoryId, items: [] };
-      byType[key].items.push(it);
-    });
-  });
-  return Object.values(byType).sort(function(a, b) {
-    return b.items.length - a.items.length || a.typeName.localeCompare(b.typeName);
-  });
-}
-
-function SearchResultCard({ item, query, onNavigate }) {
+function SearchResultCard({ item, query, onNavigate, selection }) {
   var nav = TYPE_TO_NAV[item.typeName];
   if (!nav) {
     var sup = item.superTypeNames || [];
@@ -2620,8 +2586,15 @@ function SearchResultCard({ item, query, onNavigate }) {
   }
   function handleOpen() {
     if (!item.guid) return;
-    if (onNavigate && (nav || (item.categoryId && item.categoryId !== 'other'))) {
-      onNavigate({ guid: item.guid, displayName: item.displayName, section: nav ? nav.section : item.categoryId, tab: nav && nav.tab });
+    if (onNavigate && nav) {
+      // Spread nav in full — for cross-app entries this carries {external,
+      // hash, kind}, not {section, tab}. Previously this only forwarded
+      // section/tab, which silently dropped `external` and made
+      // handleNavigate() do setSection(undefined) for any TYPE_TO_NAV entry
+      // that routes to Egeria Explorer (Location, Community, ValidMetadataValue, …).
+      onNavigate(Object.assign({ guid: item.guid, displayName: item.displayName }, nav));
+    } else if (onNavigate && item.categoryId && item.categoryId !== 'other') {
+      onNavigate({ guid: item.guid, displayName: item.displayName, section: item.categoryId });
     } else {
       // categoryId 'other' with no TYPE_TO_NAV match means this isn't a type The
       // Catalog owns (e.g. a Valid Value or Actor) — reloading into
@@ -2634,6 +2607,12 @@ function SearchResultCard({ item, query, onNavigate }) {
   return React.createElement('div', {
     style: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }
   },
+    selection && item.guid && React.createElement('input', {
+      type: 'checkbox',
+      checked: selection.isSelected(item.guid),
+      onChange: function() { selection.toggle({ guid: item.guid, displayName: item.displayName, typeName: item.typeName }); },
+      style: { marginTop: 3, flexShrink: 0, cursor: 'pointer' },
+    }),
     React.createElement('div', { style: { flex: 1, minWidth: 0 } },
       React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
         React.createElement('span', { style: { fontWeight: 600, fontSize: 13, color: 'var(--text)', wordBreak: 'break-word' }, dangerouslySetInnerHTML: { __html: highlightHtml(item.displayName || item.qualifiedName || item.guid, q) } }),
@@ -2650,83 +2629,28 @@ function SearchResultCard({ item, query, onNavigate }) {
 }
 
 function SearchView({ creds, onNavigate, initialQuery }) {
-  var _q      = useState(initialQuery || ''), q = _q[0], setQ = _q[1];
-  var _data   = useState(null), data = _data[0], setData = _data[1];
-  var _err    = useState(null), err  = _err[0],  setErr  = _err[1];
-  var _loading = useState(false), loading = _loading[0], setLoading = _loading[1];
-  // Facet chips come from the BASE (unrestricted) search's typeFacets, kept
-  // stable across scoped re-searches so the full breadth stays visible for
-  // further toggling — a scoped response's own typeFacets would only ever
-  // show the type(s) it was scoped to. Toggling a chip re-searches server-side
-  // (metadata_element_subtypes) rather than filtering client-side: page_size
-  // caps the base search, so a less-common type can be crowded out of that
-  // page entirely — scoping the search itself gets a complete count for it.
-  // Safe to do here (unlike a pre-search picker) because these typeNames came
-  // from a real prior result, not a curated/guessed list.
-  var _baseFacets = useState(null), baseFacets = _baseFacets[0], setBaseFacets = _baseFacets[1];
-  var _selTypes   = useState([]), selTypes = _selTypes[0], setSelTypes = _selTypes[1];
-  var _timer  = useRef(null);
-
-  function doSearch(query, typeList) {
-    var trimmed = (query || '').trim();
-    if (!trimmed || trimmed === '*') { setData(null); setErr(null); return; }
-    setLoading(true); setErr(null);
-    var url = '/api/catalog/search?q=' + encodeURIComponent(trimmed) + '&page_size=200';
-    (typeList || []).forEach(function(t) { url += '&types=' + encodeURIComponent(t); });
-    fetchWithToken(url, creds)
-      .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || r.status); }); })
-      .then(function(j) {
-        setData(j); setLoading(false);
-        if (!typeList || !typeList.length) setBaseFacets(j.typeFacets || []);
-        if (j.typeFilterDropped) setSelTypes([]); // server couldn't apply it — don't show a filter that isn't real
-      })
-      .catch(function(e) { setErr(e.message || String(e)); setLoading(false); });
-  }
-
-  function handleInput(e) {
-    var val = e.target.value;
-    setQ(val);
-    setSelTypes([]); setBaseFacets(null);
-    clearTimeout(_timer.current);
-    if (val.trim().length >= 2) {
-      _timer.current = setTimeout(function() { doSearch(val, []); }, 400);
-    } else {
-      setData(null);
-    }
-  }
-
-  function toggleType(tn) {
-    var next = selTypes.indexOf(tn) === -1 ? selTypes.concat([tn]) : selTypes.filter(function(t) { return t !== tn; });
-    setSelTypes(next);
-    doSearch(q, next);
-  }
-
-  useEffect(function() {
-    if (initialQuery && initialQuery.trim().length >= 2) doSearch(initialQuery, []);
-  }, []);
-
-  var hasResults = data && data.total > 0;
-  var facets = baseFacets || [];
-  var typeGroups = hasResults ? _groupSearchItemsByType(data.groups) : [];
+  var selection = useSelection();
+  var s = useCatalogSearch(creds, initialQuery, selection.clear);
+  var _showAddModal = useState(false), showAddModal = _showAddModal[0], setShowAddModal = _showAddModal[1];
 
   return React.createElement('div', { style: { display: 'flex', flex: 1, flexDirection: 'column', overflow: 'hidden' } },
     React.createElement('div', { style: { padding: '16px 20px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
       React.createElement('div', { style: { position: 'relative' } },
         React.createElement('input', {
-          type: 'search', value: q,
-          onChange: handleInput,
+          type: 'search', value: s.q,
+          onChange: s.handleInput,
           placeholder: 'Search across all of The Catalog — assets, glossary, tech types, surveys…',
           autoFocus: true,
           style: { width: '100%', padding: '10px 14px 10px 38px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)', fontSize: 14, boxSizing: 'border-box', outline: 'none' }
         }),
         React.createElement('span', { style: { position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 15, pointerEvents: 'none', color: 'var(--dim)' } }, '🔎')
       ),
-      facets.length > 1 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 8 } },
+      s.facets.length > 1 && React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 8 } },
         React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, 'Types in these results:'),
-        facets.map(function(f) {
-          var active = selTypes.indexOf(f.typeName) !== -1;
+        s.facets.map(function(f) {
+          var active = s.selTypes.indexOf(f.typeName) !== -1;
           return React.createElement('button', {
-            key: f.typeName, onClick: function() { toggleType(f.typeName); },
+            key: f.typeName, onClick: function() { s.toggleType(f.typeName); },
             title: active ? 'Click to remove filter' : 'Click to restrict search to ' + f.typeName,
             style: {
               fontSize: 11, padding: '3px 9px', borderRadius: 12, cursor: 'pointer',
@@ -2734,35 +2658,56 @@ function SearchView({ creds, onNavigate, initialQuery }) {
               background: active ? 'var(--accent)' : 'transparent',
               color: active ? 'var(--bg)' : 'var(--dim)',
             }
-          }, (SEARCH_CATEGORY_ICONS[f.categoryId] || '') + ' ' + f.typeName + ' (' + f.count + ')');
+          }, (CATALOG_SEARCH_CATEGORY_ICONS[f.categoryId] || '') + ' ' + f.typeName + ' (' + f.count + ')');
         })
       ),
-      data && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginTop: 6 } },
-        data.total + ' result' + (data.total === 1 ? '' : 's') + ' for ' + JSON.stringify(data.query) +
-        (selTypes.length ? ' (' + selTypes.length + ' type' + (selTypes.length === 1 ? '' : 's') + ' selected)' : ''),
-        data.typeFilterDropped && React.createElement('span', { style: { color: '#fbbf24', marginLeft: 6 } }, '⚠ type filter unavailable, showing unrestricted results')
+      s.data && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginTop: 6 } },
+        s.data.total + ' result' + (s.data.total === 1 ? '' : 's') + ' for ' + JSON.stringify(s.data.query) +
+        (s.selTypes.length ? ' (' + s.selTypes.length + ' type' + (s.selTypes.length === 1 ? '' : 's') + ' selected)' : ''),
+        s.data.typeFilterDropped && React.createElement('span', { style: { color: '#fbbf24', marginLeft: 6 } }, '⚠ type filter unavailable, showing unrestricted results')
       )
     ),
     React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: '12px 20px' } },
-      loading && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12, padding: 8 } }, 'Searching…'),
-      err     && React.createElement('div', { style: { color: '#f87171', fontSize: 13, padding: 8 } }, 'Error: ' + err),
-      !loading && !err && !data && q.trim().length < 2 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, padding: 8, textAlign: 'center', marginTop: 40 } },
+      s.loading && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12, padding: 8 } }, 'Searching…'),
+      s.err     && React.createElement('div', { style: { color: '#f87171', fontSize: 13, padding: 8 } }, 'Error: ' + s.err),
+      !s.loading && !s.err && !s.data && s.q.trim().length < 2 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, padding: 8, textAlign: 'center', marginTop: 40 } },
         'Type at least 2 characters to search.'),
-      !loading && hasResults && typeGroups.map(function(grp) {
+      !s.loading && s.hasResults && React.createElement(BulkActionBar, {
+        count: selection.count,
+        onClear: selection.clear,
+        actions: [{ id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setShowAddModal(true); } }],
+      }),
+      !s.loading && s.hasResults && s.typeGroups.map(function(grp) {
+        var groupSelected = grp.items.length > 0 && grp.items.every(function(it) { return it.guid && selection.isSelected(it.guid); });
         return React.createElement('div', { key: grp.typeName, style: { marginBottom: 20 } },
           React.createElement('div', { style: { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 } },
-            React.createElement('span', null, SEARCH_CATEGORY_ICONS[grp.categoryId] || '📦'),
+            React.createElement('input', {
+              type: 'checkbox', checked: groupSelected, title: 'Select all in this group',
+              onChange: function() {
+                var withGuid = grp.items.filter(function(it) { return it.guid; });
+                if (groupSelected) selection.deselectAll(withGuid);
+                else selection.selectAll(withGuid.map(function(it) { return { guid: it.guid, displayName: it.displayName, typeName: it.typeName }; }));
+              },
+              style: { cursor: 'pointer' },
+            }),
+            React.createElement('span', null, CATALOG_SEARCH_CATEGORY_ICONS[grp.categoryId] || '📦'),
             grp.typeName,
             React.createElement('span', { style: { fontWeight: 400, color: 'var(--dim)', textTransform: 'none', letterSpacing: 0 } }, '(' + grp.items.length + ')')
           ),
           grp.items.map(function(item, i) {
-            return React.createElement(SearchResultCard, { key: item.guid || i, item: item, query: q, onNavigate: onNavigate });
+            return React.createElement(SearchResultCard, { key: item.guid || i, item: item, query: s.q, onNavigate: onNavigate, selection: selection });
           })
         );
       }),
-      !loading && data && data.total === 0 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, padding: 8, textAlign: 'center', marginTop: 40 } },
-        'No results found for ' + JSON.stringify(data.query) + '.')
-    )
+      !s.loading && s.data && s.data.total === 0 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, padding: 8, textAlign: 'center', marginTop: 40 } },
+        'No results found for ' + JSON.stringify(s.data.query) + '.')
+    ),
+    showAddModal && React.createElement(AddToCollectionModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      onClose: function() { setShowAddModal(false); },
+      onDone: function() { selection.clear(); },
+    })
   );
 }
 

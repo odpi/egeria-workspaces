@@ -61,8 +61,14 @@ def _bootstrap_runtime_defaults() -> None:
 
 _bootstrap_runtime_defaults()
 
-EGERIA_ROOT_PATH = os.environ.get("EGERIA_ROOT_PATH", "/")
-EGERIA_INBOX_PATH = os.environ.get("EGERIA_INBOX_PATH", "dr-egeria-inbox")
+# NOT module-level constants on purpose: EGERIA_ROOT_PATH/EGERIA_INBOX_PATH
+# used to be captured here once at import time, which meant re-importing
+# this module (e.g. in tests, after monkeypatching the env for a temp
+# directory) had no effect — the already-imported module (this file is
+# imported transitively by pyegeria_handler.py, which tests/conftest.py
+# imports at collection time) kept using whichever paths were set the FIRST
+# time it loaded. Read fresh via os.environ.get(...) at each call site
+# (_write_block_to_inbox, dr_egeria_run_block) instead.
 
 import pyegeria
 pyegeria.enable_ssl_check = False
@@ -74,21 +80,19 @@ except ImportError:
 import dr_egeria_md  # type: ignore
 
 # MCP server primitives
-from mcp.server.fastmcp import FastMCP, Context
-from mcp.shared.exceptions import McpError
-# from mcp.types import INTERNAL_ERROR
-from mcp.server.transport_security import TransportSecuritySettings
+from mcp.server.mcpserver import MCPServer, Context
 
-server = FastMCP(
+server = MCPServer(
     "dr-egeria-mcp",
     instructions="Model Context Protocol server exposing Egeria via Dr. Egeria markdown commands.",
 )
 
-# Disable DNS rebinding protection to allow connection from Obsidian (app://obsidian.md)
-# and other origins/hosts in the docker environment.
-server.settings.transport_security = TransportSecuritySettings(
-    enable_dns_rebinding_protection=False
-)
+# DNS rebinding protection (the old server.settings.transport_security knob)
+# only applies to SSE/HTTP transport in mcp 2.0.0 -- it's a per-call kwarg to
+# run_sse_async()/run_streamable_http_async() now, not a settings field, and
+# this server only ever runs stdio transport (see main() below), where DNS
+# rebinding isn't an applicable threat model at all. The old assignment was
+# already a no-op for stdio; nothing to replace it with here.
 
 
 def _run_and_capture(func, *args, **kwargs) -> str:
@@ -116,7 +120,10 @@ def _write_block_to_inbox(markdown_block: str) -> str:
     """
     ts = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     file_name = f"mcp-{ts}.md"
-    inbox_dir = os.path.join(EGERIA_ROOT_PATH, EGERIA_INBOX_PATH)
+    inbox_dir = os.path.join(
+        os.environ.get("EGERIA_ROOT_PATH", "/"),
+        os.environ.get("EGERIA_INBOX_PATH", "dr-egeria-inbox"),
+    )
     os.makedirs(inbox_dir, exist_ok=True)
     full_path = os.path.join(inbox_dir, file_name)
     with open(full_path, "w", encoding="utf-8") as f:
@@ -248,7 +255,11 @@ async def dr_egeria_run_block(
     # The temporary file we just wrote is the ACTUAL input source.
     # We use its absolute path to bypass any environment-based path resolution in the processor.
     # This is critical when the client (e.g. Obsidian) is remote and sends content via MCP.
-    effective_input_file = os.path.join(EGERIA_ROOT_PATH, EGERIA_INBOX_PATH, file_name)
+    effective_input_file = os.path.join(
+        os.environ.get("EGERIA_ROOT_PATH", "/"),
+        os.environ.get("EGERIA_INBOX_PATH", "dr-egeria-inbox"),
+        file_name,
+    )
 
     final_output_folder = output_folder or ""
     final_outbox_path = outbox_path or os.environ.get("EGERIA_OUTBOX_PATH", "dr-egeria-outbox")

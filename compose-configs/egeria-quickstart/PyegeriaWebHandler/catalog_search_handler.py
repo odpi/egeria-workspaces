@@ -17,6 +17,7 @@ from loguru import logger
 
 from egeria_auth import apply_token
 from pyegeria.omvs.classification_explorer import ClassificationExplorer
+from valid_values_handler import _extract_name_from_element as _vv_property_name
 
 router = APIRouter(tags=["catalog-search"])
 
@@ -97,10 +98,19 @@ _TYPE_CATEGORY: dict[str, dict] = {
     "DataFieldAnnotation":      {"id": "surveys", "label": "Surveys", "tab": "annotations"},
     "ClassificationAnnotation": {"id": "surveys", "label": "Surveys", "tab": "annotations"},
     "QualityAnnotation":        {"id": "surveys", "label": "Surveys", "tab": "annotations"},
+    # Type-system metadata (Egeria's internal ValidMetadataValue registry —
+    # every entity/relationship/classification typeName also exists as one of
+    # these, which is why an unrelated-looking search like "SmartQuery" can
+    # legitimately match one). Bucketed on its own rather than "other" so it
+    # routes to the Valid Values viewer instead of a dead-end Catalog link —
+    # see _serialize_search_result's validValueProperty and
+    # type-explorer.html's _elementIsLinkable/onNavigateToElement.
+    "ValidMetadataValue":       {"id": "valid-values", "label": "Valid Values"},
 }
 
 _CATEGORY_ORDER = [
-    "glossary", "tech-types", "data-assets", "infrastructure", "apis", "processes", "projects", "surveys", "other",
+    "glossary", "tech-types", "data-assets", "infrastructure", "apis", "processes", "projects", "surveys",
+    "valid-values", "other",
 ]
 
 _CATEGORY_LABELS = {
@@ -112,6 +122,7 @@ _CATEGORY_LABELS = {
     "processes":    "Processes",
     "projects":     "Projects",
     "surveys":      "Surveys",
+    "valid-values": "Valid Values",
     "other":        "Other",
 }
 
@@ -179,6 +190,14 @@ def _serialize_search_result(el: dict) -> Optional[dict]:
     }
     if "tab" in cat_info:
         result["tab"] = cat_info["tab"]
+    if type_name == "ValidMetadataValue":
+        # The Valid Values viewer is keyed by Egeria property name (e.g.
+        # "typeName"), not guid — extract it the same way valid_values_handler
+        # does for its own lookups, so a search hit can route straight there
+        # instead of falling back to a generic/broken catalog link.
+        prop_name = _vv_property_name(el)
+        if prop_name:
+            result["validValueProperty"] = prop_name
     return result
 
 
