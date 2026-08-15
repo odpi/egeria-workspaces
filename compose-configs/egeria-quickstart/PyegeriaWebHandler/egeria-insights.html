@@ -1147,6 +1147,8 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse, 
   var selection = useSelection();
   // null | 'add' | 'remove' — which AddToCollectionModal action, if any, is open.
   var _modalAction = useState(null), modalAction = _modalAction[0], setModalAction = _modalAction[1];
+  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
+  var _zoneModalAction = useState(null), zoneModalAction = _zoneModalAction[0], setZoneModalAction = _zoneModalAction[1];
   var _typeName = useState(focusType || lq.type_name || ''), typeName = _typeName[0], setTypeName = _typeName[1];
   // Exclude types (2026-08-05) — comma-separated free text, matched against
   // both typeName and superTypeNames server-side after fetch (see
@@ -1593,6 +1595,8 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse, 
           actions: [
             { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
             { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
+            { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
+            { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
           ],
         }),
         resState === 'ready'   && el(SearchResults, { results: results, selection: selection })
@@ -1602,6 +1606,13 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse, 
         creds: creds,
         action: modalAction,
         onClose: function() { setModalAction(null); },
+        onDone: function() { selection.clear(); },
+      }),
+      zoneModalAction && el(ZoneMembershipModal, {
+        items: Array.from(selection.selected.values()),
+        creds: creds,
+        action: zoneModalAction,
+        onClose: function() { setZoneModalAction(null); },
         onDone: function() { selection.clear(); },
       })
     )

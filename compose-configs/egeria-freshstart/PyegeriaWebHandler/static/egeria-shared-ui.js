@@ -194,12 +194,17 @@ function useResizable(initialPx, min, max) {
  * token-aware egeriaFetch). onSelect(obj, isFolder) fires on row click.
  * Depends on host CSS classes .tree-item / .badge / .type-name and CSS vars
  * --accent --muted --dim. */
-function GlossaryTermRow({ term, depth, selected, onSelect }) {
+function GlossaryTermRow({ term, depth, selected, onSelect, selection }) {
   return React.createElement("div", {
     className: "tree-item" + (selected === term.guid ? " sel" : ""),
     style: { paddingLeft: 8 + depth * 16 },
     onClick: function() { onSelect(term, false); }, title: term.qualifiedName || term.guid,
   },
+    selection && term.guid && React.createElement("input", {
+      type: "checkbox", checked: selection.isSelected(term.guid), style: { flexShrink: 0, cursor: 'pointer' },
+      onClick: function(e) { e.stopPropagation(); },
+      onChange: function() { selection.toggle({ guid: term.guid, displayName: term.displayName, typeName: term.typeName }); },
+    }),
     React.createElement("span", { style: { width: 14, display: 'inline-block', flexShrink: 0 } }),
     React.createElement("div", { style: { flex: 1, minWidth: 0 } },
       React.createElement("div", { className: "type-name" }, term.displayName || term.qualifiedName || term.guid),
@@ -211,7 +216,7 @@ function GlossaryTermRow({ term, depth, selected, onSelect }) {
 
 // A folder node in the glossary tree — expanding the twistie lazily loads its
 // child folders + terms (consistent with the Collections / Digital Products trees).
-function GlossaryTreeNode({ folder, depth, selected, onSelect, showTemplates, fetchJson }) {
+function GlossaryTreeNode({ folder, depth, selected, onSelect, showTemplates, fetchJson, selection }) {
   const [expanded, setExpanded] = React.useState(false);
   const [children, setChildren] = React.useState(null); // null = unfetched; {folders, terms}
   const [loading, setLoading] = React.useState(false);
@@ -241,8 +246,8 @@ function GlossaryTreeNode({ folder, depth, selected, onSelect, showTemplates, fe
     ),
     expanded && loading && React.createElement("div", { style: { paddingLeft: pad + 20, fontSize: 11, color: 'var(--dim)', padding: '2px 0' } }, "Loading…"),
     expanded && children && React.createElement(React.Fragment, null,
-      children.folders.map(function(cf) { return React.createElement(GlossaryTreeNode, { key: cf.guid, folder: cf, depth: depth + 1, selected: selected, onSelect: onSelect, showTemplates: showTemplates, fetchJson: fetchJson }); }),
-      subTerms.map(function(t) { return React.createElement(GlossaryTermRow, { key: t.guid, term: t, depth: depth + 1, selected: selected, onSelect: onSelect }); })
+      children.folders.map(function(cf) { return React.createElement(GlossaryTreeNode, { key: cf.guid, folder: cf, depth: depth + 1, selected: selected, onSelect: onSelect, showTemplates: showTemplates, fetchJson: fetchJson, selection: selection }); }),
+      subTerms.map(function(t) { return React.createElement(GlossaryTermRow, { key: t.guid, term: t, depth: depth + 1, selected: selected, onSelect: onSelect, selection: selection }); })
     )
   );
 }
@@ -369,6 +374,614 @@ function egeriaFetch(url, creds, opts) {
     }
     return r;
   });
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Catalog search — shared by tech-catalog.html's SearchView and type-explorer
+ * .html's ExplorerSearchView in quickstart. Ported here (2026-08-15, follow-up
+ * to the bulk-action sync) because type-explorer.html's ExplorerSearchView
+ * reference implementation already depends on it — porting the bulk-select
+ * pattern for that view without this hook leaves `useCatalogSearch`/
+ * `CATALOG_SEARCH_CATEGORY_ICONS`/`highlightHtml` as dangling references
+ * (a runtime ReferenceError, invisible to `node --check`'s syntax-only pass).
+ * freshstart's tech-catalog.html SearchView was NOT rewired onto this hook —
+ * it still uses its own local q/data/err/loading/facets/selTypes state, and
+ * its own local `highlightHtml`/`_hlEscape`/`SEARCH_CATEGORY_ICONS` (different
+ * name from CATALOG_SEARCH_CATEGORY_ICONS below, so no collision there). Its
+ * page-level `<script>` loads after this shared file and its own `highlightHtml`
+ * plain-function declaration simply overwrites this one in the shared global
+ * scope — harmless, since both implementations are identical; only
+ * type-explorer.html's ExplorerSearchView actually depends on the shared one.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+var CATALOG_SEARCH_CATEGORY_ICONS = {
+  'glossary':       '📖',
+  'tech-types':     '🔧',
+  'data-assets':    '🗄️',
+  'infrastructure': '🖧',
+  'apis':           '🔗',
+  'processes':      '⚙️',
+  'projects':       '📁',
+  'surveys':        '🔍',
+  'valid-values':   '✅',
+  'other':          '📦',
+};
+
+function _catalogSearchHlEscape(s) { return s.replace(/[&<>"]/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+// Wraps query-term matches in <mark>; safe against regex-special characters
+// in the query itself (escaped before building the RegExp) and against HTML
+// injection from the source text (escaped before highlighting).
+function highlightHtml(text, q) {
+  if (!text) return '';
+  var safe = _catalogSearchHlEscape(text);
+  if (!q || q.length < 2) return safe;
+  try {
+    var re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+    return safe.replace(re, '<mark style="background:rgba(251,191,36,.35);color:inherit;border-radius:2px;padding:0 1px">$1</mark>');
+  } catch (e) { return safe; }
+}
+
+// Result-list section headers group by real typeName, not categoryId --
+// categoryId/categoryLabel (_TYPE_CATEGORY in catalog_search_handler.py) only
+// curates ~40 of several hundred real Egeria types, so grouping the visible
+// list by it means most headings read as the generic "Other" bucket even
+// when a search was scoped to one exact, known type (e.g. selecting the
+// PersonRole facet still headed the list "Other"). Regrouping by typeName
+// here matches the same "trust the real result, not the curated bucket"
+// principle typeFacets already uses. categoryId is kept per-type only for
+// picking a (harmless, decorative) icon.
+function groupCatalogSearchItemsByType(groups) {
+  var byType = {};
+  (groups || []).forEach(function(g) {
+    g.items.forEach(function(it) {
+      var key = it.typeName || '(unknown)';
+      if (!byType[key]) byType[key] = { typeName: key, categoryId: it.categoryId, items: [] };
+      byType[key].items.push(it);
+    });
+  });
+  return Object.values(byType).sort(function(a, b) {
+    return b.items.length - a.items.length || a.typeName.localeCompare(b.typeName);
+  });
+}
+
+// The search state machine itself: debounced free-text query, server-side
+// type-facet scoping (re-searches rather than filtering client-side — see
+// the comment this carried at each original call site, kept below), loading/
+// error/result state. `onReset`, if given, fires at the start of every fresh
+// query (not on a facet-toggle re-search) — Catalog uses it to clear a stale
+// bulk-selection from a previous, now-invisible result set; Explorer has no
+// selection concept and omits it.
+function useCatalogSearch(creds, initialQuery, onReset) {
+  var _q = React.useState(initialQuery || ''), q = _q[0], setQ = _q[1];
+  var _data = React.useState(null), data = _data[0], setData = _data[1];
+  var _err = React.useState(null), err = _err[0], setErr = _err[1];
+  var _loading = React.useState(false), loading = _loading[0], setLoading = _loading[1];
+  var _baseFacets = React.useState(null), baseFacets = _baseFacets[0], setBaseFacets = _baseFacets[1];
+  var _selTypes = React.useState([]), selTypes = _selTypes[0], setSelTypes = _selTypes[1];
+  var timer = React.useRef(null);
+
+  function doSearch(query, typeList) {
+    var trimmed = (query || '').trim();
+    if (!trimmed || trimmed === '*') { setData(null); setErr(null); return; }
+    setLoading(true); setErr(null);
+    var url = '/api/catalog/search?q=' + encodeURIComponent(trimmed) + '&page_size=200';
+    (typeList || []).forEach(function(t) { url += '&types=' + encodeURIComponent(t); });
+    egeriaFetch(url, creds)
+      .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || r.status); }); })
+      .then(function(j) {
+        setData(j); setLoading(false);
+        if (!typeList || !typeList.length) setBaseFacets(j.typeFacets || []);
+        if (j.typeFilterDropped) setSelTypes([]); // server couldn't apply it — don't show a filter that isn't real
+      })
+      .catch(function(e) { setErr(e.message || String(e)); setLoading(false); });
+  }
+
+  function handleInput(e) {
+    var val = e.target.value;
+    setQ(val);
+    setSelTypes([]); setBaseFacets(null);
+    if (onReset) onReset();
+    clearTimeout(timer.current);
+    if (val.trim().length >= 2) timer.current = setTimeout(function() { doSearch(val, []); }, 400);
+    else setData(null);
+  }
+
+  function toggleType(tn) {
+    var next = selTypes.indexOf(tn) === -1 ? selTypes.concat([tn]) : selTypes.filter(function(t) { return t !== tn; });
+    setSelTypes(next);
+    doSearch(q, next);
+  }
+
+  React.useEffect(function() {
+    if (initialQuery && initialQuery.trim().length >= 2) doSearch(initialQuery, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  var hasResults = data && data.total > 0;
+  var facets = baseFacets || [];
+  var typeGroups = hasResults ? groupCatalogSearchItemsByType(data.groups) : [];
+
+  return {
+    q: q, setQ: setQ, data: data, err: err, loading: loading,
+    facets: facets, selTypes: selTypes, hasResults: hasResults, typeGroups: typeGroups,
+    handleInput: handleInput, toggleType: toggleType, doSearch: doSearch,
+  };
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Type-graph helpers (subset ported from quickstart's egeria-shared-ui.js,
+ * 2026-08-15) — only the pieces AddToCollectionModal below needs to walk the
+ * /api/types subtype tree (e.g. Collection → SubjectArea, DigitalProduct…).
+ * type-explorer.html keeps its own local getChain/getAllProps/getSubs (not
+ * yet promoted to this shared file here, unlike quickstart's SHARE-3 — out of
+ * scope for this port), so only getSubs/getAllSubs/useTypeGraph are added
+ * here to avoid a wider, unrelated refactor.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+// Direct subtypes only (one level). See getAllSubs below for the full
+// transitive tree.
+function getSubs(name, entities) {
+  return Object.keys(entities).filter(function(n) {
+    var t = entities[n];
+    return t && t.supertype === name;
+  });
+}
+
+// Transitive subtypes — needed wherever the direct children aren't enough
+// (e.g. Collection's subtype tree is multi-level: Agreement, DigitalProduct,
+// SubjectArea, … each have their own children too).
+function getAllSubs(name, entities) {
+  var direct = getSubs(name, entities);
+  var all = direct.slice();
+  direct.forEach(function(n) {
+    all = all.concat(getAllSubs(n, entities));
+  });
+  return all;
+}
+
+// Fetches /api/types once per mount and returns just the `entities` map (what
+// getSubs/getAllSubs operate on) — pass the same `creds` shape already
+// threaded through other egeriaFetch call sites. Returns null while loading,
+// {} on error (callers treat both as "nothing to show yet" rather than
+// needing a separate error state for what's usually a background lookup
+// feeding a picker, not the screen's primary content).
+function useTypeGraph(creds) {
+  var state = React.useState(null);
+  var entities = state[0], setEntities = state[1];
+  React.useEffect(function() {
+    egeriaFetch('/api/types', creds).then(function(r) {
+      return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status));
+    }).then(function(data) {
+      setEntities((data && data.entities) || {});
+    }).catch(function() {
+      setEntities({});
+    });
+    // Mount-once by design — see quickstart's egeria-shared-ui.js for the
+    // full rationale (a picker inside a short-lived modal doesn't need this
+    // to react to creds changing mid-lifetime).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return entities;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Bulk selection — shared by any screen that renders a list of elements and
+ * wants a "select some, then act on them" flow. Ported from quickstart's
+ * egeria-shared-ui.js (2026-08-15) — see that file's history for the design
+ * rationale (pilot: tech-catalog.html's search results + Add-to-Collection,
+ * 2026-08-14).
+ * ────────────────────────────────────────────────────────────────────────── */
+
+// selected is a Map<guid, {guid, displayName, typeName}> — stores enough per
+// item to render a confirm step without re-fetching, not just a bare guid Set.
+function useSelection() {
+  var state = React.useState(function() { return new Map(); });
+  var selected = state[0], setSelected = state[1];
+
+  var toggle = React.useCallback(function(item) {
+    setSelected(function(prev) {
+      var next = new Map(prev);
+      if (next.has(item.guid)) next.delete(item.guid);
+      else next.set(item.guid, item);
+      return next;
+    });
+  }, []);
+
+  // Merges into the existing selection rather than replacing it — a
+  // per-group "select all" shouldn't clear selections made in other groups.
+  var selectAll = React.useCallback(function(items) {
+    setSelected(function(prev) {
+      var next = new Map(prev);
+      items.forEach(function(i) { next.set(i.guid, i); });
+      return next;
+    });
+  }, []);
+
+  var deselectAll = React.useCallback(function(items) {
+    setSelected(function(prev) {
+      var next = new Map(prev);
+      items.forEach(function(i) { next.delete(i.guid); });
+      return next;
+    });
+  }, []);
+
+  var clear = React.useCallback(function() { setSelected(new Map()); }, []);
+  var isSelected = React.useCallback(function(guid) { return selected.has(guid); }, [selected]);
+
+  return {
+    selected: selected, toggle: toggle, selectAll: selectAll, deselectAll: deselectAll,
+    clear: clear, isSelected: isSelected, count: selected.size,
+  };
+}
+
+// Presentational only — renders nothing when count is 0. actions:
+// [{id, label, onClick}].
+function BulkActionBar({ count, onClear, actions }) {
+  if (!count) return null;
+  var el = React.createElement;
+  return el('div', {
+    style: {
+      display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px',
+      background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 6,
+      marginBottom: 8, fontSize: 12,
+    },
+  },
+    el('span', { style: { fontWeight: 600, color: 'var(--text)' } }, count + ' selected'),
+    (actions || []).map(function(a) {
+      return el('button', {
+        key: a.id, onClick: a.onClick,
+        style: {
+          fontSize: 11, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--accent)',
+          background: 'var(--accent)', color: 'var(--bg)', cursor: 'pointer',
+        },
+      }, a.label);
+    }),
+    el('button', {
+      onClick: onClear,
+      style: {
+        fontSize: 11, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)',
+        background: 'transparent', color: 'var(--dim)', cursor: 'pointer', marginLeft: 'auto',
+      },
+    }, 'Clear')
+  );
+}
+
+// Two-step "add these to a collection" flow: pick a Collection subtype (from
+// the /api/types graph, via useTypeGraph/getAllSubs above), then pick an
+// existing collection of that subtype (GET /api/collections/by-type), then
+// confirm (POST /api/collections/{guid}/members). v1 scope: existing
+// collections only — no inline "create new collection" yet (BACKLOG.md
+// Bulk Actions Phase 2). Modal chrome mirrors EgeriaFeedbackWidget's dialog
+// below for visual consistency (same overlay/panel/input styling).
+// action: 'add' (default) or 'remove' — remove mode always targets an
+// existing collection (no "create new", nothing to remove from a collection
+// that doesn't exist yet) and calls DELETE .../members instead of POST
+// (BACKLOG.md Bulk Actions, task #19, 2026-08-14).
+function AddToCollectionModal({ items, creds, action, onClose, onDone }) {
+  var isRemove = action === 'remove';
+  var entities = useTypeGraph(creds);
+  var subtypeState = React.useState('Collection');
+  var subtype = subtypeState[0], setSubtype = subtypeState[1];
+  // 'existing' picks a collection via GET /api/collections/by-type; 'new'
+  // creates one via POST /api/collections first, then adds to it (BACKLOG.md
+  // Bulk Actions Phase 2, 2026-08-14). Remove mode never leaves 'existing'.
+  var modeState = React.useState('existing');
+  var mode = isRemove ? 'existing' : modeState[0], setMode = modeState[1];
+  var colsState = React.useState(null); // null = not yet loaded; [] = loaded, empty
+  var collections = colsState[0], setCollections = colsState[1];
+  var colsLoadingState = React.useState(false);
+  var collectionsLoading = colsLoadingState[0], setCollectionsLoading = colsLoadingState[1];
+  var colsErrState = React.useState(null);
+  var collectionsError = colsErrState[0], setCollectionsError = colsErrState[1];
+  var targetState = React.useState(null);
+  var target = targetState[0], setTarget = targetState[1];
+  var newNameState = React.useState('');
+  var newName = newNameState[0], setNewName = newNameState[1];
+  var newDescState = React.useState('');
+  var newDescription = newDescState[0], setNewDescription = newDescState[1];
+  var submittingState = React.useState(false);
+  var submitting = submittingState[0], setSubmitting = submittingState[1];
+  var resultState = React.useState(null);
+  var result = resultState[0], setResult = resultState[1];
+  var resultTargetState = React.useState(null); // the collection actually used, incl. newly-created ones
+  var resultTarget = resultTargetState[0], setResultTarget = resultTargetState[1];
+  var submitErrState = React.useState(null);
+  var submitError = submitErrState[0], setSubmitError = submitErrState[1];
+
+  var subtypeOptions = React.useMemo(function() {
+    if (!entities) return ['Collection'];
+    return ['Collection'].concat(getAllSubs('Collection', entities).slice().sort());
+  }, [entities]);
+
+  React.useEffect(function() {
+    if (!subtype || mode !== 'existing') return;
+    setCollections(null);
+    setCollectionsError(null);
+    setTarget(null);
+    setCollectionsLoading(true);
+    egeriaFetch('/api/collections/by-type?type_name=' + encodeURIComponent(subtype), creds)
+      .then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
+      .then(function(list) { setCollections(list || []); setCollectionsLoading(false); })
+      .catch(function(e) { setCollectionsError(e.message || String(e)); setCollectionsLoading(false); });
+  }, [subtype, mode]);
+
+  function addMembers(collGuid) {
+    return egeriaFetch('/api/collections/' + encodeURIComponent(collGuid) + '/members', creds, {
+      method: isRemove ? 'DELETE' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ guids: items.map(function(i) { return i.guid; }) }),
+    }).then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || ('HTTP ' + r.status)); }); });
+  }
+
+  function submit() {
+    if (submitting) return;
+    if (mode === 'existing') {
+      if (!target) return;
+      setSubmitting(true);
+      setSubmitError(null);
+      addMembers(target.guid)
+        .then(function(res) { setResultTarget(target); setResult(res); setSubmitting(false); if (onDone) onDone(res); })
+        .catch(function(e) { setSubmitError(e.message || String(e)); setSubmitting(false); });
+    } else {
+      if (!newName.trim()) return;
+      setSubmitting(true);
+      setSubmitError(null);
+      egeriaFetch('/api/collections', creds, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type_name: subtype, display_name: newName.trim(), description: newDescription.trim() || null }),
+      })
+        .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || ('HTTP ' + r.status)); }); })
+        .then(function(created) {
+          setResultTarget(created);
+          return addMembers(created.guid).then(function(res) { setResult(res); setSubmitting(false); if (onDone) onDone(res); });
+        })
+        .catch(function(e) { setSubmitError(e.message || String(e)); setSubmitting(false); });
+    }
+  }
+
+  var el = React.createElement;
+  var inp = { width: '100%', boxSizing: 'border-box', background: 'var(--bg)', border: '1px solid var(--border)',
+              borderRadius: 6, padding: '7px 9px', color: 'var(--text)', fontSize: 12, fontFamily: 'inherit', outline: 'none' };
+  function tabBtn(id, label) {
+    var active = mode === id;
+    return el('button', {
+      key: id, onClick: function() { setMode(id); },
+      style: { fontSize: 11, padding: '4px 10px', borderRadius: 4, cursor: 'pointer',
+               border: '1px solid ' + (active ? 'var(--accent)' : 'var(--border)'),
+               background: active ? 'var(--accent)' : 'transparent',
+               color: active ? 'var(--bg)' : 'var(--dim)', fontWeight: active ? 700 : 400 },
+    }, label);
+  }
+  var canSubmit = mode === 'existing' ? !!target : newName.trim().length > 0;
+
+  return el('div', {
+    onClick: function(e) { if (e.target === e.currentTarget && !submitting) onClose(); },
+    style: { position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.45)',
+             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  },
+    el('div', { style: { background: 'var(--surface,var(--card))', border: '1px solid var(--border)',
+        borderRadius: 12, padding: '22px 26px', width: 420, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' } },
+
+      el('div', { style: { fontWeight: 700, fontSize: 14, marginBottom: 4 } }, isRemove ? 'Remove from Collection' : 'Add to Collection'),
+      el('div', { style: { fontSize: 11, color: 'var(--muted)', marginBottom: 14 } },
+        items.length + ' element' + (items.length === 1 ? '' : 's') + ' selected'),
+
+      !result && el(React.Fragment, null,
+        el('label', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 3 } }, 'Collection type'),
+        el('select', {
+          value: subtype, onChange: function(e) { setSubtype(e.target.value); },
+          style: Object.assign({}, inp, { marginBottom: 10 }),
+        }, subtypeOptions.map(function(t) { return el('option', { key: t, value: t }, t); })),
+
+        !isRemove && el('div', { style: { display: 'flex', gap: 6, marginBottom: 10 } },
+          tabBtn('existing', 'Use existing'), tabBtn('new', 'Create new')),
+
+        mode === 'existing' && el(React.Fragment, null,
+          el('label', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 3 } }, 'Collection'),
+          collectionsLoading && el('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '6px 0' } }, 'Loading…'),
+          collectionsError && el('div', { style: { fontSize: 12, color: '#f87171', padding: '6px 0' } }, 'Error: ' + collectionsError),
+          !collectionsLoading && !collectionsError && collections && collections.length === 0 &&
+            el('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '6px 0' } },
+              'No existing ' + subtype + ' collections found' + (isRemove ? '.' : ' — try "Create new".')),
+          !collectionsLoading && !collectionsError && collections && collections.length > 0 &&
+            el('select', {
+              value: (target && target.guid) || '',
+              onChange: function(e) {
+                var c = collections.find(function(x) { return x.guid === e.target.value; });
+                setTarget(c || null);
+              },
+              style: Object.assign({}, inp, { marginBottom: 10 }),
+            },
+              el('option', { value: '' }, '— choose —'),
+              collections.map(function(c) {
+                return el('option', { key: c.guid, value: c.guid }, c.displayName || c.qualifiedName || c.guid);
+              })
+            )
+        ),
+
+        mode === 'new' && el(React.Fragment, null,
+          el('label', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 3 } }, 'New ' + subtype + ' name'),
+          el('input', {
+            type: 'text', value: newName, onChange: function(e) { setNewName(e.target.value); },
+            placeholder: 'Display name', style: Object.assign({}, inp, { marginBottom: 8 }),
+          }),
+          el('textarea', {
+            value: newDescription, onChange: function(e) { setNewDescription(e.target.value); },
+            placeholder: 'Description (optional)', rows: 2,
+            style: Object.assign({}, inp, { resize: 'vertical', marginBottom: 10 }),
+          })
+        ),
+
+        submitError && el('div', { style: { fontSize: 12, color: '#f87171', marginBottom: 8 } }, 'Error: ' + submitError),
+
+        el('div', { style: { display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 10 } },
+          el('button', {
+            onClick: onClose, disabled: submitting,
+            style: { fontSize: 12, padding: '6px 14px', borderRadius: 6, border: '1px solid var(--border)',
+                     background: 'transparent', color: 'var(--dim)', cursor: submitting ? 'default' : 'pointer' },
+          }, 'Cancel'),
+          el('button', {
+            onClick: submit, disabled: !canSubmit || submitting,
+            style: { fontSize: 12, padding: '6px 14px', borderRadius: 6, border: '1px solid var(--accent)',
+                     background: (!canSubmit || submitting) ? 'var(--panel)' : 'var(--accent)',
+                     color: (!canSubmit || submitting) ? 'var(--dim)' : 'var(--bg)',
+                     cursor: (!canSubmit || submitting) ? 'default' : 'pointer' },
+          }, submitting ? (mode === 'new' ? 'Creating…' : (isRemove ? 'Removing…' : 'Adding…'))
+                        : (mode === 'new' ? 'Create & Add' : (isRemove ? 'Remove' : 'Add')))
+        )
+      ),
+
+      result && el(React.Fragment, null,
+        el('div', { style: { fontSize: 13, marginBottom: 6 } },
+          '✓ ', isRemove ? result.removed.length : result.added.length,
+          isRemove ? ' removed from ' : ' added to ', (resultTarget && resultTarget.displayName) || subtype, '.'),
+        result.failed && result.failed.length > 0 && el('div', { style: { fontSize: 12, color: '#f87171', marginBottom: 10 } },
+          result.failed.length + ' failed:',
+          el('ul', { style: { margin: '4px 0 0 18px', padding: 0 } },
+            result.failed.map(function(f) {
+              return el('li', { key: f.guid }, f.guid + ' — ' + f.error);
+            })
+          )
+        ),
+        el('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: 10 } },
+          el('button', {
+            onClick: onClose,
+            style: { fontSize: 12, padding: '6px 14px', borderRadius: 6, border: '1px solid var(--accent)',
+                     background: 'var(--accent)', color: 'var(--bg)', cursor: 'pointer' },
+          }, 'Done')
+        )
+      )
+    )
+  );
+}
+
+// Bulk zone-membership add/remove — same overlay/header/submit/result chrome
+// as AddToCollectionModal (deliberately not unified into one shared shell —
+// see quickstart's egeria-shared-ui.js history for the rationale). Backend:
+// governance_zones_handler.py — POST/DELETE /api/zone-membership/{zone}/
+// members. Unlike collection membership (a relationship, pure blind write),
+// zone membership is a classification whose zoneMembership property is a
+// list the backend read-modifies-writes per element — see that handler's
+// module docstring for why.
+function ZoneMembershipModal({ items, creds, action, onClose, onDone }) {
+  var isRemove = action === 'remove';
+  var zonesState = React.useState(null); // null = not yet loaded; [] = loaded, empty
+  var zones = zonesState[0], setZones = zonesState[1];
+  var zonesLoadingState = React.useState(true);
+  var zonesLoading = zonesLoadingState[0], setZonesLoading = zonesLoadingState[1];
+  var zonesErrState = React.useState(null);
+  var zonesError = zonesErrState[0], setZonesError = zonesErrState[1];
+  var targetState = React.useState(null);
+  var target = targetState[0], setTarget = targetState[1]; // the picked zone object ({name, displayName, ...})
+  var submittingState = React.useState(false);
+  var submitting = submittingState[0], setSubmitting = submittingState[1];
+  var resultState = React.useState(null);
+  var result = resultState[0], setResult = resultState[1];
+  var submitErrState = React.useState(null);
+  var submitError = submitErrState[0], setSubmitError = submitErrState[1];
+
+  React.useEffect(function() {
+    setZonesLoading(true);
+    setZonesError(null);
+    egeriaFetch('/api/insights/zones', creds)
+      .then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
+      .then(function(data) { setZones((data && data.zones) || []); setZonesLoading(false); })
+      .catch(function(e) { setZonesError(e.message || String(e)); setZonesLoading(false); });
+  }, []);
+
+  function submit() {
+    if (submitting || !target) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    var url = '/api/zone-membership/' + encodeURIComponent(target.name) + '/members';
+    egeriaFetch(url, creds, {
+      method: isRemove ? 'DELETE' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ guids: items.map(function(i) { return i.guid; }) }),
+    })
+      .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || ('HTTP ' + r.status)); }); })
+      .then(function(res) { setResult(res); setSubmitting(false); if (onDone) onDone(res); })
+      .catch(function(e) { setSubmitError(e.message || String(e)); setSubmitting(false); });
+  }
+
+  var el = React.createElement;
+  var inp = { width: '100%', boxSizing: 'border-box', background: 'var(--bg)', border: '1px solid var(--border)',
+              borderRadius: 6, padding: '7px 9px', color: 'var(--text)', fontSize: 12, fontFamily: 'inherit', outline: 'none' };
+
+  return el('div', {
+    onClick: function(e) { if (e.target === e.currentTarget && !submitting) onClose(); },
+    style: { position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.45)',
+             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  },
+    el('div', { style: { background: 'var(--surface,var(--card))', border: '1px solid var(--border)',
+        borderRadius: 12, padding: '22px 26px', width: 420, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' } },
+
+      el('div', { style: { fontWeight: 700, fontSize: 14, marginBottom: 4 } }, isRemove ? 'Remove from Governance Zone' : 'Add to Governance Zone'),
+      el('div', { style: { fontSize: 11, color: 'var(--muted)', marginBottom: 14 } },
+        items.length + ' element' + (items.length === 1 ? '' : 's') + ' selected'),
+
+      !result && el(React.Fragment, null,
+        el('label', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 3 } }, 'Governance zone'),
+        zonesLoading && el('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '6px 0' } }, 'Loading…'),
+        zonesError && el('div', { style: { fontSize: 12, color: '#f87171', padding: '6px 0' } }, 'Error: ' + zonesError),
+        !zonesLoading && !zonesError && zones && zones.length === 0 &&
+          el('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '6px 0' } }, 'No governance zones defined.'),
+        !zonesLoading && !zonesError && zones && zones.length > 0 &&
+          el('select', {
+            value: (target && target.name) || '',
+            onChange: function(e) {
+              var z = zones.find(function(x) { return x.name === e.target.value; });
+              setTarget(z || null);
+            },
+            style: Object.assign({}, inp, { marginBottom: 10 }),
+          },
+            el('option', { value: '' }, '— choose —'),
+            zones.map(function(z) {
+              return el('option', { key: z.guid || z.name, value: z.name }, (z.displayName || z.name) + ' (' + z.count + ')');
+            })
+          ),
+
+        submitError && el('div', { style: { fontSize: 12, color: '#f87171', marginBottom: 8 } }, 'Error: ' + submitError),
+
+        el('div', { style: { display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 10 } },
+          el('button', {
+            onClick: onClose, disabled: submitting,
+            style: { fontSize: 12, padding: '6px 14px', borderRadius: 6, border: '1px solid var(--border)',
+                     background: 'transparent', color: 'var(--dim)', cursor: submitting ? 'default' : 'pointer' },
+          }, 'Cancel'),
+          el('button', {
+            onClick: submit, disabled: !target || submitting,
+            style: { fontSize: 12, padding: '6px 14px', borderRadius: 6, border: '1px solid var(--accent)',
+                     background: (!target || submitting) ? 'var(--panel)' : 'var(--accent)',
+                     color: (!target || submitting) ? 'var(--dim)' : 'var(--bg)',
+                     cursor: (!target || submitting) ? 'default' : 'pointer' },
+          }, submitting ? (isRemove ? 'Removing…' : 'Adding…') : (isRemove ? 'Remove' : 'Add'))
+        )
+      ),
+
+      result && el(React.Fragment, null,
+        el('div', { style: { fontSize: 13, marginBottom: 6 } },
+          '✓ ', isRemove ? result.removed.length : result.added.length,
+          isRemove ? ' removed from ' : ' added to ', (target && (target.displayName || target.name)) || 'zone', '.'),
+        result.failed && result.failed.length > 0 && el('div', { style: { fontSize: 12, color: '#f87171', marginBottom: 10 } },
+          result.failed.length + ' failed:',
+          el('ul', { style: { margin: '4px 0 0 18px', padding: 0 } },
+            result.failed.map(function(f) {
+              return el('li', { key: f.guid }, f.guid + ' — ' + f.error);
+            })
+          )
+        ),
+        el('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: 10 } },
+          el('button', {
+            onClick: onClose,
+            style: { fontSize: 12, padding: '6px 14px', borderRadius: 6, border: '1px solid var(--accent)',
+                     background: 'var(--accent)', color: 'var(--bg)', cursor: 'pointer' },
+          }, 'Done')
+        )
+      )
+    )
+  );
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
