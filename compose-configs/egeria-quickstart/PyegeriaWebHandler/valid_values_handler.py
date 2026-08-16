@@ -269,11 +269,21 @@ def lookup_valid_values(
 
     # No type was scoped — merge in find_metadata_elements results to pick up values
     # registered against specific Egeria types (e.g. annotationType), in addition to
-    # whatever the primary REST lookup already found globally. Dedupe by preferredValue:
-    # a property can have some values registered globally and others only against a
-    # subtype, so the primary list alone is often incomplete even when non-empty.
+    # whatever the primary REST lookup already found globally. Egeria's primary
+    # get-valid-metadata-values REST endpoint never returns a guid/qualifiedName/scope/
+    # usage — those only come back via find_metadata_elements — so beyond picking up
+    # subtype-only values, this merge also backfills those fields onto matching primary
+    # entries (matched by preferredValue) so the 3rd-column detail pane (which fetches
+    # by guid) has something to select for every value, not just fallback-only ones.
     if not type_name:
         fallback = _fallback_lookup(property_name, url, server, user_id, user_pwd)
+        fallback_by_value = {v.get("preferredValue"): v for v in fallback}
+        for v in raw:
+            match = fallback_by_value.get(v.get("preferredValue"))
+            if match:
+                for key in ("guid", "qualifiedName", "scope", "usage"):
+                    if not v.get(key) and match.get(key):
+                        v[key] = match[key]
         seen = {v.get("preferredValue") for v in raw}
         raw = raw + [v for v in fallback if v.get("preferredValue") not in seen]
 
