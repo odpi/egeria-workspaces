@@ -267,10 +267,15 @@ def lookup_valid_values(
     if not isinstance(raw, list):
         raw = []
 
-    # Primary lookup returned nothing and no type was scoped — use find_metadata_elements
-    # to pick up values registered against specific Egeria types (e.g. annotationType).
-    if not raw and not type_name:
-        raw = _fallback_lookup(property_name, url, server, user_id, user_pwd)
+    # No type was scoped — merge in find_metadata_elements results to pick up values
+    # registered against specific Egeria types (e.g. annotationType), in addition to
+    # whatever the primary REST lookup already found globally. Dedupe by preferredValue:
+    # a property can have some values registered globally and others only against a
+    # subtype, so the primary list alone is often incomplete even when non-empty.
+    if not type_name:
+        fallback = _fallback_lookup(property_name, url, server, user_id, user_pwd)
+        seen = {v.get("preferredValue") for v in raw}
+        raw = raw + [v for v in fallback if v.get("preferredValue") not in seen]
 
     return JSONResponse({
         "property_name": property_name,
