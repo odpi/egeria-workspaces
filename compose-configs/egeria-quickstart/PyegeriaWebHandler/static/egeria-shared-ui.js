@@ -1031,6 +1031,192 @@ function ZoneMembershipModal({ items, creds, action, onClose, onDone }) {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
+ * Governance classifications (Confidentiality / Criticality / Impact) — bulk
+ * classify/declassify. v1 scope only these three (Dan's call, 2026-08-16);
+ * Retention deliberately excluded (its properties are a different shape —
+ * retentionBasis/status strings + archiveAfter/deleteAfter timestamps, not
+ * a simple level dropdown). See governance_classifications_handler.py's
+ * module docstring for the full design rationale, live authorization test
+ * (garygeeke and other lower-privilege personas succeed — no permission gate
+ * needed), and confirmation that level values come from Egeria's own
+ * valid-metadata-values registry (never hardcoded — see the level-property
+ * + valid-values-lookup calls in ClassificationModal below).
+ * ────────────────────────────────────────────────────────────────────────── */
+
+var CLASSIFICATION_LABELS = { confidentiality: 'Confidentiality', criticality: 'Criticality', impact: 'Impact' };
+
+// Egeria's own type definition says these classifications are validFor
+// "Referenceable" -- i.e. technically attachable to almost anything,
+// including a Notification or ToDo, which doesn't make sense in practice.
+// Since Egeria's type model doesn't enforce a narrower rule, the guard is
+// curated here per the classifications' own doc guidance ("typically a data
+// field, schema attribute or glossary term" -- see
+// https://egeria-project.org/types/4/0422-Governed-Data-Classifications/).
+// This is a UI-only guard (BulkActionBar hides Classify/Declassify unless
+// every selected item passes) -- governance_classifications_handler.py does
+// not re-check it server-side.
+var CLASSIFICATION_APPLICABLE_SUPERTYPES = ['Asset', 'SchemaAttribute', 'SchemaElement', 'GlossaryTerm'];
+function classificationApplicable(item) {
+  if (!item) return false;
+  var types = [item.typeName].concat(item.superTypeNames || []);
+  return types.some(function(t) { return CLASSIFICATION_APPLICABLE_SUPERTYPES.indexOf(t) !== -1; });
+}
+
+function ClassificationModal({ items, creds, action, onClose, onDone }) {
+  var isClear = action === 'clear';
+  var classNameState = React.useState('confidentiality');
+  var classificationName = classNameState[0], setClassificationName = classNameState[1];
+  var levelsState = React.useState(null); // null = not loaded
+  var levels = levelsState[0], setLevels = levelsState[1];
+  var levelsLoadingState = React.useState(true);
+  var levelsLoading = levelsLoadingState[0], setLevelsLoading = levelsLoadingState[1];
+  var levelsErrState = React.useState(null);
+  var levelsError = levelsErrState[0], setLevelsError = levelsErrState[1];
+  var levelState = React.useState(''); // selected level value (string of an int)
+  var level = levelState[0], setLevel = levelState[1];
+  var notesState = React.useState('');
+  var notes = notesState[0], setNotes = notesState[1];
+  var submittingState = React.useState(false);
+  var submitting = submittingState[0], setSubmitting = submittingState[1];
+  var resultState = React.useState(null);
+  var result = resultState[0], setResult = resultState[1];
+  var submitErrState = React.useState(null);
+  var submitError = submitErrState[0], setSubmitError = submitErrState[1];
+
+  // Fetch this classification's level-property name, then its valid values --
+  // both come from the live registry (governance_classifications_handler.py's
+  // level-property endpoint, then valid_values_handler.py's registry lookup),
+  // never hardcoded here. Only needed for 'set'; 'clear' doesn't need a level.
+  React.useEffect(function() {
+    if (isClear) return;
+    setLevelsLoading(true); setLevelsError(null); setLevel(''); setLevels(null);
+    egeriaFetch('/api/classification/' + encodeURIComponent(classificationName) + '/level-property', creds)
+      .then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
+      .then(function(d) {
+        return egeriaFetch('/api/valid-values/lookup?property_name=' + encodeURIComponent(d.level_field), creds);
+      })
+      .then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
+      .then(function(d) {
+        var vs = (d.values || []).slice().sort(function(a, b) { return Number(a.preferredValue) - Number(b.preferredValue); });
+        setLevels(vs);
+        setLevelsLoading(false);
+      })
+      .catch(function(e) { setLevelsError(e.message || String(e)); setLevelsLoading(false); });
+  }, [classificationName, isClear]);
+
+  function submit() {
+    if (submitting) return;
+    if (!isClear && level === '') return;
+    setSubmitting(true);
+    setSubmitError(null);
+    var url = '/api/classification/' + encodeURIComponent(classificationName) + '/members';
+    var payload = isClear
+      ? { guids: items.map(function(i) { return i.guid; }) }
+      : { guids: items.map(function(i) { return i.guid; }), level: Number(level), notes: notes || undefined };
+    egeriaFetch(url, creds, {
+      method: isClear ? 'DELETE' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+      .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || ('HTTP ' + r.status)); }); })
+      .then(function(res) { setResult(res); setSubmitting(false); if (onDone) onDone(res); })
+      .catch(function(e) { setSubmitError(e.message || String(e)); setSubmitting(false); });
+  }
+
+  var el = React.createElement;
+  var inp = { width: '100%', boxSizing: 'border-box', background: 'var(--bg)', border: '1px solid var(--border)',
+              borderRadius: 6, padding: '7px 9px', color: 'var(--text)', fontSize: 12, fontFamily: 'inherit', outline: 'none' };
+
+  return el('div', {
+    onClick: function(e) { if (e.target === e.currentTarget && !submitting) onClose(); },
+    style: { position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.45)',
+             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  },
+    el('div', { style: { background: 'var(--surface,var(--card))', border: '1px solid var(--border)',
+        borderRadius: 12, padding: '22px 26px', width: 420, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' } },
+
+      el('div', { style: { fontWeight: 700, fontSize: 14, marginBottom: 4 } }, isClear ? 'Declassify' : 'Classify'),
+      el('div', { style: { fontSize: 11, color: 'var(--muted)', marginBottom: 14 } },
+        items.length + ' element' + (items.length === 1 ? '' : 's') + ' selected'),
+
+      !result && el(React.Fragment, null,
+        el('label', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 3 } }, 'Classification'),
+        el('select', {
+          value: classificationName, disabled: submitting,
+          onChange: function(e) { setClassificationName(e.target.value); },
+          style: Object.assign({}, inp, { marginBottom: 10 }),
+        },
+          Object.keys(CLASSIFICATION_LABELS).map(function(k) {
+            return el('option', { key: k, value: k }, CLASSIFICATION_LABELS[k]);
+          })
+        ),
+
+        !isClear && el(React.Fragment, null,
+          el('label', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 3 } }, 'Level'),
+          levelsLoading && el('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '6px 0' } }, 'Loading…'),
+          levelsError && el('div', { style: { fontSize: 12, color: '#f87171', padding: '6px 0' } }, 'Error: ' + levelsError),
+          !levelsLoading && !levelsError && levels && el('select', {
+            value: level, disabled: submitting,
+            onChange: function(e) { setLevel(e.target.value); },
+            style: Object.assign({}, inp, { marginBottom: 10 }),
+          },
+            el('option', { value: '' }, '— choose —'),
+            levels.map(function(v) {
+              return el('option', { key: v.preferredValue, value: v.preferredValue }, v.displayName + ' (' + v.preferredValue + ')');
+            })
+          ),
+          el('label', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 3 } }, 'Notes (optional)'),
+          el('textarea', {
+            value: notes, disabled: submitting,
+            onChange: function(e) { setNotes(e.target.value); },
+            rows: 2,
+            style: Object.assign({}, inp, { marginBottom: 10, resize: 'vertical', fontFamily: 'inherit' }),
+          })
+        ),
+
+        submitError && el('div', { style: { fontSize: 12, color: '#f87171', marginBottom: 8 } }, 'Error: ' + submitError),
+
+        el('div', { style: { display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 10 } },
+          el('button', {
+            onClick: onClose, disabled: submitting,
+            style: { fontSize: 12, padding: '6px 14px', borderRadius: 6, border: '1px solid var(--border)',
+                     background: 'transparent', color: 'var(--dim)', cursor: submitting ? 'default' : 'pointer' },
+          }, 'Cancel'),
+          el('button', {
+            onClick: submit, disabled: (!isClear && level === '') || submitting,
+            style: { fontSize: 12, padding: '6px 14px', borderRadius: 6, border: '1px solid var(--accent)',
+                     background: ((!isClear && level === '') || submitting) ? 'var(--panel)' : 'var(--accent)',
+                     color: ((!isClear && level === '') || submitting) ? 'var(--dim)' : 'var(--bg)',
+                     cursor: ((!isClear && level === '') || submitting) ? 'default' : 'pointer' },
+          }, submitting ? (isClear ? 'Clearing…' : 'Setting…') : (isClear ? 'Clear' : 'Set'))
+        )
+      ),
+
+      result && el(React.Fragment, null,
+        el('div', { style: { fontSize: 13, marginBottom: 6 } },
+          '✓ ', isClear ? result.removed.length : result.added.length,
+          isClear ? ' cleared.' : ' classified.'),
+        result.failed && result.failed.length > 0 && el('div', { style: { fontSize: 12, color: '#f87171', marginBottom: 10 } },
+          result.failed.length + ' failed:',
+          el('ul', { style: { margin: '4px 0 0 18px', padding: 0 } },
+            result.failed.map(function(f) {
+              return el('li', { key: f.guid }, f.guid + ' — ' + f.error);
+            })
+          )
+        ),
+        el('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: 10 } },
+          el('button', {
+            onClick: onClose,
+            style: { fontSize: 12, padding: '6px 14px', borderRadius: 6, border: '1px solid var(--accent)',
+                     background: 'var(--accent)', color: 'var(--bg)', cursor: 'pointer' },
+          }, 'Done')
+        )
+      )
+    )
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
  * Egeria Feedback widgets (likes / ratings / comments) — shared by both SPAs.
  * Behaviour-identical extraction from type-explorer.html (canonical). They use
  * bare fetch() against /api/egeria-feedback/* (session/cookie auth, env-agnostic).

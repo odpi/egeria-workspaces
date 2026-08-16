@@ -132,3 +132,56 @@ def raise_egeria_http_error(exc: Exception, log_msg: str = "") -> None:
         raise HTTPException(status_code=code, detail=str(exc))
 
     raise HTTPException(status_code=500, detail=str(exc))
+
+
+def _is_auth_error(exc: Exception) -> bool:
+    """Return True if exc represents a 401/403 from Egeria (expired token /
+    access denied). Shared copy of operations_handler.py's own helper of the
+    same name — that one predates this module and is kept local there rather
+    than retrofitted to import this, to avoid an unrelated diff; new callers
+    should use this one."""
+    seen = set()
+    node = exc
+    while node is not None and id(node) not in seen:
+        seen.add(id(node))
+        code = getattr(node, "response_code", None) or getattr(node, "http_status_code", None)
+        if code in (401, 403):
+            return True
+        resp = getattr(node, "response", None)
+        if resp is not None and getattr(resp, "status_code", None) in (401, 403):
+            return True
+        s = str(node).upper()
+        if ("HTTP CODE: 401" in s or "HTTP CODE: 403" in s
+                or "USER_NOT_AUTHORIZED" in s or "NOT_AUTHORIZED" in s
+                or "AUTHORIZATION_ERROR" in s or "401 " in s
+                or "CLIENT ERROR '401" in s or "CLIENT ERROR '403" in s):
+            return True
+        node = getattr(node, "__cause__", None) or getattr(node, "__context__", None)
+    return False
+
+
+def describe_bulk_item_error(exc: Exception) -> str:
+    """Friendly one-line message for a single failed item in a partial-failure-
+    tolerant bulk endpoint (collections/zones/classifications' `{added|removed,
+    failed}` shape) -- NOT a raise_egeria_http_error() call, since one bad guid
+    in a batch of N shouldn't abort the other N-1.
+
+    Specifically distinguishes "you don't have permission" from other
+    failures, so a permission-denied result reads as a clear, actionable
+    message in the UI rather than a raw pyegeria exception dump. This is the
+    intended way to handle authorization for bulk governance actions (zone
+    membership, classification) -- let Egeria's own enforcement deny the real
+    request and surface a clean message, rather than pre-testing whether a
+    persona *would* be allowed to before offering the action. Pre-testing was
+    tried once during design (governance_classifications_handler.py's
+    authorization question, 2026-08-16) by actually setting/clearing a
+    classification as several personas including non-privileged ones --
+    caught after the fact: Egeria's classification versions carry `createdBy`/
+    `updatedBy`, so those test calls are now permanently attributed to those
+    personas in Egeria's own audit trail, which is exactly the kind of
+    integrity problem this tool exists to help govern. Don't repeat that
+    pattern -- this function is the fix.
+    """
+    if _is_auth_error(exc):
+        return "You don't have permission to do this."
+    return str(exc)

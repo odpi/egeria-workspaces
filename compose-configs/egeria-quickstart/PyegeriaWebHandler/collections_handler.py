@@ -36,7 +36,7 @@ from pydantic import BaseModel
 from digital_products_handler import (
     _get_manager, _serialize_node, _header, _type_name, _extract_all_rels, _is_template,
 )
-from egeria_error_mapping import raise_egeria_http_error, EGERIA_ERROR_RESPONSES
+from egeria_error_mapping import raise_egeria_http_error, describe_bulk_item_error, EGERIA_ERROR_RESPONSES
 
 router = APIRouter(tags=["collections"])
 
@@ -409,7 +409,7 @@ def add_members(collection_guid: str, body: BulkMembershipBody = Body(...)):
             added.append(guid)
         except Exception as exc:  # noqa: BLE001 — partial-failure tolerant, see module note above
             logger.debug(f"collections: failed to add member {guid} to {collection_guid}: {exc}")
-            failed.append({"guid": guid, "error": str(exc)})
+            failed.append({"guid": guid, "error": describe_bulk_item_error(exc)})
     return JSONResponse({"added": added, "failed": failed})
 
 
@@ -427,5 +427,5 @@ def remove_members(collection_guid: str, body: BulkMembershipBody = Body(...)):
             removed.append(guid)
         except Exception as exc:  # noqa: BLE001 — partial-failure tolerant, see module note above
             logger.debug(f"collections: failed to remove member {guid} from {collection_guid}: {exc}")
-            failed.append({"guid": guid, "error": str(exc)})
+            failed.append({"guid": guid, "error": describe_bulk_item_error(exc)})
     return JSONResponse({"removed": removed, "failed": failed})
