@@ -212,6 +212,8 @@ from collections_handler import router as collections_router
 app.include_router(collections_router)
 from governance_zones_handler import router as governance_zones_router
 app.include_router(governance_zones_router)
+from governance_classifications_handler import router as governance_classifications_router
+app.include_router(governance_classifications_router)
 from subject_area_handler import router as subject_area_router
 app.include_router(subject_area_router)
 from valid_values_handler import router as valid_values_router

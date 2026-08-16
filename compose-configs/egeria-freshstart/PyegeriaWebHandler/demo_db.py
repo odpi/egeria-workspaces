@@ -190,21 +190,24 @@ def bootstrap_admin() -> None:
     if not email or not password:
         return
     import bcrypt as _bcrypt
-    with Session(get_engine()) as db:
-        if db.query(User).filter_by(role="admin").first():
-            return  # at least one admin already exists
-        user = User(
-            id=str(uuid.uuid4()),
-            display_name="Admin",
-            email=email,
-            password_hash=_bcrypt.hashpw(password.encode("utf-8"), _bcrypt.gensalt()).decode("utf-8"),
-            role="admin",
-            verified=True,
-            created_at=datetime.utcnow(),
-        )
-        db.add(user)
-        db.commit()
-        print(f"[demo] Bootstrap admin created: {email}", flush=True)
+    try:
+        with Session(get_engine()) as db:
+            if db.query(User).filter_by(role="admin").first():
+                return  # at least one admin already exists
+            user = User(
+                id=str(uuid.uuid4()),
+                display_name="Admin",
+                email=email,
+                password_hash=_bcrypt.hashpw(password.encode("utf-8"), _bcrypt.gensalt()).decode("utf-8"),
+                role="admin",
+                verified=True,
+                created_at=datetime.utcnow(),
+            )
+            db.add(user)
+            db.commit()
+            print(f"[demo] Bootstrap admin created: {email}", flush=True)
+    except Exception as e:
+        print(f"[demo] Bootstrap admin FAILED: {e}", flush=True)
 
 
 # ── Event helper ───────────────────────────────────────────────────────────────

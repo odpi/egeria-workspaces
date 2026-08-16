@@ -2613,6 +2613,37 @@ function GenericPropertiesTable({ item, priority, skip, extra, renderValue }) {
  * produces via common_serialize.py::_header_summary (or an equivalent
  * frontend-side pick of guid/typeName/status/version/createdBy/etc off the
  * item, for handlers not yet updated to send a dedicated `_header` field). ── */
+
+// Renders a Referenceable's plain additionalProperties Map<String,String>
+// (e.g. a ValidMetadataValue's "explanation" note) as its own resizable
+// sub-table, instead of it getting flattened into a generic properties
+// table's giant "k: v; k2: v2" cell. Ported from quickstart (2026-08-16,
+// SHARE-3 drift audit) -- digital_products_handler.py's _serialize_node
+// deliberately skips additionalProperties in its flat prop-string builder
+// for the same reason (see that file's _extract_props comment) and surfaces
+// it as this structured dict instead.
+function AdditionalPropertiesTable({ data }) {
+  var entries = Object.entries(data || {}).filter(function(e) { return e[1] !== undefined && e[1] !== null && String(e[1]).trim() !== ''; });
+  if (entries.length === 0) return null;
+  var rz = makeResizableCols(2, ['180px', 'auto']);
+  return React.createElement('div', { style: { marginTop: 12 } },
+    React.createElement('div', { style: { fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 6 } },
+      'Additional Properties (' + entries.length + ')'),
+    React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed', border: '1px solid var(--border)', borderRadius: 4 } },
+      resizableColgroup(rz),
+      React.createElement('tbody', null,
+        entries.map(function(e, ri) {
+          return React.createElement('tr', { key: e[0], style: { borderTop: ri === 0 ? 'none' : '1px solid var(--border)' } },
+            React.createElement('td', { style: { padding: '5px 12px', color: 'var(--dim)', verticalAlign: 'top', wordBreak: 'break-word', background: 'var(--panel)', position: ri === 0 ? 'relative' : 'static' } },
+              e[0], ri === 0 && colResizeHandle(rz.onResizeDown, 0)),
+            React.createElement('td', { style: { padding: '5px 12px', color: 'var(--text)', wordBreak: 'break-word' } }, String(e[1]))
+          );
+        })
+      )
+    )
+  );
+}
+
 function _fmtHeaderDate(iso) {
   if (!iso) return '';
   try { return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }); } catch (e) { return iso; }

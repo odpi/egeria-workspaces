@@ -587,7 +587,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 })();
 </script>
   <!-- Bump ?v= whenever egeria-shared-ui.js changes — see tech-catalog.html for why. -->
-  <script src="/static/egeria-shared-ui.js?v=2026-08-14h"></script>
+  <script src="/static/egeria-shared-ui.js?v=2026-08-16a"></script>
   <script>"use strict";
 
 const {
@@ -2851,6 +2851,8 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
   const [modalAction, setModalAction] = useState(null);
   // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
   const [zoneModalAction, setZoneModalAction] = useState(null);
+  // null | 'set' | 'clear' — which ClassificationModal action, if any, is open.
+  const [classifyModalAction, setClassifyModalAction] = useState(null);
 
   const [selectedItem, setSelectedItem] = useState(null);
   // The selected node object (folder or term) — carried so nested tree items
@@ -3118,15 +3120,26 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
               filteredTerms.map(function(t) { return React.createElement(GlossaryTermRow, { key: t.guid, term: t, depth: 0, selected: selectedItem, onSelect: selectItem, selection: selection }); })
             )
       ),
-      React.createElement(BulkActionBar, {
-        count: selection.count, onClear: selection.clear,
-        actions: [
+      (function() {
+        // Classify/Declassify only offered when every currently-selected term
+        // is a plausible target — looked up against the real term objects
+        // (which carry superTypeNames), not the selection Map.
+        var itemsByGuid = {};
+        (isSearchMode ? filteredSearchTerms : filteredTerms).forEach(function(t) { if (t.guid) itemsByGuid[t.guid] = t; });
+        var selectedGuids = Array.from(selection.selected.keys());
+        var canClassify = selectedGuids.length > 0 && selectedGuids.every(function(g) { return classificationApplicable(itemsByGuid[g]); });
+        var actions = [
           { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
           { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
           { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
           { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
-        ],
-      })
+        ];
+        if (canClassify) {
+          actions.push({ id: 'classify', label: 'Classify…', onClick: function() { setClassifyModalAction('set'); } });
+          actions.push({ id: 'declassify', label: 'Declassify…', onClick: function() { setClassifyModalAction('clear'); } });
+        }
+        return React.createElement(BulkActionBar, { count: selection.count, onClear: selection.clear, actions: actions });
+      })()
     ),
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
     // Right: detail
@@ -3157,6 +3170,13 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
       creds: creds,
       action: zoneModalAction,
       onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    classifyModalAction && React.createElement(ClassificationModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: classifyModalAction,
+      onClose: function() { setClassifyModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -4177,6 +4197,8 @@ function DigitalProductDetail({ product, onNavigateToElement, creds, selection }
   var _modalActionState = useState(null), modalAction = _modalActionState[0], setModalAction = _modalActionState[1];
   // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
   var _zoneModalAction = useState(null), zoneModalAction = _zoneModalAction[0], setZoneModalAction = _zoneModalAction[1];
+  // null | 'set' | 'clear' — which ClassificationModal action, if any, is open.
+  var _classifyModalAction = useState(null), classifyModalAction = _classifyModalAction[0], setClassifyModalAction = _classifyModalAction[1];
 
   // Show every scalar property the element carries (from the backend `props`
   // pass-through), not just a fixed product-specific subset — Qualified Name
@@ -4297,15 +4319,27 @@ function DigitalProductDetail({ product, onNavigateToElement, creds, selection }
           );
         })()
       ),
-      selection && React.createElement(BulkActionBar, {
-        count: selection.count, onClear: selection.clear,
-        actions: [
+      selection && (function() {
+        // Classify/Declassify only offered when every currently-selected member
+        // is a plausible target — looked up against the real member objects
+        // (which carry superTypeNames from digital_products_handler's
+        // _serialize_node), not the selection Map.
+        var itemsByGuid = {};
+        children.forEach(function(c) { if (c.guid) itemsByGuid[c.guid] = c; });
+        var selectedGuids = Array.from(selection.selected.keys());
+        var canClassify = selectedGuids.length > 0 && selectedGuids.every(function(g) { return classificationApplicable(itemsByGuid[g]); });
+        var actions = [
           { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
           { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
           { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
           { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
-        ],
-      }),
+        ];
+        if (canClassify) {
+          actions.push({ id: 'classify', label: 'Classify…', onClick: function() { setClassifyModalAction('set'); } });
+          actions.push({ id: 'declassify', label: 'Declassify…', onClick: function() { setClassifyModalAction('clear'); } });
+        }
+        return React.createElement(BulkActionBar, { count: selection.count, onClear: selection.clear, actions: actions });
+      })(),
       memberTypeNames.map(function(tn) { return renderMemberGroup(tn, memberGroups[tn]); })
     ),
     (function() {
@@ -4335,6 +4369,13 @@ function DigitalProductDetail({ product, onNavigateToElement, creds, selection }
       creds: creds,
       action: zoneModalAction,
       onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    classifyModalAction && React.createElement(ClassificationModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: classifyModalAction,
+      onClose: function() { setClassifyModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -4623,6 +4664,8 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
   const [treeModalAction, setTreeModalAction] = useState(null);
   // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
   const [zoneModalAction, setZoneModalAction] = useState(null);
+  // null | 'set' | 'clear' — which ClassificationModal action, if any, is open.
+  const [classifyModalAction, setClassifyModalAction] = useState(null);
   useEffect(() => { memberSelection.clear(); }, [selectedNode]); // Members list changed to a different collection
   useEffect(() => { selection.clear(); }, [selectedRoot, asOfTime, inclTempl, onlyRootType]); // tree dataset changed
 
@@ -4771,15 +4814,30 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
               })
             )
       ),
-      React.createElement(BulkActionBar, {
-        count: selection.count, onClear: selection.clear,
-        actions: [
+      (function() {
+        // Classify/Declassify only offered when every currently-selected tree
+        // node is a plausible target — looked up against the real node objects
+        // (which carry superTypeNames from digital_products_handler's
+        // _serialize_node via collections_handler), not the selection Map.
+        // Covers both the top-level tree and every lazily-loaded expansion
+        // (childrenByGuid) since a node from either can be checked.
+        var itemsByGuid = {};
+        (treeData ? (treeData.children || []) : []).forEach(function(n) { if (n.guid) itemsByGuid[n.guid] = n; });
+        Object.keys(childrenByGuid).forEach(function(g) { (childrenByGuid[g] || []).forEach(function(n) { if (n.guid) itemsByGuid[n.guid] = n; }); });
+        var selectedGuids = Array.from(selection.selected.keys());
+        var canClassify = selectedGuids.length > 0 && selectedGuids.every(function(g) { return classificationApplicable(itemsByGuid[g]); });
+        var actions = [
           { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setTreeModalAction('add'); } },
           { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setTreeModalAction('remove'); } },
           { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
           { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
-        ],
-      })
+        ];
+        if (canClassify) {
+          actions.push({ id: 'classify', label: 'Classify…', onClick: function() { setClassifyModalAction('set'); } });
+          actions.push({ id: 'declassify', label: 'Declassify…', onClick: function() { setClassifyModalAction('clear'); } });
+        }
+        return React.createElement(BulkActionBar, { count: selection.count, onClear: selection.clear, actions: actions });
+      })()
     ),
     React.createElement(ResizeDivider, { onMouseDown: onTreeDivDown }),
     // Node detail (right)
@@ -4804,6 +4862,13 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
       creds: creds,
       action: zoneModalAction,
       onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    classifyModalAction && React.createElement(ClassificationModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: classifyModalAction,
+      onClose: function() { setClassifyModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -5172,13 +5237,15 @@ function ExplorerSearchView({ creds, initialQuery, onNavigateToElement }) {
   const [modalAction, setModalAction] = React.useState(null);
   // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
   const [zoneModalAction, setZoneModalAction] = React.useState(null);
+  // null | 'set' | 'clear' — which ClassificationModal action, if any, is open.
+  const [classifyModalAction, setClassifyModalAction] = React.useState(null);
 
   return React.createElement('div', { style: { display: 'flex', flex: 1, flexDirection: 'column', overflow: 'hidden' } },
     React.createElement('div', { style: { padding: '16px 20px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
       React.createElement('div', { style: { position: 'relative' } },
         React.createElement('input', {
           type: 'search', value: s.q, onChange: s.handleInput, autoFocus: true,
-          placeholder: 'Search across The Catalog — assets, glossary, tech types, surveys…',
+          placeholder: 'Search across Egeria Explorer — assets, glossary, tech types, surveys…',
           style: { width: '100%', padding: '10px 14px 10px 38px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)', fontSize: 14, boxSizing: 'border-box', outline: 'none' }
         }),
         React.createElement('span', { style: { position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 15, pointerEvents: 'none', color: 'var(--dim)' } }, '🔎')
@@ -5209,15 +5276,28 @@ function ExplorerSearchView({ creds, initialQuery, onNavigateToElement }) {
       s.err     && React.createElement('div', { style: { color: '#f87171', fontSize: 13, padding: 8 } }, 'Error: ' + s.err),
       !s.loading && !s.err && !s.data && s.q.trim().length < 2 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, padding: 8, textAlign: 'center', marginTop: 40 } }, 'Type at least 2 characters to search.'),
       !s.loading && s.data && s.data.total === 0 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, padding: 8, textAlign: 'center', marginTop: 40 } }, 'No results found for ' + JSON.stringify(s.data.query) + '.'),
-      !s.loading && s.hasResults && React.createElement(BulkActionBar, {
-        count: selection.count, onClear: selection.clear,
-        actions: [
+      !s.loading && s.hasResults && (function() {
+        // Classify/Declassify only offered when every currently-selected item
+        // is a plausible target — looked up against the real search-result
+        // items (which carry superTypeNames), not the selection Map. Same
+        // pattern as tech-catalog.html's SearchView pilot (same /api/catalog/
+        // search backend via useCatalogSearch).
+        var itemsByGuid = {};
+        s.typeGroups.forEach(function(grp) { grp.items.forEach(function(it) { if (it.guid) itemsByGuid[it.guid] = it; }); });
+        var selectedGuids = Array.from(selection.selected.keys());
+        var canClassify = selectedGuids.length > 0 && selectedGuids.every(function(g) { return classificationApplicable(itemsByGuid[g]); });
+        var actions = [
           { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
           { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
           { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
           { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
-        ],
-      }),
+        ];
+        if (canClassify) {
+          actions.push({ id: 'classify', label: 'Classify…', onClick: function() { setClassifyModalAction('set'); } });
+          actions.push({ id: 'declassify', label: 'Declassify…', onClick: function() { setClassifyModalAction('clear'); } });
+        }
+        return React.createElement(BulkActionBar, { count: selection.count, onClear: selection.clear, actions: actions });
+      })(),
       !s.loading && s.hasResults && s.typeGroups.map(grp => {
         var withGuid = grp.items.filter(function(it) { return it.guid; });
         var groupSelected = withGuid.length > 0 && withGuid.every(function(it) { return selection.isSelected(it.guid); });
@@ -5282,6 +5362,13 @@ function ExplorerSearchView({ creds, initialQuery, onNavigateToElement }) {
       action: zoneModalAction,
       onClose: function() { setZoneModalAction(null); },
       onDone: function() { selection.clear(); },
+    }),
+    classifyModalAction && React.createElement(ClassificationModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: classifyModalAction,
+      onClose: function() { setClassifyModalAction(null); },
+      onDone: function() { selection.clear(); },
     })
   );
 }
@@ -5295,7 +5382,7 @@ const _SPLASH_CAPABILITIES = [
     group: 'search',
     icon: '🔎',
     title: 'Search',
-    description: 'Cross-catalog keyword search across The Catalog — assets, glossary terms, technology types, surveys, and more. Results grouped by category with direct links to detail views.',
+    description: 'Cross-catalog keyword search — assets, glossary terms, technology types, surveys, and more. Results grouped by category with direct links to detail views.',
   },
   // ── Explore ───────────────────────────────────────────────────────────────
   {
@@ -5657,7 +5744,7 @@ function SplashScreen({ onNavigate, saveCreds, demoMode, srvManaged, authUser })
         : ((!demoMode && !srvManaged) ? React.createElement(ConnectionForm, { saveCreds: saveCreds }) : null),
       React.createElement(React.Fragment, null,
         [
-          { key: 'search',    label: 'Search',    blurb: 'Find anything across The Catalog by keyword.' },
+          { key: 'search',    label: 'Search',    blurb: 'Find anything by keyword.' },
           { key: 'act',       label: 'Explore',   blurb: 'Good starting points — glossaries, collections, products, reports, and Dr. Egeria commands.' },
           { key: 'review',    label: 'Review',    blurb: 'Browse and analyse your metadata — glossaries, designs, supply chains, and governance.' },
           { key: 'reference', label: 'Reference', blurb: 'Reference tools — type system, REST APIs, valid values, and Python client.' },
@@ -6687,6 +6774,8 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
   const [modalAction, setModalAction] = React.useState(null);
   // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
   const [zoneModalAction, setZoneModalAction] = React.useState(null);
+  // null | 'set' | 'clear' — which ClassificationModal action, if any, is open.
+  const [classifyModalAction, setClassifyModalAction] = React.useState(null);
 
   function updateList(nav, patch) {
     setListStates(function(prev) { return Object.assign({}, prev, { [nav]: Object.assign({}, prev[nav], patch) }); });
@@ -6950,15 +7039,30 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
                 }));
               })()
         ),
-        React.createElement(BulkActionBar, {
-          count: selection.count, onClear: selection.clear,
-          actions: [
+        (function() {
+          // Classify/Declassify only offered when every currently-selected item
+          // is a plausible target — looked up against the current tab's real
+          // item objects (which now carry superTypeNames, added to
+          // data_design_handler.py's _base() for this task), not the selection
+          // Map. Only Data Structures/Data Fields are ever expected to pass —
+          // Data Specs (Collection subtype) and Data Grains/Classes
+          // (DataValueSpecification subtype) correctly stay non-applicable.
+          var itemsByGuid = {};
+          curList.items.forEach(function(i) { if (i.guid) itemsByGuid[i.guid] = i; });
+          var selectedGuids = Array.from(selection.selected.keys());
+          var canClassify = selectedGuids.length > 0 && selectedGuids.every(function(g) { return classificationApplicable(itemsByGuid[g]); });
+          var actions = [
             { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
             { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
             { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
             { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
-          ],
-        })
+          ];
+          if (canClassify) {
+            actions.push({ id: 'classify', label: 'Classify…', onClick: function() { setClassifyModalAction('set'); } });
+            actions.push({ id: 'declassify', label: 'Declassify…', onClick: function() { setClassifyModalAction('clear'); } });
+          }
+          return React.createElement(BulkActionBar, { count: selection.count, onClear: selection.clear, actions: actions });
+        })()
       ),
       React.createElement(ResizeDivider, { onMouseDown: onSideDivDown }),
       React.createElement("div", { style: { flex: 1, overflow: 'hidden' } }, renderDetail())
@@ -6975,6 +7079,13 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
       creds: creds,
       action: zoneModalAction,
       onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    classifyModalAction && React.createElement(ClassificationModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: classifyModalAction,
+      onClose: function() { setClassifyModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );

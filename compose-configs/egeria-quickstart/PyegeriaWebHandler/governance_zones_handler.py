@@ -39,7 +39,7 @@ from loguru import logger
 from pydantic import BaseModel
 
 from egeria_auth import apply_token
-from egeria_error_mapping import raise_egeria_http_error, EGERIA_ERROR_RESPONSES
+from egeria_error_mapping import raise_egeria_http_error, describe_bulk_item_error, EGERIA_ERROR_RESPONSES
 
 router = APIRouter(tags=["governance-zones"])
 
@@ -100,7 +100,7 @@ def add_zone_members(zone_identifier: str, body: BulkZoneMembershipBody = Body(.
             added.append(guid)
         except Exception as exc:  # noqa: BLE001 — partial-failure tolerant, matches collections_handler.py's bulk endpoints
             logger.debug(f"zone-membership: failed to add {guid} to zone {zone_identifier}: {exc}")
-            failed.append({"guid": guid, "error": str(exc)})
+            failed.append({"guid": guid, "error": describe_bulk_item_error(exc)})
     return JSONResponse({"added": added, "failed": failed})
 
 
@@ -129,5 +129,5 @@ def remove_zone_members(zone_identifier: str, body: BulkZoneMembershipBody = Bod
             removed.append(guid)
         except Exception as exc:  # noqa: BLE001 — partial-failure tolerant, matches collections_handler.py's bulk endpoints
             logger.debug(f"zone-membership: failed to remove {guid} from zone {zone_identifier}: {exc}")
-            failed.append({"guid": guid, "error": str(exc)})
+            failed.append({"guid": guid, "error": describe_bulk_item_error(exc)})
     return JSONResponse({"removed": removed, "failed": failed})

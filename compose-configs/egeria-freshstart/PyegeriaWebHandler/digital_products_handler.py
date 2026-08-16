@@ -104,13 +104,18 @@ def _extract_mermaid_fields(element: dict) -> dict:
 
 # Scalar property keys already surfaced in the node header / as named fields —
 # excluded from the generic `props` pass-through to avoid duplication.
-_PROP_SKIP = {"displayName", "name", "qualifiedName", "description", "class", "typeName"}
+_PROP_SKIP = {"displayName", "name", "qualifiedName", "description", "class", "typeName", "additionalProperties"}
 
 
 def _extract_props(props: dict) -> dict:
     """All remaining scalar properties (str/num/bool), so the detail can show the
     full property set rather than a curated product-specific subset. String lists
-    (e.g. AuthoredReferenceable's `authors`) are joined rather than dropped."""
+    (e.g. AuthoredReferenceable's `authors`) are joined rather than dropped.
+    `additionalProperties` (Referenceable's plain Map<String,String>, e.g.
+    ValidMetadataValue's "explanation" note) is deliberately skipped here — it's
+    surfaced separately as a structured dict by _serialize_node below instead of
+    flattened to one string row, so the frontend can render it as its own
+    sub-table (AdditionalPropertiesTable) rather than a giant "k: v; k2: v2" cell."""
     out = {}
     for k, v in (props or {}).items():
         if k in _PROP_SKIP:
@@ -210,6 +215,10 @@ def _serialize_node(element: dict) -> dict:
         "deploymentStatus": props.get("deploymentStatus", "") or "",
         "status":           header.get("status", "") or "",
         "props":            _extract_props(props),
+        # Kept structured (not flattened into props above) so the frontend can render
+        # it as its own sub-table via AdditionalPropertiesTable instead of one long
+        # "k: v; k2: v2" cell — see _extract_props's comment for why it's skipped there.
+        "additionalProperties": (props.get("additionalProperties") or {}) if isinstance(props.get("additionalProperties"), dict) else {},
         "_header":          _header_summary(element),
         **_authored_fields(element),
         "classifications": _classifications(element),

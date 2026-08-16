@@ -583,7 +583,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      Cache-Control: no-cache (forces revalidation), but a browser that cached
      this URL *before* that header existed won't revalidate on its own; a new
      URL guarantees a fresh fetch regardless of prior cache state. -->
-<script src="/static/egeria-shared-ui.js?v=2026-08-14h"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-08-16a"></script>
 <script>
 'use strict';
 // React hook aliases (mirror type-explorer.html)
@@ -2635,6 +2635,10 @@ function SearchView({ creds, onNavigate, initialQuery }) {
   // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
   // Pilot for BACKLOG.md task #18 (generalize bulk-action beyond collections).
   var _zoneModalAction = useState(null), zoneModalAction = _zoneModalAction[0], setZoneModalAction = _zoneModalAction[1];
+  // null | 'set' | 'clear' — which ClassificationModal action, if any, is open.
+  // Pilot for the Confidentiality/Criticality/Impact bulk classify/declassify
+  // v1 (2026-08-16) — see governance_classifications_handler.py's docstring.
+  var _classifyModalAction = useState(null), classifyModalAction = _classifyModalAction[0], setClassifyModalAction = _classifyModalAction[1];
 
   return React.createElement('div', { style: { display: 'flex', flex: 1, flexDirection: 'column', overflow: 'hidden' } },
     React.createElement('div', { style: { padding: '16px 20px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
@@ -2675,15 +2679,29 @@ function SearchView({ creds, onNavigate, initialQuery }) {
       s.err     && React.createElement('div', { style: { color: '#f87171', fontSize: 13, padding: 8 } }, 'Error: ' + s.err),
       !s.loading && !s.err && !s.data && s.q.trim().length < 2 && React.createElement('div', { style: { color: 'var(--dim)', fontSize: 13, padding: 8, textAlign: 'center', marginTop: 40 } },
         'Type at least 2 characters to search.'),
-      !s.loading && s.hasResults && React.createElement(BulkActionBar, {
-        count: selection.count,
-        onClear: selection.clear,
-        actions: [
+      !s.loading && s.hasResults && (function() {
+        // Classify/Declassify only offered when every currently-selected item
+        // is a plausible target (Asset/SchemaAttribute/SchemaElement/
+        // GlossaryTerm subtype) — Egeria's own type def allows these
+        // classifications on almost anything, but that's not useful; see
+        // classificationApplicable's comment in egeria-shared-ui.js. Looked
+        // up against the real search-result items (which carry
+        // superTypeNames), not the selection Map (which doesn't).
+        var itemsByGuid = {};
+        s.typeGroups.forEach(function(grp) { grp.items.forEach(function(it) { if (it.guid) itemsByGuid[it.guid] = it; }); });
+        var selectedGuids = Array.from(selection.selected.keys());
+        var canClassify = selectedGuids.length > 0 && selectedGuids.every(function(g) { return classificationApplicable(itemsByGuid[g]); });
+        var actions = [
           { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setShowAddModal(true); } },
           { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
           { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
-        ],
-      }),
+        ];
+        if (canClassify) {
+          actions.push({ id: 'classify', label: 'Classify…', onClick: function() { setClassifyModalAction('set'); } });
+          actions.push({ id: 'declassify', label: 'Declassify…', onClick: function() { setClassifyModalAction('clear'); } });
+        }
+        return React.createElement(BulkActionBar, { count: selection.count, onClear: selection.clear, actions: actions });
+      })(),
       !s.loading && s.hasResults && s.typeGroups.map(function(grp) {
         var groupSelected = grp.items.length > 0 && grp.items.every(function(it) { return it.guid && selection.isSelected(it.guid); });
         return React.createElement('div', { key: grp.typeName, style: { marginBottom: 20 } },
@@ -2720,6 +2738,13 @@ function SearchView({ creds, onNavigate, initialQuery }) {
       creds: creds,
       action: zoneModalAction,
       onClose: function() { setZoneModalAction(null); },
+      onDone: function() { selection.clear(); },
+    }),
+    classifyModalAction && React.createElement(ClassificationModal, {
+      items: Array.from(selection.selected.values()),
+      creds: creds,
+      action: classifyModalAction,
+      onClose: function() { setClassifyModalAction(null); },
       onDone: function() { selection.clear(); },
     })
   );

@@ -318,8 +318,23 @@ thing to hand-maintain.
 
 ## Open decisions
 
-- **Asset definition**: headline "Cataloged Assets" sums 6 named types (~1,915);
-  growth uses the `Asset` supertype (~1,729). Unify to one definition if exactness
-  across headline and trend matters.
+- **Asset definition — ✅ resolved 2026-08-16.** Headline "Cataloged Assets" used
+  to sum 6 named types (curated-sum, e.g. live 2,668) while the growth chart's own
+  "assets" series counted the raw `Asset` supertype (e.g. live 2,523) — genuinely
+  confusing, not an intentional distinction. Unified on the `Asset` supertype: the
+  headline tile now calls `MetadataExpert.count_metadata_elements(type_name="Asset")`
+  directly (one native count, replacing the 6-query `sum_type_counts`/`sum_counts`
+  path, BACKLOG.md NEXT-18's `sum_counts` import is now unused/removed from
+  `overview_handler.py`), matching both `growth_series`' "assets" series and
+  `context_readiness_funnel`'s 'cataloged' stage — all three now agree (verified
+  live: `assetTotal` 2,598 == growth chart's own latest point). The "Assets by
+  Type" breakdown chart still shows the curated 6-type composition — it's a
+  breakdown view now, not required to sum to the headline. `overview_specs.py`'s
+  `assets` tile `compute`/`summary`/`usage` updated to match;
+  `OVERVIEW_ANALYTICS_GLOSSARY.dr-egeria.md` regenerated (`gen_dashboard_glossary.py`,
+  `--check` passes) — **not yet re-processed against the live server**, so the
+  live "Cataloged Assets" GlossaryTerm's `usage` text still describes the old
+  6-type definition until someone runs VALIDATE/PROCESS on the regenerated file
+  (idempotent Update, same as every other `gen_dashboard_glossary.py` run).
 - Where the global as-of / compare controls live vs. the per-chart window control.
 - Whether the time-window control also re-times the KPI deltas (recommended: yes).

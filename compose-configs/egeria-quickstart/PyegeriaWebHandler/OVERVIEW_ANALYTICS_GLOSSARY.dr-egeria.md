@@ -499,13 +499,13 @@ Collection::Community Lead View
 Cataloged Assets
 
 ### Summary
-Sum of active elements across 7 named asset/infrastructure types.
+Native count of active elements of the Asset supertype (and all its subtypes).
 
 ### Description
-Sum of counts of the key asset/infrastructure types in the catalog.
+Native count of the Asset supertype — everything cataloged.
 
 ### Usage
-Fixed to a hand-picked list of 7 type names (DataStore, DataSet, DeployedSoftwareComponent, ITInfrastructure, DeployedAPI, Process, DataFeed) -- NOT every Asset subtype in the type system, and NOT the same population context_readiness_funnel's 'cataloged' stage uses (that one counts the broad Asset supertype directly, a different, usually larger number). Treat this as "the types we've chosen to headline", not a canonical total asset count -- see OVERVIEW_NEXT_STEPS.md's "Asset definition" open decision for the unresolved discrepancy between this and the growth-chart's own asset series.
+Broadest possible definition of "cataloged" -- every Asset subtype counts, including e.g. DigitalProduct (which also has its own "Data Products" tile, so the two headline numbers overlap by design, not a double-count bug: Data Products is a callout of one Asset subtype, Cataloged Assets is the whole population). Same population as the growth chart's own "assets" series and context_readiness_funnel's 'cataloged' stage -- all three now agree.
 
 ### Glossary Name
 Egeria Dashboard Analytics
