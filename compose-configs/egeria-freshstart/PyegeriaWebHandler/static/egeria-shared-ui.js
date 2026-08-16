@@ -204,6 +204,15 @@ function useResizableColumns(initialWidths, min, max) {
       e.stopPropagation();
       var startX = e.clientX;
       var startW = widthsRef.current[colKey];
+      // No stored width yet (first drag on this column) — fall back to the <th>'s
+      // actual rendered width so the drag starts from where the column visually is,
+      // instead of leaving startW undefined (undefined + delta = NaN, which React
+      // silently drops as an invalid style.width — the handle would then appear to
+      // do nothing at all).
+      if (startW === undefined || startW === null) {
+        var thEl = e.currentTarget && e.currentTarget.parentElement;
+        startW = thEl ? thEl.offsetWidth : 150;
+      }
       function onMove(mv) {
         var next = Math.max(min, Math.min(max, startW + mv.clientX - startX));
         setWidths(function(prev) { return Object.assign({}, prev, { [colKey]: next }); });
