@@ -113,6 +113,16 @@ _TERM_REL_KEYS = [
 _TERM_REL_KEY_NAMES = {k for k, _ in _TERM_REL_KEYS}
 _TERM_STRUCT_KEYS   = {"elementHeader", "properties", "mermaidGraph", "sourcedFromTemplate", "relatedTerms"}
 
+# Term property keys already surfaced as named fields (explicitly or via
+# _authored_fields). Everything else in `properties` flows through
+# `additionalProperties` so no property is dropped — see _serialize_term.
+_SURFACED_TERM_PROPS = {
+    "class", "typeName", "displayName", "name", "qualifiedName", "description",
+    "abbreviation", "examples", "usage", "summary", "aliases", "category",
+    "versionIdentifier", "url", "activityStatus", "mermaidGraph",
+    "authors", "contentStatus", "userDefinedContentStatus",
+}
+
 _TERM_RELATIONSHIP_LABELS = {
     "Synonym":         "Synonyms",
     "Antonym":         "Antonyms",
@@ -300,9 +310,15 @@ def _serialize_term(term: dict) -> dict:
         "examples":               props.get("examples", "") or "",
         "usage":                  props.get("usage", "") or "",
         "summary":                props.get("summary", "") or "",
+        "aliases":                props.get("aliases") or [],
+        "category":               props.get("category", "") or "",
+        "versionIdentifier":      props.get("versionIdentifier", "") or "",
+        "url":                    props.get("url", "") or "",
         "status":                 header.get("status", "") or "",
         "activityStatus":         props.get("activityStatus", "") or "",
         "mermaidGraph":           term.get("mermaidGraph", "") or props.get("mermaidGraph", "") or "",
+        # Catch-all so no term property is ever silently dropped (all properties reported).
+        "additionalProperties":   {k: v for k, v in props.items() if k not in _SURFACED_TERM_PROPS},
         "folders":                _folder_memberships(term),
         "isTemplateSubstitute":   is_template_substitute,
         "isSourcedFromTemplate":  is_sourced_from_template,

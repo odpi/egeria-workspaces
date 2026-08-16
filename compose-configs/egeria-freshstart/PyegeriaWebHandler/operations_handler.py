@@ -261,7 +261,8 @@ def _server_stub(rel: dict) -> dict:
 def serve_operations():
     if not _HTML.exists():
         raise HTTPException(status_code=404, detail="Egeria Operations page not found")
-    return FileResponse(_HTML, media_type="text/html")
+    return FileResponse(_HTML, media_type="text/html",
+                        headers={"Cache-Control": "no-store, must-revalidate"})
 
 
 # ── Platform + server discovery (shared by all tabs; slowly changing) ──────────

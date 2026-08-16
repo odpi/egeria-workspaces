@@ -128,7 +128,8 @@ def _rel_list(raw) -> list:
 def serve_audit():
     if not _HTML.exists():
         raise HTTPException(status_code=404, detail="Egeria Audit page not found")
-    return FileResponse(_HTML, media_type="text/html")
+    return FileResponse(_HTML, media_type="text/html",
+                        headers={"Cache-Control": "no-store, must-revalidate"})
 
 
 # ── Relationship tabs (Exceptions / Certifications / Licenses) ─────────────────

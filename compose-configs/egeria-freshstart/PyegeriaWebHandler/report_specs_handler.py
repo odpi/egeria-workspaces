@@ -63,10 +63,12 @@ def _serialize(name: str, fs) -> dict:
     action_dict = None
     if action is not None:
         action_dict = {
-            "function":        getattr(action, "function", "") or "",
-            "required_params": list(getattr(action, "required_params", []) or []),
-            "optional_params": list(getattr(action, "optional_params", []) or []),
-            "spec_params":     dict(getattr(action, "spec_params", {}) or {}),
+            "function":              getattr(action, "function", "") or "",
+            "required_params":       list(getattr(action, "required_params", []) or []),
+            "optional_params":       list(getattr(action, "optional_params", []) or []),
+            "spec_params":           dict(getattr(action, "spec_params", {}) or {}),
+            "analytic_function":     getattr(action, "analytic_function", None) or None,
+            "analytic_spec_params":  dict(getattr(action, "analytic_spec_params", {}) or {}),
         }
 
     return {

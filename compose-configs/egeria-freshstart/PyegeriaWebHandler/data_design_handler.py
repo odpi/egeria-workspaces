@@ -79,9 +79,11 @@ def _type_name(el: dict) -> str:
 
 def _base(el: dict) -> dict:
     p = _props(el)
+    header = _header(el)
     return {
-        "guid":          _header(el).get("guid", ""),
+        "guid":          header.get("guid", ""),
         "typeName":      _type_name(el),
+        "superTypeNames": (header.get("type") or {}).get("superTypeNames") or [],
         "displayName":   p.get("displayName", "") or p.get("name", "") or "",
         "qualifiedName": p.get("qualifiedName", "") or "",
         "description":   p.get("description", "") or "",

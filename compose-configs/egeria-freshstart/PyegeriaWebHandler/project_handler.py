@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 from common_serialize import _authored_fields, _header_summary, _generic_relationships
+from egeria_error_mapping import raise_egeria_http_error, EGERIA_ERROR_RESPONSES
 
 router = APIRouter(tags=["projects"])
 
@@ -99,7 +100,7 @@ def _serialize_project(element: dict) -> dict:
     }
 
 
-@router.get("/api/projects", summary="List all projects")
+@router.get("/api/projects", summary="List all projects", responses=EGERIA_ERROR_RESPONSES)
 def get_projects(
     start_from: int = Query(0,   ge=0),
     page_size:  int = Query(200, ge=1, le=500),
@@ -113,8 +114,7 @@ def get_projects(
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
-        logger.exception("Failed to create ProjectManager")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        raise_egeria_http_error(exc, "Failed to create ProjectManager")
 
     try:
         raw = mgr.find_projects(
@@ -128,8 +128,7 @@ def get_projects(
             as_of_time=as_of_time or None,
         )
     except Exception as exc:
-        logger.exception("find_projects failed")
-        raise HTTPException(status_code=500, detail=f"Project retrieval failed: {exc}")
+        raise_egeria_http_error(exc, "find_projects failed")
 
     if not raw or not isinstance(raw, list):
         return JSONResponse({"projects": [], "total": 0})
@@ -208,18 +207,16 @@ def _cached_forest(kind: str, child_key: str, parent_key: str, url, server, user
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
-        logger.exception("Failed to create ProjectManager")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        raise_egeria_http_error(exc, "Failed to create ProjectManager")
     try:
         result = _project_forest(mgr, child_key, parent_key, as_of_time)
     except Exception as exc:
-        logger.exception(f"project {kind} forest failed")
-        raise HTTPException(status_code=500, detail=f"Project {kind} retrieval failed: {exc}")
+        raise_egeria_http_error(exc, f"project {kind} forest failed")
     _PROJ_TREE_CACHE[cache_key] = (time.time(), result)
     return JSONResponse(result)
 
 
-@router.get("/api/projects/tree", summary="Project management hierarchy")
+@router.get("/api/projects/tree", summary="Project management hierarchy", responses=EGERIA_ERROR_RESPONSES)
 def get_projects_tree(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
@@ -232,7 +229,7 @@ def get_projects_tree(
     return _cached_forest("hierarchy", "managedProjects", "managingProjects", url, server, user_id, user_pwd, as_of_time)
 
 
-@router.get("/api/projects/dependencies", summary="Project dependency forest")
+@router.get("/api/projects/dependencies", summary="Project dependency forest", responses=EGERIA_ERROR_RESPONSES)
 def get_projects_dependencies(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
@@ -246,7 +243,7 @@ def get_projects_dependencies(
     return _cached_forest("dependencies", "dependsOnProjects", "dependentProject", url, server, user_id, user_pwd, as_of_time)
 
 
-@router.get("/api/projects/{guid}", summary="Single project detail with child projects")
+@router.get("/api/projects/{guid}", summary="Single project detail with child projects", responses=EGERIA_ERROR_RESPONSES)
 def get_project(
     guid: str,
     url:      Optional[str] = Query(None),
@@ -258,8 +255,7 @@ def get_project(
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
-        logger.exception("Failed to create ProjectManager")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        raise_egeria_http_error(exc, "Failed to create ProjectManager")
 
     try:
         # graphQueryDepth=2 so relationship arrays (resources, dependencies, etc.)
@@ -270,8 +266,7 @@ def get_project(
             body["asOfTime"] = as_of_time
         raw = mgr.get_project_by_guid(guid, output_format="JSON", body=body)
     except Exception as exc:
-        logger.exception("get_project_by_guid failed")
-        raise HTTPException(status_code=500, detail=f"Project detail failed: {exc}")
+        raise_egeria_http_error(exc, "get_project_by_guid failed")
 
     project = _serialize_project(raw) if isinstance(raw, dict) else {}
 
