@@ -332,9 +332,12 @@ thing to hand-maintain.
   breakdown view now, not required to sum to the headline. `overview_specs.py`'s
   `assets` tile `compute`/`summary`/`usage` updated to match;
   `OVERVIEW_ANALYTICS_GLOSSARY.dr-egeria.md` regenerated (`gen_dashboard_glossary.py`,
-  `--check` passes) — **not yet re-processed against the live server**, so the
-  live "Cataloged Assets" GlossaryTerm's `usage` text still describes the old
-  6-type definition until someone runs VALIDATE/PROCESS on the regenerated file
-  (idempotent Update, same as every other `gen_dashboard_glossary.py` run).
+  `--check` passes) and **re-processed against the live server 2026-08-16** via
+  `POST /api/dr-egeria/execute-document` (VALIDATE then PROCESS, 147/147 commands
+  succeeded each pass, 0 errors/warnings) — the live "Cataloged Assets" GlossaryTerm's
+  `usage` now reads "Native count of the Asset supertype — everything cataloged...
+  Same population as the growth chart's own 'assets' series and
+  context_readiness_funnel's 'cataloged' stage — all three now agree" (verified
+  live against guid `4f3cbc58-ab24-4b3b-bc61-c1c6b6dafc72`). Fully closed.
 - Where the global as-of / compare controls live vs. the per-chart window control.
 - Whether the time-window control also re-times the KPI deltas (recommended: yes).
