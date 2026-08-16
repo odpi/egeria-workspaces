@@ -587,7 +587,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 })();
 </script>
   <!-- Bump ?v= whenever egeria-shared-ui.js changes — see tech-catalog.html for why. -->
-  <script src="/static/egeria-shared-ui.js?v=2026-08-16a"></script>
+  <script src="/static/egeria-shared-ui.js?v=2026-08-16b"></script>
   <script>"use strict";
 
 const {
@@ -1951,7 +1951,8 @@ function ParamInput({ name, value, onChange, required }) {
 // ── Report Spec Browser ───────────────────────────────────────────────────────
 
 var _DV_TH = { textAlign: 'left', padding: '4px 8px', fontSize: 11, fontWeight: 600, color: 'var(--dim)',
-               borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', background: 'rgba(0,0,0,.1)', position: 'sticky', top: 0 };
+               borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', background: 'rgba(0,0,0,.1)', position: 'sticky', top: 0,
+               overflow: 'hidden', textOverflow: 'ellipsis' };
 var _DV_TD = { padding: '4px 8px', fontSize: 12, color: 'var(--text)', borderBottom: '1px solid rgba(26,45,72,.3)',
                verticalAlign: 'top', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
 
@@ -1962,6 +1963,11 @@ function DictResultView({ rows, columns, depth }) {
   var d = depth || 0;
   var [filter, setFilter] = React.useState('');
   var [expanded, setExpanded] = React.useState({});
+  // Column widths start unset (content-driven auto layout, same as before) and are
+  // only populated once a user drags a column's resize handle — so a report with no
+  // manual resizing renders identically to pre-resize behavior. Keyed per DictResultView
+  // instance (not module-global), so nested detail sub-tables get independent widths.
+  var [colWidths, onColMouseDown] = useResizableColumns({});
 
   if (!rows || !Array.isArray(rows) || rows.length === 0) {
     return React.createElement('div', { style: { color: 'var(--dim)', fontSize: 12, fontStyle: 'italic', padding: '8px 0' } }, 'No data.');
@@ -2012,7 +2018,12 @@ function DictResultView({ rows, columns, depth }) {
   var headerCells = [];
   if (hasExpand) headerCells.push(React.createElement('th', { key: '__x', style: _DV_TH }, ''));
   scalarCols.forEach(function(c) {
-    headerCells.push(React.createElement('th', { key: c.key, style: _DV_TH }, c.name || c.key));
+    var w = colWidths[c.key];
+    var thStyle = Object.assign({ position: 'relative' }, _DV_TH, { paddingRight: 14 }, w ? { width: w, maxWidth: w } : {});
+    headerCells.push(React.createElement('th', { key: c.key, style: thStyle },
+      c.name || c.key,
+      React.createElement(ColResizeHandle, { onMouseDown: onColMouseDown(c.key) })
+    ));
   });
 
   var tbodyChildren = [];
@@ -2028,15 +2039,17 @@ function DictResultView({ rows, columns, depth }) {
     }
     scalarCols.forEach(function(c) {
       var val = row[c.dataKey];
+      var tdW = colWidths[c.key];
+      var tdStyle = tdW ? Object.assign({}, _DV_TD, { width: tdW, maxWidth: tdW }) : _DV_TD;
       if (c.key.toLowerCase() === 'guid' && val) {
-        cells.push(React.createElement('td', { key: c.key, style: _DV_TD },
+        cells.push(React.createElement('td', { key: c.key, style: tdStyle },
           React.createElement('code', { style: { fontSize: 10, fontFamily: 'ui-monospace,monospace', userSelect: 'all' } },
             String(val).slice(0, 14) + '…'
           )
         ));
       } else {
         var disp = val == null ? '' : (typeof val === 'object' ? JSON.stringify(val) : String(val));
-        cells.push(React.createElement('td', { key: c.key, style: _DV_TD, title: disp.length > 60 ? disp : undefined }, disp));
+        cells.push(React.createElement('td', { key: c.key, style: tdStyle, title: disp.length > 60 ? disp : undefined }, disp));
       }
     });
     tbodyChildren.push(React.createElement('tr', { key: rowId,

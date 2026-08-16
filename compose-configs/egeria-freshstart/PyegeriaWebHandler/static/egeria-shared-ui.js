@@ -187,6 +187,52 @@ function useResizable(initialPx, min, max) {
   return [width, onMouseDown];
 }
 
+// Per-column sibling of useResizable, for drag-to-resize <table> columns (e.g.
+// report/DictResultView output). Keyed by column key rather than a single
+// scalar so an arbitrary number of columns can be resized independently.
+// initialWidths: { [colKey]: px }. Returns [widths, onColMouseDown(colKey)] —
+// call onColMouseDown(key) from a column's resize-handle onMouseDown.
+function useResizableColumns(initialWidths, min, max) {
+  min = (min === undefined) ? 60 : min;
+  max = (max === undefined) ? 800 : max;
+  const [widths, setWidths] = React.useState(initialWidths);
+  const widthsRef = React.useRef(widths);
+  widthsRef.current = widths;
+  const onColMouseDown = React.useCallback(function(colKey) {
+    return function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var startX = e.clientX;
+      var startW = widthsRef.current[colKey];
+      function onMove(mv) {
+        var next = Math.max(min, Math.min(max, startW + mv.clientX - startX));
+        setWidths(function(prev) { return Object.assign({}, prev, { [colKey]: next }); });
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    };
+  }, [min, max]);
+  return [widths, onColMouseDown];
+}
+
+// Thin drag handle for a resizable <th> — absolutely positioned strip on the
+// column's right edge, cursor: col-resize. Same visual language as
+// ResizeDivider below, but sized/positioned to sit inline inside a <th>
+// rather than as a sibling flex divider.
+function ColResizeHandle({ onMouseDown }) {
+  return React.createElement('div', {
+    onMouseDown: onMouseDown,
+    style: {
+      position: 'absolute', top: 0, right: 0, bottom: 0, width: 6,
+      cursor: 'col-resize', userSelect: 'none', zIndex: 1,
+    },
+  });
+}
+
 /* ── Glossary tree (shared by Egeria Explorer + Tech Catalog) ────────────────
  * One twistie-tree implementation for both SPAs. GlossaryTreeNode lazy-loads
  * its child folders + terms via the injected fetchJson(path) -> Promise<json>,
