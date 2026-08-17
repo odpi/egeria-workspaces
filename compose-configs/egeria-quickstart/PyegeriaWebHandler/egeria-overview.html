@@ -500,9 +500,9 @@
         <div class="a-ico sev-md">📜</div>
         <div class="a-body">
           <div class="a-title">Certifications expiring within 90 days</div>
-          <div class="a-desc">6 certifications, covering 41 assets, need renewal</div>
+          <div class="a-desc" id="aq-cert-desc">6 certifications need renewal</div>
         </div>
-        <div style="text-align:right"><div class="a-count" style="color:var(--c4)">6</div><a class="a-cta" href="#">Open Audit →</a></div>
+        <div style="text-align:right"><div class="a-count" style="color:var(--c4)" id="aq-cert-count">6</div><a class="a-cta" href="#">Open Audit →</a></div>
       </div>
 
       <div class="att">
@@ -518,18 +518,18 @@
         <div class="a-ico sev-lo">🔗</div>
         <div class="a-body">
           <div class="a-title">Orphan glossary terms</div>
-          <div class="a-desc">Approved terms with no semantic assignment to any asset</div>
+          <div class="a-desc" id="aq-orphan-desc">Approved terms with no semantic assignment to any asset</div>
         </div>
-        <div style="text-align:right"><div class="a-count" style="color:var(--c2)">47</div><a class="a-cta" href="#">Open Explorer →</a></div>
+        <div style="text-align:right"><div class="a-count" style="color:var(--c2)" id="aq-orphan-count">47</div><a class="a-cta" href="#">Open Explorer →</a></div>
       </div>
 
       <div class="att">
         <div class="a-ico sev-lo">🕓</div>
         <div class="a-body">
           <div class="a-title">Stale assets (no update &gt; 180d)</div>
-          <div class="a-desc">Possibly abandoned; candidates for archival review</div>
+          <div class="a-desc" id="aq-stale-desc">Possibly abandoned; candidates for archival review</div>
         </div>
-        <div style="text-align:right"><div class="a-count" style="color:var(--c2)">153</div><a class="a-cta" href="#">Open Catalog →</a></div>
+        <div style="text-align:right"><div class="a-count" style="color:var(--c2)" id="aq-stale-count">153</div><a class="a-cta" href="#">Open Catalog →</a></div>
       </div>
     </div>
 
@@ -540,8 +540,8 @@
         <div class="hbar-row"><span class="lab">Surveyed</span><div class="hbar-track"><div class="hbar-fill" style="width:61%;background:var(--c6)"></div></div><span class="num">61%</span></div>
         <div class="hbar-row"><span class="lab">Has quality annotations</span><div class="hbar-track"><div class="hbar-fill" style="width:44%;background:var(--c1)"></div></div><span class="num">44%</span></div>
         <div class="hbar-row"><span class="lab">Has schema captured</span><div class="hbar-track"><div class="hbar-fill" style="width:78%;background:var(--c2)"></div></div><span class="num">78%</span></div>
-        <div class="hbar-row"><span class="lab">Has assigned owner</span><div class="hbar-track"><div class="hbar-fill" style="width:83%;background:var(--c3)"></div></div><span class="num">83%</span></div>
-        <div class="hbar-row"><span class="lab">Has description</span><div class="hbar-track"><div class="hbar-fill" style="width:71%;background:var(--c4)"></div></div><span class="num">71%</span></div>
+        <div class="hbar-row"><span class="lab">Has assigned owner</span><div class="hbar-track"><div class="hbar-fill" id="dq-owner-fill" style="width:83%;background:var(--c3)"></div></div><span class="num" id="dq-owner-pct">83%</span></div>
+        <div class="hbar-row"><span class="lab">Has description</span><div class="hbar-track"><div class="hbar-fill" id="dq-desc-fill" style="width:71%;background:var(--c4)"></div></div><span class="num" id="dq-desc-pct">71%</span></div>
       </div>
 
       <div class="panel">
@@ -1424,9 +1424,20 @@ const SECTION_PROVENANCE = {
     { name: 'Contextualised Coverage %',  status: 'live' }, // added 2026-08-17 -- % assets connected to a SolutionComponent via ImplementedBy (a proxy, not the literal "participates in an ISC/blueprint" -- see contextualised_coverage's own docstring)
   ],
   quality: [
-    { name: 'Attention Queue',              status: 'illustrative' },
-    { name: 'Data Quality Coverage',        status: 'illustrative' },
-    { name: 'Certifications Expiring Soon', status: 'illustrative' },
+    // Attention Queue -- split per row (added 2026-08-17): the panel is
+    // genuinely mixed now, not uniformly sample.
+    { name: 'AQ: Confidential assets in open zones',   status: 'illustrative' }, // only 1-2 elements carry Confidentiality at all in this dataset -- too sparse to wire meaningfully
+    { name: 'AQ: Certifications expiring ≤90d',        status: 'live' },  // certifications_summary's certExpiring90 (already live elsewhere), now also wired into this panel
+    { name: 'AQ: Data stores never surveyed',          status: 'illustrative' }, // needs a 2-hop DataStore->SurveyReport->Annotation traversal, not built
+    { name: 'AQ: Orphan glossary terms',                status: 'live' },  // orphan_glossary_terms: SemanticAssignment-unreferenced GlossaryTerms
+    { name: 'AQ: Stale assets (no update >180d)',       status: 'live' },  // stale_assets: per-element updateTime vs cutoff
+    // Data Quality Coverage -- split per row, same reasoning.
+    { name: 'DQ: Surveyed',                  status: 'illustrative' }, // same survey-model gap as AQ's "never surveyed" row
+    { name: 'DQ: Has quality annotations',   status: 'illustrative' },
+    { name: 'DQ: Has schema captured',       status: 'illustrative' }, // needs a SchemaType relationship traversal, not built
+    { name: 'DQ: Has assigned owner',        status: 'live' },  // ownership_coverage (already live elsewhere), now also wired into this panel
+    { name: 'DQ: Has description',           status: 'live' },  // business_value_signals.describedCount (already live elsewhere), now also wired into this panel
+    { name: 'Certifications Expiring Soon',  status: 'illustrative' }, // "soon" table -- distinct from the AQ row above; certifications_summary's soon[] list has name/days, not the scope/pill-severity columns this table shows
   ],
   ai: [
     { name: 'Semantic Grounding',      status: 'live' },  // semantic_grounding
@@ -1823,6 +1834,28 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     store.bvDuplicateCount = d.bvDuplicateCount;
     if (primary) renderBusinessValue(store);
     if (!primary) return;
+    renderDataQuality(store);
+    // Attention Queue — Certifications expiring / Orphan glossary terms /
+    // Stale assets rows. "Confidential assets in open zones" and "Data
+    // stores never surveyed" stay illustrative (see OVERVIEW_NEXT_STEPS.md:
+    // too sparse / needs a 2-hop survey-annotation traversal not yet built).
+    if (d.certExpiring90 != null) {
+      setTxt('aq-cert-count', fmt(d.certExpiring90));
+      var certNames = (d.certSoon || []).map(function(c){ return c.name; }).slice(0, 2).join(', ');
+      setTxt('aq-cert-desc', d.certExpiring90 === 0 ? 'None due — all certifications current' :
+        d.certExpiring90 + ' certification' + (d.certExpiring90 === 1 ? '' : 's') + ' need renewal' +
+        (certNames ? ' (' + certNames + ')' : ''));
+    }
+    if (d.orphanTermCount != null) {
+      setTxt('aq-orphan-count', fmt(d.orphanTermCount));
+      setTxt('aq-orphan-desc', 'Approved terms with no semantic assignment to any asset' +
+        (d.orphanTermTotal ? ' (' + fmt(d.orphanTermCount) + ' of ' + fmt(d.orphanTermTotal) + ' terms)' : ''));
+    }
+    if (d.staleAssetCount != null) {
+      setTxt('aq-stale-count', fmt(d.staleAssetCount));
+      setTxt('aq-stale-desc', 'Possibly abandoned; candidates for archival review' +
+        (d.staleAssetTotal ? ' (' + fmt(d.staleAssetCount) + ' of ' + fmt(d.staleAssetTotal) + ' assets)' : ''));
+    }
     // Governed vs. Ungoverned donut + Fully/Partial/Ungoverned breakdown —
     // fullyGoverned/partialZoneOnly are real (governed_coverage's own hits
     // list, bucketed by which classifications each element carries);
@@ -1940,6 +1973,27 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     }
   }
 
+  // Data Quality Coverage's "Has assigned owner" / "Has description" rows —
+  // both reuse fields already computed by *other* endpoints (ownership_
+  // coverage via ai-context, business_value_signals via summary), so this
+  // is called from both applySummary() and applyAI() after each sets its
+  // half of the store, whichever settles last completing the picture.
+  // "Surveyed" / "Has quality annotations" / "Has schema captured" remain
+  // illustrative — no backend signal for those yet (see OVERVIEW_NEXT_STEPS.md).
+  function renderDataQuality(store){
+    if (store.ownershipPct != null) {
+      setTxt('dq-owner-pct', store.ownershipPct + '%');
+      var ownerFill = document.getElementById('dq-owner-fill');
+      if (ownerFill) ownerFill.style.width = Math.max(store.ownershipPct, 2) + '%';
+    }
+    if (store.bvDescribedCount != null && store.bvAssetTotal) {
+      var descPct = Math.round(100 * store.bvDescribedCount / store.bvAssetTotal);
+      setTxt('dq-desc-pct', descPct + '%');
+      var descFill = document.getElementById('dq-desc-fill');
+      if (descFill) descFill.style.width = Math.max(descPct, 2) + '%';
+    }
+  }
+
   function applyAI(d, store, primary){
     if (!d) return;
     if (d.groundingPct != null) store.groundingPct = d.groundingPct;
@@ -1981,6 +2035,7 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
       var m = d.drlByModality;
       setTxt('drl-modality', fmt(m.tabular) + ' tabular · ' + fmt(m.text_media) + ' text/media · ' + fmt(m.other) + ' other');
     }
+    renderDataQuality(store);
   }
 
   function applyGrowth(d){

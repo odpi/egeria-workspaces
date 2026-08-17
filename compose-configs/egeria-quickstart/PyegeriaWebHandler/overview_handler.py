@@ -107,6 +107,14 @@ except ImportError:
     karma_leaderboard = None
     engagement_series = None
 
+# orphan_glossary_terms / stale_assets are new (2026-08-17, Attention Queue's
+# "Orphan glossary terms" + "Stale assets" rows). Same defensive-import gap.
+try:
+    from pyegeria.view.overview_metrics import orphan_glossary_terms, stale_assets
+except ImportError:
+    orphan_glossary_terms = None
+    stale_assets = None
+
 # ownership_coverage is new (2026-08-01), not yet in a published pyegeria release
 # (same "container runs the published package, not this dev checkout" gap already
 # documented for Create Report/Dashboard Sheet commands in LOCAL_DASHBOARDS_TUTORIAL.md
@@ -363,6 +371,7 @@ def get_summary(
     # AttachedRating relationships exist against DigitalProduct in this
     # dataset today.
     ratings_total = None
+    ce = None
     try:
         ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
         ratings_total = count_relationships(ce, "AttachedRating", as_of_time)
@@ -381,6 +390,21 @@ def get_summary(
             biz_value = business_value_signals(mgr, as_of_time)
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview summary: business_value_signals failed: {exc}")
+
+    # Attention Queue rows (NEXT-25): orphan glossary terms + stale assets.
+    # Both defensive -- new pyegeria, not yet in a published release.
+    orphan_terms: dict = {"termTotal": None, "referencedCount": None, "orphanCount": None}
+    if orphan_glossary_terms is not None and ce is not None:
+        try:
+            orphan_terms = orphan_glossary_terms(mgr, ce, as_of_time)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview summary: orphan_glossary_terms failed: {exc}")
+    stale: dict = {"staleCount": None, "assetTotal": None}
+    if stale_assets is not None:
+        try:
+            stale = stale_assets(mgr, as_of_time)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview summary: stale_assets failed: {exc}")
 
     payload = {
         "asOfTime":         as_of_time,
@@ -408,6 +432,10 @@ def get_summary(
         "bvConfidentialCount": biz_value["confidentialCount"],
         "bvDescribedCount":   biz_value["describedCount"],
         "bvDuplicateCount":   biz_value["duplicateCount"],
+        "orphanTermCount":    orphan_terms["orphanCount"],   # SemanticAssignment-unreferenced GlossaryTerms
+        "orphanTermTotal":    orphan_terms["termTotal"],
+        "staleAssetCount":    stale["staleCount"],           # no update in 180d
+        "staleAssetTotal":    stale["assetTotal"],
         "partial":          True,
         "source":           "live:summary",
     }

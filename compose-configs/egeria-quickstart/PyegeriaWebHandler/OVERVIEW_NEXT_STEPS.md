@@ -14,8 +14,9 @@ Handoff / pick-up-later notes for the `/egeria-overview` dashboard. Companion to
   blueprints), AI grounding, and the **Growth series via `asOfTime`**.
 - KPI **sparklines are real** for metrics with history (assets/terms/governed/
   products) with a time reference; others show no sparkline (honest).
-- Still ⚪ sample (labeled): Business Value lens numbers, confidentiality
-  distribution, attention queue, DQ coverage, most-engaged assets, activity feed.
+- Still ⚪ sample (labeled): confidentiality distribution, confidential-assets-
+  in-open-zones, data-stores-never-surveyed / has-schema-captured / surveyed /
+  has-quality-annotations, most-engaged assets, activity feed.
 
 ## The big opportunity: Egeria's two temporal axes
 
@@ -387,11 +388,71 @@ thing to hand-maintain.
   dataset carry the classification at all (one of those two has no
   properties set), too sparse to be a meaningful distribution chart today;
   revisit once more governance-classified demo data exists.
-- **Business Value lens** numbers, attention queue, DQ
-  coverage, activity feed → wire from their sources.
+- **Business Value lens — ✅ already done, dated 2026-08-02 (this bullet was
+  stale).** Risk & Compliance / Productivity / Trust & Adoption / Cost
+  Avoidance are all `status: 'live'` in the registry already, backed by
+  `business_value_signals()` + the existing `dataProducts` count — same
+  "bullet predated the work" pattern as the AI funnel finding above.
+- **Attention Queue + Data Quality Coverage — ✅ 3 of 5 / 2 of 5 rows done
+  2026-08-17.** Investigated all remaining panels in one pass (see chat/
+  session log for the full per-row feasibility table) and wired the cheap
+  wins: `orphan_glossary_terms()` (new pyegeria function — one bounded
+  `SemanticAssignment` relationship fetch, distinct GlossaryTerm-end GUIDs
+  = referenced, orphan = total - referenced) and `stale_assets()` (new
+  pyegeria function — one bounded `Asset` element fetch, each element's own
+  `_update_time()` vs a 180d cutoff, no traversal). "Certifications expiring
+  ≤90d" and "Has assigned owner"/"Has description" needed **no new pyegeria
+  code at all** — `certifications_summary`/`ownership_coverage`/
+  `business_value_signals` already computed them for other panels, just
+  weren't also wired into this one. Verified live: orphanTermCount=398 of
+  407 terms (97.8% of the glossary has never been semantically assigned to
+  anything), staleAssetCount=25 of 400 assets, certExpiring90=0,
+  ownershipPct=1.8%, descriptions on 245/332 assets. Status registry split
+  from 3 panel-level entries into 11 per-row entries (`quality` section) —
+  the panels are genuinely mixed now, not uniformly live or sample.
+  Remaining ⚪: "Confidential assets in open zones" (too sparse, see
+  Confidentiality Distribution finding above), "Data stores never surveyed"
+  and "Has schema captured"/"Surveyed"/"Has quality annotations" (need a
+  2-hop DataStore→SurveyReport→Annotation traversal or a SchemaType
+  traversal — not investigated in depth, real annotation data exists but is
+  sparse: only 3 `ReportedAnnotation` relationships live today).
 - **Perspective Question library**: persist the `PERSPECTIVES[*].questions` JS
   drafts as real `Question` (GlossaryTerm + `IsQuestion`) Dr.Egeria terms per
   perspective, each mapped to a report spec + tile.
+
+## Design question raised 2026-08-17: how should Egeria itself describe these metrics?
+
+Dan's own framing, worth capturing verbatim rather than losing it in chat:
+this dashboard now has ~25 live metric functions in `overview_metrics.py`,
+each with its own docstring explaining what it *really* measures (proxy vs.
+literal, population scope, caveats) — but that knowledge lives only in
+Python comments and frontend HTML captions. As the metric count keeps
+growing, two related questions need a real design pass rather than being
+answered ad hoc per-metric the way R-5 below started to:
+
+1. **How does Egeria itself describe a calculation like this?** Not just
+   the GlossaryTerm-per-metric governance layer R-5 already designs (name/
+   summary/usage as structured metadata instead of a Python docstring) —
+   whether the *computation itself* (which relationship type, which
+   classification property, which population, ANY vs ALL, single-hop-proxy
+   caveats) should be expressible as first-class Egeria metadata at all, or
+   whether a docstring + GlossaryTerm pairing is the right permanent shape.
+2. **Should these calculations be exposed as Governance Actions** (or a
+   similar first-class Egeria construct) rather than living purely as
+   Python functions a FastAPI route calls? That would make a metric
+   independently triggerable/schedulable/auditable through Egeria's own
+   governance-action framework instead of only ever running inline inside
+   an HTTP request — potentially relevant for anything that currently has to
+   stay a cheap single-bounded-fetch proxy (like `orphan_glossary_terms`
+   above) specifically *because* it runs synchronously in a request/response
+   cycle; a governance-action-triggered batch computation wouldn't have that
+   constraint and could afford a real traversal.
+
+**Not scoped yet.** Relates directly to R-5 below (which already designs the
+GlossaryTerm/Collection governance layer for *documenting* a metric) — this
+question goes further, into whether the *computation* itself belongs inside
+Egeria's own execution model. Needs a design discussion before any more
+metrics are added under the current ad hoc pattern.
 
 ## Open decisions
 
