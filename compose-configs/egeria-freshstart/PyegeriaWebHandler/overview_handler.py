@@ -65,6 +65,7 @@ except ImportError:
 from pyegeria.view.overview_metrics import (
     WINDOWS as _WINDOWS,
     count_elements,
+    count_relationships,
     counts_by_type,
     governed_coverage,
     certifications_summary,
@@ -75,6 +76,17 @@ from pyegeria.view.overview_metrics import (
     usage_context_counts,
     growth_series,
 )
+
+# count_elements_by_property is new (2026-08-17, Data Products deploymentStatus
+# breakdown), not yet in a published pyegeria release -- same
+# "container runs the published package, not this dev checkout" gap as
+# ownership_coverage just below. Defensive import so an older installed
+# pyegeria degrades to the old flat count instead of crashing every
+# /api/overview/* route.
+try:
+    from pyegeria.view.overview_metrics import count_elements_by_property
+except ImportError:
+    count_elements_by_property = None
 
 # ownership_coverage is new (2026-08-01), not yet in a published pyegeria release
 # (same "container runs the published package, not this dev checkout" gap already
@@ -303,8 +315,44 @@ def get_summary(
         title="Assets by Type", x_label="Assets", y_label="Type",
     )
 
-    # Data products (DigitalProduct) — live count.
+    # Data products (DigitalProduct) — live count, plus a deploymentStatus
+    # breakdown (OVERVIEW_NEXT_STEPS.md "Data products publication status +
+    # ratings"). deploymentStatus is the property describing whether a
+    # product's implementation is deployed/active vs still under development
+    # (distinct from contentStatus, the DRAFT->APPROVED lifecycle of the
+    # product *description* — see digital_products_handler.py). Folding
+    # every other value (DRAFT/UNDER_DEVELOPMENT/unset/etc.) into "not yet
+    # active" rather than enumerating every possible deploymentStatus value
+    # keeps this to 2 cheap native COUNT calls total, same cost class as the
+    # single count this replaces, and stays correct regardless of which
+    # status values actually appear in a given dataset.
     data_products = count_elements(mgr, "DigitalProduct", as_of_time)
+    data_products_active = None
+    if count_elements_by_property is not None:
+        try:
+            data_products_active = count_elements_by_property(
+                mgr, "DigitalProduct", "deploymentStatus", "ACTIVE", as_of_time)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview summary: data products deploymentStatus breakdown failed: {exc}")
+    data_products_pending = (
+        max(data_products - data_products_active, 0)
+        if data_products is not None and data_products_active is not None else None
+    )
+
+    # Ratings — system-wide AttachedRating relationship count (Egeria's
+    # relationship count can't be scoped to one end's type without a graph
+    # traversal, so this is repo-wide, not products-only; reuses the exact
+    # same count_relationships call the People tile already makes
+    # independently for its own feedback rollup). Honestly omitted from the
+    # tile when zero rather than faked — confirmed live 2026-08-17 that no
+    # AttachedRating relationships exist against DigitalProduct in this
+    # dataset today.
+    ratings_total = None
+    try:
+        ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
+        ratings_total = count_relationships(ce, "AttachedRating", as_of_time)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview summary: ratings count failed: {exc}")
 
     # Certifications, licenses & open exceptions (governance relationships).
     certs = _certifications(url, server, user_id, user_pwd, as_of_time)
@@ -333,7 +381,10 @@ def get_summary(
         "certExpiring90":   certs["expiring90"],
         "certSoon":         certs["soon"],
         "licenses":         certs["licenses"],
-        "dataProducts":     data_products,
+        "dataProducts":         data_products,
+        "dataProductsActive":   data_products_active,
+        "dataProductsPending":  data_products_pending,
+        "dataProductsRatings":  ratings_total,
         "openExceptions":   certs["exceptions"],
         "bvAssetTotal":       biz_value["assetTotal"],
         "bvAssetCapped":      biz_value["assetCapped"],
