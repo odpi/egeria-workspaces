@@ -132,10 +132,13 @@ def client_tests(as_of):
     # get_relationships — asOfTime in ResultsRequestBody (body=)
     try:
         ce = mk(ClassificationExplorer)
+        # page_size=5000 used to work here; Egeria's server now rejects >1000
+        # on findRelationshipsBetweenMetadataElements (OMAG-COMMON-400-010,
+        # hit live 2026-08-17 after a server upgrade) -- 1000 is the new max.
         now_n = jlen(ce.get_relationships(relationship_type="SemanticAssignment", output_format="JSON",
-                                          start_from=0, page_size=5000))
+                                          start_from=0, page_size=1000))
         ao_n = jlen(ce.get_relationships(relationship_type="SemanticAssignment", output_format="JSON",
-                                         start_from=0, page_size=5000,
+                                         start_from=0, page_size=1000,
                                          body={"class": "ResultsRequestBody", "asOfTime": as_of}))
         check("get_relationships: as-of via body= runs & historical", ao_n <= now_n, f"now={now_n} asof={ao_n}")
     except Exception as exc:  # noqa: BLE001
