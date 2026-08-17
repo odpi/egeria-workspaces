@@ -531,8 +531,41 @@ Terms Metric Report`), confirmed the relationship still resolves via
 (worked around with an explicit `SOFT_DELETE` body) — not new, already
 documented elsewhere in this session's history.
 
-**Not yet done**: rolling this pattern out to the other ~24 metrics (this
-was a one-metric pilot to validate the design, not a mass rollout).
+**Rolled out to all 17 fixed-metric analytic functions — ✅ done
+2026-08-17.** "Fixed" = `AnalyticFunctionSpec.generic == False` in
+`analytic_registry.py` — the functions that measure one specific, hardcoded
+thing (`governed_coverage`, `karma_leaderboard`, `orphan_glossary_terms`,
+...), as opposed to the 6 `generic == True` reusable templates
+(`count_elements`, `counts_by_type`, `growth_series`, `metric_trend`,
+`sum_type_counts`, `count_elements_by_property`) whose *subject* is itself
+a parameter — a `GovernanceMetric` for "count_elements" would be
+meaningless without pinning its `type_name`, and one per specific binding
+(e.g. "GlossaryTerm count") would multiply without bound, so those were
+deliberately left out of this rollout, not missed.
+
+Generated the 16 remaining `Create Report` / `Create Governance Metric` /
+`Link Governance Results` triples programmatically from
+`analytic_registry.py` + `analytic_demo_specs.py`'s own text (registry
+`description`/`binding_note`/`returns` → `Summary`/`Scope`/`Measurement`;
+the demo spec's fuller `description` → `Usage`) rather than hand-authoring
+each — same content, same honesty (proxy caveats/GENERIC-vs-FIXED wording
+carried straight through from the Python source that already had it), zero
+new prose invented per metric. Ran as one 48-command Dr.Egeria batch
+(`--validate` then `--process`), upsert-safe throughout.
+
+**Verified live**: 17 of 17 `GovernanceMetric` elements exist, all 17
+resolve a `GovernanceResults` relationship to their Report (checked via
+`get_all_related_elements` on every one, not a sample). Spot-executed 3
+of the 16 new report specs end-to-end — Governance Classification
+Coverage (`governedCount: 51`), Karma Leaderboard (`[Erin Overview 1260,
+Peter Profile 210]`), Stale Assets (`25 of 426`) — all returned real data
+matching what the dashboard itself shows.
+
+**Not yet done**: the 6 generic/parametric functions (deliberately out of
+scope, see above), and a UI surface for browsing these `GovernanceMetric`
+elements (they exist in Egeria now but nothing in Egeria Explorer/the
+Overview dashboard itself links out to them yet — a natural next step,
+not started).
 
 ## Open decisions
 
