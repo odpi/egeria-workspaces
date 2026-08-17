@@ -16,7 +16,7 @@ Handoff / pick-up-later notes for the `/egeria-overview` dashboard. Companion to
   products) with a time reference; others show no sparkline (honest).
 - Still ⚪ sample (labeled): Business Value lens numbers, confidentiality/zone
   bars, attention queue, DQ coverage, karma/feedback/leaderboard/engagement,
-  activity feed, AI funnel documented/lineage/aiReady, usage % contextualised.
+  activity feed, usage % contextualised.
 
 ## The big opportunity: Egeria's two temporal axes
 
@@ -302,9 +302,31 @@ thing to hand-maintain.
 
 ## Remaining app wiring (independent of the API work)
 
-- **Data products** publication status + ratings (currently just a count).
-- **AI funnel** documented / lineage-traced / AI-Ready stages (needs traversal or
-  the count API above).
+- **Data products — ✅ done 2026-08-17.** Active-vs-pending breakdown via a new
+  `count_elements_by_property(mgr, type_name, property_name, property_value,
+  as_of)` helper (pyegeria `overview_metrics.py`) counting `deploymentStatus ==
+  ACTIVE` vs everything else (2 cheap native COUNT calls, same cost class as the
+  flat count it replaces). Ratings reuses the existing `count_relationships(ce,
+  "AttachedRating", as_of)` call the People tile already makes independently —
+  system-wide, not scoped to products (Egeria's relationship count can't filter
+  by one end's type without a graph traversal), shown only when non-zero.
+  Verified live: `dataProducts=6, dataProductsActive=2, dataProductsPending=4,
+  dataProductsRatings=0`.
+- **AI funnel — ✅ already done, dated 2026-08-01 (this bullet was stale).**
+  `context_readiness_funnel`/`ai_ready_assets` (pyegeria `overview_metrics.py`)
+  already compute all five stages (cataloged → documented → classified →
+  lineage-traced → AI-ready) and the frontend funnel bar chart + Vega-Lite
+  chart were already wired end-to-end — this bullet and the "Still ⚪ sample"
+  line above both just predated that work. While re-verifying this live
+  2026-08-17 (after a quickstart Egeria redeploy) found and fixed a real
+  regression instead: `ClassificationExplorer.get_relationships`'s hardcoded
+  `page_size=5000` now exceeds Egeria's new 1000-record max
+  (`OMAG-COMMON-400-010`), so `lineage`/`aiReady`/every relationship-count-based
+  metric (including Data Products' ratings above) was silently returning
+  None/0-that-looked-intentional instead of erroring. Fixed to use the
+  existing `DEFAULT_CAP` (500) at all three call sites. `grep -rn
+  "page_size=5000"` also hits egeria-workspaces-fs's `insights_handler.py` and
+  a pyegeria test file — not fixed, likely the same live bug wherever it's hit.
 - **Usage % contextualised** (traversal / count API).
 - **People**: karma (ContributionRecord) + feedback rollups (comments/ratings/
   likes/tags) via Collaboration OMAS — the leaderboard/engagement/most-engaged
