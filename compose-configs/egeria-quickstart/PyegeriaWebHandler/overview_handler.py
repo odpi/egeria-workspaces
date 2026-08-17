@@ -88,6 +88,16 @@ try:
 except ImportError:
     count_elements_by_property = None
 
+# contextualised_coverage is new (2026-08-17, "Usage % contextualised"), not
+# yet in a published pyegeria release -- same gap as count_elements_by_property
+# just above. Defensive import so an older installed pyegeria keeps
+# contextualisedPct as the old None/TODO instead of crashing every
+# /api/overview/* route.
+try:
+    from pyegeria.view.overview_metrics import contextualised_coverage
+except ImportError:
+    contextualised_coverage = None
+
 # ownership_coverage is new (2026-08-01), not yet in a published pyegeria release
 # (same "container runs the published package, not this dev checkout" gap already
 # documented for Create Report/Dashboard Sheet commands in LOCAL_DASHBOARDS_TUTORIAL.md
@@ -646,7 +656,12 @@ def get_usage_context(
     feeds the Clinical Trial supply chain", "this component realises the Sales
     blueprint". Counted natively (count_metadata_elements) — sub-second, vs the old
     find-and-filter that materialized every element. The "% of assets contextualised"
-    coverage figure needs graph traversal and is deferred (SPA shows sample)."""
+    coverage figure is computed via contextualised_coverage — a single bounded
+    ImplementedBy relationship fetch (SolutionComponent -> its concrete
+    implementation), not a per-asset graph walk; see that function's own
+    docstring for the honest "this is a proxy" caveat (confirms an asset was
+    given *some* solution-design context, not that its specific
+    SolutionComponent is itself wired into an ISC/blueprint)."""
     as_of_time = _norm_asof(as_of_time)
     ckey = f"usage|{as_of_time}|{url}|{server}|{user_id}"
     cached = _cache_get(ckey)
@@ -662,11 +677,24 @@ def get_usage_context(
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview usage-context: query failed: {exc}")
 
+    contextualised_count = asset_total_for_pct = contextualised_pct = None
+    if contextualised_coverage is not None:
+        try:
+            ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
+            cov = contextualised_coverage(mgr, ce, as_of_time)
+            contextualised_count = cov["contextualisedCount"]
+            asset_total_for_pct  = cov["assetTotal"]
+            contextualised_pct   = cov["contextualisedPct"]
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview usage-context: contextualised_coverage failed: {exc}")
+
     payload = {
         "asOfTime":                as_of_time,
         "informationSupplyChains": iscs,
         "blueprints":              blueprints,
-        "contextualisedPct":       None,   # % assets participating in ≥1 ISC/blueprint — TODO (traversal)
+        "contextualisedCount":     contextualised_count,
+        "contextualisedAssetTotal": asset_total_for_pct,
+        "contextualisedPct":       contextualised_pct,
         "partial":                 True,
         "source":                  "live:usage-context",
     }

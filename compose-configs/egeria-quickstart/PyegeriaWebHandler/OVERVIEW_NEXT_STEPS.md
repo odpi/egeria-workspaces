@@ -16,7 +16,7 @@ Handoff / pick-up-later notes for the `/egeria-overview` dashboard. Companion to
   products) with a time reference; others show no sparkline (honest).
 - Still ⚪ sample (labeled): Business Value lens numbers, confidentiality/zone
   bars, attention queue, DQ coverage, karma/feedback/leaderboard/engagement,
-  activity feed, usage % contextualised.
+  activity feed.
 
 ## The big opportunity: Egeria's two temporal axes
 
@@ -107,8 +107,9 @@ methods.
    distributions directly.
 2. **Participation / traversal counts** — "assets reachable from ≥1 ISC or
    blueprint," "assets with lineage relationships" — as count queries. Would unlock
-   the deferred funnel stages (documented/lineage/AI-ready) and usage
-   **% contextualised** without client-side graph walks.
+   the deferred funnel stages (documented/lineage/AI-ready). Usage
+   **% contextualised** turned out not to need this — see below, resolved
+   2026-08-17 via a relationship-based proxy instead of the literal traversal.
 
 ## Done since first draft
 
@@ -324,10 +325,29 @@ thing to hand-maintain.
   (`OMAG-COMMON-400-010`), so `lineage`/`aiReady`/every relationship-count-based
   metric (including Data Products' ratings above) was silently returning
   None/0-that-looked-intentional instead of erroring. Fixed to use the
-  existing `DEFAULT_CAP` (500) at all three call sites. `grep -rn
-  "page_size=5000"` also hits egeria-workspaces-fs's `insights_handler.py` and
-  a pyegeria test file — not fixed, likely the same live bug wherever it's hit.
-- **Usage % contextualised** (traversal / count API).
+  existing `DEFAULT_CAP` (500) at all three call sites; `insights_handler.py`
+  and pyegeria's own `test_overview_asof.py` had the same literal, also
+  fixed. Then made genuinely systemic: `max_paging_size` (pyegeria's
+  underlying default) was itself a bare hardcoded constant disconnected from
+  the `.env`/config.json settings system — now env-configurable
+  (`EGERIA_MAX_PAGE_SIZE`), so a future server-side limit change is a config
+  edit, not another repo-wide grep.
+- **Usage % contextualised — ✅ done 2026-08-17.** Looked traversal-blocked
+  (no native "assets reachable from an ISC/blueprint" count exists), but a
+  single relationship type gets there cheaply instead: `ImplementedBy`
+  (model 0737, Solution Implementation) links a SolutionComponent to its
+  concrete implementation. One bounded fetch of all `ImplementedBy`
+  relationships, filtered to Asset-subtype ends, distinct-GUID count = the
+  numerator (`contextualised_coverage()` in pyegeria's
+  `overview_metrics.py`). Confirmed live: 31 of 384 Assets = 8.1%. This is a
+  **proxy**, not the literal metric — confirms an asset was given *some*
+  solution-design context via ImplementedBy, not that its specific
+  SolutionComponent is itself wired into an ISC/blueprint (that would need a
+  second composition-relationship hop) — same single-hop tradeoff every
+  other proxy metric in this file already makes (e.g. `lineage` counting
+  DataFlow relationships, not confirming each sits on a path Egeria would
+  call "lineage" in the strict sense). Documented as such in the function's
+  own docstring and the frontend's tile caption.
 - **People**: karma (ContributionRecord) + feedback rollups (comments/ratings/
   likes/tags) via Collaboration OMAS — the leaderboard/engagement/most-engaged
   widgets. Karma is often sparse in demo data → also compute an engagement score
