@@ -392,6 +392,8 @@ def get_summary(
         "governedCapped":   gov["governedCapped"],
         "byClassification": gov["byClassification"],
         "topZones":         gov["topZones"],
+        "fullyGoverned":    gov["fullyGoverned"],       # ≥1 substantive classification (Confidentiality/Criticality/Impact/Retention)
+        "partialZoneOnly":  gov["partialZoneOnly"],     # ZoneMembership only, no substantive classification
         "certifications":   certs["active"],
         "certExpiring90":   certs["expiring90"],
         "certSoon":         certs["soon"],

@@ -14,8 +14,8 @@ Handoff / pick-up-later notes for the `/egeria-overview` dashboard. Companion to
   blueprints), AI grounding, and the **Growth series via `asOfTime`**.
 - KPI **sparklines are real** for metrics with history (assets/terms/governed/
   products) with a time reference; others show no sparkline (honest).
-- Still ⚪ sample (labeled): Business Value lens numbers, confidentiality/zone
-  bars, attention queue, DQ coverage, most-engaged assets, activity feed.
+- Still ⚪ sample (labeled): Business Value lens numbers, confidentiality
+  distribution, attention queue, DQ coverage, most-engaged assets, activity feed.
 
 ## The big opportunity: Egeria's two temporal axes
 
@@ -363,7 +363,31 @@ thing to hand-maintain.
   engagement series correctly zero-filled 11 weeks with the real 7 noteLog
   events landing in the current week (2026-W34). "Most-engaged assets" (a
   separate, per-asset rollup) remains unwired.
-- **Business Value lens** numbers, confidentiality/zone bars, attention queue, DQ
+- **Governed vs Ungoverned 3-bucket split + Elements by Governance Zone — ✅
+  done 2026-08-17.** `governed_coverage()` already fetched the full `hits`
+  list for `byClassification`/`topZones`; extended it to also bucket each
+  hit by which classifications it carries, at no extra query cost:
+  "Fully governed" = carries ≥1 substantive governance classification
+  (Confidentiality/Criticality/Impact/Retention); "Partial (zone only)" =
+  carries `ZoneMembership` and nothing else from the governance set.
+  Ungoverned is derived on the frontend the same way the donut % badge
+  already was (`assetTotal - fully - partial`), not a separate query. Also
+  found and fixed a real bug while here: "Elements by Governance Zone" was
+  marked `status: 'live'` in the registry, but `topZones` was never actually
+  read by any frontend code — the `byZone` bar chart was still the static
+  sample array from page load. Wired it for real. Removed a fabricated
+  "24 ungoverned assets are also flagged Confidential" line from the donut
+  panel — no query computes that intersection, it was never anything but a
+  sample number. Verified live: fullyGoverned=2, partialZoneOnly=48,
+  assetTotal=388 (ungoverned=338); topZones led by digital-products (34).
+  **Confidentiality Distribution** (the `byConf` panel, still illustrative)
+  investigated but not wired: the per-level property is real
+  (`confidentialityLevel`, an int ordinal on the `Confidentiality`
+  classification — confirmed live), but only 2 elements in the whole
+  dataset carry the classification at all (one of those two has no
+  properties set), too sparse to be a meaningful distribution chart today;
+  revisit once more governance-classified demo data exists.
+- **Business Value lens** numbers, attention queue, DQ
   coverage, activity feed → wire from their sources.
 - **Perspective Question library**: persist the `PERSPECTIVES[*].questions` JS
   drafts as real `Question` (GlossaryTerm + `IsQuestion`) Dr.Egeria terms per

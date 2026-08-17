@@ -418,15 +418,12 @@
       <div class="donut-wrap">
         <div class="donut-center">
           <svg viewBox="0 0 150 150" width="150" height="150" id="donut"></svg>
-          <div class="dc-num"><b>68%</b><small>governed</small></div>
+          <div class="dc-num"><b id="donut-pct">68%</b><small>governed</small></div>
         </div>
         <div style="flex:1">
-          <div class="hbar-row" style="grid-template-columns:1fr 46px"><span class="lab"><i class="dot" style="background:var(--c6)"></i> Fully governed</span><span class="num">873</span></div>
-          <div class="hbar-row" style="grid-template-columns:1fr 46px"><span class="lab"><i class="dot" style="background:var(--c4)"></i> Partial (zone only)</span><span class="num">241</span></div>
-          <div class="hbar-row" style="grid-template-columns:1fr 46px"><span class="lab"><i class="dot" style="background:var(--card2);border:1px solid var(--border)"></i> Ungoverned</span><span class="num">170</span></div>
-          <div style="margin-top:12px; font-size:.74rem; color:var(--muted); line-height:1.5; border-top:1px solid var(--border); padding-top:10px">
-            <b style="color:#ff6b81">24</b> ungoverned assets are also flagged <b>Confidential</b> — see Attention below.
-          </div>
+          <div class="hbar-row" style="grid-template-columns:1fr 46px"><span class="lab"><i class="dot" style="background:var(--c6)"></i> Fully governed</span><span class="num" id="gov-full">873</span></div>
+          <div class="hbar-row" style="grid-template-columns:1fr 46px"><span class="lab"><i class="dot" style="background:var(--c4)"></i> Partial (zone only)</span><span class="num" id="gov-partial">241</span></div>
+          <div class="hbar-row" style="grid-template-columns:1fr 46px"><span class="lab"><i class="dot" style="background:var(--card2);border:1px solid var(--border)"></i> Ungoverned</span><span class="num" id="gov-ungoverned">170</span></div>
         </div>
       </div>
     </div>
@@ -909,11 +906,16 @@ function renderGrowth(live){
 }
 renderGrowth();
 
-// ---- Donut ----
-(function(){
+// ---- Donut (Governed vs. Ungoverned) ----
+// renderDonut(fully, partial, ungoverned) draws the ring; called once below
+// with the illustrative sample split, then re-called from applySummary()
+// with the live fullyGoverned/partialZoneOnly/ungoverned counts once the
+// /api/overview/summary payload arrives.
+function renderDonut(fully, partial, ungoverned){
   const svg=document.getElementById('donut');
-  const data=[['var(--c6)',873],['var(--c4)',241],['#243456',170]];
-  const total=data.reduce((a,b)=>a+b[1],0);
+  if (!svg) return;
+  const data=[['var(--c6)',fully],['var(--c4)',partial],['#243456',ungoverned]];
+  const total=data.reduce((a,b)=>a+b[1],0) || 1;
   const cx=75,cy=75,r=58,sw=20; let a=-Math.PI/2,g='';
   data.forEach(([col,v])=>{
     const frac=v/total, a2=a+frac*2*Math.PI;
@@ -923,7 +925,8 @@ renderGrowth();
     a=a2;
   });
   svg.innerHTML=g;
-})();
+}
+renderDonut(873, 241, 170);
 
 // ---- Vega-Lite rendering (NEXT-10 P1) ----
 // Renders a backend-generated Vega-Lite spec into a container, replacing its
@@ -1408,7 +1411,7 @@ const SECTION_PROVENANCE = {
   growth: [
     { name: 'Catalog Growth chart (assets/terms/governed/products)', status: 'live' },      // /api/overview/growth, real asOfTime snapshots
     { name: 'Governed vs Ungoverned %',                              status: 'live' },      // governed_coverage
-    { name: 'Fully/Partial/Ungoverned breakdown',                    status: 'illustrative' }, // 3-bucket split not returned by governed_coverage's byClassification shape
+    { name: 'Fully/Partial/Ungoverned breakdown',                    status: 'live' },  // governed_coverage's fullyGoverned/partialZoneOnly, ungoverned derived from assetTotal
   ],
   composition: [
     { name: 'Assets by Type',                status: 'live' },  // counts_by_type via /api/overview/summary
@@ -1820,6 +1823,26 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     store.bvDuplicateCount = d.bvDuplicateCount;
     if (primary) renderBusinessValue(store);
     if (!primary) return;
+    // Governed vs. Ungoverned donut + Fully/Partial/Ungoverned breakdown —
+    // fullyGoverned/partialZoneOnly are real (governed_coverage's own hits
+    // list, bucketed by which classifications each element carries);
+    // ungoverned is derived the same way the donut % badge already was
+    // (assetTotal - governed), not a separate query.
+    if (d.fullyGoverned != null && d.partialZoneOnly != null && d.assetTotal != null) {
+      var ungoverned = Math.max(d.assetTotal - d.fullyGoverned - d.partialZoneOnly, 0);
+      setTxt('gov-full', fmt(d.fullyGoverned));
+      setTxt('gov-partial', fmt(d.partialZoneOnly));
+      setTxt('gov-ungoverned', fmt(ungoverned));
+      if (typeof renderDonut === 'function') renderDonut(d.fullyGoverned, d.partialZoneOnly, ungoverned);
+    }
+    if (store.governedPct != null) setTxt('donut-pct', store.governedPct);
+    // Elements by Governance Zone — real topZones (governed_coverage), was
+    // never actually wired to the DOM despite being marked 'live' in the
+    // status registry below.
+    if (Array.isArray(d.topZones) && d.topZones.length && typeof hbars === 'function') {
+      var zoneRows = d.topZones.map(function(z){ return [z.zone, z.count, 'var(--c3)']; });
+      hbars('byZone', zoneRows);
+    }
     // Assets-by-type live overlay (composition section) — real Vega-Lite bar
     // chart when the backend has one (NEXT-10 P1); falls back to hbars() rows
     // (which keep the per-bar drill click Vega doesn't have yet) otherwise.
