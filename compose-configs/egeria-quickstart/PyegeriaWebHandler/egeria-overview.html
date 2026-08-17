@@ -635,7 +635,7 @@
     </div>
     <div class="kpi">
       <span class="k-ico">💬</span><span class="k-label">Feedback Items</span>
-      <span class="k-val" id="kpi-feedback">1,207</span><span class="k-sub">comments · ratings · tags <span style="color:var(--c4)">(sample)</span></span>
+      <span class="k-val" id="kpi-feedback">—</span><span class="k-sub">comments · ratings · tags</span>
     </div>
     <div class="kpi">
       <span class="k-ico">🌐</span><span class="k-label">Active Communities</span>
@@ -646,17 +646,12 @@
   <div class="grid g-3">
     <div class="panel">
       <div class="panel-head"><div><h3>🏆 Karma Leaderboard</h3><div class="ph-sub">Top curators by contribution reputation</div></div></div>
-      <div class="lead-row"><span class="lead-rank trophy">1</span><span class="avatar">👩‍🔬</span><div><div class="lead-name">Erin Overview</div><div class="lead-role">Data Steward · Clinical</div></div><div class="lead-karma"><b>1,340</b><small>+180 /90d</small></div></div>
-      <div class="lead-row"><span class="lead-rank trophy">2</span><span class="avatar">👨‍💼</span><div><div class="lead-name">Peter Profile</div><div class="lead-role">Data Owner · Sales</div></div><div class="lead-karma"><b>1,115</b><small>+150 /90d</small></div></div>
-      <div class="lead-row"><span class="lead-rank trophy">3</span><span class="avatar">👩‍💻</span><div><div class="lead-name">Faith Broker</div><div class="lead-role">Governance · Finance</div></div><div class="lead-karma"><b>780</b><small>+95 /90d</small></div></div>
-      <div class="lead-row"><span class="lead-rank">4</span><span class="avatar">🧑‍🔬</span><div><div class="lead-name">Tanya Tidie</div><div class="lead-role">Steward · Research</div></div><div class="lead-karma"><b>640</b><small>+70 /90d</small></div></div>
-      <div class="lead-row"><span class="lead-rank">5</span><span class="avatar">👨‍🏫</span><div><div class="lead-name">Harry Hopeful</div><div class="lead-role">Analyst · Ops</div></div><div class="lead-karma"><b>410</b><small>+120 /90d</small></div></div>
+      <div id="leaderboard"><div class="lead-row"><span class="lead-rank">—</span><div>Loading…</div></div></div>
     </div>
 
     <div class="panel">
       <div class="panel-head"><div><h3>📈 Engagement Over Time</h3><div class="ph-sub">Feedback contributions per week (12 wk)</div></div></div>
-      <svg viewBox="0 0 340 192" width="100%" height="192" id="engage"></svg>
-      <div class="legend"><span><i class="dot" style="background:var(--c1)"></i>Comments</span><span><i class="dot" style="background:var(--c4)"></i>Ratings</span><span><i class="dot" style="background:var(--c3)"></i>Tags</span></div>
+      <div id="engage"></div>
       <div style="margin-top:10px;font-size:.74rem;color:var(--muted);line-height:1.5;border-top:1px solid var(--border);padding-top:9px">
         <b style="color:var(--text)">Business value:</b> rising engagement = the catalog is trusted and used — self-service adoption offloads the central team.
       </div>
@@ -1444,8 +1439,8 @@ const SECTION_PROVENANCE = {
     { name: 'People / Teams / Orgs / Communities', status: 'live' },  // people_counts
     { name: 'Karma Records',                       status: 'live' },  // count_elements(ContributionRecord)
     { name: 'Feedback Items / by Type',            status: 'live' },  // feedback_summary
-    { name: 'Karma Leaderboard',                   status: 'illustrative' }, // people payload: leaderboard: null (per-person rollup deferred)
-    { name: 'Engagement Over Time',                status: 'illustrative' }, // people payload: engagementSeries: null
+    { name: 'Karma Leaderboard',                   status: 'live' },  // karma_leaderboard: ContributionRecord.karmaPoints via Anchors
+    { name: 'Engagement Over Time',                status: 'live' },  // engagement_series: weekly-bucketed feedback relationship createTime
     { name: 'Most-Engaged Assets',                 status: 'illustrative' },
   ],
   activity: [
@@ -1868,6 +1863,44 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
         ['Note logs', t.noteLogs||0, 'var(--c6)']
       ]);
     }
+    // Karma leaderboard — real per-person rollup (ContributionRecord.karmaPoints,
+    // anchored via Anchors classification). No role/avatar data exists on the
+    // real payload, so rows show rank/name/points only, not the old sample
+    // job-title flavor text.
+    var leadEl = document.getElementById('leaderboard');
+    if (leadEl && Array.isArray(d.leaderboard)) {
+      leadEl.innerHTML = '';
+      if (d.leaderboard.length === 0) {
+        var empty = document.createElement('div');
+        empty.style.cssText = 'color:var(--muted);font-size:.8rem;padding:8px 0';
+        empty.textContent = 'No karma records found.';
+        leadEl.appendChild(empty);
+      } else {
+        d.leaderboard.forEach(function(p, i){
+          var rank = i + 1;
+          var row = document.createElement('div');
+          row.className = 'lead-row';
+          var rankEl = document.createElement('span');
+          rankEl.className = rank <= 3 ? 'lead-rank trophy' : 'lead-rank';
+          rankEl.textContent = String(rank);
+          var avatar = document.createElement('span');
+          avatar.className = 'avatar'; avatar.textContent = '🧑';
+          var nameWrap = document.createElement('div');
+          var nameEl = document.createElement('div');
+          nameEl.className = 'lead-name'; nameEl.textContent = p.name;
+          nameWrap.appendChild(nameEl);
+          var karmaWrap = document.createElement('div');
+          karmaWrap.className = 'lead-karma';
+          var b = document.createElement('b'); b.textContent = fmt(p.karmaPoints);
+          karmaWrap.appendChild(b);
+          row.appendChild(rankEl); row.appendChild(avatar); row.appendChild(nameWrap); row.appendChild(karmaWrap);
+          leadEl.appendChild(row);
+        });
+      }
+    }
+    // Engagement over time — real weekly feedback trend (renderVega falls
+    // through silently when engagementChart is null on an older pyegeria).
+    renderVega('engage', d.engagementChart);
   }
 
   function applyUsage(d, store, primary){

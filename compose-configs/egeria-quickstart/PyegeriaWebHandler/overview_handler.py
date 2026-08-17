@@ -98,6 +98,15 @@ try:
 except ImportError:
     contextualised_coverage = None
 
+# karma_leaderboard / engagement_series are new (2026-08-17, People panel's
+# leaderboard + engagementSeries -- previously left None as "deferred").
+# Same defensive-import gap as above.
+try:
+    from pyegeria.view.overview_metrics import karma_leaderboard, engagement_series
+except ImportError:
+    karma_leaderboard = None
+    engagement_series = None
+
 # ownership_coverage is new (2026-08-01), not yet in a published pyegeria release
 # (same "container runs the published package, not this dev checkout" gap already
 # documented for Create Report/Dashboard Sheet commands in LOCAL_DASHBOARDS_TUTORIAL.md
@@ -606,6 +615,7 @@ def get_people(
     feedback_by_type = None
     feedback_items = None
     karma = None
+    ce = None
     try:
         ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
         fb = feedback_summary(ce, as_of_time)
@@ -624,6 +634,33 @@ def get_people(
         title="Feedback by Type", x_label="Items", y_label="Type",
     ) if feedback_by_type else None
 
+    # Leaderboard — per-person karma rollup. Cheap: one bounded find over
+    # ContributionRecord elements (already anchored to their owning Person via
+    # the standard Anchors classification), no per-person loop.
+    leaderboard = None
+    if karma_leaderboard is not None and expert is not None:
+        try:
+            leaderboard = karma_leaderboard(expert, as_of_time)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview people: karma_leaderboard failed: {exc}")
+
+    # Engagement over time — weekly feedback-event trend. Reuses the same
+    # relationship types feedback_summary() already queries, just keeps the
+    # createTime instead of only the count.
+    engagement_series_data = None
+    engagement_chart = None
+    if engagement_series is not None and ce is not None:
+        try:
+            engagement_series_data = engagement_series(ce, as_of_time)
+            if generate_vega_line_chart and engagement_series_data:
+                engagement_chart = generate_vega_line_chart(
+                    engagement_series_data, x_field="week",
+                    y_fields=["comments", "ratings", "likes", "tags", "noteLogs"],
+                    title="Engagement Over Time", x_label="Week", y_label="Events",
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview people: engagement_series failed: {exc}")
+
     payload = {
         "asOfTime":           as_of_time,
         "activeContributors": persons,
@@ -635,8 +672,9 @@ def get_people(
         "feedbackItems":      feedback_items,    # Σ ratings+comments+likes+tags+noteLogs
         "feedbackByType":     feedback_by_type,
         "feedbackChart":      feedback_chart,
-        "leaderboard":        None,              # per-person karma rollup — deferred
-        "engagementSeries":   None,              # weekly feedback trend — deferred
+        "leaderboard":        leaderboard,       # per-person karma rollup, top 10
+        "engagementSeries":   engagement_series_data,  # weekly feedback trend, 12wk
+        "engagementChart":    engagement_chart,
         "partial":            True,
         "source":             "live:people",
     }

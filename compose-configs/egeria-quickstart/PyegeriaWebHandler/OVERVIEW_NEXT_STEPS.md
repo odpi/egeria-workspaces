@@ -15,8 +15,7 @@ Handoff / pick-up-later notes for the `/egeria-overview` dashboard. Companion to
 - KPI **sparklines are real** for metrics with history (assets/terms/governed/
   products) with a time reference; others show no sparkline (honest).
 - Still ⚪ sample (labeled): Business Value lens numbers, confidentiality/zone
-  bars, attention queue, DQ coverage, karma/feedback/leaderboard/engagement,
-  activity feed.
+  bars, attention queue, DQ coverage, most-engaged assets, activity feed.
 
 ## The big opportunity: Egeria's two temporal axes
 
@@ -348,10 +347,22 @@ thing to hand-maintain.
   DataFlow relationships, not confirming each sits on a path Egeria would
   call "lineage" in the strict sense). Documented as such in the function's
   own docstring and the frontend's tile caption.
-- **People**: karma (ContributionRecord) + feedback rollups (comments/ratings/
-  likes/tags) via Collaboration OMAS — the leaderboard/engagement/most-engaged
-  widgets. Karma is often sparse in demo data → also compute an engagement score
-  from feedback volume as a fallback.
+- **People karma leaderboard + engagement over time — ✅ done 2026-08-17.**
+  Leaderboard: `karma_leaderboard()` (pyegeria `overview_metrics.py`) — one
+  bounded find over `ContributionRecord` elements (karma is a scalar
+  `karmaPoints` property, not something derived from counting related
+  things), filtered to `Person`-anchored records via the standard `Anchors`
+  classification already carried on each element (no relationship traversal,
+  no per-person loop), sorted desc, top 10. Engagement: `engagement_series()`
+  reuses the same 5 feedback-relationship-type queries `feedback_summary()`
+  already makes, keeping each relationship's `relationshipHeader.versions.
+  createTime` instead of just the count, bucketed into ISO weeks (zero-filled
+  across the trailing 12wk window, not omitted). Rendered via
+  `generate_vega_line_chart`, same pattern as the Growth chart. Verified
+  live: leaderboard = [Erin Overview 1260 pts, Peter Profile 210 pts];
+  engagement series correctly zero-filled 11 weeks with the real 7 noteLog
+  events landing in the current week (2026-W34). "Most-engaged assets" (a
+  separate, per-asset rollup) remains unwired.
 - **Business Value lens** numbers, confidentiality/zone bars, attention queue, DQ
   coverage, activity feed → wire from their sources.
 - **Perspective Question library**: persist the `PERSPECTIVES[*].questions` JS
