@@ -1,0 +1,121 @@
+version: 2
+updates:
+  # --- pip: real runtime dependencies for the demo/portal apps and optional
+  #     associated-runtime user code, worth actual security coverage ---
+  - package-ecosystem: "pip"
+    directory: "/compose-configs/egeria-quickstart/PyegeriaWebHandler"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "pip"
+    directory: "/compose-configs/egeria-quickstart/PyegeriaWebHandler/tests/browser"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "pip"
+    directory: "/compose-configs/egeria-freshstart/PyegeriaWebHandler"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "pip"
+    directory: "/compose-configs/optional-associated-runtimes/airflow-marquez"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "pip"
+    directory: "/runtime-volumes/dagster/user_code"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "pip"
+    directory: "/runtime-volumes/prefect/user_code"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+
+  # --- docker: base-image CVEs matter for anything internet-facing
+  #     (quickstart is a public demo) ---
+  - package-ecosystem: "docker"
+    directory: "/compose-configs/egeria-quickstart"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "docker"
+    directory: "/compose-configs/egeria-quickstart/PyegeriaWebHandler"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker"
+    directory: "/compose-configs/egeria-quickstart/watchdog"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: "docker"
+    directory: "/compose-configs/egeria-freshstart"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "docker"
+    directory: "/compose-configs/egeria-freshstart/PyegeriaWebHandler"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker"
+    directory: "/compose-configs/optional-associated-runtimes/airflow-marquez"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: "docker"
+    directory: "/compose-configs/optional-associated-runtimes/duckdb"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: "docker"
+    directory: "/compose-configs/optional-associated-runtimes/mlflow/mlflow_server"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: "docker"
+    directory: "/compose-configs/optional-associated-runtimes/unity-catalog"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: "docker"
+    directory: "/runtime-volumes/dagster/user_code"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: "docker"
+    directory: "/runtime-volumes/prefect/user_code"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 2
+
+  # --- github-actions: the workflow files themselves (actions/checkout, etc) ---
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # npm (obsidian-plugins/call-dr-egeria) deliberately excluded: the one
+  # historical dependabot PR against this plugin (js-yaml 4.1.0 -> 4.1.1,
+  # PR #122) was already moot by the time anyone looked at it -- the
+  # vulnerable transitive dependency no longer appears anywhere in its
+  # lockfile after later restructuring. Low-value noise for a vendored,
+  # infrequently-touched bundled plugin; add it back if that changes.
