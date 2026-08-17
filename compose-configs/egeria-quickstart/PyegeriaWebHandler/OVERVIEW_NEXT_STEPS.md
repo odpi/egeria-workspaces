@@ -511,9 +511,28 @@ the unlink twin) already exist in `governance_officer.py`, just never wired
 to a compact-spec command. Per Dan: trivial for him to add once given an
 issue number — logged, not yet added.
 
+**`Link Governance Results` command shipped 2026-08-17** (Dan, via the
+Dr.Egeria Spec Editor's REST API — `egeria-python` ISSUE-61 closed) and
+published in `pyegeria` 6.0.18.2. `requirements.txt` bumped to
+`>=6.0.18.2` in both envs (was `>=6.0.17.8`) — this release also carries
+everything this session live-patched in by hand (`karma_leaderboard`,
+`engagement_series`, `orphan_glossary_terms`, `stale_assets`,
+`contextualised_coverage`, `count_elements_by_property`, all 23
+`analytic_registry.py` entries), so a fresh container rebuild no longer
+needs any of the manual `docker cp`/`site-packages` live-patch steps this
+session relied on throughout. Re-verified live end to end after
+installing 6.0.18.2 into `quickstart-pyegeria-web`: detached the pilot's
+original raw-API-created `GovernanceResults` link, re-created it through
+the real `Link Governance Results` Dr.Egeria command
+(`Governance Metric: Orphan Glossary Terms` / `Data Asset: Orphan Glossary
+Terms Metric Report`), confirmed the relationship still resolves via
+`mgr.get_all_related_elements()` afterward. Hit the known
+`deleteRelationshipInStore` default-`deleteMethod` bug while detaching
+(worked around with an explicit `SOFT_DELETE` body) — not new, already
+documented elsewhere in this session's history.
+
 **Not yet done**: rolling this pattern out to the other ~24 metrics (this
-was a one-metric pilot to validate the design, not a mass rollout), and the
-`Link Governance Metric to Report` command itself.
+was a one-metric pilot to validate the design, not a mass rollout).
 
 ## Open decisions
 
