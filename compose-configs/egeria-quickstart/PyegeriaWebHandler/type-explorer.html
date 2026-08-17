@@ -587,7 +587,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 })();
 </script>
   <!-- Bump ?v= whenever egeria-shared-ui.js changes — see tech-catalog.html for why. -->
-  <script src="/static/egeria-shared-ui.js?v=2026-08-16c"></script>
+  <script src="/static/egeria-shared-ui.js?v=2026-08-17c"></script>
   <script>"use strict";
 
 const {
@@ -2822,6 +2822,7 @@ function ReportsView({ initialTab }) {
 function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(254);
+  const [midW, onMidDivDown] = useResizable(300);
   const [glossaryState, setGlossaryState] = useState('loading');
   const [glossaryAttempt, setGlossaryAttempt] = useState(0);
   const [glossaries, setGlossaries] = useState([]);
@@ -2866,6 +2867,18 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
   const [zoneModalAction, setZoneModalAction] = useState(null);
   // null | 'set' | 'clear' — which ClassificationModal action, if any, is open.
   const [classifyModalAction, setClassifyModalAction] = useState(null);
+  // { classificationName, level } | null — set only for the Reclassify… entry
+  // point, to prefill ClassificationModal from findCommonClassification()
+  // instead of opening it blank (Dan's call, 2026-08-17).
+  const [classifyPrefill, setClassifyPrefill] = useState(null);
+  // Distinct typeNames in the current selection — drives the live
+  // applicability check below instead of the old hardcoded-supertype guess
+  // (classificationApplicable). selection.selected values already carry
+  // typeName (see useSelection's toggle/selectAll), so no extra lookup needed.
+  const selectedTypeNames = useMemo(() => {
+    return Array.from(new Set(Array.from(selection.selected.values()).map(v => v.typeName).filter(Boolean)));
+  }, [selection.selected]);
+  const applicableClassifications = useApplicableClassifications(creds, selectedTypeNames);
 
   const [selectedItem, setSelectedItem] = useState(null);
   // The selected node object (folder or term) — carried so nested tree items
@@ -3089,8 +3102,9 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
         )
       )
     ),
+    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
     // Middle: folders + terms (or search results)
-    React.createElement("div", { style: { width: 300, flexShrink: 0, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
+    React.createElement("div", { style: { width: midW, flexShrink: 0, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
       // Header
       React.createElement("div", { style: { padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 5 } },
         // Glossary name (folders are now expandable inline in the tree below)
@@ -3134,13 +3148,19 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
             )
       ),
       (function() {
-        // Classify/Declassify only offered when every currently-selected term
-        // is a plausible target — looked up against the real term objects
-        // (which carry superTypeNames), not the selection Map.
+        // Classify/Reclassify/Declassify only offered when at least one
+        // classification is valid for every distinct type in the current
+        // selection — a live check (useApplicableClassifications, called at
+        // the top of this component) against Egeria's own
+        // get_valid_classification_types(), not a hardcoded supertype guess
+        // (Dan's call, 2026-08-17; classificationApplicable/
+        // CLASSIFICATION_APPLICABLE_SUPERTYPES remain as-is for the other
+        // tabs that haven't been migrated to this yet).
         var itemsByGuid = {};
         (isSearchMode ? filteredSearchTerms : filteredTerms).forEach(function(t) { if (t.guid) itemsByGuid[t.guid] = t; });
         var selectedGuids = Array.from(selection.selected.keys());
-        var canClassify = selectedGuids.length > 0 && selectedGuids.every(function(g) { return classificationApplicable(itemsByGuid[g]); });
+        var applicableKeys = applicableClassifications.names || [];
+        var canClassify = selectedGuids.length > 0 && applicableKeys.length > 0;
         var actions = [
           { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
           { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
@@ -3148,13 +3168,18 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
           { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
         ];
         if (canClassify) {
-          actions.push({ id: 'classify', label: 'Classify…', onClick: function() { setClassifyModalAction('set'); } });
-          actions.push({ id: 'declassify', label: 'Declassify…', onClick: function() { setClassifyModalAction('clear'); } });
+          actions.push({ id: 'classify', label: 'Classify…', onClick: function() { setClassifyPrefill(null); setClassifyModalAction('set'); } });
+          actions.push({ id: 'reclassify', label: 'Reclassify…', onClick: function() {
+            var selectedItems = selectedGuids.map(function(g) { return itemsByGuid[g]; }).filter(Boolean);
+            setClassifyPrefill(findCommonClassification(selectedItems, applicableKeys));
+            setClassifyModalAction('set');
+          } });
+          actions.push({ id: 'declassify', label: 'Declassify…', onClick: function() { setClassifyPrefill(null); setClassifyModalAction('clear'); } });
         }
         return React.createElement(BulkActionBar, { count: selection.count, onClear: selection.clear, actions: actions });
       })()
     ),
-    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
+    React.createElement(ResizeDivider, { onMouseDown: onMidDivDown }),
     // Right: detail
     React.createElement("div", { className: "main" },
       selectedObj?.isFolder
@@ -3189,8 +3214,12 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
       items: Array.from(selection.selected.values()),
       creds: creds,
       action: classifyModalAction,
-      onClose: function() { setClassifyModalAction(null); },
-      onDone: function() { selection.clear(); },
+      title: classifyPrefill ? 'Reclassify' : undefined,
+      initialClassificationName: classifyPrefill ? classifyPrefill.classificationName : undefined,
+      initialLevel: classifyPrefill ? classifyPrefill.level : undefined,
+      applicableClassifications: applicableClassifications.names || [],
+      onClose: function() { setClassifyModalAction(null); setClassifyPrefill(null); },
+      onDone: function() { selection.clear(); setClassifyPrefill(null); },
     })
   );
 }
