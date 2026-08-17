@@ -448,11 +448,72 @@ answered ad hoc per-metric the way R-5 below started to:
    cycle; a governance-action-triggered batch computation wouldn't have that
    constraint and could afford a real traversal.
 
-**Not scoped yet.** Relates directly to R-5 below (which already designs the
-GlossaryTerm/Collection governance layer for *documenting* a metric) — this
-question goes further, into whether the *computation* itself belongs inside
-Egeria's own execution model. Needs a design discussion before any more
-metrics are added under the current ad hoc pattern.
+**Design landed 2026-08-17, pilot run live** — see Dan's own two-part
+response and the resulting investigation:
+
+1. **`GovernanceMetric` (model 0450) is a strong fit for the definition
+   side, largely without new schema.** It extends `GovernanceControl` →
+   `GovernanceDefinition`, which already carries `summary`/`scope`/`usage`/
+   `domainIdentifier`/`implementationDescription` plus its own `measurement`/
+   `target`. `usage` is literally the slot R-5 below already planned to use
+   for caveats — good confirmation R-5 picked the right field before this
+   design pass existed. `GovernanceExpectations`/`GovernanceMeasurements`
+   classifications were considered and set aside for now — both are
+   per-resource constructs (a value classified onto one Asset), not a fit
+   for catalog-wide aggregates like these.
+2. **`report_specs` (not Governance Actions) is the implementation
+   mechanism** — Dan's call, with a heads-up that FormatSet/report_specs are
+   themselves being migrated toward standard Egeria types over time, which
+   is part of why he's separately exploring letting Egeria define the
+   Python functions callable inline (a further-out concern than this pilot).
+   `GovernanceResults` (Metric → DataSet, "used to gather measurements from
+   the landscape") already exists in the model, and `Report`
+   (`Report → DataSet → Asset → Referenceable`) is already a DataSet
+   subtype — so `GovernanceMetric --[GovernanceResults]--> Report` needs
+   **no new relationship type**. Governance Actions remain a good fit later
+   specifically as a second *execution mode* for the metrics too expensive
+   to run synchronously in a request (the survey/schema-traversal DQ rows
+   left illustrative above) — not a replacement for report_specs as the
+   definition mechanism.
+
+**Pilot run live, 2026-08-17, on `orphan_glossary_terms`:**
+- Registered all 6 of this session's new `overview_metrics.py` functions
+  (`count_elements_by_property`, `contextualised_coverage`,
+  `karma_leaderboard`, `engagement_series`, `orphan_glossary_terms`,
+  `stale_assets`) into `analytic_registry.py`'s `_BUILTINS` + one demo
+  `FormatSet` each in `analytic_demo_specs.py` — the registry's own
+  docstring claimed to cover "every analytic function that already exists,"
+  which was stale; 23/23 parity restored between the two registries.
+  Verified live via `/api/analytics` (23 functions) and `/api/report-specs`
+  (348 specs, all 6 new demo specs present).
+- Created a real `Report` element (`Create Report`, Report Spec: `Analytic
+  Demo - Orphan Glossary Terms`, Output Format: DICT) and a real
+  `GovernanceMetric` element (`Create Governance Metric`, `Summary`/
+  `Scope`/`Usage`/`Implementation Description`/`Measurement`/`Target` all
+  populated with the real prose from `orphan_glossary_terms`'s own
+  docstring) via Dr.Egeria — both commands already existed, no new command
+  needed for element creation.
+- Linked them via `GovernanceResults`, using
+  `GovernanceOfficer._async_link_governance_results` directly (raw pyegeria
+  call, not a Dr.Egeria command — see the gap below).
+- **Verified the full chain resolves purely from Egeria metadata**:
+  `mgr.get_all_related_elements(<GovernanceMetric guid>)` returns the
+  `GovernanceResults` relationship pointing at "Orphan Glossary Terms
+  Metric Report"; that Report's `additionalProperties.reportSpec` names
+  the FormatSet; executing the FormatSet via
+  `POST /api/report-specs/execute` returns the real live numbers:
+  `{"termTotal": 407, "referencedCount": 9, "orphanCount": 398}`.
+
+**Real gap found, logged as `egeria-python` `PYEGERIA_ISSUES.md` ISSUE-61**:
+no Dr.Egeria command exists for the `GovernanceResults` link — but it's not
+an SDK gap, `link_governance_results`/`_async_link_governance_results` (and
+the unlink twin) already exist in `governance_officer.py`, just never wired
+to a compact-spec command. Per Dan: trivial for him to add once given an
+issue number — logged, not yet added.
+
+**Not yet done**: rolling this pattern out to the other ~24 metrics (this
+was a one-metric pilot to validate the design, not a mass rollout), and the
+`Link Governance Metric to Report` command itself.
 
 ## Open decisions
 
