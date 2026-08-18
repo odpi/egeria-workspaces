@@ -1,4 +1,4 @@
-FROM docker.io/apache/airflow:3.1.7
+FROM docker.io/apache/airflow:3.3.1
 
 USER root
 
