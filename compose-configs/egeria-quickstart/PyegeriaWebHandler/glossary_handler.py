@@ -261,35 +261,59 @@ _SKIP_CLASSIFICATIONS = frozenset([
     "SpineAttribute", "ObjectIdentifier",
 ])
 
+def _flat_classification_properties(cls_props_raw) -> dict:
+    flat = {}
+    if isinstance(cls_props_raw, dict):
+        for k, v in cls_props_raw.items():
+            if k in ("class", "typeName"):
+                continue
+            if isinstance(v, list):
+                flat[k] = ", ".join(str(i) for i in v)
+            elif not isinstance(v, (dict,)):
+                flat[k] = str(v)
+    return flat
+
+
 def _extract_classifications(header: dict) -> list:
     """Extract governance/business classifications from an elementHeader dict.
 
-    In pyegeria's JSON output, each classification is a named key directly on
-    elementHeader (e.g. "subjectArea", "zoneMembership"), not in a list.
-    Every such value has class="ElementClassification".
+    Most classifications are a named key directly on elementHeader (e.g.
+    "subjectArea", "zoneMembership", "confidentiality"), each carrying
+    class="ElementClassification" -- one key per classification.
+
+    A few (found 2026-08-18, chasing why PrimeWord/ClassWord/Modifier never
+    showed up despite genuinely being attached -- pyegeria_issues.md issue
+    #12) instead get bucketed together into one list-valued key --
+    "glossaryTermKinds" for GlossaryManager.get_term_by_guid specifically,
+    confirmed live to carry PrimeWord/ClassWord/Modifier as
+    AttachedClassification entries (classificationName + classificationProperties,
+    same shape as MetadataExpert's raw classifications list, just wrapped in a
+    differently-named key here). Handled generically rather than hardcoding
+    "glossaryTermKinds" by name: any list-valued header key whose items look
+    like classifications (have a classificationName) is treated the same way
+    -- covers this bucket and any future one with the same shape, without a
+    second correction if Egeria buckets some other classification family the
+    same way. Non-classification list keys (folders, categories, relatedTerms,
+    ...) are unaffected -- their items don't have classificationName, so they
+    fall through untouched.
     """
     result = []
     for key, val in header.items():
-        if not isinstance(val, dict):
-            continue
-        if val.get("class") != "ElementClassification":
-            continue
-        cls_name = (val.get("classificationName")
-                    or (val.get("type") or {}).get("typeName")
-                    or (key[0].upper() + key[1:]))
-        if not cls_name or cls_name in _SKIP_CLASSIFICATIONS:
-            continue
-        cls_props_raw = val.get("classificationProperties") or {}
-        flat = {}
-        if isinstance(cls_props_raw, dict):
-            for k, v in cls_props_raw.items():
-                if k in ("class", "typeName"):
+        if isinstance(val, dict) and val.get("class") == "ElementClassification":
+            cls_name = (val.get("classificationName")
+                        or (val.get("type") or {}).get("typeName")
+                        or (key[0].upper() + key[1:]))
+            if not cls_name or cls_name in _SKIP_CLASSIFICATIONS:
+                continue
+            result.append({"typeName": cls_name, "properties": _flat_classification_properties(val.get("classificationProperties"))})
+        elif isinstance(val, list):
+            for item in val:
+                if not isinstance(item, dict):
                     continue
-                if isinstance(v, list):
-                    flat[k] = ", ".join(str(i) for i in v)
-                elif not isinstance(v, (dict,)):
-                    flat[k] = str(v)
-        result.append({"typeName": cls_name, "properties": flat})
+                cls_name = item.get("classificationName") or (item.get("type") or {}).get("typeName")
+                if not cls_name or cls_name in _SKIP_CLASSIFICATIONS:
+                    continue
+                result.append({"typeName": cls_name, "properties": _flat_classification_properties(item.get("classificationProperties"))})
     return result
 
 

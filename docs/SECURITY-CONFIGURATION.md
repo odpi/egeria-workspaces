@@ -44,6 +44,13 @@ Your browser will warn about the self-signed cert — accept it once. The cert i
 only if the files at that path are missing; once created, it's reused across runs so you don't
 have to re-accept the warning every restart.
 
+To get rid of that warning entirely for local development (or to fix a hard cert error rather
+than just a warning — the auto-generated cert doesn't carry Subject Alternative Names, so some
+browsers reject it outright depending on which hostname you use to reach it), drop in a
+locally-trusted cert via `mkcert` instead: see
+[`MKCERT-SETUP.md`](MKCERT-SETUP.md) (macOS/Linux/Windows). Same `CERT_DIR` mechanism below —
+mkcert output drops straight into that three-file layout.
+
 **To use a real certificate instead**, create `.env.ssl` (gitignored) in the relevant
 `compose-configs/egeria-quickstart/` or `compose-configs/egeria-freshstart/` directory:
 

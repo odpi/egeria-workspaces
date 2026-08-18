@@ -202,6 +202,25 @@ def _sup_name(td: dict) -> str | None:
         return sup.get("name")
     return sup or None
 
+
+def _extract_header(td: dict) -> dict:
+    """TypeDef header/provenance fields common to entity, relationship, and
+    classification defs -- the raw OpenMetadataTypeDef envelope (status/
+    version/origin/audit trail), previously fetched from Egeria but dropped
+    on the floor before reaching the frontend. Distinct from the per-element
+    `deprecated` boolean already derived elsewhere in this file (that's a
+    convenience flag off the same `status` field returned here in full)."""
+    return {
+        "status":      td.get("status", ""),        # e.g. ACTIVE_TYPEDEF
+        "version":     td.get("version"),
+        "versionName": td.get("versionName", ""),
+        "origin":      td.get("origin", ""),          # originating metadata collection GUID
+        "createdBy":   td.get("createdBy", ""),
+        "createTime":  td.get("createTime", ""),
+        "updatedBy":   td.get("updatedBy", ""),
+        "updateTime":  td.get("updateTime", ""),
+    }
+
 def _normalize_raw(raw, label: str) -> list[dict]:
     """Ensure we have a list of dictionaries, filtering out strings like 'No elements found'."""
     if not raw:
@@ -394,6 +413,7 @@ async def get_all_types(
             "wiki":       td.get("descriptionWiki", ""),
             "deprecated": str(td.get("status", "")).upper() in ("DEPRECATED_TYPEDEF", "DEPRECATED"),
             "props":      _extract_props(td),
+            "header":     _extract_header(td),
         }
 
     # ── Relationships ─────────────────────────────────────────────────────────
@@ -420,6 +440,20 @@ async def get_all_types(
             "role1":      e1.get("attributeName"),
             "role2":      e2.get("attributeName"),
             "props":      _extract_props(td),
+            "header":     _extract_header(td),
+            # relationshipCategory is THE field for "is this relationship
+            # multi-link" — MULTI_LINK means more than one instance of this
+            # relationship type can exist between the same pair of elements
+            # (e.g. License -- an asset can carry several licenses);
+            # UNI_LINK caps it at one; REVERSIBLE means the relationship is
+            # symmetric (e.g. Synonym) regardless of which end you start
+            # from. Previously fetched from Egeria but never surfaced.
+            "relationshipCategory": td.get("relationshipCategory", ""),
+            "propagationRule":      td.get("propagationRule", ""),
+            "end1Cardinality":      e1.get("attributeCardinality", ""),
+            "end2Cardinality":      e2.get("attributeCardinality", ""),
+            "end1Desc":             e1.get("attributeDescription", ""),
+            "end2Desc":             e2.get("attributeDescription", ""),
         }
 
     # ── Classifications ───────────────────────────────────────────────────────
@@ -440,6 +474,12 @@ async def get_all_types(
                 (v.get("name") if isinstance(v, dict) else v) for v in valid_for if v
             ],
             "props":      _extract_props(td),
+            "header":     _extract_header(td),
+            # Whether this classification propagates across relationships
+            # (e.g. some governance classifications spread to related
+            # elements automatically) -- a real TypeDef field, not
+            # previously surfaced.
+            "propagatable": td.get("propagatable", False),
         }
 
     return JSONResponse({
