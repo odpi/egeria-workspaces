@@ -1117,7 +1117,7 @@ function TypeDetail({
   _typePersonaId && /*#__PURE__*/React.createElement(FavoriteButton, { app: 'type-explorer', section: 'type-system', label: name, icon: '🔬', url: '/egeria-explorer?name=' + encodeURIComponent(name) + '#type-system', personaId: _typePersonaId }),
   /*#__PURE__*/React.createElement(CopyJsonButton, { data: t })), /*#__PURE__*/React.createElement("p", {
     className: "detail-desc"
-  }, t.desc || '—')), /*#__PURE__*/React.createElement("div", {
+  }, t.desc || '—'), /*#__PURE__*/React.createElement(TypeDefHeaderMeta, { header: t.header })), /*#__PURE__*/React.createElement("div", {
     className: "chain"
   }, /*#__PURE__*/React.createElement("span", {
     style: {
@@ -1359,7 +1359,18 @@ function ClassifDetail({
   }, "classification"), c.deprecated && /*#__PURE__*/React.createElement(DeprBadge, null), c.wiki && /*#__PURE__*/React.createElement(WikiLink, { href: c.wiki }),
   /*#__PURE__*/React.createElement(CopyJsonButton, { data: c })), /*#__PURE__*/React.createElement("p", {
     className: "detail-desc"
-  }, c.desc || '—'), /*#__PURE__*/React.createElement("p", {
+  }, c.desc || '—'),
+  /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, display: 'inline-block', margin: '4px 0',
+      border: `1px solid ${c.propagatable ? '#fbbf24' : 'var(--dim)'}`, color: c.propagatable ? '#fbbf24' : 'var(--dim)',
+    },
+    title: c.propagatable
+      ? 'This classification propagates to related elements across relationships.'
+      : 'This classification stays on the classified element only — it does not propagate.'
+  }, c.propagatable ? 'Propagatable' : 'Not propagatable'),
+  /*#__PURE__*/React.createElement(TypeDefHeaderMeta, { header: c.header }),
+  /*#__PURE__*/React.createElement("p", {
     style: {
       fontSize: 12,
       color: 'var(--muted)',
@@ -1397,6 +1408,41 @@ function ClassifDetail({
 
 // ── Relationship Detail ───────────────────────────────────────────────────────
 
+// relationshipCategory is the field that answers "can two elements have
+// more than one relationship of this type between them" -- e.g. License
+// (MULTI_LINK, an asset can carry several licenses) vs. SemanticAssignment
+// (UNI_LINK, capped at one per pair) vs. Synonym (REVERSIBLE, symmetric).
+function _relCategoryInfo(cat) {
+  if (cat === 'MULTI_LINK') return { label: 'Multi-link', color: '#fbbf24',
+    desc: 'More than one relationship of this type can exist between the same pair of elements.' };
+  if (cat === 'UNI_LINK') return { label: 'Single-link', color: '#64748b',
+    desc: 'At most one relationship of this type can exist between the same pair of elements.' };
+  if (cat === 'REVERSIBLE') return { label: 'Reversible', color: '#93c5fd',
+    desc: 'Symmetric relationship — means the same thing regardless of which end you start from.' };
+  return { label: cat || 'Unknown', color: 'var(--dim)', desc: '' };
+}
+function _cardLabel(c) {
+  if (c === 'ANY_NUMBER') return 'many (0..*)';
+  if (c === 'AT_MOST_ONE') return 'at most one (0..1)';
+  if (c === 'AT_LEAST_ONE') return 'at least one (1..*)';
+  if (c === 'ONE_ONLY') return 'exactly one (1)';
+  return c || '?';
+}
+function TypeDefHeaderMeta({ header }) {
+  if (!header) return null;
+  const rows = [
+    ['Status', header.status], ['Version', header.version ? `${header.version} (${header.versionName || ''})` : null],
+    ['Origin', header.origin], ['Created by', header.createdBy], ['Created', header.createTime],
+    ['Updated by', header.updatedBy || null], ['Updated', header.updateTime || null],
+  ].filter(([, v]) => v);
+  if (!rows.length) return null;
+  return /*#__PURE__*/React.createElement("div", {
+    style: { display: 'flex', flexWrap: 'wrap', gap: '4px 16px', margin: '8px 0 4px', fontSize: 11, color: 'var(--dim)' }
+  }, rows.map(([label, value]) => /*#__PURE__*/React.createElement("span", {
+    key: label, title: label
+  }, /*#__PURE__*/React.createElement("span", { style: { color: 'var(--muted)' } }, label, ': '), value)));
+}
+
 function RelDetail({
   name,
   relationships,
@@ -1404,6 +1450,7 @@ function RelDetail({
 }) {
   const r = relationships[name];
   if (!r) return null;
+  const catInfo = _relCategoryInfo(r.relationshipCategory);
   return /*#__PURE__*/React.createElement("div", {
     className: "detail"
   }, /*#__PURE__*/React.createElement("div", {
@@ -1441,7 +1488,26 @@ function RelDetail({
   }, "\u2500\u2500 ", r.role1 || '', " \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2192 ", r.role2 || ''), /*#__PURE__*/React.createElement("button", {
     className: "chip",
     onClick: () => onSelect('type', r.end2)
-  }, r.end2)), r.props.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
+  }, r.end2)),
+  /*#__PURE__*/React.createElement("div", {
+    style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, margin: '4px 0 10px' },
+    title: catInfo.desc
+  },
+    /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10,
+        border: `1px solid ${catInfo.color}`, color: catInfo.color,
+      }
+    }, catInfo.label),
+    /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: 'var(--muted)' } }, catInfo.desc),
+    /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: 'var(--dim)' } },
+      r.end1, ' \u2192 ', _cardLabel(r.end1Cardinality), '  \u00b7  ', r.end2, ' \u2192 ', _cardLabel(r.end2Cardinality)),
+    r.propagationRule && r.propagationRule !== 'NONE' && /*#__PURE__*/React.createElement("span", {
+      style: { fontSize: 11, color: 'var(--dim)' }
+    }, "Propagation: ", r.propagationRule)
+  ),
+  /*#__PURE__*/React.createElement(TypeDefHeaderMeta, { header: r.header }),
+  r.props.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
     style: {
       fontSize: 11,
       color: 'var(--dim)',
