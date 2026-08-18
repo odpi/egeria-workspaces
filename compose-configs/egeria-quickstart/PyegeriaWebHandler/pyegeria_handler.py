@@ -278,6 +278,8 @@ from overview_handler import router as overview_router
 app.include_router(overview_router)
 from local_dashboards_handler import router as local_dashboards_router
 app.include_router(local_dashboards_router)
+from governance_metrics_handler import router as governance_metrics_router
+app.include_router(governance_metrics_router)
 from operations_handler import router as operations_router
 app.include_router(operations_router)
 from lineage_handler import router as lineage_router

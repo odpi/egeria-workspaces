@@ -562,10 +562,56 @@ Peter Profile 210]`), Stale Assets (`25 of 426`) — all returned real data
 matching what the dashboard itself shows.
 
 **Not yet done**: the 6 generic/parametric functions (deliberately out of
-scope, see above), and a UI surface for browsing these `GovernanceMetric`
-elements (they exist in Egeria now but nothing in Egeria Explorer/the
-Overview dashboard itself links out to them yet — a natural next step,
-not started).
+scope, see above).
+
+## Governance Metrics browser — Tier 1 of the lineage design, done 2026-08-18
+
+Real question raised 2026-08-17: rough definitions aren't the hard part
+(that's the Governance module) — the hard part is visualizing *lineage*:
+widget → calculation → data source, and the dashboard definitions
+themselves. Answer landed as a 3-tier design (recorded here in full since
+it's the reasoning behind what got built vs. deferred):
+
+- **Tier 1 — buildable with zero new Egeria modeling**: browse
+  `GovernanceMetric` elements, resolve their real `GovernanceResults →
+  Report` edge, run the Report live. **Done.**
+- **Tier 2 — needs Dashboard Sheet/Placement (and Overview's own tiles) to
+  become real Egeria elements** — not started, tracked as `BACKLOG.md`
+  NEXT-26/NEXT-27.
+- **Tier 3 — true relationship/classification-level lineage** (the actual
+  "back through calculations to data sources" ask) — needs either a
+  `GovernanceRule` per function or `DataFlow` edges to type-level targets,
+  a real design call. Not started, tracked as `BACKLOG.md` NEXT-28.
+
+**Tier 1 built**: `/governance-metrics` (new page, `governance-metrics.html`
++ `governance_metrics_handler.py`) — a list/detail browser. Each
+`GovernanceMetric` card expands to its Summary/Scope/Usage/Implementation
+Description/Measurement/Target, a mermaid diagram (real solid edges for
+`Report`→`GovernanceMetric` via `GovernanceResults`, dashed/conceptual for
+the data-source and analytic-function stages that aren't Egeria elements
+yet), and a "▶ Run it live" button reusing `/api/report-specs/execute`.
+Added to the portal (`demo-portal.html`) and Apache's proxy config
+(`sites-available/proxy-locations.conf` — a new page route needed its own
+`<Location>` block, same as every other SPA; `/api/*` already has a
+catch-all). Also builds a per-metric `InformationSupplyChain` ("data
+flow") — Egeria's own construct for documenting a conceptual flow when
+literal `DataFlow` lineage isn't available yet, per the user's own
+suggestion — with real `Collection` membership covering the two real
+artifacts (Report, GovernanceMetric) and its `Description` carrying the
+full conceptual chain as text (the ISC's own `Purposes` attribute turned
+out to be silently dropped by the processor — `PYEGERIA_ISSUES.md`
+ISSUE-62, `BACKLOG.md` PY-23 — worked around with `Description` instead).
+
+All 17 metrics' Reports/GovernanceMetrics/Links/InformationSupplyChains
+regenerated and reprocessed from scratch via the new checked-in
+`gen_governance_metrics.py` + `OVERVIEW_GOVERNANCE_METRICS.dr-egeria.md`
+after the repository reset (see the reset-detection discussion elsewhere
+in this doc) — this file is also the natural bootstrap doc for that
+feature's "Overview Governance Metrics" family once it's built. Verified
+live: `/api/governance-metrics` returns 17 metrics, each with a resolved
+`report` (name/guid/reportSpec/outputFormat) and `dataFlow`
+(name/purposes text); `/governance-metrics` page loads; portal tile links
+to it correctly.
 
 ## Open decisions
 
