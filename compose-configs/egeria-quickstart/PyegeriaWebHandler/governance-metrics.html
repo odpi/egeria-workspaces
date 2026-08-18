@@ -1,0 +1,235 @@
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+<!-- Copyright Contributors to the ODPi Egeria project. -->
+<!-- Governance Metrics — browse GovernanceMetric elements and their GovernanceResults→Report lineage. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Governance Metrics · Egeria</title>
+<script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg:#1a1a2e; --card:#16213e; --card2:#12203c; --border:#0f3460;
+    --accent:#e94560; --text:#e0e0e0; --muted:#8b93a7; --green:#4caf50; --amber:#f5b74e;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,sans-serif; min-height:100vh; }
+  a { color:inherit; }
+
+  .hdr { background:var(--card); border-bottom:1px solid var(--border); padding:10px 24px; display:flex; align-items:center; gap:14px; position:sticky; top:0; z-index:10; }
+  .hdr .logo { font-size:1.3rem; }
+  .hdr-title { font-size:1rem; font-weight:700; }
+  .hdr-sub { font-size:.72rem; color:var(--muted); }
+  .btn { padding:5px 12px; border-radius:6px; border:1px solid var(--border); background:transparent; color:var(--text); cursor:pointer; font-size:.78rem; font-family:inherit; text-decoration:none; display:inline-block; }
+  .btn:hover { background:var(--border); }
+
+  .wrap { max-width:1100px; margin:0 auto; padding:22px 24px 60px; }
+  .pagehead { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+  .pagehead h1 { font-size:1.35rem; font-weight:700; }
+  .pagehead p { color:var(--muted); font-size:.85rem; margin-top:3px; max-width:70ch; }
+
+  .badge { font-size:.68rem; font-weight:600; padding:2px 8px; border-radius:20px; background:rgba(139,147,167,.16); color:var(--muted); display:inline-block; }
+  .badge-live { background:rgba(76,175,80,.16); color:var(--green); }
+
+  .metric-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; margin-top:8px; }
+  .metric-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px 18px; cursor:pointer; transition:border-color .15s; display:flex; flex-direction:column; gap:6px; }
+  .metric-card:hover { border-color:var(--accent); }
+  .metric-card h3 { font-size:1rem; font-weight:650; }
+  .metric-card .desc { font-size:.8rem; color:var(--muted); line-height:1.4; flex:1; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+  .metric-card .meta { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:4px; }
+
+  .empty { padding:40px 20px; text-align:center; color:var(--muted); border:1px dashed var(--border); border-radius:12px; margin-top:12px; }
+  .err { padding:14px 16px; background:rgba(233,69,96,.1); border:1px solid rgba(233,69,96,.35); border-radius:8px; color:#ff9db1; font-size:.85rem; margin-top:12px; }
+
+  .back { margin-bottom:14px; }
+  .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:16px; }
+  @media (max-width:800px) { .detail-grid { grid-template-columns:1fr; } }
+  .field { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
+  .field .lab { font-size:.68rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin-bottom:6px; }
+  .field .val { font-size:.85rem; line-height:1.5; }
+  .field .val code { background:var(--card2); padding:1px 5px; border-radius:4px; font-size:.9em; }
+  .field.full { grid-column:1 / -1; }
+
+  .flow-panel { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 18px; margin-top:16px; }
+  .flow-panel h3 { font-size:.9rem; margin-bottom:10px; }
+  .mermaid-block { margin:10px 0; overflow-x:auto; }
+  .mermaid-block svg { max-width:100%; }
+  .p-note { font-size:.78rem; color:var(--muted); padding:8px 0; }
+
+  .run-panel { margin-top:16px; }
+  .run-out { background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-top:10px; font-size:.78rem; font-family:ui-monospace,monospace; white-space:pre-wrap; overflow-x:auto; max-height:340px; overflow-y:auto; }
+  .loading { color:var(--muted); font-size:.85rem; padding:20px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="hdr">
+  <span class="logo">🎯</span>
+  <div><div class="hdr-title">Governance Metrics</div><div class="hdr-sub">Real GovernanceMetric elements → GovernanceResults → Report lineage</div></div>
+  <div style="flex:1"></div>
+  <a class="btn" href="/egeria-overview">← Overview Dashboard</a>
+</div>
+<div class="wrap" id="app">
+  <div class="loading">Loading…</div>
+</div>
+
+<script>
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+var STATE = { metrics: [], loaded: false, error: null };
+
+function fetchMetrics(){
+  return fetch('/api/governance-metrics')
+    .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(d){ STATE.metrics = d.metrics || []; STATE.loaded = true; STATE.error = null; })
+    .catch(function(e){ STATE.error = String(e); STATE.loaded = true; });
+}
+
+function route(){
+  var hash = location.hash.replace(/^#/, '');
+  if (hash.startsWith('metric=')) {
+    renderDetail(decodeURIComponent(hash.slice('metric='.length)));
+  } else {
+    renderList();
+  }
+}
+window.addEventListener('hashchange', route);
+
+function renderList(){
+  var app = document.getElementById('app');
+  if (!STATE.loaded) { app.innerHTML = '<div class="loading">Loading…</div>'; return; }
+  if (STATE.error) {
+    app.innerHTML = '<div class="pagehead"><h1>Governance Metrics</h1></div><div class="err">Failed to load: ' + esc(STATE.error) + '</div>';
+    return;
+  }
+  var html = '';
+  html += '<div class="pagehead"><div><h1>Governance Metrics <span class="badge badge-live">' + STATE.metrics.length + ' live</span></h1>';
+  html += '<p>Each card is a real <code>GovernanceMetric</code> Egeria element (model 0450), linked via a real <code>GovernanceResults</code> relationship to the <code>Report</code> that computes it. This is Tier 1 of the lineage design — it stops at the Report; the analytic function and its data source aren\'t Egeria elements yet (see BACKLOG.md).</p></div></div>';
+  if (!STATE.metrics.length) {
+    html += '<div class="empty">No GovernanceMetric elements found. Run <code>OVERVIEW_GOVERNANCE_METRICS.dr-egeria.md</code> to create them.</div>';
+  } else {
+    html += '<div class="metric-grid">';
+    STATE.metrics.forEach(function(m){
+      html += '<div class="metric-card" data-metric-name="' + esc(m.name) + '">';
+      html += '<h3>' + esc(m.name) + '</h3>';
+      html += '<div class="desc">' + esc(m.summary || 'No summary set.') + '</div>';
+      html += '<div class="meta">';
+      html += m.report ? '<span class="badge badge-live">→ ' + esc(m.report.name) + '</span>' : '<span class="badge">no linked Report</span>';
+      if (m.dataFlow) html += '<span class="badge">🔗 data flow</span>';
+      html += '</div></div>';
+    });
+    html += '</div>';
+  }
+  app.innerHTML = html;
+}
+
+function renderDetail(name){
+  var app = document.getElementById('app');
+  var m = STATE.metrics.find(function(x){ return x.name === name; });
+  if (!m) { app.innerHTML = '<div class="back"><a class="btn" href="#">← All metrics</a></div><div class="empty">Metric not found.</div>'; return; }
+
+  var html = '';
+  html += '<div class="back"><a class="btn" href="#">← All metrics</a></div>';
+  html += '<div class="pagehead"><div><h1>' + esc(m.name) + '</h1></div></div>';
+
+  html += '<div class="detail-grid">';
+  html += field('Summary', m.summary);
+  html += field('Scope', m.scope);
+  html += field('Measurement', m.measurement);
+  html += field('Target', m.target);
+  html += field('Usage', m.usage, true);
+  html += field('Implementation Description', m.implementationDescription, true);
+  html += '</div>';
+
+  html += '<div class="flow-panel"><h3>Lineage</h3>';
+  var mermaidId = 'flow-' + name.replace(/[^a-zA-Z0-9]/g, '_');
+  if (m.report) {
+    html += '<div id="' + mermaidId + '" class="mermaid-block"></div>';
+    var code = buildFlowMermaid(m);
+    setTimeout(function(){ renderMermaidBlock(mermaidId, code); }, 0);
+  } else {
+    html += '<div class="p-note">No GovernanceResults link found — this metric has no Report attached.</div>';
+  }
+  if (m.dataFlow && m.dataFlow.purposes) {
+    html += '<div class="field full" style="margin-top:12px"><div class="lab">Data Flow — ' + esc(m.dataFlow.name) + '</div><div class="val">' + esc(m.dataFlow.purposes) + '</div></div>';
+  }
+  html += '</div>';
+
+  if (m.report) {
+    html += '<div class="run-panel"><button class="btn" data-run-spec="' + esc(m.report.reportSpec) + '">▶ Run \'' + esc(m.report.reportSpec) + '\' live</button>';
+    html += '<div class="run-out" id="run-out" style="display:none"></div></div>';
+  }
+
+  app.innerHTML = html;
+}
+
+function field(label, value, full){
+  return '<div class="field' + (full ? ' full' : '') + '"><div class="lab">' + esc(label) + '</div><div class="val">' + (value ? esc(value) : '<span style="color:var(--muted)">— not set —</span>') + '</div></div>';
+}
+
+function buildFlowMermaid(m){
+  var lines = ['graph LR'];
+  lines.push('  DS["Data source<br/>(not yet an Egeria element)"]');
+  lines.push('  FN["Analytic function<br/>(not yet an Egeria element)"]');
+  lines.push('  RPT["Report: ' + (m.report.name || '').replace(/"/g, "'") + '"]');
+  lines.push('  GM["GovernanceMetric: ' + (m.name || '').replace(/"/g, "'") + '"]');
+  lines.push('  DS -.-> FN -.-> RPT');
+  lines.push('  RPT ==>|GovernanceResults| GM');
+  lines.push('  classDef real fill:#16213e,stroke:#4caf50,color:#e0e0e0;');
+  lines.push('  classDef conceptual fill:#12203c,stroke:#8b93a7,stroke-dasharray:3 3,color:#8b93a7;');
+  lines.push('  class RPT,GM real;');
+  lines.push('  class DS,FN conceptual;');
+  return lines.join('\n');
+}
+
+function renderMermaidBlock(id, code){
+  var tryRender = function(){
+    if (!(window.mermaid && window.mermaid.render)) { setTimeout(tryRender, 150); return; }
+    var el = document.getElementById(id);
+    if (!el) return;
+    try { window.mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' }); } catch (e) {}
+    window.mermaid.render(id + '-svg', code)
+      .then(function(res){ var el2 = document.getElementById(id); if (el2) el2.innerHTML = res.svg || ''; })
+      .catch(function(err){ var el2 = document.getElementById(id); if (el2) el2.innerHTML = '<div class="p-note">⚠ Mermaid render failed: ' + esc(String(err)) + '</div>'; });
+  };
+  tryRender();
+}
+
+function runReport(specName, btn){
+  var out = document.getElementById('run-out');
+  out.style.display = 'block';
+  out.textContent = 'Running…';
+  btn.disabled = true;
+  fetch('/api/report-specs/execute', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ spec_name: specName, server: 'qs-view-server', user_id: 'erinoverview', output_format: 'DICT' }),
+  })
+    .then(function(r){ return r.json(); })
+    .then(function(d){ out.textContent = JSON.stringify(d.data !== undefined ? d.data : d, null, 2); btn.disabled = false; })
+    .catch(function(e){ out.textContent = 'Error: ' + String(e); btn.disabled = false; });
+}
+
+// Event delegation for card clicks / run buttons — inline onclick="..."
+// attributes previously broke here: JSON.stringify(m.name) embeds literal
+// unescaped double-quotes directly inside an onclick="..." HTML attribute,
+// which the HTML parser reads as the attribute's closing quote, truncating
+// every handler (silently — no console error, the attribute just never
+// contained the intended JS). data-* attributes + one delegated listener
+// avoids the whole class of bug.
+document.getElementById('app').addEventListener('click', function(e){
+  var card = e.target.closest('[data-metric-name]');
+  if (card) {
+    location.hash = 'metric=' + encodeURIComponent(card.getAttribute('data-metric-name'));
+    return;
+  }
+  var runBtn = e.target.closest('[data-run-spec]');
+  if (runBtn) {
+    runReport(runBtn.getAttribute('data-run-spec'), runBtn);
+  }
+});
+
+fetchMetrics().then(route);
+</script>
+</body>
+</html>

@@ -70,17 +70,52 @@ def _rebuild_catalog(http_dir: Path) -> dict:
 
 # ── OpenAPI helpers ────────────────────────────────────────────────────────────
 
-def _fetch_openapi(platform_url: str) -> dict:
-    """Fetch the OpenAPI spec from a live Egeria platform (with caching)."""
+def _bearer_token_for_spec_fetch(user_id: str, user_pwd: str, url: str, server: str) -> Optional[str]:
+    """Best-effort bearer token for the plain `requests` call below -- prefers
+    the per-request X-Egeria-Token (egeria_auth's contextvar) so this reuses
+    whatever session the caller already has, falling back to minting a fresh
+    one from env-var credentials. Never raises -- a failure here just means
+    _fetch_openapi tries unauthenticated (which used to be enough; no longer
+    is, see below), not that the whole request 500s."""
+    from egeria_auth import get_request_token
+    tok = get_request_token()
+    if tok:
+        return tok
+    try:
+        from pyegeria import ValidMetadataManager
+        vmm = ValidMetadataManager(view_server=server, platform_url=url, user_id=user_id, user_pwd=user_pwd)
+        token = vmm.create_egeria_bearer_token()
+        vmm.close_session()
+        return token
+    except Exception as exc:
+        logger.warning(f"Could not obtain bearer token for OpenAPI spec fetch: {exc}")
+        return None
+
+
+def _fetch_openapi(platform_url: str, server: str, user_id: str, user_pwd: str) -> dict:
+    """Fetch the OpenAPI spec from a live Egeria platform (with caching).
+
+    Auth added 2026-08-18 (Dan's report -- REST APIs view was a blank screen):
+    these endpoints used to be reachable unauthenticated but now 401 without a
+    bearer token (confirmed live: /v2/api-docs and /api-docs 401 anonymous,
+    404 -- i.e. genuinely not found, past the auth check -- with a valid
+    token; /v3/api-docs times out anonymous but returns 200 in ~21s with a
+    token). Timeout bumped 30s -> 60s to give that ~21s real fetch headroom
+    under load -- it was already close to the old timeout even when auth
+    wasn't the blocker.
+    """
     cached = _openapi_cache.get(platform_url)
     if cached and (time.time() - cached[0]) < _OPENAPI_TTL:
         logger.debug(f"OpenAPI cache hit for {platform_url}")
         return cached[1]
 
+    token = _bearer_token_for_spec_fetch(user_id, user_pwd, platform_url, server)
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+
     for path in ("/v3/api-docs", "/v2/api-docs", "/api-docs"):
         url = platform_url.rstrip("/") + path
         try:
-            resp = requests.get(url, verify=False, timeout=30)
+            resp = requests.get(url, verify=False, timeout=60, headers=headers)
             if resp.status_code == 200:
                 spec = resp.json()
                 _openapi_cache[platform_url] = (time.time(), spec)
@@ -302,9 +337,10 @@ def _process_openapi(spec: dict, catalog: dict) -> dict:
 
 def _env_defaults() -> dict:
     return {
-        "url":     os.environ.get("EGERIA_PLATFORM_URL", "https://egeria-main:9443"),
-        "server":  os.environ.get("EGERIA_VIEW_SERVER",  "qs-view-server"),
-        "user_id": os.environ.get("EGERIA_USER",         "erinoverview"),
+        "url":      os.environ.get("EGERIA_PLATFORM_URL",  "https://egeria-main:9443"),
+        "server":   os.environ.get("EGERIA_VIEW_SERVER",   "qs-view-server"),
+        "user_id":  os.environ.get("EGERIA_USER",          "erinoverview"),
+        "user_pwd": os.environ.get("EGERIA_USER_PASSWORD", "secret"),
     }
 
 
@@ -376,8 +412,10 @@ def rebuild_request_bodies(body: RebuildRequest = RebuildRequest()):
     summary="Get the OpenAPI endpoint catalog",
 )
 def get_rest_apis(
-    url:     Optional[str] = Query(None, description="Egeria platform URL"),
-    server:  Optional[str] = Query(None, description="Egeria view server name"),
+    url:      Optional[str] = Query(None, description="Egeria platform URL"),
+    server:   Optional[str] = Query(None, description="Egeria view server name"),
+    user_id:  Optional[str] = Query(None, description="Egeria user id (overrides env)"),
+    user_pwd: Optional[str] = Query(None, description="Egeria user password (overrides env)"),
 ):
     """
     Fetch the Egeria OpenAPI spec and return a structured endpoint catalog,
@@ -387,10 +425,13 @@ def get_rest_apis(
     to force an immediate re-fetch.
     """
     d = _env_defaults()
-    platform_url = url or d["url"]
+    platform_url = url      or d["url"]
+    server       = server   or d["server"]
+    user_id      = user_id  or d["user_id"]
+    user_pwd     = user_pwd or d["user_pwd"]
 
     try:
-        spec    = _fetch_openapi(platform_url)
+        spec    = _fetch_openapi(platform_url, server, user_id, user_pwd)
         catalog = _load_catalog()
         result  = _process_openapi(spec, catalog)
         return JSONResponse(result)

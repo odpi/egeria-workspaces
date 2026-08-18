@@ -79,8 +79,10 @@ from rate_limiter import limiter
 async def _lifespan(app: FastAPI):
     from obsidian_lock_handler import start_scheduler as obs_start, stop_scheduler as obs_stop
     from jupyter_lock_handler import start_scheduler as jup_start, stop_scheduler as jup_stop
+    from bootstrap_monitor_handler import start_scheduler as boot_start, stop_scheduler as boot_stop
     await obs_start()
     await jup_start()
+    await boot_start()
     if DEMO_MODE:
         from demo_reset_handler import start_scheduler, stop_scheduler
         await start_scheduler()
@@ -88,6 +90,7 @@ async def _lifespan(app: FastAPI):
     if DEMO_MODE:
         from demo_reset_handler import stop_scheduler
         await stop_scheduler()
+    await boot_stop()
     await jup_stop()
     await obs_stop()
 
@@ -251,6 +254,10 @@ from pyegeria_docs_handler import router as pyegeria_docs_router
 app.include_router(pyegeria_docs_router)
 from demo_feedback_handler import router as demo_feedback_router
 app.include_router(demo_feedback_router)
+from bootstrap_monitor_handler import router as bootstrap_monitor_router
+app.include_router(bootstrap_monitor_router)
+from bootstrap_admin_handler import router as bootstrap_admin_router
+app.include_router(bootstrap_admin_router)
 from egeria_feedback_handler import router as egeria_feedback_router
 app.include_router(egeria_feedback_router)
 from tech_catalog_handler import router as tech_catalog_router
