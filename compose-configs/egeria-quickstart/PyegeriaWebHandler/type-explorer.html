@@ -587,7 +587,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 })();
 </script>
   <!-- Bump ?v= whenever egeria-shared-ui.js changes — see tech-catalog.html for why. -->
-  <script src="/static/egeria-shared-ui.js?v=2026-08-16c"></script>
+  <script src="/static/egeria-shared-ui.js?v=2026-08-18c"></script>
   <script>"use strict";
 
 const {
@@ -2822,6 +2822,7 @@ function ReportsView({ initialTab }) {
 function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(254);
+  const [midW, onMidDivDown] = useResizable(300);
   const [glossaryState, setGlossaryState] = useState('loading');
   const [glossaryAttempt, setGlossaryAttempt] = useState(0);
   const [glossaries, setGlossaries] = useState([]);
@@ -2860,12 +2861,23 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
   const [searchError, setSearchError] = useState('');
 
   const selection = useSelection();
-  // null | 'add' | 'remove' — which AddToCollectionModal action, if any, is open.
-  const [modalAction, setModalAction] = useState(null);
-  // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
-  const [zoneModalAction, setZoneModalAction] = useState(null);
-  // null | 'set' | 'clear' — which ClassificationModal action, if any, is open.
-  const [classifyModalAction, setClassifyModalAction] = useState(null);
+  // Whether AddToCollectionModal/ZoneMembershipModal are open — the Add/
+  // Remove verb is now picked inside each modal via tabs (Dan's call,
+  // 2026-08-18), so these are just bools, not action strings.
+  const [collectionModalOpen, setCollectionModalOpen] = useState(false);
+  const [zoneModalOpen, setZoneModalOpen] = useState(false);
+  // Whether ClassificationModal is open — the Classify/Reclassify/Declassify
+  // verb itself is now picked inside the modal via tabs (Dan's call,
+  // 2026-08-18), so this is just a bool, not an action string.
+  const [classifyModalOpen, setClassifyModalOpen] = useState(false);
+  // Distinct typeNames in the current selection — drives the live
+  // applicability check below instead of the old hardcoded-supertype guess
+  // (classificationApplicable). selection.selected values already carry
+  // typeName (see useSelection's toggle/selectAll), so no extra lookup needed.
+  const selectedTypeNames = useMemo(() => {
+    return Array.from(new Set(Array.from(selection.selected.values()).map(v => v.typeName).filter(Boolean)));
+  }, [selection.selected]);
+  const applicableClassifications = useApplicableClassifications(creds, selectedTypeNames);
 
   const [selectedItem, setSelectedItem] = useState(null);
   // The selected node object (folder or term) — carried so nested tree items
@@ -3089,8 +3101,9 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
         )
       )
     ),
+    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
     // Middle: folders + terms (or search results)
-    React.createElement("div", { style: { width: 300, flexShrink: 0, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
+    React.createElement("div", { style: { width: midW, flexShrink: 0, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
       // Header
       React.createElement("div", { style: { padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 5 } },
         // Glossary name (folders are now expandable inline in the tree below)
@@ -3134,27 +3147,30 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
             )
       ),
       (function() {
-        // Classify/Declassify only offered when every currently-selected term
-        // is a plausible target — looked up against the real term objects
-        // (which carry superTypeNames), not the selection Map.
-        var itemsByGuid = {};
-        (isSearchMode ? filteredSearchTerms : filteredTerms).forEach(function(t) { if (t.guid) itemsByGuid[t.guid] = t; });
-        var selectedGuids = Array.from(selection.selected.keys());
-        var canClassify = selectedGuids.length > 0 && selectedGuids.every(function(g) { return classificationApplicable(itemsByGuid[g]); });
+        // One button per action *kind* (Collection/Zone/Classification), not
+        // per kind×verb — the Add/Remove/Classify/Reclassify/Declassify verb
+        // is picked inside each modal via tabs instead (Dan's call,
+        // 2026-08-18; leaves room to add more kinds without the bar growing
+        // a button per verb each time). Classification only offered when at
+        // least one classification is valid for every distinct type in the
+        // current selection — a live check (useApplicableClassifications,
+        // called at the top of this component) against Egeria's own
+        // get_valid_classification_types(), not a hardcoded supertype guess
+        // (classificationApplicable/CLASSIFICATION_APPLICABLE_SUPERTYPES
+        // remain as-is for the other tabs that haven't migrated to either
+        // this or the live-applicability check yet).
+        var canClassify = selection.count > 0 && (applicableClassifications.names || []).length > 0;
         var actions = [
-          { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-          { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+          { id: 'collection', label: 'Collection…', onClick: function() { setCollectionModalOpen(true); } },
+          { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalOpen(true); } },
         ];
         if (canClassify) {
-          actions.push({ id: 'classify', label: 'Classify…', onClick: function() { setClassifyModalAction('set'); } });
-          actions.push({ id: 'declassify', label: 'Declassify…', onClick: function() { setClassifyModalAction('clear'); } });
+          actions.push({ id: 'classification', label: 'Classification…', onClick: function() { setClassifyModalOpen(true); } });
         }
         return React.createElement(BulkActionBar, { count: selection.count, onClear: selection.clear, actions: actions });
       })()
     ),
-    React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
+    React.createElement(ResizeDivider, { onMouseDown: onMidDivDown }),
     // Right: detail
     React.createElement("div", { className: "main" },
       selectedObj?.isFolder
@@ -3171,25 +3187,30 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
                     : React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a term or folder to view details")
                 )
     ),
-    modalAction && React.createElement(AddToCollectionModal, {
+    collectionModalOpen && React.createElement(AddToCollectionModal, {
       items: Array.from(selection.selected.values()),
       creds: creds,
-      action: modalAction,
-      onClose: function() { setModalAction(null); },
+      onClose: function() { setCollectionModalOpen(false); },
       onDone: function() { selection.clear(); },
     }),
-    zoneModalAction && React.createElement(ZoneMembershipModal, {
+    zoneModalOpen && React.createElement(ZoneMembershipModal, {
       items: Array.from(selection.selected.values()),
       creds: creds,
-      action: zoneModalAction,
-      onClose: function() { setZoneModalAction(null); },
+      onClose: function() { setZoneModalOpen(false); },
       onDone: function() { selection.clear(); },
     }),
-    classifyModalAction && React.createElement(ClassificationModal, {
-      items: Array.from(selection.selected.values()),
+    classifyModalOpen && React.createElement(ClassificationModal, {
+      // Full term objects (not the bare selection Map values) so
+      // ClassificationModal can compute its own Reclassify prefill from each
+      // item's .classifications — see its reclassifyPrefill useMemo.
+      items: (function() {
+        var byGuid = {};
+        (isSearchMode ? filteredSearchTerms : filteredTerms).forEach(function(t) { if (t.guid) byGuid[t.guid] = t; });
+        return Array.from(selection.selected.keys()).map(function(g) { return byGuid[g]; }).filter(Boolean);
+      })(),
       creds: creds,
-      action: classifyModalAction,
-      onClose: function() { setClassifyModalAction(null); },
+      applicableClassifications: applicableClassifications.names || [],
+      onClose: function() { setClassifyModalOpen(false); },
       onDone: function() { selection.clear(); },
     })
   );
@@ -3328,10 +3349,8 @@ function SubjectAreasTab({ onNavigateToElement }) {
       React.createElement(BulkActionBar, {
         count: selection.count, onClear: selection.clear,
         actions: [
-          { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-          { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+          { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+          { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
         ],
       })
     ),
@@ -3594,10 +3613,8 @@ function ReferenceDataView({ navGuid, onNavigateToElement }) {
       React.createElement(BulkActionBar, {
         count: selection.count, onClear: selection.clear,
         actions: [
-          { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-          { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+          { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+          { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
         ],
       })
     ),
@@ -3787,10 +3804,8 @@ function ExternalReferencesView({ navGuid, onNavigateToElement }) {
     React.createElement(BulkActionBar, {
       count: selection.count, onClear: selection.clear,
       actions: [
-        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
       ],
     })
   );
@@ -3965,10 +3980,8 @@ function ExternalIdentifiersView({ navGuid, onNavigateToElement }) {
     React.createElement(BulkActionBar, {
       count: selection.count, onClear: selection.clear,
       actions: [
-        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
       ],
     })
   );
@@ -4160,10 +4173,8 @@ function AgreementsView({ navGuid, onNavigateToElement }) {
     React.createElement(BulkActionBar, {
       count: selection.count, onClear: selection.clear,
       actions: [
-        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
       ],
     })
   );
@@ -4342,14 +4353,11 @@ function DigitalProductDetail({ product, onNavigateToElement, creds, selection }
         var selectedGuids = Array.from(selection.selected.keys());
         var canClassify = selectedGuids.length > 0 && selectedGuids.every(function(g) { return classificationApplicable(itemsByGuid[g]); });
         var actions = [
-          { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-          { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+          { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+          { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
         ];
         if (canClassify) {
-          actions.push({ id: 'classify', label: 'Classify…', onClick: function() { setClassifyModalAction('set'); } });
-          actions.push({ id: 'declassify', label: 'Declassify…', onClick: function() { setClassifyModalAction('clear'); } });
+          actions.push({ id: 'classification', label: 'Classification…', onClick: function() { setClassifyModalAction('set'); } });
         }
         return React.createElement(BulkActionBar, { count: selection.count, onClear: selection.clear, actions: actions });
       })(),
@@ -4840,14 +4848,11 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
         var selectedGuids = Array.from(selection.selected.keys());
         var canClassify = selectedGuids.length > 0 && selectedGuids.every(function(g) { return classificationApplicable(itemsByGuid[g]); });
         var actions = [
-          { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setTreeModalAction('add'); } },
-          { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setTreeModalAction('remove'); } },
-          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+          { id: 'collection', label: 'Collection…', onClick: function() { setTreeModalAction('add'); } },
+          { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
         ];
         if (canClassify) {
-          actions.push({ id: 'classify', label: 'Classify…', onClick: function() { setClassifyModalAction('set'); } });
-          actions.push({ id: 'declassify', label: 'Declassify…', onClick: function() { setClassifyModalAction('clear'); } });
+          actions.push({ id: 'classification', label: 'Classification…', onClick: function() { setClassifyModalAction('set'); } });
         }
         return React.createElement(BulkActionBar, { count: selection.count, onClear: selection.clear, actions: actions });
       })()
@@ -5300,14 +5305,11 @@ function ExplorerSearchView({ creds, initialQuery, onNavigateToElement }) {
         var selectedGuids = Array.from(selection.selected.keys());
         var canClassify = selectedGuids.length > 0 && selectedGuids.every(function(g) { return classificationApplicable(itemsByGuid[g]); });
         var actions = [
-          { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-          { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+          { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+          { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
         ];
         if (canClassify) {
-          actions.push({ id: 'classify', label: 'Classify…', onClick: function() { setClassifyModalAction('set'); } });
-          actions.push({ id: 'declassify', label: 'Declassify…', onClick: function() { setClassifyModalAction('clear'); } });
+          actions.push({ id: 'classification', label: 'Classification…', onClick: function() { setClassifyModalAction('set'); } });
         }
         return React.createElement(BulkActionBar, { count: selection.count, onClear: selection.clear, actions: actions });
       })(),
@@ -7065,14 +7067,11 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
           var selectedGuids = Array.from(selection.selected.keys());
           var canClassify = selectedGuids.length > 0 && selectedGuids.every(function(g) { return classificationApplicable(itemsByGuid[g]); });
           var actions = [
-            { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-            { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-            { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-            { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+            { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+            { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
           ];
           if (canClassify) {
-            actions.push({ id: 'classify', label: 'Classify…', onClick: function() { setClassifyModalAction('set'); } });
-            actions.push({ id: 'declassify', label: 'Declassify…', onClick: function() { setClassifyModalAction('clear'); } });
+            actions.push({ id: 'classification', label: 'Classification…', onClick: function() { setClassifyModalAction('set'); } });
           }
           return React.createElement(BulkActionBar, { count: selection.count, onClear: selection.clear, actions: actions });
         })()
@@ -7475,10 +7474,8 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
       React.createElement(BulkActionBar, {
         count: selection.count, onClear: selection.clear,
         actions: [
-          { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-          { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+          { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+          { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
         ],
       })
     ),
@@ -8113,10 +8110,8 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
     React.createElement(BulkActionBar, {
       count: selection.count, onClear: selection.clear,
       actions: [
-        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
       ],
     })
   );
@@ -8587,10 +8582,8 @@ function LocationsView({ navGuid, onNavigateToElement }) {
     React.createElement(BulkActionBar, {
       count: selection.count, onClear: selection.clear,
       actions: [
-        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
       ],
     })
   );
@@ -8876,10 +8869,8 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
     React.createElement(BulkActionBar, {
       count: selection.count, onClear: selection.clear,
       actions: [
-        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
       ],
     })
   );
@@ -9034,10 +9025,8 @@ function NamingVocabularyView() {
     state === 'ready' && React.createElement(BulkActionBar, {
       count: selection.count, onClear: selection.clear,
       actions: [
-        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
       ],
     }),
     state === 'ready' && GROUP_ORDER.map(function(g) {
@@ -9140,10 +9129,8 @@ function PolicyEnforcementView() {
     state === 'ready' && React.createElement(BulkActionBar, {
       count: selection.count, onClear: selection.clear,
       actions: [
-        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
       ],
     }),
     state === 'ready' && GROUP_ORDER.map(function(g) {
@@ -9349,10 +9336,8 @@ function ActionCenterView({ onNavigateToElement, navGuid }) {
     React.createElement(BulkActionBar, {
       count: selection.count, onClear: selection.clear,
       actions: [
-        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
       ],
     })
   );
@@ -9562,10 +9547,8 @@ function InformalTagsView({ navGuid, onNavigateToElement }) {
     React.createElement(BulkActionBar, {
       count: selection.count, onClear: selection.clear,
       actions: [
-        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
       ],
     })
   );
@@ -9686,10 +9669,8 @@ function CommunityView({ navGuid, onNavigateToElement }) {
     React.createElement(BulkActionBar, {
       count: selection.count, onClear: selection.clear,
       actions: [
-        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
       ],
     })
   );
@@ -9844,10 +9825,8 @@ function BusinessCapabilityView({ navGuid, onNavigateToElement }) {
     React.createElement(BulkActionBar, {
       count: selection.count, onClear: selection.clear,
       actions: [
-        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
       ],
     })
   );
@@ -10133,10 +10112,8 @@ function NoteLogView({ navGuid, onNavigateToElement }) {
     React.createElement(BulkActionBar, {
       count: selection.count, onClear: selection.clear,
       actions: [
-        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
       ],
     })
   );
@@ -10449,10 +10426,8 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
     React.createElement(BulkActionBar, {
       count: selection.count, onClear: selection.clear,
       actions: [
-        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
       ],
     })
   );
@@ -10818,10 +10793,8 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
       React.createElement(BulkActionBar, {
         count: selection.count, onClear: selection.clear,
         actions: [
-          { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-          { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+          { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+          { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
         ],
       })
     ),
@@ -11181,10 +11154,8 @@ function ContextEventsView({ navGuid, onNavigateToElement }) {
       React.createElement(BulkActionBar, {
         count: selection.count, onClear: selection.clear,
         actions: [
-          { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-          { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+          { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+          { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
         ],
       })
     ),
@@ -11577,10 +11548,8 @@ function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
       React.createElement(BulkActionBar, {
         count: selection.count, onClear: selection.clear,
         actions: [
-          { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-          { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+          { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+          { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
         ],
       })
     ),

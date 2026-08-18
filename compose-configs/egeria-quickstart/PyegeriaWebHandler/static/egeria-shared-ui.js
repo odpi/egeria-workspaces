@@ -750,7 +750,15 @@ function BulkActionBar({ count, onClear, actions }) {
 // that doesn't exist yet) and calls DELETE .../members instead of POST
 // (BACKLOG.md Bulk Actions, task #19, 2026-08-14).
 function AddToCollectionModal({ items, creds, action, onClose, onDone }) {
-  var isRemove = action === 'remove';
+  // Verb picked inside the modal now, not baked into which BulkActionBar
+  // button was clicked (Dan's call, 2026-08-18 -- collapses the bar from a
+  // button per verb×kind down to one per kind). `action` still seeds the
+  // initial tab so any caller not yet updated to the 1-button pattern keeps
+  // working unchanged (e.g. "Remove from Collection…" opens straight to the
+  // Remove tab instead of defaulting to Add).
+  var verbState = React.useState(action === 'remove' ? 'remove' : 'add');
+  var verb = verbState[0], setVerb = verbState[1];
+  var isRemove = verb === 'remove';
   var entities = useTypeGraph(creds);
   var subtypeState = React.useState('Collection');
   var subtype = subtypeState[0], setSubtype = subtypeState[1];
@@ -860,6 +868,19 @@ function AddToCollectionModal({ items, creds, action, onClose, onDone }) {
         items.length + ' element' + (items.length === 1 ? '' : 's') + ' selected'),
 
       !result && el(React.Fragment, null,
+        el('div', { style: { display: 'flex', gap: 6, marginBottom: 14 } },
+          ['add', 'remove'].map(function(id) {
+            var active = verb === id;
+            return el('button', {
+              key: id, disabled: submitting,
+              onClick: function() { setVerb(id); },
+              style: { flex: 1, fontSize: 12, padding: '6px 10px', borderRadius: 6, cursor: submitting ? 'default' : 'pointer',
+                       border: '1px solid ' + (active ? 'var(--accent)' : 'var(--border)'),
+                       background: active ? 'var(--accent)' : 'transparent',
+                       color: active ? 'var(--bg)' : 'var(--dim)', fontWeight: active ? 700 : 400 },
+            }, id === 'add' ? 'Add' : 'Remove');
+          })
+        ),
         el('label', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 3 } }, 'Collection type'),
         el('select', {
           value: subtype, onChange: function(e) { setSubtype(e.target.value); },
@@ -966,7 +987,12 @@ function AddToCollectionModal({ items, creds, action, onClose, onDone }) {
 // list the backend read-modifies-writes per element — see that handler's
 // module docstring for why.
 function ZoneMembershipModal({ items, creds, action, onClose, onDone }) {
-  var isRemove = action === 'remove';
+  // Verb picked inside the modal (Dan's call, 2026-08-18) -- same pattern as
+  // AddToCollectionModal's verb tabs. `action` still seeds the initial tab
+  // for backward compatibility with callers not yet on the 1-button pattern.
+  var verbState = React.useState(action === 'remove' ? 'remove' : 'add');
+  var verb = verbState[0], setVerb = verbState[1];
+  var isRemove = verb === 'remove';
   var zonesState = React.useState(null); // null = not yet loaded; [] = loaded, empty
   var zones = zonesState[0], setZones = zonesState[1];
   var zonesLoadingState = React.useState(true);
@@ -1023,6 +1049,19 @@ function ZoneMembershipModal({ items, creds, action, onClose, onDone }) {
         items.length + ' element' + (items.length === 1 ? '' : 's') + ' selected'),
 
       !result && el(React.Fragment, null,
+        el('div', { style: { display: 'flex', gap: 6, marginBottom: 14 } },
+          ['add', 'remove'].map(function(id) {
+            var active = verb === id;
+            return el('button', {
+              key: id, disabled: submitting,
+              onClick: function() { setVerb(id); },
+              style: { flex: 1, fontSize: 12, padding: '6px 10px', borderRadius: 6, cursor: submitting ? 'default' : 'pointer',
+                       border: '1px solid ' + (active ? 'var(--accent)' : 'var(--border)'),
+                       background: active ? 'var(--accent)' : 'transparent',
+                       color: active ? 'var(--bg)' : 'var(--dim)', fontWeight: active ? 700 : 400 },
+            }, id === 'add' ? 'Add' : 'Remove');
+          })
+        ),
         el('label', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 3 } }, 'Governance zone'),
         zonesLoading && el('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '6px 0' } }, 'Loading…'),
         zonesError && el('div', { style: { fontSize: 12, color: '#f87171', padding: '6px 0' } }, 'Error: ' + zonesError),
@@ -1098,7 +1137,10 @@ function ZoneMembershipModal({ items, creds, action, onClose, onDone }) {
  * + valid-values-lookup calls in ClassificationModal below).
  * ────────────────────────────────────────────────────────────────────────── */
 
-var CLASSIFICATION_LABELS = { confidentiality: 'Confidentiality', criticality: 'Criticality', impact: 'Impact' };
+var CLASSIFICATION_LABELS = {
+  confidentiality: 'Confidentiality', criticality: 'Criticality', impact: 'Impact', confidence: 'Confidence',
+  prime_word: 'PrimeWord', class_word: 'ClassWord', modifier: 'Modifier',
+};
 
 // Egeria's own type definition says these classifications are validFor
 // "Referenceable" -- i.e. technically attachable to almost anything,
@@ -1117,10 +1159,101 @@ function classificationApplicable(item) {
   return types.some(function(t) { return CLASSIFICATION_APPLICABLE_SUPERTYPES.indexOf(t) !== -1; });
 }
 
-function ClassificationModal({ items, creds, action, onClose, onDone }) {
-  var isClear = action === 'clear';
-  var classNameState = React.useState('confidentiality');
+// Pulls the numeric level out of one of an item's classifications (as
+// returned by _extract_classifications in the *_handler.py files: {typeName,
+// properties: {...stringified...}}). The three v1 classifications each store
+// their level under a differently-named property (confidentialityLevel /
+// criticalityLevel / severityLevel -- see governance_classifications_handler.
+// py's CLASSIFICATIONS map) but all three end in "Level", so matching that
+// suffix avoids hardcoding all three names a second time here. Returns
+// undefined if the classification isn't present or has no such property.
+function classificationLevelValue(cls) {
+  if (!cls || !cls.properties) return undefined;
+  var keys = Object.keys(cls.properties);
+  for (var i = 0; i < keys.length; i++) {
+    if (/Level$/i.test(keys[i])) return cls.properties[keys[i]];
+  }
+  return undefined;
+}
+
+
+// Module-level cache: sorted-and-joined typeNames -> resolved classification
+// keys array. Entity/classification type defs don't change at runtime (same
+// assumption governance_classifications_handler.py's own
+// _VALID_CLASSIFICATIONS_CACHE makes server-side), so once a given
+// type-name combination has been resolved there's no reason to refetch it
+// for the life of the page.
+var _applicableClassificationsCache = {};
+
+// Replaces the old hardcoded-supertype classificationApplicable() guess with
+// a live, per-type-combination lookup against GET /api/classification/
+// applicable (Dan's call, 2026-08-17) -- which itself intersects Egeria's
+// authoritative ValidMetadataManager.get_valid_classification_types() across
+// every distinct type in typeNames, filtered to classifications this app
+// actually knows how to bulk set/clear (governance_classifications_handler.
+// py's CLASSIFICATIONS registry). typeNames: array of distinct typeName
+// strings from the current selection (order-independent, dedup'd by the
+// cache key). Returns { names: string[]|null, loading }; names is null only
+// while the very first lookup for a given key is in flight.
+function useApplicableClassifications(creds, typeNames) {
+  var key = (typeNames || []).filter(Boolean).slice().sort().join(',');
+  var state = React.useState(function() { return { key: key, names: _applicableClassificationsCache[key] || null }; });
+  var st = state[0], setSt = state[1];
+
+  React.useEffect(function() {
+    if (!key) { setSt({ key: key, names: [] }); return; }
+    if (_applicableClassificationsCache[key]) {
+      setSt({ key: key, names: _applicableClassificationsCache[key] });
+      return;
+    }
+    setSt({ key: key, names: null });
+    egeriaFetch('/api/classification/applicable?entity_types=' + encodeURIComponent(key), creds)
+      .then(function(r) { return r.ok ? r.json() : { classifications: [] }; })
+      .then(function(d) {
+        var names = d.classifications || [];
+        _applicableClassificationsCache[key] = names;
+        setSt({ key: key, names: names });
+      })
+      .catch(function() { setSt({ key: key, names: [] }); });
+  }, [key, creds]);
+
+  // Guard against a stale response landing after `key` has already moved on
+  // (selection changed types mid-flight) -- only trust st when its key matches.
+  return (st.key === key) ? { names: st.names, loading: st.names === null } : { names: null, loading: true };
+}
+
+// The verb (Classify/Reclassify/Declassify) is picked inside the modal via
+// tabs, not baked into which BulkActionBar button was clicked (Dan's call,
+// 2026-08-18 -- same move as AddToCollectionModal/ZoneMembershipModal's
+// verb tabs, and it simplifies Reclassify: instead of the caller scanning
+// every classification up front to guess which one you meant
+// (findCommonClassification, 2026-08-17), you pick the classification name
+// first (the searchable dropdown, unchanged) and Reclassify just prefills
+// the Level from whatever that specific classification's current value is
+// across the selection -- recomputed live below, not resolved by the caller.
+// `action`/`initialClassificationName` still seed the initial tab/dropdown
+// value so any caller not yet updated to the 1-button pattern keeps working.
+function ClassificationModal({ items, creds, action, initialClassificationName, title, applicableClassifications, onClose, onDone }) {
+  var verbState = React.useState(action === 'clear' ? 'declassify' : (initialClassificationName ? 'reclassify' : 'classify'));
+  var verb = verbState[0], setVerb = verbState[1];
+  var isClear = verb === 'declassify';
+  // Which classifications the dropdown offers -- callers that have already
+  // resolved this via useApplicableClassifications pass it in; falls back to
+  // every classification this app knows about for callers that haven't
+  // adopted that yet (behavior-identical to before 2026-08-17).
+  var offeredKeys = (applicableClassifications && applicableClassifications.length > 0)
+    ? applicableClassifications : Object.keys(CLASSIFICATION_LABELS);
+  var classNameState = React.useState(initialClassificationName || offeredKeys[0] || 'confidentiality');
   var classificationName = classNameState[0], setClassificationName = classNameState[1];
+  var classFilterState = React.useState(''); // free-text filter for the searchable classification dropdown
+  var classFilter = classFilterState[0], setClassFilter = classFilterState[1];
+  var datalistId = 'classification-modal-options-' + React.useId();
+  // "level" (needs a Level dropdown + valid-values lookup) or "marker" (bare
+  // apply/clear, e.g. PrimeWord -- no properties at all). Resolved from the
+  // level-property endpoint below; defaults to "level" so the UI doesn't
+  // flash-hide the Level field before the first fetch resolves.
+  var kindState = React.useState('level');
+  var kind = kindState[0], setKind = kindState[1];
   var levelsState = React.useState(null); // null = not loaded
   var levels = levelsState[0], setLevels = levelsState[1];
   var levelsLoadingState = React.useState(true);
@@ -1131,6 +1264,17 @@ function ClassificationModal({ items, creds, action, onClose, onDone }) {
   var level = levelState[0], setLevel = levelState[1];
   var notesState = React.useState('');
   var notes = notesState[0], setNotes = notesState[1];
+  // Extra properties beyond level+notes -- from GET .../schema, which reads
+  // Egeria's own ClassificationDef.attributeDefinitions live (Dan's call,
+  // 2026-08-17: "present the parameters of the classification and allow a
+  // user to optionally fill them out"). All optional; [] for marker
+  // classifications and for 'clear' (never fetched then).
+  var extraSchemaState = React.useState([]);
+  var extraSchema = extraSchemaState[0], setExtraSchema = extraSchemaState[1];
+  var extraValuesState = React.useState({}); // { [propName]: string | boolean }
+  var extraValues = extraValuesState[0], setExtraValues = extraValuesState[1];
+  var showAdvancedState = React.useState(false);
+  var showAdvanced = showAdvancedState[0], setShowAdvanced = showAdvancedState[1];
   var submittingState = React.useState(false);
   var submitting = submittingState[0], setSubmitting = submittingState[1];
   var resultState = React.useState(null);
@@ -1138,36 +1282,97 @@ function ClassificationModal({ items, creds, action, onClose, onDone }) {
   var submitErrState = React.useState(null);
   var submitError = submitErrState[0], setSubmitError = submitErrState[1];
 
-  // Fetch this classification's level-property name, then its valid values --
-  // both come from the live registry (governance_classifications_handler.py's
-  // level-property endpoint, then valid_values_handler.py's registry lookup),
-  // never hardcoded here. Only needed for 'set'; 'clear' doesn't need a level.
+  // Live Reclassify prefill: whatever level the currently-picked
+  // classification already has, IF every selected item shares the same one
+  // (each item's .classifications array -- present when the caller passes
+  // full term/element objects rather than bare {guid,displayName,typeName}
+  // selection entries; falls back to no prefill, same as a blank Classify,
+  // if that data isn't there). null = no uniform existing value to prefill.
+  var reclassifyPrefill = React.useMemo(function() {
+    if (verb !== 'reclassify') return null;
+    var label = CLASSIFICATION_LABELS[classificationName];
+    if (!label) return null;
+    var vals = items.map(function(item) {
+      var cls = (item.classifications || []).find(function(c) { return c.typeName === label; });
+      return cls ? classificationLevelValue(cls) : undefined;
+    });
+    var first = vals[0];
+    return (first !== undefined && vals.every(function(v) { return v === first; })) ? first : null;
+  }, [verb, classificationName, items]);
+
+  // Fetch this classification's kind + level-property name, then (for "level"
+  // kind only) its valid values -- both come from the live registry
+  // (governance_classifications_handler.py's level-property endpoint, then
+  // valid_values_handler.py's registry lookup), never hardcoded here. Only
+  // needed for classify/reclassify; declassify doesn't need a level either way.
   React.useEffect(function() {
     if (isClear) return;
     setLevelsLoading(true); setLevelsError(null); setLevel(''); setLevels(null);
     egeriaFetch('/api/classification/' + encodeURIComponent(classificationName) + '/level-property', creds)
       .then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
       .then(function(d) {
+        var k = d.kind || 'level';
+        setKind(k);
+        if (k !== 'level') { setLevels([]); setLevelsLoading(false); return null; }
         return egeriaFetch('/api/valid-values/lookup?property_name=' + encodeURIComponent(d.level_field), creds);
       })
-      .then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
+      .then(function(r) { return (r === null) ? null : (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))); })
       .then(function(d) {
+        if (d === null) return; // marker classification -- nothing more to load
         var vs = (d.values || []).slice().sort(function(a, b) { return Number(a.preferredValue) - Number(b.preferredValue); });
         setLevels(vs);
         setLevelsLoading(false);
+        if (reclassifyPrefill !== null && reclassifyPrefill !== undefined) {
+          var match = vs.find(function(v) { return String(v.preferredValue) === String(reclassifyPrefill); });
+          if (match) setLevel(String(match.preferredValue));
+        }
       })
       .catch(function(e) { setLevelsError(e.message || String(e)); setLevelsLoading(false); });
+  }, [classificationName, isClear, verb]);
+
+  // Independent of the level-property effect above (different endpoint, and
+  // needed regardless of whether the level lookup succeeds) -- fetches this
+  // classification's extra editable properties. Backend returns [] for
+  // marker-kind classifications and for anything whose schema is exhausted
+  // by level+notes, so no local `kind` gating needed here.
+  React.useEffect(function() {
+    if (isClear) { setExtraSchema([]); return; }
+    setExtraValues({});
+    setShowAdvanced(false);
+    egeriaFetch('/api/classification/' + encodeURIComponent(classificationName) + '/schema', creds)
+      .then(function(r) { return r.ok ? r.json() : { properties: [] }; })
+      .then(function(d) { setExtraSchema(d.properties || []); })
+      .catch(function() { setExtraSchema([]); });
   }, [classificationName, isClear]);
+
+  // Keeps the searchable-dropdown text input in sync with classificationName
+  // whenever it changes programmatically (initial mount, or the Reclassify
+  // prefill) -- the input's own onChange is what drives it the other way.
+  React.useEffect(function() {
+    setClassFilter(CLASSIFICATION_LABELS[classificationName] || classificationName);
+  }, [classificationName]);
 
   function submit() {
     if (submitting) return;
-    if (!isClear && level === '') return;
+    if (!isClear && kind === 'level' && level === '') return;
     setSubmitting(true);
     setSubmitError(null);
     var url = '/api/classification/' + encodeURIComponent(classificationName) + '/members';
-    var payload = isClear
+    // Only properties the user actually touched are sent -- an empty/untouched
+    // field means "let the backend apply its own default" (statusIdentifier=0,
+    // confidence=100) rather than overwriting with a blank value.
+    var extraProps = {};
+    extraSchema.forEach(function(p) {
+      var v = extraValues[p.name];
+      if (v === undefined || v === null || v === '') return;
+      if (p.kind === 'int' || p.kind === 'number') extraProps[p.name] = Number(v);
+      else if (p.kind === 'boolean') { if (v) extraProps[p.name] = true; }
+      else extraProps[p.name] = v;
+    });
+    var payload = (isClear || kind !== 'level')
       ? { guids: items.map(function(i) { return i.guid; }) }
-      : { guids: items.map(function(i) { return i.guid; }), level: Number(level), notes: notes || undefined };
+      : { guids: items.map(function(i) { return i.guid; }), level: Number(level), notes: notes || undefined,
+          extra_properties: Object.keys(extraProps).length ? extraProps : undefined };
     egeriaFetch(url, creds, {
       method: isClear ? 'DELETE' : 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1190,23 +1395,49 @@ function ClassificationModal({ items, creds, action, onClose, onDone }) {
     el('div', { style: { background: 'var(--surface,var(--card))', border: '1px solid var(--border)',
         borderRadius: 12, padding: '22px 26px', width: 420, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' } },
 
-      el('div', { style: { fontWeight: 700, fontSize: 14, marginBottom: 4 } }, isClear ? 'Declassify' : 'Classify'),
+      el('div', { style: { fontWeight: 700, fontSize: 14, marginBottom: 4 } },
+        title || (verb === 'declassify' ? 'Declassify' : verb === 'reclassify' ? 'Reclassify' : 'Classify')),
       el('div', { style: { fontSize: 11, color: 'var(--muted)', marginBottom: 14 } },
         items.length + ' element' + (items.length === 1 ? '' : 's') + ' selected'),
 
       !result && el(React.Fragment, null,
+        el('div', { style: { display: 'flex', gap: 6, marginBottom: 14 } },
+          [['classify', 'Classify'], ['reclassify', 'Reclassify'], ['declassify', 'Declassify']].map(function(pair) {
+            var id = pair[0], label = pair[1], active = verb === id;
+            return el('button', {
+              key: id, disabled: submitting,
+              onClick: function() { setVerb(id); },
+              style: { flex: 1, fontSize: 12, padding: '6px 8px', borderRadius: 6, cursor: submitting ? 'default' : 'pointer',
+                       border: '1px solid ' + (active ? 'var(--accent)' : 'var(--border)'),
+                       background: active ? 'var(--accent)' : 'transparent',
+                       color: active ? 'var(--bg)' : 'var(--dim)', fontWeight: active ? 700 : 400 },
+            }, label);
+          })
+        ),
         el('label', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 3 } }, 'Classification'),
-        el('select', {
-          value: classificationName, disabled: submitting,
-          onChange: function(e) { setClassificationName(e.target.value); },
+        // Searchable dropdown (native <input list> + <datalist>, no extra
+        // component needed) -- offeredKeys can run to dozens as more
+        // classifications gain set/clear support, so a plain <select>
+        // stops being browsable long before then (Dan's call, 2026-08-17).
+        el('input', {
+          type: 'text', list: datalistId, disabled: submitting,
+          value: classFilter,
+          placeholder: 'Search classifications…',
+          onChange: function(e) {
+            var v = e.target.value;
+            setClassFilter(v);
+            var match = offeredKeys.find(function(k) { return CLASSIFICATION_LABELS[k] === v; });
+            if (match) setClassificationName(match);
+          },
           style: Object.assign({}, inp, { marginBottom: 10 }),
-        },
-          Object.keys(CLASSIFICATION_LABELS).map(function(k) {
-            return el('option', { key: k, value: k }, CLASSIFICATION_LABELS[k]);
+        }),
+        el('datalist', { id: datalistId },
+          offeredKeys.map(function(k) {
+            return el('option', { key: k, value: CLASSIFICATION_LABELS[k] || k });
           })
         ),
 
-        !isClear && el(React.Fragment, null,
+        !isClear && kind === 'level' && el(React.Fragment, null,
           el('label', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 3 } }, 'Level'),
           levelsLoading && el('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '6px 0' } }, 'Loading…'),
           levelsError && el('div', { style: { fontSize: 12, color: '#f87171', padding: '6px 0' } }, 'Error: ' + levelsError),
@@ -1226,8 +1457,48 @@ function ClassificationModal({ items, creds, action, onClose, onDone }) {
             onChange: function(e) { setNotes(e.target.value); },
             rows: 2,
             style: Object.assign({}, inp, { marginBottom: 10, resize: 'vertical', fontFamily: 'inherit' }),
-          })
+          }),
+
+          // Everything else this classification's own typedef defines
+          // (steward, source, confidence score, ...) -- live from Egeria's
+          // ClassificationDef, not hardcoded, so it stays correct as new
+          // classifications are added to the registry. Collapsed by default:
+          // most bulk-classify actions only need the level.
+          extraSchema.length > 0 && el('div', { style: { marginBottom: 10 } },
+            el('button', {
+              type: 'button', onClick: function() { setShowAdvanced(!showAdvanced); }, disabled: submitting,
+              style: { fontSize: 11, color: 'var(--accent)', background: 'transparent', border: 'none',
+                       padding: 0, cursor: submitting ? 'default' : 'pointer', textDecoration: 'underline' },
+            }, showAdvanced ? '▾ Hide advanced properties' : '▸ Show advanced properties (optional)'),
+            showAdvanced && el('div', { style: { marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 } },
+              extraSchema.map(function(p) {
+                var val = extraValues[p.name];
+                function setVal(v) { setExtraValues(function(prev) { var next = Object.assign({}, prev); next[p.name] = v; return next; }); }
+                return el('div', { key: p.name },
+                  el('label', {
+                    style: { fontSize: 11, color: 'var(--dim)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 },
+                    title: p.description || undefined,
+                  },
+                    p.kind === 'boolean' && el('input', {
+                      type: 'checkbox', checked: !!val, disabled: submitting,
+                      onChange: function(e) { setVal(e.target.checked); },
+                    }),
+                    p.name
+                  ),
+                  p.kind !== 'boolean' && el('input', {
+                    type: (p.kind === 'int' || p.kind === 'number') ? 'number' : (p.kind === 'date' ? 'date' : 'text'),
+                    value: val || '', disabled: submitting,
+                    onChange: function(e) { setVal(e.target.value); },
+                    style: inp,
+                  })
+                );
+              })
+            )
+          )
         ),
+
+        !isClear && kind === 'marker' && !levelsLoading && el('div', { style: { fontSize: 12, color: 'var(--dim)', margin: '2px 0 10px' } },
+          'This classification has no additional properties — just apply it.'),
 
         submitError && el('div', { style: { fontSize: 12, color: '#f87171', marginBottom: 8 } }, 'Error: ' + submitError),
 
@@ -1238,11 +1509,11 @@ function ClassificationModal({ items, creds, action, onClose, onDone }) {
                      background: 'transparent', color: 'var(--dim)', cursor: submitting ? 'default' : 'pointer' },
           }, 'Cancel'),
           el('button', {
-            onClick: submit, disabled: (!isClear && level === '') || submitting,
+            onClick: submit, disabled: (!isClear && kind === 'level' && level === '') || submitting,
             style: { fontSize: 12, padding: '6px 14px', borderRadius: 6, border: '1px solid var(--accent)',
-                     background: ((!isClear && level === '') || submitting) ? 'var(--panel)' : 'var(--accent)',
-                     color: ((!isClear && level === '') || submitting) ? 'var(--dim)' : 'var(--bg)',
-                     cursor: ((!isClear && level === '') || submitting) ? 'default' : 'pointer' },
+                     background: ((!isClear && kind === 'level' && level === '') || submitting) ? 'var(--panel)' : 'var(--accent)',
+                     color: ((!isClear && kind === 'level' && level === '') || submitting) ? 'var(--dim)' : 'var(--bg)',
+                     cursor: ((!isClear && kind === 'level' && level === '') || submitting) ? 'default' : 'pointer' },
           }, submitting ? (isClear ? 'Clearing…' : 'Setting…') : (isClear ? 'Clear' : 'Set'))
         )
       ),
@@ -1940,7 +2211,6 @@ var _glsBadge = { display: 'inline-block', fontSize: 10, fontWeight: 600, paddin
 function GlossaryFolderDetail({ folder }) {
   if (!folder) return null;
   var sHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
-  var cardStyle = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 };
   return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 } },
       React.createElement('div', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)', flex: 1 } }, folder.displayName || folder.qualifiedName),
@@ -1953,18 +2223,9 @@ function GlossaryFolderDetail({ folder }) {
       React.createElement('div', { style: sHdr }, 'Properties'),
       React.createElement(GenericPropertiesTable, { item: folder, priority: ['description'] })
     ),
-    (folder.classifications || []).length > 0 && React.createElement('div', null,
-      React.createElement('div', { style: sHdr }, 'Classifications'),
-      folder.classifications.map(function(c) {
-        return React.createElement('div', { key: c.typeName, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--classif)' }) },
-          React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
-          Object.entries(c.properties || {}).map(function(e) {
-            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
-              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
-          })
-        );
-      })
-    ),
+    // Classifications (foldable) + "Copy raw JSON" debug affordance — see
+    // GlossaryTermDetail's identical switch for why (Dan's catch, 2026-08-18).
+    React.createElement(ClassificationsAndRawJson, { item: folder }),
     // A CollectionFolder is a Collection — surface its context/anchored graphs.
     React.createElement(MermaidSection, { guid: folder.guid })
   );
@@ -1973,7 +2234,6 @@ function GlossaryFolderDetail({ folder }) {
 function GlossaryDetail({ glossary }) {
   if (!glossary) return null;
   var sHdr   = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
-  var cardStyle = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 };
   return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 } },
       React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--text)', flex: 1 } }, glossary.displayName || glossary.qualifiedName || glossary.guid),
@@ -1986,18 +2246,9 @@ function GlossaryDetail({ glossary }) {
       React.createElement('div', { style: sHdr }, 'Properties'),
       React.createElement(GenericPropertiesTable, { item: glossary, priority: ['description'] })
     ),
-    (glossary.classifications || []).length > 0 && React.createElement('div', null,
-      React.createElement('div', { style: sHdr }, 'Classifications'),
-      glossary.classifications.map(function(c) {
-        return React.createElement('div', { key: c.typeName, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--classif)' }) },
-          React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
-          Object.entries(c.properties || {}).map(function(e) {
-            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
-              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
-          })
-        );
-      })
-    ),
+    // Classifications (foldable) + "Copy raw JSON" debug affordance — see
+    // GlossaryTermDetail's identical switch for why (Dan's catch, 2026-08-18).
+    React.createElement(ClassificationsAndRawJson, { item: glossary }),
     React.createElement(MermaidSection, { guid: glossary.guid })
   );
 }
@@ -2034,19 +2285,15 @@ function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign, on
       React.createElement('div', { style: sHdr }, 'Properties'),
       React.createElement(GenericPropertiesTable, { item: term, skip: ['description', 'folders', 'isTemplateSubstitute', 'isSourcedFromTemplate'], renderValue: function(key, val) { return renderMd(val); } })
     ),
-    (term.classifications || []).length > 0 && React.createElement('div', null,
-      React.createElement('div', { style: sHdr }, 'Classifications'),
-      term.classifications.map(function(c) {
-        var cardStyle = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 };
-        return React.createElement('div', { key: c.typeName, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--classif)' }) },
-          React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
-          Object.entries(c.properties || {}).map(function(e) {
-            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
-              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
-          })
-        );
-      })
-    ),
+    // Classifications (foldable) + "Copy raw JSON" debug affordance — was a
+    // hand-rolled always-open block here; switched to the shared component
+    // both to pick up RawJsonViewer (missing from Glossary entirely until
+    // now, Dan's catch 2026-08-18 — BACKLOG.md already flagged this as a
+    // known gap since the 2026-07-22 rollout) and because it reads straight
+    // from MetadataExpert for the raw copy, which is how PrimeWord/ClassWord/
+    // Modifier classifications actually became visible to debug at all (see
+    // glossary_handler.py's _merge_classifications_from_metadata_expert).
+    React.createElement(ClassificationsAndRawJson, { item: term }),
     React.createElement('div', { style: { marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' } },
       React.createElement('div', { style: sHdr }, 'Assigned Elements'),
       React.createElement(AssignedElementsSection, { termGuid: term.guid, onNavigateToElement: onNavigateToElement, isElementLinkable: isElementLinkable })

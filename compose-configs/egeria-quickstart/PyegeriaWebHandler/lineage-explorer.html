@@ -484,7 +484,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      useResizable definitions safely take precedence over the shared file's
      same-named ones (later plain `function` declarations overwrite earlier
      ones in the same global scope). -->
-<script src="/static/egeria-shared-ui.js?v=2026-08-16c"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-08-18c"></script>
 
 </head>
 <body>
@@ -867,10 +867,8 @@ function LinkedAssetsTable({ assets, onSetFocus, creds }) {
     React.createElement(BulkActionBar, {
       count: selection.count, onClear: selection.clear,
       actions: [
-        { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-        { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-        { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-        { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+        { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+        { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
       ],
     }),
     modalAction && React.createElement(AddToCollectionModal, {

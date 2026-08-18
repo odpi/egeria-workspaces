@@ -585,7 +585,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 <!-- Bump ?v= whenever egeria-shared-ui.js changes — /static is served with
      Cache-Control: no-cache, but a fresh URL guarantees revalidation for
      browsers that cached the file before that header existed. -->
-<script src="/static/egeria-shared-ui.js?v=2026-08-16c"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-08-18c"></script>
 
 <script>
 'use strict';
@@ -1593,10 +1593,8 @@ function GovernanceSearch({ creds, focusZone, focusType, focusRel, focusBrowse, 
         resState === 'ready'   && el(BulkActionBar, {
           count: selection.count, onClear: selection.clear,
           actions: [
-            { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setModalAction('add'); } },
-            { id: 'remove-from-collection', label: 'Remove from Collection…', onClick: function() { setModalAction('remove'); } },
-            { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-            { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+            { id: 'collection', label: 'Collection…', onClick: function() { setModalAction('add'); } },
+            { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
           ],
         }),
         resState === 'ready'   && el(SearchResults, { results: results, selection: selection })
