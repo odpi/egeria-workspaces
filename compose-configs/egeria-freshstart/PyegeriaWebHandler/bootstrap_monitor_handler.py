@@ -42,18 +42,19 @@ from loguru import logger
 router = APIRouter(prefix="/api/bootstrap", tags=["bootstrap-monitor"])
 
 # ── Bootstrap family registry ────────────────────────────────────────────────
-# Empty now -- the two families this used to hardcode (local-dashboards,
-# overview-governance-metrics) were migrated to _batch.json manifests
-# (see bootstrap_batches.py's _EXTRA_BATCH_ROOTS for the latter, which lives
-# alongside the handler code rather than under dr-egeria-inbox) with
-# "defaultEnabled": true, so they keep auto-healing out of the box via
-# _dynamic_families() below with no seed file needed, while also being
-# visible/toggleable in the admin panel's Data Initialization tab.
+# canary: (metadataElementTypeName, exact displayName) -- a cheap bounded
+# point lookup; its presence/absence is the reset signal for this family.
+# docs: absolute container paths, run in order with `dr_egeria --process`.
 #
-# The dr-egeria help Glossary is deliberately NOT a family here yet -- its
-# generated help doc is a NEW timestamped file every `refresh_specs` run
-# (see the dr-egeria-command-sync skill), so there's no single canonical
-# checked-in file to re-run automatically today. Revisit once one exists.
+# Empty here (unlike quickstart's copy of this file): the two families
+# quickstart hardcodes (local-dashboards, overview-governance-metrics) are
+# quickstart-specific seed data -- freshstart's exchange-freshstart tree has
+# neither "Local Dashboards/" nor OVERVIEW_GOVERNANCE_METRICS.dr-egeria.md,
+# so registering them here would just spam "doc missing, skipping" warnings
+# and re-attempt a doomed heal every check cycle forever. Freshstart's
+# auto-heal coverage comes entirely from _dynamic_families() below --
+# whatever an admin enables in the Data Initialization panel with a canary
+# declared in its folder's _batch.json.
 BOOTSTRAP_FAMILIES = []
 
 _CHECK_INTERVAL = int(os.environ.get("BOOTSTRAP_CHECK_INTERVAL_SECONDS", "600"))  # 10 min

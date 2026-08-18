@@ -285,6 +285,8 @@ from governance_metrics_handler import router as governance_metrics_router
 app.include_router(governance_metrics_router)
 from bootstrap_monitor_handler import router as bootstrap_monitor_router
 app.include_router(bootstrap_monitor_router)
+from bootstrap_admin_handler import router as bootstrap_admin_router
+app.include_router(bootstrap_admin_router)
 from operations_handler import router as operations_router
 app.include_router(operations_router)
 from lineage_handler import router as lineage_router
