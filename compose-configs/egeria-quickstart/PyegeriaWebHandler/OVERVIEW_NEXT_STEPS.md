@@ -600,7 +600,10 @@ suggestion — with real `Collection` membership covering the two real
 artifacts (Report, GovernanceMetric) and its `Description` carrying the
 full conceptual chain as text (the ISC's own `Purposes` attribute turned
 out to be silently dropped by the processor — `PYEGERIA_ISSUES.md`
-ISSUE-62, `BACKLOG.md` PY-23 — worked around with `Description` instead).
+ISSUE-64 (originally logged here as ISSUE-62, renumbered when a
+concurrent peer session's own ISSUE-62 landed first), `BACKLOG.md` PY-23
+— **fixed upstream 2026-08-18** per that peer session, not yet released
+to PyPI; worked around here with `Description` instead in the meantime).
 
 All 17 metrics' Reports/GovernanceMetrics/Links/InformationSupplyChains
 regenerated and reprocessed from scratch via the new checked-in
