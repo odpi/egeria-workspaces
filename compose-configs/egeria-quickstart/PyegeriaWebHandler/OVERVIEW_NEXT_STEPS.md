@@ -638,3 +638,76 @@ to it correctly.
   live against guid `4f3cbc58-ab24-4b3b-bc61-c1c6b6dafc72`). Fully closed.
 - Where the global as-of / compare controls live vs. the per-chart window control.
 - Whether the time-window control also re-times the KPI deltas (recommended: yes).
+
+## Portal-wide bootstrap monitor — reset detection + auto-heal, done 2026-08-18
+
+Raised 2026-08-17 after Dan redeployed and reset the Egeria database: the
+Dr.Egeria-created reference data every portal feature depends on (Local
+Dashboards' worked examples, the Governance Metrics rollout, ...) has no
+way to know it's gone missing, so pages that resolve those elements by
+name/qualifiedName silently show "Unresolved reference"/empty states with
+no explanation. Confirmed live the obvious detection idea doesn't work:
+`homeMetadataCollectionId` (every element's `origin`) does **not** change
+across a reset — it's stable per server config, not per repository
+instance.
+
+**What actually detects a reset**: a per-family "canary" element — one
+well-known `(type, displayName)` pair whose absence means that family's
+bootstrap docs need re-running. Every doc re-run is upsert-safe, so this is
+always the correct fix, never a duplication risk.
+
+**Design confirmed with Dan**: auto-heal fully automatically (no click),
+but show a small "Reinitializing Portal" banner while it's happening so
+users understand why data might be briefly missing or slow — and check
+periodically while the process runs, not just at startup, since a reset
+can happen without the web app container restarting (only the Egeria
+database container being reset).
+
+**Built**: `bootstrap_monitor_handler.py` — mirrors `advisor_lock_handler.py`/
+`demo_reset_handler.py`'s own `start_scheduler()`/`stop_scheduler()`
+background-task shape (same `asyncio.Lock` + module-level state pattern),
+wired into `pyegeria_handler.py`'s existing `_lifespan`. Two families
+registered today: `local-dashboards` (canary: the `Local Dashboards - Next
+Steps` `WorkItemList`; heals by re-running all 5 checked-in Local
+Dashboards `.dr-egeria.md` docs in dependency order) and
+`overview-governance-metrics` (canary: the `Orphan Glossary Terms`
+`GovernanceMetric`; heals via `OVERVIEW_GOVERNANCE_METRICS.dr-egeria.md`).
+Healing shells out to the real `dr_egeria --process <doc>` CLI via
+`asyncio.create_subprocess_exec` (inherits the process's own
+`EGERIA_USER`/`EGERIA_PLATFORM_URL`/etc. env vars — no extra credential
+wiring needed). `GET /api/bootstrap/status` exposes the current state for
+the frontend. Checks run once at startup and then every 10 minutes
+(`BOOTSTRAP_CHECK_INTERVAL_SECONDS`, overridable).
+
+**Frontend**: `static/bootstrap-banner.js` — deliberately framework-free
+(plain DOM, not React) since not every SPA loads React or
+`egeria-shared-ui.js`; polls `/api/bootstrap/status` every 4s and
+shows/hides a fixed-position amber banner. Added via a single `<script>`
+tag to every page in the portal: `egeria-overview.html`,
+`local-dashboards.html`, `governance-metrics.html`, `demo-portal.html`,
+`tech-catalog.html`, `type-explorer.html`, `egeria-audit.html`,
+`egeria-operations.html`, `egeria-insights.html`, `lineage-explorer.html`.
+
+**Deliberately not covered yet**: the dr-egeria help Glossary — its
+generated help doc is a new timestamped file every `refresh_specs` run, so
+there's no single canonical checked-in file to auto-heal from today (see
+the module's own docstring). Revisit once one exists.
+
+**Verified live end-to-end**, not just code-reviewed: soft-deleted the
+`Orphan Glossary Terms` `GovernanceMetric` directly, manually invoked
+`check_and_heal_all()` — it correctly detected the missing canary, ran
+`dr_egeria --process OVERVIEW_GOVERNANCE_METRICS.dr-egeria.md`
+(~27s), and the element was confirmed live again via
+`/api/governance-metrics` afterward. Startup check against the real
+(healthy) repository correctly found both canaries present and did
+nothing (no false-positive heal).
+
+**Also caught and fixed a real regression while doing this work**:
+`egeria-overview.html` had been reverted on disk to a pre-session state
+(the Fully/Partial/Ungoverned, Attention Queue, and Data Quality Coverage
+wiring from earlier today was gone, replaced by old hardcoded sample
+values) — and the running container was already serving that reverted
+version live. Restored from git `HEAD` and redeployed; root cause not
+investigated further (likely a stray checkout/merge from a concurrent
+session touching the same working tree — Dan's call to move on rather than
+dig in).

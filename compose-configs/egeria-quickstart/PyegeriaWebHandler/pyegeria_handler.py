@@ -80,9 +80,11 @@ async def _lifespan(app: FastAPI):
     from obsidian_lock_handler import start_scheduler as obs_start, stop_scheduler as obs_stop
     from jupyter_lock_handler import start_scheduler as jup_start, stop_scheduler as jup_stop
     from advisor_lock_handler import start_scheduler as adv_start, stop_scheduler as adv_stop
+    from bootstrap_monitor_handler import start_scheduler as boot_start, stop_scheduler as boot_stop
     await obs_start()
     await jup_start()
     await adv_start()
+    await boot_start()
     if DEMO_MODE:
         from demo_reset_handler import start_scheduler, stop_scheduler
         await start_scheduler()
@@ -90,6 +92,7 @@ async def _lifespan(app: FastAPI):
     if DEMO_MODE:
         from demo_reset_handler import stop_scheduler
         await stop_scheduler()
+    await boot_stop()
     await adv_stop()
     await jup_stop()
     await obs_stop()
@@ -280,6 +283,8 @@ from local_dashboards_handler import router as local_dashboards_router
 app.include_router(local_dashboards_router)
 from governance_metrics_handler import router as governance_metrics_router
 app.include_router(governance_metrics_router)
+from bootstrap_monitor_handler import router as bootstrap_monitor_router
+app.include_router(bootstrap_monitor_router)
 from operations_handler import router as operations_router
 app.include_router(operations_router)
 from lineage_handler import router as lineage_router
