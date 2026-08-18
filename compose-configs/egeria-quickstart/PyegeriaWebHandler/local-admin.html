@@ -167,6 +167,22 @@
     </div>
   </section>
 
+  <!-- ── Data Initialization ─────────────────────────────────────────── -->
+  <section>
+    <div class="section-hdr">
+      <h2>Data Initialization</h2>
+      <button class="btn-xs" onclick="loadBatches()">↻ Refresh</button>
+    </div>
+    <p class="note" style="margin-top:-0.5rem;margin-bottom:0.9rem">
+      Folders of Dr.Egeria documents discovered under <code>dr-egeria-inbox</code>. Enable a folder
+      to include it when the Portal reinitializes after Egeria is wiped (a folder with a canary
+      element is auto-healed; without one it only runs when triggered here). Drop a new folder in
+      to add a batch — no code change needed. Add a <code>_batch.json</code> to a folder for a
+      friendlier name/description or an explicit file order.
+    </p>
+    <div id="batchList"><div class="card empty">Loading…</div></div>
+  </section>
+
   <!-- ── User Feedback ────────────────────────────────────────────── -->
   <section>
     <div class="section-hdr">
@@ -416,6 +432,95 @@
     }).then(function() { loadFeedback(); }).catch(function(e) { showBanner('error', 'Triage failed: ' + e); });
   }
 
+  // ── Data Initialization (bootstrap batches) ─────────────────────────
+  var _batches = [];
+
+  function loadBatches() {
+    fetch('/api/bootstrap/batches').then(function(r) { return r.json(); })
+      .then(function(d) { _batches = d.batches || []; renderBatches(); })
+      .catch(function() {
+        document.getElementById('batchList').innerHTML = '<div class="card empty">Failed to load batches</div>';
+      });
+  }
+
+  function renderBatches() {
+    var el = document.getElementById('batchList');
+    if (!_batches.length) {
+      el.innerHTML = '<div class="card empty">No dr-egeria-inbox folders found</div>';
+      return;
+    }
+    el.innerHTML = _batches.map(function(b, bi) {
+      var canaryBadge = b.canary
+        ? '<span class="badge badge-action" title="Auto-healed on reset">auto-heal</span>'
+        : '<span class="badge badge-note" title="No canary declared — manual run only">manual only</span>';
+      var files = b.files.map(function(f, fi) {
+        return '<label style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;padding:0.15rem 0">' +
+          '<input type="checkbox"' + (f.enabled ? ' checked' : '') +
+          ' onchange="toggleFile(' + bi + ',' + fi + ',this.checked)"> ' + esc(f.name) +
+          '</label>';
+      }).join('');
+      return '<div class="card" style="margin-bottom:0.75rem">' +
+        '<div style="display:flex;align-items:center;gap:0.6rem;justify-content:space-between">' +
+          '<label style="display:flex;align-items:center;gap:0.6rem;font-weight:600;font-size:0.88rem">' +
+            '<input type="checkbox"' + (b.enabled ? ' checked' : '') +
+            ' onchange="toggleBatch(' + bi + ',this.checked)"> ' + esc(b.displayName) +
+          '</label>' +
+          '<span style="display:flex;align-items:center;gap:0.5rem">' + canaryBadge +
+            '<button class="btn-xs" onclick="runBatch(' + bi + ')">▶ Run Now</button></span>' +
+        '</div>' +
+        (b.description ? '<p class="note" style="margin-top:0.3rem">' + esc(b.description) + '</p>' : '') +
+        '<div style="margin-top:0.5rem;padding-left:1.6rem">' + files + '</div>' +
+        '<div id="batchResult-' + bi + '" class="note" style="display:none"></div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function _currentSelection() {
+    var selection = {};
+    _batches.forEach(function(b) {
+      var files = {};
+      b.files.forEach(function(f) { files[f.name] = f.enabled; });
+      selection[b.id] = { enabled: b.enabled, files: files };
+    });
+    return selection;
+  }
+
+  function _saveSelection() {
+    fetch('/api/bootstrap/batches/selection', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ selection: _currentSelection() })
+    }).then(function(r) { if (!r.ok) throw new Error('save failed'); })
+      .catch(function() { showBanner('error', 'Failed to save batch selection'); });
+  }
+
+  function toggleBatch(bi, checked) {
+    _batches[bi].enabled = checked;
+    _saveSelection();
+  }
+
+  function toggleFile(bi, fi, checked) {
+    _batches[bi].files[fi].enabled = checked;
+    _saveSelection();
+  }
+
+  function runBatch(bi) {
+    var b = _batches[bi];
+    var resultEl = document.getElementById('batchResult-' + bi);
+    resultEl.style.display = 'block';
+    resultEl.textContent = 'Running…';
+    fetch('/api/bootstrap/batches/' + encodeURIComponent(b.id) + '/run', { method: 'POST' })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (!d.results) { resultEl.textContent = d.detail || 'Run failed'; return; }
+        var ok = d.results.filter(function(r) { return r.status === 'ok'; }).length;
+        resultEl.innerHTML = (d.success ? '<span style="color:var(--success)">✓</span> ' : '<span style="color:var(--error)">✗</span> ') +
+          ok + '/' + d.results.length + ' files ran clean' +
+          (d.success ? '' : ' — ' + d.results.filter(function(r) { return r.status !== 'ok'; })
+            .map(function(r) { return esc(r.file) + ': ' + esc((r.message || '').slice(0, 200)); }).join('; '));
+        showBanner(d.success ? 'success' : 'error', d.success ? b.displayName + ' ran successfully' : b.displayName + ' had failures — see details below');
+      }).catch(function() { resultEl.textContent = 'Run request failed'; });
+  }
+
   // ── Resizable columns ─────────────────────────────────────────────
   function makeResizable(tableId, colWidths) {
     var table = document.getElementById(tableId);
@@ -442,6 +547,7 @@
   // ── Init ───────────────────────────────────────────────────────────
   loadLock();
   loadFeedback();
+  loadBatches();
   // Date/Time, Email, Page, Comment, Rating, Category, Wants Response?, Status, (triage)
   makeResizable('fbTable', ['110px','150px','130px','260px','55px','80px','100px','75px','90px']);
 </script>

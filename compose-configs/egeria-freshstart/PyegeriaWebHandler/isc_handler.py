@@ -245,19 +245,26 @@ def get_isc(
     user_pwd: Optional[str] = Query(None),
 ):
     try:
-        exp = _get_classifier(url, server, user_id, user_pwd)
+        mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
-        logger.exception("Failed to create ClassificationExplorer for ISC detail")
+        logger.exception("Failed to create SolutionArchitect manager for ISC detail")
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
-        element = exp.get_element_by_guid(
+        # Use SolutionArchitect's native get, not ClassificationExplorer's generic
+        # get_element_by_guid ("metadata expert") -- the generic get doesn't run
+        # the type-specific mermaid-graph generation, so it never populates
+        # informationSupplyChainMermaidGraph/edgeMermaidGraph/etc. The native
+        # get_info_supply_chain_by_guid does, matching find_information_supply_chains
+        # above (see list_isc). Same fix applied to solution blueprints/components.
+        element = mgr.get_info_supply_chain_by_guid(
             guid, output_format="JSON",
+            add_implementation=True,
             graph_query_depth=_ISC_GRAPH_QUERY_DEPTH,
             max_mermaid_node_count=_ISC_MAX_MERMAID_NODES,
         )
     except Exception as exc:
-        logger.exception(f"get_element_by_guid failed for ISC {guid}")
+        logger.exception(f"get_info_supply_chain_by_guid failed for ISC {guid}")
         raise HTTPException(status_code=500, detail=f"ISC detail retrieval failed: {exc}")
 
     if not isinstance(element, dict):
@@ -266,9 +273,14 @@ def get_isc(
     serialized = _serialize_isc(element)
 
     # Resolve the owner's display name + supertypes so the detail can cross-link it.
+    # The owner can be any element type (not necessarily an ISC), so the generic
+    # ClassificationExplorer get is the right tool here -- unlike the ISC element
+    # itself above, which needs SolutionArchitect's type-specific get for its
+    # mermaid graphs.
     owner = serialized.get("owner")
     if owner and owner.get("guid"):
         try:
+            exp = _get_classifier(url, server, user_id, user_pwd)
             owner_el = exp.get_element_by_guid(owner["guid"], output_format="JSON")
             if isinstance(owner_el, dict):
                 op = owner_el.get("properties") or {}
