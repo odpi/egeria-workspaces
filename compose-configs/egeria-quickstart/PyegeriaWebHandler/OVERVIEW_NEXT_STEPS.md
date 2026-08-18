@@ -14,9 +14,9 @@ Handoff / pick-up-later notes for the `/egeria-overview` dashboard. Companion to
   blueprints), AI grounding, and the **Growth series via `asOfTime`**.
 - KPI **sparklines are real** for metrics with history (assets/terms/governed/
   products) with a time reference; others show no sparkline (honest).
-- Still ⚪ sample (labeled): Business Value lens numbers, confidentiality/zone
-  bars, attention queue, DQ coverage, karma/feedback/leaderboard/engagement,
-  activity feed, AI funnel documented/lineage/aiReady, usage % contextualised.
+- Still ⚪ sample (labeled): confidentiality distribution, confidential-assets-
+  in-open-zones, data-stores-never-surveyed / has-schema-captured / surveyed /
+  has-quality-annotations, most-engaged assets, activity feed.
 
 ## The big opportunity: Egeria's two temporal axes
 
@@ -107,8 +107,9 @@ methods.
    distributions directly.
 2. **Participation / traversal counts** — "assets reachable from ≥1 ISC or
    blueprint," "assets with lineage relationships" — as count queries. Would unlock
-   the deferred funnel stages (documented/lineage/AI-ready) and usage
-   **% contextualised** without client-side graph walks.
+   the deferred funnel stages (documented/lineage/AI-ready). Usage
+   **% contextualised** turned out not to need this — see below, resolved
+   2026-08-17 via a relationship-based proxy instead of the literal traversal.
 
 ## Done since first draft
 
@@ -302,19 +303,318 @@ thing to hand-maintain.
 
 ## Remaining app wiring (independent of the API work)
 
-- **Data products** publication status + ratings (currently just a count).
-- **AI funnel** documented / lineage-traced / AI-Ready stages (needs traversal or
-  the count API above).
-- **Usage % contextualised** (traversal / count API).
-- **People**: karma (ContributionRecord) + feedback rollups (comments/ratings/
-  likes/tags) via Collaboration OMAS — the leaderboard/engagement/most-engaged
-  widgets. Karma is often sparse in demo data → also compute an engagement score
-  from feedback volume as a fallback.
-- **Business Value lens** numbers, confidentiality/zone bars, attention queue, DQ
-  coverage, activity feed → wire from their sources.
+- **Data products — ✅ done 2026-08-17.** Active-vs-pending breakdown via a new
+  `count_elements_by_property(mgr, type_name, property_name, property_value,
+  as_of)` helper (pyegeria `overview_metrics.py`) counting `deploymentStatus ==
+  ACTIVE` vs everything else (2 cheap native COUNT calls, same cost class as the
+  flat count it replaces). Ratings reuses the existing `count_relationships(ce,
+  "AttachedRating", as_of)` call the People tile already makes independently —
+  system-wide, not scoped to products (Egeria's relationship count can't filter
+  by one end's type without a graph traversal), shown only when non-zero.
+  Verified live: `dataProducts=6, dataProductsActive=2, dataProductsPending=4,
+  dataProductsRatings=0`.
+- **AI funnel — ✅ already done, dated 2026-08-01 (this bullet was stale).**
+  `context_readiness_funnel`/`ai_ready_assets` (pyegeria `overview_metrics.py`)
+  already compute all five stages (cataloged → documented → classified →
+  lineage-traced → AI-ready) and the frontend funnel bar chart + Vega-Lite
+  chart were already wired end-to-end — this bullet and the "Still ⚪ sample"
+  line above both just predated that work. While re-verifying this live
+  2026-08-17 (after a quickstart Egeria redeploy) found and fixed a real
+  regression instead: `ClassificationExplorer.get_relationships`'s hardcoded
+  `page_size=5000` now exceeds Egeria's new 1000-record max
+  (`OMAG-COMMON-400-010`), so `lineage`/`aiReady`/every relationship-count-based
+  metric (including Data Products' ratings above) was silently returning
+  None/0-that-looked-intentional instead of erroring. Fixed to use the
+  existing `DEFAULT_CAP` (500) at all three call sites; `insights_handler.py`
+  and pyegeria's own `test_overview_asof.py` had the same literal, also
+  fixed. Then made genuinely systemic: `max_paging_size` (pyegeria's
+  underlying default) was itself a bare hardcoded constant disconnected from
+  the `.env`/config.json settings system — now env-configurable
+  (`EGERIA_MAX_PAGE_SIZE`), so a future server-side limit change is a config
+  edit, not another repo-wide grep.
+- **Usage % contextualised — ✅ done 2026-08-17.** Looked traversal-blocked
+  (no native "assets reachable from an ISC/blueprint" count exists), but a
+  single relationship type gets there cheaply instead: `ImplementedBy`
+  (model 0737, Solution Implementation) links a SolutionComponent to its
+  concrete implementation. One bounded fetch of all `ImplementedBy`
+  relationships, filtered to Asset-subtype ends, distinct-GUID count = the
+  numerator (`contextualised_coverage()` in pyegeria's
+  `overview_metrics.py`). Confirmed live: 31 of 384 Assets = 8.1%. This is a
+  **proxy**, not the literal metric — confirms an asset was given *some*
+  solution-design context via ImplementedBy, not that its specific
+  SolutionComponent is itself wired into an ISC/blueprint (that would need a
+  second composition-relationship hop) — same single-hop tradeoff every
+  other proxy metric in this file already makes (e.g. `lineage` counting
+  DataFlow relationships, not confirming each sits on a path Egeria would
+  call "lineage" in the strict sense). Documented as such in the function's
+  own docstring and the frontend's tile caption.
+- **People karma leaderboard + engagement over time — ✅ done 2026-08-17.**
+  Leaderboard: `karma_leaderboard()` (pyegeria `overview_metrics.py`) — one
+  bounded find over `ContributionRecord` elements (karma is a scalar
+  `karmaPoints` property, not something derived from counting related
+  things), filtered to `Person`-anchored records via the standard `Anchors`
+  classification already carried on each element (no relationship traversal,
+  no per-person loop), sorted desc, top 10. Engagement: `engagement_series()`
+  reuses the same 5 feedback-relationship-type queries `feedback_summary()`
+  already makes, keeping each relationship's `relationshipHeader.versions.
+  createTime` instead of just the count, bucketed into ISO weeks (zero-filled
+  across the trailing 12wk window, not omitted). Rendered via
+  `generate_vega_line_chart`, same pattern as the Growth chart. Verified
+  live: leaderboard = [Erin Overview 1260 pts, Peter Profile 210 pts];
+  engagement series correctly zero-filled 11 weeks with the real 7 noteLog
+  events landing in the current week (2026-W34). "Most-engaged assets" (a
+  separate, per-asset rollup) remains unwired.
+- **Governed vs Ungoverned 3-bucket split + Elements by Governance Zone — ✅
+  done 2026-08-17.** `governed_coverage()` already fetched the full `hits`
+  list for `byClassification`/`topZones`; extended it to also bucket each
+  hit by which classifications it carries, at no extra query cost:
+  "Fully governed" = carries ≥1 substantive governance classification
+  (Confidentiality/Criticality/Impact/Retention); "Partial (zone only)" =
+  carries `ZoneMembership` and nothing else from the governance set.
+  Ungoverned is derived on the frontend the same way the donut % badge
+  already was (`assetTotal - fully - partial`), not a separate query. Also
+  found and fixed a real bug while here: "Elements by Governance Zone" was
+  marked `status: 'live'` in the registry, but `topZones` was never actually
+  read by any frontend code — the `byZone` bar chart was still the static
+  sample array from page load. Wired it for real. Removed a fabricated
+  "24 ungoverned assets are also flagged Confidential" line from the donut
+  panel — no query computes that intersection, it was never anything but a
+  sample number. Verified live: fullyGoverned=2, partialZoneOnly=48,
+  assetTotal=388 (ungoverned=338); topZones led by digital-products (34).
+  **Confidentiality Distribution** (the `byConf` panel, still illustrative)
+  investigated but not wired: the per-level property is real
+  (`confidentialityLevel`, an int ordinal on the `Confidentiality`
+  classification — confirmed live), but only 2 elements in the whole
+  dataset carry the classification at all (one of those two has no
+  properties set), too sparse to be a meaningful distribution chart today;
+  revisit once more governance-classified demo data exists.
+- **Business Value lens — ✅ already done, dated 2026-08-02 (this bullet was
+  stale).** Risk & Compliance / Productivity / Trust & Adoption / Cost
+  Avoidance are all `status: 'live'` in the registry already, backed by
+  `business_value_signals()` + the existing `dataProducts` count — same
+  "bullet predated the work" pattern as the AI funnel finding above.
+- **Attention Queue + Data Quality Coverage — ✅ 3 of 5 / 2 of 5 rows done
+  2026-08-17.** Investigated all remaining panels in one pass (see chat/
+  session log for the full per-row feasibility table) and wired the cheap
+  wins: `orphan_glossary_terms()` (new pyegeria function — one bounded
+  `SemanticAssignment` relationship fetch, distinct GlossaryTerm-end GUIDs
+  = referenced, orphan = total - referenced) and `stale_assets()` (new
+  pyegeria function — one bounded `Asset` element fetch, each element's own
+  `_update_time()` vs a 180d cutoff, no traversal). "Certifications expiring
+  ≤90d" and "Has assigned owner"/"Has description" needed **no new pyegeria
+  code at all** — `certifications_summary`/`ownership_coverage`/
+  `business_value_signals` already computed them for other panels, just
+  weren't also wired into this one. Verified live: orphanTermCount=398 of
+  407 terms (97.8% of the glossary has never been semantically assigned to
+  anything), staleAssetCount=25 of 400 assets, certExpiring90=0,
+  ownershipPct=1.8%, descriptions on 245/332 assets. Status registry split
+  from 3 panel-level entries into 11 per-row entries (`quality` section) —
+  the panels are genuinely mixed now, not uniformly live or sample.
+  Remaining ⚪: "Confidential assets in open zones" (too sparse, see
+  Confidentiality Distribution finding above), "Data stores never surveyed"
+  and "Has schema captured"/"Surveyed"/"Has quality annotations" (need a
+  2-hop DataStore→SurveyReport→Annotation traversal or a SchemaType
+  traversal — not investigated in depth, real annotation data exists but is
+  sparse: only 3 `ReportedAnnotation` relationships live today).
 - **Perspective Question library**: persist the `PERSPECTIVES[*].questions` JS
   drafts as real `Question` (GlossaryTerm + `IsQuestion`) Dr.Egeria terms per
   perspective, each mapped to a report spec + tile.
+
+## Design question raised 2026-08-17: how should Egeria itself describe these metrics?
+
+Dan's own framing, worth capturing verbatim rather than losing it in chat:
+this dashboard now has ~25 live metric functions in `overview_metrics.py`,
+each with its own docstring explaining what it *really* measures (proxy vs.
+literal, population scope, caveats) — but that knowledge lives only in
+Python comments and frontend HTML captions. As the metric count keeps
+growing, two related questions need a real design pass rather than being
+answered ad hoc per-metric the way R-5 below started to:
+
+1. **How does Egeria itself describe a calculation like this?** Not just
+   the GlossaryTerm-per-metric governance layer R-5 already designs (name/
+   summary/usage as structured metadata instead of a Python docstring) —
+   whether the *computation itself* (which relationship type, which
+   classification property, which population, ANY vs ALL, single-hop-proxy
+   caveats) should be expressible as first-class Egeria metadata at all, or
+   whether a docstring + GlossaryTerm pairing is the right permanent shape.
+2. **Should these calculations be exposed as Governance Actions** (or a
+   similar first-class Egeria construct) rather than living purely as
+   Python functions a FastAPI route calls? That would make a metric
+   independently triggerable/schedulable/auditable through Egeria's own
+   governance-action framework instead of only ever running inline inside
+   an HTTP request — potentially relevant for anything that currently has to
+   stay a cheap single-bounded-fetch proxy (like `orphan_glossary_terms`
+   above) specifically *because* it runs synchronously in a request/response
+   cycle; a governance-action-triggered batch computation wouldn't have that
+   constraint and could afford a real traversal.
+
+**Design landed 2026-08-17, pilot run live** — see Dan's own two-part
+response and the resulting investigation:
+
+1. **`GovernanceMetric` (model 0450) is a strong fit for the definition
+   side, largely without new schema.** It extends `GovernanceControl` →
+   `GovernanceDefinition`, which already carries `summary`/`scope`/`usage`/
+   `domainIdentifier`/`implementationDescription` plus its own `measurement`/
+   `target`. `usage` is literally the slot R-5 below already planned to use
+   for caveats — good confirmation R-5 picked the right field before this
+   design pass existed. `GovernanceExpectations`/`GovernanceMeasurements`
+   classifications were considered and set aside for now — both are
+   per-resource constructs (a value classified onto one Asset), not a fit
+   for catalog-wide aggregates like these.
+2. **`report_specs` (not Governance Actions) is the implementation
+   mechanism** — Dan's call, with a heads-up that FormatSet/report_specs are
+   themselves being migrated toward standard Egeria types over time, which
+   is part of why he's separately exploring letting Egeria define the
+   Python functions callable inline (a further-out concern than this pilot).
+   `GovernanceResults` (Metric → DataSet, "used to gather measurements from
+   the landscape") already exists in the model, and `Report`
+   (`Report → DataSet → Asset → Referenceable`) is already a DataSet
+   subtype — so `GovernanceMetric --[GovernanceResults]--> Report` needs
+   **no new relationship type**. Governance Actions remain a good fit later
+   specifically as a second *execution mode* for the metrics too expensive
+   to run synchronously in a request (the survey/schema-traversal DQ rows
+   left illustrative above) — not a replacement for report_specs as the
+   definition mechanism.
+
+**Pilot run live, 2026-08-17, on `orphan_glossary_terms`:**
+- Registered all 6 of this session's new `overview_metrics.py` functions
+  (`count_elements_by_property`, `contextualised_coverage`,
+  `karma_leaderboard`, `engagement_series`, `orphan_glossary_terms`,
+  `stale_assets`) into `analytic_registry.py`'s `_BUILTINS` + one demo
+  `FormatSet` each in `analytic_demo_specs.py` — the registry's own
+  docstring claimed to cover "every analytic function that already exists,"
+  which was stale; 23/23 parity restored between the two registries.
+  Verified live via `/api/analytics` (23 functions) and `/api/report-specs`
+  (348 specs, all 6 new demo specs present).
+- Created a real `Report` element (`Create Report`, Report Spec: `Analytic
+  Demo - Orphan Glossary Terms`, Output Format: DICT) and a real
+  `GovernanceMetric` element (`Create Governance Metric`, `Summary`/
+  `Scope`/`Usage`/`Implementation Description`/`Measurement`/`Target` all
+  populated with the real prose from `orphan_glossary_terms`'s own
+  docstring) via Dr.Egeria — both commands already existed, no new command
+  needed for element creation.
+- Linked them via `GovernanceResults`, using
+  `GovernanceOfficer._async_link_governance_results` directly (raw pyegeria
+  call, not a Dr.Egeria command — see the gap below).
+- **Verified the full chain resolves purely from Egeria metadata**:
+  `mgr.get_all_related_elements(<GovernanceMetric guid>)` returns the
+  `GovernanceResults` relationship pointing at "Orphan Glossary Terms
+  Metric Report"; that Report's `additionalProperties.reportSpec` names
+  the FormatSet; executing the FormatSet via
+  `POST /api/report-specs/execute` returns the real live numbers:
+  `{"termTotal": 407, "referencedCount": 9, "orphanCount": 398}`.
+
+**Real gap found, logged as `egeria-python` `PYEGERIA_ISSUES.md` ISSUE-61**:
+no Dr.Egeria command exists for the `GovernanceResults` link — but it's not
+an SDK gap, `link_governance_results`/`_async_link_governance_results` (and
+the unlink twin) already exist in `governance_officer.py`, just never wired
+to a compact-spec command. Per Dan: trivial for him to add once given an
+issue number — logged, not yet added.
+
+**`Link Governance Results` command shipped 2026-08-17** (Dan, via the
+Dr.Egeria Spec Editor's REST API — `egeria-python` ISSUE-61 closed) and
+published in `pyegeria` 6.0.18.2. `requirements.txt` bumped to
+`>=6.0.18.2` in both envs (was `>=6.0.17.8`) — this release also carries
+everything this session live-patched in by hand (`karma_leaderboard`,
+`engagement_series`, `orphan_glossary_terms`, `stale_assets`,
+`contextualised_coverage`, `count_elements_by_property`, all 23
+`analytic_registry.py` entries), so a fresh container rebuild no longer
+needs any of the manual `docker cp`/`site-packages` live-patch steps this
+session relied on throughout. Re-verified live end to end after
+installing 6.0.18.2 into `quickstart-pyegeria-web`: detached the pilot's
+original raw-API-created `GovernanceResults` link, re-created it through
+the real `Link Governance Results` Dr.Egeria command
+(`Governance Metric: Orphan Glossary Terms` / `Data Asset: Orphan Glossary
+Terms Metric Report`), confirmed the relationship still resolves via
+`mgr.get_all_related_elements()` afterward. Hit the known
+`deleteRelationshipInStore` default-`deleteMethod` bug while detaching
+(worked around with an explicit `SOFT_DELETE` body) — not new, already
+documented elsewhere in this session's history.
+
+**Rolled out to all 17 fixed-metric analytic functions — ✅ done
+2026-08-17.** "Fixed" = `AnalyticFunctionSpec.generic == False` in
+`analytic_registry.py` — the functions that measure one specific, hardcoded
+thing (`governed_coverage`, `karma_leaderboard`, `orphan_glossary_terms`,
+...), as opposed to the 6 `generic == True` reusable templates
+(`count_elements`, `counts_by_type`, `growth_series`, `metric_trend`,
+`sum_type_counts`, `count_elements_by_property`) whose *subject* is itself
+a parameter — a `GovernanceMetric` for "count_elements" would be
+meaningless without pinning its `type_name`, and one per specific binding
+(e.g. "GlossaryTerm count") would multiply without bound, so those were
+deliberately left out of this rollout, not missed.
+
+Generated the 16 remaining `Create Report` / `Create Governance Metric` /
+`Link Governance Results` triples programmatically from
+`analytic_registry.py` + `analytic_demo_specs.py`'s own text (registry
+`description`/`binding_note`/`returns` → `Summary`/`Scope`/`Measurement`;
+the demo spec's fuller `description` → `Usage`) rather than hand-authoring
+each — same content, same honesty (proxy caveats/GENERIC-vs-FIXED wording
+carried straight through from the Python source that already had it), zero
+new prose invented per metric. Ran as one 48-command Dr.Egeria batch
+(`--validate` then `--process`), upsert-safe throughout.
+
+**Verified live**: 17 of 17 `GovernanceMetric` elements exist, all 17
+resolve a `GovernanceResults` relationship to their Report (checked via
+`get_all_related_elements` on every one, not a sample). Spot-executed 3
+of the 16 new report specs end-to-end — Governance Classification
+Coverage (`governedCount: 51`), Karma Leaderboard (`[Erin Overview 1260,
+Peter Profile 210]`), Stale Assets (`25 of 426`) — all returned real data
+matching what the dashboard itself shows.
+
+**Not yet done**: the 6 generic/parametric functions (deliberately out of
+scope, see above).
+
+## Governance Metrics browser — Tier 1 of the lineage design, done 2026-08-18
+
+Real question raised 2026-08-17: rough definitions aren't the hard part
+(that's the Governance module) — the hard part is visualizing *lineage*:
+widget → calculation → data source, and the dashboard definitions
+themselves. Answer landed as a 3-tier design (recorded here in full since
+it's the reasoning behind what got built vs. deferred):
+
+- **Tier 1 — buildable with zero new Egeria modeling**: browse
+  `GovernanceMetric` elements, resolve their real `GovernanceResults →
+  Report` edge, run the Report live. **Done.**
+- **Tier 2 — needs Dashboard Sheet/Placement (and Overview's own tiles) to
+  become real Egeria elements** — not started, tracked as `BACKLOG.md`
+  NEXT-26/NEXT-27.
+- **Tier 3 — true relationship/classification-level lineage** (the actual
+  "back through calculations to data sources" ask) — needs either a
+  `GovernanceRule` per function or `DataFlow` edges to type-level targets,
+  a real design call. Not started, tracked as `BACKLOG.md` NEXT-28.
+
+**Tier 1 built**: `/governance-metrics` (new page, `governance-metrics.html`
++ `governance_metrics_handler.py`) — a list/detail browser. Each
+`GovernanceMetric` card expands to its Summary/Scope/Usage/Implementation
+Description/Measurement/Target, a mermaid diagram (real solid edges for
+`Report`→`GovernanceMetric` via `GovernanceResults`, dashed/conceptual for
+the data-source and analytic-function stages that aren't Egeria elements
+yet), and a "▶ Run it live" button reusing `/api/report-specs/execute`.
+Added to the portal (`demo-portal.html`) and Apache's proxy config
+(`sites-available/proxy-locations.conf` — a new page route needed its own
+`<Location>` block, same as every other SPA; `/api/*` already has a
+catch-all). Also builds a per-metric `InformationSupplyChain` ("data
+flow") — Egeria's own construct for documenting a conceptual flow when
+literal `DataFlow` lineage isn't available yet, per the user's own
+suggestion — with real `Collection` membership covering the two real
+artifacts (Report, GovernanceMetric) and its `Description` carrying the
+full conceptual chain as text (the ISC's own `Purposes` attribute turned
+out to be silently dropped by the processor — `PYEGERIA_ISSUES.md`
+ISSUE-64 (originally logged here as ISSUE-62, renumbered when a
+concurrent peer session's own ISSUE-62 landed first), `BACKLOG.md` PY-23
+— **fixed upstream 2026-08-18** per that peer session, not yet released
+to PyPI; worked around here with `Description` instead in the meantime).
+
+All 17 metrics' Reports/GovernanceMetrics/Links/InformationSupplyChains
+regenerated and reprocessed from scratch via the new checked-in
+`gen_governance_metrics.py` + `OVERVIEW_GOVERNANCE_METRICS.dr-egeria.md`
+after the repository reset (see the reset-detection discussion elsewhere
+in this doc) — this file is also the natural bootstrap doc for that
+feature's "Overview Governance Metrics" family once it's built. Verified
+live: `/api/governance-metrics` returns 17 metrics, each with a resolved
+`report` (name/guid/reportSpec/outputFormat) and `dataFlow`
+(name/purposes text); `/governance-metrics` page loads; portal tile links
+to it correctly.
 
 ## Open decisions
 
@@ -341,3 +641,76 @@ thing to hand-maintain.
   live against guid `4f3cbc58-ab24-4b3b-bc61-c1c6b6dafc72`). Fully closed.
 - Where the global as-of / compare controls live vs. the per-chart window control.
 - Whether the time-window control also re-times the KPI deltas (recommended: yes).
+
+## Portal-wide bootstrap monitor — reset detection + auto-heal, done 2026-08-18
+
+Raised 2026-08-17 after Dan redeployed and reset the Egeria database: the
+Dr.Egeria-created reference data every portal feature depends on (Local
+Dashboards' worked examples, the Governance Metrics rollout, ...) has no
+way to know it's gone missing, so pages that resolve those elements by
+name/qualifiedName silently show "Unresolved reference"/empty states with
+no explanation. Confirmed live the obvious detection idea doesn't work:
+`homeMetadataCollectionId` (every element's `origin`) does **not** change
+across a reset — it's stable per server config, not per repository
+instance.
+
+**What actually detects a reset**: a per-family "canary" element — one
+well-known `(type, displayName)` pair whose absence means that family's
+bootstrap docs need re-running. Every doc re-run is upsert-safe, so this is
+always the correct fix, never a duplication risk.
+
+**Design confirmed with Dan**: auto-heal fully automatically (no click),
+but show a small "Reinitializing Portal" banner while it's happening so
+users understand why data might be briefly missing or slow — and check
+periodically while the process runs, not just at startup, since a reset
+can happen without the web app container restarting (only the Egeria
+database container being reset).
+
+**Built**: `bootstrap_monitor_handler.py` — mirrors `advisor_lock_handler.py`/
+`demo_reset_handler.py`'s own `start_scheduler()`/`stop_scheduler()`
+background-task shape (same `asyncio.Lock` + module-level state pattern),
+wired into `pyegeria_handler.py`'s existing `_lifespan`. Two families
+registered today: `local-dashboards` (canary: the `Local Dashboards - Next
+Steps` `WorkItemList`; heals by re-running all 5 checked-in Local
+Dashboards `.dr-egeria.md` docs in dependency order) and
+`overview-governance-metrics` (canary: the `Orphan Glossary Terms`
+`GovernanceMetric`; heals via `OVERVIEW_GOVERNANCE_METRICS.dr-egeria.md`).
+Healing shells out to the real `dr_egeria --process <doc>` CLI via
+`asyncio.create_subprocess_exec` (inherits the process's own
+`EGERIA_USER`/`EGERIA_PLATFORM_URL`/etc. env vars — no extra credential
+wiring needed). `GET /api/bootstrap/status` exposes the current state for
+the frontend. Checks run once at startup and then every 10 minutes
+(`BOOTSTRAP_CHECK_INTERVAL_SECONDS`, overridable).
+
+**Frontend**: `static/bootstrap-banner.js` — deliberately framework-free
+(plain DOM, not React) since not every SPA loads React or
+`egeria-shared-ui.js`; polls `/api/bootstrap/status` every 4s and
+shows/hides a fixed-position amber banner. Added via a single `<script>`
+tag to every page in the portal: `egeria-overview.html`,
+`local-dashboards.html`, `governance-metrics.html`, `demo-portal.html`,
+`tech-catalog.html`, `type-explorer.html`, `egeria-audit.html`,
+`egeria-operations.html`, `egeria-insights.html`, `lineage-explorer.html`.
+
+**Deliberately not covered yet**: the dr-egeria help Glossary — its
+generated help doc is a new timestamped file every `refresh_specs` run, so
+there's no single canonical checked-in file to auto-heal from today (see
+the module's own docstring). Revisit once one exists.
+
+**Verified live end-to-end**, not just code-reviewed: soft-deleted the
+`Orphan Glossary Terms` `GovernanceMetric` directly, manually invoked
+`check_and_heal_all()` — it correctly detected the missing canary, ran
+`dr_egeria --process OVERVIEW_GOVERNANCE_METRICS.dr-egeria.md`
+(~27s), and the element was confirmed live again via
+`/api/governance-metrics` afterward. Startup check against the real
+(healthy) repository correctly found both canaries present and did
+nothing (no false-positive heal).
+
+**Also caught and fixed a real regression while doing this work**:
+`egeria-overview.html` had been reverted on disk to a pre-session state
+(the Fully/Partial/Ungoverned, Attention Queue, and Data Quality Coverage
+wiring from earlier today was gone, replaced by old hardcoded sample
+values) — and the running container was already serving that reverted
+version live. Restored from git `HEAD` and redeployed; root cause not
+investigated further (likely a stray checkout/merge from a concurrent
+session touching the same working tree — Dan's call to move on rather than
+dig in).
