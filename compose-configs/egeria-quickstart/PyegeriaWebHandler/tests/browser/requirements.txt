@@ -13,4 +13,4 @@
 
 pytest>=8.4
 playwright>=1.62.0
-pytest-playwright>=0.5
+pytest-playwright>=0.9.0
