@@ -3,6 +3,36 @@
 Consolidated work list. Update status when items start or finish.  
 Status: `open` · `in-progress` · `done` · `deferred`
 ---
+## Fix: REST APIs view — blank screen (2026-08-18) — ✅ done (quickstart only)
+
+Dan reported the REST APIs view (Egeria Explorer → Reference → REST APIs) loaded to a blank
+screen. Two independent bugs, both fixed:
+
+1. **Backend (`rest_api_handler.py`)**: `_fetch_openapi()` fetches the Egeria platform's OpenAPI
+   spec via a plain unauthenticated `requests.get`. That used to be enough; it no longer is —
+   confirmed live: `/v2/api-docs` and `/api-docs` now 401 anonymous (moving to 404, i.e. genuinely
+   not found, once a valid bearer token is supplied); `/v3/api-docs` — the real, working path —
+   times out anonymous but returns 200 in ~21s with a token. Fixed by minting a bearer token
+   (reusing the per-request `X-Egeria-Token` via `egeria_auth.get_request_token()` if present,
+   else a fresh one from env-var credentials) and sending it as `Authorization: Bearer`. Also
+   bumped the fetch timeout 30s → 60s — the real ~21s fetch was already close to the old timeout
+   even once auth stopped being the blocker, a genuine flakiness risk on its own. Verified live:
+   cold fetch (explicit `/api/rest-apis/refresh` first) → 200, 56 services, correct shape.
+2. **Frontend (`type-explorer.html`'s `RestApiView`)**: `loadOpenApi()` called `r.json()`
+   unconditionally without checking `r.ok` — a non-2xx error response (e.g. the 502 the backend
+   bug above was producing, `{"detail": "..."}`) parses as valid JSON with no `services` key,
+   gets stored via `setOpenapi(d)` anyway, and the `services` `useMemo`'s
+   `openapi.services.filter(...)` then throws `TypeError: Cannot read properties of undefined` on
+   the next render — an uncaught render error, which is what actually produced the blank screen
+   (not the 502 itself; a handled error would have shown `apiError` text instead). Fixed by
+   checking `r.ok` and throwing with the server's `detail` message on failure so it lands in
+   `.catch()` properly, plus a defensive `Array.isArray(openapi.services)` guard in the `useMemo`
+   itself so a future response-shape surprise degrades to an empty list instead of a blank screen
+   again. General lesson: any `egeriaFetch(...).then(r => r.json())` pattern that doesn't check
+   `r.ok` first has this exact failure mode waiting — worth a grep across the other views if this
+   class of bug shows up again.
+
+---
 ## Fixes (2026-08-15) — ✅ done (quickstart only)
 
 | # | Item | Status | Notes |
@@ -1181,6 +1211,29 @@ underlying relationship, so they show flat. **Re-verify once the data is seeded.
 
 ---
 
+## Egeria Overview — GovernanceMetric Lineage (Tier 2/3)
+
+Raised 2026-08-17/18 building the Governance Metrics browser
+(`/governance-metrics`, `governance_metrics_handler.py`) — Tier 1 of a
+3-tier design (see `PyegeriaWebHandler/OVERVIEW_NEXT_STEPS.md`'s "Design
+landed 2026-08-17" section for the full writeup). Tier 1 is done: real
+`GovernanceMetric` elements linked via `GovernanceResults` to a real
+`Report`, browsable, each with a per-metric `InformationSupplyChain`
+documenting (not yet truly tracing) the conceptual data flow. These three
+items are what's left to get from "documented flow" to **true DataFlow
+lineage** — the browser's own diagram today marks the data-source and
+analytic-function stages as dashed/conceptual specifically because of this
+gap; NEXT-26/27 close that gap by making them real, NEXT-28 is the deepest
+piece (relationship/classification-level, not just element-level).
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| NEXT-26 | **Local Dashboards' Dashboard Sheet/Placement → real Egeria Collection-subtype elements.** Already flagged (not started) in `LOCAL_DASHBOARDS_TUTORIAL.md`/`OVERVIEW_REPORTING_MODEL.md` §10 for unrelated reasons (today it's a local JSON file, `~/.pyegeria/dashboard_sheets.json`) — cross-referencing here because it's also the blocker for lineage on the Local Dashboards side: once a Placement is a real element that references a Report, `Dashboard → Placement → Report → GovernanceMetric` becomes one connected native Egeria graph, mermaid-renderable in one shot instead of hand-stitched across two data models. | open, not started | Needs a real design pass on the Collection subtype shape, not just "make it an element" — see the referenced docs for prior discussion |
+| NEXT-27 | **Overview Dashboard's own tiles (`overview_specs.py`/`overview_containers.py`) → real Egeria elements**, the same migration as NEXT-26 but for the Overview app's own P0 KPI layout (pure Python today, never was an Egeria element). Same payoff: without this, the Overview dashboard's own widgets can't join the same lineage graph a `GovernanceMetric`/Local Dashboards Placement can. Overlaps with R-5's "Format's own render-kind/provenance generalization" work already flagged P1 elsewhere in `OVERVIEW_NEXT_STEPS.md`. | open, not started | Consider designing NEXT-26/27 together — both are "make a dashboard-layer concept a real Egeria element," likely the same underlying model |
+| NEXT-28 | **Structured relationship/classification-level lineage** — the deepest gap: even once NEXT-26/27 land, a graph walk still dead-ends at the `Report`, because `FormatSet` and the Python analytic function itself aren't Egeria elements, so there's nothing to point a `DataFlow` edge *at* for "this reads `SemanticAssignment` relationships filtered to `GlossaryTerm`." Two candidate directions, neither decided: (a) a `GovernanceRule` element per analytic function (model 0450 — "technical control expressed as a logic expression," genuinely built for this) encoding the query logic structurally; (b) literal `DataFlow` edges from a synthetic `Process` element (representing the function) to the relationship/classification *type* it reads — closer to how Egeria already does lineage elsewhere in this dashboard, but `DataFlow` normally connects real data assets/ports, not type-level targets, so this would be a real (if idiomatic) stretch of the model, not a clean fit. | open, needs a design discussion before either direction is started | See Egeria Explorer's HV-1 (ISC segment hierarchy — "built; no data") for a related, already-built-but-unpopulated piece of UI that a structured segment model could eventually feed |
+
+---
+
 ## QuickStart Demo Mode
 
 Spec: `demo_plan.md`
@@ -1227,6 +1280,7 @@ Full repro steps (runnable code, expected vs. actual, root cause) for every row 
 | PY-20 | **DESIGN DISCUSSION (high priority), not a bug** — paging/sequencing strategy for "load-all" list endpoints. `find_glossary_terms` (and peers) ignore `sequencing_*` (return server-internal order); `start_from` works. The portal's load-all-up-to-a-ceiling-then-sort-in-JS pattern silently returns an arbitrary subset past the ceiling (388 terms, default page_size 200 → 200 arbitrary, alphabetically-early terms missing). Options: bounded fetch-all via native `count_metadata_elements` + `truncated` flag vs true server-side paging (blocked until sequencing is reliable). Ceiling bounded by view-server `maxPageSize` config (< 5000, TBD). See PYEGERIA_ISSUES.md PY-20 | Open — to decide in discussion (strategy + `maxPageSize`) | Raising page_size only lowers the odds — not a fix |
 | PY-21 | **CONFIRMED BUG, fixed in this app** — `find_glossary_terms(sequencing_order=..., include_only_classified_elements=...)` silently returns **zero** results when combined, even though each filter alone works fine (classification filter alone: 33 hits; `sequencing_order` alone: 200 hits; both together: 0). Root cause of "Egeria Explorer Perspectives page shows Perspectives but no Questions" (2026-07-28) — `perspectives_handler.py`'s `get_questions()` used exactly this combination. See PYEGERIA_ISSUES.md PY-21 | **Fixed** 2026-07-28 in `perspectives_handler.py` (dropped `sequencing_order`/`sequencing_property` — redundant anyway, results are already sorted client-side) | Egeria-side: worth checking whether `include_only_classified_elements`/`matchClassifications` + `sequencing_order` is broken generally, not just for this one call site |
 | PY-22 | `ProjectManager.get_linked_projects(guid)` returns `"No elements found"` for every one of the 29 qs demo projects, including ones with a demonstrably real `ProjectHierarchy` relationship (visible in `get_project_by_guid`'s own `managedProjects` field for "Sustainability Campaign") — not a test-data gap, the method itself doesn't surface real relationship data | **open** — found 2026-07-31 closing out the PY-7/9/11 `as_of_time` verification remainder. See PYEGERIA_ISSUES.md PY-22 | Workaround: use `get_project_by_guid(guid)["managedProjects"]` directly instead of `get_linked_projects` until fixed |
+| PY-23 | `Create Information Supply Chain`'s `Purposes` attribute validated/processed with `SUCCESS` but was never persisted to the element — confirmed live creating 17 ISCs, none retained their `Purposes` value | **fixed upstream** — found 2026-08-18 building `gen_governance_metrics.py`, logged as `egeria-python` ISSUE-62, renumbered to **ISSUE-64** and fixed on `fix/pyegeria-http-endpoint-audit` (per a peer Claude session's report, PR odpi/egeria-python#275, not yet released to PyPI) | Workaround still in place in `gen_governance_metrics.py` (uses `Description` instead of `Purposes`) until the fix ships in a release |
 
 ---
 
