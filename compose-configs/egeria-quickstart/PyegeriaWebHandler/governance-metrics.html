@@ -111,7 +111,7 @@ function renderList(){
   } else {
     html += '<div class="metric-grid">';
     STATE.metrics.forEach(function(m){
-      html += '<div class="metric-card" onclick="location.hash=\'metric=\' + encodeURIComponent(' + JSON.stringify(m.name) + ')">';
+      html += '<div class="metric-card" data-metric-name="' + esc(m.name) + '">';
       html += '<h3>' + esc(m.name) + '</h3>';
       html += '<div class="desc">' + esc(m.summary || 'No summary set.') + '</div>';
       html += '<div class="meta">';
@@ -157,7 +157,7 @@ function renderDetail(name){
   html += '</div>';
 
   if (m.report) {
-    html += '<div class="run-panel"><button class="btn" onclick="runReport(' + JSON.stringify(m.report.reportSpec) + ', this)">▶ Run \'' + esc(m.report.reportSpec) + '\' live</button>';
+    html += '<div class="run-panel"><button class="btn" data-run-spec="' + esc(m.report.reportSpec) + '">▶ Run \'' + esc(m.report.reportSpec) + '\' live</button>';
     html += '<div class="run-out" id="run-out" style="display:none"></div></div>';
   }
 
@@ -209,6 +209,25 @@ function runReport(specName, btn){
     .then(function(d){ out.textContent = JSON.stringify(d.data !== undefined ? d.data : d, null, 2); btn.disabled = false; })
     .catch(function(e){ out.textContent = 'Error: ' + String(e); btn.disabled = false; });
 }
+
+// Event delegation for card clicks / run buttons — inline onclick="..."
+// attributes previously broke here: JSON.stringify(m.name) embeds literal
+// unescaped double-quotes directly inside an onclick="..." HTML attribute,
+// which the HTML parser reads as the attribute's closing quote, truncating
+// every handler (silently — no console error, the attribute just never
+// contained the intended JS). data-* attributes + one delegated listener
+// avoids the whole class of bug.
+document.getElementById('app').addEventListener('click', function(e){
+  var card = e.target.closest('[data-metric-name]');
+  if (card) {
+    location.hash = 'metric=' + encodeURIComponent(card.getAttribute('data-metric-name'));
+    return;
+  }
+  var runBtn = e.target.closest('[data-run-spec]');
+  if (runBtn) {
+    runReport(runBtn.getAttribute('data-run-spec'), runBtn);
+  }
+});
 
 fetchMetrics().then(route);
 </script>

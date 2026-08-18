@@ -436,9 +436,6 @@ function renderAppGrid(demoMode) {
     { icon: '🗂️', name: 'Local Dashboards',
       desc: 'Browse Dashboard Sheets authored with Dr.Egeria — ordered layouts of Report Spec placements you define and run yourself.',
       url: '/local-dashboards', newTab: false, enabled: true },
-    { icon: '🎯', name: 'Governance Metrics',
-      desc: 'Browse the Overview dashboard\'s metrics as real GovernanceMetric elements — each one\'s definition, its linked Report, and a diagram of how the value is computed.',
-      url: '/governance-metrics', newTab: false, enabled: true },
     { icon: '🐱', name: 'The Catalog',
       desc: 'Browse infrastructure assets, data stores, APIs, and processes registered in Egeria.',
       url: '/tech-catalog', newTab: false, enabled: true },
@@ -494,6 +491,9 @@ function renderAppGrid(demoMode) {
     { icon: '🔌', name: 'REST APIs',
       desc: 'Live Egeria REST API browser — all open metadata services with endpoints and parameters.',
       url: '/egeria-explorer#rest-apis', newTab: false, enabled: true, isDoc: true, isApi: true },
+    { icon: '🎯', name: 'Governance Metrics',
+      desc: 'Browse the Overview dashboard\'s metrics as real GovernanceMetric elements — each one\'s definition, its linked Report, and a diagram of how the value is computed.',
+      url: '/governance-metrics', newTab: false, enabled: true },
   ];
   function _renderTile(a) {
     var action;
