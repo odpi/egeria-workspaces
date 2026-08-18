@@ -713,7 +713,15 @@ function BulkActionBar({ count, onClear, actions }) {
 // that doesn't exist yet) and calls DELETE .../members instead of POST
 // (BACKLOG.md Bulk Actions, task #19, 2026-08-14).
 function AddToCollectionModal({ items, creds, action, onClose, onDone }) {
-  var isRemove = action === 'remove';
+  // Verb picked inside the modal now, not baked into which BulkActionBar
+  // button was clicked (Dan's call, 2026-08-18 -- collapses the bar from a
+  // button per verb×kind down to one per kind). `action` still seeds the
+  // initial tab so any caller not yet updated to the 1-button pattern keeps
+  // working unchanged (e.g. "Remove from Collection…" opens straight to the
+  // Remove tab instead of defaulting to Add).
+  var verbState = React.useState(action === 'remove' ? 'remove' : 'add');
+  var verb = verbState[0], setVerb = verbState[1];
+  var isRemove = verb === 'remove';
   var entities = useTypeGraph(creds);
   var subtypeState = React.useState('Collection');
   var subtype = subtypeState[0], setSubtype = subtypeState[1];
@@ -823,6 +831,19 @@ function AddToCollectionModal({ items, creds, action, onClose, onDone }) {
         items.length + ' element' + (items.length === 1 ? '' : 's') + ' selected'),
 
       !result && el(React.Fragment, null,
+        el('div', { style: { display: 'flex', gap: 6, marginBottom: 14 } },
+          ['add', 'remove'].map(function(id) {
+            var active = verb === id;
+            return el('button', {
+              key: id, disabled: submitting,
+              onClick: function() { setVerb(id); },
+              style: { flex: 1, fontSize: 12, padding: '6px 10px', borderRadius: 6, cursor: submitting ? 'default' : 'pointer',
+                       border: '1px solid ' + (active ? 'var(--accent)' : 'var(--border)'),
+                       background: active ? 'var(--accent)' : 'transparent',
+                       color: active ? 'var(--bg)' : 'var(--dim)', fontWeight: active ? 700 : 400 },
+            }, id === 'add' ? 'Add' : 'Remove');
+          })
+        ),
         el('label', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 3 } }, 'Collection type'),
         el('select', {
           value: subtype, onChange: function(e) { setSubtype(e.target.value); },
@@ -920,7 +941,12 @@ function AddToCollectionModal({ items, creds, action, onClose, onDone }) {
 // list the backend read-modifies-writes per element — see that handler's
 // module docstring for why.
 function ZoneMembershipModal({ items, creds, action, onClose, onDone }) {
-  var isRemove = action === 'remove';
+  // Verb picked inside the modal (Dan's call, 2026-08-18) -- same pattern as
+  // AddToCollectionModal's verb tabs. `action` still seeds the initial tab
+  // for backward compatibility with callers not yet on the 1-button pattern.
+  var verbState = React.useState(action === 'remove' ? 'remove' : 'add');
+  var verb = verbState[0], setVerb = verbState[1];
+  var isRemove = verb === 'remove';
   var zonesState = React.useState(null); // null = not yet loaded; [] = loaded, empty
   var zones = zonesState[0], setZones = zonesState[1];
   var zonesLoadingState = React.useState(true);
@@ -977,6 +1003,19 @@ function ZoneMembershipModal({ items, creds, action, onClose, onDone }) {
         items.length + ' element' + (items.length === 1 ? '' : 's') + ' selected'),
 
       !result && el(React.Fragment, null,
+        el('div', { style: { display: 'flex', gap: 6, marginBottom: 14 } },
+          ['add', 'remove'].map(function(id) {
+            var active = verb === id;
+            return el('button', {
+              key: id, disabled: submitting,
+              onClick: function() { setVerb(id); },
+              style: { flex: 1, fontSize: 12, padding: '6px 10px', borderRadius: 6, cursor: submitting ? 'default' : 'pointer',
+                       border: '1px solid ' + (active ? 'var(--accent)' : 'var(--border)'),
+                       background: active ? 'var(--accent)' : 'transparent',
+                       color: active ? 'var(--bg)' : 'var(--dim)', fontWeight: active ? 700 : 400 },
+            }, id === 'add' ? 'Add' : 'Remove');
+          })
+        ),
         el('label', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 3 } }, 'Governance zone'),
         zonesLoading && el('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '6px 0' } }, 'Loading…'),
         zonesError && el('div', { style: { fontSize: 12, color: '#f87171', padding: '6px 0' } }, 'Error: ' + zonesError),
