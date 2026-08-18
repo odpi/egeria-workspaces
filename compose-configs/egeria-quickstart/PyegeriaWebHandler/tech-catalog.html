@@ -12,6 +12,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>The Catalog</title>
+  <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -583,7 +584,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      Cache-Control: no-cache (forces revalidation), but a browser that cached
      this URL *before* that header existed won't revalidate on its own; a new
      URL guarantees a fresh fetch regardless of prior cache state. -->
-<script src="/static/egeria-shared-ui.js?v=2026-08-16c"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-08-18c"></script>
 <script>
 'use strict';
 // React hook aliases (mirror type-explorer.html)
@@ -2692,13 +2693,11 @@ function SearchView({ creds, onNavigate, initialQuery }) {
         var selectedGuids = Array.from(selection.selected.keys());
         var canClassify = selectedGuids.length > 0 && selectedGuids.every(function(g) { return classificationApplicable(itemsByGuid[g]); });
         var actions = [
-          { id: 'add-to-collection', label: 'Add to Collection…', onClick: function() { setShowAddModal(true); } },
-          { id: 'add-to-zone', label: 'Add to Zone…', onClick: function() { setZoneModalAction('add'); } },
-          { id: 'remove-from-zone', label: 'Remove from Zone…', onClick: function() { setZoneModalAction('remove'); } },
+          { id: 'collection', label: 'Collection…', onClick: function() { setShowAddModal(true); } },
+          { id: 'zone', label: 'Zone…', onClick: function() { setZoneModalAction('add'); } },
         ];
         if (canClassify) {
-          actions.push({ id: 'classify', label: 'Classify…', onClick: function() { setClassifyModalAction('set'); } });
-          actions.push({ id: 'declassify', label: 'Declassify…', onClick: function() { setClassifyModalAction('clear'); } });
+          actions.push({ id: 'classification', label: 'Classification…', onClick: function() { setClassifyModalAction('set'); } });
         }
         return React.createElement(BulkActionBar, { count: selection.count, onClear: selection.clear, actions: actions });
       })(),
