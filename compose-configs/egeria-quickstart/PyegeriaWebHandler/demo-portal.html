@@ -6,6 +6,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Egeria Quickstart Demo Sandbox · Coco Pharmaceuticals</title>
+  <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
   <style>
     :root {
       --bg:      #1a1a2e;
@@ -490,6 +491,9 @@ function renderAppGrid(demoMode) {
     { icon: '🔌', name: 'REST APIs',
       desc: 'Live Egeria REST API browser — all open metadata services with endpoints and parameters.',
       url: '/egeria-explorer#rest-apis', newTab: false, enabled: true, isDoc: true, isApi: true },
+    { icon: '🎯', name: 'Governance Metrics',
+      desc: 'Browse the Overview dashboard\'s metrics as real GovernanceMetric elements — each one\'s definition, its linked Report, and a diagram of how the value is computed.',
+      url: '/governance-metrics', newTab: false, enabled: true },
   ];
   function _renderTile(a) {
     var action;

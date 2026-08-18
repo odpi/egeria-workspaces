@@ -234,6 +234,12 @@ runtime-volumes/demo-sync/
 /runtime-volumes/certs-quickstart/
 /runtime-volumes/certs-freshstart/
 /runtime-volumes/certs-letsencrypt/
+# Timestamped backups of the above (e.g. certs-quickstart.pre-mkcert-<date>,
+# made by hand before swapping in a new cert) — same private-key contents,
+# same never-commit rule, but the exact-name patterns above don't cover a
+# suffixed backup dir. Found 2026-08-18: one such backup sat untracked and
+# unprotected until this pattern was added.
+/runtime-volumes/certs*.pre-*/
 # certbot account/cert state + ACME HTTP-01 challenge webroot — contains
 # private keys and Let's Encrypt account data, never commit
 /runtime-volumes/letsencrypt/

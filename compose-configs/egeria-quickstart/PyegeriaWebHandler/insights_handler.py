@@ -84,6 +84,7 @@ from loguru import logger
 from pydantic import BaseModel
 
 from egeria_auth import apply_token
+from pyegeria.core._globals import max_paging_size
 
 router = APIRouter(tags=["egeria-insights"])
 
@@ -602,9 +603,15 @@ def _relationship_participant_types(ce, relationship_type: str, as_of: Optional[
     end_keys = ("end1", "end2") if end == "any" else (end,)
     try:
         body = {"class": "ResultsRequestBody", "asOfTime": as_of} if as_of else None
+        # page_size=5000 used to be hardcoded here -- Egeria's server now
+        # rejects >1000 on findRelationshipsBetweenMetadataElements
+        # (OMAG-COMMON-400-010, hit live 2026-08-17 after a server upgrade).
+        # max_paging_size is env-configurable (EGERIA_MAX_PAGE_SIZE), so a
+        # future limit change is a config edit, not another hardcoded
+        # literal to hunt down.
         rels = _json_list(ce.get_relationships(
             relationship_type=relationship_type, output_format="JSON",
-            start_from=0, page_size=5000, body=body))
+            start_from=0, page_size=max_paging_size, body=body))
         for r in rels:
             for end_key in end_keys:
                 e = ((r.get(end_key) or {}) if isinstance(r, dict) else {})
