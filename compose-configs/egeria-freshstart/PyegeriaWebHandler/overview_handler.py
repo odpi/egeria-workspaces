@@ -65,6 +65,7 @@ except ImportError:
 from pyegeria.view.overview_metrics import (
     WINDOWS as _WINDOWS,
     count_elements,
+    count_relationships,
     counts_by_type,
     governed_coverage,
     certifications_summary,
@@ -75,6 +76,34 @@ from pyegeria.view.overview_metrics import (
     usage_context_counts,
     growth_series,
 )
+
+# count_elements_by_property is new (2026-08-17, Data Products deploymentStatus
+# breakdown), not yet in a published pyegeria release -- same
+# "container runs the published package, not this dev checkout" gap as
+# ownership_coverage just below. Defensive import so an older installed
+# pyegeria degrades to the old flat count instead of crashing every
+# /api/overview/* route.
+try:
+    from pyegeria.view.overview_metrics import count_elements_by_property
+except ImportError:
+    count_elements_by_property = None
+
+# karma_leaderboard / engagement_series are new (2026-08-17, People panel's
+# leaderboard + engagementSeries -- previously left None as "deferred").
+# Same defensive-import gap as above.
+try:
+    from pyegeria.view.overview_metrics import karma_leaderboard, engagement_series
+except ImportError:
+    karma_leaderboard = None
+    engagement_series = None
+
+# orphan_glossary_terms / stale_assets are new (2026-08-17, Attention Queue's
+# "Orphan glossary terms" + "Stale assets" rows). Same defensive-import gap.
+try:
+    from pyegeria.view.overview_metrics import orphan_glossary_terms, stale_assets
+except ImportError:
+    orphan_glossary_terms = None
+    stale_assets = None
 
 # ownership_coverage is new (2026-08-01), not yet in a published pyegeria release
 # (same "container runs the published package, not this dev checkout" gap already
@@ -303,8 +332,45 @@ def get_summary(
         title="Assets by Type", x_label="Assets", y_label="Type",
     )
 
-    # Data products (DigitalProduct) — live count.
+    # Data products (DigitalProduct) — live count, plus a deploymentStatus
+    # breakdown (OVERVIEW_NEXT_STEPS.md "Data products publication status +
+    # ratings"). deploymentStatus is the property describing whether a
+    # product's implementation is deployed/active vs still under development
+    # (distinct from contentStatus, the DRAFT->APPROVED lifecycle of the
+    # product *description* — see digital_products_handler.py). Folding
+    # every other value (DRAFT/UNDER_DEVELOPMENT/unset/etc.) into "not yet
+    # active" rather than enumerating every possible deploymentStatus value
+    # keeps this to 2 cheap native COUNT calls total, same cost class as the
+    # single count this replaces, and stays correct regardless of which
+    # status values actually appear in a given dataset.
     data_products = count_elements(mgr, "DigitalProduct", as_of_time)
+    data_products_active = None
+    if count_elements_by_property is not None:
+        try:
+            data_products_active = count_elements_by_property(
+                mgr, "DigitalProduct", "deploymentStatus", "ACTIVE", as_of_time)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview summary: data products deploymentStatus breakdown failed: {exc}")
+    data_products_pending = (
+        max(data_products - data_products_active, 0)
+        if data_products is not None and data_products_active is not None else None
+    )
+
+    # Ratings — system-wide AttachedRating relationship count (Egeria's
+    # relationship count can't be scoped to one end's type without a graph
+    # traversal, so this is repo-wide, not products-only; reuses the exact
+    # same count_relationships call the People tile already makes
+    # independently for its own feedback rollup). Honestly omitted from the
+    # tile when zero rather than faked — confirmed live 2026-08-17 that no
+    # AttachedRating relationships exist against DigitalProduct in this
+    # dataset today.
+    ratings_total = None
+    ce = None
+    try:
+        ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
+        ratings_total = count_relationships(ce, "AttachedRating", as_of_time)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"overview summary: ratings count failed: {exc}")
 
     # Certifications, licenses & open exceptions (governance relationships).
     certs = _certifications(url, server, user_id, user_pwd, as_of_time)
@@ -319,6 +385,21 @@ def get_summary(
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview summary: business_value_signals failed: {exc}")
 
+    # Attention Queue rows (NEXT-25): orphan glossary terms + stale assets.
+    # Both defensive -- new pyegeria, not yet in a published release.
+    orphan_terms: dict = {"termTotal": None, "referencedCount": None, "orphanCount": None}
+    if orphan_glossary_terms is not None and ce is not None:
+        try:
+            orphan_terms = orphan_glossary_terms(mgr, ce, as_of_time)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview summary: orphan_glossary_terms failed: {exc}")
+    stale: dict = {"staleCount": None, "assetTotal": None}
+    if stale_assets is not None:
+        try:
+            stale = stale_assets(mgr, as_of_time)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview summary: stale_assets failed: {exc}")
+
     payload = {
         "asOfTime":         as_of_time,
         "assetTotal":       asset_total,
@@ -329,17 +410,26 @@ def get_summary(
         "governedCapped":   gov["governedCapped"],
         "byClassification": gov["byClassification"],
         "topZones":         gov["topZones"],
+        "fullyGoverned":    gov["fullyGoverned"],       # ≥1 substantive classification (Confidentiality/Criticality/Impact/Retention)
+        "partialZoneOnly":  gov["partialZoneOnly"],     # ZoneMembership only, no substantive classification
         "certifications":   certs["active"],
         "certExpiring90":   certs["expiring90"],
         "certSoon":         certs["soon"],
         "licenses":         certs["licenses"],
-        "dataProducts":     data_products,
+        "dataProducts":         data_products,
+        "dataProductsActive":   data_products_active,
+        "dataProductsPending":  data_products_pending,
+        "dataProductsRatings":  ratings_total,
         "openExceptions":   certs["exceptions"],
         "bvAssetTotal":       biz_value["assetTotal"],
         "bvAssetCapped":      biz_value["assetCapped"],
         "bvConfidentialCount": biz_value["confidentialCount"],
         "bvDescribedCount":   biz_value["describedCount"],
         "bvDuplicateCount":   biz_value["duplicateCount"],
+        "orphanTermCount":    orphan_terms["orphanCount"],   # SemanticAssignment-unreferenced GlossaryTerms
+        "orphanTermTotal":    orphan_terms["termTotal"],
+        "staleAssetCount":    stale["staleCount"],           # no update in 180d
+        "staleAssetTotal":    stale["assetTotal"],
         "partial":          True,
         "source":           "live:summary",
     }
@@ -549,6 +639,7 @@ def get_people(
     feedback_by_type = None
     feedback_items = None
     karma = None
+    ce = None
     try:
         ce = _make("ClassificationExplorer", url, server, user_id, user_pwd)
         fb = feedback_summary(ce, as_of_time)
@@ -567,6 +658,33 @@ def get_people(
         title="Feedback by Type", x_label="Items", y_label="Type",
     ) if feedback_by_type else None
 
+    # Leaderboard — per-person karma rollup. Cheap: one bounded find over
+    # ContributionRecord elements (already anchored to their owning Person via
+    # the standard Anchors classification), no per-person loop.
+    leaderboard = None
+    if karma_leaderboard is not None and expert is not None:
+        try:
+            leaderboard = karma_leaderboard(expert, as_of_time)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview people: karma_leaderboard failed: {exc}")
+
+    # Engagement over time — weekly feedback-event trend. Reuses the same
+    # relationship types feedback_summary() already queries, just keeps the
+    # createTime instead of only the count.
+    engagement_series_data = None
+    engagement_chart = None
+    if engagement_series is not None and ce is not None:
+        try:
+            engagement_series_data = engagement_series(ce, as_of_time)
+            if generate_vega_line_chart and engagement_series_data:
+                engagement_chart = generate_vega_line_chart(
+                    engagement_series_data, x_field="week",
+                    y_fields=["comments", "ratings", "likes", "tags", "noteLogs"],
+                    title="Engagement Over Time", x_label="Week", y_label="Events",
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview people: engagement_series failed: {exc}")
+
     payload = {
         "asOfTime":           as_of_time,
         "activeContributors": persons,
@@ -578,8 +696,9 @@ def get_people(
         "feedbackItems":      feedback_items,    # Σ ratings+comments+likes+tags+noteLogs
         "feedbackByType":     feedback_by_type,
         "feedbackChart":      feedback_chart,
-        "leaderboard":        None,              # per-person karma rollup — deferred
-        "engagementSeries":   None,              # weekly feedback trend — deferred
+        "leaderboard":        leaderboard,       # per-person karma rollup, top 10
+        "engagementSeries":   engagement_series_data,  # weekly feedback trend, 12wk
+        "engagementChart":    engagement_chart,
         "partial":            True,
         "source":             "live:people",
     }
