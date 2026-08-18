@@ -2289,10 +2289,11 @@ function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign, on
     // hand-rolled always-open block here; switched to the shared component
     // both to pick up RawJsonViewer (missing from Glossary entirely until
     // now, Dan's catch 2026-08-18 — BACKLOG.md already flagged this as a
-    // known gap since the 2026-07-22 rollout) and because it reads straight
-    // from MetadataExpert for the raw copy, which is how PrimeWord/ClassWord/
-    // Modifier classifications actually became visible to debug at all (see
-    // glossary_handler.py's _merge_classifications_from_metadata_expert).
+    // known gap since the 2026-07-22 rollout) and because PrimeWord/
+    // ClassWord/Modifier classifications only became visible at all once
+    // glossary_handler.py's _extract_classifications learned to also read
+    // list-valued header keys like glossaryTermKinds, not just individually
+    // named ElementClassification keys (see that function's own docstring).
     React.createElement(ClassificationsAndRawJson, { item: term }),
     React.createElement('div', { style: { marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' } },
       React.createElement('div', { style: sHdr }, 'Assigned Elements'),
