@@ -216,16 +216,22 @@ _TILES = [
     },
     {
         "key": "products", "label": "Data Products", "icon": "📦", "color": "var(--c3)",
-        "description": "Count of DigitalProduct elements published for consumption.",
+        "description": "Count of DigitalProduct elements, broken down by publication (deployment) status.",
         "target_type": "DigitalProduct", "endpoint": "summary", "value_field": "dataProducts",
         "detail_spec": "products", "series": "products", "unit": None, "provenance": "live",
         "compute": ("MetadataExpert.count_metadata_elements", {"type_name": "DigitalProduct"}),
-        "questions": ["What data products are available?"],
-        "summary": "Native count of DigitalProduct elements defined in the catalog.",
-        "usage": "No lifecycle/status filter is applied -- a DigitalProduct still in DRAFT and "
-                 "never released to consumers counts identically to one that is PUBLISHED and "
-                 "actively subscribed to. This is a count of product DEFINITIONS, not a measure "
-                 "of adoption or usage.",
+        "questions": ["What data products are available?", "How many are actually published vs. still in development?"],
+        "summary": "Native count of DigitalProduct elements defined in the catalog, with an active-vs-pending breakdown by deploymentStatus.",
+        "usage": "The headline number is every DigitalProduct DEFINITION regardless of status -- "
+                 "a count of product definitions, not a measure of adoption or usage. "
+                 "\"Active\" (dataProductsActive) counts deploymentStatus == ACTIVE specifically; "
+                 "\"Pending\" (dataProductsPending) folds every other value (DRAFT, "
+                 "UNDER_DEVELOPMENT, unset, etc.) together rather than enumerating each one, so it "
+                 "reads as \"not yet actively deployed\" rather than a specific lifecycle stage. "
+                 "Ratings (dataProductsRatings) is a system-wide AttachedRating relationship count, "
+                 "not scoped to products specifically -- Egeria's relationship count can't filter "
+                 "by one end's type without a graph traversal -- and is omitted from the tile "
+                 "entirely when zero rather than showing a fake average.",
     },
     {
         "key": "exceptions", "label": "Open Exceptions", "icon": "⚠️", "color": "var(--c5)",

@@ -13,6 +13,13 @@ on:
 
 jobs:
   commit-policy:
+    # Dependabot's bot commits never carry a Signed-off-by trailer (it has no
+    # mechanism to add one), so this DCO check would fail every single
+    # dependency-bump PR on arrival with no path to a green run short of
+    # manually amending and force-pushing each one. Skip the check entirely
+    # for dependabot PRs -- DCO stays strictly enforced for human-authored
+    # commits, which is what it exists to attest.
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
 
     steps:

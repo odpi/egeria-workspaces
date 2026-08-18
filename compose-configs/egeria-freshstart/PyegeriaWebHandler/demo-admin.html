@@ -117,6 +117,7 @@
   <div class="tab active" onclick="showTab('egeria-users')">Egeria Users</div>
   <div class="tab" onclick="showTab('feedback')">Feedback</div>
   <div class="tab" onclick="showTab('config')">Config</div>
+  <div class="tab" onclick="showTab('data-init')">Data Initialization</div>
 </div>
 
 <div class="content">
@@ -169,6 +170,20 @@
     <table class="config-table">
       <tbody id="configBody"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody>
     </table>
+  </div>
+
+  <!-- Data Initialization panel -->
+  <div class="panel" id="panel-data-init">
+    <button class="refresh-btn" onclick="loadBatches()">↻ Refresh</button>
+    <div class="section-title">Data Initialization</div>
+    <p style="font-size:0.8rem;color:var(--muted);margin:-0.5rem 0 1rem;line-height:1.5">
+      Folders of Dr.Egeria documents discovered under <code>dr-egeria-inbox</code>. Enable a folder
+      to include it when the Portal reinitializes after Egeria is wiped (a folder with a canary
+      element is auto-healed; without one it only runs when triggered here). Drop a new folder in
+      to add a batch — no code change needed. Add a <code>_batch.json</code> to a folder for a
+      friendlier name/description or an explicit file order.
+    </p>
+    <div id="batchList"><div class="empty">Loading…</div></div>
   </div>
 </div>
 
@@ -240,7 +255,7 @@
 </div>
 
 <script>
-  var _tabs = ['egeria-users','feedback','config'];
+  var _tabs = ['egeria-users','feedback','config','data-init'];
   var _roles = [];
   var _groups = [];
   var _editUserId = null; // null = create mode
@@ -268,6 +283,96 @@
     if (name === 'egeria-users') loadEgeriaUsers();
     if (name === 'feedback') loadFeedback();
     if (name === 'config') loadConfig();
+    if (name === 'data-init') loadBatches();
+  }
+
+  // ── Data Initialization (bootstrap batches) ─────────────────────────
+  var _batches = [];
+
+  function loadBatches() {
+    fetch('/api/bootstrap/batches').then(function(r) { return r.json(); })
+      .then(function(d) { _batches = d.batches || []; renderBatches(); })
+      .catch(function() {
+        document.getElementById('batchList').innerHTML = '<div class="empty">Failed to load batches</div>';
+      });
+  }
+
+  function renderBatches() {
+    var el = document.getElementById('batchList');
+    if (!_batches.length) {
+      el.innerHTML = '<div class="empty">No dr-egeria-inbox folders found</div>';
+      return;
+    }
+    el.innerHTML = _batches.map(function(b, bi) {
+      var canaryBadge = b.canary
+        ? '<span class="badge badge-active" title="Auto-healed on reset">auto-heal</span>'
+        : '<span class="badge badge-disabled" title="No canary declared — manual run only">manual only</span>';
+      var files = b.files.map(function(f, fi) {
+        return '<label style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;padding:0.15rem 0">' +
+          '<input type="checkbox"' + (f.enabled ? ' checked' : '') +
+          ' onchange="toggleFile(' + bi + ',' + fi + ',this.checked)"> ' + esc(f.name) +
+          '</label>';
+      }).join('');
+      return '<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin-bottom:0.75rem">' +
+        '<div style="display:flex;align-items:center;gap:0.6rem;justify-content:space-between">' +
+          '<label style="display:flex;align-items:center;gap:0.6rem;font-weight:600;font-size:0.88rem">' +
+            '<input type="checkbox"' + (b.enabled ? ' checked' : '') +
+            ' onchange="toggleBatch(' + bi + ',this.checked)"> ' + esc(b.displayName) +
+          '</label>' +
+          '<span style="display:flex;align-items:center;gap:0.5rem">' + canaryBadge +
+            '<button class="btn-xs" onclick="runBatch(' + bi + ')">▶ Run Now</button></span>' +
+        '</div>' +
+        (b.description ? '<p style="font-size:0.78rem;color:var(--muted);margin-top:0.3rem">' + esc(b.description) + '</p>' : '') +
+        '<div style="margin-top:0.5rem;padding-left:1.6rem">' + files + '</div>' +
+        '<div id="batchResult-' + bi + '" style="font-size:0.78rem;color:var(--muted);margin-top:0.5rem;display:none"></div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function _currentSelection() {
+    var selection = {};
+    _batches.forEach(function(b) {
+      var files = {};
+      b.files.forEach(function(f) { files[f.name] = f.enabled; });
+      selection[b.id] = { enabled: b.enabled, files: files };
+    });
+    return selection;
+  }
+
+  function _saveSelection() {
+    fetch('/api/bootstrap/batches/selection', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ selection: _currentSelection() })
+    }).then(function(r) { if (!r.ok) throw new Error('save failed'); })
+      .catch(function() { showGlobalMsg('error', 'Failed to save batch selection'); });
+  }
+
+  function toggleBatch(bi, checked) {
+    _batches[bi].enabled = checked;
+    _saveSelection();
+  }
+
+  function toggleFile(bi, fi, checked) {
+    _batches[bi].files[fi].enabled = checked;
+    _saveSelection();
+  }
+
+  function runBatch(bi) {
+    var b = _batches[bi];
+    var resultEl = document.getElementById('batchResult-' + bi);
+    resultEl.style.display = 'block';
+    resultEl.textContent = 'Running…';
+    fetch('/api/bootstrap/batches/' + encodeURIComponent(b.id) + '/run', { method: 'POST' })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (!d.results) { resultEl.textContent = d.detail || 'Run failed'; return; }
+        var ok = d.results.filter(function(r) { return r.status === 'ok'; }).length;
+        resultEl.innerHTML = (d.success ? '<span style="color:var(--success)">✓</span> ' : '<span style="color:var(--error)">✗</span> ') +
+          ok + '/' + d.results.length + ' files ran clean' +
+          (d.success ? '' : ' — ' + d.results.filter(function(r) { return r.status !== 'ok'; })
+            .map(function(r) { return esc(r.file) + ': ' + esc((r.message || '').slice(0, 200)); }).join('; '));
+        showGlobalMsg(d.success ? 'success' : 'error', d.success ? b.displayName + ' ran successfully' : b.displayName + ' had failures — see details below');
+      }).catch(function() { resultEl.textContent = 'Run request failed'; });
   }
 
   function showGlobalMsg(type, text) {
