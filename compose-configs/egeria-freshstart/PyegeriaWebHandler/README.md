@@ -6,6 +6,14 @@ The Pyegeria Web Handler is a python module that provides a web handler for the 
 used to execute Dr.Egeria commands from anything that can make a REST call - and that shares the same filesystem as
 the Egeria runtime.
 
+## Startup and Data Initialization
+See [`PORTAL_STARTUP.md`](../../egeria-quickstart/PyegeriaWebHandler/PORTAL_STARTUP.md)
+in the quickstart tree — it documents container/process startup order and
+the bootstrap/data-initialization system (canary-based reset detection,
+`_batch.json` folder manifests, execution ordering, the admin panel) for
+**both** environments explicitly, including the differences specific to
+freshstart (no Postgres, no `advisor_lock_handler`/`demo_reset_handler`).
+
 ## Maintenance Notes
 The Pyegeria Web Handler now uses the **Dr. Egeria v2** core, which features a dynamic registry-based dispatcher (`V2Dispatcher`).
 

@@ -1234,6 +1234,28 @@ piece (relationship/classification-level, not just element-level).
 
 ---
 
+## Portal — Data Initialization / Bootstrap
+
+Built 2026-08-18/19: admin-selectable, filesystem-discovered batches of
+Dr.Egeria documents that seed the Portal's reference data, with
+canary-based auto-heal on reset and a manual admin panel for on-demand
+runs. See `PyegeriaWebHandler/PORTAL_STARTUP.md` for the full design
+(discovery, `_batch.json`/`_folder_order.json` manifests, execution
+ordering, the startup fast-retry fix for the `depends_on: egeria-main`
+race, and the `idempotent` manifest flag + confirm-gate added after a
+real duplicate-relationship bug was found in `Link Governance Results`).
+Live-verified working end-to-end on a real quickstart redeploy
+2026-08-19 (fast-retry engaged, both seed batches healed successfully).
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| BOOT-1 | `/api/bootstrap/status`'s `present` flag goes stale after a successful heal | open, cosmetic | `check_and_heal_all()` records `present: false` from the pre-heal canary check and never re-checks after healing, so the status JSON still shows `present: false` even once `lastHealResult: "ok"` confirms the heal succeeded. Not a functional bug — `lastHealResult` is the field that actually reflects outcome, and the frontend banner keys off `reinitializing` (which does clear correctly) — but worth a quick fix (re-check presence after a successful heal, or just set `present: true` on `lastHealResult == "ok"`) so the status endpoint doesn't read as contradictory to someone inspecting it directly. |
+| BOOT-2 | `demo_reset_handler.py`'s scheduled reset doesn't call the bootstrap heal directly | open | No coupling between the two — recovery after a DEMO_MODE scheduled reset relies entirely on the next periodic bootstrap check (up to `BOOTSTRAP_CHECK_INTERVAL_SECONDS`, default 10 min, later since the fast-retry window is startup-only and doesn't apply here). Real fix: have `demo_reset_handler` call `bootstrap_monitor_handler.check_and_heal_all()` directly after a reset completes. |
+| BOOT-3 | Root-cause fix for `Link Governance Results` duplicate-on-rerun bug (`governance.py`) | **fixed, not yet merged upstream** | egeria-python-18, 2026-08-19: added an existence check via `_async_get_related_elements` (filtered to `GovernanceResults`) before calling `_async_link_governance_results`, skipping the link if the pair is already connected; best-effort (falls through to old unconditional-link behavior if the lookup itself fails, so no new failure mode). Compiles clean, unit tests pass. Committed as `43758a0` on `perf/dr-egeria-glossary-sync-optimization` (egeria-python), **not yet pushed to origin/merged to upstream** — update this row with the merge commit once it lands. Portal-side confirm-gate (`idempotent` manifest flag) stays regardless — cheap insurance, not just a workaround. |
+| BOOT-4 | Sweep `governance.py`'s other `established_verbs` (Link/Attach/Add) branches for the same missing-dedupe gap | open, not started | BOOT-3 only fixed the one branch that had a confirmed repro (Governance Results). egeria-python-18 explicitly didn't audit the rest of `apply_changes`'s Link/Attach/Add branches — worth a follow-up look, not blocking. |
+
+---
+
 ## QuickStart Demo Mode
 
 Spec: `demo_plan.md`
