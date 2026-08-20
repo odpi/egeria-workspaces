@@ -30,7 +30,7 @@ It is designed so you can access it from:
 
 ## Start the stack
 ```bash
-cd compose-configs/deltalake-spark
+cd compose-configs/optional-associated-runtimes/deltalake-spark
 # first start will download images and jars
 docker compose up -d
 ```

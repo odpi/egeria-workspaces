@@ -13,7 +13,7 @@ and customise as needed before starting the stack.
 |---|---|
 | `egeria-user-directory.omsecrets` | Platform user directory: defines user accounts, security groups, roles, and access controls. Referenced by `platform.security.secrets.*` in `freshstart.application.properties`. |
 | `egeria-servers.omsecrets` | Server/connector NPA credentials: tokens and database passwords for the `fs-*` servers. Referenced as `egeriaServersSecretsStore` in `platform.placeholder.variables`. |
-| `integration.omsecrets` | Integration connector secrets (empty by default). Add entries here as you configure additional connectors. |
+| `integration.omsecrets` | Integration connector secrets. Ships with example/placeholder entries (a PostgreSQL server secret, a bearer-token-service secret, and a hard-coded-token secret) illustrating the supported secret shapes — replace or add entries here as you configure additional connectors. |
 
 ## How to use
 
