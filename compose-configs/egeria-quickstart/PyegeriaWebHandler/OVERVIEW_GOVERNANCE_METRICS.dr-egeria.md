@@ -79,7 +79,7 @@ ___
 Active Contributors Data Flow
 
 ### Purposes
-Documents (not yet true DataFlow lineage -- see BACKLOG.md) the conceptual chain behind the "Active Contributors" governance metric: a data source (the Egeria relationship/classification/property active_contributors() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.active_contributors(), exposed as Report Spec "Analytic Demo - Active Contributors", instantiated as the Report "Active Contributors Metric Report", measured by the GovernanceMetric "Active Contributors". Real Collection membership below covers the Report and GovernanceMetric (both real elements today); the data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types.
+Documents the conceptual data-flow chain behind the "Active Contributors" governance metric (not yet true DataFlow lineage -- see BACKLOG.md); Chain: a data source (the Egeria relationship/classification/property active_contributors() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.active_contributors() exposed as Report Spec "Analytic Demo - Active Contributors" instantiated as the Report "Active Contributors Metric Report" and measured by the GovernanceMetric "Active Contributors"; Real Collection membership below covers the Report and GovernanceMetric (both real elements today); The data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types
 
 ___
 
@@ -166,7 +166,7 @@ ___
 AI-Ready Assets (Composite) Data Flow
 
 ### Purposes
-Documents (not yet true DataFlow lineage -- see BACKLOG.md) the conceptual chain behind the "AI-Ready Assets (Composite)" governance metric: a data source (the Egeria relationship/classification/property ai_ready_assets() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.ai_ready_assets(), exposed as Report Spec "Analytic Demo - AI-Ready Assets", instantiated as the Report "AI-Ready Assets (Composite) Metric Report", measured by the GovernanceMetric "AI-Ready Assets (Composite)". Real Collection membership below covers the Report and GovernanceMetric (both real elements today); the data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types.
+Documents the conceptual data-flow chain behind the "AI-Ready Assets (Composite)" governance metric (not yet true DataFlow lineage -- see BACKLOG.md); Chain: a data source (the Egeria relationship/classification/property ai_ready_assets() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.ai_ready_assets() exposed as Report Spec "Analytic Demo - AI-Ready Assets" instantiated as the Report "AI-Ready Assets (Composite) Metric Report" and measured by the GovernanceMetric "AI-Ready Assets (Composite)"; Real Collection membership below covers the Report and GovernanceMetric (both real elements today); The data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types
 
 ___
 
@@ -253,7 +253,7 @@ ___
 Business Value Signals Data Flow
 
 ### Purposes
-Documents (not yet true DataFlow lineage -- see BACKLOG.md) the conceptual chain behind the "Business Value Signals" governance metric: a data source (the Egeria relationship/classification/property business_value_signals() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.business_value_signals(), exposed as Report Spec "Analytic Demo - Business Value Signals", instantiated as the Report "Business Value Signals Metric Report", measured by the GovernanceMetric "Business Value Signals". Real Collection membership below covers the Report and GovernanceMetric (both real elements today); the data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types.
+Documents the conceptual data-flow chain behind the "Business Value Signals" governance metric (not yet true DataFlow lineage -- see BACKLOG.md); Chain: a data source (the Egeria relationship/classification/property business_value_signals() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.business_value_signals() exposed as Report Spec "Analytic Demo - Business Value Signals" instantiated as the Report "Business Value Signals Metric Report" and measured by the GovernanceMetric "Business Value Signals"; Real Collection membership below covers the Report and GovernanceMetric (both real elements today); The data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types
 
 ___
 
@@ -340,7 +340,7 @@ ___
 Certifications & Exceptions Summary Data Flow
 
 ### Purposes
-Documents (not yet true DataFlow lineage -- see BACKLOG.md) the conceptual chain behind the "Certifications & Exceptions Summary" governance metric: a data source (the Egeria relationship/classification/property certifications_summary() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.certifications_summary(), exposed as Report Spec "Analytic Demo - Certifications and Exceptions", instantiated as the Report "Certifications & Exceptions Summary Metric Report", measured by the GovernanceMetric "Certifications & Exceptions Summary". Real Collection membership below covers the Report and GovernanceMetric (both real elements today); the data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types.
+Documents the conceptual data-flow chain behind the "Certifications & Exceptions Summary" governance metric (not yet true DataFlow lineage -- see BACKLOG.md); Chain: a data source (the Egeria relationship/classification/property certifications_summary() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.certifications_summary() exposed as Report Spec "Analytic Demo - Certifications and Exceptions" instantiated as the Report "Certifications & Exceptions Summary Metric Report" and measured by the GovernanceMetric "Certifications & Exceptions Summary"; Real Collection membership below covers the Report and GovernanceMetric (both real elements today); The data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types
 
 ___
 
@@ -427,7 +427,7 @@ ___
 AI Context Readiness Funnel Data Flow
 
 ### Purposes
-Documents (not yet true DataFlow lineage -- see BACKLOG.md) the conceptual chain behind the "AI Context Readiness Funnel" governance metric: a data source (the Egeria relationship/classification/property context_readiness_funnel() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.context_readiness_funnel(), exposed as Report Spec "Analytic Demo - AI Context Readiness", instantiated as the Report "AI Context Readiness Funnel Metric Report", measured by the GovernanceMetric "AI Context Readiness Funnel". Real Collection membership below covers the Report and GovernanceMetric (both real elements today); the data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types.
+Documents the conceptual data-flow chain behind the "AI Context Readiness Funnel" governance metric (not yet true DataFlow lineage -- see BACKLOG.md); Chain: a data source (the Egeria relationship/classification/property context_readiness_funnel() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.context_readiness_funnel() exposed as Report Spec "Analytic Demo - AI Context Readiness" instantiated as the Report "AI Context Readiness Funnel Metric Report" and measured by the GovernanceMetric "AI Context Readiness Funnel"; Real Collection membership below covers the Report and GovernanceMetric (both real elements today); The data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types
 
 ___
 
@@ -514,7 +514,7 @@ ___
 Usage Context Coverage Data Flow
 
 ### Purposes
-Documents (not yet true DataFlow lineage -- see BACKLOG.md) the conceptual chain behind the "Usage Context Coverage" governance metric: a data source (the Egeria relationship/classification/property contextualised_coverage() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.contextualised_coverage(), exposed as Report Spec "Analytic Demo - Contextualised Coverage", instantiated as the Report "Usage Context Coverage Metric Report", measured by the GovernanceMetric "Usage Context Coverage". Real Collection membership below covers the Report and GovernanceMetric (both real elements today); the data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types.
+Documents the conceptual data-flow chain behind the "Usage Context Coverage" governance metric (not yet true DataFlow lineage -- see BACKLOG.md); Chain: a data source (the Egeria relationship/classification/property contextualised_coverage() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.contextualised_coverage() exposed as Report Spec "Analytic Demo - Contextualised Coverage" instantiated as the Report "Usage Context Coverage Metric Report" and measured by the GovernanceMetric "Usage Context Coverage"; Real Collection membership below covers the Report and GovernanceMetric (both real elements today); The data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types
 
 ___
 
@@ -601,7 +601,7 @@ ___
 Engagement Over Time Data Flow
 
 ### Purposes
-Documents (not yet true DataFlow lineage -- see BACKLOG.md) the conceptual chain behind the "Engagement Over Time" governance metric: a data source (the Egeria relationship/classification/property engagement_series() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.engagement_series(), exposed as Report Spec "Analytic Demo - Engagement Over Time", instantiated as the Report "Engagement Over Time Metric Report", measured by the GovernanceMetric "Engagement Over Time". Real Collection membership below covers the Report and GovernanceMetric (both real elements today); the data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types.
+Documents the conceptual data-flow chain behind the "Engagement Over Time" governance metric (not yet true DataFlow lineage -- see BACKLOG.md); Chain: a data source (the Egeria relationship/classification/property engagement_series() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.engagement_series() exposed as Report Spec "Analytic Demo - Engagement Over Time" instantiated as the Report "Engagement Over Time Metric Report" and measured by the GovernanceMetric "Engagement Over Time"; Real Collection membership below covers the Report and GovernanceMetric (both real elements today); The data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types
 
 ___
 
@@ -688,7 +688,7 @@ ___
 Crowd-sourced Feedback Summary Data Flow
 
 ### Purposes
-Documents (not yet true DataFlow lineage -- see BACKLOG.md) the conceptual chain behind the "Crowd-sourced Feedback Summary" governance metric: a data source (the Egeria relationship/classification/property feedback_summary() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.feedback_summary(), exposed as Report Spec "Analytic Demo - Feedback Summary", instantiated as the Report "Crowd-sourced Feedback Summary Metric Report", measured by the GovernanceMetric "Crowd-sourced Feedback Summary". Real Collection membership below covers the Report and GovernanceMetric (both real elements today); the data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types.
+Documents the conceptual data-flow chain behind the "Crowd-sourced Feedback Summary" governance metric (not yet true DataFlow lineage -- see BACKLOG.md); Chain: a data source (the Egeria relationship/classification/property feedback_summary() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.feedback_summary() exposed as Report Spec "Analytic Demo - Feedback Summary" instantiated as the Report "Crowd-sourced Feedback Summary Metric Report" and measured by the GovernanceMetric "Crowd-sourced Feedback Summary"; Real Collection membership below covers the Report and GovernanceMetric (both real elements today); The data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types
 
 ___
 
@@ -775,7 +775,7 @@ ___
 Governance Classification Coverage Data Flow
 
 ### Purposes
-Documents (not yet true DataFlow lineage -- see BACKLOG.md) the conceptual chain behind the "Governance Classification Coverage" governance metric: a data source (the Egeria relationship/classification/property governed_coverage() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.governed_coverage(), exposed as Report Spec "Analytic Demo - Governance Coverage", instantiated as the Report "Governance Classification Coverage Metric Report", measured by the GovernanceMetric "Governance Classification Coverage". Real Collection membership below covers the Report and GovernanceMetric (both real elements today); the data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types.
+Documents the conceptual data-flow chain behind the "Governance Classification Coverage" governance metric (not yet true DataFlow lineage -- see BACKLOG.md); Chain: a data source (the Egeria relationship/classification/property governed_coverage() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.governed_coverage() exposed as Report Spec "Analytic Demo - Governance Coverage" instantiated as the Report "Governance Classification Coverage Metric Report" and measured by the GovernanceMetric "Governance Classification Coverage"; Real Collection membership below covers the Report and GovernanceMetric (both real elements today); The data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types
 
 ___
 
@@ -862,7 +862,7 @@ ___
 Karma Leaderboard Data Flow
 
 ### Purposes
-Documents (not yet true DataFlow lineage -- see BACKLOG.md) the conceptual chain behind the "Karma Leaderboard" governance metric: a data source (the Egeria relationship/classification/property karma_leaderboard() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.karma_leaderboard(), exposed as Report Spec "Analytic Demo - Karma Leaderboard", instantiated as the Report "Karma Leaderboard Metric Report", measured by the GovernanceMetric "Karma Leaderboard". Real Collection membership below covers the Report and GovernanceMetric (both real elements today); the data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types.
+Documents the conceptual data-flow chain behind the "Karma Leaderboard" governance metric (not yet true DataFlow lineage -- see BACKLOG.md); Chain: a data source (the Egeria relationship/classification/property karma_leaderboard() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.karma_leaderboard() exposed as Report Spec "Analytic Demo - Karma Leaderboard" instantiated as the Report "Karma Leaderboard Metric Report" and measured by the GovernanceMetric "Karma Leaderboard"; Real Collection membership below covers the Report and GovernanceMetric (both real elements today); The data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types
 
 ___
 
@@ -949,7 +949,7 @@ ___
 Orphan Glossary Terms Data Flow
 
 ### Purposes
-Documents (not yet true DataFlow lineage -- see BACKLOG.md) the conceptual chain behind the "Orphan Glossary Terms" governance metric: a data source (the Egeria relationship/classification/property orphan_glossary_terms() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.orphan_glossary_terms(), exposed as Report Spec "Analytic Demo - Orphan Glossary Terms", instantiated as the Report "Orphan Glossary Terms Metric Report", measured by the GovernanceMetric "Orphan Glossary Terms". Real Collection membership below covers the Report and GovernanceMetric (both real elements today); the data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types.
+Documents the conceptual data-flow chain behind the "Orphan Glossary Terms" governance metric (not yet true DataFlow lineage -- see BACKLOG.md); Chain: a data source (the Egeria relationship/classification/property orphan_glossary_terms() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.orphan_glossary_terms() exposed as Report Spec "Analytic Demo - Orphan Glossary Terms" instantiated as the Report "Orphan Glossary Terms Metric Report" and measured by the GovernanceMetric "Orphan Glossary Terms"; Real Collection membership below covers the Report and GovernanceMetric (both real elements today); The data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types
 
 ___
 
@@ -1036,7 +1036,7 @@ ___
 Ownership Coverage Data Flow
 
 ### Purposes
-Documents (not yet true DataFlow lineage -- see BACKLOG.md) the conceptual chain behind the "Ownership Coverage" governance metric: a data source (the Egeria relationship/classification/property ownership_coverage() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.ownership_coverage(), exposed as Report Spec "Analytic Demo - Ownership Coverage", instantiated as the Report "Ownership Coverage Metric Report", measured by the GovernanceMetric "Ownership Coverage". Real Collection membership below covers the Report and GovernanceMetric (both real elements today); the data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types.
+Documents the conceptual data-flow chain behind the "Ownership Coverage" governance metric (not yet true DataFlow lineage -- see BACKLOG.md); Chain: a data source (the Egeria relationship/classification/property ownership_coverage() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.ownership_coverage() exposed as Report Spec "Analytic Demo - Ownership Coverage" instantiated as the Report "Ownership Coverage Metric Report" and measured by the GovernanceMetric "Ownership Coverage"; Real Collection membership below covers the Report and GovernanceMetric (both real elements today); The data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types
 
 ___
 
@@ -1123,7 +1123,7 @@ ___
 People & Community Counts Data Flow
 
 ### Purposes
-Documents (not yet true DataFlow lineage -- see BACKLOG.md) the conceptual chain behind the "People & Community Counts" governance metric: a data source (the Egeria relationship/classification/property people_counts() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.people_counts(), exposed as Report Spec "Analytic Demo - People and Community", instantiated as the Report "People & Community Counts Metric Report", measured by the GovernanceMetric "People & Community Counts". Real Collection membership below covers the Report and GovernanceMetric (both real elements today); the data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types.
+Documents the conceptual data-flow chain behind the "People & Community Counts" governance metric (not yet true DataFlow lineage -- see BACKLOG.md); Chain: a data source (the Egeria relationship/classification/property people_counts() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.people_counts() exposed as Report Spec "Analytic Demo - People and Community" instantiated as the Report "People & Community Counts Metric Report" and measured by the GovernanceMetric "People & Community Counts"; Real Collection membership below covers the Report and GovernanceMetric (both real elements today); The data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types
 
 ___
 
@@ -1210,7 +1210,7 @@ ___
 Semantic Grounding Coverage Data Flow
 
 ### Purposes
-Documents (not yet true DataFlow lineage -- see BACKLOG.md) the conceptual chain behind the "Semantic Grounding Coverage" governance metric: a data source (the Egeria relationship/classification/property semantic_grounding() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.semantic_grounding(), exposed as Report Spec "Analytic Demo - Semantic Grounding", instantiated as the Report "Semantic Grounding Coverage Metric Report", measured by the GovernanceMetric "Semantic Grounding Coverage". Real Collection membership below covers the Report and GovernanceMetric (both real elements today); the data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types.
+Documents the conceptual data-flow chain behind the "Semantic Grounding Coverage" governance metric (not yet true DataFlow lineage -- see BACKLOG.md); Chain: a data source (the Egeria relationship/classification/property semantic_grounding() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.semantic_grounding() exposed as Report Spec "Analytic Demo - Semantic Grounding" instantiated as the Report "Semantic Grounding Coverage Metric Report" and measured by the GovernanceMetric "Semantic Grounding Coverage"; Real Collection membership below covers the Report and GovernanceMetric (both real elements today); The data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types
 
 ___
 
@@ -1297,7 +1297,7 @@ ___
 Stale Assets (No Update in 180 Days) Data Flow
 
 ### Purposes
-Documents (not yet true DataFlow lineage -- see BACKLOG.md) the conceptual chain behind the "Stale Assets (No Update in 180 Days)" governance metric: a data source (the Egeria relationship/classification/property stale_assets() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.stale_assets(), exposed as Report Spec "Analytic Demo - Stale Assets", instantiated as the Report "Stale Assets (No Update in 180 Days) Metric Report", measured by the GovernanceMetric "Stale Assets (No Update in 180 Days)". Real Collection membership below covers the Report and GovernanceMetric (both real elements today); the data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types.
+Documents the conceptual data-flow chain behind the "Stale Assets (No Update in 180 Days)" governance metric (not yet true DataFlow lineage -- see BACKLOG.md); Chain: a data source (the Egeria relationship/classification/property stale_assets() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.stale_assets() exposed as Report Spec "Analytic Demo - Stale Assets" instantiated as the Report "Stale Assets (No Update in 180 Days) Metric Report" and measured by the GovernanceMetric "Stale Assets (No Update in 180 Days)"; Real Collection membership below covers the Report and GovernanceMetric (both real elements today); The data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types
 
 ___
 
@@ -1384,7 +1384,7 @@ ___
 Term Definition Completeness Data Flow
 
 ### Purposes
-Documents (not yet true DataFlow lineage -- see BACKLOG.md) the conceptual chain behind the "Term Definition Completeness" governance metric: a data source (the Egeria relationship/classification/property term_definition_completeness() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.term_definition_completeness(), exposed as Report Spec "Analytic Demo - Term Definition Completeness", instantiated as the Report "Term Definition Completeness Metric Report", measured by the GovernanceMetric "Term Definition Completeness". Real Collection membership below covers the Report and GovernanceMetric (both real elements today); the data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types.
+Documents the conceptual data-flow chain behind the "Term Definition Completeness" governance metric (not yet true DataFlow lineage -- see BACKLOG.md); Chain: a data source (the Egeria relationship/classification/property term_definition_completeness() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.term_definition_completeness() exposed as Report Spec "Analytic Demo - Term Definition Completeness" instantiated as the Report "Term Definition Completeness Metric Report" and measured by the GovernanceMetric "Term Definition Completeness"; Real Collection membership below covers the Report and GovernanceMetric (both real elements today); The data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types
 
 ___
 
@@ -1471,7 +1471,7 @@ ___
 Usage Context: Supply Chains & Blueprints Data Flow
 
 ### Purposes
-Documents (not yet true DataFlow lineage -- see BACKLOG.md) the conceptual chain behind the "Usage Context: Supply Chains & Blueprints" governance metric: a data source (the Egeria relationship/classification/property usage_context_counts() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.usage_context_counts(), exposed as Report Spec "Analytic Demo - Usage Context: Supply Chains & Blueprints", instantiated as the Report "Usage Context: Supply Chains & Blueprints Metric Report", measured by the GovernanceMetric "Usage Context: Supply Chains & Blueprints". Real Collection membership below covers the Report and GovernanceMetric (both real elements today); the data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types.
+Documents the conceptual data-flow chain behind the "Usage Context: Supply Chains & Blueprints" governance metric (not yet true DataFlow lineage -- see BACKLOG.md); Chain: a data source (the Egeria relationship/classification/property usage_context_counts() actually reads -- see its own Implementation Description) feeds the analytic function pyegeria.view.overview_metrics.usage_context_counts() exposed as Report Spec "Analytic Demo - Usage Context: Supply Chains & Blueprints" instantiated as the Report "Usage Context: Supply Chains & Blueprints Metric Report" and measured by the GovernanceMetric "Usage Context: Supply Chains & Blueprints"; Real Collection membership below covers the Report and GovernanceMetric (both real elements today); The data-source and analytic-function stages are text-only until FormatSet/the analytic function itself become real Egeria types
 
 ___
 
