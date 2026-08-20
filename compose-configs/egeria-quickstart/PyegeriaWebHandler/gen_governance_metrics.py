@@ -168,7 +168,7 @@ ___
 ### Display Name
 {flow_name}
 
-### Description
+### Purposes
 {esc(flow_purpose)}
 
 ___
