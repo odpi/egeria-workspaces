@@ -190,7 +190,7 @@ Glossary endpoints are served by `glossary_handler.py` (shared with Egeria Explo
 pyegeria `find_*` calls don't expose `deployedImplementationType` as a server-side filter. The sidebar shows a type-grouping dropdown that filters the already-loaded list.
 
 **5. Status filters must always be overridden to `[]`.**
-Every find method defaults to a status that filters out most Coco demo data. The rule: always pass `<status_param>=[]` unless the user explicitly requests filtering. See `cat_calls.md` for the per-method defaults.
+Every find method defaults to a status that filters out most Coco demo data. The rule: always pass `<status_param>=[]` unless the user explicitly requests filtering. See `design-docs/cat_calls.md` for the per-method defaults.
 
 **6. Detail panel uses `graph_query_depth=3`.**
 List calls use `graph_query_depth=0` for performance. Detail calls use `graph_query_depth=3` to expose nested schema links, lineage anchors, multi-hop relationships, and embedded mermaid diagram fields.
@@ -220,7 +220,7 @@ pyegeria wraps related elements in `RelatedMetadataElementSummary`. The actual `
 
 ### Outstanding work
 
-See `CATALOG_ISSUES.md` for detailed tracking. Remaining open issues:
+See `design-docs/CATALOG_ISSUES.md` for detailed tracking. Remaining open issues:
 - **O-1/O-2:** Confirm list response key format and whether result-set mermaid graphs are returned
 - **O-3:** Pre-populate "Load Context Diagram" from embedded `mermaidGraph` to avoid redundant fetch
 - **O-8:** Replace O(n) scan for SoftwareCapability detail with `get_software_capability_by_guid`
