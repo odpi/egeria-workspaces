@@ -1,7 +1,7 @@
-# Create Information Supply Chain
+## Create Information Supply Chain
 >	The flow of a particular type of data across a digital landscape.
 
-## Display Name
+### Display Name
 >	**Input Required**: True
 
 >	**Description**: Name of the Information Supply Chain
@@ -9,26 +9,26 @@
 >	**Alternative Labels**: Name; Display Name; Supply Chain; Supply Chain Name
 
 Evil AI2
-## Description
+### Description
 >	**Input Required**: False
 
 >	**Description**: A description of the data structure.
 
 This is the supply chain that things it will encompass the world.
-## Category
+### Category
 >	**Input Required**: False
 
 >	**Description**: A user specified category name that can be used for example, to define product types or agreement types.
 
 MLOPS
-## Scope
+### Scope
 >	**Input Required**: False
 
 >	**Description**: Scope of the supply chain.
 
 All
 
-## Purposes
+### Purposes
 >	**Input Required**: False
 
 >	**Description**: A list of purposes.
@@ -36,7 +36,7 @@ All
 >	**Alternative Labels**: Purpose, Purposes
 
 The evil ai has decided to swallow everything in sight.
-## Nested Information Supply Chains
+### Nested Information Supply Chains
 >	**Input Required**: False
 
 >	**Description**: A list of supply chains that compose this supply chain.
@@ -45,7 +45,7 @@ The evil ai has decided to swallow everything in sight.
 puddys_supply_chain
 
 
-## In Information Supply Chain
+### In Information Supply Chain
 >	**Input Required**: False
 
 >	**Description**: Supply chains that this supply chain is in.
@@ -53,13 +53,13 @@ puddys_supply_chain
 >	**Alternative Labels**: In Supply Chain; In Supply Chains; In Information Supply Chains
 rovers_supply_chain
 
-## Qualified Name
+### Qualified Name
 >	**Input Required**: False
 
 >	**Description**: A unique qualified name for the element. Generated using the qualified name pattern  if not user specified.
 
 
-## GUID
+### GUID
 >	**Input Required**: False
 
 >	**Description**: A system generated unique identifier.
@@ -67,7 +67,7 @@ rovers_supply_chain
 >	**Alternative Labels**: Guid; guid
 
 
-## Merge Update
+### Merge Update
 >	**Input Required**: False
 
 >	**Description**: If true, only those attributes specified in the update will be updated; If false, any attributes not provided during the update will be set to None.
@@ -77,12 +77,12 @@ rovers_supply_chain
 >	**Default Value**: True
 
 ______
-# Create Terms and Conditions
+## Create Terms and Conditions
 > A defined set of terms and conditions.
 >
 >	**Alternative Names**: T&C; Terms & Conditions
 
-## Display Name
+### Display Name
 >	**Input Required**: True
 
 >	**Attribute Type**: Simple
@@ -92,7 +92,7 @@ ______
 >	**Alternative Labels**: "Term Name"
 
 
-## Domain Identifier
+### Domain Identifier
 >	**Input Required**: False
 
 >	**Attribute Type**: Enum
@@ -104,7 +104,7 @@ ______
 >	**Default Value**: ALL
 
 
-## Implications
+### Implications
 >	**Input Required**: False
 
 >	**Attribute Type**: Simple List
@@ -112,7 +112,7 @@ ______
 >	**Description**: List of implications.
 
 
-## Importance
+### Importance
 >	**Input Required**: False
 
 >	**Attribute Type**: Simple
@@ -120,7 +120,7 @@ ______
 >	**Description**: Importance of the definition.
 
 
-## Outcomes
+### Outcomes
 >	**Input Required**: False
 
 >	**Attribute Type**: Simple List
@@ -128,7 +128,7 @@ ______
 >	**Description**: List of desired outcomes.
 
 
-## Results
+### Results
 >	**Input Required**: False
 
 >	**Attribute Type**: Simple List
@@ -136,7 +136,7 @@ ______
 >	**Description**: A list of expected results.
 
 
-## Summary
+### Summary
 >	**Input Required**: False
 
 >	**Attribute Type**: Simple
@@ -144,7 +144,7 @@ ______
 >	**Description**: A short summary of the element's meaning or purpose.
 
 
-## Usage
+### Usage
 >	**Input Required**: False
 
 >	**Attribute Type**: Simple
@@ -152,7 +152,7 @@ ______
 >	**Description**: The usage guidance for this element — how it is intended to be used in context.
 
 
-## Implementation Description
+### Implementation Description
 >	**Input Required**: False
 
 >	**Attribute Type**: Simple
@@ -162,7 +162,7 @@ ______
 >	**Alternative Labels**: Implementation
 
 
-## Obligations
+### Obligations
 >	**Input Required**: False
 
 >	**Attribute Type**: Dictionary
@@ -170,7 +170,7 @@ ______
 >	**Description**: A dictionary of property:value pairs describing obligations.
 
 
-## Journal Entry
+### Journal Entry
 >	**Input Required**: False
 
 >	**Attribute Type**: Simple
@@ -178,7 +178,7 @@ ______
 >	**Description**: A text entry into a journal.
 
 
-## Category
+### Category
 >	**Input Required**: False
 
 >	**Attribute Type**: Simple
@@ -188,7 +188,7 @@ ______
 >	**Alternative Labels**: Category Name
 
 
-## Description
+### Description
 >	**Input Required**: False
 
 >	**Attribute Type**: Simple
@@ -196,7 +196,7 @@ ______
 >	**Description**: A description.
 
 
-## Qualified Name
+### Qualified Name
 >	**Input Required**: False
 
 >	**Attribute Type**: QN
@@ -204,7 +204,7 @@ ______
 >	**Description**: The unique, text name of an element.
 
 
-## Content Status
+### Content Status
 >	**Input Required**: False
 
 >	**Attribute Type**: Valid Value
@@ -216,7 +216,7 @@ ______
 >	**Default Value**: ACTIVE
 
 
-## Scope
+### Scope
 >	**Input Required**: False
 
 >	**Attribute Type**: Simple
@@ -224,7 +224,7 @@ ______
 >	**Description**: Scope of the definition or element.
 
 
-## Entitlements
+### Entitlements
 >	**Input Required**: False
 
 >	**Attribute Type**: Dictionary
@@ -232,7 +232,7 @@ ______
 >	**Description**: A dictionary of property:value pairs describing entitlements.
 
 
-## Restrictions
+### Restrictions
 >	**Input Required**: False
 
 >	**Attribute Type**: Dictionary
@@ -240,7 +240,7 @@ ______
 >	**Description**: A dictionary of property:value pairs describing restrictions.
 
 
-## Search Keywords
+### Search Keywords
 >	**Input Required**: False
 
 >	**Attribute Type**: Simple List
@@ -248,7 +248,7 @@ ______
 >	**Description**: A list of search keywords.
 
 
-## GUID
+### GUID
 >	**Input Required**: False
 
 >	**Attribute Type**: GUID
@@ -258,7 +258,7 @@ ______
 >	**Alternative Labels**: guid; Guid
 
 
-## URL
+### URL
 >	**Input Required**: False
 
 >	**Attribute Type**: Simple
@@ -266,7 +266,7 @@ ______
 >	**Description**: URL for further information.
 
 
-## Version Identifier
+### Version Identifier
 >	**Input Required**: False
 
 >	**Attribute Type**: Simple
@@ -278,7 +278,7 @@ ______
 >	**Default Value**: 1.0
 
 
-## Authors
+### Authors
 >	**Input Required**: False
 
 >	**Attribute Type**: Simple List

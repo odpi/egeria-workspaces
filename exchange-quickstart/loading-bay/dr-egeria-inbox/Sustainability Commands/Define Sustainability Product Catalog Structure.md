@@ -1,10 +1,10 @@
 Define Sustainability Product Catalog Structure
 
-# Create Digital Product Catalog
+## Create Digital Product Catalog
 >	Create or update a Digital Product Catalog. 
 
 
-## Display Name
+### Display Name
 >	**Input Required**: True
 
 >	**Description**: Name of a catalog of digital products.
@@ -12,13 +12,13 @@ Define Sustainability Product Catalog Structure
 >	**Alternative Labels**: Name; Catalog Name; Marketplace
 
 Sustainability Product Catalog
-## Description
+### Description
 >	**Input Required**: False
 
 >	**Description**: Description of the contents of a product catalog.
 
 Catalog of Sustainability Assets that includes reference data used in carbon accounting, interim and localized results, aggregated results and finalized sustainability reports.
-## Classifications
+### Classifications
 >	**Input Required**: False
 
 >	**Description**: Optionally specify the initial classifications for a collection. Multiple classifications can be specified. 
@@ -26,7 +26,7 @@ Catalog of Sustainability Assets that includes reference data used in carbon acc
 >	**Alternative Labels**: classification
 
 
-## Category
+### Category
 >	**Input Required**: False
 
 >	**Description**: A user specified category name that can be used for example, to define product types or agreement types.
@@ -34,7 +34,7 @@ Catalog of Sustainability Assets that includes reference data used in carbon acc
 >	**Alternative Labels**: Category Name
 
 Sustainability
-## Version Identifier
+### Version Identifier
 >	**Input Required**: False
 
 >	**Description**: Published product version identifier.
@@ -42,7 +42,7 @@ Sustainability
 >	**Default Value**: 1.0
 
 2025
-## Is Own Anchor
+### Is Own Anchor
 >	**Input Required**: False
 
 >	**Description**: Generally true. 
@@ -52,13 +52,13 @@ Sustainability
 >	**Default Value**: True
 
 True
-## Anchor ID
+### Anchor ID
 >	**Input Required**: False
 
 >	**Description**: Anchor identity for the collection. Typically a qualified name but if display name is unique then it could be used (not recommended)
 
 
-## Parent ID
+### Parent ID
 >	**Input Required**: False
 
 >	**Description**: Unique name of the parent element.
@@ -66,19 +66,19 @@ True
 >	**Alternative Labels**: Parent; 
 
 
-## Parent Relationship Type Name
+### Parent Relationship Type Name
 >	**Input Required**: False
 
 >	**Description**: The kind of the relationship to the parent element.
 
 
-## Anchor Scope Name
+### Anchor Scope Name
 >	**Input Required**: False
 
 >	**Description**: Optional qualified name of an anchor scope.
 
 
-## Parent at End1
+### Parent at End1
 >	**Input Required**: False
 
 >	**Description**: Is the parent at end1 of the relationship?
@@ -86,19 +86,19 @@ True
 >	**Default Value**: True
 
 
-## Glossary Term
+### Glossary Term
 >	**Input Required**: False
 
 >	**Description**: Term that provides meaning to this field.
 
 
-## Qualified Name
+### Qualified Name
 >	**Input Required**: False
 
 >	**Description**: A unique qualified name for the element. Generated using the qualified name pattern  if not user specified.
 
 
-## GUID
+### GUID
 >	**Input Required**: False
 
 >	**Description**: A system generated unique identifier.
@@ -106,25 +106,25 @@ True
 >	**Alternative Labels**: Guid; guid
 
 
-## Effective Time
+### Effective Time
 >	**Input Required**: False
 
 >	**Description**: An ISO-8601 string representing the time to use for evaluating effectivity of the elements related to this one.
 
 
-## Effective From
+### Effective From
 >	**Input Required**: False
 
 >	**Description**: A string in ISO-8601 format that defines the when an element becomes effective (visible).
 
 
-## Effective To
+### Effective To
 >	**Input Required**: False
 
 >	**Description**: A string in ISO-8601 format that defines the when an element is no longer effective (visible).
 
 
-## Merge Update
+### Merge Update
 >	**Input Required**: False
 
 >	**Description**: If true, only those attributes specified in the update will be updated; If false, any attributes not provided during the update will be set to None.
@@ -134,28 +134,28 @@ True
 >	**Default Value**: True
 
 
-## Additional Properties
+### Additional Properties
 >	**Input Required**: False
 
 >	**Description**: Additional user defined values organized as name value pairs in a dictionary.
 
 
-## External Source GUID
+### External Source GUID
 >	**Input Required**: False
 
 >	**Description**: Identifier of an external source that is associated with this element.
 
 
-## External Source Name
+### External Source Name
 >	**Input Required**: False
 
 >	**Description**: Name of an external element that is associated with this element.
 
 ____
-# Update Folder
+## Update Folder
 >	Create or update a generic collection. While it can be used to create specific kinds of collections, you cannot set the collection-specific properties - so use the appropriate Dr.Egeria command to set all of the properties.
 
-## Display Name
+### Display Name
 >	**Input Required**: True
 
 >	**Description**: Name of the digital product
@@ -164,14 +164,14 @@ ____
 
 Emissions Factors Reference Data
 
-## Description
+### Description
 >	**Input Required**: False
 
 >	**Description**: Description of the contents of a product.
 
 Emissions factors datasets from a variety of sources, covering different kinds of emissions factors for different regions and industries.
 
-## Classifications
+### Classifications
 >	**Input Required**: False
 
 >	**Description**: Optionally specify the initial classifications for a collection. Multiple classifications can be specified. 
@@ -179,7 +179,7 @@ Emissions factors datasets from a variety of sources, covering different kinds o
 >	**Alternative Labels**: classification
 
 
-## Category
+### Category
 >	**Input Required**: False
 
 >	**Description**: A user specified category name that can be used for example, to define product types or agreement types.
@@ -188,7 +188,7 @@ Emissions factors datasets from a variety of sources, covering different kinds o
 
 Sustainabiliity
 
-## Version Identifier
+### Version Identifier
 >	**Input Required**: False
 
 >	**Description**: Published product version identifier.
@@ -196,7 +196,7 @@ Sustainabiliity
 >	**Default Value**: 1.0
 
 
-## Is Own Anchor
+### Is Own Anchor
 >	**Input Required**: False
 
 >	**Description**: Generally true. 
@@ -207,14 +207,14 @@ Sustainabiliity
 
 False
 
-## Anchor ID
+### Anchor ID
 >	**Input Required**: False
 
 >	**Description**: Anchor identity for the collection. Typically a qualified name but if display name is unique then it could be used (not recommended)
 
 Sustainability Product Catalog
 
-## Parent ID
+### Parent ID
 >	**Input Required**: False
 
 >	**Description**: Unique name of the parent element.
@@ -222,21 +222,21 @@ Sustainability Product Catalog
 >	**Alternative Labels**: Parent; 
 
 Sustainability Product Catalog
-## Parent Relationship Type Name
+### Parent Relationship Type Name
 >	**Input Required**: False
 
 >	**Description**: The kind of the relationship to the parent element.
 
 CollectionMembership
 
-## Anchor Scope Name
+### Anchor Scope Name
 >	**Input Required**: False
 
 >	**Description**: Optional qualified name of an anchor scope.
 
 Sustainability Product Catalog
 
-## Parent at End1
+### Parent at End1
 >	**Input Required**: False
 
 >	**Description**: Is the parent at end1 of the relationship?
@@ -245,19 +245,19 @@ Sustainability Product Catalog
 
 True
 
-## Glossary Term
+### Glossary Term
 >	**Input Required**: False
 
 >	**Description**: Term that provides meaning to this field.
 
 
-## Qualified Name
+### Qualified Name
 >	**Input Required**: False
 
 >	**Description**: A unique qualified name for the element. Generated using the qualified name pattern  if not user specified.
 
 
-## GUID
+### GUID
 >	**Input Required**: False
 
 >	**Description**: A system generated unique identifier.
@@ -265,25 +265,25 @@ True
 >	**Alternative Labels**: Guid; guid
 
 
-## Effective Time
+### Effective Time
 >	**Input Required**: False
 
 >	**Description**: An ISO-8601 string representing the time to use for evaluating effectivity of the elements related to this one.
 
 
-## Effective From
+### Effective From
 >	**Input Required**: False
 
 >	**Description**: A string in ISO-8601 format that defines the when an element becomes effective (visible).
 
 
-## Effective To
+### Effective To
 >	**Input Required**: False
 
 >	**Description**: A string in ISO-8601 format that defines the when an element is no longer effective (visible).
 
 
-## Merge Update
+### Merge Update
 >	**Input Required**: False
 
 >	**Description**: If true, only those attributes specified in the update will be updated; If false, any attributes not provided during the update will be set to None.
@@ -293,30 +293,30 @@ True
 >	**Default Value**: True
 
 
-## Additional Properties
+### Additional Properties
 >	**Input Required**: False
 
 >	**Description**: Additional user defined values organized as name value pairs in a dictionary.
 
 
-## External Source GUID
+### External Source GUID
 >	**Input Required**: False
 
 >	**Description**: Identifier of an external source that is associated with this element.
 
 
-## External Source Name
+### External Source Name
 >	**Input Required**: False
 
 >	**Description**: Name of an external element that is associated with this element.
 
 ____
-# Now lets define the folder structures within the catalog
+## Now lets define the folder structures within the catalog
 
-#  Don't Create Folder
+##  Don't Create Folder
 >	Create or update a generic collection. While it can be used to create specific kinds of collections, you cannot set the collection-specific properties - so use the appropriate Dr.Egeria command to set all of the properties.
 
-## Display Name
+### Display Name
 >	**Input Required**: True
 
 >	**Description**: Name of the digital product
@@ -325,13 +325,13 @@ ____
 
 Industry Classifications
 
-## Description
+### Description
 >	**Input Required**: False
 
 >	**Description**: Description of the contents of a product.
 
 Industry classifications such as NAICS codes are used in some Emissions factors reference data as well as in some of the GHG Scope 3 reference data sets.
-## Classifications
+### Classifications
 >	**Input Required**: False
 
 >	**Description**: Optionally specify the initial classifications for a collection. Multiple classifications can be specified. 
@@ -339,7 +339,7 @@ Industry classifications such as NAICS codes are used in some Emissions factors 
 >	**Alternative Labels**: classification
 
 
-## Category
+### Category
 >	**Input Required**: False
 
 >	**Description**: A user specified category name that can be used for example, to define product types or agreement types.
@@ -348,7 +348,7 @@ Industry classifications such as NAICS codes are used in some Emissions factors 
 
 General Reference Data
 
-## Version Identifier
+### Version Identifier
 >	**Input Required**: False
 
 >	**Description**: Published product version identifier.
@@ -356,7 +356,7 @@ General Reference Data
 >	**Default Value**: 1.0
 
 
-## Is Own Anchor
+### Is Own Anchor
 >	**Input Required**: False
 
 >	**Description**: Generally true. 
@@ -367,14 +367,14 @@ General Reference Data
 
 False
 
-## Anchor ID
+### Anchor ID
 >	**Input Required**: False
 
 >	**Description**: Anchor identity for the collection. Typically a qualified name but if display name is unique then it could be used (not recommended)
 
 Sustainability Product Catalog
 
-## Parent ID
+### Parent ID
 >	**Input Required**: False
 
 >	**Description**: Unique name of the parent element.
@@ -383,21 +383,21 @@ Sustainability Product Catalog
 
 Sustainability Product Catalog
 
-## Parent Relationship Type Name
+### Parent Relationship Type Name
 >	**Input Required**: False
 
 >	**Description**: The kind of the relationship to the parent element.
 
 CollectionMembership
 
-## Anchor Scope Name
+### Anchor Scope Name
 >	**Input Required**: False
 
 >	**Description**: Optional qualified name of an anchor scope.
 
 Sustainability Product Catalog
 
-## Parent at End1
+### Parent at End1
 >	**Input Required**: False
 
 >	**Description**: Is the parent at end1 of the relationship?
@@ -406,19 +406,19 @@ Sustainability Product Catalog
 
 True
 
-## Glossary Term
+### Glossary Term
 >	**Input Required**: False
 
 >	**Description**: Term that provides meaning to this field.
 
 
-## Qualified Name
+### Qualified Name
 >	**Input Required**: False
 
 >	**Description**: A unique qualified name for the element. Generated using the qualified name pattern  if not user specified.
 
 
-## GUID
+### GUID
 >	**Input Required**: False
 
 >	**Description**: A system generated unique identifier.
@@ -426,25 +426,25 @@ True
 >	**Alternative Labels**: Guid; guid
 
 
-## Effective Time
+### Effective Time
 >	**Input Required**: False
 
 >	**Description**: An ISO-8601 string representing the time to use for evaluating effectivity of the elements related to this one.
 
 
-## Effective From
+### Effective From
 >	**Input Required**: False
 
 >	**Description**: A string in ISO-8601 format that defines the when an element becomes effective (visible).
 
 
-## Effective To
+### Effective To
 >	**Input Required**: False
 
 >	**Description**: A string in ISO-8601 format that defines the when an element is no longer effective (visible).
 
 
-## Merge Update
+### Merge Update
 >	**Input Required**: False
 
 >	**Description**: If true, only those attributes specified in the update will be updated; If false, any attributes not provided during the update will be set to None.
@@ -454,19 +454,19 @@ True
 >	**Default Value**: True
 
 
-## Additional Properties
+### Additional Properties
 >	**Input Required**: False
 
 >	**Description**: Additional user defined values organized as name value pairs in a dictionary.
 
 
-## External Source GUID
+### External Source GUID
 >	**Input Required**: False
 
 >	**Description**: Identifier of an external source that is associated with this element.
 
 
-## External Source Name
+### External Source Name
 >	**Input Required**: False
 
 >	**Description**: Name of an external element that is associated with this element.
@@ -474,10 +474,10 @@ True
 
 ____
 
-#  Don't Create Folder
+##  Don't Create Folder
 >	Create or update a generic collection. While it can be used to create specific kinds of collections, you cannot set the collection-specific properties - so use the appropriate Dr.Egeria command to set all of the properties.
 
-## Display Name
+### Display Name
 >	**Input Required**: True
 
 >	**Description**: Name of the digital product
@@ -485,13 +485,13 @@ ____
 >	**Alternative Labels**: Name; Folder Name; Collection Name; Collection
 
 Scope 3 Related Data
-## Description
+### Description
 >	**Input Required**: False
 
 >	**Description**: Description of the contents of a product.
 
 The Greenhouse Gas Protocol defines Scope 3 as indirect upstream and downstream carbon emissions to be included in the overall carbon accounting.  This folder contains various reference data and external references to useful datasets and information useful in Scope 3 emissions calculations.
-## Classifications
+### Classifications
 >	**Input Required**: False
 
 >	**Description**: Optionally specify the initial classifications for a collection. Multiple classifications can be specified. 
@@ -499,7 +499,7 @@ The Greenhouse Gas Protocol defines Scope 3 as indirect upstream and downstream 
 >	**Alternative Labels**: classification
 
 
-## Category
+### Category
 >	**Input Required**: False
 
 >	**Description**: A user specified category name that can be used for example, to define product types or agreement types.
@@ -507,7 +507,7 @@ The Greenhouse Gas Protocol defines Scope 3 as indirect upstream and downstream 
 >	**Alternative Labels**: Category Name
 
 Sustainability
-## Version Identifier
+### Version Identifier
 >	**Input Required**: False
 
 >	**Description**: Published product version identifier.
@@ -515,7 +515,7 @@ Sustainability
 >	**Default Value**: 1.0
 
 
-## Is Own Anchor
+### Is Own Anchor
 >	**Input Required**: False
 
 >	**Description**: Generally true. 
@@ -525,13 +525,13 @@ Sustainability
 >	**Default Value**: True
 
 False
-## Anchor ID
+### Anchor ID
 >	**Input Required**: False
 
 >	**Description**: Anchor identity for the collection. Typically a qualified name but if display name is unique then it could be used (not recommended)
 
 Sustainability Product Catalog
-## Parent ID
+### Parent ID
 >	**Input Required**: False
 
 >	**Description**: Unique name of the parent element.
@@ -539,19 +539,19 @@ Sustainability Product Catalog
 >	**Alternative Labels**: Parent; 
 
 Sustainability Product Catalog
-## Parent Relationship Type Name
+### Parent Relationship Type Name
 >	**Input Required**: False
 
 >	**Description**: The kind of the relationship to the parent element.
 
 CollectionMembership
-## Anchor Scope Name
+### Anchor Scope Name
 >	**Input Required**: False
 
 >	**Description**: Optional qualified name of an anchor scope.
 
 Sustainability Product Catalog
-## Parent at End1
+### Parent at End1
 >	**Input Required**: False
 
 >	**Description**: Is the parent at end1 of the relationship?
@@ -559,19 +559,19 @@ Sustainability Product Catalog
 >	**Default Value**: True
 
 True
-## Glossary Term
+### Glossary Term
 >	**Input Required**: False
 
 >	**Description**: Term that provides meaning to this field.
 
 
-## Qualified Name
+### Qualified Name
 >	**Input Required**: False
 
 >	**Description**: A unique qualified name for the element. Generated using the qualified name pattern  if not user specified.
 
 
-## GUID
+### GUID
 >	**Input Required**: False
 
 >	**Description**: A system generated unique identifier.
@@ -579,25 +579,25 @@ True
 >	**Alternative Labels**: Guid; guid
 
 
-## Effective Time
+### Effective Time
 >	**Input Required**: False
 
 >	**Description**: An ISO-8601 string representing the time to use for evaluating effectivity of the elements related to this one.
 
 
-## Effective From
+### Effective From
 >	**Input Required**: False
 
 >	**Description**: A string in ISO-8601 format that defines the when an element becomes effective (visible).
 
 
-## Effective To
+### Effective To
 >	**Input Required**: False
 
 >	**Description**: A string in ISO-8601 format that defines the when an element is no longer effective (visible).
 
 
-## Merge Update
+### Merge Update
 >	**Input Required**: False
 
 >	**Description**: If true, only those attributes specified in the update will be updated; If false, any attributes not provided during the update will be set to None.
@@ -607,19 +607,19 @@ True
 >	**Default Value**: True
 
 
-## Additional Properties
+### Additional Properties
 >	**Input Required**: False
 
 >	**Description**: Additional user defined values organized as name value pairs in a dictionary.
 
 
-## External Source GUID
+### External Source GUID
 >	**Input Required**: False
 
 >	**Description**: Identifier of an external source that is associated with this element.
 
 
-## External Source Name
+### External Source Name
 >	**Input Required**: False
 
 >	**Description**: Name of an external element that is associated with this element.
@@ -627,10 +627,10 @@ True
 
 ____
 
-#  Don't Create Folder
+##  Don't Create Folder
 >	Create or update a generic collection. While it can be used to create specific kinds of collections, you cannot set the collection-specific properties - so use the appropriate Dr.Egeria command to set all of the properties.
 
-## Display Name
+### Display Name
 >	**Input Required**: True
 
 >	**Description**: Name of the digital product
@@ -638,13 +638,13 @@ ____
 >	**Alternative Labels**: Name; Folder Name; Collection Name; Collection
 
 Interim Carbon Accounting Data
-## Description
+### Description
 >	**Input Required**: False
 
 >	**Description**: Description of the contents of a product.
 
 A location for different disciplines and locations to share their interim carbon accounting analyses.
-## Classifications
+### Classifications
 >	**Input Required**: False
 
 >	**Description**: Optionally specify the initial classifications for a collection. Multiple classifications can be specified. 
@@ -652,7 +652,7 @@ A location for different disciplines and locations to share their interim carbon
 >	**Alternative Labels**: classification
 
 
-## Category
+### Category
 >	**Input Required**: False
 
 >	**Description**: A user specified category name that can be used for example, to define product types or agreement types.
@@ -660,7 +660,7 @@ A location for different disciplines and locations to share their interim carbon
 >	**Alternative Labels**: Category Name
 
 Sustainability
-## Version Identifier
+### Version Identifier
 >	**Input Required**: False
 
 >	**Description**: Published product version identifier.
@@ -668,7 +668,7 @@ Sustainability
 >	**Default Value**: 1.0
 
 
-## Is Own Anchor
+### Is Own Anchor
 >	**Input Required**: False
 
 >	**Description**: Generally true. 
@@ -678,13 +678,13 @@ Sustainability
 >	**Default Value**: True
 
 False
-## Anchor ID
+### Anchor ID
 >	**Input Required**: False
 
 >	**Description**: Anchor identity for the collection. Typically a qualified name but if display name is unique then it could be used (not recommended)
 
 Sustainability Product Catalog
-## Parent ID
+### Parent ID
 >	**Input Required**: False
 
 >	**Description**: Unique name of the parent element.
@@ -692,19 +692,19 @@ Sustainability Product Catalog
 >	**Alternative Labels**: Parent; 
 
 Sustainability Product Catalog
-## Parent Relationship Type Name
+### Parent Relationship Type Name
 >	**Input Required**: False
 
 >	**Description**: The kind of the relationship to the parent element.
 
 CollectionMembership
-## Anchor Scope Name
+### Anchor Scope Name
 >	**Input Required**: False
 
 >	**Description**: Optional qualified name of an anchor scope.
 
 Sustainability Product Catalog
-## Parent at End1
+### Parent at End1
 >	**Input Required**: False
 
 >	**Description**: Is the parent at end1 of the relationship?
@@ -712,19 +712,19 @@ Sustainability Product Catalog
 >	**Default Value**: True
 
 True
-## Glossary Term
+### Glossary Term
 >	**Input Required**: False
 
 >	**Description**: Term that provides meaning to this field.
 
 
-## Qualified Name
+### Qualified Name
 >	**Input Required**: False
 
 >	**Description**: A unique qualified name for the element. Generated using the qualified name pattern  if not user specified.
 
 
-## GUID
+### GUID
 >	**Input Required**: False
 
 >	**Description**: A system generated unique identifier.
@@ -732,25 +732,25 @@ True
 >	**Alternative Labels**: Guid; guid
 
 
-## Effective Time
+### Effective Time
 >	**Input Required**: False
 
 >	**Description**: An ISO-8601 string representing the time to use for evaluating effectivity of the elements related to this one.
 
 
-## Effective From
+### Effective From
 >	**Input Required**: False
 
 >	**Description**: A string in ISO-8601 format that defines the when an element becomes effective (visible).
 
 
-## Effective To
+### Effective To
 >	**Input Required**: False
 
 >	**Description**: A string in ISO-8601 format that defines the when an element is no longer effective (visible).
 
 
-## Merge Update
+### Merge Update
 >	**Input Required**: False
 
 >	**Description**: If true, only those attributes specified in the update will be updated; If false, any attributes not provided during the update will be set to None.
@@ -760,19 +760,19 @@ True
 >	**Default Value**: True
 
 
-## Additional Properties
+### Additional Properties
 >	**Input Required**: False
 
 >	**Description**: Additional user defined values organized as name value pairs in a dictionary.
 
 
-## External Source GUID
+### External Source GUID
 >	**Input Required**: False
 
 >	**Description**: Identifier of an external source that is associated with this element.
 
 
-## External Source Name
+### External Source Name
 >	**Input Required**: False
 
 >	**Description**: Name of an external element that is associated with this element.
@@ -780,10 +780,10 @@ True
 
 ____
 
-#  Don't Create Folder
+##  Don't Create Folder
 >	Create or update a generic collection. While it can be used to create specific kinds of collections, you cannot set the collection-specific properties - so use the appropriate Dr.Egeria command to set all of the properties.
 
-## Display Name
+### Display Name
 >	**Input Required**: True
 
 >	**Description**: Name of the digital product
@@ -791,13 +791,13 @@ ____
 >	**Alternative Labels**: Name; Folder Name; Collection Name; Collection
 
 Audited Carbon Accounting Data
-## Description
+### Description
 >	**Input Required**: False
 
 >	**Description**: Description of the contents of a product.
 
 Homogenized and aggregated carbon accounting data that has been reviewed and audited in preparation for publishing to both internal and external stakeholders.
-## Classifications
+### Classifications
 >	**Input Required**: False
 
 >	**Description**: Optionally specify the initial classifications for a collection. Multiple classifications can be specified. 
@@ -805,7 +805,7 @@ Homogenized and aggregated carbon accounting data that has been reviewed and aud
 >	**Alternative Labels**: classification
 
 
-## Category
+### Category
 >	**Input Required**: False
 
 >	**Description**: A user specified category name that can be used for example, to define product types or agreement types.
@@ -813,7 +813,7 @@ Homogenized and aggregated carbon accounting data that has been reviewed and aud
 >	**Alternative Labels**: Category Name
 
 Sustainability
-## Version Identifier
+### Version Identifier
 >	**Input Required**: False
 
 >	**Description**: Published product version identifier.
@@ -821,7 +821,7 @@ Sustainability
 >	**Default Value**: 1.0
 
 
-## Is Own Anchor
+### Is Own Anchor
 >	**Input Required**: False
 
 >	**Description**: Generally true. 
@@ -831,13 +831,13 @@ Sustainability
 >	**Default Value**: True
 
 False
-## Anchor ID
+### Anchor ID
 >	**Input Required**: False
 
 >	**Description**: Anchor identity for the collection. Typically a qualified name but if display name is unique then it could be used (not recommended)
 
 Sustainability Product Catalog
-## Parent ID
+### Parent ID
 >	**Input Required**: False
 
 >	**Description**: Unique name of the parent element.
@@ -845,19 +845,19 @@ Sustainability Product Catalog
 >	**Alternative Labels**: Parent; 
 
 Sustainability Product Catalog
-## Parent Relationship Type Name
+### Parent Relationship Type Name
 >	**Input Required**: False
 
 >	**Description**: The kind of the relationship to the parent element.
 
 CollectionMembership
-## Anchor Scope Name
+### Anchor Scope Name
 >	**Input Required**: False
 
 >	**Description**: Optional qualified name of an anchor scope.
 
 Sustainability Product Catalog
-## Parent at End1
+### Parent at End1
 >	**Input Required**: False
 
 >	**Description**: Is the parent at end1 of the relationship?
@@ -865,19 +865,19 @@ Sustainability Product Catalog
 >	**Default Value**: True
 
 True
-## Glossary Term
+### Glossary Term
 >	**Input Required**: False
 
 >	**Description**: Term that provides meaning to this field.
 
 
-## Qualified Name
+### Qualified Name
 >	**Input Required**: False
 
 >	**Description**: A unique qualified name for the element. Generated using the qualified name pattern  if not user specified.
 
 
-## GUID
+### GUID
 >	**Input Required**: False
 
 >	**Description**: A system generated unique identifier.
@@ -885,25 +885,25 @@ True
 >	**Alternative Labels**: Guid; guid
 
 
-## Effective Time
+### Effective Time
 >	**Input Required**: False
 
 >	**Description**: An ISO-8601 string representing the time to use for evaluating effectivity of the elements related to this one.
 
 
-## Effective From
+### Effective From
 >	**Input Required**: False
 
 >	**Description**: A string in ISO-8601 format that defines the when an element becomes effective (visible).
 
 
-## Effective To
+### Effective To
 >	**Input Required**: False
 
 >	**Description**: A string in ISO-8601 format that defines the when an element is no longer effective (visible).
 
 
-## Merge Update
+### Merge Update
 >	**Input Required**: False
 
 >	**Description**: If true, only those attributes specified in the update will be updated; If false, any attributes not provided during the update will be set to None.
@@ -913,29 +913,29 @@ True
 >	**Default Value**: True
 
 
-## Additional Properties
+### Additional Properties
 >	**Input Required**: False
 
 >	**Description**: Additional user defined values organized as name value pairs in a dictionary.
 
 
-## External Source GUID
+### External Source GUID
 >	**Input Required**: False
 
 >	**Description**: Identifier of an external source that is associated with this element.
 
 
-## External Source Name
+### External Source Name
 >	**Input Required**: False
 
 >	**Description**: Name of an external element that is associated with this element.
 
 ____
 
-#  Don't Create Folder
+##  Don't Create Folder
 >	Create or update a generic collection. While it can be used to create specific kinds of collections, you cannot set the collection-specific properties - so use the appropriate Dr.Egeria command to set all of the properties.
 
-## Display Name
+### Display Name
 >	**Input Required**: True
 
 >	**Description**: Name of the digital product
@@ -943,13 +943,13 @@ ____
 >	**Alternative Labels**: Name; Folder Name; Collection Name; Collection
 
 Sustainability Reports
-## Description
+### Description
 >	**Input Required**: False
 
 >	**Description**: Description of the contents of a product.
 
 Published Sustainability Reports over time.
-## Classifications
+### Classifications
 >	**Input Required**: False
 
 >	**Description**: Optionally specify the initial classifications for a collection. Multiple classifications can be specified. 
@@ -957,7 +957,7 @@ Published Sustainability Reports over time.
 >	**Alternative Labels**: classification
 
 
-## Category
+### Category
 >	**Input Required**: False
 
 >	**Description**: A user specified category name that can be used for example, to define product types or agreement types.
@@ -965,7 +965,7 @@ Published Sustainability Reports over time.
 >	**Alternative Labels**: Category Name
 
 Sustainability
-## Version Identifier
+### Version Identifier
 >	**Input Required**: False
 
 >	**Description**: Published product version identifier.
@@ -973,7 +973,7 @@ Sustainability
 >	**Default Value**: 1.0
 
 
-## Is Own Anchor
+### Is Own Anchor
 >	**Input Required**: False
 
 >	**Description**: Generally true. 
@@ -983,13 +983,13 @@ Sustainability
 >	**Default Value**: True
 
 False
-## Anchor ID
+### Anchor ID
 >	**Input Required**: False
 
 >	**Description**: Anchor identity for the collection. Typically a qualified name but if display name is unique then it could be used (not recommended)
 
 Sustainability Product Catalog
-## Parent ID
+### Parent ID
 >	**Input Required**: False
 
 >	**Description**: Unique name of the parent element.
@@ -997,19 +997,19 @@ Sustainability Product Catalog
 >	**Alternative Labels**: Parent; 
 
 Sustainability Product Catalog
-## Parent Relationship Type Name
+### Parent Relationship Type Name
 >	**Input Required**: False
 
 >	**Description**: The kind of the relationship to the parent element.
 
 CollectionMembership
-## Anchor Scope Name
+### Anchor Scope Name
 >	**Input Required**: False
 
 >	**Description**: Optional qualified name of an anchor scope.
 
 Sustainability Product Catalog
-## Parent at End1
+### Parent at End1
 >	**Input Required**: False
 
 >	**Description**: Is the parent at end1 of the relationship?
@@ -1017,19 +1017,19 @@ Sustainability Product Catalog
 >	**Default Value**: True
 
 True
-## Glossary Term
+### Glossary Term
 >	**Input Required**: False
 
 >	**Description**: Term that provides meaning to this field.
 
 
-## Qualified Name
+### Qualified Name
 >	**Input Required**: False
 
 >	**Description**: A unique qualified name for the element. Generated using the qualified name pattern  if not user specified.
 
 
-## GUID
+### GUID
 >	**Input Required**: False
 
 >	**Description**: A system generated unique identifier.
@@ -1037,25 +1037,25 @@ True
 >	**Alternative Labels**: Guid; guid
 
 
-## Effective Time
+### Effective Time
 >	**Input Required**: False
 
 >	**Description**: An ISO-8601 string representing the time to use for evaluating effectivity of the elements related to this one.
 
 
-## Effective From
+### Effective From
 >	**Input Required**: False
 
 >	**Description**: A string in ISO-8601 format that defines the when an element becomes effective (visible).
 
 
-## Effective To
+### Effective To
 >	**Input Required**: False
 
 >	**Description**: A string in ISO-8601 format that defines the when an element is no longer effective (visible).
 
 
-## Merge Update
+### Merge Update
 >	**Input Required**: False
 
 >	**Description**: If true, only those attributes specified in the update will be updated; If false, any attributes not provided during the update will be set to None.
@@ -1065,29 +1065,29 @@ True
 >	**Default Value**: True
 
 
-## Additional Properties
+### Additional Properties
 >	**Input Required**: False
 
 >	**Description**: Additional user defined values organized as name value pairs in a dictionary.
 
 
-## External Source GUID
+### External Source GUID
 >	**Input Required**: False
 
 >	**Description**: Identifier of an external source that is associated with this element.
 
 
-## External Source Name
+### External Source Name
 >	**Input Required**: False
 
 >	**Description**: Name of an external element that is associated with this element.
 
 ___
 
-# Add Member->Collection  
+## Add Member->Collection  
 >   Add/Remove a member to/from a collection.  
   
-## Element Id  
+### Element Id  
 >   **Input Required**: True  
   
 >   **Description**: The name of the element to add to the collection.  
@@ -1096,7 +1096,7 @@ ___
   
 Industry Classifications  
   
-## Collection Id  
+### Collection Id  
 >   **Input Required**: True  
   
 >   **Description**: The name of the collection to link to. There are many collection types, including Digital Products, Agreements and Subscriptions.  
@@ -1104,7 +1104,7 @@ Industry Classifications
 >   **Alternative Labels**: Parent; Parent Id; Collection Id; Agreement Id; Subscription Id; Digital Product Id; Folder; Folder Id  
   
 Sustainability Product Catalog  
-## Membership Rationale  
+### Membership Rationale  
 >   **Input Required**: False  
   
 >   **Description**: Rationale for membership.  
@@ -1112,16 +1112,16 @@ Sustainability Product Catalog
 >   **Alternative Labels**: Rationale  
   
 Organizing Digital Product Catalog  
-## Expression  
+### Expression  
 >   **Input Required**: False  
   
 >   **Description**: Expression that describes why the element is part of this collection.
 
 ____
-# Add Member->Collection  
+## Add Member->Collection  
 >   Add/Remove a member to/from a collection.  
   
-## Element Id  
+### Element Id  
 >   **Input Required**: True  
   
 >   **Description**: The name of the element to add to the collection.  
@@ -1130,7 +1130,7 @@ ____
   
 Sustainability Data Dictionary  
   
-## Collection Id  
+### Collection Id  
 >   **Input Required**: True  
   
 >   **Description**: The name of the collection to link to. There are many collection types, including Digital Products, Agreements and Subscriptions.  
@@ -1138,7 +1138,7 @@ Sustainability Data Dictionary
 >   **Alternative Labels**: Parent; Parent Id; Collection Id; Agreement Id; Subscription Id; Digital Product Id; Folder; Folder Id  
   
 Sustainability Product Catalog  
-## Membership Rationale  
+### Membership Rationale  
 >   **Input Required**: False  
   
 >   **Description**: Rationale for membership.  
@@ -1148,10 +1148,10 @@ Sustainability Product Catalog
 Organizing Digital Product Catalog
 
 ____
-# Add Member->Collection  
+## Add Member->Collection  
 >   Add/Remove a member to/from a collection.  
   
-## Element Id  
+### Element Id  
 >   **Input Required**: True  
   
 >   **Description**: The name of the element to add to the collection.  
@@ -1160,7 +1160,7 @@ ____
   
 Glossary::Sustainability-Glossary  
   
-## Collection Id  
+### Collection Id  
 >   **Input Required**: True  
   
 >   **Description**: The name of the collection to link to. There are many collection types, including Digital Products, Agreements and Subscriptions.  
@@ -1168,7 +1168,7 @@ Glossary::Sustainability-Glossary
 >   **Alternative Labels**: Parent; Parent Id; Collection Id; Agreement Id; Subscription Id; Digital Product Id; Folder; Folder Id  
   
 Sustainability Product Catalog  
-## Membership Rationale  
+### Membership Rationale  
 >   **Input Required**: False  
   
 >   **Description**: Rationale for membership.  
@@ -1179,10 +1179,10 @@ Organizing Digital Product Catalog
 
 ____
 
-# Add Member->Collection  
+## Add Member->Collection  
 >   Add/Remove a member to/from a collection.  
   
-## Element Id  
+### Element Id  
 >   **Input Required**: True  
   
 >   **Description**: The name of the element to add to the collection.  
@@ -1191,7 +1191,7 @@ ____
   
 DataStruct::NAICS-Data-Structure  
   
-## Collection Id  
+### Collection Id  
 >   **Input Required**: True  
   
 >   **Description**: The name of the collection to link to. There are many collection types, including Digital Products, Agreements and Subscriptions.  
@@ -1200,7 +1200,7 @@ DataStruct::NAICS-Data-Structure
   
 DigitalProduct::NAICS-Codes::2022  
   
-## Membership Rationale  
+### Membership Rationale  
 >   **Input Required**: False  
   
 >   **Description**: Rationale for membership.  
@@ -1212,7 +1212,7 @@ Organizing Digital Product Catalog
 ____
    
 ____  
-# Add Member->Collection  
+## Add Member->Collection  
 >   Add/Remove a member to/from a collection.  
   
 ##Element Id  
@@ -1224,7 +1224,7 @@ ____
   
 DataDict::Sustainability-Data-Dictionary  
   
-## Collection Id  
+### Collection Id  
 >   **Input Required**: True  
   
 >   **Description**: The name of the collection to link to. There are many collection types, including Digital Products, Agreements and Subscriptions.  
@@ -1233,7 +1233,7 @@ DataDict::Sustainability-Data-Dictionary
   
 Sustainability Product Catalog  
   
-## Membership Rationale  
+### Membership Rationale  
 >   **Input Required**: False  
   
 >   **Description**: Rationale for membership.  

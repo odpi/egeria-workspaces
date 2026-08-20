@@ -1,12 +1,12 @@
-# Create Business Imperative
+## Create Business Imperative
 >	The BusinessImperative entity defines a business goal that is critical to the success of the organization.
 
-## Display Name
+### Display Name
 >	**Input Required**: True
 
 >	**Description**: 
 Sales-Forecasts
-## Domain Identifier
+### Domain Identifier
 >	**Input Required**: False
 
 >	**Description**: String representing the governance domain. All domains is ALL
@@ -16,54 +16,54 @@ Sales-Forecasts
 >	**Default Value**: ALL
 Corporate
 
-## Implications
+### Implications
 >	**Input Required**: False
 
 >	**Description**: List of implications.
 Maintain trust and confidence from our Board and Shareholders.
 
-## Importance
+### Importance
 >	**Input Required**: False
 
 >	**Description**: Importance of the definition.
 Critical
 
-## Outcomes
+### Outcomes
 >	**Input Required**: False
 
 >	**Description**: List of desired outcomes.
 
 
-## Results
+### Results
 >	**Input Required**: False
 
 >	**Description**: A list of expected results.
 
 
-## Scope
+### Scope
 >	**Input Required**: False
 
 >	**Description**: Scope of the definition.
 
 Enterprise
-## Summary
+### Summary
 >	**Input Required**: False
 
 >	**Description**: A short summary of the element's meaning or purpose.
 We need to demonstrate that we are meeting the business case from the acquisitions and that our business strategy is sound.
 
-## Usage
+### Usage
 >	**Input Required**: False
 
 >	**Description**: The usage guidance for this element — how it is intended to be used in context.
 
 Overarching project.
-## Journal Entry
+### Journal Entry
 >	**Input Required**: False
 
 >	**Description**: 
 Providing context for the Sales Forecasting initiiatives.
-## Description
+### Description
 >	**Input Required**: False
 
 >	**Description**: 
@@ -72,13 +72,13 @@ Meet acquisition Business case. The board will be satiated.
 
 
 
-## Content Status
+### Content Status
 >	**Input Required**: False
 
 >	**Description**: 
 
 
-## Category
+### Category
 >	**Input Required**: False
 
 >	**Description**: A user specified category name that can be used for example, to define product types or agreement types.
@@ -87,20 +87,20 @@ Meet acquisition Business case. The board will be satiated.
 
 Corporate Business
 
-## Qualified Name
+### Qualified Name
 >	**Input Required**: False
 
 >	**Description**: A unique qualified name for the element. Generated using the qualified name pattern  if not user specified.
 
-## Journal Entry
+### Journal Entry
 This is a first Journal Entry
 
 ___
-# View Report
-## Output Format 
+## View Report
+### Output Format 
 LIST
-## REPORT SPEC
+### REPORT SPEC
 Business-Imperative-DrE-Basic
 
-## Search String
+### Search String
 *
