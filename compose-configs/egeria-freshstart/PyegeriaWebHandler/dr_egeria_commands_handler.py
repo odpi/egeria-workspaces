@@ -274,13 +274,15 @@ def _build_execute_response(raw: dict, directive: str) -> dict:
             "output": output, "directive": directive,
             "validation_errors": [],
             "execution_errors": [{"step": 0, "command": "", "message": output}],
-            "commands_total": 0, "commands_succeeded": 0, "commands_failed": 0,
+            "warnings": [],
+            "commands_total": 0, "commands_succeeded": 0, "commands_warned": 0, "commands_failed": 0,
         }
 
     validation_errors = []
     execution_errors  = []
+    warnings          = []
     created_elements  = []
-    commands_total = commands_succeeded = commands_failed = 0
+    commands_total = commands_succeeded = commands_failed = commands_warned = 0
 
     for step, res in enumerate(results, start=1):
         if not res.get("is_command", True):
@@ -301,6 +303,18 @@ def _build_execute_response(raw: dict, directive: str) -> dict:
             else:
                 execution_errors.append({"step": step, "command": command,
                                          "message": message or res.get("error", "Unknown error")})
+        elif status == "warning":
+            # Distinct from "failure" (e.g. a processor deliberately declining
+            # part of a request) but NOT success either -- most commonly "No
+            # processor registered for '<command>'", meaning nothing was
+            # created despite the block parsing cleanly. Must not be folded
+            # into commands_succeeded (the bug this branch fixes): that made
+            # a completely unrecognized command -- e.g. Create Dashboard
+            # Sheet when the command dispatcher didn't have it registered --
+            # report as if it had actually run.
+            commands_warned += 1
+            warnings.append({"step": step, "command": command,
+                             "message": message or "Command completed with a warning"})
         else:
             commands_succeeded += 1
             guid = res.get("guid")
@@ -316,15 +330,17 @@ def _build_execute_response(raw: dict, directive: str) -> dict:
                 })
 
     resp = {
-        "success": commands_failed == 0 and not raw.get("error"),
-        "partial": commands_succeeded > 0 and commands_failed > 0,
+        "success": commands_failed == 0 and commands_warned == 0 and not raw.get("error"),
+        "partial": commands_succeeded > 0 and (commands_failed > 0 or commands_warned > 0),
         "output": output,
         "directive": directive,
         "validation_errors": validation_errors,
         "execution_errors": execution_errors,
+        "warnings": warnings,
         "created_elements": created_elements,
         "commands_total": commands_total,
         "commands_succeeded": commands_succeeded,
+        "commands_warned": commands_warned,
         "commands_failed": commands_failed,
     }
     if raw.get("output_file"):

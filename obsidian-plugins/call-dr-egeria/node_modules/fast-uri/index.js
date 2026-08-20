@@ -1,6 +1,6 @@
 'use strict'
 
-const { normalizeIPv6, removeDotSegments, recomposeAuthority, normalizeComponentEncoding, isIPv4, nonSimpleDomain } = require('./lib/utils')
+const { normalizeIPv6, removeDotSegments, recomposeAuthority, normalizePercentEncoding, normalizePathEncoding, escapePreservingEscapes, reescapeHostDelimiters, isIPv4, nonSimpleDomain } = require('./lib/utils')
 const { SCHEMES, getSchemeHandler } = require('./lib/schemes')
 
 /**
@@ -11,7 +11,7 @@ const { SCHEMES, getSchemeHandler } = require('./lib/schemes')
  */
 function normalize (uri, options) {
   if (typeof uri === 'string') {
-    uri = /** @type {T} */ (serialize(parse(uri, options), options))
+    uri = /** @type {T} */ (normalizeString(uri, options))
   } else if (typeof uri === 'object') {
     uri = /** @type {T} */ (parse(serialize(uri, options), options))
   }
@@ -26,7 +26,12 @@ function normalize (uri, options) {
  */
 function resolve (baseURI, relativeURI, options) {
   const schemelessOptions = options ? Object.assign({ scheme: 'null' }, options) : { scheme: 'null' }
-  const resolved = resolveComponent(parse(baseURI, schemelessOptions), parse(relativeURI, schemelessOptions), schemelessOptions, true)
+  const { parsed: baseParsed, malformedAuthorityOrPort: baseMalformed } = parseWithStatus(baseURI, schemelessOptions)
+  const { parsed: relativeParsed, malformedAuthorityOrPort: relativeMalformed } = parseWithStatus(relativeURI, schemelessOptions)
+  if (baseMalformed || relativeMalformed) {
+    throw new Error(baseParsed.error || relativeParsed.error || 'URI is malformed.')
+  }
+  const resolved = resolveComponent(baseParsed, relativeParsed, schemelessOptions, true)
   schemelessOptions.skipEscape = true
   return serialize(resolved, schemelessOptions)
 }
@@ -106,21 +111,10 @@ function resolveComponent (base, relative, options, skipNormalization) {
  * @returns {boolean}
  */
 function equal (uriA, uriB, options) {
-  if (typeof uriA === 'string') {
-    uriA = unescape(uriA)
-    uriA = serialize(normalizeComponentEncoding(parse(uriA, options), true), { ...options, skipEscape: true })
-  } else if (typeof uriA === 'object') {
-    uriA = serialize(normalizeComponentEncoding(uriA, true), { ...options, skipEscape: true })
-  }
+  const normalizedA = normalizeComparableURI(uriA, options)
+  const normalizedB = normalizeComparableURI(uriB, options)
 
-  if (typeof uriB === 'string') {
-    uriB = unescape(uriB)
-    uriB = serialize(normalizeComponentEncoding(parse(uriB, options), true), { ...options, skipEscape: true })
-  } else if (typeof uriB === 'object') {
-    uriB = serialize(normalizeComponentEncoding(uriB, true), { ...options, skipEscape: true })
-  }
-
-  return uriA.toLowerCase() === uriB.toLowerCase()
+  return normalizedA !== undefined && normalizedB !== undefined && normalizedA.toLowerCase() === normalizedB.toLowerCase()
 }
 
 /**
@@ -156,13 +150,13 @@ function serialize (cmpts, opts) {
 
   if (component.path !== undefined) {
     if (!options.skipEscape) {
-      component.path = escape(component.path)
+      component.path = escapePreservingEscapes(component.path)
 
       if (component.scheme !== undefined) {
         component.path = component.path.split('%3A').join(':')
       }
     } else {
-      component.path = unescape(component.path)
+      component.path = normalizePercentEncoding(component.path)
     }
   }
 
@@ -213,12 +207,42 @@ function serialize (cmpts, opts) {
 
 const URI_PARSE = /^(?:([^#/:?]+):)?(?:\/\/((?:([^#/?@]*)@)?(\[[^#/?\]]+\]|[^#/:?]*)(?::(\d*))?))?([^#?]*)(?:\?([^#]*))?(?:#((?:.|[\n\r])*))?/u
 
+// Captures the authority component (between "//" and the next "/", "?" or "#"),
+// with or without a scheme prefix, for the literal-backslash rejection below.
+const AUTHORITY_PREFIX = /^(?:[^#/:?]+:)?\/\/([^/?#]*)/
+
+// Captures the leading authority-introducer region after an optional scheme: a
+// run of forward slashes, backslashes, and the characters the WHATWG URL parser
+// removes before parsing (TAB U+0009, LF U+000A, CR U+000D). A valid introducer
+// is exactly "//". Node treats "\" as "/" on special schemes and strips those
+// characters first, so forms like "\\", "/\", "\/", "/<TAB>/", or a leading
+// "<TAB>//" reach an authority in Node while fast-uri's URI_PARSE folds them into
+// the path group (host confusion / SSRF / redirect bypass).
+const AUTHORITY_INTRODUCER_REGION = /^(?:[^#/:?]+:)?([/\\\t\n\r]*)/
+
+/**
+ * @param {import('./types/index').URIComponent} parsed
+ * @param {RegExpMatchArray} matches
+ * @returns {string|undefined}
+ */
+function getParseError (parsed, matches) {
+  if (matches[2] !== undefined && parsed.path && parsed.path[0] !== '/') {
+    return 'URI path must start with "/" when authority is present.'
+  }
+
+  if (typeof parsed.port === 'number' && (parsed.port < 0 || parsed.port > 65535)) {
+    return 'URI port is malformed.'
+  }
+
+  return undefined
+}
+
 /**
  * @param {string} uri
  * @param {import('./types/index').Options} [opts]
- * @returns
+ * @returns {{ parsed: import('./types/index').URIComponent, malformedAuthorityOrPort: boolean }}
  */
-function parse (uri, opts) {
+function parseWithStatus (uri, opts) {
   const options = Object.assign({}, opts)
   /** @type {import('./types/index').URIComponent} */
   const parsed = {
@@ -231,12 +255,49 @@ function parse (uri, opts) {
     fragment: undefined
   }
 
+  let malformedAuthorityOrPort = false
+
   let isIP = false
   if (options.reference === 'suffix') {
     if (options.scheme) {
       uri = options.scheme + ':' + uri
     } else {
       uri = '//' + uri
+    }
+  }
+
+  // A literal backslash (U+005C) is not a valid RFC 3986 URI character and is
+  // not an authority delimiter. Reject it in the authority rather than
+  // rewriting it: normalizing "\" -> "/" (WHATWG error recovery) could silently
+  // change the resource identified by an otherwise-invalid input, and lets "\"
+  // act as a host delimiter here while Node's native URL parses a different
+  // host (SSRF / redirect / origin-allowlist bypass). Percent-encoded %5C is
+  // untouched and remains valid encoded data.
+  const authorityMatch = uri.match(AUTHORITY_PREFIX)
+  if (authorityMatch !== null && authorityMatch[1].indexOf('\\') !== -1) {
+    parsed.error = 'URI authority must not contain a literal backslash.'
+    malformedAuthorityOrPort = true
+  }
+
+  // Reject a malformed or whitespace-smuggled authority introducer. fast-uri
+  // only recognizes a literal "//"; anything else in the leading separator run
+  // (a backslash, or a "//" that appears only after removing the TAB/LF/CR that
+  // Node strips) means the authority fast-uri parses differs from the one Node's
+  // URL resolves. Reject rather than rewrite, mirroring the literal-backslash
+  // guard above. Percent-encoded forms (%5C, %09) are untouched, valid data.
+  const introducerMatch = uri.match(AUTHORITY_INTRODUCER_REGION)
+  if (introducerMatch !== null) {
+    const region = introducerMatch[1]
+    const normalizedRegion = region.replace(/[\t\n\r]/g, '')
+    // Two or more leading separators introduce an authority.
+    if (normalizedRegion.length >= 2) {
+      if (normalizedRegion.slice(0, 2) !== '//') {
+        parsed.error = parsed.error || 'URI authority must not contain a literal backslash.'
+        malformedAuthorityOrPort = true
+      } else if (region.length !== normalizedRegion.length) {
+        parsed.error = parsed.error || 'URI authority introducer must not contain whitespace.'
+        malformedAuthorityOrPort = true
+      }
     }
   }
 
@@ -256,6 +317,13 @@ function parse (uri, opts) {
     if (isNaN(parsed.port)) {
       parsed.port = matches[5]
     }
+
+    const parseError = getParseError(parsed, matches)
+    if (parseError !== undefined) {
+      parsed.error = parsed.error || parseError
+      malformedAuthorityOrPort = true
+    }
+
     if (parsed.host) {
       const ipv4result = isIPv4(parsed.host)
       if (ipv4result === false) {
@@ -290,7 +358,7 @@ function parse (uri, opts) {
       if (parsed.host && (options.domainHost || (schemeHandler && schemeHandler.domainHost)) && isIP === false && nonSimpleDomain(parsed.host)) {
         // convert Unicode IDN -> ASCII IDN
         try {
-          parsed.host = URL.domainToASCII(parsed.host.toLowerCase())
+          parsed.host = new URL('http://' + parsed.host).hostname
         } catch (e) {
           parsed.error = parsed.error || "Host's domain name can not be converted to ASCII: " + e
         }
@@ -304,14 +372,18 @@ function parse (uri, opts) {
           parsed.scheme = unescape(parsed.scheme)
         }
         if (parsed.host !== undefined) {
-          parsed.host = unescape(parsed.host)
+          parsed.host = reescapeHostDelimiters(unescape(parsed.host), isIP)
         }
       }
       if (parsed.path) {
-        parsed.path = escape(unescape(parsed.path))
+        parsed.path = normalizePathEncoding(parsed.path)
       }
       if (parsed.fragment) {
-        parsed.fragment = encodeURI(decodeURIComponent(parsed.fragment))
+        try {
+          parsed.fragment = encodeURI(decodeURIComponent(parsed.fragment))
+        } catch {
+          parsed.error = parsed.error || 'URI malformed'
+        }
       }
     }
 
@@ -322,7 +394,54 @@ function parse (uri, opts) {
   } else {
     parsed.error = parsed.error || 'URI can not be parsed.'
   }
-  return parsed
+  return { parsed, malformedAuthorityOrPort }
+}
+
+/**
+ * @param {string} uri
+ * @param {import('./types/index').Options} [opts]
+ * @returns
+ */
+function parse (uri, opts) {
+  return parseWithStatus(uri, opts).parsed
+}
+
+/**
+ * @param {string} uri
+ * @param {import('./types/index').Options} [opts]
+ * @returns {string}
+ */
+function normalizeString (uri, opts) {
+  return normalizeStringWithStatus(uri, opts).normalized
+}
+
+/**
+ * @param {string} uri
+ * @param {import('./types/index').Options} [opts]
+ * @returns {{ normalized: string, malformedAuthorityOrPort: boolean }}
+ */
+function normalizeStringWithStatus (uri, opts) {
+  const { parsed, malformedAuthorityOrPort } = parseWithStatus(uri, opts)
+  return {
+    normalized: malformedAuthorityOrPort ? uri : serialize(parsed, opts),
+    malformedAuthorityOrPort
+  }
+}
+
+/**
+ * @param {import ('./types/index').URIComponent|string} uri
+ * @param {import('./types/index').Options} [opts]
+ * @returns {string|undefined}
+ */
+function normalizeComparableURI (uri, opts) {
+  if (typeof uri === 'string') {
+    const { normalized, malformedAuthorityOrPort } = normalizeStringWithStatus(uri, opts)
+    return malformedAuthorityOrPort ? undefined : normalized
+  }
+
+  if (typeof uri === 'object') {
+    return serialize(uri, opts)
+  }
 }
 
 const fastUri = {

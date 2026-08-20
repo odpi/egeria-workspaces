@@ -29,24 +29,24 @@ So here we go! First lets define a new Glossary::
       
 ___  
       
-# Create Glossary  
+## Create Glossary  
       
-## Glossary Name  
+### Glossary Name  
       
 Egeria-Markdown  
       
-## Language  
+### Language  
       
 English  
       
-## Description  
+### Description  
       
 Glossary to describe the vocabulary of Dr.Egeria - an Egeria Markdown language to support the exchange of metadata in a Markdown form.  
 Dr.Egeria allows users to create metadata annotations using any text entry system that supports the entry of standard Markdown  
 notation and, through post-processing  
 commands, validates the Egeria content and sends the requests to be sent to Egeria.   
       
-## Usage  
+### Usage  
       
 1. (optional) load an example or template for the type of object from Egeria.
 > Hint: Many of the hey_egeria commands have the option to save their output as Dr.Egeria markdown form.
@@ -55,60 +55,60 @@ commands, validates the Egeria content and sends the requests to be sent to Eger
 4. Submit the document to Egeria using the Dr.Egeria commands. 
 5. Review the resulting output document to see what was created and give you a starting point for making updates. 
       
-## Version  
+### Version  
       
 0.2  
       
-## Status  
+### Status  
       
 ACTIVE 
 
-## Qualified Name
+### Qualified Name
       
-## GUID  
+### GUID  
        
       
 ___
       
       
-# First Walk-Through  
+## First Walk-Through  
 The block of markdown above is a request to create a new Egeria Glossary called `Egeria-Markdown`. Let's briefly walk  
-through. The command starts when we see `# Create Glossary`. This is a known phrase in Dr.Egeria. When we see this   
-phrase we recognize that this is an Egeria markdown request block. The request block ends if we encounter another `#` or  
-`___`, or run out of text. Within this request block we note some **attributes** that begin with a `## `. The first that  we encounter is `## Glossary Name`. Not all attributes need to be filled in. Later, we'll process this file and demonstrate  how to tell - but first, lets look at the attributes shown:  
+through. The command starts when we see `## Create Glossary`. This is a known phrase in Dr.Egeria. When we see this   
+phrase we recognize that this is an Egeria markdown request block. The request block ends if we encounter another `##` or  
+`___`, or run out of text. Within this request block we note some **attributes** that begin with a `### `. The first that  we encounter is `### Glossary Name`. Not all attributes need to be filled in. Later, we'll process this file and demonstrate  how to tell - but first, lets look at the attributes shown:  
       
-* `## Glossary Name` - this is the display name of the glossary. In this case the name is `Egeria-Markdown` As you can see, the value of the attribute is the plain text that follows it.  
-* `## Language` - what language will the terms of the glossary be in (yes there are ways to have mixed language but  Dr.Egeria strives to be as simple as possible).  
-* `## Description` - a description of the glossary and its purpose.  
-* `## Usage` - how the glossary is meant to be used, and by whom.  
-* `## Qualified Name` - every element in Egeria must have a unique qualified name that we use to distinguish it from all other elements. The qualified name is meant to be understandable by humans, although it may follow formatting conventions. This attribute can be left blank for now - it will be automatically generated if empty.  
-* `## GUID` - same story as qualified name except that this is meant for automation and not people.  It is always created for us.
+* `### Glossary Name` - this is the display name of the glossary. In this case the name is `Egeria-Markdown` As you can see, the value of the attribute is the plain text that follows it.  
+* `### Language` - what language will the terms of the glossary be in (yes there are ways to have mixed language but  Dr.Egeria strives to be as simple as possible).  
+* `### Description` - a description of the glossary and its purpose.  
+* `### Usage` - how the glossary is meant to be used, and by whom.  
+* `### Qualified Name` - every element in Egeria must have a unique qualified name that we use to distinguish it from all other elements. The qualified name is meant to be understandable by humans, although it may follow formatting conventions. This attribute can be left blank for now - it will be automatically generated if empty.  
+* `### GUID` - same story as qualified name except that this is meant for automation and not people.  It is always created for us.
 
 And that's it. That's all we need to do to specify the creation of a new glossary (well - mostly - we'll reveal a few   
 more details a bit later).  
       
-## Great! That was easy!  
+### Great! That was easy!  
       
 We now have a nice, clean, new...and empty...glossary - guess we better start filling it. Lets start filling it with terms.    
       
 ___ 
       
-# Create Term  
+## Create Term  
       
-## Term Name  
+### Term Name  
       
 Command  
       
-## In Glossary  
+### In Glossary  
       
 Glossary::Egeria-Markdown  
       
       
-## Summary  
+### Summary  
       
 Commands are how a user of the Dr.Egeria markdown language request an action.  
       
-## Description  
+### Description  
       
 Commands are how a user can request Egeria to take an action such as Create or Update an Egeria element. Dr.Egeria  
 provides a limited (but growing) set of commands. Dr.Egeria commands align with the pyegeria 'hey-egeria' 
@@ -121,87 +121,87 @@ The commands currently use the following verbs to act on Egeria elements:
 * List  
 * Provenance  
       
-## Abbreviation  
+### Abbreviation  
       
-## Examples  
+### Examples  
       
     Create Glossary or  
     Update Glossary or  
     Create Term or  
     Update Term  
       
-## Usage  
+### Usage  
       
     Commands are used in the Dr.Egeria markdown language.  
       
-## Version  
+### Version  
       
    0.2   
       
-## Status  
+### Status  
       
 ACTIVE
 
-## Qualified Name
+### Qualified Name
       
-## GUID  
+### GUID  
        
 ___  
       
-# Create Term  
+## Create Term  
       
-## In Glossary  
+### In Glossary  
       
     Glossary::Egeria-Markdown  
       
-## Term Name  
+### Term Name  
       
     Source  
       
-## Summary  
+### Summary  
       
     Source of the markdown content.  
       
-## Description  
+### Description  
       
     Source of the markdown content - could be jupter or plain markdown file.  
       
-## Abbreviation  
+### Abbreviation  
       
-## Examples  
+### Examples  
       
-## Usage  
+### Usage  
       
-## Version  
+### Version  
       
     0.2 
       
-## Status  
+### Status  
       
     ACTIVE
 
-## Qualified Name
+### Qualified Name
       
-## GUID  
+### GUID  
              
       
 ___  
       
-# Create Term  
+## Create Term  
       
-## In Glossary  
+### In Glossary  
       
     Glossary::Egeria-Markdown  
       
-## Term Name  
+### Term Name  
       
     Directive  
       
-## Summary  
+### Summary  
       
     A directive defines how the command is to be processed.  
       
-## Description  
+### Description  
       
     Directives are one of:  
       
@@ -210,21 +210,21 @@ ___
 * process - process the requested action  
       
       
-## Version  
+### Version  
       
     0.1  
       
-## Status  
+### Status  
       
 ACTIVE
 
-## Qualified Name
+### Qualified Name
       
-## GUID  
+### GUID  
        
 ___  
       
-# Some terms specified - Now what?  
+## Some terms specified - Now what?  
       
 Ok - we've now defined a glossary and three terms to go into the glossary. A few observations.  
       
@@ -237,7 +237,7 @@ provide during validation.
       
 Here is what we'll do next.  
       
-## Next  
+### Next  
 > Tip: An easy way to get started is by installing [Egeria Workspaces](https://github.com/odpi/egeria-workspaces) and 
 > using the hey_egeria command line interface.  Tutorials are available at [Egeria-Workspaces](https://youtu.be/Dc5i5EpRusE).  
 
@@ -250,7 +250,7 @@ Currently we have the choice of:
 3. Process - parse the request blocks and execute the commands - and produce a new output file to simplify further processing.  
       
       
-# Great --> let's give it a try!  
+## Great --> let's give it a try!  
       
 Ok - its processed the file and generated output to the console that shows us what it has done.  
 We also now have a new file in the designated outbox (specified by an Environment Variable).  

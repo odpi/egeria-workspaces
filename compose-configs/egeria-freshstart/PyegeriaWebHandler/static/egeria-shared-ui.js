@@ -1380,6 +1380,22 @@ var _SESSION_ID = (function() {
 })();
 
 // Props: section, persona, demoMode, srvManaged, pagePrefix (optional)
+// Draggable position, persisted per-browser (shared localStorage key across
+// every portal app, since this component is loaded from one static file and
+// the button should stay wherever the user last put it regardless of which
+// page they're on — moving it once should mean it's out of the way
+// everywhere, not just on the page they moved it on).
+var _FEEDBACK_POS_KEY = 'egeria-feedback-btn-pos';
+function _loadFeedbackPos() {
+  try {
+    var raw = localStorage.getItem(_FEEDBACK_POS_KEY);
+    if (!raw) return null;
+    var p = JSON.parse(raw);
+    if (typeof p.right === 'number' && typeof p.bottom === 'number') return p;
+  } catch (e) {}
+  return null;
+}
+
 function FeedbackButton({ section, persona, demoMode, srvManaged, pagePrefix }) {
   var _openState      = React.useState(false), open       = _openState[0],      setOpen       = _openState[1];
   var _rateState      = React.useState(0),     rating     = _rateState[0],      setRating     = _rateState[1];
@@ -1391,6 +1407,85 @@ function FeedbackButton({ section, persona, demoMode, srvManaged, pagePrefix }) 
   var _consentState   = React.useState(false), consent    = _consentState[0],   setConsent    = _consentState[1];
   var _subState       = React.useState(false), submitted  = _subState[0],       setSubmitted  = _subState[1];
   var _submitting     = React.useState(false), submitting = _submitting[0],     setSubmitting = _submitting[1];
+
+  // Draggable floating button — see _FEEDBACK_POS_KEY above. `posRef` is the
+  // authoritative current position during a drag (updated synchronously on
+  // every pointermove); `pos` state exists only to trigger re-renders for
+  // the visible position. Reading posRef.current on pointerup (rather than
+  // the `pos` closure) avoids persisting a stale position if React hasn't
+  // finished re-rendering yet.
+  var _posState = React.useState(function() { return _loadFeedbackPos() || { right: 20, bottom: 20 }; }),
+      pos = _posState[0], setPos = _posState[1];
+  var _draggingState = React.useState(false), dragging = _draggingState[0], setDragging = _draggingState[1];
+  var posRef = React.useRef(pos);
+  var btnRef = React.useRef(null);
+  var dragRef = React.useRef({ active: false, moved: false, startX: 0, startY: 0, startRight: 0, startBottom: 0 });
+
+  // Document-level mousemove/mouseup listeners (attached on mousedown,
+  // removed on mouseup) rather than element-scoped pointer events +
+  // setPointerCapture — the capture-based approach didn't reliably track
+  // drags that move fast enough for the cursor to leave the small button's
+  // own bounds between synthesized move events (confirmed via automated
+  // browser testing: the drag fell through to the page's own text
+  // selection instead of the button once the pointer left its rect).
+  // Document-level listeners keep tracking regardless of what's under the
+  // cursor, the standard robust pattern for this kind of drag.
+  function onDragMove(e) {
+    var d = dragRef.current;
+    if (!d.active) return;
+    var dx = e.clientX - d.startX, dy = e.clientY - d.startY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) d.moved = true;
+    if (!d.moved) return; // stay put until past the click-vs-drag threshold
+    var btnW = (btnRef.current && btnRef.current.offsetWidth) || 110;
+    var btnH = (btnRef.current && btnRef.current.offsetHeight) || 34;
+    var next = {
+      right:  Math.min(Math.max(d.startRight - dx, 4), window.innerWidth - btnW - 4),
+      bottom: Math.min(Math.max(d.startBottom - dy, 4), window.innerHeight - btnH - 4),
+    };
+    posRef.current = next;
+    setPos(next);
+  }
+  function onDragEnd() {
+    var d = dragRef.current;
+    if (!d.active) return;
+    d.active = false;
+    setDragging(false);
+    document.removeEventListener('mousemove', onDragMove);
+    document.removeEventListener('mouseup', onDragEnd);
+    document.removeEventListener('touchmove', onDragTouchMove);
+    document.removeEventListener('touchend', onDragEnd);
+    if (d.moved) {
+      try { localStorage.setItem(_FEEDBACK_POS_KEY, JSON.stringify(posRef.current)); } catch (err) {}
+    }
+  }
+  function onDragTouchMove(e) {
+    if (e.touches && e.touches[0]) onDragMove({ clientX: e.touches[0].clientX, clientY: e.touches[0].clientY });
+  }
+  function beginDrag(clientX, clientY) {
+    dragRef.current = {
+      active: true, moved: false, startX: clientX, startY: clientY,
+      startRight: posRef.current.right, startBottom: posRef.current.bottom,
+    };
+    setDragging(true);
+    document.addEventListener('mousemove', onDragMove);
+    document.addEventListener('mouseup', onDragEnd);
+    document.addEventListener('touchmove', onDragTouchMove, { passive: false });
+    document.addEventListener('touchend', onDragEnd);
+  }
+  function onDragMouseDown(e) {
+    if (e.button !== 0) return; // left-click only
+    e.preventDefault(); // avoid the page's own text-selection drag
+    beginDrag(e.clientX, e.clientY);
+  }
+  function onDragTouchStart(e) {
+    if (e.touches && e.touches[0]) beginDrag(e.touches[0].clientX, e.touches[0].clientY);
+  }
+  function handleButtonClick() {
+    // A drag-release fires a click right after on most browsers — suppress
+    // just that one so dragging the button doesn't also pop the panel open.
+    if (dragRef.current.moved) { dragRef.current.moved = false; return; }
+    setOpen(true); setSubmitted(false);
+  }
 
   var env = demoMode ? 'quickstart-demo' : srvManaged ? 'freshstart' : 'quickstart-local';
 
@@ -1431,14 +1526,24 @@ function FeedbackButton({ section, persona, demoMode, srvManaged, pagePrefix }) 
   }
 
   var floatingBtn = React.createElement('button', {
-    onClick: function() { setOpen(true); setSubmitted(false); },
-    title: 'Share your feedback',
-    style: { position: 'fixed', bottom: 20, right: 20, zIndex: 900, background: 'var(--accent)', color: '#fff',
+    ref: btnRef,
+    onClick: handleButtonClick,
+    onMouseDown: onDragMouseDown,
+    onTouchStart: onDragTouchStart,
+    title: 'Share your feedback — drag to move',
+    style: { position: 'fixed', bottom: pos.bottom, right: pos.right, zIndex: 900, background: 'var(--accent)', color: '#fff',
              border: 'none', borderRadius: 20, padding: '7px 15px', fontSize: 12, fontWeight: 600,
-             cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.3)', letterSpacing: '0.02em' }
+             cursor: dragging ? 'grabbing' : 'grab', boxShadow: '0 2px 8px rgba(0,0,0,0.3)', letterSpacing: '0.02em',
+             touchAction: 'none', userSelect: 'none' }
   }, '💬 Feedback');
 
   if (!open) return floatingBtn;
+
+  // Open the feedback panel near wherever the button currently is, rather
+  // than always assuming bottom-right — otherwise a button dragged to the
+  // top-left would still pop its panel up on the opposite side of the screen.
+  var nearLeft = pos.right > window.innerWidth / 2;
+  var nearTop = pos.bottom > window.innerHeight / 2;
 
   var stars = [1,2,3,4,5].map(function(n) {
     var active = (hover || rating) >= n;
@@ -1458,7 +1563,8 @@ function FeedbackButton({ section, persona, demoMode, srvManaged, pagePrefix }) 
     React.createElement('div', {
       onClick: function(e) { if (e.target === e.currentTarget) handleClose(); },
       style: { position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.45)',
-               display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', padding: 24 }
+               display: 'flex', alignItems: nearTop ? 'flex-start' : 'flex-end',
+               justifyContent: nearLeft ? 'flex-start' : 'flex-end', padding: 24 }
     },
       React.createElement('div', { style: { background: 'var(--surface,var(--card))', border: '1px solid var(--border)',
           borderRadius: 12, padding: '22px 26px', width: 360, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' } },
@@ -1641,7 +1747,6 @@ var _glsBadge = { display: 'inline-block', fontSize: 10, fontWeight: 600, paddin
 function GlossaryFolderDetail({ folder }) {
   if (!folder) return null;
   var sHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
-  var cardStyle = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 };
   return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 } },
       React.createElement('div', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)', flex: 1 } }, folder.displayName || folder.qualifiedName),
@@ -1654,18 +1759,9 @@ function GlossaryFolderDetail({ folder }) {
       React.createElement('div', { style: sHdr }, 'Properties'),
       React.createElement(GenericPropertiesTable, { item: folder, priority: ['description'] })
     ),
-    (folder.classifications || []).length > 0 && React.createElement('div', null,
-      React.createElement('div', { style: sHdr }, 'Classifications'),
-      folder.classifications.map(function(c) {
-        return React.createElement('div', { key: c.typeName, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--classif)' }) },
-          React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
-          Object.entries(c.properties || {}).map(function(e) {
-            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
-              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
-          })
-        );
-      })
-    ),
+    // Classifications (foldable) + "Copy raw JSON" debug affordance — see
+    // GlossaryTermDetail's identical switch for why (Dan's catch, 2026-08-18).
+    React.createElement(ClassificationsAndRawJson, { item: folder }),
     // A CollectionFolder is a Collection — surface its context/anchored graphs.
     React.createElement(MermaidSection, { guid: folder.guid })
   );
@@ -1674,7 +1770,6 @@ function GlossaryFolderDetail({ folder }) {
 function GlossaryDetail({ glossary }) {
   if (!glossary) return null;
   var sHdr   = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
-  var cardStyle = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 };
   return React.createElement('div', { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 } },
       React.createElement('h2', { style: { fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--text)', flex: 1 } }, glossary.displayName || glossary.qualifiedName || glossary.guid),
@@ -1687,18 +1782,9 @@ function GlossaryDetail({ glossary }) {
       React.createElement('div', { style: sHdr }, 'Properties'),
       React.createElement(GenericPropertiesTable, { item: glossary, priority: ['description'] })
     ),
-    (glossary.classifications || []).length > 0 && React.createElement('div', null,
-      React.createElement('div', { style: sHdr }, 'Classifications'),
-      glossary.classifications.map(function(c) {
-        return React.createElement('div', { key: c.typeName, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--classif)' }) },
-          React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
-          Object.entries(c.properties || {}).map(function(e) {
-            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
-              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
-          })
-        );
-      })
-    ),
+    // Classifications (foldable) + "Copy raw JSON" debug affordance — see
+    // GlossaryTermDetail's identical switch for why (Dan's catch, 2026-08-18).
+    React.createElement(ClassificationsAndRawJson, { item: glossary }),
     React.createElement(MermaidSection, { guid: glossary.guid })
   );
 }
@@ -1735,19 +1821,16 @@ function GlossaryTermDetail({ term, onNavigateToTerm, onNavigateToDataDesign, on
       React.createElement('div', { style: sHdr }, 'Properties'),
       React.createElement(GenericPropertiesTable, { item: term, skip: ['description', 'folders', 'isTemplateSubstitute', 'isSourcedFromTemplate'], renderValue: function(key, val) { return renderMd(val); } })
     ),
-    (term.classifications || []).length > 0 && React.createElement('div', null,
-      React.createElement('div', { style: sHdr }, 'Classifications'),
-      term.classifications.map(function(c) {
-        var cardStyle = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 8 };
-        return React.createElement('div', { key: c.typeName, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--classif)' }) },
-          React.createElement('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--classif)', marginBottom: Object.keys(c.properties || {}).length ? 4 : 0 } }, c.typeName),
-          Object.entries(c.properties || {}).map(function(e) {
-            return React.createElement('div', { key: e[0], style: { fontSize: 11, color: 'var(--muted)' } },
-              e[0] + ': ', React.createElement('span', { style: { color: 'var(--text)' } }, String(e[1])));
-          })
-        );
-      })
-    ),
+    // Classifications (foldable) + "Copy raw JSON" debug affordance — was a
+    // hand-rolled always-open block here; switched to the shared component
+    // both to pick up RawJsonViewer (missing from Glossary entirely until
+    // now, Dan's catch 2026-08-18 — BACKLOG.md already flagged this as a
+    // known gap since the 2026-07-22 rollout) and because PrimeWord/
+    // ClassWord/Modifier classifications only became visible at all once
+    // glossary_handler.py's _extract_classifications learned to also read
+    // list-valued header keys like glossaryTermKinds, not just individually
+    // named ElementClassification keys (see that function's own docstring).
+    React.createElement(ClassificationsAndRawJson, { item: term }),
     React.createElement('div', { style: { marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' } },
       React.createElement('div', { style: sHdr }, 'Assigned Elements'),
       React.createElement(AssignedElementsSection, { termGuid: term.guid, onNavigateToElement: onNavigateToElement, isElementLinkable: isElementLinkable })
@@ -2084,6 +2167,18 @@ function _isCatalogType(item) {
 
 /* Unified element-nav: prefer an Explorer panel, else the Tech Catalog. Returns
  * { app, hash?, kind? } or null. */
+// Notification/Meeting/ToDo/Review are real Action -> Process -> Asset
+// subtypes (see action_center_handler.py's _ACTION_TYPES) — being an Asset
+// subtype is a modeling/lineage convenience, not an indication these belong
+// in Tech Catalog's asset browser. A personal ToDo carries no ZoneMembership/
+// CollectionMembership (Tech Catalog's scoping mechanism), so routing it
+// there dead-ends with "isn't part of the Catalog" (confirmed live
+// 2026-08-05, qs-view-server) — same bug class as the EngineAction case just
+// below, same fix: a dedicated-view special-case checked before the generic
+// Asset-supertype fallback. Egeria Explorer's Action Center tab is exactly
+// that dedicated view and already supports a ?guid= deep-link.
+var _ACTION_CENTER_TYPES = { Notification: 1, Meeting: 1, ToDo: 1, Review: 1 };
+
 function resolveElementNav(item) {
   if (!item) return null;
   // EngineAction already has a dedicated view (Egeria Operations' Engine Actions
@@ -2091,6 +2186,7 @@ function resolveElementNav(item) {
   // which would otherwise route it to Tech Catalog's generic mixed "Actions"
   // tab (metadata_element_type="Action", no per-subtype detail).
   if ((item.typeName || '') === 'EngineAction') return { app: 'egeria-operations' };
+  if (_ACTION_CENTER_TYPES[item.typeName || '']) return { app: 'egeria-explorer', hash: 'action-center' };
   if ((item.typeName || '') === 'ValidMetadataValue') {
     // Landing only, same degraded case tech-catalog.html's TYPE_TO_NAV
     // already accepts for this type (BACKLOG.md FIX-4) — no cold-load URL
