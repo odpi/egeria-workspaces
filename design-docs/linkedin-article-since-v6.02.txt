@@ -11,12 +11,13 @@ Paste it in, then manually apply LinkedIn's own formatting where marked:
 [END NOTE]
 
 
-BLUEPRINT SEASON: WHAT WE BUILT AT EGERIA THIS SPRING AND SUMMER
+EGERIA WORKSPACES 6.1: WHAT WE BUILT THIS SPRING AND SUMMER
 
 Four and a half months ago, egeria-workspaces was one working demo. Since
 the v6.02 tag on April 2nd, it's grown into a small constellation of
 purpose-built apps over Egeria's metadata — plus the time-travel, bulk
 governance actions, and declarative dashboards that make them trustworthy.
+This is the 6.1 release.
 
 985 commits. 228 features. 227 fixes. Five new apps. Here's the shape of it.
 
@@ -125,4 +126,4 @@ possible.
 
 Come see it running: egeria.pdr-associates.com
 
-#Egeria #OpenSource #DataGovernance #Metadata #OpenMetadata
+#Egeria #EgeriaWorkspaces61 #OpenSource #DataGovernance #Metadata #OpenMetadata

@@ -1,12 +1,12 @@
-# Since v6.02
+# Egeria Workspaces 6.1
 
 Four and a half months, 985 commits, and two demo environments that finally act like siblings.
 
 Since the `v6.02` tag on April 2, `egeria-workspaces` went from a single working demo to a small
 constellation of purpose-built apps over Egeria — plus the plumbing, time-travel, bulk actions, and
-bug fixes that make them trustworthy. Here's what shipped.
+bug fixes that make them trustworthy. **This is the 6.1 release.**
 
-**985** commits &middot; **228** features &middot; **227** fixes &middot; **4.5** months
+**6.1** &middot; **985** commits &middot; **228** features &middot; **227** fixes &middot; **4.5** months
 
 ## Try it
 
@@ -137,4 +137,4 @@ This is the shape of it, not the whole thing — 985 commits don't fit in a rele
 including root causes and what was tried and rejected along the way, lives in `BACKLOG.md` for anything
 still open and `BACKLOG-ARCHIVE.md` for everything closed.
 
-*egeria-workspaces &middot; v6.02 → today &middot; compiled from git history*
+*egeria-workspaces 6.1 &middot; v6.02 → 6.1 &middot; compiled from git history*
