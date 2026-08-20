@@ -1739,27 +1739,33 @@ function Sidebar({
 
 // ── Attribute Index ───────────────────────────────────────────────────────────
 
-function buildAttrIndex(rawData) {
+function buildAttrIndex(rawData, hideDeprecated) {
   const idx = {};
   const add = (attrName, entry) => {
     if (!idx[attrName]) idx[attrName] = [];
     idx[attrName].push(entry);
   };
-  for (const [n, t] of Object.entries(rawData.entities || {}))
+  for (const [n, t] of Object.entries(rawData.entities || {})) {
+    if (hideDeprecated && t.deprecated) continue;
     for (const p of (t.props || [])) add(p.name, { kind: 'entity', typeName: n, propType: p.type, req: p.req });
-  for (const [n, c] of Object.entries(rawData.classifications || {}))
+  }
+  for (const [n, c] of Object.entries(rawData.classifications || {})) {
+    if (hideDeprecated && c.deprecated) continue;
     for (const p of (c.props || [])) add(p.name, { kind: 'classification', typeName: n, propType: p.type, req: p.req });
-  for (const [n, r] of Object.entries(rawData.relationships || {}))
+  }
+  for (const [n, r] of Object.entries(rawData.relationships || {})) {
+    if (hideDeprecated && r.deprecated) continue;
     for (const p of (r.props || [])) add(p.name, { kind: 'relationship', typeName: n, propType: p.type, req: p.req });
+  }
   return idx;
 }
 
-function AttrIndexView({ rawData, onNavigateToType }) {
+function AttrIndexView({ rawData, onNavigateToType, hideDeprecated }) {
   const [search, setSearch] = useState('');
   const [selAttr, setSelAttr] = useState(null);
   const [sideW, onDivDown] = useResizable(254);
 
-  const attrIndex = useMemo(() => rawData ? buildAttrIndex(rawData) : {}, [rawData]);
+  const attrIndex = useMemo(() => rawData ? buildAttrIndex(rawData, hideDeprecated) : {}, [rawData, hideDeprecated]);
   const attrNames = useMemo(() => {
     const q = search.toLowerCase();
     return Object.keys(attrIndex).filter(k => !q || k.toLowerCase().includes(q)).sort();
@@ -4260,7 +4266,7 @@ function ExplorerSearchView({ creds, initialQuery, onNavigateToElement }) {
       React.createElement('div', { style: { position: 'relative' } },
         React.createElement('input', {
           type: 'search', value: s.q, onChange: s.handleInput, autoFocus: true,
-          placeholder: 'Search across The Catalog — assets, glossary, tech types, surveys…',
+          placeholder: 'Search across Egeria Explorer — assets, glossary, tech types, surveys…',
           style: { width: '100%', padding: '10px 14px 10px 38px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)', fontSize: 14, boxSizing: 'border-box', outline: 'none' }
         }),
         React.createElement('span', { style: { position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 15, pointerEvents: 'none', color: 'var(--dim)' } }, '🔎')
@@ -4375,7 +4381,7 @@ const _SPLASH_CAPABILITIES = [
     group: 'search',
     icon: '🔎',
     title: 'Search',
-    description: 'Cross-catalog keyword search across The Catalog — assets, glossary terms, technology types, surveys, and more. Results grouped by category with direct links to detail views.',
+    description: 'Cross-catalog keyword search — assets, glossary terms, technology types, surveys, and more. Results grouped by category with direct links to detail views.',
   },
   // ── Explore ───────────────────────────────────────────────────────────────
   {
@@ -4706,7 +4712,7 @@ function SplashScreen({ onNavigate, saveCreds, demoMode, srvManaged, authUser })
         : ((!demoMode && !srvManaged) ? React.createElement(ConnectionForm, { saveCreds: saveCreds }) : null),
       React.createElement(React.Fragment, null,
         [
-          { key: 'search',    label: 'Search',    blurb: 'Find anything across The Catalog by keyword.' },
+          { key: 'search',    label: 'Search',    blurb: 'Find anything by keyword.' },
           { key: 'act',       label: 'Explore',   blurb: 'Good starting points — glossaries, collections, products, reports, and Dr. Egeria commands.' },
           { key: 'review',    label: 'Review',    blurb: 'Browse and analyse your metadata — glossaries, designs, supply chains, and governance.' },
           { key: 'reference', label: 'Reference', blurb: 'Reference tools — type system, REST APIs, valid values, and Python client.' },
@@ -4771,45 +4777,49 @@ function SplashScreen({ onNavigate, saveCreds, demoMode, srvManaged, authUser })
 
 // ── Valid Values Explorer ─────────────────────────────────────────────────────
 
-function ValidValueDetail({ item }) {
+// Full-detail 3rd-column pane — item here is the shape GET /api/valid-values/{guid}
+// returns (via digital_products_handler's _serialize_node/_extract_all_rels, same as
+// every other _serialize_node-based detail view in this file: top-level guid/typeName/
+// displayName/qualifiedName/description + props{} + relationships{} + classifications[]),
+// NOT the flat list-row shape ValidValueEntry below renders. Reuses GenericPropertiesTable
+// (reads item.props generically) and GenericRelationshipsSection (clickable relationship
+// links via onNavigateToElement) rather than a hand-picked field list, so this shows
+// everything Egeria actually returns for the element, not just a curated subset.
+function ValidValueDetail({ item, onNavigateToElement }) {
   var _vvPersonaId = React.useContext(PersonaContext);
   if (!item) return null;
-  const fields = [
-    ['Qualified Name',  item.qualifiedName],
-    ['Preferred Value', item.preferredValue],
-    ['Category',        item.category],
-    ['Data Type',       item.dataType],
-    ['Usage',           item.usage],
-    ['Scope',           item.scope],
-    ['Status',          item.status],
-    ['Deprecated',      item.isDeprecated ? 'Yes' : null],
-    ['Case Sensitive',  item.isCaseSensitive ? 'Yes' : null],
-  ].filter(([, v]) => v && String(v).trim());
-
   const isSet = !!item.isSet;
+  // GenericPropertiesTable reads scalar keys off the TOP LEVEL of whatever `item` it's
+  // given (see its doc comment in egeria-shared-ui.js) — that's the contract every other
+  // *_handler.py serializer follows by spreading domain fields directly onto the node
+  // (e.g. location_handler.py's _serialize_location). digital_products_handler.py's
+  // _serialize_node (reused here as the generic "any element type" fetch) instead nests
+  // them under a `props` sub-object, so passing `item` straight through silently hid every
+  // one of them (identifier, preferredValue, category, usage, scope, dataType,
+  // additionalProperties, …) — table rendered empty-ish even though the backend response
+  // had the data all along. Flatten props onto a shallow copy just for this table.
+  const flatItem = React.useMemo(() => Object.assign({}, item, item.props), [item]);
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
-    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 } },
+    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' } },
       React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, item.displayName || item.qualifiedName),
-      isSet && React.createElement("span", { className: "badge", style: { background: 'rgba(99,102,241,.15)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.3)' } }, item.typeName || 'Set'),
+      React.createElement("span", { className: "badge", style: { background: 'rgba(99,102,241,.15)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.3)' } }, item.typeName || (isSet ? 'Set' : 'ValidMetadataValue')),
       React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
         _vvPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'valid-values', label: item.displayName || item.qualifiedName, icon: '✅', url: '/egeria-explorer?guid=' + encodeURIComponent(item.guid) + '#valid-values', personaId: _vvPersonaId }),
         React.createElement(EgeriaFeedbackWidget, { guid: item.guid })
       ),
+      React.createElement(HeaderInfoButton, { header: item._header }),
       React.createElement(CopyJsonButton, { data: item })
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, item.guid),
     item.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(item.description)),
     React.createElement(MermaidSection, { guid: item.guid }),
-    fields.length > 0 && React.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
-      React.createElement("tbody", null,
-        fields.map(([label, value]) =>
-          React.createElement("tr", { key: label, style: { borderTop: '1px solid var(--border)' } },
-            React.createElement("td", { style: { padding: '6px 12px 6px 0', color: 'var(--dim)', whiteSpace: 'nowrap', verticalAlign: 'top', width: 140 } }, label),
-            React.createElement("td", { style: { padding: '6px 0' } }, renderMd(value))
-          )
-        )
-      )
+    React.createElement("div", { style: { marginBottom: 20 } },
+      React.createElement(GenericPropertiesTable, {
+        item: flatItem, priority: ['identifier', 'preferredValue', 'category', 'usage', 'scope', 'dataType', 'status'],
+      }),
+      React.createElement(AdditionalPropertiesTable, { data: item.additionalProperties })
     ),
+    React.createElement(GenericRelationshipsSection, { relationships: item.relationships, onNavigateToElement: onNavigateToElement }),
     React.createElement(ClassificationsAndRawJson, { item: item }),
     React.createElement(EgeriaCommentsSection, { guid: item.guid })
   );
@@ -4855,7 +4865,128 @@ function ValidValueEntry({ val }) {
   );
 }
 
-function ValidValuesView({ navProp }) {
+// Compact clickable row for the 2nd (middle) column — deliberately terse (name +
+// one-line description only) since full detail now lives in the 3rd column via
+// ValidValueDetailPane, not stacked here as it was in the old 2-column layout.
+function ValidValueRow({ val, selected, onClick }) {
+  if (!val) return null;
+  return React.createElement("div", {
+    className: "tree-item" + (selected ? " sel" : ""),
+    onClick: onClick,
+    style: { padding: '8px 12px', borderBottom: '1px solid var(--border)', cursor: 'pointer' }
+  },
+    React.createElement("div", { style: { fontWeight: 600, fontSize: 13 } }, val.displayName || val.preferredValue || '?'),
+    val.description && React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, val.description)
+  );
+}
+
+// Same displayName legitimately appears many times over — e.g. a spec property
+// like "versionIdentifier" or "description" is registered once per template/
+// governance-action-process it's attached to, each with its own guid/qualifiedName
+// but identical name+description. Rendered flat that reads as duplicate rows, so
+// fold same-name entries into one collapsible group instead of deduping the data
+// (each instance is real and independently selectable/detail-fetchable).
+function groupValuesByName(values) {
+  const order = [];
+  const map = new Map();
+  for (const v of values) {
+    const name = (v.displayName || v.preferredValue || '(unnamed)');
+    if (!map.has(name)) { map.set(name, []); order.push(name); }
+    map.get(name).push(v);
+  }
+  return order.map(name => ({ name, items: map.get(name) }));
+}
+
+// qualifiedName for these follows "<OwningTypeName>::<owningGuid>::<propertyType>::<propertyName>"
+// (e.g. "GovernanceActionProcess::bfc0246e-...::ProducedAnnotationType::Capture File Counts") —
+// the owning guid is what actually distinguishes same-named entries (e.g. two different Survey
+// definitions both producing a "Capture File Counts" annotation). Parse it out so expanded rows
+// can be labeled by owner once resolved, instead of the raw qualifiedName.
+function _parseOwnerFromQualifiedName(qn) {
+  const parts = (qn || '').split('::');
+  return { ownerType: parts[0] || '', ownerGuid: parts[1] || '' };
+}
+
+function ValidValueGroupRow({ group, selectedGuid, onSelect, creds }) {
+  const [expanded, setExpanded] = useState(false);
+  const [ownerNames, setOwnerNames] = useState({});  // ownerGuid -> resolved displayName
+  const items = group.items;
+
+  const parsed = useMemo(() => items.map(v => Object.assign({ val: v }, _parseOwnerFromQualifiedName(v.qualifiedName))), [items]);
+
+  // Resolve owner display names lazily, only once expanded, and only for guids not
+  // already resolved — GET /api/valid-values/resolve-name/{guid} is cheap (depth=0)
+  // but there's no reason to pay it for groups the user never opens.
+  useEffect(() => {
+    if (!expanded) return;
+    const toFetch = parsed.filter(p => p.ownerGuid && !(p.ownerGuid in ownerNames));
+    if (toFetch.length === 0) return;
+    toFetch.forEach(p => {
+      egeriaFetch('/api/valid-values/resolve-name/' + encodeURIComponent(p.ownerGuid), creds)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { setOwnerNames(prev => ({ ...prev, [p.ownerGuid]: (data && data.displayName) || null })); })
+        .catch(() => { setOwnerNames(prev => ({ ...prev, [p.ownerGuid]: null })); });
+    });
+  }, [expanded, parsed]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (items.length === 1) {
+    const v = items[0];
+    return React.createElement(ValidValueRow, { val: v, selected: !!v.guid && v.guid === selectedGuid, onClick: () => onSelect(v.guid) });
+  }
+  const anySelected = items.some(v => v.guid === selectedGuid);
+  return React.createElement("div", { style: { borderBottom: '1px solid var(--border)' } },
+    React.createElement("div", {
+      onClick: () => setExpanded(e => !e),
+      style: { padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, background: (anySelected && !expanded) ? 'var(--tree-hover, rgba(99,102,241,.08))' : undefined }
+    },
+      React.createElement("span", { style: { fontSize: 15, fontWeight: 700, color: 'var(--text)', width: 14, display: 'inline-block', flexShrink: 0, textAlign: 'center' } }, expanded ? '▾' : '▸'),
+      React.createElement("span", { style: { fontWeight: 600, fontSize: 13, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, group.name),
+      React.createElement("span", { className: "badge" }, items.length)
+    ),
+    expanded && parsed.map((p, i) => {
+      const resolved = p.ownerGuid ? ownerNames[p.ownerGuid] : undefined;
+      // Falls back to "<OwningTypeName> <shortGuid>…" until (or unless) the name resolves.
+      const fallback = (p.ownerType ? p.ownerType + ' ' : '') + (p.ownerGuid ? p.ownerGuid.slice(0, 8) + '…' : '');
+      const label = resolved || fallback || p.val.qualifiedName || p.val.guid;
+      return React.createElement("div", {
+        key: p.val.guid || i,
+        onClick: () => onSelect(p.val.guid),
+        className: "tree-item" + (p.val.guid && p.val.guid === selectedGuid ? " sel" : ""),
+        title: p.val.qualifiedName,
+        style: { padding: '6px 12px 6px 26px', borderTop: '1px solid var(--border)', cursor: 'pointer', fontSize: 11, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+      }, label);
+    })
+  );
+}
+
+// 3rd column — fetches the full-detail shape (relationships/classifications included)
+// for whichever row is selected in the middle column. Kept separate from the list
+// fetch (/lookup, /spec-property-lookup) which intentionally stays flat/summary-only
+// for O(n) performance — see valid_values_handler.py's get_valid_value_detail comment.
+function ValidValueDetailPane({ guid, creds, onNavigateToElement }) {
+  const [item, setItem] = useState(null);
+  const [state, setState] = useState('idle'); // idle | loading | ready | error
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!guid) { setItem(null); setState('idle'); return; }
+    setState('loading');
+    setError('');
+    setItem(null);
+    egeriaFetch('/api/valid-values/' + encodeURIComponent(guid), creds)
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(data => { setItem(data); setState('ready'); })
+      .catch(err => { setError(err.message); setState('error'); });
+  }, [guid, creds]);
+
+  if (!guid) return React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a value to see its full details"));
+  if (state === 'loading') return React.createElement("div", { className: "center" }, React.createElement("div", { className: "spinner" }));
+  if (state === 'error') return React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "Error: " + error));
+  if (!item) return null;
+  return React.createElement(ValidValueDetail, { item: item, onNavigateToElement: onNavigateToElement });
+}
+
+function ValidValuesView({ navProp, onNavigateToElement }) {
   const [tab, setTab] = useState('metadata'); // 'metadata' | 'spec-properties'
 
   return React.createElement("div", { className: "body", style: { flexDirection: 'column' } },
@@ -4872,26 +5003,30 @@ function ValidValuesView({ navProp }) {
     ),
     React.createElement("div", { style: { flex: 1, minHeight: 0, display: 'flex' } },
       tab === 'metadata'
-        ? React.createElement(ValidMetadataValuesTab, { navProp: navProp })
-        : React.createElement(SpecificationPropertyValuesTab, null)
+        ? React.createElement(ValidMetadataValuesTab, { navProp: navProp, onNavigateToElement: onNavigateToElement })
+        : React.createElement(SpecificationPropertyValuesTab, { onNavigateToElement: onNavigateToElement })
     )
   );
 }
 
-function ValidMetadataValuesTab({ navProp }) {
+function ValidMetadataValuesTab({ navProp, onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(254);
+  const [midW, onMidDivDown] = useResizable(300);
   // Left: property name input + dynamic presets from Egeria
   const [propertyName, setPropertyName] = useState('');
   const [submittedProp, setSubmittedProp] = useState('');
   const [knownProps, setKnownProps] = useState([]);
   const [propsState, setPropsState] = useState('loading'); // 'loading' | 'ready' | 'error'
   const [propsError, setPropsError] = useState('');
-  // Right: loaded values for the submitted property
+  // Middle: loaded values for the submitted property
   const [values, setValues] = useState([]);
   const [loadState, setLoadState] = useState('idle');
   const [error, setError] = useState('');
   const [filterText, setFilterText] = useState('');
+  // Right: selected value's full detail (relationships/classifications) — see
+  // ValidValueDetailPane, fetched from GET /api/valid-values/{guid}
+  const [selectedGuid, setSelectedGuid] = useState(null);
 
   // Fetch list of properties that have registered valid values
   useEffect(() => {
@@ -4918,6 +5053,7 @@ function ValidMetadataValuesTab({ navProp }) {
     setLoadState('loading');
     setError('');
     setValues([]);
+    setSelectedGuid(null);  // clear stale detail selection from a prior property's values
     egeriaFetch('/api/valid-values/lookup?property_name=' + encodeURIComponent(p), creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
@@ -4948,8 +5084,10 @@ function ValidMetadataValuesTab({ navProp }) {
     );
   }, [values, filterText]);
 
+  const groupedValues = useMemo(() => groupValuesByName(filteredValues), [filteredValues]);
+
   return React.createElement("div", { className: "body" },
-    // Left: property selector
+    // Column 1: property selector
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
       React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } }, "Property Name"),
       React.createElement("form", { onSubmit: e => { e.preventDefault(); lookup(e.target.elements.pn.value); }, style: { padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 4 } },
@@ -4973,54 +5111,64 @@ function ValidMetadataValuesTab({ navProp }) {
       )
     ),
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
-    // Right: valid values for selected property
-    React.createElement("div", { className: "main", style: { flexDirection: 'column', alignItems: 'stretch', overflowY: 'auto' } },
+    // Column 2: compact value list for the selected property
+    React.createElement("div", { style: { width: midW, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
       !submittedProp
-        ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a property name or type one to look up its valid values"))
+        ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a property"))
         : loadState === 'loading'
-        ? React.createElement("div", { className: "center" }, "Loading valid values for “" + submittedProp + "”…")
+        ? React.createElement("div", { className: "center" }, React.createElement("div", { className: "spinner" }))
         : loadState === 'error'
         ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "Error: " + error))
-        : React.createElement("div", null,
-            React.createElement("div", { style: { padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 } },
-              React.createElement("span", { style: { fontSize: 16, fontWeight: 700 } }, submittedProp),
-              React.createElement("span", { className: "badge" }, (filterText ? filteredValues.length + ' / ' : '') + values.length + ' value' + (values.length !== 1 ? 's' : '')),
+        : React.createElement(React.Fragment, null,
+            React.createElement("div", { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 } },
+              React.createElement("span", { style: { fontSize: 13, fontWeight: 700, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, submittedProp),
+              React.createElement("span", { className: "badge" }, (filterText ? filteredValues.length + '/' : '') + values.length),
               React.createElement(CopyJsonButton, { data: values, title: '{ } Copy all JSON' })
             ),
-            values.length > 0 && React.createElement("div", { style: { padding: '8px 20px', borderBottom: '1px solid var(--border)' } },
+            values.length > 0 && React.createElement("div", { style: { padding: '6px 12px', borderBottom: '1px solid var(--border)' } },
               React.createElement("input", {
                 type: "text",
                 className: "search-input",
-                placeholder: "Filter these values…",
+                placeholder: "Filter…",
                 value: filterText,
                 onChange: e => setFilterText(e.target.value),
-                style: { width: '100%', maxWidth: 320 }
+                style: { width: '100%' }
               })
             ),
-            values.length === 0
-              ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "No registered valid values for “" + submittedProp + "”"))
-              : filteredValues.length === 0
-              ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "No values match “" + filterText + "”"))
-              : filteredValues.map((v, i) => React.createElement(ValidValueEntry, { key: i, val: v }))
+            React.createElement("div", { className: "tree-scroll" },
+              values.length === 0
+                ? React.createElement("div", { style: { padding: '12px 10px', fontSize: 12, color: 'var(--dim)' } }, "No registered valid values for “" + submittedProp + "”")
+                : filteredValues.length === 0
+                ? React.createElement("div", { style: { padding: '12px 10px', fontSize: 12, color: 'var(--dim)' } }, "No values match “" + filterText + "”")
+                : groupedValues.map((g, i) => React.createElement(ValidValueGroupRow, { key: g.name + '|' + i, group: g, selectedGuid: selectedGuid, onSelect: setSelectedGuid, creds: creds }))
+            )
           )
+    ),
+    React.createElement(ResizeDivider, { onMouseDown: onMidDivDown }),
+    // Column 3: full detail (relationships, classifications) for the selected value
+    React.createElement("div", { className: "main" },
+      React.createElement(ValidValueDetailPane, { guid: selectedGuid, creds: creds, onNavigateToElement: onNavigateToElement })
     )
   );
 }
 
-function SpecificationPropertyValuesTab() {
+function SpecificationPropertyValuesTab({ onNavigateToElement }) {
   const creds = React.useContext(CredContext);
   const [sideW, onDivDown] = useResizable(254);
+  const [midW, onMidDivDown] = useResizable(300);
   // Left: spec property type input + dynamic presets from Egeria
   const [typeName, setTypeName] = useState('');
   const [submittedType, setSubmittedType] = useState('');
   const [knownTypes, setKnownTypes] = useState([]);
   const [typesState, setTypesState] = useState('loading'); // 'loading' | 'ready' | 'error'
   const [typesError, setTypesError] = useState('');
-  // Right: loaded values for the submitted type
+  // Middle: loaded values for the submitted type
   const [values, setValues] = useState([]);
   const [loadState, setLoadState] = useState('idle');
   const [error, setError] = useState('');
   const [filterText, setFilterText] = useState('');
+  // Right: selected value's full detail — see ValidValueDetailPane
+  const [selectedGuid, setSelectedGuid] = useState(null);
 
   // Fetch list of specification property types
   useEffect(() => {
@@ -5047,6 +5195,7 @@ function SpecificationPropertyValuesTab() {
     setLoadState('loading');
     setError('');
     setValues([]);
+    setSelectedGuid(null);  // clear stale detail selection from a prior type's values
     egeriaFetch('/api/valid-values/spec-property-lookup?spec_property_type=' + encodeURIComponent(t), creds)
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(data => {
@@ -5072,8 +5221,10 @@ function SpecificationPropertyValuesTab() {
     );
   }, [values, filterText]);
 
+  const groupedValues = useMemo(() => groupValuesByName(filteredValues), [filteredValues]);
+
   return React.createElement("div", { className: "body" },
-    // Left: type selector
+    // Column 1: type selector
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
       React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } }, "Specification Property Type"),
       React.createElement("form", { onSubmit: e => { e.preventDefault(); lookup(e.target.elements.spt.value); }, style: { padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 4 } },
@@ -5097,36 +5248,43 @@ function SpecificationPropertyValuesTab() {
       )
     ),
     React.createElement(ResizeDivider, { onMouseDown: onDivDown }),
-    // Right: specification property values for selected type
-    React.createElement("div", { className: "main", style: { flexDirection: 'column', alignItems: 'stretch', overflowY: 'auto' } },
+    // Column 2: compact value list for the selected type
+    React.createElement("div", { style: { width: midW, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
       !submittedType
-        ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a specification property type or type one to look up its values"))
+        ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a type"))
         : loadState === 'loading'
-        ? React.createElement("div", { className: "center" }, "Loading specification property values for “" + submittedType + "”…")
+        ? React.createElement("div", { className: "center" }, React.createElement("div", { className: "spinner" }))
         : loadState === 'error'
         ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "Error: " + error))
-        : React.createElement("div", null,
-            React.createElement("div", { style: { padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 } },
-              React.createElement("span", { style: { fontSize: 16, fontWeight: 700 } }, submittedType),
-              React.createElement("span", { className: "badge" }, (filterText ? filteredValues.length + ' / ' : '') + values.length + ' value' + (values.length !== 1 ? 's' : '')),
+        : React.createElement(React.Fragment, null,
+            React.createElement("div", { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 } },
+              React.createElement("span", { style: { fontSize: 13, fontWeight: 700, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, submittedType),
+              React.createElement("span", { className: "badge" }, (filterText ? filteredValues.length + '/' : '') + values.length),
               React.createElement(CopyJsonButton, { data: values, title: '{ } Copy all JSON' })
             ),
-            values.length > 0 && React.createElement("div", { style: { padding: '8px 20px', borderBottom: '1px solid var(--border)' } },
+            values.length > 0 && React.createElement("div", { style: { padding: '6px 12px', borderBottom: '1px solid var(--border)' } },
               React.createElement("input", {
                 type: "text",
                 className: "search-input",
-                placeholder: "Filter these values…",
+                placeholder: "Filter…",
                 value: filterText,
                 onChange: e => setFilterText(e.target.value),
-                style: { width: '100%', maxWidth: 320 }
+                style: { width: '100%' }
               })
             ),
-            values.length === 0
-              ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "No registered specification property values for “" + submittedType + "”"))
-              : filteredValues.length === 0
-              ? React.createElement("div", { className: "center" }, React.createElement("span", { style: { color: 'var(--muted)' } }, "No values match “" + filterText + "”"))
-              : filteredValues.map((v, i) => React.createElement(ValidValueEntry, { key: i, val: v }))
+            React.createElement("div", { className: "tree-scroll" },
+              values.length === 0
+                ? React.createElement("div", { style: { padding: '12px 10px', fontSize: 12, color: 'var(--dim)' } }, "No registered specification property values for “" + submittedType + "”")
+                : filteredValues.length === 0
+                ? React.createElement("div", { style: { padding: '12px 10px', fontSize: 12, color: 'var(--dim)' } }, "No values match “" + filterText + "”")
+                : groupedValues.map((g, i) => React.createElement(ValidValueGroupRow, { key: g.name + '|' + i, group: g, selectedGuid: selectedGuid, onSelect: setSelectedGuid, creds: creds }))
+            )
           )
+    ),
+    React.createElement(ResizeDivider, { onMouseDown: onMidDivDown }),
+    // Column 3: full detail (relationships, classifications) for the selected value
+    React.createElement("div", { className: "main" },
+      React.createElement(ValidValueDetailPane, { guid: selectedGuid, creds: creds, onNavigateToElement: onNavigateToElement })
     )
   );
 }
@@ -5185,9 +5343,22 @@ function RestApiView() {
     setApiLoading(true);
     setApiError('');
     egeriaFetch('/api/rest-apis', creds)
-      .then(function(r) { return r.json(); })
+      // Was blindly parsing the body regardless of status — a non-2xx error
+      // response (e.g. 502 {"detail": "..."}) has no `services` key, so
+      // setOpenapi(d) below would store that shape, and the services
+      // useMemo's openapi.services.filter(...) would then throw on the next
+      // render (TypeError: Cannot read properties of undefined) — an
+      // uncaught render error that blanks the whole view instead of showing
+      // apiError (Dan's report, 2026-08-18: REST APIs view was a blank
+      // screen when the platform's OpenAPI spec fetch failed upstream).
+      .then(function(r) {
+        return r.json().then(function(d) {
+          if (!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
+          return d;
+        });
+      })
       .then(function(d) { setOpenapi(d); setApiLoading(false); })
-      .catch(function(e) { setApiError(String(e)); setApiLoading(false); });
+      .catch(function(e) { setApiError(e.message || String(e)); setApiLoading(false); });
   }
 
   function refreshOpenApi() {
@@ -5197,7 +5368,7 @@ function RestApiView() {
 
   // Filtered service list
   const services = M(function() {
-    if (!openapi) return [];
+    if (!openapi || !Array.isArray(openapi.services)) return [];
     var lc = serviceFilter.toLowerCase();
     return openapi.services.filter(function(s) {
       return !lc || s.tag.toLowerCase().includes(lc);
@@ -6977,8 +7148,20 @@ function _elementIsLinkable(item) {
   return false;
 }
 
+// Action -> Process -> Asset subtypes (Notification/Meeting/ToDo/Review) are
+// technically Asset subtypes but are personal/workflow items with their own
+// dedicated Action Center view (_elementIsLinkable already special-cases
+// them) — NOT curated data/technology assets meant for Tech Catalog. A
+// personal ToDo carries no ZoneMembership/CollectionMembership (Tech
+// Catalog's scoping mechanism), so routing it there dead-ends with "isn't
+// part of the Catalog" (confirmed live 2026-08-05, qs-view-server). Kept as
+// its own set (not just reusing _elementIsLinkable's list) since this only
+// needs to know which types are Action-Center-routed, not every linkable type.
+var _ACTION_CENTER_ROW_TYPES = { Notification: 1, Meeting: 1, ToDo: 1, Review: 1 };
+
 function RelatedElementRow({ item, onNavigateToElement }) {
-  var isAsset = (item.superTypeNames || []).indexOf('Asset') !== -1;
+  var isActionCenterType = !!_ACTION_CENTER_ROW_TYPES[item.typeName || ''];
+  var isAsset = !isActionCenterType && (item.superTypeNames || []).indexOf('Asset') !== -1;
   var clickable = !isAsset && !!onNavigateToElement && _elementIsLinkable(item);
 
   return React.createElement("div", {
@@ -10479,6 +10662,7 @@ function App() {
   const [error, setError]         = useState('');
   const [rawData, setRawData]     = useState(null);
   const [areaFilter, setAreaFilter] = useState('all');
+  const [hideDeprecated, setHideDeprecated] = useState(false);
   const [selected, setSelected]   = useState({ kind: 'type', name: '' });
   const [theme, setTheme]         = useState('dark');
   const [view, setView]           = useState('types'); // 'types' | 'attrs'
@@ -10699,16 +10883,22 @@ function App() {
     document.documentElement.classList.toggle('light', theme === 'light');
   }, [theme]);
 
-  // Filter entities by selected area (ancestors included in tree via visibleInTree)
+  // Filter entities by selected area and (optionally) deprecation status.
+  // Ancestors of a visible entity are always included in the tree via
+  // visibleInTree, same mechanism the area filter already relied on -- a
+  // deprecated (or off-area) supertype with a live descendant still shows up
+  // as scaffolding, just not as a directly-matching row. TreeNode's own
+  // `entities` prop is always the FULL unfiltered map (allEntities, see the
+  // root TreeNode call in Sidebar) so getSubs()/supertype lookups never break;
+  // visibleInTree is the only thing that decides what actually renders.
   const data = useMemo(() => {
     if (!rawData) return null;
     const area = areaFilter === 'all' ? null : parseInt(areaFilter);
-    const filteredEntities = area === null
-      ? rawData.entities
-      : Object.fromEntries(Object.entries(rawData.entities).filter(([, t]) => t.area === area));
+    const passesFilter = t => (area === null || t.area === area) && (!hideDeprecated || !t.deprecated);
+    const filteredEntities = Object.fromEntries(Object.entries(rawData.entities).filter(([, t]) => passesFilter(t)));
     const visibleInTree = new Set();
     Object.entries(rawData.entities).forEach(([n, t]) => {
-      if (area === null || t.area === area) {
+      if (passesFilter(t)) {
         let curr = n;
         while (curr && !visibleInTree.has(curr)) {
           visibleInTree.add(curr);
@@ -10716,8 +10906,19 @@ function App() {
         }
       }
     });
-    return { ...rawData, entities: filteredEntities, allEntities: rawData.entities, visibleInTree };
-  }, [rawData, areaFilter]);
+    const filteredClassifications = !hideDeprecated ? rawData.classifications
+      : Object.fromEntries(Object.entries(rawData.classifications).filter(([, c]) => !c.deprecated));
+    const filteredRelationships = !hideDeprecated ? rawData.relationships
+      : Object.fromEntries(Object.entries(rawData.relationships).filter(([, r]) => !r.deprecated));
+    return {
+      ...rawData,
+      entities: filteredEntities,
+      classifications: filteredClassifications,
+      relationships: filteredRelationships,
+      allEntities: rawData.entities,
+      visibleInTree,
+    };
+  }, [rawData, areaFilter, hideDeprecated]);
 
   const onSelect = useCallback((kind, name) => setSelected({ kind, name }), []);
 
@@ -10861,6 +11062,33 @@ function App() {
           if (first) setSelected({ kind: 'type', name: first });
         }
       }, Object.entries(AREA_NAMES).map(([k, v]) => /*#__PURE__*/React.createElement("option", { key: k, value: k }, v))),
+      /*#__PURE__*/React.createElement("label", {
+        style: { display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', color: 'var(--dim)', userSelect: 'none' },
+        title: "Hide deprecated entity types, classifications, and relationships (still marked, never removed, in Egeria itself)"
+      },
+        /*#__PURE__*/React.createElement("input", {
+          type: "checkbox",
+          checked: hideDeprecated,
+          onChange: e => {
+            const next = e.target.checked;
+            setHideDeprecated(next);
+            // If the currently-selected type just got hidden, jump to the
+            // first still-visible one in the current area -- same pattern
+            // the area-select's onChange already uses below.
+            if (next && selected.kind === 'type') {
+              const cur = rawData && rawData.entities[selected.name];
+              if (cur && cur.deprecated) {
+                const area = areaFilter === 'all' ? null : parseInt(areaFilter);
+                const first = Object.keys((rawData === null || rawData === void 0 ? void 0 : rawData.entities) || {})
+                  .find(n => (area === null || rawData.entities[n].area === area) && !rawData.entities[n].deprecated);
+                if (first) setSelected({ kind: 'type', name: first });
+              }
+            }
+          },
+          style: { margin: 0 }
+        }),
+        "Hide deprecated"
+      ),
       /*#__PURE__*/React.createElement("button", { className: "view-tab" + (view === 'attrs' ? " on" : ""), onClick: () => setView('attrs') }, "Attribute Index"),
       /*#__PURE__*/React.createElement("div", { style: { flex: 1 } }),
       view === 'types' && /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', display: 'flex', gap: 12 } },
@@ -10885,7 +11113,7 @@ function App() {
       : section === 'collections'
       ? React.createElement(CollectionsView, { key: credsKey, navGuid: collectionsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'valid-values'
-      ? React.createElement(ValidValuesView, { key: credsKey, navProp: validValuesNavProp })
+      ? React.createElement(ValidValuesView, { key: credsKey, navProp: validValuesNavProp, onNavigateToElement: onNavigateToElement })
       : section === 'rest-apis'
       ? React.createElement(RestApiView, { key: credsKey })
       : section === 'solution-architect'
@@ -10929,7 +11157,7 @@ function App() {
       : section !== 'type-system'
       ? /*#__PURE__*/React.createElement(PlaceholderView, { section: section })
       : view === 'attrs'
-        ? /*#__PURE__*/React.createElement(AttrIndexView, { rawData: rawData, onNavigateToType: onNavigateToType })
+        ? /*#__PURE__*/React.createElement(AttrIndexView, { rawData: rawData, onNavigateToType: onNavigateToType, hideDeprecated: hideDeprecated })
         : /*#__PURE__*/React.createElement("div", { className: "body" },
           /*#__PURE__*/React.createElement(Sidebar, { selected: selected, onSelect: onSelect, data: data, width: typeSideW }),
           /*#__PURE__*/React.createElement(ResizeDivider, { onMouseDown: onTypeDivDown }),
