@@ -29,5 +29,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.6.0"
+  },
+  "overrides": {
+    "qs": "^6.15.2"
   }
 }
