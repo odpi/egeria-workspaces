@@ -404,18 +404,9 @@ order):
 
 > Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
-## 🔴 High Priority — Fix SecretsStoreCataloguer catalog target (Quickstart)
+## Fix SecretsStoreCataloguer catalog target (Quickstart) — ✅ resolved (moot), 2026-08-20
 
-**Status:** open  
-**Added:** 2026-06-23  
-
-The `SecretsStoreCataloguer` integration connector in the Quickstart metadata store has a catalog target pointing to `egeria-user-directory.omsecrets`, which is a Freshstart file. The correct file for Quickstart is `coco-user-directory.omsecrets`.
-
-A symlink (`egeria-user-directory.omsecrets` → `coco-user-directory.omsecrets`) was added to `runtime-volumes/quickstart-platform-data/secrets/` as a temporary workaround — this suppresses the `FileNotFoundException` on every `SecretsStoreCataloguer` refresh but does not fix the underlying misconfiguration.
-
-**Root cause:** A colleague's notebook run added `egeria-user-directory.omsecrets` as a catalog target to the Quickstart metadata store.
-
-**Fix:** Remove or correct the catalog target via the Egeria API or a notebook — update it to reference `coco-user-directory.omsecrets`. Once corrected, remove the symlink.
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
 ---
 ## Egeria Explorer — UI polish

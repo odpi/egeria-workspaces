@@ -811,3 +811,31 @@ live — `quickstart-pyegeria-web`'s `pip show pyegeria` reports 6.1.0.
 `render_mermaid()` no longer has any code path that reaches kroki.io.
 
 ---
+
+---
+
+## Fix SecretsStoreCataloguer catalog target (Quickstart) — ✅ resolved (moot), 2026-08-20
+
+**Originally:** open, added 2026-06-23. `SecretsStoreCataloguer` had a catalog target pointing to
+`egeria-user-directory.omsecrets` (a Freshstart file); a symlink to `coco-user-directory.omsecrets`
+was added to `runtime-volumes/quickstart-platform-data/secrets/` as a temporary workaround. Root
+cause: a colleague's notebook run added the wrong catalog target.
+
+**Re-checked live 2026-08-20 (pre-release readiness pass):** neither half of the problem still
+exists. `AutomatedCuration.get_catalog_targets()` against the connector's real GUID
+(`75e55161-4633-49f4-9358-77b6810aa2d1`, registered display name
+`SecretsStoreMonitorIntegrationConnector`) returns `catalogTargets: []`; the runtime-manager report
+shows `connectorStatus: WAITING`, a recent `lastRefreshTime`, and no `failingExceptionMessage`. The
+`egeria-user-directory.omsecrets` symlink is also gone from
+`runtime-volumes/quickstart-platform-data/secrets/` (only `coco-user-directory.omsecrets`,
+`egeria-servers.omsecrets`, `integration.omsecrets` remain). Most likely cleared during the
+`INFRA-1` platform rebuild against fresh `odpi/egeria-platform:latest` on 2026-08-14/15.
+
+**Also corrects the original diagnosis's assumption:** the connector's own registered description
+(`get_metadata_element_by_guid`) reads *"Catalogs Secrets Stores found under the secrets directory
+(folder) and any other folder added as a catalog target."* — it has a **default secrets directory
+it scans automatically**; explicit catalog targets are only for *additional* folders beyond that
+default. So `catalogTargets: []` is the connector's normal healthy idle state, not a sign it's
+misconfigured or doing nothing — no new catalog target needs to be added. Closing as moot rather
+than re-implementing a fix for a problem (and a mental model of the connector) that no longer
+applies.
