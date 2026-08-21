@@ -33,6 +33,14 @@ services:
     image: "${SHARED_KAFKA_IMAGE}"
     container_name: egeria-shared-kafka
     hostname: egeria-shared-kafka
+    # The image's own entrypoint builds server.properties from a fixed heredoc
+    # and substitutes only eight whitelisted KAFKA_CFG_* vars — every retention
+    # and segment setting below was silently ignored, leaving the broker on
+    # log.retention.hours=168 with 1 GB segments. That grew the audit-logs topic
+    # to 14 GB and OOM-killed the broker on 2026-08-16. kafka-entrypoint.sh is a
+    # drop-in replacement that keeps the stock formatting/format-guard behaviour
+    # but honours these variables for real. See that file's header for detail.
+    entrypoint: ["/usr/local/bin/egeria-kafka-entrypoint.sh"]
     networks:
       - egeria_network
     restart: always
@@ -52,15 +60,25 @@ services:
         PLAINTEXT://egeria-shared-kafka:9192,CONTROLLER://127.0.0.1:9193,EXTERNAL://${HOST_FQDN}:9194
       KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: >-
         CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
-      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
       KAFKA_KRAFT_CLUSTER_ID: "${KAFKA_CLUSTER_ID}"
       KAFKA_CFG_LOG_DIRS: "${HARDENED_KAFKA_LOG_DIR}"
-      # Logging and retention limits to prevent disk overflow
+      # Retention limits to prevent disk overflow. These are only effective
+      # because of the entrypoint override above — the stock image ignores them.
+      # Segment size matters as much as retention here: a segment is deleted
+      # only once all of it has aged out, so the image's 1 GB default made 24 h
+      # retention unable to reclaim anything in practice.
       KAFKA_CFG_LOG_RETENTION_HOURS: "24"
       KAFKA_CFG_LOG_RETENTION_BYTES: "536870912"
       KAFKA_CFG_LOG_SEGMENT_BYTES: "107374182"
       KAFKA_CFG_LOG_CLEANER_ENABLE: "true"
-      KAFKA_CFG_LOG4J_ROOT_LOGLEVEL: "WARN"
+      # Heap. kafka-server-start.sh only falls back to -Xmx1G -Xms1G when this
+      # is unset, and that 1 GB default is what ran out on 2026-08-16. Sized to
+      # leave room for Egeria's EGERIA_MEM_LIMIT (6g) on the same host.
+      KAFKA_HEAP_OPTS: "-Xmx3G -Xms3G"
+      # NOTE: KAFKA_CFG_LOG4J_ROOT_LOGLEVEL and KAFKA_CFG_INTER_BROKER_LISTENER_NAME
+      # are inert with this image (its entrypoint writes neither into
+      # server.properties, and log4j is configured from its own file). Left
+      # documented rather than set, so nobody re-adds them expecting an effect.
     logging:
       driver: "json-file"
       options:
@@ -74,6 +92,7 @@ services:
       start_period: 20s
     volumes:
       - "${HARDENED_KAFKA_DATA_DIR}:/var/lib/kafka-data"
+      - ./kafka-entrypoint.sh:/usr/local/bin/egeria-kafka-entrypoint.sh:ro
 
   postgres:
     # Postgres is also pinned via .env so updates are explicit.
