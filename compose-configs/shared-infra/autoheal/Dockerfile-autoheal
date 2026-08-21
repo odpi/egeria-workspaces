@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Contributors to the Egeria project
+FROM docker:27-cli
+RUN apk add --no-cache curl
+COPY autoheal.sh /autoheal.sh
+RUN chmod +x /autoheal.sh
+ENTRYPOINT ["/autoheal.sh"]
