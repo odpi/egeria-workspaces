@@ -10,6 +10,7 @@ services:
     image: egeria-freshstart-jupyter:local
     pull_policy: never
     container_name: freshstart-jupyter-work-full
+    restart: unless-stopped
     user: root
     networks:
       - egeria_network
@@ -61,6 +62,11 @@ services:
     ports:
       - '8443:8443'
       - '5006:5005'
+    # Mirrors quickstart's egeria-main: come back automatically after a crash or
+    # OOM-kill (exit 137) instead of staying dead silently. autoheal covers the
+    # complementary case — container up, platform wedged — which no restart
+    # policy can see.
+    restart: unless-stopped
     # Mirrors quickstart's egeria-main memory cap (see egeria-quickstart.yaml)
     # — same rationale: the JVM is normally the heaviest consumer in a shared
     # Docker Desktop VM memory pool. Configurable via EGERIA_MEM_LIMIT (see
@@ -111,6 +117,7 @@ services:
     image: egeria-freshstart-pyegeria-web:latest
     pull_policy: never
     container_name: freshstart-pyegeria-web
+    restart: unless-stopped
     build:
       context: ./PyegeriaWebHandler
       dockerfile: ./Dockerfile-fast-api
@@ -195,6 +202,7 @@ services:
         - "pypi.org:151.101.128.223"
         - "deb.debian.org:151.101.114.132"
     container_name: freshstart-web-server
+    restart: unless-stopped
     ports:
       - "7885:8085"
     logging:
