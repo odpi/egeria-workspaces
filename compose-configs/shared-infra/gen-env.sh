@@ -102,6 +102,11 @@ RESEND_FROM=${RESEND_FROM_VAL}
 ALERT_EMAIL_TO=${ALERT_EMAIL_TO_VAL}
 EOF
 mv -f "$TMP_ENV" .env
+# This file can now hold a Resend API key, so it must not be world-readable.
+# The temp file above is created under the caller's umask (typically 0664), so
+# the mode has to be set explicitly after the move — same reasoning as
+# quick-start-local's `chmod 600` on .env.demo.
+chmod 600 .env
 
 echo "[shared-infra/gen-env.sh] Wrote .env with HOST_FQDN=${HOST_FQDN}, KAFKA_CLUSTER_ID=${KAFKA_CLUSTER_ID_VAL}" >&2
 
