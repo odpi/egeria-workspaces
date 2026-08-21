@@ -67,6 +67,10 @@ services:
     # gen-env.sh) — ./fresh-start-local --egeria-memory <SIZE> sets it; 6g if
     # unset.
     mem_limit: ${EGERIA_MEM_LIMIT:-6g}
+    labels:
+      # Opts in to shared-infra's autoheal service — see the healthcheck below,
+      # whose timings had to be corrected first for this to be safe.
+      egeria.autoheal: "true"
     logging:
       driver: "json-file"
       options:
@@ -80,12 +84,18 @@ services:
     extra_hosts:
       - "${HOST_FQDN}:${HOST_GATEWAY_IP:-host-gateway}"
       - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
+    # Matches quickstart's egeria-main timings. The previous values (10s
+    # start_period, 3 retries x 20s) gave up ~70s after start, but this JVM
+    # takes 2-5 minutes to boot, so the container was reported unhealthy during
+    # every normal startup. That was merely cosmetic until autoheal existed;
+    # with the label below it would have caused a restart loop, since autoheal
+    # would keep restarting a platform that was still booting.
     healthcheck:
       test: curl -k -X GET "https://localhost:8443/open-metadata/platform-services/users/garygeeke/server-platform/origin" || exit 1
-      interval: 20s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+      interval: 30s
+      timeout: 15s
+      retries: 15
+      start_period: 60s
     volumes:
       - ../../exchange-freshstart/landing-area:/deployments/landing-area
       - ../../exchange-freshstart/distribution-hub:/deployments/distribution-hub
