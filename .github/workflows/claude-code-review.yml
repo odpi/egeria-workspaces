@@ -1,5 +1,30 @@
 name: Claude Code Review
 
+# DISABLED (2026-08-21): automatic runs are turned off; this is manual-only.
+#
+# Every run fails during claude-code-action's app-token exchange:
+#
+#   App token exchange failed: 401 Unauthorized - Invalid OIDC token
+#   ##[error]Action failed with error: Invalid OIDC token
+#
+# It dies while authenticating, before reviewing any code, so the resulting red
+# X carries no information about the change under review. The switch to
+# pull_request_target described below was an attempt to fix exactly this and did
+# not resolve it; the remaining failure has been diagnosed as being on
+# Anthropic's side, not something this repo can configure around.
+#
+# Why disable rather than leave it failing: this is not a required check
+# (branch protection on main requires only DCO), so it never blocked a merge --
+# it just painted every single PR red. Observed 4/4 failures on PR #367. A check
+# that always fails trains reviewers to ignore CI, which is worse than no check,
+# because a genuine failure stops standing out.
+#
+# To re-enable once the upstream issue is fixed: delete the workflow_dispatch
+# trigger below and uncomment the pull_request_target block. The safety
+# reasoning for pull_request_target is preserved below and still applies.
+#
+# ---------------------------------------------------------------------------
+#
 # pull_request_target (not pull_request): PRs from forks are the common case
 # for this repo, and GitHub unconditionally blocks OIDC token issuance
 # (id-token: write, which claude-code-action needs to post review comments)
@@ -17,14 +42,12 @@ name: Claude Code Review
 # any build/test/install step against fork code) without re-evaluating this
 # safety argument -- that's the actual risk pull_request_target introduces.
 on:
-  pull_request_target:
-    types: [opened, synchronize, ready_for_review, reopened]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
+  # Manual-only while the OIDC failure above is unresolved. Run from the Actions
+  # tab if you want to try it against a specific branch.
+  workflow_dispatch:
+  # Re-enable by uncommenting this block and removing workflow_dispatch above.
+  # pull_request_target:
+  #   types: [opened, synchronize, ready_for_review, reopened]
 
 jobs:
   claude-review:
