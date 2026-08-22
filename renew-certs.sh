@@ -37,6 +37,16 @@ DOMAIN="${SITE_URL#https://}"
 DOMAIN="${DOMAIN%%/*}"
 DOMAIN="${DOMAIN%%:*}"
 
+# Optional extra names to carry on the same cert, comma-separated, e.g.
+#   CERT_EXTRA_DOMAINS=home.example.net
+# Each must resolve to this host and pass its own HTTP-01 challenge. Without
+# this, a renewal silently reissues with only SITE_URL's name and drops any
+# additional SANs the current cert carries.
+EXTRA_DOMAINS="$(_get CERT_EXTRA_DOMAINS)"
+if [[ -n "$EXTRA_DOMAINS" ]]; then
+  DOMAIN="${DOMAIN},${EXTRA_DOMAINS}"
+fi
+
 if [[ -z "$DOMAIN" || -z "$EMAIL" ]]; then
   echo "[renew-certs.sh] Could not determine DOMAIN (from SITE_URL) / EMAIL (from ADMIN_BOOTSTRAP_EMAIL) in ${ENV_DEMO}." >&2
   exit 1
