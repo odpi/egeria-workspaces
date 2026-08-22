@@ -1,4 +1,4 @@
-FROM docker.io/library/python:3.12-slim-bookworm AS python-base
+FROM docker.io/library/python:3.14-slim-bookworm AS python-base
 
 FROM docker.io/library/httpd:2.4-bookworm
 
