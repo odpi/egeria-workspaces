@@ -11,9 +11,16 @@ HOST_FQDN="$(hostname -f 2>/dev/null || hostname)"
 source "${SCRIPT_DIR}/detect-engine.sh"
 
 read_existing_env() {
-  local key="$1"
+  local key="$1" val
   if [[ -f .env ]]; then
-    grep -E "^${key}=" .env | head -n1 | cut -d= -f2- || true
+    val="$(grep -E "^${key}=" .env | head -n1 | cut -d= -f2- || true)"
+    # The alerting values below are written single-quoted so this file stays
+    # safe to `source` (ensure-shared-infra.sh does). Strip that quoting on the
+    # way back in — otherwise each regeneration would wrap the value in another
+    # layer of quotes.
+    val="${val%\'}"; val="${val#\'}"
+    val="${val%\"}"; val="${val#\"}"
+    printf '%s' "$val"
   fi
 }
 
@@ -97,9 +104,9 @@ SHARED_POSTGRES_IMAGE=${SHARED_POSTGRES_IMAGE_VAL}
 HARDENED_KAFKA_DATA_DIR=${HARDENED_KAFKA_DATA_DIR_VAL}
 HARDENED_KAFKA_LOG_DIR=${HARDENED_KAFKA_LOG_DIR_VAL}
 HOST_GATEWAY_IP=${HOST_GATEWAY_IP}
-RESEND_API_KEY=${RESEND_API_KEY_VAL}
-RESEND_FROM=${RESEND_FROM_VAL}
-ALERT_EMAIL_TO=${ALERT_EMAIL_TO_VAL}
+RESEND_API_KEY='${RESEND_API_KEY_VAL}'
+RESEND_FROM='${RESEND_FROM_VAL}'
+ALERT_EMAIL_TO='${ALERT_EMAIL_TO_VAL}'
 EOF
 mv -f "$TMP_ENV" .env
 # This file can now hold a Resend API key, so it must not be world-readable.

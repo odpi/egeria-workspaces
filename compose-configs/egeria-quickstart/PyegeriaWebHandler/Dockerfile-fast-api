@@ -31,7 +31,10 @@ RUN pip install --no-cache-dir --retries 10 --timeout 60 -r requirements.txt
 # `docker compose build`/`up --build`, since site-packages lives in the image
 # layer, not a bind mount (only ./PyegeriaWebHandler:/app is mounted) — use
 # bin/update-pyegeria.sh instead, which rebuilds with --no-cache.
-RUN pip install --no-cache-dir --retries 10 --timeout 60 'pyegeria>=6.0.17.21' --upgrade
+ARG PYEGERIA_VERSION=pyegeria>=6.0.17.21
+ARG PYEGERIA_BUST=0
+RUN echo "pyegeria layer ${PYEGERIA_BUST}" \
+    && pip install --no-cache-dir --retries 10 --timeout 60 "${PYEGERIA_VERSION}" --upgrade
 
 # Copy your application code
 # Assuming your FastAPI app is in 'main.py' at the root of your app directory
