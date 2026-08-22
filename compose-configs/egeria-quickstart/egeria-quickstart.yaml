@@ -273,6 +273,10 @@ services:
         - "pypi.org:151.101.128.223"
         - "deb.debian.org:151.101.114.132"
     container_name: quickstart-web-server
+    # It had no restart policy at all, so a crash (see the httpd.conf PidFile
+    # comment above) left the public site's front door down with nothing
+    # bringing it back — discovered 2026-08-10.
+    restart: unless-stopped
     ports:
       - "8885:8085"
       # SSL (port 443) — disabled by default. See demo-mode.md § SSL / HTTPS.
