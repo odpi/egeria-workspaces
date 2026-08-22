@@ -240,6 +240,12 @@ runtime-volumes/demo-sync/
 # suffixed backup dir. Found 2026-08-18: one such backup sat untracked and
 # unprotected until this pattern was added.
 /runtime-volumes/certs*.pre-*/
+# Dated cert backups + the .tar.gz bundles made for copying to another host
+# (cert-watch/renew flow, 2026-08-22). Same private-key contents, same
+# never-commit rule — and same trap as the .pre-* dirs above: the directory
+# name doesn't match any of the exact patterns, so it sat untracked and
+# COMMITTABLE until this was added.
+/runtime-volumes/cert-backups/
 # certbot account/cert state + ACME HTTP-01 challenge webroot — contains
 # private keys and Let's Encrypt account data, never commit
 /runtime-volumes/letsencrypt/
