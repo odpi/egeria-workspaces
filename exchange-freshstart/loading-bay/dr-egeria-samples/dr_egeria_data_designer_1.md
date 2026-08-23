@@ -1,5 +1,5 @@
 # Dr.Egeria - designing data - part 2
-## Adding information 
+### Adding information 
 
 As data professionals, we often need to design data to be collected, processed, and shared with others.
 The Egeria Data Designer module has been designed to support this. Using the features of data designer we can 
@@ -30,12 +30,12 @@ So lets begin. First we will define the `TBDF-Incoming Weekly Measurement Data` 
 
 ___
 
-#  Create Data Structure
-## Data Structure Name 
+## Create Data Structure
+### Display Name 
 
 TBDF-Incoming Weekly Measurement Data
 
-## Description
+### Description
 This describes the weekly measurement data for each patient for the Teddy Bear drop foot clinical trial. 
 
 > Note: we will continue to refine this definition as we work through the design.
@@ -47,77 +47,77 @@ ___
 > seperator is displayed between commands. It improves the readability.
 ___
 
-# Create Data Field
-## Data Field
+## Create Data Field
+### Display Name
 Date
-## Description
+### Description
 A date of the form YYYY-MM-DD
 
 ___
 
-#  Create Data Field
-## Data Field Name
+## Create Data Field
+### Display Name
 PatientId
-## Description
+### Description
 Unique identifier of the patient
 
 ___
 
-#  Create Data Field
-## Data Field Name
+## Create Data Field
+### Display Name
 AngleLeft
-## Description
+### Description
 Angle rotation of the left leg from vertical
 
 ___
 
-#  Create Data Field
-## Data Field Name
+## Create Data Field
+### Display Name
 AngleRight
-## Description
+### Description
 Angle rotation of the left leg from vertical
 
 ___
 
-#  Create Data Field
-## Data Field Name
+## Create Data Field
+### Display Name
 
 HospitalId
 
-## Description
+### Description
 Unique identifier for a hospital. Used in forming PatientId.
 
 ___
 
-#  Create Data Field
-## Data Field Name
+## Create Data Field
+### Display Name
 PatientNumber
-## Description
+### Description
 Unique identifier of the patient within a hospital.
 
 ___
 ___
-# REPORTING
+## REPORTING
 We can also use Dr.Egeria Commands to report on the Data Structures and Data Fields that we just created. Here
 we request a simplified list form of the output.
 ___
 
-# View Data Structures
-## Output Format
+## View Data Structures
+### Output Format
 LIST
 ___
 
-# View Data Fields
-## Output Format
+## View Data Fields
+### Output Format
 LIST
 
 ___
 ___
-# Building on what we have done
+## Building on what we have done
 One of the interesting features of Dr.Egeria, is that we can take the results of processing a Dr.Egeria command as the
 starting point for refining the information we provided. This is convenient, because when we generate the command output,
 we transform the `Create` commands into `Update` commands. We also add some additional information that Egeria derived for us.
 
-## Next Steps
+### Next Steps
 For our next steps, we will copy the file produced in the first step into a new file called `dr_egeria_data_designer_2.md` 
 Please open that file when you are ready to continue.

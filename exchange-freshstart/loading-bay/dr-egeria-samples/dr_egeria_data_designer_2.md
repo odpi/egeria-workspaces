@@ -1,5 +1,5 @@
 # Dr.Egeria - designing data - part 2
-## Adding information
+### Adding information
 
 In Part 1, we successfully create a data structure and some data fields. We took the resulting output and copied it into this new file to create Part 2.
 
@@ -11,41 +11,41 @@ We will also extend our reporting to display a detailed report on the Data Struc
 ___
 
 
-# Update Data Structure
+## Update Data Structure
 
-## Data Structure Name 
+### Display Name 
 
 TBDF-Incoming Weekly Measurement Data
 
-## GUID
+### GUID
 c3f75f00-10c2-46f3-b4b3-048ef40bfc65
 
-## Qualified Name
+### Qualified Name
 DataStruct::TBDF-Incoming Weekly Measurement Data
 
-## Description
+### Description
 This describes the weekly measurement data for each patient for the Teddy Bear drop foot clinical trial.
 
-## Data Fields
+### Data Fields
 
 DataField::Date, DataField::PatientId, DataField::AngleLeft, DataField::AngleRight
 
 > Note: Its always safest to use the qualified name for an element.
 > Note: A list of elements can be separated by either `,` or a new line.
 
-## Data Specification
+### Data Specification
 
 
-## Namespace
+### Namespace
 
 
-## Version Identifier
+### Version Identifier
 
 
-## Extended Properties
+### Extended Properties
 {}
 
-## Additional Properties
+### Additional Properties
 {}
 
 ___
@@ -56,64 +56,64 @@ ___
 
 ___
 
-# Update Data Field
+## Update Data Field
 
-## Data Field Name 
+### Display Name 
 
 Date
 
-## GUID
+### GUID
 b0a66e94-8473-42f7-91bb-a92d389c1ba6
 
-## Qualified Name
+### Qualified Name
 DataField::Date
 
-## Description
+### Description
 A date of the form YYYY-MM-DD
 
-## In Data Structure
+### In Data Structure
 DataStruct::TBDF-Incoming Weekly Measurement Data
 
-## Assigned Meanings
+### Assigned Meanings
 
 
-## Data Type
+### Data Type
 Date
 
-## Data Class
+### Data Class
 
 
-## Is Nullable
+### Is Nullable
 True
 
-## Minimum Length
+### Minimum Length
 0
 
-## Length
+### Length
 0
 
-## Precision
+### Precision
 0
 
-## Ordered Values
+### Ordered Values
 False
 
-## Sort Order
+### Sort Order
 UNSORTED
 
-## Parent Names
+### Parent Names
 
 
-## Extended Properties
+### Extended Properties
 {}
 
-## Additional Properties
+### Additional Properties
 {}
 
-## Data Dictionaries
+### Data Dictionaries
 
 
-## Data Structures
+### Data Structures
 
 
 
@@ -123,64 +123,64 @@ ___
 
 
 
-# Update Data Field
+## Update Data Field
 
-## Data Field Name 
+### Display Name 
 
 PatientId
 
-## GUID
+### GUID
 c442adde-2c24-4b90-9dfb-111dbdf1b357
 
-## Qualified Name
+### Qualified Name
 DataField::PatientId
 
-## Description
+### Description
 Unique identifier of the patient
 
-## In Data Structure
+### In Data Structure
 DataStruct::TBDF-Incoming Weekly Measurement Data
 
-## Assigned Meanings
+### Assigned Meanings
 
 
-## Data Type
+### Data Type
 String
 
-## Data Class
+### Data Class
 
 
-## Is Nullable
+### Is Nullable
 True
 
-## Minimum Length
+### Minimum Length
 8
 
-## Length
+### Length
 0
 
-## Precision
+### Precision
 0
 
-## Ordered Values
+### Ordered Values
 False
 
-## Sort Order
+### Sort Order
 UNSORTED
 
-## Parent Names
+### Parent Names
 
 
-## Extended Properties
+### Extended Properties
 {}
 
-## Additional Properties
+### Additional Properties
 {}
 
-## Data Dictionaries
+### Data Dictionaries
 
 
-## Data Structures
+### Data Structures
 
 
 
@@ -190,64 +190,64 @@ ___
 
 
 
-# Update Data Field
+## Update Data Field
 
-## Data Field Name 
+### Display Name 
 
 AngleLeft
 
-## GUID
+### GUID
 9f525f95-646f-4abf-874d-5de0b131a9ce
 
-## Qualified Name
+### Qualified Name
 DataField::AngleLeft
 
-## Description
+### Description
 Angle rotation of the left leg from vertical
 
-## In Data Structure
+### In Data Structure
 DataStruct::TBDF-Incoming Weekly Measurement Data
 
-## Assigned Meanings
+### Assigned Meanings
 
 
-## Data Type
+### Data Type
 Integer
 
-## Data Class
+### Data Class
 
 
-## Is Nullable
+### Is Nullable
 True
 
-## Minimum Length
+### Minimum Length
 0
 
-## Length
+### Length
 0
 
-## Precision
+### Precision
 0
 
-## Ordered Values
+### Ordered Values
 False
 
-## Sort Order
+### Sort Order
 UNSORTED
 
-## Parent Names
+### Parent Names
 
 
-## Extended Properties
+### Extended Properties
 {}
 
-## Additional Properties
+### Additional Properties
 {}
 
-## Data Dictionaries
+### Data Dictionaries
 
 
-## Data Structures
+### Data Structures
 
 
 
@@ -257,64 +257,64 @@ ___
 
 
 
-# Update Data Field
+## Update Data Field
 
-## Data Field Name 
+### Display Name 
 
 AngleRight
 
-## GUID
+### GUID
 9c6d96f2-724b-4109-b513-f978d911fe34
 
-## Qualified Name
+### Qualified Name
 DataField::AngleRight
 
-## Description
+### Description
 Angle rotation of the left leg from vertical
 
-## In Data Structure
+### In Data Structure
 DataStruct::TBDF-Incoming Weekly Measurement Data
 
-## Assigned Meanings
+### Assigned Meanings
 
 
-## Data Type
+### Data Type
 Integer
 
-## Data Class
+### Data Class
 
 
-## Is Nullable
+### Is Nullable
 True
 
-## Minimum Length
+### Minimum Length
 0
 
-## Length
+### Length
 0
 
-## Precision
+### Precision
 0
 
-## Ordered Values
+### Ordered Values
 False
 
-## Sort Order
+### Sort Order
 UNSORTED
 
-## Parent Names
+### Parent Names
 
 
-## Extended Properties
+### Extended Properties
 {}
 
-## Additional Properties
+### Additional Properties
 {}
 
-## Data Dictionaries
+### Data Dictionaries
 
 
-## Data Structures
+### Data Structures
 
 
 
@@ -324,61 +324,61 @@ ___
 
 
 
-# Update Data Field
+## Update Data Field
 
-## Data Field Name 
+### Display Name 
 
 HospitalId
 
-## GUID
+### GUID
 7f33b0a5-fe31-4fd3-a7ec-90dd7520cfa8
 
-## Qualified Name
+### Qualified Name
 DataField::HospitalId
 
-## Description
+### Description
 Unique identifier for a hospital. Used in forming PatientId.
 
-## Assigned Meanings
+### Assigned Meanings
 
 
-## Data Type
+### Data Type
 String
 
-## Data Class
+### Data Class
 
 
-## Is Nullable
+### Is Nullable
 False
 
-## Minimum Length
+### Minimum Length
 0
 
-## Length
+### Length
 0
 
-## Precision
+### Precision
 0
 
-## Ordered Values
+### Ordered Values
 False
 
-## Sort Order
+### Sort Order
 UNSORTED
 
-## Parent Names
+### Parent Names
 DataField::PatientId
 
-## Extended Properties
+### Extended Properties
 {}
 
-## Additional Properties
+### Additional Properties
 {}
 
-## Data Dictionaries
+### Data Dictionaries
 
 
-## Data Structures
+### Data Structures
 
 
 
@@ -388,61 +388,61 @@ ___
 
 
 
-# Update Data Field
+## Update Data Field
 
-## Data Field Name 
+### Display Name 
 
 PatientNumber
 
-## GUID
+### GUID
 ed77dfa2-67ee-48b9-b724-515d54673653
 
-## Qualified Name
+### Qualified Name
 DataField::PatientNumber
 
-## Description
+### Description
 Unique identifier of the patient within a hospital.
 
-## Assigned Meanings
+### Assigned Meanings
 
 
-## Data Type
+### Data Type
 String
 
-## Data Class
+### Data Class
 
 
-## Is Nullable
+### Is Nullable
 False
 
-## Minimum Length
+### Minimum Length
 0
 
-## Length
+### Length
 0
 
-## Precision
+### Precision
 0
 
-## Ordered Values
+### Ordered Values
 False
 
-## Sort Order
+### Sort Order
 UNSORTED
 
-## Parent Names
+### Parent Names
 DataField::PatientId
 
-## Extended Properties
+### Extended Properties
 {}
 
-## Additional Properties
+### Additional Properties
 {}
 
-## Data Dictionaries
+### Data Dictionaries
 
 
-## Data Structures
+### Data Structures
 
 
 
@@ -450,40 +450,40 @@ DataField::PatientId
 ___
 
 
-# REPORTING
+## REPORTING
 We can also use Dr.Egeria Commands to report on the Data Structures and Data Fields that we just created. Here
 we request a simplified list form of the output.
 ___
 
-# View Data Structures
-## Output Format
+## View Data Structures
+### Output Format
 LIST
 ___
 
 
-# View Data Fields
-## Output Format
+## View Data Fields
+### Output Format
 LIST
 
 ___
 
-# View Data Structures
-## Output Format
+## View Data Structures
+### Output Format
 REPORT
 ___
 
-# View Data Fields
-## Output Format
+## View Data Fields
+### Output Format
 REPORT
 
 ___
 
-# Building on what we have done
+## Building on what we have done
 In this sample we have successfully extended our data design wtih relationships and technical details. We've also shown more extensive reporting on what we've accomplished.
 
-## Next Steps
+### Next Steps
 In our next step we will introduce Data Dictionaries and Data Specifications - both useful forms of collecting information for easy use and re-use.
 
-# Provenance
+## Provenance
 
 * Results from processing file dr_egeria_data_designer_1.md on 2025-06-25 01:39

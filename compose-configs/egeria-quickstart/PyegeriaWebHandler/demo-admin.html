@@ -41,6 +41,7 @@
     .badge-user { background: rgba(139,143,168,0.15); color: var(--muted); }
     .badge-ok { background: rgba(52,211,153,0.15); color: var(--success); }
     .badge-no { background: rgba(248,113,113,0.12); color: var(--error); }
+    .badge-warn { background: rgba(251,191,36,0.15); color: var(--warn); }
     .btn-xs { padding: 0.25rem 0.6rem; font-size: 0.72rem; border-radius: 4px; cursor: pointer; border: 1px solid var(--border); background: var(--bg); color: var(--text); transition: all 0.1s; }
     .btn-xs:hover { background: var(--accent-dim); border-color: var(--accent); }
     .btn-xs.danger:hover { background: rgba(248,113,113,0.15); border-color: var(--error); color: var(--error); }
@@ -121,6 +122,7 @@
   <div class="tab" onclick="showTab('config')">Config</div>
   <div class="tab" onclick="showTab('reset')">Reset</div>
   <div class="tab" onclick="showTab('obsidian')">Obsidian</div>
+  <div class="tab" onclick="showTab('data-init')">Data Initialization</div>
 </div>
 
 <div class="content">
@@ -302,6 +304,24 @@
       <tbody id="configBody"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody>
     </table>
   </div>
+
+  <!-- Data Initialization panel -->
+  <div class="panel" id="panel-data-init">
+    <div class="section-title">Data Initialization</div>
+    <p style="font-size:0.8rem;color:var(--muted);margin:-0.5rem 0 1rem;line-height:1.5">
+      Folders of Dr.Egeria documents discovered under <code>dr-egeria-inbox</code>. Enable a folder
+      to include it when the Portal reinitializes after Egeria is wiped (a folder with a canary
+      element is auto-healed; without one it only runs when triggered here). Drop a new folder in
+      to add a batch — no code change needed. Add a <code>_batch.json</code> to a folder for a
+      friendlier name/description or an explicit file order (files it doesn't mention run after,
+      alphabetically). Add <code>_folder_order.json</code> (a JSON array of folder names) directly
+      under <code>dr-egeria-inbox</code> to control the order folders run in — same rule: unlisted
+      folders run after, alphabetically.
+    </p>
+    <button class="btn-primary" onclick="runAllBatches()">▶ Run All Enabled (in order)</button>
+    <div id="runAllResult" style="font-size:0.8rem;color:var(--muted);margin-bottom:1rem;display:none"></div>
+    <div id="batchList"><div class="empty">Loading…</div></div>
+  </div>
 </div>
 
 <script>
@@ -321,18 +341,151 @@
   function showTab(name) {
     activeTab = name;
     document.querySelectorAll('.tab').forEach(function(t, i) {
-      t.classList.toggle('active', ['users','events','feedback','config','reset','obsidian'][i] === name);
+      t.classList.toggle('active', ['users','events','feedback','config','reset','obsidian','data-init'][i] === name);
     });
     document.querySelectorAll('.panel').forEach(function(p) {
       p.classList.remove('active');
     });
     document.getElementById('panel-' + name).classList.add('active');
-    if (name === 'users')    loadUsers();
-    if (name === 'events')   loadEvents();
-    if (name === 'feedback') loadFeedback();
-    if (name === 'config')   loadConfig();
-    if (name === 'reset')    loadResetStatus();
-    if (name === 'obsidian') loadObsidian();
+    if (name === 'users')     loadUsers();
+    if (name === 'events')    loadEvents();
+    if (name === 'feedback')  loadFeedback();
+    if (name === 'config')    loadConfig();
+    if (name === 'reset')     loadResetStatus();
+    if (name === 'obsidian')  loadObsidian();
+    if (name === 'data-init') loadBatches();
+  }
+
+  // ── Data Initialization (bootstrap batches) ─────────────────────────
+  var _batches = [];
+
+  function loadBatches() {
+    fetch('/api/bootstrap/batches').then(function(r) { return r.json(); })
+      .then(function(d) { _batches = d.batches || []; renderBatches(); })
+      .catch(function() {
+        document.getElementById('batchList').innerHTML = '<div class="empty">Failed to load batches</div>';
+      });
+  }
+
+  function renderBatches() {
+    var el = document.getElementById('batchList');
+    if (!_batches.length) {
+      el.innerHTML = '<div class="empty">No dr-egeria-inbox folders found</div>';
+      return;
+    }
+    el.innerHTML = _batches.map(function(b, bi) {
+      var canaryBadge = b.canary
+        ? '<span class="badge badge-ok" title="Auto-healed on reset">auto-heal</span>'
+        : '<span class="badge badge-user" title="No canary declared — manual run only">manual only</span>';
+      var warnBadge = b.idempotent === false
+        ? '<span class="badge badge-warn" title="Contains a command known to duplicate data if re-run against an already-seeded target">⚠ not safe to re-run</span>'
+        : '';
+      var files = b.files.map(function(f, fi) {
+        return '<label style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;padding:0.15rem 0">' +
+          '<input type="checkbox"' + (f.enabled ? ' checked' : '') +
+          ' onchange="toggleFile(' + bi + ',' + fi + ',this.checked)"> ' + esc(f.name) +
+          '</label>';
+      }).join('');
+      return '<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;margin-bottom:0.75rem">' +
+        '<div style="display:flex;align-items:center;gap:0.6rem;justify-content:space-between">' +
+          '<label style="display:flex;align-items:center;gap:0.6rem;font-weight:600;font-size:0.88rem">' +
+            '<input type="checkbox"' + (b.enabled ? ' checked' : '') +
+            ' onchange="toggleBatch(' + bi + ',this.checked)"> ' + esc(b.displayName) +
+          '</label>' +
+          '<span style="display:flex;align-items:center;gap:0.5rem">' + canaryBadge + warnBadge +
+            '<button class="btn-xs" onclick="runBatch(' + bi + ')">▶ Run Now</button></span>' +
+        '</div>' +
+        (b.description ? '<p style="font-size:0.78rem;color:var(--muted);margin-top:0.3rem">' + esc(b.description) + '</p>' : '') +
+        '<div style="margin-top:0.5rem;padding-left:1.6rem">' + files + '</div>' +
+        '<div id="batchResult-' + bi + '" style="font-size:0.78rem;color:var(--muted);margin-top:0.5rem;display:none"></div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function _currentSelection() {
+    var selection = {};
+    _batches.forEach(function(b) {
+      var files = {};
+      b.files.forEach(function(f) { files[f.name] = f.enabled; });
+      selection[b.id] = { enabled: b.enabled, files: files };
+    });
+    return selection;
+  }
+
+  function _saveSelection() {
+    fetch('/api/bootstrap/batches/selection', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ selection: _currentSelection() })
+    }).then(function(r) { if (!r.ok) throw new Error('save failed'); })
+      .catch(function() { showGlobalMsg('error', 'Failed to save batch selection'); });
+  }
+
+  function toggleBatch(bi, checked) {
+    _batches[bi].enabled = checked;
+    _batches[bi].files.forEach(function(f) { f.enabled = checked; });
+    renderBatches();
+    _saveSelection();
+  }
+
+  function toggleFile(bi, fi, checked) {
+    _batches[bi].files[fi].enabled = checked;
+    _saveSelection();
+  }
+
+  // Posts to a run endpoint; on a 409 (batch contains a known non-idempotent
+  // command, see bootstrap_batches.py's `idempotent` field) shows a native
+  // confirm() with the server's own explanation and retries with
+  // ?confirm=true only if the admin agrees. Declining just stops here --
+  // no request is retried.
+  function _postRun(url, onDone, onFail) {
+    fetch(url, { method: 'POST' }).then(function(r) {
+      if (r.status === 409) {
+        return r.json().then(function(d) {
+          if (confirm((d.detail || 'This may duplicate data.') + '\n\nRun anyway?')) {
+            return fetch(url + (url.indexOf('?') >= 0 ? '&' : '?') + 'confirm=true', { method: 'POST' })
+              .then(function(r2) { return r2.json(); });
+          }
+          return { cancelled: true };
+        });
+      }
+      return r.json();
+    }).then(function(d) {
+      if (d.cancelled) { onFail('Cancelled — batch contains a command not safe to re-run.'); return; }
+      onDone(d);
+    }).catch(function() { onFail('Run request failed'); });
+  }
+
+  function runBatch(bi) {
+    var b = _batches[bi];
+    var resultEl = document.getElementById('batchResult-' + bi);
+    resultEl.style.display = 'block';
+    resultEl.textContent = 'Running…';
+    _postRun('/api/bootstrap/batches/' + encodeURIComponent(b.id) + '/run', function(d) {
+      if (!d.results) { resultEl.textContent = d.detail || 'Run failed'; return; }
+      var ok = d.results.filter(function(r) { return r.status === 'ok'; }).length;
+      resultEl.innerHTML = (d.success ? '<span style="color:var(--success)">✓</span> ' : '<span style="color:var(--error)">✗</span> ') +
+        ok + '/' + d.results.length + ' files ran clean' +
+        (d.success ? '' : ' — ' + d.results.filter(function(r) { return r.status !== 'ok'; })
+          .map(function(r) { return esc(r.file) + ': ' + esc((r.message || '').slice(0, 200)); }).join('; '));
+      showGlobalMsg(d.success ? 'success' : 'error', d.success ? b.displayName + ' ran successfully' : b.displayName + ' had failures — see details below');
+    }, function(msg) { resultEl.textContent = msg; });
+  }
+
+  function runAllBatches() {
+    var el = document.getElementById('runAllResult');
+    el.style.display = 'block';
+    el.textContent = 'Running all enabled batches, in order…';
+    _postRun('/api/bootstrap/batches/run-all', function(d) {
+      if (!d.runs) { el.textContent = d.detail || 'Run failed'; return; }
+      el.innerHTML = d.runs.map(function(run) {
+        var ok = run.results.filter(function(r) { return r.status === 'ok'; }).length;
+        var allOk = ok === run.results.length;
+        return (allOk ? '<span style="color:var(--success)">✓</span> ' : '<span style="color:var(--error)">✗</span> ') +
+          esc(run.batch) + ': ' + ok + '/' + run.results.length + ' files ran clean';
+      }).join('<br>');
+      showGlobalMsg(d.success ? 'success' : 'error', d.success ? 'All enabled batches ran successfully' : 'Some batches had failures — see details below');
+      loadBatches();
+    }, function(msg) { el.textContent = msg; });
   }
 
   function loadFeedback() {
