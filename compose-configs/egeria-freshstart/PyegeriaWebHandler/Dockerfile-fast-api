@@ -33,7 +33,7 @@ RUN pip install --no-cache-dir --retries 10 --timeout 60 -r requirements.txt
 # rebuild with `docker compose build --no-cache <service>` instead. (Quickstart
 # has a `bin/update-pyegeria.sh` wrapper for this same rebuild; freshstart has
 # no equivalent yet — SHARE-3 flag, not fixed here.)
-RUN pip install --no-cache-dir --retries 10 --timeout 60 'pyegeria>=6.0.17.21' --upgrade
+RUN pip install --no-cache-dir --retries 10 --timeout 60 'pyegeria>=6.1.1' --upgrade
 
 # Copy your application code
 # Assuming your FastAPI app is in 'main.py' at the root of your app directory
