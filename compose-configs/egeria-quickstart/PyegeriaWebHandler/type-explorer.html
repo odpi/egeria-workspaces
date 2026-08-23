@@ -11005,6 +11005,111 @@ const _GOV_DOMAIN_NAMES = {
   '7':   'Domain 7 — Asset Management',
 };
 
+// A GovernanceActionProcess's own generic detail (via get_governance_definition_by_guid)
+// only ever sees its *first* step (GovernanceActionProcessFlow relationship) —
+// the full step chain, joined by NextGovernanceActionProcessStep links, comes
+// from the dedicated /api/governance/process-graph/{guid} endpoint. This renders
+// that chain as a drill-down list (click a step to expand its detail) plus the
+// full-chain mermaid diagram, in place of the generic shallow mermaid block.
+function GovProcessStructure({ guid }) {
+  const creds = React.useContext(CredContext);
+  const [status, setStatus] = useState('idle'); // idle | loading | ready | error
+  const [data, setData]     = useState(null);
+  const [errMsg, setErrMsg] = useState('');
+  const [openStep, setOpenStep] = useState(null);
+
+  useEffect(function() {
+    if (!guid || !creds) return;
+    setStatus('loading'); setData(null); setOpenStep(null); setErrMsg('');
+    egeriaFetch('/api/governance/process-graph/' + encodeURIComponent(guid), creds)
+      .then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
+      .then(function(d) { setData(d); setStatus('ready'); })
+      .catch(function(e) { setErrMsg(String(e && e.message || e)); setStatus('error'); });
+  }, [guid, creds]);
+
+  if (status === 'idle' || status === 'loading') {
+    return React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '8px 0 16px' } }, 'Loading process structure…');
+  }
+  if (status === 'error') {
+    return React.createElement('div', { style: { fontSize: 12, color: '#f87171', padding: '8px 0 16px' } }, 'Could not load process structure: ' + errMsg);
+  }
+  if (!data || !data.steps || !data.steps.length) {
+    return React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '8px 0 16px' } }, 'No steps are defined for this process.');
+  }
+
+  var byGuid = {};
+  data.steps.forEach(function(s) { byGuid[s.guid] = s; });
+  var outLinks = {};
+  (data.links || []).forEach(function(l) { (outLinks[l.from] = outLinks[l.from] || []).push(l); });
+
+  // Walk the chain from the first step so the list reads as an ordered sequence;
+  // branches (multiple outgoing guards) are noted under the step that fans out.
+  // Any step unreachable from firstStepGuid (shouldn't normally happen) is
+  // appended at the end rather than silently dropped.
+  var visited = {};
+  var order = [];
+  (function walk(g) {
+    if (!g || visited[g] || !byGuid[g]) return;
+    visited[g] = true;
+    order.push(g);
+    (outLinks[g] || []).forEach(function(l) { walk(l.to); });
+  })(data.firstStepGuid);
+  data.steps.forEach(function(s) { if (!visited[s.guid]) order.push(s.guid); });
+
+  function toggle(g) { setOpenStep(function(cur) { return cur === g ? null : g; }); }
+
+  return React.createElement('div', { style: { marginBottom: 20 } },
+    React.createElement('div', { style: { display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10, paddingBottom: 6, borderBottom: '1px solid var(--border)' } },
+      React.createElement('span', { style: { fontWeight: 700, fontSize: 13, color: 'var(--accent)' } }, 'Process Structure'),
+      React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, order.length + (order.length === 1 ? ' step' : ' steps'))
+    ),
+    data.mermaidGraph && React.createElement('div', { style: { marginBottom: 12 } },
+      React.createElement(MermaidDiagram, { code: data.mermaidGraph })
+    ),
+    order.map(function(g, i) {
+      var step = byGuid[g];
+      var isOpen = openStep === g;
+      var outs = outLinks[g] || [];
+      return React.createElement('div', { key: g, style: { border: '1px solid var(--border)', borderRadius: 6, marginBottom: 8, overflow: 'hidden' } },
+        React.createElement('div', {
+          style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', cursor: 'pointer', background: isOpen ? 'rgba(96,165,250,.06)' : 'transparent' },
+          onClick: function() { toggle(g); }
+        },
+          React.createElement('span', { style: { width: 20, height: 20, borderRadius: 10, background: 'var(--accent)', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 } }, i + 1),
+          React.createElement('span', { style: { flex: 1, fontSize: 13, fontWeight: 600 } }, step.displayName || step.qualifiedName),
+          step.isFirst && React.createElement('span', { className: 'badge', style: { fontSize: 10 } }, 'First step'),
+          React.createElement(FoldTriangle, { open: isOpen, size: 10 })
+        ),
+        isOpen && React.createElement('div', { style: { padding: '0 10px 10px 38px' } },
+          step.description && React.createElement('div', { style: { fontSize: 12, marginBottom: 8 } }, renderMd(step.description)),
+          React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginBottom: 8 } }, step.qualifiedName),
+          React.createElement(GenericPropertiesTable, {
+            item: step,
+            priority: ['waitTime', 'ignoreMultipleTriggers', 'domainIdentifier', 'status'],
+            renderValue: function(key, val) { return renderMd(val); },
+          }),
+          step.additionalProperties && Object.keys(step.additionalProperties).length > 0 && React.createElement('div', { style: { marginTop: 10 } },
+            React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', fontWeight: 600, marginBottom: 4 } }, 'Additional Properties'),
+            Object.entries(step.additionalProperties).map(function(pair) {
+              return React.createElement('div', { key: pair[0], style: { display: 'flex', gap: 8, fontSize: 12, padding: '2px 0', borderTop: '1px solid var(--border)' } },
+                React.createElement('span', { style: { color: 'var(--dim)', minWidth: 160, flexShrink: 0 } }, pair[0]),
+                React.createElement('span', null, String(pair[1]))
+              );
+            })
+          )
+        ),
+        outs.length > 0 && React.createElement('div', { style: { padding: '4px 10px 8px 38px', fontSize: 11, color: 'var(--dim)' } },
+          outs.map(function(l, idx) {
+            var toStep = byGuid[l.to];
+            return React.createElement('div', { key: idx },
+              '↳ on guard "' + l.guard + '"' + (l.mandatoryGuard ? ' (mandatory)' : '') + ' → ' + (toStep ? (toStep.displayName || toStep.qualifiedName) : l.to));
+          })
+        )
+      );
+    })
+  );
+}
+
 function GovDefDetail({ definition, onNavigateToElement }) {
   var _govPersonaId = React.useContext(PersonaContext);
   if (!definition) return null;
@@ -11022,10 +11127,12 @@ function GovDefDetail({ definition, onNavigateToElement }) {
     ),
     React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 12 } }, definition.guid),
     definition.description && React.createElement('div', { style: { fontSize: 13, marginBottom: 16 } }, renderMd(definition.description)),
-    definition.mermaidGraph && React.createElement('div', { style: { marginBottom: 8 } },
-      React.createElement(AvailableMermaidDiagrams, { data: definition }),
-      React.createElement(MermaidSection, { guid: definition.guid })
-    ),
+    definition.isGovernanceActionProcess
+      ? React.createElement(GovProcessStructure, { key: definition.guid, guid: definition.guid })
+      : definition.mermaidGraph && React.createElement('div', { style: { marginBottom: 8 } },
+          React.createElement(AvailableMermaidDiagrams, { data: definition }),
+          React.createElement(MermaidSection, { guid: definition.guid })
+        ),
     React.createElement('div', { style: { marginBottom: 20 } },
       React.createElement(GenericPropertiesTable, {
         item: definition,

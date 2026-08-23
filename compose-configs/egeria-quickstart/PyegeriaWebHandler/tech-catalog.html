@@ -2078,6 +2078,222 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   });
 }
 
+// ── Software Capabilities — hierarchy · instances · detail ──────────────────
+//
+// The one 3-pane (tree / list / detail) view in The Catalog — every other
+// section is 2-pane (tree-or-list on the left, detail on the right; see
+// SidebarDetail/AssetTabView above and SubjectAreasTab's equivalent in
+// type-explorer.html). SoftwareCapability instances group naturally by their
+// own TYPE (SourceControlLibrary, IntegrationGroup, APIManager, …), so the
+// left pane is that type hierarchy — built client-side from the live type
+// system (useTypeGraph/getSubs/getAllSubs, egeria-shared-ui.js — the same
+// helpers a picker inside AddToCollectionModal already uses), not a new
+// backend endpoint — while the middle pane is the flat instance list
+// (/api/tech-catalog/software-capabilities, already as_of_time-aware)
+// filtered down to the selected type + its descendants. Detail reuses
+// AssetDetail via the existing generic /api/tech-catalog/assets/{guid}
+// endpoint exactly like AssetTabView's handleSelect does — SoftwareCapability
+// already has a fallback finder there (_fetch_detail's "Last resort" branch),
+// confirmed live, so no backend change was needed anywhere for this view.
+
+function CapabilityTreeNode({ node, depth, selectedTypeName, onSelectType, expanded, toggleNode }) {
+  var isExp = expanded.has(node.name);
+  var isSel = selectedTypeName === node.name;
+  var paddingLeft = 8 + depth * 20;
+  var kids = node.children || [];
+  var hasKids = kids.length > 0;
+  return React.createElement(React.Fragment, null,
+    React.createElement('div', {
+      className: 'tree-item' + (isSel ? ' sel' : ''),
+      style: { paddingLeft: paddingLeft },
+      title: node.name + (node.count ? ' — ' + node.count + ' element' + (node.count === 1 ? '' : 's') : ''),
+      onClick: function() {
+        onSelectType(isSel ? null : node.name);
+        if (hasKids) toggleNode(node.name);
+      }
+    },
+      hasKids
+        ? React.createElement('span', { style: { width: 16, display: 'inline-block', flexShrink: 0, fontSize: 10, textAlign: 'center', color: isExp ? 'var(--accent)' : 'var(--muted)' } }, isExp ? '▼' : '▶')
+        : React.createElement('span', { style: { width: 16, display: 'inline-block', flexShrink: 0 } }),
+      React.createElement('span', { className: 'type-name', style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' } }, node.name),
+      node.count > 0 && React.createElement('span', {
+        style: { fontSize: 10, fontWeight: 600, color: isSel ? 'var(--accent)' : 'var(--dim)', background: 'rgba(96,165,250,.1)', borderRadius: 8, padding: '1px 6px', flexShrink: 0 }
+      }, node.count)
+    ),
+    isExp && hasKids && kids.map(function(child) {
+      return React.createElement(CapabilityTreeNode, {
+        key: child.name, node: child, depth: depth + 1,
+        selectedTypeName: selectedTypeName, onSelectType: onSelectType, expanded: expanded, toggleNode: toggleNode,
+      });
+    })
+  );
+}
+
+function CapabilitiesView({ creds, onNavigate }) {
+  var _treeRz = useResizable(240, 160, 420), treeW = _treeRz[0], onTreeDown = _treeRz[1];
+  var _listRz = useResizable(280, 160, 500), listW = _listRz[0], onListDown = _listRz[1];
+  var entities = useTypeGraph(creds); // null while loading, {} on error — both read as "no tree yet"
+  var _expanded = useState(function() { return new Set(['SoftwareCapability']); }), expanded = _expanded[0], setExpanded = _expanded[1];
+  var _selType  = useState(null), selectedTypeName = _selType[0], setSelectedTypeName = _selType[1]; // null = show all
+  var _asOfTime = useState(null), asOfTime = _asOfTime[0], setAsOfTime = _asOfTime[1];
+  var _inclTempl = useState(false), inclTempl = _inclTempl[0], setInclTempl = _inclTempl[1];
+  var _items   = useState([]), items   = _items[0],   setItems   = _items[1];
+  var _loading = useState(true), loading = _loading[0], setLoading = _loading[1];
+  var _error   = useState(''), error   = _error[0],   setError   = _error[1];
+  var _q       = useState(''), q       = _q[0],       setQ       = _q[1];
+  var _selected  = useState(null), selected  = _selected[0],  setSelected  = _selected[1];
+  var _detail    = useState(null), detail    = _detail[0],    setDetail    = _detail[1];
+  var _detailLoad = useState(false), detailLoad = _detailLoad[0], setDetailLoad = _detailLoad[1];
+  var _detailErr  = useState(null), detailErr  = _detailErr[0],  setDetailErr  = _detailErr[1];
+
+  useEffect(function() {
+    setLoading(true); setError(''); setSelected(null); setDetail(null);
+    var params = ['page_size=500'];
+    if (asOfTime) params.push('as_of_time=' + encodeURIComponent(asOfTime));
+    if (inclTempl) params.push('include_templates=true');
+    fetchWithToken('/api/tech-catalog/software-capabilities?' + params.join('&'), creds)
+      .then(function(r) { return r.json(); })
+      .then(function(d) { setItems(d.items || []); setLoading(false); })
+      .catch(function(e) { setError(String(e)); setLoading(false); });
+  }, [asOfTime, inclTempl]);
+
+  function toggleNode(name) {
+    setExpanded(function(prev) { var n = new Set(prev); if (n.has(name)) n.delete(name); else n.add(name); return n; });
+  }
+
+  function handleSelect(item) {
+    setSelected(item); setDetail(item); setDetailLoad(true); setDetailErr(null);
+    var url = '/api/tech-catalog/assets/' + encodeURIComponent(item.guid) + '?section=software-capabilities' +
+      (asOfTime ? '&as_of_time=' + encodeURIComponent(asOfTime) : '');
+    fetchWithToken(url, creds)
+      .then(function(r) {
+        if (r.status === 401 || r.status === 403) { setDetailErr('unauthorized'); setDetailLoad(false); return null; }
+        if (!r.ok) { setDetailErr('http-' + r.status); setDetailLoad(false); return null; }
+        return r.json();
+      })
+      .then(function(d) { if (d) { setDetail(d); setDetailLoad(false); } })
+      .catch(function() { setDetailLoad(false); });
+  }
+
+  // Counts per concrete typeName from the live instance list, then rolled up
+  // through the type hierarchy so an abstract node (e.g. ResourceManager)
+  // shows the total under it, not just direct instances of that exact type.
+  var countsByType = useMemo(function() {
+    var m = {};
+    items.forEach(function(i) { m[i.typeName] = (m[i.typeName] || 0) + 1; });
+    return m;
+  }, [items]);
+
+  var treeRoots = useMemo(function() {
+    if (!entities || !entities['SoftwareCapability']) return [];
+    var subtreeCount = {};
+    function count(name) {
+      if (subtreeCount[name] != null) return subtreeCount[name];
+      var total = countsByType[name] || 0;
+      getSubs(name, entities).forEach(function(sub) { total += count(sub); });
+      subtreeCount[name] = total;
+      return total;
+    }
+    function build(name) {
+      var kids = getSubs(name, entities)
+        .map(build)
+        .filter(function(k) { return k.count > 0; })
+        .sort(function(a, b) { return a.name.localeCompare(b.name); });
+      return { name: name, count: count(name), children: kids };
+    }
+    return [build('SoftwareCapability')];
+  }, [entities, countsByType]);
+
+  // Middle list: everything under the selected type (itself + all descendant
+  // types), or the full flat list if nothing's selected in the tree yet.
+  var selectedTypeSet = useMemo(function() {
+    if (!selectedTypeName || !entities) return null;
+    var set = new Set([selectedTypeName]);
+    getAllSubs(selectedTypeName, entities).forEach(function(n) { set.add(n); });
+    return set;
+  }, [selectedTypeName, entities]);
+
+  var listItems = (selectedTypeSet ? items.filter(function(i) { return selectedTypeSet.has(i.typeName); }) : items)
+    .filter(function(i) { return !q.trim() || (i.displayName || i.qualifiedName || '').toLowerCase().indexOf(q.trim().toLowerCase()) !== -1; })
+    .sort(function(a, b) { return (a.displayName || a.qualifiedName || '').localeCompare(b.displayName || b.qualifiedName || ''); });
+
+  return React.createElement('div', { className: 'body' },
+    // Left: hierarchy + time slider
+    React.createElement('div', { style: { width: treeW, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid var(--border)' } },
+      React.createElement('div', { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
+        React.createElement('div', { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } }, 'Capability Hierarchy'),
+        React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' }),
+        React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
+          React.createElement('input', { type: 'checkbox', checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
+          'Include templates'
+        )
+      ),
+      React.createElement('div', { className: 'tree-scroll' },
+        entities === null
+          ? React.createElement('div', { style: { padding: '12px 10px', fontSize: 12, color: 'var(--dim)' } }, 'Loading type hierarchy…')
+          : treeRoots.length === 0
+          ? React.createElement('div', { style: { padding: '12px 10px', fontSize: 12, color: 'var(--dim)' } }, 'No software capabilities found')
+          : treeRoots.map(function(node) {
+              return React.createElement(CapabilityTreeNode, {
+                key: node.name, node: node, depth: 0,
+                selectedTypeName: selectedTypeName, onSelectType: setSelectedTypeName, expanded: expanded, toggleNode: toggleNode,
+              });
+            })
+      )
+    ),
+    React.createElement(ResizeDivider, { onMouseDown: onTreeDown }),
+    // Middle: instances under the selected type
+    React.createElement('div', { style: { width: listW, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid var(--border)' } },
+      React.createElement('div', { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
+        React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } },
+          selectedTypeName ? selectedTypeName + ' (' + listItems.length + ')' : 'All capabilities (' + listItems.length + ')'),
+        React.createElement('input', { type: 'search', placeholder: 'Filter…', value: q, onChange: function(e) { setQ(e.target.value); },
+          style: { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } })
+      ),
+      React.createElement('div', { style: { overflowY: 'auto', flex: 1 } },
+        loading ? React.createElement('div', { style: { padding: 24, color: 'var(--dim)', fontSize: 12 } }, 'Loading…')
+        : error ? React.createElement('div', { style: { padding: 16, color: '#f87171', fontSize: 12 } }, error)
+        : listItems.length === 0 ? React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'No items found.')
+        : listItems.map(function(item) {
+            var active = selected && selected.guid === item.guid;
+            return React.createElement('div', { key: item.guid, onClick: function() { handleSelect(item); },
+              style: { padding: '8px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)',
+                       background: active ? 'var(--hover)' : 'transparent',
+                       borderLeft: active ? '3px solid var(--accent)' : '3px solid transparent' } },
+              React.createElement('div', { style: { fontSize: 12, fontWeight: active ? 700 : 400, color: active ? 'var(--accent)' : 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
+                item.displayName || item.qualifiedName || item.guid),
+              React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 1 } }, item.typeName)
+            );
+          })
+      )
+    ),
+    React.createElement(ResizeDivider, { onMouseDown: onListDown }),
+    // Right: detail
+    React.createElement('div', { className: 'main', style: { padding: selected ? '20px 24px' : 0 } },
+      !selected ? React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--dim)', fontSize: 13 } }, 'Select a capability from the list')
+      : detailErr === 'unauthorized' ? React.createElement('div', { style: { padding: '32px 24px' } },
+          React.createElement('div', { style: { fontSize: 14, color: '#f87171', fontWeight: 600, marginBottom: 8 } }, '🔒 User Not Authorized'),
+          React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)' } }, 'You do not have permission to view this element.')
+        )
+      : detailErr && detailErr.indexOf('http-') === 0
+      ? (function() {
+          var status = detailErr.slice(5);
+          if (asOfTime && status === '404') {
+            return React.createElement('div', { style: { padding: '32px 24px' } },
+              React.createElement('div', { style: { fontSize: 14, color: 'var(--accent)', fontWeight: 600, marginBottom: 8 } }, '🕐 Not present at the selected time'),
+              React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)' } }, 'This element did not exist as of ' + new Date(asOfTime).toLocaleString() + '. Move the slider toward "Now" to view it.')
+            );
+          }
+          return React.createElement('div', { style: { padding: '32px 24px' } },
+            React.createElement('div', { style: { fontSize: 14, color: '#f87171', fontWeight: 600, marginBottom: 8 } }, '⚠ Could not load element (HTTP ' + status + ')'),
+            React.createElement('div', { style: { fontSize: 13, color: 'var(--muted)' } }, 'The element with this GUID could not be retrieved.')
+          );
+        })()
+      : React.createElement(AssetDetail, { item: detail, detailLoading: detailLoad, onNavigate: onNavigate, creds: creds, sectionId: 'software-capabilities' })
+    )
+  );
+}
+
 // ── Annotation components ─────────────────────────────────────────────────────
 
 var ANNOTATION_TYPES = [
@@ -2983,6 +3199,9 @@ function SectionView({ sectionId, creds, navTarget, onNavigate, searchQuery }) {
   if (sectionId === 'tech-types') {
     return React.createElement(TechTypesView, { creds: creds });
   }
+  if (sectionId === 'capabilities') {
+    return React.createElement(CapabilitiesView, { creds: creds, onNavigate: onNavigate });
+  }
   var tabs = SECTION_TABS[sectionId] || [];
   var _tab = useState(tabs[0] ? tabs[0].id : ''), activeTab = _tab[0], setActiveTab = _tab[1];
 
@@ -3030,6 +3249,7 @@ var SECTIONS = [
   { id: 'glossary',       icon: '📖', label: 'Glossary',               desc: 'Browse glossaries, categories, and terms.' },
   { id: 'tech-types',     icon: '🔧', label: 'Technology Types',       desc: 'Technology type definitions, catalog templates, and governance processes.' },
   { id: 'infrastructure', icon: '🖧', label: 'Infrastructure Assets',  desc: 'Servers, storage, networks, software capabilities, and endpoints.' },
+  { id: 'capabilities',   icon: '🧩', label: 'Capability Hierarchy',   desc: 'Software capability types and their deployed instances, with point-in-time views.' },
   { id: 'data-assets',    icon: '🗄️', label: 'Data Assets',           desc: 'Data stores, data feeds, and data sets.' },
   { id: 'apis',           icon: '🔗', label: 'APIs',                    desc: 'Deployed APIs and their endpoints.' },
   { id: 'processes',      icon: '⚙️', label: 'Processes',               desc: 'Software components and actions.' },
@@ -3055,7 +3275,7 @@ var SPLASH_GROUPS = [
     key: 'assets',
     label: 'Deployed Assets',
     blurb: 'Technical resources registered in your environment — infrastructure, data, APIs, and processes.',
-    sections: ['infrastructure', 'data-assets', 'apis', 'processes'],
+    sections: ['infrastructure', 'capabilities', 'data-assets', 'apis', 'processes'],
   },
   {
     key: 'discovery',
