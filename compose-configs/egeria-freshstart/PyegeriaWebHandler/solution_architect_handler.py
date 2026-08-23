@@ -22,6 +22,7 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 from common_serialize import _authored_fields, _header_summary, _generic_relationships, _classifications
+from egeria_error_mapping import raise_egeria_http_error, EGERIA_ERROR_RESPONSES
 
 router = APIRouter(tags=["solution-architect"])
 
@@ -269,7 +270,7 @@ def _serialize_implementation(element: dict) -> dict:
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
 
-@router.get("/api/solution/blueprints", summary="List all solution blueprints")
+@router.get("/api/solution/blueprints", summary="List all solution blueprints", responses=EGERIA_ERROR_RESPONSES)
 def list_blueprints(
     start_from: int = Query(0,   ge=0),
     page_size:  int = Query(200, ge=1, le=500),
@@ -282,8 +283,7 @@ def list_blueprints(
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
-        logger.exception("Failed to create SolutionArchitect manager")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        raise_egeria_http_error(exc, "Failed to create SolutionArchitect manager")
 
     try:
         raw = mgr.find_solution_blueprints(
@@ -296,8 +296,7 @@ def list_blueprints(
             sequencing_property="displayName",
         )
     except Exception as exc:
-        logger.exception("find_solution_blueprints failed")
-        raise HTTPException(status_code=500, detail=f"Blueprint retrieval failed: {exc}")
+        raise_egeria_http_error(exc, "find_solution_blueprints failed")
 
     if not isinstance(raw, list):
         raw = []
@@ -314,7 +313,7 @@ _BP_FOLIO_CACHE: dict = {}
 _BP_FOLIO_TTL = 30  # seconds
 
 
-@router.get("/api/solution/blueprints/folios", summary="Blueprints grouped by their Folios")
+@router.get("/api/solution/blueprints/folios", summary="Blueprints grouped by their Folios", responses=EGERIA_ERROR_RESPONSES)
 def list_blueprints_by_folio(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
@@ -333,8 +332,7 @@ def list_blueprints_by_folio(
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
-        logger.exception("Failed to create SolutionArchitect manager")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        raise_egeria_http_error(exc, "Failed to create SolutionArchitect manager")
 
     try:
         raw = mgr.find_solution_blueprints(
@@ -343,8 +341,7 @@ def list_blueprints_by_folio(
             sequencing_property="displayName",
         )
     except Exception as exc:
-        logger.exception("find_solution_blueprints (folios) failed")
-        raise HTTPException(status_code=500, detail=f"Blueprint retrieval failed: {exc}")
+        raise_egeria_http_error(exc, "find_solution_blueprints (folios) failed")
     if not isinstance(raw, list):
         raw = []
 
@@ -385,7 +382,7 @@ def list_blueprints_by_folio(
     return JSONResponse(result)
 
 
-@router.get("/api/solution/blueprints/{guid}", summary="Get a single solution blueprint by GUID")
+@router.get("/api/solution/blueprints/{guid}", summary="Get a single solution blueprint by GUID", responses=EGERIA_ERROR_RESPONSES)
 def get_blueprint(
     guid: str,
     url:      Optional[str] = Query(None),
@@ -396,14 +393,12 @@ def get_blueprint(
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
-        logger.exception("Failed to create SolutionArchitect manager")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        raise_egeria_http_error(exc, "Failed to create SolutionArchitect manager")
 
     try:
         raw = mgr.get_solution_blueprint_by_guid(guid, body=_DETAIL_GRAPH_BODY_DICT, output_format="JSON")
     except Exception as exc:
-        logger.exception("get_solution_blueprint_by_guid failed")
-        raise HTTPException(status_code=500, detail=f"Blueprint retrieval failed: {exc}")
+        raise_egeria_http_error(exc, "get_solution_blueprint_by_guid failed")
 
     if not raw or isinstance(raw, str):
         raise HTTPException(status_code=404, detail=f"Blueprint {guid!r} not found")
@@ -411,7 +406,7 @@ def get_blueprint(
     return JSONResponse(_serialize_blueprint_detail(raw))
 
 
-@router.get("/api/solution/components", summary="List all solution components")
+@router.get("/api/solution/components", summary="List all solution components", responses=EGERIA_ERROR_RESPONSES)
 def list_components(
     start_from: int = Query(0,   ge=0),
     page_size:  int = Query(200, ge=1, le=500),
@@ -424,8 +419,7 @@ def list_components(
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
-        logger.exception("Failed to create SolutionArchitect manager")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        raise_egeria_http_error(exc, "Failed to create SolutionArchitect manager")
 
     try:
         raw = mgr.find_solution_components(
@@ -438,8 +432,7 @@ def list_components(
             sequencing_property="displayName",
         )
     except Exception as exc:
-        logger.exception("find_solution_components failed")
-        raise HTTPException(status_code=500, detail=f"Component retrieval failed: {exc}")
+        raise_egeria_http_error(exc, "find_solution_components failed")
 
     if not isinstance(raw, list):
         raw = []
@@ -468,7 +461,7 @@ def _rel_guids(element: dict, key: str) -> list:
     return out
 
 
-@router.get("/api/solution/components/tree", summary="Solution component composition hierarchy")
+@router.get("/api/solution/components/tree", summary="Solution component composition hierarchy", responses=EGERIA_ERROR_RESPONSES)
 def list_components_tree(
     url:      Optional[str] = Query(None),
     server:   Optional[str] = Query(None),
@@ -488,8 +481,7 @@ def list_components_tree(
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
-        logger.exception("Failed to create SolutionArchitect manager")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        raise_egeria_http_error(exc, "Failed to create SolutionArchitect manager")
 
     try:
         raw = mgr.find_solution_components(
@@ -498,8 +490,7 @@ def list_components_tree(
             sequencing_order="PROPERTY_ASCENDING", sequencing_property="displayName",
         )
     except Exception as exc:
-        logger.exception("find_solution_components (tree) failed")
-        raise HTTPException(status_code=500, detail=f"Component tree retrieval failed: {exc}")
+        raise_egeria_http_error(exc, "find_solution_components (tree) failed")
     if not isinstance(raw, list):
         raw = []
 
@@ -531,7 +522,7 @@ def list_components_tree(
     return JSONResponse(result)
 
 
-@router.get("/api/solution/components/{guid}", summary="Get a single solution component by GUID")
+@router.get("/api/solution/components/{guid}", summary="Get a single solution component by GUID", responses=EGERIA_ERROR_RESPONSES)
 def get_component(
     guid: str,
     url:      Optional[str] = Query(None),
@@ -542,14 +533,12 @@ def get_component(
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
-        logger.exception("Failed to create SolutionArchitect manager")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        raise_egeria_http_error(exc, "Failed to create SolutionArchitect manager")
 
     try:
         raw = mgr.get_solution_component_by_guid(guid, body=_DETAIL_GRAPH_BODY_MODEL, output_format="JSON")
     except Exception as exc:
-        logger.exception("get_solution_component_by_guid failed")
-        raise HTTPException(status_code=500, detail=f"Component retrieval failed: {exc}")
+        raise_egeria_http_error(exc, "get_solution_component_by_guid failed")
 
     if not raw or isinstance(raw, str):
         raise HTTPException(status_code=404, detail=f"Component {guid!r} not found")
@@ -557,7 +546,7 @@ def get_component(
     return JSONResponse(_serialize_component_detail(raw))
 
 
-@router.get("/api/solution/components/{guid}/implementations", summary="Get implementations of a solution component")
+@router.get("/api/solution/components/{guid}/implementations", summary="Get implementations of a solution component", responses=EGERIA_ERROR_RESPONSES)
 def get_component_implementations(
     guid: str,
     start_from: int = Query(0,   ge=0),
@@ -570,8 +559,7 @@ def get_component_implementations(
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
-        logger.exception("Failed to create SolutionArchitect manager")
-        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+        raise_egeria_http_error(exc, "Failed to create SolutionArchitect manager")
 
     try:
         raw = mgr.get_solution_component_implementations(
@@ -581,8 +569,7 @@ def get_component_implementations(
             page_size=page_size,
         )
     except Exception as exc:
-        logger.exception("get_solution_component_implementations failed")
-        raise HTTPException(status_code=500, detail=f"Implementations retrieval failed: {exc}")
+        raise_egeria_http_error(exc, "get_solution_component_implementations failed")
 
     if not isinstance(raw, list):
         raw = []
