@@ -37,8 +37,19 @@ WORKDIR /usr/local/apache2
 RUN python3 -m venv /usr/local/apache2/venv
 
 # Install pyegeria and other required Python packages in the virtual environment
-RUN /usr/local/apache2/venv/bin/pip install --no-cache-dir --retries 10 --timeout 60 --upgrade pip && \
-    /usr/local/apache2/venv/bin/pip install --no-cache-dir --retries 10 --timeout 60 pyegeria
+RUN /usr/local/apache2/venv/bin/pip install --no-cache-dir --retries 10 --timeout 60 --upgrade pip
+
+# pyegeria in its own layer, same pattern as Dockerfile-jupyter. Docker caches
+# this layer, so a plain rebuild — including redeploy-demo, which deletes the
+# image but not the build cache — keeps the previously-installed version. To
+# pull a fresh one, bump the cache key or pin a version at build time:
+#   docker compose build --build-arg PYEGERIA_BUST=$(date +%s) apache-web
+#   docker compose build --build-arg PYEGERIA_VERSION=pyegeria==6.1.0 apache-web
+# NO_CACHE=1 ./redeploy-demo does the same thing for every image at once.
+ARG PYEGERIA_VERSION=pyegeria
+ARG PYEGERIA_BUST=0
+RUN echo "pyegeria layer ${PYEGERIA_BUST}" \
+    && /usr/local/apache2/venv/bin/pip install --no-cache-dir --retries 10 --timeout 60 --upgrade "${PYEGERIA_VERSION}"
 
 
 # Make sure the CGI scripts directory exists

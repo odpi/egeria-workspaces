@@ -1,7 +1,7 @@
-# Create External Reference
+## Create External Reference
 >	Create or update External Reference Elements - or sub-types Related Media, Cited Documents, External Data Source and External Model Source.
 
-## Display Name
+### Display Name
 >	**Input Required**: True
 
 >	**Description**: Name of the digital product
@@ -9,13 +9,13 @@
 >	**Alternative Labels**: Name; Folder Name; Collection Name; Collection
 
 EMEP/EEA air pollutant emission inventory guidebook 2023
-## Description
+### Description
 >	**Input Required**: False
 
 >	**Description**: Description of the contents of a product.
 
 This viewer presents selected emission factors and abatement efficiencies included in the EMEP/EEA Guidebook 2023. Information is ordered by the respective Nomenclature For Reporting (NFR) source category code. Not all emission factors included in the Guidebook are included in this viewer, users should always therefore consult the relevant chapter. In case of discrepancies between values appearing in this viewer and the published chapter, the values provided in the chapter are considered the official data.
-## Category
+### Category
 >	**Input Required**: False
 
 >	**Description**: A user specified category name that can be used for example, to define product types or agreement types.
@@ -23,7 +23,7 @@ This viewer presents selected emission factors and abatement efficiencies includ
 >	**Alternative Labels**: Category Name
 
 Carbon Emissions Calculation
-## Reference Title
+### Reference Title
 >	**Input Required**: False
 
 >	**Description**: Title of the external reference.
@@ -31,7 +31,7 @@ Carbon Emissions Calculation
 >	**Alternative Labels**: Title
 
 
-## Reference Abstract
+### Reference Abstract
 >	**Input Required**: False
 
 >	**Description**: Abstract for the remote reference.
@@ -39,7 +39,7 @@ Carbon Emissions Calculation
 >	**Alternative Labels**: Abstract
 
 
-## Authors
+### Authors
 >	**Input Required**: False
 
 >	**Description**: A list of authors.
@@ -47,21 +47,21 @@ Carbon Emissions Calculation
 >	**Alternative Labels**: Author
 
 
-## Organization
+### Organization
 >	**Input Required**: False
 
 >	**Description**: Organization owning the external reference.
 
 European Environment Agency
 
-## URL
+### URL
 >	**Input Required**: False
 
 >	**Description**: URL to access the external reference.
 
 [EMEP/EEA air pollutant emission inventory](https://efdb.apps.eea.europa.eu/?source=%7B%22query%22%3A%7B%22match_all%22%3A%7B%7D%7D%2C%22display_type%22%3A%22tabular%22%7D)
 
-## Sources
+### Sources
 >	**Input Required**: False
 
 >	**Description**: A map of source strings.
@@ -69,25 +69,25 @@ European Environment Agency
 >	**Alternative Labels**: Reference Sources
 
 
-## License
+### License
 >	**Input Required**: False
 
 >	**Description**: The license associated with the external reference.
 
 
-## Copyright
+### Copyright
 >	**Input Required**: False
 
 >	**Description**: The copy right associated with the external reference.
 
 
-## Attribution
+### Attribution
 >	**Input Required**: False
 
 >	**Description**: Attribution string to describe the external reference.
 
 
-## Version Identifier
+### Version Identifier
 >	**Input Required**: False
 
 >	**Description**: Published product version identifier.
@@ -95,7 +95,7 @@ European Environment Agency
 >	**Default Value**: 1.0
 
 
-## Classifications
+### Classifications
 >	**Input Required**: False
 
 >	**Description**: Optionally specify the initial classifications for a collection. Multiple classifications can be specified. 
@@ -103,13 +103,13 @@ European Environment Agency
 >	**Alternative Labels**: classification
 
 
-## Qualified Name
+### Qualified Name
 >	**Input Required**: False
 
 >	**Description**: A unique qualified name for the element. Generated using the qualified name pattern  if not user specified.
 
 
-## GUID
+### GUID
 >	**Input Required**: False
 
 >	**Description**: A system generated unique identifier.
@@ -117,7 +117,7 @@ European Environment Agency
 >	**Alternative Labels**: Guid; guid
 
 
-## Additional Properties
+### Additional Properties
 >	**Input Required**: False
 
 >	**Description**: Additional user defined values organized as name value pairs in a dictionary.

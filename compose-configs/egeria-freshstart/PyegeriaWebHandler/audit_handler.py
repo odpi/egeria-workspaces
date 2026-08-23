@@ -20,7 +20,7 @@ Governance-zone security (important — explains "missing" rows):
     see them but garygeeke / calliequartile see zero. Same query, different counts
     by design. The SPA's empty state and a 🔒 toolbar chip surface this to users.
 
-Spec: audit_plan.md (review comments inline there).
+Spec: ../../../design-docs/audit_plan.md (review comments inline there).
 
 Routes:
   GET  /egeria-audit                          → serve the SPA

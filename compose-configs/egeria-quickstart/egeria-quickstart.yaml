@@ -87,6 +87,13 @@ services:
     # Restart automatically after a crash/OOM-kill (exit 137) instead of
     # staying dead silently. See MEMORY egeria-oom-kill-docker-desktop-vm-limit.
     restart: unless-stopped
+    labels:
+      # Opts in to shared-infra's autoheal service, which covers the case the
+      # restart policy above cannot see: the container still running while the
+      # platform inside it is wedged. Safe here because the healthcheck below
+      # tolerates ~8.5 min (60s start_period + 15 retries x 30s) against a
+      # 2-5 min JVM boot, so a slow start is never mistaken for a failure.
+      egeria.autoheal: "true"
     # Docker Desktop's VM has a single shared memory pool across all containers
     # (check Settings -> Resources -> Memory) — this JVM is normally the
     # heaviest consumer and the kernel OOM-killer's first target when the VM
@@ -266,6 +273,10 @@ services:
         - "pypi.org:151.101.128.223"
         - "deb.debian.org:151.101.114.132"
     container_name: quickstart-web-server
+    # It had no restart policy at all, so a crash (see the httpd.conf PidFile
+    # comment above) left the public site's front door down with nothing
+    # bringing it back — discovered 2026-08-10.
+    restart: unless-stopped
     ports:
       - "8885:8085"
       # SSL (port 443) — disabled by default. See demo-mode.md § SSL / HTTPS.

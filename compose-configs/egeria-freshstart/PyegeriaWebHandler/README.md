@@ -6,6 +6,14 @@ The Pyegeria Web Handler is a python module that provides a web handler for the 
 used to execute Dr.Egeria commands from anything that can make a REST call - and that shares the same filesystem as
 the Egeria runtime.
 
+## Startup and Data Initialization
+See [`PORTAL_STARTUP.md`](../../egeria-quickstart/PyegeriaWebHandler/PORTAL_STARTUP.md)
+in the quickstart tree — it documents container/process startup order and
+the bootstrap/data-initialization system (canary-based reset detection,
+`_batch.json` folder manifests, execution ordering, the admin panel) for
+**both** environments explicitly, including the differences specific to
+freshstart (no Postgres, no `advisor_lock_handler`/`demo_reset_handler`).
+
 ## Maintenance Notes
 The Pyegeria Web Handler now uses the **Dr. Egeria v2** core, which features a dynamic registry-based dispatcher (`V2Dispatcher`).
 
@@ -36,7 +44,7 @@ The PyegeriaWebHandler includes a built-in MCP (Model Context Protocol) server t
 ### MCP Protocol Support
 The PyegeriaWebHandler uses the **Model Context Protocol (MCP)** standard via the `mcp` Python library. The implementation is highly flexible, supporting:
 - **Transport Protocols**: 
-  - **SSE (over HTTP)**: Used by the "Calling the Dr." Obsidian plugin (host port 7800/sse, or 7885/sse via Apache).
+  - **SSE (over HTTP)**: Used by the "Call Dr. Egeria" Obsidian plugin (host port 7800/sse, or 7885/sse via Apache).
   - **stdio**: Used by local command-line tools and Claude Desktop.
 - **Server Framework**: `FastMCP` from the `mcp` library for simplified server implementation.
 - **Content-First Architecture**: In SSE mode, the server returns the generated Markdown content directly to the client, which then handles the file writing. This eliminates permission issues and path-mapping complexity.
@@ -266,7 +274,7 @@ Output: Available glossaries:
 
 ## Egeria Explorer
 
-The PyegeriaWebHandler includes a built-in **Egeria Explorer** — an interactive browser for the live Egeria metadata ecosystem. It is a single-page application, all read-only, all backed by live Egeria API calls. Tabs are grouped into three nav groups in the header bar: **Type System** (Type Explorer, Valid Values, REST APIs, Python API), **Review** (Glossary, Reference Data, Data Design, Collections, Solution Architect, Supply Chains, Locations, Actors, Communities, Business Capabilities, Note Logs, Naming Vocabulary, Policy Enforcement, Action Center, Duplicate Review, Perspectives, Governance Definitions, Projects, Informal Tags, Context Events), and **Act** (Digital Products, Report Specs, Dr. Egeria). Many sections include a **TimeSlider** ("As of date") for point-in-time browsing.
+The PyegeriaWebHandler includes a built-in **Egeria Explorer** — an interactive browser for the live Egeria metadata ecosystem. It is a single-page application, all read-only, all backed by live Egeria API calls. Tabs are grouped into three nav groups in the header bar: **Reference** (Type Explorer, Valid Values, REST APIs, Python API), **Review** (Glossary, Reference Data, Data Design, Collections, Solution Architect, Supply Chains, Locations, Actors, Communities, Business Capabilities, Note Logs, Naming Vocabulary, Policy Enforcement, Action Center, Duplicate Review, Perspectives, Governance Definitions, Projects, Informal Tags, Context Events), and **Explore** (Digital Products, Report Specs, Dr. Egeria). Many sections include a **TimeSlider** ("As of date") for point-in-time browsing.
 
 *(This section list matches quickstart's app — freshstart's Egeria Explorer is the same codebase. This README previously described an older 8-tab layout; the rest of the per-tab writeups below predate several later additions — Collections, Locations, Actors, Communities, Business Capabilities, Note Logs, Projects, Informal Tags, Context Events aren't documented per-tab yet even though they're in the app. See quickstart's `PyegeriaWebHandler/README.md` for the more complete version.)*
 
@@ -288,7 +296,7 @@ Apache proxies both URLs through to the `pyegeria-web` container, which serves t
 
 ### Sections
 
-The explorer opens to a **Home** splash screen on first load. Tabs are grouped into three drop-down nav groups (plus the **⌂ Home** tab always visible at the left): **Type System**, **Review**, and **Act**. Each tab is independent; data is loaded lazily when the tab is first opened. All sections are read-only.
+The explorer opens to a **Home** splash screen on first load. Tabs are grouped into three drop-down nav groups (plus the **⌂ Home** tab always visible at the left): **Reference**, **Review**, and **Explore**. Each tab is independent; data is loaded lazily when the tab is first opened. All sections are read-only.
 
 #### Home (Splash Screen)
 

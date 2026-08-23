@@ -11,7 +11,7 @@
 >	**Default Value**: Referenceable
 Org-Chart
 
-### #Search String
+### Search String
 >	**Input Required**: False
 
 >	**Attribute Type**: Simple

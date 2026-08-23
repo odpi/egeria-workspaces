@@ -1,0 +1,493 @@
+<title>Egeria Workspaces 6.1</title>
+<style>
+  :root {
+    --blueprint: #0b2942;
+    --blueprint-deep: #071b2e;
+    --blueprint-line: #2f5f7f;
+    --paper: #eef3f2;
+    --paper-dim: #cfe0e6;
+    --ink-soft: #93a9bc;
+    --accent-brass: #dba849;
+    --accent-brass-soft: #dba84922;
+    --accent-cyan: #74d9cb;
+    --accent-cyan-soft: #74d9cb1c;
+    --rule: #23425c;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { background: var(--blueprint); }
+
+  body {
+    margin: 0;
+    background: var(--blueprint);
+    color: var(--paper);
+    font-family: "Literata", Georgia, "Times New Roman", serif;
+    line-height: 1.68;
+    -webkit-font-smoothing: antialiased;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
+  }
+
+  /* ---------- hero ---------- */
+  .hero {
+    position: relative;
+    padding: 6.5rem 1.5rem 5rem;
+    background:
+      radial-gradient(ellipse 900px 500px at 18% -10%, rgba(219,168,73,0.16), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 90% 10%, rgba(116,217,203,0.12), transparent 55%);
+    border-bottom: 1px solid var(--rule);
+    overflow: hidden;
+  }
+  .hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--blueprint-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--blueprint-line) 1px, transparent 1px);
+    background-size: 42px 42px;
+    background-position: -1px -1px;
+    opacity: 0.3;
+    -webkit-mask-image: linear-gradient(to bottom, black 0%, black 18%, transparent 48%);
+    mask-image: linear-gradient(to bottom, black 0%, black 18%, transparent 48%);
+    pointer-events: none;
+  }
+  .hero-inner { max-width: 760px; margin: 0 auto; position: relative; }
+
+  .stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent-cyan);
+    border: 1px solid var(--accent-cyan-soft);
+    padding: 0.35rem 0.7rem;
+    border-radius: 3px;
+    margin-bottom: 2rem;
+    opacity: 0;
+    animation: rise 0.7s 0.05s ease forwards;
+  }
+  .stamp b { color: var(--accent-brass); font-weight: 600; }
+
+  h1.headline {
+    font-family: "Big Shoulders Display", "Arial Narrow", sans-serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: clamp(2.6rem, 8vw, 5.1rem);
+    line-height: 0.94;
+    letter-spacing: 0.005em;
+    margin: 0 0 1.6rem;
+    text-wrap: balance;
+    color: var(--paper);
+  }
+  h1.headline span {
+    display: block;
+    opacity: 0;
+    transform: translateY(0.4em);
+    animation: rise 0.75s ease forwards;
+  }
+  h1.headline span:nth-child(1) { animation-delay: 0.12s; }
+  h1.headline span:nth-child(2) { animation-delay: 0.24s; color: var(--accent-brass); }
+  h1.headline span:nth-child(3) { animation-delay: 0.36s; }
+  @keyframes rise { to { opacity: 1; transform: translateY(0); } }
+
+  .dek {
+    font-size: 1.22rem;
+    color: var(--paper-dim);
+    max-width: 56ch;
+    margin: 0 0 2.6rem;
+    opacity: 0;
+    animation: rise 0.7s 0.5s ease forwards;
+  }
+  .dek em { color: var(--accent-cyan); font-style: normal; }
+
+  .ctarow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    opacity: 0;
+    animation: rise 0.7s 0.62s ease forwards;
+  }
+  .cta {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.8rem;
+    text-decoration: none;
+    color: var(--blueprint-deep);
+    background: var(--accent-brass);
+    padding: 0.55rem 0.9rem;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+  .cta.ghost {
+    color: var(--accent-cyan);
+    background: transparent;
+    border: 1px solid var(--accent-cyan-soft);
+    font-weight: 500;
+  }
+  .cta:hover { filter: brightness(1.08); }
+
+  /* ---------- dimension stat strip ---------- */
+  .dims {
+    max-width: 760px;
+    margin: 3.2rem auto 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2.4rem;
+    padding-top: 1.6rem;
+    border-top: 1px dashed var(--rule);
+  }
+  .dim { position: relative; padding-left: 0.1rem; }
+  .dim .tick {
+    display: block;
+    width: 100%;
+    height: 10px;
+    position: relative;
+  }
+  .dim .tick::before, .dim .tick::after {
+    content: "";
+    position: absolute; top: 4px;
+    width: 1px; height: 10px;
+    background: var(--ink-soft);
+  }
+  .dim .tick::before { left: 0; }
+  .dim .tick::after { right: 0; }
+  .dim .tick .line {
+    position: absolute; top: 8px; left: 0; right: 0; height: 1px;
+    background: var(--ink-soft);
+  }
+  .dim .n {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent-brass);
+    font-variant-numeric: tabular-nums;
+  }
+  .dim .l {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  /* ---------- article ---------- */
+  main { max-width: 700px; margin: 0 auto; padding: 4.5rem 1.5rem 6rem; }
+
+  section.chapter { margin-bottom: 4.6rem; }
+  .chapter-head {
+    display: flex;
+    align-items: flex-end;
+    gap: 1.1rem;
+    margin-bottom: 1.3rem;
+  }
+  .chapter-mark {
+    font-family: "Big Shoulders Display", sans-serif;
+    font-weight: 700;
+    font-size: 3.4rem;
+    line-height: 0.8;
+    color: transparent;
+    -webkit-text-stroke: 1.5px var(--rule);
+    flex-shrink: 0;
+  }
+  h2.chapter-title {
+    font-family: "Big Shoulders Display", sans-serif;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+    font-size: clamp(1.5rem, 4vw, 2rem);
+    line-height: 1.05;
+    margin: 0 0 0.15rem;
+    color: var(--paper);
+  }
+  .chapter-when {
+    display: block;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    color: var(--accent-cyan);
+  }
+
+  main p { color: var(--paper-dim); margin: 0 0 1.15rem; font-size: 1.06rem; }
+  main p b, main p strong { color: var(--paper); font-weight: 600; }
+  main p a, .callout a { color: var(--accent-cyan); }
+  main code {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    background: var(--accent-cyan-soft);
+    color: var(--accent-cyan);
+    padding: 0.05em 0.35em;
+    border-radius: 3px;
+    font-size: 0.85em;
+  }
+
+  .apptrio {
+    display: grid;
+    gap: 0.7rem;
+    margin: 1.4rem 0 1.6rem;
+  }
+  @media (min-width: 620px) { .apptrio { grid-template-columns: 1fr 1fr; } }
+  .appcard {
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent-brass);
+    padding: 0.85rem 1rem;
+    background: rgba(238,243,242,0.02);
+  }
+  .appcard .name {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-weight: 600;
+    font-size: 0.92rem;
+    color: var(--paper);
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+  .appcard .name span { color: var(--ink-soft); font-weight: 400; font-size: 0.78rem; }
+  .appcard p { font-size: 0.92rem; margin: 0; color: var(--paper-dim); }
+
+  .pull {
+    border-left: 2px solid var(--accent-brass);
+    padding: 0.2rem 0 0.2rem 1.3rem;
+    margin: 1.8rem 0;
+    font-size: 1.14rem;
+    color: var(--paper);
+    font-style: italic;
+  }
+
+  ul.tight { margin: 0 0 1.15rem; padding-left: 1.2rem; }
+  ul.tight li { color: var(--paper-dim); margin-bottom: 0.4rem; font-size: 1.02rem; }
+  ul.tight li b { color: var(--paper); font-weight: 600; }
+
+  hr.rule {
+    border: none;
+    border-top: 1px dashed var(--rule);
+    margin: 3.6rem 0 2.6rem;
+  }
+
+  .byline-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.4rem;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    margin-bottom: 3rem;
+  }
+  .byline-strip b { color: var(--accent-brass); }
+
+  .closer {
+    background: rgba(238,243,242,0.03);
+    border: 1px solid var(--rule);
+    padding: 1.7rem 1.8rem;
+  }
+  .closer h3 {
+    font-family: "Big Shoulders Display", sans-serif;
+    text-transform: uppercase;
+    font-weight: 600;
+    font-size: 1.15rem;
+    margin: 0 0 0.6rem;
+    color: var(--paper);
+  }
+  .closer p { margin: 0; font-size: 0.98rem; }
+
+  footer.colophon {
+    text-align: center;
+    padding: 2.5rem 1.5rem 3.5rem;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.74rem;
+    color: var(--ink-soft);
+    letter-spacing: 0.04em;
+  }
+
+  @media (max-width: 480px) {
+    .chapter-mark { display: none; }
+  }
+</style>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700&family=Literata:ital,opsz,wght@0,18..144,400;0,18..144,500;0,18..144,600;1,18..144,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
+
+<div class="hero">
+  <div class="hero-inner">
+    <div class="stamp">Release <b>6.1</b> &middot; <b>egeria-workspaces</b> &middot; Apr&ndash;Aug 2026</div>
+    <h1 class="headline">
+      <span>Blueprint</span>
+      <span>Season</span>
+      <span>— 6.1</span>
+    </h1>
+    <p class="dek">Four and a half months ago this was one working demo. Now it's a small constellation of
+      apps over Egeria's metadata — <em>time-travel, bulk governance, declarative dashboards</em> — and a
+      Freshstart environment that finally acts like a sibling instead of a stub. This is the <b>6.1</b> release.</p>
+    <div class="ctarow">
+      <a class="cta" href="https://egeria.pdr-associates.com" target="_blank" rel="noopener">Try the live demo &rarr;</a>
+      <a class="cta ghost" href="https://github.com/odpi/egeria-workspaces#getting-started" target="_blank" rel="noopener">Run it yourself</a>
+      <a class="cta ghost" href="https://www.youtube.com/watch?v=1Sfu5mHA1u8" target="_blank" rel="noopener">Watch — 2 min quickstart</a>
+    </div>
+
+    <div class="dims">
+      <div class="dim"><span class="tick"><span class="line"></span></span><span class="n">6.1</span><span class="l">this release</span></div>
+      <div class="dim"><span class="tick"><span class="line"></span></span><span class="n">985</span><span class="l">commits</span></div>
+      <div class="dim"><span class="tick"><span class="line"></span></span><span class="n">228</span><span class="l">features shipped</span></div>
+      <div class="dim"><span class="tick"><span class="line"></span></span><span class="n">227</span><span class="l">fixes landed</span></div>
+      <div class="dim"><span class="tick"><span class="line"></span></span><span class="n">5</span><span class="l">new apps</span></div>
+    </div>
+  </div>
+</div>
+
+<main>
+
+  <section class="chapter">
+    <div class="chapter-head">
+      <span class="chapter-mark">01</span>
+      <div>
+        <span class="chapter-when">APRIL &mdash; MAY</span>
+        <h2 class="chapter-title">A front door, and a tool worth living in</h2>
+      </div>
+    </div>
+    <p>We opened the period with QuickStart already running and Freshstart — the clean-slate, bring-your-own-metadata
+      sibling environment — still mostly scaffolding. So April and May went into two things: giving both
+      environments a real front door, and turning Egeria Explorer from a type browser into the app people
+      actually reached for.</p>
+    <p>The type hierarchy stopped being a hand-maintained tree and started building <b>dynamically from Egeria's
+      own live type system</b> — domain grouping, abstract-type filtering, inherited-method display, all derived,
+      none hardcoded. <b>Favorites</b> (later <b>Bookmarks</b>) rolled out across a dozen-plus element types,
+      persisted in Egeria itself against the user's own Person element rather than a side database. Native
+      <b>Likes, Ratings, and Comments</b> landed on every detail pane, sitting alongside a separate user-feedback
+      widget that persists to Postgres — two systems, deliberately kept apart.</p>
+    <p class="pull">The portal stopped being a launcher and became a place with its own opinions: a persona
+      picker, a local-admin panel, a <code>--demo</code> mode with its own account flow.</p>
+    <p><b>Obsidian</b> joined as a portal tile, running Dr.Egeria markdown against a live Coco Pharmaceuticals
+      vault. And <b>my-egeria</b> — a Textual TUI served straight into the browser — became the portal's first
+      tile that wasn't React at all.</p>
+  </section>
+
+  <section class="chapter">
+    <div class="chapter-head">
+      <span class="chapter-mark">02</span>
+      <div>
+        <span class="chapter-when">MAY &mdash; JUNE</span>
+        <h2 class="chapter-title">Four new rooms, and a working clock</h2>
+      </div>
+    </div>
+    <p>Egeria Explorer stopped being the only tool in the building. Four purpose-built apps shipped in quick
+      succession, and a capability that touches almost everything — asking "what did this look like on a given
+      date" — got wired into nearly every list and detail view across the whole portal.</p>
+
+    <div class="apptrio">
+      <div class="appcard"><span class="name">The Catalog <span>Jun 6</span></span><p>A dedicated technical asset
+        catalog — infrastructure, data assets, APIs, processes — with tabular data preview and classification
+        filtering.</p></div>
+      <div class="appcard"><span class="name">Egeria Operations <span>Jun 22</span></span><p>Governance engines,
+        engine actions, integration connectors — one place, one non-blocking cache so a slow report never hangs
+        the page.</p></div>
+      <div class="appcard"><span class="name">Egeria Audit <span>Jun 22</span></span><p>Users, accounts, and a
+        shared bidirectional relationship viewer every later app quietly reused.</p></div>
+      <div class="appcard"><span class="name">Lineage Explorer <span>Jun 11</span></span><p>Data lineage centred
+        on a focus asset — and the birthplace of the time-slider every other app later borrowed.</p></div>
+    </div>
+
+    <p>That time-slider is the real story here. <b>as_of_time</b> — genuine time travel, not a UI trick — shipped
+      for Data Assets, Digital Products, Collections, Locations, Communities, Perspectives, Glossary, Projects,
+      and Actors. Each one verified against a real before/after: count real data "now," get "no elements found"
+      at a date before it existed. Along the way we also stopped passing passwords in URLs — a shared token seam
+      with automatic 401 retry replaced every <code>user_id</code>/<code>user_pwd</code> query param in the app
+      — and cut Jupyter loose from a public, multi-tenant Kroki service that had been quietly crashing under its
+      own load by <b>self-hosting it</b>.</p>
+  </section>
+
+  <section class="chapter">
+    <div class="chapter-head">
+      <span class="chapter-mark">03</span>
+      <div>
+        <span class="chapter-when">JULY</span>
+        <h2 class="chapter-title">Search that means it, dashboards built to last</h2>
+      </div>
+    </div>
+    <p>July had two headline efforts, and they turned out to rhyme. One was a proper cross-cutting governance
+      search app. The other was the decision to stop hand-wiring dashboard tiles as React state and start
+      treating them as real, declarative metadata — the choice that made everything in Egeria Overview possible.</p>
+
+    <div class="apptrio">
+      <div class="appcard"><span class="name">Egeria Insights <span>Jul 15</span></span><p>Classification- and
+        zone-faceted search over Egeria's native query engine. Later renamed <b>Query</b> — because that's what
+        it actually does.</p></div>
+      <div class="appcard"><span class="name">Egeria Overview <span>Jul 22</span></span><p>A KPI dashboard for
+        the whole demo, built on a registry — not a page of hand-coded numbers.</p></div>
+    </div>
+
+    <p>Every KPI tile became a real pyegeria <code>FormatSet</code> object — one source of truth instead of six
+      hand-synced places. A <code>Container</code>/<code>Placement</code> model made "perspective" a genuine
+      filtered lens rather than a second hardcoded list. And a <b>Vega-Lite chart engine</b> — line, area,
+      scatter, funnel — took over anywhere the picture wasn't literally a diagram, which is Mermaid's actual job.</p>
+    <p class="pull">Maybe the sleeper feature of the whole quarter: you can now run a Dr.Egeria markdown document
+      straight from the browser. No <code>docker exec</code>. Just paste, validate, process.</p>
+    <p>Four governance panes — <b>Naming Vocabulary, Policy Enforcement, Action Center, Duplicate Review</b> —
+      closed out four open items from the type-coverage gap analysis in the same stretch.</p>
+  </section>
+
+  <section class="chapter">
+    <div class="chapter-head">
+      <span class="chapter-mark">04</span>
+      <div>
+        <span class="chapter-when">AUGUST</span>
+        <h2 class="chapter-title">Dashboards for everyone, and closing the gap</h2>
+      </div>
+    </div>
+    <p>August was two things happening at once. The reporting model from July went out to actual users —
+      dashboards anyone can build from a markdown file. And in parallel, a much less glamorous but arguably more
+      important thread went back through Freshstart, line by line, to close the gap that four months of
+      quickstart-first development had quietly opened.</p>
+    <ul class="tight">
+      <li><b>Local Dashboards</b> — browse and run user-authored Dashboard Sheets inline, with sparkline KPI
+        tiles, drill-down navigation, and viewer-facing parameter overrides, plus the caching layer that
+        became necessary once all of that made page loads slow.</li>
+      <li><b>Governance Metrics browser</b> — real <code>GovernanceMetric</code> elements linked to a Report,
+        each documenting its own conceptual data flow as an Information Supply Chain.</li>
+      <li><b>Bulk actions</b> grew from "add to collection" into zone membership and then
+        <b>classify/declassify</b> across Confidentiality, Criticality, and Impact — rolled out to roughly
+        thirty list views, then ported to Freshstart in full.</li>
+      <li><b>HTTPS by default</b>, everywhere, both environments, with a Let's Encrypt fallback for the public
+        demo.</li>
+    </ul>
+    <p>The Freshstart audit found real drift, not just cosmetic gaps: a stale MCP API, missing cache headers, and
+      — the sharpest find — a silently broken async-token pattern that reintroduced the exact
+      <code>RuntimeError</code> class this codebase's own conventions exist to prevent. Most of the rest of the
+      divergence turned out to be legitimately by design. Knowing which was which was the actual work.</p>
+  </section>
+
+  <hr class="rule">
+
+  <section class="chapter" style="margin-bottom: 3rem;">
+    <div class="chapter-head">
+      <div>
+        <h2 class="chapter-title" style="font-size:1.4rem;">Underneath all of it</h2>
+      </div>
+    </div>
+    <p><b>227 fixes</b> shipped alongside the 228 features — real production concerns, not polish. A Postgres
+      connection leak that periodically took Operations offline. A stale-bind-mount bug class that made config
+      edits silently not take effect. A browser-cache issue that turned one shared-JS edit into a blank page for
+      anyone with an old cached copy. A recurring pattern of pyegeria methods that accepted <code>as_of_time</code>
+      and quietly ignored it.</p>
+    <p>And underneath the fixes, a shared component library — <code>egeria-shared-ui.js</code> — grew from an
+      idea into the thing five-plus apps in both environments actually import from, closing years of copy-paste
+      drift on the components that mattered most. The whole port scheme got renumbered onto a clean 88xx/78xx
+      block, freeing the one port everyone's laptop already had something else running on.</p>
+  </section>
+
+  <div class="byline-strip">
+    <span><b>881</b> commits &mdash; Dan Wolfson</span>
+    <span><b>60</b> &mdash; Mandy Chessell</span>
+    <span><b>7</b> &mdash; Claude</span>
+  </div>
+
+  <div class="closer">
+    <h3>Where the detail lives</h3>
+    <p>This is the shape of it, not the whole thing — 985 commits don't fit on one page. The full record,
+      root causes included, lives in the repo's own <code>BACKLOG.md</code> and <code>BACKLOG-ARCHIVE.md</code>.
+      Come see it running first: <a href="https://egeria.pdr-associates.com" target="_blank" rel="noopener">egeria.pdr-associates.com</a>.</p>
+  </div>
+
+</main>
+
+<footer class="colophon">egeria-workspaces 6.1 &middot; v6.02 &rarr; 6.1 &middot; compiled from git history</footer>

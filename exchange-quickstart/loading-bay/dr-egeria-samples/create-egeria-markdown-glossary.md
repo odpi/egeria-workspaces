@@ -11,24 +11,24 @@ help for particular terms.
 
 Here is the Dr.Egeria command to create the `Egeria-Markdown` glossary.
 
-# Create Glossary  
+## Create Glossary  
       
-## Glossary Name  
+### Glossary Name  
       
 Egeria-Markdown  
       
-## Language  
+### Language  
       
 English  
       
-## Description  
+### Description  
       
 Glossary to describe the vocabulary of Dr.Egeria - an Egeria Markdown language to support the exchange of metadata in a Markdown form.  
 Dr.Egeria allows users to create metadata annotations using any text entry system that supports the entry of standard Markdown  
 notation and, through post-processing  
 commands, validates the Egeria content and sends the requests to be sent to Egeria.   
       
-## Usage  
+### Usage  
       
 1. (optional) load an example or template for the type of object from Egeria.
 > Hint: Many of the hey_egeria commands have the option to save their output as Dr.Egeria markdown form.

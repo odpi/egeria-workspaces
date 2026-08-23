@@ -36,7 +36,7 @@ The PyegeriaWebHandler includes a built-in MCP (Model Context Protocol) server t
 ### MCP Protocol Support
 The PyegeriaWebHandler uses the **Model Context Protocol (MCP)** standard via the `mcp` Python library. The implementation is highly flexible, supporting:
 - **Transport Protocols**: 
-  - **SSE (over HTTP)**: Used by the "Calling the Dr." Obsidian plugin (host port 8800/sse, or 8885/sse via Apache).
+  - **SSE (over HTTP)**: Used by the "Call Dr. Egeria" Obsidian plugin (host port 8800/sse, or 8885/sse via Apache).
   - **stdio**: Used by local command-line tools and Claude Desktop.
 - **Server Framework**: `FastMCP` from the `mcp` library for simplified server implementation.
 - **Content-First Architecture**: In SSE mode, the server returns the generated Markdown content directly to the client, which then handles the file writing. This eliminates permission issues and path-mapping complexity.
@@ -290,7 +290,7 @@ Apache proxies both URLs through to the `pyegeria-web` container, which serves t
 
 ### Sections
 
-The explorer opens to a **Home** splash screen on first load. Tabs are grouped into three drop-down nav groups (plus the **⌂ Home** tab always visible at the left): **Type System**, **Review**, and **Act**. Each tab is independent; data is loaded lazily when the tab is first opened. All sections are read-only.
+The explorer opens to a **Home** splash screen on first load. Tabs are grouped into three drop-down nav groups (plus the **⌂ Home** tab always visible at the left): **Reference**, **Review**, and **Explore**. Each tab is independent; data is loaded lazily when the tab is first opened. All sections are read-only.
 
 #### Home (Splash Screen)
 

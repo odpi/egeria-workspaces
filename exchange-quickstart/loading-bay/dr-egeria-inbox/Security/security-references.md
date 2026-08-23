@@ -7,31 +7,31 @@ This document defines key reference to security resource developer by security i
 
 
 ----
-# Create External Reference
+## Create External Reference
 
-## Display Name
+### Display Name
 
 Guidelines for API Protection of Cloud-Native Systems
 
-## Description
+### Description
 
 A description of the common security vulnerabilities found in API-based applications and approaches to mitigate them.
 
-## URL
+### URL
 
 https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-228-upd1.pdf
 
-# Version Identifier
+### Version Identifier
 
 6.1-SNAPSHOT
 
-## Status
+### Status
 
 ACTIVE
 
-## Qualified Name
+### Qualified Name
 
 ExternalReference::nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-228-upd1.pdf
 
-## GUID
+### GUID
 ____

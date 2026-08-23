@@ -1,8 +1,8 @@
 
-# View Report
+## View Report
 >	This can be used to produce a report using any output format set.
 
-## Search String
+### Search String
 >	**Input Required**: False
 
 >	**Description**: An optional search string to filter results by.
@@ -12,7 +12,7 @@
 >	**Default Value**: *
 
 Data-Prep
-## Output Format
+### Output Format
 >	**Input Required**: False
 
 >	**Description**: Optional specification of output format for the query.
@@ -24,7 +24,7 @@ Data-Prep
 >	**Default Value**: LIST
 
 REPORT
-## Output Format Set
+### Output Format Set
 >	**Input Required**: True
 
 >	**Description**: Optional specification of an output format set that defines the attributes/columns that will be returned.
@@ -34,7 +34,7 @@ REPORT
 >	**Default Value**: Governance Definitions
 
 Solution-Blueprint-DrE
-## Starts With
+### Starts With
 >	**Input Required**: False
 
 >	**Description**: If true, look for matches with the search string starting from the beginning of  a field.
@@ -43,7 +43,7 @@ Solution-Blueprint-DrE
 
 False
 
-## Ends With
+### Ends With
 >	**Input Required**: False
 
 >	**Description**: If true, look for matches with the search string starting from the end of  a field.
@@ -51,7 +51,7 @@ False
 >	**Default Value**: False
 
 False
-## Ignore Case
+### Ignore Case
 >	**Input Required**: False
 
 >	**Description**: If true, ignore the difference between upper and lower characters when matching the search string.
@@ -59,55 +59,55 @@ False
 >	**Default Value**: False
 
 
-## Limit Results By Status
+### Limit Results By Status
 >	**Input Required**: False
 
 >	**Description**: Filter results by the list of status values provided. If none are provided, then no status filtering will be performed.
 
 
-## Metadata Element Subtype Names
+### Metadata Element Subtype Names
 >	**Input Required**: False
 
 >	**Description**: Filter results by the list of metadata elements. If none are provided, then no status filtering will be performed.
 
 
-## Metadata Element Type Name
+### Metadata Element Type Name
 >	**Input Required**: False
 
 >	**Description**: Optionally filter results by the type of metadata element.
 
 
-## Skip Relationshjps
+### Skip Relationshjps
 >	**Input Required**: False
 
 >	**Description**: Allow listed relationships to be skipped in the output returned.
 
 
-## Include Only Relationships
+### Include Only Relationships
 >	**Input Required**: False
 
 >	**Description**: Include information only about specified relationships.
 
 
-## Skip Classified Elements
+### Skip Classified Elements
 >	**Input Required**: False
 
 >	**Description**: Skip elements with the any of the specified classifications.
 
 
-## Include Only Classified Elements
+### Include Only Classified Elements
 >	**Input Required**: False
 
 >	**Description**: Include only elements with the specified classifications.
 
 
-## Governance Zone Filter
+### Governance Zone Filter
 >	**Input Required**: False
 
 >	**Description**: Include only elements in one of the specified governance zones.
 
 
-## Graph Query Depth
+### Graph Query Depth
 >	**Input Required**: False
 
 >	**Description**: The depth of the hierarchy to return. Default is 5. Specifying 0 returns only the top level attributes. 
@@ -115,13 +115,13 @@ False
 >	**Default Value**: 1
 
 5
-## Effective Time
+### Effective Time
 >	**Input Required**: False
 
 >	**Description**: An ISO-8601 string representing the time to use for evaluating effectivity of the elements related to this one.
 
 
-## AsOfTime
+### AsOfTime
 >	**Input Required**: False
 
 >	**Description**: An ISO-8601 string representing the time to view the state of the repository.
@@ -129,7 +129,7 @@ False
 >	**Alternative Labels**: As Of Time
 
 
-## Sort Order
+### Sort Order
 >	**Input Required**: False
 
 >	**Description**: How to order the results. The sort order can be selected from a list of valid value.
@@ -137,13 +137,13 @@ False
 >	**Valid Values**: ANY; CREATION_DATE_RECENT; CREATION_DATA_OLDEST; LAST_UPDATE_RECENT; LAST_UPDATE_OLDEST; PROPERTY_ASCENDING; PROPERTY_DESCENDING
 
 
-## Order Property Name
+### Order Property Name
 >	**Input Required**: False
 
 >	**Description**: The property to use for sorting if the sort_order_property is PROPERTY_ASCENDING or PROPERTY_DESCENDING
 
 
-## Limit Result by Status
+### Limit Result by Status
 >	**Input Required**: False
 
 >	**Description**: One of the status values from a list of valid values.
@@ -151,7 +151,7 @@ False
 >	**Valid Values**:  ACTIVE; DELETED; 
 
 
-## Page Size
+### Page Size
 >	**Input Required**: False
 
 >	**Description**: The number of elements returned per page.
@@ -159,7 +159,7 @@ False
 >	**Default Value**: 0
 
 
-## Start From
+### Start From
 >	**Input Required**: False
 
 >	**Description**: When paging through results, the starting point of the results to return.
@@ -169,10 +169,10 @@ False
 
 
 
-# View Report
+## View Report
 >	This can be used to produce a report using any output format set.
 
-## Search String
+### Search String
 >	**Input Required**: False
 
 >	**Description**: An optional search string to filter results by.
@@ -182,7 +182,7 @@ False
 >	**Default Value**: *
 Milvus
 
-## Output Format
+### Output Format
 >	**Input Required**: False
 
 >	**Description**: Optional specification of output format for the query.
@@ -194,7 +194,7 @@ Milvus
 >	**Default Value**: LIST
 
 Report
-## Output Format Set
+### Output Format Set
 >	**Input Required**: True
 
 >	**Description**: Optional specification of an output format set that defines the attributes/columns that will be returned.
@@ -204,7 +204,7 @@ Report
 >	**Default Value**: Governance Definitions
 
 
-## Starts With
+### Starts With
 >	**Input Required**: False
 
 >	**Description**: If true, look for matches with the search string starting from the beginning of  a field.
@@ -212,7 +212,7 @@ Report
 >	**Default Value**: True
 
 
-## Ends With
+### Ends With
 >	**Input Required**: False
 
 >	**Description**: If true, look for matches with the search string starting from the end of  a field.
@@ -220,7 +220,7 @@ Report
 >	**Default Value**: False
 
 
-## Ignore Case
+### Ignore Case
 >	**Input Required**: False
 
 >	**Description**: If true, ignore the difference between upper and lower characters when matching the search string.
@@ -228,55 +228,55 @@ Report
 >	**Default Value**: False
 
 
-## Limit Results By Status
+### Limit Results By Status
 >	**Input Required**: False
 
 >	**Description**: Filter results by the list of status values provided. If none are provided, then no status filtering will be performed.
 
 
-## Metadata Element Subtype Names
+### Metadata Element Subtype Names
 >	**Input Required**: False
 
 >	**Description**: Filter results by the list of metadata elements. If none are provided, then no status filtering will be performed.
 
 
-## Metadata Element Type Name
+### Metadata Element Type Name
 >	**Input Required**: False
 
 >	**Description**: Optionally filter results by the type of metadata element.
 
 
-## Skip Relationshjps
+### Skip Relationshjps
 >	**Input Required**: False
 
 >	**Description**: Allow listed relationships to be skipped in the output returned.
 
 
-## Include Only Relationships
+### Include Only Relationships
 >	**Input Required**: False
 
 >	**Description**: Include information only about specified relationships.
 
 
-## Skip Classified Elements
+### Skip Classified Elements
 >	**Input Required**: False
 
 >	**Description**: Skip elements with the any of the specified classifications.
 
 
-## Include Only Classified Elements
+### Include Only Classified Elements
 >	**Input Required**: False
 
 >	**Description**: Include only elements with the specified classifications.
 
 
-## Governance Zone Filter
+### Governance Zone Filter
 >	**Input Required**: False
 
 >	**Description**: Include only elements in one of the specified governance zones.
 
 
-## Graph Query Depth
+### Graph Query Depth
 >	**Input Required**: False
 
 >	**Description**: The depth of the hierarchy to return. Default is 5. Specifying 0 returns only the top level attributes. 
@@ -284,13 +284,13 @@ Report
 >	**Default Value**: 1
 
 
-## Effective Time
+### Effective Time
 >	**Input Required**: False
 
 >	**Description**: An ISO-8601 string representing the time to use for evaluating effectivity of the elements related to this one.
 
 
-## AsOfTime
+### AsOfTime
 >	**Input Required**: False
 
 >	**Description**: An ISO-8601 string representing the time to view the state of the repository.
@@ -298,7 +298,7 @@ Report
 >	**Alternative Labels**: As Of Time
 
 
-## Sort Order
+### Sort Order
 >	**Input Required**: False
 
 >	**Description**: How to order the results. The sort order can be selected from a list of valid value.
@@ -306,13 +306,13 @@ Report
 >	**Valid Values**: ANY; CREATION_DATE_RECENT; CREATION_DATA_OLDEST; LAST_UPDATE_RECENT; LAST_UPDATE_OLDEST; PROPERTY_ASCENDING; PROPERTY_DESCENDING
 
 
-## Order Property Name
+### Order Property Name
 >	**Input Required**: False
 
 >	**Description**: The property to use for sorting if the sort_order_property is PROPERTY_ASCENDING or PROPERTY_DESCENDING
 
 
-## Limit Result by Status
+### Limit Result by Status
 >	**Input Required**: False
 
 >	**Description**: One of the status values from a list of valid values.
@@ -320,7 +320,7 @@ Report
 >	**Valid Values**:  ACTIVE; DELETED; 
 
 
-## Page Size
+### Page Size
 >	**Input Required**: False
 
 >	**Description**: The number of elements returned per page.
@@ -328,7 +328,7 @@ Report
 >	**Default Value**: 0
 
 
-## Start From
+### Start From
 >	**Input Required**: False
 
 >	**Description**: When paging through results, the starting point of the results to return.

@@ -37,6 +37,36 @@ DOMAIN="${SITE_URL#https://}"
 DOMAIN="${DOMAIN%%/*}"
 DOMAIN="${DOMAIN%%:*}"
 
+# Optional extra names to carry on the same cert, comma-separated, e.g.
+#   CERT_EXTRA_DOMAINS=home.example.net
+# Each must resolve to this host and pass its own HTTP-01 challenge. Without
+# this, a renewal silently reissues with only SITE_URL's name and drops any
+# additional SANs the current cert carries.
+EXTRA_DOMAINS="$(_get CERT_EXTRA_DOMAINS)"
+if [[ -n "$EXTRA_DOMAINS" ]]; then
+  DOMAIN="${DOMAIN},${EXTRA_DOMAINS}"
+fi
+
+# Self-healing: also carry over every SAN already on the installed cert.
+#
+# CERT_EXTRA_DOMAINS alone is NOT enough — .env.demo is rewritten by
+# quick-start-local, and on 2026-08-22 a redeploy silently dropped the
+# setting, so the next renewal reissued with one domain and knocked
+# home.wolfsonnet.com off the live cert. Deriving from the cert itself means
+# the name set survives any config loss: a SAN can only ever be removed
+# deliberately (by editing the cert request), never by a config regression.
+if [[ -r "${CERT_DIR}/server.crt" ]]; then
+  while read -r _san; do
+    [[ -n "$_san" ]] || continue
+    case ",${DOMAIN}," in
+      *",${_san},"*) ;;                      # already present
+      *) DOMAIN="${DOMAIN},${_san}"
+         echo "[renew-certs.sh] Preserving existing SAN from installed cert: ${_san}" >&2 ;;
+    esac
+  done < <(openssl x509 -in "${CERT_DIR}/server.crt" -noout -ext subjectAltName 2>/dev/null \
+             | tr ',' '\n' | sed -n 's/.*DNS://p' | tr -d ' ')
+fi
+
 if [[ -z "$DOMAIN" || -z "$EMAIL" ]]; then
   echo "[renew-certs.sh] Could not determine DOMAIN (from SITE_URL) / EMAIL (from ADMIN_BOOTSTRAP_EMAIL) in ${ENV_DEMO}." >&2
   exit 1

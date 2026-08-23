@@ -3,7 +3,7 @@
 
 # Personal workbooks and markdown files
 
-This directory is for your own work.  It is visible in the JupyterHub for the [freshstart envitonment](https://egeria-project.org/egeria-workspaces/fresh-start/overview/) of egeria-workspaces.
+This directory is for your own work.  It is visible in the JupyterHub for the [freshstart environment](https://egeria-project.org/egeria-workspaces/fresh-start/overview/) of egeria-workspaces.
 
 ## If you are using Obsidian ...
 

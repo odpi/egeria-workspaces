@@ -157,7 +157,7 @@ For the full reference — config variables, REST API, user lifecycle, admin pan
 
 The freshstart environment supports Dr. Egeria processing on port `7800` (MCP/REST).
 
-- **Obsidian Plugins**: See the [Obsidian Plugins README](../../obsidian-plugins/call-dr-egeria/README.md) for details on the `Calling the Dr. (MCP)` and legacy plugins.
+- **Obsidian Plugins**: See the [Obsidian Plugins README](../../obsidian-plugins/call-dr-egeria/README.md) for details on the **Call Dr. Egeria** plugin (MCP-based, over SSE).
 - **MCP Server**: The backend (port 7800/sse) exposes Dr. Egeria commands as MCP tools.
 - **Configuring Profiles**: Use `fs-view-server` and `https://localhost:8443` in your plugin settings.
 
