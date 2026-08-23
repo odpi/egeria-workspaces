@@ -30,7 +30,11 @@ router = APIRouter(tags=["projects"])
 # name including RelationshipRequestBody (pyegeria's own method signature
 # implies this is the expected class here). Found 2026-08-23 alongside the
 # identical bug in solution_architect_handler.py (see its comment for the
-# full writeup) -- same interim workaround: build an already-constructed
+# full writeup) -- filed as odpi/egeria-python#298, fixed in PR #299
+# (class_ loosened from Literal to str) -- not yet released as of
+# 2026-08-23 (BACKLOG.md PY-24). REVERT this workaround to a plain dict
+# once that lands in a pyegeria release. Same interim workaround: build
+# an already-constructed
 # GetRequestBody *instance* via model_construct (skips validation entirely,
 # unlike model_validate) with class_ overridden to the real subclass name.
 def _relationship_request_body(as_of_time: Optional[str] = None):

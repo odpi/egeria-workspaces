@@ -43,7 +43,10 @@ router = APIRouter(tags=["solution-architect"])
 # documented body for this exact call, and isn't even exported as its own
 # model). Found 2026-08-23 processing the new pyegeria 6.1.1 rollout: every
 # solution component detail request 500'd with PyegeriaInvalidParameterException
-# "Input should be 'GetRequestBody'". Filed upstream; interim workaround --
+# "Input should be 'GetRequestBody'". Filed upstream as odpi/egeria-python#298,
+# fixed in PR #299 (class_ loosened from Literal to str) -- not yet released as of
+# 2026-08-23 (BACKLOG.md PY-24). REVERT this workaround to a plain dict once that
+# lands in a pyegeria release. Interim workaround --
 # _async_get_guid_request skips validation entirely for an already-constructed
 # GetRequestBody/ResultsRequestBody *instance* (isinstance check), so build one
 # via model_construct (bypasses field validation, unlike model_validate) with
