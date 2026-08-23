@@ -23,6 +23,27 @@ from egeria_error_mapping import raise_egeria_http_error, EGERIA_ERROR_RESPONSES
 
 router = APIRouter(tags=["projects"])
 
+# ProjectManager.get_linked_projects routes through ServerClient._async_get_
+# guid_request, whose dict-body branch validates against the base
+# GetRequestBody Pydantic model -- and its `class` field is now a hardcoded
+# Literal['GetRequestBody'] under pyegeria>=6.1.0, rejecting any real subclass
+# name including RelationshipRequestBody (pyegeria's own method signature
+# implies this is the expected class here). Found 2026-08-23 alongside the
+# identical bug in solution_architect_handler.py (see its comment for the
+# full writeup) -- same interim workaround: build an already-constructed
+# GetRequestBody *instance* via model_construct (skips validation entirely,
+# unlike model_validate) with class_ overridden to the real subclass name.
+def _relationship_request_body(as_of_time: Optional[str] = None):
+    from datetime import datetime
+    from pyegeria.models.models import GetRequestBody
+    parsed_as_of = None
+    if as_of_time:
+        try:
+            parsed_as_of = datetime.fromisoformat(as_of_time)
+        except ValueError:
+            parsed_as_of = as_of_time  # let it through as-is; a harmless serializer warning beats crashing
+    return GetRequestBody.model_construct(class_="RelationshipRequestBody", as_of_time=parsed_as_of)
+
 
 def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
     from pyegeria import ProjectManager
@@ -272,9 +293,7 @@ def get_project(
 
     children = []
     try:
-        child_body = {"class": "RelationshipRequestBody"}
-        if as_of_time:
-            child_body["asOfTime"] = as_of_time
+        child_body = _relationship_request_body(as_of_time)
         raw_children = mgr.get_linked_projects(guid, output_format="JSON", body=child_body)
         if isinstance(raw_children, list):
             children = [_serialize_project(c) for c in raw_children if _type_name(c) == "Project"]

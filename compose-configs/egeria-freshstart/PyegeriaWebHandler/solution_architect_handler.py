@@ -33,11 +33,45 @@ router = APIRouter(tags=["solution-architect"])
 # this endpoint's un-overridden default truncates mermaid diagrams the same way --
 # see egeria-python PYEGERIA_ISSUES.md ISSUE-23). Verified live: raises a blueprint's
 # mermaidGraph from 74 to 187 lines.
-_DETAIL_GRAPH_BODY = {
+#
+# A plain dict body here breaks get_solution_component_by_guid under
+# pyegeria>=6.1.0: SolutionArchitect._async_get_solution_component_by_guid
+# routes through ServerClient._async_get_guid_request, whose dict branch
+# always validates against the base GetRequestBody Pydantic model -- and its
+# `class` field is now a hardcoded Literal['GetRequestBody'], rejecting any
+# real subclass name (including AnyTimeRequestBody, which is pyegeria's OWN
+# documented body for this exact call, and isn't even exported as its own
+# model). Found 2026-08-23 processing the new pyegeria 6.1.1 rollout: every
+# solution component detail request 500'd with PyegeriaInvalidParameterException
+# "Input should be 'GetRequestBody'". Filed upstream; interim workaround --
+# _async_get_guid_request skips validation entirely for an already-constructed
+# GetRequestBody/ResultsRequestBody *instance* (isinstance check), so build one
+# via model_construct (bypasses field validation, unlike model_validate) with
+# class_ overridden to the real subclass name. Structurally GetRequestBody
+# already has every field AnyTimeRequestBody needs (graphQueryDepth/
+# maxMermaidNodeCount included) -- it's genuinely the same shape, just the
+# wrong literal tag.
+#
+# get_solution_blueprint_by_guid does NOT go through _async_get_guid_request --
+# _async_get_solution_blueprint_by_guid has its own inline body handling that
+# passes body straight to body_slimmer(body), which calls body.items() and
+# breaks on a Pydantic model instance (AttributeError: 'GetRequestBody' object
+# has no attribute 'items'). It never hit the class-Literal bug in the first
+# place, so it still needs the plain dict -- two different body shapes for
+# what looks like the same call, because pyegeria implements these two
+# "retrieve by guid" methods completely differently under the hood.
+from pyegeria.models.models import GetRequestBody as _GetRequestBody
+
+_DETAIL_GRAPH_BODY_DICT = {
     "class": "AnyTimeRequestBody",
     "graphQueryDepth": 10,
     "maxMermaidNodeCount": 250,
 }
+_DETAIL_GRAPH_BODY_MODEL = _GetRequestBody.model_construct(
+    class_="AnyTimeRequestBody",
+    graph_query_depth=10,
+    max_mermaid_node_count=250,
+)
 
 
 def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
@@ -363,7 +397,7 @@ def get_blueprint(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
-        raw = mgr.get_solution_blueprint_by_guid(guid, body=_DETAIL_GRAPH_BODY, output_format="JSON")
+        raw = mgr.get_solution_blueprint_by_guid(guid, body=_DETAIL_GRAPH_BODY_DICT, output_format="JSON")
     except Exception as exc:
         logger.exception("get_solution_blueprint_by_guid failed")
         raise HTTPException(status_code=500, detail=f"Blueprint retrieval failed: {exc}")
@@ -509,7 +543,7 @@ def get_component(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
-        raw = mgr.get_solution_component_by_guid(guid, body=_DETAIL_GRAPH_BODY, output_format="JSON")
+        raw = mgr.get_solution_component_by_guid(guid, body=_DETAIL_GRAPH_BODY_MODEL, output_format="JSON")
     except Exception as exc:
         logger.exception("get_solution_component_by_guid failed")
         raise HTTPException(status_code=500, detail=f"Component retrieval failed: {exc}")
