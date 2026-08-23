@@ -102,6 +102,15 @@ services:
     # more headroom. Configurable via EGERIA_MEM_LIMIT (see gen-env.sh) —
     # ./quick-start-local --egeria-memory <SIZE> sets it for you; 6g if unset.
     mem_limit: ${EGERIA_MEM_LIMIT:-6g}
+    # CPU cap, same rationale as mem_limit above but for a different failure
+    # mode: an unbounded egeria-main can peg every core the VM has, starving
+    # sibling containers (and the Docker Desktop VM's own kernel threads) on
+    # scheduling alone — confirmed 2026-08-23, when egeria-main sustained
+    # ~480% CPU and a Postgres checkpoint went unscheduled long enough that a
+    # backend died and Postgres had to crash-recover. Configurable via
+    # EGERIA_CPU_LIMIT (see gen-env.sh) — ./quick-start-local --egeria-cpus
+    # <N> sets it for you; 4 (of the host's cores) if unset.
+    cpus: ${EGERIA_CPU_LIMIT:-4}
     logging:
       driver: "json-file"
       options:
@@ -273,6 +282,10 @@ services:
         - "pypi.org:151.101.128.223"
         - "deb.debian.org:151.101.114.132"
     container_name: quickstart-web-server
+    # It had no restart policy at all, so a crash (see the httpd.conf PidFile
+    # comment above) left the public site's front door down with nothing
+    # bringing it back — discovered 2026-08-10.
+    restart: unless-stopped
     ports:
       - "8885:8085"
       # SSL (port 443) — disabled by default. See demo-mode.md § SSL / HTTPS.
