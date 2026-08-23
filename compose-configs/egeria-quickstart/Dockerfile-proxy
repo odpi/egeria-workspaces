@@ -1,4 +1,16 @@
-FROM docker.io/library/eclipse-temurin:24 AS base
+# Build stages pinned to JDK 17, not the :24 the final image below uses —
+# Dependabot's semver-major bump from :11 to :24 (upstream PR odpi#362,
+# 2026-08-22) broke the build: Gradle 8.9 (gradle/wrapper/gradle-wrapper.
+# properties) can't run on JDK 24 at all ("Unsupported class file major
+# version 68" — Gradle didn't add JDK 24 support until well after 8.9), and
+# JDK 21 isn't a fix either — Lombok 1.18.22 (see build.gradle) doesn't
+# understand JDK 21's javac internals (NoSuchFieldError on
+# com.sun.tools.javac.tree.JCTree$JCImport.qualid). 17 is the last LTS both
+# Gradle 8.9 and this Lombok version fully support. The jar itself targets
+# Java 11 (build.gradle sourceCompatibility/targetCompatibility) so building
+# on 17 and running on the final stage's newer JDK below is safe either way
+# — no need to revert Dependabot's runtime-image bump, just the build one.
+FROM docker.io/library/eclipse-temurin:17 AS base
 WORKDIR /usr/src/app
 COPY gradle gradle
 COPY gradle.properties gradle.properties
