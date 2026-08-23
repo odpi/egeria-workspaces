@@ -113,6 +113,14 @@ services:
     ports:
       - "5442:5442"
     shm_size: 1gb
+    # Relative CPU scheduling weight (default is 1024 for every container that
+    # doesn't set this) — doesn't cap Postgres, just tells the kernel to favor
+    # it over default-weight containers when cores are actually contended.
+    # Cheap insurance against a repeat of the 2026-08-23 incident where an
+    # unbounded egeria-main starved Postgres badly enough to crash it (see
+    # egeria-main's `cpus:` hard cap in egeria-quickstart.yaml, the real fix —
+    # this is a second line of defense against whatever container is next).
+    cpu_shares: 2048
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: egeria
