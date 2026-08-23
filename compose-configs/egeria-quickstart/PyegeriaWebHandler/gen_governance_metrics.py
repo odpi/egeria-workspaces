@@ -95,18 +95,27 @@ def render(entries):
                 f"\"{e['demo_spec']}\" via pyegeria's analytic function registry "
                 f"(analytic_registry.py). Returns: {e['returns']}.")
         measurement = f"{e['returns']}. {e['binding_note']}".strip()
-        flow_purpose = (
-            f"Documents (not yet true DataFlow lineage -- see BACKLOG.md) the conceptual "
-            f"chain behind the \"{title}\" governance metric: a data source (the Egeria "
-            f"relationship/classification/property {e['name']}() actually reads -- see its "
-            f"own Implementation Description) feeds the analytic function "
-            f"pyegeria.view.overview_metrics.{e['name']}(), exposed as Report Spec "
-            f"\"{e['demo_spec']}\", instantiated as the Report \"{report_name}\", measured "
-            f"by the GovernanceMetric \"{title}\". Real Collection membership below covers "
-            f"the Report and GovernanceMetric (both real elements today); the data-source "
-            f"and analytic-function stages are text-only until FormatSet/the analytic "
-            f"function itself become real Egeria types."
-        )
+        # `Purposes` is a Simple List attribute -- Dr.Egeria's parser splits list values on
+        # ANY comma (not just an intentional list separator: re.split(r'[;,\n]+', value) in
+        # md_processing/v2/parsing.py), so a single prose paragraph full of commas gets
+        # silently chopped into disconnected mid-sentence fragments. Build this as genuinely
+        # separate, comma-free purpose statements joined with "; " instead -- and strip any
+        # stray comma from the dynamic pieces (title/demo_spec/report_name) as a safety net,
+        # since those are metric names that could in principle contain one.
+        _nc = lambda s: s.replace(",", " --")  # no-comma guard for interpolated values
+        flow_purpose = "; ".join([
+            f"Documents the conceptual data-flow chain behind the \"{_nc(title)}\" governance "
+            f"metric (not yet true DataFlow lineage -- see BACKLOG.md)",
+            f"Chain: a data source (the Egeria relationship/classification/property "
+            f"{e['name']}() actually reads -- see its own Implementation Description) feeds "
+            f"the analytic function pyegeria.view.overview_metrics.{e['name']}() exposed as "
+            f"Report Spec \"{_nc(e['demo_spec'])}\" instantiated as the Report "
+            f"\"{_nc(report_name)}\" and measured by the GovernanceMetric \"{_nc(title)}\"",
+            f"Real Collection membership below covers the Report and GovernanceMetric "
+            f"(both real elements today)",
+            f"The data-source and analytic-function stages are text-only until "
+            f"FormatSet/the analytic function itself become real Egeria types",
+        ])
 
         out.append(f"""## Create Report
 > Defines a report with optional default parameters set, that can be placed on a Dashboard.
@@ -168,7 +177,7 @@ ___
 ### Display Name
 {flow_name}
 
-### Description
+### Purposes
 {esc(flow_purpose)}
 
 ___

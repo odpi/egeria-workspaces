@@ -25,7 +25,7 @@ sequenceDiagram
     Obsidian->>You: Show results modal
 ```
 
-The `dr_egeria_run_block` MCP tool processes the full note content and returns a **structured JSON response** containing `success`, `partial`, per-step `validation_errors`, `execution_errors`, command counts, per-command GUIDs, and the full output document. See [Using MCP in Egeria-Workspaces](../../Using MCP in Egeria-Workspaces.md) for the full tool reference and response schema.
+The `dr_egeria_run_block` MCP tool processes the full note content and returns a **structured JSON response** containing `success`, `partial`, per-step `validation_errors`, `execution_errors`, command counts, per-command GUIDs, and the full output document. See [Using MCP in Egeria-Workspaces](../../design-docs/Using MCP in Egeria-Workspaces.md) for the full tool reference and response schema.
 
 ### Via Egeria Explorer (browser testing)
 

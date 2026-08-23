@@ -116,14 +116,6 @@ try:
 except ImportError:
     ownership_coverage = None
 
-# sum_counts is new (BACKLOG.md NEXT-18), same "not yet published" gap as
-# ownership_coverage above -- falls back to the old inline sum() below if
-# it's missing rather than crashing every /api/overview/* route.
-try:
-    from pyegeria.view.overview_metrics import sum_counts
-except ImportError:
-    sum_counts = None
-
 # ai_ready_assets is new (2026-08-01) -- same defensive-import reasoning as
 # ownership_coverage above. This is the true composite (governed AND
 # documented AND lineage-traced simultaneously) that context_readiness_
@@ -310,18 +302,21 @@ def get_summary(
     # conditions and used here as a best-effort coverage proxy).
     gov = governed_coverage(mgr, as_of_time)
 
-    # Assets by type (best-effort; unknown types yield 0). The total used to
-    # be raw Python (`sum(r["count"] for r in by_type)`) -- now routed
-    # through sum_counts, the registered analytic step behind
-    # sum_type_counts (BACKLOG.md NEXT-18), so this tile's "how computed"
-    # metadata in overview_specs.py actually resolves to something real
-    # instead of the dangling "overview.sum_type_counts" it used to declare.
-    # Calls sum_counts() directly on the by_type we already have (not
-    # sum_type_counts(), which would re-fetch) -- see sum_type_counts's own
-    # docstring for that distinction.
+    # Assets by type (best-effort; unknown types yield 0) — kept purely as the
+    # composition breakdown behind the "Assets by Type" chart below; it is
+    # NOT summed for the headline total anymore (see asset_total below).
     by_type = counts_by_type(mgr, _ASSET_TYPES, as_of_time)
-    asset_total = (sum_counts(by_type)["total"] if sum_counts is not None
-                   else sum(r["count"] for r in by_type))
+
+    # Headline total: the native `Asset` supertype count (OVERVIEW_NEXT_STEPS.md
+    # "Asset definition" open decision, resolved 2026-08-16) — one native count
+    # call, same population the growth chart's own "assets" series already
+    # uses (pyegeria.view.overview_metrics.growth_series' type_map). Used to be
+    # a sum of 6 curated type names (via sum_counts/sum_type_counts,
+    # BACKLOG.md NEXT-18) which double-undercounted against Asset subtypes not
+    # in that list — that mismatch (e.g. live: 2,668 curated-sum vs 2,523
+    # Asset-supertype) is exactly what motivated unifying the two here, so the
+    # tile's own headline number and its own sparkline finally agree.
+    asset_total = count_elements(mgr, "Asset", as_of_time)
 
     term_count = count_elements(mgr, "GlossaryTerm", as_of_time)
 

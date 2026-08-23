@@ -1,7 +1,7 @@
-# Create External Reference
+## Create External Reference
 >	Create or update External Reference Elements - or sub-types Related Media, Cited Documents, External Data Source and External Model Source.
 
-## Display Name
+### Display Name
 >	**Input Required**: True
 
 >	**Description**: Name of the digital product
@@ -10,13 +10,13 @@
 
 EPA GHG Emissions Factors Hub
 
-## Description
+### Description
 >	**Input Required**: False
 
 >	**Description**: Description of the contents of a product.
 
 EPA's GHG Emission Factors Hub was designed to provide organizations with a regularly updated and easy-to-use set of default emission factors for organizational greenhouse gas reporting. Key sources for emission factors include:
-## Category
+### Category
 >	**Input Required**: False
 
 >	**Description**: A user specified category name that can be used for example, to define product types or agreement types.
@@ -24,7 +24,7 @@ EPA's GHG Emission Factors Hub was designed to provide organizations with a regu
 >	**Alternative Labels**: Category Name
 
 Carbon Emissions Calculation
-## Reference Title
+### Reference Title
 >	**Input Required**: False
 
 >	**Description**: Title of the external reference.
@@ -33,7 +33,7 @@ Carbon Emissions Calculation
 
 GHG Emission Factors Hub
 
-## Reference Abstract
+### Reference Abstract
 >	**Input Required**: False
 
 >	**Description**: Abstract for the remote reference.
@@ -41,7 +41,7 @@ GHG Emission Factors Hub
 >	**Alternative Labels**: Abstract
 
 
-## Authors
+### Authors
 >	**Input Required**: False
 
 >	**Description**: A list of authors.
@@ -49,19 +49,19 @@ GHG Emission Factors Hub
 >	**Alternative Labels**: Author
 
 
-## Organization
+### Organization
 >	**Input Required**: False
 
 >	**Description**: Organization owning the external reference.
 
 U.S. Environmental Protection Agency
-## URL
+### URL
 >	**Input Required**: False
 
 >	**Description**: URL to access the external reference.
 
 [GHG Emission Factors Hub | US EPA](https://www.epa.gov/climateleadership/ghg-emission-factors-hub)
-## Sources
+### Sources
 >	**Input Required**: False
 
 >	**Description**: A map of source strings.
@@ -69,25 +69,25 @@ U.S. Environmental Protection Agency
 >	**Alternative Labels**: Reference Sources
 
 
-## License
+### License
 >	**Input Required**: False
 
 >	**Description**: The license associated with the external reference.
 
 
-## Copyright
+### Copyright
 >	**Input Required**: False
 
 >	**Description**: The copy right associated with the external reference.
 
 
-## Attribution
+### Attribution
 >	**Input Required**: False
 
 >	**Description**: Attribution string to describe the external reference.
 
 
-## Version Identifier
+### Version Identifier
 >	**Input Required**: False
 
 >	**Description**: Published product version identifier.
@@ -95,7 +95,7 @@ U.S. Environmental Protection Agency
 >	**Default Value**: 1.0
 
 
-## Classifications
+### Classifications
 >	**Input Required**: False
 
 >	**Description**: Optionally specify the initial classifications for a collection. Multiple classifications can be specified. 
@@ -103,13 +103,13 @@ U.S. Environmental Protection Agency
 >	**Alternative Labels**: classification
 
 
-## Qualified Name
+### Qualified Name
 >	**Input Required**: False
 
 >	**Description**: A unique qualified name for the element. Generated using the qualified name pattern  if not user specified.
 
 
-## GUID
+### GUID
 >	**Input Required**: False
 
 >	**Description**: A system generated unique identifier.
@@ -117,7 +117,7 @@ U.S. Environmental Protection Agency
 >	**Alternative Labels**: Guid; guid
 
 
-## Additional Properties
+### Additional Properties
 >	**Input Required**: False
 
 >	**Description**: Additional user defined values organized as name value pairs in a dictionary.

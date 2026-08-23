@@ -6,12 +6,12 @@ BeeAI - Agentic Workflow
 ### Display Name
 >	**Input Required**: True
 
->	**Description**: Name of the solution component.f
+>	**Description**: Name of the solution component.
 
 >	**Alternative Labels**: Name; Display Name; Solution Component Name; Component Name
 
 
-#### Qualified Name
+### Qualified Name
 >	**Input Required**: False
 
 >	**Description**: A unique qualified name for the element. Generated using the qualified name pattern  if not user specified.

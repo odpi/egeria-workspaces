@@ -17,7 +17,7 @@ The files should be loaded by [Dr.Egeria](https://egeria-project.org/user-interf
 There is a choice on how to do this depending on the tools you are most comfortable with using.
 
 * If you are in a **Jupyter environment** (such as JupyterHub in egeria-workspaces) open the [Jupyter Notebook `load-martyns-law.ipynb`](load-martyns-law.ipynb) and follow the instructions.
-* If you are reading this from **Obsidian**, open the [load-martyns-law](load-martyns-law.canvas) canvas and select each file in order and click the suitcase icon *Calling the Dr, (MCP)*.
+* If you are reading this from **Obsidian**, open the [load-martyns-law](load-martyns-law.canvas) canvas and select each file in order and click the suitcase icon *Call Dr. Egeria (MCP)*.
   You will see messages indicating that the file is being processed and a pop-up window indicating the results.  Click outside of the pop-up window to dismiss it once you have reviewed it.
 * If you wish to use the command line, use `dr_egeria --process fileName` for each file in turn.  The full help for the Dr.Egeria command is `dr_egeria --help`.
 

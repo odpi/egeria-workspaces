@@ -17,7 +17,7 @@ The purpose of these workbooks is to help you understand how to use Egeria and e
   - [2. Clinical Trials](2.%20clinical-trials/receive-data-from-hospitals.ipynb) - set up and run the clinical trial data pipeline and observe lineage and data quality checks. Builds on the Coco Data Hub.
   - [3. Sustainability](3.%20sustainability/README.md) - configures Egeria to support their sustainability initiative.
   - [4. Keeping Safe](4.%20keeping-safe/README.md) - looks at some security scenarios.
-  - [5. Data Field Naming](5.%20data-field-naming/README.md) builds a dataa field naming glossary.
+  - [5. Data Field Naming](5.%20data-field-naming/README.md) builds a data field naming glossary.
 
 <br>
 

@@ -21,7 +21,7 @@ It is designed so you can access it from:
 
 ## Start the stack
 ```bash
-cd compose-configs/apache-atlas
+cd compose-configs/optional-associated-runtimes/apache-atlas
 # first start will download images and jars
 docker compose up -d
 ```
