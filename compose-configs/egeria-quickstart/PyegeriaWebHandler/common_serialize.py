@@ -46,6 +46,44 @@ _SKIP_CLASSIFICATIONS = frozenset([
 ])
 
 
+# "Family" classification supertypes whose concrete members Egeria groups
+# under one PLURAL list key on elementHeader instead of the usual one-
+# singular-key-per-classification shape below — because an element can carry
+# more than one member of the same family simultaneously (a dict can't have
+# two entries under one key). Found live 2026-08-24 investigating "project
+# classifications aren't displayed": ProjectKind (Campaign/Task/
+# PersonalProject/GovernanceProject/StudyProject/Experiment/GlossaryProject)
+# is exactly this shape — elementHeader["projectKinds"] — and pyegeria's own
+# get_all_classification_defs() shows three more real abstract-supertype
+# families with multiple children: CollectionKind (Taxonomy/
+# CanonicalVocabulary/EditingCollection/ScopingCollection/StagingCollection/
+# DataSharingAgreement — confirmed live: elementHeader["collectionKinds"],
+# 2 real collections carry it), ExecutionPoint (ControlPoint/
+# VerificationPoint/EnforcementPoint), and PolicyManagementPoint
+# (PolicyInformationPoint/PolicyEnforcementPoint/PolicyRetrievalPoint/
+# PolicyDecisionPoint/PolicyAdministrationPoint). The key name for each is
+# just the family name with its first letter lowercased and an "s" appended
+# — verified for the first two against real data; ExecutionPoint/
+# PolicyManagementPoint have no classified elements in the current demo
+# dataset to verify against, but the naming convention is consistent enough
+# across the two confirmed families that it's included on that basis rather
+# than left as another invisible gap.
+_FAMILY_PLURAL_KEYS = ("projectKinds", "collectionKinds", "executionPoints", "policyManagementPoints")
+
+
+def _flatten_classification_properties(cls_props_raw) -> dict:
+    flat = {}
+    if isinstance(cls_props_raw, dict):
+        for k, v in cls_props_raw.items():
+            if k in ("class", "typeName"):
+                continue
+            if isinstance(v, list):
+                flat[k] = ", ".join(str(i) for i in v)
+            elif not isinstance(v, dict):
+                flat[k] = str(v)
+    return flat
+
+
 def _classifications(el: dict) -> list:
     """Extract governance/business classifications from an element, in
     pyegeria's JSON output shape: each classification is a named key directly
@@ -54,7 +92,11 @@ def _classifications(el: dict) -> list:
     and carries classificationName + classificationProperties. Mirrors
     tech_catalog_handler._extract_classifications; centralized here so every
     _authored_fields(el) call site can add classification support the same
-    one-line way."""
+    one-line way.
+
+    Also covers the "family" shape (see _FAMILY_PLURAL_KEYS above) — a
+    project or collection with multiple simultaneous kinds appended here
+    too, not just the singular-key case."""
     if not isinstance(el, dict):
         return []
     hdr = el.get("elementHeader") or {}
@@ -69,17 +111,19 @@ def _classifications(el: dict) -> list:
                     or (key[0].upper() + key[1:]))
         if not cls_name or cls_name in _SKIP_CLASSIFICATIONS:
             continue
-        cls_props_raw = val.get("classificationProperties") or {}
-        flat = {}
-        if isinstance(cls_props_raw, dict):
-            for k, v in cls_props_raw.items():
-                if k in ("class", "typeName"):
-                    continue
-                if isinstance(v, list):
-                    flat[k] = ", ".join(str(i) for i in v)
-                elif not isinstance(v, dict):
-                    flat[k] = str(v)
+        flat = _flatten_classification_properties(val.get("classificationProperties") or {})
         result.append({"typeName": cls_name, "properties": flat})
+
+    for family_key in _FAMILY_PLURAL_KEYS:
+        for val in (hdr.get(family_key) or []):
+            if not isinstance(val, dict) or val.get("class") != "ElementClassification":
+                continue
+            cls_name = val.get("classificationName") or (val.get("type") or {}).get("typeName") or ""
+            if not cls_name or cls_name in _SKIP_CLASSIFICATIONS:
+                continue
+            flat = _flatten_classification_properties(val.get("classificationProperties") or {})
+            result.append({"typeName": cls_name, "properties": flat})
+
     return result
 
 
