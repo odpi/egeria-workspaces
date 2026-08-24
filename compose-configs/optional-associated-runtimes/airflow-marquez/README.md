@@ -12,20 +12,23 @@ There are a few sample dags provided and more will be added over time. Workflows
 to Egeria's governance capabilities. 
 
 
-The pyegeria and OpenLineage python packages are installed into the Airflow Docker image for your use. 
-Airflow is pre-configured to produce OpenLineage http messages that are picked up
-by the OpenLineage Proxy (part of egeria-quickstart).  Using the workbooks, it is possible to configure Egeria to listen for these open lineage events via kafka. Egeria will mine useful metadata from these events.  It can also be configured to publish open lineage events to Marquez as shown in the diagram below
+The pyegeria and OpenLineage python packages are installed into the Airflow Docker image for your use.
+Airflow is pre-configured to emit OpenLineage http events directly — no Kafka or proxy hop involved. By
+default these go straight to Marquez; `./switch-lineage.sh [marquez|egeria|both]` (see below) repoints the
+`OL_TRANSPORT` env var to send events to Marquez, directly to Egeria's Asset Lineage OMAS `open-lineage`
+endpoint, or to both at once (a composite transport), as shown in the diagram below.
 
 ```mermaid
 flowchart LR
-    A(Airflow) -->|http:6000| B(OpenLineage Proxy)
-    B --> |kafka msg| C[Egeria-OpenLineageAPIPublisher]
-    C -->|http:5050| D(Marquez)
+    A(Airflow) -->|http:5050 marquez| B(Marquez)
+    A -->|http:9443 egeria| C[Egeria Asset Lineage OMAS]
 style A fill:#FFDD44,stroke:#000000,stroke-width:2px,color:#000000
-style B fill:#D9F7BE,stroke:#FFAA00,stroke-width:2px,color:#000000
+style B fill:#FFDD44,stroke:#FF69B4,stroke-width:2px,color:#000000
 style C fill:#D9F7BE,stroke:#52C41A,stroke-width:3px,color:#000000
-style D fill:#FFDD44,stroke:#FF69B4,stroke-width:2px,color:#000000
 ```
+
+`marquez` and `egeria` are independent targets selected (or combined, via `both`) by `switch-lineage.sh`
+— not sequential hops.
 
 ## Usage
 
@@ -46,9 +49,9 @@ directory, type `./airflow.sh <command>`, where **command** might be an airflow 
 
 ### Airflow 
 * WebUI is port 8072 (API server), user: *airflow*, password: *airflow*
-* Configured with `LocalExecutor` for simplicity in Airflow 3.x
-* Publishes OpenLineage events to port 6000
-* Postgres database for 
+* Configured with `CeleryExecutor` (Redis broker, plus scheduler/worker/triggerer containers) in Airflow 3.x
+* Publishes OpenLineage events to Marquez on port 5050 by default; use `./switch-lineage.sh [marquez|egeria|both]` to toggle the target
+* Uses the shared PostgreSQL database server (host port 5442)
 
 ### Marquez
 * Marquez UI is port 3000

@@ -29,6 +29,22 @@ Design notes
 - dr-egeria-inbox itself is mounted read-only (see egeria-quickstart.yaml /
   egeria-freshstart.yaml, both `:ro` on the pyegeria-web service) --
   selection state can never live inside it.
+
+Execution order
+---------------
+Within a folder: _batch.json's `files` list (if present) is the explicit
+order for those files; any other .md file in the folder NOT mentioned
+there is appended afterward, alphabetically. No manifest -> pure
+alphabetical. (Extra-root batches -- see _EXTRA_BATCH_ROOTS -- are the one
+exception: their manifest's `files` list is used as-is, with no auto-append
+of "other .md files in the folder", since that folder also holds unrelated
+source files.)
+
+Across folders: dr-egeria-inbox/_folder_order.json, if present, is a flat
+JSON array of batch ids (folder names, or an extra-root's batch_id) giving
+the order batches run in. Any batch not mentioned runs after the listed
+ones, alphabetically by id -- same "explicit list, then alphabetical
+remainder" rule as the per-folder file order, for consistency.
 """
 
 import json
@@ -110,10 +126,63 @@ def _read_manifest(folder: Path) -> dict:
         return {}
 
 
+def _ordered_inbox_files(entry: Path, manifest: dict) -> list[str]:
+    """Files in a dr-egeria-inbox subfolder, in execution order: the
+    manifest's explicit `files` list first (in that order, minus any that
+    no longer exist -- a stale reference, not an error), then any other
+    .md file in the folder it doesn't mention, alphabetically. No manifest
+    (or an empty `files` list) -> pure alphabetical, same as before this
+    ordering feature existed."""
+    all_md = sorted(p.name for p in entry.iterdir()
+                     if p.is_file() and p.suffix.lower() == ".md" and p.name != "_batch.json")
+    listed = [f for f in (manifest.get("files") or []) if f in all_md]
+    remaining = [f for f in all_md if f not in listed]
+    return listed + remaining
+
+
+def _read_folder_order() -> list[str]:
+    order_path = _INBOX_ROOT / "_folder_order.json"
+    if not order_path.exists():
+        return []
+    try:
+        with open(order_path, encoding="utf-8") as f:
+            data = json.load(f)
+        return [str(x) for x in data] if isinstance(data, list) else []
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"bootstrap_batches: bad folder order file {order_path}: {exc}")
+        return []
+
+
+def _apply_order(items: list[dict], order: list[str], key: str) -> list[dict]:
+    """Explicit `order` list first (only entries actually present, in that
+    sequence), then everything else alphabetically by `key`."""
+    order_index = {name: i for i, name in enumerate(order)}
+    listed = sorted((it for it in items if it[key] in order_index),
+                     key=lambda it: order_index[it[key]])
+    rest = sorted((it for it in items if it[key] not in order_index),
+                   key=lambda it: it[key])
+    return listed + rest
+
+
 def discover_batches() -> list[dict]:
     """Scan dr-egeria-inbox for folders (each becomes a batch), plus any
-    _EXTRA_BATCH_ROOTS. Returns
-    [{id, displayName, description, canary, files, defaultEnabled}]."""
+    _EXTRA_BATCH_ROOTS, ordered per _folder_order.json if present. Returns
+    [{id, displayName, description, canary, files, defaultEnabled, idempotent}].
+
+    `idempotent` (manifest field, default True) -- whether re-running this
+    batch's files against an already-seeded target is known-safe. Default
+    True keeps existing manifests' behavior unchanged; set explicitly to
+    False for a batch containing a command that creates a relationship/
+    record with no pre-existence check (confirmed the hard way: `Link
+    Governance Results` in md_processing/v2/governance.py calls
+    `_async_link_governance_results` unconditionally, unlike e.g. `Link
+    Report to Dashboard Sheet` in dashboard_sheet.py, which matches on
+    `ref == report_name` and replaces in place -- genuinely idempotent,
+    despite looking like the same class of command). Auto-heal is
+    unaffected by this flag (it only ever runs a batch whose canary is
+    missing, never a present one) -- this exists purely to gate the admin
+    panel's manual "Run Now"/"Run All Enabled" actions, which otherwise
+    run unconditionally. See bootstrap_admin_handler.py."""
     batches = []
 
     if _INBOX_ROOT.is_dir():
@@ -121,11 +190,7 @@ def discover_batches() -> list[dict]:
             if not entry.is_dir() or entry.name in _SKIP_DIRS or entry.name.startswith("."):
                 continue
             manifest = _read_manifest(entry)
-            if manifest.get("files"):
-                files = [f for f in manifest["files"] if (entry / f).exists()]
-            else:
-                files = sorted(p.name for p in entry.iterdir()
-                                if p.is_file() and p.suffix.lower() == ".md" and p.name != "_batch.json")
+            files = _ordered_inbox_files(entry, manifest)
             if not files:
                 continue
             batches.append({
@@ -136,6 +201,7 @@ def discover_batches() -> list[dict]:
                 "files":          files,
                 "path":           str(entry),
                 "defaultEnabled": bool(manifest.get("defaultEnabled", False)),
+                "idempotent":     bool(manifest.get("idempotent", True)),
             })
     else:
         logger.warning(f"bootstrap_batches: inbox root not found: {_INBOX_ROOT}")
@@ -155,9 +221,10 @@ def discover_batches() -> list[dict]:
             "files":          files,
             "path":           str(folder),
             "defaultEnabled": bool(manifest.get("defaultEnabled", False)),
+            "idempotent":     bool(manifest.get("idempotent", True)),
         })
 
-    return batches
+    return _apply_order(batches, _read_folder_order(), "id")
 
 
 def batches_with_selection() -> list[dict]:
@@ -230,3 +297,16 @@ async def run_batch(batch: dict, timeout_seconds: int = 300) -> list[dict]:
         except Exception as exc:  # noqa: BLE001
             results.append({"file": filename, "status": "failed", "message": str(exc)})
     return results
+
+
+async def run_all_enabled(timeout_seconds: int = 300) -> list[dict]:
+    """Run every enabled batch, in discover_batches' order (folder order
+    file, then alphabetical), each with its own enabled files in file
+    order. This is the "(re)initialize now" action -- the counterpart to
+    bootstrap_monitor_handler.py's automatic canary-triggered heal, for
+    when an admin wants to force it without waiting for a reset to be
+    detected. Returns one entry per batch: {batch, results}."""
+    out = []
+    for batch in enabled_batches():
+        out.append({"batch": batch["id"], "results": await run_batch(batch, timeout_seconds)})
+    return out

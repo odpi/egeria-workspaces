@@ -292,9 +292,18 @@ def _serialize_detail(element: dict) -> dict:
             return _list_to_str(v)
         return str(v) if v not in (None, "") else ""
 
+    type_name  = _type_name(element)
+    super_types = ((header.get("type") or {}).get("superTypeNames")) or []
+    # ProvisioningActionProcess/CataloguingActionProcess/SurveyingActionProcess/
+    # ExploringActionProcess/AnalyticalActionProcess are the real subtypes of
+    # GovernanceActionProcess ("the different kinds" of process) -- the process
+    # structure drill-down applies to all of them, not just the base type.
+    is_gov_action_process = type_name == "GovernanceActionProcess" or "GovernanceActionProcess" in super_types
+
     node = {
         "guid":             header.get("guid", ""),
-        "typeName":         _type_name(element),
+        "typeName":         type_name,
+        "isGovernanceActionProcess": is_gov_action_process,
         "displayName":      props.get("displayName") or props.get("name") or "",
         "qualifiedName":    sv("qualifiedName"),
         "description":      sv("description"),
@@ -435,3 +444,100 @@ def get_definition(
     # get_governance_definition_by_guid may return a list or a dict
     element = raw[0] if isinstance(raw, list) else raw
     return JSONResponse(_serialize_detail(element))
+
+
+# ── Governance Action Process structure (steps + flow) ─────────────────────────
+# get_definition()/get_governance_definition_by_guid above only ever sees the
+# *first* step (GovernanceActionProcessFlow relationship) — the full chain of
+# GovernanceActionProcessStep elements, joined by NextGovernanceActionProcessStep
+# links, is only returned by the dedicated process-graph endpoint below.
+
+def _serialize_step_element(el: dict, is_first: bool = False) -> dict:
+    header = el.get("elementHeader") or {}
+    props  = el.get("processStepProperties") or el.get("properties") or {}
+    return {
+        "guid":                   header.get("guid", ""),
+        "typeName":               (header.get("type") or {}).get("typeName", ""),
+        "status":                 header.get("status") or "",
+        "displayName":            props.get("displayName") or props.get("name") or "",
+        "qualifiedName":          props.get("qualifiedName") or "",
+        "description":            props.get("description") or "",
+        "domainIdentifier":       props.get("domainIdentifier"),
+        "waitTime":               props.get("waitTime"),
+        "ignoreMultipleTriggers": bool(props.get("ignoreMultipleTriggers")),
+        "additionalProperties":   props.get("additionalProperties") or {},
+        "isFirst":                is_first,
+    }
+
+
+@router.get("/api/governance/process-graph/{guid}", summary="Get a Governance Action Process's step chain")
+def get_process_graph(
+    guid: str,
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
+    """Return a GovernanceActionProcess's full step structure: every
+    GovernanceActionProcessStep it's made of, the NextGovernanceActionProcessStep
+    links between them (with guard/mandatoryGuard), and the full-chain mermaid
+    diagram — everything needed to drill down into a process's sub-actions."""
+    try:
+        mgr = _get_manager(url, server, user_id, user_pwd)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
+
+    try:
+        raw = mgr.get_governance_action_process_graph(guid, output_format="JSON")
+    except Exception as exc:
+        logger.exception("get_governance_action_process_graph failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    if not raw or not isinstance(raw, dict) or not raw.get("governanceActionProcess"):
+        raise HTTPException(status_code=404, detail=f"Governance action process {guid!r} not found")
+
+    process = raw["governanceActionProcess"]
+    proc_header = _header(process)
+    proc_props  = _props(process)
+
+    steps: dict = {}
+    first_guid = None
+    first_step = raw.get("firstProcessStep") or {}
+    if first_step.get("element"):
+        s = _serialize_step_element(first_step["element"], is_first=True)
+        if s["guid"]:
+            steps[s["guid"]] = s
+            first_guid = s["guid"]
+
+    for el in raw.get("nextProcessSteps") or []:
+        s = _serialize_step_element(el)
+        if s["guid"] and s["guid"] not in steps:
+            steps[s["guid"]] = s
+
+    links = []
+    for link in raw.get("processStepLinks") or []:
+        prev = (link.get("previousProcessStep") or {}).get("guid", "")
+        nxt  = (link.get("nextProcessStep") or {}).get("guid", "")
+        if not prev or not nxt:
+            continue
+        links.append({
+            "from":          prev,
+            "to":            nxt,
+            "guard":         link.get("guard") or "",
+            "mandatoryGuard": bool(link.get("mandatoryGuard")),
+        })
+
+    return JSONResponse({
+        "process": {
+            "guid":             proc_header.get("guid", ""),
+            "typeName":         (proc_header.get("type") or {}).get("typeName", ""),
+            "displayName":      proc_props.get("displayName") or proc_props.get("name") or "",
+            "qualifiedName":    proc_props.get("qualifiedName") or "",
+            "description":      proc_props.get("description") or "",
+            "domainIdentifier": proc_props.get("domainIdentifier"),
+        },
+        "firstStepGuid": first_guid,
+        "steps":         list(steps.values()),
+        "links":         links,
+        "mermaidGraph":  raw.get("governanceActionProcessMermaidGraph") or "",
+    })

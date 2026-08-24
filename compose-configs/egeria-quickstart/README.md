@@ -39,6 +39,7 @@ The pre-configured and started servers are:
   * qs-metadata-store
   * qs-engine-host
   * qs-integration-daemon
+  * qs-nanny-daemon
   * qs-view-server
   
    
@@ -337,9 +338,9 @@ This environment includes support for processing Markdown files containing Dr. E
 
 The `PyegeriaWebHandler` service (host port 8800 direct / 8885 via Apache) provides both a REST API and a **Model Context Protocol (MCP)** server for interacting with Dr. Egeria.
 
-- **Obsidian Plugins**: You should use the **Calling the Dr. (MCP)** plugin (recommended). It uses a "Content-First" architecture that eliminates Docker permission issues. The legacy `Call Dr. Egeria` plugin is also supported but deprecated. See the [Obsidian Plugins README](../../obsidian-plugins/call-dr-egeria/README.md) for details.
+- **Obsidian Plugins**: Use the **Call Dr. Egeria** plugin. It's MCP-based (over SSE) with a "Content-First" architecture that eliminates Docker permission issues. See the [Obsidian Plugins README](../../obsidian-plugins/call-dr-egeria/README.md) for details.
 - **MCP Server**: The backend exposes Dr. Egeria commands as MCP tools via both **SSE (HTTP)** and **stdio**. This allows integration with assistants like Claude Desktop or any MCP-compatible environment.
-- **Documentation**: For comprehensive setup and configuration instructions, see the [Unified Plugin Guide](../../Configuring%20and%20Using%20the%20Calling%20Dr.%20Egeria%20Obsidian%20Plug-in.md).
+- **Documentation**: For comprehensive setup and configuration instructions, see the [Unified Plugin Guide](../../Configuring%20and%20Using%20the%20Call%20Dr.%20Egeria%20Obsidian%20Plugin.md).
 
 ## Next Steps
 

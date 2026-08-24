@@ -122,6 +122,23 @@ if [[ -z "$EGERIA_MEM_LIMIT_VAL" ]]; then
   EGERIA_MEM_LIMIT_VAL="6g"
 fi
 
+# Determine EGERIA_CPU_LIMIT (egeria-main's cpus — see egeria-quickstart.yaml).
+# Same priority/persistence pattern as EGERIA_MEM_LIMIT above. This caps CPU,
+# not memory: an unbounded egeria-main can starve every other container (and
+# the Docker Desktop VM's own kernel threads) on CPU alone, badly enough to
+# crash them even with plenty of free memory — see the 2026-08-23 incident
+# where Postgres crashed because a checkpoint couldn't get scheduled.
+EGERIA_CPU_LIMIT_VAL="${EGERIA_CPU_LIMIT:-}"
+if [[ -z "$EGERIA_CPU_LIMIT_VAL" && -f .env ]]; then
+  EXISTING_CPU="$(grep -E '^EGERIA_CPU_LIMIT=' .env | head -n1 | cut -d= -f2- || true)"
+  if [[ -n "$EXISTING_CPU" ]]; then
+    EGERIA_CPU_LIMIT_VAL="$EXISTING_CPU"
+  fi
+fi
+if [[ -z "$EGERIA_CPU_LIMIT_VAL" ]]; then
+  EGERIA_CPU_LIMIT_VAL="4"
+fi
+
 # Write .env atomically
 TMP_ENV=".env.tmp"
 cat > "$TMP_ENV" <<EOF
@@ -132,8 +149,9 @@ KAFKA_CONTROLLER_QUORUM_VOTERS=1@${HOST_FQDN}:9193
 KAFKA_BOOTSTRAP_SERVERS=${HOST_FQDN}:9194
 HOST_GATEWAY_IP=${HOST_GATEWAY_IP}
 EGERIA_MEM_LIMIT=${EGERIA_MEM_LIMIT_VAL}
+EGERIA_CPU_LIMIT=${EGERIA_CPU_LIMIT_VAL}
 CONFIG_JSON="${CONFIG_JSON_ESCAPED}"
 EOF
 mv -f "$TMP_ENV" .env
 
-echo "[gen-env.sh] Wrote .env with HOST_FQDN=${HOST_FQDN}, KAFKA_CLUSTER_ID=${KAFKA_CLUSTER_ID_VAL}, EGERIA_MEM_LIMIT=${EGERIA_MEM_LIMIT_VAL}" >&2
+echo "[gen-env.sh] Wrote .env with HOST_FQDN=${HOST_FQDN}, KAFKA_CLUSTER_ID=${KAFKA_CLUSTER_ID_VAL}, EGERIA_MEM_LIMIT=${EGERIA_MEM_LIMIT_VAL}, EGERIA_CPU_LIMIT=${EGERIA_CPU_LIMIT_VAL}" >&2

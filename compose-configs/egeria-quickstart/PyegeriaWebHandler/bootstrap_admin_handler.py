@@ -16,7 +16,7 @@ Endpoints:
   POST /api/bootstrap/batches/{id}/run  → run one batch now, its enabled files (admin only)
 """
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from loguru import logger
@@ -69,7 +69,7 @@ def save_batch_selection(req: SaveSelectionRequest, request: Request):
 
 
 @router.post("/batches/{batch_id}/run", summary="Run one batch now (admin only)")
-async def run_batch_now(batch_id: str, request: Request):
+async def run_batch_now(batch_id: str, request: Request, confirm: bool = Query(False)):
     _admin_gate(request)
     batches = {b["id"]: b for b in bb.batches_with_selection()}
     batch = batches.get(batch_id)
@@ -80,7 +80,41 @@ async def run_batch_now(batch_id: str, request: Request):
     if not files:
         raise HTTPException(status_code=400, detail=f"Batch {batch_id!r} has no enabled files to run")
 
+    # See bootstrap_batches.py's discover_batches() docstring: some commands
+    # (confirmed live -- Link Governance Results) create a relationship/record
+    # with no pre-existence check, so re-running against an already-seeded
+    # target duplicates it. Auto-heal never hits this (canary-gated, only
+    # runs when missing) -- this manual path needs its own gate instead.
+    if not batch["idempotent"] and not confirm:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Batch {batch_id!r} contains a command known to duplicate data if re-run "
+                    "against an already-seeded target. Pass ?confirm=true to run it anyway.",
+        )
+
     logger.info(f"bootstrap batches: manually running {batch_id!r} ({len(files)} files)")
     results = await bb.run_batch({**batch, "files": files})
     ok = all(r["status"] == "ok" for r in results)
     return JSONResponse({"batch": batch_id, "success": ok, "results": results})
+
+
+@router.post("/batches/run-all", summary="Run every enabled batch, in folder order (admin only)")
+async def run_all_batches_now(request: Request, confirm: bool = Query(False)):
+    _admin_gate(request)
+    enabled = bb.enabled_batches()
+    if not enabled:
+        raise HTTPException(status_code=400, detail="No batches are enabled")
+
+    non_idempotent = [b["id"] for b in enabled if not b["idempotent"]]
+    if non_idempotent and not confirm:
+        raise HTTPException(
+            status_code=409,
+            detail=f"These enabled batches contain a command known to duplicate data if re-run "
+                    f"against an already-seeded target: {', '.join(non_idempotent)}. "
+                    "Pass ?confirm=true to run everything anyway.",
+        )
+
+    logger.info(f"bootstrap batches: manually running all enabled batches ({[b['id'] for b in enabled]})")
+    runs = await bb.run_all_enabled()
+    ok = all(r["status"] == "ok" for run in runs for r in run["results"])
+    return JSONResponse({"success": ok, "runs": runs})

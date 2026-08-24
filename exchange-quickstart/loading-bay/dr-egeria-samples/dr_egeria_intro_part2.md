@@ -37,7 +37,7 @@ may require a GUID to be specified, but in general we will use the **Qualified N
 
 ___ 
 
-# Glossary Categories
+## Glossary Categories
 
 Sometimes it can be useful to provide more structure to the glossary. The way to do this is through categories. 
 In Egeria, a category can have a single parent category and multiple child categories. A term can be assigned to 
@@ -68,34 +68,34 @@ Ok, here we go:
 
 ___
 
-# Create Category  
+## Create Category  
   
-## Category Name  
+### Category Name  
   
 Writing Dr.Egeria Markdown  
   
-## Owning Glossary  
+### Owning Glossary  
   
 Glossary::Egeria-Markdown  
   
-## Description  
+### Description  
   
 Terms in this category describe the elements of the Dr.Egeria Markdown language and how to use them.   
 
 
 ___
 
-# Create Category  
+## Create Category  
   
-## Category Name  
+### Category Name  
   
 Processing Dr.Egeria Markdown  
   
-## In Glossary  
+### In Glossary  
   
 Glossary::Egeria-Markdown  
   
-## Description  
+### Description  
   
 Terms in this category describe commands to process Dr.Egeria Markdown.  
    
@@ -138,109 +138,109 @@ from the previous process step.
 
 ___  
 
-# Update Term
+## Update Term
 
-## Term Name 
+### Term Name 
 
 Command
 
-## Summary
+### Summary
 Commands are how a user of the Dr.Egeria markdown language requests an action.
 
-## In Glossary
+### In Glossary
 Glossary::Egeria-Markdown
 
-## Categories
+### Categories
 
 Category::Writing Dr.Egeria Markdown, Category::Processing Dr.Egeria Markdown
 
-## Status
+### Status
 ACTIVE
 
-## Description
+### Description
 Commands are how a user can request Egeria to take an action such as Create or Update an Egeria element. Freddie
 provides
 a limited (but growing) set of commands. Dr.Egeria commands align with the pyegeria 'hey-egeria' command line interface.
 
-## Examples
+### Examples
 Create Glossary or
 Update Glossary or
 Create Term or
 Update Term
 
-## Usage
+### Usage
 Commands are used in the Dr.Egeria markdown language.
 
-## Published Version
+### Published Version
 
 0.2
 
-## Qualified Name
+### Qualified Name
 Term::Command::0.2
 
-## Guid
+### Guid
 38ae7a10-a0e0-4ed9-89ff-386e408fa60d
 
 ___
 
-# Update Term
+## Update Term
 
-## Term Name 
+### Term Name 
 
 Source
 
-## Summary
+### Summary
 Source of the markdown content.
 
-## In Glossary
+### In Glossary
 Glossary::Egeria-Markdown
 
-## Categories
+### Categories
 
 Processing Dr.Egeria Markdown 
 
-## Status
+### Status
 ACTIVE
 
-## Description
+### Description
 Source of the markdown content - could be jupyter or plain markdown file.
 
-## Examples
+### Examples
 
-## Usage
+### Usage
 
 
-## Published Version
+### Published Version
 
 0.2
 
-## Qualified Name
+### Qualified Name
 Term::Source::0.2
 
-## Guid
+### Guid
 ed2e4bc8-ad18-4326-b1ed-c874094e0c12
 
 ___
 
-# Update Term
+## Update Term
   
-## In Glossary  
+### In Glossary  
   
 Glossary::Egeria-Markdown  
   
-## Term Name  
+### Term Name  
   
 Directive  
   
-## Categories  
+### Categories  
   
 Processing Dr.Egeria Markdown  
   
-## Summary  
+### Summary  
   
 A directive defines how the command is to be processed.  
   
-## Description  
+### Description  
   
 Directives are one of:  
   
@@ -250,30 +250,30 @@ Directives are one of:
  
   
   
-## Version  
+### Version  
   
 0.2 
   
-## Status  
+### Status  
   
 DRAFT  
   
-## Qualified Name  
+### Qualified Name  
 Term::Directive::0.1  
 
-## Guid
+### Guid
 7eea4024-6d6a-40bc-8129-7893ac55d85a
 
 ___
   
-# Inspecting the Glossary
+## Inspecting the Glossary
 
 Now that we have created a glossary, categories, and terms we can use some new commands to explore the glossary.
 We will start with the `List Glossaries` command. This command will list all the glossaries that are available to us.
 
 ___
 
-# List Glossaries
+## List Glossaries
 
 ___
 
@@ -312,15 +312,15 @@ Lets go ahead and give these commands a try:
 
 ___
 
-# List Categories
-## Output Format
+## List Categories
+### Output Format
 REPORT
 
 ___
-# List Terms
-## Output Format
+## List Terms
+### Output Format
 DICT
-## Glossary Name
+### Glossary Name
 Glossary::Egeria-Markdown
 ___
 

@@ -6,65 +6,65 @@ glossary to make it a truly useful aid for the Dr.Egeria user. Once we have adde
 continue to work with the terms using the `hey_egeria` commands.
 ___ 
 
-# Create Term
+## Create Term
 
-## Term Name
+### Term Name
 
 Display
 
-## Owning Glossary
+### Owning Glossary
 
 Glossary::Egeria-Markdown
 
-## Categories
+### Categories
 
 Processing Dr.Egeria Markdown
 
-## Summary
+### Summary
 
 This is a processing directive to Dr.Egeria to request that the input text be processed for display only.
 
-## Description
+### Description
 
 This is a processing directive to Dr.Egeria commands to request that the input text be processed and displaying. This is
 useful to validate that the command processor is able to open the input text and shows that the environment is able to
 process the text.
 
-## Abbreviation
+### Abbreviation
 
-## Examples
+### Examples
 
-## Usage
+### Usage
 
-## Version
+### Version
 
-## Status
+### Status
 
 DRAFT
 
-## Qualified Name
+### Qualified Name
 
 ___
 
 
-# Create Term
+## Create Term
 
-## Term Name
+### Term Name
 
 Validate
 
-## Owning Glossary
+### Owning Glossary
 
 Glossary::Egeria-Markdown
 
-## Categories
+### Categories
 
 Processing Dr.Egeria Markdown
 
-## Summary
+### Summary
 A processing directive to Dr.Egeria to request that the input text be validated for conformance to Dr. Egeria syntax
 with the results being displayed and, depending on results, an output file incorporating suggested changes will be produced.
-## Description
+### Description
 A processing directive to Dr.Egeria to request that the input text be validated for conformance to Dr. Egeria syntax. 
 
 The results are displayed in the console, and include labeled messages. The labels may be:
@@ -77,9 +77,9 @@ Additional descriptive messages are also displayed. In some cases, for example i
 object that already exists, we will also produce an output file that replaces the `Create` with an `Update` command.
 
 
-## Abbreviation
+### Abbreviation
 
-## Examples
+### Examples
 Default values for key environment variables in the **Egeria Workspaces** environment:
 * EGERIA_ROOT_PATH=/home/jovyan
 * EGERIA_INBOX_PATH=loading-bay/dr-egeria-inbox
@@ -88,57 +88,57 @@ Default values for key environment variables in the **Egeria Workspaces** enviro
 
 So place input files in the `loading-bay/dr-egeria-inbox` folder and look for output files in `distribution-hub/dr-egeria-outbox`.
 
-## Usage
+### Usage
 The EGERIA_ROOT_PATH is generally going to be set depending on what kind of environment you are using. For **Egeria Workspaces**,
 when using the Jupyter environment, it will be set to Jupyter's default, which is `/home/jovyan`. 
 * The location of the input file is based on the environment variables EGERIA_ROOT_PATH and EGERIA_INPUT_PATH.
 * The output file will be written to the directory specified by the EGERIA_ROOT_PATH and EGERIA_OUTPUT_PATH environment
 variables.
 
-## Version
+### Version
 .1
-## Status
+### Status
 
 DRAFT
 
-## Qualified Name
+### Qualified Name
 
 ___
 
-# Create Term
+## Create Term
 
-## Term Name
+### Term Name
 
 Process
 
-## Owning Glossary
+### Owning Glossary
 
 Glossary::Egeria-Markdown
 
-## Categories
+### Categories
 
 Processing Dr.Egeria Markdown
 
-## Summary
+### Summary
 The process directive indicates that we should apply the requested commands to Egeria if they are valid. 
 
-## Description
+### Description
 The process directive indicates that we should apply the requested commands to Egeria if they are valid. Informational 
 messages are provided on the console. A new file is produced that reflects the updates made and is designed to make
 it easy to make further changes using the contents. For example, `Create` commands from the input file are written
 out as `Update` statements in the output file. Qualified names and GUIDs generated during the create process are added
 to the definitions in the output file.
 
-## Abbreviation
+### Abbreviation
 
-## Examples
+### Examples
 Default values for key environment variables in the **Egeria Workspaces** environment:
 * EGERIA_ROOT_PATH=/home/jovyan
 * EGERIA_INBOX_PATH=loading-bay/dr-egeria-inbox
 * EGERIA_OUTBOX_PATH=distribution-hub/dr-egeria-outbox
 * EGERIA_LOCAL_QUALIFIER=EGERIA
 
-## Usage
+### Usage
 During processing, informational messages will be displayed on the console. Please see the term entry for `Validate` for 
 further description.
 
@@ -148,45 +148,45 @@ when using the Jupyter environment, it will be set to Jupyter's default, which i
 * The output file will be written to the directory specified by the EGERIA_ROOT_PATH and EGERIA_OUTPUT_PATH environment
 variables.
 
-## Version
+### Version
 0.1
-## Status
+### Status
 
 DRAFT
 
-## Qualified Name
+### Qualified Name
 
 ___
 
-# Create Term
+## Create Term
 
-## Term Name
+### Term Name
 
 Create Glossary
 
-## Owning Glossary
+### Owning Glossary
 
 Glossary::Egeria-Markdown
 
-## Categories
+### Categories
 
 Writing Dr.Egeria Markdown
 
-## Summary
+### Summary
 Create a new Egeria glossary.
 
-## Description
+### Description
 Create a new Egeria glossary with attributes for:
 * Language
 * Description
 * Usage
 
-## Abbreviation
+### Abbreviation
 
-## Examples
+### Examples
 
 
-## Usage
+### Usage
 
 | Attribute Name | Input Required? | Read Only | Generated/Default? | Unique? | Notes                                                                                                    |
 |:---------------|:----------------|-----------|:-------------------|:--------|:---------------------------------------------------------------------------------------------------------|
@@ -198,41 +198,41 @@ Create a new Egeria glossary with attributes for:
 | GUID           | No              | Yes       | Yes                | Yes     | GUIDs are always generated by Egeria. They are meant for automation, not people.                         |
 
 
-## Version
+### Version
 0.1
-## Status
+### Status
 
 DRAFT
 
-## Qualified Name
+### Qualified Name
 
 ___
 
-# Create Term
+## Create Term
 
-## Term Name
+### Term Name
 
 Update Glossary
 
-## Owning Glossary
+### Owning Glossary
 
 Glossary::Egeria-Markdown
 
-## Categories
+### Categories
 
 Writing Dr.Egeria Markdown
 
-## Summary
+### Summary
 Updates the definition of an existing Egeria glossary. The provided values **Replace** all original values.
 
-## Description
+### Description
 This updates an existing Egeria glossary. The supplied attribute values are merged into the existing definition.
 
-## Abbreviation
+### Abbreviation
 
-## Examples
+### Examples
 
-## Usage
+### Usage
 
 
 | Attribute Name | Input Required? | Read Only | Generated/Default? | Unique? | Notes                                                                                                    |
@@ -245,42 +245,42 @@ This updates an existing Egeria glossary. The supplied attribute values are merg
 | GUID           | No              | Yes       | Yes                | Yes     | GUIDs are always generated by Egeria. They are meant for automation, not people.                         |
 
 
-## Version
+### Version
 0.1
-## Status
+### Status
 
 DRAFT
 
-## Qualified Name
+### Qualified Name
 
 ___
 
-# Create Term
+## Create Term
 
-## Term Name
+### Term Name
 
 Create Category
 
-## Owning Glossary
+### Owning Glossary
 
 Glossary::Egeria-Markdown
 
-## Categories
+### Categories
 
 Writing Dr.Egeria Markdown
 
-## Summary
+### Summary
 Create a new glossary category in the specified glossary.
 
-## Description
+### Description
 Creates a new glossary category in the specified glossary. Categories can be used to categorize glossary terms.
 A category has an optional description.
 
-## Abbreviation
+### Abbreviation
 
-## Examples
+### Examples
 
-## Usage
+### Usage
 Glossary categories have the following attributes:
 
 
@@ -293,42 +293,42 @@ Glossary categories have the following attributes:
 | GUID            | No              | Yes       | Yes                | Yes     | GUIDs are always generated by Egeria. They are meant for automation, not people.                         |
                                                                                 |
 
-## Version
+### Version
 0.1
-## Status
+### Status
 
 DRAFT
 
-## Qualified Name
+### Qualified Name
 
 ___
 
-# Create Term
+## Create Term
 
-## Term Name
+### Term Name
 
 Update Category
 
-## Owning Glossary
+### Owning Glossary
 
 Glossary::Egeria-Markdown
 
-## Categories
+### Categories
 
 Writing Dr.Egeria Markdown
 
-## Summary
+### Summary
 Updates the definition of an existing Egeria category.
 
 
-## Description
+### Description
 Updates the definition of an existing category. Currently the only field that can be updated is the `Description`.
 The provided values **Replace** all original values.
-## Abbreviation
+### Abbreviation
 
-## Examples
+### Examples
 
-## Usage
+### Usage
 Glossary categories have the following attributes:
 
 
@@ -340,42 +340,42 @@ Glossary categories have the following attributes:
 | Qualified Name  | No              | No        | Yes                | Yes     | The qualified name can either be provided by the user or generated. If generated, a pattern is followed. |
 | GUID            | No              | Yes       | Yes                | Yes     | GUIDs are always generated by Egeria. They are meant for automation, not people.                         |
 
-## Version
+### Version
 0.1
-## Status
+### Status
 
 DRAFT
 
-## Qualified Name
+### Qualified Name
 
 ___
 
-# Create Term
+## Create Term
 
-## Term Name
+### Term Name
 
 Create Term
 
-## Owning Glossary
+### Owning Glossary
 
 Glossary::Egeria-Markdown
 
-## Categories
+### Categories
 
 Writing Dr.Egeria Markdown
 
-## Summary
+### Summary
 Create a new glossary term with the given attributes in the specified Egeria glossary.
 
-## Description
+### Description
 A glossary term represents a semantic definition. Most commonly business terminology and concepts. The flexibility and ability to structure
  glossary terms leads to many more uses as well.
 
-## Abbreviation
+### Abbreviation
 
-## Examples
+### Examples
 
-## Usage
+### Usage
 A glossary term has the following core attributes. Additional attributes, relationships and classifications can be added.
 
 
@@ -395,44 +395,44 @@ A glossary term has the following core attributes. Additional attributes, relati
 | GUID               | No              | Yes       | Yes                | Yes     | GUIDs are always generated by Egeria. They are meant for automation, not people.                         |
 | Update Description | No              | No        | No                 | No      | Updates can have an update description added to the term's note log.                                     |
 
-## Version
+### Version
 0.1
-## Status
+### Status
 
 DRAFT
 
-## Qualified Name
+### Qualified Name
 
 ___
 
-# Create Term
+## Create Term
 
-## Term Name
+### Term Name
 
 Update Term
 
-## Owning Glossary
+### Owning Glossary
 
 Glossary::Egeria-Markdown
 
-## Categories
+### Categories
 
 Writing Dr.Egeria Markdown
 
-## Summary
+### Summary
 Updates the definition of an existing Egeria glossary term.
 
-## Description
+### Description
 
 Updates an existing glossary term. The provided values **Replace** all original values.
 A glossary term represents a semantic definition. Most commonly business terminology and concepts. The flexibility and ability to structure
  glossary terms leads to many more uses as well.
 
-## Abbreviation
+### Abbreviation
 
-## Examples
+### Examples
 
-## Usage
+### Usage
 A glossary term has the following core attributes. Additional attributes, relationships and classifications can be added.
 
 
@@ -454,35 +454,35 @@ A glossary term has the following core attributes. Additional attributes, relati
 | Update Description | No              | No        | No                 | No      | Updates can have an update description added to the term's note log.                                     |
 
 
-## Version
+### Version
 0.1
-## Status
+### Status
 
 DRAFT
 
-## Qualified Name
+### Qualified Name
 
 
 ___
 
-# Create Term
+## Create Term
 
-## Term Name
+### Term Name
 
 Provenance
 
-## Owning Glossary
+### Owning Glossary
 
 Glossary::Egeria-Markdown
 
-## Categories
+### Categories
 
 Processing Dr.Egeria Markdown
 
-## Summary
+### Summary
 The `Provenance` command is used by Dr.Egeria to indicate the history of the Dr.Egeria input file.
 
-## Description
+### Description
 When a Dr.Egeria input file is processed, it will look for a `Provenance` command. If one is not found, 
 a new `Provenance` section will be created. Processing information (name of the file and timestamp) are appended
 to this section. If a Dr.Egeria file is processed multiple times, a history of this processing will be created (presuming
@@ -492,52 +492,52 @@ scenarios would make use of more robust mechanisms such as version control and d
 Additionally, it is important to note that Egeria automatically maintains an audit history for each element. Additional
 features for maintaining an update journal are also planned for Dr.Egeria.
 
-## Abbreviation
+### Abbreviation
 
-## Examples
+### Examples
 
 
-## Usage
+### Usage
 Provenancce information is filled out automatically by Dr.Egeria.
 
-## Version
+### Version
 0.1
-## Status
+### Status
 
 DRAFT
 
-## Qualified Name
+### Qualified Name
 
 
 ___
 
-# Create Term
+## Create Term
 
-## Term Name
+### Term Name
 
 Create Personal Project
 
-## Owning Glossary
+### Owning Glossary
 
 Glossary::Egeria-Markdown
 
-## Categories
+### Categories
 
 Writing Dr.Egeria Markdown
 
-## Summary
+### Summary
 
 This command defines a new personal project within Egeria. 
-## Description
+### Description
 As the name suggests, personal projects are used by individuals to help projects that only involve them. While Egeria supports
 several kinds of project, personal projects may be of particular interest to data scientists looking to track their
 experiments.
 
-## Abbreviation
+### Abbreviation
 
-## Examples
+### Examples
 
-## Usage
+### Usage
 Dr.Egeria processes uses the following attributes for a personal project:
 
 
@@ -555,43 +555,43 @@ Dr.Egeria processes uses the following attributes for a personal project:
 | GUID               | No              | Yes       | Yes                | Yes     | GUIDs are always generated by Egeria. They are meant for automation, not people.                         |
                                                                                     
 
-## Version
+### Version
 0.1
-## Status
+### Status
 
 DRAFT
 
-## Qualified Name
+### Qualified Name
 
 ___
 
-# Create Term
+## Create Term
 
-## Term Name
+### Term Name
 
 Update Personal Project
 
-## Owning Glossary
+### Owning Glossary
 
 Glossary::Egeria-Markdown
 
-## Categories
+### Categories
 
 Writing Dr.Egeria Markdown
 
-## Summary
+### Summary
 
 Update an existing Egeria personal project.
 
-## Description
+### Description
 
 Update an en existing Egeria personal project.
 
-## Abbreviation
+### Abbreviation
 
-## Examples
+### Examples
 
-## Usage
+### Usage
 Dr.Egeria processes uses the following attributes for a personal project:
 
 
@@ -608,33 +608,33 @@ Dr.Egeria processes uses the following attributes for a personal project:
 | Qualified Name     | No              | No        | Yes                | Yes     | The qualified name can either be provided by the user or generated. If generated, a pattern is followed. |
 | GUID               | No              | Yes       | Yes                | Yes     | GUIDs are always generated by Egeria. They are meant for automation, not people.                         |
 
-## Version
+### Version
 0.2
-## Status
+### Status
 
 DRAFT
 
 ___
 
-# Create Term
+## Create Term
 
-## Term Name
+### Term Name
 
 Create Term-Term Relationship
 
-## Owning Glossary
+### Owning Glossary
 
 Glossary::Egeria-Markdown
 
-## Categories
+### Categories
 
 Writing Dr.Egeria Markdown
 
-## Summary
+### Summary
 
 Creates a relationship between two terms.
 
-## Description
+### Description
 
 Creates a relationship between two terms. Supported relationship types are:\n
 - `Synonym` - A term is a synonym of another term.
@@ -652,11 +652,11 @@ Creates a relationship between two terms. Supported relationship types are:\n
 - `TermISARelationship` - A term is a relationship defined by another term.
 - `ISARelationship` - A term ISA another term.
 
-## Abbreviation
+### Abbreviation
 
-## Examples
+### Examples
 
-## Usage
+### Usage
 Dr.Egeria processes uses the following attributes for a personal project:
 
 
@@ -669,31 +669,31 @@ Dr.Egeria processes uses the following attributes for a personal project:
 
 ___
 
-# Create Term
+## Create Term
 
-## Term Name
+### Term Name
 
 List Glossaries
 
-## Owning Glossary
+### Owning Glossary
 
 Glossary::Egeria-Markdown
 
-## Categories
+### Categories
 
 Writing Dr.Egeria Markdown
 
-## Summary
+### Summary
 
 List the glossaries that are defined in Egeria.
 
-## Description
+### Description
 List the glossaries that are defined in Egeria.
-## Abbreviation
+### Abbreviation
 
-## Examples
+### Examples
 
-## Usage
+### Usage
 List Gloosaries has the following attributes:
 
 
@@ -713,35 +713,35 @@ Lets describe the output formats a bit further:
 
 ___
 
-# Create Term
+## Create Term
 
-## Term Name
+### Term Name
 
 List Categories
 
-## Owning Glossary
+### Owning Glossary
 
 Glossary::Egeria-Markdown
 
-## Categories
+### Categories
 
 Writing Dr.Egeria Markdown
 
-## Summary
+### Summary
 
 List the categories that are defined in a glossary.
 
-## Description
+### Description
 List the categories that are defined in Egeria. Optionally filter based on a search string.
 
-## Alias
+### Alias
 List Glossary Categories
 
-## Abbreviation
+### Abbreviation
 
-## Examples
+### Examples
 
-## Usage
+### Usage
 List Categories has the following attributes:
 
 
@@ -764,35 +764,35 @@ ___
 
 ___
 
-# Create Term
+## Create Term
 
-## Term Name
+### Term Name
 
 List Terms
 
-## Owning Glossary
+### Owning Glossary
 
 Glossary::Egeria-Markdown
 
-## Categories
+### Categories
 
 Writing Dr.Egeria Markdown
 
-## Summary
+### Summary
 
 List the terms that are defined in a glossary. O
 
-## Description
+### Description
 List the terms that are defined in Egeria. optionally filter based on a search string and glossary name.
 
-## Alias
+### Alias
 List Glossary Terms
 
-## Abbreviation
+### Abbreviation
 
-## Examples
+### Examples
 
-## Usage
+### Usage
 
 List Categories has the following attributes:
 
@@ -811,35 +811,35 @@ Lets describe the output formats a bit further:
 * REPORT - This returns markdown text of the categories that is designed to be more readable and perhaps suitable to be used in a report.
 
 
-# Create Term
+## Create Term
 
-## Term Name
+### Term Name
 
 List Categories
 
-## Owning Glossary
+### Owning Glossary
 
 Glossary::Egeria-Markdown
 
-## Categories
+### Categories
 
 Writing Dr.Egeria Markdown
 
-## Summary
+### Summary
 
 List the categories that are defined in a glossary.
 
-## Description
+### Description
 List the categories that are defined in Egeria. Optionally filter based on a search string.
 
-## Alias
+### Alias
 List Glossary Categories
 
-## Abbreviation
+### Abbreviation
 
-## Examples
+### Examples
 
-## Usage
+### Usage
 
 List Categories has the following attributes:
 
@@ -863,35 +863,35 @@ ___
 
 ___
 
-# Create Term
+## Create Term
 
-## Term Name
+### Term Name
 
 List Term History
 
-## Owning Glossary
+### Owning Glossary
 
 Glossary::Egeria-Markdown
 
-## Categories
+### Categories
 
 Writing Dr.Egeria Markdown
 
-## Summary
+### Summary
 
 List the version history of a term.
 
-## Description
+### Description
 List the terms that are defined in Egeria. optionally filter based on a search string and glossary name.
 
-## Alias
+### Alias
 Term History
 
-## Abbreviation
+### Abbreviation
 
-## Examples
+### Examples
 
-## Usage
+### Usage
 
 List Term History has the following attributes:
 
@@ -909,36 +909,36 @@ Lets describe the output formats a bit further:
 ___
 
 
-# Create Term
+## Create Term
 
-## Term Name
+### Term Name
 
 List Term Revision History
 
-## Owning Glossary
+### Owning Glossary
 
 Glossary::Egeria-Markdown
 
-## Categories
+### Categories
 
 Writing Dr.Egeria Markdown
 
-## Summary
+### Summary
 
 List the note log documenting the revision history of a term.
 
-## Description
+### Description
 Lis the note log documenting the revision history of a term. Entries in the note log are created when a term is updated and
 the `Update Description` attribute is set.
 
-## Alias
+### Alias
 List Term Update History
 
-## Abbreviation
+### Abbreviation
 
-## Examples
+### Examples
 
-## Usage
+### Usage
 
 List Term Revision History has the following attributes:
 
@@ -957,34 +957,34 @@ Lets describe the output formats a bit further:
 ___
 
 
-# Create Term
+## Create Term
 
-## Term Name
+### Term Name
 
 List Term Details
 
-## Owning Glossary
+### Owning Glossary
 
 Glossary::Egeria-Markdown
 
-## Categories
+### Categories
 
 Writing Dr.Egeria Markdown
 
-## Summary
+### Summary
 
 List the details of a term, including related terms.
 
-## Description
+### Description
 List the details of a term, including related terms.
 
-## Alias
+### Alias
 
-## Abbreviation
+### Abbreviation
 
-## Examples
+### Examples
 
-## Usage
+### Usage
 
 List Term Details has the following attributes:
 
@@ -1001,34 +1001,34 @@ Lets describe the output formats a bit further:
 
 ___
 
-# Create Term
+## Create Term
 
-## Term Name
+### Term Name
 
 List Glossary Structure
 
-## Owning Glossary
+### Owning Glossary
 
 Glossary::Egeria-Markdown
 
-## Categories
+### Categories
 
 Writing Dr.Egeria Markdown
 
-## Summary
+### Summary
 
 List the category structure of a glossary.
 
-## Description
+### Description
 List the category structure of a glossary.
 
-## Alias
+### Alias
 
-## Abbreviation
+### Abbreviation
 
-## Examples
+### Examples
 
-## Usage
+### Usage
 
 List Glossary Structure has the following attributes:
 
@@ -1047,7 +1047,7 @@ Lets describe the output formats a bit further:
 ___
 
 
-# All Glossary Commands have Terms created.
+## All Glossary Commands have Terms created.
 
 Whew! Getting to be quite a number of glossary commands. There will be more in the future but this gives us a robust start
 for creating and managing glossaries. Note that while Dr.Egeria supports creation and updates, we have chosen to leave
@@ -1057,17 +1057,17 @@ Now lets take a look at our handiwork by listing the commands in the `Egeria-Mar
 
 ___
 
-# List Terms
-## Glossary Name
+## List Terms
+### Glossary Name
 Egeria-Markdown
 
 ___
 
-# Next steps
+## Next steps
 
 In our next installment we will create a category hierarchy and update some terms to use it.
 
 
 
-# Provenance
+## Provenance
 

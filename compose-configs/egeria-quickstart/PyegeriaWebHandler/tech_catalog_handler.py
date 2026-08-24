@@ -5,7 +5,7 @@ Copyright Contributors to the ODPi Egeria project.
 Technical Asset Catalog — FastAPI router.
 
 Serves the tech-catalog SPA and provides backend API endpoints for all
-nine asset-type sections defined in technical_data_catalog_spec.md.
+nine asset-type sections defined in ../../../design-docs/technical_data_catalog_spec.md.
 
 Endpoints:
   GET /tech-catalog                              → serve tech-catalog.html SPA
