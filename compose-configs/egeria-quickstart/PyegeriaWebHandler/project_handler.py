@@ -18,7 +18,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
-from common_serialize import _authored_fields, _header_summary, _generic_relationships
+from common_serialize import _authored_fields, _header_summary, _generic_relationships, _classifications
 from egeria_error_mapping import raise_egeria_http_error, EGERIA_ERROR_RESPONSES
 
 router = APIRouter(tags=["projects"])
@@ -82,29 +82,6 @@ def _type_name(element: dict) -> str:
     return (_header(element).get("type") or {}).get("typeName", "") or ""
 
 
-def _extract_classifications(header: dict) -> list:
-    result = []
-    for cls in (header.get("classifications") or []):
-        if not isinstance(cls, dict):
-            continue
-        cls_header = cls.get("classificationHeader") or cls.get("header") or cls
-        type_name  = (cls_header.get("type") or {}).get("typeName") or cls_header.get("classificationName") or ""
-        if not type_name or type_name == "TemplateSubstitute":
-            continue
-        cls_props  = cls.get("classificationProperties") or cls.get("properties") or {}
-        flat_props = {}
-        if isinstance(cls_props, dict):
-            prop_map = cls_props.get("propertyValueMap") or {}
-            for k, v in prop_map.items():
-                flat_props[k] = v.get("primitiveValue", "") if isinstance(v, dict) else str(v)
-            if not flat_props:
-                for k, v in cls_props.items():
-                    if k not in ("class", "propertyValueMap", "propertiesAsStrings"):
-                        flat_props[k] = str(v)
-        result.append({"typeName": type_name, "properties": flat_props})
-    return result
-
-
 def _serialize_project(element: dict) -> dict:
     props  = _props(element)
     header = _header(element)
@@ -118,7 +95,7 @@ def _serialize_project(element: dict) -> dict:
         "startDate":      props.get("startDate") or "",
         "plannedEndDate": props.get("plannedEndDate") or "",
         "status":         header.get("status") or "",
-        "classifications": _extract_classifications(header),
+        "classifications": _classifications(element),
         "_header":        _header_summary(element),
         **_authored_fields(element),
         "relationships":  _generic_relationships(element),
