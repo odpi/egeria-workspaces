@@ -267,7 +267,7 @@ Clinical Trial Data Integrity Failure
 CocoPharma::Threat::ClinicalTrialDataIntegrityFailure
 
 ### Domain Identifier
-DATA
+20
 
 ### Summary
 Clinical trial data may be falsified, lost, or otherwise fail to meet the integrity standards required by FDA regulations.
@@ -310,7 +310,7 @@ Manufacturing Quality Deviation
 CocoPharma::Threat::ManufacturingQualityDeviation
 
 ### Domain Identifier
-DATA
+MANUFACTURING
 
 ### Summary
 Manufacturing data may fail to demonstrate that products were consistently produced and controlled to the standard required by Good Manufacturing Practice.
@@ -664,7 +664,7 @@ Loss of Clinical Trial Data Integrity
 CocoPharma::Risk::ClinicalTrialDataIntegrityLoss
 
 ### Domain Identifier
-DATA
+20
 
 ### Summary
 Clinical trial data could lose the completeness, accuracy, or auditability required by FDA regulations, whether through system failure or human error.
@@ -707,7 +707,7 @@ Manufacturing Batch Records Failing GMP Traceability Requirements
 CocoPharma::Risk::GMPBatchRecordNonCompliance
 
 ### Domain Identifier
-DATA
+MANUFACTURING
 
 ### Summary
 Manufacturing batch records could be incomplete or fail to trace back to raw material sourcing, breaching Good Manufacturing Practice requirements.

@@ -1,4 +1,4 @@
-# Coco Pharmaceuticals Data Security Program
+# Coco Pharmaceuticals — Data Security Strategy
 
 > **Author:** Ivor Padlock (Chief Information Security Officer), Sidney Seeker (Security Consultant), Simon Burr (Cyber-Security Specialist)  
 > **Version:** 1.0  
@@ -502,6 +502,10 @@ ___
 
 ---
 
+### 2.3 Data Processing Purposes
+
+The data processing purposes declared by this domain are defined in `6. data-privacy/data-processing-purposes.md`, together with those of every other domain and the links that connect them to the policies they implement. They remain owned by this domain and members of its folio; they are gathered there so that the lawful bases can be reviewed as a set.
+
 ## Part 3: Governance Links
 
 This section links the policies and controls defined above to the drivers, obligations, and risks already defined in the [Data Governance Program](data-governance-program.md) and the [Risk Register](risk-register.md).
@@ -752,23 +756,6 @@ ___
 
 ---
 
-___
-
-## Link Governance Policies
-
-### Governance Policy 1
-CocoPharma::GovernanceObligation::SecurityIncidentsLoggedReportedReviewed
-
-### Governance Policy 2
-CocoPharma::GovernanceObligation::DataQualityIssuesMustBeReportedAndResolved
-
-### Description
-Both obligations establish the same detect-report-resolve-within-timeframe pattern, one for security incidents and one for data quality issues, reinforcing a consistent approach to issue management across governance domains.
-
-___
-
----
-
 ## Part 4: Folio Membership
 
 The [Data Governance Program](data-governance-program.md) defines a Chief Information Security Officer Governance Folio collecting the definitions Ivor Padlock is accountable for. Every governance definition created in this document is added as a member of that folio, so it remains a complete view of the CISO's governance work.
@@ -974,3 +961,8 @@ The CISO uses this metric to track compliance with the security awareness traini
 VALIDATED
 
 ___
+
+---
+
+
+---
