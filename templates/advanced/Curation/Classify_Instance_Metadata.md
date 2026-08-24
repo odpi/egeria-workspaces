@@ -1,24 +1,14 @@
 ___
 
-## Detach Search Keyword
-> Remove a search keyword (0012 SearchKeyword), identified by the keyword entitys own GUID. Deletes the keyword entity itself, not just its link to an element.
+## Classify Instance Metadata
+> Classify an existing element as an instance of a metamodel type (0463: InstanceMetadata).
 
-### Label
->	**Input Required**: False
-
->	**Attribute Type**: Simple
-
->	**Description**: A label used to identify or categorise a relationship link.
-
->	**Alternative Labels**: Wire Label
-
-
-### Search Keyword GUID
->	**Input Required**: False
+### Target Element
+>	**Input Required**: True
 
 >	**Attribute Type**: Reference Name
 
->	**Description**: The unique identifier of the SearchKeyword entity itself (0012), as opposed to the element it is attached to. Required for Update/Detach; not used for Attach (which creates a new keyword).
+>	**Description**: Qualified name of the existing element being classified or linked.
 
 
 ### Journal Entry
@@ -101,22 +91,24 @@ ___
 >	**Description**: A user provided or system generated request id for a conversation.
 
 
-### Anchor Scope IDs
+### Instance Metadata Type Name
 >	**Input Required**: False
 
->	**Attribute Type**: Reference Name List
+>	**Attribute Type**: Simple
 
->	**Description**: A list of IDs that are anchor scopes for this element.
+>	**Description**: The name of the metamodel type that this instance-metadata element is an instance of.
 
 
-### Make Anchor
+### Additional Properties
 >	**Input Required**: False
 
->	**Attribute Type**: Bool
+>	**Attribute Type**: Dictionary
 
->	**Description**: Is the element at end2 an anchor to end1?
+>	**Description**: Additional Properties  allow arbitrary properties not defined in the type definitions to be added to any referenceable element.
 
->	**Default Value**: false
+>	| Parameter Name | Parameter Value |
+>	|---|---|
+>	| example_key | example_value |
 
 
 ___

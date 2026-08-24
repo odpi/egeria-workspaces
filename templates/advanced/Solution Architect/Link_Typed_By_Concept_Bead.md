@@ -1,7 +1,23 @@
 ___
 
-## Detach Search Keyword
-> Remove a search keyword (0012 SearchKeyword), identified by the keyword entitys own GUID. Deletes the keyword entity itself, not just its link to an element.
+## Link Typed By Concept Bead
+> Attach a concept bead attribute to the concept bead that types it.
+
+### Concept Bead Attribute
+>	**Input Required**: True
+
+>	**Attribute Type**: Reference Name
+
+>	**Description**: The Concept Bead Attribute to reference.
+
+
+### Concept Bead
+>	**Input Required**: True
+
+>	**Attribute Type**: Reference Name
+
+>	**Description**: The Concept Bead to reference.
+
 
 ### Label
 >	**Input Required**: False
@@ -11,14 +27,6 @@ ___
 >	**Description**: A label used to identify or categorise a relationship link.
 
 >	**Alternative Labels**: Wire Label
-
-
-### Search Keyword GUID
->	**Input Required**: False
-
->	**Attribute Type**: Reference Name
-
->	**Description**: The unique identifier of the SearchKeyword entity itself (0012), as opposed to the element it is attached to. Required for Update/Detach; not used for Attach (which creates a new keyword).
 
 
 ### Journal Entry
