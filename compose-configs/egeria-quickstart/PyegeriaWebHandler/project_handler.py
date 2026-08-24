@@ -82,6 +82,40 @@ def _type_name(element: dict) -> str:
     return (_header(element).get("type") or {}).get("typeName", "") or ""
 
 
+def _project_kinds(element: dict) -> list:
+    """Project's ProjectKind classifications (Campaign/Task/PersonalProject/
+    GovernanceProject/StudyProject/...) -- a real, distinct gap from
+    common_serialize._classifications(), found live 2026-08-24 investigating
+    "classifications aren't displayed": that helper only handles the common
+    shape (one classification = one singular named key directly on
+    elementHeader, e.g. elementHeader["Anchors"]). ProjectKind doesn't use
+    that shape at all -- a project can carry MULTIPLE kinds simultaneously
+    (confirmed live: "Clinical Trials Management" carries both Campaign and
+    GovernanceProject), so Egeria groups them under one PLURAL list key,
+    elementHeader["projectKinds"], instead. 23 of 30 live demo projects
+    carry a real kind here -- this was a real, substantial, entirely
+    invisible gap, not a missing-data non-issue like Anchors filtering was."""
+    result = []
+    for cls in (_header(element).get("projectKinds") or []):
+        if not isinstance(cls, dict):
+            continue
+        cls_name = cls.get("classificationName") or (cls.get("type") or {}).get("typeName") or ""
+        if not cls_name:
+            continue
+        cls_props_raw = cls.get("classificationProperties") or {}
+        flat = {}
+        if isinstance(cls_props_raw, dict):
+            for k, v in cls_props_raw.items():
+                if k in ("class", "typeName"):
+                    continue
+                if isinstance(v, list):
+                    flat[k] = ", ".join(str(i) for i in v)
+                elif not isinstance(v, dict):
+                    flat[k] = str(v)
+        result.append({"typeName": cls_name, "properties": flat})
+    return result
+
+
 def _serialize_project(element: dict) -> dict:
     props  = _props(element)
     header = _header(element)
@@ -95,7 +129,7 @@ def _serialize_project(element: dict) -> dict:
         "startDate":      props.get("startDate") or "",
         "plannedEndDate": props.get("plannedEndDate") or "",
         "status":         header.get("status") or "",
-        "classifications": _classifications(element),
+        "classifications": _project_kinds(element) + _classifications(element),
         "_header":        _header_summary(element),
         **_authored_fields(element),
         "relationships":  _generic_relationships(element),
