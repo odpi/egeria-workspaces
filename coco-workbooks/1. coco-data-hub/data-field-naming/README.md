@@ -12,6 +12,13 @@ and class words that are generic enough to be reused across many subject areas l
 `common-modifiers.md` and `common-class-words.md` instead of being repeated in every subject area. Both of
 those folders sit under a top-level `common.md` folder, alongside the subject area folders.
 
+Once all the terms exist, `classify-prime-words.md`, `classify-modifiers.md` and `classify-class-words.md`
+run the `Classify Prime Word` / `Classify Modifier` / `Classify Class Word` commands against them, attaching
+the `PrimeWord`, `Modifier` and `ClassWord` classifications from
+[0438 Naming Standards](https://egeria-project.org/types/4/0438-Naming-Standards/). The folder a term sits in
+says where it belongs in the vocabulary; the classification says the same thing on the term itself, so tools
+can tell an anchor noun from a qualifier from a value-type suffix without walking the collection hierarchy.
+
 Each subject-area file also adds the new `CollectionFolder::DataFieldNaming:<name>` folder as a member of the
 corresponding `SubjectArea::<name>` collection (see `CocoSubjectAreaDefinition.java`, which defines the
 `SubjectArea::` qualified name pattern), so the governance subject area and its data field naming vocabulary
@@ -25,36 +32,42 @@ area's family, a parent must be processed before its children (e.g. `organizatio
 `organization-hospital.md`). The order below satisfies all dependencies:
 
 ```
-dr_egeria --directive process glossary.md
-dr_egeria --directive process organization.md
-dr_egeria --directive process organization-hospital.md
-dr_egeria --directive process organization-supplier.md
-dr_egeria --directive process person.md
-dr_egeria --directive process person-patient.md
-dr_egeria --directive process person-clinician.md
-dr_egeria --directive process person-employee.md
-dr_egeria --directive process person-collaborator.md
-dr_egeria --directive process clinical.md
-dr_egeria --directive process clinical-symptom.md
-dr_egeria --directive process clinical-measurement.md
-dr_egeria --directive process clinical-prescription.md
-dr_egeria --directive process clinical-outcome.md
-dr_egeria --directive process treatment.md
-dr_egeria --directive process treatment-product.md
-dr_egeria --directive process treatment-order.md
-dr_egeria --directive process treatment-recipe.md
-dr_egeria --directive process service-quality.md
-dr_egeria --directive process service-quality-contract.md
-dr_egeria --directive process service-quality-stock.md
-dr_egeria --directive process service-quality-distribution.md
-dr_egeria --directive process service-quality-invoice.md
-dr_egeria --directive process governance.md
-dr_egeria --directive process product-development.md
-dr_egeria --directive process product-development-clinical-trial.md
-dr_egeria --directive process common.md
-dr_egeria --directive process common-modifiers.md
-dr_egeria --directive process common-class-words.md
+dr_egeria --directive process --userid erinoverview --user_pass secret glossary.md
+dr_egeria --directive process --userid erinoverview --user_pass secret organization.md
+dr_egeria --directive process --userid erinoverview --user_pass secret organization-hospital.md
+dr_egeria --directive process --userid erinoverview --user_pass secret organization-supplier.md
+dr_egeria --directive process --userid erinoverview --user_pass secret person.md
+dr_egeria --directive process --userid erinoverview --user_pass secret person-patient.md
+dr_egeria --directive process --userid erinoverview --user_pass secret person-clinician.md
+dr_egeria --directive process --userid erinoverview --user_pass secret person-employee.md
+dr_egeria --directive process --userid erinoverview --user_pass secret person-collaborator.md
+dr_egeria --directive process --userid erinoverview --user_pass secret clinical.md
+dr_egeria --directive process --userid erinoverview --user_pass secret clinical-symptom.md
+dr_egeria --directive process --userid erinoverview --user_pass secret clinical-measurement.md
+dr_egeria --directive process --userid erinoverview --user_pass secret clinical-prescription.md
+dr_egeria --directive process --userid erinoverview --user_pass secret clinical-outcome.md
+dr_egeria --directive process --userid erinoverview --user_pass secret treatment.md
+dr_egeria --directive process --userid erinoverview --user_pass secret treatment-product.md
+dr_egeria --directive process --userid erinoverview --user_pass secret treatment-order.md
+dr_egeria --directive process --userid erinoverview --user_pass secret treatment-recipe.md
+dr_egeria --directive process --userid erinoverview --user_pass secret service-quality.md
+dr_egeria --directive process --userid erinoverview --user_pass secret service-quality-contract.md
+dr_egeria --directive process --userid erinoverview --user_pass secret service-quality-stock.md
+dr_egeria --directive process --userid erinoverview --user_pass secret service-quality-distribution.md
+dr_egeria --directive process --userid erinoverview --user_pass secret service-quality-invoice.md
+dr_egeria --directive process --userid erinoverview --user_pass secret governance.md
+dr_egeria --directive process --userid erinoverview --user_pass secret product-development.md
+dr_egeria --directive process --userid erinoverview --user_pass secret product-development-clinical-trial.md
+dr_egeria --directive process --userid erinoverview --user_pass secret common.md
+dr_egeria --directive process --userid erinoverview --user_pass secret common-modifiers.md
+dr_egeria --directive process --userid erinoverview --user_pass secret common-class-words.md
+dr_egeria --directive process --userid erinoverview --user_pass secret classify-prime-words.md
+dr_egeria --directive process --userid erinoverview --user_pass secret classify-modifiers.md
+dr_egeria --directive process --userid erinoverview --user_pass secret classify-class-words.md
 ```
+
+The three `classify-*.md` files must come last: they classify terms rather than create them, so every
+term they reference has to exist first.
 
 ## Files
 
@@ -89,3 +102,6 @@ dr_egeria --directive process common-class-words.md
 | [common.md](common.md) | *(top-level folder for shared terms)* | - |
 | [common-modifiers.md](common-modifiers.md) | *(shared across subject areas)* | Common |
 | [common-class-words.md](common-class-words.md) | *(shared across subject areas)* | Common |
+| [classify-prime-words.md](classify-prime-words.md) | *(`PrimeWord` on 56 terms)* | - |
+| [classify-modifiers.md](classify-modifiers.md) | *(`Modifier` on 44 terms)* | - |
+| [classify-class-words.md](classify-class-words.md) | *(`ClassWord` on 46 terms)* | - |

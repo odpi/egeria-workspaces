@@ -1,0 +1,39 @@
+{
+ "name_fixes": {
+   "Sourcespecific Payload": "Source-Specific Payload",
+   "Targetspecific Payload": "Target-Specific Payload",
+   "Canonicalbased Payload": "Canonical-Based Payload",
+   "Entrylevel Structure": "Entry-Level Structure",
+   "Functioncentric Access": "Function-Centric Access",
+   "Data -Centric Access": "Data-Centric Access",
+   "Separation Of Duties": "Separation of Duties",
+   "Caller'skey": "Caller's Key",
+   "Extended Coverage Local Coverage": null
+ },
+ "extra": [
+  {"page":316,"name":"Core Coverage","group":"Information Collection",
+   "problem":"An organization needs an index of the instances of a particular subject area.",
+   "solution":"Create an information collection that supports the minimal set of attributes necessary to understand the critical values that identify each unique instance within the subject area."},
+  {"page":317,"name":"Extended Coverage","group":"Information Collection",
+   "problem":"An organization needs an information collection that can store all of the attributes required by a diverse range of information processes.",
+   "solution":"Create an information collection that supports the minimal set of attributes necessary to understand the essence of each instance within the subject area plus any additional attributes needed by the consuming information processes."},
+  {"page":317,"name":"Local Coverage","group":"Information Collection",
+   "problem":"An information node needs to store the attributes used by its locally hosted information processes.",
+   "solution":"Create an information collection that just has the attributes to support the consuming information processes."},
+  {"page":347,"name":"Local Locking","group":"Information Entry",
+   "problem":"An information node needs to ensure each process it is performing in parallel works with consistent information during its lifetime.",
+   "solution":"Provide the ability for an information process to lock information entries locally within the information collection."},
+  {"page":347,"name":"Distributed Locking","group":"Information Entry",
+   "problem":"An information node needs to coordinate changes to information in multiple information nodes.",
+   "solution":"Provide a pessimistic locking scheme in each of the called information nodes that can be controlled by the calling information node."},
+  {"page":347,"name":"Optimistic Locking","group":"Information Entry",
+   "problem":"When an occasional change is made to an information entry, it should have minimal performance impact on the frequently occurring read operations.",
+   "solution":"Use an optimistic locking scheme where the update() operation passes in the time stamp of the information entry when it retrieved it. If no changes have been made since then, the update() succeeds. Otherwise, it is rejected."},
+  {"page":348,"name":"Proxy","group":"Information Entry",
+   "problem":"Some of the values for an information entry are located in a remote information node.",
+   "solution":"Use an information service to retrieve the remote values whenever the entry is requested."},
+  {"page":348,"name":"Provenance","group":"Information Entry",
+   "problem":"Where did the values from an information entry come from?",
+   "solution":"Record details of the originating source, provisioning mechanism, and time of creation or update with the entry."}
+ ]
+}

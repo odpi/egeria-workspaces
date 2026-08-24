@@ -33,7 +33,7 @@ You can load the definitions into Egeria in one of two ways:
 2. From the command line in JupyterLab. Make sure you are in this directory and issue the command:
 
     ```
-    dr_egeria --directive process naming-conventions.md
+    dr_egeria --directive process --userid garygeeke --user_pass secret naming-conventions.md
      
     ```
 

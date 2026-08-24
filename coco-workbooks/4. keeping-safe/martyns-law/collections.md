@@ -51,7 +51,7 @@ CollectionFolder::MartynsLawUK
 
 ### Membership Rationale
 
-Add Martyn's Law to the list of regulations suppported by the Security team.
+Add Martyn's Law to the list of regulations supported by the Security team.
 
 ### Membership Status
 
@@ -94,7 +94,7 @@ Glossary::MartynsLawUK
 
 ### Membership Rationale
 
-Add glossary description to the Martyn's Law Folder.
+Add this glossary description to the Martyn's Law Folder.
 
 ### Membership Status
 
