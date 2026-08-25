@@ -3141,16 +3141,48 @@ ___
 
 ___
 
+## Create Collection Folder
+
+### Display Name
+Pharmaceutical Manufacturing Regulations
+
+### Qualified Name
+CollectionFolder::Coco::Pharmaceutical Manufacturing Regulations
+
+### Purpose
+Groups the regulations governing how Coco Pharmaceuticals manufactures medicinal products, as a branch of pharmaceutical industry regulation.
+
+### Description
+Pharmaceutical industry regulation covers everything from trial conduct through manufacture to supply, and the manufacturing part of it is large enough and specific enough to be found on its own. This folder holds the Good Manufacturing Practice regimes and the computerised systems requirements that attach to them, across every jurisdiction the company manufactures in or supplies. It sits inside the Pharmaceutical Industry Regulations folder rather than directly in the Corporate Regulation Library, because manufacturing regulation is a branch of pharmaceutical regulation rather than a category alongside it.
+
+### Category
+Regulation Category
+
+### Authors
+Stew Faster
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+---
+
+___
+
 ## Add Member to Collection
 
 ### Collection Id
 CollectionFolder::Coco::Pharmaceutical Industry Regulations
 
 ### Element Id
-CollectionFolder::Coco::Clinical Trial Regulations
+CollectionFolder::Coco::Pharmaceutical Manufacturing Regulations
 
 ### Membership Rationale
-Clinical trial regulation is a branch of pharmaceutical industry regulation, so the clinical trial folder nests inside the pharmaceutical industry folder. Regulations placed in the clinical trial folder are therefore discoverable from the pharmaceutical industry folder without being added to it directly.
+Manufacturing regulation is a branch of pharmaceutical industry regulation, so the manufacturing folder sits inside the pharmaceutical industry folder rather than alongside it in the library.
 
 ### Membership Status
 VALIDATED
@@ -3164,7 +3196,7 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CollectionFolder::Coco::Pharmaceutical Industry Regulations
+CollectionFolder::Coco::Pharmaceutical Manufacturing Regulations
 
 ### Element Id
 CocoPharma::Regulation::GoodManufacturingPractice

@@ -174,28 +174,6 @@ You can load the definitions into Egeria in one of two ways:
 
 ----
 
-## Data Governance Program
-
-The file [data-governance-program.md](data-governance-program.md) contains the governance definitions created by the data governance team at Coco Pharmaceuticals.
-
-Its shape is unlike the other domain programs, and deliberately so.  The `DATA` domain owns only three governance drivers — the small number of problems that originate in how the organisation manages data itself, that no single domain can fix from inside its own boundary, and that surface as damage in several domains at once.  Everything else in the program responds to drivers owned elsewhere, which is why the file's Part 1 is short and its Part 4 is long.  A `DATA` policy that appears in neither section is governance without a customer.
-
-Read the file's Part 4.2 to see the service relationship expressed as links: data policies answering manufacturing, privacy, drug development, security and corporate drivers.
-
-You can load the definitions into Egeria in one of two ways:
-
-1. From Obsidian - open the `data-governance-program.md` file and click the suitcase icon labeled "Call Dr. Egeria (MCP)"
-2. From the command line in JupyterLab. Make sure you are in this directory and issue the command:
-
-    ```
-    dr_egeria --directive process --userid juleskeeper --user_pass secret data-governance-program.md
-     
-    ```
-
-The data governance program refers to definitions in the Joint Governance Officer Definitions, the Risk Register, and the manufacturing and drug development programs, so it benefits from the second pass described in the load order above.
-
-----
-
 ## Risk Register
 
 The file [risk register.md](risk-register.md) contains the Dr.Egeria commands to load Coco Pharmaceuticals risk register into Egeria. This register considers each of the threats affecting the company and captures its likelihood, impact and hence importance.  The idea of a risk register comes from the [cybersecurity team](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/assuring-it-systems-security/overview/) but there is a lot of contribution and ownership taken by the other governance leaders.
@@ -433,6 +411,28 @@ You can load the definitions into Egeria in one of two ways:
     ```
 
 Transport classification is drawn from the substance register in `health-and-safety.md` and the agent classification in `biological-agents-and-gmo.md`, and the file links to chain of identity and cold chain in `manufacturing-governance-program.md`, so load all three first.
+
+----
+
+## Data Governance Program
+
+The file [data-governance-program.md](data-governance-program.md) contains the governance definitions created by the data governance team at Coco Pharmaceuticals.
+
+Its shape is unlike the other domain programs, and deliberately so.  The `DATA` domain owns only three governance drivers — the small number of problems that originate in how the organisation manages data itself, that no single domain can fix from inside its own boundary, and that surface as damage in several domains at once.  Everything else in the program responds to drivers owned elsewhere, which is why the file's Part 1 is short and its Part 4 is long.  A `DATA` policy that appears in neither section is governance without a customer.
+
+Read the file's Part 4.2 to see the service relationship expressed as links: data policies answering manufacturing, privacy, drug development, security and corporate drivers.
+
+You can load the definitions into Egeria in one of two ways:
+
+1. From Obsidian - open the `data-governance-program.md` file and click the suitcase icon labeled "Call Dr. Egeria (MCP)"
+2. From the command line in JupyterLab. Make sure you are in this directory and issue the command:
+
+    ```
+    dr_egeria --directive process --userid juleskeeper --user_pass secret data-governance-program.md
+     
+    ```
+
+The data governance program refers to definitions in the Joint Governance Officer Definitions, the Risk Register, and the manufacturing and drug development programs, which is why it loads last.
 
 ----
 
