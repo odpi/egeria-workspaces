@@ -1529,10 +1529,64 @@ The regulations defined in this file are placed in the Corporate Regulation Libr
 
 ___
 
+## Create Collection Folder
+
+### Display Name
+Medicines Verification Regulations
+
+### Qualified Name
+CollectionFolder::Coco::Medicines Verification Regulations
+
+### Purpose
+Groups the regulations governing unique identifiers, verification and supply chain traceability for medicinal products.
+
+### Description
+These regulations govern the medicine after it has been made — how each pack is identified, how that identity is reported and checked, and how the chain of custody through distribution is evidenced. They are pharmaceutical industry regulation but they are not manufacturing practice, which is why they sit in their own folder alongside Pharmaceutical Manufacturing Regulations rather than within it. The regimes differ sharply by market: the EU operates a central repository model, Great Britain sits outside it while Northern Ireland follows it, and the US requires interoperable exchange between trading partners instead — so the folder holds parallel instruments governing the same packs.
+
+### Category
+Regulation Category
+
+### Authors
+- Stew Faster
+- Florence Paynter
+- George Pie
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+---
+
+___
+
 ## Add Member to Collection
 
 ### Collection Id
 CollectionFolder::Coco::Pharmaceutical Industry Regulations
+
+### Element Id
+CollectionFolder::Coco::Medicines Verification Regulations
+
+### Membership Rationale
+Medicines verification is a branch of pharmaceutical industry regulation, so the folder sits inside the pharmaceutical industry folder alongside the manufacturing regulations rather than alongside it in the library.
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+CollectionFolder::Coco::Medicines Verification Regulations
 
 ### Element Id
 CocoPharma::Regulation::EUFalsifiedMedicinesDirective
@@ -1552,7 +1606,7 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CollectionFolder::Coco::Pharmaceutical Industry Regulations
+CollectionFolder::Coco::Medicines Verification Regulations
 
 ### Element Id
 CocoPharma::Regulation::UKMedicinesVerification
@@ -1572,7 +1626,7 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CollectionFolder::Coco::Pharmaceutical Industry Regulations
+CollectionFolder::Coco::Medicines Verification Regulations
 
 ### Element Id
 CocoPharma::Regulation::DrugSupplyChainSecurityAct
