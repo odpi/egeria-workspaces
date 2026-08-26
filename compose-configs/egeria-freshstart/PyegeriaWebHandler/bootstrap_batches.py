@@ -50,6 +50,7 @@ remainder" rule as the per-folder file order, for consistency.
 import json
 import os
 import time
+from collections import deque
 from pathlib import Path
 from typing import Optional
 
@@ -104,6 +105,22 @@ logger.add(
     level="INFO",
     enqueue=True,
 )
+
+
+def tail_log(lines: int = 200) -> list[str]:
+    """Last `lines` lines of bootstrap.log, oldest first -- for the admin
+    page's Recent Activity panel. Only reads the current (post-rotation)
+    file, not retained rotated copies; that's plenty for "what just
+    happened", which is all this panel is for. Missing file (nothing
+    logged yet) -> empty list, not an error."""
+    if not os.path.exists(_bootstrap_log_path):
+        return []
+    try:
+        with open(_bootstrap_log_path, encoding="utf-8", errors="replace") as f:
+            return [line.rstrip("\n") for line in deque(f, maxlen=lines)]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"bootstrap_batches: could not read log {_bootstrap_log_path}: {exc}")
+        return []
 
 
 # path -> (mtime, dict)
