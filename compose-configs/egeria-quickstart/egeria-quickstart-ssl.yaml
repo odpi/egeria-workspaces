@@ -12,6 +12,18 @@
 # ssl-define.conf (sets Apache's SSL_SERVER_NAME to the current HOST_FQDN)
 # is generated at runtime by quick-start-local and mounted from
 # runtime-volumes/quickstart-apache-web/ssl-define.conf.
+#
+# WARNING (2026-08-23 incident): this file is an overlay, not the base
+# config — apache-web's real definition only exists once this is merged
+# with egeria-quickstart.yaml. A one-off `docker compose -f
+# egeria-quickstart.yaml up -d apache-web` (e.g. to pick up a rebuilt
+# image) recreates the container from ONLY the base file and silently
+# drops the ssl-define.conf mount below — no error, Apache just falls
+# back to an undefined ${HTTPS_REDIRECT_PORT}, so the plain-HTTP vhost's
+# redirect sends browsers to a literal, unresolvable URL. Always pass the
+# full file set (see quick-start-local's COMPOSE_FILES, or
+# bin/update-pyegeria.sh's copy of that same logic) when touching
+# apache-web directly, or just use quick-start-local/update-pyegeria.sh.
 services:
   apache-web:
     ports:
