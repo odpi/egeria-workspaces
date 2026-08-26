@@ -1,5 +1,5 @@
 {
-  "displayName": "Coco - Data Governance Program",
+  "displayName": "Coco - 0. Data Governance Program",
   "description": "Coco Pharmaceuticals' governance program: Jules Keeper's 90 day plan and data strategy, the governance officers' joint definitions and risk register, and the domain programs each officer's team produced. Files run in the order the story happens — see the README.",
   "canary": {
     "type": "Glossary",
