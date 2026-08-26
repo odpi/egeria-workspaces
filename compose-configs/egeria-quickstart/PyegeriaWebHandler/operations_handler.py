@@ -597,12 +597,24 @@ def engine_refresh(request: Request, body: _EngineActionBody,
 
 # ── Engine Actions tab (ecosystem-wide) ───────────────────────────────────────
 
+_ENGINE_ACTIONS_CACHE: dict = {}
+_ENGINE_ACTIONS_TTL = 60.0  # seconds — same TTL as _REPORT_TTL above; unlike that
+# endpoint this one is a single call (2-3s measured live, 2026-08-26), not a
+# minutes-long poll, so a plain blocking cache is enough -- no need for the
+# background-task/stale-banner machinery _report_cache uses.
+
+
 @router.get("/api/operations/engine-actions", summary="Ecosystem-wide engine actions (Engine Actions tab)")
 def list_engine_actions(
     search_string: str = Query("*"),
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
+    cache_key = f"{search_string}|{url or ''}|{server or ''}|{user_id or ''}"
+    cached = _ENGINE_ACTIONS_CACHE.get(cache_key)
+    if cached and (time.time() - cached[0]) < _ENGINE_ACTIONS_TTL:
+        return JSONResponse(cached[1])
+
     try:
         ac = _automated_curation(url, server, user_id, user_pwd)
         raw = ac.find_engine_actions(search_string=search_string, page_size=500, output_format="JSON")
@@ -628,7 +640,9 @@ def list_engine_actions(
             "governanceActionTypeName": props.get("governanceActionTypeName") or "",
         })
     rows.sort(key=lambda r: r.get("requestedStartTime") or "", reverse=True)
-    return JSONResponse({"actions": rows, "total": len(rows)})
+    result = {"actions": rows, "total": len(rows)}
+    _ENGINE_ACTIONS_CACHE[cache_key] = (time.time(), result)
+    return JSONResponse(result)
 
 
 class _CancelActionBody(BaseModel):
