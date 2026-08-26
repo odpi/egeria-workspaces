@@ -83,6 +83,29 @@ def _selection_store_path() -> str:
     )
 
 
+# Bootstrap/auto-heal activity (batch runs, heal attempts, timeouts) otherwise
+# only ever reached docker logs -- gone the moment a container is recreated,
+# which is exactly when you'd want to know what auto-heal did. Sink it into
+# the same persisted ~/.pyegeria dir bootstrap_batches.json already lives in
+# (mounted identically in both quickstart's and freshstart's compose files),
+# filtered to just this feature's three modules so it doesn't become a
+# second copy of the whole app's logs. Module-level code runs once per
+# process (Python caches the import), so this only ever adds one sink.
+_BOOTSTRAP_LOG_MODULES = {"bootstrap_batches", "bootstrap_admin_handler", "bootstrap_monitor_handler"}
+_bootstrap_log_path = os.path.expanduser(
+    os.getenv("PYEGERIA_BOOTSTRAP_LOG", "~/.pyegeria/bootstrap.log")
+)
+os.makedirs(os.path.dirname(_bootstrap_log_path), exist_ok=True)
+logger.add(
+    _bootstrap_log_path,
+    filter=lambda r: r["name"] in _BOOTSTRAP_LOG_MODULES,
+    rotation="5 MB",
+    retention=5,
+    level="INFO",
+    enqueue=True,
+)
+
+
 # path -> (mtime, dict)
 _selection_cache: dict[str, tuple[float, dict]] = {}
 
