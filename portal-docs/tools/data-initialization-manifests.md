@@ -36,28 +36,41 @@ Lives at the root of a batch folder (a sibling of that folder's `.md` files), e.
 }
 ```
 
-### Example — a coco-workbooks folder (illustrative, not shipped)
+### Example — `coco-workbooks/0. data-governance-program/_batch.json` (real, shipped)
 
-`Coco - Data Governance Program` (the batch created by symlinking `coco-workbooks/0. data-governance-program` into `dr-egeria-inbox`, see [Ordering across the coco-workbooks symlinks](#ordering-across-the-coco-workbooks-symlinks) below) currently has **no** `_batch.json` — it runs as 18 files in plain alphabetical order, manual-only, no canary. That's a reasonable default, but the folder isn't actually order-independent: `data-strategy-framework.md` creates the `Data Strategy Framework` Solution Blueprint that later docs' Solution Components attach to, and `employee-glossary.md` and `joint-governance-officer-definitions.md` define terms/roles other docs in the folder reference by name. If this folder were promoted to auto-heal with an explicit order, its manifest might look like:
+`Coco - Data Governance Program` is a `coco-workbooks` folder symlinked into `dr-egeria-inbox` (see [Ordering across the coco-workbooks symlinks](#ordering-across-the-coco-workbooks-symlinks) below), not an admin-droppable folder someone built from scratch — its manifest ships as part of the `coco-workbooks` content itself:
 
 ```json
 {
   "displayName": "Coco - Data Governance Program",
-  "description": "Coco Pharmaceuticals' data strategy framework, governance program definitions, and supporting glossaries — see coco-workbooks/0. data-governance-program.",
-  "canary": {"type": "SolutionBlueprint", "name": "Data Strategy Framework"},
+  "description": "Coco Pharmaceuticals' governance program: Jules Keeper's 90 day plan and data strategy, the governance officers' joint definitions and risk register, and the domain programs each officer's team produced. Files run in the order the story happens — see the README.",
+  "canary": {"type": "Glossary", "name": "Employee Glossary"},
   "defaultEnabled": false,
   "files": [
-    "employee-glossary.md",
-    "joint-governance-officer-definitions.md",
+    "jules-90-day-plan.md",
     "data-strategy-framework.md",
-    "data-governance-program.md"
+    "joint-governance-officer-definitions.md",
+    "risk-register.md",
+    "privacy-governance-program.md",
+    "data-security-strategy.md",
+    "drug-development-governance.md",
+    "corporate-governance-program.md",
+    "manufacturing-governance-program.md",
+    "serialisation-governance-program.md",
+    "human-resource-management.md",
+    "health-and-safety.md",
+    "biological-agents-and-gmo.md",
+    "dangerous-goods-transport.md",
+    "diversity-equity-inclusion.md",
+    "data-governance-program.md",
+    "employee-glossary.md"
   ]
 }
 ```
 
-`employee-glossary.md`, `joint-governance-officer-definitions.md`, `data-strategy-framework.md`, and `data-governance-program.md` run first, in that order; the remaining 14 files (`README.md`, `biological-agents-and-gmo.md`, `corporate-governance-program.md`, …) run afterward, alphabetically — the explicit-list-then-alphabetical-remainder rule from the Fields table above. `canary` points at the `Data Strategy Framework` Solution Blueprint that `data-strategy-framework.md` creates — a real, specific element the Portal can check for, per the `canary` row above. `defaultEnabled` is left `false` since this is admin-droppable content, not a core-portal feature that must survive a reset unattended.
+17 files run in this explicit order — the story order Jules Keeper's plan actually happens in, not alphabetical — with `README.md` (the only `.md` in the folder not named here) appended last. `canary` checks for the `Employee Glossary` Glossary that `employee-glossary.md` creates — the last file in the list, which is deliberate: the canary only needs to confirm the *whole* batch completed, so it points at whatever the last step produces. `defaultEnabled` stays `false` — this is Coco Pharmaceuticals scenario content, not a core-portal feature that has to survive a reset unattended.
 
-This manifest doesn't exist in the repo — it's illustrative. Adding it for real is a legitimate follow-up if you want this folder to auto-heal with this ordering; ask if you'd like that done.
+Three more `coco-workbooks` folders one level deeper than the six top-level ones also ship a manifest and need their own symlink into `dr-egeria-inbox` — `discover_batches()` only scans one level deep, so a nested folder is invisible unless it's symlinked in directly, same as any top-level one: `1. coco-data-hub/data-field-naming` ("Coco - Data Field Naming"), `4. keeping-safe/extending-the-systems-inventory` ("Coco - Systems Inventory"), and `4. keeping-safe/martyns-law` ("Coco - Martyn's Law").
 
 ### The core-portal exception
 
@@ -81,7 +94,7 @@ Listed batches run first, in that order; every other batch runs afterward, alpha
 
 ### Ordering across the coco-workbooks symlinks
 
-The six `Coco - *` batches (symlinks into `coco-workbooks`, see [Data Initialization](data-initialization.md)) sort alphabetically by default: `Coco - Data Governance Program`, `Coco - Data Hub`, `Coco - Data Privacy`, `Coco - Keeping Safe`, `Coco - Sales Forecast Consolidation`, `Coco - Sustainability`. If the Coco Pharmaceuticals scenario has a real dependency order — e.g. the data governance program's glossary and roles should exist before the other five folders' docs reference them — a `_folder_order.json` naming just that one batch first would suffice, since everything not listed keeps running alphabetically afterward:
+The nine `Coco - *` batches (symlinks into `coco-workbooks`, see [Data Initialization](data-initialization.md)) sort alphabetically by default: `Coco - Data Field Naming`, `Coco - Data Governance Program`, `Coco - Data Hub`, `Coco - Data Privacy`, `Coco - Keeping Safe`, `Coco - Martyns Law`, `Coco - Sales Forecast Consolidation`, `Coco - Sustainability`, `Coco - Systems Inventory`. If the Coco Pharmaceuticals scenario has a real dependency order — e.g. the data governance program's glossary and roles should exist before the other folders' docs reference them — a `_folder_order.json` naming just that one batch first would suffice, since everything not listed keeps running alphabetically afterward:
 
 ```json
 ["Coco - Data Governance Program"]
