@@ -529,7 +529,7 @@ ___
 ## Link Solution Components
 
 ### Component1
-SolutionComponent::Egeria:IntegrationGroup:Default::LiskovDataSharingHubManagerIntegrationConnector
+SolutionComponent::Egeria:IntegrationGroup:Liskov::LiskovDataSharingHubManagerIntegrationConnector
 
 ### Component2
 CocoPharma::SolutionComponent::DataHub

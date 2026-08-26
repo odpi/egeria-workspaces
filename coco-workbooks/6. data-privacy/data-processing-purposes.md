@@ -1421,15 +1421,15 @@ ___
 
 ___
 
-## Link Governance Policies
+## Link Governance Mechanism
 
-### Governance Policy 1
+### Policy
 CocoPharma::GovernancePrinciple::DemographicDataForEquityNotAccess
 
-### Governance Policy 2
+### Mechanism
 CocoPharma::DataProcessingPurpose::WorkforceEqualityMonitoring
 
-### Description
+### Rationale
 The HR purpose applies this principle to employment data and this domain applies it to clinical and patient data. The constraint is identical — collect to measure, structurally prevent from deciding — and stating it once in each domain keeps ownership clear without duplicating the control.
 
 ___
@@ -1438,15 +1438,15 @@ ___
 
 ___
 
-## Link Governance Policies
+## Link Governance Mechanism
 
-### Governance Policy 1
-CocoPharma::DataProcessingPurpose::OccupationalHealthSurveillance
-
-### Governance Policy 2
+### Policy
 CocoPharma::GovernanceObligation::CompetencyRequirementsDefinedForRegulatedRoles
 
-### Description
+### Mechanism
+CocoPharma::DataProcessingPurpose::OccupationalHealthSurveillance
+
+### Rationale
 Fitness conclusions from surveillance can restrict what an individual may do, which makes them an input to the authorisation HR records. The clinical finding stays with occupational health; only the restriction reaches the competency record.
 
 ___
@@ -1455,15 +1455,15 @@ ___
 
 ___
 
-## Link Governance Policies
+## Link Governance Mechanism
 
-### Governance Policy 1
+### Policy
 CocoPharma::GovernancePrinciple::QualificationRecordsAuthoritative
 
-### Governance Policy 2
+### Mechanism
 CocoPharma::DataProcessingPurpose::OperatorQualificationRecords
 
-### Description
+### Rationale
 Manufacturing declares the GMP purpose for which operator qualification records are held and retained beyond employment; HR holds the record itself and is accountable for its currency. The two describe one dataset from either side of the domain boundary.
 
 ___
@@ -1472,15 +1472,15 @@ ___
 
 ___
 
-## Link Governance Policies
+## Link Governance Mechanism
 
-### Governance Policy 1
+### Policy
 CocoPharma::GovernanceObligation::JoinerMoverLeaverTimeliness
 
-### Governance Policy 2
+### Mechanism
 CocoPharma::DataProcessingPurpose::IdentityAndAccessAdministration
 
-### Description
+### Rationale
 The identity lifecycle is driven entirely by HR events, so security's ability to provision and revoke correctly is bounded by the timeliness of the feed it receives.
 
 ___
@@ -1489,15 +1489,15 @@ ___
 
 ___
 
-## Link Governance Policies
+## Link Governance Mechanism
 
-### Governance Policy 1
-CocoPharma::DataProcessingPurpose::WorkforceEqualityMonitoring
-
-### Governance Policy 2
+### Policy
 CocoPharma::GovernancePrinciple::DataMinimisation
 
-### Description
+### Mechanism
+CocoPharma::DataProcessingPurpose::WorkforceEqualityMonitoring
+
+### Rationale
 Equality monitoring is a deliberate exception to minimisation, justified by the substantial public interest in identifying inequality of opportunity and bounded by voluntary provision, separation from decision records, and minimum group sizes.
 
 ___

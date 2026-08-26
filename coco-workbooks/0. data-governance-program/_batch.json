@@ -1,0 +1,28 @@
+{
+  "displayName": "Coco - Data Governance Program",
+  "description": "Coco Pharmaceuticals' governance program: Jules Keeper's 90 day plan and data strategy, the governance officers' joint definitions and risk register, and the domain programs each officer's team produced. Files run in the order the story happens — see the README.",
+  "canary": {
+    "type": "Glossary",
+    "name": "Employee Glossary"
+  },
+  "defaultEnabled": false,
+  "files": [
+    "jules-90-day-plan.md",
+    "data-strategy-framework.md",
+    "joint-governance-officer-definitions.md",
+    "risk-register.md",
+    "privacy-governance-program.md",
+    "data-security-strategy.md",
+    "drug-development-governance.md",
+    "corporate-governance-program.md",
+    "manufacturing-governance-program.md",
+    "serialisation-governance-program.md",
+    "human-resource-management.md",
+    "health-and-safety.md",
+    "biological-agents-and-gmo.md",
+    "dangerous-goods-transport.md",
+    "diversity-equity-inclusion.md",
+    "data-governance-program.md",
+    "employee-glossary.md"
+  ]
+}

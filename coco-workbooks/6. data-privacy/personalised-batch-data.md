@@ -360,15 +360,15 @@ ___
 
 ___
 
-## Link Governance Policies
+## Link Governance Mechanism
 
-### Governance Policy 1
+### Policy
 CocoPharma::GovernanceObligation::ErasureLimitsDocumented
 
-### Governance Policy 2
+### Mechanism
 CocoPharma::DataProcessingPurpose::BatchRecordAttribution
 
-### Description
+### Rationale
 The batch attribution purpose states that GMP attribution cannot be erased. This obligation is where that position is registered alongside every other refusal, with the consent wording that tells the patient before their data is collected.
 
 ___

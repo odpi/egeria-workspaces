@@ -1748,15 +1748,15 @@ ___
 
 ___
 
-## Link Governance Policies
+## Link Governance Mechanism
 
-### Governance Policy 1
+### Policy
 CocoPharma::GovernanceObligation::HazardousWasteConsignedAndTracked
 
-### Governance Policy 2
+### Mechanism
 CocoPharma::CertificationType::ApprovedThirdPartyStatus
 
-### Description
+### Rationale
 Waste carriers and disposal sites are third parties handling hazardous material on the company's behalf, so their authorisation to receive it is verified through the same approval process as any other supplier, with the waste-specific licences checked in addition.
 
 ___

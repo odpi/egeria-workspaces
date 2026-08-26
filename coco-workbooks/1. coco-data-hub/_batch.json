@@ -1,0 +1,13 @@
+{
+  "displayName": "Coco - Data Hub",
+  "description": "The Coco Data Hub solution design and the software development governance program that supports it.",
+  "canary": {
+    "type": "GovernancePrinciple",
+    "name": "The AI did it wrong is no excuse!"
+  },
+  "defaultEnabled": false,
+  "files": [
+    "solution-design.md",
+    "software-development-governance-program.md"
+  ]
+}

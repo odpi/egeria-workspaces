@@ -1512,15 +1512,15 @@ ___
 
 ___
 
-## Link Governance Policies
+## Link Governance Mechanism
 
-### Governance Policy 1
+### Policy
 CocoPharma::GovernanceObligation::CompetencyRequirementsDefinedForRegulatedRoles
 
-### Governance Policy 2
+### Mechanism
 CocoPharma::CertificationType::GCPSiteQualification
 
-### Description
+### Rationale
 Site qualification confirms that investigator site staff are trained for the protocol; the competency obligation is the internal equivalent for company personnel. Both answer the same regulatory question about who is permitted to perform the work.
 
 ___

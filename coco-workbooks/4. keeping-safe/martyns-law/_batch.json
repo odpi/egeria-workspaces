@@ -1,0 +1,15 @@
+{
+  "displayName": "Coco - Martyn's Law",
+  "description": "Martyn's Law — the Terrorism (Protection of Premises) Act 2025: external references, glossary, the regulation itself, and the collections that organise them.",
+  "canary": {
+    "type": "Regulation",
+    "name": "Terrorism (Protection of Premises) Act 2025 (UK)"
+  },
+  "defaultEnabled": false,
+  "files": [
+    "external-references.md",
+    "glossary.md",
+    "regulation.md",
+    "collections.md"
+  ]
+}

@@ -119,7 +119,7 @@ The sections below describe the files and how to load them into Egeria.  The fil
 
 -----
 
-## The 90 Day Plan - First Version
+## 1. The 90 Day Plan - First Version
 
 The file [jules-90-day-plan.md](jules-90-day-plan.md) loads the project plan that Jules Keeper created to guide his work when he first started at Coco Pharmaceuticals into Egeria.  The data reflects his thinking [just after his 30 day review with the board](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-the-data-strategy/overview/#the-first-data-strategy-review).  
 
@@ -139,7 +139,7 @@ Once loaded, you can browse the results in [Egeria Explorer](https://egeria-proj
 
 -----
 
-## The Data Strategy Framework
+## 2. The Data Strategy Framework
 
 The file [data-strategy-framework.md](data-strategy-framework.md) defines a solution blueprint and a glossary defining the initial capabilities that Coco Pharmaceuticals needed to develop to enable them to safely share data between the business units.
 
@@ -158,7 +158,7 @@ Once loaded, you can browse the results in [Egeria Explorer](https://egeria-proj
 
 -----
 
-## Joint Governance Officer Definitions
+## 3. Joint Governance Officer Definitions
 
 The file [joint-governance-officer-definitions.md](joint-governance-officer-definitions.md) contains a series of Dr. Egeria commands that create the initial set of governance definitions created by [the governance leaders at Coco Pharmaceuticals](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/building-the-governance-team/overview/).
 
@@ -174,7 +174,7 @@ You can load the definitions into Egeria in one of two ways:
 
 ----
 
-## Risk Register
+## 4. Risk Register
 
 The file [risk register.md](risk-register.md) contains the Dr.Egeria commands to load Coco Pharmaceuticals risk register into Egeria. This register considers each of the threats affecting the company and captures its likelihood, impact and hence importance.  The idea of a risk register comes from the [cybersecurity team](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/assuring-it-systems-security/overview/) but there is a lot of contribution and ownership taken by the other governance leaders.
 
@@ -191,25 +191,7 @@ The risk register refers to some definitions in the Joint Governance Officer Def
 
 ----
 
-## Data Security Strategy
-
-The file [data-security-strategy.md](data-security-strategy.md) contains the Dr.Egeria commands to load Coco Pharmaceuticals governance definitions controlling Coco Pharmaceuticals certification for [ISO 27001](https://en.wikipedia.org/wiki/ISO/IEC_27001) into Egeria.
-
-You can load the definitions into Egeria in one of two ways:
-
-1. From Obsidian - open the `data-security-strategy.md` file and click the suitcase icon labeled "Call Dr. Egeria (MCP)"
-2. From the command line in JupyterLab. Make sure you are in this directory and issue the command:
-
-    ```
-    dr_egeria --directive process --userid ivorpadlock --user_pass secret data-security-strategy.md
-    ```
-
-The Data Security Strategy refers to definitions in the Joint Governance Officer Definitions and the Risk Register, so make sure they are loaded first.  It is the output of Ivor Padlock's work with his team and associates on [building a data security strategy](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/building-a-data-security-strategy/overview/).
-
-
-----
-
-## Privacy Governance Program
+## 5. Privacy Governance Program
 
 The file [privacy-governance-program.md](privacy-governance-program.md) contains the Dr.Egeria commands to load the governance definitions that define how Coco Pharmaceuticals complies with the EU and UK General Data Protection Regulations.  Because the company is a US-listed parent with subsidiaries in the UK and the EU, the program also covers controllership between group entities, international transfers to the US parent, and the supervisory authority relationships that follow from the group structure.
 
@@ -227,45 +209,25 @@ The Privacy Governance Program refers to some definitions in the Joint Governanc
 
 ----
 
-## Manufacturing Governance Program
+## 6. Data Security Strategy
 
-The file [manufacturing-governance-program.md](manufacturing-governance-program.md) contains the Dr.Egeria commands to load the governance definitions that operationalise Good Manufacturing Practice at Coco Pharmaceuticals — batch record integrity, ALCOA+ data integrity, equipment qualification, deviations and CAPA, supplier qualification, cold chain monitoring, and the personalised manufacturing controls that arise when a batch is made for one identified patient.
-
-You can load the definitions into Egeria in one of two ways:
-
-1. From Obsidian - open the `manufacturing-governance-program.md` file and click the suitcase icon labeled "Call Dr. Egeria (MCP)"
-2. From the command line in JupyterLab. Make sure you are in this directory and issue the command:
-
-    ```
-    dr_egeria --directive process --userid stewfaster --user_pass secret manufacturing-governance-program.md
-    ```
-
-The Manufacturing Governance Program refers to some definitions in the Joint Governance Officer Definitions, so make sure they are loaded before the manufacturing-governance-program.
-
-----
-
-## Serialisation and Product Traceability
-
-The file [serialisation-governance-program.md](serialisation-governance-program.md) covers the unique identifiers carried by every saleable pack of medicine, and the national systems that pharmacies check before dispensing.  It is separated from the manufacturing program because serialisation is a distinct data domain with its own regulations, its own external interfaces, and a data volume larger than the whole of the rest of manufacturing combined.
-
-Three characteristics make it a governance problem rather than a systems integration problem: a serial number issued twice cannot be corrected once packs are distributed; the data is externally visible in real time, so the company learns about defects from a pharmacist rather than from its own monitoring; and decommissioning is irreversible within a short window, so an erroneous scan destroys saleable stock.
-
-The regulatory position follows the group structure — EU packs fall under the Falsified Medicines Directive, Great Britain sits outside that system while Northern Ireland follows it, and US packs fall under the Drug Supply Chain Security Act.  A pack destined for Belfast and one destined for Dublin are governed differently despite leaving the same production line.
+The file [data-security-strategy.md](data-security-strategy.md) contains the Dr.Egeria commands to load Coco Pharmaceuticals governance definitions controlling Coco Pharmaceuticals certification for [ISO 27001](https://en.wikipedia.org/wiki/ISO/IEC_27001) into Egeria.
 
 You can load the definitions into Egeria in one of two ways:
 
-1. From Obsidian - open the `serialisation-governance-program.md` file and click the suitcase icon labeled "Call Dr. Egeria (MCP)"
+1. From Obsidian - open the `data-security-strategy.md` file and click the suitcase icon labeled "Call Dr. Egeria (MCP)"
 2. From the command line in JupyterLab. Make sure you are in this directory and issue the command:
 
     ```
-    dr_egeria --directive process --userid stewfaster --user_pass secret serialisation-governance-program.md
+    dr_egeria --directive process --userid ivorpadlock --user_pass secret data-security-strategy.md
     ```
 
-The definitions carry Domain Identifier `MANUFACTURING` and join the Manufacturing Governance Lead folio, so load `manufacturing-governance-program.md` first.
+The Data Security Strategy refers to definitions in the Joint Governance Officer Definitions and the Risk Register, so make sure they are loaded first.  It is the output of Ivor Padlock's work with his team and associates on [building a data security strategy](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/building-a-data-security-strategy/overview/).
+
 
 ----
 
-## Drug Development Governance
+## 7. Drug Development Governance
 
 The file [drug-development-governance.md](drug-development-governance.md) contains the governance definitions for clinical trial and research data, owned by [Tessa Tube](https://egeria-project.org/practices/coco-pharmaceuticals/personas/tessa-tube/) as Drug Development Lead.  It covers Good Clinical Practice, the EU Clinical Trials Regulation, source data attribution and verification, trial master file completeness, blinding integrity, adverse event reporting, and the twenty-five year retention obligation that outlives every system holding the records.
 
@@ -284,7 +246,7 @@ The definitions carry Domain Identifier `20` — Drug Development.  The file add
 
 ----
 
-## Corporate Governance Program
+## 8. Corporate Governance Program
 
 The file [corporate-governance-program.md](corporate-governance-program.md) contains the governance definitions owned by [Reggie Mint](https://egeria-project.org/practices/coco-pharmaceuticals/personas/reggie-mint/) as Chief Financial Officer, covering the obligations Coco Pharmaceuticals carries as a company rather than as a manufacturer or a trial sponsor: that its reported figures are true, that the third parties it pays are who they claim to be, and that its dealings with prescribing clinicians are transparent and defensible.
 
@@ -305,7 +267,45 @@ The definitions carry Domain Identifier `CORPORATE` and add members to the Chief
 
 ----
 
-## Human Resource Management
+## 9. Manufacturing Governance Program
+
+The file [manufacturing-governance-program.md](manufacturing-governance-program.md) contains the Dr.Egeria commands to load the governance definitions that operationalise Good Manufacturing Practice at Coco Pharmaceuticals — batch record integrity, ALCOA+ data integrity, equipment qualification, deviations and CAPA, supplier qualification, cold chain monitoring, and the personalised manufacturing controls that arise when a batch is made for one identified patient.
+
+You can load the definitions into Egeria in one of two ways:
+
+1. From Obsidian - open the `manufacturing-governance-program.md` file and click the suitcase icon labeled "Call Dr. Egeria (MCP)"
+2. From the command line in JupyterLab. Make sure you are in this directory and issue the command:
+
+    ```
+    dr_egeria --directive process --userid stewfaster --user_pass secret manufacturing-governance-program.md
+    ```
+
+The Manufacturing Governance Program refers to some definitions in the Joint Governance Officer Definitions, so make sure they are loaded before the manufacturing-governance-program.
+
+----
+
+## 10. Serialisation and Product Traceability
+
+The file [serialisation-governance-program.md](serialisation-governance-program.md) covers the unique identifiers carried by every saleable pack of medicine, and the national systems that pharmacies check before dispensing.  It is separated from the manufacturing program because serialisation is a distinct data domain with its own regulations, its own external interfaces, and a data volume larger than the whole of the rest of manufacturing combined.
+
+Three characteristics make it a governance problem rather than a systems integration problem: a serial number issued twice cannot be corrected once packs are distributed; the data is externally visible in real time, so the company learns about defects from a pharmacist rather than from its own monitoring; and decommissioning is irreversible within a short window, so an erroneous scan destroys saleable stock.
+
+The regulatory position follows the group structure — EU packs fall under the Falsified Medicines Directive, Great Britain sits outside that system while Northern Ireland follows it, and US packs fall under the Drug Supply Chain Security Act.  A pack destined for Belfast and one destined for Dublin are governed differently despite leaving the same production line.
+
+You can load the definitions into Egeria in one of two ways:
+
+1. From Obsidian - open the `serialisation-governance-program.md` file and click the suitcase icon labeled "Call Dr. Egeria (MCP)"
+2. From the command line in JupyterLab. Make sure you are in this directory and issue the command:
+
+    ```
+    dr_egeria --directive process --userid stewfaster --user_pass secret serialisation-governance-program.md
+    ```
+
+The definitions carry Domain Identifier `MANUFACTURING` and join the Manufacturing Governance Lead folio, so load `manufacturing-governance-program.md` first.
+
+----
+
+## 11. Human Resource Management
 
 The file [human-resource-management.md](human-resource-management.md) establishes Human Resource Management as a governance domain and opens by registering its domain identifier as a valid metadata value.
 
@@ -326,28 +326,7 @@ The definitions carry Domain Identifier `22`, registered by the `Setup Valid Met
 
 ----
 
-## Diversity, Equity and Inclusion
-
-The file [diversity-equity-inclusion.md](diversity-equity-inclusion.md) establishes Diversity, Equity and Inclusion as a governance domain distinct from Human Resource Management, and the distinction is deliberate.  HR owns the employment relationship.  This domain owns something broader and, for a pharmaceutical company, more consequential — whether the medicines the company develops actually work for the populations that will take them.
-
-A trial enrolling participants who differ systematically from the eventual patient population yields evidence that does not describe those patients, and the gap is discovered after approval by people for whom the dose or the safety profile turns out to be different.  The same failure recurs in a modern form as models are built to guide personalised treatment: a model trained on the population that happened to be enrolled performs worst for the groups least represented, and does so silently.
-
-The domain therefore spans clinical evidence, patient-affecting models and information, and organisational representation — three areas sharing one logic, that unrepresentative data produces confident conclusions which are wrong for some people.
-
-You can load the definitions into Egeria in one of two ways:
-
-1. From Obsidian - open the `diversity-equity-inclusion.md` file and click the suitcase icon labeled "Call Dr. Egeria (MCP)"
-2. From the command line in JupyterLab. Make sure you are in this directory and issue the command:
-
-    ```
-    dr_egeria --directive process --userid faithbroker --user_pass secret diversity-equity-inclusion.md
-    ```
-
-The definitions carry Domain Identifier `23`, registered by the `Setup Valid Metadata Value` command at the top of the file.  It links to definitions in the human resources, drug development, privacy and data programs, so load those first.
-
-----
-
-## Health and Safety
+## 12. Health and Safety
 
 The file [health-and-safety.md](health-and-safety.md) establishes Health and Safety as a governance domain.  What distinguishes it from the other manufacturing-adjacent domains is the direction of protection: every other control in the plant protects the product from the people, and these protect the people from the product.
 
@@ -370,7 +349,7 @@ The definitions carry Domain Identifier `24`, registered by the `Setup Valid Met
 
 ----
 
-## Biological Agents and Contained Use of GMOs
+## 13. Biological Agents and Contained Use of GMOs
 
 The file [biological-agents-and-gmo.md](biological-agents-and-gmo.md) covers work with biological agents and the contained use of genetically modified organisms.  It carries Domain Identifier `24` and joins the Head of Health and Safety folio, but is kept separate from `health-and-safety.md` because contained use is a distinct regulatory regime with its own classification scheme, its own regulator relationship, and a notification duty discharged before work begins.
 
@@ -391,7 +370,7 @@ The two regulations join the Health and Safety Regulations folder created in `he
 
 ----
 
-## Dangerous Goods Transport
+## 14. Dangerous Goods Transport
 
 The file [dangerous-goods-transport.md](dangerous-goods-transport.md) establishes the **Distribution** domain, identifier `25`, and registers it as a valid metadata value before any definition claims it.
 
@@ -414,7 +393,28 @@ Transport classification is drawn from the substance register in `health-and-saf
 
 ----
 
-## Data Governance Program
+## 15. Diversity, Equity and Inclusion
+
+The file [diversity-equity-inclusion.md](diversity-equity-inclusion.md) establishes Diversity, Equity and Inclusion as a governance domain distinct from Human Resource Management, and the distinction is deliberate.  HR owns the employment relationship.  This domain owns something broader and, for a pharmaceutical company, more consequential — whether the medicines the company develops actually work for the populations that will take them.
+
+A trial enrolling participants who differ systematically from the eventual patient population yields evidence that does not describe those patients, and the gap is discovered after approval by people for whom the dose or the safety profile turns out to be different.  The same failure recurs in a modern form as models are built to guide personalised treatment: a model trained on the population that happened to be enrolled performs worst for the groups least represented, and does so silently.
+
+The domain therefore spans clinical evidence, patient-affecting models and information, and organisational representation — three areas sharing one logic, that unrepresentative data produces confident conclusions which are wrong for some people.
+
+You can load the definitions into Egeria in one of two ways:
+
+1. From Obsidian - open the `diversity-equity-inclusion.md` file and click the suitcase icon labeled "Call Dr. Egeria (MCP)"
+2. From the command line in JupyterLab. Make sure you are in this directory and issue the command:
+
+    ```
+    dr_egeria --directive process --userid faithbroker --user_pass secret diversity-equity-inclusion.md
+    ```
+
+The definitions carry Domain Identifier `23`, registered by the `Setup Valid Metadata Value` command at the top of the file.  It links to definitions in the human resources, drug development, privacy and data programs, so load those first.
+
+----
+
+## 16. Data Governance Program
 
 The file [data-governance-program.md](data-governance-program.md) contains the governance definitions created by the data governance team at Coco Pharmaceuticals.
 
@@ -436,7 +436,7 @@ The data governance program refers to definitions in the Joint Governance Office
 
 ----
 
-## Employee Glossary
+## 17. Employee Glossary
 
 The file [employee-glossary.md](employee-glossary.md) contains the Dr.Egeria commands to load the first draft of the glossary for the **Employee** subject area.  It was produced by [Erin Overview](https://egeria-project.org/practices/coco-pharmaceuticals/personas/erin-overview/) and [Faith Broker](https://egeria-project.org/practices/coco-pharmaceuticals/personas/faith-broker/), the director for human resources, in the working session described in [Defining a glossary](https://egeria-project.org/practices/coco-pharmaceuticals/scenarios/defining-a-glossary/overview/).
 
