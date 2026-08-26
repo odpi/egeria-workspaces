@@ -1903,6 +1903,7 @@ def list_tech_types(
         ac = _automated_curation(url, server, user_id, user_pwd, token=_token_from_request(request))
         raw = ac.find_technology_types(
             search_string=q or "*",
+            graph_query_depth=0,  # PY-6/PY-14 perf lesson — _serialize_tech_type only reads flat fields
             start_from=start_from,
             page_size=page_size,
             output_format="JSON",
@@ -2016,7 +2017,12 @@ def list_survey_types(
     token = _token_from_request(request)
     try:
         ac = _automated_curation(url, server, user_id, user_pwd, token=token)
-        raw_list = ac.find_technology_types(search_string="*", page_size=500, output_format="JSON")
+        raw_list = ac.find_technology_types(
+            search_string="*",
+            graph_query_depth=0,  # PY-6/PY-14 perf lesson — _serialize_tech_type only reads flat fields
+            page_size=500,
+            output_format="JSON",
+        )
     except Exception as exc:
         logger.exception("list_survey_types: find_technology_types failed")
         raise HTTPException(status_code=500, detail=str(exc))

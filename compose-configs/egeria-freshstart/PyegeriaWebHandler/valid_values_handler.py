@@ -31,6 +31,10 @@ _FIND_BODY = {
         "conditions": [{"property": "preferredValue", "operator": "IS_NULL"}],
         "matchCriteria": "ANY",
     },
+    # PY-6/PY-14 perf lesson — _names_from_raw only reads flat property names,
+    # never relationships; same fix already applied to find_specification_property
+    # below via graph_query_depth=0.
+    "graphQueryDepth": 0,
 }
 
 
@@ -197,6 +201,8 @@ def _fallback_lookup(property_name: str, url=None, server=None, user_id=None, us
             ],
             "matchCriteria": "ALL",
         },
+        # PY-6/PY-14 perf lesson — the loop below only reads flat propertiesAsStrings fields.
+        "graphQueryDepth": 0,
     }
     try:
         raw = expert.find_metadata_elements(find_body)
