@@ -1581,6 +1581,51 @@ ___
 
 ---
 
+___
+
+## Create Governance Metric
+
+### Display Name
+Chain of Identity Verification Integrity
+
+### Qualified Name
+CocoPharma::GovernanceMetric::ChainOfIdentityIntegrity
+
+### Domain Identifier
+MANUFACTURING
+
+### Summary
+Measures the percentage of personalised batch handovers verified automatically against the reference without a manual override, and reports every chain break separately.
+
+### Description
+Two figures are reported and they answer different questions. The first is the proportion of handovers verified automatically without manual override, which measures how far the control depends on a person confirming a match rather than a system establishing one — overrides are where breaks originate, and a rising override rate is a leading indicator regardless of whether any break has yet occurred. Overrides are reported with their reason, since a recurring reason usually identifies a step where the automated verification does not fit how the work is actually done and will keep being overridden until the step is redesigned. The second figure is the count of chain breaks, reported individually rather than as a rate. A break is a patient safety event and averaging it into a percentage would be a category error: the target is zero, each occurrence is investigated in full, and a batch destroyed because its link could not be re-established is reported to the Manufacturing Governance Lead and the Qualified Person directly. Handovers involving contract manufacturers and logistics providers are reported separately, since those are the points where the chain leaves systems the company controls.
+
+### Implications
+- Manual overrides must be recorded with a reason and trended, as they precede breaks
+- Chain breaks are reported as individual events, never as a rate
+- Third-party handovers must be reported separately from internal ones
+- A recurring override reason indicates a verification step that needs redesign, not more training
+
+### Outcomes
+- Dependence on human confirmation is visible and reducible
+- Verification steps that do not fit the work are identified before they cause a break
+- Every break receives individual investigation rather than being absorbed into a statistic
+
+### Authors
+- Stew Faster
+- Florence Paynter
+- George Pie
+
+### Version Identifier
+1.0
+
+### Content Status
+ACTIVE
+
+___
+
+---
+
 ### 3.3 Certification Type
 
 ___
@@ -1636,49 +1681,6 @@ ___
 ### 3.4 Data Processing Purposes
 
 The data processing purposes declared by this domain are defined in `6. data-privacy/data-processing-purposes.md`, together with those of every other domain and the links that connect them to the policies they implement. They remain owned by this domain and members of its folio; they are gathered there so that the lawful bases can be reviewed as a set.
-
-## Create Governance Metric
-
-### Display Name
-Chain of Identity Verification Integrity
-
-### Qualified Name
-CocoPharma::GovernanceMetric::ChainOfIdentityIntegrity
-
-### Domain Identifier
-MANUFACTURING
-
-### Summary
-Measures the percentage of personalised batch handovers verified automatically against the reference without a manual override, and reports every chain break separately.
-
-### Description
-Two figures are reported and they answer different questions. The first is the proportion of handovers verified automatically without manual override, which measures how far the control depends on a person confirming a match rather than a system establishing one — overrides are where breaks originate, and a rising override rate is a leading indicator regardless of whether any break has yet occurred. Overrides are reported with their reason, since a recurring reason usually identifies a step where the automated verification does not fit how the work is actually done and will keep being overridden until the step is redesigned. The second figure is the count of chain breaks, reported individually rather than as a rate. A break is a patient safety event and averaging it into a percentage would be a category error: the target is zero, each occurrence is investigated in full, and a batch destroyed because its link could not be re-established is reported to the Manufacturing Governance Lead and the Qualified Person directly. Handovers involving contract manufacturers and logistics providers are reported separately, since those are the points where the chain leaves systems the company controls.
-
-### Implications
-- Manual overrides must be recorded with a reason and trended, as they precede breaks
-- Chain breaks are reported as individual events, never as a rate
-- Third-party handovers must be reported separately from internal ones
-- A recurring override reason indicates a verification step that needs redesign, not more training
-
-### Outcomes
-- Dependence on human confirmation is visible and reducible
-- Verification steps that do not fit the work are identified before they cause a break
-- Every break receives individual investigation rather than being absorbed into a statistic
-
-### Authors
-- Stew Faster
-- Florence Paynter
-- George Pie
-
-### Version Identifier
-1.0
-
-### Content Status
-ACTIVE
-
-___
-
----
 
 ## Part 4: Governance Links
 
@@ -3574,7 +3576,7 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CollectionFolder::Coco::Pharmaceutical Industry Regulations
+CollectionFolder::Coco::Pharmaceutical Manufacturing Regulations
 
 ### Element Id
 CocoPharma::Regulation::EUGMPAnnex11
@@ -3594,7 +3596,7 @@ ___
 ## Add Member to Collection
 
 ### Collection Id
-CollectionFolder::Coco::Pharmaceutical Industry Regulations
+CollectionFolder::Coco::Pharmaceutical Manufacturing Regulations
 
 ### Element Id
 CocoPharma::Regulation::FDAcGMP
