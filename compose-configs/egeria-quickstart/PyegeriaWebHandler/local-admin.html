@@ -189,6 +189,18 @@
     </div>
     <div id="runAllResult" class="note" style="display:none;margin-bottom:0.9rem"></div>
     <div id="batchList"><div class="card empty">Loading…</div></div>
+
+    <details id="bootstrapLogDetails" style="margin-top:1.5rem" ontoggle="if(this.open) loadBootstrapLog()">
+      <summary style="cursor:pointer;font-weight:600;font-size:0.85rem">Recent Activity</summary>
+      <p style="font-size:0.78rem;color:var(--muted);margin:0.5rem 0">
+        Tail of <code>bootstrap.log</code> — every manual run and auto-heal attempt (persisted under
+        <code>~/.pyegeria</code>, survives container recreation).
+        <button class="btn-xs" onclick="loadBootstrapLog()">↻ Refresh</button>
+      </p>
+      <pre id="bootstrapLog" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;
+        padding:0.75rem 1rem;max-height:320px;overflow-y:auto;font-size:0.72rem;line-height:1.5;
+        white-space:pre-wrap;word-break:break-word">Loading…</pre>
+    </details>
   </section>
 
   <!-- ── User Feedback ────────────────────────────────────────────── -->
@@ -451,6 +463,19 @@
       });
   }
 
+  // Recent Activity — tail of bootstrap.log. Only fetched when the
+  // <details> panel is open (see its ontoggle), not on every batches poll.
+  function loadBootstrapLog() {
+    var el = document.getElementById('bootstrapLog');
+    fetch('/api/bootstrap/log?lines=300').then(function(r) { return r.json(); })
+      .then(function(d) {
+        var lines = d.lines || [];
+        el.textContent = lines.length ? lines.join('\n') : '(nothing logged yet)';
+        el.scrollTop = el.scrollHeight;
+      })
+      .catch(function() { el.textContent = 'Failed to load log'; });
+  }
+
   function renderBatches() {
     var el = document.getElementById('batchList');
     if (!_batches.length) {
@@ -536,7 +561,16 @@
     }).then(function(d) {
       if (d.cancelled) { onFail('Cancelled — batch contains a command not safe to re-run.'); return; }
       onDone(d);
+      _refreshLogIfOpen();
     }).catch(function() { onFail('Run request failed'); });
+  }
+
+  // The Recent Activity <details> panel only fetches on open (see its
+  // ontoggle) -- but if it's already open, a run just added new lines
+  // worth showing without waiting for a manual refresh click.
+  function _refreshLogIfOpen() {
+    var d = document.getElementById('bootstrapLogDetails');
+    if (d && d.open) loadBootstrapLog();
   }
 
   function runBatch(bi) {

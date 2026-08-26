@@ -12,6 +12,7 @@ Postgres table -- freshstart has no Postgres wired up at all).
 
 Endpoints:
   GET  /api/bootstrap/batches           → discovered batches + current selection
+  GET  /api/bootstrap/log               → tail of bootstrap.log (recent batch/auto-heal activity)
   POST /api/bootstrap/batches/selection → save selection (admin only)
   POST /api/bootstrap/batches/{id}/run  → run one batch now, its enabled files (admin only)
 """
@@ -36,6 +37,11 @@ def _admin_gate(request: Request):
         _is_admin = None
     if _is_admin is not None and not _is_admin(request):
         raise HTTPException(status_code=403, detail="This operation requires an administrator.")
+
+
+@router.get("/log", summary="Recent bootstrap/auto-heal activity (tail of bootstrap.log)")
+def get_log(lines: int = Query(200, ge=1, le=2000)):
+    return JSONResponse({"lines": bb.tail_log(lines)})
 
 
 @router.get("/batches", summary="List discovered bootstrap batches and their selection state")
