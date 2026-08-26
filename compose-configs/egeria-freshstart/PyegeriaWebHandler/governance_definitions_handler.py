@@ -385,6 +385,11 @@ def find_definitions(
             starts_with=True,
             ignore_case=True,
             output_format="JSON",
+            graph_query_depth=0,  # PY-6/PY-14 perf lesson — _serialize_list_item only reads
+                                  # flat scalar fields, never relationships{}, so the default
+                                  # depth-3 traversal Egeria does per row (x up to page_size) is
+                                  # pure waste here; get_definition()'s single-item fetch below
+                                  # still asks for depth=3 where it's actually needed.
             start_from=start_from,
             page_size=page_size,
             sequencing_order="PROPERTY_ASCENDING",

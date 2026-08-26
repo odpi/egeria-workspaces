@@ -223,6 +223,8 @@ def _find_report_by_name_uncached(name: str, mgr) -> Optional[dict]:
         results = mgr.find_metadata_elements_with_string(
             search_string=name, starts_with=False, ends_with=False, ignore_case=False,
             metadata_element_type="Report", page_size=5,
+            graph_query_depth=0,  # PY-6/PY-14 perf lesson — only flat propertyValueMap fields read below;
+                                  # this method's default (5) is worse than the usual 3.
         )
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"local-dashboards: Report lookup failed for {name!r}: {exc}")

@@ -123,6 +123,13 @@ def get_projects(
             search_string="*",
             starts_with=True,
             output_format="JSON",
+            graph_query_depth=0,  # PY-6/PY-14 perf lesson — the list view never reads
+                                  # .relationships off these items (confirmed against
+                                  # type-explorer.html: it only reads guid/displayName/
+                                  # qualifiedName/classifications here, and fetches
+                                  # relationships fresh from /api/projects/{guid} when a
+                                  # row is clicked). _project_forest() below legitimately
+                                  # needs graph_query_depth=1 and is left untouched.
             start_from=start_from,
             page_size=page_size,
             sequencing_order="PROPERTY_ASCENDING",

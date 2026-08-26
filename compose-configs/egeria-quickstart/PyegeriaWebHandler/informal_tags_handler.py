@@ -92,6 +92,7 @@ def list_informal_tags(
             starts_with=False,
             ends_with=False,
             ignore_case=True,
+            graph_query_depth=0,  # PY-6/PY-14 perf lesson — _serialize_tag only reads flat fields
             start_from=start_from,
             page_size=page_size,
             output_format="JSON",

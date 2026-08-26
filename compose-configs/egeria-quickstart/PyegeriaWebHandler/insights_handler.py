@@ -1479,7 +1479,8 @@ def list_saved_queries(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
     try:
         found = am.find_assets(search_string=search_string or "*", starts_with=False,
-                                metadata_element_type=_QUERY_TYPE, output_format="JSON", page_size=200)
+                                metadata_element_type=_QUERY_TYPE, output_format="JSON", page_size=200,
+                                graph_query_depth=0)  # PY-6/PY-14 perf lesson — _saved_query_summary only reads flat fields
     except Exception as exc:
         logger.exception("insights: saved-query list failed")
         raise HTTPException(status_code=500, detail=str(exc))
