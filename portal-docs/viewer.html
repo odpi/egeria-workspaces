@@ -166,18 +166,36 @@
     });
   }
 
+  // GitHub-slugger-compatible heading id: lowercase, strip anything that
+  // isn't a word char/space/hyphen, spaces -> hyphens. Matches how every
+  // markdown file's own inline `[text](#some-heading)` anchors are written
+  // (same convention GitHub itself uses when rendering these files directly),
+  // so those links work here too instead of only on GitHub.
+  function _slugify(text) {
+    return text.toLowerCase().replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-');
+  }
+
   // ── Build TOC from rendered headings ─────────────────────────────────────────
   function _buildToc() {
     var headings = document.querySelectorAll('#content h2, #content h3');
+    // Assign ids to ALL headings (even a lone one) so in-page anchor links
+    // resolve regardless of whether the TOC panel itself renders.
+    var seen = {};
+    headings.forEach(function(h) {
+      var slug = _slugify(h.textContent) || 'section';
+      var id = slug;
+      var n = seen[slug] || 0;
+      if (n > 0) id = slug + '-' + n;
+      seen[slug] = n + 1;
+      h.id = id;
+    });
     if (headings.length < 2) return;
     var list = document.getElementById('toc-list');
     list.innerHTML = '';
-    headings.forEach(function(h, i) {
-      var id = 'heading-' + i;
-      h.id = id;
+    headings.forEach(function(h) {
       var li = document.createElement('li');
       var a  = document.createElement('a');
-      a.href = '#' + id;
+      a.href = '#' + h.id;
       a.textContent = h.textContent;
       if (h.tagName === 'H3') a.classList.add('h3');
       li.appendChild(a);
