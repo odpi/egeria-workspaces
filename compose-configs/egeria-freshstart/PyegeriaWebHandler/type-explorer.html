@@ -7142,6 +7142,14 @@ function _elementIsLinkable(item) {
   if (_actorKindForType(item.typeName, superTypes)) return true;
   if (superTypes.indexOf('GovernanceDefinition') !== -1) return true;
   if (superTypes.indexOf('Asset') !== -1) return true;
+  // SoftwareCapability subtypes (SourceControlLibrary, IntegrationGroup,
+  // APIManager, …) aren't Assets — they showed up in a Folio's member list
+  // (Project → Folio → members) with no way to navigate to them at all.
+  // Tech Catalog's Capabilities tab already has a working detail view for
+  // these (AssetDetail via the generic /api/tech-catalog/assets/{guid}
+  // lookup, same as the Asset fallback below) — this was purely a missing
+  // case here, not a missing view.
+  if (item.typeName === 'SoftwareCapability' || superTypes.indexOf('SoftwareCapability') !== -1) return true;
   // Generic Collection fallback (e.g. Folio) — opens via the Digital Products
   // tab's by-guid lookup, which works for any Collection subtype.
   if (superTypes.indexOf('Collection') !== -1) return true;
@@ -7161,7 +7169,11 @@ var _ACTION_CENTER_ROW_TYPES = { Notification: 1, Meeting: 1, ToDo: 1, Review: 1
 
 function RelatedElementRow({ item, onNavigateToElement }) {
   var isActionCenterType = !!_ACTION_CENTER_ROW_TYPES[item.typeName || ''];
-  var isAsset = !isActionCenterType && (item.superTypeNames || []).indexOf('Asset') !== -1;
+  var superTypes = item.superTypeNames || [];
+  // SoftwareCapability subtypes (SourceControlLibrary, etc.) route to Tech
+  // Catalog the same way Assets do — see _elementIsLinkable's comment.
+  var isAsset = !isActionCenterType && (superTypes.indexOf('Asset') !== -1 ||
+    item.typeName === 'SoftwareCapability' || superTypes.indexOf('SoftwareCapability') !== -1);
   var clickable = !isAsset && !!onNavigateToElement && _elementIsLinkable(item);
 
   return React.createElement("div", {
@@ -10863,6 +10875,9 @@ function App() {
     // "↗ Tech Catalog" link, for callers that route everything through this
     // single dispatcher instead of rendering that link separately).
     if (superTypes.indexOf('Asset') !== -1) { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
+    // SoftwareCapability subtypes (SourceControlLibrary, etc.) — same Tech
+    // Catalog route as Assets, see _elementIsLinkable's comment.
+    if (typeName === 'SoftwareCapability' || superTypes.indexOf('SoftwareCapability') !== -1) { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
   }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToCollection, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToAction, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToProject, onNavigateToValidValues]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254);
