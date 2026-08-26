@@ -13,6 +13,19 @@
 # ssl-define.conf (sets Apache's SSL_SERVER_NAME to the current HOST_FQDN)
 # is generated at runtime by fresh-start-local and mounted from
 # runtime-volumes/freshstart-apache-web/ssl-define.conf.
+#
+# WARNING (see quickstart's egeria-quickstart-ssl.yaml, 2026-08-23 incident):
+# this file is an overlay, not the base config -- freshstart-apache-web's
+# real definition only exists once this is merged with egeria-freshstart.yaml.
+# A one-off `docker compose -f egeria-freshstart.yaml up -d
+# freshstart-apache-web` (e.g. to pick up a rebuilt image -- freshstart has
+# no bin/update-pyegeria.sh equivalent yet to do this safely, SHARE-3 flag)
+# would recreate the container from ONLY the base file and silently drop the
+# ssl-define.conf mount below -- no error, Apache just falls back to an
+# undefined ${HTTPS_REDIRECT_PORT}, so the plain-HTTP vhost's redirect sends
+# browsers to a literal, unresolvable URL. fresh-start-local itself always
+# passes the full file set correctly (verified 2026-08-23) -- this warning is
+# for anyone touching freshstart-apache-web by hand outside that script.
 services:
   freshstart-apache-web:
     ports:

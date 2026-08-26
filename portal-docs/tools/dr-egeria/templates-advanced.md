@@ -101,6 +101,52 @@ QA Validator
 
 ---
 
+## Curation
+
+Classification commands that mark an existing element as belonging to a
+governance-relevant category, rather than creating anything new. Most take
+just a `Target Element` (the element's qualified or display name) and an
+optional `Journal Entry`.
+
+### Classify an element as a Policy Enforcement Point
+```markdown
+## Classify Policy Enforcement Point
+### Target Element
+PostgreSQLGovernance
+
+### Journal Entry
+Flagged during the Q3 policy review as the engine that actually enforces
+the data-retention rules, not just monitors them.
+```
+
+### Classify an element as Reference Data
+```markdown
+## Classify Reference Data
+### Target Element
+Country Codes
+```
+
+### Remove a classification
+```markdown
+## Declassify Reference Data
+### Target Element
+Country Codes
+```
+
+> Curation's `Classify */Declassify *` commands cover several classification
+> "families" — an abstract classification type with more than one concrete
+> member, e.g. `PolicyManagementPoint` (Information/Enforcement/Retrieval/
+> Decision/Administration Point) or `ExecutionPoint` (Control/Verification/
+> Enforcement Point). Pick the specific command for the concrete kind you
+> mean (`Classify Policy Enforcement Point`, not a generic "Classify Policy
+> Point") — Egeria's type system doesn't let you apply the abstract
+> supertype directly. Browse the full Curation family in the
+> [template library](/Dr-Egeria-Samples/templates/advanced/Curation) for
+> every available kind (governance points, project/collection kinds,
+> duplicate/consolidation markers, naming-standard words, and more).
+
+---
+
 ## Reports & Dashboards (analytic functions)
 
 Some report specs run an **analytic function** (a Python routine returning an

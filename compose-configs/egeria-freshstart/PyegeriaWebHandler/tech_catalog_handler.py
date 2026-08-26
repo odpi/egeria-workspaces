@@ -144,26 +144,31 @@ _SKIP_CLASSIFICATIONS = frozenset([
     "SpineAttribute", "ObjectIdentifier",
 ])
 
+# Some classification "families" (an abstract classification supertype with
+# multiple concrete children — ProjectKind, CollectionKind, ExecutionPoint,
+# PolicyManagementPoint, per pyegeria's own get_all_classification_defs())
+# get bucketed together into one PLURAL list-valued key on elementHeader
+# instead of the usual one-singular-key-per-classification shape below,
+# since an element can carry more than one member of the same family at
+# once (a dict can't have two entries under one key) — e.g.
+# elementHeader["projectKinds"], confirmed live carrying Campaign +
+# GovernanceProject simultaneously. glossary_handler.py independently found
+# and fixed the identical pattern 2026-08-18 for a different bucket,
+# "glossaryTermKinds" — generalized here (matching common_serialize.py's
+# copy of this same fix) rather than hardcoding a hopefully-complete list of
+# known family key names, which already turned out to miss glossaryTermKinds
+# once: any list-valued header key whose items look like classifications
+# (carry a classificationName) is treated the same way.
 def _extract_classifications(header: dict) -> list:
     """Extract governance/business classifications from an elementHeader dict.
 
     In pyegeria's JSON output, each classification is a named key directly on
     elementHeader (e.g. "dataAssetEncoding", "zoneMembership"), not in a
     "classifications" list.  Every such value has class="ElementClassification"
-    and carries classificationName + classificationProperties.
+    and carries classificationName + classificationProperties. Also covers
+    the "family" bucket shape (see the comment above).
     """
-    result = []
-    for key, val in header.items():
-        if not isinstance(val, dict):
-            continue
-        if val.get("class") != "ElementClassification":
-            continue
-        cls_name = (val.get("classificationName")
-                    or (val.get("type") or {}).get("typeName")
-                    or (key[0].upper() + key[1:]))
-        if not cls_name or cls_name in _SKIP_CLASSIFICATIONS:
-            continue
-        cls_props_raw = val.get("classificationProperties") or {}
+    def _flatten(cls_props_raw) -> dict:
         flat = {}
         if isinstance(cls_props_raw, dict):
             for k, v in cls_props_raw.items():
@@ -173,7 +178,25 @@ def _extract_classifications(header: dict) -> list:
                     flat[k] = ", ".join(str(i) for i in v)
                 elif not isinstance(v, (dict,)):
                     flat[k] = str(v)
-        result.append({"typeName": cls_name, "properties": flat})
+        return flat
+
+    result = []
+    for key, val in header.items():
+        if isinstance(val, dict) and val.get("class") == "ElementClassification":
+            cls_name = (val.get("classificationName")
+                        or (val.get("type") or {}).get("typeName")
+                        or (key[0].upper() + key[1:]))
+            if not cls_name or cls_name in _SKIP_CLASSIFICATIONS:
+                continue
+            result.append({"typeName": cls_name, "properties": _flatten(val.get("classificationProperties") or {})})
+        elif isinstance(val, list):
+            for item in val:
+                if not isinstance(item, dict):
+                    continue
+                cls_name = item.get("classificationName") or (item.get("type") or {}).get("typeName")
+                if not cls_name or cls_name in _SKIP_CLASSIFICATIONS:
+                    continue
+                result.append({"typeName": cls_name, "properties": _flatten(item.get("classificationProperties") or {})})
     return result
 
 

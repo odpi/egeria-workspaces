@@ -44,6 +44,16 @@ router = APIRouter(tags=["collections"])
 _TREE_CACHE: dict = {}
 _TREE_CACHE_TTL = 300  # seconds
 
+# Roots cache: same TTL/shape as _TREE_CACHE. The default (non only_root_type)
+# path pages through EVERY Collection in the store at graph_query_depth=1 (so
+# each element's own members come back embedded too) purely to compute
+# "has no parent" — confirmed live 2026-08-26: ~8.5s and a 200KB+ response on
+# every call, uncached, while the /tree endpoint two lines below had a cache
+# and this one didn't. Only Egeria Explorer's Collections tab calls this
+# endpoint, but it re-fetches on every tab visit.
+_ROOTS_CACHE: dict = {}
+_ROOTS_CACHE_TTL = 300  # seconds
+
 
 def _is_collection(node: dict) -> bool:
     """A node can be navigated into iff it is a Collection (any subtype)."""
@@ -143,6 +153,11 @@ def get_roots(
     other collection. When only_root_type=True: just the RootCollection-typed
     elements, as before.
     """
+    cache_key = f"{url or ''}|{server or ''}|{user_id or ''}|{include_templates}|{only_root_type}"
+    cached = _ROOTS_CACHE.get(cache_key)
+    if cached and (time.time() - cached[0]) < _ROOTS_CACHE_TTL:
+        return JSONResponse(cached[1])
+
     try:
         mgr = _get_manager(url, server, user_id, user_pwd)
     except Exception as exc:
@@ -167,7 +182,9 @@ def get_roots(
             raw = [c for c in raw if isinstance(c, dict) and not _is_template(c)]
         roots = [_serialize_node(c) for c in raw if isinstance(c, dict)]
         roots.sort(key=lambda c: (c.get("displayName") or c.get("qualifiedName") or "").lower())
-        return JSONResponse({"roots": roots, "total": len(roots)})
+        result = {"roots": roots, "total": len(roots)}
+        _ROOTS_CACHE[cache_key] = (time.time(), result)
+        return JSONResponse(result)
 
     try:
         all_elements = _find_all_collections_with_members(mgr)
@@ -187,7 +204,9 @@ def get_roots(
         parentless = [e for e in parentless if not _is_template(e)]
     roots = [_serialize_node(e) for e in parentless]
     roots.sort(key=lambda c: (c.get("displayName") or c.get("qualifiedName") or "").lower())
-    return JSONResponse({"roots": roots, "total": len(roots)})
+    result = {"roots": roots, "total": len(roots)}
+    _ROOTS_CACHE[cache_key] = (time.time(), result)
+    return JSONResponse(result)
 
 
 @router.get("/api/collections/{root_guid}/tree", summary="Member hierarchy from a collection", responses=EGERIA_ERROR_RESPONSES)
