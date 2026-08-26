@@ -1,0 +1,12 @@
+{
+  "displayName": "Coco - Sales Forecast Consolidation",
+  "description": "The sales forecast consolidation project — its team, glossary, solution blueprint and information supply chain.",
+  "canary": {
+    "type": "Project",
+    "name": "Sales Forecast Consolidation Project"
+  },
+  "defaultEnabled": false,
+  "files": [
+    "sales_forecast_governance_plan.md"
+  ]
+}

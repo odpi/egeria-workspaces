@@ -1,0 +1,43 @@
+{
+  "displayName": "Coco - Data Field Naming",
+  "description": "The data field naming standard: the glossary of prime words, modifiers and class words by subject area, followed by the commands that classify them.",
+  "canary": {
+    "type": "Glossary",
+    "name": "Data Field Naming"
+  },
+  "defaultEnabled": false,
+  "files": [
+    "glossary.md",
+    "organization.md",
+    "organization-hospital.md",
+    "organization-supplier.md",
+    "person.md",
+    "person-patient.md",
+    "person-clinician.md",
+    "person-employee.md",
+    "person-collaborator.md",
+    "clinical.md",
+    "clinical-symptom.md",
+    "clinical-measurement.md",
+    "clinical-prescription.md",
+    "clinical-outcome.md",
+    "treatment.md",
+    "treatment-product.md",
+    "treatment-order.md",
+    "treatment-recipe.md",
+    "service-quality.md",
+    "service-quality-contract.md",
+    "service-quality-stock.md",
+    "service-quality-distribution.md",
+    "service-quality-invoice.md",
+    "governance.md",
+    "product-development.md",
+    "product-development-clinical-trial.md",
+    "common.md",
+    "common-modifiers.md",
+    "common-class-words.md",
+    "classify-prime-words.md",
+    "classify-modifiers.md",
+    "classify-class-words.md"
+  ]
+}

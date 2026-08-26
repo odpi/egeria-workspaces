@@ -1,0 +1,13 @@
+{
+  "displayName": "Coco - Sustainability",
+  "description": "The sustainability governance definitions owned by Tom Tally, and the file connecting them to the domain programs they depend on.",
+  "canary": {
+    "type": "BusinessImperative",
+    "name": "Sustainability Reporting"
+  },
+  "defaultEnabled": false,
+  "files": [
+    "sustainability-governance-definitions.md",
+    "sustainability-governance-program.md"
+  ]
+}

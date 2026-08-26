@@ -2753,15 +2753,15 @@ ___
 
 ___
 
-## Link Governance Policies
+## Link Governance Mechanism
 
-### Governance Policy 1
-CocoPharma::CertificationType::GMPSupplierQualification
-
-### Governance Policy 2
+### Policy
 CocoPharma::GovernanceObligation::ThirdPartyScreeningBeforeOnboarding
 
-### Description
+### Mechanism
+CocoPharma::CertificationType::GMPSupplierQualification
+
+### Rationale
 GMP qualification and commercial approved third-party status are two assessments of one supplier answering different questions — technical capability against specification, and legitimacy against fraud and bribery exposure. Both are required before transacting, and a supplier may hold one and fail the other.
 
 ___
@@ -2770,15 +2770,15 @@ ___
 
 ___
 
-## Link Governance Policies
+## Link Governance Mechanism
 
-### Governance Policy 1
-CocoPharma::CertificationType::ApprovedThirdPartyStatus
-
-### Governance Policy 2
+### Policy
 CocoPharma::GovernanceObligation::RawMaterialDataVerifiedBeforeUse
 
-### Description
+### Mechanism
+CocoPharma::CertificationType::ApprovedThirdPartyStatus
+
+### Rationale
 For material suppliers the commercial approval and the GMP verification are two assessments of one relationship. Neither alone permits transacting, and a supplier may pass one and fail the other.
 
 ___

@@ -856,15 +856,15 @@ ___
 
 ___
 
-## Link Governance Policies
+## Link Governance Mechanism
 
-### Governance Policy 1
+### Policy
 CocoPharma::GovernancePrinciple::ShipperOwnsClassification
 
-### Governance Policy 2
+### Mechanism
 CocoPharma::CertificationType::ApprovedThirdPartyStatus
 
-### Description
+### Rationale
 Carriers and forwarders are third parties acting on the company's behalf, and the liability that stays with the company makes their approval and audit a transport control as much as a commercial one.
 
 ___

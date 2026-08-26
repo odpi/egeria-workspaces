@@ -1,0 +1,12 @@
+{
+  "displayName": "Coco - Systems Inventory",
+  "description": "Naming standard rules for IT system identifiers across the Coco Pharmaceuticals sites.",
+  "canary": {
+    "type": "NamingStandardRule",
+    "name": "IT System Identifier — Coco Pharmaceuticals Austin"
+  },
+  "defaultEnabled": false,
+  "files": [
+    "naming-conventions.md"
+  ]
+}
