@@ -24,33 +24,9 @@ Selections save automatically as you check/uncheck — there's no separate Save 
 
 ## The `_batch.json` manifest
 
-A folder needs no manifest at all — drop in `.md` files and it becomes a batch, files run alphabetically, auto-heal is off, and the folder name is the display name. An optional `_batch.json` in the folder's root customizes all of that:
+A folder needs no manifest at all — drop in `.md` files and it becomes a batch, files run alphabetically, auto-heal is off, and the folder name is the display name. An optional `_batch.json` in the folder's root customizes its display name, description, auto-heal canary, default enabled state, re-run safety, and file execution order.
 
-```json
-{
-  "displayName": "Local Dashboards",
-  "description": "Seeds the Local Dashboards feature's WorkItemList roadmap, work items, and demo report/analytics dashboard sheets.",
-  "canary": {"type": "WorkItemList", "name": "Local Dashboards - Next Steps"},
-  "defaultEnabled": true,
-  "idempotent": true,
-  "files": [
-    "LOCAL_DASHBOARDS_ROADMAP.dr-egeria.md",
-    "LOCAL_DASHBOARDS_WORK_ITEMS.dr-egeria.md",
-    "LOCAL_DASHBOARDS_NEXT_STEPS_REPORTS.dr-egeria.md"
-  ]
-}
-```
-
-| Field | Default | Meaning |
-|---|---|---|
-| `displayName` | the folder name | Label shown in the batch list. |
-| `description` | *(empty)* | Shown under the display name in the panel. |
-| `canary` | *(none)* | `{"type": <Egeria metadata element type name>, "name": <exact displayName>}` — see [Auto-heal vs. manual-only](#auto-heal-vs-manual-only). Omit both fields, or omit `canary` entirely, for manual-only. |
-| `defaultEnabled` | `false` | Whether a freshly-discovered batch (no saved selection yet) starts checked. Core-portal batches that must survive a reset with zero admin action set this `true`; anything admin-droppable defaults to `false` so nothing runs unless someone opts in. |
-| `idempotent` | `true` | Set `false` only if one of the folder's commands creates a relationship/record with no pre-existence check, so re-running against already-seeded data would duplicate it — see [Confirmation on risky re-runs](#confirmation-on-risky-re-runs). Leave the default alone unless you've confirmed a specific command lacks that check. |
-| `files` | *(none — pure alphabetical)* | Explicit execution order for the files named here, in the order listed. Any `.md` file in the folder **not** listed is appended afterward, alphabetically. A stale filename (no longer present) is silently skipped, not an error. |
-
-A manifest is optional for every folder under `dr-egeria-inbox` — but it's the *only* way to register one of the handful of core-portal seed batches that ship as `.md` files alongside the Portal's own code rather than under `dr-egeria-inbox` (e.g. the Governance Metrics seed doc next to `gen_governance_metrics.py`). For those, a manifest is required — no manifest means that batch simply doesn't appear — and their `files` list is used exactly as given, with no alphabetical-remainder auto-append (that folder also holds unrelated `.py`/`.html` source, so "every other file in the folder" isn't a safe rule there).
+Full field reference, the shipped `Local Dashboards` example, and a worked coco-workbooks example: **[Manifest and ordering file specs](data-initialization-manifests.md)**.
 
 ---
 
@@ -79,20 +55,15 @@ If you see this warning and aren't sure whether the batch's data already exists,
 
 ## Cross-folder ordering (`_folder_order.json`)
 
-By default, batches run in alphabetical order by folder name. To change that — e.g. so a batch that other batches' elements depend on runs first — drop a `_folder_order.json` in `dr-egeria-inbox` itself (a sibling of the batch folders, not inside any of them):
+By default, batches run in alphabetical order by folder name. To change that — e.g. so a batch that other batches' elements depend on runs first — drop a `_folder_order.json` in `dr-egeria-inbox` itself (a sibling of the batch folders, not inside any of them): a flat array of batch ids, explicit order first, then everything else alphabetically.
 
-```json
-["Local Dashboards", "Sustainability Commands", "ML-OPS"]
-```
-
-A flat array of batch ids (a batch's id is its folder name, or a core-portal batch's fixed id — e.g. `overview-governance-metrics`). Listed batches run first, in that order; every other batch runs afterward, alphabetically by id — same "explicit list, then alphabetical remainder" rule the `files` field uses within a folder. There's no requirement to list every batch — an empty or missing `_folder_order.json` is just alphabetical-everywhere, same as today.
-
-This file is deployment-specific (it lives under `dr-egeria-inbox`, which is environment data, not Portal code) — quickstart and freshstart each have their own `dr-egeria-inbox`, so their orderings are independent even though the batches themselves may be shared (e.g. via a symlink into a folder outside `dr-egeria-inbox`, as coco-workbooks' scenario folders are).
+Full spec and a worked coco-workbooks example: **[Manifest and ordering file specs](data-initialization-manifests.md)**.
 
 ---
 
 ## Further resources
 
+- [Manifest and ordering file specs](data-initialization-manifests.md) — full `_batch.json`/`_folder_order.json` reference, with examples
 - [Admin Guide](../quickstart/demo/admin-guide.md) — where this panel sits alongside the rest of each environment's admin tools
 - [Egeria Overview](egeria-overview.md) — the dashboard whose Governance Metrics are seeded by one of the batches this panel manages
 - [Local Dashboards](local-dashboards.md) — another feature whose reference data is seeded this way
