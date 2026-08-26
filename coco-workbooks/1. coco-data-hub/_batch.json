@@ -1,5 +1,5 @@
 {
-  "displayName": "Coco - Data Hub",
+  "displayName": "Coco - 1. Data Hub",
   "description": "The Coco Data Hub solution design and the software development governance program that supports it.",
   "canary": {
     "type": "GovernancePrinciple",
