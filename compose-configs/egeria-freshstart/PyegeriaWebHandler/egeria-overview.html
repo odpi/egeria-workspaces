@@ -2005,6 +2005,8 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
   function applyUsage(d, store, primary){
     if (!d) return;
     store.isc = d.informationSupplyChains; store.blueprints = d.blueprints;
+    store.solutionComponents = d.solutionComponents;
+    store.solutionComponentsRealised = d.solutionComponentsRealised;
     if (!primary) return;
     setTxt('uc-isc', fmt(d.informationSupplyChains));
     setTxt('uc-bp',  fmt(d.blueprints));
@@ -2012,6 +2014,8 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (typeof DRILL === 'object') {
       if (d.informationSupplyChains != null && DRILL.isc) DRILL.isc.stats[0] = [String(d.informationSupplyChains), 'supply chains'];
       if (d.blueprints != null && DRILL.blueprints) DRILL.blueprints.stats[0] = [String(d.blueprints), 'blueprints'];
+      if (d.solutionComponents != null && DRILL.blueprints) DRILL.blueprints.stats[1] = [String(d.solutionComponents), 'components'];
+      if (d.solutionComponentsRealised != null && DRILL.blueprints) DRILL.blueprints.stats[2] = [String(d.solutionComponentsRealised), 'realised by ≥1 implementation'];
     }
   }
 
