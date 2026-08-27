@@ -277,14 +277,24 @@ def get_questions(
         # ISSUE-41's own repro. Work around it entirely: fetch unfiltered and
         # apply the classification check client-side via _is_question() below,
         # same as governance_definitions_handler.py etc. already do for their
-        # own classification-scoped lists. page_size=2000 covers the whole
-        # glossary today (544 terms); revisit if it grows past this.
+        # own classification-scoped lists. page_size=1000 (the server's own
+        # max) covers the whole glossary today (585 terms); revisit if it
+        # grows past this.
+        #
+        # PY-6/PY-14 perf lesson — graph_query_depth=0: this is the LIST
+        # endpoint, whose frontend consumer only reads displayName per row
+        # (type-explorer.html fetches full relationship detail separately,
+        # per-item, only once a question is selected) — confirmed live that
+        # otherClassifications (what _is_question() needs) is present
+        # regardless of graph_query_depth, so depth=2 here was pure waste on
+        # every one of the 585 terms in the glossary, not just the 84 that
+        # turn out to be Questions.
         raw = mgr.find_glossary_terms(
             search_string="*",
             starts_with=True,
             ends_with=False,
             ignore_case=True,
-            graph_query_depth=2,
+            graph_query_depth=0,
             output_format="JSON",
             start_from=0,
             page_size=1000,
