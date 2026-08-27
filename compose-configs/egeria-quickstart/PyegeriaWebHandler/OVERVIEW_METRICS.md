@@ -44,23 +44,23 @@ The Overview dashboard's KPI tiles are defined once in `overview_specs.py` as Fo
 
 | Tile | Metric | Prov. | Type | Source (endpoint → field) | Render | Drill → | Perspectives |
 |---|---|---|---|---|---|---|---|
-| `assets` | Cataloged Assets | 🟢 live | — | summary → `assetTotal` | kpi | `assets` | governance, steward, engineer, builder, privacy, community |
+| `assets` | Cataloged Assets | 🟢 live | Asset | summary → `assetTotal` | kpi | `assets` | governance, steward, engineer, architecture, security, builder, privacy, community |
 | `terms` | Glossary Terms | 🟢 live | GlossaryTerm | summary → `termCount` | kpi | `grounding` | governance, steward, consumer, community |
-| `governed` | Governed Coverage | 🟢 live | — | summary → `governedCount` | kpi | `governed` | governance, steward, owner, engineer, builder, privacy, community |
-| `certs` | Active Certifications | 🟢 live | — | summary → `certifications` | kpi | `certs` | governance, steward, owner, privacy |
+| `governed` | Governed Coverage | 🟢 live | — | summary → `governedCount` | kpi | `governed` | governance, steward, owner, engineer, architecture, security, builder, privacy, community |
+| `certs` | Active Certifications | 🟢 live | — | summary → `certifications` | kpi | `certs` | governance, steward, owner, security, privacy |
 | `products` | Data Products | 🟢 live | DigitalProduct | summary → `dataProducts` | kpi | `products` | governance, owner, consumer, builder, privacy, community |
-| `exceptions` | Open Exceptions | 🟢 live | — | summary → `openExceptions` | kpi | `exceptions` | governance, steward, owner, engineer, privacy |
+| `exceptions` | Open Exceptions | 🟢 live | — | summary → `openExceptions` | kpi | `exceptions` | governance, steward, owner, engineer, architecture, security, privacy |
 | `people` | People / Contributors | 🟢 live | Person | people → `activeContributors` | kpi | `people` | owner, consumer, community |
 | `communities` | Active Communities | 🟢 live | Community | people → `communities` | kpi | `people` | community |
-| `isc` | Supply Chains | 🟢 live | InformationSupplyChain | usage-context → `informationSupplyChains` | kpi | `isc` | consumer, engineer, builder |
-| `blueprints` | Solution Blueprints | 🟢 live | SolutionBlueprint | usage-context → `blueprints` | kpi | `blueprints` | consumer, engineer, builder |
-| `grounding` | Semantic Grounding | 🟢 live | — | ai-context → `groundingPct` | kpi | `grounding` | steward, owner, consumer, engineer, builder, privacy |
+| `isc` | Supply Chains | 🟢 live | InformationSupplyChain | usage-context → `informationSupplyChains` | kpi | `isc` | consumer, engineer, architecture, builder |
+| `blueprints` | Solution Blueprints | 🟢 live | SolutionBlueprint | usage-context → `blueprints` | kpi | `blueprints` | consumer, engineer, architecture, builder |
+| `grounding` | Semantic Grounding | 🟢 live | — | ai-context → `groundingPct` | kpi | `grounding` | steward, owner, consumer, engineer, architecture, security, builder, privacy |
 | `ownership` | Ownership Coverage | 🟢 live | — | ai-context → `ownershipPct` | kpi | `ownership` |  |
-| `ai-ready` | AI-Ready Assets | 🟢 live | Asset | ai-context → `aiReadyPct` | kpi | `ai-ready` |  |
+| `ai-ready` | AI-Ready Assets | 🟢 live | Asset | ai-context → `aiReadyPct` | kpi | `ai-ready` | security |
 
 **Compute** (each spec's `action` — the how-it's-computed / P3 report-runner hook):
 
-- `assets` — `pyegeria.view.overview_metrics.sum_type_counts(type_map=[('Data Stores', 'DataStore'), ('Data Sets', 'DataSet'), ('Software Components', 'DeployedSoftwareComponent'), ('Infrastructure', 'ITInfrastructure'), ('APIs', 'DeployedAPI'), ('Processes', 'Process')])`
+- `assets` — `MetadataExpert.count_metadata_elements(type_name=Asset)`
 - `terms` — `MetadataExpert.count_metadata_elements(type_name=GlossaryTerm)`
 - `governed` — `MetadataExpert.find_metadata_elements(matchClassifications=['ZoneMembership', 'Confidentiality', 'Criticality', 'Impact', 'Retention'], matchCriteria=ANY)`
 - `certs` — `ClassificationExplorer.get_relationships(relationship_type=Certification)`
