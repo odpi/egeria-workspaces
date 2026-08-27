@@ -8265,15 +8265,25 @@ function _elementIsLinkable(item) {
   if (item.typeName === 'SolutionBlueprint' || superTypes.indexOf('SolutionBlueprint') !== -1) return true;
   if (item.typeName === 'Perspective') return true;
   if (item.typeName === 'Project') return true;
+  if (item.typeName === 'InformalTag') return true;
+  if (item.typeName === 'ContextEvent') return true;
   // Egeria's internal type-system registry — every entity/relationship/
   // classification typeName also exists as a ValidMetadataValue, which is why
   // a search for e.g. "SmartQuery" can legitimately match one. Routes to the
   // Valid Values viewer via validValueProperty (see catalog_search_handler.py).
   if (item.typeName === 'ValidMetadataValue') return true;
+  // ValidMetadataValue's abstract root and its other concrete subtypes
+  // (ReferenceDataSet, ValidValueSet, …) all resolve through the same
+  // generic /api/reference-data/{guid} endpoint.
+  if (item.typeName === 'ValidValueDefinition' || superTypes.indexOf('ValidValueDefinition') !== -1) return true;
   // Explicit subtype checks so linkability does not depend on superTypeNames being
   // present on the relationship item (some serializers omit them).
   if (item.typeName === 'CollectionFolder') return true;
   if (item.typeName === 'GovernanceActionProcess') return true;
+  // Endpoint is a Referenceable, not an Asset, so the Asset superType check
+  // below doesn't catch it — Tech Catalog has a dedicated fetch path for it
+  // (ConnectionMaker.get_endpoint_by_guid) and its own Infrastructure tab.
+  if (item.typeName === 'Endpoint') return true;
   if (EXT_REF_TYPES.indexOf(item.typeName) !== -1) return true;
   if (item.typeName === 'ExternalId') return true;
   if (AGREEMENT_TYPES.indexOf(item.typeName) !== -1) return true;
@@ -8309,10 +8319,11 @@ var _ACTION_CENTER_ROW_TYPES = { Notification: 1, Meeting: 1, ToDo: 1, Review: 1
 function RelatedElementRow({ item, onNavigateToElement }) {
   var isActionCenterType = !!_ACTION_CENTER_ROW_TYPES[item.typeName || ''];
   var superTypes = item.superTypeNames || [];
-  // SoftwareCapability subtypes (SourceControlLibrary, etc.) route to Tech
-  // Catalog the same way Assets do — see _elementIsLinkable's comment.
+  // SoftwareCapability subtypes (SourceControlLibrary, etc.) and Endpoint
+  // route to Tech Catalog the same way Assets do — see _elementIsLinkable's comment.
   var isAsset = !isActionCenterType && (superTypes.indexOf('Asset') !== -1 ||
-    item.typeName === 'SoftwareCapability' || superTypes.indexOf('SoftwareCapability') !== -1);
+    item.typeName === 'SoftwareCapability' || superTypes.indexOf('SoftwareCapability') !== -1 ||
+    item.typeName === 'Endpoint');
   var clickable = !isAsset && !!onNavigateToElement && _elementIsLinkable(item);
 
   return React.createElement("div", {
@@ -12045,6 +12056,12 @@ function App() {
     setSection('informal-tags');
   }, []);
 
+  const [contextEventsNavGuid, setContextEventsNavGuid] = useState(null);
+  const onNavigateToContextEvent = useCallback(function(guid) {
+    setContextEventsNavGuid(guid || null);
+    setSection('context-events');
+  }, []);
+
   const [noteLogsNavGuid, setNoteLogsNavGuid] = useState(null);
   const onNavigateToNoteLog = useCallback(function(guid) {
     setNoteLogsNavGuid(guid || null);
@@ -12118,6 +12135,13 @@ function App() {
     if (typeName === 'DigitalProduct') { onNavigateToDigitalProduct(guid); return; }
     if (typeName === 'Perspective') { onNavigateToPerspective(guid); return; }
     if (typeName === 'Project') { onNavigateToProject(guid); return; }
+    if (typeName === 'InformalTag') { onNavigateToInformalTag(guid); return; }
+    if (typeName === 'ContextEvent') { onNavigateToContextEvent(guid); return; }
+    // ValidValueDefinition's other concrete subtypes (ReferenceDataSet,
+    // ValidValueSet, …) resolve through the same generic by-guid endpoint as
+    // ReferenceDataValue — unlike ValidMetadataValue below, these don't need
+    // a property-name lookup.
+    if (typeName === 'ValidValueDefinition' || superTypes.indexOf('ValidValueDefinition') !== -1) { onNavigateToReferenceData(guid); return; }
     if (typeName === 'ValidMetadataValue') {
       // validValueProperty comes from catalog_search_handler.py's
       // _serialize_search_result (guid alone doesn't identify a property
@@ -12152,7 +12176,10 @@ function App() {
     // SoftwareCapability subtypes (SourceControlLibrary, etc.) — same Tech
     // Catalog route as Assets, see _elementIsLinkable's comment.
     if (typeName === 'SoftwareCapability' || superTypes.indexOf('SoftwareCapability') !== -1) { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
-  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToCollection, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToAction, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToExternalReference, onNavigateToExternalIdentifier, onNavigateToAgreement, onNavigateToProject, onNavigateToValidValues]);
+    // Endpoint — Referenceable, not Asset, so it needs its own branch;
+    // Tech Catalog's Infrastructure tab already has a dedicated fetch path.
+    if (typeName === 'Endpoint') { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
+  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToCollection, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToAction, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToExternalReference, onNavigateToExternalIdentifier, onNavigateToAgreement, onNavigateToProject, onNavigateToValidValues, onNavigateToInformalTag, onNavigateToContextEvent]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254);
 
@@ -12447,7 +12474,7 @@ function App() {
       : section === 'projects'
       ? React.createElement(ProjectsView, { key: credsKey, navGuid: projectNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'context-events'
-      ? React.createElement(ContextEventsView, { key: credsKey, onNavigateToElement: onNavigateToElement })
+      ? React.createElement(ContextEventsView, { key: credsKey, navGuid: contextEventsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'informal-tags'
       ? React.createElement(InformalTagsView, { key: credsKey, navGuid: informalTagsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'external-references'
