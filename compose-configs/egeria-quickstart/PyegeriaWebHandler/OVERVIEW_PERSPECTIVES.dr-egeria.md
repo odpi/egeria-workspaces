@@ -6,8 +6,13 @@
 > Loadable **Dr.Egeria** document that materialises the Overview dashboard's
 > per-perspective question sets as real Egeria elements: each **Perspective**
 > (a viewpoint held by an actor) is linked via **ScopedBy** to its **Questions**
-> (GlossaryTerms classified `IsQuestion`). Generated from `egeria-overview.html`
+> (GlossaryTerms classified `Question`). Generated from `egeria-overview.html`
 > `PERSPECTIVES` — the single source of truth. Regenerate with gen_perspectives.py.
+>
+> Most of these Perspectives already exist (Resource Explorer's own
+> reconciliation ran first) -- see EXISTING_PERSPECTIVES in this script. Only
+> `Engineering` is created new here; everything else links its Questions
+> straight to the existing element by qualified name.
 >
 > Starter questions scavenged from DAMA-DMBOK / EDM-Council DCAM / FAIR / DataOps.
 > **Run with VALIDATE first, then PROCESS.** Create commands carry user-specified
@@ -15,24 +20,10 @@
 
 ---
 
-# Governance — perspective
+# Governance — perspective (existing — adopted from Resource Explorer, not created here)
 
-## Create Perspective
-
-### Display Name
-Governance
-
-### Category
-Overview Dashboard Perspective
-
-### Description
-Are we in control, and is it improving?  (Egeria Overview dashboard perspective.)
-
-### Qualified Name
-Perspective::overview-governance
-
-### Version Identifier
-1.0
+Questions below link to the existing `Perspective::Governance` Perspective element;
+no Create Perspective command for it in this doc.
 
 ---
 
@@ -62,7 +53,7 @@ Question::overview-governance-01
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-governance
+Perspective::Governance
 
 ### Question Name
 Question::overview-governance-01
@@ -98,7 +89,7 @@ Question::overview-governance-02
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-governance
+Perspective::Governance
 
 ### Question Name
 Question::overview-governance-02
@@ -134,7 +125,7 @@ Question::overview-governance-03
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-governance
+Perspective::Governance
 
 ### Question Name
 Question::overview-governance-03
@@ -170,7 +161,7 @@ Question::overview-governance-04
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-governance
+Perspective::Governance
 
 ### Question Name
 Question::overview-governance-04
@@ -206,7 +197,7 @@ Question::overview-governance-05
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-governance
+Perspective::Governance
 
 ### Question Name
 Question::overview-governance-05
@@ -216,24 +207,10 @@ ScopedBy
 
 ---
 
-# Stewardship — perspective
+# Steward — perspective (existing — adopted from Resource Explorer, not created here)
 
-## Create Perspective
-
-### Display Name
-Stewardship
-
-### Category
-Overview Dashboard Perspective
-
-### Description
-What in my domain needs my attention?  (Egeria Overview dashboard perspective.)
-
-### Qualified Name
-Perspective::overview-steward
-
-### Version Identifier
-1.0
+Questions below link to the existing `Perspective::Steward` Perspective element;
+no Create Perspective command for it in this doc.
 
 ---
 
@@ -263,7 +240,7 @@ Question::overview-steward-01
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-steward
+Perspective::Steward
 
 ### Question Name
 Question::overview-steward-01
@@ -299,7 +276,7 @@ Question::overview-steward-02
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-steward
+Perspective::Steward
 
 ### Question Name
 Question::overview-steward-02
@@ -335,7 +312,7 @@ Question::overview-steward-03
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-steward
+Perspective::Steward
 
 ### Question Name
 Question::overview-steward-03
@@ -371,7 +348,7 @@ Question::overview-steward-04
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-steward
+Perspective::Steward
 
 ### Question Name
 Question::overview-steward-04
@@ -381,24 +358,10 @@ ScopedBy
 
 ---
 
-# Ownership — perspective
+# Data Owner — perspective (existing — adopted from Resource Explorer, not created here)
 
-## Create Perspective
-
-### Display Name
-Ownership
-
-### Category
-Overview Dashboard Perspective
-
-### Description
-Are the assets I'm responsible for managing healthy, used, and trusted?  (Egeria Overview dashboard perspective.)
-
-### Qualified Name
-Perspective::overview-owner
-
-### Version Identifier
-1.0
+Questions below link to the existing `Perspective::Data Owner` Perspective element;
+no Create Perspective command for it in this doc.
 
 ---
 
@@ -428,7 +391,7 @@ Question::overview-owner-01
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-owner
+Perspective::Data Owner
 
 ### Question Name
 Question::overview-owner-01
@@ -464,7 +427,7 @@ Question::overview-owner-02
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-owner
+Perspective::Data Owner
 
 ### Question Name
 Question::overview-owner-02
@@ -500,7 +463,7 @@ Question::overview-owner-03
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-owner
+Perspective::Data Owner
 
 ### Question Name
 Question::overview-owner-03
@@ -536,7 +499,7 @@ Question::overview-owner-04
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-owner
+Perspective::Data Owner
 
 ### Question Name
 Question::overview-owner-04
@@ -546,24 +509,10 @@ ScopedBy
 
 ---
 
-# Usage — perspective
+# Consumer — perspective (existing — adopted from Resource Explorer, not created here)
 
-## Create Perspective
-
-### Display Name
-Usage
-
-### Category
-Overview Dashboard Perspective
-
-### Description
-Can I find and trust the data I need?  (Egeria Overview dashboard perspective.)
-
-### Qualified Name
-Perspective::overview-consumer
-
-### Version Identifier
-1.0
+Questions below link to the existing `Perspective::Consumer` Perspective element;
+no Create Perspective command for it in this doc.
 
 ---
 
@@ -593,7 +542,7 @@ Question::overview-consumer-01
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-consumer
+Perspective::Consumer
 
 ### Question Name
 Question::overview-consumer-01
@@ -629,7 +578,7 @@ Question::overview-consumer-02
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-consumer
+Perspective::Consumer
 
 ### Question Name
 Question::overview-consumer-02
@@ -665,7 +614,7 @@ Question::overview-consumer-03
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-consumer
+Perspective::Consumer
 
 ### Question Name
 Question::overview-consumer-03
@@ -701,7 +650,7 @@ Question::overview-consumer-04
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-consumer
+Perspective::Consumer
 
 ### Question Name
 Question::overview-consumer-04
@@ -725,7 +674,7 @@ Overview Dashboard Perspective
 Is the pipeline healthy and complete?  (Egeria Overview dashboard perspective.)
 
 ### Qualified Name
-Perspective::overview-engineer
+Perspective::Engineering
 
 ### Version Identifier
 1.0
@@ -758,7 +707,7 @@ Question::overview-engineer-01
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-engineer
+Perspective::Engineering
 
 ### Question Name
 Question::overview-engineer-01
@@ -794,7 +743,7 @@ Question::overview-engineer-02
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-engineer
+Perspective::Engineering
 
 ### Question Name
 Question::overview-engineer-02
@@ -830,7 +779,7 @@ Question::overview-engineer-03
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-engineer
+Perspective::Engineering
 
 ### Question Name
 Question::overview-engineer-03
@@ -866,7 +815,7 @@ Question::overview-engineer-04
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-engineer
+Perspective::Engineering
 
 ### Question Name
 Question::overview-engineer-04
@@ -876,24 +825,10 @@ ScopedBy
 
 ---
 
-# Architecture — perspective
+# Architecture — perspective (existing — adopted from Resource Explorer, not created here)
 
-## Create Perspective
-
-### Display Name
-Architecture
-
-### Category
-Overview Dashboard Perspective
-
-### Description
-Do our designs cover the landscape, and are they current?  (Egeria Overview dashboard perspective.)
-
-### Qualified Name
-Perspective::overview-architecture
-
-### Version Identifier
-1.0
+Questions below link to the existing `Perspective::Architecture` Perspective element;
+no Create Perspective command for it in this doc.
 
 ---
 
@@ -923,7 +858,7 @@ Question::overview-architecture-01
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-architecture
+Perspective::Architecture
 
 ### Question Name
 Question::overview-architecture-01
@@ -959,7 +894,7 @@ Question::overview-architecture-02
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-architecture
+Perspective::Architecture
 
 ### Question Name
 Question::overview-architecture-02
@@ -995,7 +930,7 @@ Question::overview-architecture-03
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-architecture
+Perspective::Architecture
 
 ### Question Name
 Question::overview-architecture-03
@@ -1031,7 +966,7 @@ Question::overview-architecture-04
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-architecture
+Perspective::Architecture
 
 ### Question Name
 Question::overview-architecture-04
@@ -1041,24 +976,10 @@ ScopedBy
 
 ---
 
-# Security — perspective
+# Security — perspective (existing — adopted from Resource Explorer, not created here)
 
-## Create Perspective
-
-### Display Name
-Security
-
-### Category
-Overview Dashboard Perspective
-
-### Description
-Is our technical attack surface understood and controlled?  (Egeria Overview dashboard perspective.)
-
-### Qualified Name
-Perspective::overview-security
-
-### Version Identifier
-1.0
+Questions below link to the existing `Perspective::Security` Perspective element;
+no Create Perspective command for it in this doc.
 
 ---
 
@@ -1088,7 +1009,7 @@ Question::overview-security-01
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-security
+Perspective::Security
 
 ### Question Name
 Question::overview-security-01
@@ -1124,7 +1045,7 @@ Question::overview-security-02
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-security
+Perspective::Security
 
 ### Question Name
 Question::overview-security-02
@@ -1160,7 +1081,7 @@ Question::overview-security-03
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-security
+Perspective::Security
 
 ### Question Name
 Question::overview-security-03
@@ -1196,7 +1117,7 @@ Question::overview-security-04
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-security
+Perspective::Security
 
 ### Question Name
 Question::overview-security-04
@@ -1206,24 +1127,10 @@ ScopedBy
 
 ---
 
-# AI & Apps — perspective
+# App/AI Builder — perspective (existing — adopted from Resource Explorer, not created here)
 
-## Create Perspective
-
-### Display Name
-AI & Apps
-
-### Category
-Overview Dashboard Perspective
-
-### Description
-How much governed context can I safely build on?  (Egeria Overview dashboard perspective.)
-
-### Qualified Name
-Perspective::overview-builder
-
-### Version Identifier
-1.0
+Questions below link to the existing `Perspective::App/AI Builder` Perspective element;
+no Create Perspective command for it in this doc.
 
 ---
 
@@ -1253,7 +1160,7 @@ Question::overview-builder-01
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-builder
+Perspective::App/AI Builder
 
 ### Question Name
 Question::overview-builder-01
@@ -1289,7 +1196,7 @@ Question::overview-builder-02
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-builder
+Perspective::App/AI Builder
 
 ### Question Name
 Question::overview-builder-02
@@ -1325,7 +1232,7 @@ Question::overview-builder-03
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-builder
+Perspective::App/AI Builder
 
 ### Question Name
 Question::overview-builder-03
@@ -1361,7 +1268,7 @@ Question::overview-builder-04
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-builder
+Perspective::App/AI Builder
 
 ### Question Name
 Question::overview-builder-04
@@ -1371,24 +1278,10 @@ ScopedBy
 
 ---
 
-# Privacy — perspective
+# Privacy — perspective (existing — adopted from Resource Explorer, not created here)
 
-## Create Perspective
-
-### Display Name
-Privacy
-
-### Category
-Overview Dashboard Perspective
-
-### Description
-Where is our privacy risk and exposure?  (Egeria Overview dashboard perspective.)
-
-### Qualified Name
-Perspective::overview-privacy
-
-### Version Identifier
-1.0
+Questions below link to the existing `Perspective::Privacy` Perspective element;
+no Create Perspective command for it in this doc.
 
 ---
 
@@ -1418,7 +1311,7 @@ Question::overview-privacy-01
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-privacy
+Perspective::Privacy
 
 ### Question Name
 Question::overview-privacy-01
@@ -1454,7 +1347,7 @@ Question::overview-privacy-02
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-privacy
+Perspective::Privacy
 
 ### Question Name
 Question::overview-privacy-02
@@ -1490,7 +1383,7 @@ Question::overview-privacy-03
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-privacy
+Perspective::Privacy
 
 ### Question Name
 Question::overview-privacy-03
@@ -1526,7 +1419,7 @@ Question::overview-privacy-04
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-privacy
+Perspective::Privacy
 
 ### Question Name
 Question::overview-privacy-04
@@ -1536,24 +1429,10 @@ ScopedBy
 
 ---
 
-# Community — perspective
+# Community — perspective (existing — adopted from Resource Explorer, not created here)
 
-## Create Perspective
-
-### Display Name
-Community
-
-### Category
-Overview Dashboard Perspective
-
-### Description
-Is the community healthy and engaged?  (Egeria Overview dashboard perspective.)
-
-### Qualified Name
-Perspective::overview-community
-
-### Version Identifier
-1.0
+Questions below link to the existing `Perspective::Community` Perspective element;
+no Create Perspective command for it in this doc.
 
 ---
 
@@ -1583,7 +1462,7 @@ Question::overview-community-01
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-community
+Perspective::Community
 
 ### Question Name
 Question::overview-community-01
@@ -1619,7 +1498,7 @@ Question::overview-community-02
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-community
+Perspective::Community
 
 ### Question Name
 Question::overview-community-02
@@ -1655,7 +1534,7 @@ Question::overview-community-03
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-community
+Perspective::Community
 
 ### Question Name
 Question::overview-community-03
@@ -1691,7 +1570,7 @@ Question::overview-community-04
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-community
+Perspective::Community
 
 ### Question Name
 Question::overview-community-04

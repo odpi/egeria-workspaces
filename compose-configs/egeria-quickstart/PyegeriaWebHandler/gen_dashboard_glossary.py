@@ -85,13 +85,13 @@ TOPIC_COLLECTIONS = {
 }
 PERSPECTIVE_COLLECTIONS = {
     "governance":   "Governance View",
-    "steward":      "Stewardship View",
-    "owner":        "Ownership View",
-    "consumer":     "Usage View",
+    "steward":      "Steward View",
+    "owner":        "Data Owner View",
+    "consumer":     "Consumer View",
     "engineer":     "Engineering View",
     "architecture": "Architecture View",
     "security":     "Security View",
-    "builder":      "AI & Apps View",
+    "builder":      "App/AI Builder View",
     "privacy":      "Privacy View",
     "community":    "Community View",
 }

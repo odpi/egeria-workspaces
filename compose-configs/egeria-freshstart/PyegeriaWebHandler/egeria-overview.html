@@ -327,13 +327,13 @@
     </div>
     <div class="persp-tabs">
       <button data-persp="governance" class="on">Governance</button>
-      <button data-persp="steward">Stewardship</button>
-      <button data-persp="owner">Ownership</button>
-      <button data-persp="consumer">Usage</button>
+      <button data-persp="steward">Steward</button>
+      <button data-persp="owner">Data&nbsp;Owner</button>
+      <button data-persp="consumer">Consumer</button>
       <button data-persp="engineer">Engineering</button>
       <button data-persp="architecture">Architecture</button>
       <button data-persp="security">Security</button>
-      <button data-persp="builder">AI&nbsp;&amp;&nbsp;Apps</button>
+      <button data-persp="builder">App/AI&nbsp;Builder</button>
       <button data-persp="privacy">Privacy</button>
       <button data-persp="community">Community</button>
       <button onclick="document.getElementById('qpanel').classList.toggle('open')" style="border-color:var(--c3);color:var(--c3)">❓ Questions ▾</button>
@@ -1027,21 +1027,21 @@ const PERSPECTIVES = {
       Q('🟠','Where is our regulatory exposure concentrated?','FAIR + Privacy → <b style="color:var(--text)">Business value:</b> avoided fines, breach-cost reduction','Confidential in open zones'),
       Q('🟢','How many policy exceptions are open, and are they aging down?','DCAM · Control → <b style="color:var(--text)">Business value:</b> operational risk &amp; SLA to remediation','Open exceptions','qb-ans'),
       Q('⚪','Is the community actively curating &amp; trusting the catalog?','Adoption → <b style="color:var(--text)">Business value:</b> self-service, less steward toil','→ People &amp; Community','qb-none') ] },
-  steward: { icon:'🧹', label:'Stewardship', q:'"What in my domain needs my attention?"',
+  steward: { icon:'🧹', label:'Steward', q:'"What in my domain needs my attention?"',
     show:['quality','composition','usage','growth','people','activity'],
     questions:[
       Q('🟠','Which assets lack an owner, classification, or description?','DAMA · Metadata → <b style="color:var(--text)">Value:</b> trustable, findable catalog','Attention queue'),
       Q('🟠','Which glossary terms are unlinked or awaiting approval?','FAIR · Findable → <b style="color:var(--text)">Value:</b> semantic coverage','Orphan terms'),
       Q('🟠','Which data stores have never been surveyed / profiled?','DataOps · quality → <b style="color:var(--text)">Value:</b> known data quality','Unsurveyed'),
       Q('⚪','What changed in my domain since I last looked?','Observability → <b style="color:var(--text)">Value:</b> stay ahead of drift','→ Recent Activity','qb-none') ] },
-  owner: { icon:'📦', label:'Ownership', q:'"Are the assets I&#39;m responsible for managing healthy, used, and trusted?"',
+  owner: { icon:'📦', label:'Data Owner', q:'"Are the assets I&#39;m responsible for managing healthy, used, and trusted?"',
     show:['value','quality','people','usage','composition','activity'],
     questions:[
       Q('🟢','Who is using the data products I&#39;m responsible for, and how much?','Data-as-product → <b style="color:var(--text)">Value:</b> demonstrate impact','Most-engaged assets','qb-ans'),
       Q('🟠','What is the quality &amp; freshness of the assets I manage?','DataOps → <b style="color:var(--text)">Value:</b> reliability','DQ coverage'),
       Q('🟠','Are there open issues or low ratings on assets I&#39;m accountable for?','Feedback → <b style="color:var(--text)">Value:</b> trust signal','Ratings'),
       Q('🟠','Are the assets I manage properly classified &amp; access-controlled?','DCAM → <b style="color:var(--text)">Value:</b> compliance','Governed coverage') ] },
-  consumer: { icon:'🔎', label:'Usage', q:'"Can I find and trust the data I need?"',
+  consumer: { icon:'🔎', label:'Consumer', q:'"Can I find and trust the data I need?"',
     show:['composition','usage','people','ai','growth'],
     questions:[
       Q('🟢','What certified data products exist for my domain?','FAIR · Findable → <b style="color:var(--text)">Value:</b> faster time-to-data','Data products','qb-ans'),
@@ -1069,7 +1069,7 @@ const PERSPECTIVES = {
       Q('🟠','Which service accounts, connectors, or AI agents have elevated platform access?','Access control · least privilege → <b style="color:var(--text)">Value:</b> breach containment','Elevated access'),
       Q('🟢','Is confidential data blocked from AI training/RAG contexts?','AI safety → <b style="color:var(--text)">Value:</b> defensible AI','AI guardrails','qb-ans'),
       Q('⚪','Are there open security-relevant governance exceptions (e.g. unencrypted, unclassified-for-risk assets)?','DCAM · Control → <b style="color:var(--text)">Value:</b> operational risk reduction','→ Governance','qb-none') ] },
-  builder: { icon:'🤖', label:'AI &amp; Apps', q:'"How much governed context can I safely build on?"',
+  builder: { icon:'🤖', label:'App/AI Builder', q:'"How much governed context can I safely build on?"',
     show:['ai','usage','composition','value','growth'],
     questions:[
       Q('🟠','How much data is AI-ready — governed, documented, lineage-traced?','AI governance → <b style="color:var(--text)">Value:</b> trustworthy AI faster','Context readiness funnel'),

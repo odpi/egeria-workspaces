@@ -314,13 +314,13 @@ Collection::Governance View
 ## Create Collection
 
 ### Display Name
-Stewardship View
+Steward View
 
 ### Description
-Metrics shown to the "Stewardship" Perspective on the Overview dashboard (perspectives_for()'s 'steward').
+Metrics shown to the "Steward" Perspective on the Overview dashboard (perspectives_for()'s 'steward').
 
 ### Qualified Name
-Collection::Stewardship View
+Collection::Steward View
 
 ### Version Identifier
 1.0
@@ -333,20 +333,20 @@ Collection::Stewardship View
 RootCollection::Egeria Dashboard
 
 ### Element Id
-Collection::Stewardship View
+Collection::Steward View
 
 ---
 
 ## Create Collection
 
 ### Display Name
-Ownership View
+Data Owner View
 
 ### Description
-Metrics shown to the "Ownership" Perspective on the Overview dashboard (perspectives_for()'s 'owner').
+Metrics shown to the "Data Owner" Perspective on the Overview dashboard (perspectives_for()'s 'owner').
 
 ### Qualified Name
-Collection::Ownership View
+Collection::Data Owner View
 
 ### Version Identifier
 1.0
@@ -359,20 +359,20 @@ Collection::Ownership View
 RootCollection::Egeria Dashboard
 
 ### Element Id
-Collection::Ownership View
+Collection::Data Owner View
 
 ---
 
 ## Create Collection
 
 ### Display Name
-Usage View
+Consumer View
 
 ### Description
-Metrics shown to the "Usage" Perspective on the Overview dashboard (perspectives_for()'s 'consumer').
+Metrics shown to the "Consumer" Perspective on the Overview dashboard (perspectives_for()'s 'consumer').
 
 ### Qualified Name
-Collection::Usage View
+Collection::Consumer View
 
 ### Version Identifier
 1.0
@@ -385,7 +385,7 @@ Collection::Usage View
 RootCollection::Egeria Dashboard
 
 ### Element Id
-Collection::Usage View
+Collection::Consumer View
 
 ---
 
@@ -470,13 +470,13 @@ Collection::Security View
 ## Create Collection
 
 ### Display Name
-AI & Apps View
+App/AI Builder View
 
 ### Description
-Metrics shown to the "AI & Apps" Perspective on the Overview dashboard (perspectives_for()'s 'builder').
+Metrics shown to the "App/AI Builder" Perspective on the Overview dashboard (perspectives_for()'s 'builder').
 
 ### Qualified Name
-Collection::AI & Apps View
+Collection::App/AI Builder View
 
 ### Version Identifier
 1.0
@@ -489,7 +489,7 @@ Collection::AI & Apps View
 RootCollection::Egeria Dashboard
 
 ### Element Id
-Collection::AI & Apps View
+Collection::App/AI Builder View
 
 ---
 
@@ -603,7 +603,7 @@ Term::overview-kpi-assets
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Stewardship View
+Collection::Steward View
 
 ### Element Id
 Term::overview-kpi-assets
@@ -643,7 +643,7 @@ Term::overview-kpi-assets
 ## Add Member to Collection
 
 ### Collection Id
-Collection::AI & Apps View
+Collection::App/AI Builder View
 
 ### Element Id
 Term::overview-kpi-assets
@@ -728,7 +728,7 @@ Term::overview-kpi-terms
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Stewardship View
+Collection::Steward View
 
 ### Element Id
 Term::overview-kpi-terms
@@ -738,7 +738,7 @@ Term::overview-kpi-terms
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Usage View
+Collection::Consumer View
 
 ### Element Id
 Term::overview-kpi-terms
@@ -833,7 +833,7 @@ Term::overview-kpi-governed
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Stewardship View
+Collection::Steward View
 
 ### Element Id
 Term::overview-kpi-governed
@@ -843,7 +843,7 @@ Term::overview-kpi-governed
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Ownership View
+Collection::Data Owner View
 
 ### Element Id
 Term::overview-kpi-governed
@@ -883,7 +883,7 @@ Term::overview-kpi-governed
 ## Add Member to Collection
 
 ### Collection Id
-Collection::AI & Apps View
+Collection::App/AI Builder View
 
 ### Element Id
 Term::overview-kpi-governed
@@ -978,7 +978,7 @@ Term::overview-kpi-certs
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Stewardship View
+Collection::Steward View
 
 ### Element Id
 Term::overview-kpi-certs
@@ -988,7 +988,7 @@ Term::overview-kpi-certs
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Ownership View
+Collection::Data Owner View
 
 ### Element Id
 Term::overview-kpi-certs
@@ -1083,7 +1083,7 @@ Term::overview-kpi-products
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Ownership View
+Collection::Data Owner View
 
 ### Element Id
 Term::overview-kpi-products
@@ -1093,7 +1093,7 @@ Term::overview-kpi-products
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Usage View
+Collection::Consumer View
 
 ### Element Id
 Term::overview-kpi-products
@@ -1103,7 +1103,7 @@ Term::overview-kpi-products
 ## Add Member to Collection
 
 ### Collection Id
-Collection::AI & Apps View
+Collection::App/AI Builder View
 
 ### Element Id
 Term::overview-kpi-products
@@ -1198,7 +1198,7 @@ Term::overview-kpi-exceptions
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Stewardship View
+Collection::Steward View
 
 ### Element Id
 Term::overview-kpi-exceptions
@@ -1208,7 +1208,7 @@ Term::overview-kpi-exceptions
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Ownership View
+Collection::Data Owner View
 
 ### Element Id
 Term::overview-kpi-exceptions
@@ -1313,7 +1313,7 @@ Term::overview-kpi-people
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Ownership View
+Collection::Data Owner View
 
 ### Element Id
 Term::overview-kpi-people
@@ -1323,7 +1323,7 @@ Term::overview-kpi-people
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Usage View
+Collection::Consumer View
 
 ### Element Id
 Term::overview-kpi-people
@@ -1463,7 +1463,7 @@ Term::overview-kpi-isc
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Usage View
+Collection::Consumer View
 
 ### Element Id
 Term::overview-kpi-isc
@@ -1493,7 +1493,7 @@ Term::overview-kpi-isc
 ## Add Member to Collection
 
 ### Collection Id
-Collection::AI & Apps View
+Collection::App/AI Builder View
 
 ### Element Id
 Term::overview-kpi-isc
@@ -1558,7 +1558,7 @@ Term::overview-kpi-blueprints
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Usage View
+Collection::Consumer View
 
 ### Element Id
 Term::overview-kpi-blueprints
@@ -1588,7 +1588,7 @@ Term::overview-kpi-blueprints
 ## Add Member to Collection
 
 ### Collection Id
-Collection::AI & Apps View
+Collection::App/AI Builder View
 
 ### Element Id
 Term::overview-kpi-blueprints
@@ -1653,7 +1653,7 @@ Term::overview-kpi-grounding
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Stewardship View
+Collection::Steward View
 
 ### Element Id
 Term::overview-kpi-grounding
@@ -1663,7 +1663,7 @@ Term::overview-kpi-grounding
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Ownership View
+Collection::Data Owner View
 
 ### Element Id
 Term::overview-kpi-grounding
@@ -1673,7 +1673,7 @@ Term::overview-kpi-grounding
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Usage View
+Collection::Consumer View
 
 ### Element Id
 Term::overview-kpi-grounding
@@ -1713,7 +1713,7 @@ Term::overview-kpi-grounding
 ## Add Member to Collection
 
 ### Collection Id
-Collection::AI & Apps View
+Collection::App/AI Builder View
 
 ### Element Id
 Term::overview-kpi-grounding
