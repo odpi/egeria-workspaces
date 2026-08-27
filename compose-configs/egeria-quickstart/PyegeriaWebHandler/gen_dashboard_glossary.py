@@ -84,14 +84,16 @@ TOPIC_COLLECTIONS = {
     "usage":            "Popularity / Usage Metrics",
 }
 PERSPECTIVE_COLLECTIONS = {
-    "governance": "Data Governance Lead View",
-    "steward":    "Data Steward View",
-    "owner":      "Data Owner View",
-    "consumer":   "Data Consumer / Analyst View",
-    "engineer":   "Data Engineer / Platform View",
-    "builder":    "App / AI Builder View",
-    "privacy":    "Privacy / Risk Officer View",
-    "community":  "Community Lead View",
+    "governance":   "Governance View",
+    "steward":      "Stewardship View",
+    "owner":        "Ownership View",
+    "consumer":     "Usage View",
+    "engineer":     "Engineering View",
+    "architecture": "Architecture View",
+    "security":     "Security View",
+    "builder":      "AI & Apps View",
+    "privacy":      "Privacy View",
+    "community":    "Community View",
 }
 
 

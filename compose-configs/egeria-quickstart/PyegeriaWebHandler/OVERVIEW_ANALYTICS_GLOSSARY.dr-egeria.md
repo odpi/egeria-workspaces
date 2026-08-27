@@ -288,13 +288,13 @@ Collection::Popularity / Usage Metrics
 ## Create Collection
 
 ### Display Name
-Data Governance Lead View
+Governance View
 
 ### Description
-Metrics shown to the "Data Governance Lead" Perspective on the Overview dashboard (perspectives_for()'s 'governance').
+Metrics shown to the "Governance" Perspective on the Overview dashboard (perspectives_for()'s 'governance').
 
 ### Qualified Name
-Collection::Data Governance Lead View
+Collection::Governance View
 
 ### Version Identifier
 1.0
@@ -307,20 +307,20 @@ Collection::Data Governance Lead View
 RootCollection::Egeria Dashboard
 
 ### Element Id
-Collection::Data Governance Lead View
+Collection::Governance View
 
 ---
 
 ## Create Collection
 
 ### Display Name
-Data Steward View
+Stewardship View
 
 ### Description
-Metrics shown to the "Data Steward" Perspective on the Overview dashboard (perspectives_for()'s 'steward').
+Metrics shown to the "Stewardship" Perspective on the Overview dashboard (perspectives_for()'s 'steward').
 
 ### Qualified Name
-Collection::Data Steward View
+Collection::Stewardship View
 
 ### Version Identifier
 1.0
@@ -333,20 +333,20 @@ Collection::Data Steward View
 RootCollection::Egeria Dashboard
 
 ### Element Id
-Collection::Data Steward View
+Collection::Stewardship View
 
 ---
 
 ## Create Collection
 
 ### Display Name
-Data Owner View
+Ownership View
 
 ### Description
-Metrics shown to the "Data Owner" Perspective on the Overview dashboard (perspectives_for()'s 'owner').
+Metrics shown to the "Ownership" Perspective on the Overview dashboard (perspectives_for()'s 'owner').
 
 ### Qualified Name
-Collection::Data Owner View
+Collection::Ownership View
 
 ### Version Identifier
 1.0
@@ -359,20 +359,20 @@ Collection::Data Owner View
 RootCollection::Egeria Dashboard
 
 ### Element Id
-Collection::Data Owner View
+Collection::Ownership View
 
 ---
 
 ## Create Collection
 
 ### Display Name
-Data Consumer / Analyst View
+Usage View
 
 ### Description
-Metrics shown to the "Data Consumer / Analyst" Perspective on the Overview dashboard (perspectives_for()'s 'consumer').
+Metrics shown to the "Usage" Perspective on the Overview dashboard (perspectives_for()'s 'consumer').
 
 ### Qualified Name
-Collection::Data Consumer / Analyst View
+Collection::Usage View
 
 ### Version Identifier
 1.0
@@ -385,20 +385,20 @@ Collection::Data Consumer / Analyst View
 RootCollection::Egeria Dashboard
 
 ### Element Id
-Collection::Data Consumer / Analyst View
+Collection::Usage View
 
 ---
 
 ## Create Collection
 
 ### Display Name
-Data Engineer / Platform View
+Engineering View
 
 ### Description
-Metrics shown to the "Data Engineer / Platform" Perspective on the Overview dashboard (perspectives_for()'s 'engineer').
+Metrics shown to the "Engineering" Perspective on the Overview dashboard (perspectives_for()'s 'engineer').
 
 ### Qualified Name
-Collection::Data Engineer / Platform View
+Collection::Engineering View
 
 ### Version Identifier
 1.0
@@ -411,20 +411,20 @@ Collection::Data Engineer / Platform View
 RootCollection::Egeria Dashboard
 
 ### Element Id
-Collection::Data Engineer / Platform View
+Collection::Engineering View
 
 ---
 
 ## Create Collection
 
 ### Display Name
-App / AI Builder View
+Architecture View
 
 ### Description
-Metrics shown to the "App / AI Builder" Perspective on the Overview dashboard (perspectives_for()'s 'builder').
+Metrics shown to the "Architecture" Perspective on the Overview dashboard (perspectives_for()'s 'architecture').
 
 ### Qualified Name
-Collection::App / AI Builder View
+Collection::Architecture View
 
 ### Version Identifier
 1.0
@@ -437,20 +437,20 @@ Collection::App / AI Builder View
 RootCollection::Egeria Dashboard
 
 ### Element Id
-Collection::App / AI Builder View
+Collection::Architecture View
 
 ---
 
 ## Create Collection
 
 ### Display Name
-Privacy / Risk Officer View
+Security View
 
 ### Description
-Metrics shown to the "Privacy / Risk Officer" Perspective on the Overview dashboard (perspectives_for()'s 'privacy').
+Metrics shown to the "Security" Perspective on the Overview dashboard (perspectives_for()'s 'security').
 
 ### Qualified Name
-Collection::Privacy / Risk Officer View
+Collection::Security View
 
 ### Version Identifier
 1.0
@@ -463,20 +463,20 @@ Collection::Privacy / Risk Officer View
 RootCollection::Egeria Dashboard
 
 ### Element Id
-Collection::Privacy / Risk Officer View
+Collection::Security View
 
 ---
 
 ## Create Collection
 
 ### Display Name
-Community Lead View
+AI & Apps View
 
 ### Description
-Metrics shown to the "Community Lead" Perspective on the Overview dashboard (perspectives_for()'s 'community').
+Metrics shown to the "AI & Apps" Perspective on the Overview dashboard (perspectives_for()'s 'builder').
 
 ### Qualified Name
-Collection::Community Lead View
+Collection::AI & Apps View
 
 ### Version Identifier
 1.0
@@ -489,7 +489,59 @@ Collection::Community Lead View
 RootCollection::Egeria Dashboard
 
 ### Element Id
-Collection::Community Lead View
+Collection::AI & Apps View
+
+---
+
+## Create Collection
+
+### Display Name
+Privacy View
+
+### Description
+Metrics shown to the "Privacy" Perspective on the Overview dashboard (perspectives_for()'s 'privacy').
+
+### Qualified Name
+Collection::Privacy View
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+RootCollection::Egeria Dashboard
+
+### Element Id
+Collection::Privacy View
+
+---
+
+## Create Collection
+
+### Display Name
+Community View
+
+### Description
+Metrics shown to the "Community" Perspective on the Overview dashboard (perspectives_for()'s 'community').
+
+### Qualified Name
+Collection::Community View
+
+### Version Identifier
+1.0
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+RootCollection::Egeria Dashboard
+
+### Element Id
+Collection::Community View
 
 ---
 
@@ -541,7 +593,7 @@ Term::overview-kpi-assets
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Governance Lead View
+Collection::Governance View
 
 ### Element Id
 Term::overview-kpi-assets
@@ -551,7 +603,7 @@ Term::overview-kpi-assets
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Steward View
+Collection::Stewardship View
 
 ### Element Id
 Term::overview-kpi-assets
@@ -561,7 +613,7 @@ Term::overview-kpi-assets
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Engineer / Platform View
+Collection::Engineering View
 
 ### Element Id
 Term::overview-kpi-assets
@@ -571,7 +623,7 @@ Term::overview-kpi-assets
 ## Add Member to Collection
 
 ### Collection Id
-Collection::App / AI Builder View
+Collection::Architecture View
 
 ### Element Id
 Term::overview-kpi-assets
@@ -581,7 +633,7 @@ Term::overview-kpi-assets
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Privacy / Risk Officer View
+Collection::Security View
 
 ### Element Id
 Term::overview-kpi-assets
@@ -591,7 +643,27 @@ Term::overview-kpi-assets
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Community Lead View
+Collection::AI & Apps View
+
+### Element Id
+Term::overview-kpi-assets
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Privacy View
+
+### Element Id
+Term::overview-kpi-assets
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Community View
 
 ### Element Id
 Term::overview-kpi-assets
@@ -646,7 +718,7 @@ Term::overview-kpi-terms
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Governance Lead View
+Collection::Governance View
 
 ### Element Id
 Term::overview-kpi-terms
@@ -656,7 +728,7 @@ Term::overview-kpi-terms
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Steward View
+Collection::Stewardship View
 
 ### Element Id
 Term::overview-kpi-terms
@@ -666,7 +738,7 @@ Term::overview-kpi-terms
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Consumer / Analyst View
+Collection::Usage View
 
 ### Element Id
 Term::overview-kpi-terms
@@ -676,7 +748,7 @@ Term::overview-kpi-terms
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Community Lead View
+Collection::Community View
 
 ### Element Id
 Term::overview-kpi-terms
@@ -751,7 +823,7 @@ Term::overview-kpi-governed
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Governance Lead View
+Collection::Governance View
 
 ### Element Id
 Term::overview-kpi-governed
@@ -761,7 +833,7 @@ Term::overview-kpi-governed
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Steward View
+Collection::Stewardship View
 
 ### Element Id
 Term::overview-kpi-governed
@@ -771,7 +843,7 @@ Term::overview-kpi-governed
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Owner View
+Collection::Ownership View
 
 ### Element Id
 Term::overview-kpi-governed
@@ -781,7 +853,7 @@ Term::overview-kpi-governed
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Engineer / Platform View
+Collection::Engineering View
 
 ### Element Id
 Term::overview-kpi-governed
@@ -791,7 +863,7 @@ Term::overview-kpi-governed
 ## Add Member to Collection
 
 ### Collection Id
-Collection::App / AI Builder View
+Collection::Architecture View
 
 ### Element Id
 Term::overview-kpi-governed
@@ -801,7 +873,7 @@ Term::overview-kpi-governed
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Privacy / Risk Officer View
+Collection::Security View
 
 ### Element Id
 Term::overview-kpi-governed
@@ -811,7 +883,27 @@ Term::overview-kpi-governed
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Community Lead View
+Collection::AI & Apps View
+
+### Element Id
+Term::overview-kpi-governed
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Privacy View
+
+### Element Id
+Term::overview-kpi-governed
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Community View
 
 ### Element Id
 Term::overview-kpi-governed
@@ -876,7 +968,7 @@ Term::overview-kpi-certs
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Governance Lead View
+Collection::Governance View
 
 ### Element Id
 Term::overview-kpi-certs
@@ -886,7 +978,7 @@ Term::overview-kpi-certs
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Steward View
+Collection::Stewardship View
 
 ### Element Id
 Term::overview-kpi-certs
@@ -896,7 +988,7 @@ Term::overview-kpi-certs
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Owner View
+Collection::Ownership View
 
 ### Element Id
 Term::overview-kpi-certs
@@ -906,7 +998,17 @@ Term::overview-kpi-certs
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Privacy / Risk Officer View
+Collection::Security View
+
+### Element Id
+Term::overview-kpi-certs
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Privacy View
 
 ### Element Id
 Term::overview-kpi-certs
@@ -919,13 +1021,13 @@ Term::overview-kpi-certs
 Data Products
 
 ### Summary
-Native count of DigitalProduct elements defined in the catalog.
+Native count of DigitalProduct elements defined in the catalog, with an active-vs-pending breakdown by deploymentStatus.
 
 ### Description
-Count of DigitalProduct elements published for consumption.
+Count of DigitalProduct elements, broken down by publication (deployment) status.
 
 ### Usage
-No lifecycle/status filter is applied -- a DigitalProduct still in DRAFT and never released to consumers counts identically to one that is PUBLISHED and actively subscribed to. This is a count of product DEFINITIONS, not a measure of adoption or usage.
+The headline number is every DigitalProduct DEFINITION regardless of status -- a count of product definitions, not a measure of adoption or usage. "Active" (dataProductsActive) counts deploymentStatus == ACTIVE specifically; "Pending" (dataProductsPending) folds every other value (DRAFT, UNDER_DEVELOPMENT, unset, etc.) together rather than enumerating each one, so it reads as "not yet actively deployed" rather than a specific lifecycle stage. Ratings (dataProductsRatings) is a system-wide AttachedRating relationship count, not scoped to products specifically -- Egeria's relationship count can't filter by one end's type without a graph traversal -- and is omitted from the tile entirely when zero rather than showing a fake average.
 
 ### Glossary Name
 Egeria Dashboard Analytics
@@ -971,7 +1073,7 @@ Term::overview-kpi-products
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Governance Lead View
+Collection::Governance View
 
 ### Element Id
 Term::overview-kpi-products
@@ -981,7 +1083,7 @@ Term::overview-kpi-products
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Owner View
+Collection::Ownership View
 
 ### Element Id
 Term::overview-kpi-products
@@ -991,7 +1093,7 @@ Term::overview-kpi-products
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Consumer / Analyst View
+Collection::Usage View
 
 ### Element Id
 Term::overview-kpi-products
@@ -1001,7 +1103,7 @@ Term::overview-kpi-products
 ## Add Member to Collection
 
 ### Collection Id
-Collection::App / AI Builder View
+Collection::AI & Apps View
 
 ### Element Id
 Term::overview-kpi-products
@@ -1011,7 +1113,7 @@ Term::overview-kpi-products
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Privacy / Risk Officer View
+Collection::Privacy View
 
 ### Element Id
 Term::overview-kpi-products
@@ -1021,7 +1123,7 @@ Term::overview-kpi-products
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Community Lead View
+Collection::Community View
 
 ### Element Id
 Term::overview-kpi-products
@@ -1086,7 +1188,7 @@ Term::overview-kpi-exceptions
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Governance Lead View
+Collection::Governance View
 
 ### Element Id
 Term::overview-kpi-exceptions
@@ -1096,7 +1198,7 @@ Term::overview-kpi-exceptions
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Steward View
+Collection::Stewardship View
 
 ### Element Id
 Term::overview-kpi-exceptions
@@ -1106,7 +1208,7 @@ Term::overview-kpi-exceptions
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Owner View
+Collection::Ownership View
 
 ### Element Id
 Term::overview-kpi-exceptions
@@ -1116,7 +1218,7 @@ Term::overview-kpi-exceptions
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Engineer / Platform View
+Collection::Engineering View
 
 ### Element Id
 Term::overview-kpi-exceptions
@@ -1126,7 +1228,27 @@ Term::overview-kpi-exceptions
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Privacy / Risk Officer View
+Collection::Architecture View
+
+### Element Id
+Term::overview-kpi-exceptions
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Security View
+
+### Element Id
+Term::overview-kpi-exceptions
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Privacy View
 
 ### Element Id
 Term::overview-kpi-exceptions
@@ -1191,7 +1313,7 @@ Term::overview-kpi-people
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Owner View
+Collection::Ownership View
 
 ### Element Id
 Term::overview-kpi-people
@@ -1201,7 +1323,7 @@ Term::overview-kpi-people
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Consumer / Analyst View
+Collection::Usage View
 
 ### Element Id
 Term::overview-kpi-people
@@ -1211,7 +1333,7 @@ Term::overview-kpi-people
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Community Lead View
+Collection::Community View
 
 ### Element Id
 Term::overview-kpi-people
@@ -1276,7 +1398,7 @@ Term::overview-kpi-communities
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Community Lead View
+Collection::Community View
 
 ### Element Id
 Term::overview-kpi-communities
@@ -1341,7 +1463,7 @@ Term::overview-kpi-isc
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Consumer / Analyst View
+Collection::Usage View
 
 ### Element Id
 Term::overview-kpi-isc
@@ -1351,7 +1473,7 @@ Term::overview-kpi-isc
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Engineer / Platform View
+Collection::Engineering View
 
 ### Element Id
 Term::overview-kpi-isc
@@ -1361,7 +1483,17 @@ Term::overview-kpi-isc
 ## Add Member to Collection
 
 ### Collection Id
-Collection::App / AI Builder View
+Collection::Architecture View
+
+### Element Id
+Term::overview-kpi-isc
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::AI & Apps View
 
 ### Element Id
 Term::overview-kpi-isc
@@ -1426,7 +1558,7 @@ Term::overview-kpi-blueprints
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Consumer / Analyst View
+Collection::Usage View
 
 ### Element Id
 Term::overview-kpi-blueprints
@@ -1436,7 +1568,7 @@ Term::overview-kpi-blueprints
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Engineer / Platform View
+Collection::Engineering View
 
 ### Element Id
 Term::overview-kpi-blueprints
@@ -1446,7 +1578,17 @@ Term::overview-kpi-blueprints
 ## Add Member to Collection
 
 ### Collection Id
-Collection::App / AI Builder View
+Collection::Architecture View
+
+### Element Id
+Term::overview-kpi-blueprints
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::AI & Apps View
 
 ### Element Id
 Term::overview-kpi-blueprints
@@ -1511,7 +1653,7 @@ Term::overview-kpi-grounding
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Steward View
+Collection::Stewardship View
 
 ### Element Id
 Term::overview-kpi-grounding
@@ -1521,7 +1663,7 @@ Term::overview-kpi-grounding
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Owner View
+Collection::Ownership View
 
 ### Element Id
 Term::overview-kpi-grounding
@@ -1531,7 +1673,7 @@ Term::overview-kpi-grounding
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Consumer / Analyst View
+Collection::Usage View
 
 ### Element Id
 Term::overview-kpi-grounding
@@ -1541,7 +1683,7 @@ Term::overview-kpi-grounding
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Data Engineer / Platform View
+Collection::Engineering View
 
 ### Element Id
 Term::overview-kpi-grounding
@@ -1551,7 +1693,7 @@ Term::overview-kpi-grounding
 ## Add Member to Collection
 
 ### Collection Id
-Collection::App / AI Builder View
+Collection::Architecture View
 
 ### Element Id
 Term::overview-kpi-grounding
@@ -1561,7 +1703,27 @@ Term::overview-kpi-grounding
 ## Add Member to Collection
 
 ### Collection Id
-Collection::Privacy / Risk Officer View
+Collection::Security View
+
+### Element Id
+Term::overview-kpi-grounding
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::AI & Apps View
+
+### Element Id
+Term::overview-kpi-grounding
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Privacy View
 
 ### Element Id
 Term::overview-kpi-grounding
@@ -1672,6 +1834,16 @@ Term::overview-kpi-ai-ready
 
 ### Collection Id
 Collection::AI / Context Intelligence Metrics
+
+### Element Id
+Term::overview-kpi-ai-ready
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+Collection::Security View
 
 ### Element Id
 Term::overview-kpi-ai-ready

@@ -37,6 +37,7 @@ out.append("---")
 out.append("")
 
 for i, (key, icon, label, q) in enumerate(heads):
+    label = clean(label)
     start = block.find(key + ":")
     end = block.find(keys[i + 1] + ":") if i + 1 < len(keys) else len(block)
     seg = block[start:end]

@@ -15,12 +15,12 @@
 
 ---
 
-# Data Governance Lead — perspective
+# Governance — perspective
 
 ## Create Perspective
 
 ### Display Name
-Data Governance Lead
+Governance
 
 ### Category
 Overview Dashboard Perspective
@@ -216,12 +216,12 @@ ScopedBy
 
 ---
 
-# Data Steward — perspective
+# Stewardship — perspective
 
 ## Create Perspective
 
 ### Display Name
-Data Steward
+Stewardship
 
 ### Category
 Overview Dashboard Perspective
@@ -381,18 +381,18 @@ ScopedBy
 
 ---
 
-# Data Owner — perspective
+# Ownership — perspective
 
 ## Create Perspective
 
 ### Display Name
-Data Owner
+Ownership
 
 ### Category
 Overview Dashboard Perspective
 
 ### Description
-Is my data healthy, used, and trusted?  (Egeria Overview dashboard perspective.)
+Are the assets I'm responsible for managing healthy, used, and trusted?  (Egeria Overview dashboard perspective.)
 
 ### Qualified Name
 Perspective::overview-owner
@@ -405,10 +405,10 @@ Perspective::overview-owner
 ## Create Question
 
 ### Display Name
-Who is using my data products, and how much?
+Who is using the data products I'm responsible for, and how much?
 
 ### Summary
-Who is using my data products, and how much?
+Who is using the data products I'm responsible for, and how much?
 
 ### Usage
 Data-as-product → Value: demonstrate impact
@@ -441,10 +441,10 @@ ScopedBy
 ## Create Question
 
 ### Display Name
-What is the quality & freshness of assets I own?
+What is the quality & freshness of the assets I manage?
 
 ### Summary
-What is the quality & freshness of assets I own?
+What is the quality & freshness of the assets I manage?
 
 ### Usage
 DataOps → Value: reliability
@@ -477,10 +477,10 @@ ScopedBy
 ## Create Question
 
 ### Display Name
-Are there open issues or low ratings on my assets?
+Are there open issues or low ratings on assets I'm accountable for?
 
 ### Summary
-Are there open issues or low ratings on my assets?
+Are there open issues or low ratings on assets I'm accountable for?
 
 ### Usage
 Feedback → Value: trust signal
@@ -513,10 +513,10 @@ ScopedBy
 ## Create Question
 
 ### Display Name
-Is my data properly classified & access-controlled?
+Are the assets I manage properly classified & access-controlled?
 
 ### Summary
-Is my data properly classified & access-controlled?
+Are the assets I manage properly classified & access-controlled?
 
 ### Usage
 DCAM → Value: compliance
@@ -546,12 +546,12 @@ ScopedBy
 
 ---
 
-# Data Consumer / Analyst — perspective
+# Usage — perspective
 
 ## Create Perspective
 
 ### Display Name
-Data Consumer / Analyst
+Usage
 
 ### Category
 Overview Dashboard Perspective
@@ -642,13 +642,13 @@ ScopedBy
 ## Create Question
 
 ### Display Name
-What do peers say — ratings, comments, most-used?
+Which assets are used most (and least) across the organisation, and how is that changing?
 
 ### Summary
-What do peers say — ratings, comments, most-used?
+Which assets are used most (and least) across the organisation, and how is that changing?
 
 ### Usage
-Collaboration → Value: social proof
+Usage analytics → Value: focus curation where it matters
 
 ### Category
 Overview Dashboard Question
@@ -711,12 +711,12 @@ ScopedBy
 
 ---
 
-# Data Engineer / Platform — perspective
+# Engineering — perspective
 
 ## Create Perspective
 
 ### Display Name
-Data Engineer / Platform
+Engineering
 
 ### Category
 Overview Dashboard Perspective
@@ -807,13 +807,13 @@ ScopedBy
 ## Create Question
 
 ### Display Name
-What supply chains / blueprints do assets participate in?
+Are pipelines instrumented with open lineage end-to-end?
 
 ### Summary
-What supply chains / blueprints do assets participate in?
+Are pipelines instrumented with open lineage end-to-end?
 
 ### Usage
-Architecture → Value: change safety
+Observability → Value: traceable failures
 
 ### Category
 Overview Dashboard Question
@@ -876,12 +876,342 @@ ScopedBy
 
 ---
 
-# App / AI Builder — perspective
+# Architecture — perspective
 
 ## Create Perspective
 
 ### Display Name
-App / AI Builder
+Architecture
+
+### Category
+Overview Dashboard Perspective
+
+### Description
+Do our designs cover the landscape, and are they current?  (Egeria Overview dashboard perspective.)
+
+### Qualified Name
+Perspective::overview-architecture
+
+### Version Identifier
+1.0
+
+---
+
+## Create Question
+
+### Display Name
+How many Solution Blueprints and Components are catalogued, and are they linked to real assets?
+
+### Summary
+How many Solution Blueprints and Components are catalogued, and are they linked to real assets?
+
+### Usage
+Solution architecture → Value: traceable, reviewable designs
+
+### Category
+Overview Dashboard Question
+
+### Content Status
+ACTIVE
+
+### Qualified Name
+Question::overview-architecture-01
+
+### Version Identifier
+1.0
+
+## Link Perspective to Question
+
+### Perspective Name
+Perspective::overview-architecture
+
+### Question Name
+Question::overview-architecture-01
+
+### Label
+ScopedBy
+
+---
+
+## Create Question
+
+### Display Name
+How many Information Supply Chains trace data end-to-end, and where do they break?
+
+### Summary
+How many Information Supply Chains trace data end-to-end, and where do they break?
+
+### Usage
+FAIR · lineage → Value: impact analysis, change safety
+
+### Category
+Overview Dashboard Question
+
+### Content Status
+ACTIVE
+
+### Qualified Name
+Question::overview-architecture-02
+
+### Version Identifier
+1.0
+
+## Link Perspective to Question
+
+### Perspective Name
+Perspective::overview-architecture
+
+### Question Name
+Question::overview-architecture-02
+
+### Label
+ScopedBy
+
+---
+
+## Create Question
+
+### Display Name
+Which architectures are stale — unreviewed since a major asset or process change?
+
+### Summary
+Which architectures are stale — unreviewed since a major asset or process change?
+
+### Usage
+Architecture governance → Value: designs that stay trustworthy
+
+### Category
+Overview Dashboard Question
+
+### Content Status
+ACTIVE
+
+### Qualified Name
+Question::overview-architecture-03
+
+### Version Identifier
+1.0
+
+## Link Perspective to Question
+
+### Perspective Name
+Perspective::overview-architecture
+
+### Question Name
+Question::overview-architecture-03
+
+### Label
+ScopedBy
+
+---
+
+## Create Question
+
+### Display Name
+Which supply chains or blueprints handle confidential or high-criticality data?
+
+### Summary
+Which supply chains or blueprints handle confidential or high-criticality data?
+
+### Usage
+Risk-aware design → Value: prioritised review
+
+### Category
+Overview Dashboard Question
+
+### Content Status
+ACTIVE
+
+### Qualified Name
+Question::overview-architecture-04
+
+### Version Identifier
+1.0
+
+## Link Perspective to Question
+
+### Perspective Name
+Perspective::overview-architecture
+
+### Question Name
+Question::overview-architecture-04
+
+### Label
+ScopedBy
+
+---
+
+# Security — perspective
+
+## Create Perspective
+
+### Display Name
+Security
+
+### Category
+Overview Dashboard Perspective
+
+### Description
+Is our technical attack surface understood and controlled?  (Egeria Overview dashboard perspective.)
+
+### Qualified Name
+Perspective::overview-security
+
+### Version Identifier
+1.0
+
+---
+
+## Create Question
+
+### Display Name
+Which integration connectors and endpoints exist, and are any misconfigured or unmonitored?
+
+### Summary
+Which integration connectors and endpoints exist, and are any misconfigured or unmonitored?
+
+### Usage
+Security architecture → Value: reduced attack surface
+
+### Category
+Overview Dashboard Question
+
+### Content Status
+ACTIVE
+
+### Qualified Name
+Question::overview-security-01
+
+### Version Identifier
+1.0
+
+## Link Perspective to Question
+
+### Perspective Name
+Perspective::overview-security
+
+### Question Name
+Question::overview-security-01
+
+### Label
+ScopedBy
+
+---
+
+## Create Question
+
+### Display Name
+Which service accounts, connectors, or AI agents have elevated platform access?
+
+### Summary
+Which service accounts, connectors, or AI agents have elevated platform access?
+
+### Usage
+Access control · least privilege → Value: breach containment
+
+### Category
+Overview Dashboard Question
+
+### Content Status
+ACTIVE
+
+### Qualified Name
+Question::overview-security-02
+
+### Version Identifier
+1.0
+
+## Link Perspective to Question
+
+### Perspective Name
+Perspective::overview-security
+
+### Question Name
+Question::overview-security-02
+
+### Label
+ScopedBy
+
+---
+
+## Create Question
+
+### Display Name
+Is confidential data blocked from AI training/RAG contexts?
+
+### Summary
+Is confidential data blocked from AI training/RAG contexts?
+
+### Usage
+AI safety → Value: defensible AI
+
+### Category
+Overview Dashboard Question
+
+### Content Status
+ACTIVE
+
+### Qualified Name
+Question::overview-security-03
+
+### Version Identifier
+1.0
+
+## Link Perspective to Question
+
+### Perspective Name
+Perspective::overview-security
+
+### Question Name
+Question::overview-security-03
+
+### Label
+ScopedBy
+
+---
+
+## Create Question
+
+### Display Name
+Are there open security-relevant governance exceptions (e.g. unencrypted, unclassified-for-risk assets)?
+
+### Summary
+Are there open security-relevant governance exceptions (e.g. unencrypted, unclassified-for-risk assets)?
+
+### Usage
+DCAM · Control → Value: operational risk reduction
+
+### Category
+Overview Dashboard Question
+
+### Content Status
+ACTIVE
+
+### Qualified Name
+Question::overview-security-04
+
+### Version Identifier
+1.0
+
+## Link Perspective to Question
+
+### Perspective Name
+Perspective::overview-security
+
+### Question Name
+Question::overview-security-04
+
+### Label
+ScopedBy
+
+---
+
+# AI & Apps — perspective
+
+## Create Perspective
+
+### Display Name
+AI & Apps
 
 ### Category
 Overview Dashboard Perspective
@@ -1041,18 +1371,18 @@ ScopedBy
 
 ---
 
-# Privacy / Risk Officer — perspective
+# Privacy — perspective
 
 ## Create Perspective
 
 ### Display Name
-Privacy / Risk Officer
+Privacy
 
 ### Category
 Overview Dashboard Perspective
 
 ### Description
-Where is our risk and exposure?  (Egeria Overview dashboard perspective.)
+Where is our privacy risk and exposure?  (Egeria Overview dashboard perspective.)
 
 ### Qualified Name
 Perspective::overview-privacy
@@ -1137,10 +1467,10 @@ ScopedBy
 ## Create Question
 
 ### Display Name
-Who / what can access restricted data (incl. AI agents)?
+Who / what can access restricted personal or sensitive data?
 
 ### Summary
-Who / what can access restricted data (incl. AI agents)?
+Who / what can access restricted personal or sensitive data?
 
 ### Usage
 Access control → Value: least privilege
@@ -1173,13 +1503,13 @@ ScopedBy
 ## Create Question
 
 ### Display Name
-Is confidential data blocked from AI training/RAG?
+Are data-processing purposes documented for regulated data flows?
 
 ### Summary
-Is confidential data blocked from AI training/RAG?
+Are data-processing purposes documented for regulated data flows?
 
 ### Usage
-AI safety → Value: defensible AI
+Privacy by design → Value: lawful-basis evidence
 
 ### Category
 Overview Dashboard Question
@@ -1206,12 +1536,12 @@ ScopedBy
 
 ---
 
-# Community Lead — perspective
+# Community — perspective
 
 ## Create Perspective
 
 ### Display Name
-Community Lead
+Community
 
 ### Category
 Overview Dashboard Perspective
