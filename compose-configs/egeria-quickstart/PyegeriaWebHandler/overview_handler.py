@@ -98,6 +98,18 @@ try:
 except ImportError:
     contextualised_coverage = None
 
+# solution_component_realisation is new (2026-08-27, Solution Blueprints
+# drill-down panel's "components"/"realised by" secondary stats -- were
+# hardcoded placeholder dashes), not yet in a published pyegeria release --
+# same gap as contextualised_coverage just above. Defensive import so an
+# older installed pyegeria keeps those two fields None (frontend already
+# falls back to '—' when null) instead of crashing every /api/overview/*
+# route.
+try:
+    from pyegeria.view.overview_metrics import solution_component_realisation
+except ImportError:
+    solution_component_realisation = None
+
 # karma_leaderboard / engagement_series are new (2026-08-17, People panel's
 # leaderboard + engagementSeries -- previously left None as "deferred").
 # Same defensive-import gap as above.
@@ -756,6 +768,16 @@ def get_usage_context(
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"overview usage-context: contextualised_coverage failed: {exc}")
 
+    solution_components_total = solution_components_realised = None
+    if solution_component_realisation is not None:
+        try:
+            ce2 = _make("ClassificationExplorer", url, server, user_id, user_pwd)
+            comp = solution_component_realisation(mgr, ce2, as_of_time)
+            solution_components_total    = comp["solutionComponentsTotal"]
+            solution_components_realised = comp["solutionComponentsRealised"]
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview usage-context: solution_component_realisation failed: {exc}")
+
     payload = {
         "asOfTime":                as_of_time,
         "informationSupplyChains": iscs,
@@ -763,6 +785,8 @@ def get_usage_context(
         "contextualisedCount":     contextualised_count,
         "contextualisedAssetTotal": asset_total_for_pct,
         "contextualisedPct":       contextualised_pct,
+        "solutionComponents":         solution_components_total,
+        "solutionComponentsRealised": solution_components_realised,
         "partial":                 True,
         "source":                  "live:usage-context",
     }

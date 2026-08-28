@@ -416,6 +416,36 @@ thing to hand-maintain.
   2-hop DataStore→SurveyReport→Annotation traversal or a SchemaType
   traversal — not investigated in depth, real annotation data exists but is
   sparse: only 3 `ReportedAnnotation` relationships live today).
+- **Solution Blueprints drill-down "components"/"realised by" — ✅ done
+  2026-08-27.** The drill panel's secondary stats were hardcoded placeholder
+  dashes — `drillLivePatch()` only ever overlaid `stats[0]` (the headline
+  blueprint count), never `stats[1]`/`stats[2]`. New
+  `solution_component_realisation()` (pyegeria `overview_metrics.py`) gives
+  a real native count of all `SolutionComponent`s (`solutionComponentsTotal`)
+  plus, reusing the exact `ImplementedBy` relationship fetch
+  `contextualised_coverage()` already makes (same bounded query, no extra
+  cost when both run together), a distinct-GUID count of `end1`
+  SolutionComponents that have ≥1 concrete implementation
+  (`solutionComponentsRealised`) — i.e. "has *a* real implementation", not
+  necessarily one that itself participates in the ISC/blueprint the
+  component is drawn from (same single-hop proxy caveat as
+  `contextualised_coverage`'s own docstring). Wired into
+  `/api/overview/usage-context`, `applyUsage()` writes both fields onto
+  `DRILL.blueprints.stats[1]`/`[2]` directly (mirroring the existing
+  `stats[0]` pattern already used for `isc`/`blueprints`) so `openDrill()`
+  picks them up with no separate `drillLivePatch()` change needed. Verified
+  live on quickstart: 322 SolutionComponents, 120 realised (≥1
+  `ImplementedBy`). Mirrored to freshstart (also live-verified there,
+  0/0 — consistent with that isolated instance having no solution-
+  architecture data loaded yet; note freshstart's usage-context endpoint
+  never picked up the earlier `contextualised_coverage`/`contextualisedPct`
+  wiring either — pre-existing drift, out of scope here).
+  The ISC drill panel's equivalent placeholders ("assets in flows",
+  "stages") remain deliberately unwired: "stages" has no backing Egeria
+  type (`InformationSupplyChainSegment` isn't a recognized type name,
+  `OMAG-COMMON-400-018`), and "assets in flows" is the same per-ISC
+  graph-traversal cost already called out above as a later slice — no new
+  cheap proxy found for either.
 - **Perspective Question library**: persist the `PERSPECTIVES[*].questions` JS
   drafts as real `Question` (GlossaryTerm + `IsQuestion`) Dr.Egeria terms per
   perspective, each mapped to a report spec + tile.
