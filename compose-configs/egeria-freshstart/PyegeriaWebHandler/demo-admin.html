@@ -118,6 +118,7 @@
   <div class="tab" onclick="showTab('feedback')">Feedback</div>
   <div class="tab" onclick="showTab('config')">Config</div>
   <div class="tab" onclick="showTab('data-init')">Data Initialization</div>
+  <div class="tab" onclick="showTab('activity')">Activity Log</div>
 </div>
 
 <div class="content">
@@ -190,17 +191,38 @@
     <div id="runAllResult" style="font-size:0.8rem;color:var(--muted);margin-bottom:1rem;display:none"></div>
     <div id="batchList"><div class="empty">Loading…</div></div>
 
-    <details id="bootstrapLogDetails" style="margin-top:1.5rem" ontoggle="if(this.open) loadBootstrapLog()">
-      <summary style="cursor:pointer;font-weight:600;font-size:0.85rem">Recent Activity</summary>
-      <p style="font-size:0.78rem;color:var(--muted);margin:0.5rem 0">
-        Tail of <code>bootstrap.log</code> — every manual run and auto-heal attempt (persisted under
-        <code>~/.pyegeria</code>, survives container recreation).
-        <button class="btn-xs" onclick="loadBootstrapLog()">↻ Refresh</button>
-      </p>
-      <pre id="bootstrapLog" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;
-        padding:0.75rem 1rem;max-height:320px;overflow-y:auto;font-size:0.72rem;line-height:1.5;
-        white-space:pre-wrap;word-break:break-word">Loading…</pre>
-    </details>
+    <p style="font-size:0.78rem;color:var(--muted);margin-top:1.5rem">
+      Run history and dr_egeria's own detailed errors moved to the
+      <a href="#" onclick="showTab('activity');return false" style="color:var(--accent)">Activity Log</a> tab.
+    </p>
+  </div>
+
+  <!-- Activity Log panel -->
+  <div class="panel" id="panel-activity">
+    <div class="section-title">Recent Activity</div>
+    <p style="font-size:0.8rem;color:var(--muted);margin:-0.5rem 0 1rem;line-height:1.5">
+      Tail of <code>bootstrap.log</code> — one line per manual batch run, per file within it, and every
+      auto-heal attempt (persisted under <code>~/.pyegeria</code>, survives container recreation). A run
+      that reports "Run failed" in the Data Initialization tab (e.g. because it took longer than the
+      reverse proxy's 5-minute timeout and the browser gave up waiting) still finishes in the background
+      and its outcome lands here.
+      <button class="btn-xs" onclick="loadBootstrapLog()">↻ Refresh</button>
+    </p>
+    <pre id="bootstrapLog" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;
+      padding:0.75rem 1rem;max-height:320px;overflow-y:auto;font-size:0.72rem;line-height:1.5;
+      white-space:pre-wrap;word-break:break-word">Loading…</pre>
+
+    <div class="section-title" style="margin-top:1.5rem">dr_egeria Errors &amp; Warnings</div>
+    <p style="font-size:0.8rem;color:var(--muted);margin:-0.5rem 0 1rem;line-height:1.5">
+      Tail of <code>pyegeria.log</code>, filtered to ERROR/WARNING lines — the actual reason a file
+      failed (a validation error, an unresolved reference, a traceback), which <code>bootstrap.log</code>
+      above doesn't carry. This is the same log dr_egeria writes for every command it runs, not just
+      manual batch runs.
+      <button class="btn-xs" onclick="loadDrEgeriaIssues()">↻ Refresh</button>
+    </p>
+    <pre id="drEgeriaIssues" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;
+      padding:0.75rem 1rem;max-height:420px;overflow-y:auto;font-size:0.72rem;line-height:1.5;
+      white-space:pre-wrap;word-break:break-word">Loading…</pre>
   </div>
 </div>
 
@@ -272,7 +294,7 @@
 </div>
 
 <script>
-  var _tabs = ['egeria-users','feedback','config','data-init'];
+  var _tabs = ['egeria-users','feedback','config','data-init','activity'];
   var _roles = [];
   var _groups = [];
   var _editUserId = null; // null = create mode
@@ -292,7 +314,10 @@
     }).catch(() => {});
   }
 
+  var activeTab = 'egeria-users';
+
   function showTab(name) {
+    activeTab = name;
     _tabs.forEach(function(t, i) {
       document.querySelectorAll('.tab')[i].classList.toggle('active', t === name);
       document.getElementById('panel-' + t).classList.toggle('active', t === name);
@@ -301,6 +326,7 @@
     if (name === 'feedback') loadFeedback();
     if (name === 'config') loadConfig();
     if (name === 'data-init') loadBatches();
+    if (name === 'activity') { loadBootstrapLog(); loadDrEgeriaIssues(); }
   }
 
   // ── Data Initialization (bootstrap batches) ─────────────────────────
@@ -315,10 +341,23 @@
   }
 
   // Recent Activity — tail of bootstrap.log. Only fetched when the
-  // <details> panel is open (see its ontoggle), not on every batches poll.
+  // Activity Log tab is shown (see showTab), not on every batches poll.
   function loadBootstrapLog() {
     var el = document.getElementById('bootstrapLog');
     fetch('/api/bootstrap/log?lines=300').then(function(r) { return r.json(); })
+      .then(function(d) {
+        var lines = d.lines || [];
+        el.textContent = lines.length ? lines.join('\n') : '(nothing logged yet)';
+        el.scrollTop = el.scrollHeight;
+      })
+      .catch(function() { el.textContent = 'Failed to load log'; });
+  }
+
+  // dr_egeria's own ERROR/WARNING lines (pyegeria.log) -- the actual reason
+  // a file failed, which bootstrap.log's one-line summary doesn't carry.
+  function loadDrEgeriaIssues() {
+    var el = document.getElementById('drEgeriaIssues');
+    fetch('/api/bootstrap/log/issues?lines=300').then(function(r) { return r.json(); })
       .then(function(d) {
         var lines = d.lines || [];
         el.textContent = lines.length ? lines.join('\n') : '(nothing logged yet)';
@@ -416,12 +455,11 @@
     }).catch(function() { onFail('Run request failed'); });
   }
 
-  // The Recent Activity <details> panel only fetches on open (see its
-  // ontoggle) -- but if it's already open, a run just added new lines
-  // worth showing without waiting for a manual refresh click.
+  // The Activity Log tab only fetches when shown (see showTab) -- but if
+  // it's the tab currently open, a run just added new lines worth showing
+  // without waiting for a manual tab switch.
   function _refreshLogIfOpen() {
-    var d = document.getElementById('bootstrapLogDetails');
-    if (d && d.open) loadBootstrapLog();
+    if (activeTab === 'activity') { loadBootstrapLog(); loadDrEgeriaIssues(); }
   }
 
   function runBatch(bi) {
