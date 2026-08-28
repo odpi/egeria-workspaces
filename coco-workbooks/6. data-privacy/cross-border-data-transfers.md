@@ -85,7 +85,7 @@ Cross-Border Data Flows Must Be Inventoried Before They Begin
 CocoPharma::GovernanceObligation::CrossBorderFlowInventory
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Every routine flow of personal data out of the UK or the EEA must be recorded before it starts, with its origin, destination, categories of data, controllership determination, transfer mechanism, and the onward recipients at the destination.
@@ -129,7 +129,7 @@ Government Access Requests Must Be Assessed, Challenged Where Possible, and Reco
 CocoPharma::GovernanceObligation::GovernmentAccessRequestsHandled
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Any request from a public authority for personal data originating in the UK or the EEA must be assessed for legal validity, challenged where there are grounds, notified to the originating controller and the individual where permitted, and recorded whether or not it is complied with.
@@ -175,7 +175,7 @@ Transfer Risk Assessment and Supplementary Measures
 CocoPharma::GovernanceApproach::TransferRiskAssessment
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Where a transfer relies on contractual safeguards rather than adequacy, the destination's legal environment is assessed against the protection the safeguards promise, and supplementary technical, contractual or organisational measures are applied where it falls short.

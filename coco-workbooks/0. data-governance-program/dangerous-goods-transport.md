@@ -4,7 +4,7 @@
 > **Version:** 1.0  
 > **Status:** ACTIVE  
 > **Date:** 2026-08-24  
-> **Description:** Governance definitions for the transport of dangerous goods, establishing the Distribution domain, identifier `25`. The file registers the domain identifier as a valid metadata value before any definition claims it. Load `health-and-safety.md`, `biological-agents-and-gmo.md`, `manufacturing-governance-program.md` and `serialisation-governance-program.md` first.
+> **Description:** Governance definitions for the transport of dangerous goods, establishing the Distribution domain, identifier `Distribution`. The file registers the domain identifier as a valid metadata value before any definition claims it. Load `health-and-safety.md`, `biological-agents-and-gmo.md`, `manufacturing-governance-program.md` and `serialisation-governance-program.md` first.
 
 ---
 
@@ -65,7 +65,7 @@ ADR — European Agreement concerning the International Carriage of Dangerous Go
 CocoPharma::Regulation::ADRDangerousGoodsByRoad
 
 ### Domain Identifier
-25
+Distribution
 
 ### Summary
 The agreement governing carriage of dangerous goods by road across Europe and the UK, setting classification, packaging, labelling, documentation, vehicle and training requirements, and requiring appointment of a Dangerous Goods Safety Adviser.
@@ -119,7 +119,7 @@ IATA Dangerous Goods Regulations
 CocoPharma::Regulation::IATADangerousGoodsRegulations
 
 ### Domain Identifier
-25
+Distribution
 
 ### Summary
 The rules governing carriage of dangerous goods by air, stricter than the road regime, with mandatory recurrent training, operator variations by airline and state, and a shipper's declaration that binds the company.
@@ -176,7 +176,7 @@ Misdeclared or Undeclared Dangerous Goods Consignment
 CocoPharma::Threat::MisdeclaredDangerousGoods
 
 ### Domain Identifier
-25
+Distribution
 
 ### Summary
 Material may be offered for carriage without declaration, or under a wrong classification, exposing transport workers and emergency responders to a hazard they have not been told about and the company to strict liability.
@@ -228,7 +228,7 @@ The Shipper Owns the Classification
 CocoPharma::GovernancePrinciple::ShipperOwnsClassification
 
 ### Domain Identifier
-25
+Distribution
 
 ### Summary
 Coco Pharmaceuticals is accountable for the classification, packing and declaration of everything it offers for carriage, and that accountability is not transferred by using a carrier, a freight forwarder, or a site's own arrangements.
@@ -273,7 +273,7 @@ Time-Critical Shipments Are Planned, Never Expedited
 CocoPharma::GovernancePrinciple::TimeCriticalShipmentsPlanned
 
 ### Domain Identifier
-25
+Distribution
 
 ### Summary
 Consignments with a short viable life have their route, classification, packaging and documentation established in advance as a validated lane, so that despatch is execution rather than improvisation.
@@ -320,7 +320,7 @@ Consignments Must Be Classified and Declared by a Currently Certificated Person
 CocoPharma::GovernanceObligation::ConsignmentsClassifiedByCertificatedPerson
 
 ### Domain Identifier
-25
+Distribution
 
 ### Summary
 Every dangerous goods consignment must be classified, packed, marked and declared by a person holding current certification for the mode and function concerned, with the person and their certification recorded against the consignment.
@@ -365,7 +365,7 @@ Dangerous Goods Records Must Be Retained and Reconcilable
 CocoPharma::GovernanceObligation::DangerousGoodsRecordsRetained
 
 ### Domain Identifier
-25
+Distribution
 
 ### Summary
 Transport documents, declarations, packing certificates and training records must be retained for the required period and must reconcile against what was actually shipped.
@@ -412,7 +412,7 @@ Dangerous Goods Classification and Lane Management
 CocoPharma::GovernanceApproach::DangerousGoodsLaneManagement
 
 ### Domain Identifier
-25
+Distribution
 
 ### Summary
 Recurring movements are established as validated lanes carrying an agreed classification, packaging specification, documentation set and contingency, drawn from the substance and biological registers rather than determined per shipment.
@@ -503,7 +503,7 @@ Declaration Accuracy and Certification Currency
 CocoPharma::GovernanceMetric::DeclarationAccuracyAndCertification
 
 ### Domain Identifier
-25
+Distribution
 
 ### Summary
 Measures consignments rejected or queried by operators as a proportion of dangerous goods shipments, alongside the percentage of people with a dangerous goods function holding current certification.

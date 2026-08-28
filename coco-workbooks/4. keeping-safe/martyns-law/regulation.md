@@ -14,7 +14,7 @@ Terrorism (Protection of Premises) Act 2025 (UK)
 
 ### Domain Identifier  
   
-SECURITY
+Security
 ### Implications  
 
 - Any event held in the UK may need to take additional precautions to prevent or minimise the impact of a terrorist attack.

@@ -4,7 +4,7 @@
 > **Version:** 1.0  
 > **Status:** ACTIVE  
 > **Date:** 2026-08-22  
-> **Description:** Governance definitions for the Drug Development domain (domain identifier `20`) at Coco Pharmaceuticals. This file extends the foundation in `joint-governance-officer-definitions.md` — which defines the FDA Clinical Trial Regulations driver, the Drug Development Lead role, and the Drug Development Lead governance folio — with the clinical trial and research data governance policies, controls, and metrics needed to operationalise Good Clinical Practice. All definitions created here are added to the existing Drug Development Lead folio.
+> **Description:** Governance definitions for the Drug Development domain (domain identifier `Drug Development`) at Coco Pharmaceuticals. This file extends the foundation in `joint-governance-officer-definitions.md` — which defines the FDA Clinical Trial Regulations driver, the Drug Development Lead role, and the Drug Development Lead governance folio — with the clinical trial and research data governance policies, controls, and metrics needed to operationalise Good Clinical Practice. All definitions created here are added to the existing Drug Development Lead folio.
 
 ---
 
@@ -18,9 +18,9 @@ The `joint-governance-officer-definitions.md` foundation captured the FDA clinic
 2. **Governance Policies** — the principles, obligations, and approaches defining how clinical and research data is captured, protected, and retained.
 3. **Governance Controls** — the roles, metrics, certification, and processing purposes that operationalise those policies day-to-day.
 
-All definitions in this file carry Domain Identifier `20` (Drug Development) and become members of the Drug Development Lead Governance Folio, which already exists and is already registered in the root collection — this file adds members to it rather than recreating it.
+All definitions in this file carry Domain Identifier `Drug Development` and become members of the Drug Development Lead Governance Folio, which already exists and is already registered in the root collection — this file adds members to it rather than recreating it.
 
-Two definitions relevant to this domain live in `risk-register.md` and are retagged to domain `20`: the `ClinicalTrialDataIntegrityFailure` threat and the `ClinicalTrialDataIntegrityLoss` risk. They are added to the folio in Part 6.
+Two definitions relevant to this domain live in `risk-register.md` and are retagged to domain `Drug Development`: the `ClinicalTrialDataIntegrityFailure` threat and the `ClinicalTrialDataIntegrityLoss` risk. They are added to the folio in Part 6.
 
 Trials also make the group's structure operationally relevant: sites sit in the UK and the EU, the sponsor entity determines controllership, and data consolidates into a US-held database. The controllership and transfer obligations governing this are owned by the privacy domain; Part 4.5 records how the policies here depend on them.
 
@@ -43,7 +43,7 @@ Clinical Trial Data Reliability
 CocoPharma::BusinessImperative::ClinicalTrialDataReliability
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 Coco Pharmaceuticals must be able to stand behind every figure in a regulatory submission, tracing it back to the participant, the visit, and the instrument that produced it.
@@ -94,7 +94,7 @@ Accelerated Time to Regulatory Submission
 CocoPharma::BusinessImperative::AcceleratedRegulatorySubmission
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 Coco Pharmaceuticals must shorten the interval between last patient visit and regulatory submission without weakening the data controls that make the submission defensible.
@@ -135,7 +135,7 @@ ___
 
 ### 1.2 Threats
 
-The `risk-register.md` file already defines the Clinical Trial Data Integrity Failure threat (`CocoPharma::Threat::ClinicalTrialDataIntegrityFailure`), now carrying domain identifier `20`. The threats below cover the two remaining drug development exposures that were not represented as drivers.
+The `risk-register.md` file already defines the Clinical Trial Data Integrity Failure threat (`CocoPharma::Threat::ClinicalTrialDataIntegrityFailure`), now carrying domain identifier `Drug Development`. The threats below cover the two remaining drug development exposures that were not represented as drivers.
 
 ___
 
@@ -148,7 +148,7 @@ Re-identification of Clinical Trial Participants
 CocoPharma::Threat::ClinicalTrialParticipantReidentification
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 Individuals who took part in a clinical trial may be re-identified from data that was believed to be anonymised, particularly where genomic or rare-condition data is shared or published.
@@ -194,7 +194,7 @@ Irreproducible Research Results
 CocoPharma::Threat::ResearchDataIrreproducibility
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 Research findings that cannot be reproduced from retained data and methods may cause the company to advance an ineffective candidate or abandon a viable one.
@@ -243,7 +243,7 @@ ICH E6(R3) Good Clinical Practice
 CocoPharma::Regulation::ICHE6GoodClinicalPractice
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 The international ethical and scientific quality standard for designing, conducting, recording, and reporting clinical trials involving human participants.
@@ -298,7 +298,7 @@ EU Clinical Trials Regulation (EU) No 536/2014
 CocoPharma::Regulation::EUClinicalTrialsRegulation
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 The EU regulation governing authorisation, conduct, and transparency of clinical trials, including mandatory public disclosure of trial information and results through the Clinical Trials Information System.
@@ -358,7 +358,7 @@ Clinical Data Must Be Attributable to a Source
 CocoPharma::GovernancePrinciple::ClinicalDataAttributableToSource
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 Every clinical data point must be traceable to the person, system, or device that produced it, and to the original record it came from.
@@ -403,7 +403,7 @@ Trial Participants Are Protected by Design
 CocoPharma::GovernancePrinciple::TrialParticipantProtectionByDesign
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 Protection of trial participants is designed into how clinical data is collected, stored, and shared, rather than applied as a control at the point of disclosure.
@@ -448,7 +448,7 @@ Research Results Must Be Reproducible
 CocoPharma::GovernancePrinciple::ResearchDataReproducibility
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 Any analytical result used to make a development decision must be reproducible from retained data, code, and parameters by someone other than its author.
@@ -493,7 +493,7 @@ Blinding and Randomisation Integrity Must Be Preserved
 CocoPharma::GovernancePrinciple::BlindingIntegrityPreserved
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 Access to treatment allocation is restricted to those who require it, and every unblinding event is controlled, justified, and recorded.
@@ -540,7 +540,7 @@ Trial Master File Must Be Complete and Inspection-Ready at All Times
 CocoPharma::GovernanceObligation::TrialMasterFileInspectionReady
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 The trial master file must be maintained contemporaneously throughout the trial, not assembled before an inspection, and must allow trial conduct to be reconstructed.
@@ -585,7 +585,7 @@ Source Data Must Be Verified Against Case Report Forms
 CocoPharma::GovernanceObligation::SourceDataVerification
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 Clinical data submitted on case report forms must be verified against the underlying source records, with verification effort targeted by risk.
@@ -630,7 +630,7 @@ Protocol Deviations Must Be Recorded, Assessed, and Reported
 CocoPharma::GovernanceObligation::ProtocolDeviationsRecorded
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 Every departure from the approved protocol must be recorded when identified, assessed for impact on participant safety and data integrity, and reported where required.
@@ -675,7 +675,7 @@ Adverse Events Must Be Captured and Reported Within Regulatory Timeframes
 CocoPharma::GovernanceObligation::AdverseEventReporting
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 Adverse events must be recorded when they become known and expedited to regulators within the statutory timeframes, which run from the moment any company representative becomes aware.
@@ -720,7 +720,7 @@ Clinical Trial Records Must Be Retained and Remain Readable
 CocoPharma::GovernanceObligation::ClinicalTrialRecordRetention
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 Clinical trial records must be retained for at least 25 years and must remain readable and reconstructable for the whole of that period, including after systems are retired.
@@ -767,7 +767,7 @@ Risk-Based Quality Management for Clinical Trials
 CocoPharma::GovernanceApproach::RiskBasedClinicalQualityManagement
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 Each trial identifies the data and processes critical to participant safety and result reliability at design time, and concentrates monitoring and control effort on those.
@@ -812,7 +812,7 @@ CDISC Standards Adoption for Clinical Data
 CocoPharma::GovernanceApproach::CDISCStandardsAdoption
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 Clinical data is captured, tabulated, and analysed against CDISC standard structures from protocol design onward, rather than mapped into them before submission.
@@ -857,7 +857,7 @@ Anonymisation and Controlled Sharing of Clinical Data
 CocoPharma::GovernanceApproach::ClinicalDataAnonymisation
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 Clinical data leaving the organisation passes through a defined anonymisation and access-control process, with the method chosen from an assessment of re-identification risk for that dataset and recipient.
@@ -988,7 +988,7 @@ Critical Data Source Verification Pass Rate
 CocoPharma::GovernanceMetric::CriticalDataVerificationPassRate
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 Measures the percentage of verified critical data elements that match their source records on first verification, without a query being required.
@@ -1032,7 +1032,7 @@ Trial Master File Completeness Rate
 CocoPharma::GovernanceMetric::TrialMasterFileCompletenessRate
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 Measures the percentage of expected trial master file documents that are present and filed within the expected interval of the event they record.
@@ -1076,7 +1076,7 @@ Expedited Safety Report Timeliness
 CocoPharma::GovernanceMetric::ExpeditedSafetyReportTimeliness
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 Measures the percentage of expedited safety reports submitted to regulators within the statutory timeframe, calculated from the date of first company awareness.
@@ -1120,7 +1120,7 @@ Database Lock to Submission-Ready Dataset Interval
 CocoPharma::GovernanceMetric::LockToSubmissionReadyInterval
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 Measures the elapsed days between clinical database lock and the availability of validated, conformant analysis datasets ready for submission.
@@ -1166,7 +1166,7 @@ GCP Investigator Site Qualification
 CocoPharma::CertificationType::GCPSiteQualification
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 The qualification a clinical investigator site must hold before it may enrol participants into a Coco Pharmaceuticals trial, confirming its capability to conduct the trial to Good Clinical Practice standards.

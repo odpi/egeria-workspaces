@@ -21,7 +21,7 @@ Sustainability Reporting
 CocoPharma::BusinessImperative::SustainabilityReporting
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 Coco Pharmaceuticals must track, measure, and report on its environmental and social sustainability to meet stakeholder expectations and emerging regulatory requirements.

@@ -4,7 +4,7 @@
 > **Version:** 1.0  
 > **Status:** ACTIVE  
 > **Date:** 2026-08-23  
-> **Description:** Governance definitions for the Diversity, Equity and Inclusion domain at Coco Pharmaceuticals, domain identifier `23`. The file registers the domain identifier as a valid metadata value before any definition claims it, then defines the drivers, policies, and controls for the domain. Load `joint-governance-officer-definitions.md` and `human-resource-management.md` first.
+> **Description:** Governance definitions for the Diversity, Equity and Inclusion domain at Coco Pharmaceuticals, domain identifier `Diversity, Equity and Inclusion`. The file registers the domain identifier as a valid metadata value before any definition claims it, then defines the drivers, policies, and controls for the domain. Load `joint-governance-officer-definitions.md` and `human-resource-management.md` first.
 
 ---
 
@@ -65,7 +65,7 @@ Medicines Evidenced in the Populations That Will Use Them
 CocoPharma::BusinessImperative::RepresentativeClinicalEvidence
 
 ### Domain Identifier
-23
+Diversity, Equity and Inclusion
 
 ### Summary
 Coco Pharmaceuticals must generate clinical evidence in trial populations that reflect the patients who will be prescribed its products, so that efficacy and safety conclusions hold for those patients.
@@ -114,7 +114,7 @@ An Organisation That Reflects the Communities It Serves
 CocoPharma::BusinessImperative::RepresentativeOrganisation
 
 ### Domain Identifier
-23
+Diversity, Equity and Inclusion
 
 ### Summary
 Coco Pharmaceuticals must be able to measure representation across its workforce, its clinical investigators, and its suppliers, and to act on the disparities that measurement reveals.
@@ -165,7 +165,7 @@ Unrepresentative Trial Evidence
 CocoPharma::Threat::UnrepresentativeTrialEvidence
 
 ### Domain Identifier
-23
+Diversity, Equity and Inclusion
 
 ### Summary
 Trial populations that differ systematically from the eventual patient population may produce efficacy and safety conclusions that do not hold for the groups least represented.
@@ -209,7 +209,7 @@ Differential Model Performance Affecting Patient Care
 CocoPharma::Threat::DifferentialModelPerformance
 
 ### Domain Identifier
-23
+Diversity, Equity and Inclusion
 
 ### Summary
 Analytical models used to guide treatment selection, dosing, or eligibility may perform worse for groups underrepresented in their training data, producing systematically poorer decisions for those patients.
@@ -255,7 +255,7 @@ FDA Clinical Trial Diversity Action Plan Requirements
 CocoPharma::Regulation::FDADiversityActionPlan
 
 ### Domain Identifier
-23
+Diversity, Equity and Inclusion
 
 ### Summary
 US requirements obliging sponsors of pivotal clinical trials to submit a Diversity Action Plan setting enrolment goals by demographic subgroup, with rationale and the measures that will achieve them.
@@ -305,7 +305,7 @@ European Accessibility Act (EU) 2019/882
 CocoPharma::Regulation::EuropeanAccessibilityAct
 
 ### Domain Identifier
-23
+Diversity, Equity and Inclusion
 
 ### Summary
 EU directive requiring specified products and services, including e-commerce and digital services, to meet accessibility requirements so that people with disabilities can use them on an equal basis.
@@ -362,7 +362,7 @@ Evidence Is Generated in Populations That Reflect Intended Use
 CocoPharma::GovernancePrinciple::RepresentativeEvidenceRequired
 
 ### Domain Identifier
-23
+Diversity, Equity and Inclusion
 
 ### Summary
 Trial populations are planned against the epidemiology of the condition, and any divergence between the enrolled population and the intended patient population is stated as a limitation on the evidence.
@@ -405,7 +405,7 @@ Demographic Data Detects Inequity and Never Determines Access
 CocoPharma::GovernancePrinciple::DemographicDataForEquityNotAccess
 
 ### Domain Identifier
-23
+Diversity, Equity and Inclusion
 
 ### Summary
 Demographic and protected characteristic data is collected to measure whether outcomes differ between groups, and is structurally prevented from influencing any decision about an individual's treatment, enrolment, or employment.
@@ -448,7 +448,7 @@ Patient Information Must Be Usable by the Patients Who Need It
 CocoPharma::GovernancePrinciple::PatientInformationAccessible
 
 ### Domain Identifier
-23
+Diversity, Equity and Inclusion
 
 ### Summary
 Information a patient needs in order to use a product safely must be accessible in perceivability, comprehension, and language, and tested with the people who will rely on it.
@@ -493,7 +493,7 @@ Trial Enrolment Targets Must Be Set Against Epidemiology and Monitored During Re
 CocoPharma::GovernanceObligation::TrialEnrolmentTargetsAgainstEpidemiology
 
 ### Domain Identifier
-23
+Diversity, Equity and Inclusion
 
 ### Summary
 Every pivotal trial must set demographic enrolment targets derived from disease epidemiology, monitor actual enrolment against them while recruitment is open, and act on divergence rather than reporting it afterwards.
@@ -536,7 +536,7 @@ Subgroup Analyses Must Be Pre-specified and Reported Whatever They Show
 CocoPharma::GovernanceObligation::SubgroupAnalysesPrespecified
 
 ### Domain Identifier
-23
+Diversity, Equity and Inclusion
 
 ### Summary
 Analyses of efficacy and safety by demographic subgroup must be pre-specified in the statistical analysis plan and reported in full, including where the subgroup was too small to support a conclusion.
@@ -579,7 +579,7 @@ Patient-Affecting Models Must Be Tested for Differential Performance Before Depl
 CocoPharma::GovernanceObligation::ModelsTestedForDifferentialPerformance
 
 ### Domain Identifier
-23
+Diversity, Equity and Inclusion
 
 ### Summary
 Any model whose output influences patient treatment, eligibility, or prioritisation must have its performance measured separately for each relevant subgroup before deployment and monitored after it.
@@ -625,7 +625,7 @@ Inclusive Trial Design and Site Selection
 CocoPharma::GovernanceApproach::InclusiveTrialDesign
 
 ### Domain Identifier
-23
+Diversity, Equity and Inclusion
 
 ### Summary
 Trial design decisions are assessed for their effect on who can participate, with site selection, eligibility criteria, and participation burden treated as determinants of the achievable population.
@@ -668,7 +668,7 @@ Equity Impact Assessment
 CocoPharma::GovernanceApproach::EquityImpactAssessment
 
 ### Domain Identifier
-23
+Diversity, Equity and Inclusion
 
 ### Summary
 Decisions with foreseeable differential effects on groups — trial designs, model deployments, patient-facing digital services, and access programmes — are assessed for those effects before commitment, on a proportionate basis.
@@ -796,7 +796,7 @@ Trial Enrolment Representativeness Against Epidemiology
 CocoPharma::GovernanceMetric::TrialEnrolmentRepresentativeness
 
 ### Domain Identifier
-23
+Diversity, Equity and Inclusion
 
 ### Summary
 Measures, per trial and per demographic subgroup, enrolment as a proportion of the epidemiologically derived target, reported during recruitment rather than at its close.
@@ -840,7 +840,7 @@ Model Subgroup Performance Disparity
 CocoPharma::GovernanceMetric::ModelSubgroupPerformanceDisparity
 
 ### Domain Identifier
-23
+Diversity, Equity and Inclusion
 
 ### Summary
 Measures, for each deployed patient-affecting model, the gap between best and worst performing subgroup on the model's primary performance measure, reported alongside training data composition.
