@@ -243,6 +243,7 @@ services:
       - ../../exchange-quickstart/config:/config
       - ../../work:/work
       - ../../coco-workbooks:/coco-workbooks
+      - ../../design-patterns:/design-patterns
       - ../../templates:/app/templates
       - ../../runtime-volumes/quickstart-demo-data:/app/demo-data
       # Dr.Egeria's local (not-yet-Egeria-native) Dashboard Sheet store --
