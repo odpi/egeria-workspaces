@@ -611,12 +611,35 @@
     _saveSelection();
   }
 
-  // Posts to a run endpoint; on a 409 (batch contains a known non-idempotent
-  // command, see bootstrap_batches.py's `idempotent` field) shows a native
-  // confirm() with the server's own explanation and retries with
-  // ?confirm=true only if the admin agrees. Declining just stops here --
-  // no request is retried.
-  function _postRun(url, onDone, onFail) {
+  // Starts a run at `url` (which returns immediately -- {started:true} --
+  // rather than blocking; a batch routinely takes longer than Apache's
+  // 5-minute ProxyPass timeout, which used to drop the connection before
+  // the blocking response ever arrived even though the backend kept
+  // working regardless -- see bootstrap_batches.py's "Background run +
+  // poll" section), then polls `statusUrl` every 5s until status is
+  // "done" and calls onDone with the result. onTick(secs), if given, is
+  // called on each still-running poll so the caller can show elapsed time.
+  // On a 409 (batch contains a known non-idempotent command, see
+  // bootstrap_batches.py's `idempotent` field) shows a native confirm()
+  // with the server's own explanation and retries with ?confirm=true only
+  // if the admin agrees. Declining just stops here -- no request retried.
+  function _postRun(url, statusUrl, onDone, onFail, onTick) {
+    var startedAt = Date.now();
+    function poll() {
+      fetch(statusUrl).then(function(r) { return r.json(); }).then(function(s) {
+        if (s.status === 'running') {
+          if (onTick) onTick(Math.round((Date.now() - startedAt) / 1000));
+          setTimeout(poll, 5000);
+          return;
+        }
+        if (s.status === 'not_found') {
+          onFail('Run did not finish (the server may have restarted) — check the Activity Log tab.');
+          return;
+        }
+        onDone(s);
+        _refreshLogIfOpen();
+      }).catch(function() { setTimeout(poll, 5000); }); // transient poll error -- keep trying
+    }
     fetch(url, { method: 'POST' }).then(function(r) {
       if (r.status === 409) {
         return r.json().then(function(d) {
@@ -630,8 +653,8 @@
       return r.json();
     }).then(function(d) {
       if (d.cancelled) { onFail('Cancelled — batch contains a command not safe to re-run.'); return; }
-      onDone(d);
-      _refreshLogIfOpen();
+      if (!d.started) { onFail(d.detail || 'Run failed'); return; }
+      poll();
     }).catch(function() { onFail('Run request failed'); });
   }
 
@@ -647,23 +670,27 @@
     var resultEl = document.getElementById('batchResult-' + bi);
     resultEl.style.display = 'block';
     resultEl.textContent = 'Running…';
-    _postRun('/api/bootstrap/batches/' + encodeURIComponent(b.id) + '/run', function(d) {
-      if (!d.results) { resultEl.textContent = d.detail || 'Run failed'; return; }
+    var runUrl = '/api/bootstrap/batches/' + encodeURIComponent(b.id) + '/run';
+    var statusUrl = '/api/bootstrap/batches/' + encodeURIComponent(b.id) + '/run-status';
+    _postRun(runUrl, statusUrl, function(d) {
+      if (!d.results) { resultEl.textContent = 'Run failed'; return; }
       var ok = d.results.filter(function(r) { return r.status === 'ok'; }).length;
       resultEl.innerHTML = (d.success ? '<span style="color:var(--success)">✓</span> ' : '<span style="color:var(--error)">✗</span> ') +
         ok + '/' + d.results.length + ' files ran clean' +
         (d.success ? '' : ' — ' + d.results.filter(function(r) { return r.status !== 'ok'; })
           .map(function(r) { return esc(r.file) + ': ' + esc((r.message || '').slice(0, 200)); }).join('; '));
       showBanner(d.success ? 'success' : 'error', d.success ? b.displayName + ' ran successfully' : b.displayName + ' had failures — see details below');
-    }, function(msg) { resultEl.textContent = msg; });
+    }, function(msg) { resultEl.textContent = msg; }, function(secs) {
+      resultEl.textContent = 'Running… (' + secs + 's — large batches can take several minutes; safe to leave this tab)';
+    });
   }
 
   function runAllBatches() {
     var el = document.getElementById('runAllResult');
     el.style.display = 'block';
     el.textContent = 'Running all enabled batches, in order…';
-    _postRun('/api/bootstrap/batches/run-all', function(d) {
-      if (!d.runs) { el.textContent = d.detail || 'Run failed'; return; }
+    _postRun('/api/bootstrap/batches/run-all', '/api/bootstrap/batches/run-all/run-status', function(d) {
+      if (!d.runs) { el.textContent = 'Run failed'; return; }
       el.innerHTML = d.runs.map(function(run) {
         var ok = run.results.filter(function(r) { return r.status === 'ok'; }).length;
         var allOk = ok === run.results.length;
@@ -672,7 +699,9 @@
       }).join('<br>');
       showBanner(d.success ? 'success' : 'error', d.success ? 'All enabled batches ran successfully' : 'Some batches had failures — see details below');
       loadBatches();
-    }, function(msg) { el.textContent = msg; });
+    }, function(msg) { el.textContent = msg; }, function(secs) {
+      el.textContent = 'Running all enabled batches, in order… (' + secs + 's — large batches can take several minutes; safe to leave this tab)';
+    });
   }
 
   // ── Resizable columns ─────────────────────────────────────────────
