@@ -6,8 +6,13 @@
 > Loadable **Dr.Egeria** document that materialises the Overview dashboard's
 > per-perspective question sets as real Egeria elements: each **Perspective**
 > (a viewpoint held by an actor) is linked via **ScopedBy** to its **Questions**
-> (GlossaryTerms classified `IsQuestion`). Generated from `egeria-overview.html`
+> (GlossaryTerms classified `Question`). Generated from `egeria-overview.html`
 > `PERSPECTIVES` — the single source of truth. Regenerate with gen_perspectives.py.
+>
+> Most of these Perspectives already exist (Resource Explorer's own
+> reconciliation ran first) -- see EXISTING_PERSPECTIVES in this script. Only
+> `Engineering` is created new here; everything else links its Questions
+> straight to the existing element by qualified name.
 >
 > Starter questions scavenged from DAMA-DMBOK / EDM-Council DCAM / FAIR / DataOps.
 > **Run with VALIDATE first, then PROCESS.** Create commands carry user-specified
@@ -15,24 +20,10 @@
 
 ---
 
-# Data Governance Lead — perspective
+# Governance — perspective (existing — adopted from Resource Explorer, not created here)
 
-## Create Perspective
-
-### Display Name
-Data Governance Lead
-
-### Category
-Overview Dashboard Perspective
-
-### Description
-Are we in control, and is it improving?  (Egeria Overview dashboard perspective.)
-
-### Qualified Name
-Perspective::overview-governance
-
-### Version Identifier
-1.0
+Questions below link to the existing `Perspective::Governance` Perspective element;
+no Create Perspective command for it in this doc.
 
 ---
 
@@ -62,7 +53,7 @@ Question::overview-governance-01
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-governance
+Perspective::Governance
 
 ### Question Name
 Question::overview-governance-01
@@ -98,7 +89,7 @@ Question::overview-governance-02
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-governance
+Perspective::Governance
 
 ### Question Name
 Question::overview-governance-02
@@ -134,7 +125,7 @@ Question::overview-governance-03
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-governance
+Perspective::Governance
 
 ### Question Name
 Question::overview-governance-03
@@ -170,7 +161,7 @@ Question::overview-governance-04
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-governance
+Perspective::Governance
 
 ### Question Name
 Question::overview-governance-04
@@ -206,7 +197,7 @@ Question::overview-governance-05
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-governance
+Perspective::Governance
 
 ### Question Name
 Question::overview-governance-05
@@ -216,24 +207,10 @@ ScopedBy
 
 ---
 
-# Data Steward — perspective
+# Steward — perspective (existing — adopted from Resource Explorer, not created here)
 
-## Create Perspective
-
-### Display Name
-Data Steward
-
-### Category
-Overview Dashboard Perspective
-
-### Description
-What in my domain needs my attention?  (Egeria Overview dashboard perspective.)
-
-### Qualified Name
-Perspective::overview-steward
-
-### Version Identifier
-1.0
+Questions below link to the existing `Perspective::Steward` Perspective element;
+no Create Perspective command for it in this doc.
 
 ---
 
@@ -263,7 +240,7 @@ Question::overview-steward-01
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-steward
+Perspective::Steward
 
 ### Question Name
 Question::overview-steward-01
@@ -299,7 +276,7 @@ Question::overview-steward-02
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-steward
+Perspective::Steward
 
 ### Question Name
 Question::overview-steward-02
@@ -335,7 +312,7 @@ Question::overview-steward-03
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-steward
+Perspective::Steward
 
 ### Question Name
 Question::overview-steward-03
@@ -371,7 +348,7 @@ Question::overview-steward-04
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-steward
+Perspective::Steward
 
 ### Question Name
 Question::overview-steward-04
@@ -381,34 +358,20 @@ ScopedBy
 
 ---
 
-# Data Owner — perspective
+# Data Owner — perspective (existing — adopted from Resource Explorer, not created here)
 
-## Create Perspective
-
-### Display Name
-Data Owner
-
-### Category
-Overview Dashboard Perspective
-
-### Description
-Is my data healthy, used, and trusted?  (Egeria Overview dashboard perspective.)
-
-### Qualified Name
-Perspective::overview-owner
-
-### Version Identifier
-1.0
+Questions below link to the existing `Perspective::Data Owner` Perspective element;
+no Create Perspective command for it in this doc.
 
 ---
 
 ## Create Question
 
 ### Display Name
-Who is using my data products, and how much?
+Who is using the data products I'm responsible for, and how much?
 
 ### Summary
-Who is using my data products, and how much?
+Who is using the data products I'm responsible for, and how much?
 
 ### Usage
 Data-as-product → Value: demonstrate impact
@@ -428,7 +391,7 @@ Question::overview-owner-01
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-owner
+Perspective::Data Owner
 
 ### Question Name
 Question::overview-owner-01
@@ -441,10 +404,10 @@ ScopedBy
 ## Create Question
 
 ### Display Name
-What is the quality & freshness of assets I own?
+What is the quality & freshness of the assets I manage?
 
 ### Summary
-What is the quality & freshness of assets I own?
+What is the quality & freshness of the assets I manage?
 
 ### Usage
 DataOps → Value: reliability
@@ -464,7 +427,7 @@ Question::overview-owner-02
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-owner
+Perspective::Data Owner
 
 ### Question Name
 Question::overview-owner-02
@@ -477,10 +440,10 @@ ScopedBy
 ## Create Question
 
 ### Display Name
-Are there open issues or low ratings on my assets?
+Are there open issues or low ratings on assets I'm accountable for?
 
 ### Summary
-Are there open issues or low ratings on my assets?
+Are there open issues or low ratings on assets I'm accountable for?
 
 ### Usage
 Feedback → Value: trust signal
@@ -500,7 +463,7 @@ Question::overview-owner-03
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-owner
+Perspective::Data Owner
 
 ### Question Name
 Question::overview-owner-03
@@ -513,10 +476,10 @@ ScopedBy
 ## Create Question
 
 ### Display Name
-Is my data properly classified & access-controlled?
+Are the assets I manage properly classified & access-controlled?
 
 ### Summary
-Is my data properly classified & access-controlled?
+Are the assets I manage properly classified & access-controlled?
 
 ### Usage
 DCAM → Value: compliance
@@ -536,7 +499,7 @@ Question::overview-owner-04
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-owner
+Perspective::Data Owner
 
 ### Question Name
 Question::overview-owner-04
@@ -546,24 +509,10 @@ ScopedBy
 
 ---
 
-# Data Consumer / Analyst — perspective
+# Consumer — perspective (existing — adopted from Resource Explorer, not created here)
 
-## Create Perspective
-
-### Display Name
-Data Consumer / Analyst
-
-### Category
-Overview Dashboard Perspective
-
-### Description
-Can I find and trust the data I need?  (Egeria Overview dashboard perspective.)
-
-### Qualified Name
-Perspective::overview-consumer
-
-### Version Identifier
-1.0
+Questions below link to the existing `Perspective::Consumer` Perspective element;
+no Create Perspective command for it in this doc.
 
 ---
 
@@ -593,7 +542,7 @@ Question::overview-consumer-01
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-consumer
+Perspective::Consumer
 
 ### Question Name
 Question::overview-consumer-01
@@ -629,7 +578,7 @@ Question::overview-consumer-02
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-consumer
+Perspective::Consumer
 
 ### Question Name
 Question::overview-consumer-02
@@ -642,13 +591,13 @@ ScopedBy
 ## Create Question
 
 ### Display Name
-What do peers say — ratings, comments, most-used?
+Which assets are used most (and least) across the organisation, and how is that changing?
 
 ### Summary
-What do peers say — ratings, comments, most-used?
+Which assets are used most (and least) across the organisation, and how is that changing?
 
 ### Usage
-Collaboration → Value: social proof
+Usage analytics → Value: focus curation where it matters
 
 ### Category
 Overview Dashboard Question
@@ -665,7 +614,7 @@ Question::overview-consumer-03
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-consumer
+Perspective::Consumer
 
 ### Question Name
 Question::overview-consumer-03
@@ -701,7 +650,7 @@ Question::overview-consumer-04
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-consumer
+Perspective::Consumer
 
 ### Question Name
 Question::overview-consumer-04
@@ -711,12 +660,12 @@ ScopedBy
 
 ---
 
-# Data Engineer / Platform — perspective
+# Engineering — perspective
 
 ## Create Perspective
 
 ### Display Name
-Data Engineer / Platform
+Engineering
 
 ### Category
 Overview Dashboard Perspective
@@ -725,7 +674,7 @@ Overview Dashboard Perspective
 Is the pipeline healthy and complete?  (Egeria Overview dashboard perspective.)
 
 ### Qualified Name
-Perspective::overview-engineer
+Perspective::Engineering
 
 ### Version Identifier
 1.0
@@ -758,7 +707,7 @@ Question::overview-engineer-01
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-engineer
+Perspective::Engineering
 
 ### Question Name
 Question::overview-engineer-01
@@ -794,7 +743,7 @@ Question::overview-engineer-02
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-engineer
+Perspective::Engineering
 
 ### Question Name
 Question::overview-engineer-02
@@ -807,13 +756,13 @@ ScopedBy
 ## Create Question
 
 ### Display Name
-What supply chains / blueprints do assets participate in?
+Are pipelines instrumented with open lineage end-to-end?
 
 ### Summary
-What supply chains / blueprints do assets participate in?
+Are pipelines instrumented with open lineage end-to-end?
 
 ### Usage
-Architecture → Value: change safety
+Observability → Value: traceable failures
 
 ### Category
 Overview Dashboard Question
@@ -830,7 +779,7 @@ Question::overview-engineer-03
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-engineer
+Perspective::Engineering
 
 ### Question Name
 Question::overview-engineer-03
@@ -866,7 +815,7 @@ Question::overview-engineer-04
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-engineer
+Perspective::Engineering
 
 ### Question Name
 Question::overview-engineer-04
@@ -876,24 +825,312 @@ ScopedBy
 
 ---
 
-# App / AI Builder — perspective
+# Architecture — perspective (existing — adopted from Resource Explorer, not created here)
 
-## Create Perspective
+Questions below link to the existing `Perspective::Architecture` Perspective element;
+no Create Perspective command for it in this doc.
+
+---
+
+## Create Question
 
 ### Display Name
-App / AI Builder
+How many Solution Blueprints and Components are catalogued, and are they linked to real assets?
+
+### Summary
+How many Solution Blueprints and Components are catalogued, and are they linked to real assets?
+
+### Usage
+Solution architecture → Value: traceable, reviewable designs
 
 ### Category
-Overview Dashboard Perspective
+Overview Dashboard Question
 
-### Description
-How much governed context can I safely build on?  (Egeria Overview dashboard perspective.)
+### Content Status
+ACTIVE
 
 ### Qualified Name
-Perspective::overview-builder
+Question::overview-architecture-01
 
 ### Version Identifier
 1.0
+
+## Link Perspective to Question
+
+### Perspective Name
+Perspective::Architecture
+
+### Question Name
+Question::overview-architecture-01
+
+### Label
+ScopedBy
+
+---
+
+## Create Question
+
+### Display Name
+How many Information Supply Chains trace data end-to-end, and where do they break?
+
+### Summary
+How many Information Supply Chains trace data end-to-end, and where do they break?
+
+### Usage
+FAIR · lineage → Value: impact analysis, change safety
+
+### Category
+Overview Dashboard Question
+
+### Content Status
+ACTIVE
+
+### Qualified Name
+Question::overview-architecture-02
+
+### Version Identifier
+1.0
+
+## Link Perspective to Question
+
+### Perspective Name
+Perspective::Architecture
+
+### Question Name
+Question::overview-architecture-02
+
+### Label
+ScopedBy
+
+---
+
+## Create Question
+
+### Display Name
+Which architectures are stale — unreviewed since a major asset or process change?
+
+### Summary
+Which architectures are stale — unreviewed since a major asset or process change?
+
+### Usage
+Architecture governance → Value: designs that stay trustworthy
+
+### Category
+Overview Dashboard Question
+
+### Content Status
+ACTIVE
+
+### Qualified Name
+Question::overview-architecture-03
+
+### Version Identifier
+1.0
+
+## Link Perspective to Question
+
+### Perspective Name
+Perspective::Architecture
+
+### Question Name
+Question::overview-architecture-03
+
+### Label
+ScopedBy
+
+---
+
+## Create Question
+
+### Display Name
+Which supply chains or blueprints handle confidential or high-criticality data?
+
+### Summary
+Which supply chains or blueprints handle confidential or high-criticality data?
+
+### Usage
+Risk-aware design → Value: prioritised review
+
+### Category
+Overview Dashboard Question
+
+### Content Status
+ACTIVE
+
+### Qualified Name
+Question::overview-architecture-04
+
+### Version Identifier
+1.0
+
+## Link Perspective to Question
+
+### Perspective Name
+Perspective::Architecture
+
+### Question Name
+Question::overview-architecture-04
+
+### Label
+ScopedBy
+
+---
+
+# Security — perspective (existing — adopted from Resource Explorer, not created here)
+
+Questions below link to the existing `Perspective::Security` Perspective element;
+no Create Perspective command for it in this doc.
+
+---
+
+## Create Question
+
+### Display Name
+Which integration connectors and endpoints exist, and are any misconfigured or unmonitored?
+
+### Summary
+Which integration connectors and endpoints exist, and are any misconfigured or unmonitored?
+
+### Usage
+Security architecture → Value: reduced attack surface
+
+### Category
+Overview Dashboard Question
+
+### Content Status
+ACTIVE
+
+### Qualified Name
+Question::overview-security-01
+
+### Version Identifier
+1.0
+
+## Link Perspective to Question
+
+### Perspective Name
+Perspective::Security
+
+### Question Name
+Question::overview-security-01
+
+### Label
+ScopedBy
+
+---
+
+## Create Question
+
+### Display Name
+Which service accounts, connectors, or AI agents have elevated platform access?
+
+### Summary
+Which service accounts, connectors, or AI agents have elevated platform access?
+
+### Usage
+Access control · least privilege → Value: breach containment
+
+### Category
+Overview Dashboard Question
+
+### Content Status
+ACTIVE
+
+### Qualified Name
+Question::overview-security-02
+
+### Version Identifier
+1.0
+
+## Link Perspective to Question
+
+### Perspective Name
+Perspective::Security
+
+### Question Name
+Question::overview-security-02
+
+### Label
+ScopedBy
+
+---
+
+## Create Question
+
+### Display Name
+Is confidential data blocked from AI training/RAG contexts?
+
+### Summary
+Is confidential data blocked from AI training/RAG contexts?
+
+### Usage
+AI safety → Value: defensible AI
+
+### Category
+Overview Dashboard Question
+
+### Content Status
+ACTIVE
+
+### Qualified Name
+Question::overview-security-03
+
+### Version Identifier
+1.0
+
+## Link Perspective to Question
+
+### Perspective Name
+Perspective::Security
+
+### Question Name
+Question::overview-security-03
+
+### Label
+ScopedBy
+
+---
+
+## Create Question
+
+### Display Name
+Are there open security-relevant governance exceptions (e.g. unencrypted, unclassified-for-risk assets)?
+
+### Summary
+Are there open security-relevant governance exceptions (e.g. unencrypted, unclassified-for-risk assets)?
+
+### Usage
+DCAM · Control → Value: operational risk reduction
+
+### Category
+Overview Dashboard Question
+
+### Content Status
+ACTIVE
+
+### Qualified Name
+Question::overview-security-04
+
+### Version Identifier
+1.0
+
+## Link Perspective to Question
+
+### Perspective Name
+Perspective::Security
+
+### Question Name
+Question::overview-security-04
+
+### Label
+ScopedBy
+
+---
+
+# App/AI Builder — perspective (existing — adopted from Resource Explorer, not created here)
+
+Questions below link to the existing `Perspective::App/AI Builder` Perspective element;
+no Create Perspective command for it in this doc.
 
 ---
 
@@ -923,7 +1160,7 @@ Question::overview-builder-01
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-builder
+Perspective::App/AI Builder
 
 ### Question Name
 Question::overview-builder-01
@@ -959,7 +1196,7 @@ Question::overview-builder-02
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-builder
+Perspective::App/AI Builder
 
 ### Question Name
 Question::overview-builder-02
@@ -995,7 +1232,7 @@ Question::overview-builder-03
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-builder
+Perspective::App/AI Builder
 
 ### Question Name
 Question::overview-builder-03
@@ -1031,7 +1268,7 @@ Question::overview-builder-04
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-builder
+Perspective::App/AI Builder
 
 ### Question Name
 Question::overview-builder-04
@@ -1041,24 +1278,10 @@ ScopedBy
 
 ---
 
-# Privacy / Risk Officer — perspective
+# Privacy — perspective (existing — adopted from Resource Explorer, not created here)
 
-## Create Perspective
-
-### Display Name
-Privacy / Risk Officer
-
-### Category
-Overview Dashboard Perspective
-
-### Description
-Where is our risk and exposure?  (Egeria Overview dashboard perspective.)
-
-### Qualified Name
-Perspective::overview-privacy
-
-### Version Identifier
-1.0
+Questions below link to the existing `Perspective::Privacy` Perspective element;
+no Create Perspective command for it in this doc.
 
 ---
 
@@ -1088,7 +1311,7 @@ Question::overview-privacy-01
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-privacy
+Perspective::Privacy
 
 ### Question Name
 Question::overview-privacy-01
@@ -1124,7 +1347,7 @@ Question::overview-privacy-02
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-privacy
+Perspective::Privacy
 
 ### Question Name
 Question::overview-privacy-02
@@ -1137,10 +1360,10 @@ ScopedBy
 ## Create Question
 
 ### Display Name
-Who / what can access restricted data (incl. AI agents)?
+Who / what can access restricted personal or sensitive data?
 
 ### Summary
-Who / what can access restricted data (incl. AI agents)?
+Who / what can access restricted personal or sensitive data?
 
 ### Usage
 Access control → Value: least privilege
@@ -1160,7 +1383,7 @@ Question::overview-privacy-03
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-privacy
+Perspective::Privacy
 
 ### Question Name
 Question::overview-privacy-03
@@ -1173,13 +1396,13 @@ ScopedBy
 ## Create Question
 
 ### Display Name
-Is confidential data blocked from AI training/RAG?
+Are data-processing purposes documented for regulated data flows?
 
 ### Summary
-Is confidential data blocked from AI training/RAG?
+Are data-processing purposes documented for regulated data flows?
 
 ### Usage
-AI safety → Value: defensible AI
+Privacy by design → Value: lawful-basis evidence
 
 ### Category
 Overview Dashboard Question
@@ -1196,7 +1419,7 @@ Question::overview-privacy-04
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-privacy
+Perspective::Privacy
 
 ### Question Name
 Question::overview-privacy-04
@@ -1206,24 +1429,10 @@ ScopedBy
 
 ---
 
-# Community Lead — perspective
+# Community — perspective (existing — adopted from Resource Explorer, not created here)
 
-## Create Perspective
-
-### Display Name
-Community Lead
-
-### Category
-Overview Dashboard Perspective
-
-### Description
-Is the community healthy and engaged?  (Egeria Overview dashboard perspective.)
-
-### Qualified Name
-Perspective::overview-community
-
-### Version Identifier
-1.0
+Questions below link to the existing `Perspective::Community` Perspective element;
+no Create Perspective command for it in this doc.
 
 ---
 
@@ -1253,7 +1462,7 @@ Question::overview-community-01
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-community
+Perspective::Community
 
 ### Question Name
 Question::overview-community-01
@@ -1289,7 +1498,7 @@ Question::overview-community-02
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-community
+Perspective::Community
 
 ### Question Name
 Question::overview-community-02
@@ -1325,7 +1534,7 @@ Question::overview-community-03
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-community
+Perspective::Community
 
 ### Question Name
 Question::overview-community-03
@@ -1361,7 +1570,7 @@ Question::overview-community-04
 ## Link Perspective to Question
 
 ### Perspective Name
-Perspective::overview-community
+Perspective::Community
 
 ### Question Name
 Question::overview-community-04

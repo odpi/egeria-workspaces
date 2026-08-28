@@ -848,7 +848,7 @@ def _serialize_governance_process_list_item(el: dict) -> dict:
 
 
 def _serialize_governance_process_detail(raw: dict) -> dict:
-    """Serialise a GovernanceOfficer.get_governance_process_graph() response.
+    """Serialise a GovernanceOfficer.get_governance_action_process_graph() response.
 
     That call returns {governanceActionProcess, firstProcessStep, nextProcessSteps,
     processStepLinks, governanceActionProcessMermaidGraph} — a shape specific to
@@ -1497,14 +1497,14 @@ def get_governance_process_detail(
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     """Full step/flow/target detail for one GovernanceActionProcess, via
-    GovernanceOfficer.get_governance_process_graph — the 0462 structural API,
+    GovernanceOfficer.get_governance_action_process_graph — the 0462 structural API,
     not the generic Asset graph (which has no concept of process steps)."""
     try:
         mgr = _governance_officer(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
     try:
-        raw = mgr.get_governance_process_graph(guid, output_format="JSON")
+        raw = mgr.get_governance_action_process_graph(guid, output_format="JSON")
         if not raw or not isinstance(raw, dict) or not raw.get("governanceActionProcess"):
             raise HTTPException(status_code=404, detail=f"Governance action process {guid!r} not found")
         return JSONResponse(_serialize_governance_process_detail(raw))

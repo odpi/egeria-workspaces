@@ -142,6 +142,19 @@ try:
 except ImportError:
     drl_readiness_gates = None
 
+# solution_component_realisation is new (2026-08-27, Solution Blueprints
+# drill-down panel's "components"/"realised by" secondary stats -- were
+# hardcoded placeholder dashes in egeria-overview.html), not yet in a
+# published pyegeria release. Defensive import, same reasoning as
+# ownership_coverage/ai_ready_assets above. Note: freshstart's usage-context
+# endpoint never picked up quickstart's later contextualised_coverage wiring
+# (contextualisedPct stays a deferred None here) -- that's a pre-existing
+# drift, out of scope for this change; only this new field is being added.
+try:
+    from pyegeria.view.overview_metrics import solution_component_realisation
+except ImportError:
+    solution_component_realisation = None
+
 router = APIRouter(tags=["egeria-overview"])
 
 _HERE = Path(__file__).parent
@@ -729,11 +742,23 @@ def get_usage_context(
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"overview usage-context: query failed: {exc}")
 
+    solution_components_total = solution_components_realised = None
+    if solution_component_realisation is not None:
+        try:
+            ce2 = _make("ClassificationExplorer", url, server, user_id, user_pwd)
+            comp = solution_component_realisation(mgr, ce2, as_of_time)
+            solution_components_total    = comp["solutionComponentsTotal"]
+            solution_components_realised = comp["solutionComponentsRealised"]
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"overview usage-context: solution_component_realisation failed: {exc}")
+
     payload = {
         "asOfTime":                as_of_time,
         "informationSupplyChains": iscs,
         "blueprints":              blueprints,
         "contextualisedPct":       None,   # % assets participating in ≥1 ISC/blueprint — TODO (traversal)
+        "solutionComponents":         solution_components_total,
+        "solutionComponentsRealised": solution_components_realised,
         "partial":                 True,
         "source":                  "live:usage-context",
     }
