@@ -4,7 +4,7 @@
 > **Version:** 1.0  
 > **Status:** ACTIVE  
 > **Date:** 2026-08-23  
-> **Description:** Governance definitions for product serialisation and supply chain traceability at Coco Pharmaceuticals, carrying Domain Identifier `MANUFACTURING`. Separated from `manufacturing-governance-program.md` because serialisation is a distinct data domain with its own regulations, its own external interfaces, and a data volume larger than the whole of the rest of manufacturing combined. Load `joint-governance-officer-definitions.md` and `manufacturing-governance-program.md` first.
+> **Description:** Governance definitions for product serialisation and supply chain traceability at Coco Pharmaceuticals, carrying Domain Identifier `Manufacturing`. Separated from `manufacturing-governance-program.md` because serialisation is a distinct data domain with its own regulations, its own external interfaces, and a data volume larger than the whole of the rest of manufacturing combined. Load `joint-governance-officer-definitions.md` and `manufacturing-governance-program.md` first.
 
 ---
 
@@ -43,7 +43,7 @@ EU Falsified Medicines Directive and Delegated Regulation 2016/161
 CocoPharma::Regulation::EUFalsifiedMedicinesDirective
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 EU legislation requiring prescription medicines to carry a unique identifier and an anti-tampering device, with identifiers uploaded to a central repository and verified and decommissioned at the point of dispensing.
@@ -98,7 +98,7 @@ UK Medicines Verification Arrangements
 CocoPharma::Regulation::UKMedicinesVerification
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 The UK arrangements for medicines verification following withdrawal from the European Medicines Verification System, under which Great Britain operates outside the EU repository network while Northern Ireland's position is governed by the Windsor Framework.
@@ -151,7 +151,7 @@ US Drug Supply Chain Security Act
 CocoPharma::Regulation::DrugSupplyChainSecurityAct
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 US legislation requiring interoperable, electronic, package-level tracing of prescription drugs through the supply chain, with transaction information exchanged between trading partners and retained for six years.
@@ -206,7 +206,7 @@ Falsified Product Entering the Legitimate Supply Chain
 CocoPharma::Threat::FalsifiedProductInSupplyChain
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Counterfeit or otherwise falsified product bearing Coco Pharmaceuticals branding may reach patients through the legitimate distribution network, causing harm and destroying confidence in genuine product.
@@ -252,7 +252,7 @@ Serialisation Data Failure Blocking Legitimate Supply
 CocoPharma::Threat::SerialisationDataFailure
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Errors in serialisation data may prevent genuine product from being dispensed, creating supply interruption for patients and a false appearance of falsification.
@@ -304,7 +304,7 @@ Every Serial Number Is Issued Once and Never Reissued
 CocoPharma::GovernancePrinciple::SerialNumberUniquenessAbsolute
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Serial number uniqueness is treated as an absolute constraint enforced at generation, because a duplicate cannot be detected reliably in the field and cannot be corrected once packs are distributed.
@@ -350,7 +350,7 @@ Market Destination Governs Serialisation Treatment
 CocoPharma::GovernancePrinciple::MarketDestinationGovernsSerialisation
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 The regulatory treatment of a pack follows its intended market, which must be determined and controlled at packaging rather than resolved later in distribution.
@@ -397,7 +397,7 @@ Identifiers Must Be Uploaded and Confirmed Before Batch Release
 CocoPharma::GovernanceObligation::IdentifiersUploadedBeforeRelease
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 For every batch destined for a repository market, all pack identifiers must be uploaded and upload confirmation received and reconciled against the batch record before the Qualified Person releases the batch.
@@ -443,7 +443,7 @@ Aggregation Relationships Must Be Verified at Each Packing Level
 CocoPharma::GovernanceObligation::AggregationRelationshipsVerified
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Parent-child relationships between packs, cases, and pallets must be established by verified scanning at each packing level and must be corrected only through a controlled process that preserves the audit trail.
@@ -488,7 +488,7 @@ Verification Alerts Must Be Investigated and Closed Within Regulated Timeframes
 CocoPharma::GovernanceObligation::VerificationAlertsInvestigated
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Every alert raised against Coco Pharmaceuticals product must be investigated, classified as data quality or suspected falsification, and closed within the timeframe the applicable regime allows.
@@ -534,7 +534,7 @@ Trading Partner Transaction Data Must Be Exchanged, Verified, and Retained
 CocoPharma::GovernanceObligation::TradingPartnerDataExchange
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Transaction information must be exchanged electronically with authorised trading partners at each change of ownership, verified on receipt, and retained for six years in a retrievable form.
@@ -582,7 +582,7 @@ Centralised Serialisation Data Management
 CocoPharma::GovernanceApproach::CentralisedSerialisationDataManagement
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Serial number generation, repository connections, and market allocation are managed from a single central system serving all sites and contract manufacturers, rather than site by site.
@@ -628,7 +628,7 @@ Alert Triage and Root Cause Reduction
 CocoPharma::GovernanceApproach::AlertTriageAndRootCauseReduction
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Alerts are triaged on a defined path that separates suspected falsification from data quality within hours, with data quality alerts driving root cause elimination rather than case-by-case correction.
@@ -720,7 +720,7 @@ Verification Alert Rate per Million Packs
 CocoPharma::GovernanceMetric::VerificationAlertRate
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Measures alerts raised against Coco Pharmaceuticals product per million packs supplied, reported by cause category and separating data quality from suspected falsification.
@@ -765,7 +765,7 @@ Upload Reconciliation Success Rate at Release
 CocoPharma::GovernanceMetric::UploadReconciliationSuccessRate
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Measures the percentage of batches whose identifier upload was confirmed and reconciled against the batch record without discrepancy at the first attempt before release.

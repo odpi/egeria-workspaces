@@ -18,7 +18,7 @@ As Head of Manufacturing, Stew Faster is accountable for ensuring that all manuf
 2. **Governance Policies** — the principles, obligations, and approaches that define how manufacturing data is managed, protected, and verified.
 3. **Governance Controls** — the roles and metrics that operationalise the manufacturing governance policies day-to-day.
 
-All definitions in this file have Domain Identifier `MANUFACTURING` and are members of the Manufacturing Governance Lead Governance Folio defined in Part 6.
+All definitions in this file have Domain Identifier `Manufacturing` and are members of the Manufacturing Governance Lead Governance Folio defined in Part 6.
 
 ---
 
@@ -39,7 +39,7 @@ Manufacturing Data Integrity
 CocoPharma::BusinessImperative::ManufacturingDataIntegrity
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 All data generated during pharmaceutical manufacturing must be accurate, complete, and traceable to support batch release, regulatory inspection, and patient safety.
@@ -90,7 +90,7 @@ On-Demand Manufacturing Capability
 CocoPharma::BusinessImperative::OnDemandManufacturingCapability
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Coco Pharmaceuticals must develop the data infrastructure to support agile, patient-specific on-demand manufacturing alongside existing batch production.
@@ -143,7 +143,7 @@ Batch Quality Failure from Data Errors
 CocoPharma::Threat::BatchQualityFailureFromDataErrors
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Inaccurate, incomplete, or untraceable manufacturing data may result in batch quality failures, product recalls, or the release of substandard products to patients.
@@ -189,7 +189,7 @@ Patient Identity Exposure Through Personalised Batch Records
 CocoPharma::Threat::PersonalisedBatchPatientExposure
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 In personalised manufacturing the batch record is linked to an identified patient, exposing their identity and, by inference, their diagnosis to manufacturing staff and suppliers who have no clinical relationship with them.
@@ -237,7 +237,7 @@ EU GMP Annex 11 — Computerised Systems
 CocoPharma::Regulation::EUGMPAnnex11
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 EU GMP Annex 11 sets specific requirements for computerised systems used in pharmaceutical manufacturing, covering validation, data integrity, audit trails, and access controls.
@@ -291,7 +291,7 @@ FDA Current Good Manufacturing Practice — 21 CFR Parts 210 and 211
 CocoPharma::Regulation::FDAcGMP
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 The US regulations setting minimum current good manufacturing practice for the manufacture, processing, packing, and holding of finished pharmaceuticals, enforced by FDA inspection of any site supplying the US market.
@@ -350,7 +350,7 @@ ALCOA+ Data Integrity
 CocoPharma::GovernancePrinciple::ALCOAPlusDataIntegrity
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 All manufacturing data must satisfy the ALCOA+ principles: Attributable, Legible, Contemporaneous, Original, and Accurate; plus Complete, Consistent, Enduring, and Available.
@@ -395,7 +395,7 @@ Full Batch Traceability
 CocoPharma::GovernancePrinciple::FullBatchTraceability
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Every batch of manufactured product must be traceable forward from its raw material sources and backward from any distributed unit to the complete manufacturing record and source materials.
@@ -440,7 +440,7 @@ Validated State Must Be Maintained
 CocoPharma::GovernancePrinciple::ValidatedStateMaintained
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 All manufacturing processes, equipment, and computerised systems must be validated before use in production and must remain in a documented, qualified state throughout their operational life.
@@ -485,7 +485,7 @@ Manufacturing Sees a Reference, Not a Patient
 CocoPharma::GovernancePrinciple::PatientIdentityMinimisedInManufacturing
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Personalised manufacturing operates on a pseudonymous batch reference sufficient to prevent mix-up, with re-identification to the patient occurring only at the clinical boundary and only by clinical staff.
@@ -533,7 +533,7 @@ Batch Records Must Be Complete, Accurate, and Retained
 CocoPharma::GovernanceObligation::BatchRecordsCompleteAccurateRetained
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 A complete batch manufacturing record must be created for every batch produced, reviewed by a qualified second person, and retained for the regulatory retention period.
@@ -578,7 +578,7 @@ Manufacturing Deviations Must Be Documented, Investigated, and Closed
 CocoPharma::GovernanceObligation::DeviationsDocumentedInvestigatedClosed
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Any deviation from an approved manufacturing process, specification, or procedure must be documented at the time of occurrence, investigated to root cause, and formally closed with documented corrective and preventive actions.
@@ -623,7 +623,7 @@ Equipment and Facilities Must Have Current Qualification Records
 CocoPharma::GovernanceObligation::EquipmentQualificationCurrentAndRecorded
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 All equipment and facilities used in pharmaceutical manufacturing must have documented qualification evidence (IQ/OQ/PQ) that is current and maintained through periodic review and change control.
@@ -668,7 +668,7 @@ Raw Material and Component Data Must Be Verified Before Use
 CocoPharma::GovernanceObligation::RawMaterialDataVerifiedBeforeUse
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Every raw material and component used in manufacturing must be received, tested, and approved in accordance with GMP requirements, with data verified against approved specifications before release for use in production.
@@ -713,7 +713,7 @@ Computerised Manufacturing Systems Must Comply with Electronic Records Requireme
 CocoPharma::GovernanceObligation::ComputerisedSystemsComplyWithElectronicRecordsRequirements
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 All computerised systems used in GMP-regulated manufacturing must be validated, have audit trails enabled, control access by individual user identity, and meet the requirements of EU GMP Annex 11 and FDA 21 CFR Part 11.
@@ -758,7 +758,7 @@ Chain of Identity Must Be Unbroken from Sample to Administration
 CocoPharma::GovernanceObligation::ChainOfIdentityUnbroken
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 For every personalised product, the link from the patient's starting material through manufacture and testing to administration must be verifiable at each handover, with any break stopping the batch.
@@ -804,7 +804,7 @@ Corrective and Preventive Actions Must Be Verified as Effective
 CocoPharma::GovernanceObligation::CAPAEffectivenessVerified
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Every CAPA must define in advance how its effectiveness will be measured, and must remain open until that measurement demonstrates the problem has not recurred.
@@ -850,7 +850,7 @@ Batch Certification and Import Responsibility Must Match the Market Supplied
 CocoPharma::GovernanceObligation::BatchCertificationPerMarket
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Each batch must be certified by a Qualified Person operating under a manufacturing authorisation valid for the market it will supply, with import responsibility discharged separately where product crosses into Great Britain.
@@ -896,7 +896,7 @@ Temperature Excursions Must Be Recorded and Assessed Before Product Disposition
 CocoPharma::GovernanceObligation::TemperatureExcursionAssessment
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Continuous temperature data must be captured for every temperature-sensitive consignment, and any excursion must be assessed against the product's stability data by the quality organisation before the product is released, forwarded, or administered.
@@ -944,7 +944,7 @@ ALCOA+ Data Integrity Framework
 CocoPharma::GovernanceApproach::ALCOAPlusFramework
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Coco Pharmaceuticals applies the ALCOA+ framework as the operational method for assessing, designing, and auditing manufacturing data governance controls across all GMP-regulated activities.
@@ -989,7 +989,7 @@ Electronic Batch Record Management
 CocoPharma::GovernanceApproach::ElectronicBatchRecordManagement
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Manufacturing batch records are captured, reviewed, and archived electronically, using validated systems with audit trails, electronic signatures, and integration to the Egeria metadata catalog for governance linkage.
@@ -1034,7 +1034,7 @@ Manufacturing Change Control
 CocoPharma::GovernanceApproach::ManufacturingChangeControl
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 All changes to validated manufacturing processes, equipment, computerised systems, and supporting documentation must be assessed, approved, implemented, and verified through a formal change control process before the changed state is used in production.
@@ -1079,7 +1079,7 @@ Manufacturing Pseudonymisation for Personalised Products
 CocoPharma::GovernanceApproach::ManufacturingPseudonymisation
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 A reference is issued at the point the patient's starting material is collected and used as the sole patient identifier throughout manufacturing, with the mapping held clinically and access to it logged.
@@ -1125,7 +1125,7 @@ Corrective and Preventive Action Management
 CocoPharma::GovernanceApproach::CAPAManagement
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 CAPAs are raised from defined triggers, graded by risk, subjected to structured root cause analysis, and tracked to an effectiveness check, with the whole population trended to identify systemic weakness.
@@ -1171,7 +1171,7 @@ Continuous Cold Chain Monitoring and Excursion Management
 CocoPharma::GovernanceApproach::ColdChainMonitoring
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Temperature-sensitive consignments carry continuous monitoring from despatch to receipt, with data recovered into the batch record and excursions routed automatically to quality assessment rather than reported by the receiving site.
@@ -1369,7 +1369,7 @@ Batch Record Completeness Rate
 CocoPharma::GovernanceMetric::BatchRecordCompletenessRate
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Measures the percentage of batch records that are submitted for Qualified Person review without any missing or incomplete GMP data entries.
@@ -1413,7 +1413,7 @@ Deviation Closure Rate
 CocoPharma::GovernanceMetric::DeviationClosureRate
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Measures the percentage of manufacturing deviations that are closed — with documented investigation, root cause, and CAPA — within the defined timeframe for their classification.
@@ -1457,7 +1457,7 @@ Equipment Qualification Currency Rate
 CocoPharma::GovernanceMetric::EquipmentQualificationCurrencyRate
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Measures the percentage of GMP-critical manufacturing equipment and instruments that have current, valid qualification or calibration records and are within their scheduled review period.
@@ -1501,7 +1501,7 @@ CAPA Effectiveness Verification Rate
 CocoPharma::GovernanceMetric::CAPAEffectivenessRate
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Measures the percentage of CAPAs whose effectiveness check passed at first verification, reported alongside recurrence of the problem the CAPA was raised to address.
@@ -1546,7 +1546,7 @@ Cold Chain Monitoring Data Completeness
 CocoPharma::GovernanceMetric::ColdChainDataCompleteness
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Measures the percentage of temperature-sensitive consignments arriving with a complete, recovered monitoring record covering the whole journey, with gaps and excursions reported separately.
@@ -1592,7 +1592,7 @@ Chain of Identity Verification Integrity
 CocoPharma::GovernanceMetric::ChainOfIdentityIntegrity
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Measures the percentage of personalised batch handovers verified automatically against the reference without a manual override, and reports every chain break separately.
@@ -1639,7 +1639,7 @@ GMP Material Supplier Qualification
 CocoPharma::CertificationType::GMPSupplierQualification
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 The qualification a supplier of active ingredients, excipients, or primary packaging must hold before its material may be used in GMP manufacturing, confirming that it can consistently supply material meeting the agreed specification.

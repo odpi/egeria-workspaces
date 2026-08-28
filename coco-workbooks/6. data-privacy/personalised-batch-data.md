@@ -89,7 +89,7 @@ The Reference-to-Patient Mapping Must Be Held Clinically with Logged Access
 CocoPharma::GovernanceObligation::ReferenceMappingHeldClinically
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 The mapping between a manufacturing reference and the patient it belongs to must be held in clinical systems under clinical access controls, with every resolution logged and attributable, and no standing access granted to manufacturing.
@@ -133,7 +133,7 @@ Limits on Erasure Must Be Documented Before They Are Relied On
 CocoPharma::GovernanceObligation::ErasureLimitsDocumented
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Every category of personal data the company will refuse to erase must be recorded in advance with the legal basis for the refusal, the retention period it applies for, and the wording used to explain it to the individual at the point of collection.
@@ -179,7 +179,7 @@ Joint Privacy and Manufacturing Review for Personalised Therapies
 CocoPharma::GovernanceApproach::JointPrivacyManufacturingReview
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Each personalised therapy is reviewed jointly by privacy, manufacturing and the biological safety function before first patient collection, assessing the whole journey rather than each domain's segment of it.

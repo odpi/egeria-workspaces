@@ -4,7 +4,7 @@
 > **Version:** 1.0  
 > **Status:** ACTIVE  
 > **Date:** 2026-08-23  
-> **Description:** Governance definitions for the Health and Safety domain at Coco Pharmaceuticals, domain identifier `24`. The file registers the domain identifier as a valid metadata value before any definition claims it, then defines the drivers, policies, and controls for the domain. Load `joint-governance-officer-definitions.md` and `manufacturing-governance-program.md` first.
+> **Description:** Governance definitions for the Health and Safety domain at Coco Pharmaceuticals, domain identifier `Health and Safety`. The file registers the domain identifier as a valid metadata value before any definition claims it, then defines the drivers, policies, and controls for the domain. Load `joint-governance-officer-definitions.md` and `manufacturing-governance-program.md` first.
 
 ---
 
@@ -63,7 +63,7 @@ A Workforce Protected from the Compounds It Handles
 CocoPharma::BusinessImperative::WorkforceProtectedFromExposure
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Coco Pharmaceuticals must know the hazard of every compound its people handle, control exposure to it, and be able to demonstrate that control from data rather than from assertion.
@@ -114,7 +114,7 @@ Occupational Exposure to Potent Compounds
 CocoPharma::Threat::OccupationalExposureToPotentCompounds
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Workers may be exposed to pharmacologically active compounds above safe levels through containment failure, inadequate hazard characterisation, or activities where containment was never assessed.
@@ -158,7 +158,7 @@ Under-reporting of Incidents and Near Misses
 CocoPharma::Threat::IncidentUnderReporting
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Incidents and near misses may go unreported, removing the information the organisation needs to correct conditions before they cause serious harm.
@@ -204,7 +204,7 @@ Control of Substances Hazardous to Health Regulations 2002 (COSHH)
 CocoPharma::Regulation::COSHH2002
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 UK regulations requiring employers to assess the risk from hazardous substances, prevent or control exposure, monitor exposure, provide health surveillance where indicated, and retain the resulting records for forty years.
@@ -256,7 +256,7 @@ EU Occupational Safety and Health Framework Directive 89/391/EEC
 CocoPharma::Regulation::EUOSHFrameworkDirective
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 The EU directive establishing general principles for preventing occupational risk, requiring employers to assess risks, apply a defined hierarchy of prevention, document assessments, and consult workers on safety matters.
@@ -314,7 +314,7 @@ Control at Source Before Protection at the Person
 CocoPharma::GovernancePrinciple::ControlAtSourceBeforeProtection
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Exposure is controlled by elimination, substitution, and engineering measures before any reliance is placed on personal protective equipment, and reliance on protective equipment is recorded as a residual rather than treated as a solution.
@@ -357,7 +357,7 @@ Incidents Are Reported Without Blame
 CocoPharma::GovernancePrinciple::IncidentsReportedWithoutBlame
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Reporting an incident or near miss carries no adverse consequence for the reporter, investigation addresses the conditions rather than the individual, and metrics are never constructed so that low reported counts are rewarded.
@@ -400,7 +400,7 @@ Health Surveillance Data Serves the Worker First
 CocoPharma::GovernancePrinciple::HealthSurveillanceServesWorker
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Health surveillance exists to protect the individual being monitored, their clinical data is held by occupational health and not by management, and the employer receives fitness conclusions rather than medical findings.
@@ -445,7 +445,7 @@ Hazardous Substance Assessments Must Be Current for Every Substance and Task
 CocoPharma::GovernanceObligation::HazardousSubstanceAssessmentsCurrent
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Every hazardous substance and every task involving one must have a current assessment covering the task as actually performed, reviewed on change and on a defined cycle.
@@ -489,7 +489,7 @@ Occupational Exposure Must Be Monitored Against Banded Limits
 CocoPharma::GovernanceObligation::ExposureMonitoredAgainstBandedLimits
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Every compound must carry an occupational exposure band or limit before entering a facility, and actual exposure must be monitored against it where the assessment indicates, with results retained and trended.
@@ -533,7 +533,7 @@ Health Surveillance Must Be Provided and Its Records Retained for Forty Years
 CocoPharma::GovernanceObligation::HealthSurveillanceRecordsRetained
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Health surveillance must be provided where exposure may cause an identifiable disease, and records retained for forty years from the last entry in a form that remains retrievable and interpretable.
@@ -577,7 +577,7 @@ Incidents and Near Misses Must Be Recorded, Investigated, and Reported
 CocoPharma::GovernanceObligation::IncidentsRecordedAndReported
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Every incident and near miss must be recorded when it occurs, investigated proportionately to its potential rather than its actual outcome, and reported to the regulator where the reporting criteria are met.
@@ -621,7 +621,7 @@ Hazardous Substances Must Be Registered with a Current Safety Data Sheet
 CocoPharma::GovernanceObligation::HazardousSubstanceRegisterMaintained
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Every hazardous substance held at any site must be recorded in the substance register with its location, quantity, hazard classification, and a current safety data sheet, before it is brought on site.
@@ -665,7 +665,7 @@ Hazardous Waste Must Be Classified, Consigned, and Tracked to Final Disposal
 CocoPharma::GovernanceObligation::HazardousWasteConsignedAndTracked
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Hazardous waste must be classified correctly at the point it arises, transferred only to authorised carriers and sites, and tracked through consignment records retained for the statutory period.
@@ -709,7 +709,7 @@ Emergency Arrangements Must Match the Hazards Actually Present
 CocoPharma::GovernanceObligation::EmergencyResponseMatchesHazards
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Spill, exposure, and release response arrangements must be derived from the substances actually held at each location, communicated to those who would respond, and exercised.
@@ -755,7 +755,7 @@ Occupational Exposure Banding
 CocoPharma::GovernanceApproach::OccupationalExposureBanding
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Compounds are assigned to hazard bands from their toxicological and pharmacological data, and each band prescribes the containment, monitoring, and surveillance regime applied to any work with a compound in it.
@@ -799,7 +799,7 @@ Learning from Near Misses and Weak Signals
 CocoPharma::GovernanceApproach::LearningFromNearMisses
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Near misses and low-level signals are actively sought, aggregated across sites, and analysed for the conditions they share, with reporting volume treated as a measure of engagement rather than of deterioration.
@@ -843,7 +843,7 @@ Chemical Inventory and Safety Data Sheet Management
 CocoPharma::GovernanceApproach::ChemicalInventoryManagement
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 One substance register serves every downstream use — assessment, monitoring, waste routing, emergency response, and transport classification — populated at the point substances are ordered and maintained by the people who hold them.
@@ -971,7 +971,7 @@ Exposure Monitoring Coverage and Trend
 CocoPharma::GovernanceMetric::ExposureMonitoringCoverage
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Measures the percentage of activities requiring monitoring that have a result within their sampling interval, reported with the proportion of results in the upper fraction of the applicable band.
@@ -1015,7 +1015,7 @@ Near Miss to Incident Ratio
 CocoPharma::GovernanceMetric::NearMissToIncidentRatio
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Measures the ratio of reported near misses to reported incidents by site and by worker category, interpreted as a measure of reporting culture rather than of safety performance.
@@ -1059,7 +1059,7 @@ Health Surveillance Completion and Record Integrity
 CocoPharma::GovernanceMetric::HealthSurveillanceCompletion
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Measures the percentage of individuals requiring health surveillance who have a completed assessment within its interval, and the proportion of retained records passing periodic retrievability verification.
@@ -1102,7 +1102,7 @@ Substance Register Completeness and Data Sheet Currency
 CocoPharma::GovernanceMetric::SubstanceRegisterCompleteness
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Measures the percentage of registered hazardous substances holding a current safety data sheet and a linked assessment, reported alongside substances found on site but not registered.
