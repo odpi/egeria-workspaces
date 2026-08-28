@@ -2631,7 +2631,11 @@ function ReportSpecView() {
         },
           React.createElement('option', { value: '' }, 'All perspectives'),
           allPerspectives.map(p => React.createElement('option', { key: p, value: p.toLowerCase() }, p))
-        )
+        ),
+        React.createElement('button', {
+          className: 'btn-sm', style: { marginTop: 6 },
+          onClick: () => setAttempt(a => a + 1)
+        }, '↻ Refresh')
       ),
       React.createElement('div', { className: 'stats' },
         React.createElement('span', null,
@@ -2820,7 +2824,11 @@ function AnalyticsView() {
           placeholder: 'Search name, description, path…',
           value: search,
           onChange: e => setSearch(e.target.value)
-        })
+        }),
+        React.createElement('button', {
+          className: 'btn-sm', style: { marginTop: 6 },
+          onClick: () => setAttempt(a => a + 1)
+        }, '↻ Refresh')
       ),
       React.createElement('div', { className: 'stats' },
         React.createElement('span', null,
@@ -3835,7 +3843,11 @@ function ExternalReferencesView({ navGuid, onNavigateToElement }) {
     ),
     React.createElement("div", { className: "search-wrap" },
       React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
-        onChange: function(e) { setFilter(e.target.value); } })
+        onChange: function(e) { setFilter(e.target.value); } }),
+      React.createElement("button", {
+        className: "btn-sm", style: { marginTop: 4 },
+        onClick: function() { setAttempt(function(a) { return a + 1; }); }
+      }, "↻ Refresh"),
     ),
     state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     state === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -4010,7 +4022,11 @@ function ExternalIdentifiersView({ navGuid, onNavigateToElement }) {
     ),
     React.createElement("div", { className: "search-wrap" },
       React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
-        onChange: function(e) { setFilter(e.target.value); } })
+        onChange: function(e) { setFilter(e.target.value); } }),
+      React.createElement("button", {
+        className: "btn-sm", style: { marginTop: 4 },
+        onClick: function() { setAttempt(function(a) { return a + 1; }); }
+      }, "↻ Refresh"),
     ),
     state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     state === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -4204,7 +4220,11 @@ function AgreementsView({ navGuid, onNavigateToElement }) {
     ),
     React.createElement("div", { className: "search-wrap" },
       React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
-        onChange: function(e) { setFilter(e.target.value); } })
+        onChange: function(e) { setFilter(e.target.value); } }),
+      React.createElement("button", {
+        className: "btn-sm", style: { marginTop: 4 },
+        onClick: function() { setAttempt(function(a) { return a + 1; }); }
+      }, "↻ Refresh"),
     ),
     state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     state === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -7087,7 +7107,11 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
           React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', padding: '4px 0 2px' } },
             React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
             "Include templates"
-          )
+          ),
+          React.createElement("button", {
+            className: "btn-sm", style: { marginTop: 4 },
+            onClick: function() { loadItems(subNav); }
+          }, "↻ Refresh")
         ),
         React.createElement("div", { style: { overflowY: 'auto', flex: 1 } },
           curList.st === 'loading'
@@ -7429,6 +7453,7 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
   const [filter, setFilter]   = useState('');
   const [asOfTime, setAsOfTime] = useState(null);  // LE-3 point-in-time
   const [inclTempl, setInclTempl] = useState(false);
+  const [refreshAttempt, setRefreshAttempt] = useState(0);
 
   const [perspList, setPerspList]   = useState([]);
   const [perspState, setPerspState] = useState('loading');
@@ -7467,8 +7492,10 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
     egeriaFetch('/api/perspectives' + (p.length ? '?' + p.join('&') : ''), creds)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => { setPerspList(data.perspectives || []); setPerspState('ready'); })
+      // (deps below include refreshAttempt so a Refresh click reloads even when
+      // asOfTime/inclTempl haven't changed)
       .catch(() => setPerspState('error'));
-  }, [asOfTime, inclTempl]);
+  }, [asOfTime, inclTempl, refreshAttempt]);
 
   // Cross-tab arrival: another tab called onNavigateToPerspective(guid) — select it.
   useEffect(() => {
@@ -7613,7 +7640,11 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
         )
       ),
       React.createElement("div", { className: "search-wrap", style: { padding: '6px 10px', borderBottom: '1px solid var(--border)' } },
-        React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter, onChange: function(e) { setFilter(e.target.value); } })
+        React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter, onChange: function(e) { setFilter(e.target.value); } }),
+        React.createElement("button", {
+          className: "btn-sm", style: { marginTop: 4 },
+          onClick: function() { setQState('idle'); setRefreshAttempt(function(a) { return a + 1; }); }
+        }, "↻ Refresh")
       ),
       React.createElement("div", { style: { padding: '4px 10px 4px', fontSize: 11, color: 'var(--dim)', borderBottom: '1px solid var(--border)' } },
         activeState === 'loading' ? 'Loading…' : activeState === 'error' ? 'Error loading' : filteredList.length + ' item' + (filteredList.length !== 1 ? 's' : '')
@@ -7696,6 +7727,7 @@ function DrEgeriaCommandsView() {
   const [directive, setDirective]     = useState('display');
   const [execState, setExecState]     = useState('idle'); // 'idle' | 'running' | 'done' | 'error'
   const [execResult, setExecResult]   = useState(null);
+  const [attempt, setAttempt]         = useState(0);
   const creds = React.useContext(CredContext);
 
   useEffect(function() {
@@ -7704,7 +7736,7 @@ function DrEgeriaCommandsView() {
       .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function(data) { setCmdData(data); setLoadState('ready'); })
       .catch(function() { setLoadState('error'); });
-  }, []);
+  }, [attempt]);
 
   useEffect(function() {
     if (!cmdData) return;
@@ -8081,7 +8113,11 @@ function DrEgeriaCommandsView() {
         ),
       React.createElement("div", { className: "search-wrap", style: { padding: '6px 10px', borderBottom: '1px solid var(--border)' } },
         React.createElement("input", { className: "search-input", placeholder: "Filter commands…", value: filter,
-          onChange: function(e) { setFilter(e.target.value); if (e.target.value) setSelectedCmd(null); } })
+          onChange: function(e) { setFilter(e.target.value); if (e.target.value) setSelectedCmd(null); } }),
+        React.createElement("button", {
+          className: "btn-sm", style: { marginTop: 4 },
+          onClick: function() { setAttempt(function(a) { return a + 1; }); }
+        }, "↻ Refresh")
       ),
       React.createElement("div", { style: { padding: '4px 10px', fontSize: 11, color: 'var(--dim)', borderBottom: '1px solid var(--border)' } },
         loadState === 'loading' ? 'Loading…' :
@@ -8226,7 +8262,11 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
       React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', marginTop: 4 } },
         React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
         "Include templates"
-      )
+      ),
+      React.createElement("button", {
+        className: "btn-sm", style: { marginTop: 4 },
+        onClick: function() { setAttempt(function(a) { return a + 1; }); }
+      }, "↻ Refresh"),
     ),
     state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     state === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -8711,7 +8751,11 @@ function LocationsView({ navGuid, onNavigateToElement }) {
       React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', marginTop: 4 } },
         React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
         "Include templates"
-      )
+      ),
+      React.createElement("button", {
+        className: "btn-sm", style: { marginTop: 4 },
+        onClick: function() { setAttempt(function(a) { return a + 1; }); }
+      }, "↻ Refresh"),
     ),
     state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     state === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -8980,6 +9024,10 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
   }, [subNav, curSelected, asOfTime]);
 
   function retryCurrent() {
+    // Also used by the always-visible Refresh button below (not just the
+    // error-state Retry button) -- state[subNav] must be reset off 'ready'
+    // too, or the load effect's own idle/loading guard would just no-op.
+    setState(function(s) { return Object.assign({}, s, { [subNav]: 'idle' }); });
     setAttempt(function(a) { return Object.assign({}, a, { [subNav]: a[subNav] + 1 }); });
   }
 
@@ -9007,7 +9055,11 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
       React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', marginTop: 4 } },
         React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
         "Include templates"
-      )
+      ),
+      React.createElement("button", {
+        className: "btn-sm", style: { marginTop: 4 },
+        onClick: retryCurrent
+      }, "↻ Refresh")
     ),
     curState === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     curState === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -9700,7 +9752,11 @@ function InformalTagsView({ navGuid, onNavigateToElement }) {
   var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { className: "search-wrap" },
       React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
-        onChange: function(e) { setFilter(e.target.value); } })
+        onChange: function(e) { setFilter(e.target.value); } }),
+      React.createElement("button", {
+        className: "btn-sm", style: { marginTop: 4 },
+        onClick: function() { setAttempt(function(a) { return a + 1; }); }
+      }, "↻ Refresh"),
     ),
     React.createElement("div", { style: { padding: '4px 12px 8px', display: 'flex', alignItems: 'center', gap: 6 } },
       React.createElement("label", { style: { fontSize: 12, color: 'var(--dim)', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' } },
@@ -9832,7 +9888,11 @@ function CommunityView({ navGuid, onNavigateToElement }) {
       React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', padding: '4px 0 2px' } },
         React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
         "Include templates"
-      )
+      ),
+      React.createElement("button", {
+        className: "btn-sm", style: { marginTop: 4 },
+        onClick: function() { setAttempt(function(a) { return a + 1; }); }
+      }, "↻ Refresh"),
     ),
     state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     state === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -9991,7 +10051,11 @@ function BusinessCapabilityView({ navGuid, onNavigateToElement }) {
       React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', padding: '4px 0 2px' } },
         React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
         "Include templates"
-      )
+      ),
+      React.createElement("button", {
+        className: "btn-sm", style: { marginTop: 4 },
+        onClick: function() { setAttempt(function(a) { return a + 1; }); }
+      }, "↻ Refresh"),
     ),
     state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     state === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -10279,7 +10343,11 @@ function NoteLogView({ navGuid, onNavigateToElement }) {
       React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', padding: '4px 0 2px' } },
         React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
         "Include templates"
-      )
+      ),
+      React.createElement("button", {
+        className: "btn-sm", style: { marginTop: 4 },
+        onClick: function() { setAttempt(function(a) { return a + 1; }); }
+      }, "↻ Refresh"),
     ),
     state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     state === 'error' && React.createElement("div", { style: { padding: 16 } },
