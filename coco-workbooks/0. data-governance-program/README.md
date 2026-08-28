@@ -17,18 +17,18 @@ The governance leaders then went back to their own teams to work through the pri
 
 | File | Domain | Owner |
 |---|---|---|
-| [data-governance-program.md](data-governance-program.md) | `DATA` | Jules Keeper, Chief Data Officer |
-| [data-security-strategy.md](data-security-strategy.md) | `SECURITY` | Ivor Padlock, Chief Information Security Officer |
-| [privacy-governance-program.md](privacy-governance-program.md) | `PRIVACY` | Faith Broker, Chief Privacy Officer |
-| [manufacturing-governance-program.md](manufacturing-governance-program.md) | `MANUFACTURING` | Stew Faster, Head of Manufacturing |
-| [serialisation-governance-program.md](serialisation-governance-program.md) | `MANUFACTURING` | Stew Faster with Florence Paynter and George Pie |
-| [drug-development-governance.md](drug-development-governance.md) | `20` — Drug Development | Tessa Tube, Drug Development Lead |
-| [corporate-governance-program.md](corporate-governance-program.md) | `CORPORATE` | Reggie Mint, Chief Financial Officer |
-| [human-resource-management.md](human-resource-management.md) | `22` — Human Resource Management | Faith Broker, Head of Human Resources |
-| [diversity-equity-inclusion.md](diversity-equity-inclusion.md) | `23` — Diversity, Equity and Inclusion | Head of DEI *(appointment pending)* |
-| [health-and-safety.md](health-and-safety.md) | `24` — Health and Safety | Faith Broker, Head of Human Resources |
-| [biological-agents-and-gmo.md](biological-agents-and-gmo.md) | `24` — Health and Safety | Faith Broker, through the Biological Safety Officer |
-| [dangerous-goods-transport.md](dangerous-goods-transport.md) | `25` — Distribution | Stew Faster with Florence Paynter and George Pie |
+| [data-governance-program.md](data-governance-program.md) | `Data` | Jules Keeper, Chief Data Officer |
+| [data-security-strategy.md](data-security-strategy.md) | `Security` | Ivor Padlock, Chief Information Security Officer |
+| [privacy-governance-program.md](privacy-governance-program.md) | `Privacy` | Faith Broker, Chief Privacy Officer |
+| [manufacturing-governance-program.md](manufacturing-governance-program.md) | `Manufacturing` | Stew Faster, Head of Manufacturing |
+| [serialisation-governance-program.md](serialisation-governance-program.md) | `Manufacturing` | Stew Faster with Florence Paynter and George Pie |
+| [drug-development-governance.md](drug-development-governance.md) | `Drug Development` | Tessa Tube, Drug Development Lead |
+| [corporate-governance-program.md](corporate-governance-program.md) | `Corporate` | Reggie Mint, Chief Financial Officer |
+| [human-resource-management.md](human-resource-management.md) | `Human Resource Management` | Faith Broker, Head of Human Resources |
+| [diversity-equity-inclusion.md](diversity-equity-inclusion.md) | `Diversity, Equity and Inclusion` | Head of DEI *(appointment pending)* |
+| [health-and-safety.md](health-and-safety.md) | `Health and Safety` | Faith Broker, Head of Human Resources |
+| [biological-agents-and-gmo.md](biological-agents-and-gmo.md) | `Health and Safety` | Faith Broker, through the Biological Safety Officer |
+| [dangerous-goods-transport.md](dangerous-goods-transport.md) | `Distribution` | Stew Faster with Florence Paynter and George Pie |
 
 Two further files cut across the domains:
 
@@ -43,13 +43,15 @@ The domains are deliberately layered, and the layer determines which domain shou
 
 | Layer | Domains | Owns drivers? | Role |
 |---|---|---|---|
-| Business outcome and regulatory | `MANUFACTURING`, `PRIVACY`, `CORPORATE`, `20`, `22`, `23`, `24`, `25` | Yes | Carry responsibility for business results and regulatory compliance |
-| Systemic | `DATA`, `SECURITY` | Sparingly | Address systemic issues across the business, in service of the outcome domains.  `SECURITY` additionally owns board-level cyber drivers, because a cyber incident can halt the whole business |
-| Serving | `IT_INFRASTRUCTURE`, `SOFTWARE_DEVELOPMENT` | No | Provide the digital services the business runs on |
+| Business outcome and regulatory | `Manufacturing`, `Privacy`, `Corporate`, `Drug Development`, `Human Resource Management`, `Diversity, Equity and Inclusion`, `Health and Safety`, `Distribution` | Yes | Carry responsibility for business results and regulatory compliance |
+| Systemic | `Data`, `Security` | Sparingly | Address systemic issues across the business, in service of the outcome domains.  `Security` additionally owns board-level cyber drivers, because a cyber incident can halt the whole business |
+| Serving | `IT Infrastructure`, `Software Development` | No | Provide the digital services the business runs on |
 
-This is why the data governance program is short on drivers and long on links: most of what the `DATA` domain does exists to let another domain meet an obligation that is theirs.
+This is why the data governance program is short on drivers and long on links: most of what the `Data` domain does exists to let another domain meet an obligation that is theirs.
 
-Domain identifiers `20`, `22`, `23`, `24` and `25` extend Egeria's built-in set.  `20` is supplied by `CocoComboArchive.omarchive`; `22`, `23`, `24` and `25` are registered by the files that first use them, each of which opens with a `Setup Valid Metadata Value` command.  **A domain identifier must be registered before any definition claims it.**
+Domains are named by their display name throughout — `Manufacturing` rather than the underlying `21`.  Egeria resolves the name through the `domainIdentifier` valid value set, so the numeric value only appears where a domain is registered.
+
+The set has three layers.  `All Domains`, `Data`, `Privacy`, `Security`, `IT Infrastructure`, `Software Development`, `Corporate`, `Asset Management`, `Data Sharing` and `Sustainability` are Egeria's built-in domains.  `Drug Development` and `Manufacturing` are Coco Pharmaceuticals extensions supplied by `CocoComboArchive.omarchive`.  `Human Resource Management`, `Diversity, Equity and Inclusion`, `Health and Safety` and `Distribution` are registered by the workbooks themselves, each opening with a `Setup Valid Metadata Value` command.  **A domain must be registered before any definition claims it**, which is why those four files register their own before defining anything.
 
 ----
 
@@ -94,7 +96,7 @@ While that work is going on, Jules and his team are building the artifacts that 
 The story continues outside this directory:
 
 * `6. data-privacy/data-processing-purposes.md` — the data processing purposes declared by every domain, gathered with their links so the lawful bases can be reviewed as a set
-* `4. keeping-safe/it-governance-program.md` — Gary Geeke builds out the `IT_INFRASTRUCTURE` domain, after first creating the systems inventory that the security team needed urgently
+* `4. keeping-safe/it-governance-program.md` — Gary Geeke builds out the `IT Infrastructure` domain, after first creating the systems inventory that the security team needed urgently
 * `3. sustainability/sustainability-governance-program.md` — Tom Tally, now leading the sustainability program, connects the sustainability definitions to the domain programs
 
 All three load after this directory.  The Martyn's Law definitions in `4. keeping-safe/martyns-law/` load after those.
@@ -242,7 +244,7 @@ You can load the definitions into Egeria in one of two ways:
     dr_egeria --directive process --userid tessatube --user_pass secret drug-development-governance.md
     ```
 
-The definitions carry Domain Identifier `20` — Drug Development.  The file adds members to the Drug Development Lead folio created in the Joint Governance Officer Definitions, and its Part 4.5 links to obligations defined in `privacy-governance-program.md`, so load both of those first.
+The definitions carry Domain Identifier `Drug Development`.  The file adds members to the Drug Development Lead folio created in the Joint Governance Officer Definitions, and its Part 4.5 links to obligations defined in `privacy-governance-program.md`, so load both of those first.
 
 ----
 
@@ -263,7 +265,7 @@ You can load the definitions into Egeria in one of two ways:
     dr_egeria --directive process --userid reggiemint --user_pass secret corporate-governance-program.md
     ```
 
-The definitions carry Domain Identifier `CORPORATE` and add members to the Chief Financial Officer folio created in the Joint Governance Officer Definitions.  The file also links to the master data obligation in `data-governance-program.md` and the raw material obligation in `manufacturing-governance-program.md`.
+The definitions carry Domain Identifier `Corporate` and add members to the Chief Financial Officer folio created in the Joint Governance Officer Definitions.  The file also links to the master data obligation in `data-governance-program.md` and the raw material obligation in `manufacturing-governance-program.md`.
 
 ----
 
@@ -301,7 +303,7 @@ You can load the definitions into Egeria in one of two ways:
     dr_egeria --directive process --userid stewfaster --user_pass secret serialisation-governance-program.md
     ```
 
-The definitions carry Domain Identifier `MANUFACTURING` and join the Manufacturing Governance Lead folio, so load `manufacturing-governance-program.md` first.
+The definitions carry Domain Identifier `Manufacturing` and join the Manufacturing Governance Lead folio, so load `manufacturing-governance-program.md` first.
 
 ----
 
@@ -322,7 +324,7 @@ You can load the definitions into Egeria in one of two ways:
     dr_egeria --directive process --userid faithbroker --user_pass secret human-resource-management.md
     ```
 
-The definitions carry Domain Identifier `22`, registered by the `Setup Valid Metadata Value` command at the top of the file.  The file creates its own folio and links to definitions in the joint file and in the data, security, privacy, manufacturing, corporate and drug development programs.
+The definitions carry Domain Identifier `Human Resource Management`, registered by the `Setup Valid Metadata Value` command at the top of the file.  The file creates its own folio and links to definitions in the joint file and in the data, security, privacy, manufacturing, corporate and drug development programs.
 
 ----
 
@@ -345,13 +347,13 @@ You can load the definitions into Egeria in one of two ways:
     dr_egeria --directive process --userid faithbroker --user_pass secret health-and-safety.md
     ```
 
-The definitions carry Domain Identifier `24`, registered by the `Setup Valid Metadata Value` command at the top of the file.  It links to definitions in the manufacturing, human resources and privacy programs, so load those first.
+The definitions carry Domain Identifier `Health and Safety`, registered by the `Setup Valid Metadata Value` command at the top of the file.  It links to definitions in the manufacturing, human resources and privacy programs, so load those first.
 
 ----
 
 ## 13. Biological Agents and Contained Use of GMOs
 
-The file [biological-agents-and-gmo.md](biological-agents-and-gmo.md) covers work with biological agents and the contained use of genetically modified organisms.  It carries Domain Identifier `24` and joins the Head of Health and Safety folio, but is kept separate from `health-and-safety.md` because contained use is a distinct regulatory regime with its own classification scheme, its own regulator relationship, and a notification duty discharged before work begins.
+The file [biological-agents-and-gmo.md](biological-agents-and-gmo.md) covers work with biological agents and the contained use of genetically modified organisms.  It carries Domain Identifier `Health and Safety` and joins the Head of Health and Safety folio, but is kept separate from `health-and-safety.md` because contained use is a distinct regulatory regime with its own classification scheme, its own regulator relationship, and a notification duty discharged before work begins.
 
 Two activities bring the company into this regime, and only one is obvious.  The first is research: laboratories work with cell lines, viral vectors and cultures, some capable of causing human disease.  The second is the personalised medicine programme.  Autologous cell therapy takes a patient's own cells, modifies them — frequently using a viral vector — and returns them, which is contained use of genetically modified organisms in the legal sense.  The manufacturing program governs the patient identity attached to that material; nothing previously governed the fact that it is a genetically modified organism.
 
@@ -372,7 +374,7 @@ The two regulations join the Health and Safety Regulations folder created in `he
 
 ## 14. Dangerous Goods Transport
 
-The file [dangerous-goods-transport.md](dangerous-goods-transport.md) establishes the **Distribution** domain, identifier `25`, and registers it as a valid metadata value before any definition claims it.
+The file [dangerous-goods-transport.md](dangerous-goods-transport.md) establishes the **Distribution** domain, identifier `Distribution`, and registers it as a valid metadata value before any definition claims it.
 
 The company moves a considerable amount of material that is dangerous goods in the transport sense, very little of which looks dangerous to the people handling it: solvents between research sites, cytotoxic product to hospital pharmacies, clinical samples classified as biological substances, patient-derived material for personalised manufacture travelling in both directions on a clock, and the lithium batteries in the temperature monitoring devices accompanying almost all of it.
 
@@ -410,7 +412,7 @@ You can load the definitions into Egeria in one of two ways:
     dr_egeria --directive process --userid faithbroker --user_pass secret diversity-equity-inclusion.md
     ```
 
-The definitions carry Domain Identifier `23`, registered by the `Setup Valid Metadata Value` command at the top of the file.  It links to definitions in the human resources, drug development, privacy and data programs, so load those first.
+The definitions carry Domain Identifier `Diversity, Equity and Inclusion`, registered by the `Setup Valid Metadata Value` command at the top of the file.  It links to definitions in the human resources, drug development, privacy and data programs, so load those first.
 
 ----
 
@@ -418,7 +420,7 @@ The definitions carry Domain Identifier `23`, registered by the `Setup Valid Met
 
 The file [data-governance-program.md](data-governance-program.md) contains the governance definitions created by the data governance team at Coco Pharmaceuticals.
 
-Its shape is unlike the other domain programs, and deliberately so.  The `DATA` domain owns only three governance drivers — the small number of problems that originate in how the organisation manages data itself, that no single domain can fix from inside its own boundary, and that surface as damage in several domains at once.  Everything else in the program responds to drivers owned elsewhere, which is why the file's Part 1 is short and its Part 4 is long.  A `DATA` policy that appears in neither section is governance without a customer.
+Its shape is unlike the other domain programs, and deliberately so.  The `Data` domain owns only three governance drivers — the small number of problems that originate in how the organisation manages data itself, that no single domain can fix from inside its own boundary, and that surface as damage in several domains at once.  Everything else in the program responds to drivers owned elsewhere, which is why the file's Part 1 is short and its Part 4 is long.  A `Data` policy that appears in neither section is governance without a customer.
 
 Read the file's Part 4.2 to see the service relationship expressed as links: data policies answering manufacturing, privacy, drug development, security and corporate drivers.
 
@@ -453,7 +455,7 @@ In total the file creates:
 | 1 glossary | `Glossary::EmployeeGlossary` |
 | 7 categories | Employment, Personal Details, Compensation, Work Locations, Addresses, Working Time and Absence, Performance and Development |
 | 86 glossary terms | organized across those categories |
-| 84 term relationships | `Is A Type Of`, `Has A`, `Typed By` and `Related Term` |
+| 84 term relationships | `ISARelationship` and `RelatedTerm` |
 
 Two of the relationships deliberately record a disagreement rather than a fact - Payroll Number to Employee Id, and Manager to Team Leader - with the uncertainty written into the relationship's expression.  Recording what is not yet agreed is as much a part of glossary building as recording what is.
 

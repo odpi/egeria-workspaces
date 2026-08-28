@@ -53,7 +53,7 @@ Consent and Lawful Basis Records Management
 CocoPharma::DataProcessingPurpose::ConsentRecordsManagement
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Processing of personal data for the purpose of recording, maintaining, and evidencing the consent or other lawful basis under which each individual's data is held.
@@ -103,7 +103,7 @@ Data Subject Request Fulfilment
 CocoPharma::DataProcessingPurpose::DataSubjectRequestFulfilment
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Processing of a requester's personal data in order to verify their identity, locate the personal data held about them, and respond to an access, rectification, erasure, restriction, portability, or objection request.
@@ -153,7 +153,7 @@ Personal Data Breach Investigation and Notification
 CocoPharma::DataProcessingPurpose::PersonalDataBreachResponse
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Processing of personal data belonging to affected individuals in order to assess the scope and severity of a personal data breach, notify the supervisory authority, and where required inform the individuals concerned.
@@ -205,7 +205,7 @@ Employment Relationship Administration
 CocoPharma::DataProcessingPurpose::EmploymentRelationshipAdministration
 
 ### Domain Identifier
-22
+Human Resource Management
 
 ### Summary
 Processing of employee and worker personal data for the purpose of administering the employment relationship — pay, benefits, absence, performance, competency, and the employment decisions taken during it.
@@ -256,7 +256,7 @@ Workforce Equality Monitoring and Pay Gap Reporting
 CocoPharma::DataProcessingPurpose::WorkforceEqualityMonitoring
 
 ### Domain Identifier
-22
+Human Resource Management
 
 ### Summary
 Processing of workforce diversity and pay data for the purpose of monitoring equality of opportunity, producing statutory pay gap reports, and answering individual comparative pay requests.
@@ -309,7 +309,7 @@ Occupational Health Surveillance and Exposure Records
 CocoPharma::DataProcessingPurpose::OccupationalHealthSurveillance
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Processing of workers' health and exposure data for the purpose of detecting early indications of harm from occupational exposure, verifying that control measures are effective, and discharging statutory retention obligations.
@@ -362,7 +362,7 @@ Clinical Trial Conduct and Analysis
 CocoPharma::DataProcessingPurpose::ClinicalTrialConduct
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 Processing of trial participant data for the purpose of conducting the trial, analysing its results, and supporting the resulting regulatory submissions.
@@ -414,7 +414,7 @@ Secondary Research Use of Clinical Trial Data
 CocoPharma::DataProcessingPurpose::SecondaryClinicalResearch
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 Processing of clinical trial data for research questions beyond the protocol under which it was collected, including pooled analyses, method development, and external collaboration.
@@ -468,7 +468,7 @@ Batch Record Attribution and Electronic Signature
 CocoPharma::DataProcessingPurpose::BatchRecordAttribution
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Processing of operator and reviewer identity within batch records and electronic signatures for the purpose of attributing every GMP-relevant action to the individual who performed it.
@@ -520,7 +520,7 @@ Operator Qualification and Training Records
 CocoPharma::DataProcessingPurpose::OperatorQualificationRecords
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Processing of production and quality staff personal data for the purpose of recording the training and qualification that authorises each individual to perform GMP-regulated activities.
@@ -572,7 +572,7 @@ Personalised Product Manufacture for an Identified Patient
 CocoPharma::DataProcessingPurpose::PersonalisedManufacturing
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Processing of a patient's health data, and of material derived from them, for the purpose of manufacturing, testing, releasing, and delivering a medicinal product intended for that patient alone.
@@ -627,7 +627,7 @@ Representativeness and Equity Monitoring
 CocoPharma::DataProcessingPurpose::RepresentativenessAndEquityMonitoring
 
 ### Domain Identifier
-23
+Diversity, Equity and Inclusion
 
 ### Summary
 Processing of demographic data about trial participants, patients, investigators, and suppliers for the purpose of measuring representativeness and detecting differential outcomes between groups.
@@ -680,7 +680,7 @@ Identity and Access Administration
 CocoPharma::DataProcessingPurpose::IdentityAndAccessAdministration
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Summary
 Processing of employee, contractor, and partner personal data for the purpose of establishing identity, provisioning access, maintaining entitlements, and revoking access when it is no longer required.
@@ -732,7 +732,7 @@ Security Monitoring and Incident Investigation
 CocoPharma::DataProcessingPurpose::SecurityMonitoringAndInvestigation
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Summary
 Processing of employee and third-party personal data contained in system logs, access records, and endpoint telemetry for the purpose of detecting, investigating, and responding to security incidents.
@@ -787,7 +787,7 @@ Third-Party Due Diligence and Screening
 CocoPharma::DataProcessingPurpose::ThirdPartyDueDiligenceScreening
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 Processing of personal data belonging to directors, beneficial owners, and key personnel of third parties for the purpose of verifying identity, screening against sanctions and politically exposed person lists, and assessing bribery and fraud risk.
@@ -840,7 +840,7 @@ Transfer of Value Recording and Public Disclosure
 CocoPharma::DataProcessingPurpose::TransferOfValueDisclosure
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 Processing of healthcare professionals' personal data for the purpose of recording transfers of value made to them and publishing those transfers as required by transparency regimes.
@@ -895,7 +895,7 @@ Data Quality Profiling and Catalog Metadata Generation
 CocoPharma::DataProcessingPurpose::DataQualityProfilingAndCataloguing
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 Processing of personal data held in governed systems for the purpose of profiling its quality, generating catalog metadata, and detecting its presence in systems where it has not been declared.
@@ -1852,22 +1852,22 @@ ___
 
 | Purpose | Domain | Declared in |
 |---|---|---|
-| Consent and Lawful Basis Records Management | `PRIVACY` | `privacy-governance-program.md` |
-| Data Subject Request Fulfilment | `PRIVACY` | `privacy-governance-program.md` |
-| Personal Data Breach Investigation and Notification | `PRIVACY` | `privacy-governance-program.md` |
-| Employment Relationship Administration | `22` | `human-resource-management.md` |
-| Workforce Equality Monitoring and Pay Gap Reporting | `22` | `human-resource-management.md` |
-| Occupational Health Surveillance and Exposure Records | `24` | `health-and-safety.md` |
-| Clinical Trial Conduct and Analysis | `20` | `drug-development-governance.md` |
-| Secondary Research Use of Clinical Trial Data | `20` | `drug-development-governance.md` |
-| Batch Record Attribution and Electronic Signature | `MANUFACTURING` | `manufacturing-governance-program.md` |
-| Operator Qualification and Training Records | `MANUFACTURING` | `manufacturing-governance-program.md` |
-| Personalised Product Manufacture for an Identified Patient | `MANUFACTURING` | `manufacturing-governance-program.md` |
-| Representativeness and Equity Monitoring | `23` | `diversity-equity-inclusion.md` |
-| Identity and Access Administration | `SECURITY` | `data-security-strategy.md` |
-| Security Monitoring and Incident Investigation | `SECURITY` | `data-security-strategy.md` |
-| Third-Party Due Diligence and Screening | `CORPORATE` | `corporate-governance-program.md` |
-| Transfer of Value Recording and Public Disclosure | `CORPORATE` | `corporate-governance-program.md` |
-| Data Quality Profiling and Catalog Metadata Generation | `DATA` | `data-governance-program.md` |
+| Consent and Lawful Basis Records Management | `Privacy` | `privacy-governance-program.md` |
+| Data Subject Request Fulfilment | `Privacy` | `privacy-governance-program.md` |
+| Personal Data Breach Investigation and Notification | `Privacy` | `privacy-governance-program.md` |
+| Employment Relationship Administration | `Human Resource Management` | `human-resource-management.md` |
+| Workforce Equality Monitoring and Pay Gap Reporting | `Human Resource Management` | `human-resource-management.md` |
+| Occupational Health Surveillance and Exposure Records | `Health and Safety` | `health-and-safety.md` |
+| Clinical Trial Conduct and Analysis | `Drug Development` | `drug-development-governance.md` |
+| Secondary Research Use of Clinical Trial Data | `Drug Development` | `drug-development-governance.md` |
+| Batch Record Attribution and Electronic Signature | `Manufacturing` | `manufacturing-governance-program.md` |
+| Operator Qualification and Training Records | `Manufacturing` | `manufacturing-governance-program.md` |
+| Personalised Product Manufacture for an Identified Patient | `Manufacturing` | `manufacturing-governance-program.md` |
+| Representativeness and Equity Monitoring | `Diversity, Equity and Inclusion` | `diversity-equity-inclusion.md` |
+| Identity and Access Administration | `Security` | `data-security-strategy.md` |
+| Security Monitoring and Incident Investigation | `Security` | `data-security-strategy.md` |
+| Third-Party Due Diligence and Screening | `Corporate` | `corporate-governance-program.md` |
+| Transfer of Value Recording and Public Disclosure | `Corporate` | `corporate-governance-program.md` |
+| Data Quality Profiling and Catalog Metadata Generation | `Data` | `data-governance-program.md` |
 
 Each of those files retains a pointer to this one in place of the section its purposes used to occupy.

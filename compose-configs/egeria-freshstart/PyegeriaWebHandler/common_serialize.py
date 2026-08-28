@@ -42,7 +42,11 @@ def _authored_fields(el: dict) -> dict:
 # avoid coupling this shared module to that handler.
 _SKIP_CLASSIFICATIONS = frozenset([
     "Anchors", "LatestChange", "Memento", "TemplateSubstitute", "SpineObject",
-    "SpineAttribute", "ObjectIdentifier",
+    "SpineAttribute",
+    # ObjectIdentifier is a real, meaningful classification (unlike SpineObject/
+    # SpineAttribute above, which are dead names from the removed 6.0 spine-object
+    # model and simply never match anything anymore) -- no longer skipped, so it
+    # surfaces in classification display like any other real classification.
 ])
 
 

@@ -41,7 +41,7 @@ ___
 IT System Identifier — Coco Pharmaceuticals Austin
 
 ### Domain Identifier
-IT_INFRASTRUCTURE
+IT Infrastructure
 
 ### Summary
 System identifiers for IT assets at the Austin manufacturing plant follow the pattern AUS-SYS-{NNN}, where NNN is a zero-padded three-digit sequence number.
@@ -107,7 +107,7 @@ ___
 IT System Identifier — EKG Pharmaceuticals Bucharest
 
 ### Domain Identifier
-IT_INFRASTRUCTURE
+IT Infrastructure
 
 ### Summary
 System identifiers for IT assets at EKG Pharmaceuticals (Bucharest, Romania) follow the pattern SYS-{NNN} for systems and SS-EKG-{NNN} for subsystems, where NNN is a zero-padded three-digit sequence number.

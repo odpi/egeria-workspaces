@@ -267,7 +267,7 @@ Clinical Trial Data Integrity Failure
 CocoPharma::Threat::ClinicalTrialDataIntegrityFailure
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 Clinical trial data may be falsified, lost, or otherwise fail to meet the integrity standards required by FDA regulations.
@@ -310,7 +310,7 @@ Manufacturing Quality Deviation
 CocoPharma::Threat::ManufacturingQualityDeviation
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Manufacturing data may fail to demonstrate that products were consistently produced and controlled to the standard required by Good Manufacturing Practice.
@@ -353,7 +353,7 @@ Terrorism at Public Events
 CocoPharma::Threat::TerrorismAtPublicEvents
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Summary
 Coco Pharmaceuticals' public events, including its annual conference, could be the target of, or affected by, a terrorist attack.
@@ -400,7 +400,7 @@ Ransomware Disruption to Manufacturing Operations
 CocoPharma::Risk::RansomwareDisruptionToManufacturing
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Summary
 Ransomware could encrypt manufacturing control or scheduling systems, halting drug production.
@@ -443,7 +443,7 @@ Theft of Personalised Treatment Intellectual Property
 CocoPharma::Risk::TheftOfPersonalisedTreatmentIP
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Summary
 Research systems holding novel personalised treatment formulas and genomic-targeting methods could be breached and their contents stolen.
@@ -488,7 +488,7 @@ Accidental Disclosure of Patient Data through Misconfigured Access
 CocoPharma::Risk::AccidentalPatientDataDisclosure
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Patient health data could be exposed to unauthorised parties through a misconfigured access control, rather than through deliberate attack.
@@ -531,7 +531,7 @@ Insider Misuse of Sensitive Patient Data
 CocoPharma::Risk::InsiderMisuseOfPatientData
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 A member of staff with legitimate access to patient data could use it for a purpose that has not been approved.
@@ -576,7 +576,7 @@ Onboarding of a Fraudulent or Compromised Supplier
 CocoPharma::Risk::FraudulentSupplierOnboarding
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 A bogus or compromised supplier could be onboarded into the procurement process, as has already happened once at Coco Pharmaceuticals.
@@ -619,7 +619,7 @@ Counterfeit or Substandard Materials Entering Manufacturing
 CocoPharma::Risk::CounterfeitMaterialsInManufacturing
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 A compromised supplier could introduce counterfeit or substandard raw materials into the pharmaceutical manufacturing process.
@@ -664,7 +664,7 @@ Loss of Clinical Trial Data Integrity
 CocoPharma::Risk::ClinicalTrialDataIntegrityLoss
 
 ### Domain Identifier
-20
+Drug Development
 
 ### Summary
 Clinical trial data could lose the completeness, accuracy, or auditability required by FDA regulations, whether through system failure or human error.
@@ -707,7 +707,7 @@ Manufacturing Batch Records Failing GMP Traceability Requirements
 CocoPharma::Risk::GMPBatchRecordNonCompliance
 
 ### Domain Identifier
-MANUFACTURING
+Manufacturing
 
 ### Summary
 Manufacturing batch records could be incomplete or fail to trace back to raw material sourcing, breaching Good Manufacturing Practice requirements.
@@ -752,7 +752,7 @@ Loss of Undocumented Governance Knowledge on Staff Departure
 CocoPharma::Risk::LossOfUndocumentedGovernanceKnowledge
 
 ### Domain Identifier
-ALL
+All Domains
 
 ### Summary
 Departure of a domain lead or other key member of staff could remove undocumented knowledge of governance decisions, data definitions, or processes.
@@ -795,7 +795,7 @@ Inconsistent Data Definitions Undermining Cross-Department Reporting
 CocoPharma::Risk::InconsistentDataDefinitionsReportingErrors
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 Different departments could continue to define the same data (such as "patient", "batch", or "revenue") differently, causing combined reports to be wrong without anyone noticing.
@@ -840,7 +840,7 @@ Terrorism-Related Incident at the Annual Conference
 CocoPharma::Risk::TerrorismIncidentAtAnnualConference
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Summary
 Coco Pharmaceuticals' annual conference, attracting around 700 attendees, could be the scene of, or affected by, a terrorism-related incident.
@@ -883,7 +883,7 @@ Failure to Discharge Martyn's Law Responsible Person Duties
 CocoPharma::Risk::MartynsLawResponsiblePersonNonCompliance
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Summary
 Coco Pharmaceuticals could fail to formally designate, or adequately support, the Responsible Person role required by Martyn's Law for its annual conference.

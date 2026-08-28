@@ -24,7 +24,7 @@ This program covers three layers:
 2. **Governance Policies** — the principles, obligations, and approaches defining how financial and third-party data is controlled.
 3. **Governance Controls** — the roles, metrics, certification, and processing purposes that operationalise them.
 
-All definitions in this file carry Domain Identifier `CORPORATE` and become members of the Chief Financial Officer Governance Folio, which already exists, is already assigned, and is already registered in the root collection.
+All definitions in this file carry Domain Identifier `Corporate` and become members of the Chief Financial Officer Governance Folio, which already exists, is already assigned, and is already registered in the root collection.
 
 The corporate domain depends heavily on the DATA domain for supplier master data integrity — the single authoritative source obligation in `data-governance-program.md` is a direct response to the supplier fraud threat owned here — and on the SECURITY domain for the access controls that make segregation of duties enforceable.
 
@@ -49,7 +49,7 @@ Financial Reporting Integrity
 CocoPharma::BusinessImperative::FinancialReportingIntegrity
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 Coco Pharmaceuticals must be able to demonstrate that every externally reported financial figure reconciles to controlled source data through a documented, tested path.
@@ -100,7 +100,7 @@ A Trustworthy Third-Party Network
 CocoPharma::BusinessImperative::TrustworthyThirdPartyNetwork
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 Coco Pharmaceuticals must know who its suppliers, distributors, and service providers actually are, and must be able to show that each was assessed before money or materials moved.
@@ -153,7 +153,7 @@ Improper Payments to Healthcare Professionals
 CocoPharma::Threat::ImproperPaymentsToHealthcareProfessionals
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 Payments, hospitality, or other transfers of value to healthcare professionals may be made, or may appear to have been made, in order to improperly influence prescribing or procurement decisions.
@@ -199,7 +199,7 @@ Financial Misstatement Through Uncontrolled Reporting Processes
 CocoPharma::Threat::FinancialMisstatementFromUncontrolledReporting
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 Externally reported figures may be materially wrong because they were assembled through manual steps that are undocumented, unreviewed, and dependent on individual knowledge.
@@ -247,7 +247,7 @@ UK Bribery Act 2010
 CocoPharma::Regulation::UKBriberyAct2010
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 UK legislation creating criminal offences for offering, receiving, and failing to prevent bribery, including a corporate offence for which the only defence is having adequate preventive procedures in place.
@@ -300,7 +300,7 @@ Sarbanes-Oxley Act Section 404 — Internal Control over Financial Reporting
 CocoPharma::Regulation::SarbanesOxleySection404
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 US legislation requiring management to assess and report on the effectiveness of internal control over financial reporting, with independent auditor attestation.
@@ -353,7 +353,7 @@ US Foreign Corrupt Practices Act
 CocoPharma::Regulation::ForeignCorruptPracticesAct
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 US legislation prohibiting corrupt payments to foreign officials and requiring issuers to keep accurate books and records and maintain a system of internal accounting controls.
@@ -412,7 +412,7 @@ Segregation of Duties in Financial Processes
 CocoPharma::GovernancePrinciple::SegregationOfDutiesInFinancialProcesses
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 No individual may control a financial transaction from initiation through approval to payment, and the system entitlements enforcing this must be assigned by role rather than accumulated by tenure.
@@ -457,7 +457,7 @@ Transfers of Value Must Be Transparent and Justifiable
 CocoPharma::GovernancePrinciple::TransfersOfValueTransparentAndJustifiable
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 Every payment, hospitality, or benefit provided to a healthcare professional or public official must have a recorded business purpose, an assessed fair market value, and an approval independent of the commercial relationship it supports.
@@ -502,7 +502,7 @@ Reported Figures Must Reconcile to Controlled Source Data
 CocoPharma::GovernancePrinciple::ReportedFiguresReconcileToSource
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 Every externally reported figure must trace to controlled source data through documented transformations, with manual steps identified, controlled, and progressively eliminated.
@@ -549,7 +549,7 @@ Third Parties Must Be Screened Before Onboarding and Periodically Thereafter
 CocoPharma::GovernanceObligation::ThirdPartyScreeningBeforeOnboarding
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 Every supplier, distributor, agent, and service provider must be identity-verified and screened against sanctions, politically exposed person, and adverse media sources before onboarding, and rescreened on a risk-based cycle.
@@ -594,7 +594,7 @@ Internal Controls over Financial Reporting Must Be Documented and Tested
 CocoPharma::GovernanceObligation::InternalControlsDocumentedAndTested
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 Controls over financial reporting must be documented with their owner, frequency, and evidence, and must be tested annually with results and remediation recorded.
@@ -639,7 +639,7 @@ Transfers of Value to Healthcare Professionals Must Be Recorded and Disclosed
 CocoPharma::GovernanceObligation::TransfersOfValueRecordedAndDisclosed
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 Every transfer of value to a healthcare professional or healthcare organisation must be recorded with recipient, amount, category, business purpose, and approver, and disclosed publicly within the required timeframe.
@@ -684,7 +684,7 @@ Material and Manual Journal Entries Must Be Independently Reviewed
 CocoPharma::GovernanceObligation::MaterialJournalEntriesReviewed
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 Manual journal entries above defined thresholds, and all entries posted during the closing period, must be reviewed and approved by someone other than the preparer, with the review evidenced.
@@ -731,7 +731,7 @@ Risk-Rated Third-Party Due Diligence
 CocoPharma::GovernanceApproach::ThirdPartyDueDiligenceAndRiskRating
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 Third parties are risk-rated on jurisdiction, sector, public-official exposure, and spend, and the depth of due diligence and the rescreening frequency follow the rating.
@@ -776,7 +776,7 @@ Annual Controls Testing and Certification Cycle
 CocoPharma::GovernanceApproach::ControlsTestingAndCertificationCycle
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 Financial controls are tested on a planned annual cycle, with process owners certifying operation each quarter and deficiencies tracked to remediation between cycles.
@@ -821,7 +821,7 @@ Continuous Transaction Monitoring
 CocoPharma::GovernanceApproach::ContinuousTransactionMonitoring
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 Payment and journal transactions are monitored automatically against patterns indicating fraud, error, or control failure, with exceptions routed for investigation rather than reported after the period closes.
@@ -952,7 +952,7 @@ Third-Party Screening Currency Rate
 CocoPharma::GovernanceMetric::ThirdPartyScreeningCurrencyRate
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 Measures the percentage of active third-party relationships whose screening is current against the frequency required by their risk rating.
@@ -997,7 +997,7 @@ Internal Control Test Pass Rate
 CocoPharma::GovernanceMetric::InternalControlTestPassRate
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 Measures the percentage of tested financial controls that passed on first testing, with failures categorised by whether the control did not operate or operated without evidence.
@@ -1042,7 +1042,7 @@ Transfer of Value Record Completeness
 CocoPharma::GovernanceMetric::TransferOfValueRecordCompleteness
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 Measures the percentage of transfers of value to healthcare professionals that carry a resolved recipient identity, a recorded business purpose, and an independent approval at the point of payment.
@@ -1089,7 +1089,7 @@ Approved Third-Party Status
 CocoPharma::CertificationType::ApprovedThirdPartyStatus
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 The status a supplier, distributor, agent, or service provider must hold before Coco Pharmaceuticals may transact with it, confirming that identity verification, screening, and risk-appropriate due diligence have been completed.

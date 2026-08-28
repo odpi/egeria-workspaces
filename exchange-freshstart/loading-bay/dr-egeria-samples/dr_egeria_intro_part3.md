@@ -636,21 +636,20 @@ Creates a relationship between two terms.
 
 ### Description
 
-Creates a relationship between two terms. Supported relationship types are:\n
+Creates a relationship between two terms. Supported relationship types are:
 - `Synonym` - A term is a synonym of another term.
 - `Antonym` - A term is an antonym of another term.
-- `Translation` - A term is a translation of another term.
+- `PreferredTerm` - A term is the preferred term to use in place of another term.
 - `RelatedTerm` - A term is related to another term.
 - `ReplacementTerm` - A term is a replacement for another term.
-- `ValidValue` - A term is a valid value for another term.
-- `TermISATYPEOFRelationship` - A term is a type of relationship defined by another term.
-- `TermTYPEDBYRelationship` - A term is typed by another term.
-- `TermHASARelationship` - A term HASA another term.
-- `TermISARelationship` - A term is a relationship defined by another term.
-- `ISARelationship` - A relationship is defined by another term.,
-- `TermHASARelationship` - A term HASA another term.
-- `TermISARelationship` - A term is a relationship defined by another term.
-- `ISARelationship` - A term ISA another term.
+- `ISARelationship` - A term is a specialization/type of another term (friendly alias: `ISA`/`IS A`).
+
+These are the only real GlossaryTerm↔GlossaryTerm relationship types Egeria
+currently defines (confirmed live against `get_all_relationship_defs()`).
+Older versions of this document listed several spine-relationship names
+(`TermHASARelationship`, `TermTYPEDBYRelationship`, `TermISATYPEOFRelationship`,
+`TYPED BY`, `TYPE OF`) that were never real Egeria types, plus `Translation`/
+`ValidValue`, which are real Egeria types but not term-to-term relationships.
 
 ### Abbreviation
 

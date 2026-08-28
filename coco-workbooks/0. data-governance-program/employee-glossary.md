@@ -1199,6 +1199,8 @@ list of concepts — they only appeared once Erin and Faith started expanding in
 * **Has A** — a term that is made up of other terms, as when Work Location and Postal Address were broken down.
 * **Typed By** — a specific term whose content is defined by a common core type, as when the various kinds of address were defined by Postal Address.
 
+These are the distinctions Erin and Faith drew in the session, and they remain the right way to read the glossary.  Only the first has a relationship type of its own: it is recorded as `ISARelationship`.  The other two were once recorded as spine object relationships, which Egeria removed in release 6.0 when data structures became first-class objects in their own right — so composition and typing are now recorded as `RelatedTerm`, with the Expression on each relationship carrying which of the two it is.
+
 All of these are created with a relationship status of `DRAFT`, matching the terms they connect.
 
 ### 6.1 Defining Manager
@@ -1208,7 +1210,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermISATYPEOFRelationship
+ISARelationship
 
 ### Term 1
 Glossary::EmployeeGlossary::Manager
@@ -1236,7 +1238,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::WorkLocation
@@ -1262,7 +1264,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::WorkLocation
@@ -1288,7 +1290,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::WorkLocation
@@ -1314,7 +1316,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermTYPEDBYRelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::WorkLocationAddress
@@ -1342,7 +1344,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::PostalAddress
@@ -1368,7 +1370,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::PostalAddress
@@ -1394,7 +1396,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::PostalAddress
@@ -1420,7 +1422,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermTYPEDBYRelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::EmployeeHomeAddress
@@ -1446,7 +1448,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermTYPEDBYRelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::SupplierAddress
@@ -1472,7 +1474,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermTYPEDBYRelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::DeliveryAddress
@@ -4164,7 +4166,7 @@ ___
 ## Part 8: The Expanded Term Relationships
 
 The relationships below connect the terms added in Part 7 to each other and to the terms from the original session.
-They use the same three kinds of relationship that emerged from the first drill-down, plus one more:
+They use the same kinds of connection that emerged from the first drill-down, plus one more — recorded, as above, as `ISARelationship` for specialization and `RelatedTerm` for everything else:
 
 * **Is A Type Of** - the type hierarchies. Some of these were implied by the original descriptions all along:
   Annual Salary and Hourly Pay Rate were both described as *"a type of compensation where..."*, so they are
@@ -4181,7 +4183,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermISATYPEOFRelationship
+ISARelationship
 
 ### Term 1
 Glossary::EmployeeGlossary::Employee
@@ -4207,7 +4209,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermISATYPEOFRelationship
+ISARelationship
 
 ### Term 1
 Glossary::EmployeeGlossary::Contractor
@@ -4233,7 +4235,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermISATYPEOFRelationship
+ISARelationship
 
 ### Term 1
 Glossary::EmployeeGlossary::TeamLeader
@@ -4259,7 +4261,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermISATYPEOFRelationship
+ISARelationship
 
 ### Term 1
 Glossary::EmployeeGlossary::Founder
@@ -4285,7 +4287,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermISATYPEOFRelationship
+ISARelationship
 
 ### Term 1
 Glossary::EmployeeGlossary::LegalName
@@ -4311,7 +4313,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermISATYPEOFRelationship
+ISARelationship
 
 ### Term 1
 Glossary::EmployeeGlossary::KnownName
@@ -4337,7 +4339,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermISATYPEOFRelationship
+ISARelationship
 
 ### Term 1
 Glossary::EmployeeGlossary::AnnualSalary
@@ -4363,7 +4365,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermISATYPEOFRelationship
+ISARelationship
 
 ### Term 1
 Glossary::EmployeeGlossary::HourlyPayRate
@@ -4389,7 +4391,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermISATYPEOFRelationship
+ISARelationship
 
 ### Term 1
 Glossary::EmployeeGlossary::Bonus
@@ -4415,7 +4417,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermISATYPEOFRelationship
+ISARelationship
 
 ### Term 1
 Glossary::EmployeeGlossary::Commission
@@ -4441,7 +4443,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermISATYPEOFRelationship
+ISARelationship
 
 ### Term 1
 Glossary::EmployeeGlossary::EmployeeBenefit
@@ -4467,7 +4469,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermISATYPEOFRelationship
+ISARelationship
 
 ### Term 1
 Glossary::EmployeeGlossary::Office
@@ -4493,7 +4495,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermISATYPEOFRelationship
+ISARelationship
 
 ### Term 1
 Glossary::EmployeeGlossary::ManufacturingPlant
@@ -4519,7 +4521,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermISATYPEOFRelationship
+ISARelationship
 
 ### Term 1
 Glossary::EmployeeGlossary::Warehouse
@@ -4545,7 +4547,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermISATYPEOFRelationship
+ISARelationship
 
 ### Term 1
 Glossary::EmployeeGlossary::HomeWorkingLocation
@@ -4571,7 +4573,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermISATYPEOFRelationship
+ISARelationship
 
 ### Term 1
 Glossary::EmployeeGlossary::SickLeave
@@ -4597,7 +4599,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermISATYPEOFRelationship
+ISARelationship
 
 ### Term 1
 Glossary::EmployeeGlossary::ParentalLeave
@@ -4623,7 +4625,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermISATYPEOFRelationship
+ISARelationship
 
 ### Term 1
 Glossary::EmployeeGlossary::FullTime
@@ -4649,7 +4651,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermISATYPEOFRelationship
+ISARelationship
 
 ### Term 1
 Glossary::EmployeeGlossary::PartTime
@@ -4675,7 +4677,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermISATYPEOFRelationship
+ISARelationship
 
 ### Term 1
 Glossary::EmployeeGlossary::Certification
@@ -4702,7 +4704,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::Employee
@@ -4728,7 +4730,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::Employee
@@ -4754,7 +4756,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::Employee
@@ -4780,7 +4782,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::Employee
@@ -4806,7 +4808,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::Employee
@@ -4832,7 +4834,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::Employee
@@ -4858,7 +4860,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::Employee
@@ -4884,7 +4886,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::Employee
@@ -4910,7 +4912,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::Employee
@@ -4936,7 +4938,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::Employee
@@ -4962,7 +4964,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::Employee
@@ -4988,7 +4990,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::EmployeeName
@@ -5014,7 +5016,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::EmployeeName
@@ -5040,7 +5042,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::EmployeeName
@@ -5066,7 +5068,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::EmploymentContract
@@ -5092,7 +5094,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::EmploymentContract
@@ -5118,7 +5120,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::EmploymentContract
@@ -5144,7 +5146,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::EmploymentContract
@@ -5170,7 +5172,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::EmploymentContract
@@ -5196,7 +5198,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::EmploymentContract
@@ -5222,7 +5224,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::EmploymentContract
@@ -5248,7 +5250,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::WorkingPattern
@@ -5274,7 +5276,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::CompensationPlan
@@ -5300,7 +5302,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::PostalAddress
@@ -5326,7 +5328,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::PostalAddress
@@ -5352,7 +5354,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::PostalAddress
@@ -5378,7 +5380,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::PostalAddress
@@ -5404,7 +5406,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::PostalAddress
@@ -5430,7 +5432,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::WorkLocation
@@ -5456,7 +5458,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::Team
@@ -5482,7 +5484,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::Manager
@@ -5508,7 +5510,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::PerformanceReview
@@ -5533,7 +5535,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::Employee
@@ -5558,7 +5560,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::Employee
@@ -5583,7 +5585,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::Employee
@@ -5608,7 +5610,7 @@ ___
 ## Link Term-Term Relationship
 
 ### Relationship Type
-TermHASARelationship
+RelatedTerm
 
 ### Term 1
 Glossary::EmployeeGlossary::Employee

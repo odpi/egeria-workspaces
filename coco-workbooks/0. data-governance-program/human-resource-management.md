@@ -4,7 +4,7 @@
 > **Version:** 1.0  
 > **Status:** ACTIVE  
 > **Date:** 2026-08-23  
-> **Description:** Governance definitions for the Human Resource Management domain at Coco Pharmaceuticals, domain identifier `22`. The file registers the domain identifier itself as a valid metadata value before any definition claims it, then defines the drivers, policies, and controls for the domain. Load `joint-governance-officer-definitions.md` first.
+> **Description:** Governance definitions for the Human Resource Management domain at Coco Pharmaceuticals, domain identifier `Human Resource Management`. The file registers the domain identifier itself as a valid metadata value before any definition claims it, then defines the drivers, policies, and controls for the domain. Load `joint-governance-officer-definitions.md` first.
 
 ---
 
@@ -16,7 +16,7 @@ The domain has an unusual dual character. Outward, it answers to employment law 
 
 The boundary with the privacy domain is deliberate and worth stating. Privacy owns the lawful basis, the data subject rights, and the retention framework for all personal data including employees'. HR owns the employment purposes that data is processed for and the decisions taken on it. Where this file declares processing purposes, it declares HR's own — as every domain does — with privacy assuring the basis rather than declaring it on HR's behalf.
 
-The first act is to register the domain identifier. Egeria resolves `domainIdentifier` through a valid value set that deployments extend without rebuilding, so a value used before it is registered will not resolve to a name. Registering `22` first means every subsequent definition in this file — and in any other file adopting the domain — displays as Human Resource Management rather than as a bare number.
+The first act is to register the domain identifier. Egeria resolves `domainIdentifier` through a valid value set that deployments extend without rebuilding, so a value used before it is registered will not resolve to a name. Registering `Human Resource Management` first means every subsequent definition in this file — and in any other file adopting the domain — displays as Human Resource Management rather than as a bare number.
 
 ---
 
@@ -65,7 +65,7 @@ Workforce Capability for the Personalised Medicine Transition
 CocoPharma::BusinessImperative::WorkforceCapabilityTransition
 
 ### Domain Identifier
-22
+Human Resource Management
 
 ### Summary
 Coco Pharmaceuticals must know what capabilities its workforce holds, what the personalised medicine transition requires, and how to close the difference — before the shortfall constrains the programme.
@@ -114,7 +114,7 @@ Employment Decisions the Company Can Explain
 CocoPharma::BusinessImperative::ExplicableEmploymentDecisions
 
 ### Domain Identifier
-22
+Human Resource Management
 
 ### Summary
 Coco Pharmaceuticals must be able to explain any hiring, promotion, pay, or termination decision by reference to recorded, job-related criteria applied consistently.
@@ -165,7 +165,7 @@ Unqualified Personnel Performing Regulated Activities
 CocoPharma::Threat::UnqualifiedPersonnelInRegulatedRoles
 
 ### Domain Identifier
-22
+Human Resource Management
 
 ### Summary
 An individual may perform a GMP or GCP regulated activity for which their qualification has lapsed, was never recorded, or does not cover the specific task, invalidating the work and the records it produced.
@@ -209,7 +209,7 @@ Inconsistent or Discriminatory Employment Decisions
 CocoPharma::Threat::InconsistentEmploymentDecisions
 
 ### Domain Identifier
-22
+Human Resource Management
 
 ### Summary
 Employment decisions may be taken inconsistently across comparable cases, producing outcomes that disadvantage particular groups and that the company cannot defend when challenged.
@@ -255,7 +255,7 @@ UK Equality Act 2010
 CocoPharma::Regulation::UKEqualityAct2010
 
 ### Domain Identifier
-22
+Human Resource Management
 
 ### Summary
 UK legislation prohibiting discrimination on protected characteristics in employment, requiring equal pay for equal work, and imposing annual gender pay gap reporting on larger employers.
@@ -306,7 +306,7 @@ EU Pay Transparency Directive (EU) 2023/970
 CocoPharma::Regulation::EUPayTransparencyDirective
 
 ### Domain Identifier
-22
+Human Resource Management
 
 ### Summary
 EU directive requiring pay transparency before and during employment, individual rights to comparative pay information, gender pay gap reporting, and joint pay assessment where an unjustified gap persists.
@@ -364,7 +364,7 @@ Employment Decisions Rest on Recorded, Job-Related Criteria
 CocoPharma::GovernancePrinciple::EmploymentDecisionsOnRecordedCriteria
 
 ### Domain Identifier
-22
+Human Resource Management
 
 ### Summary
 The criteria for any employment decision are defined before the decision is taken, applied consistently across comparable cases, and recorded with the reasoning at the time.
@@ -407,7 +407,7 @@ Qualification Records Are Authoritative and Current
 CocoPharma::GovernancePrinciple::QualificationRecordsAuthoritative
 
 ### Domain Identifier
-22
+Human Resource Management
 
 ### Summary
 The HR qualification record is the single authoritative statement of what an individual is permitted to do, and other domains rely on it rather than maintaining their own.
@@ -450,7 +450,7 @@ Pay Structures Must Be Explicable
 CocoPharma::GovernancePrinciple::PayStructuresExplicable
 
 ### Domain Identifier
-22
+Human Resource Management
 
 ### Summary
 Every element of an individual's pay must be attributable to a defined structural factor, so that any difference between comparable employees can be explained without reference to who they are.
@@ -493,7 +493,7 @@ Critical Knowledge Must Outlive the Individual Who Holds It
 CocoPharma::GovernancePrinciple::KnowledgeOutlivesIndividual
 
 ### Domain Identifier
-22
+Human Resource Management
 
 ### Summary
 Where an activity the organisation depends on can only be performed or explained by one person, that concentration is treated as a risk to be reduced rather than a strength to be relied upon.
@@ -538,7 +538,7 @@ Regulated Roles Must Have Defined Competency Requirements
 CocoPharma::GovernanceObligation::CompetencyRequirementsDefinedForRegulatedRoles
 
 ### Domain Identifier
-22
+Human Resource Management
 
 ### Summary
 Every role performing a GMP, GCP, or otherwise regulated activity must have its competency requirements defined, recorded against the role rather than the individual, and kept current as the activity changes.
@@ -581,7 +581,7 @@ Joiner, Mover, and Leaver Changes Must Be Actioned Within Defined Timeframes
 CocoPharma::GovernanceObligation::JoinerMoverLeaverTimeliness
 
 ### Domain Identifier
-22
+Human Resource Management
 
 ### Summary
 Changes to an individual's employment status or role must be recorded and communicated to dependent systems within defined timeframes, with leaver notification treated as time-critical.
@@ -624,7 +624,7 @@ Employment Decision Records Must Be Retained and Reviewable
 CocoPharma::GovernanceObligation::EmploymentDecisionRecordsRetained
 
 ### Domain Identifier
-22
+Human Resource Management
 
 ### Summary
 Records of hiring, promotion, pay, disciplinary, and termination decisions must capture the criteria, the reasoning, and the decision maker, and be retained for the period in which a claim may be brought.
@@ -667,7 +667,7 @@ Pay Data Must Support Statutory Reporting and Individual Comparison Requests
 CocoPharma::GovernanceObligation::PayDataSupportsStatutoryReporting
 
 ### Domain Identifier
-22
+Human Resource Management
 
 ### Summary
 Payroll and reward data must be structured so that statutory pay gap measures can be produced on the prescribed basis, and individual comparative pay requests answered within the required period.
@@ -710,7 +710,7 @@ Critical Knowledge Must Be Transferred Before Departure
 CocoPharma::GovernanceObligation::KnowledgeTransferBeforeExit
 
 ### Domain Identifier
-22
+Human Resource Management
 
 ### Summary
 Where a departing individual holds critical knowledge or sole qualification, transfer must be planned and evidenced before their last working day, with the exposure escalated if it cannot be completed.
@@ -755,7 +755,7 @@ Competency Framework Management
 CocoPharma::GovernanceApproach::CompetencyFrameworkManagement
 
 ### Domain Identifier
-22
+Human Resource Management
 
 ### Summary
 Competencies are defined once as reusable units, assembled into role requirements with the owning domain, and tracked per individual with currency enforced by the systems that grant authorisation.
@@ -798,7 +798,7 @@ Pay Equity Analysis and Remediation
 CocoPharma::GovernanceApproach::PayEquityAnalysis
 
 ### Domain Identifier
-22
+Human Resource Management
 
 ### Summary
 Pay is analysed at least annually across equal-value categories to identify differences that recorded material factors do not explain, with unexplained differences remediated rather than documented.
@@ -841,7 +841,7 @@ Succession and Knowledge Continuity Planning
 CocoPharma::GovernanceApproach::SuccessionAndKnowledgeContinuity
 
 ### Domain Identifier
-22
+Human Resource Management
 
 ### Summary
 Critical activities are mapped to the individuals qualified to perform them, single points of dependency are reported as exposures with owners, and reduction plans are tracked alongside other risks.
@@ -968,7 +968,7 @@ Regulated Role Competency Currency
 CocoPharma::GovernanceMetric::RegulatedRoleCompetencyCurrency
 
 ### Domain Identifier
-22
+Human Resource Management
 
 ### Summary
 Measures the percentage of individuals authorised to perform regulated activities whose competency record is complete and within its renewal interval.
@@ -1011,7 +1011,7 @@ Leaver Notification and Access Revocation Timeliness
 CocoPharma::GovernanceMetric::LeaverNotificationTimeliness
 
 ### Domain Identifier
-22
+Human Resource Management
 
 ### Summary
 Measures elapsed time from employment end to HR record update and onward to access revocation in dependent systems, reported separately for voluntary and involuntary departures.
@@ -1054,7 +1054,7 @@ Unexplained Pay Difference by Equal-Value Category
 CocoPharma::GovernanceMetric::UnexplainedPayDifference
 
 ### Domain Identifier
-22
+Human Resource Management
 
 ### Summary
 Measures the pay difference remaining within each equal-value worker category after recorded material factors are applied, reported against the regulatory threshold.

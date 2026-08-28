@@ -20,7 +20,7 @@ This document builds out the PRIVACY governance domain across three layers:
 2. **Governance Policies** — the detailed privacy principles, obligations, and approaches that implement GDPR requirements in practice.
 3. **Governance Controls** — the privacy-specific governance roles and metrics that operationalise the policies, including the measurement of transfer safeguard currency across the group.
 
-All definitions in this file have Domain Identifier `PRIVACY` and are members of the Chief Privacy Officer Governance Folio.
+All definitions in this file have Domain Identifier `Privacy` and are members of the Chief Privacy Officer Governance Folio.
 
 ---
 
@@ -37,7 +37,7 @@ UK General Data Protection Regulation (UK GDPR)
 CocoPharma::Regulation::UKGDPR
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 The UK's post-Brexit data protection regulation, which retains the substance of EU GDPR and applies to Coco Pharmaceuticals' processing of personal data in the United Kingdom.
@@ -93,7 +93,7 @@ Data Minimisation
 CocoPharma::GovernancePrinciple::DataMinimisation
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Coco Pharmaceuticals will only collect, process, and retain personal data that is adequate, relevant, and limited to what is necessary for the specified purpose.
@@ -136,7 +136,7 @@ Purpose Limitation
 CocoPharma::GovernancePrinciple::PurposeLimitation
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Personal data collected for one purpose will not be used for a different, incompatible purpose without a fresh lawful basis and, where required, the data subject's consent.
@@ -179,7 +179,7 @@ Data Subject Rights Must Be Honoured Promptly
 CocoPharma::GovernancePrinciple::DataSubjectRightsHonoured
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Individuals whose personal data is held by Coco Pharmaceuticals have legal rights over that data, and the organisation must have processes to exercise those rights within GDPR deadlines.
@@ -222,7 +222,7 @@ Lawful Basis for Processing Must Be Documented
 CocoPharma::GovernancePrinciple::LawfulBasisDocumented
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Every activity in which Coco Pharmaceuticals processes personal data must have a documented lawful basis under GDPR before processing begins.
@@ -267,7 +267,7 @@ Privacy Impact Assessments Required for High-Risk Processing
 CocoPharma::GovernanceObligation::PrivacyImpactAssessmentRequired
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Any new or significantly changed processing activity that is likely to result in a high risk to individuals' rights and freedoms must have a completed Privacy Impact Assessment (Data Protection Impact Assessment) before processing begins.
@@ -310,7 +310,7 @@ Personal Data Retention Schedules Must Be Defined and Enforced
 CocoPharma::GovernanceObligation::PersonalDataRetentionSchedulesDefined
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Every collection of personal data held by Coco Pharmaceuticals must have a defined retention period; data must be deleted or anonymised when that period expires.
@@ -353,7 +353,7 @@ Personal Data Breaches Must Be Notified Within 72 Hours
 CocoPharma::GovernanceObligation::DataBreachNotificationWithin72Hours
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Any personal data breach that is likely to result in a risk to individuals must be reported to the relevant supervisory authority within 72 hours of becoming aware of it; affected individuals must be informed where the risk is high.
@@ -396,7 +396,7 @@ Record of Processing Activities Must Be Maintained
 CocoPharma::GovernanceObligation::RecordOfProcessingActivitiesMaintained
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Coco Pharmaceuticals must maintain a documented Record of Processing Activities (ROPA) covering all personal data processing, as required by GDPR Article 30.
@@ -439,7 +439,7 @@ Data Processing Agreements Required for Third-Party Processors
 CocoPharma::GovernanceObligation::DataProcessingAgreementsRequired
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Any third party that processes personal data on behalf of Coco Pharmaceuticals must have a written Data Processing Agreement in place before processing begins.
@@ -482,7 +482,7 @@ Intra-Group Personal Data Sharing Must Have a Defined Controllership Basis
 CocoPharma::GovernanceObligation::IntraGroupControllershipDefined
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Personal data shared between the US parent and the UK and EU subsidiaries must have a recorded controllership determination and an intra-group agreement giving effect to it, before sharing begins.
@@ -526,7 +526,7 @@ International Personal Data Transfers Must Have a Documented Safeguard
 CocoPharma::GovernanceObligation::InternationalTransferSafeguards
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Personal data leaving the UK or the EEA — including transfers to the US parent — must be covered by an adequacy decision or an appropriate safeguard, supported by a transfer risk assessment where a safeguard is relied on.
@@ -572,7 +572,7 @@ Data Subject Request Management
 CocoPharma::GovernanceApproach::DataSubjectRequestManagement
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 A defined, end-to-end process for receiving, verifying, routing, fulfilling, and recording responses to data subject rights requests within GDPR deadlines.
@@ -615,7 +615,7 @@ Consent and Lawful Basis Management
 CocoPharma::GovernanceApproach::ConsentAndLawfulBasisManagement
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 A structured approach to identifying, documenting, obtaining, and maintaining the lawful basis for each personal data processing activity, including managing consent where it is the chosen basis.
@@ -658,7 +658,7 @@ Privacy Impact Assessment Process
 CocoPharma::GovernanceApproach::PrivacyImpactAssessmentProcess
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 A defined process for screening new and changed data processing activities, conducting full Privacy Impact Assessments for high-risk activities, and embedding privacy risk management into project delivery.
@@ -701,7 +701,7 @@ Group Controllership and Supervisory Authority Mapping
 CocoPharma::GovernanceApproach::GroupControllershipMapping
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 The group maintains a map of which entity controls which processing, which supervisory authority leads for each, and where a representative must be appointed, reviewed whenever the corporate or system landscape changes.
@@ -823,7 +823,7 @@ Data Subject Request Completion Rate
 CocoPharma::GovernanceMetric::DataSubjectRequestCompletionRate
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Measures the percentage of data subject rights requests that are completed within the GDPR deadline of one calendar month.
@@ -865,7 +865,7 @@ Privacy Impact Assessment Coverage Rate
 CocoPharma::GovernanceMetric::PrivacyImpactAssessmentCoverage
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Measures the percentage of new or materially changed data processing activities that have a completed PIA screening on record before implementation.
@@ -907,7 +907,7 @@ Personal Data Retention Schedule Compliance Rate
 CocoPharma::GovernanceMetric::PersonalDataRetentionComplianceRate
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Measures the percentage of personal data collections that have a defined, approved retention schedule, and the percentage where expired data is deleted or anonymised within the scheduled timeframe.
@@ -949,7 +949,7 @@ International Transfer Safeguard Currency
 CocoPharma::GovernanceMetric::TransferSafeguardCurrency
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Measures the percentage of inventoried cross-border personal data flows covered by a current, valid transfer mechanism with an in-date transfer risk assessment where one is required.

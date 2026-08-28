@@ -258,7 +258,11 @@ def _folder_memberships(term: dict) -> list:
 
 _SKIP_CLASSIFICATIONS = frozenset([
     "Anchors", "LatestChange", "Memento", "TemplateSubstitute", "SpineObject",
-    "SpineAttribute", "ObjectIdentifier",
+    "SpineAttribute",
+    # ObjectIdentifier is a real, meaningful classification (unlike SpineObject/
+    # SpineAttribute above, which are dead names from the removed 6.0 spine-object
+    # model and simply never match anything anymore) -- no longer skipped, so it
+    # surfaces in classification display like any other real classification.
 ])
 
 def _flat_classification_properties(cls_props_raw) -> dict:
