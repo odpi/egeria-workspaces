@@ -47,11 +47,13 @@ ones, alphabetically by id -- same "explicit list, then alphabetical
 remainder" rule as the per-folder file order, for consistency.
 """
 
+import asyncio
 import json
 import os
 import re
 import time
 from collections import deque
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -359,8 +361,6 @@ async def run_batch(batch: dict, timeout_seconds: int = 300) -> list[dict]:
     that lives in pyegeria.log, surfaced separately by
     tail_dr_egeria_issues() below -- this is just enough to know which
     file(s) failed and why, from the admin page itself."""
-    import asyncio
-
     results = []
     folder = Path(batch["path"])
     for filename in batch["files"]:
@@ -430,3 +430,88 @@ async def run_all_enabled(timeout_seconds: int = 300) -> list[dict]:
         f"bootstrap batches: run-all finished — {len(out)} batches, {ok}/{total} files ok",
     )
     return out
+
+
+# ---------------------------------------------------------------------------
+# Background run + poll -- a manual run of even one moderately-sized batch
+# routinely takes longer than Apache's ProxyPass timeout (5 min,
+# proxy-locations.conf), which drops the browser's connection long before
+# `await run_batch(...)`/`run_all_enabled()` finish -- the backend keeps
+# working (nothing cancels it), but the admin sees a bare "Run failed" with
+# no way to tell it actually succeeded short of the Activity Log. Same
+# non-blocking cold-start/poll shape as operations_handler.py's
+# _get_server_report_cached (see that module's design-notes comment) --
+# start the run as a background asyncio Task and return immediately, let
+# the client poll for the result instead of holding the connection open.
+#
+# Unlike that cache, there's no TTL/staleness here -- a run either hasn't
+# started, is running, or is done with one final result. And unlike
+# bootstrap_monitor_handler.py's heal path, nothing here kills the
+# dr_egeria subprocess if the app reloads mid-run (see that module's own
+# _kill_proc/_active_procs comments for why that matters) -- this state is
+# in-memory only and is lost on a reload same as it always was; a client
+# polling a key that's vanished gets "not_found" and should surface that
+# as an interruption, not hang forever.
+RUN_ALL_KEY = "__run_all__"  # batch ids are folder names -- never collides with this
+
+
+@dataclass
+class _RunState:
+    status: str  # "running" | "done"
+    success: Optional[bool] = None
+    results: Optional[list[dict]] = None  # single-batch shape
+    runs: Optional[list[dict]] = None     # run-all shape (list of {batch, results})
+
+
+_run_state: dict[str, _RunState] = {}
+_run_tasks: dict[str, "asyncio.Task"] = {}
+
+
+def run_status(key: str) -> dict:
+    """Poll the outcome of a background run started via start_background().
+    `key` is a batch id, or RUN_ALL_KEY for the run-all-enabled action."""
+    state = _run_state.get(key)
+    if state is None:
+        return {"status": "not_found"}
+    if state.status == "running":
+        return {"status": "running"}
+    out = {"status": "done", "success": state.success}
+    if state.results is not None:
+        out["results"] = state.results
+    if state.runs is not None:
+        out["runs"] = state.runs
+    return out
+
+
+async def _run_in_background(key: str, coro) -> None:
+    try:
+        result = await coro
+        if key == RUN_ALL_KEY:
+            ok = all(r["status"] == "ok" for run in result for r in run["results"])
+            _run_state[key] = _RunState(status="done", success=ok, runs=result)
+        else:
+            ok = all(r["status"] == "ok" for r in result)
+            _run_state[key] = _RunState(status="done", success=ok, results=result)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"bootstrap batches: background run {key!r} crashed: {exc}")
+        _run_state[key] = _RunState(
+            status="done", success=False,
+            **({"runs": []} if key == RUN_ALL_KEY else {"results": [{"file": "*", "status": "failed", "message": str(exc)}]}),
+        )
+    finally:
+        _run_tasks.pop(key, None)
+
+
+def start_background(key: str, coro) -> bool:
+    """Start `coro` (an already-called run_batch(...)/run_all_enabled(...))
+    as a background task under `key`, unless one is already in flight for
+    that key. Returns True if this call actually started it, False if a
+    run for this key was already running (the caller should just let the
+    client poll the existing one rather than starting a second)."""
+    existing = _run_tasks.get(key)
+    if existing is not None and not existing.done():
+        coro.close()  # never awaited -- avoid a "coroutine was never awaited" warning
+        return False
+    _run_state[key] = _RunState(status="running")
+    _run_tasks[key] = asyncio.get_event_loop().create_task(_run_in_background(key, coro))
+    return True
