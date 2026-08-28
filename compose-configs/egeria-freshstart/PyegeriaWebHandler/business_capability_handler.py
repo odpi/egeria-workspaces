@@ -19,6 +19,14 @@ Confirmed live (seeded test data, then cleaned up) that
 _generic_relationships picks up BusinessCapabilityDependency automatically
 under its real raw key, "dependsOnBusinessCapabilities" — see
 egeria-python/tests/functional-tests/test_digital_business_omvs.py::test_business_capability_dependency_relationship_key.
+
+Detail uses DigitalBusiness.get_business_capability_by_guid -- a real,
+dedicated native method (not MetadataExpert) that already generates a
+mermaid graph server-side. 2026-08-28 fix: the mermaid field was simply
+never extracted into the serialized response (a missing
+_extract_mermaid_fields call, not a wrong-manager bug), so the detail
+page's mermaid section always rendered empty despite the server doing
+the right thing.
 """
 
 import os
@@ -73,6 +81,42 @@ def _super_type_names(element: dict) -> list:
     return (_header(element).get("type") or {}).get("superTypeNames") or []
 
 
+# get_business_capability_by_guid (DigitalBusiness, a real dedicated method --
+# not MetadataExpert) already generates a real mermaid graph server-side
+# (confirmed live, 2026-08-28: a 1226-char mermaidGraph is present in the raw
+# response for a real capability) -- this handler was just never extracting
+# it into the serialized payload the frontend receives, so the detail page's
+# mermaid section always rendered empty. BusinessCapability is a Collection
+# subtype, so collectionMermaidMindMap is included alongside the plain
+# mermaidGraph, same field-name convention as solution_architect_handler.py's
+# _SA_MERMAID_FIELDS (no shared helper in common_serialize.py yet -- every
+# handler keeps its own small list of the mermaid field names relevant to it).
+_BC_MERMAID_FIELDS = ["mermaidGraph", "anchorMermaidGraph", "collectionMermaidMindMap"]
+
+# Raises the depth/node cap the same way solution_architect_handler.py's
+# _DETAIL_GRAPH_BODY_DICT does for blueprint/component detail -- a plain dict
+# body works fine here (verified live, 2026-08-28: no Literal-class-tag
+# validation error, unlike get_solution_component_by_guid's ISSUE-23/#298
+# workaround, which needed a model_construct'd instance instead). Proactive
+# for capabilities with a richer relationship graph than the one this was
+# tested against (which returned the same 1226-char mermaidGraph either way).
+_BC_DETAIL_GRAPH_BODY = {
+    "class": "AnyTimeRequestBody",
+    "graphQueryDepth": 10,
+    "maxMermaidNodeCount": 250,
+}
+
+
+def _extract_mermaid_fields(element: dict) -> dict:
+    lower_map = {k.lower(): v for k, v in element.items()}
+    result = {}
+    for f in _BC_MERMAID_FIELDS:
+        v = lower_map.get(f.lower()) or ""
+        if v and isinstance(v, str) and not v.lower().startswith("no "):
+            result[f] = v
+    return result
+
+
 def _serialize_business_capability_summary(element: dict) -> dict:
     props, header = _props(element), _header(element)
     return {
@@ -93,6 +137,7 @@ def _serialize_business_capability_summary(element: dict) -> dict:
 
 def _serialize_business_capability_detail(element: dict) -> dict:
     detail = _serialize_business_capability_summary(element)
+    detail.update(_extract_mermaid_fields(element))
     # No curated relationship keys to skip — memberOfCollections/collectionMembers/
     # assignedActors (and, once seeded, any BusinessCapabilityDependency-shaped key)
     # all surface generically.
@@ -159,7 +204,7 @@ def get_business_capability(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
-        element = mgr.get_business_capability_by_guid(guid, output_format="JSON", graph_query_depth=2)
+        element = mgr.get_business_capability_by_guid(guid, output_format="JSON", body=_BC_DETAIL_GRAPH_BODY)
     except Exception as exc:
         logger.exception(f"get_business_capability_by_guid failed for {guid}")
         raise HTTPException(status_code=500, detail=f"Business capability detail retrieval failed: {exc}")

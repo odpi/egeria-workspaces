@@ -49,6 +49,7 @@ remainder" rule as the per-folder file order, for consistency.
 
 import json
 import os
+import re
 import time
 from collections import deque
 from pathlib import Path
@@ -120,6 +121,42 @@ def tail_log(lines: int = 200) -> list[str]:
             return [line.rstrip("\n") for line in deque(f, maxlen=lines)]
     except Exception as exc:  # noqa: BLE001
         logger.warning(f"bootstrap_batches: could not read log {_bootstrap_log_path}: {exc}")
+        return []
+
+
+# dr_egeria itself (the `dr_egeria --process` subprocess run_batch() shells
+# out to, and the FastAPI process's own pyegeria calls) logs its own,
+# much more detailed activity -- every command, validation, and traceback
+# -- to pyegeria.log via loguru, independently of bootstrap.log above (which
+# only ever gets the one-line-per-file summary this module itself logs).
+# That's where the actual "why did dr_egeria fail" detail lives (e.g. a
+# server-side "not a valid metadata value" validation error, or a Python
+# traceback from a failed API call) but nothing in the admin UI surfaced it
+# before -- you had to shell into the container and grep it by hand. This
+# tails it filtered to ERROR/WARNING lines only: the file routinely runs
+# into the hundreds of thousands of lines (every DRY RUN validation and
+# HTTP request is its own INFO line), so an unfiltered tail would mostly
+# show noise. ANSI colour codes (loguru colourises this sink) are stripped
+# since they render literally in a plain <pre> block.
+_dr_egeria_log_path = os.path.join(
+    os.environ.get("PYEGERIA_LOG_DIRECTORY", os.path.join(os.path.dirname(__file__), "logs")),
+    "pyegeria.log",
+)
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def tail_dr_egeria_issues(lines: int = 200) -> list[str]:
+    """Last `lines` ERROR/WARNING lines from pyegeria.log -- dr_egeria's own
+    detailed activity log, not bootstrap.log's one-line-per-file summary.
+    Missing file -> empty list, not an error (matches tail_log())."""
+    if not os.path.exists(_dr_egeria_log_path):
+        return []
+    try:
+        with open(_dr_egeria_log_path, encoding="utf-8", errors="replace") as f:
+            matches = (line.rstrip("\n") for line in f if " | ERROR " in line or " | WARNING " in line)
+            return [_ANSI_RE.sub("", line) for line in deque(matches, maxlen=lines)]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"bootstrap_batches: could not read log {_dr_egeria_log_path}: {exc}")
         return []
 
 
@@ -311,7 +348,17 @@ async def run_batch(batch: dict, timeout_seconds: int = 300) -> list[dict]:
     bootstrap_monitor_handler.py's _heal_family (which stops at the first
     failure since it's healing a known-good sequence), this keeps going and
     reports per-file results -- an admin manually running a batch wants to
-    see everything that happened, not just where it stopped."""
+    see everything that happened, not just where it stopped.
+
+    Every file's outcome (and a completion summary) is also written to
+    bootstrap.log -- previously only the *start* of a manual run was logged
+    (see run_batch_now in bootstrap_admin_handler.py), so an admin who saw
+    "Run failed" in the UI and missed/lost the HTTP response had no way to
+    tell what happened short of shelling into the container. The full
+    dr_egeria output (validation errors, tracebacks) still isn't here --
+    that lives in pyegeria.log, surfaced separately by
+    tail_dr_egeria_issues() below -- this is just enough to know which
+    file(s) failed and why, from the admin page itself."""
     import asyncio
 
     results = []
@@ -320,6 +367,7 @@ async def run_batch(batch: dict, timeout_seconds: int = 300) -> list[dict]:
         doc = folder / filename
         if not doc.exists():
             results.append({"file": filename, "status": "skipped", "message": "file not found"})
+            logger.warning(f"bootstrap batches: {batch['id']!r} — {filename}: skipped (file not found)")
             continue
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -330,13 +378,39 @@ async def run_batch(batch: dict, timeout_seconds: int = 300) -> list[dict]:
             tail = stdout.decode(errors="replace")[-800:] if stdout else ""
             if proc.returncode == 0:
                 results.append({"file": filename, "status": "ok", "message": tail})
+                logger.info(f"bootstrap batches: {batch['id']!r} — {filename}: ok")
             else:
                 results.append({"file": filename, "status": "failed", "message": tail})
+                logger.warning(
+                    f"bootstrap batches: {batch['id']!r} — {filename}: failed "
+                    f"(exit {proc.returncode}) — {_one_line(tail)}"
+                )
         except asyncio.TimeoutError:
             results.append({"file": filename, "status": "failed", "message": "timed out"})
+            logger.warning(f"bootstrap batches: {batch['id']!r} — {filename}: timed out after {timeout_seconds}s")
         except Exception as exc:  # noqa: BLE001
             results.append({"file": filename, "status": "failed", "message": str(exc)})
+            logger.warning(f"bootstrap batches: {batch['id']!r} — {filename}: failed — {exc}")
+
+    ok = sum(1 for r in results if r["status"] == "ok")
+    failed = [r["file"] for r in results if r["status"] == "failed"]
+    skipped = [r["file"] for r in results if r["status"] == "skipped"]
+    summary = f"bootstrap batches: {batch['id']!r} finished — {ok}/{len(results)} files ok"
+    if failed:
+        summary += f"; failed: {', '.join(failed)}"
+    if skipped:
+        summary += f"; skipped: {', '.join(skipped)}"
+    logger.log("WARNING" if failed else "INFO", summary)
     return results
+
+
+def _one_line(text: str, max_len: int = 200) -> str:
+    """Collapse a (possibly multi-line, possibly empty) dr_egeria output
+    tail into one short line for a bootstrap.log entry -- the full text is
+    still in the per-file `message` the HTTP response returns, and the full
+    dr_egeria log is available via tail_dr_egeria_issues()."""
+    one_line = " ".join(text.split())
+    return (one_line[:max_len] + "…") if len(one_line) > max_len else (one_line or "(no output)")
 
 
 async def run_all_enabled(timeout_seconds: int = 300) -> list[dict]:
@@ -349,4 +423,10 @@ async def run_all_enabled(timeout_seconds: int = 300) -> list[dict]:
     out = []
     for batch in enabled_batches():
         out.append({"batch": batch["id"], "results": await run_batch(batch, timeout_seconds)})
+    ok = sum(1 for run in out for r in run["results"] if r["status"] == "ok")
+    total = sum(len(run["results"]) for run in out)
+    logger.log(
+        "INFO" if ok == total else "WARNING",
+        f"bootstrap batches: run-all finished — {len(out)} batches, {ok}/{total} files ok",
+    )
     return out

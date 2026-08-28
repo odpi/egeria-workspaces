@@ -58,7 +58,18 @@ router = APIRouter(prefix="/api/bootstrap", tags=["bootstrap-monitor"])
 BOOTSTRAP_FAMILIES = []
 
 _CHECK_INTERVAL = int(os.environ.get("BOOTSTRAP_CHECK_INTERVAL_SECONDS", "600"))  # 10 min
-_DR_EGERIA_TIMEOUT = int(os.environ.get("BOOTSTRAP_HEAL_TIMEOUT_SECONDS", "300"))
+# 900s (15 min), was 300s -- the Design Patterns batch's poim-pattern-links.md
+# (~1,058 relationship-link commands per the design-patterns/README) reliably
+# exceeded the old 300s cap (confirmed live on quickstart, 2026-08-28), and
+# every timeout used to leave the dr_egeria subprocess orphaned and running
+# (see the _active_procs comment on _heal_family) -- that half of the bug is
+# fixed now regardless of this value, but a heal that can never actually
+# finish in time would still never successfully clear this family's canary
+# and would just retry-and-give-up every _CHECK_INTERVAL forever. Generous
+# headroom is safe here: every doc this module re-runs is upsert-safe, so a
+# longer wait never risks anything, it only avoids giving up on genuinely
+# slow (not stuck) large batches.
+_DR_EGERIA_TIMEOUT = int(os.environ.get("BOOTSTRAP_HEAL_TIMEOUT_SECONDS", "900"))
 # Startup fast-retry window -- see start_scheduler()'s docstring comment.
 _STARTUP_RETRY_INTERVAL = int(os.environ.get("BOOTSTRAP_STARTUP_RETRY_SECONDS", "20"))
 _STARTUP_RETRY_WINDOW = int(os.environ.get("BOOTSTRAP_STARTUP_RETRY_WINDOW_SECONDS", "300"))  # 5 min
@@ -115,6 +126,37 @@ async def _canary_present(family: dict) -> tuple[bool, bool]:
         return True, False
 
 
+# Subprocesses currently in flight, so stop_scheduler() (app shutdown/reload)
+# and the timeout/cancellation paths below can actually terminate them.
+#
+# BUG (found 2026-08-28, Design Patterns batch on quickstart): a heal's
+# `dr_egeria --process <file>` subprocess was never killed on either a
+# timeout or a cancelled heal task -- asyncio.wait_for()'s TimeoutError just
+# abandons the await, and cancelling _scheduler_task (stop_scheduler(),
+# called on every app reload/restart) only unwinds the Python coroutine,
+# neither of which sends any signal to the actual OS child process. The
+# orphaned `dr_egeria` process keeps running to completion on its own,
+# invisible to this module's state. Confirmed live: `poim-pattern-links.md`
+# (22k lines) reliably exceeds the 300s default _DR_EGERIA_TIMEOUT, so every
+# heal attempt against it timed out and orphaned a process; a `docker cp`
+# reload during that window then restarted the scheduler, found the canary
+# still missing (the orphan hadn't finished), and started a SECOND heal --
+# two concurrent `dr_egeria --process poim-pattern-links.md` runs against
+# the same file, each creating its own duplicate DesignPattern elements
+# instead of one run upserting cleanly.
+_active_procs: set = set()
+
+
+async def _kill_proc(proc) -> None:
+    try:
+        proc.kill()
+        await proc.wait()
+    except ProcessLookupError:
+        pass  # already exited
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"bootstrap monitor: error killing orphaned dr_egeria process: {exc}")
+
+
 async def _heal_family(family: dict) -> str:
     """Re-run every doc in this family's list, in order, via `dr_egeria
     --process`. Stops at the first failing doc (later docs in the same
@@ -124,11 +166,13 @@ async def _heal_family(family: dict) -> str:
         if not Path(doc).exists():
             logger.warning(f"bootstrap monitor: {family['name']} doc missing, skipping: {doc}")
             continue
+        proc = None
         try:
             proc = await asyncio.create_subprocess_exec(
                 "dr_egeria", "--process", doc,
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
             )
+            _active_procs.add(proc)
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=_DR_EGERIA_TIMEOUT)
             if proc.returncode != 0:
                 tail = stdout.decode(errors="replace")[-800:] if stdout else ""
@@ -136,11 +180,24 @@ async def _heal_family(family: dict) -> str:
                 return f"failed on {Path(doc).name}"
             logger.info(f"bootstrap monitor: healed {family['name']} via {Path(doc).name}")
         except asyncio.TimeoutError:
-            logger.error(f"bootstrap monitor: heal timed out for {family['name']} on {doc}")
+            logger.error(f"bootstrap monitor: heal timed out for {family['name']} on {doc} -- killing it "
+                         f"(was previously left running orphaned; see _active_procs comment above)")
+            if proc is not None:
+                await _kill_proc(proc)
             return f"timed out on {Path(doc).name}"
+        except asyncio.CancelledError:
+            # App shutdown/reload mid-heal (stop_scheduler()) -- kill the
+            # child before letting the cancellation propagate, same reason
+            # as the timeout branch above.
+            if proc is not None:
+                await _kill_proc(proc)
+            raise
         except Exception as exc:  # noqa: BLE001
             logger.error(f"bootstrap monitor: heal error for {family['name']} on {doc}: {exc}")
             return f"error on {Path(doc).name}: {exc}"
+        finally:
+            if proc is not None:
+                _active_procs.discard(proc)
     return "ok"
 
 
@@ -264,6 +321,14 @@ async def stop_scheduler() -> None:
         except asyncio.CancelledError:
             pass
     _scheduler_task = None
+    # Belt-and-braces: _heal_family's own CancelledError handler should have
+    # already killed whatever it was awaiting, but if the task's cancellation
+    # landed somewhere else in the coroutine (e.g. between subprocess creation
+    # and the try block, or a future code path that adds another await point),
+    # don't leave anything in _active_procs still running across this restart.
+    for proc in list(_active_procs):
+        await _kill_proc(proc)
+    _active_procs.clear()
 
 
 async def _monitor_loop() -> None:
