@@ -10,6 +10,8 @@ Endpoints:
   GET /api/solution/components                       → list all solution components
   GET /api/solution/components/{guid}                → full detail for a component
   GET /api/solution/components/{guid}/implementations → concrete implementations
+  GET /api/solution/patterns                          → list all design patterns
+  GET /api/solution/patterns/{guid}                   → full detail for a design pattern
 """
 
 import os
@@ -266,6 +268,71 @@ def _serialize_implementation(element: dict) -> dict:
         "superTypeNames": (header.get("type") or {}).get("superTypeNames") or [],
         "status":         header.get("status") or "",
     }
+
+
+def _serialize_pattern_summary(element: dict) -> dict:
+    props  = _props(element)
+    header = _header(element)
+    return {
+        "guid":              header.get("guid", ""),
+        "displayName":       props.get("displayName") or props.get("name") or "",
+        "qualifiedName":     props.get("qualifiedName") or "",
+        "description":       props.get("description") or "",
+        "category":          props.get("category") or "",
+        "identifier":        props.get("identifier") or "",
+        "versionIdentifier": props.get("versionIdentifier") or "",
+        "lifecycleStatus":   props.get("lifecycleStatus") or "",
+        "userDefinedStatus": props.get("userDefinedStatus") or "",
+        "contentStatus":     props.get("contentStatus") or "",
+        "status":            header.get("status") or "",
+        "typeName":          _type_name(element),
+        "_header":           _header_summary(element),
+        **_authored_fields(element),
+        "classifications": _classifications(element),
+    }
+
+
+def _serialize_pattern_detail(element: dict) -> dict:
+    detail = _serialize_pattern_summary(element)
+    detail.update(_extract_mermaid_fields(element))
+    props = _props(element)
+    # Long-form narrative fields from DesignPatternProperties -- shown as their
+    # own prose/list sections on the frontend (a plain GenericPropertiesTable
+    # row would either truncate them or, for the list-shaped ones, join them
+    # with ", " into an unreadable blob), so they're kept off _serialize_pattern_
+    # summary above and only added here for the detail view.
+    detail["legal"]              = props.get("legal") or ""
+    detail["context"]            = props.get("context") or ""
+    detail["problemStatement"]   = props.get("problemStatement") or ""
+    detail["problemExample"]     = props.get("problemExample") or ""
+    detail["solutionDescription"] = props.get("solutionDescription") or ""
+    detail["solutionExample"]    = props.get("solutionExample") or ""
+    detail["usage"]              = props.get("usage") or ""
+    detail["forces"]             = props.get("forces") or []
+    detail["benefits"]           = props.get("benefits") or []
+    detail["liabilities"]        = props.get("liabilities") or []
+
+    # generalizedDesignPattern/specializedDesignPattern (SpecializedDesignPattern
+    # relationship, general<->specific direction), consumedDesignPatterns/
+    # consumingDesignPatterns (NestedDesignPattern, "used as a component in
+    # another pattern's solution" direction), relatedDesignPatterns
+    # (RelatedDesignPattern, plain cross-reference) -- the curated relationship
+    # keys pyegeria's populate_common_columns returns for a design pattern at
+    # graph_query_depth >= 1 (confirmed live, 2026-08-28: all five keys are
+    # lists even where the name reads singular).
+    detail["generalPatterns"]    = _serialize_rel_entries(_rel_list(element, "generalizedDesignPattern"))
+    detail["specializedPatterns"] = _serialize_rel_entries(_rel_list(element, "specializedDesignPattern"))
+    detail["consumedPatterns"]   = _serialize_rel_entries(_rel_list(element, "consumedDesignPatterns"))
+    detail["consumingPatterns"]  = _serialize_rel_entries(_rel_list(element, "consumingDesignPatterns"))
+    detail["relatedPatterns"]    = _serialize_rel_entries(_rel_list(element, "relatedDesignPatterns"))
+    # Generic catch-all so anything not curated above (otherRelatedElements,
+    # or a relationship type not accounted for) still surfaces instead of
+    # being silently dropped.
+    detail["relationships"] = _generic_relationships(element, skip=(
+        "generalizedDesignPattern", "specializedDesignPattern",
+        "consumedDesignPatterns", "consumingDesignPatterns", "relatedDesignPatterns",
+    ))
+    return detail
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
@@ -576,3 +643,66 @@ def get_component_implementations(
 
     implementations = [_serialize_implementation(i) for i in raw]
     return JSONResponse({"implementations": implementations, "total": len(implementations), "component": guid})
+
+
+@router.get("/api/solution/patterns", summary="List all design patterns", responses=EGERIA_ERROR_RESPONSES)
+def list_patterns(
+    start_from: int = Query(0,   ge=0),
+    page_size:  int = Query(500, ge=1, le=1000),
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+    include_templates: bool = Query(False, description="When False, elements with the Template classification are excluded"),
+):
+    try:
+        mgr = _get_manager(url, server, user_id, user_pwd)
+    except Exception as exc:
+        raise_egeria_http_error(exc, "Failed to create SolutionArchitect manager")
+
+    try:
+        raw = mgr.find_design_patterns(
+            search_string="*",
+            output_format="JSON",
+            start_from=start_from,
+            page_size=page_size,
+            graph_query_depth=0,
+            sequencing_order="PROPERTY_ASCENDING",
+            sequencing_property="displayName",
+        )
+    except Exception as exc:
+        raise_egeria_http_error(exc, "find_design_patterns failed")
+
+    if not isinstance(raw, list):
+        raw = []
+
+    if not include_templates:
+        raw = [p for p in raw if not _is_template(p)]
+
+    patterns = [_serialize_pattern_summary(p) for p in raw]
+    patterns.sort(key=lambda p: (p.get("displayName") or "").lower())
+    return JSONResponse({"patterns": patterns, "total": len(patterns)})
+
+
+@router.get("/api/solution/patterns/{guid}", summary="Get a single design pattern by GUID", responses=EGERIA_ERROR_RESPONSES)
+def get_pattern(
+    guid: str,
+    url:      Optional[str] = Query(None),
+    server:   Optional[str] = Query(None),
+    user_id:  Optional[str] = Query(None),
+    user_pwd: Optional[str] = Query(None),
+):
+    try:
+        mgr = _get_manager(url, server, user_id, user_pwd)
+    except Exception as exc:
+        raise_egeria_http_error(exc, "Failed to create SolutionArchitect manager")
+
+    try:
+        raw = mgr.get_design_pattern_by_guid(guid, body=_DETAIL_GRAPH_BODY_MODEL, output_format="JSON")
+    except Exception as exc:
+        raise_egeria_http_error(exc, "get_design_pattern_by_guid failed")
+
+    if not raw or isinstance(raw, str):
+        raise HTTPException(status_code=404, detail=f"Design pattern {guid!r} not found")
+
+    return JSONResponse(_serialize_pattern_detail(raw))
