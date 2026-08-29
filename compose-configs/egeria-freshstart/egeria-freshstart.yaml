@@ -173,6 +173,7 @@ services:
       - ../../exchange-freshstart/distribution-hub/dr-egeria-outbox:/dr-egeria-outbox
       - ../../exchange-freshstart/loading-bay/dr-egeria-inbox:/dr-egeria-inbox
       - ../../exchange-freshstart/config:/config
+      - ../../design-patterns:/design-patterns
       - ../../templates:/app/templates
       - ../../runtime-volumes/freshstart-demo-data:/app/demo-data
       - ../../runtime-volumes/freshstart-platform-data/secrets/egeria-user-directory.omsecrets:/secrets/user-directory.omsecrets

@@ -6,7 +6,7 @@
 
 # The published image tag is taken from the numerical version of
 # our base image, and appended with the contents of .tag-append (file)
-FROM quay.io/jupyter/scipy-notebook:latest
+FROM quay.io/jupyter/scipy-notebook:latest@sha256:50c6d1d7b39674e2d7d77a80759906aff54a1a472de63ba7ed1125ae43ed6ab4
 ARG env_name=python313
 #ARG py_ver=3.12
 ENV JUPYTER_ENABLE_LAB=yes

@@ -760,6 +760,7 @@ function ZoneTree({ creds, selectedZone, onSelectZone, width }) {
   var _z = useState([]), zones = _z[0], setZones = _z[1];
   var _st = useState('loading'), state = _st[0], setState = _st[1];
   var _capped = useState(false), capped = _capped[0], setCapped = _capped[1];
+  var _attempt = useState(0), attempt = _attempt[0], setAttempt = _attempt[1];
 
   useEffect(function() {
     setState('loading');
@@ -768,11 +769,14 @@ function ZoneTree({ creds, selectedZone, onSelectZone, width }) {
       return r.json();
     }).then(function(d) { setZones(d.zones || []); setCapped(!!d.countsCapped); setState('ready'); })
       .catch(function() { setState('error'); });
-  }, [creds && creds.userId]);
+  }, [creds && creds.userId, attempt]);
 
   return el('div', { className: 'sidebar', style: { width: width || 240, minWidth: 160, borderRight: 'none', flexShrink: 0, overflow: 'hidden' } },
     el('div', { className: 'search-wrap' },
-      el('div', { style: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--muted)' } }, 'Governance Zones'),
+      el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 } },
+        el('span', { style: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--muted)' } }, 'Governance Zones'),
+        el('button', { className: 'btn-sm', title: 'Reload zone counts', onClick: function() { setAttempt(function(a) { return a + 1; }); } }, '↻')
+      ),
       capped && el('div', { style: { fontSize: 10.5, color: 'var(--dim)', marginTop: 4 } }, 'usage counts capped at 500')
     ),
     el('div', { className: 'tree-scroll' },

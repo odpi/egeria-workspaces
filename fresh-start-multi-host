@@ -103,6 +103,14 @@ EOF
   } > "${SSL_DEFINE_DIR}/ssl-define.conf"
   echo "[fresh-start-multi-host]   Self-signed HTTPS on port ${_https_port} (CERT_DIR=${_cert_dir}) — SITE_URL: ${_site_url}"
 
+  # egeria-platform's Dockerfile FROM line is pinned to a digest (OpenSSF
+  # Scorecard's Pinned-Dependencies check) -- re-resolve it first, or the
+  # "pulling newer base images when available" build below would just keep
+  # re-confirming the same old pinned digest forever. See
+  # compose-configs/shared-infra/pin-latest-digest.sh's own docstring.
+  # (freshstart's Dockerfile pulls from quay.io, not docker.io.)
+  ../shared-infra/pin-latest-digest.sh Dockerfile-egeria-platform quay.io/odpi/egeria-platform:latest
+
   echo "[fresh-start-multi-host] Building freshstart images (pulling newer base images when available)..."
   $COMPOSE_CMD -p egeria-freshstart -f egeria-freshstart.yaml build "${COMPOSE_BUILD_FLAGS[@]}"
 

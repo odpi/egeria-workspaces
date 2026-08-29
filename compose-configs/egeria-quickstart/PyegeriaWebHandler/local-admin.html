@@ -28,6 +28,14 @@
     /* ── Layout ── */
     .page { max-width: 1000px; margin: 0 auto; padding: 1.75rem 1.5rem; display: flex; flex-direction: column; gap: 2rem; }
 
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); background: var(--card); padding: 0 1.5rem; }
+    .tab { padding: 0.65rem 1.1rem; font-size: 0.85rem; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; transition: all 0.15s; }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .panel { display: none; }
+    .panel.active { display: block; }
+
     /* ── Section headers ── */
     .section-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
     .section-hdr h2 { font-size: 0.9rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
@@ -108,12 +116,20 @@
   <a href="/docs/"          class="btn-sm">Docs ↗</a>
 </div>
 
+<div class="tabs">
+  <div class="tab active" onclick="showTab('obsidian')">Obsidian Lock</div>
+  <div class="tab" onclick="showTab('data-init')">Data Initialization</div>
+  <div class="tab" onclick="showTab('activity')">Activity Log</div>
+  <div class="tab" onclick="showTab('feedback')">User Feedback</div>
+  <div class="tab" onclick="showTab('platform')">Platform</div>
+</div>
+
 <div class="page">
 
   <div id="globalBanner" class="banner"></div>
 
   <!-- ── Obsidian Lock ─────────────────────────────────────────────── -->
-  <section>
+  <section class="panel active" id="panel-obsidian">
     <div class="section-hdr">
       <h2>Obsidian Lock</h2>
       <button class="btn-xs" onclick="loadLock()">↻ Refresh</button>
@@ -169,7 +185,7 @@
   </section>
 
   <!-- ── Data Initialization ─────────────────────────────────────────── -->
-  <section>
+  <section class="panel" id="panel-data-init">
     <div class="section-hdr">
       <h2>Data Initialization</h2>
       <button class="btn-xs" onclick="loadBatches()">↻ Refresh</button>
@@ -190,21 +206,46 @@
     <div id="runAllResult" class="note" style="display:none;margin-bottom:0.9rem"></div>
     <div id="batchList"><div class="card empty">Loading…</div></div>
 
-    <details id="bootstrapLogDetails" style="margin-top:1.5rem" ontoggle="if(this.open) loadBootstrapLog()">
-      <summary style="cursor:pointer;font-weight:600;font-size:0.85rem">Recent Activity</summary>
-      <p style="font-size:0.78rem;color:var(--muted);margin:0.5rem 0">
-        Tail of <code>bootstrap.log</code> — every manual run and auto-heal attempt (persisted under
-        <code>~/.pyegeria</code>, survives container recreation).
-        <button class="btn-xs" onclick="loadBootstrapLog()">↻ Refresh</button>
-      </p>
-      <pre id="bootstrapLog" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;
-        padding:0.75rem 1rem;max-height:320px;overflow-y:auto;font-size:0.72rem;line-height:1.5;
-        white-space:pre-wrap;word-break:break-word">Loading…</pre>
-    </details>
+    <p class="note" style="margin-top:1.5rem">
+      Run history and dr_egeria's own detailed errors moved to the
+      <a href="#" onclick="showTab('activity');return false" style="color:var(--accent)">Activity Log</a> tab.
+    </p>
+  </section>
+
+  <!-- ── Activity Log ─────────────────────────────────────────────── -->
+  <section class="panel" id="panel-activity">
+    <div class="section-hdr">
+      <h2>Recent Activity</h2>
+      <button class="btn-xs" onclick="loadBootstrapLog()">↻ Refresh</button>
+    </div>
+    <p class="note" style="margin-top:-0.5rem;margin-bottom:0.9rem">
+      Tail of <code>bootstrap.log</code> — one line per manual batch run, per file within it, and every
+      auto-heal attempt (persisted under <code>~/.pyegeria</code>, survives container recreation). A run
+      that reports "Run failed" in the Data Initialization tab (e.g. because it took longer than the
+      reverse proxy's 5-minute timeout and the browser gave up waiting) still finishes in the background
+      and its outcome lands here.
+    </p>
+    <pre id="bootstrapLog" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;
+      padding:0.75rem 1rem;max-height:320px;overflow-y:auto;font-size:0.72rem;line-height:1.5;
+      white-space:pre-wrap;word-break:break-word">Loading…</pre>
+
+    <div class="section-hdr" style="margin-top:1.5rem">
+      <h2>dr_egeria Errors &amp; Warnings</h2>
+      <button class="btn-xs" onclick="loadDrEgeriaIssues()">↻ Refresh</button>
+    </div>
+    <p class="note" style="margin-top:-0.5rem;margin-bottom:0.9rem">
+      Tail of <code>pyegeria.log</code>, filtered to ERROR/WARNING lines — the actual reason a file
+      failed (a validation error, an unresolved reference, a traceback), which <code>bootstrap.log</code>
+      above doesn't carry. This is the same log dr_egeria writes for every command it runs, not just
+      manual batch runs.
+    </p>
+    <pre id="drEgeriaIssues" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;
+      padding:0.75rem 1rem;max-height:420px;overflow-y:auto;font-size:0.72rem;line-height:1.5;
+      white-space:pre-wrap;word-break:break-word">Loading…</pre>
   </section>
 
   <!-- ── User Feedback ────────────────────────────────────────────── -->
-  <section>
+  <section class="panel" id="panel-feedback">
     <div class="section-hdr">
       <h2>User Feedback</h2>
       <button class="btn-xs" onclick="loadFeedback()">↻ Refresh</button>
@@ -233,7 +274,7 @@
   </section>
 
   <!-- ── Platform Info ─────────────────────────────────────────────── -->
-  <section>
+  <section class="panel" id="panel-platform">
     <div class="section-hdr"><h2>Platform</h2></div>
     <div class="card">
       <table class="info-table">
@@ -258,6 +299,22 @@
     b.className = 'banner ' + type;
     b.textContent = msg;
     if (type === 'success') setTimeout(function() { b.className = 'banner'; }, 4000);
+  }
+
+  // ── Tabs ───────────────────────────────────────────────────────────
+  var activeTab = 'obsidian';
+
+  function showTab(name) {
+    activeTab = name;
+    document.querySelectorAll('.tab').forEach(function(t, i) {
+      t.classList.toggle('active', ['obsidian','data-init','activity','feedback','platform'][i] === name);
+    });
+    document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+    document.getElementById('panel-' + name).classList.add('active');
+    if (name === 'obsidian')  loadLock();
+    if (name === 'data-init') loadBatches();
+    if (name === 'activity')  { loadBootstrapLog(); loadDrEgeriaIssues(); }
+    if (name === 'feedback')  loadFeedback();
   }
 
   // ── Org name ───────────────────────────────────────────────────────
@@ -464,10 +521,23 @@
   }
 
   // Recent Activity — tail of bootstrap.log. Only fetched when the
-  // <details> panel is open (see its ontoggle), not on every batches poll.
+  // Activity Log tab is shown (see showTab), not on every batches poll.
   function loadBootstrapLog() {
     var el = document.getElementById('bootstrapLog');
     fetch('/api/bootstrap/log?lines=300').then(function(r) { return r.json(); })
+      .then(function(d) {
+        var lines = d.lines || [];
+        el.textContent = lines.length ? lines.join('\n') : '(nothing logged yet)';
+        el.scrollTop = el.scrollHeight;
+      })
+      .catch(function() { el.textContent = 'Failed to load log'; });
+  }
+
+  // dr_egeria's own ERROR/WARNING lines (pyegeria.log) -- the actual reason
+  // a file failed, which bootstrap.log's one-line summary doesn't carry.
+  function loadDrEgeriaIssues() {
+    var el = document.getElementById('drEgeriaIssues');
+    fetch('/api/bootstrap/log/issues?lines=300').then(function(r) { return r.json(); })
       .then(function(d) {
         var lines = d.lines || [];
         el.textContent = lines.length ? lines.join('\n') : '(nothing logged yet)';
@@ -541,12 +611,35 @@
     _saveSelection();
   }
 
-  // Posts to a run endpoint; on a 409 (batch contains a known non-idempotent
-  // command, see bootstrap_batches.py's `idempotent` field) shows a native
-  // confirm() with the server's own explanation and retries with
-  // ?confirm=true only if the admin agrees. Declining just stops here --
-  // no request is retried.
-  function _postRun(url, onDone, onFail) {
+  // Starts a run at `url` (which returns immediately -- {started:true} --
+  // rather than blocking; a batch routinely takes longer than Apache's
+  // 5-minute ProxyPass timeout, which used to drop the connection before
+  // the blocking response ever arrived even though the backend kept
+  // working regardless -- see bootstrap_batches.py's "Background run +
+  // poll" section), then polls `statusUrl` every 5s until status is
+  // "done" and calls onDone with the result. onTick(secs), if given, is
+  // called on each still-running poll so the caller can show elapsed time.
+  // On a 409 (batch contains a known non-idempotent command, see
+  // bootstrap_batches.py's `idempotent` field) shows a native confirm()
+  // with the server's own explanation and retries with ?confirm=true only
+  // if the admin agrees. Declining just stops here -- no request retried.
+  function _postRun(url, statusUrl, onDone, onFail, onTick) {
+    var startedAt = Date.now();
+    function poll() {
+      fetch(statusUrl).then(function(r) { return r.json(); }).then(function(s) {
+        if (s.status === 'running') {
+          if (onTick) onTick(Math.round((Date.now() - startedAt) / 1000));
+          setTimeout(poll, 5000);
+          return;
+        }
+        if (s.status === 'not_found') {
+          onFail('Run did not finish (the server may have restarted) — check the Activity Log tab.');
+          return;
+        }
+        onDone(s);
+        _refreshLogIfOpen();
+      }).catch(function() { setTimeout(poll, 5000); }); // transient poll error -- keep trying
+    }
     fetch(url, { method: 'POST' }).then(function(r) {
       if (r.status === 409) {
         return r.json().then(function(d) {
@@ -560,17 +653,16 @@
       return r.json();
     }).then(function(d) {
       if (d.cancelled) { onFail('Cancelled — batch contains a command not safe to re-run.'); return; }
-      onDone(d);
-      _refreshLogIfOpen();
+      if (!d.started) { onFail(d.detail || 'Run failed'); return; }
+      poll();
     }).catch(function() { onFail('Run request failed'); });
   }
 
-  // The Recent Activity <details> panel only fetches on open (see its
-  // ontoggle) -- but if it's already open, a run just added new lines
-  // worth showing without waiting for a manual refresh click.
+  // The Activity Log tab only fetches when shown (see showTab) -- but if
+  // it's the tab currently open, a run just added new lines worth showing
+  // without waiting for a manual tab switch.
   function _refreshLogIfOpen() {
-    var d = document.getElementById('bootstrapLogDetails');
-    if (d && d.open) loadBootstrapLog();
+    if (activeTab === 'activity') { loadBootstrapLog(); loadDrEgeriaIssues(); }
   }
 
   function runBatch(bi) {
@@ -578,23 +670,27 @@
     var resultEl = document.getElementById('batchResult-' + bi);
     resultEl.style.display = 'block';
     resultEl.textContent = 'Running…';
-    _postRun('/api/bootstrap/batches/' + encodeURIComponent(b.id) + '/run', function(d) {
-      if (!d.results) { resultEl.textContent = d.detail || 'Run failed'; return; }
+    var runUrl = '/api/bootstrap/batches/' + encodeURIComponent(b.id) + '/run';
+    var statusUrl = '/api/bootstrap/batches/' + encodeURIComponent(b.id) + '/run-status';
+    _postRun(runUrl, statusUrl, function(d) {
+      if (!d.results) { resultEl.textContent = 'Run failed'; return; }
       var ok = d.results.filter(function(r) { return r.status === 'ok'; }).length;
       resultEl.innerHTML = (d.success ? '<span style="color:var(--success)">✓</span> ' : '<span style="color:var(--error)">✗</span> ') +
         ok + '/' + d.results.length + ' files ran clean' +
         (d.success ? '' : ' — ' + d.results.filter(function(r) { return r.status !== 'ok'; })
           .map(function(r) { return esc(r.file) + ': ' + esc((r.message || '').slice(0, 200)); }).join('; '));
       showBanner(d.success ? 'success' : 'error', d.success ? b.displayName + ' ran successfully' : b.displayName + ' had failures — see details below');
-    }, function(msg) { resultEl.textContent = msg; });
+    }, function(msg) { resultEl.textContent = msg; }, function(secs) {
+      resultEl.textContent = 'Running… (' + secs + 's — large batches can take several minutes; safe to leave this tab)';
+    });
   }
 
   function runAllBatches() {
     var el = document.getElementById('runAllResult');
     el.style.display = 'block';
     el.textContent = 'Running all enabled batches, in order…';
-    _postRun('/api/bootstrap/batches/run-all', function(d) {
-      if (!d.runs) { el.textContent = d.detail || 'Run failed'; return; }
+    _postRun('/api/bootstrap/batches/run-all', '/api/bootstrap/batches/run-all/run-status', function(d) {
+      if (!d.runs) { el.textContent = 'Run failed'; return; }
       el.innerHTML = d.runs.map(function(run) {
         var ok = run.results.filter(function(r) { return r.status === 'ok'; }).length;
         var allOk = ok === run.results.length;
@@ -603,7 +699,9 @@
       }).join('<br>');
       showBanner(d.success ? 'success' : 'error', d.success ? 'All enabled batches ran successfully' : 'Some batches had failures — see details below');
       loadBatches();
-    }, function(msg) { el.textContent = msg; });
+    }, function(msg) { el.textContent = msg; }, function(secs) {
+      el.textContent = 'Running all enabled batches, in order… (' + secs + 's — large batches can take several minutes; safe to leave this tab)';
+    });
   }
 
   // ── Resizable columns ─────────────────────────────────────────────
@@ -630,9 +728,9 @@
   }
 
   // ── Init ───────────────────────────────────────────────────────────
+  // Obsidian Lock is the default tab; the rest load lazily on tab switch
+  // (see showTab) rather than all fetching up front.
   loadLock();
-  loadFeedback();
-  loadBatches();
   // Date/Time, Email, Page, Comment, Rating, Category, Wants Response?, Status, (triage)
   makeResizable('fbTable', ['110px','150px','130px','260px','55px','80px','100px','75px','90px']);
 </script>
