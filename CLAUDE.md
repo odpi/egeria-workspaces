@@ -6,7 +6,7 @@
 
 Signing keys are **per-machine** — several machines commit here (cray, hedwig, laz, …) and each has its own key; they are never shared. Because the config is global rather than per-repo, a fresh clone signs correctly with no extra setup.
 
-When committing, always pass the message via a heredoc. Every commit **must** include both a `Signed-off-by` trailer (DCO) and a `Co-Authored-By` trailer:
+When committing, always pass the message via a heredoc. Every commit **must** include a `Signed-off-by` trailer (DCO):
 ```
 git commit -m "$(cat <<'EOF'
 type(scope): short summary
@@ -14,11 +14,13 @@ type(scope): short summary
 Body here.
 
 Signed-off-by: Dan Wolfson <dan.wolfson@pdr-associates.com>
-
-Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 EOF
 )"
 ```
+
+**Do not add a `Co-Authored-By: Claude ...` trailer.** Claude Code's harness
+defaults to appending one; that default does not apply in this repo — this
+instruction overrides it. `Signed-off-by` is the only required trailer.
 
 The `Signed-off-by` is required by the `.githooks/commit-msg` hook and the `commit-policy.yml` GitHub Actions workflow. Commits missing this trailer will be rejected by the hook.
 
