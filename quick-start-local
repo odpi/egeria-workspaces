@@ -514,6 +514,18 @@ EOF
     COMPOSE_FILES+=(-f egeria-quickstart-letsencrypt.yaml)
   fi
 
+  # egeria-platform's FROM line is pinned to a digest (Scorecard's
+  # Pinned-Dependencies check), so `docker build --pull` alone would just
+  # keep re-confirming the SAME pinned digest forever -- --refresh-platform
+  # needs this explicit re-resolve step first to actually pick up a newer
+  # image. See compose-configs/shared-infra/pin-latest-digest.sh's own
+  # docstring for the full reasoning.
+  if [[ "$REFRESH_PLATFORM" -eq 1 ]]; then
+    compose-configs/shared-infra/pin-latest-digest.sh \
+      compose-configs/egeria-quickstart/Dockerfile-egeria-platform \
+      docker.io/odpi/egeria-platform:latest
+  fi
+
   echo "[quick-start-local] Ensuring core images are available (platform, pyegeria-web, jupyter, my-profile)..."
   ensure_service_image egeria-main egeria-quickstart-platform:local 1 "$REFRESH_PLATFORM"
   ensure_service_image pyegeria-web egeria-quickstart-pyegeria-web:latest 1

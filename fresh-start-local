@@ -213,6 +213,19 @@ EOF
   } > "${SSL_DEFINE_DIR}/ssl-define.conf"
   echo "[fresh-start-local]   Self-signed HTTPS on port ${_https_port} (CERT_DIR=${_cert_dir}) — SITE_URL: ${_site_url}"
 
+  # egeria-platform's FROM line is pinned to a digest (Scorecard's
+  # Pinned-Dependencies check), so `docker build --pull` alone would just
+  # keep re-confirming the SAME pinned digest forever -- --refresh-platform
+  # needs this explicit re-resolve step first to actually pick up a newer
+  # image. See compose-configs/shared-infra/pin-latest-digest.sh's own
+  # docstring for the full reasoning. (freshstart's Dockerfile pulls from
+  # quay.io, not docker.io -- see that Dockerfile's own FROM line.)
+  if [[ "$REFRESH_PLATFORM" -eq 1 ]]; then
+    compose-configs/shared-infra/pin-latest-digest.sh \
+      compose-configs/egeria-freshstart/Dockerfile-egeria-platform \
+      quay.io/odpi/egeria-platform:latest
+  fi
+
   echo "[fresh-start-local] Ensuring core images are available (platform, pyegeria-web, jupyter)..."
   ensure_service_image freshstart-egeria-main egeria-freshstart-platform:local 1 "$REFRESH_PLATFORM"
   ensure_service_image freshstart-pyegeria-web egeria-freshstart-pyegeria-web:latest 1

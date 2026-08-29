@@ -189,6 +189,13 @@ EOF
   } > "${SSL_DEFINE_DIR}/ssl-define.conf"
   echo "[quick-start-multi-host]   Self-signed HTTPS on port ${_https_port} (CERT_DIR=${_cert_dir}) — SITE_URL: ${_site_url}"
 
+  # egeria-platform's Dockerfile FROM line is pinned to a digest (OpenSSF
+  # Scorecard's Pinned-Dependencies check) -- re-resolve it first, or the
+  # "pulling newer base images when available" build below would just keep
+  # re-confirming the same old pinned digest forever. See
+  # compose-configs/shared-infra/pin-latest-digest.sh's own docstring.
+  ../shared-infra/pin-latest-digest.sh Dockerfile-egeria-platform docker.io/odpi/egeria-platform:latest
+
   echo "[quick-start-multi-host] Building quickstart images (pulling newer base images when available)..."
   $COMPOSE_CMD -p egeria-quickstart -f egeria-quickstart.yaml build "${COMPOSE_BUILD_FLAGS[@]}"
 

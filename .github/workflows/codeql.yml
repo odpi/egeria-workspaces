@@ -1,0 +1,58 @@
+name: CodeQL
+
+# SAST for this repo's real Python surface (OpenSSF Scorecard's SAST check).
+# Scoped to the FastAPI handlers/scripts under PyegeriaWebHandler and
+# scripts/ -- the rest of the repo is compose configs, docs, and runtime
+# bind-mount data, not source code CodeQL has anything to say about.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'compose-configs/egeria-quickstart/PyegeriaWebHandler/**.py'
+      - 'compose-configs/egeria-freshstart/PyegeriaWebHandler/**.py'
+      - 'scripts/**.py'
+      - '.github/workflows/codeql.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'compose-configs/egeria-quickstart/PyegeriaWebHandler/**.py'
+      - 'compose-configs/egeria-freshstart/PyegeriaWebHandler/**.py'
+      - 'scripts/**.py'
+      - '.github/workflows/codeql.yml'
+  schedule:
+    # Weekly, independent of any push -- new CodeQL query packs land on their
+    # own schedule and can surface findings in code that hasn't changed.
+    - cron: '23 4 * * 3'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@6f5948dfacef28e207b48d0905cf90c03365536d # v3
+        with:
+          languages: python
+          paths: |
+            compose-configs/egeria-quickstart/PyegeriaWebHandler
+            compose-configs/egeria-freshstart/PyegeriaWebHandler
+            scripts
+          paths-ignore: |
+            **/tests/**
+            **/test_*.py
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@6f5948dfacef28e207b48d0905cf90c03365536d # v3
+        with:
+          category: "/language:python"
