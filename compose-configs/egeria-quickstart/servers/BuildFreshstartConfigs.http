@@ -1003,6 +1003,15 @@ Content-Type: application/json
   },
   {
     "class": "IntegrationGroupConfig",
+    "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:Mendel",
+    "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
+    "omagserverName" : "fs-metadata-store",
+    "secretsStoreProvider" : "~{secretsStoreProvider}~",
+    "secretsStoreLocation"  : "~{egeriaServersSecretsStore}~",
+    "secretsStoreCollection" : "~{egeriaServersSecretsCollection}~"
+  },
+  {
+    "class": "IntegrationGroupConfig",
     "integrationGroupQualifiedName" : "Egeria:IntegrationGroup:Liskov",
     "omagserverName": "fs-metadata-store",
     "omagserverPlatformRootURL": "~{egeriaEndpoint}~",
