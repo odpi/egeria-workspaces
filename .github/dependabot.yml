@@ -58,6 +58,16 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 2
 
+  # shared-infra/autoheal's Dockerfile pins the same docker:27-cli base as
+  # watchdog above -- added when that FROM line was pinned to a digest
+  # (OpenSSF Scorecard's Pinned-Dependencies check), so it has a path to stay
+  # current instead of freezing at whatever digest was current on that day.
+  - package-ecosystem: "docker"
+    directory: "/compose-configs/shared-infra/autoheal"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 2
+
   - package-ecosystem: "docker"
     directory: "/compose-configs/egeria-freshstart"
     schedule:
