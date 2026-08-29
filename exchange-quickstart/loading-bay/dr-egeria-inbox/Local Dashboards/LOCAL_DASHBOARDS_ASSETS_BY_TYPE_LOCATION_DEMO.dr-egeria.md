@@ -63,7 +63,7 @@ Analytic Demo - Element Count by Type
 ### Output Format
 DICT
 
-### Analytic Parameters:
+### Analytic Parameters
   type_name: Asset
 
 ___
@@ -80,7 +80,7 @@ Analytic Demo - Element Count by Type
 ### Output Format
 DICT
 
-### Analytic Parameters:
+### Analytic Parameters
   type_name: Location
 
 ___
@@ -97,7 +97,7 @@ Analytic Demo - Assets by Type Breakdown
 ### Output Format
 PIE
 
-### Analytic Parameters:
+### Analytic Parameters
   type_map: [["Data Stores", "DataStore"], ["Data Sets", "DataSet"], ["Software Components", "DeployedSoftwareComponent"], ["Infrastructure", "ITInfrastructure"], ["APIs", "DeployedAPI"], ["Processes", "Process"]]
 
 ___
@@ -114,7 +114,7 @@ Analytic Demo - Assets by Type Breakdown
 ### Output Format
 BAR
 
-### Analytic Parameters:
+### Analytic Parameters
   type_map: [["Data Stores", "DataStore"], ["Data Sets", "DataSet"], ["Software Components", "DeployedSoftwareComponent"], ["Infrastructure", "ITInfrastructure"], ["APIs", "DeployedAPI"], ["Processes", "Process"]]
 
 ___
