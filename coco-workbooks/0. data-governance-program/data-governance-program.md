@@ -29,7 +29,7 @@ The program is organised as:
 3. **Governance Controls** (Part 3) — the roles and metrics that make those policies observable.
 4. **Governance Links** (Part 4) — the responses, mechanisms, and peer relationships that connect this program to the domains it serves.
 
-All definitions in this file carry Domain Identifier `DATA` and are members of the Chief Data Officer Governance Folio.
+All definitions in this file carry Domain Identifier `Data` and are members of the Chief Data Officer Governance Folio.
 
 ---
 
@@ -52,7 +52,7 @@ A Trusted Data Foundation for Every Governance Domain
 CocoPharma::BusinessImperative::TrustedDataFoundation
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 Coco Pharmaceuticals must provide a common, trustworthy data foundation that the manufacturing, privacy, drug development, and corporate domains can each rely on to meet their own obligations.
@@ -105,7 +105,7 @@ Fragmented Data Definitions Across the Organisation
 CocoPharma::Threat::FragmentedDataDefinitions
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 The same business concept may be defined differently in each department, so that data cannot be combined across the organisation without manual reconciliation that is slow, costly, and error-prone.
@@ -151,7 +151,7 @@ Uncontrolled Proliferation of Data Copies
 CocoPharma::Threat::UncontrolledDataProliferation
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 Data copied out of governed systems into spreadsheets, extracts, and departmental databases escapes the controls applied to the original, and its existence is frequently unknown to the domain accountable for it.
@@ -205,7 +205,7 @@ Common Data Definitions Across the Organisation
 CocoPharma::GovernancePrinciple::CommonDataDefinitions
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 Coco Pharmaceuticals will maintain shared, agreed definitions for data used across multiple departments, to eliminate ambiguity and enable reliable data sharing.
@@ -249,7 +249,7 @@ Data is a Shared Organisational Resource
 CocoPharma::GovernancePrinciple::DataIsASharedOrganisationalResource
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 Data collected or created by one part of the organisation is available as a shared resource for authorised use by other parts of the organisation.
@@ -293,7 +293,7 @@ Data Quality Is Defined by Fitness for Purpose
 CocoPharma::GovernancePrinciple::DataQualityFitForPurpose
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 Data quality is assessed against the requirements of the domains that use the data, not against an abstract standard of correctness, and those requirements are stated by the using domain.
@@ -338,7 +338,7 @@ Data Carries Its Classification Wherever It Goes
 CocoPharma::GovernancePrinciple::ClassificationTravelsWithData
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 Sensitivity and criticality classifications are properties of the data itself and must survive copying, transformation, and movement between systems and domains.
@@ -383,7 +383,7 @@ Critical Data Must Be Traceable to Its Origin
 CocoPharma::GovernancePrinciple::CriticalDataTraceableToOrigin
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 For data elements a domain has declared critical, the organisation must be able to show the path from the value in use back to the system and process that produced it.
@@ -430,7 +430,7 @@ Data Quality Issues Must Be Reported and Resolved
 CocoPharma::GovernanceObligation::DataQualityIssuesMustBeReportedAndResolved
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 When data quality problems are detected, they must be reported to the responsible data owner and resolved within defined timeframes.
@@ -474,7 +474,7 @@ Data Assets Must Be Registered in the Catalog Before Use
 CocoPharma::GovernanceObligation::DataAssetsRegisteredInCatalog
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 Every data asset used for a governed business purpose must be registered in the Egeria catalog with its owner, classification, and the domain it serves recorded.
@@ -519,7 +519,7 @@ Critical Data Elements Must Have Stated Quality Expectations
 CocoPharma::GovernanceObligation::QualityExpectationsForCriticalData
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 Each data element a domain has declared critical must carry a recorded, measurable quality expectation stated by that domain, against which it is monitored.
@@ -564,7 +564,7 @@ Cross-Department Data Sharing Must Be Governed by a Recorded Agreement
 CocoPharma::GovernanceObligation::DataSharingGovernedByAgreement
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 Data flowing routinely between departments or to external parties must be covered by a recorded agreement stating purpose, permitted use, classification, quality expectation, and duration.
@@ -609,7 +609,7 @@ Master and Reference Data Must Have a Single Authoritative Source
 CocoPharma::GovernanceObligation::SingleAuthoritativeSourceForMasterData
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 For each master and reference data domain there must be exactly one authoritative source, with all other copies designated as replicas that do not originate change.
@@ -656,7 +656,7 @@ Automated Quality Monitoring
 CocoPharma::GovernanceApproach::AutomatedQualityMonitoring
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 Data quality will be monitored through automated rules that run continuously or on a schedule, generating alerts when quality thresholds are not met.
@@ -700,7 +700,7 @@ Critical Data Element Identification
 CocoPharma::GovernanceApproach::CriticalDataElementIdentification
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 Each governance domain works with the DATA domain to identify the data elements its obligations actually depend on, and those elements receive the catalog, quality, lineage, and classification effort.
@@ -745,7 +745,7 @@ Subject Area Modelling
 CocoPharma::GovernanceApproach::SubjectAreaModelling
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 Business concepts are organised into subject areas, each with an owner, agreed definitions, and a documented relationship to the systems that implement them.
@@ -790,7 +790,7 @@ Federated Data Stewardship
 CocoPharma::GovernanceApproach::FederatedDataStewardship
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 Data stewardship is exercised within each business domain by people who understand the data, with the DATA domain providing method, tooling, and coordination rather than performing stewardship centrally.
@@ -934,7 +934,7 @@ Percentage of Data Assets with Designated Owner
 CocoPharma::GovernanceMetric::PercentageOfDataAssetsWithDesignatedOwner
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 Measures the proportion of catalogued data assets that have a formally assigned and current owner.
@@ -976,7 +976,7 @@ Data Quality Rule Pass Rate
 CocoPharma::GovernanceMetric::DataQualityRulePassRate
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 Measures the percentage of automated data quality rule checks that pass within a reporting period.
@@ -1018,7 +1018,7 @@ Open Data Quality Issues by Age
 CocoPharma::GovernanceMetric::OpenDataQualityIssuesByAge
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 Tracks the number of unresolved data quality issues and their age, to monitor whether issues are being resolved within agreed timeframes.
@@ -1061,7 +1061,7 @@ Critical Data Element Quality Expectation Coverage
 CocoPharma::GovernanceMetric::CriticalDataExpectationCoverage
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 Measures the percentage of declared critical data elements that carry a stated, measurable quality expectation and are actively monitored against it.
@@ -1105,7 +1105,7 @@ Catalog Registration Coverage
 CocoPharma::GovernanceMetric::CatalogRegistrationCoverage
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 Measures the percentage of data assets discovered by automated scanning that are registered in the catalog with an owner and classification recorded.
@@ -1149,7 +1149,7 @@ Lineage Coverage for Critical Data Elements
 CocoPharma::GovernanceMetric::LineageCoverageForCriticalData
 
 ### Domain Identifier
-DATA
+Data
 
 ### Summary
 Measures the percentage of declared critical data elements for which a complete lineage path from origin to point of use is available in the catalog.

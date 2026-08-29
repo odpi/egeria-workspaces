@@ -1,5 +1,5 @@
 {
-  "displayName": "Coco - Systems Inventory",
+  "displayName": "Coco - 4. Systems Inventory",
   "description": "Naming standard rules for IT system identifiers across the Coco Pharmaceuticals sites.",
   "canary": {
     "type": "NamingStandardRule",

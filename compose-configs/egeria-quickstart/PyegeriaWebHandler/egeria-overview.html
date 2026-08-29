@@ -321,19 +321,21 @@
   <div class="persp-bar">
     <div>
       <div class="persp-eyebrow">Viewing through perspective</div>
-      <div class="persp-cur" id="persp-cur">🛡️ Data Governance Lead
+      <div class="persp-cur" id="persp-cur">🛡️ Governance
         <span style="font-size:.72rem;color:var(--muted);font-weight:400">— "Are we in control, and is it improving?"</span>
       </div>
     </div>
     <div class="persp-tabs">
-      <button data-persp="governance" class="on">Governance Lead</button>
+      <button data-persp="governance" class="on">Governance</button>
       <button data-persp="steward">Steward</button>
-      <button data-persp="owner">Data Owner</button>
+      <button data-persp="owner">Data&nbsp;Owner</button>
       <button data-persp="consumer">Consumer</button>
-      <button data-persp="engineer">Engineer</button>
-      <button data-persp="builder">App&nbsp;/&nbsp;AI&nbsp;Builder</button>
-      <button data-persp="privacy">Privacy&nbsp;Officer</button>
-      <button data-persp="community">Community&nbsp;Lead</button>
+      <button data-persp="engineer">Engineering</button>
+      <button data-persp="architecture">Architecture</button>
+      <button data-persp="security">Security</button>
+      <button data-persp="builder">App/AI&nbsp;Builder</button>
+      <button data-persp="privacy">Privacy</button>
+      <button data-persp="community">Community</button>
       <button onclick="document.getElementById('qpanel').classList.toggle('open')" style="border-color:var(--c3);color:var(--c3)">❓ Questions ▾</button>
     </div>
   </div>
@@ -1014,7 +1016,7 @@ hbars('fbType',[
 // Question starter sets are scavenged from DAMA-DMBOK / DCAM / FAIR / DataOps.
 const Q = (i,t,src,b,bc)=>({i:i,t:t,src:src,b:b,bc:bc||'qb-part'});
 const PERSPECTIVES = {
-  governance: { icon:'🛡️', label:'Data Governance Lead', q:'"Are we in control, and is it improving?"',
+  governance: { icon:'🛡️', label:'Governance', q:'"Are we in control, and is it improving?"',
     show:['value','growth','quality','composition','usage','ai','people','activity'],
     questions:[
       Q('🟢','What share of critical assets is governed (owned, classified, certified)?','DCAM · Governance → <b style="color:var(--text)">Business value:</b> regulatory exposure &amp; audit-readiness','Governed Coverage','qb-ans'),
@@ -1022,49 +1024,63 @@ const PERSPECTIVES = {
       Q('🟠','Where is our regulatory exposure concentrated?','FAIR + Privacy → <b style="color:var(--text)">Business value:</b> avoided fines, breach-cost reduction','Confidential in open zones'),
       Q('🟢','How many policy exceptions are open, and are they aging down?','DCAM · Control → <b style="color:var(--text)">Business value:</b> operational risk &amp; SLA to remediation','Open exceptions','qb-ans'),
       Q('⚪','Is the community actively curating &amp; trusting the catalog?','Adoption → <b style="color:var(--text)">Business value:</b> self-service, less steward toil','→ People &amp; Community','qb-none') ] },
-  steward: { icon:'🧹', label:'Data Steward', q:'"What in my domain needs my attention?"',
+  steward: { icon:'🧹', label:'Steward', q:'"What in my domain needs my attention?"',
     show:['quality','composition','usage','growth','people','activity'],
     questions:[
       Q('🟠','Which assets lack an owner, classification, or description?','DAMA · Metadata → <b style="color:var(--text)">Value:</b> trustable, findable catalog','Attention queue'),
       Q('🟠','Which glossary terms are unlinked or awaiting approval?','FAIR · Findable → <b style="color:var(--text)">Value:</b> semantic coverage','Orphan terms'),
       Q('🟠','Which data stores have never been surveyed / profiled?','DataOps · quality → <b style="color:var(--text)">Value:</b> known data quality','Unsurveyed'),
       Q('⚪','What changed in my domain since I last looked?','Observability → <b style="color:var(--text)">Value:</b> stay ahead of drift','→ Recent Activity','qb-none') ] },
-  owner: { icon:'📦', label:'Data Owner', q:'"Is my data healthy, used, and trusted?"',
+  owner: { icon:'📦', label:'Data Owner', q:'"Are the assets I&#39;m responsible for managing healthy, used, and trusted?"',
     show:['value','quality','people','usage','composition','activity'],
     questions:[
-      Q('🟢','Who is using my data products, and how much?','Data-as-product → <b style="color:var(--text)">Value:</b> demonstrate impact','Most-engaged assets','qb-ans'),
-      Q('🟠','What is the quality &amp; freshness of assets I own?','DataOps → <b style="color:var(--text)">Value:</b> reliability','DQ coverage'),
-      Q('🟠','Are there open issues or low ratings on my assets?','Feedback → <b style="color:var(--text)">Value:</b> trust signal','Ratings'),
-      Q('🟠','Is my data properly classified &amp; access-controlled?','DCAM → <b style="color:var(--text)">Value:</b> compliance','Governed coverage') ] },
-  consumer: { icon:'🔎', label:'Data Consumer / Analyst', q:'"Can I find and trust the data I need?"',
+      Q('🟢','Who is using the data products I&#39;m responsible for, and how much?','Data-as-product → <b style="color:var(--text)">Value:</b> demonstrate impact','Most-engaged assets','qb-ans'),
+      Q('🟠','What is the quality &amp; freshness of the assets I manage?','DataOps → <b style="color:var(--text)">Value:</b> reliability','DQ coverage'),
+      Q('🟠','Are there open issues or low ratings on assets I&#39;m accountable for?','Feedback → <b style="color:var(--text)">Value:</b> trust signal','Ratings'),
+      Q('🟠','Are the assets I manage properly classified &amp; access-controlled?','DCAM → <b style="color:var(--text)">Value:</b> compliance','Governed coverage') ] },
+  consumer: { icon:'🔎', label:'Consumer', q:'"Can I find and trust the data I need?"',
     show:['composition','usage','people','ai','growth'],
     questions:[
       Q('🟢','What certified data products exist for my domain?','FAIR · Findable → <b style="color:var(--text)">Value:</b> faster time-to-data','Data products','qb-ans'),
       Q('🟠','Where did this data come from, and how fresh is it?','FAIR · lineage → <b style="color:var(--text)">Value:</b> trust','Usage context'),
-      Q('🟢','What do peers say — ratings, comments, most-used?','Collaboration → <b style="color:var(--text)">Value:</b> social proof','Most-engaged','qb-ans'),
+      Q('🟢','Which assets are used most (and least) across the organisation, and how is that changing?','Usage analytics → <b style="color:var(--text)">Value:</b> focus curation where it matters','Most/least used','qb-ans'),
       Q('🟠','Which datasets are safe to use with an LLM/agent?','AI governance → <b style="color:var(--text)">Value:</b> safe reuse','AI-ready') ] },
-  engineer: { icon:'🔧', label:'Data Engineer / Platform', q:'"Is the pipeline healthy and complete?"',
+  engineer: { icon:'🔧', label:'Engineering', q:'"Is the pipeline healthy and complete?"',
     show:['composition','usage','quality','ai','growth','activity'],
     questions:[
       Q('🟠','Which assets are unsurveyed / missing schema?','DataOps → <b style="color:var(--text)">Value:</b> coverage','Schema captured'),
       Q('🟠','How complete is lineage — any orphan nodes?','FAIR · lineage → <b style="color:var(--text)">Value:</b> impact analysis','Lineage-traced'),
-      Q('🟠','What supply chains / blueprints do assets participate in?','Architecture → <b style="color:var(--text)">Value:</b> change safety','Usage context'),
+      Q('🟠','Are pipelines instrumented with open lineage end-to-end?','Observability → <b style="color:var(--text)">Value:</b> traceable failures','Instrumentation'),
       Q('⚪','What structural change happened recently?','Observability → <b style="color:var(--text)">Value:</b> detect drift','→ Activity','qb-none') ] },
-  builder: { icon:'🤖', label:'App / AI Builder', q:'"How much governed context can I safely build on?"',
+  architecture: { icon:'🧱', label:'Architecture', q:'"Do our designs cover the landscape, and are they current?"',
+    show:['composition','usage','growth','activity'],
+    questions:[
+      Q('🟢','How many Solution Blueprints and Components are catalogued, and are they linked to real assets?','Solution architecture → <b style="color:var(--text)">Value:</b> traceable, reviewable designs','Blueprints &amp; Components','qb-ans'),
+      Q('🟢','How many Information Supply Chains trace data end-to-end, and where do they break?','FAIR · lineage → <b style="color:var(--text)">Value:</b> impact analysis, change safety','Supply chains','qb-ans'),
+      Q('🟠','Which architectures are stale — unreviewed since a major asset or process change?','Architecture governance → <b style="color:var(--text)">Value:</b> designs that stay trustworthy','Freshness'),
+      Q('⚪','Which supply chains or blueprints handle confidential or high-criticality data?','Risk-aware design → <b style="color:var(--text)">Value:</b> prioritised review','→ Security','qb-none') ] },
+  security: { icon:'🔐', label:'Security', q:'"Is our technical attack surface understood and controlled?"',
+    show:['value','composition','quality','ai'],
+    questions:[
+      Q('🟠','Which integration connectors and endpoints exist, and are any misconfigured or unmonitored?','Security architecture → <b style="color:var(--text)">Value:</b> reduced attack surface','Connector inventory'),
+      Q('🟠','Which service accounts, connectors, or AI agents have elevated platform access?','Access control · least privilege → <b style="color:var(--text)">Value:</b> breach containment','Elevated access'),
+      Q('🟢','Is confidential data blocked from AI training/RAG contexts?','AI safety → <b style="color:var(--text)">Value:</b> defensible AI','AI guardrails','qb-ans'),
+      Q('⚪','Are there open security-relevant governance exceptions (e.g. unencrypted, unclassified-for-risk assets)?','DCAM · Control → <b style="color:var(--text)">Value:</b> operational risk reduction','→ Governance','qb-none') ] },
+  builder: { icon:'🤖', label:'App/AI Builder', q:'"How much governed context can I safely build on?"',
     show:['ai','usage','composition','value','growth'],
     questions:[
       Q('🟠','How much data is AI-ready — governed, documented, lineage-traced?','AI governance → <b style="color:var(--text)">Value:</b> trustworthy AI faster','Context readiness funnel'),
       Q('🟢','What context products can I consume via MCP / API?','Context intelligence → <b style="color:var(--text)">Value:</b> ship without re-plumbing','Context products','qb-ans'),
       Q('🟠','What is semantically grounded (glossary-linked)?','RAG grounding → <b style="color:var(--text)">Value:</b> fewer hallucinations','Semantic grounding'),
       Q('🟢','What guardrails keep confidential data out of AI context?','AI safety → <b style="color:var(--text)">Value:</b> defensible AI','AI guardrails','qb-ans') ] },
-  privacy: { icon:'🔒', label:'Privacy / Risk Officer', q:'"Where is our risk and exposure?"',
+  privacy: { icon:'🔒', label:'Privacy', q:'"Where is our privacy risk and exposure?"',
     show:['value','quality','composition','ai','usage'],
     questions:[
       Q('🟠','Where is PII / sensitive data, and is it in the right zones?','Privacy → <b style="color:var(--text)">Value:</b> breach-cost reduction','Confidentiality dist.'),
       Q('🟠','What is our retention / certification compliance posture?','DCAM · Control → <b style="color:var(--text)">Value:</b> avoided fines','Certifications'),
-      Q('🟠','Who / what can access restricted data (incl. AI agents)?','Access control → <b style="color:var(--text)">Value:</b> least privilege','AI guardrails'),
-      Q('🟢','Is confidential data blocked from AI training/RAG?','AI safety → <b style="color:var(--text)">Value:</b> defensible AI','Blocked from AI','qb-ans') ] },
-  community: { icon:'🌐', label:'Community Lead', q:'"Is the community healthy and engaged?"',
+      Q('🟠','Who / what can access restricted personal or sensitive data?','Access control → <b style="color:var(--text)">Value:</b> least privilege','Restricted-data access'),
+      Q('⚪','Are data-processing purposes documented for regulated data flows?','Privacy by design → <b style="color:var(--text)">Value:</b> lawful-basis evidence','Processing purposes','qb-none') ] },
+  community: { icon:'🌐', label:'Community', q:'"Is the community healthy and engaged?"',
     show:['people','activity','usage','value','growth'],
     questions:[
       Q('🟢','Who are our most active contributors (karma leaders)?','Community Profile → <b style="color:var(--text)">Value:</b> recognise curation','Karma leaderboard','qb-ans'),
@@ -1144,6 +1160,8 @@ const PERSP_KPIS = {
   owner:      ['products','governed','certs','exceptions','people','grounding'],
   consumer:   ['products','terms','grounding','isc','blueprints','people'],
   engineer:   ['assets','isc','blueprints','grounding','exceptions','governed'],
+  architecture: ['isc','blueprints','assets','grounding','governed','exceptions'],
+  security:   ['governed','exceptions','ai-ready','certs','assets','grounding'],
   builder:    ['assets','grounding','isc','blueprints','governed','products'],
   privacy:    ['governed','certs','exceptions','assets','grounding','products'],
   community:  ['people','communities','products','terms','governed','assets']
@@ -1964,6 +1982,8 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (!d) return;
     store.isc = d.informationSupplyChains; store.blueprints = d.blueprints;
     store.contextualisedPct = d.contextualisedPct;
+    store.solutionComponents = d.solutionComponents;
+    store.solutionComponentsRealised = d.solutionComponentsRealised;
     if (!primary) return;
     setTxt('uc-isc', fmt(d.informationSupplyChains));
     setTxt('uc-bp',  fmt(d.blueprints));
@@ -1971,6 +1991,8 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     if (typeof DRILL === 'object') {
       if (d.informationSupplyChains != null && DRILL.isc) DRILL.isc.stats[0] = [String(d.informationSupplyChains), 'supply chains'];
       if (d.blueprints != null && DRILL.blueprints) DRILL.blueprints.stats[0] = [String(d.blueprints), 'blueprints'];
+      if (d.solutionComponents != null && DRILL.blueprints) DRILL.blueprints.stats[1] = [String(d.solutionComponents), 'components'];
+      if (d.solutionComponentsRealised != null && DRILL.blueprints) DRILL.blueprints.stats[2] = [String(d.solutionComponentsRealised), 'realised by ≥1 implementation'];
     }
   }
 

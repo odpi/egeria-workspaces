@@ -10,7 +10,7 @@
 # Java 11 (build.gradle sourceCompatibility/targetCompatibility) so building
 # on 17 and running on the final stage's newer JDK below is safe either way
 # — no need to revert Dependabot's runtime-image bump, just the build one.
-FROM docker.io/library/eclipse-temurin:17 AS base
+FROM docker.io/library/eclipse-temurin:17@sha256:a27c79d44326d5f689668df5fedfee487652066d2a91e172747056cc7fbee6fc AS base
 WORKDIR /usr/src/app
 COPY gradle gradle
 COPY gradle.properties gradle.properties
@@ -24,7 +24,7 @@ COPY src ./src
 COPY build.gradle build.gradle
 RUN ./gradlew --no-daemon shadowJar
 
-FROM docker.io/library/eclipse-temurin:24
+FROM docker.io/library/eclipse-temurin:24@sha256:7493205ffe6caa8074fa8a06a276bb1c5ac41d3dd0fd43a0db66d7f776e80b3e
 WORKDIR /usr/src/app
 COPY --from=build /usr/src/app/build/libs/openlineage-proxy-*.jar /usr/src/app
 COPY proxy.dev.yml proxy.dev.yml

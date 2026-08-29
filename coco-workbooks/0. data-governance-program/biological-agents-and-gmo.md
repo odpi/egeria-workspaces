@@ -4,7 +4,7 @@
 > **Version:** 1.0  
 > **Status:** ACTIVE  
 > **Date:** 2026-08-24  
-> **Description:** Governance definitions for work with biological agents and for contained use of genetically modified organisms, carrying Domain Identifier `24` — Health and Safety. Separated from `health-and-safety.md` because contained use is a distinct regulatory regime with its own classification scheme, its own regulator relationship, and a notification duty that must be discharged before work begins. Load `health-and-safety.md` and `manufacturing-governance-program.md` first.
+> **Description:** Governance definitions for work with biological agents and for contained use of genetically modified organisms, carrying Domain Identifier `Health and Safety`. Separated from `health-and-safety.md` because contained use is a distinct regulatory regime with its own classification scheme, its own regulator relationship, and a notification duty that must be discharged before work begins. Load `health-and-safety.md` and `manufacturing-governance-program.md` first.
 
 ---
 
@@ -18,7 +18,7 @@ The second is the personalised medicine programme, and it is not obvious at all 
 
 The distinction that makes this its own file is that contained use is regulated by *activity*, not by substance. A COSHH assessment describes a substance and the tasks done with it. A contained use notification describes a class of activity at a set of premises, is submitted in advance, and constrains what may be done there until it is varied. Missing a substance from the chemical register is a gap to be closed; conducting an unnotified class 2 activity is an offence committed on the first day of work.
 
-The definitions here carry Domain Identifier `24` and join the Head of Health and Safety folio. They are not a separate domain — biological safety is occupational safety — but they are a separate body of regulation and are kept together for that reason.
+The definitions here carry Domain Identifier `Health and Safety` and join the Head of Health and Safety folio. They are not a separate domain — biological safety is occupational safety — but they are a separate body of regulation and are kept together for that reason.
 
 ---
 
@@ -39,7 +39,7 @@ EU Directive 2000/54/EC — Biological Agents at Work
 CocoPharma::Regulation::EUBiologicalAgentsDirective
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 The EU directive on protecting workers from risks related to exposure to biological agents at work, classifying agents into four hazard groups and setting the containment measures and health surveillance each requires.
@@ -91,7 +91,7 @@ Contained Use of Genetically Modified Organisms
 CocoPharma::Regulation::GMOContainedUse
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 The regime governing contained use of genetically modified micro-organisms and organisms, requiring activities to be risk-assessed, assigned a containment class, and notified to the competent authority before they begin.
@@ -146,7 +146,7 @@ Unnotified or Misclassified Contained Use Activity
 CocoPharma::Threat::UnnotifiedContainedUse
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Work with genetically modified organisms may begin without the notification the regime requires, or under a containment class lower than the risk assessment would support, exposing workers and constituting an offence from the first day.
@@ -196,7 +196,7 @@ Containment Follows Classification, Not Convenience
 CocoPharma::GovernancePrinciple::ContainmentFollowsClassification
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 The containment level applied to biological work is determined by the assessed classification of the agent and activity, and is never reduced because the available facility is lower or the timeline is pressing.
@@ -239,7 +239,7 @@ Notification Precedes Work
 CocoPharma::GovernancePrinciple::NotificationPrecedesWork
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 No contained use activity begins before the premises and, where required, the activity itself have been notified to the competent authority and any necessary consent received.
@@ -284,7 +284,7 @@ Biological Agents and Activities Must Be Classified Before Work Begins
 CocoPharma::GovernanceObligation::BiologicalAgentsClassified
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Every biological agent held and every contained use activity conducted must carry a recorded classification, made by a competent person, with the assessment retained and reviewed on change.
@@ -327,7 +327,7 @@ Contained Use Activities Must Be Notified and Kept Within Their Notification
 CocoPharma::GovernanceObligation::ContainedUseNotified
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Premises and activities requiring notification must be notified before use, with consent received where required, and any change taking an activity beyond its notification must be varied before the changed work proceeds.
@@ -373,7 +373,7 @@ Biological Risk Assessment and Containment Assignment
 CocoPharma::GovernanceApproach::BiologicalRiskAssessment
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Proposed biological work is assessed by a competent committee that classifies the agent and activity, assigns containment, determines notification requirements, and records the reasoning as the basis for later review.
@@ -463,7 +463,7 @@ Contained Use Notification Currency and Containment Verification
 CocoPharma::GovernanceMetric::ContainedUseNotificationCurrency
 
 ### Domain Identifier
-24
+Health and Safety
 
 ### Summary
 Measures the percentage of active contained use activities operating within a current notification, and the percentage whose assigned containment measures have been verified in place within the review cycle.

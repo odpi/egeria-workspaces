@@ -999,6 +999,7 @@ function TechTypesView({ creds }) {
 
   // Template filter
   var _inclTempl = useState(false), inclTempl = _inclTempl[0], setInclTempl = _inclTempl[1];
+  var _hierAttempt = useState(0), hierAttempt = _hierAttempt[0], setHierAttempt = _hierAttempt[1];
 
   // Load hierarchy on mount
   useEffect(function() {
@@ -1017,7 +1018,7 @@ function TechTypesView({ creds }) {
         setExp(firstLevel);
       })
       .catch(function(e) { setHierErr(String(e)); });
-  }, []);
+  }, [hierAttempt]);
 
   // Search when input changes (debounced via Enter or after brief pause)
   var _searchTimer = useRef(null);
@@ -1113,7 +1114,11 @@ function TechTypesView({ creds }) {
         React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
           React.createElement('input', { type: 'checkbox', checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
           'Include templates'
-        )
+        ),
+        React.createElement('button', {
+          className: 'btn-sm', style: { marginTop: 4 }, title: 'Reload the type hierarchy',
+          onClick: function() { setHierAttempt(function(a) { return a + 1; }); }
+        }, '↻ Refresh')
       ),
       React.createElement('div', { style: { overflowY: 'auto', flex: 1, padding: '4px 0' } }, sidebarContent)
     ),
@@ -1583,7 +1588,13 @@ function GlossaryView({ creds, onNavigate }) {
   return React.createElement('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
     // Left: glossary list
     React.createElement('div', { style: sidebarStyle },
-      React.createElement('div', { style: { padding: '8px 10px', fontWeight: 700, fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } }, 'Glossaries (' + glossaries.length + ')'),
+      React.createElement('div', { style: { padding: '8px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, borderBottom: '1px solid var(--border)' } },
+        React.createElement('span', { style: { fontWeight: 700, fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } }, 'Glossaries (' + glossaries.length + ')'),
+        React.createElement('button', {
+          className: 'btn-sm', title: 'Reload glossaries',
+          onClick: function() { setGlossaryAttempt(function(a) { return a + 1; }); }
+        }, '↻')
+      ),
       React.createElement('div', { style: treeScrollSt },
         React.createElement('div', { style: treeItemSt(isSearchMode), onClick: function(){setSelectedGlossary(null);setFolderStack([]);runSearch('*');}, title: 'Search terms across all glossaries' },
           React.createElement('span', { style: { fontStyle: 'italic', color: 'var(--dim)', fontSize: 12 } }, 'All Terms (search)')
@@ -1896,6 +1907,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   var _asOfTime = useState(null), asOfTime = _asOfTime[0], setAsOfTime = _asOfTime[1];
   var _createdFrom = useState(''), createdFrom = _createdFrom[0], setCreatedFrom = _createdFrom[1];
   var _createdTo   = useState(''), createdTo   = _createdTo[0],   setCreatedTo   = _createdTo[1];
+  var _attempt = useState(0), attempt = _attempt[0], setAttempt = _attempt[1];
   var supportsTime = /\/(data-stores|data-feeds|data-sets|infrastructure|software-capabilities|endpoints|apis|software-components|actions|survey-reports)\b/.test(endpoint);
   var supportsTemplateFilter = /\/(infrastructure|software-capabilities|endpoints|data-stores|data-feeds|data-sets|apis|software-components|actions|survey-reports)\b/.test(endpoint);
   // Filter-by-creation-timestamp: currently only meaningful for Survey Reports,
@@ -1912,7 +1924,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
       .then(function(r) { return r.json(); })
       .then(function(d) { setItems(Array.isArray(d) ? d : (d.items || [])); setLoading(false); })
       .catch(function(e) { setError(String(e)); setLoading(false); });
-  }, [endpoint, asOfTime, inclTempl]);
+  }, [endpoint, asOfTime, inclTempl, attempt]);
 
   function handleSelect(item) {
     setSelected(item);
@@ -2003,6 +2015,10 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
     supportsTime && React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' }),
     React.createElement('input', { type: 'search', placeholder: 'Filter…', value: q, onChange: function(e) { setQ(e.target.value); },
       style: { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } }),
+    React.createElement('button', {
+      className: 'btn-sm', style: { alignSelf: 'flex-start' },
+      onClick: function() { setAttempt(function(a) { return a + 1; }); }
+    }, '↻ Refresh'),
     supportsCreatedFilter && React.createElement('div', { style: { display: 'flex', gap: 4, alignItems: 'center' } },
       React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)', whiteSpace: 'nowrap' } }, 'Created:'),
       React.createElement('input', { type: 'date', value: createdFrom, onChange: function(e) { setCreatedFrom(e.target.value); },
@@ -2824,6 +2840,7 @@ function SurveyTypesView({ creds }) {
   var _data = useState(null), data = _data[0], setData = _data[1];
   var _err  = useState(null), err  = _err[0],  setErr  = _err[1];
   var _q    = useState(''),   q    = _q[0],    setQ    = _q[1];
+  var _attempt = useState(0), attempt = _attempt[0], setAttempt = _attempt[1];
 
   useEffect(function() {
     setData(null); setErr(null);
@@ -2831,7 +2848,7 @@ function SurveyTypesView({ creds }) {
       .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || r.status); }); })
       .then(function(j) { setData(j.items || []); })
       .catch(function(e) { setErr(e.message || String(e)); });
-  }, [creds.url, creds.server, creds.userId, creds.userPwd]);
+  }, [creds.url, creds.server, creds.userId, creds.userPwd, attempt]);
 
   var card = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 10 };
   var filtered = !data ? [] : data.filter(function(st) {
@@ -2849,7 +2866,11 @@ function SurveyTypesView({ creds }) {
         onChange: function(e) { setQ(e.target.value); },
         placeholder: 'Filter survey types…',
         style: { width: '100%', padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)', fontSize: 13, boxSizing: 'border-box' }
-      })
+      }),
+      React.createElement('button', {
+        className: 'btn-sm', style: { marginTop: 6 },
+        onClick: function() { setAttempt(function(a) { return a + 1; }); }
+      }, '↻ Refresh')
     ),
     React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: '12px 16px' } },
       err  && React.createElement('div', { style: { color: '#f87171', fontSize: 13, padding: 12 } }, 'Error: ' + err),
@@ -2958,7 +2979,60 @@ function GovernanceProcessDetail({ item, detailLoading, creds }) {
   );
 }
 
+// GovernanceProcessTreeNode: same shape as CapabilityTreeNode in quickstart's
+// tech-catalog.html (this freshstart copy doesn't have a Capabilities tree
+// yet) — generic on node.name/node.count/node.children.
+function GovernanceProcessTreeNode({ node, depth, selectedTypeName, onSelectType, expanded, toggleNode }) {
+  var isExp = expanded.has(node.name);
+  var isSel = selectedTypeName === node.name;
+  var paddingLeft = 8 + depth * 20;
+  var kids = node.children || [];
+  var hasKids = kids.length > 0;
+  return React.createElement(React.Fragment, null,
+    React.createElement('div', {
+      className: 'tree-item' + (isSel ? ' sel' : ''),
+      style: { paddingLeft: paddingLeft },
+      title: node.name + (node.count ? ' — ' + node.count + ' element' + (node.count === 1 ? '' : 's') : ''),
+      onClick: function() {
+        onSelectType(isSel ? null : node.name);
+        if (hasKids) toggleNode(node.name);
+      }
+    },
+      hasKids
+        ? React.createElement('span', { style: { width: 16, display: 'inline-block', flexShrink: 0, fontSize: 10, textAlign: 'center', color: isExp ? 'var(--accent)' : 'var(--muted)' } }, isExp ? '▼' : '▶')
+        : React.createElement('span', { style: { width: 16, display: 'inline-block', flexShrink: 0 } }),
+      React.createElement('span', { className: 'type-name', style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' } }, node.name),
+      node.count > 0 && React.createElement('span', {
+        style: { fontSize: 10, fontWeight: 600, color: isSel ? 'var(--accent)' : 'var(--dim)', background: 'rgba(96,165,250,.1)', borderRadius: 8, padding: '1px 6px', flexShrink: 0 }
+      }, node.count)
+    ),
+    isExp && hasKids && kids.map(function(child) {
+      return React.createElement(GovernanceProcessTreeNode, {
+        key: child.name, node: child, depth: depth + 1,
+        selectedTypeName: selectedTypeName, onSelectType: onSelectType, expanded: expanded, toggleNode: toggleNode,
+      });
+    })
+  );
+}
+
+// Type tree + filter: Egeria's content packs now tag real
+// GovernanceActionProcess instances with their concrete subtype
+// (AnalyticalActionProcess/CataloguingActionProcess/ExploringActionProcess/
+// ProvisioningActionProcess/SurveyingActionProcess —
+// https://egeria-project.org/types/4/0462-Governance-Action-Processes/), and
+// the list endpoint already returns each item's real typeName
+// (_serialize_governance_process_list_item, tech_catalog_handler.py), so
+// this is purely a frontend grouping change built client-side from the live
+// type system (useTypeGraph/getSubs/getAllSubs, egeria-shared-ui.js) — no
+// backend change needed. A process not yet tagged with a subtype (typeName
+// still the base GovernanceActionProcess) rolls up as a direct count on the
+// root node alongside the subtype branches.
 function GovernanceProcessesView({ creds, navTarget, onNavigate }) {
+  var _treeRz = useResizable(240, 160, 420), treeW = _treeRz[0], onTreeDown = _treeRz[1];
+  var _listRz = useResizable(280, 160, 500), listW = _listRz[0], onListDown = _listRz[1];
+  var entities = useTypeGraph(creds); // null while loading, {} on error — both read as "no tree yet"
+  var _expanded = useState(function() { return new Set(['GovernanceActionProcess']); }), expanded = _expanded[0], setExpanded = _expanded[1];
+  var _selType  = useState(null), selectedTypeName = _selType[0], setSelectedTypeName = _selType[1]; // null = show all
   var _items      = useState([]),    items      = _items[0],      setItems      = _items[1];
   var _loading    = useState(true),  loading    = _loading[0],    setLoading    = _loading[1];
   var _error      = useState(''),    error      = _error[0],      setError      = _error[1];
@@ -2966,6 +3040,7 @@ function GovernanceProcessesView({ creds, navTarget, onNavigate }) {
   var _detail     = useState(null),  detail     = _detail[0],     setDetail     = _detail[1];
   var _detailLoad = useState(false), detailLoad = _detailLoad[0], setDetailLoad = _detailLoad[1];
   var _q          = useState(''),    q          = _q[0],          setQ          = _q[1];
+  var _attempt = useState(0), attempt = _attempt[0], setAttempt = _attempt[1];
 
   useEffect(function() {
     setLoading(true); setError('');
@@ -2973,7 +3048,11 @@ function GovernanceProcessesView({ creds, navTarget, onNavigate }) {
       .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || r.status); }); })
       .then(function(d) { setItems(d.items || []); setLoading(false); })
       .catch(function(e) { setError(e.message || String(e)); setLoading(false); });
-  }, [creds.url, creds.server, creds.userId, creds.userPwd]);
+  }, [creds.url, creds.server, creds.userId, creds.userPwd, attempt]);
+
+  function toggleNode(name) {
+    setExpanded(function(prev) { var n = new Set(prev); if (n.has(name)) n.delete(name); else n.add(name); return n; });
+  }
 
   function handleSelect(item) {
     setSelected(item);
@@ -2995,25 +3074,103 @@ function GovernanceProcessesView({ creds, navTarget, onNavigate }) {
     handleSelect({ guid: navTarget.guid, displayName: navTarget.displayName || navTarget.guid });
   }, [navTarget, creds]);
 
-  var filtered = items.filter(function(item) {
-    if (!q.trim()) return true;
-    var lq = q.trim().toLowerCase();
-    return (item.displayName || '').toLowerCase().indexOf(lq) !== -1 ||
-           (item.qualifiedName || '').toLowerCase().indexOf(lq) !== -1;
-  });
+  // Counts per concrete typeName from the live instance list, then rolled up
+  // through the type hierarchy so the root (or an intermediate abstract type)
+  // shows the total under it, not just direct instances of that exact type.
+  var countsByType = useMemo(function() {
+    var m = {};
+    items.forEach(function(i) { m[i.typeName] = (m[i.typeName] || 0) + 1; });
+    return m;
+  }, [items]);
 
-  var filterBar = React.createElement('div', { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)' } },
-    React.createElement('input', { type: 'search', placeholder: 'Filter…', value: q, onChange: function(e) { setQ(e.target.value); },
-      style: { width: '100%', fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none', boxSizing: 'border-box' } })
+  var treeRoots = useMemo(function() {
+    if (!entities || !entities['GovernanceActionProcess']) return [];
+    var subtreeCount = {};
+    function count(name) {
+      if (subtreeCount[name] != null) return subtreeCount[name];
+      var total = countsByType[name] || 0;
+      getSubs(name, entities).forEach(function(sub) { total += count(sub); });
+      subtreeCount[name] = total;
+      return total;
+    }
+    function build(name) {
+      var kids = getSubs(name, entities)
+        .map(build)
+        .filter(function(k) { return k.count > 0; })
+        .sort(function(a, b) { return a.name.localeCompare(b.name); });
+      return { name: name, count: count(name), children: kids };
+    }
+    return [build('GovernanceActionProcess')];
+  }, [entities, countsByType]);
+
+  // Middle list: everything under the selected type (itself + all descendant
+  // types), or the full flat list if nothing's selected in the tree yet.
+  var selectedTypeSet = useMemo(function() {
+    if (!selectedTypeName || !entities) return null;
+    var set = new Set([selectedTypeName]);
+    getAllSubs(selectedTypeName, entities).forEach(function(n) { set.add(n); });
+    return set;
+  }, [selectedTypeName, entities]);
+
+  var listItems = (selectedTypeSet ? items.filter(function(i) { return selectedTypeSet.has(i.typeName); }) : items)
+    .filter(function(i) { return !q.trim() || (i.displayName || i.qualifiedName || '').toLowerCase().indexOf(q.trim().toLowerCase()) !== -1; })
+    .sort(function(a, b) { return (a.displayName || a.qualifiedName || '').localeCompare(b.displayName || b.qualifiedName || ''); });
+
+  return React.createElement('div', { className: 'body' },
+    // Left: type hierarchy
+    React.createElement('div', { style: { width: treeW, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid var(--border)' } },
+      React.createElement('div', { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } }, 'Process Hierarchy'),
+      React.createElement('div', { className: 'tree-scroll' },
+        entities === null
+          ? React.createElement('div', { style: { padding: '12px 10px', fontSize: 12, color: 'var(--dim)' } }, 'Loading type hierarchy…')
+          : treeRoots.length === 0
+          ? React.createElement('div', { style: { padding: '12px 10px', fontSize: 12, color: 'var(--dim)' } }, 'No governance action processes found')
+          : treeRoots.map(function(node) {
+              return React.createElement(GovernanceProcessTreeNode, {
+                key: node.name, node: node, depth: 0,
+                selectedTypeName: selectedTypeName, onSelectType: setSelectedTypeName, expanded: expanded, toggleNode: toggleNode,
+              });
+            })
+      )
+    ),
+    React.createElement(ResizeDivider, { onMouseDown: onTreeDown }),
+    // Middle: instances under the selected type
+    React.createElement('div', { style: { width: listW, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid var(--border)' } },
+      React.createElement('div', { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
+        React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } },
+          selectedTypeName ? selectedTypeName + ' (' + listItems.length + ')' : 'All processes (' + listItems.length + ')'),
+        React.createElement('input', { type: 'search', placeholder: 'Filter…', value: q, onChange: function(e) { setQ(e.target.value); },
+          style: { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } }),
+        React.createElement('button', {
+          className: 'btn-sm', style: { alignSelf: 'flex-start' },
+          onClick: function() { setAttempt(function(a) { return a + 1; }); }
+        }, '↻ Refresh')
+      ),
+      React.createElement('div', { style: { overflowY: 'auto', flex: 1 } },
+        loading ? React.createElement('div', { style: { padding: 24, color: 'var(--dim)', fontSize: 12 } }, 'Loading…')
+        : error ? React.createElement('div', { style: { padding: 16, color: '#f87171', fontSize: 12 } }, error)
+        : listItems.length === 0 ? React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'No items found.')
+        : listItems.map(function(item) {
+            var active = selected && selected.guid === item.guid;
+            return React.createElement('div', { key: item.guid, onClick: function() { handleSelect(item); },
+              style: { padding: '8px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)',
+                       background: active ? 'var(--hover)' : 'transparent',
+                       borderLeft: active ? '3px solid var(--accent)' : '3px solid transparent' } },
+              React.createElement('div', { style: { fontSize: 12, fontWeight: active ? 700 : 400, color: active ? 'var(--accent)' : 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
+                item.displayName || item.qualifiedName || item.guid),
+              React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 1 } }, item.typeName)
+            );
+          })
+      )
+    ),
+    React.createElement(ResizeDivider, { onMouseDown: onListDown }),
+    // Right: detail
+    React.createElement('div', { className: 'main', style: { padding: selected ? '20px 24px' : 0 } },
+      !selected
+        ? React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--dim)', fontSize: 13 } }, 'Select a process from the list')
+        : React.createElement(GovernanceProcessDetail, { item: detail, detailLoading: detailLoad, creds: creds })
+    )
   );
-
-  return React.createElement(SidebarDetail, {
-    items: filtered, loading: loading, error: error, selected: selected, onSelect: handleSelect,
-    filterBar: filterBar,
-    renderDetail: function() {
-      return React.createElement(GovernanceProcessDetail, { item: detail, detailLoading: detailLoad, creds: creds });
-    },
-  });
 }
 
 var SECTION_TABS = {

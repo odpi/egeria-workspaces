@@ -9,10 +9,9 @@
 > (GlossaryTerms classified `Question`). Generated from `egeria-overview.html`
 > `PERSPECTIVES` — the single source of truth. Regenerate with gen_perspectives.py.
 >
-> Most of these Perspectives already exist (Resource Explorer's own
-> reconciliation ran first) -- see EXISTING_PERSPECTIVES in this script. Only
-> `Engineering` is created new here; everything else links its Questions
-> straight to the existing element by qualified name.
+> freshstart's Egeria instance is isolated from quickstart's -- none of these
+> Perspectives pre-exist here (see EXISTING_PERSPECTIVES in this script, empty),
+> so every one of them gets a real Create Perspective command below.
 >
 > Starter questions scavenged from DAMA-DMBOK / EDM-Council DCAM / FAIR / DataOps.
 > **Run with VALIDATE first, then PROCESS.** Create commands carry user-specified
@@ -20,10 +19,24 @@
 
 ---
 
-# Governance — perspective (existing — adopted from Resource Explorer, not created here)
+# Governance — perspective
 
-Questions below link to the existing `Perspective::Governance` Perspective element;
-no Create Perspective command for it in this doc.
+## Create Perspective
+
+### Display Name
+Governance
+
+### Category
+Overview Dashboard Perspective
+
+### Description
+Are we in control, and is it improving?  (Egeria Overview dashboard perspective.)
+
+### Qualified Name
+Perspective::Governance
+
+### Version Identifier
+1.0
 
 ---
 
@@ -207,10 +220,24 @@ ScopedBy
 
 ---
 
-# Steward — perspective (existing — adopted from Resource Explorer, not created here)
+# Steward — perspective
 
-Questions below link to the existing `Perspective::Steward` Perspective element;
-no Create Perspective command for it in this doc.
+## Create Perspective
+
+### Display Name
+Steward
+
+### Category
+Overview Dashboard Perspective
+
+### Description
+What in my domain needs my attention?  (Egeria Overview dashboard perspective.)
+
+### Qualified Name
+Perspective::Steward
+
+### Version Identifier
+1.0
 
 ---
 
@@ -358,10 +385,24 @@ ScopedBy
 
 ---
 
-# Data Owner — perspective (existing — adopted from Resource Explorer, not created here)
+# Data Owner — perspective
 
-Questions below link to the existing `Perspective::Data Owner` Perspective element;
-no Create Perspective command for it in this doc.
+## Create Perspective
+
+### Display Name
+Data Owner
+
+### Category
+Overview Dashboard Perspective
+
+### Description
+Are the assets I'm responsible for managing healthy, used, and trusted?  (Egeria Overview dashboard perspective.)
+
+### Qualified Name
+Perspective::Data Owner
+
+### Version Identifier
+1.0
 
 ---
 
@@ -509,10 +550,24 @@ ScopedBy
 
 ---
 
-# Consumer — perspective (existing — adopted from Resource Explorer, not created here)
+# Consumer — perspective
 
-Questions below link to the existing `Perspective::Consumer` Perspective element;
-no Create Perspective command for it in this doc.
+## Create Perspective
+
+### Display Name
+Consumer
+
+### Category
+Overview Dashboard Perspective
+
+### Description
+Can I find and trust the data I need?  (Egeria Overview dashboard perspective.)
+
+### Qualified Name
+Perspective::Consumer
+
+### Version Identifier
+1.0
 
 ---
 
@@ -825,10 +880,24 @@ ScopedBy
 
 ---
 
-# Architecture — perspective (existing — adopted from Resource Explorer, not created here)
+# Architecture — perspective
 
-Questions below link to the existing `Perspective::Architecture` Perspective element;
-no Create Perspective command for it in this doc.
+## Create Perspective
+
+### Display Name
+Architecture
+
+### Category
+Overview Dashboard Perspective
+
+### Description
+Do our designs cover the landscape, and are they current?  (Egeria Overview dashboard perspective.)
+
+### Qualified Name
+Perspective::Architecture
+
+### Version Identifier
+1.0
 
 ---
 
@@ -976,10 +1045,24 @@ ScopedBy
 
 ---
 
-# Security — perspective (existing — adopted from Resource Explorer, not created here)
+# Security — perspective
 
-Questions below link to the existing `Perspective::Security` Perspective element;
-no Create Perspective command for it in this doc.
+## Create Perspective
+
+### Display Name
+Security
+
+### Category
+Overview Dashboard Perspective
+
+### Description
+Is our technical attack surface understood and controlled?  (Egeria Overview dashboard perspective.)
+
+### Qualified Name
+Perspective::Security
+
+### Version Identifier
+1.0
 
 ---
 
@@ -1127,10 +1210,24 @@ ScopedBy
 
 ---
 
-# App/AI Builder — perspective (existing — adopted from Resource Explorer, not created here)
+# App/AI Builder — perspective
 
-Questions below link to the existing `Perspective::App/AI Builder` Perspective element;
-no Create Perspective command for it in this doc.
+## Create Perspective
+
+### Display Name
+App/AI Builder
+
+### Category
+Overview Dashboard Perspective
+
+### Description
+How much governed context can I safely build on?  (Egeria Overview dashboard perspective.)
+
+### Qualified Name
+Perspective::App/AI Builder
+
+### Version Identifier
+1.0
 
 ---
 
@@ -1278,10 +1375,24 @@ ScopedBy
 
 ---
 
-# Privacy — perspective (existing — adopted from Resource Explorer, not created here)
+# Privacy — perspective
 
-Questions below link to the existing `Perspective::Privacy` Perspective element;
-no Create Perspective command for it in this doc.
+## Create Perspective
+
+### Display Name
+Privacy
+
+### Category
+Overview Dashboard Perspective
+
+### Description
+Where is our privacy risk and exposure?  (Egeria Overview dashboard perspective.)
+
+### Qualified Name
+Perspective::Privacy
+
+### Version Identifier
+1.0
 
 ---
 
@@ -1429,10 +1540,24 @@ ScopedBy
 
 ---
 
-# Community — perspective (existing — adopted from Resource Explorer, not created here)
+# Community — perspective
 
-Questions below link to the existing `Perspective::Community` Perspective element;
-no Create Perspective command for it in this doc.
+## Create Perspective
+
+### Display Name
+Community
+
+### Category
+Overview Dashboard Perspective
+
+### Description
+Is the community healthy and engaged?  (Egeria Overview dashboard perspective.)
+
+### Qualified Name
+Perspective::Community
+
+### Version Identifier
+1.0
 
 ---
 

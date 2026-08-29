@@ -11,9 +11,19 @@ storage-choice rationale (a local ~/.pyegeria JSON file, not the demo_auth
 Postgres table -- freshstart has no Postgres wired up at all).
 
 Endpoints:
-  GET  /api/bootstrap/batches           → discovered batches + current selection
-  POST /api/bootstrap/batches/selection → save selection (admin only)
-  POST /api/bootstrap/batches/{id}/run  → run one batch now, its enabled files (admin only)
+  GET  /api/bootstrap/batches               → discovered batches + current selection
+  GET  /api/bootstrap/log                   → tail of bootstrap.log (recent batch/auto-heal activity)
+  GET  /api/bootstrap/log/issues            → tail of pyegeria.log, ERROR/WARNING only (dr_egeria's own detail)
+  POST /api/bootstrap/batches/selection     → save selection (admin only)
+  POST /api/bootstrap/batches/{id}/run      → start running one batch in the background (admin only)
+  GET  /api/bootstrap/batches/{id}/run-status → poll the run started above
+  POST /api/bootstrap/batches/run-all       → start running every enabled batch in the background (admin only)
+  GET  /api/bootstrap/batches/run-all/run-status → poll the run-all started above
+
+The run endpoints return immediately ({"started": true, ...}) rather than
+blocking on the run -- see bootstrap_batches.py's "Background run + poll"
+section for why (a run routinely outlasts Apache's ProxyPass timeout).
+Clients poll the matching run-status endpoint for the outcome.
 """
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -36,6 +46,16 @@ def _admin_gate(request: Request):
         _is_admin = None
     if _is_admin is not None and not _is_admin(request):
         raise HTTPException(status_code=403, detail="This operation requires an administrator.")
+
+
+@router.get("/log", summary="Recent bootstrap/auto-heal activity (tail of bootstrap.log)")
+def get_log(lines: int = Query(200, ge=1, le=2000)):
+    return JSONResponse({"lines": bb.tail_log(lines)})
+
+
+@router.get("/log/issues", summary="Recent dr_egeria ERROR/WARNING lines (tail of pyegeria.log)")
+def get_log_issues(lines: int = Query(200, ge=1, le=2000)):
+    return JSONResponse({"lines": bb.tail_dr_egeria_issues(lines)})
 
 
 @router.get("/batches", summary="List discovered bootstrap batches and their selection state")
@@ -68,7 +88,7 @@ def save_batch_selection(req: SaveSelectionRequest, request: Request):
     return JSONResponse({"saved": True, "selection": payload})
 
 
-@router.post("/batches/{batch_id}/run", summary="Run one batch now (admin only)")
+@router.post("/batches/{batch_id}/run", summary="Start running one batch now in the background (admin only)")
 async def run_batch_now(batch_id: str, request: Request, confirm: bool = Query(False)):
     _admin_gate(request)
     batches = {b["id"]: b for b in bb.batches_with_selection()}
@@ -93,12 +113,17 @@ async def run_batch_now(batch_id: str, request: Request, confirm: bool = Query(F
         )
 
     logger.info(f"bootstrap batches: manually running {batch_id!r} ({len(files)} files)")
-    results = await bb.run_batch({**batch, "files": files})
-    ok = all(r["status"] == "ok" for r in results)
-    return JSONResponse({"batch": batch_id, "success": ok, "results": results})
+    started = bb.start_background(batch_id, bb.run_batch({**batch, "files": files}))
+    return JSONResponse({"started": True, "already_running": not started})
 
 
-@router.post("/batches/run-all", summary="Run every enabled batch, in folder order (admin only)")
+@router.get("/batches/{batch_id}/run-status", summary="Poll the outcome of a batch run started via POST .../run")
+def batch_run_status(batch_id: str, request: Request):
+    _admin_gate(request)
+    return JSONResponse(bb.run_status(batch_id))
+
+
+@router.post("/batches/run-all", summary="Start running every enabled batch, in folder order, in the background (admin only)")
 async def run_all_batches_now(request: Request, confirm: bool = Query(False)):
     _admin_gate(request)
     enabled = bb.enabled_batches()
@@ -115,6 +140,11 @@ async def run_all_batches_now(request: Request, confirm: bool = Query(False)):
         )
 
     logger.info(f"bootstrap batches: manually running all enabled batches ({[b['id'] for b in enabled]})")
-    runs = await bb.run_all_enabled()
-    ok = all(r["status"] == "ok" for run in runs for r in run["results"])
-    return JSONResponse({"success": ok, "runs": runs})
+    started = bb.start_background(bb.RUN_ALL_KEY, bb.run_all_enabled())
+    return JSONResponse({"started": True, "already_running": not started})
+
+
+@router.get("/batches/run-all/run-status", summary="Poll the outcome of a run-all started via POST .../run-all")
+def run_all_status(request: Request):
+    _admin_gate(request)
+    return JSONResponse(bb.run_status(bb.RUN_ALL_KEY))

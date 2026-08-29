@@ -39,7 +39,6 @@ GOV_TYPE_TREE = [
         "isAbstract": True,
         "children": [
             {"typeName": "BusinessImperative", "label": "Business Imperatives"},
-            {"typeName": "GovernanceStrategy", "label": "Governance Strategies"},
             {
                 "typeName": "Regulation",
                 "label": "Regulations",
@@ -119,6 +118,14 @@ GOV_TYPE_TREE = [
 _TREE_CACHE: dict = {"value": None, "ts": 0.0}
 _TREE_TTL = 300  # seconds
 
+# GovernanceStrategy remains a real EntityDef in Egeria's type system (still a
+# GovernanceDriver subtype, so _build_gov_tree's live query keeps surfacing it
+# as a category), but it's a superseded design -- BusinessImperative is the
+# current, recommended way to capture this concept, and no governance
+# definitions of this type exist in practice (2026-08-28: confirmed 0 live).
+# Hidden from the tree so users aren't offered an empty, deprecated group.
+_HIDDEN_GOV_TYPES = {"GovernanceStrategy"}
+
 
 def _camel_to_label(name: str) -> str:
     """Convert CamelCase type name to a pluralised display label.
@@ -194,7 +201,7 @@ def _build_gov_tree() -> list:
 
     def _build_node(type_name: str) -> dict:
         meta = type_meta.get(type_name, {})
-        children_names = sorted(children_map.get(type_name, []))
+        children_names = sorted(n for n in children_map.get(type_name, []) if n not in _HIDDEN_GOV_TYPES)
         node: dict = {
             "typeName": type_name,
             "label": _camel_to_label(type_name),
@@ -206,7 +213,7 @@ def _build_gov_tree() -> list:
         return node
 
     # GovernanceDefinition is abstract and the root; return its children as roots
-    gov_children = sorted(children_map.get("GovernanceDefinition", []))
+    gov_children = sorted(n for n in children_map.get("GovernanceDefinition", []) if n not in _HIDDEN_GOV_TYPES)
     if not gov_children:
         logger.warning("_build_gov_tree: no subtypes of GovernanceDefinition found; using fallback")
         return GOV_TYPE_TREE
@@ -385,6 +392,11 @@ def find_definitions(
             starts_with=True,
             ignore_case=True,
             output_format="JSON",
+            graph_query_depth=0,  # PY-6/PY-14 perf lesson — _serialize_list_item only reads
+                                  # flat scalar fields, never relationships{}, so the default
+                                  # depth-3 traversal Egeria does per row (x up to page_size) is
+                                  # pure waste here; get_definition()'s single-item fetch below
+                                  # still asks for depth=3 where it's actually needed.
             start_from=start_from,
             page_size=page_size,
             sequencing_order="PROPERTY_ASCENDING",

@@ -47,9 +47,13 @@ ones, alphabetically by id -- same "explicit list, then alphabetical
 remainder" rule as the per-folder file order, for consistency.
 """
 
+import asyncio
 import json
 import os
+import re
 import time
+from collections import deque
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -104,6 +108,58 @@ logger.add(
     level="INFO",
     enqueue=True,
 )
+
+
+def tail_log(lines: int = 200) -> list[str]:
+    """Last `lines` lines of bootstrap.log, oldest first -- for the admin
+    page's Recent Activity panel. Only reads the current (post-rotation)
+    file, not retained rotated copies; that's plenty for "what just
+    happened", which is all this panel is for. Missing file (nothing
+    logged yet) -> empty list, not an error."""
+    if not os.path.exists(_bootstrap_log_path):
+        return []
+    try:
+        with open(_bootstrap_log_path, encoding="utf-8", errors="replace") as f:
+            return [line.rstrip("\n") for line in deque(f, maxlen=lines)]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"bootstrap_batches: could not read log {_bootstrap_log_path}: {exc}")
+        return []
+
+
+# dr_egeria itself (the `dr_egeria --process` subprocess run_batch() shells
+# out to, and the FastAPI process's own pyegeria calls) logs its own,
+# much more detailed activity -- every command, validation, and traceback
+# -- to pyegeria.log via loguru, independently of bootstrap.log above (which
+# only ever gets the one-line-per-file summary this module itself logs).
+# That's where the actual "why did dr_egeria fail" detail lives (e.g. a
+# server-side "not a valid metadata value" validation error, or a Python
+# traceback from a failed API call) but nothing in the admin UI surfaced it
+# before -- you had to shell into the container and grep it by hand. This
+# tails it filtered to ERROR/WARNING lines only: the file routinely runs
+# into the hundreds of thousands of lines (every DRY RUN validation and
+# HTTP request is its own INFO line), so an unfiltered tail would mostly
+# show noise. ANSI colour codes (loguru colourises this sink) are stripped
+# since they render literally in a plain <pre> block.
+_dr_egeria_log_path = os.path.join(
+    os.environ.get("PYEGERIA_LOG_DIRECTORY", os.path.join(os.path.dirname(__file__), "logs")),
+    "pyegeria.log",
+)
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def tail_dr_egeria_issues(lines: int = 200) -> list[str]:
+    """Last `lines` ERROR/WARNING lines from pyegeria.log -- dr_egeria's own
+    detailed activity log, not bootstrap.log's one-line-per-file summary.
+    Missing file -> empty list, not an error (matches tail_log())."""
+    if not os.path.exists(_dr_egeria_log_path):
+        return []
+    try:
+        with open(_dr_egeria_log_path, encoding="utf-8", errors="replace") as f:
+            matches = (line.rstrip("\n") for line in f if " | ERROR " in line or " | WARNING " in line)
+            return [_ANSI_RE.sub("", line) for line in deque(matches, maxlen=lines)]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"bootstrap_batches: could not read log {_dr_egeria_log_path}: {exc}")
+        return []
 
 
 # path -> (mtime, dict)
@@ -288,41 +344,128 @@ def enabled_batches() -> list[dict]:
     return out
 
 
-async def run_batch(batch: dict, timeout_seconds: int = 300) -> list[dict]:
+# Per-file cap on a `dr_egeria --process` run, and the subprocesses currently
+# in flight so the timeout/cancellation paths below can actually terminate them.
+#
+# 900s (15 min), was a hardcoded 300s. This is the same fix already applied to
+# bootstrap_monitor_handler.py's heal path on 2026-08-28 (_DR_EGERIA_TIMEOUT)
+# that never got mirrored here, so the admin-triggered "run selected"/
+# "(re)initialize now" path kept the old cap: coco-workbooks/0.
+# data-governance-program/employee-glossary.md (6.1k lines, 86 Create Glossary
+# Term commands) reliably exceeds 300s and was the only file in a full run to
+# fail (confirmed live 2026-08-29, 17/18 files ok). Every Dr.Egeria doc is
+# upsert-safe, so generous headroom costs nothing -- a longer wait only avoids
+# giving up on genuinely slow (not stuck) files.
+#
+# And, as in that module, a timeout used to leave the `dr_egeria` child running
+# orphaned: asyncio.wait_for()'s TimeoutError just abandons the await and sends
+# no signal to the OS process. The orphan keeps writing to Egeria, invisible to
+# this module -- in the 2026-08-29 log employee-glossary.md "timed out" at
+# 13:07:45 while its process was still going as the batch moved on to the next
+# file 5s later. Re-running a batch in that window is what produced duplicate
+# elements in the Design Patterns incident; see the _active_procs comment in
+# bootstrap_monitor_handler.py for the full write-up.
+_BATCH_TIMEOUT = int(os.environ.get("BOOTSTRAP_BATCH_TIMEOUT_SECONDS", "900"))
+_active_procs: set = set()
+
+
+async def _kill_proc(proc) -> None:
+    try:
+        proc.kill()
+        await proc.wait()
+    except ProcessLookupError:
+        pass  # already exited
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"bootstrap batches: error killing orphaned dr_egeria process: {exc}")
+
+
+async def run_batch(batch: dict, timeout_seconds: int = _BATCH_TIMEOUT) -> list[dict]:
     """Run a batch's files in order via `dr_egeria --process`. Every
     Dr.Egeria doc is upsert-safe, so this is always safe to re-run. Unlike
     bootstrap_monitor_handler.py's _heal_family (which stops at the first
     failure since it's healing a known-good sequence), this keeps going and
     reports per-file results -- an admin manually running a batch wants to
-    see everything that happened, not just where it stopped."""
-    import asyncio
+    see everything that happened, not just where it stopped.
 
+    Every file's outcome (and a completion summary) is also written to
+    bootstrap.log -- previously only the *start* of a manual run was logged
+    (see run_batch_now in bootstrap_admin_handler.py), so an admin who saw
+    "Run failed" in the UI and missed/lost the HTTP response had no way to
+    tell what happened short of shelling into the container. The full
+    dr_egeria output (validation errors, tracebacks) still isn't here --
+    that lives in pyegeria.log, surfaced separately by
+    tail_dr_egeria_issues() below -- this is just enough to know which
+    file(s) failed and why, from the admin page itself."""
     results = []
     folder = Path(batch["path"])
     for filename in batch["files"]:
         doc = folder / filename
         if not doc.exists():
             results.append({"file": filename, "status": "skipped", "message": "file not found"})
+            logger.warning(f"bootstrap batches: {batch['id']!r} — {filename}: skipped (file not found)")
             continue
+        proc = None
         try:
             proc = await asyncio.create_subprocess_exec(
                 "dr_egeria", "--process", str(doc),
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
             )
+            _active_procs.add(proc)
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
             tail = stdout.decode(errors="replace")[-800:] if stdout else ""
             if proc.returncode == 0:
                 results.append({"file": filename, "status": "ok", "message": tail})
+                logger.info(f"bootstrap batches: {batch['id']!r} — {filename}: ok")
             else:
                 results.append({"file": filename, "status": "failed", "message": tail})
+                logger.warning(
+                    f"bootstrap batches: {batch['id']!r} — {filename}: failed "
+                    f"(exit {proc.returncode}) — {_one_line(tail)}"
+                )
         except asyncio.TimeoutError:
-            results.append({"file": filename, "status": "failed", "message": "timed out"})
+            # Kill the child before moving on -- an abandoned await leaves it
+            # running and still writing to Egeria (see _active_procs above).
+            if proc is not None:
+                await _kill_proc(proc)
+            results.append({"file": filename, "status": "failed",
+                            "message": f"timed out after {timeout_seconds}s"})
+            logger.warning(f"bootstrap batches: {batch['id']!r} — {filename}: timed out after {timeout_seconds}s")
+        except asyncio.CancelledError:
+            # App reload/shutdown cancelled the background run task -- kill the
+            # child before letting the cancellation propagate, same reason as
+            # the timeout branch above.
+            if proc is not None:
+                await _kill_proc(proc)
+            raise
         except Exception as exc:  # noqa: BLE001
             results.append({"file": filename, "status": "failed", "message": str(exc)})
+            logger.warning(f"bootstrap batches: {batch['id']!r} — {filename}: failed — {exc}")
+        finally:
+            if proc is not None:
+                _active_procs.discard(proc)
+
+    ok = sum(1 for r in results if r["status"] == "ok")
+    failed = [r["file"] for r in results if r["status"] == "failed"]
+    skipped = [r["file"] for r in results if r["status"] == "skipped"]
+    summary = f"bootstrap batches: {batch['id']!r} finished — {ok}/{len(results)} files ok"
+    if failed:
+        summary += f"; failed: {', '.join(failed)}"
+    if skipped:
+        summary += f"; skipped: {', '.join(skipped)}"
+    logger.log("WARNING" if failed else "INFO", summary)
     return results
 
 
-async def run_all_enabled(timeout_seconds: int = 300) -> list[dict]:
+def _one_line(text: str, max_len: int = 200) -> str:
+    """Collapse a (possibly multi-line, possibly empty) dr_egeria output
+    tail into one short line for a bootstrap.log entry -- the full text is
+    still in the per-file `message` the HTTP response returns, and the full
+    dr_egeria log is available via tail_dr_egeria_issues()."""
+    one_line = " ".join(text.split())
+    return (one_line[:max_len] + "…") if len(one_line) > max_len else (one_line or "(no output)")
+
+
+async def run_all_enabled(timeout_seconds: int = _BATCH_TIMEOUT) -> list[dict]:
     """Run every enabled batch, in discover_batches' order (folder order
     file, then alphabetical), each with its own enabled files in file
     order. This is the "(re)initialize now" action -- the counterpart to
@@ -332,4 +475,95 @@ async def run_all_enabled(timeout_seconds: int = 300) -> list[dict]:
     out = []
     for batch in enabled_batches():
         out.append({"batch": batch["id"], "results": await run_batch(batch, timeout_seconds)})
+    ok = sum(1 for run in out for r in run["results"] if r["status"] == "ok")
+    total = sum(len(run["results"]) for run in out)
+    logger.log(
+        "INFO" if ok == total else "WARNING",
+        f"bootstrap batches: run-all finished — {len(out)} batches, {ok}/{total} files ok",
+    )
     return out
+
+
+# ---------------------------------------------------------------------------
+# Background run + poll -- a manual run of even one moderately-sized batch
+# routinely takes longer than Apache's ProxyPass timeout (5 min,
+# proxy-locations.conf), which drops the browser's connection long before
+# `await run_batch(...)`/`run_all_enabled()` finish -- the backend keeps
+# working (nothing cancels it), but the admin sees a bare "Run failed" with
+# no way to tell it actually succeeded short of the Activity Log. Same
+# non-blocking cold-start/poll shape as operations_handler.py's
+# _get_server_report_cached (see that module's design-notes comment) --
+# start the run as a background asyncio Task and return immediately, let
+# the client poll for the result instead of holding the connection open.
+#
+# Unlike that cache, there's no TTL/staleness here -- a run either hasn't
+# started, is running, or is done with one final result. And unlike
+# bootstrap_monitor_handler.py's heal path, the *run state* here is
+# in-memory only and is lost on a reload; a client polling a key that's
+# vanished gets "not_found" and should surface that as an interruption,
+# not hang forever. (The dr_egeria subprocess itself IS now killed on a
+# reload mid-run -- see _kill_proc/_active_procs above; it used to be left
+# orphaned, which is what allowed two concurrent runs of the same file.)
+RUN_ALL_KEY = "__run_all__"  # batch ids are folder names -- never collides with this
+
+
+@dataclass
+class _RunState:
+    status: str  # "running" | "done"
+    success: Optional[bool] = None
+    results: Optional[list[dict]] = None  # single-batch shape
+    runs: Optional[list[dict]] = None     # run-all shape (list of {batch, results})
+
+
+_run_state: dict[str, _RunState] = {}
+_run_tasks: dict[str, "asyncio.Task"] = {}
+
+
+def run_status(key: str) -> dict:
+    """Poll the outcome of a background run started via start_background().
+    `key` is a batch id, or RUN_ALL_KEY for the run-all-enabled action."""
+    state = _run_state.get(key)
+    if state is None:
+        return {"status": "not_found"}
+    if state.status == "running":
+        return {"status": "running"}
+    out = {"status": "done", "success": state.success}
+    if state.results is not None:
+        out["results"] = state.results
+    if state.runs is not None:
+        out["runs"] = state.runs
+    return out
+
+
+async def _run_in_background(key: str, coro) -> None:
+    try:
+        result = await coro
+        if key == RUN_ALL_KEY:
+            ok = all(r["status"] == "ok" for run in result for r in run["results"])
+            _run_state[key] = _RunState(status="done", success=ok, runs=result)
+        else:
+            ok = all(r["status"] == "ok" for r in result)
+            _run_state[key] = _RunState(status="done", success=ok, results=result)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"bootstrap batches: background run {key!r} crashed: {exc}")
+        _run_state[key] = _RunState(
+            status="done", success=False,
+            **({"runs": []} if key == RUN_ALL_KEY else {"results": [{"file": "*", "status": "failed", "message": str(exc)}]}),
+        )
+    finally:
+        _run_tasks.pop(key, None)
+
+
+def start_background(key: str, coro) -> bool:
+    """Start `coro` (an already-called run_batch(...)/run_all_enabled(...))
+    as a background task under `key`, unless one is already in flight for
+    that key. Returns True if this call actually started it, False if a
+    run for this key was already running (the caller should just let the
+    client poll the existing one rather than starting a second)."""
+    existing = _run_tasks.get(key)
+    if existing is not None and not existing.done():
+        coro.close()  # never awaited -- avoid a "coroutine was never awaited" warning
+        return False
+    _run_state[key] = _RunState(status="running")
+    _run_tasks[key] = asyncio.get_event_loop().create_task(_run_in_background(key, coro))
+    return True

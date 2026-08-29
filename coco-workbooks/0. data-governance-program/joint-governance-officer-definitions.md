@@ -40,7 +40,7 @@ Personalized Medicine Transition
 CocoPharma::BusinessImperative::PersonalisedMedicineTransition
 
 ### Domain Identifier
-ALL
+All Domains
 
 ### Summary
 Coco Pharmaceuticals is shifting from batch manufacturing of generic drugs to personalised, genomic-targeted treatments delivered on-demand.
@@ -89,7 +89,7 @@ Cycle Time Reduction
 CocoPharma::BusinessImperative::CycleTimeReduction
 
 ### Domain Identifier
-ALL
+All Domains
 
 ### Summary
 Coco Pharmaceuticals must reduce cycle times across all business operations to remain competitive.
@@ -137,7 +137,7 @@ Cyber Resilience
 CocoPharma::BusinessImperative::CyberResilience
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Summary
 Coco Pharmaceuticals must protect its intellectual property, patient data, and operational systems against cyber threats to sustain its business.
@@ -187,7 +187,7 @@ Cyber-Attack on Operations or Data
 CocoPharma::Threat::CyberAttackOnOperationsOrData
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Summary
 Malicious actors may attempt to disrupt Coco Pharmaceuticals' operations or steal sensitive data through cyber-attacks.
@@ -230,7 +230,7 @@ Unauthorised Data Disclosure
 CocoPharma::Threat::UnauthorisedDataDisclosure
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Patient data or commercially sensitive information may be disclosed to unauthorised parties — accidentally or through insider misuse.
@@ -273,7 +273,7 @@ Fraudulent Supplier Activity
 CocoPharma::Threat::FraudulentSupplierActivity
 
 ### Domain Identifier
-CORPORATE
+Corporate
 
 ### Summary
 The organisation may be exposed to fraud through bogus or compromised suppliers entering the supply chain.
@@ -316,7 +316,7 @@ Loss of Key Talent and Knowledge
 CocoPharma::Threat::LossOfKeyTalentAndKnowledge
 
 ### Domain Identifier
-ALL
+All Domains
 
 ### Summary
 Departure of key personnel could result in loss of critical knowledge about data definitions, processes, and governance practices.
@@ -361,7 +361,7 @@ General Data Protection Regulation (GDPR)
 CocoPharma::Regulation::GDPR
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 EU regulation governing the collection, processing, storage, and sharing of personal data, including patient health data.
@@ -412,7 +412,7 @@ FDA Clinical Trial Regulations
 CocoPharma::Regulation::FDAClinicalTrialRegulations
 
 ### Domain Identifier
-ALL
+All Domains
 
 ### Summary
 US Food and Drug Administration regulations governing the conduct, recording, and reporting of clinical trials.
@@ -462,7 +462,7 @@ Good Manufacturing Practice (GMP)
 CocoPharma::Regulation::GoodManufacturingPractice
 
 ### Domain Identifier
-ALL
+All Domains
 
 ### Summary
 Regulations governing pharmaceutical manufacturing to ensure products are consistently produced and controlled according to quality standards.
@@ -522,7 +522,7 @@ Information is a Company Asset
 CocoPharma::GovernancePrinciple::InformationIsACompanyAsset
 
 ### Domain Identifier
-ALL
+All Domains
 
 ### Summary
 All information created or used by Coco Pharmaceuticals is recognised as a company asset and will be managed accordingly.
@@ -564,7 +564,7 @@ Privacy by Design
 CocoPharma::GovernancePrinciple::PrivacyByDesign
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Privacy controls will be built into systems and processes from the start, not added as an afterthought.
@@ -607,7 +607,7 @@ Information Use Limited to Approved, Ethical Purposes
 CocoPharma::GovernancePrinciple::InformationUseLimitedToApprovedEthicalPurposes
 
 ### Domain Identifier
-ALL
+All Domains
 
 ### Summary
 Data and information held by Coco Pharmaceuticals will only be used for purposes that have been formally approved and that are consistent with ethical standards.
@@ -651,7 +651,7 @@ All Users Must Be Authenticated and Accountable
 CocoPharma::GovernanceObligation::AllUsersMustBeAuthenticatedAndAccountable
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Summary
 Every user who accesses Coco Pharmaceuticals' systems must be uniquely identified and authenticated, and their actions must be recorded.
@@ -693,7 +693,7 @@ Personal Data Must Be Classified and Handled According to Sensitivity
 CocoPharma::GovernanceObligation::PersonalDataClassifiedBySensitivity
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Personal data must be identified, classified by sensitivity, and handled under controls appropriate to its classification.
@@ -735,7 +735,7 @@ Each Information Collection Must Have a Designated Owner
 CocoPharma::GovernanceObligation::EachInformationCollectionHasDesignatedOwner
 
 ### Domain Identifier
-ALL
+All Domains
 
 ### Summary
 Every significant collection of data held by Coco Pharmaceuticals must have a formally assigned owner who is accountable for its quality and appropriate use.
@@ -779,7 +779,7 @@ Metadata-Driven Governance
 CocoPharma::GovernanceApproach::MetadataDrivenGovernance
 
 ### Domain Identifier
-ALL
+All Domains
 
 ### Summary
 Governance definitions, data definitions, and governance controls will be maintained as metadata in Egeria's open metadata catalog, making them discoverable, linked, and actionable.
@@ -821,7 +821,7 @@ Federated Governance with Central Coordination
 CocoPharma::GovernanceApproach::FederatedGovernanceWithCentralCoordination
 
 ### Domain Identifier
-ALL
+All Domains
 
 ### Summary
 Each governance domain is managed by a specialist domain lead, with central coordination by the Chief Data Officer to ensure consistency and avoid gaps or conflicts.
@@ -1279,7 +1279,7 @@ Personal Data Breaches Reported
 CocoPharma::GovernanceMetric::PersonalDataBreachesReported
 
 ### Domain Identifier
-PRIVACY
+Privacy
 
 ### Summary
 Counts the number of personal data breaches identified and reported in a period, including near-misses.

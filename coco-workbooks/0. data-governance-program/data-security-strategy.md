@@ -38,7 +38,7 @@ Risk-Based Information Security Management
 CocoPharma::GovernancePrinciple::RiskBasedInformationSecurityManagement
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Summary
 Security controls are selected and prioritised according to a formal, documented assessment of information security risk, not applied uniformly regardless of risk.
@@ -57,7 +57,7 @@ Following ISO/IEC 27001:2022's risk assessment and risk treatment requirements, 
 - Risk decisions are documented and defensible to regulators and certification auditors
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Authors
 - Ivor Padlock
@@ -87,7 +87,7 @@ Information Assets Must Be Inventoried and Classified for the ISMS
 CocoPharma::GovernanceObligation::InformationAssetsInventoriedAndClassifiedForISMS
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Summary
 Every information asset within the ISMS scope must appear in an asset inventory and be classified according to its confidentiality, integrity, and availability requirements.
@@ -106,7 +106,7 @@ ISO/IEC 27001:2022 Annex A control area 5 requires organisations to maintain an 
 - Auditors can trace any control back to the asset and classification that justify it
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Authors
 - Ivor Padlock
@@ -134,7 +134,7 @@ Third-Party and Supplier Access Must Be Risk-Assessed
 CocoPharma::GovernanceObligation::SupplierSecurityRiskAssessment
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Summary
 Suppliers, cloud providers, and research or hospital partners who can access Coco Pharmaceuticals' systems or data must be security-assessed before onboarding and periodically thereafter.
@@ -153,7 +153,7 @@ ISO/IEC 27001:2022 Annex A control area 5 requires organisations to manage infor
 - Third-party access is time-bound to the life of the relationship it supports
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Authors
 - Ivor Padlock
@@ -181,7 +181,7 @@ Security Incidents Must Be Logged, Reported, and Reviewed
 CocoPharma::GovernanceObligation::SecurityIncidentsLoggedReportedReviewed
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Summary
 Every suspected information security incident must be reported through a defined channel, logged, investigated, and reviewed for lessons learned.
@@ -200,7 +200,7 @@ ISO/IEC 27001:2022 Annex A control area 5 requires a consistent, effective appro
 - Continuous improvement of controls based on real incident experience
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Authors
 - Ivor Padlock
@@ -228,7 +228,7 @@ Staff Must Complete Annual Security Awareness Training
 CocoPharma::GovernanceObligation::AnnualSecurityAwarenessTraining
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Summary
 All staff and contractors must complete security awareness training at induction and at least annually thereafter, with additional role-specific training for high-risk roles.
@@ -247,7 +247,7 @@ ISO/IEC 27001:2022 Annex A control area 6 requires personnel to receive appropri
 - A workforce that recognises and reports suspicious activity promptly
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Authors
 - Ivor Padlock
@@ -277,7 +277,7 @@ ISMS Plan-Do-Check-Act Continuous Improvement Cycle
 CocoPharma::GovernanceApproach::ISMSPlanDoCheckActCycle
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Summary
 Coco Pharmaceuticals' information security management system is operated as a continuous Plan-Do-Check-Act cycle, in line with ISO/IEC 27001:2022, rather than a one-off compliance exercise.
@@ -296,7 +296,7 @@ ISO/IEC 27001:2022 requires the ISMS to be planned, implemented, monitored, and 
 - Management maintains ongoing visibility of the security program's effectiveness
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Authors
 - Ivor Padlock
@@ -328,7 +328,7 @@ ISO/IEC 27001:2022 — Information Security Management System Certification
 CocoPharma::CertificationType::ISO27001
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Summary
 The international standard for establishing, implementing, maintaining, and continually improving an information security management system (ISMS), used as the certifiable framework for Coco Pharmaceuticals' security governance program.
@@ -378,7 +378,7 @@ ISO 27001 Annex A Control Implementation Rate
 CocoPharma::GovernanceMetric::ISO27001ControlImplementationRate
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Summary
 Measures the percentage of Annex A controls marked applicable in the Statement of Applicability that are fully implemented and evidenced.
@@ -395,7 +395,7 @@ This metric is calculated as (number of applicable Annex A controls fully implem
 - Identifies specific control gaps that need remediation before certification or surveillance audits
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Authors
 - Ivor Padlock
@@ -423,7 +423,7 @@ Security Incident Mean Time to Containment
 CocoPharma::GovernanceMetric::SecurityIncidentMeanTimeToContainment
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Summary
 Measures the average time between a security incident being reported and it being contained.
@@ -440,7 +440,7 @@ This metric is calculated across all logged security incidents in a reporting pe
 - Surfaces slow or failed responses for root-cause analysis and process improvement
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Authors
 - Ivor Padlock
@@ -468,7 +468,7 @@ Security Awareness Training Completion Rate
 CocoPharma::GovernanceMetric::SecurityAwarenessTrainingCompletionRate
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Summary
 Measures the percentage of staff and contractors who have completed required security awareness training within its due period.
@@ -485,7 +485,7 @@ This metric is calculated as (number of staff and contractors with current, comp
 - Identifies individuals or teams falling behind on required training before it becomes an audit finding
 
 ### Domain Identifier
-SECURITY
+Security
 
 ### Authors
 - Ivor Padlock

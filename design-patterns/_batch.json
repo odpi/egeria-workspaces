@@ -1,0 +1,21 @@
+{
+  "displayName": "Design Patterns",
+  "description": "Two published design pattern languages loaded as DesignPattern elements: the 5 structural patterns from 'Common Information Models for an Open, Analytical, and Agile World' (IBM Press, 2015), and the 232 patterns across 18 groups from 'Patterns of Information Management' (IBM Press, 2013), plus the specialization/nesting/related links between them and the book's glossary. Pattern files run before the cross-reference links and glossary, which reference patterns by qualified name — see the README.",
+  "canary": {
+    "type": "Glossary",
+    "name": "Glossary for the Patterns of Information Management"
+  },
+  "defaultEnabled": false,
+  "files": [
+    "cim-structural-patterns.md",
+    "poim-ch3-people-and-organizations.md",
+    "poim-ch4-information-architecture.md",
+    "poim-ch5-information-at-rest.md",
+    "poim-ch6-information-in-motion.md",
+    "poim-ch7-information-processing.md",
+    "poim-ch8-information-protection.md",
+    "poim-ch9-solutions-for-information-management.md",
+    "poim-pattern-links.md",
+    "poim-glossary.md"
+  ]
+}

@@ -4,7 +4,7 @@
 > **Version:** 1.0  
 > **Status:** ACTIVE  
 > **Date:** 2026-08-24  
-> **Description:** Governance definitions for the `IT_INFRASTRUCTURE` domain at Coco Pharmaceuticals, built on the systems inventory created in this directory and structured around the ITIL service management practices Gary Geeke's team already works to. Load the data governance program directory first, then the systems inventory notebooks, then this file.
+> **Description:** Governance definitions for the `IT Infrastructure` domain at Coco Pharmaceuticals, built on the systems inventory created in this directory and structured around the ITIL service management practices Gary Geeke's team already works to. Load the data governance program directory first, then the systems inventory notebooks, then this file.
 
 ---
 
@@ -42,7 +42,7 @@ Digital Services the Business Can Depend On
 CocoPharma::BusinessImperative::DependableDigitalServices
 
 ### Domain Identifier
-IT_INFRASTRUCTURE
+IT Infrastructure
 
 ### Summary
 Coco Pharmaceuticals must run digital services whose availability, change behaviour, and recovery characteristics are known and agreed, so that the domains depending on them can make commitments of their own.
@@ -93,7 +93,7 @@ Unmanaged and Unrecorded Systems
 CocoPharma::Threat::UnmanagedSystems
 
 ### Domain Identifier
-IT_INFRASTRUCTURE
+IT Infrastructure
 
 ### Summary
 Systems may run in the business without appearing in any inventory, leaving them unpatched, unbacked-up, unowned, and outside every compliance scope that depends on knowing what exists.
@@ -143,7 +143,7 @@ Every System Has a Named Owner and a Recorded Purpose
 CocoPharma::GovernancePrinciple::SystemsHaveOwnerAndPurpose
 
 ### Domain Identifier
-IT_INFRASTRUCTURE
+IT Infrastructure
 
 ### Summary
 No system runs in the business without a named owner accountable for it and a recorded statement of what it is for, what data it holds, and which domains depend on it.
@@ -186,7 +186,7 @@ Change Reaches Production by One Path
 CocoPharma::GovernancePrinciple::SingleChangePathToProduction
 
 ### Domain Identifier
-IT_INFRASTRUCTURE
+IT Infrastructure
 
 ### Summary
 All change to production systems follows one recorded path, whatever its size or urgency, so that what is running can always be explained by what was approved.
@@ -229,7 +229,7 @@ Services Are Built for the Recovery the Business Actually Needs
 CocoPharma::GovernancePrinciple::DesignedForRequiredRecovery
 
 ### Domain Identifier
-IT_INFRASTRUCTURE
+IT Infrastructure
 
 ### Summary
 Recovery time and recovery point objectives are set by the domain depending on the service, tested against those objectives, and reflected in how the service is built rather than asserted in a plan.
@@ -274,7 +274,7 @@ Systems Must Be Recorded in the Systems Inventory Before Reaching Production
 CocoPharma::GovernanceObligation::SystemsRecordedInInventory
 
 ### Domain Identifier
-IT_INFRASTRUCTURE
+IT Infrastructure
 
 ### Summary
 Every system holding company data or supporting a business process must be recorded in the systems inventory with its owner, purpose, data holdings, service level, and recovery objective before it enters production use.
@@ -317,7 +317,7 @@ Changes Must Be Assessed for Impact and Recorded Before Deployment
 CocoPharma::GovernanceObligation::ChangesAssessedAndRecorded
 
 ### Domain Identifier
-IT_INFRASTRUCTURE
+IT Infrastructure
 
 ### Summary
 Every change to a production system must be assessed for its impact on dependent domains, approved at a level proportionate to that impact, and recorded so that the running configuration can be reconciled to what was approved.
@@ -360,7 +360,7 @@ Service Levels and Recovery Objectives Must Be Agreed and Tested
 CocoPharma::GovernanceObligation::ServiceLevelsAgreedAndTested
 
 ### Domain Identifier
-IT_INFRASTRUCTURE
+IT Infrastructure
 
 ### Summary
 Each service must carry a service level and recovery objectives agreed with the domains depending on it, tested on a defined cycle, with results reported back to those domains.
@@ -405,7 +405,7 @@ ITIL Service Management Adoption
 CocoPharma::GovernanceApproach::ITILServiceManagementAdoption
 
 ### Domain Identifier
-IT_INFRASTRUCTURE
+IT Infrastructure
 
 ### Summary
 IT governance is expressed through the ITIL practices the team already operates — configuration management, change enablement, service level management, incident and problem management, and service continuity — rather than through a parallel governance vocabulary.
@@ -448,7 +448,7 @@ Systems Inventory and Configuration Management
 CocoPharma::GovernanceApproach::SystemsInventoryManagement
 
 ### Domain Identifier
-IT_INFRASTRUCTURE
+IT Infrastructure
 
 ### Summary
 The systems inventory is maintained as a single authoritative record of what runs in the business, populated from procurement, deployment, and active discovery, and consumed by the security, privacy, and data governance programs rather than duplicated by them.
@@ -519,7 +519,7 @@ Governance Role
 ### Version Identifier
 1.0
 
-### Content Status
+### Status
 ACTIVE
 
 ___
@@ -539,7 +539,7 @@ Systems Inventory Completeness
 CocoPharma::GovernanceMetric::SystemsInventoryCompleteness
 
 ### Domain Identifier
-IT_INFRASTRUCTURE
+IT Infrastructure
 
 ### Summary
 Measures the percentage of discovered systems that are registered in the inventory with an owner, purpose, data holdings, and recovery objective recorded.
@@ -582,7 +582,7 @@ Change Success and Emergency Change Rate
 CocoPharma::GovernanceMetric::ChangeSuccessRate
 
 ### Domain Identifier
-IT_INFRASTRUCTURE
+IT Infrastructure
 
 ### Summary
 Measures the percentage of changes completing without rollback or incident, reported alongside the proportion of changes made under emergency provisions.
@@ -625,7 +625,7 @@ Recovery Objective Test Coverage and Achievement
 CocoPharma::GovernanceMetric::RecoveryTestCoverage
 
 ### Domain Identifier
-IT_INFRASTRUCTURE
+IT Infrastructure
 
 ### Summary
 Measures the percentage of services with a recovery objective that have been exercised within their test cycle, and the proportion of those exercises that met the agreed objective.
@@ -1169,7 +1169,7 @@ IT Infrastructure Lead — Governance Folio
 CocoPharma::Folio::ITInfrastructureLead
 
 ### Description
-The governance definitions owned by the IT Infrastructure Lead (Gary Geeke) in the `IT_INFRASTRUCTURE` domain. The folio covers the dependable services imperative, the unmanaged systems threat, the ownership, change path and recovery principles, the inventory, change assessment and service level obligations, the ITIL and inventory management approaches, and the controls that measure them.
+The governance definitions owned by the IT Infrastructure Lead (Gary Geeke) in the `IT Infrastructure` domain. The folio covers the dependable services imperative, the unmanaged systems threat, the ownership, change path and recovery principles, the inventory, change assessment and service level obligations, the ITIL and inventory management approaches, and the controls that measure them.
 
 ### Purpose
 Provides Gary Geeke with a single view of the definitions through which the infrastructure domain serves the rest of the governance programme. Most of the folio's content exists to let another domain meet an obligation that is theirs, and the folio is where that service relationship is made visible as a set rather than scattered across other people's programmes.
