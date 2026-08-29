@@ -13,6 +13,7 @@ Postgres table -- freshstart has no Postgres wired up at all).
 Endpoints:
   GET  /api/bootstrap/batches           → discovered batches + current selection
   GET  /api/bootstrap/log               → tail of bootstrap.log (recent batch/auto-heal activity)
+  GET  /api/bootstrap/log/issues        → tail of pyegeria.log, ERROR/WARNING only (dr_egeria's own detail)
   POST /api/bootstrap/batches/selection → save selection (admin only)
   POST /api/bootstrap/batches/{id}/run  → run one batch now, its enabled files (admin only)
 """
@@ -42,6 +43,11 @@ def _admin_gate(request: Request):
 @router.get("/log", summary="Recent bootstrap/auto-heal activity (tail of bootstrap.log)")
 def get_log(lines: int = Query(200, ge=1, le=2000)):
     return JSONResponse({"lines": bb.tail_log(lines)})
+
+
+@router.get("/log/issues", summary="Recent dr_egeria ERROR/WARNING lines (tail of pyegeria.log)")
+def get_log_issues(lines: int = Query(200, ge=1, le=2000)):
+    return JSONResponse({"lines": bb.tail_dr_egeria_issues(lines)})
 
 
 @router.get("/batches", summary="List discovered bootstrap batches and their selection state")
