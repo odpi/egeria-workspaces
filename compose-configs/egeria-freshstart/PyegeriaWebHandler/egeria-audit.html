@@ -676,6 +676,7 @@ function UsersTab({ creds }) {
 
   var _platErr  = useState(''), platErr  = _platErr[0],  setPlatErr  = _platErr[1];
   var _usersErr = useState(''), usersErr = _usersErr[0], setUsersErr = _usersErr[1];
+  var _attempt  = useState(0),  attempt  = _attempt[0],  setAttempt  = _attempt[1];
 
   useEffect(function() {
     egeriaFetch('/api/audit/platforms', creds)
@@ -710,7 +711,7 @@ function UsersTab({ creds }) {
       })
       .then(function(d){ setUsers(d.users || []); setUState('ready'); })
       .catch(function(e){ setUsersErr(e.message || 'Failed to load users.'); setUState('error'); });
-  }, [plat && plat.guid]);
+  }, [plat && plat.guid, attempt]);
 
   function applyStatus(user, status) {
     setStatusErr(null);
@@ -766,6 +767,7 @@ function UsersTab({ creds }) {
     uState === 'ready' && users.length > 0 && el('div', { style: { padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid var(--border)', flexWrap: 'wrap', flexShrink: 0 } },
       el('input', { placeholder: 'search users…', value: fText, onChange: function(e){ setFText(e.target.value); },
         style: { fontSize: 11, padding: '4px 8px', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 4, width: 160 } }),
+      el('button', { className: 'btn-sm', onClick: function(){ setAttempt(function(a){ return a + 1; }); } }, '↻ Refresh'),
       el('span', { style: { fontSize: 10, color: 'var(--dim)', marginLeft: 4 } }, 'Status:'),
       simplePillRow(USER_STATUSES, _statusLabel, fStatus, setFStatus),
       el('span', { style: { fontSize: 10, color: 'var(--dim)', marginLeft: 4 } }, 'Type:'),
