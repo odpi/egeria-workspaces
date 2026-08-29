@@ -2,9 +2,11 @@
 
 ## Git commits
 
-**All commits must be signed.** The global git config has `commit.gpgsign=true` and `gpg.format=ssh` set. Never use `--no-gpg-sign`, `--no-verify`, or any other flag that bypasses signing.
+**All commits must be signed.** The global git config (`~/.gitconfig`) has `commit.gpgsign=true`, `gpg.format=ssh`, and this machine's `user.signingkey` set. Never use `--no-gpg-sign`, `--no-verify`, or any other flag that bypasses signing.
 
-When committing, always pass the message via a heredoc. Every commit **must** include both a `Signed-off-by` trailer (DCO) and a `Co-Authored-By` trailer:
+Signing keys are **per-machine** — several machines commit here (cray, hedwig, laz, …) and each has its own key; they are never shared. Because the config is global rather than per-repo, a fresh clone signs correctly with no extra setup.
+
+When committing, always pass the message via a heredoc. Every commit **must** include a `Signed-off-by` trailer (DCO):
 ```
 git commit -m "$(cat <<'EOF'
 type(scope): short summary
@@ -12,13 +14,17 @@ type(scope): short summary
 Body here.
 
 Signed-off-by: Dan Wolfson <dan.wolfson@pdr-associates.com>
-
-Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 EOF
 )"
 ```
 
-The `Signed-off-by` is required by the `.githooks/commit-msg` hook (active via `core.hooksPath=.githooks`) and the `commit-policy.yml` GitHub Actions workflow. Commits missing this trailer will be rejected by the hook.
+**Do not add a `Co-Authored-By: Claude ...` trailer.** Claude Code's harness
+defaults to appending one; that default does not apply in this repo — this
+instruction overrides it. `Signed-off-by` is the only required trailer.
+
+The `Signed-off-by` is required by the `.githooks/commit-msg` hook and the `commit-policy.yml` GitHub Actions workflow. Commits missing this trailer will be rejected by the hook.
+
+`core.hooksPath=.githooks` is **repo-local and is not carried over by `git clone`** — in a fresh clone the hook silently does not run and a missing trailer is caught only later by CI. Check with `git config --get core.hooksPath`; if empty, run `git config --local core.hooksPath .githooks`.
 
 Stage specific files by name rather than `git add -A` or `git add .` to avoid accidentally including runtime files (e.g. `runtime-volumes/`, `*.db`, `.env`).
 
@@ -26,8 +32,14 @@ Stage specific files by name rather than `git add -A` or `git add .` to avoid ac
 
 If commits are failing to sign on a machine that hasn't been configured yet
 (or you're asked to set one up), use the `setup-git-signing` skill —
-per-machine SSH signing key generation, 1Password SSH agent config, and
+per-machine SSH signing key generation, 1Password SSH agent config
+(the `op-ssh-sign` path differs between the deb and snap packages),
+the `allowed_signers` roster that makes signature *verification* work, and
 `git push` over SSH.
+
+To see which machines' keys have signed this repo and whether the local
+roster trusts them all:
+`.claude/skills/setup-git-signing/list-signing-keys.sh`
 
 ### If you're Claude running on a different machine than usual
 
