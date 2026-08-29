@@ -2,6 +2,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")"
+REPO_ROOT="$(pwd)"
 
 source compose-configs/shared-infra/detect-engine.sh
 source compose-configs/shared-infra/compose-build-flags.sh
@@ -221,8 +222,10 @@ EOF
   # docstring for the full reasoning. (freshstart's Dockerfile pulls from
   # quay.io, not docker.io -- see that Dockerfile's own FROM line.)
   if [[ "$REFRESH_PLATFORM" -eq 1 ]]; then
-    compose-configs/shared-infra/pin-latest-digest.sh \
-      compose-configs/egeria-freshstart/Dockerfile-egeria-platform \
+    # NOTE: absolute paths -- we are inside the compose-configs/egeria-freshstart
+    # pushd here, so repo-root-relative paths would not resolve.
+    "$REPO_ROOT/compose-configs/shared-infra/pin-latest-digest.sh" \
+      "$REPO_ROOT/compose-configs/egeria-freshstart/Dockerfile-egeria-platform" \
       quay.io/odpi/egeria-platform:latest
   fi
 

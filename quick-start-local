@@ -3,6 +3,7 @@ set -euo pipefail
 
 # Always run from repo root (this script lives at repo root)
 cd "$(dirname "$0")"
+REPO_ROOT="$(pwd)"
 
 source compose-configs/shared-infra/detect-engine.sh
 source compose-configs/shared-infra/compose-build-flags.sh
@@ -521,8 +522,10 @@ EOF
   # image. See compose-configs/shared-infra/pin-latest-digest.sh's own
   # docstring for the full reasoning.
   if [[ "$REFRESH_PLATFORM" -eq 1 ]]; then
-    compose-configs/shared-infra/pin-latest-digest.sh \
-      compose-configs/egeria-quickstart/Dockerfile-egeria-platform \
+    # NOTE: absolute paths -- we are inside the compose-configs/egeria-quickstart
+    # pushd here, so repo-root-relative paths would not resolve.
+    "$REPO_ROOT/compose-configs/shared-infra/pin-latest-digest.sh" \
+      "$REPO_ROOT/compose-configs/egeria-quickstart/Dockerfile-egeria-platform" \
       docker.io/odpi/egeria-platform:latest
   fi
 
