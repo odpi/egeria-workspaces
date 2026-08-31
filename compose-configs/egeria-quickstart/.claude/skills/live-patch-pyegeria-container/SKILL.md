@@ -1,6 +1,6 @@
 ---
 name: live-patch-pyegeria-container
-description: Live-test a fix or new function made in the local egeria-python (pyegeria) dev checkout against the running quickstart-pyegeria-web container, which runs the *published* PyPI pyegeria package, not the dev checkout — before it's released. Use whenever editing files under egeria-python/pyegeria/ and you need to verify the change actually works in the live quickstart demo (e.g. a new overview_metrics.py function, a bugfix in an OMVS client). Covers where to docker cp, whether a reload or a full restart is needed, and the defensive-import pattern PyegeriaWebHandler code must use to call an unreleased pyegeria function safely.
+description: Live-test a fix or new function made in the local egeria-python (pyegeria) dev checkout against the running quickstart-pyegeria-web container, which runs the *published* PyPI pyegeria package, not the dev checkout — before it's released. Use whenever editing files under egeria-python/pyegeria/ and you need to verify the change actually works in the live quickstart demo (e.g. a new overview_metrics.py function, a bugfix in an OMVS client). Covers where to docker cp, whether a reload or a full restart is needed, and the defensive-import pattern PyegeriaWebHandler code must use to call an unreleased pyegeria function safely. Also covers live-upgrading pyegeria inside the jupyter containers (quickstart-jupyter-work-full / freshstart-jupyter-work-full), which install pyegeria twice (conda pip + pipx) — a runtime `pipx upgrade` alone leaves the conda copy (and /opt/conda/bin/dr_egeria) stale.
 ---
 
 # Live-patching pyegeria into quickstart-pyegeria-web
@@ -106,6 +106,48 @@ If a patched function still isn't reflected after both a diff-confirm and a
 restart, suspect a stale bind-mount view before doubting the patch itself —
 see project memory `bind_mount_cp_hazard`; the fix is always another
 `docker restart`.
+
+## Live-upgrading pyegeria in the jupyter containers — two installs, not one
+
+`quickstart-jupyter-work-full` / `freshstart-jupyter-work-full` (see
+`Dockerfile-jupyter`) install pyegeria **twice**, for two different
+purposes, and a live/runtime upgrade must touch both or one silently stays
+stale:
+
+1. **`pip install` into the conda env** — lands in conda's site-packages
+   (e.g. `/opt/conda/lib/python3.13/site-packages/pyegeria`), which is what
+   a notebook cell's `import pyegeria` (running under the conda kernel)
+   actually loads. It also creates the `/opt/conda/bin/dr_egeria` CLI entry
+   point.
+2. **`pipx install`** — an isolated venv under
+   `~/.local/share/pipx/venvs/pyegeria`, symlinked into `~/.local/bin`.
+   `Dockerfile-jupyter` puts `~/.local/bin` first on `PATH`
+   (`ENV PATH="/home/${NB_USER}/.local/bin:${PATH}"`), so a plain `dr_egeria`
+   from a terminal resolves here, not to `/opt/conda/bin/dr_egeria`.
+
+**`pipx upgrade pyegeria` only touches #2.** Confirmed live 2026-08-31: both
+containers were on pyegeria 6.1.5 in *both* locations while PyPI's latest
+was 6.1.7 — a `pipx upgrade` alone would have fixed the CLI entry point on
+`PATH` but left `/opt/conda`'s copy (and therefore any notebook using the
+conda kernel to `import pyegeria` directly, or anything invoking
+`/opt/conda/bin/dr_egeria` by its full path) on the old version, with no
+error to signal it. Always run both:
+```bash
+docker exec -u jovyan <container-name> python -m pip install --no-cache-dir --upgrade pyegeria
+docker exec -u jovyan <container-name> pipx upgrade pyegeria
+```
+Verify both landed:
+```bash
+docker exec -u jovyan <container-name> python -m pip show pyegeria | grep Version
+docker exec -u jovyan <container-name> pipx list | grep "package pyegeria"
+```
+
+This gotcha is specific to a **runtime-only** upgrade (no rebuild). At
+*build* time it's already handled correctly: `Dockerfile-jupyter`'s
+`PYEGERIA_BUST` arg busts the pip layer, and Docker's cache invalidation
+cascades forward to the pipx `RUN` layer that follows it, so
+`./quick-start-local --refresh-pyegeria` / `./fresh-start-local
+--refresh-pyegeria` refreshes both installs together with no extra step.
 
 ## Don't forget the real fix
 
