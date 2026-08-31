@@ -225,6 +225,17 @@ If you want to force refresh the `egeria-main` image (even when `egeria-quicksta
 This triggers a rebuild of the platform service with `docker compose build --pull` so Docker checks for a newer
 `quay.io/odpi/egeria-platform:latest` base image.
 
+If you want to force `pyegeria-web` and `jupyter` to re-resolve the latest pyegeria release from PyPI, run:
+
+```bash
+./quick-start-local --refresh-pyegeria
+```
+
+pyegeria's `pip install --upgrade` sits in its own cached Docker layer, so a plain rebuild otherwise keeps
+whatever version was resolved when the image was last built, even though `requirements.txt` has no upper
+version bound. (`bin/update-pyegeria.sh` does the same thing via a full `--no-cache` rebuild of just
+`pyegeria-web`, if you'd rather not go through `quick-start-local`.)
+
 Using either the **Docker Desktop** application or the docker command line you can see the new containers running. To do this with the docker command line, you can issue:
 
 `docker ps`
