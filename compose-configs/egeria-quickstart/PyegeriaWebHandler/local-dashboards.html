@@ -177,6 +177,9 @@
       running <code>dr_egeria</code> on your own machine) it always writes to the store this portal
       actually reads. Validate first, then Process.
     </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      <button class="icon-btn" title="Refresh shared document list" aria-label="Refresh shared document list" onclick="loadRunDocLibrary()">↻</button>
+    </div>
     <div id="run-doc-library"></div>
     <textarea id="run-doc-textarea" placeholder="___&#10;&#10;## Link Report to Dashboard Sheet&#10;&gt; Link a Report Spec (placement) into a Dashboard Sheet.&#10;&#10;### Dashboard Sheet Name&#10;my-dashboard&#10;&#10;### Report Spec&#10;Collections&#10;&#10;### Placement Span&#10;1&#10;&#10;### Placement Emphasis&#10;kpi&#10;&#10;___"></textarea>
     <div class="rd-actions">
@@ -264,10 +267,13 @@ function spanClass(span) {
 var EXECUTE_CACHE_TTL_MS = 45000;
 var _executeCache = {};
 
-function fetchExecuteCached(body) {
+// `force` (default false) skips the cache read (a manual per-placement
+// refresh click) but still writes the fresh result back into the cache, so
+// the normal 45s TTL behavior for everyone else's next read is unchanged.
+function fetchExecuteCached(body, force) {
   var key = JSON.stringify(body);
   var hit = _executeCache[key];
-  if (hit && (Date.now() - hit.t) < EXECUTE_CACHE_TTL_MS) {
+  if (!force && hit && (Date.now() - hit.t) < EXECUTE_CACHE_TTL_MS) {
     return Promise.resolve(hit.result);
   }
   return fetch('/api/report-specs/execute', {
@@ -386,7 +392,8 @@ function deleteSheet(name, heading) {
 function renderList() {
   app.innerHTML = '<div class="pagehead"><div><h1>Local Dashboards</h1>'
     + '<p>Dashboard Sheets authored locally via the Dr.Egeria <code>Create Dashboard Sheet</code> command — '
-    + 'each an ordered layout of Report Spec placements.</p></div></div>'
+    + 'each an ordered layout of Report Spec placements.</p></div>'
+    + '<button class="icon-btn" title="Refresh Dashboard Sheet list" aria-label="Refresh Dashboard Sheet list" onclick="renderList()">↻</button></div>'
     + '<div id="list-body"><div style="padding:40px;text-align:center;color:var(--muted)"><span class="spinner"></span> Loading…</div></div>';
 
   fetch('/api/local-dashboards')
@@ -446,6 +453,7 @@ function renderDetail(name) {
         + '<div style="display:flex;align-items:center;gap:8px">'
         + (sheet.family ? '<span class="badge badge-fam">' + esc(sheet.family) + '</span>' : '')
         + '<select class="btn" onchange="setPerspective(this.value)" title="Filter placements by viewer-role perspective">' + perspOptions + '</select>'
+        + '<button class="icon-btn" title="Refresh this Dashboard Sheet" aria-label="Refresh this Dashboard Sheet" onclick="renderDetail(' + attrJson(sheet.name) + ')">↻</button>'
         + '<button class="btn btn-danger" onclick="deleteSheet(' + attrJson(sheet.name) + ',' + attrJson(sheet.heading || sheet.name) + ')">Delete Dashboard</button>'
         + '</div></div>'
         + '<div class="placements" id="placements"></div>';
@@ -477,7 +485,12 @@ function renderDetail(name) {
         var adjustBtn = p.kind === 'report'
           ? '<button class="adjust-btn" id="adjust-btn-' + i + '" title="Adjust parameters" onclick="togglePlacementAdjust(' + i + ')">⚙</button>'
           : '';
-        el.innerHTML = '<h4>' + esc(p.heading) + adjustBtn + drillBtn + '</h4>'
+        // Force-refresh this one placement's report execution, bypassing the
+        // 45s client-side cache (fetchExecuteCached's `force` param).
+        var refreshBtn = p.kind === 'report'
+          ? '<button class="icon-btn" id="refresh-btn-' + i + '" title="Refresh this report (bypass cache)" aria-label="Refresh this report" onclick="renderPlacementBody(' + attrJson(p) + ',' + i + ',true)">↻</button>'
+          : '';
+        el.innerHTML = '<h4>' + esc(p.heading) + refreshBtn + adjustBtn + drillBtn + '</h4>'
           + (p.description ? '<div class="p-desc">' + esc(p.description) + '</div>' : '')
           + (p.kind === 'report' ? '<div class="adjust-panel" id="adjust-panel-' + i + '" style="display:none"></div>' : '')
           + '<div class="p-body" id="placement-body-' + i + '"></div>';
@@ -504,7 +517,7 @@ function _effectiveParams(p, i) {
   return ov && ov.params ? Object.assign({}, base, ov.params) : base;
 }
 
-function renderPlacementBody(p, i) {
+function renderPlacementBody(p, i, force) {
   var target = document.getElementById('placement-body-' + i);
   if (p.kind === 'missing') {
     target.innerHTML = '<div class="p-note">⚠ ' + esc(p.description) + '</div>';
@@ -540,7 +553,7 @@ function renderPlacementBody(p, i) {
   // 'search_string').
   if (p.isAnalytic) {
     target.innerHTML = '<div class="p-loading"><span class="spinner"></span> Running analytic…</div>';
-    fetchExecuteCached({ spec_name: p.reportSpec, output_format: _effectiveOutputFormat(p, i), params: _effectiveParams(p, i) })
+    fetchExecuteCached({ spec_name: p.reportSpec, output_format: _effectiveOutputFormat(p, i), params: _effectiveParams(p, i) }, force)
       .then(function(result) {
         var out = renderExecResult(result);
         target.innerHTML = out.html;
@@ -584,7 +597,7 @@ function renderPlacementBody(p, i) {
   });
 
   target.innerHTML = '<div class="p-loading"><span class="spinner"></span> Running report…</div>';
-  fetchExecuteCached({ spec_name: p.reportSpec, output_format: effOutputFormat, params: params })
+  fetchExecuteCached({ spec_name: p.reportSpec, output_format: effOutputFormat, params: params }, force)
     .then(function(result) {
       var out = renderExecResult(result);
       target.innerHTML = out.html;
