@@ -2104,58 +2104,18 @@ function TimeSlider({ createTime, onChange, label }) {
  * when there's no exact typeName match; crossAppNavigate opens the deep-link in a
  * new tab (the target views read ?guid/?kind on cold load).
  * ─────────────────────────────────────────────────────────────────────────── */
-var EGERIA_EXPLORER_NAV = {
-  SolutionComponent:     { hash: 'solution-architect', kind: 'components' },
-  SolutionBlueprint:     { hash: 'solution-architect', kind: 'blueprints' },
-  InformationSupplyChain:{ hash: 'isc' },
-  ActorRole:             { hash: 'actors', kind: 'roles' },
-  ActorProfile:          { hash: 'actors', kind: 'profiles' },
-  UserIdentity:          { hash: 'actors', kind: 'identities' },
-  Location:              { hash: 'locations' },
-  Community:             { hash: 'communities' },
-  GovernanceDefinition:  { hash: 'governance' },
-  GovernanceActionProcess: { hash: 'governance' },
-  ReferenceDataValue:    { hash: 'reference-data' },
-  DataSpec:              { hash: 'data-design', kind: 'specs' },
-  DataStructure:         { hash: 'data-design', kind: 'structures' },
-  DataField:             { hash: 'data-design', kind: 'fields' },
-  DataGrain:             { hash: 'data-design', kind: 'grains' },
-  DataClass:             { hash: 'data-design', kind: 'classes' },
-  DataSpecCollection:    { hash: 'data-design', kind: 'specs' },
-  CollectionFolder:      { hash: 'digital-products' },
-  DigitalProduct:        { hash: 'digital-products' },
-  Collection:            { hash: 'digital-products' },
-  GlossaryTerm:          { hash: 'glossary' },
-  Glossary:              { hash: 'glossary' },
-  GlossaryCategory:      { hash: 'glossary' },
-  // BACKLOG.md NEXT-12 — added so this table (already the most complete of
-  // the three overlapping routing tables in the codebase, see that item's
-  // notes) becomes the single canonical one, covering everything
-  // type-explorer.html's own local onNavigateToElement dispatcher used to
-  // know that this shared table didn't.
-  BusinessCapability:    { hash: 'business-capabilities' },
-  NoteLog:               { hash: 'notelogs' },
-  Perspective:           { hash: 'perspectives' },
-  Project:               { hash: 'projects' },
-  ExternalReference:     { hash: 'external-references' },
-  RelatedMedia:          { hash: 'external-references' },
-  CitedDocument:         { hash: 'external-references' },
-  ExternalDataSource:    { hash: 'external-references' },
-  ExternalModelSource:   { hash: 'external-references' },
-  ExternalId:            { hash: 'external-identifiers' },
-  Agreement:             { hash: 'agreements' },
-  DataSharingAgreement:  { hash: 'agreements' },
-  DigitalSubscription:   { hash: 'agreements' },
-};
-
+// Cross-app routing table lives in static/type-nav-map.json now (loaded by
+// static/type-nav-resolve.js, which this file's HTML consumers all load
+// alongside egeria-shared-ui.js — see design-docs/type-system-audit.md).
+// resolveExplorerNav() is kept as a thin wrapper: it used to look up
+// EGERIA_EXPLORER_NAV directly; now it delegates to the shared resolver and
+// only forwards the hash/kind shape callers here expect.
 function resolveExplorerNav(item) {
   if (!item) return null;
-  var nav = item.typeName ? EGERIA_EXPLORER_NAV[item.typeName] : null;
-  if (!nav) {
-    var supers = item.superTypeNames || item.superTypes || [];
-    for (var i = 0; i < supers.length; i++) { nav = EGERIA_EXPLORER_NAV[supers[i]]; if (nav) break; }
-  }
-  return nav || null;
+  var supers = item.superTypeNames || item.superTypes || [];
+  var nav = (typeof resolveTypeNav === 'function') ? resolveTypeNav(item.typeName, supers) : null;
+  if (!nav || !nav.explorerHash) return null;
+  return { hash: nav.explorerHash, kind: nav.kind };
 }
 
 function _isCatalogType(item) {
@@ -2166,35 +2126,23 @@ function _isCatalogType(item) {
 }
 
 /* Unified element-nav: prefer an Explorer panel, else the Tech Catalog. Returns
- * { app, hash?, kind? } or null. */
-// Notification/Meeting/ToDo/Review are real Action -> Process -> Asset
-// subtypes (see action_center_handler.py's _ACTION_TYPES) — being an Asset
-// subtype is a modeling/lineage convenience, not an indication these belong
-// in Tech Catalog's asset browser. A personal ToDo carries no ZoneMembership/
-// CollectionMembership (Tech Catalog's scoping mechanism), so routing it
-// there dead-ends with "isn't part of the Catalog" (confirmed live
-// 2026-08-05, qs-view-server) — same bug class as the EngineAction case just
-// below, same fix: a dedicated-view special-case checked before the generic
-// Asset-supertype fallback. Egeria Explorer's Action Center tab is exactly
-// that dedicated view and already supports a ?guid= deep-link.
-var _ACTION_CENTER_TYPES = { Notification: 1, Meeting: 1, ToDo: 1, Review: 1 };
-
+ * { app, hash?, kind? } or null.
+ * Notification/Meeting/ToDo/Review (Action Center) and ValidMetadataValue used
+ * to be special-cased here in code; they're now plain entries in
+ * static/type-nav-map.json (explorerHash: 'action-center' / 'valid-values')
+ * and fall out of the generic resolveExplorerNav() call below — no code path
+ * needed for them any more.
+ * EngineAction is the one type that still needs an explicit special case: it
+ * doesn't route to an Egeria Explorer hash at all (unlike every map entry),
+ * it opens the egeria-operations app directly — a genuinely different target
+ * app, not just a different hash — and egeria-operations has no per-guid deep
+ * link yet, so there's no {hash} to carry even if it were data-driven. Must
+ * be checked before the generic Asset-supertype fallback below, which would
+ * otherwise route it to Tech Catalog's generic mixed "Actions" tab
+ * (metadata_element_type="Action", no per-subtype detail). */
 function resolveElementNav(item) {
   if (!item) return null;
-  // EngineAction already has a dedicated view (Egeria Operations' Engine Actions
-  // tab) — must be checked before the generic Asset-supertype fallback below,
-  // which would otherwise route it to Tech Catalog's generic mixed "Actions"
-  // tab (metadata_element_type="Action", no per-subtype detail).
   if ((item.typeName || '') === 'EngineAction') return { app: 'egeria-operations' };
-  if (_ACTION_CENTER_TYPES[item.typeName || '']) return { app: 'egeria-explorer', hash: 'action-center' };
-  if ((item.typeName || '') === 'ValidMetadataValue') {
-    // Landing only, same degraded case tech-catalog.html's TYPE_TO_NAV
-    // already accepts for this type (BACKLOG.md FIX-4) — no cold-load URL
-    // param exists yet to preselect the property name on a fresh page load,
-    // only an in-app click via type-explorer.html's own
-    // onNavigateToValidValues can do that.
-    return { app: 'egeria-explorer', hash: 'valid-values' };
-  }
   var ex = resolveExplorerNav(item);
   if (ex) return { app: 'egeria-explorer', hash: ex.hash, kind: ex.kind };
   if (_isCatalogType(item)) return { app: 'tech-catalog' };
@@ -2443,6 +2391,7 @@ function AuditRelationshipTab({ relType, columns, actorRoles, creds, focusGuid, 
   var _filter= React.useState(''),        filter= _filter[0],setFilter= _filter[1];
   var _sort  = React.useState(null),      sort  = _sort[0],  setSort  = _sort[1]; // {col, dir}
   var _sel   = React.useState(null),      sel   = _sel[0],   setSel   = _sel[1];  // selected row
+  var _attempt = React.useState(0),       attempt = _attempt[0], setAttempt = _attempt[1];
   var rz = useColumnResize(columns.length, 160);
   var tableRef = React.useRef(null);
   var _th = React.useState(null), tableH = _th[0], setTableH = _th[1];  // detail-split height (px)
@@ -2470,7 +2419,7 @@ function AuditRelationshipTab({ relType, columns, actorRoles, creds, focusGuid, 
       })
       .then(function(d){ setRows(d.items || []); setState('ready'); })
       .catch(function(e){ setErrMsg(e.message || 'Failed to load.'); setState('error'); });
-  }, [relType, asOf]);
+  }, [relType, asOf, attempt]);
 
   // incoming cross-link: restrict to relationships touching a focus element
   var vis = rows;
@@ -2528,6 +2477,7 @@ function AuditRelationshipTab({ relType, columns, actorRoles, creds, focusGuid, 
       React.createElement('input', { type: 'search', placeholder: 'Filter ' + relType.toLowerCase() + 's…', value: filter,
         onChange: function(e){ setFilter(e.target.value); },
         style: { flex: 1, alignSelf: 'center', fontSize: 12, padding: '5px 9px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } }),
+      React.createElement('button', { className: 'btn-sm', style: { alignSelf: 'center' }, onClick: function(){ setAttempt(function(a){ return a + 1; }); } }, '↻ Refresh'),
       React.createElement('span', { title: 'Results are filtered by your governance-zone access rights — elements in zones you cannot access are hidden, so two users may see different counts.',
         style: { alignSelf: 'center', fontSize: 11, color: 'var(--dim)', cursor: 'help', whiteSpace: 'nowrap', border: '1px solid var(--border)', borderRadius: 12, padding: '2px 9px' } }, '🔒 filtered by your access')
     ),
