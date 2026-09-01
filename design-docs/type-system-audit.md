@@ -60,6 +60,26 @@ against already-built display pages:
   above) but is now handled identically by all three former tables' call
   sites.
 
+**egeria-freshstart status (ported 2026-09-01):** freshstart's separately-
+diverged `compose-configs/egeria-freshstart/PyegeriaWebHandler/` copy got the
+same consolidation (its own `TYPE_TO_NAV`/`EGERIA_EXPLORER_NAV`/
+`PORTAL_EXPLORER_NAV` were content-identical to quickstart's pre-consolidation
+tables, so the reconciliation carried over cleanly), with one real divergence:
+freshstart's Egeria Explorer has no External References, External
+Identifiers, or Agreements tabs (`type-explorer.html` has no
+`external-references`/`external-identifiers`/`agreements` hash). The three
+legacy tables all carried `ExternalReference`/`RelatedMedia`/`CitedDocument`/
+`ExternalDataSource`/`ExternalModelSource`/`ExternalId`/`Agreement`/
+`DataSharingAgreement`/`DigitalSubscription` entries pointing at those hashes
+anyway — pre-existing dead links, not something the port introduced. Freshstart's
+`static/type-nav-map.json` deliberately omits those nine keys rather than
+carry the dead links forward; its `_comment` field documents this and how to
+re-add them if those Explorer tabs are ever built. One consequence: `tech-
+catalog.html`'s new `TechTypeDetail` "View →" button for an asset's External
+References (Part 2 of the same port) still opens `egeria-explorer#external-
+references`, which currently lands with no tab preselected — same root cause,
+tracked as a known gap rather than fixed as a favor beyond this port's scope.
+
 ---
 
 ## Fallback / static trees kept as safety nets

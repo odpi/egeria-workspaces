@@ -50,6 +50,10 @@
   .tm-now { padding:3px 10px; font-size:.74rem; }
   .asof b { color:var(--text); font-weight:600; }
 
+  .refresh-btn { width:22px; height:22px; padding:0; border-radius:6px; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; font-size:.85rem; line-height:1; display:inline-flex; align-items:center; justify-content:center; flex:none; }
+  .refresh-btn:hover { background:var(--border); color:var(--text); }
+  .refresh-btn.spin { animation: refresh-spin .6s linear; }
+  @keyframes refresh-spin { to { transform: rotate(360deg); } }
   .section-label { font-size:.7rem; font-weight:700; letter-spacing:.11em; text-transform:uppercase; color:var(--muted); margin:26px 0 12px; display:flex; align-items:center; gap:8px; }
   .section-label::after { content:""; flex:1; height:1px; background:var(--border); }
   /* data-provenance badges — is a section live from Egeria, mixed, or illustrative? */
@@ -364,6 +368,9 @@
   </div>
 
   <!-- ── KPI BAND (per-perspective, JS-rendered) ── -->
+  <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
+    <button type="button" class="refresh-btn" id="refresh-summary" title="Refresh summary tiles" aria-label="Refresh summary tiles">↻</button>
+  </div>
   <div class="kpis" id="kpi-band"></div>
   <div id="kpi-trend-note" style="font-size:.7rem;color:var(--muted);margin-top:8px;display:flex;align-items:center;gap:6px">Trend sparklines show real monthly snapshots (loading…).</div>
 
@@ -409,6 +416,7 @@
           <span><i class="dot" style="background:var(--c2)"></i>Assets</span>
           <span><i class="dot" style="background:var(--c1)"></i>Terms</span>
           <span><i class="dot" style="background:var(--c6)"></i>Governed %</span>
+          <button type="button" class="refresh-btn" id="refresh-growth" title="Refresh Catalog Growth" aria-label="Refresh Catalog Growth">↻</button>
         </div>
       </div>
       <svg viewBox="0 0 720 260" width="100%" height="260" id="growth"></svg>
@@ -461,7 +469,7 @@
        and the data-drill attributes are kept identical across every variant
        so applyUsage()'s live-value wiring and drill-click both keep working
        no matter which variant is currently in the DOM. -->
-  <div class="section-label">Usage Context <span class="prov prov-mix">◐ mixed</span> <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— supply chains &amp; blueprints put assets in a business context, not just a list</span></div>
+  <div class="section-label">Usage Context <span class="prov prov-mix">◐ mixed</span> <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— supply chains &amp; blueprints put assets in a business context, not just a list</span> <button type="button" class="refresh-btn" id="refresh-usage" title="Refresh Usage Context" aria-label="Refresh Usage Context">↻</button></div>
   <div class="grid g-3" id="usage-grid">
     <div class="panel clickable" data-drill="isc" style="border-left:3px solid var(--c2)">
       <h3>🔗 Information Supply Chains</h3>
@@ -564,7 +572,7 @@
   </div>
 
   <!-- ── AI & CONTEXT INTELLIGENCE ── -->
-  <div class="section-label">AI &amp; Context Intelligence <span class="prov prov-mix">◐ mixed</span> <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— turning governed metadata into trustworthy context for apps &amp; agents</span></div>
+  <div class="section-label">AI &amp; Context Intelligence <span class="prov prov-mix">◐ mixed</span> <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— turning governed metadata into trustworthy context for apps &amp; agents</span> <button type="button" class="refresh-btn" id="refresh-ai-context" title="Refresh AI &amp; Context Intelligence" aria-label="Refresh AI &amp; Context Intelligence">↻</button></div>
 
   <div class="kpis" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
     <div class="kpi clickable" data-drill="ai-ready">
@@ -622,7 +630,7 @@
   </div>
 
   <!-- ── PEOPLE & COMMUNITY ── -->
-  <div class="section-label">People &amp; Community <span class="prov prov-mix">◐ mixed</span> <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— the human engagement behind the metadata (Community Profile + Collaboration OMAS)</span></div>
+  <div class="section-label">People &amp; Community <span class="prov prov-mix">◐ mixed</span> <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:.72rem">— the human engagement behind the metadata (Community Profile + Collaboration OMAS)</span> <button type="button" class="refresh-btn" id="refresh-people" title="Refresh People &amp; Community" aria-label="Refresh People &amp; Community">↻</button></div>
 
   <div class="kpis" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
     <div class="kpi">
@@ -779,7 +787,8 @@
 <!-- Bump ?v= whenever egeria-shared-ui.js changes — /static is served with
      Cache-Control: no-cache, but a fresh URL guarantees revalidation for
      browsers that cached the file before that header existed. -->
-<script src="/static/egeria-shared-ui.js?v=2026-08-18c"></script>
+<script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-09-01b"></script>
 <!-- Vega-Lite chart rendering (NEXT-10 P1) — same CDN trio pyegeria's own
      vega_to_html() assumes. Backend sends ready Vega-Lite specs; renderVega()
      below just embeds them. -->
@@ -2136,19 +2145,46 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     return getJSON('/api/overview/growth?window=' + encodeURIComponent(win || '6mo'), null)
       .then(applyGrowth).catch(function(){ if (sub) sub.textContent = 'Growth unavailable'; });
   }
+  // Per-endpoint reloaders — each fetches one section's data into `store` and
+  // re-renders the KPI band. Factored out of loadSet() so a section's own
+  // refresh button can re-fetch just that section instead of all four.
+  function reloadSummary(store, asOf, primary){
+    return getJSON('/api/overview/summary', asOf).then(function(d){ applySummary(d, store, primary); renderKPIs(); });
+  }
+  function reloadPeople(store, asOf, primary){
+    return getJSON('/api/overview/people', asOf).then(function(d){ applyPeople(d, store, primary); renderKPIs(); });
+  }
+  function reloadUsage(store, asOf, primary){
+    return getJSON('/api/overview/usage-context', asOf).then(function(d){ applyUsage(d, store, primary); renderKPIs(); });
+  }
+  function reloadAI(store, asOf, primary){
+    return getJSON('/api/overview/ai-context', asOf).then(function(d){ applyAI(d, store, primary); renderKPIs(); });
+  }
   // Fetch the four point-in-time endpoints (optionally as-of) into a store.
   // Renders after EACH resolves so fast endpoints (summary ~3s) show immediately
   // instead of waiting on the slowest (people ~48s until the count API lands).
   function loadSet(store, asOf, primary){
-    var step = function(apply){
-      return function(d){ apply(d, store, primary); renderKPIs(); };
-    };
     return Promise.allSettled([
-      getJSON('/api/overview/summary',       asOf).then(step(applySummary)),
-      getJSON('/api/overview/people',        asOf).then(step(applyPeople)),
-      getJSON('/api/overview/usage-context', asOf).then(step(applyUsage)),
-      getJSON('/api/overview/ai-context',    asOf).then(step(applyAI))
+      reloadSummary(store, asOf, primary),
+      reloadPeople(store, asOf, primary),
+      reloadUsage(store, asOf, primary),
+      reloadAI(store, asOf, primary)
     ]);
+  }
+  // Current as-of time per the time-machine date picker (null = live/now) —
+  // shared by refresh() and the per-section refresh buttons so a manual
+  // section refresh respects whatever the dashboard is currently viewing.
+  function currentAsOf(){
+    var dateEl = document.getElementById('asof-date');
+    var dateVal = dateEl ? dateEl.value : '';
+    return dateVal ? new Date(dateVal + 'T00:00:00').toISOString() : null;
+  }
+  // Spin the clicked refresh icon briefly so a manual refresh gives visible feedback.
+  function spinRefreshBtn(btn){
+    if (!btn) return;
+    btn.classList.remove('spin');
+    void btn.offsetWidth;   // restart the animation if clicked again quickly
+    btn.classList.add('spin');
   }
   function setBadge(mode, label){
     if (mode === 'asof')    return badge('◷ as of ' + label, 'var(--c4)');
@@ -2196,6 +2232,35 @@ const dn=document.getElementById('donut'); if(dn){ dn.style.cursor='pointer'; dn
     });
     var rs = document.getElementById('range-sel');
     if (rs) rs.addEventListener('change', function(){ loadGrowth(rs.value); });
+
+    // Per-section refresh buttons — re-fetch just that section's data, respecting
+    // whatever as-of date the time-machine is currently set to.
+    var growthBtn = document.getElementById('refresh-growth');
+    if (growthBtn) growthBtn.addEventListener('click', function(){
+      spinRefreshBtn(growthBtn);
+      var r = document.getElementById('range-sel');
+      loadGrowth(r ? r.value : '6mo');
+    });
+    var summaryBtn = document.getElementById('refresh-summary');
+    if (summaryBtn) summaryBtn.addEventListener('click', function(){
+      spinRefreshBtn(summaryBtn);
+      reloadSummary(LIVE, currentAsOf(), true);
+    });
+    var peopleBtn = document.getElementById('refresh-people');
+    if (peopleBtn) peopleBtn.addEventListener('click', function(){
+      spinRefreshBtn(peopleBtn);
+      reloadPeople(LIVE, currentAsOf(), true);
+    });
+    var usageBtn = document.getElementById('refresh-usage');
+    if (usageBtn) usageBtn.addEventListener('click', function(){
+      spinRefreshBtn(usageBtn);
+      reloadUsage(LIVE, currentAsOf(), true);
+    });
+    var aiBtn = document.getElementById('refresh-ai-context');
+    if (aiBtn) aiBtn.addEventListener('click', function(){
+      spinRefreshBtn(aiBtn);
+      reloadAI(LIVE, currentAsOf(), true);
+    });
   }
 
   // Fetch summary/usage text for the info bubble from the same registry that
