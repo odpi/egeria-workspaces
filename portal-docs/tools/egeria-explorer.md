@@ -40,7 +40,7 @@ The full set of element-category browsers — most support search, filtering, cr
 | **Reference Data** | Valid value sets and definitions — the allowed values for property fields in your Egeria environment |
 | **Data Design** | Data Specs, Data Structures, Data Fields, and Data Grains, cross-referenced with glossary terms — a field's assigned glossary term(s) and data class(es) are called out distinctly (🧠 / 🏷️) rather than buried among other relationships |
 | **Collections** | Same as above |
-| **Solution Architect** | Solution blueprints and component hierarchies — actor assignments, wiring relationships, concrete implementations |
+| **Solution Architect** | Solution blueprints and component hierarchies — actor assignments, wiring relationships, concrete implementations — plus a **Patterns** tab for the design-pattern library (general/specialized, consumed/consuming, and related pattern relationships, grouped by category) |
 | **Information Supply Chains** | ISC scope, segments, and concrete technical implementations as Mermaid diagrams |
 | **Locations** | Physical, cyber, and secure locations — parent/child hierarchies, peer links, locally hosted assets, assigned roles |
 | **Actors** | Actor profiles (people, teams, organizations, IT profiles), the roles they perform, and their user identities |
@@ -81,6 +81,8 @@ Most detail panels (Glossary, Solution Architect, Locations, Actors, Communities
 - **{ } Copy JSON** — copies the complete raw JSON payload for the selected element to the clipboard. Shows **✓ Copied** (green) on success or **✕ Failed** (red), resetting after two seconds.
 - **☐ / ☑ bookmark** — saves the item to **My Bookmarks** on the portal home page, linking back to this exact element. Requires an active persona (Quickstart) or a logged-in account (Freshstart); the toggle is hidden otherwise.
 - **♡ feedback** — like/comment on the element via Egeria's built-in feedback API (separate from the portal's own per-page feedback button).
+
+Every list-driven tab's sidebar also has a **↻ Refresh** button below its filter box, to reload that list on demand (e.g. after adding something via Dr. Egeria or Obsidian) without waiting for a full page reload.
 
 Properties are shown generically — any scalar property Egeria returns for an element (including `authors`, `contentStatus`, and other `AuthoredReferenceable` fields) is displayed automatically, without needing per-type code changes. Relationships not otherwise shown in a dedicated section appear in a catch-all **Relationships** block at the bottom of the panel, so nothing linked to an element is silently hidden.
 
