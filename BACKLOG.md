@@ -9,6 +9,61 @@ what's actually open — a stub with a link is left in place of each moved
 section. Sections with any open/pending sub-items stay here even if their
 header says "done", since part of the work is still live.
 ---
+## Portal panes — missing refresh buttons + External Reference nav gap + type-nav consolidation (2026-09-01/02) — ✅ done
+
+Raised live: some portal panes had no way to manually refresh stale data, and an
+asset's attached External Reference had no "View" action to navigate to it.
+
+- **Refresh buttons**: audited every React SPA (Egeria Explorer, The Catalog,
+  Insights, Audit, Overview, local-dashboards) for panes that fetch data but
+  have no manual refresh control. Added the existing "↻ Refresh"
+  attempt-counter convention to ~25 panes across `type-explorer.html` (14,
+  including `ProjectsView` — the item Dan flagged directly — and the Types
+  tab, whose refresh counter existed but was never wired to a button),
+  `tech-catalog.html` (fixed the shared `SubPane` component, covering
+  Elements/Schema/Annotations sub-panes at once), `egeria-insights.html`
+  (Dashboard, RelationshipTree, SavedQueries), `egeria-shared-ui.js`'s
+  `AuditRelationshipTab` (backs 3 egeria-audit.html tabs at once), and the
+  plain-JS `egeria-overview.html`/`local-dashboards.html` (5 + 3 sections,
+  plus a `force` bypass added to `local-dashboards.html`'s 45s report-execution
+  cache so a manual refresh can actually get fresh data within that window).
+- **External Reference "View" gap**: `tech-catalog.html`'s `TYPE_TO_NAV` had
+  no entry for `ExternalReference`/`RelatedMedia`/`CitedDocument`/
+  `ExternalDataSource`/`ExternalModelSource`, so an asset's attached external
+  references never got the "View →" button every other relationship type
+  gets. Also fixed `TechTypeDetail`'s dedicated external-references block,
+  which never received a `guid` from the backend (`tech_catalog_handler.py`'s
+  `_serialize_tech_type_detail`) to navigate with.
+- **Type-nav consolidation**: fixing the gap above led to auditing the type→
+  navigation mapping more broadly against the live Egeria type catalogue,
+  which found real gaps affecting two sibling tables too (`InformalTag`,
+  `ContextEvent`, the Action Center types had working display pages but
+  weren't linkable from all callers) — caused by 3 hand-duplicated tables
+  (`TYPE_TO_NAV`, `EGERIA_EXPLORER_NAV`, `PORTAL_EXPLORER_NAV`) drifting out
+  of sync. Consolidated into one `static/type-nav-map.json` + a small
+  vanilla-JS resolver (`static/type-nav-resolve.js`, no React dependency so
+  it loads in the plain-JS `demo-portal.html` too), fixing the gaps as part
+  of the merge. `EngineAction` stays a small explicit special case in each
+  caller (routes to a different app entirely, not an Explorer tab — can't be
+  expressed by the JSON's `explorerHash` shape).
+- **Mirrored into freshstart** — not a blind copy, since freshstart's
+  `PyegeriaWebHandler` is separately-diverged (see SHARE-3 above): ported
+  refresh buttons to the panes freshstart actually has (no
+  `egeria-insights.html`/`local-dashboards.html` there), rebuilt
+  `type-nav-map.json` from freshstart's own routing data, and deliberately
+  **excluded** `ExternalReference` and 8 other types from freshstart's map —
+  freshstart's Explorer has no matching tab for any of them yet, so a nav
+  button would be a dead link. Removed a dead "View →" button the first port
+  pass added by mistake for exactly that reason.
+- Deployed and live-verified in quickstart (`docker cp`, 0-line diff against
+  the container, curl-checked pages/assets); freshstart verified via a
+  `--no-deps` `freshstart-pyegeria-web`-only container boot (no Egeria
+  platform, so no bootstrap batches ran — coordinated with 3 live peer
+  sessions first since freshstart shares physical Postgres/Kafka with
+  quickstart and one had an in-flight Egeria change), then torn down.
+- PR: [odpi/egeria-workspaces#429](https://github.com/odpi/egeria-workspaces/pull/429).
+
+---
 ## Fix: REST APIs view — blank screen (2026-08-18) — ✅ done (quickstart only)
 
 > Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
@@ -776,7 +831,7 @@ Full repro steps (runnable code, expected vs. actual, root cause) for every row 
 | PY-21 | **CONFIRMED BUG, fixed in this app** — `find_glossary_terms(sequencing_order=..., include_only_classified_elements=...)` silently returns **zero** results when combined, even though each filter alone works fine (classification filter alone: 33 hits; `sequencing_order` alone: 200 hits; both together: 0). Root cause of "Egeria Explorer Perspectives page shows Perspectives but no Questions" (2026-07-28) — `perspectives_handler.py`'s `get_questions()` used exactly this combination. See PYEGERIA_ISSUES.md PY-21 | **Fixed** 2026-07-28 in `perspectives_handler.py` (dropped `sequencing_order`/`sequencing_property` — redundant anyway, results are already sorted client-side) | Egeria-side: worth checking whether `include_only_classified_elements`/`matchClassifications` + `sequencing_order` is broken generally, not just for this one call site |
 | PY-22 | `ProjectManager.get_linked_projects(guid)` returns `"No elements found"` for every one of the 29 qs demo projects, including ones with a demonstrably real `ProjectHierarchy` relationship (visible in `get_project_by_guid`'s own `managedProjects` field for "Sustainability Campaign") — not a test-data gap, the method itself doesn't surface real relationship data | **fixed** 2026-08-05 (pyegeria `_server_client.py` — ISSUE-42). Root cause: the shared `_async_get_guid_request` helper only checked singular `"element"`/`"elementGraph"` response keys; the real response for this endpoint returns a list under the plural `"elements"` key, added as a third fallback. Verified live (a project with real links now returns them) + 4 new unit tests. Released in pyegeria 6.1.0 (now deployed on quickstart-pyegeria-web) | No longer needed — `get_linked_projects` now works directly |
 | PY-23 | `Create Information Supply Chain`'s `Purposes` attribute validated/processed with `SUCCESS` but was never persisted to the element — confirmed live creating 17 ISCs, none retained their `Purposes` value | **fixed, released, and verified end-to-end live** — fixed 2026-08-18 (`egeria-python` ISSUE-64, `solution_architect.py`; real wire property is `dataProcessingPurposes`, not `purposes`), shipped in pyegeria 6.1.0 on PyPI, deployed on `quickstart-pyegeria-web`. Workaround reverted in `gen_governance_metrics.py` (back to `### Purposes`). **Follow-up bug found and fixed same day:** `Purposes` is a `Simple List` attribute — Dr.Egeria's parser splits list values on *any* comma, not just an intentional separator (`re.split(r'[;,\n]+', value)`), so the first revert's prose paragraph (written for `Description`, dense with commas) landed as disconnected mid-sentence fragments instead of one coherent value. Rewrote `flow_purpose` as 4 genuinely separate, comma-free statements joined with `"; "` (plus a `_nc()` guard stripping any stray comma from interpolated metric names), regenerated, re-ran `--validate` (40/40 SUCCESS) then `--process` (54/54 SUCCESS). Verified live across all 17 Data Flow ISCs, not just one: every `dataProcessingPurposes` list has exactly 4 items, zero commas in any of them. | None needed — closed |
-| PY-24 | `ServerClient._async_get_guid_request`'s dict-body branch always validates against the base `GetRequestBody`/`ResultsRequestBody` Pydantic models, whose `class` field was `Literal[<own name>]` — rejects any real Egeria polymorphism subclass name, including ones pyegeria's own docstrings tell callers to send (`AnyTimeRequestBody` for `SolutionArchitect.get_solution_component_by_guid`/`get_solution_blueprint_by_guid`; `RelationshipRequestBody` for `ProjectManager.get_linked_projects`). Found 2026-08-23 right after the pyegeria 6.1.1 rollout — a real 500 on solution component detail, plus a second, silent instance where `get_linked_projects`' failure was swallowed by a `try/except` into an empty child list. | **fixed upstream, not yet released** — filed as [odpi/egeria-python#298](https://github.com/odpi/egeria-python/issues/298), fixed same-day in [PR #299](https://github.com/odpi/egeria-python/pull/299) (`class_` loosened from `Literal` to `str` on both models — covers all ~90 call sites through this helper, not just the two hit here; new regression test `test_get_request_body_class_literal.py`; tracked as `egeria-python` ISSUE-72). **Still open here:** once #299 merges and ships in a pyegeria release, revert `solution_architect_handler.py`'s `_DETAIL_GRAPH_BODY_MODEL` and `project_handler.py`'s `_relationship_request_body()` back to plain dicts (both quickstart and freshstart) — the `model_construct` workaround is temporary tech debt, not the real fix. | `GetRequestBody.model_construct(class_=<real subclass name>, ...)` bypasses Pydantic validation entirely (unlike `model_validate`), hitting `_async_get_guid_request`'s `isinstance(body, GetRequestBody)` fast path that skips validation — see the comments at both call sites for the full writeup |
+| PY-24 | `ServerClient._async_get_guid_request`'s dict-body branch always validates against the base `GetRequestBody`/`ResultsRequestBody` Pydantic models, whose `class` field was `Literal[<own name>]` — rejects any real Egeria polymorphism subclass name, including ones pyegeria's own docstrings tell callers to send (`AnyTimeRequestBody` for `SolutionArchitect.get_solution_component_by_guid`/`get_solution_blueprint_by_guid`; `RelationshipRequestBody` for `ProjectManager.get_linked_projects`). Found 2026-08-23 right after the pyegeria 6.1.1 rollout — a real 500 on solution component detail, plus a second, silent instance where `get_linked_projects`' failure was swallowed by a `try/except` into an empty child list. | **fixed, released, reverted — closed 2026-09-02.** Filed as [odpi/egeria-python#298](https://github.com/odpi/egeria-python/issues/298), fixed same-day in [PR #299](https://github.com/odpi/egeria-python/pull/299) (`class_` loosened from `Literal` to `str` on both models — covers all ~90 call sites through this helper, not just the two hit here; new regression test `test_get_request_body_class_literal.py`; tracked as `egeria-python` ISSUE-72), released in pyegeria 6.1.5 (2026-08-26). Confirmed live on `quickstart-pyegeria-web` running 6.1.8 (2026-09-02) — installed the fix at PyPI source level (`GetRequestBody.class_`/`ResultsRequestBody.class_` both `Annotated[str, Field(alias="class")]`, not `Literal`) before reverting. Reverted `solution_architect_handler.py`'s `_DETAIL_GRAPH_BODY_MODEL`/`_GetRequestBody` import back to the plain `_DETAIL_GRAPH_BODY_DICT` (now used for all 3 by-guid calls) and `project_handler.py`'s `_relationship_request_body()` back to a plain dict, in both quickstart and freshstart (files stayed byte-identical through the edit). Live-verified against the real container: `get_solution_component_by_guid`, `get_design_pattern_by_guid` (200s, correct data, mermaid graph present), and `get_linked_projects` (200, real `ProjectHierarchy` child returned for "Sustainability Campaign") all work with the reverted plain-dict bodies. | None needed — closed. `model_construct` workaround fully removed. |
 | PY-25 | `ValidMetadataManager` — 12 of 14 methods build their request URL by unconditionally f-string-interpolating `type_name`, e.g. `f".../validate-value/{property_name}?typeName={type_name}&actualValue={actual_value}"`. When `type_name` is `None` (the documented way to register/validate a valid value across *all* open metadata types — a Dr.Egeria `Setup Valid Metadata Value` command with Type Name deliberately omitted), the f-string renders the literal string `"None"`, so the server receives `typeName=None` — a nonexistent type, not "no filter." Breaks both the registration call itself (the "global" value never actually lands as global) and every later validate/get/clear lookup that also passes `type_name=None`, so it's deterministically broken, not a timing/cache issue (confirmed live 2026-08-28: identical failure re-running the same file 20+ min apart, fresh process both times). Real-world trigger: 5 of 18 files in egeria-workspaces' Coco "Data Governance Program" batch each self-register a custom domain this way before using it — every dependent `Create <GovernanceDefinition>` command in those files failed `Domain Identifier` validation, cascading into "Missing unresolved reference GUID(s)" on later `Link Governance Response`/`Link Governance Mechanism` commands and 404s (`metadataElement2GUID=None`) on `Add Member to Collection`. | **fixed and released — verified live end-to-end, 2026-08-28.** Root-caused and fixed by the `egeria-python` session (tracked as `egeria-python` ISSUE-82): applied the same `if type_name: url += f"&typeName={type_name}"` guard already present on the one correctly-written sibling method (`_async_get_valid_metadata_values`) to the other 11 async methods. Shipped in **pyegeria 6.1.7** the same day. Upgraded `quickstart-pyegeria-web`'s container (`pip install --upgrade pyegeria` → 6.1.7, guard confirmed present in the installed `valid_metadata.py`) and re-ran all 5 previously-failing files directly (`human-resource-management.md`, `health-and-safety.md`, `biological-agents-and-gmo.md`, `dangerous-goods-transport.md`, `diversity-equity-inclusion.md`) — every one now exits 0 / `SUCCESS`, zero occurrences of any of the three failure signatures (`not a valid metadata value`, `Missing unresolved reference`, `PyegeriaNotFoundException`/404) across all 5 outputs. | None needed — closed. `requirements.txt`'s `pyegeria>=6.1.1` pin covers 6.1.7 automatically on next rebuild; the container-only `pip install --upgrade` done here for live verification does not survive a rebuild (see `Dockerfile-fast-api`'s own note) — `bin/update-pyegeria.sh` picks it up for real next deploy. |
 
 ---
