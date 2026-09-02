@@ -54,6 +54,12 @@ If you want to refresh just the freshstart platform base image (even when `egeri
 ./fresh-start-local --refresh-platform
 ```
 
+If you want to force freshstart-pyegeria-web and jupyter to re-resolve the latest pyegeria release from PyPI (a plain rebuild reuses the cached `pip install --upgrade` layer and otherwise keeps whatever version was last resolved), run:
+
+```bash
+./fresh-start-local --refresh-pyegeria
+```
+
 If you prefer to run Docker Compose manually from this directory, use:
 
 ```bash
