@@ -64,6 +64,58 @@ asset's attached External Reference had no "View" action to navigate to it.
 - PR: [odpi/egeria-workspaces#429](https://github.com/odpi/egeria-workspaces/pull/429).
 
 ---
+## Bug: PyegeriaWebHandler 500s on every request under Python 3.14 (2026-09-02) — reverted, root-caused
+
+The 7 dependabot Python 3.14 base-image PRs (#334/336/337/338/339/342/343)
+were merged 2026-09-02 after local build-and-install verification (all
+dependencies installed cleanly, no compile errors). That verification
+didn't catch this: it was a **runtime** incompatibility, not an install-time
+one, and only manifested once `quickstart-pyegeria-web` was actually
+redeployed and hit with live traffic — every single request 500'd with:
+```
+TypeError: cannot create weak reference to 'NoneType' object
+  File ".../anyio/_backends/_asyncio.py", line 431, in __enter__
+    task_state = _task_states[host_task]
+```
+
+**Root cause, confirmed via class hierarchy + traceback shape:**
+`SlowAPIMiddleware` (the `slowapi` rate-limiter, `app.add_middleware(SlowAPIMiddleware)`
+in `pyegeria_handler.py`) inherits from `starlette.middleware.base.BaseHTTPMiddleware`,
+whose `__call__` wraps every request in an `anyio` task group
+(`create_collapsing_task_group`). Under Python 3.14, that hits the same
+error class as [anyio#773](https://github.com/agronholm/anyio/issues/773):
+`asyncio.current_task()` returns `None` in a context `anyio` expects to
+always be inside a proper `Task`, and its internal weak-keyed task-state
+dict can't key on `None`. Already on latest `anyio` (4.14.2) — no upstream
+fix available yet. Not a `pyegeria` bug; this app's `nest_asyncio`
+dependency (globally patches asyncio, imported at startup via `mcp_server`)
+is a plausible aggravating factor but unconfirmed — the trigger is
+`slowapi`'s `BaseHTTPMiddleware` usage regardless.
+
+**Fixed by reverting**, not by working around it live: `Dockerfile-fast-api`
+back to `python:3.12-slim-bookworm` in both quickstart (rebuilt, redeployed,
+confirmed `python3 --version` → 3.12.14) and freshstart (source reverted,
+not yet redeployed — freshstart wasn't running at the time). This
+supersedes #334/#337's merged effect for these two files specifically.
+
+**The other 5 merged Python-3.14 PRs are NOT affected** and don't need
+reverting — checked each:
+- `Dockerfile-apache-web` (#343) — the Python 3.14 layer is CGI-script-only
+  (a venv with plain `pyegeria` installed for CGI, `apt`/Apache module
+  config); no FastAPI/`anyio`/`slowapi` in that image at all.
+- `Dockerfile-my-egeria` — runs `textual_serve.Server` (Starlette-based
+  under the hood) but doesn't use `slowapi`/`BaseHTTPMiddleware` directly.
+  Lower risk, **unverified** — worth a live check if `quickstart-my-profile`
+  is ever redeployed and starts misbehaving.
+- #336 (mlflow), #339 (duckdb), #342 (dagster) — unrelated services, no
+  FastAPI/starlette stack.
+
+**Not yet done:** re-run the earlier local build-and-install verification
+methodology's gap through a real `uvicorn` boot + live HTTP request, not
+just `pip install` + import, before merging any future base-image bump for
+a FastAPI service — this is exactly the class of bug that gap misses.
+
+---
 ## Fix: REST APIs view — blank screen (2026-08-18) — ✅ done (quickstart only)
 
 > Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
