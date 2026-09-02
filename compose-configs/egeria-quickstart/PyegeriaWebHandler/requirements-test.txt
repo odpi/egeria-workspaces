@@ -7,4 +7,4 @@
 #   docker exec quickstart-pyegeria-web pip install -r requirements-test.txt
 
 pytest>=9.1.1
-schemathesis>=3.39
+schemathesis>=4.25.2
