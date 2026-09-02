@@ -584,7 +584,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      Cache-Control: no-cache (forces revalidation), but a browser that cached
      this URL *before* that header existed won't revalidate on its own; a new
      URL guarantees a fresh fetch regardless of prior cache state. -->
-<script src="/static/egeria-shared-ui.js?v=2026-08-18c"></script>
+<script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-09-01b"></script>
 <script>
 'use strict';
 // React hook aliases (mirror type-explorer.html)
@@ -755,7 +756,7 @@ function SurveySpecCard({ entry, card, showTechTypes }) {
   );
 }
 
-function TechTypeDetail({ item, detailLoading, creds }) {
+function TechTypeDetail({ item, detailLoading, creds, onNavigate }) {
   if (!item) return null;
   var sHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
   var card = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 10 };
@@ -856,13 +857,21 @@ function TechTypeDetail({ item, detailLoading, creds }) {
       React.createElement('div', { style: sHdr }, 'External References'),
       React.createElement('div', { style: card },
         item.externalReferences.map(function(ref, ri) {
-          return React.createElement('div', { key: ri, style: { marginBottom: 8 } },
-            ref.url
-              ? React.createElement('a', { href: ref.url, target: '_blank', rel: 'noopener noreferrer',
-                  style: { fontSize: 13, color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' } },
-                  '↗ ' + (ref.displayName || ref.url))
-              : React.createElement('span', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)' } }, ref.displayName || ''),
-            ref.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginTop: 2, lineHeight: 1.5 } }, ref.description)
+          return React.createElement('div', { key: ri, style: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 } },
+            React.createElement('div', null,
+              ref.url
+                ? React.createElement('a', { href: ref.url, target: '_blank', rel: 'noopener noreferrer',
+                    style: { fontSize: 13, color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' } },
+                    '↗ ' + (ref.displayName || ref.url))
+                : React.createElement('span', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)' } }, ref.displayName || ''),
+              ref.description && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)', marginTop: 2, lineHeight: 1.5 } }, ref.description)
+            ),
+            ref.guid && onNavigate && React.createElement('button', {
+              className: 'btn-sm',
+              onClick: function() {
+                onNavigate({ guid: ref.guid, displayName: ref.displayName || ref.guid, external: 'egeria-explorer', hash: 'external-references' });
+              }
+            }, 'View →')
           );
         })
       )
@@ -978,7 +987,7 @@ function TechTypeNode({ node, depth, selQN, onSelect, expanded, onToggle }) {
   );
 }
 
-function TechTypesView({ creds }) {
+function TechTypesView({ creds, onNavigate }) {
   var _sideW = useResizable(290, 200, 600), sideW = _sideW[0], onSideDivDown = _sideW[1];
   // Hierarchy state
   var _hier    = useState(null),  hier    = _hier[0],    setHier    = _hier[1];
@@ -1125,7 +1134,7 @@ function TechTypesView({ creds }) {
     React.createElement(ResizeDivider, { onMouseDown: onSideDivDown }),
     React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: sel ? '20px 24px' : 0 } },
       sel
-        ? React.createElement(TechTypeDetail, { item: detail || sel, detailLoading: detLoad, creds: creds })
+        ? React.createElement(TechTypeDetail, { item: detail || sel, detailLoading: detLoad, creds: creds, onNavigate: onNavigate })
         : React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--dim)', fontSize: 13 } }, 'Select a technology type from the tree')
     )
   );
@@ -1240,18 +1249,35 @@ function SubPane({ title, fetchUrl, creds, renderContent, prominent }) {
   var _data    = useState(null),  data    = _data[0],    setData    = _data[1];
   var _loading = useState(false), loading = _loading[0], setLoading = _loading[1];
   var _err     = useState(''),    err     = _err[0],     setErr     = _err[1];
+  var _attempt = useState(0), attempt = _attempt[0], setAttempt = _attempt[1];
+  var fetchedOnce = useRef(false);
 
   function toggle() {
-    var nowOpen = !open;
-    setOpen(nowOpen);
-    if (nowOpen && !data && !loading) {
+    setOpen(!open);
+  }
+
+  function refresh(e) {
+    if (e) e.stopPropagation();
+    setAttempt(function(a) { return a + 1; });
+  }
+
+  useEffect(function() {
+    if (!open) return;
+    if (!fetchedOnce.current || attempt > 0) {
+      fetchedOnce.current = true;
       setLoading(true); setErr('');
       fetchWithToken(fetchUrl, creds)
         .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(function(d) { setData(d); setLoading(false); })
         .catch(function(e) { setErr(String(e)); setLoading(false); });
     }
-  }
+    // eslint-disable-next-line
+  }, [open, attempt]);
+
+  var refreshBtn = open && React.createElement('button', {
+    className: 'btn-sm', style: { marginLeft: 8 }, title: 'Reload this data',
+    onClick: refresh,
+  }, '↻ Refresh');
 
   if (prominent) {
     var btnStyle = { width: '100%', marginTop: 14, padding: '10px 16px', fontSize: 13, fontWeight: 700,
@@ -1262,7 +1288,8 @@ function SubPane({ title, fetchUrl, creds, renderContent, prominent }) {
     return React.createElement('div', null,
       React.createElement('div', { style: btnStyle, onClick: toggle },
         React.createElement(FoldTriangle, { open: open }),
-        React.createElement('span', null, title)
+        React.createElement('span', { style: { flex: 1 } }, title),
+        refreshBtn
       ),
       open && React.createElement('div', { style: { paddingBottom: 12 } },
         loading
@@ -1279,7 +1306,8 @@ function SubPane({ title, fetchUrl, creds, renderContent, prominent }) {
   return React.createElement('div', null,
     React.createElement('div', { style: hdrStyle, onClick: toggle },
       React.createElement(FoldTriangle, { open: open }),
-      React.createElement('span', { style: labelStyle }, title)
+      React.createElement('span', { style: labelStyle }, title),
+      refreshBtn
     ),
     open && React.createElement('div', { style: { paddingBottom: 12 } },
       loading
@@ -1510,12 +1538,10 @@ function GlossaryView({ creds, onNavigate }) {
 
   // Cross-app navigation for term relationships. The Catalog has no Data Design
   // tab of its own, so DataField/DataStructure/etc. (and any other element type
-  // in TYPE_TO_NAV) open the Egeria Explorer, deep-linked via handleNavigate.
+  // in static/type-nav-map.json) open the Egeria Explorer, deep-linked via handleNavigate.
   function _resolveNav(item) {
-    var nav = item.typeName ? TYPE_TO_NAV[item.typeName] : null;
     var supers = item.superTypeNames || item.superTypes || [];
-    if (!nav) { for (var i = 0; i < supers.length; i++) { nav = TYPE_TO_NAV[supers[i]]; if (nav) break; } }
-    return nav || null;
+    return _resolveTypeToNav(item.typeName, supers);
   }
   var navigateToElement = useCallback(function(item) {
     var nav = _resolveNav(item);
@@ -1656,105 +1682,33 @@ function GlossaryView({ creds, onNavigate }) {
 }
 
 // ── Type → section/tab mapping for cross-navigation ──────────────────────────
-// Maps an Egeria typeName to the catalog section+tab that hosts it.
-// Subtypes not listed here won't get a "View →" button in the Relationships panel.
-var TYPE_TO_NAV = (function() {
-  var m = {};
-  // ITInfrastructure hierarchy
-  ['ITInfrastructure','SoftwareServer','SoftwareServerPlatform','Host',
-   'VirtualMachine','VirtualContainer','DockerContainer','HostCluster',
-   'BareMetalComputer','OperatingPlatform','StorageArray','StorageVolume',
-   'StorageVolumePair','SwitchFabric','NetworkGateway'].forEach(function(t) {
-    m[t] = { section: 'infrastructure', tab: 'infrastructure' };
-  });
-  // SoftwareCapability hierarchy
-  ['SoftwareCapability','APIManager','EventBroker','DatabaseManager','MetadataServer',
-   'GovernanceEngine','DataProcessingEngine','DataStoreManager','FileSystem',
-   'NetworkGateway','EnterpriseAccessLayer','CohortMember','CloudService',
-   'ContentManager','DirectoryService','InformationView','FormManager',
-   'RelationalDatabaseManager','WorkflowEngine','ReportingEngine',
-   'AnalyticsEngine','DataQualityEngine','MasterDataManager',
-   'NotificationManager','SearchEngine','GovernanceProgram',
-   'SecurityManager','AuthorizationManager','ReferenceDataManager',
-   'DigitalServiceManager'].forEach(function(t) {
-    m[t] = { section: 'infrastructure', tab: 'software-capabilities' };
-  });
-  // Endpoints
-  ['Endpoint'].forEach(function(t) {
-    m[t] = { section: 'infrastructure', tab: 'endpoints' };
-  });
-  // DataStore hierarchy
-  ['DataStore','Database','RelationalDatabase','ObjectStore','DocumentStore',
-   'GraphStore','DataFile','CSVFile','SpreadsheetFile','MediaFile','MediaCollection',
-   'DataFolder','FileFolder','DataObjectStore','KeyValueStore','GraphDatabase',
-   'DocumentDatabase','RelationalDatabaseSchema','DataStoreEncoding'].forEach(function(t) {
-    m[t] = { section: 'data-assets', tab: 'data-stores' };
-  });
-  // DataFeed hierarchy
-  ['DataFeed','Topic','KafkaTopic','SubscriberList','EventType','EventSet'].forEach(function(t) {
-    m[t] = { section: 'data-assets', tab: 'data-feeds' };
-  });
-  // DataSet hierarchy
-  ['DataSet','VirtualRelationalTable','DataCatalog','DataDesignArtifact',
-   'DataTable','DataSchemaAttribute'].forEach(function(t) {
-    m[t] = { section: 'data-assets', tab: 'data-sets' };
-  });
-  // APIs
-  ['DeployedAPI','APIOperation','APISchemaType'].forEach(function(t) {
-    m[t] = { section: 'apis', tab: 'apis' };
-  });
-  // Processes / software components
-  ['DeployedSoftwareComponent','DataMovementEngine','DataVirtualizationEngine',
-   'AnalyticsComponent','ReportingComponent','DashboardComponent',
-   'MLModel','MLModelDeployment'].forEach(function(t) {
-    m[t] = { section: 'processes', tab: 'software-components' };
-  });
-  // Governance Action Processes (0462) — exact match takes priority over the
-  // GovernanceDefinition supertype fallback below, so these stay in-app on the
-  // Processes tab (with step/flow detail) instead of opening Egeria Explorer.
-  m['GovernanceActionProcess'] = { section: 'processes', tab: 'governance-processes' };
-  // Glossary
-  ['GlossaryTerm','Glossary','GlossaryCategory'].forEach(function(t) {
-    m[t] = { section: 'glossary', tab: 'glossary' };
-  });
-  // Cross-app: Egeria Explorer. Single entries for the abstract supertype are
-  // enough — the caller falls back to walking el.superTypes when there's no
-  // exact match, so e.g. PersonRole/GovernanceRole both resolve via 'ActorRole'.
-  m['SolutionComponent'] = { external: 'egeria-explorer', hash: 'solution-architect', kind: 'components' };
-  m['SolutionBlueprint']  = { external: 'egeria-explorer', hash: 'solution-architect', kind: 'blueprints' };
-  m['InformationSupplyChain'] = { external: 'egeria-explorer', hash: 'isc' };
-  m['ActorRole']      = { external: 'egeria-explorer', hash: 'actors', kind: 'roles' };
-  m['ActorProfile']   = { external: 'egeria-explorer', hash: 'actors', kind: 'profiles' };
-  m['UserIdentity']   = { external: 'egeria-explorer', hash: 'actors', kind: 'identities' };
-  m['Location']       = { external: 'egeria-explorer', hash: 'locations' };
-  m['Community']      = { external: 'egeria-explorer', hash: 'communities' };
-  m['GovernanceDefinition'] = { external: 'egeria-explorer', hash: 'governance' };
-  m['ReferenceDataValue']   = { external: 'egeria-explorer', hash: 'reference-data' };
-  // Egeria's internal type-system registry (every entity/relationship/
-  // classification typeName also exists as one of these) — lands on
-  // Explorer's Valid Values tab. Unlike the search-result path in
-  // type-explorer.html, a guid-only deep link here can't preselect which
-  // property to look up (element-nav only returns typeName/superTypeNames,
-  // not the property name), so this is a landing, not a full deep link.
-  m['ValidMetadataValue']   = { external: 'egeria-explorer', hash: 'valid-values' };
-  // Data Design — Explorer's Data Design tab, sub-tab selected via ?kind=.
-  m['DataSpec']      = { external: 'egeria-explorer', hash: 'data-design', kind: 'specs' };
-  m['DataStructure'] = { external: 'egeria-explorer', hash: 'data-design', kind: 'structures' };
-  m['DataField']     = { external: 'egeria-explorer', hash: 'data-design', kind: 'fields' };
-  m['DataGrain']     = { external: 'egeria-explorer', hash: 'data-design', kind: 'grains' };
-  m['DataClass']     = { external: 'egeria-explorer', hash: 'data-design', kind: 'classes' };
-  // Collection family — Explorer routes these to its Digital Products tab
-  // (CollectionFolder/DigitalProduct + the generic Collection fallback for e.g. Folio).
-  m['CollectionFolder'] = { external: 'egeria-explorer', hash: 'digital-products' };
-  m['DigitalProduct']   = { external: 'egeria-explorer', hash: 'digital-products' };
-  m['Collection']       = { external: 'egeria-explorer', hash: 'digital-products' };
-  // Survey Reports
-  m['SurveyReport'] = { section: 'surveys', tab: 'survey-reports' };
-  // Annotations — base type is enough; the relationship renderer walks superTypes
-  // so all subtypes (SchemaAnalysisAnnotation, DataFieldAnnotation, etc.) resolve here.
-  m['Annotation'] = { section: 'surveys', tab: 'annotations' };
-  return m;
-}());
+// Maps an Egeria typeName to the catalog section+tab that hosts it (internal
+// routing), or to an Egeria Explorer tab (cross-app routing), or both. Backed
+// by static/type-nav-map.json (loaded by static/type-nav-resolve.js, see the
+// <script> tag near the top of this file) — see design-docs/type-system-audit.md.
+// _navFromEntry() adapts a type-nav-map.json entry into the {section,tab} /
+// {external,hash,kind} shape this file's four call sites already expect;
+// catalogSection/catalogTab (Tech Catalog's own internal routing) takes
+// priority when present, since that's the richer in-app view.
+// Subtypes not covered by the map won't get a "View →" button in the
+// Relationships panel.
+function _navFromEntry(entry) {
+  if (!entry) return null;
+  if (entry.catalogSection) return { section: entry.catalogSection, tab: entry.catalogTab };
+  if (entry.explorerHash) return { external: 'egeria-explorer', hash: entry.explorerHash, kind: entry.kind };
+  return null;
+}
+// EngineAction is the one type that isn't in type-nav-map.json at all — see
+// that file's header comment for why (it opens the egeria-operations app
+// directly, not an Egeria Explorer hash, and egeria-operations has no
+// per-guid deep link yet). Kept as a tiny explicit special case here so a
+// relationship row of this type still gets a "View →" button, matching
+// static/egeria-shared-ui.js's resolveElementNav and demo-portal.html's
+// portalResolveNav, which special-case it the same way for the same reason.
+function _resolveTypeToNav(typeName, superTypeNames) {
+  if (typeName === 'EngineAction') return { external: 'egeria-operations', hash: 'actions' };
+  return _navFromEntry((typeof resolveTypeNav === 'function') ? resolveTypeNav(typeName, superTypeNames) : null);
+}
 
 // ── Generic detail panel ──────────────────────────────────────────────────────
 function AssetDetail({ item, detailLoading, onNavigate, creds, sectionId }) {
@@ -1847,16 +1801,7 @@ function AssetDetail({ item, detailLoading, onNavigate, creds, sectionId }) {
         var el = r.relatedElement || {};
         var relProps = Object.entries(r.relationshipProperties || {});
         // Resolve nav target: try exact typeName first, then walk superTypes
-        var nav = null;
-        if (el.guid) {
-          nav = el.typeName ? TYPE_TO_NAV[el.typeName] : null;
-          if (!nav && el.superTypes) {
-            for (var si = 0; si < el.superTypes.length; si++) {
-              nav = TYPE_TO_NAV[el.superTypes[si]];
-              if (nav) break;
-            }
-          }
-        }
+        var nav = el.guid ? _resolveTypeToNav(el.typeName, el.superTypes) : null;
         return React.createElement('div', { key: i, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--rel)' }) },
           React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: relProps.length ? 4 : 0 } },
             React.createElement('span', { style: { fontSize: 10, fontWeight: 700, color: 'var(--rel)', letterSpacing: '0.05em' } }, r.relationshipType),
@@ -2703,6 +2648,8 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
         el('button', { onClick: function() { load(q, filter, asOf); },
           style: { padding: '4px 12px', fontSize: 12, borderRadius: 4, border: '1px solid var(--border)',
                    background: 'var(--panel)', color: 'var(--text)', cursor: 'pointer' } }, 'Search'),
+        el('button', { className: 'btn-sm', title: 'Reload annotations',
+          onClick: function() { load(q, filter, asOf); } }, '↻ Refresh'),
         ANNOTATION_TYPES.slice(1).map(function(t) {
           var active = filter === t.id;
           return el('button', { key: t.id,
@@ -2815,26 +2762,20 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
 // html's ExplorerSearchView, which duplicated all three near-verbatim.
 
 function SearchResultCard({ item, query, onNavigate, selection }) {
-  var nav = TYPE_TO_NAV[item.typeName];
-  if (!nav) {
-    var sup = item.superTypeNames || [];
-    for (var i = 0; i < sup.length; i++) {
-      if (TYPE_TO_NAV[sup[i]]) { nav = TYPE_TO_NAV[sup[i]]; break; }
-    }
-  }
+  var nav = _resolveTypeToNav(item.typeName, item.superTypeNames);
   function handleOpen() {
     if (!item.guid) return;
     if (onNavigate && nav) {
       // Spread nav in full — for cross-app entries this carries {external,
       // hash, kind}, not {section, tab}. Previously this only forwarded
       // section/tab, which silently dropped `external` and made
-      // handleNavigate() do setSection(undefined) for any TYPE_TO_NAV entry
-      // that routes to Egeria Explorer (Location, Community, ValidMetadataValue, …).
+      // handleNavigate() do setSection(undefined) for any type-nav-map.json
+      // entry that routes to Egeria Explorer (Location, Community, ValidMetadataValue, …).
       onNavigate(Object.assign({ guid: item.guid, displayName: item.displayName }, nav));
     } else if (onNavigate && item.categoryId && item.categoryId !== 'other') {
       onNavigate({ guid: item.guid, displayName: item.displayName, section: item.categoryId });
     } else {
-      // categoryId 'other' with no TYPE_TO_NAV match means this isn't a type The
+      // categoryId 'other' with no type-nav-map.json match means this isn't a type The
       // Catalog owns (e.g. a Valid Value or Actor) — reloading into
       // /tech-catalog?guid= used to silently wrap it in Data Assets chrome. Hand
       // off to Egeria Explorer instead, which does own these types.
@@ -3361,7 +3302,7 @@ function SectionView({ sectionId, creds, navTarget, onNavigate, searchQuery }) {
     );
   }
   if (sectionId === 'tech-types') {
-    return React.createElement(TechTypesView, { creds: creds });
+    return React.createElement(TechTypesView, { creds: creds, onNavigate: onNavigate });
   }
   if (sectionId === 'capabilities') {
     return React.createElement(CapabilitiesView, { creds: creds, onNavigate: onNavigate });
@@ -3650,19 +3591,22 @@ function App() {
       .then(function(d) {
         var typeName   = d && d.typeName;
         var superTypes = (d && d.superTypeNames) || [];
-        var nav = TYPE_TO_NAV[typeName];
-        if (!nav) {
-          for (var i = 0; i < superTypes.length; i++) {
-            nav = TYPE_TO_NAV[superTypes[i]];
-            if (nav) break;
-          }
-        }
+        var nav = _resolveTypeToNav(typeName, superTypes);
         var disp = (d && d.displayName) || guid;
         if (!nav) {
           // Type isn't one The Catalog owns (e.g. a Valid Value or Actor reached
           // via search) — do NOT default into Data Assets (that silently wraps
           // the wrong element in Catalog chrome). Show an honest unresolved panel.
           setUnresolvedNav({ guid: guid, typeName: typeName || null, displayName: disp });
+          history.replaceState(null, '', window.location.pathname);
+          return;
+        }
+        if (nav.external) {
+          // Resolves to a type The Catalog doesn't own a view for (Egeria
+          // Explorer or, for EngineAction, Egeria Operations) — hand off via
+          // the same handleNavigate() cross-app path a click uses, instead of
+          // wrapping it in Catalog chrome.
+          handleNavigate(Object.assign({ guid: guid, displayName: disp }, nav));
           history.replaceState(null, '', window.location.pathname);
           return;
         }
