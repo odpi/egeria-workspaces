@@ -3,6 +3,7 @@ set -euo pipefail
 
 # Always run from repo root (this script lives at repo root)
 cd "$(dirname "$0")"
+REPO_ROOT="$(pwd)"
 
 source compose-configs/shared-infra/detect-engine.sh
 source compose-configs/shared-infra/compose-build-flags.sh
@@ -20,6 +21,15 @@ server-ca.crt) in compose-configs/egeria-quickstart/.env.ssl.
 Options:
   --refresh-platform  Force rebuild of egeria-main so the container engine pulls
                       the latest base image.
+  --refresh-pyegeria  Force pyegeria-web and jupyter to re-resolve the latest
+                      pyegeria release. pyegeria's `pip install --upgrade` is
+                      a cached Docker layer, so a plain rebuild otherwise
+                      keeps whatever version was resolved when the image was
+                      last built, even though requirements.txt has no upper
+                      version bound. (Same fix as bin/update-pyegeria.sh, but
+                      only busts the pyegeria layer instead of rebuilding the
+                      whole image with --no-cache, and also covers jupyter,
+                      which that script doesn't.)
   --demo              Enable demo mode: activates user registration, auth gating,
                       and moves HTTPS to port 443 with a real certificate
                       instead of the self-signed default above. On first run,
@@ -74,6 +84,7 @@ EOF
 }
 
 REFRESH_PLATFORM=0
+REFRESH_PYEGERIA=0
 DEMO_MODE_FLAG=0
 SYNC_FROM=""
 SYNC_TO=""
@@ -87,6 +98,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --refresh-platform)
       REFRESH_PLATFORM=1
+      shift
+      ;;
+    --refresh-pyegeria)
+      REFRESH_PYEGERIA=1
       shift
       ;;
     --demo)
@@ -521,9 +536,27 @@ EOF
   # image. See compose-configs/shared-infra/pin-latest-digest.sh's own
   # docstring for the full reasoning.
   if [[ "$REFRESH_PLATFORM" -eq 1 ]]; then
-    compose-configs/shared-infra/pin-latest-digest.sh \
-      compose-configs/egeria-quickstart/Dockerfile-egeria-platform \
+    # NOTE: absolute paths -- we are inside the compose-configs/egeria-quickstart
+    # pushd here, so repo-root-relative paths would not resolve.
+    "$REPO_ROOT/compose-configs/shared-infra/pin-latest-digest.sh" \
+      "$REPO_ROOT/compose-configs/egeria-quickstart/Dockerfile-egeria-platform" \
       docker.io/odpi/egeria-platform:latest
+  fi
+
+  # pyegeria-web's and jupyter's `pip install --upgrade pyegeria` each sit in
+  # their own cached Docker RUN layer (see Dockerfile-fast-api / Dockerfile-
+  # jupyter's own PYEGERIA_BUST comments) -- a plain rebuild reuses that
+  # layer and keeps whatever version was resolved when the image was last
+  # built, even though requirements.txt's `pyegeria>=X` floor has no upper
+  # bound. Passing a fresh PYEGERIA_BUST value busts just that one layer
+  # (both Dockerfiles echo it into the RUN instruction so its content
+  # actually changes), so the subsequent build below re-resolves pyegeria
+  # without a full --no-cache rebuild of everything else in the image.
+  if [[ "$REFRESH_PYEGERIA" -eq 1 ]]; then
+    echo "[quick-start-local] Refreshing pyegeria (pyegeria-web + jupyter)..."
+    $COMPOSE_CMD -p egeria-quickstart "${COMPOSE_FILES[@]}" build \
+      --build-arg PYEGERIA_BUST="$(date +%s)" \
+      pyegeria-web jupyter-hub
   fi
 
   echo "[quick-start-local] Ensuring core images are available (platform, pyegeria-web, jupyter, my-profile)..."

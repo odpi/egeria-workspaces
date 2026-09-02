@@ -1003,10 +1003,12 @@ def _serialize_tech_type_detail(el: dict) -> dict:
             continue
         rel_el    = (ref.get("relatedElement") or {})
         rel_props = rel_el.get("properties") or {}
+        rel_hdr   = rel_el.get("elementHeader") or {}
         ext_refs.append({
             "displayName": ref.get("displayName") or rel_props.get("displayName") or "",
             "description": ref.get("description") or rel_props.get("description") or "",
             "url":         ref.get("url") or rel_props.get("url") or "",
+            "guid":        rel_hdr.get("guid") or rel_el.get("guid") or "",
         })
     base["externalReferences"] = ext_refs
 

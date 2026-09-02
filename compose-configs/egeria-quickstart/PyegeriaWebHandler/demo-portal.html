@@ -7,6 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Egeria Quickstart Demo Sandbox · Coco Pharmaceuticals</title>
   <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
+  <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
   <style>
     :root {
       --bg:      #1a1a2e;
@@ -1135,74 +1136,31 @@ document.addEventListener('visibilitychange', function() {
 // portal itself. Reuses the same shared /api/catalog/search backend both
 // per-app searches already call — no backend change needed.
 //
-// Routing table mirrors egeria-shared-ui.js's EGERIA_EXPLORER_NAV/
-// resolveElementNav exactly — cannot load that file directly here: it has
-// top-level React.createContext() calls that throw without React/ReactDOM
-// also loaded, which this plain-vanilla-JS landing page deliberately doesn't
-// carry (no other reason to pull in a whole SPA runtime for a page with no
-// other React content). Duplicated by hand, same "extracted verbatim — keep
-// in sync" convention that file's own header comment already documents for
-// type-explorer.html. If you add a type to one, add it to the other.
-var PORTAL_EXPLORER_NAV = {
-  SolutionComponent:     { hash: 'solution-architect', kind: 'components' },
-  SolutionBlueprint:     { hash: 'solution-architect', kind: 'blueprints' },
-  InformationSupplyChain:{ hash: 'isc' },
-  ActorRole:             { hash: 'actors', kind: 'roles' },
-  ActorProfile:          { hash: 'actors', kind: 'profiles' },
-  UserIdentity:          { hash: 'actors', kind: 'identities' },
-  Location:              { hash: 'locations' },
-  Community:             { hash: 'communities' },
-  GovernanceDefinition:  { hash: 'governance' },
-  GovernanceActionProcess: { hash: 'governance' },
-  ReferenceDataValue:    { hash: 'reference-data' },
-  DataSpec:              { hash: 'data-design', kind: 'specs' },
-  DataStructure:         { hash: 'data-design', kind: 'structures' },
-  DataField:             { hash: 'data-design', kind: 'fields' },
-  DataGrain:             { hash: 'data-design', kind: 'grains' },
-  DataClass:             { hash: 'data-design', kind: 'classes' },
-  DataSpecCollection:    { hash: 'data-design', kind: 'specs' },
-  CollectionFolder:      { hash: 'digital-products' },
-  DigitalProduct:        { hash: 'digital-products' },
-  Collection:            { hash: 'digital-products' },
-  GlossaryTerm:          { hash: 'glossary' },
-  Glossary:              { hash: 'glossary' },
-  GlossaryCategory:      { hash: 'glossary' },
-  BusinessCapability:    { hash: 'business-capabilities' },
-  NoteLog:               { hash: 'notelogs' },
-  Perspective:           { hash: 'perspectives' },
-  Project:               { hash: 'projects' },
-  ExternalReference:     { hash: 'external-references' },
-  RelatedMedia:          { hash: 'external-references' },
-  CitedDocument:         { hash: 'external-references' },
-  ExternalDataSource:    { hash: 'external-references' },
-  ExternalModelSource:   { hash: 'external-references' },
-  ExternalId:            { hash: 'external-identifiers' },
-  Agreement:             { hash: 'agreements' },
-  DataSharingAgreement:  { hash: 'agreements' },
-  DigitalSubscription:   { hash: 'agreements' },
-};
-var PORTAL_ACTION_CENTER_TYPES = { Notification: 1, Meeting: 1, ToDo: 1, Review: 1 };
-
-function _portalResolveExplorerNav(item) {
-  var nav = item.typeName ? PORTAL_EXPLORER_NAV[item.typeName] : null;
-  if (!nav) {
-    var supers = item.superTypeNames || [];
-    for (var i = 0; i < supers.length; i++) { nav = PORTAL_EXPLORER_NAV[supers[i]]; if (nav) break; }
-  }
-  return nav || null;
-}
+// Routing table lives in static/type-nav-map.json now (loaded by
+// static/type-nav-resolve.js, added as a plain <script> tag near the top of
+// this file's <head> — this page can't load egeria-shared-ui.js directly:
+// it has top-level React.createContext() calls that throw without
+// React/ReactDOM also loaded, which this plain-vanilla-JS landing page
+// deliberately doesn't carry (no other reason to pull in a whole SPA runtime
+// for a page with no other React content). type-nav-resolve.js has no such
+// dependency, so it loads here with no special handling. See
+// design-docs/type-system-audit.md.
 function _portalIsCatalogType(item) {
   var st = item.superTypeNames || [];
   var tn = item.typeName || '';
   return st.indexOf('Asset') !== -1 || tn === 'Endpoint' || tn === 'SoftwareCapability' || st.indexOf('SoftwareCapability') !== -1;
 }
+// EngineAction is the one type not in type-nav-map.json — see that file's
+// header comment for why (it opens the egeria-operations app directly, not
+// an Egeria Explorer hash, and egeria-operations has no per-guid deep link
+// yet) — kept as a small explicit special case here, mirroring
+// static/egeria-shared-ui.js's resolveElementNav.
 function portalResolveNav(item) {
   var tn = item.typeName || '';
   if (tn === 'EngineAction') return { app: 'egeria-operations' };
-  if (PORTAL_ACTION_CENTER_TYPES[tn]) return { app: 'egeria-explorer', hash: 'action-center' };
-  if (tn === 'ValidMetadataValue') return { app: 'egeria-explorer', hash: 'valid-values' };
-  var ex = _portalResolveExplorerNav(item);
-  if (ex) return { app: 'egeria-explorer', hash: ex.hash, kind: ex.kind };
+  var supers = item.superTypeNames || [];
+  var ex = (typeof resolveTypeNav === 'function') ? resolveTypeNav(tn, supers) : null;
+  if (ex && ex.explorerHash) return { app: 'egeria-explorer', hash: ex.explorerHash, kind: ex.kind };
   if (_portalIsCatalogType(item)) return { app: 'tech-catalog' };
   return null;
 }
