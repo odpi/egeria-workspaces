@@ -65,6 +65,9 @@ NO_CACHE=1 ./quick-start-local
 
 # Force-refresh only the Egeria platform base image
 ./quick-start-local --refresh-platform
+
+# Force-refresh only pyegeria (pyegeria-web + jupyter) to the latest PyPI release
+./quick-start-local --refresh-pyegeria
 ```
 
 `NO_CACHE` accepts `1 / true / yes / on`; unset or `0 / false / no / off` uses the cache.

@@ -30,10 +30,14 @@ RUN pip install --no-cache-dir --retries 10 --timeout 60 -r requirements.txt
 # exec ... pip install --upgrade pyegeria`) does NOT survive a later
 # `docker compose build`/`up --build`, since site-packages lives in the image
 # layer, not a bind mount (only ./PyegeriaWebHandler:/app is mounted) —
-# rebuild with `docker compose build --no-cache <service>` instead. (Quickstart
-# has a `bin/update-pyegeria.sh` wrapper for this same rebuild; freshstart has
-# no equivalent yet — SHARE-3 flag, not fixed here.)
-RUN pip install --no-cache-dir --retries 10 --timeout 60 'pyegeria>=6.1.1' --upgrade
+# use fresh-start-local's `--refresh-pyegeria` flag instead (mirrors
+# quickstart's Dockerfile-fast-api / bin/update-pyegeria.sh: pass a fresh
+# PYEGERIA_BUST build-arg to bust just this layer without a full --no-cache
+# rebuild).
+ARG PYEGERIA_VERSION=pyegeria>=6.1.1
+ARG PYEGERIA_BUST=0
+RUN echo "pyegeria layer ${PYEGERIA_BUST}" \
+    && pip install --no-cache-dir --retries 10 --timeout 60 "${PYEGERIA_VERSION}" --upgrade
 
 # Copy your application code
 # Assuming your FastAPI app is in 'main.py' at the root of your app directory
