@@ -344,7 +344,42 @@ def enabled_batches() -> list[dict]:
     return out
 
 
-async def run_batch(batch: dict, timeout_seconds: int = 300) -> list[dict]:
+# Per-file cap on a `dr_egeria --process` run, and the subprocesses currently
+# in flight so the timeout/cancellation paths below can actually terminate them.
+#
+# 900s (15 min), was a hardcoded 300s. This is the same fix already applied to
+# bootstrap_monitor_handler.py's heal path on 2026-08-28 (_DR_EGERIA_TIMEOUT)
+# that never got mirrored here, so the admin-triggered "run selected"/
+# "(re)initialize now" path kept the old cap: coco-workbooks/0.
+# data-governance-program/employee-glossary.md (6.1k lines, 86 Create Glossary
+# Term commands) reliably exceeds 300s and was the only file in a full run to
+# fail (confirmed live 2026-08-29, 17/18 files ok). Every Dr.Egeria doc is
+# upsert-safe, so generous headroom costs nothing -- a longer wait only avoids
+# giving up on genuinely slow (not stuck) files.
+#
+# And, as in that module, a timeout used to leave the `dr_egeria` child running
+# orphaned: asyncio.wait_for()'s TimeoutError just abandons the await and sends
+# no signal to the OS process. The orphan keeps writing to Egeria, invisible to
+# this module -- in the 2026-08-29 log employee-glossary.md "timed out" at
+# 13:07:45 while its process was still going as the batch moved on to the next
+# file 5s later. Re-running a batch in that window is what produced duplicate
+# elements in the Design Patterns incident; see the _active_procs comment in
+# bootstrap_monitor_handler.py for the full write-up.
+_BATCH_TIMEOUT = int(os.environ.get("BOOTSTRAP_BATCH_TIMEOUT_SECONDS", "900"))
+_active_procs: set = set()
+
+
+async def _kill_proc(proc) -> None:
+    try:
+        proc.kill()
+        await proc.wait()
+    except ProcessLookupError:
+        pass  # already exited
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"bootstrap batches: error killing orphaned dr_egeria process: {exc}")
+
+
+async def run_batch(batch: dict, timeout_seconds: int = _BATCH_TIMEOUT) -> list[dict]:
     """Run a batch's files in order via `dr_egeria --process`. Every
     Dr.Egeria doc is upsert-safe, so this is always safe to re-run. Unlike
     bootstrap_monitor_handler.py's _heal_family (which stops at the first
@@ -369,11 +404,13 @@ async def run_batch(batch: dict, timeout_seconds: int = 300) -> list[dict]:
             results.append({"file": filename, "status": "skipped", "message": "file not found"})
             logger.warning(f"bootstrap batches: {batch['id']!r} — {filename}: skipped (file not found)")
             continue
+        proc = None
         try:
             proc = await asyncio.create_subprocess_exec(
                 "dr_egeria", "--process", str(doc),
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
             )
+            _active_procs.add(proc)
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
             tail = stdout.decode(errors="replace")[-800:] if stdout else ""
             if proc.returncode == 0:
@@ -386,11 +423,26 @@ async def run_batch(batch: dict, timeout_seconds: int = 300) -> list[dict]:
                     f"(exit {proc.returncode}) — {_one_line(tail)}"
                 )
         except asyncio.TimeoutError:
-            results.append({"file": filename, "status": "failed", "message": "timed out"})
+            # Kill the child before moving on -- an abandoned await leaves it
+            # running and still writing to Egeria (see _active_procs above).
+            if proc is not None:
+                await _kill_proc(proc)
+            results.append({"file": filename, "status": "failed",
+                            "message": f"timed out after {timeout_seconds}s"})
             logger.warning(f"bootstrap batches: {batch['id']!r} — {filename}: timed out after {timeout_seconds}s")
+        except asyncio.CancelledError:
+            # App reload/shutdown cancelled the background run task -- kill the
+            # child before letting the cancellation propagate, same reason as
+            # the timeout branch above.
+            if proc is not None:
+                await _kill_proc(proc)
+            raise
         except Exception as exc:  # noqa: BLE001
             results.append({"file": filename, "status": "failed", "message": str(exc)})
             logger.warning(f"bootstrap batches: {batch['id']!r} — {filename}: failed — {exc}")
+        finally:
+            if proc is not None:
+                _active_procs.discard(proc)
 
     ok = sum(1 for r in results if r["status"] == "ok")
     failed = [r["file"] for r in results if r["status"] == "failed"]
@@ -413,7 +465,7 @@ def _one_line(text: str, max_len: int = 200) -> str:
     return (one_line[:max_len] + "…") if len(one_line) > max_len else (one_line or "(no output)")
 
 
-async def run_all_enabled(timeout_seconds: int = 300) -> list[dict]:
+async def run_all_enabled(timeout_seconds: int = _BATCH_TIMEOUT) -> list[dict]:
     """Run every enabled batch, in discover_batches' order (folder order
     file, then alphabetical), each with its own enabled files in file
     order. This is the "(re)initialize now" action -- the counterpart to
@@ -446,12 +498,12 @@ async def run_all_enabled(timeout_seconds: int = 300) -> list[dict]:
 #
 # Unlike that cache, there's no TTL/staleness here -- a run either hasn't
 # started, is running, or is done with one final result. And unlike
-# bootstrap_monitor_handler.py's heal path, nothing here kills the
-# dr_egeria subprocess if the app reloads mid-run (see that module's own
-# _kill_proc/_active_procs comments for why that matters) -- this state is
-# in-memory only and is lost on a reload same as it always was; a client
-# polling a key that's vanished gets "not_found" and should surface that
-# as an interruption, not hang forever.
+# bootstrap_monitor_handler.py's heal path, the *run state* here is
+# in-memory only and is lost on a reload; a client polling a key that's
+# vanished gets "not_found" and should surface that as an interruption,
+# not hang forever. (The dr_egeria subprocess itself IS now killed on a
+# reload mid-run -- see _kill_proc/_active_procs above; it used to be left
+# orphaned, which is what allowed two concurrent runs of the same file.)
 RUN_ALL_KEY = "__run_all__"  # batch ids are folder names -- never collides with this
 
 

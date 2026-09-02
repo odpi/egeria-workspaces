@@ -97,7 +97,22 @@ services:
     # with the label below it would have caused a restart loop, since autoheal
     # would keep restarting a platform that was still booting.
     healthcheck:
-      test: curl -k -X GET "https://localhost:8443/open-metadata/platform-services/users/garygeeke/server-platform/origin" || exit 1
+      # Assert the status code instead of just running curl. Egeria v6 wants a
+      # bearer token on every endpoint (the 401 carries `WWW-Authenticate:
+      # Bearer`), so an unauthenticated probe legitimately gets 401 -- which
+      # still proves the JVM, TLS and the Spring security filter chain are
+      # live. What the old `curl ... || exit 1` could never do is FAIL: curl
+      # exits 0 on any HTTP response it receives, so a platform answering 500
+      # to every request still reported healthy. Only a connection failure
+      # (curl writes 000 and exits non-zero) was ever caught.
+      #
+      # Deliberately NOT an authenticated 200 check: this healthcheck drives
+      # the autoheal label above, and a probe that required a working token --
+      # i.e. required the view server to have finished its content-pack load --
+      # would mark a normal cold start unhealthy and restart-loop it.
+      test:
+        - CMD-SHELL
+        - curl -k -s -o /dev/null -w "%{http_code}" --max-time 10 "https://localhost:8443/open-metadata/platform-services/users/garygeeke/server-platform/origin" | grep -qE "^(200|401)$$"
       interval: 30s
       timeout: 15s
       retries: 15
