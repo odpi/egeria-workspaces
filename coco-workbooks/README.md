@@ -13,11 +13,11 @@ The purpose of these workbooks is to help you understand how to use Egeria and e
 - **Exploring Workbooks**: The numbering of the workbook folders offers a logical flow through the workbooks. However, you can run them in the order that interests you.  There are some dependencies between the workbooks and these are explicitly called out.
 
   - [0. Data Governance Program](0.%20data-governance-program/README.md) - load core governance definitions created by the governance leaders.
-  - [1. Coco Data Hub](1.%20coco-data-hub/README.md) - set up a data sharing hub to exchange data between different business units.
+  - [1. Coco Data Hub](1.%20coco-data-hub/README.md) - set up a data sharing hub to exchange data between different business units,
+    and build the [data field naming glossary](1.%20coco-data-hub/data-field-naming/README.md) used to name its data fields consistently.
   - [2. Clinical Trials](2.%20clinical-trials/receive-data-from-hospitals.ipynb) - set up and run the clinical trial data pipeline and observe lineage and data quality checks. Builds on the Coco Data Hub.
   - [3. Sustainability](3.%20sustainability/README.md) - configures Egeria to support their sustainability initiative.
   - [4. Keeping Safe](4.%20keeping-safe/README.md) - looks at some security scenarios.
-  - [5. Data Field Naming](5.%20data-field-naming/README.md) builds a dataa field naming glossary.
 
 <br>
 

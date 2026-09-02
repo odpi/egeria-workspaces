@@ -2,6 +2,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")"
+REPO_ROOT="$(pwd)"
 
 source compose-configs/shared-infra/detect-engine.sh
 source compose-configs/shared-infra/compose-build-flags.sh
@@ -18,6 +19,12 @@ in compose-configs/egeria-freshstart/.env.ssl.
 
 Options:
   --refresh-platform  Force rebuild of freshstart-egeria-main so Docker pulls the latest base image.
+  --refresh-pyegeria  Force freshstart-pyegeria-web and jupyter to re-resolve the
+                      latest pyegeria release. pyegeria's `pip install --upgrade`
+                      is a cached Docker layer, so a plain rebuild otherwise
+                      keeps whatever version was resolved when the image was
+                      last built, even though requirements.txt has no upper
+                      version bound.
   --egeria-memory SIZE
                       Set freshstart-egeria-main's container memory cap (Docker/Podman
                       `mem_limit` syntax, e.g. 4g, 8g, 10240m). Defaults to 6g
@@ -32,11 +39,16 @@ EOF
 }
 
 REFRESH_PLATFORM=0
+REFRESH_PYEGERIA=0
 EGERIA_MEM_LIMIT="${EGERIA_MEM_LIMIT:-}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --refresh-platform)
       REFRESH_PLATFORM=1
+      shift
+      ;;
+    --refresh-pyegeria)
+      REFRESH_PYEGERIA=1
       shift
       ;;
     --egeria-memory)
@@ -212,6 +224,39 @@ EOF
     printf 'Define HTTPS_REDIRECT_PORT %s\n' "${_https_port}"
   } > "${SSL_DEFINE_DIR}/ssl-define.conf"
   echo "[fresh-start-local]   Self-signed HTTPS on port ${_https_port} (CERT_DIR=${_cert_dir}) — SITE_URL: ${_site_url}"
+
+  # egeria-platform's FROM line is pinned to a digest (Scorecard's
+  # Pinned-Dependencies check), so `docker build --pull` alone would just
+  # keep re-confirming the SAME pinned digest forever -- --refresh-platform
+  # needs this explicit re-resolve step first to actually pick up a newer
+  # image. See compose-configs/shared-infra/pin-latest-digest.sh's own
+  # docstring for the full reasoning. (freshstart's Dockerfile pulls from
+  # quay.io, not docker.io -- see that Dockerfile's own FROM line.)
+  if [[ "$REFRESH_PLATFORM" -eq 1 ]]; then
+    # NOTE: absolute paths -- we are inside the compose-configs/egeria-freshstart
+    # pushd here, so repo-root-relative paths would not resolve.
+    "$REPO_ROOT/compose-configs/shared-infra/pin-latest-digest.sh" \
+      "$REPO_ROOT/compose-configs/egeria-freshstart/Dockerfile-egeria-platform" \
+      quay.io/odpi/egeria-platform:latest
+  fi
+
+  # pyegeria-web's and jupyter's `pip install --upgrade pyegeria` each sit in
+  # their own cached Docker RUN layer (see Dockerfile-fast-api / Dockerfile-
+  # jupyter's own PYEGERIA_BUST comments) -- a plain rebuild reuses that
+  # layer and keeps whatever version was resolved when the image was last
+  # built, even though requirements.txt's `pyegeria>=X` floor has no upper
+  # bound. Passing a fresh PYEGERIA_BUST value busts just that one layer, so
+  # the subsequent build below re-resolves pyegeria without a full
+  # --no-cache rebuild of everything else in the image.
+  if [[ "$REFRESH_PYEGERIA" -eq 1 ]]; then
+    echo "[fresh-start-local] Refreshing pyegeria (freshstart-pyegeria-web + jupyter)..."
+    $COMPOSE_CMD -p egeria-freshstart \
+      -f egeria-freshstart.yaml \
+      -f egeria-freshstart-local.yaml \
+      -f egeria-freshstart-ssl.yaml \
+      build --build-arg PYEGERIA_BUST="$(date +%s)" \
+      freshstart-pyegeria-web freshstart-jupyter-hub
+  fi
 
   echo "[fresh-start-local] Ensuring core images are available (platform, pyegeria-web, jupyter)..."
   ensure_service_image freshstart-egeria-main egeria-freshstart-platform:local 1 "$REFRESH_PLATFORM"

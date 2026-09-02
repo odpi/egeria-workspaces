@@ -1,6 +1,6 @@
-FROM docker.io/library/python:3.12-slim-bookworm AS python-base
+FROM docker.io/library/python:3.12-slim-bookworm@sha256:0f5b26b9518d002b6173fd61daad821fa340635ebfec5bba471013f9ca114579 AS python-base
 
-FROM docker.io/library/httpd:2.4-bookworm
+FROM docker.io/library/httpd:2.4-bookworm@sha256:fbc12199ccad031d8047e9c789d65aceee2d14f99ba90664cd3a3996867a5582
 
 # Copy Python from the python-base image
 COPY --from=python-base /usr/local/ /usr/local/
@@ -37,8 +37,19 @@ WORKDIR /usr/local/apache2
 RUN python3 -m venv /usr/local/apache2/venv
 
 # Install pyegeria and other required Python packages in the virtual environment
-RUN /usr/local/apache2/venv/bin/pip install --no-cache-dir --retries 10 --timeout 60 --upgrade pip && \
-    /usr/local/apache2/venv/bin/pip install --no-cache-dir --retries 10 --timeout 60 pyegeria
+RUN /usr/local/apache2/venv/bin/pip install --no-cache-dir --retries 10 --timeout 60 --upgrade pip
+
+# pyegeria in its own layer, same pattern as Dockerfile-jupyter. Docker caches
+# this layer, so a plain rebuild — including redeploy-demo, which deletes the
+# image but not the build cache — keeps the previously-installed version. To
+# pull a fresh one, bump the cache key or pin a version at build time:
+#   docker compose build --build-arg PYEGERIA_BUST=$(date +%s) apache-web
+#   docker compose build --build-arg PYEGERIA_VERSION=pyegeria==6.1.0 apache-web
+# NO_CACHE=1 ./redeploy-demo does the same thing for every image at once.
+ARG PYEGERIA_VERSION=pyegeria
+ARG PYEGERIA_BUST=0
+RUN echo "pyegeria layer ${PYEGERIA_BUST}" \
+    && /usr/local/apache2/venv/bin/pip install --no-cache-dir --retries 10 --timeout 60 --upgrade "${PYEGERIA_VERSION}"
 
 
 # Make sure the CGI scripts directory exists

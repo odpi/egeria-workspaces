@@ -10,8 +10,10 @@ Access it from the portal tile (📊 Egeria Overview) or directly at `/egeria-ov
 
 Two independent selector strips sit above the KPI band:
 
-- **Perspective** — *who's looking* (8 personas: Governance Lead, Steward, Data Owner, Consumer, Engineer, App/AI Builder, Privacy Officer, Community Lead). Reconfigures the whole page: which sections show, in what order, which KPI tiles, and the question set.
+- **Perspective** — *who's looking* (10: Governance, Steward, Data Owner, Consumer, Engineering, Architecture, Security, App/AI Builder, Privacy, Community — reconciled against Resource Explorer's own real Egeria `Perspective` elements, not a portal-specific list). Reconfigures the whole page: which sections show, in what order, which KPI tiles, and the question set.
 - **Topic** — *what domain of concern* (Any, AI/Context Intelligence, Security/Privacy, Quality, Popularity/Usage), independent of Perspective. Both narrow the KPI band and section visibility; selecting both filters to their intersection, falling back to the Topic-only view if the intersection would otherwise be empty.
+
+Each Perspective is a real Egeria `Perspective` element, linked via `ScopedBy` to its own set of `Question` glossary terms — not portal-hardcoded copy. Browse them directly in [Egeria Explorer's Perspectives & Questions tab](egeria-explorer.md).
 
 ---
 

@@ -65,6 +65,9 @@ NO_CACHE=1 ./quick-start-local
 
 # Force-refresh only the Egeria platform base image
 ./quick-start-local --refresh-platform
+
+# Force-refresh only pyegeria (pyegeria-web + jupyter) to the latest PyPI release
+./quick-start-local --refresh-pyegeria
 ```
 
 `NO_CACHE` accepts `1 / true / yes / on`; unset or `0 / false / no / off` uses the cache.
@@ -265,13 +268,9 @@ Claude: [dr_egeria_run_block → Create Glossary]
 
 Execute Dr. Egeria commands directly from your Obsidian vault:
 
-1. **Calling the Dr. (MCP) — recommended**: MCP-based; dynamic command discovery, hot-reload, content-first architecture (results written via Obsidian API, no Docker permission issues).
-   - Source: `obsidian-plugins/calling-the-dr/`
-   - Guide: [Calling the Dr. (MCP) Guide](Configuring%20and%20Using%20the%20Calling%20Dr.%20Egeria%20Obsidian%20Plug-in.md)
-
-2. **Call Dr. Egeria (legacy)**: original REST API plugin.
+**Call Dr. Egeria**: MCP-based (over SSE); dynamic command discovery, content-first architecture (results written via the Obsidian API, no Docker volume permissions required).
    - Source: `obsidian-plugins/call-dr-egeria/`
-   - Guide: [Call Dr. Egeria README](obsidian-plugins/call-dr-egeria/README.md)
+   - Guide: [Call Dr. Egeria Guide](Configuring%20and%20Using%20the%20Call%20Dr.%20Egeria%20Obsidian%20Plugin.md) · [Call Dr. Egeria README](obsidian-plugins/call-dr-egeria/README.md)
 
 For workspace-specific profiles (`work/Work-Obsidian`, `coco-workbooks`): [OBSIDIAN_PROFILES.md](compose-configs/egeria-quickstart/OBSIDIAN_PROFILES.md)
 
@@ -389,8 +388,9 @@ egeria-workspaces/
 │   │   └── PyegeriaWebHandler/  # FastAPI web app + MCP server + static SPA files
 │   ├── egeria-freshstart/     # Clean-slate environment
 │   │   └── PyegeriaWebHandler/
-│   └── optional-associated-runtimes/  # Airflow+Marquez, Superset, Unity Catalog,
-│                                      # DeltaLake/Spark, Milvus, MLflow
+│   └── optional-associated-runtimes/  # Airflow+Marquez, Apache Atlas, Dagster, Superset,
+│                                      # Unity Catalog, DeltaLake/Spark, DuckDB, Milvus, MLflow,
+│                                      # Ollama, Prefect
 ├── exchange-quickstart/       # File exchange: Egeria ↔ Jupyter ↔ host (quickstart)
 │   ├── coco-data-lake/        # Coco Pharmaceuticals scenario files
 │   ├── distribution-hub/      # Egeria-generated output (logs, survey reports)
@@ -403,8 +403,7 @@ egeria-workspaces/
 │   ├── freshstart-platform-data/
 │   └── freshstart-apache-web/
 ├── obsidian-plugins/          # Obsidian vault plugins for Dr. Egeria
-│   ├── calling-the-dr/        # MCP-based plugin (recommended)
-│   └── call-dr-egeria/        # Legacy REST plugin
+│   └── call-dr-egeria/        # MCP-based plugin (over SSE)
 └── work/                      # Your private working files (git-ignored)
 ```
 

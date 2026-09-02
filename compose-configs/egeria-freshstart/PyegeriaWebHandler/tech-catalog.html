@@ -5,13 +5,14 @@
 
   The Catalog — Technical Asset Catalog SPA.
   Served by PyegeriaWebHandler at /tech-catalog
-  Spec: technical_data_catalog_spec.md
+  Spec: ../../../design-docs/technical_data_catalog_spec.md
 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>The Catalog</title>
+  <script src="/static/bootstrap-banner.js?v=2026-08-18a"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -583,7 +584,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
      Cache-Control: no-cache (forces revalidation), but a browser that cached
      this URL *before* that header existed won't revalidate on its own; a new
      URL guarantees a fresh fetch regardless of prior cache state. -->
-<script src="/static/egeria-shared-ui.js?v=2026-08-18c"></script>
+<script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-09-01b"></script>
 <script>
 'use strict';
 // React hook aliases (mirror type-explorer.html)
@@ -754,7 +756,7 @@ function SurveySpecCard({ entry, card, showTechTypes }) {
   );
 }
 
-function TechTypeDetail({ item, detailLoading, creds }) {
+function TechTypeDetail({ item, detailLoading, creds, onNavigate }) {
   if (!item) return null;
   var sHdr = { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8, marginTop: 20 };
   var card = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 10 };
@@ -855,6 +857,11 @@ function TechTypeDetail({ item, detailLoading, creds }) {
       React.createElement('div', { style: sHdr }, 'External References'),
       React.createElement('div', { style: card },
         item.externalReferences.map(function(ref, ri) {
+          // No "View →" button here: unlike quickstart, freshstart's
+          // type-explorer.html has no External References tab/hash to land
+          // on, so a guid-based nav button would always be a dead link. The
+          // url field (Egeria's own "reference this document" link) is the
+          // only navigable thing freshstart can offer for these.
           return React.createElement('div', { key: ri, style: { marginBottom: 8 } },
             ref.url
               ? React.createElement('a', { href: ref.url, target: '_blank', rel: 'noopener noreferrer',
@@ -977,7 +984,7 @@ function TechTypeNode({ node, depth, selQN, onSelect, expanded, onToggle }) {
   );
 }
 
-function TechTypesView({ creds }) {
+function TechTypesView({ creds, onNavigate }) {
   var _sideW = useResizable(290, 200, 600), sideW = _sideW[0], onSideDivDown = _sideW[1];
   // Hierarchy state
   var _hier    = useState(null),  hier    = _hier[0],    setHier    = _hier[1];
@@ -998,6 +1005,7 @@ function TechTypesView({ creds }) {
 
   // Template filter
   var _inclTempl = useState(false), inclTempl = _inclTempl[0], setInclTempl = _inclTempl[1];
+  var _hierAttempt = useState(0), hierAttempt = _hierAttempt[0], setHierAttempt = _hierAttempt[1];
 
   // Load hierarchy on mount
   useEffect(function() {
@@ -1016,7 +1024,7 @@ function TechTypesView({ creds }) {
         setExp(firstLevel);
       })
       .catch(function(e) { setHierErr(String(e)); });
-  }, []);
+  }, [hierAttempt]);
 
   // Search when input changes (debounced via Enter or after brief pause)
   var _searchTimer = useRef(null);
@@ -1112,14 +1120,18 @@ function TechTypesView({ creds }) {
         React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
           React.createElement('input', { type: 'checkbox', checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
           'Include templates'
-        )
+        ),
+        React.createElement('button', {
+          className: 'btn-sm', style: { marginTop: 4 }, title: 'Reload the type hierarchy',
+          onClick: function() { setHierAttempt(function(a) { return a + 1; }); }
+        }, '↻ Refresh')
       ),
       React.createElement('div', { style: { overflowY: 'auto', flex: 1, padding: '4px 0' } }, sidebarContent)
     ),
     React.createElement(ResizeDivider, { onMouseDown: onSideDivDown }),
     React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: sel ? '20px 24px' : 0 } },
       sel
-        ? React.createElement(TechTypeDetail, { item: detail || sel, detailLoading: detLoad, creds: creds })
+        ? React.createElement(TechTypeDetail, { item: detail || sel, detailLoading: detLoad, creds: creds, onNavigate: onNavigate })
         : React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--dim)', fontSize: 13 } }, 'Select a technology type from the tree')
     )
   );
@@ -1234,18 +1246,35 @@ function SubPane({ title, fetchUrl, creds, renderContent, prominent }) {
   var _data    = useState(null),  data    = _data[0],    setData    = _data[1];
   var _loading = useState(false), loading = _loading[0], setLoading = _loading[1];
   var _err     = useState(''),    err     = _err[0],     setErr     = _err[1];
+  var _attempt = useState(0), attempt = _attempt[0], setAttempt = _attempt[1];
+  var fetchedOnce = useRef(false);
 
   function toggle() {
-    var nowOpen = !open;
-    setOpen(nowOpen);
-    if (nowOpen && !data && !loading) {
+    setOpen(!open);
+  }
+
+  function refresh(e) {
+    if (e) e.stopPropagation();
+    setAttempt(function(a) { return a + 1; });
+  }
+
+  useEffect(function() {
+    if (!open) return;
+    if (!fetchedOnce.current || attempt > 0) {
+      fetchedOnce.current = true;
       setLoading(true); setErr('');
       fetchWithToken(fetchUrl, creds)
         .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(function(d) { setData(d); setLoading(false); })
         .catch(function(e) { setErr(String(e)); setLoading(false); });
     }
-  }
+    // eslint-disable-next-line
+  }, [open, attempt]);
+
+  var refreshBtn = open && React.createElement('button', {
+    className: 'btn-sm', style: { marginLeft: 8 }, title: 'Reload this data',
+    onClick: refresh,
+  }, '↻ Refresh');
 
   if (prominent) {
     var btnStyle = { width: '100%', marginTop: 14, padding: '10px 16px', fontSize: 13, fontWeight: 700,
@@ -1256,7 +1285,8 @@ function SubPane({ title, fetchUrl, creds, renderContent, prominent }) {
     return React.createElement('div', null,
       React.createElement('div', { style: btnStyle, onClick: toggle },
         React.createElement(FoldTriangle, { open: open }),
-        React.createElement('span', null, title)
+        React.createElement('span', { style: { flex: 1 } }, title),
+        refreshBtn
       ),
       open && React.createElement('div', { style: { paddingBottom: 12 } },
         loading
@@ -1273,7 +1303,8 @@ function SubPane({ title, fetchUrl, creds, renderContent, prominent }) {
   return React.createElement('div', null,
     React.createElement('div', { style: hdrStyle, onClick: toggle },
       React.createElement(FoldTriangle, { open: open }),
-      React.createElement('span', { style: labelStyle }, title)
+      React.createElement('span', { style: labelStyle }, title),
+      refreshBtn
     ),
     open && React.createElement('div', { style: { paddingBottom: 12 } },
       loading
@@ -1504,12 +1535,10 @@ function GlossaryView({ creds, onNavigate }) {
 
   // Cross-app navigation for term relationships. The Catalog has no Data Design
   // tab of its own, so DataField/DataStructure/etc. (and any other element type
-  // in TYPE_TO_NAV) open the Egeria Explorer, deep-linked via handleNavigate.
+  // in static/type-nav-map.json) open the Egeria Explorer, deep-linked via handleNavigate.
   function _resolveNav(item) {
-    var nav = item.typeName ? TYPE_TO_NAV[item.typeName] : null;
     var supers = item.superTypeNames || item.superTypes || [];
-    if (!nav) { for (var i = 0; i < supers.length; i++) { nav = TYPE_TO_NAV[supers[i]]; if (nav) break; } }
-    return nav || null;
+    return _resolveTypeToNav(item.typeName, supers);
   }
   var navigateToElement = useCallback(function(item) {
     var nav = _resolveNav(item);
@@ -1582,7 +1611,13 @@ function GlossaryView({ creds, onNavigate }) {
   return React.createElement('div', { style: { display: 'flex', flex: 1, overflow: 'hidden' } },
     // Left: glossary list
     React.createElement('div', { style: sidebarStyle },
-      React.createElement('div', { style: { padding: '8px 10px', fontWeight: 700, fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } }, 'Glossaries (' + glossaries.length + ')'),
+      React.createElement('div', { style: { padding: '8px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, borderBottom: '1px solid var(--border)' } },
+        React.createElement('span', { style: { fontWeight: 700, fontSize: 11, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } }, 'Glossaries (' + glossaries.length + ')'),
+        React.createElement('button', {
+          className: 'btn-sm', title: 'Reload glossaries',
+          onClick: function() { setGlossaryAttempt(function(a) { return a + 1; }); }
+        }, '↻')
+      ),
       React.createElement('div', { style: treeScrollSt },
         React.createElement('div', { style: treeItemSt(isSearchMode), onClick: function(){setSelectedGlossary(null);setFolderStack([]);runSearch('*');}, title: 'Search terms across all glossaries' },
           React.createElement('span', { style: { fontStyle: 'italic', color: 'var(--dim)', fontSize: 12 } }, 'All Terms (search)')
@@ -1644,105 +1679,33 @@ function GlossaryView({ creds, onNavigate }) {
 }
 
 // ── Type → section/tab mapping for cross-navigation ──────────────────────────
-// Maps an Egeria typeName to the catalog section+tab that hosts it.
-// Subtypes not listed here won't get a "View →" button in the Relationships panel.
-var TYPE_TO_NAV = (function() {
-  var m = {};
-  // ITInfrastructure hierarchy
-  ['ITInfrastructure','SoftwareServer','SoftwareServerPlatform','Host',
-   'VirtualMachine','VirtualContainer','DockerContainer','HostCluster',
-   'BareMetalComputer','OperatingPlatform','StorageArray','StorageVolume',
-   'StorageVolumePair','SwitchFabric','NetworkGateway'].forEach(function(t) {
-    m[t] = { section: 'infrastructure', tab: 'infrastructure' };
-  });
-  // SoftwareCapability hierarchy
-  ['SoftwareCapability','APIManager','EventBroker','DatabaseManager','MetadataServer',
-   'GovernanceEngine','DataProcessingEngine','DataStoreManager','FileSystem',
-   'NetworkGateway','EnterpriseAccessLayer','CohortMember','CloudService',
-   'ContentManager','DirectoryService','InformationView','FormManager',
-   'RelationalDatabaseManager','WorkflowEngine','ReportingEngine',
-   'AnalyticsEngine','DataQualityEngine','MasterDataManager',
-   'NotificationManager','SearchEngine','GovernanceProgram',
-   'SecurityManager','AuthorizationManager','ReferenceDataManager',
-   'DigitalServiceManager'].forEach(function(t) {
-    m[t] = { section: 'infrastructure', tab: 'software-capabilities' };
-  });
-  // Endpoints
-  ['Endpoint'].forEach(function(t) {
-    m[t] = { section: 'infrastructure', tab: 'endpoints' };
-  });
-  // DataStore hierarchy
-  ['DataStore','Database','RelationalDatabase','ObjectStore','DocumentStore',
-   'GraphStore','DataFile','CSVFile','SpreadsheetFile','MediaFile','MediaCollection',
-   'DataFolder','FileFolder','DataObjectStore','KeyValueStore','GraphDatabase',
-   'DocumentDatabase','RelationalDatabaseSchema','DataStoreEncoding'].forEach(function(t) {
-    m[t] = { section: 'data-assets', tab: 'data-stores' };
-  });
-  // DataFeed hierarchy
-  ['DataFeed','Topic','KafkaTopic','SubscriberList','EventType','EventSet'].forEach(function(t) {
-    m[t] = { section: 'data-assets', tab: 'data-feeds' };
-  });
-  // DataSet hierarchy
-  ['DataSet','VirtualRelationalTable','DataCatalog','DataDesignArtifact',
-   'DataTable','DataSchemaAttribute'].forEach(function(t) {
-    m[t] = { section: 'data-assets', tab: 'data-sets' };
-  });
-  // APIs
-  ['DeployedAPI','APIOperation','APISchemaType'].forEach(function(t) {
-    m[t] = { section: 'apis', tab: 'apis' };
-  });
-  // Processes / software components
-  ['DeployedSoftwareComponent','DataMovementEngine','DataVirtualizationEngine',
-   'AnalyticsComponent','ReportingComponent','DashboardComponent',
-   'MLModel','MLModelDeployment'].forEach(function(t) {
-    m[t] = { section: 'processes', tab: 'software-components' };
-  });
-  // Governance Action Processes (0462) — exact match takes priority over the
-  // GovernanceDefinition supertype fallback below, so these stay in-app on the
-  // Processes tab (with step/flow detail) instead of opening Egeria Explorer.
-  m['GovernanceActionProcess'] = { section: 'processes', tab: 'governance-processes' };
-  // Glossary
-  ['GlossaryTerm','Glossary','GlossaryCategory'].forEach(function(t) {
-    m[t] = { section: 'glossary', tab: 'glossary' };
-  });
-  // Cross-app: Egeria Explorer. Single entries for the abstract supertype are
-  // enough — the caller falls back to walking el.superTypes when there's no
-  // exact match, so e.g. PersonRole/GovernanceRole both resolve via 'ActorRole'.
-  m['SolutionComponent'] = { external: 'egeria-explorer', hash: 'solution-architect', kind: 'components' };
-  m['SolutionBlueprint']  = { external: 'egeria-explorer', hash: 'solution-architect', kind: 'blueprints' };
-  m['InformationSupplyChain'] = { external: 'egeria-explorer', hash: 'isc' };
-  m['ActorRole']      = { external: 'egeria-explorer', hash: 'actors', kind: 'roles' };
-  m['ActorProfile']   = { external: 'egeria-explorer', hash: 'actors', kind: 'profiles' };
-  m['UserIdentity']   = { external: 'egeria-explorer', hash: 'actors', kind: 'identities' };
-  m['Location']       = { external: 'egeria-explorer', hash: 'locations' };
-  m['Community']      = { external: 'egeria-explorer', hash: 'communities' };
-  m['GovernanceDefinition'] = { external: 'egeria-explorer', hash: 'governance' };
-  m['ReferenceDataValue']   = { external: 'egeria-explorer', hash: 'reference-data' };
-  // Egeria's internal type-system registry (every entity/relationship/
-  // classification typeName also exists as one of these) — lands on
-  // Explorer's Valid Values tab. Unlike the search-result path in
-  // type-explorer.html, a guid-only deep link here can't preselect which
-  // property to look up (element-nav only returns typeName/superTypeNames,
-  // not the property name), so this is a landing, not a full deep link.
-  m['ValidMetadataValue']   = { external: 'egeria-explorer', hash: 'valid-values' };
-  // Data Design — Explorer's Data Design tab, sub-tab selected via ?kind=.
-  m['DataSpec']      = { external: 'egeria-explorer', hash: 'data-design', kind: 'specs' };
-  m['DataStructure'] = { external: 'egeria-explorer', hash: 'data-design', kind: 'structures' };
-  m['DataField']     = { external: 'egeria-explorer', hash: 'data-design', kind: 'fields' };
-  m['DataGrain']     = { external: 'egeria-explorer', hash: 'data-design', kind: 'grains' };
-  m['DataClass']     = { external: 'egeria-explorer', hash: 'data-design', kind: 'classes' };
-  // Collection family — Explorer routes these to its Digital Products tab
-  // (CollectionFolder/DigitalProduct + the generic Collection fallback for e.g. Folio).
-  m['CollectionFolder'] = { external: 'egeria-explorer', hash: 'digital-products' };
-  m['DigitalProduct']   = { external: 'egeria-explorer', hash: 'digital-products' };
-  m['Collection']       = { external: 'egeria-explorer', hash: 'digital-products' };
-  // Survey Reports
-  m['SurveyReport'] = { section: 'surveys', tab: 'survey-reports' };
-  // Annotations — base type is enough; the relationship renderer walks superTypes
-  // so all subtypes (SchemaAnalysisAnnotation, DataFieldAnnotation, etc.) resolve here.
-  m['Annotation'] = { section: 'surveys', tab: 'annotations' };
-  return m;
-}());
+// Maps an Egeria typeName to the catalog section+tab that hosts it (internal
+// routing), or to an Egeria Explorer tab (cross-app routing), or both. Backed
+// by static/type-nav-map.json (loaded by static/type-nav-resolve.js, see the
+// <script> tag near the top of this file) — see design-docs/type-system-audit.md.
+// _navFromEntry() adapts a type-nav-map.json entry into the {section,tab} /
+// {external,hash,kind} shape this file's call sites already expect;
+// catalogSection/catalogTab (Tech Catalog's own internal routing) takes
+// priority when present, since that's the richer in-app view.
+// Subtypes not covered by the map won't get a "View →" button in the
+// Relationships panel.
+function _navFromEntry(entry) {
+  if (!entry) return null;
+  if (entry.catalogSection) return { section: entry.catalogSection, tab: entry.catalogTab };
+  if (entry.explorerHash) return { external: 'egeria-explorer', hash: entry.explorerHash, kind: entry.kind };
+  return null;
+}
+// EngineAction is the one type that isn't in type-nav-map.json at all — see
+// that file's header comment for why (it opens the egeria-operations app
+// directly, not an Egeria Explorer hash, and egeria-operations has no
+// per-guid deep link yet). Kept as a tiny explicit special case here so a
+// relationship row of this type still gets a "View →" button, matching
+// static/egeria-shared-ui.js's resolveElementNav and demo-portal.html's
+// portalResolveNav, which special-case it the same way for the same reason.
+function _resolveTypeToNav(typeName, superTypeNames) {
+  if (typeName === 'EngineAction') return { external: 'egeria-operations', hash: 'actions' };
+  return _navFromEntry((typeof resolveTypeNav === 'function') ? resolveTypeNav(typeName, superTypeNames) : null);
+}
 
 // ── Generic detail panel ──────────────────────────────────────────────────────
 function AssetDetail({ item, detailLoading, onNavigate, creds, sectionId }) {
@@ -1829,16 +1792,7 @@ function AssetDetail({ item, detailLoading, onNavigate, creds, sectionId }) {
         var el = r.relatedElement || {};
         var relProps = Object.entries(r.relationshipProperties || {});
         // Resolve nav target: try exact typeName first, then walk superTypes
-        var nav = null;
-        if (el.guid) {
-          nav = el.typeName ? TYPE_TO_NAV[el.typeName] : null;
-          if (!nav && el.superTypes) {
-            for (var si = 0; si < el.superTypes.length; si++) {
-              nav = TYPE_TO_NAV[el.superTypes[si]];
-              if (nav) break;
-            }
-          }
-        }
+        var nav = el.guid ? _resolveTypeToNav(el.typeName, el.superTypes) : null;
         return React.createElement('div', { key: i, style: Object.assign({}, cardStyle, { borderLeft: '3px solid var(--rel)' }) },
           React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: relProps.length ? 4 : 0 } },
             React.createElement('span', { style: { fontSize: 10, fontWeight: 700, color: 'var(--rel)', letterSpacing: '0.05em' } }, r.relationshipType),
@@ -1895,6 +1849,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
   var _asOfTime = useState(null), asOfTime = _asOfTime[0], setAsOfTime = _asOfTime[1];
   var _createdFrom = useState(''), createdFrom = _createdFrom[0], setCreatedFrom = _createdFrom[1];
   var _createdTo   = useState(''), createdTo   = _createdTo[0],   setCreatedTo   = _createdTo[1];
+  var _attempt = useState(0), attempt = _attempt[0], setAttempt = _attempt[1];
   var supportsTime = /\/(data-stores|data-feeds|data-sets|infrastructure|software-capabilities|endpoints|apis|software-components|actions|survey-reports)\b/.test(endpoint);
   var supportsTemplateFilter = /\/(infrastructure|software-capabilities|endpoints|data-stores|data-feeds|data-sets|apis|software-components|actions|survey-reports)\b/.test(endpoint);
   // Filter-by-creation-timestamp: currently only meaningful for Survey Reports,
@@ -1911,7 +1866,7 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
       .then(function(r) { return r.json(); })
       .then(function(d) { setItems(Array.isArray(d) ? d : (d.items || [])); setLoading(false); })
       .catch(function(e) { setError(String(e)); setLoading(false); });
-  }, [endpoint, asOfTime, inclTempl]);
+  }, [endpoint, asOfTime, inclTempl, attempt]);
 
   function handleSelect(item) {
     setSelected(item);
@@ -2002,6 +1957,10 @@ function AssetTabView({ endpoint, sectionId, creds, navTarget, onNavigate }) {
     supportsTime && React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' }),
     React.createElement('input', { type: 'search', placeholder: 'Filter…', value: q, onChange: function(e) { setQ(e.target.value); },
       style: { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } }),
+    React.createElement('button', {
+      className: 'btn-sm', style: { alignSelf: 'flex-start' },
+      onClick: function() { setAttempt(function(a) { return a + 1; }); }
+    }, '↻ Refresh'),
     supportsCreatedFilter && React.createElement('div', { style: { display: 'flex', gap: 4, alignItems: 'center' } },
       React.createElement('span', { style: { fontSize: 10, color: 'var(--dim)', whiteSpace: 'nowrap' } }, 'Created:'),
       React.createElement('input', { type: 'date', value: createdFrom, onChange: function(e) { setCreatedFrom(e.target.value); },
@@ -2459,6 +2418,8 @@ function AnnotationsTabView({ creds, navTarget, onNavigate }) {
         el('button', { onClick: function() { load(q, filter, asOf); },
           style: { padding: '4px 12px', fontSize: 12, borderRadius: 4, border: '1px solid var(--border)',
                    background: 'var(--panel)', color: 'var(--text)', cursor: 'pointer' } }, 'Search'),
+        el('button', { className: 'btn-sm', title: 'Reload annotations',
+          onClick: function() { load(q, filter, asOf); } }, '↻ Refresh'),
         ANNOTATION_TYPES.slice(1).map(function(t) {
           var active = filter === t.id;
           return el('button', { key: t.id,
@@ -2612,21 +2573,15 @@ function highlightHtml(text, q) {
 }
 
 function SearchResultCard({ item, query, onNavigate, selection }) {
-  var nav = TYPE_TO_NAV[item.typeName];
-  if (!nav) {
-    var sup = item.superTypeNames || [];
-    for (var i = 0; i < sup.length; i++) {
-      if (TYPE_TO_NAV[sup[i]]) { nav = TYPE_TO_NAV[sup[i]]; break; }
-    }
-  }
+  var nav = _resolveTypeToNav(item.typeName, item.superTypeNames);
   function handleOpen() {
     if (!item.guid) return;
     if (onNavigate && nav) {
       // Spread nav in full — for cross-app entries this carries {external,
       // hash, kind}, not {section, tab}. Previously this only forwarded
       // section/tab, which silently dropped `external` and made
-      // handleNavigate() do setSection(undefined) for any TYPE_TO_NAV entry
-      // that routes to Egeria Explorer (Location, Community, ValidMetadataValue, …).
+      // handleNavigate() do setSection(undefined) for any type-nav-map.json
+      // entry that routes to Egeria Explorer (Location, Community, ValidMetadataValue, …).
       onNavigate(Object.assign({ guid: item.guid, displayName: item.displayName }, nav));
     } else if (onNavigate && item.categoryId && item.categoryId !== 'other') {
       onNavigate({ guid: item.guid, displayName: item.displayName, section: item.categoryId });
@@ -2823,6 +2778,7 @@ function SurveyTypesView({ creds }) {
   var _data = useState(null), data = _data[0], setData = _data[1];
   var _err  = useState(null), err  = _err[0],  setErr  = _err[1];
   var _q    = useState(''),   q    = _q[0],    setQ    = _q[1];
+  var _attempt = useState(0), attempt = _attempt[0], setAttempt = _attempt[1];
 
   useEffect(function() {
     setData(null); setErr(null);
@@ -2830,7 +2786,7 @@ function SurveyTypesView({ creds }) {
       .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || r.status); }); })
       .then(function(j) { setData(j.items || []); })
       .catch(function(e) { setErr(e.message || String(e)); });
-  }, [creds.url, creds.server, creds.userId, creds.userPwd]);
+  }, [creds.url, creds.server, creds.userId, creds.userPwd, attempt]);
 
   var card = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', marginBottom: 10 };
   var filtered = !data ? [] : data.filter(function(st) {
@@ -2848,7 +2804,11 @@ function SurveyTypesView({ creds }) {
         onChange: function(e) { setQ(e.target.value); },
         placeholder: 'Filter survey types…',
         style: { width: '100%', padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)', fontSize: 13, boxSizing: 'border-box' }
-      })
+      }),
+      React.createElement('button', {
+        className: 'btn-sm', style: { marginTop: 6 },
+        onClick: function() { setAttempt(function(a) { return a + 1; }); }
+      }, '↻ Refresh')
     ),
     React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: '12px 16px' } },
       err  && React.createElement('div', { style: { color: '#f87171', fontSize: 13, padding: 12 } }, 'Error: ' + err),
@@ -2957,7 +2917,60 @@ function GovernanceProcessDetail({ item, detailLoading, creds }) {
   );
 }
 
+// GovernanceProcessTreeNode: same shape as CapabilityTreeNode in quickstart's
+// tech-catalog.html (this freshstart copy doesn't have a Capabilities tree
+// yet) — generic on node.name/node.count/node.children.
+function GovernanceProcessTreeNode({ node, depth, selectedTypeName, onSelectType, expanded, toggleNode }) {
+  var isExp = expanded.has(node.name);
+  var isSel = selectedTypeName === node.name;
+  var paddingLeft = 8 + depth * 20;
+  var kids = node.children || [];
+  var hasKids = kids.length > 0;
+  return React.createElement(React.Fragment, null,
+    React.createElement('div', {
+      className: 'tree-item' + (isSel ? ' sel' : ''),
+      style: { paddingLeft: paddingLeft },
+      title: node.name + (node.count ? ' — ' + node.count + ' element' + (node.count === 1 ? '' : 's') : ''),
+      onClick: function() {
+        onSelectType(isSel ? null : node.name);
+        if (hasKids) toggleNode(node.name);
+      }
+    },
+      hasKids
+        ? React.createElement('span', { style: { width: 16, display: 'inline-block', flexShrink: 0, fontSize: 10, textAlign: 'center', color: isExp ? 'var(--accent)' : 'var(--muted)' } }, isExp ? '▼' : '▶')
+        : React.createElement('span', { style: { width: 16, display: 'inline-block', flexShrink: 0 } }),
+      React.createElement('span', { className: 'type-name', style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' } }, node.name),
+      node.count > 0 && React.createElement('span', {
+        style: { fontSize: 10, fontWeight: 600, color: isSel ? 'var(--accent)' : 'var(--dim)', background: 'rgba(96,165,250,.1)', borderRadius: 8, padding: '1px 6px', flexShrink: 0 }
+      }, node.count)
+    ),
+    isExp && hasKids && kids.map(function(child) {
+      return React.createElement(GovernanceProcessTreeNode, {
+        key: child.name, node: child, depth: depth + 1,
+        selectedTypeName: selectedTypeName, onSelectType: onSelectType, expanded: expanded, toggleNode: toggleNode,
+      });
+    })
+  );
+}
+
+// Type tree + filter: Egeria's content packs now tag real
+// GovernanceActionProcess instances with their concrete subtype
+// (AnalyticalActionProcess/CataloguingActionProcess/ExploringActionProcess/
+// ProvisioningActionProcess/SurveyingActionProcess —
+// https://egeria-project.org/types/4/0462-Governance-Action-Processes/), and
+// the list endpoint already returns each item's real typeName
+// (_serialize_governance_process_list_item, tech_catalog_handler.py), so
+// this is purely a frontend grouping change built client-side from the live
+// type system (useTypeGraph/getSubs/getAllSubs, egeria-shared-ui.js) — no
+// backend change needed. A process not yet tagged with a subtype (typeName
+// still the base GovernanceActionProcess) rolls up as a direct count on the
+// root node alongside the subtype branches.
 function GovernanceProcessesView({ creds, navTarget, onNavigate }) {
+  var _treeRz = useResizable(240, 160, 420), treeW = _treeRz[0], onTreeDown = _treeRz[1];
+  var _listRz = useResizable(280, 160, 500), listW = _listRz[0], onListDown = _listRz[1];
+  var entities = useTypeGraph(creds); // null while loading, {} on error — both read as "no tree yet"
+  var _expanded = useState(function() { return new Set(['GovernanceActionProcess']); }), expanded = _expanded[0], setExpanded = _expanded[1];
+  var _selType  = useState(null), selectedTypeName = _selType[0], setSelectedTypeName = _selType[1]; // null = show all
   var _items      = useState([]),    items      = _items[0],      setItems      = _items[1];
   var _loading    = useState(true),  loading    = _loading[0],    setLoading    = _loading[1];
   var _error      = useState(''),    error      = _error[0],      setError      = _error[1];
@@ -2965,6 +2978,7 @@ function GovernanceProcessesView({ creds, navTarget, onNavigate }) {
   var _detail     = useState(null),  detail     = _detail[0],     setDetail     = _detail[1];
   var _detailLoad = useState(false), detailLoad = _detailLoad[0], setDetailLoad = _detailLoad[1];
   var _q          = useState(''),    q          = _q[0],          setQ          = _q[1];
+  var _attempt = useState(0), attempt = _attempt[0], setAttempt = _attempt[1];
 
   useEffect(function() {
     setLoading(true); setError('');
@@ -2972,7 +2986,11 @@ function GovernanceProcessesView({ creds, navTarget, onNavigate }) {
       .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw new Error(e.detail || r.status); }); })
       .then(function(d) { setItems(d.items || []); setLoading(false); })
       .catch(function(e) { setError(e.message || String(e)); setLoading(false); });
-  }, [creds.url, creds.server, creds.userId, creds.userPwd]);
+  }, [creds.url, creds.server, creds.userId, creds.userPwd, attempt]);
+
+  function toggleNode(name) {
+    setExpanded(function(prev) { var n = new Set(prev); if (n.has(name)) n.delete(name); else n.add(name); return n; });
+  }
 
   function handleSelect(item) {
     setSelected(item);
@@ -2994,25 +3012,103 @@ function GovernanceProcessesView({ creds, navTarget, onNavigate }) {
     handleSelect({ guid: navTarget.guid, displayName: navTarget.displayName || navTarget.guid });
   }, [navTarget, creds]);
 
-  var filtered = items.filter(function(item) {
-    if (!q.trim()) return true;
-    var lq = q.trim().toLowerCase();
-    return (item.displayName || '').toLowerCase().indexOf(lq) !== -1 ||
-           (item.qualifiedName || '').toLowerCase().indexOf(lq) !== -1;
-  });
+  // Counts per concrete typeName from the live instance list, then rolled up
+  // through the type hierarchy so the root (or an intermediate abstract type)
+  // shows the total under it, not just direct instances of that exact type.
+  var countsByType = useMemo(function() {
+    var m = {};
+    items.forEach(function(i) { m[i.typeName] = (m[i.typeName] || 0) + 1; });
+    return m;
+  }, [items]);
 
-  var filterBar = React.createElement('div', { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)' } },
-    React.createElement('input', { type: 'search', placeholder: 'Filter…', value: q, onChange: function(e) { setQ(e.target.value); },
-      style: { width: '100%', fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none', boxSizing: 'border-box' } })
+  var treeRoots = useMemo(function() {
+    if (!entities || !entities['GovernanceActionProcess']) return [];
+    var subtreeCount = {};
+    function count(name) {
+      if (subtreeCount[name] != null) return subtreeCount[name];
+      var total = countsByType[name] || 0;
+      getSubs(name, entities).forEach(function(sub) { total += count(sub); });
+      subtreeCount[name] = total;
+      return total;
+    }
+    function build(name) {
+      var kids = getSubs(name, entities)
+        .map(build)
+        .filter(function(k) { return k.count > 0; })
+        .sort(function(a, b) { return a.name.localeCompare(b.name); });
+      return { name: name, count: count(name), children: kids };
+    }
+    return [build('GovernanceActionProcess')];
+  }, [entities, countsByType]);
+
+  // Middle list: everything under the selected type (itself + all descendant
+  // types), or the full flat list if nothing's selected in the tree yet.
+  var selectedTypeSet = useMemo(function() {
+    if (!selectedTypeName || !entities) return null;
+    var set = new Set([selectedTypeName]);
+    getAllSubs(selectedTypeName, entities).forEach(function(n) { set.add(n); });
+    return set;
+  }, [selectedTypeName, entities]);
+
+  var listItems = (selectedTypeSet ? items.filter(function(i) { return selectedTypeSet.has(i.typeName); }) : items)
+    .filter(function(i) { return !q.trim() || (i.displayName || i.qualifiedName || '').toLowerCase().indexOf(q.trim().toLowerCase()) !== -1; })
+    .sort(function(a, b) { return (a.displayName || a.qualifiedName || '').localeCompare(b.displayName || b.qualifiedName || ''); });
+
+  return React.createElement('div', { className: 'body' },
+    // Left: type hierarchy
+    React.createElement('div', { style: { width: treeW, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid var(--border)' } },
+      React.createElement('div', { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } }, 'Process Hierarchy'),
+      React.createElement('div', { className: 'tree-scroll' },
+        entities === null
+          ? React.createElement('div', { style: { padding: '12px 10px', fontSize: 12, color: 'var(--dim)' } }, 'Loading type hierarchy…')
+          : treeRoots.length === 0
+          ? React.createElement('div', { style: { padding: '12px 10px', fontSize: 12, color: 'var(--dim)' } }, 'No governance action processes found')
+          : treeRoots.map(function(node) {
+              return React.createElement(GovernanceProcessTreeNode, {
+                key: node.name, node: node, depth: 0,
+                selectedTypeName: selectedTypeName, onSelectType: setSelectedTypeName, expanded: expanded, toggleNode: toggleNode,
+              });
+            })
+      )
+    ),
+    React.createElement(ResizeDivider, { onMouseDown: onTreeDown }),
+    // Middle: instances under the selected type
+    React.createElement('div', { style: { width: listW, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid var(--border)' } },
+      React.createElement('div', { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
+        React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } },
+          selectedTypeName ? selectedTypeName + ' (' + listItems.length + ')' : 'All processes (' + listItems.length + ')'),
+        React.createElement('input', { type: 'search', placeholder: 'Filter…', value: q, onChange: function(e) { setQ(e.target.value); },
+          style: { fontSize: 12, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', outline: 'none' } }),
+        React.createElement('button', {
+          className: 'btn-sm', style: { alignSelf: 'flex-start' },
+          onClick: function() { setAttempt(function(a) { return a + 1; }); }
+        }, '↻ Refresh')
+      ),
+      React.createElement('div', { style: { overflowY: 'auto', flex: 1 } },
+        loading ? React.createElement('div', { style: { padding: 24, color: 'var(--dim)', fontSize: 12 } }, 'Loading…')
+        : error ? React.createElement('div', { style: { padding: 16, color: '#f87171', fontSize: 12 } }, error)
+        : listItems.length === 0 ? React.createElement('div', { style: { padding: 16, color: 'var(--dim)', fontSize: 12 } }, 'No items found.')
+        : listItems.map(function(item) {
+            var active = selected && selected.guid === item.guid;
+            return React.createElement('div', { key: item.guid, onClick: function() { handleSelect(item); },
+              style: { padding: '8px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)',
+                       background: active ? 'var(--hover)' : 'transparent',
+                       borderLeft: active ? '3px solid var(--accent)' : '3px solid transparent' } },
+              React.createElement('div', { style: { fontSize: 12, fontWeight: active ? 700 : 400, color: active ? 'var(--accent)' : 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
+                item.displayName || item.qualifiedName || item.guid),
+              React.createElement('div', { style: { fontSize: 10, color: 'var(--dim)', marginTop: 1 } }, item.typeName)
+            );
+          })
+      )
+    ),
+    React.createElement(ResizeDivider, { onMouseDown: onListDown }),
+    // Right: detail
+    React.createElement('div', { className: 'main', style: { padding: selected ? '20px 24px' : 0 } },
+      !selected
+        ? React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--dim)', fontSize: 13 } }, 'Select a process from the list')
+        : React.createElement(GovernanceProcessDetail, { item: detail, detailLoading: detailLoad, creds: creds })
+    )
   );
-
-  return React.createElement(SidebarDetail, {
-    items: filtered, loading: loading, error: error, selected: selected, onSelect: handleSelect,
-    filterBar: filterBar,
-    renderDetail: function() {
-      return React.createElement(GovernanceProcessDetail, { item: detail, detailLoading: detailLoad, creds: creds });
-    },
-  });
 }
 
 var SECTION_TABS = {
@@ -3051,7 +3147,7 @@ function SectionView({ sectionId, creds, navTarget, onNavigate, searchQuery }) {
     );
   }
   if (sectionId === 'tech-types') {
-    return React.createElement(TechTypesView, { creds: creds });
+    return React.createElement(TechTypesView, { creds: creds, onNavigate: onNavigate });
   }
   var tabs = SECTION_TABS[sectionId] || [];
   var _tab = useState(tabs[0] ? tabs[0].id : ''), activeTab = _tab[0], setActiveTab = _tab[1];
@@ -3302,16 +3398,19 @@ function App() {
       .then(function(d) {
         var typeName   = d && d.typeName;
         var superTypes = (d && d.superTypeNames) || [];
-        var nav = TYPE_TO_NAV[typeName];
-        if (!nav) {
-          for (var i = 0; i < superTypes.length; i++) {
-            nav = TYPE_TO_NAV[superTypes[i]];
-            if (nav) break;
-          }
+        var nav = _resolveTypeToNav(typeName, superTypes);
+        var disp = (d && d.displayName) || guid;
+        if (nav && nav.external) {
+          // Resolves to a type The Catalog doesn't own a view for (Egeria
+          // Explorer or, for EngineAction, Egeria Operations) — hand off via
+          // the same handleNavigate() cross-app path a click uses, instead of
+          // wrapping it in Catalog chrome.
+          handleNavigate(Object.assign({ guid: guid, displayName: disp }, nav));
+          history.replaceState(null, '', window.location.pathname);
+          return;
         }
         var sec  = (nav && nav.section) || 'data-assets';
         var tab  = nav && nav.tab;
-        var disp = (d && d.displayName) || guid;
         setSection(sec);
         setNavTarget({ guid: guid, section: sec, tab: tab, displayName: disp });
         // Deep link consumed — drop ?guid= from the URL so a page refresh lands on

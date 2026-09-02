@@ -33,9 +33,20 @@ services:
     image: "${SHARED_KAFKA_IMAGE}"
     container_name: egeria-shared-kafka
     hostname: egeria-shared-kafka
+    # The image's own entrypoint builds server.properties from a fixed heredoc
+    # and substitutes only eight whitelisted KAFKA_CFG_* vars — every retention
+    # and segment setting below was silently ignored, leaving the broker on
+    # log.retention.hours=168 with 1 GB segments. That grew the audit-logs topic
+    # to 14 GB and OOM-killed the broker on 2026-08-16. kafka-entrypoint.sh is a
+    # drop-in replacement that keeps the stock formatting/format-guard behaviour
+    # but honours these variables for real. See that file's header for detail.
+    entrypoint: ["/usr/local/bin/egeria-kafka-entrypoint.sh"]
     networks:
       - egeria_network
     restart: always
+    labels:
+      # Opts this container in to the autoheal service below.
+      egeria.autoheal: "true"
     ports:
       - "9192:9192"
       - "9193:9193"
@@ -52,15 +63,31 @@ services:
         PLAINTEXT://egeria-shared-kafka:9192,CONTROLLER://127.0.0.1:9193,EXTERNAL://${HOST_FQDN}:9194
       KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: >-
         CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
-      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
       KAFKA_KRAFT_CLUSTER_ID: "${KAFKA_CLUSTER_ID}"
       KAFKA_CFG_LOG_DIRS: "${HARDENED_KAFKA_LOG_DIR}"
-      # Logging and retention limits to prevent disk overflow
+      # Retention limits to prevent disk overflow. These are only effective
+      # because of the entrypoint override above — the stock image ignores them.
+      # Segment size matters as much as retention here: a segment is deleted
+      # only once all of it has aged out, so the image's 1 GB default made 24 h
+      # retention unable to reclaim anything in practice.
       KAFKA_CFG_LOG_RETENTION_HOURS: "24"
       KAFKA_CFG_LOG_RETENTION_BYTES: "536870912"
       KAFKA_CFG_LOG_SEGMENT_BYTES: "107374182"
       KAFKA_CFG_LOG_CLEANER_ENABLE: "true"
-      KAFKA_CFG_LOG4J_ROOT_LOGLEVEL: "WARN"
+      # Heap. kafka-server-start.sh only falls back to -Xmx1G -Xms1G when this
+      # is unset, and that 1 GB default is what ran out on 2026-08-16. Sized to
+      # leave room for Egeria's EGERIA_MEM_LIMIT (6g) on the same host.
+      KAFKA_HEAP_OPTS: "-Xmx3G -Xms3G"
+      # Make an OutOfMemoryError kill the JVM instead of leaving it running with
+      # a dead broker inside. That zombie state is exactly what happened on
+      # 2026-08-16: the broker shut down, the process lived, so `restart: always`
+      # never fired and nothing noticed for five days. With this flag the same
+      # failure becomes a clean exit that the restart policy heals by itself.
+      KAFKA_OPTS: "-XX:+ExitOnOutOfMemoryError"
+      # NOTE: KAFKA_CFG_LOG4J_ROOT_LOGLEVEL and KAFKA_CFG_INTER_BROKER_LISTENER_NAME
+      # are inert with this image (its entrypoint writes neither into
+      # server.properties, and log4j is configured from its own file). Left
+      # documented rather than set, so nobody re-adds them expecting an effect.
     logging:
       driver: "json-file"
       options:
@@ -74,6 +101,7 @@ services:
       start_period: 20s
     volumes:
       - "${HARDENED_KAFKA_DATA_DIR}:/var/lib/kafka-data"
+      - ./kafka-entrypoint.sh:/usr/local/bin/egeria-kafka-entrypoint.sh:ro
 
   postgres:
     # Postgres is also pinned via .env so updates are explicit.
@@ -85,6 +113,14 @@ services:
     ports:
       - "5442:5442"
     shm_size: 1gb
+    # Relative CPU scheduling weight (default is 1024 for every container that
+    # doesn't set this) — doesn't cap Postgres, just tells the kernel to favor
+    # it over default-weight containers when cores are actually contended.
+    # Cheap insurance against a repeat of the 2026-08-23 incident where an
+    # unbounded egeria-main starved Postgres badly enough to crash it (see
+    # egeria-main's `cpus:` hard cap in egeria-quickstart.yaml, the real fix —
+    # this is a second line of defense against whatever container is next).
+    cpu_shares: 2048
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: egeria
@@ -151,6 +187,47 @@ services:
       timeout: 10s
       retries: 10
       start_period: 20s
+
+  autoheal:
+    # Restarts shared-infra containers labelled egeria.autoheal=true when their
+    # healthcheck reports unhealthy while the container is still running —
+    # the one failure mode Docker's `restart:` policies cannot see, because the
+    # main process never exits. See autoheal/autoheal.sh for the full rationale
+    # and the 2026-08-16 Kafka incident that motivated it.
+    #
+    # This is deliberately separate from the quickstart stack's watchdog, which
+    # only observes `die` events and is torn down by every redeploy-demo run.
+    build:
+      context: ./autoheal
+      dockerfile: Dockerfile-autoheal
+    image: egeria-shared-autoheal:latest
+    container_name: egeria-shared-autoheal
+    restart: always
+    # Same DNS-proxy pinning the quickstart watchdog uses, so api.resend.com
+    # resolves reliably for alert emails.
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    environment:
+      AUTOHEAL_LABEL: "egeria.autoheal"
+      POLL_SECONDS: "30"
+      RESTART_COOLDOWN_SECONDS: "600"
+      RESEND_API_KEY: "${RESEND_API_KEY:-}"
+      RESEND_FROM: "${RESEND_FROM:-}"
+      ALERT_EMAIL_TO: "${ALERT_EMAIL_TO:-}"
+    volumes:
+      # Read-write, unlike the quickstart watchdog's :ro mount, because issuing
+      # a restart is a write to the Docker API. Note the watchdog's :ro was
+      # never a real restriction — :ro on a socket does not prevent API writes;
+      # either way this grants effective control of the host's Docker daemon,
+      # the standard tradeoff for any container that heals other containers,
+      # and acceptable here on a single-user demo box.
+      - /var/run/docker.sock:/var/run/docker.sock
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   kroki-mermaid:
     # Mermaid needs a real headless-browser renderer (same class of engine

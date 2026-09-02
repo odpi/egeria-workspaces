@@ -18,10 +18,35 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
 
-from common_serialize import _authored_fields, _header_summary, _generic_relationships
+from common_serialize import _authored_fields, _header_summary, _generic_relationships, _classifications
 from egeria_error_mapping import raise_egeria_http_error, EGERIA_ERROR_RESPONSES
 
 router = APIRouter(tags=["projects"])
+
+# ProjectManager.get_linked_projects routes through ServerClient._async_get_
+# guid_request, whose dict-body branch validates against the base
+# GetRequestBody Pydantic model -- and its `class` field is now a hardcoded
+# Literal['GetRequestBody'] under pyegeria>=6.1.0, rejecting any real subclass
+# name including RelationshipRequestBody (pyegeria's own method signature
+# implies this is the expected class here). Found 2026-08-23 alongside the
+# identical bug in solution_architect_handler.py (see its comment for the
+# full writeup) -- filed as odpi/egeria-python#298, fixed in PR #299
+# (class_ loosened from Literal to str) -- not yet released as of
+# 2026-08-23 (BACKLOG.md PY-24). REVERT this workaround to a plain dict
+# once that lands in a pyegeria release. Same interim workaround: build
+# an already-constructed
+# GetRequestBody *instance* via model_construct (skips validation entirely,
+# unlike model_validate) with class_ overridden to the real subclass name.
+def _relationship_request_body(as_of_time: Optional[str] = None):
+    from datetime import datetime
+    from pyegeria.models.models import GetRequestBody
+    parsed_as_of = None
+    if as_of_time:
+        try:
+            parsed_as_of = datetime.fromisoformat(as_of_time)
+        except ValueError:
+            parsed_as_of = as_of_time  # let it through as-is; a harmless serializer warning beats crashing
+    return GetRequestBody.model_construct(class_="RelationshipRequestBody", as_of_time=parsed_as_of)
 
 
 def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
@@ -57,29 +82,6 @@ def _type_name(element: dict) -> str:
     return (_header(element).get("type") or {}).get("typeName", "") or ""
 
 
-def _extract_classifications(header: dict) -> list:
-    result = []
-    for cls in (header.get("classifications") or []):
-        if not isinstance(cls, dict):
-            continue
-        cls_header = cls.get("classificationHeader") or cls.get("header") or cls
-        type_name  = (cls_header.get("type") or {}).get("typeName") or cls_header.get("classificationName") or ""
-        if not type_name or type_name == "TemplateSubstitute":
-            continue
-        cls_props  = cls.get("classificationProperties") or cls.get("properties") or {}
-        flat_props = {}
-        if isinstance(cls_props, dict):
-            prop_map = cls_props.get("propertyValueMap") or {}
-            for k, v in prop_map.items():
-                flat_props[k] = v.get("primitiveValue", "") if isinstance(v, dict) else str(v)
-            if not flat_props:
-                for k, v in cls_props.items():
-                    if k not in ("class", "propertyValueMap", "propertiesAsStrings"):
-                        flat_props[k] = str(v)
-        result.append({"typeName": type_name, "properties": flat_props})
-    return result
-
-
 def _serialize_project(element: dict) -> dict:
     props  = _props(element)
     header = _header(element)
@@ -93,7 +95,7 @@ def _serialize_project(element: dict) -> dict:
         "startDate":      props.get("startDate") or "",
         "plannedEndDate": props.get("plannedEndDate") or "",
         "status":         header.get("status") or "",
-        "classifications": _extract_classifications(header),
+        "classifications": _classifications(element),
         "_header":        _header_summary(element),
         **_authored_fields(element),
         "relationships":  _generic_relationships(element),
@@ -121,6 +123,13 @@ def get_projects(
             search_string="*",
             starts_with=True,
             output_format="JSON",
+            graph_query_depth=0,  # PY-6/PY-14 perf lesson — the list view never reads
+                                  # .relationships off these items (confirmed against
+                                  # type-explorer.html: it only reads guid/displayName/
+                                  # qualifiedName/classifications here, and fetches
+                                  # relationships fresh from /api/projects/{guid} when a
+                                  # row is clicked). _project_forest() below legitimately
+                                  # needs graph_query_depth=1 and is left untouched.
             start_from=start_from,
             page_size=page_size,
             sequencing_order="PROPERTY_ASCENDING",
@@ -272,9 +281,7 @@ def get_project(
 
     children = []
     try:
-        child_body = {"class": "RelationshipRequestBody"}
-        if as_of_time:
-            child_body["asOfTime"] = as_of_time
+        child_body = _relationship_request_body(as_of_time)
         raw_children = mgr.get_linked_projects(guid, output_format="JSON", body=child_body)
         if isinstance(raw_children, list):
             children = [_serialize_project(c) for c in raw_children if _type_name(c) == "Project"]

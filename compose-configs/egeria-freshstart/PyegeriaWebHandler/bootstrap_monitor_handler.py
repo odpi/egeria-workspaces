@@ -58,7 +58,21 @@ router = APIRouter(prefix="/api/bootstrap", tags=["bootstrap-monitor"])
 BOOTSTRAP_FAMILIES = []
 
 _CHECK_INTERVAL = int(os.environ.get("BOOTSTRAP_CHECK_INTERVAL_SECONDS", "600"))  # 10 min
-_DR_EGERIA_TIMEOUT = int(os.environ.get("BOOTSTRAP_HEAL_TIMEOUT_SECONDS", "300"))
+# 900s (15 min), was 300s -- the Design Patterns batch's poim-pattern-links.md
+# (~1,058 relationship-link commands per the design-patterns/README) reliably
+# exceeded the old 300s cap (confirmed live on quickstart, 2026-08-28), and
+# every timeout used to leave the dr_egeria subprocess orphaned and running
+# (see the _active_procs comment on _heal_family) -- that half of the bug is
+# fixed now regardless of this value, but a heal that can never actually
+# finish in time would still never successfully clear this family's canary
+# and would just retry-and-give-up every _CHECK_INTERVAL forever. Generous
+# headroom is safe here: every doc this module re-runs is upsert-safe, so a
+# longer wait never risks anything, it only avoids giving up on genuinely
+# slow (not stuck) large batches.
+_DR_EGERIA_TIMEOUT = int(os.environ.get("BOOTSTRAP_HEAL_TIMEOUT_SECONDS", "900"))
+# Startup fast-retry window -- see start_scheduler()'s docstring comment.
+_STARTUP_RETRY_INTERVAL = int(os.environ.get("BOOTSTRAP_STARTUP_RETRY_SECONDS", "20"))
+_STARTUP_RETRY_WINDOW = int(os.environ.get("BOOTSTRAP_STARTUP_RETRY_WINDOW_SECONDS", "300"))  # 5 min
 
 _mu = asyncio.Lock()
 _state: dict = {
@@ -74,8 +88,14 @@ def _now_iso() -> str:
     return datetime.utcnow().isoformat()
 
 
-async def _canary_present(family: dict) -> bool:
-    """Cheap bounded point lookup -- one Egeria find, pageSize=1."""
+async def _canary_present(family: dict) -> tuple[bool, bool]:
+    """Cheap bounded point lookup -- one Egeria find, pageSize=1. Returns
+    (present, reachable). `present` fails open to True on any error
+    (connection failure isn't evidence of a reset -- don't trigger a heal
+    pass just because Egeria was briefly unreachable); `reachable` tells
+    the caller whether that True actually means "confirmed present" or
+    "couldn't check" -- see start_scheduler()'s fast-retry-on-startup use
+    of this distinction."""
     try:
         from pyegeria import MetadataExpert
         import pyegeria
@@ -100,12 +120,41 @@ async def _canary_present(family: dict) -> bool:
         }
         els = await mgr._async_find_metadata_elements(body)
         await mgr._async_close_session()
-        return isinstance(els, list) and len(els) > 0
+        return isinstance(els, list) and len(els) > 0, True
     except Exception as exc:  # noqa: BLE001
         logger.debug(f"bootstrap monitor: canary check failed for {family['name']}: {exc}")
-        # Connection failure isn't evidence of a reset -- don't trigger a
-        # heal pass just because Egeria was briefly unreachable.
-        return True
+        return True, False
+
+
+# Subprocesses currently in flight, so stop_scheduler() (app shutdown/reload)
+# and the timeout/cancellation paths below can actually terminate them.
+#
+# BUG (found 2026-08-28, Design Patterns batch on quickstart): a heal's
+# `dr_egeria --process <file>` subprocess was never killed on either a
+# timeout or a cancelled heal task -- asyncio.wait_for()'s TimeoutError just
+# abandons the await, and cancelling _scheduler_task (stop_scheduler(),
+# called on every app reload/restart) only unwinds the Python coroutine,
+# neither of which sends any signal to the actual OS child process. The
+# orphaned `dr_egeria` process keeps running to completion on its own,
+# invisible to this module's state. Confirmed live: `poim-pattern-links.md`
+# (22k lines) reliably exceeds the 300s default _DR_EGERIA_TIMEOUT, so every
+# heal attempt against it timed out and orphaned a process; a `docker cp`
+# reload during that window then restarted the scheduler, found the canary
+# still missing (the orphan hadn't finished), and started a SECOND heal --
+# two concurrent `dr_egeria --process poim-pattern-links.md` runs against
+# the same file, each creating its own duplicate DesignPattern elements
+# instead of one run upserting cleanly.
+_active_procs: set = set()
+
+
+async def _kill_proc(proc) -> None:
+    try:
+        proc.kill()
+        await proc.wait()
+    except ProcessLookupError:
+        pass  # already exited
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"bootstrap monitor: error killing orphaned dr_egeria process: {exc}")
 
 
 async def _heal_family(family: dict) -> str:
@@ -117,11 +166,13 @@ async def _heal_family(family: dict) -> str:
         if not Path(doc).exists():
             logger.warning(f"bootstrap monitor: {family['name']} doc missing, skipping: {doc}")
             continue
+        proc = None
         try:
             proc = await asyncio.create_subprocess_exec(
                 "dr_egeria", "--process", doc,
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
             )
+            _active_procs.add(proc)
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=_DR_EGERIA_TIMEOUT)
             if proc.returncode != 0:
                 tail = stdout.decode(errors="replace")[-800:] if stdout else ""
@@ -129,11 +180,24 @@ async def _heal_family(family: dict) -> str:
                 return f"failed on {Path(doc).name}"
             logger.info(f"bootstrap monitor: healed {family['name']} via {Path(doc).name}")
         except asyncio.TimeoutError:
-            logger.error(f"bootstrap monitor: heal timed out for {family['name']} on {doc}")
+            logger.error(f"bootstrap monitor: heal timed out for {family['name']} on {doc} -- killing it "
+                         f"(was previously left running orphaned; see _active_procs comment above)")
+            if proc is not None:
+                await _kill_proc(proc)
             return f"timed out on {Path(doc).name}"
+        except asyncio.CancelledError:
+            # App shutdown/reload mid-heal (stop_scheduler()) -- kill the
+            # child before letting the cancellation propagate, same reason
+            # as the timeout branch above.
+            if proc is not None:
+                await _kill_proc(proc)
+            raise
         except Exception as exc:  # noqa: BLE001
             logger.error(f"bootstrap monitor: heal error for {family['name']} on {doc}: {exc}")
             return f"error on {Path(doc).name}: {exc}"
+        finally:
+            if proc is not None:
+                _active_procs.discard(proc)
     return "ok"
 
 
@@ -164,16 +228,22 @@ def _dynamic_families() -> list[dict]:
     return families
 
 
-async def check_and_heal_all() -> None:
+async def check_and_heal_all() -> bool:
     """Check every family's canary; heal (re-run its docs) any that's
-    missing. Safe to call repeatedly -- a present canary is a fast no-op."""
+    missing. Safe to call repeatedly -- a present canary is a fast no-op.
+    Returns True if ANY canary check couldn't actually reach Egeria this
+    pass (as opposed to reaching it and confirming presence) -- used by
+    start_scheduler()'s startup fast-retry window."""
     all_families = BOOTSTRAP_FAMILIES + _dynamic_families()
 
+    any_unreachable = False
     to_heal = []
     for family in all_families:
         async with _mu:
             _state["families"].setdefault(family["name"], {"present": None, "lastHealedAt": None, "lastHealResult": None})
-        present = await _canary_present(family)
+        present, reachable = await _canary_present(family)
+        if not reachable:
+            any_unreachable = True
         async with _mu:
             _state["families"][family["name"]]["present"] = present
         if not present:
@@ -183,7 +253,7 @@ async def check_and_heal_all() -> None:
         _state["lastCheckAt"] = _now_iso()
 
     if not to_heal:
-        return
+        return any_unreachable
 
     async with _mu:
         _state["reinitializing"] = True
@@ -200,18 +270,46 @@ async def check_and_heal_all() -> None:
         _state["reinitializing"] = False
         _state["message"] = None
 
+    return any_unreachable
+
+
+_startup_deadline: Optional[float] = None  # time.monotonic() cutoff; None once settled
+
 
 async def start_scheduler() -> None:
-    global _scheduler_task
+    global _scheduler_task, _startup_deadline
     # Run one check immediately at startup (covers the redeploy case, where
     # the process restarts right alongside the reset) rather than waiting
     # a full interval before the first check.
+    #
+    # egeria-quickstart.yaml's pyegeria-web `depends_on: egeria-main` has no
+    # `condition:` (defaults to service_started, not service_healthy), so on
+    # a full stack cold-start this container routinely starts running before
+    # Egeria is actually reachable -- this first check fails open (see
+    # _canary_present) and effectively no-ops. Rather than then waiting the
+    # full _CHECK_INTERVAL (10 min default) for the next real attempt, open
+    # a short fast-retry window: if this first check couldn't reach Egeria
+    # at all, _monitor_loop below retries every BOOTSTRAP_STARTUP_RETRY_SECONDS
+    # until either it succeeds or BOOTSTRAP_STARTUP_RETRY_WINDOW_SECONDS
+    # elapses, then settles into the normal cadence for good -- a LATER,
+    # separate outage does not reopen this window and gets the same gentle
+    # periodic cadence as any other transient unreachability. Fast-retrying
+    # forever on a genuine extended outage would just hammer Egeria for no
+    # benefit.
+    _startup_deadline = time.monotonic() + _STARTUP_RETRY_WINDOW
     try:
-        await check_and_heal_all()
+        unreachable = await check_and_heal_all()
     except Exception as exc:  # noqa: BLE001
         logger.error(f"bootstrap monitor: startup check failed: {exc}")
+        unreachable = True
+    if not unreachable:
+        _startup_deadline = None  # already reachable on the very first try -- no fast-retry needed
     _scheduler_task = asyncio.create_task(_monitor_loop())
-    logger.info(f"bootstrap monitor scheduler started (interval={_CHECK_INTERVAL}s)")
+    logger.info(
+        f"bootstrap monitor scheduler started (interval={_CHECK_INTERVAL}s"
+        + (f", fast-retrying every {_STARTUP_RETRY_INTERVAL}s for up to {_STARTUP_RETRY_WINDOW}s "
+           "while Egeria isn't reachable yet" if _startup_deadline else "") + ")"
+    )
 
 
 async def stop_scheduler() -> None:
@@ -223,18 +321,31 @@ async def stop_scheduler() -> None:
         except asyncio.CancelledError:
             pass
     _scheduler_task = None
+    # Belt-and-braces: _heal_family's own CancelledError handler should have
+    # already killed whatever it was awaiting, but if the task's cancellation
+    # landed somewhere else in the coroutine (e.g. between subprocess creation
+    # and the try block, or a future code path that adds another await point),
+    # don't leave anything in _active_procs still running across this restart.
+    for proc in list(_active_procs):
+        await _kill_proc(proc)
+    _active_procs.clear()
 
 
 async def _monitor_loop() -> None:
     # Covers a reset that happens without the web app process restarting
     # (e.g. only the Egeria database container is reset) -- the startup
     # check alone would miss that case.
+    global _startup_deadline
     while True:
-        await asyncio.sleep(_CHECK_INTERVAL)
+        fast_phase = _startup_deadline is not None and time.monotonic() < _startup_deadline
+        await asyncio.sleep(_STARTUP_RETRY_INTERVAL if fast_phase else _CHECK_INTERVAL)
         try:
-            await check_and_heal_all()
+            unreachable = await check_and_heal_all()
         except Exception as exc:  # noqa: BLE001
             logger.error(f"bootstrap monitor: periodic check failed: {exc}")
+            unreachable = True
+        if _startup_deadline is not None and (not unreachable or time.monotonic() >= _startup_deadline):
+            _startup_deadline = None  # reachable now, or waited long enough -- stop fast-retrying for good
 
 
 @router.get("/status")

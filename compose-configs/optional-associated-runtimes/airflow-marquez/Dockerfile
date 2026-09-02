@@ -1,4 +1,4 @@
-FROM docker.io/apache/airflow:3.3.1
+FROM docker.io/apache/airflow:3.3.1@sha256:0c4bcc0370e526de1b7892a3bf4343d260c6c82359c66f77155b53cd773d6339
 
 USER root
 

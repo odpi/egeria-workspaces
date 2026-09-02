@@ -2,37 +2,17 @@
 
 Consolidated work list. Update status when items start or finish.  
 Status: `open` · `in-progress` · `done` · `deferred`
+
+Fully closed, self-contained sections have been split out to
+[BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md) to keep this file focused on
+what's actually open — a stub with a link is left in place of each moved
+section. Sections with any open/pending sub-items stay here even if their
+header says "done", since part of the work is still live.
 ---
 ## Fix: REST APIs view — blank screen (2026-08-18) — ✅ done (quickstart only)
 
-Dan reported the REST APIs view (Egeria Explorer → Reference → REST APIs) loaded to a blank
-screen. Two independent bugs, both fixed:
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
-1. **Backend (`rest_api_handler.py`)**: `_fetch_openapi()` fetches the Egeria platform's OpenAPI
-   spec via a plain unauthenticated `requests.get`. That used to be enough; it no longer is —
-   confirmed live: `/v2/api-docs` and `/api-docs` now 401 anonymous (moving to 404, i.e. genuinely
-   not found, once a valid bearer token is supplied); `/v3/api-docs` — the real, working path —
-   times out anonymous but returns 200 in ~21s with a token. Fixed by minting a bearer token
-   (reusing the per-request `X-Egeria-Token` via `egeria_auth.get_request_token()` if present,
-   else a fresh one from env-var credentials) and sending it as `Authorization: Bearer`. Also
-   bumped the fetch timeout 30s → 60s — the real ~21s fetch was already close to the old timeout
-   even once auth stopped being the blocker, a genuine flakiness risk on its own. Verified live:
-   cold fetch (explicit `/api/rest-apis/refresh` first) → 200, 56 services, correct shape.
-2. **Frontend (`type-explorer.html`'s `RestApiView`)**: `loadOpenApi()` called `r.json()`
-   unconditionally without checking `r.ok` — a non-2xx error response (e.g. the 502 the backend
-   bug above was producing, `{"detail": "..."}`) parses as valid JSON with no `services` key,
-   gets stored via `setOpenapi(d)` anyway, and the `services` `useMemo`'s
-   `openapi.services.filter(...)` then throws `TypeError: Cannot read properties of undefined` on
-   the next render — an uncaught render error, which is what actually produced the blank screen
-   (not the 502 itself; a handled error would have shown `apiError` text instead). Fixed by
-   checking `r.ok` and throwing with the server's `detail` message on failure so it lands in
-   `.catch()` properly, plus a defensive `Array.isArray(openapi.services)` guard in the `useMemo`
-   itself so a future response-shape surprise degrades to an empty list instead of a blank screen
-   again. General lesson: any `egeriaFetch(...).then(r => r.json())` pattern that doesn't check
-   `r.ok` first has this exact failure mode waiting — worth a grep across the other views if this
-   class of bug shows up again.
-
----
 ## Fixes (2026-08-15) — ✅ done (quickstart only)
 
 | # | Item | Status | Notes |
@@ -59,7 +39,7 @@ screen. Two independent bugs, both fixed:
 
 *Open questions before building anything (in priority order):*
 1. **Authorization** (Dan's original concern) — **resolved live, 2026-08-16.** Tested `set_confidentiality_classification` against a real element (a `CSVFile`, `f384d793-8a1e-44b1-9e1e-23aa7369cec0`, "week4.csv") as `erinoverview` (baseline, succeeded), then as `garygeeke`/`calliequartile`/`peterprofile`/`tanyatidie` — **all 4 succeeded**, including `garygeeke`, who is normally zone-restricted for *viewing* audit relationships (see the Audit Relationship Tab governance-zone filtering note above). No elevated privilege beyond ordinary write access is required — matches the zone-membership precedent exactly. Read back via `get_element_by_guid` to confirm the write actually took (`confidentialityLevel: 3` round-tripped correctly), then cleared and re-verified `None` — test element restored to its original unclassified state. **Not exhaustive** (didn't test a true read-only/viewer-only role, if one exists in the demo persona set), but sufficient to unblock design — the bulk action doesn't need a permission-gate UI for the personas this demo actually uses.
-2. **Level enum-to-int mapping** — **resolved, better than expected.** This codebase already has `/api/valid-values/lookup?property_name=X` (`valid_values_handler.py`, built earlier this project) which reads Egeria's own authoritative valid-metadata-values registry, not a guessed/display-only list. Confirmed live for `confidentialityLevel`: `0=Unclassified, 1=Internal, 2=Confidential, 3=Sensitive, 4=Restricted, 99=Other` — matches the Dr.Egeria label ordering exactly except `Other` is `99`, not `5`. **`ClassificationModal`'s level dropdown should call this endpoint live** (same for `criticalityLevel`, `severityLevel`, `retentionBasis`) rather than hardcoding labels — consistent with this codebase's no-hardcoded-type-data convention (see `type-system-audit.md`).
+2. **Level enum-to-int mapping** — **resolved, better than expected.** This codebase already has `/api/valid-values/lookup?property_name=X` (`valid_values_handler.py`, built earlier this project) which reads Egeria's own authoritative valid-metadata-values registry, not a guessed/display-only list. Confirmed live for `confidentialityLevel`: `0=Unclassified, 1=Internal, 2=Confidential, 3=Sensitive, 4=Restricted, 99=Other` — matches the Dr.Egeria label ordering exactly except `Other` is `99`, not `5`. **`ClassificationModal`'s level dropdown should call this endpoint live** (same for `criticalityLevel`, `severityLevel`, `retentionBasis`) rather than hardcoding labels — consistent with this codebase's no-hardcoded-type-data convention (see `design-docs/type-system-audit.md`).
 3. **v1 scope** — still open, Dan's call: all 5, or just Confidentiality + Criticality (what he explicitly named)? Suggest v1 = Confidentiality/Criticality/Impact (identical shape, one form, all now enum-mapping-verified the same way as Confidentiality), Retention as a v2 once the shared shell exists and its distinct form is worth the extra effort.
 4. **Type applicability** — still open. Unlike zones (genuinely universal), these are "typically a data field, schema attribute, or glossary term" per the docstring — classifying a `Notification` or `ToDo` with a confidentiality level doesn't make sense. Needs a per-type applicability guard in the bulk-action UI (only show these actions when every selected item is a plausible target type), unlike zones/collections which apply to anything with a guid.
 
@@ -95,7 +75,7 @@ Propagated via a small Python regex script (not manual edits — the button-arra
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| FIX-6 | "Egeria Insights" renamed to "Query" — FIX-5 already established "Query" as the accurate term for what the app does (renamed its internal Search tab/buttons), but the app's own name was never updated to match | done | Display-text-only rename, scoped to avoid touching infra just stabilized this session (Apache proxy `<Location>` blocks, bookmarks): `demo-portal.html` (tile name + description), `egeria-insights.html` (`<title>`, loading text, in-app header span, section-divider/cross-link comments), `egeria-overview.html` (8 cross-link button labels + 1 comment, e.g. `Query in Egeria Insights` → `Open in Query`, avoiding an awkward `Query in Query`), `insights_handler.py` (module docstring, the `/egeria-insights` 404 detail, and 6× `"Not a saved Insights query"` → `"Not a saved query"` 404 details). **Left unchanged, deliberately:** file names (`egeria-insights.html`, `insights_handler.py`), routes (`/egeria-insights`), API paths (`/api/insights/*`), and — load-bearing — the `pyegeriaInsightsQuery` `additionalProperties` marker key used to detect saved-query-authored collection memberships in already-stored Egeria data; renaming that key would silently stop recognizing every pre-rename saved query. Historical/dated design docs (`EGERIA_INSIGHTS_QUERY_MODEL.md`, both envs' `OVERVIEW_CONTEXT_INTELLIGENCE.md`) left as narrative history per the same convention this file uses — a pointer note added to the query-model doc's header instead of rewriting its body. `component-feature-matrix.md`'s section header updated (living reference doc, not history). Verified live: `<title>`, portal tile, and 404 details all confirmed via `curl`/`docker exec` diff against the deployed container. Freshstart has no `insights_handler.py`/`egeria-insights.html` at all (feature not yet ported — see SHARE-3), so nothing to sync there. |
+| FIX-6 | "Egeria Insights" renamed to "Query" — FIX-5 already established "Query" as the accurate term for what the app does (renamed its internal Search tab/buttons), but the app's own name was never updated to match | done | Display-text-only rename, scoped to avoid touching infra just stabilized this session (Apache proxy `<Location>` blocks, bookmarks): `demo-portal.html` (tile name + description), `egeria-insights.html` (`<title>`, loading text, in-app header span, section-divider/cross-link comments), `egeria-overview.html` (8 cross-link button labels + 1 comment, e.g. `Query in Egeria Insights` → `Open in Query`, avoiding an awkward `Query in Query`), `insights_handler.py` (module docstring, the `/egeria-insights` 404 detail, and 6× `"Not a saved Insights query"` → `"Not a saved query"` 404 details). **Left unchanged, deliberately:** file names (`egeria-insights.html`, `insights_handler.py`), routes (`/egeria-insights`), API paths (`/api/insights/*`), and — load-bearing — the `pyegeriaInsightsQuery` `additionalProperties` marker key used to detect saved-query-authored collection memberships in already-stored Egeria data; renaming that key would silently stop recognizing every pre-rename saved query. Historical/dated design docs (`EGERIA_INSIGHTS_QUERY_MODEL.md`, both envs' `OVERVIEW_CONTEXT_INTELLIGENCE.md`) left as narrative history per the same convention this file uses — a pointer note added to the query-model doc's header instead of rewriting its body. `design-docs/component-feature-matrix.md`'s section header updated (living reference doc, not history). Verified live: `<title>`, portal tile, and 404 details all confirmed via `curl`/`docker exec` diff against the deployed container. Freshstart has no `insights_handler.py`/`egeria-insights.html` at all (feature not yet ported — see SHARE-3), so nothing to sync there. |
 | FIX-7 | Search duplication — tech-catalog.html's `SearchView` and type-explorer.html's `ExplorerSearchView` independently implemented ~90 lines each of near-identical query/debounce/facet-toggle state + fetch logic against the same `/api/catalog/search` backend, plus 3 byte-for-byte-duplicated helper functions (highlight, HTML-escape, group-by-typeName) and a 90%-duplicated category-icon map | done | Extracted a shared `useCatalogSearch(creds, initialQuery, onReset)` hook (`onReset` fires on a fresh query, not a facet-toggle re-search — Catalog passes `selection.clear` to fix the stale-bulk-selection trap FIX from earlier this session; Explorer has no selection concept and omits it) plus `highlightHtml`/`groupCatalogSearchItemsByType`/`CATALOG_SEARCH_CATEGORY_ICONS` (union of the two apps' icon maps — 'projects' picked Catalog's 📁 over Explorer's ◉, purely cosmetic) into `static/egeria-shared-ui.js`. Both apps' search views now call the shared hook; each keeps its OWN result-row rendering, which genuinely differs (Catalog: bulk-select checkboxes + `SearchResultCard`'s `TYPE_TO_NAV` routing; Explorer: a simpler inline card + `onNavigateToElement`/`_elementIsLinkable`). Cache-bust bumped `2026-08-14f`→`g` across all 7 consumer HTML files, all redeployed; verified live via `docker exec` diff (byte-identical to source) and a real `/api/catalog/search` call returning results through the shared code path. Prompted by a user question about moving per-app search to the portal level — investigation found the portal's existing omni-search bar (NEXT-12) already reuses the same backend, and concluded (user-selected option) to keep per-app search but make it more discoverable rather than remove it; this dedup is prep work for that, done first since it makes adding a persistent per-app search bar cleaner. **Follow-up not yet done:** promote each app's search from "buried" (Explorer: Home/Splash-screen-only card; Catalog: one section-tab among eight) to an always-visible header affordance. |
 | FIX-8 | Portal search reported "very slow" (16s/request) — user assumed `graph_query_depth` wasn't 0 | done | Not a query-depth issue (`catalog_search_handler.py` already sets `graph_query_depth=0`, confirmed). Root cause: the already-documented recurring Postgres connection leak on the Egeria metadata store (`postgres_connection_leak.md`) — 26 `idle in transaction` connections on `egeria-shared-postgres` at the time, up from the safety-net's steady-state. Traced via `docker logs -f` timestamps during a live slow request: the bearer-token mint was fast, the actual `by-property-value-search` call was the 16s hop. `docker restart quickstart-egeria-main` dropped idle-in-transaction 26→5 and request time 16s→0.48s (33×), confirmed via repeat `curl` timing before/after. No code change — same stopgap this issue has needed each time it's recurred; the underlying leak itself is still open (see that file). |
 | FIX-9 | Egeria Explorer's search tab had no selection checkboxes/Add-to-Collection, unlike every other list view in the app and unlike The Catalog's own search | done | Pre-existing gap, not a regression from FIX-7's refactor — `ExplorerSearchView` never had `useSelection`/`BulkActionBar` wired, apparently missed when bulk-select was propagated across the rest of `type-explorer.html` (BACKLOG.md tasks #21/#24) since Search isn't one of the app's regular browsable-list sections. Added `useSelection`, a "select all in this group" checkbox per type-group header, a per-row checkbox, `BulkActionBar`, and `AddToCollectionModal` — both **add and remove** actions (matching every other `type-explorer.html` list view's convention, not Catalog's add-only `SearchView`, which was deliberately scoped add-only earlier this session). Verified live: syntax-checked, deployed, `docker exec` diff clean, "Select all in this group" confirmed present exactly once in the served page. |
@@ -115,13 +95,8 @@ Propagated via a small Python regex script (not manual edits — the button-arra
 ---
 ## Fixes (2026-07-26) — ✅ done
 
-| # | Item | Status | Notes |
-|---|------|--------|-------|
-| FIX-1 | The Catalog — Technology Type detail showed `[object Object]` instead of the description text | done | Root cause: `TechTypeDetail` (`tech-catalog.html`, both envs) wrapped `renderMd(item.description)` in `dangerouslySetInnerHTML: { __html: ... }` — but `renderMd()` (shared `egeria-shared-ui.js`) returns a **React element**, not an HTML string (it already applies its own `dangerouslySetInnerHTML` internally). Setting `__html` to a React element object coerces it to the string `"[object Object]"` when the browser sets `innerHTML`. Every other call site (e.g. `GlossaryTermDetail`) already uses the correct pattern — `renderMd(...)` rendered directly as a child. Fixed by rendering it as a child instead of re-wrapping. Verified live against `CSV Data File`'s Technology Type detail. |
-| FIX-2 | Egeria Overview dashboard — "Back to Portal" link was broken (pointed to `/`, the FastAPI health-check JSON endpoint, not `/portal`); dashboard also had no "Share your feedback" affordance, unlike every other portal app | done | `egeria-overview.html`: fixed the header link to `/portal` (was silently landing on `{"status":"ok",...}`). Added a vanilla-JS "💬 Feedback" floating button + panel (this app has no React runtime, unlike the other SPAs) posting to the same `/api/demo-feedback` endpoint with the same field shape as the shared React `FeedbackButton` component, so entries land in the same `feedback` table/admin-review flow (FB-5..FB-9). Verified live: opens, submits, shows the thank-you state, `POST /api/demo-feedback` → 200. |
-| FIX-3 | Search (The Catalog + Egeria Explorer) — clicking a search result for a type The Catalog doesn't own (Valid Values, Actors, etc.) silently wrapped the correct detail content in **The Catalog's "Data Assets" chrome**, mislabeling every such result as Catalog content | done | Root cause: `tech-catalog.html`'s `?guid=` deep-link resolver (`App`'s element-nav effect) defaulted `sec = (nav && nav.section) \|\| 'data-assets'` whenever the resolved type wasn't in `TYPE_TO_NAV` — so any non-Catalog type landed in the Data Assets section instead of an honest "not found" state. Both search paths fed this: The Catalog's own `SearchResultCard` reload-to-`/tech-catalog?guid=` fallback for `categoryId==='other'` results, and Egeria Explorer's `ExplorerSearchView` → `↗ Catalog` fallback for types outside its own (more complete but not exhaustive) `_elementIsLinkable` allowlist. **Fix:** removed the `data-assets` default; unresolved types now show a new `UnresolvedElement` panel ("This is a ‹Type› — it isn't part of The Catalog", guid shown, "Open in Egeria Explorer ↗" + "⌂ Catalog home") instead of any Catalog section chrome. Both the guid-resolver and `SearchResultCard`'s fallback now hand off to Egeria Explorer's search tab pre-filled with the query (`/egeria-explorer?q=…#search` — added `?q=` seeding to `type-explorer.html`'s top-level `searchQuery` init, mirroring its existing `glossaryNavGuid`/`digitalProductNavGuid` deep-link pattern). Verified live end-to-end: a `ValidMetadataValue` search result now hands off correctly from both apps (Explorer search re-runs pre-filled, 46 results); a direct `?guid=` link to the same element shows the new panel; a legitimate `GlossaryTerm`/Catalog-owned guid still resolves in-app with no regression. Broader "should Search live at the Portal level instead of per-app" question captured separately as **NEXT-12** (low priority, needs discussion). |
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
----
 ## Next up (queued 2026-07-21, pick up next session)
 
 | # | Item | Status                                       | Notes |
@@ -156,77 +131,8 @@ Propagated via a small Python regex script (not manual edits — the button-arra
 ---
 ## NEXT-5 / NEXT-6 — Actor community relationships + systematic audit (2026-07-22 → 2026-07-26) — ✅ done
 
-**Original report:** community relationships weren't showing up on Actor
-detail; Dan asked for the same class of gap (relationships/classifications
-silently missing because of which pyegeria call/depth a screen happens to
-use) to be audited across other tools too, not just fixed one-off.
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
-**NEXT-5 resolution — false alarm, root-caused 2026-07-26.** The original
-investigation concluded PersonRole `ac694a80-c063-44cd-bd65-abc87cab646e`
-("Community Member of Data Science special interest group") had *no*
-relationship key pointing back to its community, "even in the raw payload."
-That check used `/api/debug/raw/{guid}`, which defaults to
-`MetadataExpert.get_metadata_element_by_guid` — and per **PY-17** (confirmed
-"working as designed," not a bug), that specific method never returns
-relationships at *any* `graph_query_depth`. The investigation was
-inadvertently testing the wrong pyegeria method, not the one the app
-actually uses.
-
-The real app code path — `ActorManager.get_actor_role_by_guid(guid,
-graph_query_depth=1)`, called from `actor_handler.py`'s own
-`GET /api/actors/roles/{guid}` — **already returns the community correctly**,
-via the role's `assignmentScope` relationship. Confirmed live two ways:
-- API: `relationships.assignmentScope[0]` = `{typeName: "Community",
-  displayName: "Data Science special interest group", ...}`.
-- UI: the Role detail page's mermaid diagram shows a `Contributor
-  [Assignment Scope]` edge straight to the Community node, and the page
-  needs no code change — `_serialize_actor_element`'s generic
-  relationship-section logic already surfaces it.
-
-No fix was needed. (Separately, `actor_handler.py` already has a real,
-deliberate enrichment — `_enrich_person_communities` — for the *Person's own*
-detail page, which needs a second hop since `assignmentScope` sits on the
-Role, not directly on the Person; that one **was** a genuine gap and was
-already fixed earlier this session.)
-
-**NEXT-6 audit — systematic pass across all handlers, 2026-07-26.** Result:
-**this bug class was already systematically closed**, earlier in the
-project, via a shared `common_serialize.py` module:
-- `_generic_relationships(element, skip=...)` — groups every top-level
-  relationship-shaped key (list-of-dicts or single dict, `RelatedMetadataElementSummary`-shaped)
-  into relationship sections, replacing hand-picked key lists that silently
-  drop anything not explicitly named. (`business_capability_handler.py`'s own
-  docstring cites this exact problem and a regression test:
-  `test_business_capability_dependency_relationship_key`.)
-- `_classifications(element)` / `_classifications_from_metadata_expert(element)`
-  — the same dual-shape classification extraction as
-  `tech_catalog_handler.py`'s original fix, centralized so every handler gets
-  it free.
-- Adopted by 21 of ~30 metadata-detail handlers directly; `actor_handler.py`,
-  `community_handler.py`, `context_events_handler.py`,
-  `digital_products_handler.py` (+ `agreements_handler.py`/
-  `collections_handler.py`, which reuse its `_extract_all_rels`),
-  `perspectives_handler.py`, and `glossary_handler.py` each carry a local,
-  structurally-equivalent generic extractor (glossary's also has a dedicated
-  `_group_related_terms` for term-to-term semantics, plus a generic
-  `_extract_extra_rels` catch-all for anything else).
-- Checked every collection/project/solution-architect/digital-product **tree**
-  endpoint (the other bug shape — classifications missing on *traversed*
-  nodes, per the original Tech Catalog schema fix): all delegate to
-  serializers that already call `_classifications`/`_extract_classifications`,
-  so tree nodes aren't missing them either. `lineage_handler.py` also calls
-  `AssetCatalog.get_asset_graph_by_guid` (the method with the known
-  classification gap) but never attempts to surface node classifications at
-  all, so there's nothing to silently drop there.
-- No other genuine instance of this bug class found.
-
-**Conclusion:** no further code changes required for either item. Worth
-remembering for *future* handlers: use `common_serialize._generic_relationships`/
-`_classifications` from the start rather than hand-picking keys, and don't
-trust `/api/debug/raw/{guid}` (or any `MetadataExpert.get_metadata_element_by_guid`
-call) as evidence that a relationship doesn't exist — see PY-17.
-
----
 ## NEXT-10 P0 — Reporting/dashboard model, first slice (2026-07-26) — ✅ done
 
 First incremental slice of the ReportSpec/FormatSet dashboard model
@@ -439,281 +345,28 @@ affordance rather than replace any existing endpoint.
 ---
 ## Fix: Tech Catalog / Egeria Explorer classifications missing on schema elements (2026-07-22) — ✅ done
 
-Dan reported classification info seemed to have been lost in recent updates.
-Investigation found the top-level asset classifications badge and the
-type-system CLASSIFICATIONS browser were both fine — the real gap was that
-schema-tree nodes (`RelationalTable`/`RelationalColumn`, etc., from the
-Schema section rebuilt earlier this week) never carried classification data
-at all:
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
-- `AssetCatalog.get_asset_graph_by_guid`'s `relatedElement.elementHeader`
-  never populates `classifications` for graph-traversal results — confirmed
-  live: `None` for every node in RETAILSCHEMA's tree, even though the SAME
-  guid's top-level asset fetch (`get_asset_by_guid`) DOES return real
-  classification data. Not something recent edits broke; `_serialize_schema`
-  simply never had a `classifications` field to populate.
-- Fix (`tech_catalog_handler.py`, both envs): added
-  `_extract_classifications_from_metadata_expert()` — a second extractor
-  alongside the existing `_extract_classifications()`, because
-  `MetadataExpert.get_metadata_element_by_guid`'s raw shape is different (a
-  real top-level `classifications` list with `propertyValueMap`-wrapped
-  properties, vs. AssetCatalog's classifications-as-named-keys-on-header).
-  `_serialize_schema`'s existing per-guid supplementary `MetadataExpert`
-  lookup (previously only used to resolve nodes AssetCatalog left as a bare
-  `startingElementGUID`) now runs for every node in the tree, attaching real
-  classification data.
-- Frontend (`tech-catalog.html`, both envs): extracted each schema-tree row
-  into its own `SchemaRow` component (needed local `useState` for a
-  per-row expand toggle) — rows with classifications get a `FoldTriangle` +
-  count badge; toggling reveals a sub-row with the same classification-card
-  rendering used for top-level asset classifications (typeName + full
-  properties dict, not just a badge — Dan specifically flagged that some
-  classifications carry detailed property dictionaries worth showing in
-  full). Also wrapped the existing top-level asset "Classifications" block in
-  `Collapsible`, matching the "foldable everywhere" rule from NEXT-4.
-- Verified live end-to-end against RETAILSCHEMA's `CUSTID`/`CUSTNAME`/etc.
-  columns (now show a real `TypeEmbeddedAttribute` classification with
-  `dataType`/`schemaTypeName` properties).
-
----
 ## Fix: Foldable section indicator — large turning triangle (2026-07-21) — ✅ done
 
-Dan asked for it to be visually obvious that sections like Schema and
-Relationships are foldable, and wanted a large "turning" triangle applied as
-a general design rule, not a one-off for those two sections.
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
-- Added one canonical component, `FoldTriangle`, to `static/egeria-shared-ui.js`
-  (both envs, kept byte-identical as usual) — a single `▶` glyph rotated via
-  CSS `transform: rotate()` + `transition`, 16px (up from the old 10-11px
-  chevrons), so it visibly turns 0°→90° on toggle instead of instantly
-  swapping characters (▾/▸ or ▲/▼).
-- Rewired the shared `Collapsible` component to use it — this automatically
-  upgrades `RelationshipSection` in `type-explorer.html` (the ~30 call sites
-  behind every Detail panel's relationship groups) with zero further changes,
-  since it already delegated to `Collapsible`.
-- Applied directly to `tech-catalog.html`'s `SubPane` (both the "prominent"
-  and normal header variants — this backs Schema, Lineage, and the
-  Relationships block) and `AnnotationsSubPane`, in both envs.
-- Scope: this covers every **foldable section header** (Collapsible/SubPane/
-  Annotations) — the pattern semantically matching Schema/Relationships.
-  Deliberately left untouched: the small tree-navigation expand/collapse
-  chevrons in `type-explorer.html`/`tech-catalog.html`/`egeria-shared-ui.js`
-  (dozens of instances) — a different UX pattern (hierarchical tree
-  drill-down, not section show/hide). Flagged for Dan in case he wants those
-  addressed too as a follow-up.
-- Checked egeria-audit.html/egeria-operations.html/egeria-insights.html for
-  the same generic section-fold pattern — none found (their relationship UIs
-  are already specialized/tabbed, not this generic collapsible-section
-  pattern), so no changes needed there.
-
-**Follow-up (same day):** Dan liked the look and asked to standardize it
-across *every* collapsible/expandable affordance, explicitly including the
-hierarchical tree drill-downs that were deliberately left out above.
-Extended `FoldTriangle` (`egeria-shared-ui.js`, both envs) to take optional
-`onClick`/`size`/`style` so it can slot into tree-node rows (which often
-need the arrow itself clickable, independent of row selection, and a
-smaller footprint at deep nesting) while keeping the same glyph/rotation
-everywhere. Converted every remaining `▲/▼`/`▸/▾`/`▶` fold-toggle glyph in
-`type-explorer.html` and `tech-catalog.html` (both envs) — tree nodes
-(entity/classification/relationship side-nav, glossary tree, ref-data tree,
-location tree, solution-components tree, pyegeria-docs class tree, note-log
-rows), collapsible parameter groups (Optional Parameters, Advanced), and a
-multi-select dropdown's open/closed indicator. Left untouched: two `▶ Run`
-execute-button icons and one `▶ ` "first pipeline step" marker in Tech
-Catalog's process view — neither is a fold/expand affordance.
-
----
 ## Fix: Tech Catalog Schema section always empty (2026-07-21) — ✅ done
 
-Dan reported: for a data asset like RetailSchema, the Schema section is
-always empty because the schema elements were flattened into the generic
-"Relationships" section above instead. Root-caused and fixed in
-`tech_catalog_handler.py` (both envs):
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
-- `get_asset_schema` was calling `AssetMaker.get_asset_by_guid`, which never
-  nests attribute relationships under `el["schemaType"]["relatedElement"]` at
-  any graph depth — confirmed live. Switched to `AssetCatalog.get_asset_graph_by_guid`
-  (the same call the main asset detail view already successfully uses via
-  `_fetch_detail`), whose response carries a separate top-level `relationships`
-  list covering the whole reachable subgraph.
-- That list has no explicit parent/child marking — each entry only carries
-  `startingElementGUID` (confirmed NOT reliably "the parent"; it can be
-  either end) and `relatedElementAtEnd1`. Empirically confirmed against
-  RetailSchema's real hierarchy (`DeployedDatabaseSchema -[Schema]->
-  RelationalDBSchemaTypeList -[RelationalDBSchema]-> RelationalDBSchemaType
-  -[AttributeForSchema]-> RelationalTable -[NestedSchemaAttribute]->
-  RelationalColumn`) that the parent is `relatedElement` when `atEnd1` is
-  True, `startingElementGUID` otherwise. Rewrote `_serialize_schema` to walk
-  the flat list into a real tree using that rule, anchored at the asset's own
-  `schemaType` so unrelated schema instances the same broad traversal picks
-  up elsewhere (e.g. a shared physical table catalogued under a different
-  schema) are naturally excluded.
-- A further gap: some tree nodes (the intermediate `RelationalDBSchemaType`,
-  and several columns) only ever appear as a bare `startingElementGUID` in
-  this response, never as a fully-described `relatedElement` — their own
-  displayName/typeName simply isn't present anywhere in it. Added a
-  supplementary `MetadataExpert.get_metadata_element_by_guid` lookup (depth
-  0, cheap) per unresolved node, confirmed live these are real schema
-  elements (e.g. a `CUSTSTATUS` column), not noise.
-- Updated `SchemaPane` in `tech-catalog.html` to render the resulting tree
-  with indentation (previously a flat table, which is why even a partially-
-  correct fix wouldn't have shown the real nesting). Verified live: RetailSchema
-  now shows its full 4-level structure — schema type → RETAILSCHEMA schema
-  detail → CUSTOMER table → 4 columns (CUSTID, CUSTNAME, CUSTSTATUS, CUSTCARD),
-  correctly ordered by position.
-
----
 ## Fix: Lineage Explorer blank screen on asset selection (2026-07-21) — ✅ done
 
-Dan reported: search for an asset works fine, but selecting one to view its
-lineage shows a blank screen with no visible console error. Two real bugs
-found and fixed, plus a systemic robustness gap:
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
-1. **`tech_catalog_handler.py` — genuine backend TypeError** (both envs, 3
-   call sites: the classification-diagnosis endpoint, `get_asset_schema`, and
-   a fallback in the generic asset-detail lookup). All three called
-   `mgr.get_asset_by_guid(asset_guid=guid, ...)`, but pyegeria's real
-   parameter name is `guid`, not `asset_guid`. Because the method also
-   accepts `**kwargs`, the wrong keyword name was silently absorbed instead
-   of raising "unexpected keyword argument" — so it failed with `TypeError:
-   get_asset_by_guid() missing 1 required positional argument: 'guid'`,
-   a 500 on `/api/tech-catalog/assets/{guid}/schema` any time this fallback
-   path was hit. Confirmed via `inspect.signature` against the installed
-   pyegeria and fixed by renaming the keyword; verified live (both a
-   genuinely-missing guid and a real one now behave correctly instead of
-   crashing).
-2. **`lineage-explorer.html`'s `MermaidDiagram`** (both envs) had an
-   asymmetric try/catch: `window.mermaid.initialize(...)` was wrapped in
-   `try/catch(_){}`, but the very next line, `window.mermaid.render(...)`,
-   was not. `window.mermaid` loads from a blocking external CDN `<script
-   src>` — if that request is slow, blocked (ad-blocker, restrictive
-   network), or fails, `window.mermaid` stays undefined and the unguarded
-   `.render()` call throws synchronously inside a `useEffect`. Wrapped the
-   whole effect body and added an explicit "Mermaid library failed to load"
-   inline message instead of an uncaught throw.
-3. **No Error Boundary existed anywhere in this ~1200-line app.** React's
-   default behavior for an uncaught render/effect error with no boundary is
-   to unmount the *entire* tree — turning any single bug (like #2 above, or
-   any future one) into exactly the reported symptom: a totally blank page,
-   with the actual error easy to miss in the console. Added a class-based
-   `ErrorBoundary` wrapping `<App>`, so any future uncaught error shows a
-   readable message + reload button instead of silently blanking the page.
-
-**The actual original root cause, found once the Error Boundary above made
-the crash visible instead of silent:** `lineage-explorer.html` (quickstart
-only — freshstart's copy never had this feature) referenced `FavoriteButton`
-in the Focus Asset Card header, but never loaded `/static/egeria-shared-ui.js`
-(where `FavoriteButton` is actually defined) — the file only pulled in the
-mermaid CDN script. `ReferenceError: Can't find variable: FavoriteButton`
-fired on every render of the Focus Asset Card whenever a persona was active
-(`favPersonaId &&` short-circuits past it otherwise, which is why this
-depends on being logged in as a persona to reproduce). Fixed by adding the
-shared script include, positioned so this page's own local
-`MermaidDiagram`/`TimeSlider`/`ResizeDivider`/`useResizable` (all
-independently defined in this file, all still active) safely take
-precedence over the shared file's same-named versions via normal
-last-declaration-wins `function` redeclaration semantics.
-
-Note: browser-based live reproduction was attempted but the Chrome
-automation tool gave unreliable results this session (reported a 200 success
-for a POST that the container's own server logs show as a 404) — root-caused
-via direct backend calls (curl with a real egeria-token, replicating
-`fetchWithToken`'s exact request shape) and static analysis instead once that
-became clear.
-
----
 ## Fix: relationships disappear after collection toggle-close/reopen (2026-07-20) — ✅ done
 
-Dan reported: open a Collection, select a member, relationships show fine;
-toggle the collection closed and reopen it, select a member — relationships
-no longer appear. Traced to `CollectionsView`'s (and identically-patterned
-`DigitalProductsView`'s) `handleSelect`/detail-fetch-`useEffect` pair in
-`type-explorer.html`:
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
-1. `handleSelect` unconditionally called `setNodeDetail(null)` on every
-   click, but the fetch effect only reruns when the selected guid actually
-   *changes*. A tree container's `onClick` fires `onSelect` on itself every
-   time it's toggled open/closed — so toggling a collection closed then
-   reopening it reselects the collection each time, and if that leaves
-   `selectedNode` unchanged, the wipe fires with nothing to trigger a
-   refetch, leaving the pane blank until a genuinely different node is
-   picked. Fixed by moving the clear inside the effect (only runs on real
-   guid changes).
-2. Neither fetch effect guarded against out-of-order async responses — a
-   slow fetch for a previous selection could resolve after a faster one for
-   the current selection and clobber it. Added the standard `cancelled`-flag
-   cleanup guard.
-
-Also found and fixed the same missing-guard-#2 in Solution Architect's
-blueprint/component detail fetch (same `DigitalTreeNode` pattern; didn't have
-bug #1 since its `onSelect` doesn't eagerly clear). No other `DigitalTreeNode`
-call sites in the file. Both envs.
-
----
 ## Self-hosted Kroki, remove pyegeria's public kroki.io dependency (2026-07-20) — ✅ done
 
-Dan reported intermittent "Kroki error 400 ... Failed to launch the browser
-process ... crashpad" failures rendering Mermaid diagrams in Jupyter
-notebooks, plus inconsistent diagram colors between runs. Root cause:
-`pyegeria.view.mermaid_utilities.render_mermaid()` called the **public**
-`https://kroki.io` service directly and unconditionally — Jupyter notebook
-users had no visibility into that dependency, and the failures were kroki.io's
-own infrastructure (a shared, multi-tenant headless-Chromium renderer)
-crashing under its own load, plus its bundled Mermaid version drifting over
-time. Not fixable by tuning local container resources, since the Jupyter
-container was never doing the rendering.
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
-**Fix — pyegeria (`egeria-python` repo):**
-- `pyegeria/core/config.py`: new `egeria_kroki_url` setting (`EGERIA_KROKI_URL`
-  env var), empty by default — no default guess at any specific container.
-- `pyegeria/view/mermaid_utilities.py`: `render_mermaid()` rewritten as a
-  two-tier fallback, no more silent external network call:
-  1. **Local Kroki** — only attempted if `EGERIA_KROKI_URL` is explicitly set;
-     short (5s) timeout so a dead local service falls through fast.
-  2. **Client-side rendering** — if tier 1 isn't configured or fails, the
-     diagram renders entirely in the notebook's own browser via mermaid.js,
-     inside a sandboxed `<iframe srcdoc="...">` (JupyterLab 4.x strips
-     top-level `<script>` tags from HTML outputs; an iframe is its own
-     document so its scripts still execute). Reuses the existing
-     `construct_mermaid_web` HTML (refactored into a shared
-     `_build_mermaid_client_html` helper) rather than duplicating it.
-  - The public kroki.io is no longer called anywhere in this path.
-
-**Fix — egeria-workspaces-fs (this repo):**
-- `compose-configs/shared-infra/shared-infra.yaml`: new `kroki` +
-  `kroki-mermaid` services (`yuzutech/kroki` + `yuzutech/kroki-mermaid`
-  companion, internal-network only, no host port). `kroki-mermaid` sets
-  `shm_size: 1gb` — the standard fix for the exact "Failed to launch the
-  browser process" Chromium/Docker crash Dan reported, same pattern already
-  used for Postgres in this file.
-- `compose-configs/shared-infra/ensure-shared-infra.sh`: added `kroki
-  kroki-mermaid` to the build/up service lists and a `wait_for_container_state`
-  check.
-- `compose-configs/shared-infra/README.md`: documented the new service.
-- Both `egeria-quickstart.yaml`/`egeria-freshstart.yaml`'s Jupyter service:
-  `EGERIA_KROKI_URL: "http://egeria-shared-kroki:8000"`.
-
-**Update (2026-08-14):** kroki's host port was later published (`egeria-shared-kroki's port to the host`,
-b9bcee9a) as `8000:8000`, then moved to `6002:8000` — `8000` collided with `mkdocs serve`'s default port on a dev
-machine. Container-internal port is still `8000` (unaffected); see the port table below and `shared-infra.yaml`.
-
-**Verified live:**
-- `/health` on the new `egeria-shared-kroki` container: healthy, Mermaid 11.15.0.
-- 8 consecutive `/mermaid/svg` renders: byte-identical output every time (no
-  crashes, no theme drift) — the exact two problems reported.
-- Cross-container reachability confirmed from `quickstart-pyegeria-web` over
-  `egeria_network`.
-- Copied the modified pyegeria source into `quickstart-jupyter-work-full`
-  (not yet a published pyegeria release) and confirmed both fallback tiers
-  live: local-Kroki-configured-and-up → SVG via local container;
-  local-Kroki-configured-but-unreachable → falls through to the client-side
-  iframe path. Container restored to its pinned pyegeria release afterward.
-
-**Follow-up:** pyegeria's `egeria-python` repo changes are local edits, not
-yet released/published — Dan to cut a release when ready. `render_mermaid()`
-no longer has any code path that reaches kroki.io.
-
----
 ## Type coverage gaps — next up (2026-07-15)
 
 Source: `type-coverage-gap-analysis.html`. Items #2 and #7 from that doc are
@@ -741,170 +394,32 @@ order):
 ---
 ## Egeria Explorer search + Tech Catalog fixes/features (2026-07-06/08) — ✅ done
 
-| # | Item | Status | Notes |
-|---|------|--------|-------|
-| SEARCH-1 | Global search results always cross-linked Projects (and any type outside the backend's `_TYPE_CATEGORY` map) to the generic Catalog/data-asset screen | done | Added `"Project"` → `projects` category in `catalog_search_handler.py` (both envs). `ExplorerSearchView` (type-explorer.html) now routes linkable result types through the shared `onNavigateToElement` dispatcher instead of hardcoding a `/tech-catalog?guid=` link; added `onNavigateToProject`/`ProjectsView(navGuid)` cross-nav plumbing, matching the existing pattern for Perspectives/Communities/etc. |
-| TC-REFRESH-1 | Refreshing The Catalog with a stale `?guid=` in the URL (e.g. from an old deep link) always re-navigated to that same element instead of the current section | done | `tech-catalog.html`'s deep-link resolver now calls `history.replaceState(...)` after consuming `?guid=`, replacing it with `#<resolved-section>` so a refresh lands on the section, not the one-time nav target. |
-| TC-15 | Processes tab had no view for `GovernanceActionProcess` definitions — no step/flow/guard/target detail (type 0462) | done | New **Governance Processes** sub-tab in The Catalog's Processes section (`GET /api/tech-catalog/governance-processes[/{guid}]`, `GovernanceOfficer.find_governance_definitions` / `get_governance_process_graph`). Detail view shows the mermaid flow diagram, ordered steps, guarded step-links, and request/produced-guard/action-target tables (reusing `_extract_survey_spec`/`SurveySpecCard`). Also fixed `_normalize_action_target` to read `openMetadataTypeName` (previously always blank for process specs). See `technical_data_catalog_spec.md` → Processes tile → Governance Processes tab. (Note: this item was originally mislabeled `TC-9` — that ID was already in use for the lineage-support-audit item below; corrected 2026-07-08.) |
-| TC-16 | Survey Reports/Annotations had no visible creation timestamp or way to filter by it or by survey name; relationship cards for Annotation-typed related elements showed only a raw GUID (Annotations have no `displayName`) | done | Backend: `_serialize()` now includes `createTime`/`updateTime` (`elementHeader.versions`); `_unwrap_rel_item()`'s relatedElement `displayName` falls back through `summary`/`qualifiedName` before `guid`, and now also returns a `properties` dict of the related element's other scalar properties (annotationType, confidence, analysisStep, etc.). Frontend: `SidebarDetail` shows each item's creation time; `AssetTabView` gained a Created date-range filter (shown for the `survey-reports` endpoint); `AnnotationsTabView` gained a survey-report-name text filter + Created date-range filter, both client-side; `AssetDetail`'s relationship cards render the new `properties` fields. See `cat_calls.md` → `_serialize` output fields. |
-| TC-17 | Made `TechTable` and two hand-rolled tables (Technology Types "Catalog Instances", `SchemaPane` attributes) resizable, matching `AnnotationsTabView`. Uncovered a real, previously-undiagnosed bug in the process: `/static/*` assets (`egeria-shared-ui.js`, shared by both apps) had no `Cache-Control` header, so browsers heuristically cache it; the SPA HTML documents are versioned freshly (`no-store`) but the shared JS was not, so a browser with an old cached copy of `egeria-shared-ui.js` + fresh HTML calling a newly-added shared function throws a synchronous `ReferenceError` outside React's render cycle — reproduced deterministically in a headless Node+jsdom harness (not a browser-tooling artifact, as first suspected) — presenting as a blank page with no visible console error | done | Added `makeResizableCols`/`resizableColgroup` to `egeria-shared-ui.js` — a hook-free (ref-based, imperative DOM write) column-resize mechanism, since `TechTable` is called as a plain function inside `.map()` loops where React hooks aren't safe. Applied to `TechTable` (feeds Catalog Templates, Other Resources, Survey specs, all of `GovernanceProcessDetail`'s tables), the Catalog Instances table, and `SchemaPane`. **Root-cause fix:** `pyegeria_handler.py` now mounts `/static` via a `NoCacheStaticFiles` subclass that sets `Cache-Control: no-cache` on every response (forces ETag revalidation, so edits apply on next load without a hard-refresh) — was previously an unversioned, unheadered static mount, a latent bug independent of this specific feature that could recur on any future shared-JS edit. Also added the same `no-store, must-revalidate` header to `/egeria-explorer`'s `FileResponse` (`type_system_handler.py`), which — unlike `/tech-catalog` — had no cache header on its HTML document at all. Added a `?v=` cache-busting query string to both apps' `<script src="/static/egeria-shared-ui.js">` tags (bump on every future edit) — the `no-cache` header alone can't force browsers that cached the file *before* that header existed to revalidate; a new URL guarantees a fresh fetch regardless of prior cache state. Follow-up (same day): widened `colResizeHandle`'s hit target from 6px to a 12px invisible target around the same visible dotted line (6px was easy to miss, confirmed by mis-clicking it myself during testing), and extended resize to the three Glossary "Properties" tables (`GlossaryFolderDetail`/`GlossaryDetail`/`GlossaryTermDetail` in `egeria-shared-ui.js`, shared with Egeria Explorer) — these had no `<thead>` at all (label:value rows), so the resize handle is anchored to the first row's label cell instead of a header. Verified all edits via a headless Node+jsdom render harness before deploying, after the earlier blank-screen incident. **Second follow-up:** the actual remaining complaint was about *pane dividers*, not table columns — `TechTypesView`'s sidebar/detail split (`tech-catalog.html`) and `GlossaryView`'s middle/right split were hardcoded `width: 290`/`width: 280` with no drag handle at all (only Glossary's left/middle divider had one). Added a second `useResizable`/`ResizeDivider` pair to each, matching the pattern already used elsewhere in the same functions. |
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
----
 ## Egeria Insights (2026-07-15) — ✅ done
 
-New portal app for cross-cutting governance search: classification + zone faceted
-search over Egeria's native `find_metadata_elements` (`matchClassifications` /
-`SearchClassifications` / `ClassificationCondition`, one native query rather than
-client-side set intersection — see `insights_handler.py`'s module docstring for
-the full design rationale). Dashboard tab (capped aggregate tallies) + Governance
-Search tab (facet picker driven live from `/api/types`, compound AND/OR search
-with an opt-in exhaustive `full_count` pass). Router registered in
-`pyegeria_handler.py`, portal tile added to `demo-portal.html`.
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
-| # | Item | Status | Notes |
-|---|------|--------|-------|
-| INS-1 | `_extract_classifications()`/`_serialize_hit()`/`get_zones()` guessed `find_metadata_elements()` returns an `elementHeader`-wrapped shape (like converter-backed calls e.g. `AssetMaker.get_asset_by_guid`) | done | Verified live against qs-view-server: it actually returns the *raw* shape — no `elementHeader` wrapper, `elementGUID` not `guid`, `classifications` as a flat list of `AttachedClassification` (`classificationName` + `classificationProperties.propertyValueMap`), `elementProperties.propertyValueMap`. Rewrote the parsing helpers in `insights_handler.py` accordingly; also fixed `GovernanceZone`'s name field (`identifier`, not `zoneName`). Verified end-to-end: single-classification search, property-filtered search (confidentialityLevel), and zones-with-usage-counts all correct against real data. |
-| INS-2 | Apache's `sites-available/proxy-locations.conf` had no `<Location "/egeria-insights">` block, so the public quickstart environment 404'd the app even though the FastAPI container served it fine directly | done | Added the block (mirrors `/egeria-audit`/`/egeria-operations`). Also uncovered and fixed a **stale bind-mount**: a `git stash`/`git stash pop` (atomic rename-based rewrite) desynced the `quickstart-web-server` container's view of this file from disk — same class of issue as the "bind-mount cp hazard" memory. `docker restart quickstart-web-server` re-establishes the mount; watch for this any time a config edit under this repo "doesn't take effect." |
-| INS-3 | `/egeria-insights`, `/egeria-audit`, `/egeria-operations` FileResponses had no `Cache-Control` header, and their `<script src="/static/egeria-shared-ui.js">` tags had no cache-busting `?v=` — the same class of bug as `TC-17` (stale shared-JS cache silently breaking newly-added shared functions) | done | Added `Cache-Control: no-store, must-revalidate` to all three `serve_*()` routes and a `?v=2026-07-15a` query string to all three script tags, matching the pattern already used by `tech-catalog.html`/`egeria-explorer`. |
-| INS-4 | Search results table had no resizable/sortable columns or filter box, unlike other Explorer panes (Audit's `AuditRelationshipTab`) | done | Ported the shared `useColumnResize`/`colResizeHandle` pattern into `SearchResults` (egeria-insights.html) — resizable + sortable columns, plus a filter input. Bookmarks were already wired at the tab level via `FavoriteButton`. |
-| INS-5 | `colResizeHandle`'s visible divider line (shared in `egeria-shared-ui.js`, used by Audit/Operations/Insights/Tech Catalog) was reported as invisible — confirmed present in the DOM with correct geometry, just too faint to notice (2px dotted line at 0.45 opacity, no hover state) | done | Bumped resting opacity to 0.6 and added a mouseenter/mouseleave brighten to 0.9 (imperative style mutation, not React state — `colResizeHandle` is a plain function called per-column inside a `.map()`, so it can't safely use hooks). Benefits every pane using the shared resize handle, not just Insights. |
-| PY-15 | See "pyegeria Upstream Bugs" table below | open | Genuine Egeria server bug found while building this feature — not fixable client-side |
-
----
 ## 🔴 High Priority — Finish semantic `as_of_time` verification (PY-1/7/9/11 remainder)
 
-**Status:** closed 2026-07-31 — 4 of 5 remaining methods confirmed genuinely
-time-scoped; the 5th remains inconclusive for lack of test data (not a
-pyegeria defect, just no `DataValueSpecification` demo data in this
-environment); a real, separate (non-`as_of_time`) bug found and filed as
-PY-22 along the way. Full detail in `PYEGERIA_ISSUES.md`'s PY-7/PY-9
-sections and the new PY-22 section.
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
-**2026-07-31 results:**
-1. `SolutionArchitect.find_information_supply_chains` (moved off
-   `GovernanceOfficer` since this was filed — no such method exists there
-   anymore) — **confirmed**: 18 → `"No elements found"`.
-2. `GovernanceOfficer.find_governance_definitions` — **confirmed**: 100 →
-   `"No elements found"`.
-3. `DataDesigner.get_data_field_by_guid` — **confirmed**: real data "now" →
-   `PyegeriaAPIException` / `OMAG-REPOSITORY-HANDLER-404-007` ("not found")
-   at year-2000 — the correct by-guid-getter equivalent of a find method's
-   empty result.
-4. `ProjectManager.get_linked_projects` — **still not confirmed, but now for
-   a real reason**: checked all 29 qs demo projects, every one returns `"No
-   elements found"` from this method, including "Sustainability Campaign"
-   which demonstrably has a real `ProjectHierarchy` relationship (visible in
-   `get_project_by_guid`'s own `managedProjects` field). This isn't a
-   test-data gap — `get_linked_projects` itself doesn't surface real
-   relationship data at all. Filed as **PY-22**. Substituted
-   `get_project_by_guid`'s `managedProjects` field for the `as_of_time`
-   check instead (that field does carry real data): confirmed genuinely
-   time-scoped (404 at year-2000) — so `as_of_time` itself works fine on
-   `get_project_by_guid`, `get_linked_projects` has an unrelated bug.
-5. `DataDesigner.find_data_value_specifications` (PY-1) — still no
-   `DataValueSpecification` demo data loaded (same as 2026-07-15), still
-   genuinely inconclusive. Loading real test data would close this out;
-   deliberately not done without being asked (writes to the shared demo
-   environment).
+## Fix SecretsStoreCataloguer catalog target (Quickstart) — ✅ resolved (moot), 2026-08-20
 
-**Added (historical, 2026-07-15):**
-
-Full context and the methods already confirmed live in `PYEGERIA_ISSUES.md`
-(PY-7/PY-8/PY-9/PY-11). On 2026-07-15, re-verified the pyegeria `as_of_time`
-fixes against the **actually deployed** container (pyegeria 6.0.16.18, not
-just source) using a *real* test: compare a call with no `as_of_time` against
-the same call with `as_of_time="2000-01-01T00:00:00Z"` (before any qs demo
-data existed) — a genuine fix returns real data "now" and `"No elements
-found"` for the year-2000 call; a fix that's merely accepted-but-ignored
-returns the same non-empty result both times.
-
-**Confirmed working (real data, real before/after difference):**
-- `CollectionManager.find_note_logs("*", graph_query_depth=0)` — 4 → `"No elements found"`
-- `AutomatedCuration.get_technology_type_elements(filter_string="File")` — 108 → `"No elements found"`
-- `CollectionManager.get_collection_members("dbc14481-fa8d-42eb-9bce-a7dad33a6779")` — 12 → `"No elements found"`
-- `DataDesigner.find_data_structures("*", graph_query_depth=0)` — 94 → `"No elements found"`
-
-**Not yet confirmed — no test data available in this environment, needs follow-up tomorrow:**
-1. `GovernanceOfficer.find_information_supply_chains` — need qs demo data with at least one ISC loaded.
-2. `GovernanceOfficer.find_governance_definitions` — need at least one governance definition loaded.
-3. `DataDesigner.get_data_field_by_guid` — need a real `DataField` GUID (list via `DataDesigner.find_data_fields("*", graph_query_depth=0)` first, pick a GUID from the result, then re-run the before/after test against it).
-4. `ProjectManager.get_linked_projects` — tested without a `TypeError`, but the GUID used had no linked projects to show a count difference. Need a project GUID that actually has links (list via `ProjectManager.find_projects("*", graph_query_depth=0)`, or look for one referenced from Egeria Explorer's Projects tab).
-5. `DataDesigner.find_data_value_specifications` (PY-1) — the crash fix is confirmed (`AttributeError` is gone), but there's no `DataValueSpecification` data loaded in this environment to confirm `as_of_time` has real effect vs. just being silently accepted. Both "now" and year-2000 calls currently return `"No elements found"` — inconclusive either way.
-
-**How to repeat this tomorrow** (same recipe used for the confirmed methods above):
-```python
-# Run inside the quickstart-pyegeria-web container:
-#   docker exec quickstart-pyegeria-web python3 -c "<script below>"
-from pyegeria import <ClientClass>   # e.g. GovernanceOfficer, DataDesigner, ProjectManager
-import pyegeria
-pyegeria.enable_ssl_check = False
-pyegeria.disable_ssl_warnings = True
-
-mgr = <ClientClass>(view_server="qs-view-server", platform_url="https://host.docker.internal:9443",
-                     user_id="peterprofile", user_pwd="secret")
-# Note: some classes (DataDesigner, ProjectManager) use `view_server_name=` instead
-# of `view_server=` — check with `inspect.signature(<ClientClass>.__init__)` if the
-# constructor call raises TypeError.
-mgr.create_egeria_bearer_token()
-
-r_now  = mgr.<method>(<required args>, graph_query_depth=0)   # omit graph_query_depth if not accepted
-r_2000 = mgr.<method>(<required args>, graph_query_depth=0, as_of_time="2000-01-01T00:00:00Z")
-print("now:", len(r_now) if isinstance(r_now, list) else r_now)
-print("2000:", len(r_2000) if isinstance(r_2000, list) else r_2000)
-# Real fix  -> non-empty count "now", "No elements found" (or empty list) at 2000
-# Not fixed -> identical non-empty result both times
-```
-
-If any of the 5 remaining methods show identical non-empty results for both
-calls (not fixed) rather than `"No elements found"` at 2000, downgrade that
-method's status in `PYEGERIA_ISSUES.md` (PY-7/PY-9/PY-11 section) and
-`BACKLOG.md`'s PY-9/PY-11 rows accordingly, and note the discrepancy for Dan.
-
-**Also worth doing if time allows:** if any of the "no test data" methods
-still have no data tomorrow, check whether demo data can be loaded/created for
-that type (an ISC, a governance definition, a DataField, a linked project) so
-this can be closed out definitively rather than left inconclusive.
-
----
-## 🔴 High Priority — Fix SecretsStoreCataloguer catalog target (Quickstart)
-
-**Status:** open  
-**Added:** 2026-06-23  
-
-The `SecretsStoreCataloguer` integration connector in the Quickstart metadata store has a catalog target pointing to `egeria-user-directory.omsecrets`, which is a Freshstart file. The correct file for Quickstart is `coco-user-directory.omsecrets`.
-
-A symlink (`egeria-user-directory.omsecrets` → `coco-user-directory.omsecrets`) was added to `runtime-volumes/quickstart-platform-data/secrets/` as a temporary workaround — this suppresses the `FileNotFoundException` on every `SecretsStoreCataloguer` refresh but does not fix the underlying misconfiguration.
-
-**Root cause:** A colleague's notebook run added `egeria-user-directory.omsecrets` as a catalog target to the Quickstart metadata store.
-
-**Fix:** Remove or correct the catalog target via the Egeria API or a notebook — update it to reference `coco-user-directory.omsecrets`. Once corrected, remove the symlink.
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
 ---
 ## Egeria Explorer — UI polish
-    
-    | # | Item | Status | Notes |
-    |---|------|--------|-------|
-    | UI-1 | Collections home-page card icon should match the others (blue outline, not emoji) | done | `_SPLASH_CAPABILITIES` Collections icon changed `'🗂'` → `'❐'` (monochrome, inherits `var(--accent)`). |
-    | UI-2 | Remove duplicate sidebar titles that double the page header bar | done | Removed the hardcoded sidebar-title divs in `NoteLogView`, `LocationsView`, `CommunityView` (ISC already done). ProjectsView/ActorsView unaffected. |
-  
+
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
+
 ## Mermaid Graphs copyable — ✅ done
-  add a button/gesture to mermaid graphs to allow the raw mermaid text to be copied to the clipboard.
-  **Done:** `MermaidDiagram` (type-explorer.html + tech-catalog.html) now shows a "⧉ Copy source" button that copies the raw mermaid text with a "✓ Copied" confirmation.
+
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
 ## Change Tile ordering for portal — ✅ done
-    **Done:** reordered the `apps` array in both `demo-portal.html` files. Quickstart row 2 is Jupyter · Obsidian · My Egeria · Egeria Advisor; freshstart has no Obsidian tile, so its row 2 is Jupyter · My Egeria · Egeria Advisor · My Profile. Docs/Admin/API tiles follow.
-    Row 1: The Catalog · Egeria Explorer · Lineage Explorer · Resource Explorer
-    Row 2: Jupyter Lab · Obsidian · My Egeria · Egeria Advisor
-    
-    This is a reordering of the existing portal tiles in demo-portal.html (and the freshstart equivalent — keep both envs in sync, per the shared-codebase convention). The change is purely the order the tile elements appear in the markup; the grid/flex container already wraps four-per-row, so listing them in this
-    sequence produces the two rows you want.
-    
-    A couple of things to watch when making the edit:
-    - Resource Explorer and Lineage Explorer are noted as "Preview/soon" / not-yet-fully-wired in the backlog (RE-1/RE-2 credential pass-through is still open, and Lineage Explorer is net-new). They'll still render as tiles in row 1, but their launch wiring may be incomplete — that's fine for layout, just be aware
-    the tiles may be placeholders.
-    - Apply the same ordering to both the quickstart and freshstart portal pages so they don't diverge.
-    - If the tiles are generated from an array/config rather than hardcoded markup, reorder the array entries rather than moving DOM blocks.
----
+
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
 ## Prioritization (workstream level)
 
@@ -916,7 +431,7 @@ exploration. Items can run concurrently when they touch different files; watch t
 |------------|-------|:------:|:--------:|------------------|
 | Shared codebase unification | SHARE-1 ✅ done · SHARE-2 ✅ done · SHARE-3 open | **H** |          | SHARE-1/2 unified backend handlers and SPA `type-explorer.html`; auth model runtime-gated via `srvManaged` + `demoMode` flags. SHARE-3: re-drift found 2026-08-13 (`type-explorer.html` no longer byte-identical, plus a 3-deep import-crash chain in freshstart) — needs re-audit. |
 | pyegeria comment-update bug | PY-4 ✅ done | **H** |    H     | Workaround already in `egeria_feedback_handler.py`. |
-| **Technical Asset Catalog** | TC-0 → TC-12 | **H** |    H     | New tool; spec in `technical_data_catalog_spec.md`. TC-11 (classification ubiquity) is foundational — unblocks TC-12 (sidebar filtering) and zone display. |
+| **Technical Asset Catalog** | TC-0 → TC-12 | **H** |    H     | New tool; spec in `design-docs/technical_data_catalog_spec.md`. TC-11 (classification ubiquity) is foundational — unblocks TC-12 (sidebar filtering) and zone display. |
 | Report rendering | RR-1 → RR-5 | **H** |          | Core demo value; RR-1/RR-2 unblock RR-3/4/5. Sequential within the group. |
 | Data preview polish | DP-2 ✅ · DP-3 ✅ · DP-4 ✅ done | **M** |    H     | Filter bar, column sort, search all done. |
 | my-egeria additional apps | ME-8, ME-9 | **M** |    L     | TUI confirmed rendering end-to-end in demo (HTTPS). Follows proven ME-2..6 pattern. ME-7a (401 for some personas) — 2026-08-16: now believed to be the same platform-wide long-uptime degradation as INFRA-1, not a distinct bug; see ME-7a's own row for detail. |
@@ -1029,84 +544,39 @@ Jupyter runs on the host.
 | # | Item | Status | Notes |
 |---|------|--------|-------|
 | INFRA-2 | `openlineage-proxy` Docker build fails DNS resolution for `repo.maven.apache.org`/`plugins.gradle.org` on hedwig | open — needs real fix | Build-time Gradle dependency resolution intermittently/consistently fails to resolve those two hosts from inside the `docker build` network namespace on hedwig specifically (not reproduced elsewhere yet). **Local-only workaround in place on hedwig** (uncommitted, kept out of git via `git update-index --skip-worktree` on both files as of 2026-07-30): `compose-configs/shared-infra/shared-infra.yaml` adds `network: host` plus hardcoded `extra_hosts` IP pins (`repo.maven.apache.org:104.18.18.12`, `plugins.gradle.org:104.16.73.101`) to the proxy build; `compose-configs/egeria-quickstart/Dockerfile-proxy` was also changed to build from the `gradle:8.9-jdk11` base image directly instead of bootstrapping via the repo's own `./gradlew`. **Do not merge as-is** — those are CDN edge IPs that rotate, so pinning them will silently break again later (for hedwig or anyone else). Real fix needs investigating actual root cause: Docker daemon DNS config on hedwig (`/etc/docker/daemon.json` `dns` setting), host `/etc/resolv.conf`, or VPN/corporate-DNS interference during `docker build`. Once diagnosed, prefer a real DNS fix (or, if `network: host` genuinely is the right call, drop the hardcoded IPs). |
-| INFRA-1 | Egeria metadata-store leaks PostgreSQL connections over time | in-progress | The `qs-metadata-store` Postgres repository connector ("PostgreSQL JDBC Driver") accumulates `idle` and `idle in transaction` sessions on the shared `egeria` DB (port 5442) until the 1000-slot pool is exhausted → all metadata queries 500 with `POSTGRES-REPOSITORY-CONNECTOR-500-001 … FATAL: remaining connection slots are reserved for roles with the SUPERUSER attribute`. First hit 2026-06-23: 994/1000 used (833 idle + 161 idle-in-transaction stuck **20+ hrs** on `classification_attribute_value`). Surfaced as Operations-page 500s. **Stopgap:** `docker restart quickstart-egeria-main` (drops to 0; view servers auto-restart ~10s later). **Safety net (done 2026-06-23):** `idle_in_transaction_session_timeout=1800000` (30 min) added to `shared-infra.yaml` postgres `command:`; leaked idle-in-transaction sessions now self-reap rather than accumulating indefinitely. Takes effect on next `docker compose up` of shared-infra. **Still open:** investigate Egeria Postgres connector pool config (max pool size / session release on the connector side) to prevent accumulation in the first place. Watch `idle in transaction` count as the leading indicator (`SELECT state,count(*) FROM pg_stat_activity WHERE usename='egeria_user' GROUP BY state;`). **Recurred 2026-07-26:** the 30-min timeout is reaping the sessions (no pool exhaustion this time), but the underlying leak is still live — `docker logs egeria-shared-postgres` showed repeated `FATAL: terminating connection due to idle-in-transaction timeout` batches (several/minute) throughout the session, and Tech Catalog's `/tech-types/hierarchy` and `/tech-types/{qn}` endpoints intermittently 500'd (`POSTGRES-REPOSITORY-CONNECTOR-500-001`) until a retry succeeded. Safety net is working as designed; the root-cause investigation is still open. **Reassessed 2026-08-14/15:** two distinct failure shapes now distinguished by `xact_age`, not just count. (a) The classic leak above — a connector-held transaction stuck for hours; `docker restart quickstart-egeria-main` genuinely fixes it. (b) A separate, much faster startup-catch-up churn — `idle in transaction` count oscillates in a bounded band (tens, not hundreds) as engine-host/integration-daemon re-run config-refresh cycles after any restart, then settles on its own; **restarting for this case is counterproductive**, since it just re-triggers the same catch-up. Rebuilt `egeria-quickstart-platform:local` against a newly-pulled `odpi/egeria-platform:latest` (base OS/JDK layers unchanged, app layer had moved on since our last build) and recreated `quickstart-egeria-main` to test whether upstream connection-pooling changes had landed. Watched `pg_stat_activity` for ~14 min post-restart: idle-in-transaction oscillated 10-47 (never ran away toward the 833-994 range from the original incident), and the one long-held connection observed (11m37s, same `classification_attribute_value` query signature as the original leak) cleared on its own rather than sticking for hours. Read as a partial improvement — the leak signature is still present, but self-resolves faster than before — not confirmation the root cause is fixed. **Still open:** short-window observation isn't proof; recheck after the *next* platform refresh (per team) that specifically ships the connection-pooling change, and watch for a `classification_attribute_value` transaction that does NOT clear within the 30-min safety-net window. |
+| INFRA-1 | Egeria metadata-store leaks PostgreSQL connections over time | in-progress | The `qs-metadata-store` Postgres repository connector ("PostgreSQL JDBC Driver") accumulates `idle` and `idle in transaction` sessions on the shared `egeria` DB (port 5442) until the 1000-slot pool is exhausted → all metadata queries 500 with `POSTGRES-REPOSITORY-CONNECTOR-500-001 … FATAL: remaining connection slots are reserved for roles with the SUPERUSER attribute`. First hit 2026-06-23: 994/1000 used (833 idle + 161 idle-in-transaction stuck **20+ hrs** on `classification_attribute_value`). Surfaced as Operations-page 500s. **Stopgap:** `docker restart quickstart-egeria-main` (drops to 0; view servers auto-restart ~10s later). **Safety net (done 2026-06-23):** `idle_in_transaction_session_timeout=1800000` (30 min) added to `shared-infra.yaml` postgres `command:`; leaked idle-in-transaction sessions now self-reap rather than accumulating indefinitely. Takes effect on next `docker compose up` of shared-infra. **Still open:** investigate Egeria Postgres connector pool config (max pool size / session release on the connector side) to prevent accumulation in the first place. Watch `idle in transaction` count as the leading indicator (`SELECT state,count(*) FROM pg_stat_activity WHERE usename='egeria_user' GROUP BY state;`). **Recurred 2026-07-26:** the 30-min timeout is reaping the sessions (no pool exhaustion this time), but the underlying leak is still live — `docker logs egeria-shared-postgres` showed repeated `FATAL: terminating connection due to idle-in-transaction timeout` batches (several/minute) throughout the session, and Tech Catalog's `/tech-types/hierarchy` and `/tech-types/{qn}` endpoints intermittently 500'd (`POSTGRES-REPOSITORY-CONNECTOR-500-001`) until a retry succeeded. Safety net is working as designed; the root-cause investigation is still open. **Reassessed 2026-08-14/15:** two distinct failure shapes now distinguished by `xact_age`, not just count. (a) The classic leak above — a connector-held transaction stuck for hours; `docker restart quickstart-egeria-main` genuinely fixes it. (b) A separate, much faster startup-catch-up churn — `idle in transaction` count oscillates in a bounded band (tens, not hundreds) as engine-host/integration-daemon re-run config-refresh cycles after any restart, then settles on its own; **restarting for this case is counterproductive**, since it just re-triggers the same catch-up. Rebuilt `egeria-quickstart-platform:local` against a newly-pulled `odpi/egeria-platform:latest` (base OS/JDK layers unchanged, app layer had moved on since our last build) and recreated `quickstart-egeria-main` to test whether upstream connection-pooling changes had landed. Watched `pg_stat_activity` for ~14 min post-restart: idle-in-transaction oscillated 10-47 (never ran away toward the 833-994 range from the original incident), and the one long-held connection observed (11m37s, same `classification_attribute_value` query signature as the original leak) cleared on its own rather than sticking for hours. Read as a partial improvement — the leak signature is still present, but self-resolves faster than before — not confirmation the root cause is fixed. **Still open:** short-window observation isn't proof; recheck after the *next* platform refresh (per team) that specifically ships the connection-pooling change, and watch for a `classification_attribute_value` transaction that does NOT clear within the 30-min safety-net window. **The connection-pooling change has landed upstream (2026-08-20, pre-release readiness check):** `odpi/egeria` core shipped exactly this on 2026-08-16/17 — "Replace JDBCResourceConnector's per-thread connection cache with a HikariCP pool" and "Externalize the JDBC Pool Size," both touching `PostgresOMRSRepositoryConnector.java`/`JDBCResourceConnector.java` directly. `egeria-quickstart-platform:local` was built 2026-08-19, *after* both commits — plausibly already includes the fix, which would explain the improved behavior observed since. Live-checked `pg_stat_activity` on 2026-08-20: 0 `idle in transaction`, 10 `active`, 15 `idle`, oldest active transaction <1s — healthy. **Not yet confirmed as the actual fix, not just another short healthy window** — Dan is continuing to watch it live rather than declaring this closed. |
 
 ---
 
 ## Egeria Explorer — Data Preview
 
-| # | Item | Status | Notes |
-|---|------|--------|-------|
-| DP-1 | Adjustable column widths in tabular dataset preview | done | Drag-to-resize on column right-edge handles; dotted separators |
-| DP-2 | Row filtering in dataset preview | done | Filter bar above table; client-side on current page |
-| DP-3 | Row sorting in dataset preview | done | Click column header to sort (↑/↓/↕); numeric-aware; `e.stopPropagation` keeps resize handle separate |
-| DP-4 | Search within table preview | done | Merged with DP-2 — same filter input covers full-text search across all cells |
-
----
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
 ## Egeria Explorer — Feedback & Comments
 
 **Two distinct feedback systems — keep them separate:**
 
 - **(A) Egeria Feedback** — Likes, Ratings, Comments on Egeria objects, via the Egeria/pyegeria
-  feedback API. **Identical in every environment.** (FB-1..FB-3 done.)
+  feedback API. **Identical in every environment.** (FB-1..FB-3 done — see BACKLOG-ARCHIVE.md.)
 - **(B) User Feedback** — the "Feedback" button on every tool page capturing the end user's opinion
   *of the tool/page itself*, persisted to a **Postgres table** (in the shared `demo` schema) so we
   can analyse how to improve the tools and Egeria. The **user identity attached differs by env**
   (the only intentional difference); the capture schema and UI are otherwise the same everywhere.
+  (FB-5..FB-9 done — see BACKLOG-ARCHIVE.md.)
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| FB-1 | Egeria comments on property sheets | done | Glossary Term + Digital Product detail panes; type dropdown; history list |
-| FB-2 | Likes + ratings on remaining detail panes | done | `EgeriaFeedbackWidget` on all property detail panes. ReportSpecDetail excluded — pyegeria format specs have no Egeria GUID. |
-| FB-3 | Comments (`EgeriaCommentsSection`) on remaining detail panes | done | `EgeriaCommentsSection` on all property detail panes. ReportSpecDetail excluded — same reason as FB-2. |
 | FB-4 | Journals — persistent per-element notes/log separate from Egeria comments | open | Exploratory; may be local storage or a separate Egeria NoteLog. **Read-only NoteLog viewer now shipped** (Note Logs tab, see Done-recent); FB-4 remains for the *write* side. |
-| FB-5 | **User Feedback → Postgres** — move per-page feedback from current `/api/demo-feedback` store to a `feedback` table in the `demo` schema (port 5442). One schema, all envs. | done | `demo_feedback_handler.py` rewrites to Postgres via `DEMO_DB_URL`; `demo` schema created on startup. Freshstart `demo_config.py` gets `DEMO_DB_*` vars. |
-| FB-6 | **Env-specific user identity** on User Feedback (the one intentional per-env difference) | done | `_resolve_user_id()`: JWT `sub` (demo/freshstart) or supplied email (local). `_resolve_env()` sets `env` field. |
-| FB-7 | **Capture schema** for each submission | done | Full schema: id, session_id, user_id, env, persona, page, element_guid, rating, category, message, email, wants_response, consent_to_contact, build_version, user_agent, viewport, locale, triage_status, created_at. FeedbackButton updated with category dropdown + wants_response + consent checkboxes. |
-| FB-8 | **Admin review tab** in each env's admin panel | done | Feedback tab added to both admin panels: stats row (total/new/wants-response), filter by status+env, triage dropdown (new→triaged→actioned), PATCH `/api/demo-feedback/{id}`. |
-| FB-9 | **Analyst docs** — how to query the raw `feedback` table | done | `feedback-analyst-guide.md` — schema reference + 12 SQL recipes (volume/day, by page, by env, category breakdown, avg rating, response queue, bugs, persona, triage). |
-
-**FB-7 recommended capture fields** (your list + additions):
-*Your list:* user id · page · environment · timestamp · email · wants-response.
-*Suggested additions:* the **free-text message** + a **rating/sentiment** (the actual content) · **category**
-(bug / confusing / suggestion / praise) · **element/object GUID or route detail** in view · **active persona**
-(demo) · **tool/build version or git SHA** (correlate to a release) · **user-agent + viewport** (repro UI issues)
-· **session/correlation id** (link multiple submissions / to analytics events QS-5) · **locale** · **explicit
-consent-to-contact** flag (separate from wants-response, for privacy basis) · server-side **triage status**
-(new/triaged/actioned). Optional: screenshot attachment.
 
 ---
 
 ## Egeria Explorer — Report Rendering
 
-Spec: `report-rendering-plan.md`
-
-**Note (2026-06-18):** the RR components were implemented earlier without updating
-these rows. All verified against live report output; **two real bugs found and
-fixed** — RR-4 chart detection (camelCase-only key regex) and RR-5 master-detail
-(column key/name mismatch). RR-1..RR-5 all done.
-
-| # | Phase | Item | Status | Notes |
-|---|-------|------|--------|-------|
-| RR-1 | 1 | GRAPH format → send DICT/JSON fallback (no unembeddable HTML) | done | Verified: selecting GRAPH sends DICT (or JSON) client-side; backend returns `kind: json`. The 3 GRAPH specs (Governance-Zones, Governance-Zone-Overview-Charts, Secrets-Collection-User-Profile-Charts) return Vega-Lite chart specs in the DICT data. |
-| RR-4 | 3b | `AvailableCharts` — detect Vega-Lite chart specs in DICT results | done | **Bug fixed:** matched only camelCase `*BarGraph`/`*PieGraph` keys, but real pyegeria DICT keys are spaced ("Zone Profile All Bar Chart"). Rewrote to detect charts by *value* (any `$schema: vega-lite` dict/JSON-string) — now finds all 6 zone charts (was 0). |
-| RR-3 | 3a | `VegaChart` component + vega-embed load | done | Renders dict or JSON-string specs via vegaEmbed (dark theme), with deferred-load polling; wrapped by `CollapsibleChartPanel`. |
-| RR-2 | 2 | `SmartReportRenderer` — tokenize output; render Mermaid/Vega-Lite fences; master-detail anchors | done | Verified against a MERMAID spec (Org-Chart) — the ` ```mermaid ` fence tokenizes to `MermaidDiagram`. Tokenizer also handles `vega-lite`/`json` fences; `<a id>` anchors get "↑ back" links and `[text](#anchor)` becomes clickable. |
-| RR-5 | 4 | `DictResultView` — spec-driven master-detail table with expand rows + auto-charts | done | **Bug fixed:** indexed `row[c.key]` (snake_case spec key) but pyegeria DICT rows are keyed by display name, so spec-driven scalar cells were empty and master-detail never expanded. Now resolves each column to whichever identifier exists in the data (`key` or `name`). Verified on Team-Members → Members detail (Team-Member-Role-Detail) now expands. |
-
----
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
 ## Freshstart — Admin & User Management
 
-| # | Item | Status | Notes |
-|---|------|--------|-------|
-| FS-1 | Admin edit user — show all current values; roles/groups as checkboxes (not multi-select highlights) | done | Checkbox lists implemented in demo-admin.html with pre-populated values |
-| FS-2 | My Profile page (`/profile`) — self-service display name, job title, description + password change | done | `demo-profile.html` exists and is wired into the handler |
-| FS-3 | Portal greeting reads org name from `application.properties` | done | `get_org_name()` in auth handler; `/api/platform/org-name` endpoint; portal fetches and renders it |
-| FS-4 | Delete `demo_db.py` — no SQLite in freshstart | done | File no longer present |
-
----
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
 ## Egeria Explorer — Shared Codebase
 
@@ -1125,7 +595,7 @@ app-wiring) and the legitimately env-specific `config_workspaces.json` publishin
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| SHARE-3 | Re-audit quickstart/freshstart `PyegeriaWebHandler` drift; fix accidental gaps, leave by-design divergence alone | in-progress (2nd pass done 2026-08-16, more remains) | Surfaced 2026-08-13 while chasing a freshstart crash-loop (`ModuleNotFoundError: mcp.server.fastmcp`) caused by 3 stacked accidental gaps, now fixed: `mcp_server.py` (freshstart was on the pre-mcp2.0 API — copied quickstart's migrated file, byte-identical, confirmed safe since freshstart has no Obsidian service), `egeria_auth.py` (missing `async_apply_token()` even though freshstart's own `audit_handler.py` already imported it — added), `demo_config.py` (missing `DEMO_DB_SCHEMA`, needed by the already-shared `demo_db.py`/`favorites_handler.py` — added with the same `"demo_auth"` default, confirmed via `demo_db.py`'s own docstring), and the `mcp`/`pyegeria` `requirements.txt` pins (synced from quickstart). Also confirmed **SHARE-1's "byte-identical" `type-explorer.html`/`egeria-shared-ui.js` has re-drifted** — quickstart gained a `hideDeprecated` filter + cache-bust version bump that never reached freshstart, so the byte-identical convention needs either periodic re-verification or a real dedup mechanism (symlink/shared-module import) instead of hand-copying, or it'll silently drift again. A full recursive diff of the two `PyegeriaWebHandler` trees turned up ~28 other differing files beyond the ones just fixed — most are very likely legitimate by-design auth/portal-layer divergence (`demo-*.html`, `demo_auth_handler.py`, `pyegeria_handler.py` app-wiring, `config_workspaces.json`) per the SHARE-1/2 notes above, but each needs the same accidental-vs-intentional triage the mcp chain got, not a blind copy: `action_center_handler.py`, `audit_handler.py`, `catalog_search_handler.py`, `collections_handler.py`, `demo-admin.html`, `demo-login.html`, `demo-portal.html`, `demo-register.html`, `demo_auth_handler.py`, `demo_db.py`, `dr_egeria_commands_handler.py`, `dr_egeria_md.py`, `egeria-audit.html`, `egeria-operations.html`, `egeria-overview.html`, `gen_overview_metrics.py`, `glossary_handler.py`, `lineage-explorer.html`, `operations_handler.py`, `overview_handler.py`, `perspectives_handler.py`, `project_handler.py`, `pyegeria_handler.py`, `report_specs_handler.py`, `static/egeria-shared-ui.js`, `tech-catalog.html`, `type-explorer.html`, `type_system_handler.py`, plus `Dockerfile-fast-api` and `tests/test_mcp_server_basic.py`. Same problem exists in **docs**, not just code: `compose-configs/egeria-freshstart/PyegeriaWebHandler/demo-mode.md` is ~96% quickstart's `--demo`/JWT+email/SQLite content copy-pasted and never adapted (tells freshstart users to run `./quick-start-local --demo`, describes Obsidian, `.env.demo`, admin bootstrap via email — none of which apply to freshstart's actual Egeria-backed, no-`--demo` auth model) despite being directly linked from freshstart's own `README.md`. Only its SSL/HTTPS section has been corrected so far (2026-08-13, flagged with a banner at the top of the file); the rest needs a proper freshstart-specific rewrite.
+| SHARE-3 | Re-audit quickstart/freshstart `PyegeriaWebHandler` drift; fix accidental gaps, leave by-design divergence alone | in-progress (4th pass done 2026-08-20, more remains) | Surfaced 2026-08-13 while chasing a freshstart crash-loop (`ModuleNotFoundError: mcp.server.fastmcp`) caused by 3 stacked accidental gaps, now fixed: `mcp_server.py` (freshstart was on the pre-mcp2.0 API — copied quickstart's migrated file, byte-identical, confirmed safe since freshstart has no Obsidian service), `egeria_auth.py` (missing `async_apply_token()` even though freshstart's own `audit_handler.py` already imported it — added), `demo_config.py` (missing `DEMO_DB_SCHEMA`, needed by the already-shared `demo_db.py`/`favorites_handler.py` — added with the same `"demo_auth"` default, confirmed via `demo_db.py`'s own docstring), and the `mcp`/`pyegeria` `requirements.txt` pins (synced from quickstart). Also confirmed **SHARE-1's "byte-identical" `type-explorer.html`/`egeria-shared-ui.js` has re-drifted** — quickstart gained a `hideDeprecated` filter + cache-bust version bump that never reached freshstart, so the byte-identical convention needs either periodic re-verification or a real dedup mechanism (symlink/shared-module import) instead of hand-copying, or it'll silently drift again. A full recursive diff of the two `PyegeriaWebHandler` trees turned up ~28 other differing files beyond the ones just fixed — most are very likely legitimate by-design auth/portal-layer divergence (`demo-*.html`, `demo_auth_handler.py`, `pyegeria_handler.py` app-wiring, `config_workspaces.json`) per the SHARE-1/2 notes above, but each needs the same accidental-vs-intentional triage the mcp chain got, not a blind copy: `action_center_handler.py`, `audit_handler.py`, `catalog_search_handler.py`, `collections_handler.py`, `demo-admin.html`, `demo-login.html`, `demo-portal.html`, `demo-register.html`, `demo_auth_handler.py`, `demo_db.py`, `dr_egeria_commands_handler.py`, `dr_egeria_md.py`, `egeria-audit.html`, `egeria-operations.html`, `egeria-overview.html`, `gen_overview_metrics.py`, `glossary_handler.py`, `lineage-explorer.html`, `operations_handler.py`, `overview_handler.py`, `perspectives_handler.py`, `project_handler.py`, `pyegeria_handler.py`, `report_specs_handler.py`, `static/egeria-shared-ui.js`, `tech-catalog.html`, `type-explorer.html`, `type_system_handler.py`, plus `Dockerfile-fast-api` and `tests/test_mcp_server_basic.py`. Same problem exists in **docs**, not just code: `compose-configs/egeria-freshstart/PyegeriaWebHandler/demo-mode.md` is ~96% quickstart's `--demo`/JWT+email/SQLite content copy-pasted and never adapted (tells freshstart users to run `./quick-start-local --demo`, describes Obsidian, `.env.demo`, admin bootstrap via email — none of which apply to freshstart's actual Egeria-backed, no-`--demo` auth model) despite being directly linked from freshstart's own `README.md`. Only its SSL/HTTPS section has been corrected so far (2026-08-13, flagged with a banner at the top of the file); the rest needs a proper freshstart-specific rewrite.
 
 **2nd pass, 2026-08-16** (re-diffed the whole tree — several of the originally-flagged files had already been resolved incidentally by this session's freshstart bulk-action port; re-scanned to find the current real list, 39 source files, sized 4–1936 diff lines, triaged from smallest to largest): fixed **13 genuine accidental gaps**, confirmed the rest are correctly by-design (branding/container-name/port-scheme/auth-model differences) or out of scope (features that don't exist in freshstart at all). Fixed:
 - `audit_handler.py`, `operations_handler.py` — missing `Cache-Control: no-store, must-revalidate` header on their SPA routes.
@@ -1144,7 +614,31 @@ app-wiring) and the legitimately env-specific `config_workspaces.json` publishin
 
 Confirmed correctly by-design, not touched: `config_workspaces.json`/`test_overview_specs.py`/`gen_overview_metrics.py`/`demo-register.html`/`overview_handler.py` (branding, container names, `qs-`/`fs-view-server` defaults — all intentional per-environment differences); `catalog_search_handler.py` (freshstart has *more* — its own `X-Egeria-Token` header-based auth that quickstart's demo-persona model doesn't need). Also noted, not fixed (out of scope for this pass): the `qs-view-server`/`erinoverview` fallback-default strings appear as the literal fallback in ~40 freshstart files project-wide (not something introduced by drift — a pre-existing, codebase-wide convention, since these fallbacks are dead code in real deployment where compose always sets the env vars explicitly).
 
-**Flagged but deliberately not fixed this pass** (too large/risky to rewrite mid-audit, needs its own dedicated session): `type-explorer.html`'s `ValidValueDetail` component in freshstart is a whole generation behind quickstart's — no `GenericPropertiesTable`, `HeaderInfoButton`, `AdditionalPropertiesTable`, or `GenericRelationshipsSection`, still a hand-rolled fields table from before that refactor existed. **Still not re-audited this pass** (too large for a line-by-line diff to be worthwhile — confirmed by spot-check to be by-design, not re-verified exhaustively): `demo_auth_handler.py` (1354 diff lines — entirely different auth model, expected), `demo-admin.html` (1083), `demo-login.html` (264), `demo-portal.html` (179), `demo_config.py` (124), `dr_egeria_md.py` (210), `dr_egeria_commands_handler.py` (103), `valid_values_handler.py` (109), `governance_zones_handler.py`/`collections_handler.py`/`tech-catalog.html`/`type-explorer.html`/`static/egeria-shared-ui.js` (already reviewed this session via the freshstart bulk-action port and its own manual review pass — see FIX-13 — not re-diffed again here), `pyegeria_handler.py` (57 — mostly router-registration wiring, expected to differ by which routers each tree actually has). |
+**Flagged but deliberately not fixed this pass** (too large/risky to rewrite mid-audit, needs its own dedicated session): `type-explorer.html`'s `ValidValueDetail` component in freshstart is a whole generation behind quickstart's — no `GenericPropertiesTable`, `HeaderInfoButton`, `AdditionalPropertiesTable`, or `GenericRelationshipsSection`, still a hand-rolled fields table from before that refactor existed. **Still not re-audited this pass** (too large for a line-by-line diff to be worthwhile — confirmed by spot-check to be by-design, not re-verified exhaustively): `demo_auth_handler.py` (1354 diff lines — entirely different auth model, expected), `demo-admin.html` (1083), `demo-login.html` (264), `demo-portal.html` (179), `demo_config.py` (124), `dr_egeria_md.py` (210), `dr_egeria_commands_handler.py` (103), `valid_values_handler.py` (109), `governance_zones_handler.py`/`collections_handler.py`/`tech-catalog.html`/`type-explorer.html`/`static/egeria-shared-ui.js` (already reviewed this session via the freshstart bulk-action port and its own manual review pass — see FIX-13 — not re-diffed again here), `pyegeria_handler.py` (57 — mostly router-registration wiring, expected to differ by which routers each tree actually has).
+
+**3rd pass, 2026-08-20** (full re-audit focused on the two files flagged as re-drifted and not yet re-audited — `type-explorer.html` (~1,987 diff lines, 59 hunks) and `static/egeria-shared-ui.js` (~869 diff lines, 20 hunks) — plus a lighter systematic pass over every other differing file in the tree): read every hunk in both priority files hunk-by-hunk rather than sampling. Ported **1 previously-confirmed gap** and **8 newly-found genuine accidental gaps**, confirmed the bulk of the remaining diff is legitimate by-design divergence or out-of-scope whole-app features, and flagged (but deliberately did not port, see below) one high-value fix that's too large/risky to do blind without a live container. Fixed:
+- `type-explorer.html`'s `hideDeprecated` toggle (the one item this task's brief pre-confirmed) — `buildAttrIndex`/`AttrIndexView` signatures, the `data` `useMemo`'s entity/classification/relationship filtering, the checkbox itself, and the `AttrIndexView` call site all ported verbatim from quickstart. Someone had bumped the `egeria-shared-ui.js?v=2026-08-18c` cache-bust marker on both trees without actually porting the feature it was meant to track — classic "the version number lied" drift.
+- `type-explorer.html`'s `ValidValuesView` — a whole generation behind quickstart, exactly as flagged (but not fixed) in the 2nd pass: no 3rd-column detail pane, no relationship/classification display, no same-name grouping for spec properties registered once per owning type. Backend was missing the two endpoints this needs entirely (`GET /api/valid-values/{guid}` full detail, `GET /api/valid-values/resolve-name/{guid}` cheap owner-name lookup) — `valid_values_handler.py` is now byte-identical to quickstart (added both routes, the `digital_products_handler` import they need, and confirmed the FastAPI route-declaration-order comment about the catch-all `{guid}` route still applies). Frontend: replaced freshstart's entire "Valid Values Explorer" section (`ValidValueDetail`/`ValidValueEntry`/`ValidValueRow`/`groupValuesByName`/`_parseOwnerFromQualifiedName`/`ValidValueGroupRow`/`ValidValueDetailPane`/`ValidValuesView`/`ValidMetadataValuesTab`/`SpecificationPropertyValuesTab`) with quickstart's block verbatim, then re-threaded `onNavigateToElement` through the `ValidValuesView` call site at the App level (freshstart's old call didn't pass it — the new detail pane needs it for relationship cross-links).
+- `static/egeria-shared-ui.js`'s `GlossaryFolderDetail`/`GlossaryDetail`/`GlossaryTermDetail` — all three still had a hand-rolled, always-open classification block instead of calling the shared `ClassificationsAndRawJson` component, even though that component already exists in freshstart's copy of the file (just not wired up at these 3 call sites). This was the exact gap the 2nd pass's own comment flagged for `glossary_handler.py`'s classification work ("RawJsonViewer missing from Glossary entirely") but the frontend half was never actually finished — switched all 3 to the shared component, matching quickstart exactly.
+- `resolveElementNav` (`egeria-shared-ui.js`) and `RelatedElementRow` (`type-explorer.html`) — both were missing the `_ACTION_CENTER_TYPES`/`_ACTION_CENTER_ROW_TYPES` special-case for Notification/Meeting/ToDo/Review (real `Action → Process → Asset` subtypes that dead-end in Tech Catalog since they carry no `ZoneMembership`/`CollectionMembership` — quickstart's comment cites this as confirmed live 2026-08-05). Freshstart's Action Center tab already supports the `?guid=` deep-link both fixes route to; ported both special-cases verbatim.
+- REST API Explorer's `loadOpenApi()` — was blindly parsing the response body regardless of HTTP status, so a non-2xx from `/api/rest-apis` (e.g. a transient 502 while the platform's OpenAPI spec fetch failed upstream) stored an error shape with no `services` key, and the `services` `useMemo`'s `.filter()` then threw `TypeError: Cannot read properties of undefined` on the next render — blanking the whole view instead of showing the error message. Ported quickstart's status-check-before-parse fix and the matching `Array.isArray(openapi.services)` guard in the `services` memo.
+- `ExplorerSearchView`'s search placeholder/description and the splash screen's "Search" blurb all said "The Catalog" — copy-pasted from Tech Catalog's own search view — instead of "Egeria Explorer" (confirmed both apps are actually named "Egeria Explorer" / "The Catalog" respectively in both environments, via each file's own `<title>`). 3 text fixes.
+- `FeedbackButton` (`egeria-shared-ui.js`) — freshstart's copy was pre-drag: a fixed bottom-right button with no persisted position. Ported quickstart's whole draggable-position feature (`_FEEDBACK_POS_KEY`/`_loadFeedbackPos`, `posRef`/`dragRef`, document-level mousemove/mouseup drag tracking chosen over pointer-capture because capture didn't reliably track fast drags per quickstart's own comment, and the near-left/near-top panel-placement logic so a dragged button doesn't pop its panel on the opposite corner of the screen) verbatim — fully self-contained, no backend dependency, low risk.
+- `static/bootstrap-banner.js` — a self-initializing "Reinitializing Portal" banner (polls `GET /api/bootstrap/status`, plain DOM, no framework dependency) that existed only in quickstart's `static/` dir and was wired into 9 of quickstart's HTML pages, but into **zero** freshstart pages — even though freshstart's own `bootstrap_monitor_handler.py` already serves the exact same `/api/bootstrap/status` endpoint at the same `/api/bootstrap` prefix (confirmed) and is already started/stopped from `pyegeria_handler.py`'s lifespan hooks. Copied the static file byte-identical and added the `<script src="/static/bootstrap-banner.js?v=2026-08-18a">` tag to the 5 freshstart pages with a quickstart counterpart that has it: `egeria-audit.html`, `egeria-operations.html`, `egeria-overview.html`, `tech-catalog.html`, `lineage-explorer.html` (quickstart's own `type-explorer.html` doesn't carry the tag either, so freshstart's `type-explorer.html` correctly stays without it too — not an omission).
+- `overview_handler.py`/`overview_specs.py`'s "Cataloged Assets" tile — freshstart was still on the pre-2026-08-16 computation (summing 6 curated type names via a `sum_counts`/`sum_type_counts` analytic step) that quickstart moved off of specifically because it disagreed with two other charts reading the same headline number: the growth chart's own "assets" series and `context_readiness_funnel`'s 'cataloged' stage both use the raw `Asset` supertype count directly, and quickstart's own comment documents a live discrepancy (2,668 curated-sum vs 2,523 Asset-supertype) that motivated unifying all three onto a single native `count_metadata_elements("Asset")` call. Ported the fix to both files verbatim (compute path, description/summary/usage text, and the now-dead `sum_counts` defensive-import block removed from `overview_handler.py` since nothing calls it anymore) — `overview_specs.py` is now byte-identical to quickstart's version of this tile.
+- `dr_egeria_commands_handler.py`'s `_build_execute_response()` — was missing the `"warning"` status branch entirely, so a command that came back `status: "warning"` (most commonly "No processor registered for '<command>'" — i.e. the command block parsed cleanly but nothing was actually created) fell into the `else` branch and was counted as `commands_succeeded`, making `success: true` for a request that silently did nothing. Ported quickstart's `commands_warned`/`warnings` tracking and the corrected `success`/`partial` boolean logic verbatim. Confirmed freshstart's own `type-explorer.html` Dr.Egeria tab (like quickstart's) only ever reads `commands_succeeded`/`commands_failed` from the response, not `warnings` itself, so no matching frontend change was needed — the `success` flag flipping correctly is what actually changes user-visible behavior.
+
+Every ported JS/HTML function was checked against the methodology's cross-file signature-diff requirement, not just `node --check`: every `React.createElement(X, ...)` call inside the newly-ported `ValidValuesView` block was checked against `X`'s own `function X({...})` destructuring in freshstart's combined `type-explorer.html` + `egeria-shared-ui.js` (`ClassificationsAndRawJson`, `GenericPropertiesTable`, `GenericRelationshipsSection`, `HeaderInfoButton`, `AdditionalPropertiesTable`, `CopyJsonButton`, `MermaidSection`, `ResizeDivider`, `FavoriteButton`, `EgeriaFeedbackWidget`, `EgeriaCommentsSection` — all present with matching signatures), and a full-file duplicate-`function`-name sweep on both touched JS files came back clean. `node --check` (via the same "strip the `<script>` tag wrapper" extraction the 2nd pass's own tooling implies) and `python3 -m py_compile` both pass on every touched file. `git diff --stat` for this pass: 11 files, +622/−178 lines (`type-explorer.html` +402ish net incl. the `ValidValuesView` growth, `static/egeria-shared-ui.js` +184ish net, `valid_values_handler.py` +107 lines/2 new endpoints, plus the 5 one-line `bootstrap-banner.js` tags and 1 new static file). Remaining diff on the two priority files after this pass: `type-explorer.html` ~1,468 lines (down from ~1,987), `static/egeria-shared-ui.js` ~664 lines (down from ~869) — both now consist almost entirely of confirmed by-design/out-of-scope material: the whole bulk-classify/declassify feature (`ClassificationModal`, `useApplicableClassifications`, `governance_classifications_handler.py` — the last of which doesn't exist in freshstart at all, confirming this is a whole missing feature, not a bugfix, same bar as Insights/Local Dashboards), `ExternalReferencesView`/`ExternalIdentifiersView`/`AgreementsView`/`AnalyticsView`/`ReportsView`'s analytics tab/`SubjectAreasTab` (all backed by handler files that don't exist in freshstart), and the `getChain`/`getAllProps`/`getSubs` dedup-vs-local-copy divergence already called out in the 1st pass as a known, accepted convention gap.
+
+**Flagged but deliberately not fixed this pass** (real, documented bug; too large/risky to rewrite without a live container to verify against): `dr_egeria_md.py` (210 diff lines) — quickstart replaced its entire hand-duplicated `setup_dispatcher`/processor-registration implementation with a direct `from md_processing.dr_egeria import setup_dispatcher` import straight from pyegeria itself, and quickstart's own comment documents why: the hand-duplicated copy had silently drifted out of sync with pyegeria's real dispatcher, missing "Create Report"/"Update Report" (only had "View Report") and the entire Dashboard Sheet command family (Create Dashboard Sheet / Link Report to Dashboard Sheet / Add Text on Dashboard Sheet) — those commands would report "No processor registered" (exactly the failure mode the `_build_execute_response` warning-tracking fix above now surfaces correctly instead of masking as success) even though pyegeria has always supported them. Both trees' `requirements.txt` already pin the same `pyegeria>=6.0.18.2` floor, so `setup_dispatcher` should be available in freshstart's environment too — but this is a wholesale architecture swap in a file central to every Dr.Egeria command execution path, not a small patch, and per this task's own methodology note freshstart's containers aren't running in this session to verify the swap doesn't break command dispatch some other way. Needs a dedicated pass with a live freshstart container. Also noted, not fixed (smaller/lower-value, ran out of scope for this pass): `dr_egeria_commands_handler.py`'s new `/api/dr-egeria/execute-document` endpoint (lets a user without shell/Docker access run a full multi-command Dr.Egeria markdown document through the browser — a genuine feature addition, ~76 extra lines, not yet triaged this pass); `demo_config.py`'s `COOKIE_SECURE` (present in quickstart, confirmed unused/dead code there too via a full grep, not worth porting); `pyegeria_handler.py`'s `advisor_check_urls()` helper extraction (freshstart has the same host.docker.internal fallback logic inlined rather than as a shared `demo_config.py` function — functionally equivalent, just unrefactored, not a bug).
+
+Not live-verified: freshstart's containers were not running in this session (per this task's own instructions), so every fix above is static-analysis + `node --check`/`py_compile` + manual signature-tracing only, not confirmed against a real running app.
+
+**4th pass, 2026-08-20 (same day, freshstart now running):** did the `dr_egeria_md.py` dispatcher swap the 3rd pass deliberately deferred, now live-verified. Replaced the whole hand-duplicated header (imports + `register_solution_architect_processors`/`register_governance_processors`/`setup_dispatcher`, ~165 lines) with quickstart's `from md_processing.dr_egeria import setup_dispatcher` + its explanatory comment; confirmed no other symbol from the removed block (`logger`, `PyegeriaException`, `print_basic_exception`, `re`, `datetime`, `Callable`, `List[`, `Dict[`) was referenced anywhere else in the file before deleting the imports. Also picked up the file's one other diff hunk while touching it: the 2-way success/failure icon logic (`"✅" if status != "failure" else "❌"`) missing the same `"warning"` branch `_build_execute_response()` in `dr_egeria_commands_handler.py` already got in the 3rd pass. File is now **byte-identical** to quickstart's.
+
+**Found and fixed a real, pre-existing, unrelated production bug in the process**: editing `dr_egeria_md.py` triggered uvicorn's hot-reload, which crash-looped on `ModuleNotFoundError: No module named 'egeria_error_mapping'` — `project_handler.py` (per this file's own 2nd-pass entry above, 2026-08-16: "migrated all 4 [handlers] ... file is now byte-identical to quickstart's") imports `egeria_error_mapping`, but that module was never actually copied into freshstart — confirmed via `diff -rq`, still true as of this pass. **freshstart-pyegeria-web has been completely down** (import fails before FastAPI ever starts; uvicorn's reload supervisor process stays alive and shows as "Up" in `docker ps`, masking the crash) since that 2nd-pass edit landed, unnoticed until this session's hot-reload happened to trigger a fresh import. Copied `egeria_error_mapping.py` verbatim (generic, only depends on `fastapi`/`loguru`, no quickstart-specific content) — confirmed live: app restarts clean (`Application startup complete`), `GET /api/auth/me` now returns 200 instead of connection-refused.
+
+**Live-verified end-to-end** against the running `freshstart-pyegeria-web` + `fs-view-server`, `directive: validate` (no writes): `View Report` (already-working baseline) succeeds as before including the now-present `warnings`/`commands_warned` fields; `Create Report` — previously "No processor registered" — now resolves correctly (`success: true`, real qualified-name/attribute breakdown); `Create Dashboard Sheet` — the whole family that didn't exist in freshstart's dispatcher at all — same result. Direct dispatcher construction test also confirmed all 5 previously-missing commands (`Create Report`, `Update Report`, `Create Dashboard Sheet`, `Link Report to Dashboard Sheet`, `Add Text on Dashboard Sheet`) now register. |
 | SHARE-2 | Unify backend Explorer handlers across freshstart + quickstart | done | `type_system_handler` (via `SERVER_MANAGED_AUTH` superset), `digital_products`, `governance_definitions`, `egeria_feedback` all byte-identical; rest of Explorer handlers already were. Auth/portal layer stays per-env by design. |
 | SHARE-1 | Unify `type-explorer.html` — one canonical SPA served to both envs | done | `/api/auth/me` extended with `server_managed_auth`; `srvManaged` SPA state added; 8 auth regions runtime-gated (ConnectionForm, creds defaults, load effect, "Connected as" banner, persona badge, error-retry, portal link); files byte-identical across both envs. Portal link now present in ALL modes (was regression-hidden behind `demoMode`). Needs browser verification in 3 modes (demo-qs, local-qs, freshstart). |
 
@@ -1152,40 +646,19 @@ Confirmed correctly by-design, not touched: `config_workspaces.json`/`test_overv
 
 ## Egeria Explorer — Performance
 
-| # | Item | Status | Notes |
-|---|------|--------|-------|
-| PERF-1 | Digital Product catalog tree load is slow — investigate query optimisation | **done (2026-06-21)** | Root cause was **not** the members fetch: `/tree` made an extra `get_collection_by_guid(catalog)` deep-graph call (~12 s) purely for catalog display metadata the frontend never reads — removed it (the frontend already has the catalog from the catalogs list). `get_collection_members(graphQueryDepth=0)` is ~0.25 s. |
-| PERF-2 | Evaluate server-side lazy loading for deep catalog trees | **done (2026-06-21)** | `/tree` now returns only the catalog's top level; `_build_tree`'s recursive serial walk replaced by `_children_level` (one level, no recursion). New `GET /api/digital-products/{guid}/children` fetches a node's members on expand. Frontend `DigitalProductsView`/`DigitalTreeNode` lazy-load via a `childrenByGuid` map + `loadingGuids` (one `get_collection_members` call per expand). **Result: 28.4 s → 0.42 s** initial load (432-node catalog), ~0.5 s per expand. **Optional follow-up:** `graphQueryDepth=1` to pre-load the 2nd level (instant top-level expands, heavier payload). **Note:** the same recursive pattern still exists in collections/solution/projects/governance tree endpoints — apply the same fix if they're felt to be slow. |
-
----
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
 ## Egeria Explorer — Home Page
 
-| # | Item | Status | Notes |
-|---|------|--------|-------|
-| HOME-1 | Reorganise Explorer cards into Act / Review / Reference groups matching the menu bar | done | Three labelled sections with blurb lines; cards reordered to match nav menu membership |
-
----
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
 ## Egeria Explorer — Projects
 
-| # | Item | Status | Notes |
-|---|------|--------|-------|
-| PROJ-1 | Projects card + tab — list projects via `ProjectManager`; show project hierarchy and other dependencies | done | `project_handler.py` backend; `ProjectsView` + `ProjectDetail` in type-explorer; sidebar list + child project cards; search filters by name, description, classification |
-| PROJ-2 | Classification-based project-kind display | done | `ProjectKindBadge` component with per-kind colours (Campaign=blue, StudyProject=green, PersonalProject=amber, Task=red, GlossaryProject=indigo); shown in sidebar list, detail header, and child cards; classification properties shown in expandable detail cards |
-
----
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
 ## Egeria Explorer — Valid Values
 
-`/api/valid-values/properties` + `/api/valid-values/lookup` backed by `valid_values_handler.py` (both envs).
-
-| # | Item | Status | Notes |
-|---|------|--------|-------|
-| VV-1 | Valid Values Explorer tab in type-explorer.html | done | Left sidebar lists all property names that have registered valid values; click a name to load its values in the right pane; values sorted by ordinal; manual search box for arbitrary property names. |
-| VV-2 | Fix: type-scoped valid values not returned by lookup | **done (2026-06-24)** | **Root cause:** Egeria REST `/get-valid-metadata-values/{property}?typeName=` returns 0 elements when `typeName` is empty but the values are registered against specific Egeria types (e.g. `annotationType` → `ResourceProfileAnnotation`, `QualityAnnotation`, etc.). The primary `ReferenceDataManager.get_valid_metadata_values` call (which uses that REST endpoint) therefore returned nothing for 40 of the 70 registered properties. **Fix:** added `_fallback_lookup()` in `valid_values_handler.py` — called when the primary lookup returns empty with no `type_name` specified. It calls `MetadataExpert.find_metadata_elements` with `identifier = property_name` and filters out set-header entries (those without `preferredValue`), then normalises the nested `elementProperties.propertiesAsStrings` dict into the same flat format the frontend expects. Verified live: `annotationType` now returns 39 values (was 0). Applied to both envs. |
-
----
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
 ## Egeria Explorer — Hierarchy & Grouping (built; awaiting data to verify)
 
@@ -1234,9 +707,31 @@ piece (relationship/classification-level, not just element-level).
 
 ---
 
+## Portal — Data Initialization / Bootstrap
+
+Built 2026-08-18/19: admin-selectable, filesystem-discovered batches of
+Dr.Egeria documents that seed the Portal's reference data, with
+canary-based auto-heal on reset and a manual admin panel for on-demand
+runs. See `PyegeriaWebHandler/PORTAL_STARTUP.md` for the full design
+(discovery, `_batch.json`/`_folder_order.json` manifests, execution
+ordering, the startup fast-retry fix for the `depends_on: egeria-main`
+race, and the `idempotent` manifest flag + confirm-gate added after a
+real duplicate-relationship bug was found in `Link Governance Results`).
+Live-verified working end-to-end on a real quickstart redeploy
+2026-08-19 (fast-retry engaged, both seed batches healed successfully).
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| BOOT-1 | `/api/bootstrap/status`'s `present` flag goes stale after a successful heal | open, cosmetic | `check_and_heal_all()` records `present: false` from the pre-heal canary check and never re-checks after healing, so the status JSON still shows `present: false` even once `lastHealResult: "ok"` confirms the heal succeeded. Not a functional bug — `lastHealResult` is the field that actually reflects outcome, and the frontend banner keys off `reinitializing` (which does clear correctly) — but worth a quick fix (re-check presence after a successful heal, or just set `present: true` on `lastHealResult == "ok"`) so the status endpoint doesn't read as contradictory to someone inspecting it directly. |
+| BOOT-2 | `demo_reset_handler.py`'s scheduled reset doesn't call the bootstrap heal directly | open | No coupling between the two — recovery after a DEMO_MODE scheduled reset relies entirely on the next periodic bootstrap check (up to `BOOTSTRAP_CHECK_INTERVAL_SECONDS`, default 10 min, later since the fast-retry window is startup-only and doesn't apply here). Real fix: have `demo_reset_handler` call `bootstrap_monitor_handler.check_and_heal_all()` directly after a reset completes. |
+| BOOT-3 | Root-cause fix for `Link Governance Results` duplicate-on-rerun bug (`governance.py`) | **fixed, merged upstream** | egeria-python-18, 2026-08-19: added an existence check via `_async_get_related_elements` (filtered to `GovernanceResults`) before calling `_async_link_governance_results`, skipping the link if the pair is already connected; best-effort (falls through to old unconditional-link behavior if the lookup itself fails, so no new failure mode). Merged into `odpi/egeria-python:main` via PR [#285](https://github.com/odpi/egeria-python/pull/285), merge commit `a1e76273bc3c8d6e2551ad9cec7e843ec1c5eb98` (same PR also carries new Data Description/Data Value Spec commands, the `dr_egeria_folder` CLI, and a `sync_members` glossary perf fix — unrelated to this bug but landed together). Portal-side confirm-gate (`idempotent` manifest flag) stays regardless — cheap insurance, not just a workaround. |
+| BOOT-4 | Sweep `governance.py`'s other `established_verbs` (Link/Attach/Add) branches for the same missing-dedupe gap | open, not started | BOOT-3 only fixed the one branch that had a confirmed repro (Governance Results). egeria-python-18 explicitly didn't audit the rest of `apply_changes`'s Link/Attach/Add branches — worth a follow-up look, not blocking. |
+
+---
+
 ## QuickStart Demo Mode
 
-Spec: `demo_plan.md`
+Spec: `design-docs/demo_plan.md`
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
@@ -1269,18 +764,20 @@ Full repro steps (runnable code, expected vs. actual, root cause) for every row 
 | PY-11 | Add a direct `as_of_time` param to the `find_*` methods that only accept it via `**kwargs` (silent no-op): `find_information_supply_chains`, `find_governance_definitions`, `find_note_logs`, `find_collections`, `find_data_structures`. | **fixed** — semantically verified 2026-07-15 for `find_note_logs` (4→0) and `find_data_structures` (94→0) against real qs data; `find_information_supply_chains`/`find_governance_definitions` share the same code path but weren't independently data-verified (no loaded data of those types) | LE-3 time-travel on Note Logs, Data Design specs/structures confirmed unblocked; ISC/Governance definitions expected fixed |
 | PY-10 | ~~Asset detail by-guid rejects `asOfTime`~~ — **NOT A BUG (closed 2026-06-21).** Root cause found by reading egeria-python + re-testing: `get_asset_graph_by_guid` and `get_asset_by_guid` **do** honour `asOfTime` (verified: `asOfTime=now` returns the element; `Z` format works). The earlier 500/404 were because the demo repo was (re)loaded **2026-06-17**, so test times of 2020 / 2026-06-01 legitimately predate the entity's repository version → Egeria correctly returns "not found at that time" (`OMAG-REPOSITORY-HANDLER-404-007`, surfaced as 404 by the by-guid retrieve and 500 by the graph endpoint). No Egeria/pyegeria change needed. | done | Asset detail pane now time-travels (LE-3); handler degrades a "not found at time" to a clean 404 → friendly "not present at the selected time" message. |
 | PY-9 | **Ship the `as_of_time` method updates to the deployed pyegeria.** Local edits to `project_manager` (`get_linked_projects`), `collection_manager` (`get_collection_members`), `data_designer` (`get_data_field_by_guid`) | **resolved** — semantically verified 2026-07-15 for `get_collection_members` (12 members "now" vs. `"No elements found"` at year-2000); **2026-07-31: `get_data_field_by_guid` also confirmed** (real data "now" vs. 404 "not found" at year-2000, via `get_project_by_guid`'s equivalent `managedProjects` field since `get_linked_projects` itself is broken — see PY-22) | Tree-view + data-field time-travel confirmed; `get_linked_projects` itself needs PY-22 fixed before it can be wired up |
-| PY-12 | `ReferenceDataManager` has no specification-property / valid-metadata methods (only inherits `ServerClient`) — easy to assume it covers `SpecificationProperties`' territory since `get_valid_metadata_values` happens to work on it | open (docs/placement) | Use `pyegeria.SpecificationProperties` for `get_specification_property_*`/`find_specification_property` |
+| PY-12 | `ReferenceDataManager` has no specification-property / valid-metadata methods (only inherits `ServerClient`) — easy to assume it covers `SpecificationProperties`' territory since `get_valid_metadata_values` happens to work on it | **fixed** — pyegeria's `PYEGERIA_ISSUES.md` (ISSUE-19) found this already resolved on re-verify 2026-08-15: `ReferenceDataManager`'s class docstring now has a `Note` pointing callers at `SpecificationProperties`/`MetadataExpert` | Use `pyegeria.SpecificationProperties` for `get_specification_property_*`/`find_specification_property` |
 | PY-13 | `SpecificationProperties.get_specification_property_by_type` always 400s regardless of the value passed (plain name, or the enum-wrapped form from its own OpenAPI spec) | **reclassified as Egeria server bug** — not fixable in pyegeria; server-side `@RequestParam` enum binding issue | `valid_values_handler.py` uses `find_specification_property("*")` + client-side filter on `properties.identifier` instead |
 | PY-14 | `find_specification_property` default `graph_query_depth=3` is O(n) per element (~50s for 1000 elements) — same root cause as PY-6, confirmed on a second method | **not a bug** — reclassified 2026-07-14, same reasoning as PY-6 | Always pass `graph_query_depth=0` on bulk `find_*`/list calls (~0.6-2s for 1000 elements, same flat data minus the graph) |
 | PY-15 | Postgres repository connector's `QueryBuilder.getSearchClassificationsClause()` ignores `matchClassifications.matchCriteria` entirely once 2+ classification conditions are given — ANY/ALL/NONE all behave as an unconditional AND, so a query naming two classifications that never co-occur on the same element (e.g. `ZoneMembership` + `Confidentiality`) always returns zero elements instead of the ANY union | **FIXED and CLOSED** — root-caused 2026-07-15 while building Egeria Insights, fixed server verified live 2026-07-17: ANY/ALL/NONE now return distinct correct results (150/0/1000) instead of all being 0 | Regression test `test_find_metadata_elements_multi_classification_any_match_criteria` passes |
 | PY-16 | `ClassificationExplorer.link_elements_as_peer_duplicates`/`_async_link_elements_as_peer_duplicates` (and likely the `unlink_*` detach twin) POST to `.../classification-explorer/elements/{guid}/peer-duplicate/{guid}/attach` — the real Spring endpoint (`ClassificationExplorerResource.java`) is mapped at `.../related-elements/{guid}/peer-duplicate/{guid}/attach` (`elements` vs `related-elements`), so every call 404s | **FIXED in pyegeria 6.0.16.20 (2026-07-17)** — confirmed live against `quickstart-pyegeria-web`'s updated install | `duplicate_review_handler.py`'s seed script used a direct `_async_make_request` workaround — safe to revert to the plain client call if re-run |
 | PY-17 | `MetadataExpert.get_metadata_element_by_guid` never returns relationships regardless of `graph_query_depth` (confirmed identical output at depth 0/1/2/3 against a Notification with known real relationships) | **not a bug — working as designed (2026-07-17)**. `get_all_related_elements(guid)` is the correct, separate call for relationships — this is a two-call design, not a gap | `action_center_handler.py` already calls both and merges. Worth auditing other handlers that assumed `graph_query_depth=1` on a by-guid call would include relationships — not yet checked beyond Action Center |
 | PY-18 | `MetadataExpert.count_relationships_between_elements("Exception")` = 276 but `ClassificationExplorer.get_relationships("Exception")` = 55 — same type, only Exception affected (SemanticAssignment/License/Certification/AttachedRating all match); not status/effectivity/type-filter. **open — needs Egeria-side investigation** (subtypes? visibility? dangling ends?) | Found 2026-07-24 wiring the Overview dashboard to native counting (odpi/egeria#9168). See PYEGERIA_ISSUES.md PY-18 | Dashboard keeps relationship counts on `get_relationships` (Audit-consistent); native used for element counts only |
-| PY-19 | `MetadataExpert.find_relationships_between_elements(relationshipTypeName=…)` returns "No elements found" even when `count_relationships_between_elements` counts >0 (e.g. SemanticAssignment 397) — the find/count pair disagree within the same OMVS | **open** — found 2026-07-24 alongside PY-18. See PYEGERIA_ISSUES.md PY-19 | none — use `get_relationships`/`count_*`; the metadata-expert relationship *find* is unusable as a plain type query |
-| PY-20 | **DESIGN DISCUSSION (high priority), not a bug** — paging/sequencing strategy for "load-all" list endpoints. `find_glossary_terms` (and peers) ignore `sequencing_*` (return server-internal order); `start_from` works. The portal's load-all-up-to-a-ceiling-then-sort-in-JS pattern silently returns an arbitrary subset past the ceiling (388 terms, default page_size 200 → 200 arbitrary, alphabetically-early terms missing). Options: bounded fetch-all via native `count_metadata_elements` + `truncated` flag vs true server-side paging (blocked until sequencing is reliable). Ceiling bounded by view-server `maxPageSize` config (< 5000, TBD). See PYEGERIA_ISSUES.md PY-20 | Open — to decide in discussion (strategy + `maxPageSize`) | Raising page_size only lowers the odds — not a fix |
+| PY-19 | `MetadataExpert.find_relationships_between_elements(relationshipTypeName=…)` returns "No elements found" even when `count_relationships_between_elements` counts >0 (e.g. SemanticAssignment 397) — the find/count pair disagree within the same OMVS | **fixed** 2026-08-15 (pyegeria `metadata_expert.py`, same root cause as ISSUE-49: the shared `process_related_element_list()` helper looked for relationships under `elementList` instead of the real key, `relationships`). Verified live against a real `SmartQuery` relationship. Released in pyegeria 6.1.0 (now deployed on quickstart-pyegeria-web) | No longer needed — `find_relationships_between_elements` now works directly |
+| PY-20 | **DESIGN DISCUSSION (high priority), not a bug** — paging/sequencing strategy for "load-all" list endpoints. `find_glossary_terms` (and peers) ignore `sequencing_*` (return server-internal order); `start_from` works. The portal's load-all-up-to-a-ceiling-then-sort-in-JS pattern silently returns an arbitrary subset past the ceiling (388 terms, default page_size 200 → 200 arbitrary, alphabetically-early terms missing). Options: bounded fetch-all via native `count_metadata_elements` + `truncated` flag vs true server-side paging (blocked until sequencing is reliable). Ceiling bounded by view-server `maxPageSize` config (< 5000, TBD). See PYEGERIA_ISSUES.md PY-20 | **Underlying blocker cleared 2026-08-18** — the server-side sequencing bug this was blocked on (ISSUE-60) is confirmed fixed: `find_glossary_terms(sequencing_order=..., sequencing_property=...)` now sorts genuinely across pages, not just within one. The fetch-all-vs-true-paging **product decision** itself is still open — worth revisiting now that true server-side paged sort is viable, not just the bounded-fetch workaround. (Note: PY-21's "sequencing_order + classification filter → 0 rows" failure is a *different* bug, confirmed still broken as of 2026-08-18 — doesn't affect this item's plain sequencing case.) | Raising page_size only lowers the odds — not a fix; true paging is now a real option again |
 | PY-21 | **CONFIRMED BUG, fixed in this app** — `find_glossary_terms(sequencing_order=..., include_only_classified_elements=...)` silently returns **zero** results when combined, even though each filter alone works fine (classification filter alone: 33 hits; `sequencing_order` alone: 200 hits; both together: 0). Root cause of "Egeria Explorer Perspectives page shows Perspectives but no Questions" (2026-07-28) — `perspectives_handler.py`'s `get_questions()` used exactly this combination. See PYEGERIA_ISSUES.md PY-21 | **Fixed** 2026-07-28 in `perspectives_handler.py` (dropped `sequencing_order`/`sequencing_property` — redundant anyway, results are already sorted client-side) | Egeria-side: worth checking whether `include_only_classified_elements`/`matchClassifications` + `sequencing_order` is broken generally, not just for this one call site |
-| PY-22 | `ProjectManager.get_linked_projects(guid)` returns `"No elements found"` for every one of the 29 qs demo projects, including ones with a demonstrably real `ProjectHierarchy` relationship (visible in `get_project_by_guid`'s own `managedProjects` field for "Sustainability Campaign") — not a test-data gap, the method itself doesn't surface real relationship data | **open** — found 2026-07-31 closing out the PY-7/9/11 `as_of_time` verification remainder. See PYEGERIA_ISSUES.md PY-22 | Workaround: use `get_project_by_guid(guid)["managedProjects"]` directly instead of `get_linked_projects` until fixed |
-| PY-23 | `Create Information Supply Chain`'s `Purposes` attribute validated/processed with `SUCCESS` but was never persisted to the element — confirmed live creating 17 ISCs, none retained their `Purposes` value | **fixed upstream** — found 2026-08-18 building `gen_governance_metrics.py`, logged as `egeria-python` ISSUE-62, renumbered to **ISSUE-64** and fixed on `fix/pyegeria-http-endpoint-audit` (per a peer Claude session's report, PR odpi/egeria-python#275, not yet released to PyPI) | Workaround still in place in `gen_governance_metrics.py` (uses `Description` instead of `Purposes`) until the fix ships in a release |
+| PY-22 | `ProjectManager.get_linked_projects(guid)` returns `"No elements found"` for every one of the 29 qs demo projects, including ones with a demonstrably real `ProjectHierarchy` relationship (visible in `get_project_by_guid`'s own `managedProjects` field for "Sustainability Campaign") — not a test-data gap, the method itself doesn't surface real relationship data | **fixed** 2026-08-05 (pyegeria `_server_client.py` — ISSUE-42). Root cause: the shared `_async_get_guid_request` helper only checked singular `"element"`/`"elementGraph"` response keys; the real response for this endpoint returns a list under the plural `"elements"` key, added as a third fallback. Verified live (a project with real links now returns them) + 4 new unit tests. Released in pyegeria 6.1.0 (now deployed on quickstart-pyegeria-web) | No longer needed — `get_linked_projects` now works directly |
+| PY-23 | `Create Information Supply Chain`'s `Purposes` attribute validated/processed with `SUCCESS` but was never persisted to the element — confirmed live creating 17 ISCs, none retained their `Purposes` value | **fixed, released, and verified end-to-end live** — fixed 2026-08-18 (`egeria-python` ISSUE-64, `solution_architect.py`; real wire property is `dataProcessingPurposes`, not `purposes`), shipped in pyegeria 6.1.0 on PyPI, deployed on `quickstart-pyegeria-web`. Workaround reverted in `gen_governance_metrics.py` (back to `### Purposes`). **Follow-up bug found and fixed same day:** `Purposes` is a `Simple List` attribute — Dr.Egeria's parser splits list values on *any* comma, not just an intentional separator (`re.split(r'[;,\n]+', value)`), so the first revert's prose paragraph (written for `Description`, dense with commas) landed as disconnected mid-sentence fragments instead of one coherent value. Rewrote `flow_purpose` as 4 genuinely separate, comma-free statements joined with `"; "` (plus a `_nc()` guard stripping any stray comma from interpolated metric names), regenerated, re-ran `--validate` (40/40 SUCCESS) then `--process` (54/54 SUCCESS). Verified live across all 17 Data Flow ISCs, not just one: every `dataProcessingPurposes` list has exactly 4 items, zero commas in any of them. | None needed — closed |
+| PY-24 | `ServerClient._async_get_guid_request`'s dict-body branch always validates against the base `GetRequestBody`/`ResultsRequestBody` Pydantic models, whose `class` field was `Literal[<own name>]` — rejects any real Egeria polymorphism subclass name, including ones pyegeria's own docstrings tell callers to send (`AnyTimeRequestBody` for `SolutionArchitect.get_solution_component_by_guid`/`get_solution_blueprint_by_guid`; `RelationshipRequestBody` for `ProjectManager.get_linked_projects`). Found 2026-08-23 right after the pyegeria 6.1.1 rollout — a real 500 on solution component detail, plus a second, silent instance where `get_linked_projects`' failure was swallowed by a `try/except` into an empty child list. | **fixed upstream, not yet released** — filed as [odpi/egeria-python#298](https://github.com/odpi/egeria-python/issues/298), fixed same-day in [PR #299](https://github.com/odpi/egeria-python/pull/299) (`class_` loosened from `Literal` to `str` on both models — covers all ~90 call sites through this helper, not just the two hit here; new regression test `test_get_request_body_class_literal.py`; tracked as `egeria-python` ISSUE-72). **Still open here:** once #299 merges and ships in a pyegeria release, revert `solution_architect_handler.py`'s `_DETAIL_GRAPH_BODY_MODEL` and `project_handler.py`'s `_relationship_request_body()` back to plain dicts (both quickstart and freshstart) — the `model_construct` workaround is temporary tech debt, not the real fix. | `GetRequestBody.model_construct(class_=<real subclass name>, ...)` bypasses Pydantic validation entirely (unlike `model_validate`), hitting `_async_get_guid_request`'s `isinstance(body, GetRequestBody)` fast path that skips validation — see the comments at both call sites for the full writeup |
+| PY-25 | `ValidMetadataManager` — 12 of 14 methods build their request URL by unconditionally f-string-interpolating `type_name`, e.g. `f".../validate-value/{property_name}?typeName={type_name}&actualValue={actual_value}"`. When `type_name` is `None` (the documented way to register/validate a valid value across *all* open metadata types — a Dr.Egeria `Setup Valid Metadata Value` command with Type Name deliberately omitted), the f-string renders the literal string `"None"`, so the server receives `typeName=None` — a nonexistent type, not "no filter." Breaks both the registration call itself (the "global" value never actually lands as global) and every later validate/get/clear lookup that also passes `type_name=None`, so it's deterministically broken, not a timing/cache issue (confirmed live 2026-08-28: identical failure re-running the same file 20+ min apart, fresh process both times). Real-world trigger: 5 of 18 files in egeria-workspaces' Coco "Data Governance Program" batch each self-register a custom domain this way before using it — every dependent `Create <GovernanceDefinition>` command in those files failed `Domain Identifier` validation, cascading into "Missing unresolved reference GUID(s)" on later `Link Governance Response`/`Link Governance Mechanism` commands and 404s (`metadataElement2GUID=None`) on `Add Member to Collection`. | **fixed and released — verified live end-to-end, 2026-08-28.** Root-caused and fixed by the `egeria-python` session (tracked as `egeria-python` ISSUE-82): applied the same `if type_name: url += f"&typeName={type_name}"` guard already present on the one correctly-written sibling method (`_async_get_valid_metadata_values`) to the other 11 async methods. Shipped in **pyegeria 6.1.7** the same day. Upgraded `quickstart-pyegeria-web`'s container (`pip install --upgrade pyegeria` → 6.1.7, guard confirmed present in the installed `valid_metadata.py`) and re-ran all 5 previously-failing files directly (`human-resource-management.md`, `health-and-safety.md`, `biological-agents-and-gmo.md`, `dangerous-goods-transport.md`, `diversity-equity-inclusion.md`) — every one now exits 0 / `SUCCESS`, zero occurrences of any of the three failure signatures (`not a valid metadata value`, `Missing unresolved reference`, `PyegeriaNotFoundException`/404) across all 5 outputs. | None needed — closed. `requirements.txt`'s `pyegeria>=6.1.1` pin covers 6.1.7 automatically on next rebuild; the container-only `pip install --upgrade` done here for live verification does not survive a rebuild (see `Dockerfile-fast-api`'s own note) — `bin/update-pyegeria.sh` picks it up for real next deploy. |
 
 ---
 
@@ -1315,7 +812,7 @@ Design doc: `my-egeria-integration.md` (in session). Architecture: `textual serv
 | ME-6 | "My Egeria" portal tile in quickstart `demo-portal.html` | done | Opens in new tab |
 | ME-7 | End-to-end smoke test: browser → Apache WS proxy → Textual app | done | Two fixes were needed: (1) `*.tcss` missing from pyegeria `package_data` (StylesheetError crashed every session) — fixed upstream + Dockerfile bridge; (2) CSP blocked cross-origin `0.0.0.0:8020` assets — fixed by passing `public_url` to `textual_serve.Server` so it emits same-origin `/my-egeria/...` URLs. Verified: assets 200, WS 101 through proxy, no StylesheetError. **Demo deployment fixes (2026-06-04, `577fc9b2`):** (3) `my-profile` was not started by `quick-start-local` — added to build + startup; (4) `/my-egeria/` route missing from `fastapi-ssl.conf` (only existed in HTTP vhost) — caused 404 on HTTPS; (5) `MY_EGERIA_PUBLIC_URL` was `http://` — overridden to `${DEMO_SITE_URL}/my-egeria` in demo overlay to avoid browser mixed-content block on WebSocket; (6) Podman 3.x silently skips external networks at container creation — `_podman_fix_network` helper added to `quick-start-local` to connect + cycle containers onto `egeria_network` after each `up -d`. |
 | ME-7a | `/my-profile` returns 401 for some personas (erinoverview, garygeeke) despite valid token | **likely same root cause as INFRA-1, not a distinct bug — reopen only if it recurs after ruling that out** | peterprofile loads fine and is now the quickstart default (`EGERIA_USER=peterprofile` in the deployed `quickstart-my-profile` container — erinoverview/garygeeke were never actually exercised by the live deployment, only by manual reconfiguration for testing). **2026-08-16:** re-tested live during the INFRA-1 memory-exhaustion incident's aftermath — `MyProfile.get_my_profile()` (the exact call `my_profile_app.py`'s `on_mount` makes, per pyegeria's `my_profile_command_root` = `POST .../api/open-metadata/my-profile`) succeeded for **all three** personas (erinoverview, peterprofile, garygeeke) on the freshly-restarted platform. This matches the project memory's own earlier finding verbatim: "ME-7a 401 appears to have been stale platform state — resolved by a clean platform boot, not a code change" (2026-06-03) — now confirmed a second time, months apart, by the same fix (a restart) after the same kind of long-uptime degradation. Given this session separately diagnosed a live incident where `quickstart-egeria-main` hit 88% of its 6GB memory limit after ~16 hours of uptime and threw spurious 401s platform-wide (including on internal server-to-server calls, ruling out a real per-user permission issue) — plausibly connected to Egeria's recent switch from `RestTemplate` to a connection-pooling `HttpClient` for its REST client connector (444 paired `eventpoll`/`eventfd` FDs observed, the NIO async-`HttpClient` signature, far more than this demo's load should produce) — treating ME-7a as a second manifestation of that same platform-wide degradation, not a my-profile-specific auth bug, is the working theory now. Not fully closed: haven't reproduced the *original* fresh-boot-with-erinoverview 401 to confirm it was always this and not something else entirely; if it recurs on a clean boot (not just after a long-uptime restart) that would rule this theory out. |
-| ME-7b | my-profile always runs as the container's hardcoded `EGERIA_USER` (`peterprofile`), never the actual browser session's real user | design written, not implemented | Surfaced investigating ME-7a. Traced into `textual_serve` (the library `serve_my_egeria.py` wraps): `Server.handle_websocket()` never reads a persona/token from the request (only `width`/`height` for terminal sizing), and `AppService._build_environment()` always builds the spawned subprocess's env from `os.environ.copy()` — i.e. the container's fixed env, not anything request-scoped. No existing mechanism varies identity per browser session. Full design (what changes in this repo vs. what has to change in the `my_egeria`/pyegeria package itself, why a raw password must never go in the URL, a token-based approach instead, and 4 open questions for the package owner) written up in `MY_PROFILE_PER_USER_LAUNCH.md` (repo root) for hand-off — most of the real fix is outside this repo's control. |
+| ME-7b | my-profile always runs as the container's hardcoded `EGERIA_USER` (`peterprofile`), never the actual browser session's real user | design written, not implemented | Surfaced investigating ME-7a. Traced into `textual_serve` (the library `serve_my_egeria.py` wraps): `Server.handle_websocket()` never reads a persona/token from the request (only `width`/`height` for terminal sizing), and `AppService._build_environment()` always builds the spawned subprocess's env from `os.environ.copy()` — i.e. the container's fixed env, not anything request-scoped. No existing mechanism varies identity per browser session. Full design (what changes in this repo vs. what has to change in the `my_egeria`/pyegeria package itself, why a raw password must never go in the URL, a token-based approach instead, and 4 open questions for the package owner) written up in `design-docs/MY_PROFILE_PER_USER_LAUNCH.md` for hand-off — most of the real fix is outside this repo's control. |
 | ME-8 | `serve_*` entry points for additional apps (Data Products, Tech Types, Reports, Journals) | open | Apps exist in `DemoCode/` but no `serve_*` functions or `pyproject.toml` entries yet |
 | ME-9 | Additional app compose services + proxy routes + portal tiles | open | Follow ME-2/3/4/5/6 pattern; ports 8021–8024 |
 | ME-10 | my-egeria integration in freshstart (Option A — app handles login) | deferred | After quickstart smoke test passes; freshstart omits `EGERIA_USER`/`EGERIA_USER_PASSWORD` so app prompts user |
@@ -1326,33 +823,7 @@ Design doc: `my-egeria-integration.md` (in session). Architecture: `textual serv
 
 ## Technical Asset Catalog
 
-Spec: `technical_data_catalog_spec.md`
-
-New standalone SPA (`tech-catalog.html`) + backend handler (`tech_catalog_handler.py`). Served at `/tech-catalog` via the existing Apache proxy — no new container or port needed. Uses `AssetMaker` and `ConnectionMaker` from pyegeria. Portal tile added to both quickstart and freshstart.
-
-**Dependency order:** TC-0 (scaffolding) → TC-1 (backend) → TC-2 (shell) → TC-3/TC-4/TC-5/TC-6 (sections, parallel) → TC-7 (detail polish) → TC-8 (cross-navigation, post-MVP).
-**Next priorities:** TC-11 (classification ubiquity audit) → TC-10 (zone display, free once TC-11 done) + TC-12 (sidebar filtering). TC-9 (lineage for non-Asset types) is independent.
-
-| # | Item | Status | Notes |
-|---|------|--------|-------|
-| TC-0 | Scaffolding: `tech-catalog.html` skeleton, `tech_catalog_handler.py` stub, router registration, Apache proxy block, portal tile in both envs | done | Portal tile 🐱, Apache proxy, router registered in both envs; SPA loads and shows 4-tile splash |
-| TC-1 | Backend: all 9 list endpoints + `/{guid}` detail — `find_infrastructure`, `find_software_capabilities`, `find_endpoints`, `find_data_assets` (×3), `find_assets` (DeployedAPI), `find_processes` (×2) | done | All pass `sequencing_order="PROPERTY_ASCENDING"`; consistent `{ items, total }` JSON shape |
-| TC-2 | SPA shell: auth seam (srvManaged/demoMode), hash-based section routing, 4-tile splash screen, FeedbackButton | done | Mirrors Explorer App structure; hash nav so portal can deep-link to sections |
-| TC-3 | Infrastructure section: 3 sub-tabs (IT Infrastructure / Software Capabilities / Endpoints), sidebar search + type-group filter, detail panel | done | Implemented via generic `SectionView` + `AssetTabView` with `SECTION_TABS` config |
-| TC-4 | Data Assets section: 3 sub-tabs (Data Stores / Data Feeds / Data Sets), sidebar + detail | done | Same generic components |
-| TC-5 | APIs section: single list + detail (DeployedAPI) | done | Single-tab section |
-| TC-6 | Processes section: 2 sub-tabs (Software Components / Actions), sidebar + detail | done | `find_processes` with `metadata_element_type` filter |
-| TC-7 | Detail panel polish: full property table, mermaid graphs (`AvailableMermaidDiagrams` + `MermaidSection`), classifications with properties, relationships with related element | done | `AssetTabView` fetches full detail via `get_asset_by_guid` on selection; `_extract_relationships` in backend; relationships card in `AssetDetail` (type · name · description · rel properties); summary shown immediately, detail overlaid on load |
-| TC-8 | Cross-navigation links: Infrastructure ↔ Software Capabilities, Software Capability ↔ IT Asset, Endpoint → server, Data Store → Data Sets | done | Mechanism (navTarget + `TYPE_TO_NAV` + supertype fallback) built during L-6/L-9. Verified 2026-06-18 against live data: relationship `relatedElement` carries `typeName` + `superTypeNames`, so subtypes resolve via their abstract supertype (e.g. IntegrationGroup→SoftwareCapability). Working: Infra↔Capabilities, Capability↔Server, API↔Endpoint, DataStore↔Endpoint. **Limitation:** *Endpoint→server* and *DataStore→DataSets* reverse links aren't in the depth-5 graph from that element's side (only Connection internals appear). Connection/ConnectorType/VirtualConnection targets are correctly non-navigable. |
-| TC-9 | Investigate which Catalog types genuinely support lineage — Endpoint and SoftwareCapability are Referenceable subtypes (not Asset) | done | `_serialize` now sets `hasLineage = "Asset" in superTypeNames` (was always True); SPA already gates `LineagePane` on `hasLineage`. Endpoint/SoftwareCapability no longer show an empty lineage pane; Assets still do. `superTypeNames` added to serializer + property-table skip list. |
-| TC-10 | Zone-based sidebar filtering | done | Absorbed into TC-12 |
-| TC-11 | Classification ubiquity audit and fix | done | Root cause found and fixed: pyegeria stores each classification as a named key directly on `elementHeader` with `class="ElementClassification"`, not in a `classifications` array; rewrote `_extract_classifications` in both handlers to iterate `elementHeader` items; confirmed working — `ZoneMembership` and `DataAssetEncoding` visible in Catalog property panels; `_SKIP_CLASSIFICATIONS` skips internal types (Anchors, LatestChange, Memento, etc.) |
-| TC-12 | Classification-based sidebar filtering | done | Filter chips below search bar: zone chips (🌐 zoneName, green) + classification type chips (purple); multi-select AND logic; `ZoneMembership.zoneMembershipList` split per zone; classification badges on each sidebar list item (zones green, others purple, max 3); filter resets on tab change |
-| TC-13 | Preview data for file Data Assets (when accessible), ideally formatted by type | **done (2026-06-21)** | New `GET /api/tech-catalog/assets/{guid}/preview`: resolves the asset's `pathName` (the Egeria-platform `/deployments/*` path), security-allowlists it under read-only roots (realpath defeats traversal), reads a bounded page via pandas (CSV/TSV/TXT + JSON/JSONL; Parquet unsupported — no pyarrow), returns `{columns, rows, has_more}`. Compose: data dirs mounted **read-only** into pyegeria-web at matching `/deployments/*` (both envs; freshstart mirrors its `exchange-freshstart` dirs). Frontend: the Explorer's `TabularPreviewModal` was generalised to a `fetchUrl` prop and moved into `egeria-shared-ui.js` (Explorer repointed; local copy removed); the Catalog's `AssetDetail` shows a "Preview Data 📊" action for file assets (DataFile subtypes / anything with a file path). Verified live: returns real rows for week7.csv. **Note:** previews only files reachable from the web container ("when accessible"); JSON renders as a flat table (not a tree). |
-| TC-14 | `annotationType` property in Annotations and Survey Reports panels | **done (2026-06-24)** | **Surveys → Annotations tab (`AnnotationsTabView`):** (1) loads `annotationType` valid values once on mount via `/api/valid-values/lookup?property_name=annotationType`; (2) derives unique `annotationType` values from the loaded annotation items; (3) renders a secondary filter chip row (indented, left-bordered) below the Egeria-type chips — "All" + one chip per value, toggling a client-side `atFilter` (no extra network request); (4) `annotationType` now appears as a small sub-label inside the Type column cell with the valid-values description as a tooltip. **Survey Report detail pane (`AnnotationsSubPane`):** same valid-values load + secondary filter chip row; chips have description tooltips. **`AnnotationCard`:** shows `annotationType` as a dim sub-line directly below the type badge; if valid values return a `displayName` different from the raw value it appends " — DisplayName"; description appears as a tooltip (`cursor: help`). The `annotationType` property was previously in `skipDisplay` (hidden). Applied to both envs. |
-| TC-15 | Generic Authors/Header/Relationships display across all `AuthoredReferenceable` types (both apps) | **done (2026-07-09)** | Root cause: element attributes were being surfaced via hand-picked `fields`/`SCALAR_FIELDS` arrays per Detail component, so new/less-common properties (e.g. `authors` on `AuthoredReferenceable` subtypes) and header/version metadata (createTime/updateTime/createdBy/updatedBy/maintainedBy) were silently dropped. **Backend:** new shared module `common_serialize.py` (`_authored_fields`, `_header_summary`, `_generic_relationships`) imported by all `*_handler.py` serializers; `_generic_relationships` groups every top-level relationship-shaped key on an element into a normalized `{guid, typeName, superTypeNames, displayName, qualifiedName, description, properties}` shape, with a `skip` param per handler to avoid double-listing keys the handler already curates by hand. `project_handler.py`'s `get_project` now requests `graphQueryDepth=2` so relationship arrays are actually present to extract. **Frontend (`egeria-shared-ui.js`, shared by both apps):** `GenericPropertiesTable({item, priority, skip, extra, renderValue})` renders every scalar property generically (Title-Cased for unknown keys, with a small label-override map for common ones); `HeaderInfoButton({header})` is a popover (mirrors the existing mermaid-graph popup pattern) showing GUID/Type/Status/Version/Created/Updated/Maintained By. `GenericRelationshipsSection` (type-explorer.html only — depends on app-local `onNavigateToElement`/linkable-type registry) renders the generic relationship groups with navigable links. Replaced hand-picked field arrays in 13 Detail components across `type-explorer.html` (Project, GovDef, Location, Community, Actor, SolutionBlueprint, SolutionComponent, ISC, ReferenceData, ExternalReference, Agreement, DigitalProduct, NoteLog) and in `tech-catalog.html`'s `AssetDetail` and Glossary components. `ValidValueDetail` intentionally skipped (dead code, never invoked). Verified live via curl against `/api/projects` and `/api/projects/{guid}` — `_header`/`authors`/`relationships` all present and correctly populated. Mirrored to freshstart (freshstart lacks `ExternalReferenceDetail`/`AgreementDetail` — no `external_links_handler.py` backend there — so those two were skipped in the freshstart copy; everything else, including `DigitalProductDetail`, applied identically). Caught and fixed a real bug pre-deploy via a Node+jsdom render-test harness: `GenericPropertiesTable`'s `renderValue` callback was passing raw array values (e.g. `authors`) to callers like `renderMd`, which expects a string and crashed on `.trim()` — fixed by always joining arrays to a string before the callback runs. |
-
----
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
 ## Resource Explorer
 
@@ -1369,7 +840,7 @@ The Catalog and Egeria Explorer both receive credentials at launch via query par
 
 ## Lineage Explorer
 
-New standalone portal application for data lineage visualization centred on a "focus asset". Spec: `Lineage Explorer.md`.
+New standalone portal application for data lineage visualization centred on a "focus asset". Spec: `design-docs/Lineage Explorer.md`.
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
@@ -1382,53 +853,11 @@ New standalone portal application for data lineage visualization centred on a "f
 
 ## Modularization
 
-Spec notes in `technical_data_catalog_spec.md` (Modularization strategy section).
-
-Goal: extract the shared UI components that appear verbatim in both Explorer and Tech Catalog into a served static file (`egeria-shared-ui.js`), so changes propagate automatically. Run this workstream **after** Tech Catalog Phase 4 ships — we need both consumers to exist before we can define the stable extraction boundary.
-
-**Short-term mitigation:** Mark shared blocks in Tech Catalog with `// SHARED — keep in sync with type-explorer.html` comments so drift is visible in code review.
-
-| # | Item | Status | Notes |
-|---|------|--------|-------|
-| MOD-1 | Audit: list all components copied verbatim from Explorer into Tech Catalog; confirm boundary (what to share vs what stays per-tool) | done | See `shared-ui-audit.md`. Boundary: **Tier 1 share-now** (Mermaid family + field constants, ResizeDivider, useResizable, renderMd/_renderMdHtml, VegaChart/AvailableCharts — canonical = richer Explorer version); **Tier 2 share-after-fetch-unification** (credAppend + feedback widgets — blocked by token vs query-param auth split, sequence with LE-4); **Tier 3 per-tool** (ConnectionForm, CredContext provider, tool views). |
-| MOD-2 | Extract shared components to `egeria-shared-ui.js` | **done** | **Done (Tier 1):** mermaid family (`MermaidDiagram`/`DiagramPanelFromData`/`AvailableMermaidDiagrams`/`_isMermaidKey`/`_mermaidLabel`/`_MERMAID_*`), robust `copyToClipboard` (execCommand fallback for non-secure http), `useResizable`, and the markdown renderer `renderMd`/`_renderMdHtml` (2026-06-18 — canonical Explorer version with embedded-```mermaid support; inline-code bg moved to a new `--md-code-bg` CSS var so it adapts to each SPA's light/dark theme, fixing a latent mismatch in both). **Done (Tier 2, 2026-06-19):** `EgeriaFeedbackWidget` + `EgeriaCommentsSection` extracted verbatim (byte-identical across all 4 SPA files) — they use bare `fetch()` against cookie-authed `/api/egeria-feedback/*`, so no fetch-seam injection was needed after all; hooks converted to `React.useState`/`React.useEffect` to match module convention. `ResizeDivider` shared (commit 32d906bf). **Done (2026-06-20):** `FeedbackButton` (+ `_SESSION_ID`) shared — canonical = the richer Explorer version; Catalog's stripped-down copy retired via a `pagePrefix="tech-catalog/"` prop (Catalog's demo-feedback form now gains the category dropdown + want-response/consent checkboxes). The audit's "property-table renderer" was a loose note — the two SPAs' property tables render different data and stay per-tool. `VegaChart`/`AvailableCharts` stay Explorer-only. **Tier 2 complete.** |
-| MOD-3 | Refactor Explorer + Tech Catalog to import from shared module; remove duplicated blocks | **done** | Both SPAs load `/static/egeria-shared-ui.js` and consume the Tier-1 components (local dups removed). **Glossary tree shared (2026-06-18, commits c12eeb33+1a04560d):** `GlossaryTermRow`+`GlossaryTreeNode` extracted with injected `fetchJson`; Catalog Glossary rewritten from breadcrumb to the shared twistie-tree. **Feedback widgets shared (2026-06-19):** local `EgeriaFeedbackWidget`/`EgeriaCommentsSection` blocks removed from both `type-explorer.html` and `tech-catalog.html` (qs + fs); now consumed from `egeria-shared-ui.js`. **Credentials unified + mermaid shared (2026-06-20):** `CredContext` + canonical `DiagramPanel`/`MermaidSection` moved to `egeria-shared-ui.js`; the Catalog now wraps its App in `CredContext.Provider` (was prop-drilling; its mermaid had used a bare credential-less fetch — latent bug in token/ConnectionForm modes, now fixed). **Glossary detail panes shared (2026-06-20):** `GlossaryFolderDetail`/`GlossaryDetail`/`GlossaryTermDetail` + `_glsBadge` unified on the **Catalog visual design** (Properties/Classifications cards), removed from both SPAs. Folder pane gains the `MermaidSection` context graph (was Explorer-only). Term pane takes optional cross-link callbacks + an injected `isElementLinkable` predicate. **Catalog Data-Design cross-links (MOD-4, 2026-06-20):** Catalog `TYPE_TO_NAV` extended with the DataSpec/Structure/Field/Grain/Class types → deep-link the Explorer's Data Design tab (`?guid=&kind=#data-design`); `GlossaryView` now resolves term-relationship links via the existing cross-app `handleNavigate`. Explorer `DataDesignView` gained a `?guid/?kind` cold-load fallback so those deep-links actually select the target. **MOD-3 complete.** |
-
----
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
 ## Session Reliability & Async Fixes (2026-06-26)
 
-Changes made to address long-running session failures (timeouts, token expiry, stale nav) surfacing in the demo site and long-lived notebooks.
-
-### pyegeria / egeria-python — `_client.py` / `_base_platform_client.py`
-
-| # | Item | Status | Notes |
-|---|------|--------|-------|
-| SR-1 | httpx connection pool settings | done | `AsyncClient` now created with `keepalive_expiry=20 s`, `connect` timeout 10 s, `max_connections=10`, `max_keepalive_connections=5`. The 20 s keepalive prevents dead-connection errors when a reverse proxy (nginx/Caddy default: 60–75 s idle timeout) closes an idle socket while pyegeria still holds it in the pool. Applied to both `pyegeria/_client.py` and `egeria-python/pyegeria/core/_base_platform_client.py`. |
-| SR-2 | `__exit__` async-close bug | done | `__exit__` called `self.session.aclose()` without `await`, so the session was never closed when using the client as a sync context manager. Fixed to `loop.run_until_complete(self.session.aclose())`. Applied to both repos. |
-| SR-3 | 401 auto-refresh | done | `_async_make_request` now detects 401/403 and, if `token_src == "Egeria"`, calls `_async_refresh_egeria_bearer_token()` and retries once (`_retrying=True` flag prevents loops). Externally-supplied tokens (`set_bearer_token`) are not auto-refreshed. Applied to both repos. |
-
-### egeria-workspaces — `PyegeriaWebHandler`
-
-| # | Item | Status | Notes |
-|---|------|--------|-------|
-| SR-4 | `egeria_auth.py` — `async_apply_token` | done | Added async counterpart to `apply_token`. Calls `await client._async_create_egeria_bearer_token()` directly so async FastAPI routes can build a client without triggering `RuntimeError: This event loop is already running` (which the sync `create_egeria_bearer_token()` would cause via its internal `run_until_complete`). |
-| SR-5 | `operations_handler.py` — async routes | done | `list_integration_connectors` and `server_status_overview` were sync routes using `asyncio.get_event_loop().run_until_complete()` to drive async fan-out. Converted to `async def`; added `_runtime_manager_async` and `_automated_curation_async` factories using `async_apply_token`. The `_async_get_server_report` call is now directly awaited, eliminating the sub-loop pattern that fails on Python 3.10+ when the event loop is already running. This is the primary fix for the integration-connectors pane timeout on the demo site. |
-| SR-6 | `audit_handler.py` — async routes | done | `list_users` and its `_user_names` fallback helper both used `asyncio.get_event_loop().run_until_complete()`. Converted both to `async def`; added `_security_officer_async` factory. The N=81 concurrent user-account fan-out now runs natively in the event loop. |
-| SR-7 | `type_system_handler.py` — async client factory | done | `get_type_names` and `get_all_types` are `async def` routes but called the sync `_get_client()` → `apply_token()` → `create_egeria_bearer_token()` chain, which raises `RuntimeError` inside a running loop. Added `_get_client_async()` that uses `async_apply_token`; both routes now use it for the no-token path. The token-expired fallback path in `get_all_types` is also fixed. |
-| SR-8 | `tech_catalog_handler.py` — async token creation | done | `get_egeria_bearer_token` is an `async def` route that called sync `mgr.create_egeria_bearer_token()`. Changed to `await mgr._async_create_egeria_bearer_token()`. |
-| SR-9 | `egeria-operations.html` — platforms list auto-refresh | done | The platforms/servers list was fetched once on page load and never refreshed, leaving the left-nav stale when servers started, stopped, or were added. Added a 30-second `setInterval` poll in the `useEffect`. Cleanup (`clearInterval`) is returned from the effect so it fires correctly on unmount and credential change. The error handler no longer blanks the nav on a transient network hiccup. |
-
-### Documentation
-
-| # | Item | Status | Notes |
-|---|------|--------|-------|
-| SR-10 | `egeria-python/docs/user_programming.md` — Long-Running Sessions section | done | New section covering httpx connection settings, automatic token refresh scope, and the async-context rule (`_async_create_egeria_bearer_token` vs sync `create_egeria_bearer_token`). Error-handling section extended with exception-class table. |
-| SR-11 | `egeria-python/AGENTS.md` — HTTP stack invariants | done | Four bullet points added under the `_base_platform_client.py` architecture entry: keepalive invariant, 401 retry, `__exit__` async rule, async context rule. Guards against accidental regression by AI coding assistants. |
-| SR-12 | `egeria-workspaces-fs/CLAUDE.md` — async handler pattern | done | See CLAUDE.md: rule added that new async FastAPI routes must use `*_async` client factories and `async_apply_token`; sync factories are for sync routes only. |
-| SR-13 | `egeria-workspaces-fs/AGENTS.md` — PyegeriaWebHandler async rule | done | See AGENTS.md: async invariant added to the PyegeriaWebHandler section. |
-
----
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
 
 ## Egeria Advisor — Intent Button Redesign (2026-06-26)
 
@@ -1462,23 +891,5 @@ Expand the indexed document corpus so `Explain` can answer questions from all Eg
 
 ## Done (recent)
 
-| Item | Commit |
-|------|--------|
-| Note Logs tab — read-only NoteLog viewer (both envs); entries via fixed `get_notes_for_note_log` (PY-5), subjects via `Anchors` classification | `4fdf09df` |
-| my-profile: wire into quick-start-local + fix Podman networking + SSL vhost + HTTPS public URL | `577fc9b2` |
-| Portal layout aligned with quickstart + Workspaces docs tile added (freshstart) | `c0fd2afc` |
-| Type System Explorer unified SPA + portal link fix (SHARE-1) | `5958dd03` |
-| Converge trivial handler drift (SHARE-2) | `04c9be2d` |
-| Type System Explorer ported to freshstart | — |
-| Egeria Explorer login loop in Freshstart — token expiry + erinoverview defaults | `85341fb6` |
-| Admin edit modal — givenName/surname pre-population | `85341fb6` |
-| Egeria native likes + ratings on detail panes | `1344acfc` |
-| Demo experience feedback button (all views) | `0731c2f0` |
-| Python API docs pane | `d70b72c4` |
-| Perspectives & Questions tab | — |
-| Dr. Egeria Commands tab | — |
-| Report Spec execution (backend + form) | — |
-| ISC, Governance Definitions tabs | — |
-| Solution Architect, Data Design tabs | — |
-| Fix 401 on Egeria type queries in Freshstart | `e6f0c8d2` |
-| Fix Egeria Explorer access + Advisor tile in Freshstart | `8f59eabd` |
+> Archived — see [BACKLOG-ARCHIVE.md](BACKLOG-ARCHIVE.md).
+

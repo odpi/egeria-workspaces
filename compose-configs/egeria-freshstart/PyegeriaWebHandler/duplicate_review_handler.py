@@ -142,7 +142,13 @@ def list_consolidated(
         raise HTTPException(status_code=500, detail=f"Connection failed: {exc}")
 
     try:
-        survivors = mgr.get_elements_by_classification("ConsolidatedDuplicate", output_format="JSON")
+        survivors = mgr.get_elements_by_classification(
+            "ConsolidatedDuplicate",
+            output_format="JSON",
+            graph_query_depth=0,  # PY-6/PY-14 perf lesson — _element_summary only reads flat fields;
+                                  # same method other handlers (naming_vocabulary_handler.py,
+                                  # policy_enforcement_handler.py) already pass this to.
+        )
     except Exception as exc:
         logger.exception("get_elements_by_classification(ConsolidatedDuplicate) failed")
         raise HTTPException(status_code=500, detail=f"Duplicate review retrieval failed: {exc}")

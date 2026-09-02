@@ -1,0 +1,14 @@
+{
+  "displayName": "Coco - 6. Data Privacy",
+  "description": "The data processing purposes declared across every governance domain, and the privacy scenarios worked through in detail: cross-border transfers and personalised manufacturing batch data.",
+  "canary": {
+    "type": "GovernanceObligation",
+    "name": "The Reference-to-Patient Mapping Must Be Held Clinically with Logged Access"
+  },
+  "defaultEnabled": false,
+  "files": [
+    "data-processing-purposes.md",
+    "cross-border-data-transfers.md",
+    "personalised-batch-data.md"
+  ]
+}

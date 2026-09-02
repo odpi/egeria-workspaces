@@ -5,7 +5,7 @@ Copyright Contributors to the ODPi Egeria project.
 Technical Asset Catalog — FastAPI router.
 
 Serves the tech-catalog SPA and provides backend API endpoints for all
-nine asset-type sections defined in technical_data_catalog_spec.md.
+nine asset-type sections defined in ../../../design-docs/technical_data_catalog_spec.md.
 
 Endpoints:
   GET /tech-catalog                              → serve tech-catalog.html SPA
@@ -33,6 +33,7 @@ Endpoints:
   GET /api/tech-catalog/survey-types                          → Survey type definitions (aggregated from TechnologyTypes)
 """
 
+import asyncio
 import os
 import time
 from pathlib import Path
@@ -141,29 +142,38 @@ def _is_mermaid_key(key: str) -> bool:
 # Classifications that are internal infrastructure — never shown in the UI.
 _SKIP_CLASSIFICATIONS = frozenset([
     "Anchors", "LatestChange", "Memento", "TemplateSubstitute", "SpineObject",
-    "SpineAttribute", "ObjectIdentifier",
+    "SpineAttribute",
+    # ObjectIdentifier is a real, meaningful classification (unlike SpineObject/
+    # SpineAttribute above, which are dead names from the removed 6.0 spine-object
+    # model and simply never match anything anymore) -- no longer skipped, so it
+    # surfaces in classification display like any other real classification.
 ])
 
+# Some classification "families" (an abstract classification supertype with
+# multiple concrete children — ProjectKind, CollectionKind, ExecutionPoint,
+# PolicyManagementPoint, per pyegeria's own get_all_classification_defs())
+# get bucketed together into one PLURAL list-valued key on elementHeader
+# instead of the usual one-singular-key-per-classification shape below,
+# since an element can carry more than one member of the same family at
+# once (a dict can't have two entries under one key) — e.g.
+# elementHeader["projectKinds"], confirmed live carrying Campaign +
+# GovernanceProject simultaneously. glossary_handler.py independently found
+# and fixed the identical pattern 2026-08-18 for a different bucket,
+# "glossaryTermKinds" — generalized here (matching common_serialize.py's
+# copy of this same fix) rather than hardcoding a hopefully-complete list of
+# known family key names, which already turned out to miss glossaryTermKinds
+# once: any list-valued header key whose items look like classifications
+# (carry a classificationName) is treated the same way.
 def _extract_classifications(header: dict) -> list:
     """Extract governance/business classifications from an elementHeader dict.
 
     In pyegeria's JSON output, each classification is a named key directly on
     elementHeader (e.g. "dataAssetEncoding", "zoneMembership"), not in a
     "classifications" list.  Every such value has class="ElementClassification"
-    and carries classificationName + classificationProperties.
+    and carries classificationName + classificationProperties. Also covers
+    the "family" bucket shape (see the comment above).
     """
-    result = []
-    for key, val in header.items():
-        if not isinstance(val, dict):
-            continue
-        if val.get("class") != "ElementClassification":
-            continue
-        cls_name = (val.get("classificationName")
-                    or (val.get("type") or {}).get("typeName")
-                    or (key[0].upper() + key[1:]))
-        if not cls_name or cls_name in _SKIP_CLASSIFICATIONS:
-            continue
-        cls_props_raw = val.get("classificationProperties") or {}
+    def _flatten(cls_props_raw) -> dict:
         flat = {}
         if isinstance(cls_props_raw, dict):
             for k, v in cls_props_raw.items():
@@ -173,7 +183,25 @@ def _extract_classifications(header: dict) -> list:
                     flat[k] = ", ".join(str(i) for i in v)
                 elif not isinstance(v, (dict,)):
                     flat[k] = str(v)
-        result.append({"typeName": cls_name, "properties": flat})
+        return flat
+
+    result = []
+    for key, val in header.items():
+        if isinstance(val, dict) and val.get("class") == "ElementClassification":
+            cls_name = (val.get("classificationName")
+                        or (val.get("type") or {}).get("typeName")
+                        or (key[0].upper() + key[1:]))
+            if not cls_name or cls_name in _SKIP_CLASSIFICATIONS:
+                continue
+            result.append({"typeName": cls_name, "properties": _flatten(val.get("classificationProperties") or {})})
+        elif isinstance(val, list):
+            for item in val:
+                if not isinstance(item, dict):
+                    continue
+                cls_name = item.get("classificationName") or (item.get("type") or {}).get("typeName")
+                if not cls_name or cls_name in _SKIP_CLASSIFICATIONS:
+                    continue
+                result.append({"typeName": cls_name, "properties": _flatten(item.get("classificationProperties") or {})})
     return result
 
 
@@ -434,6 +462,23 @@ def _automated_curation(url, server, user_id, user_pwd, token: Optional[str] = N
     u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
     ac = AutomatedCuration(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
     _apply_token(ac, token)
+    return ac
+
+
+async def _automated_curation_async(url, server, user_id, user_pwd, token: Optional[str] = None):
+    """Async twin of _automated_curation -- for async def routes, which must
+    never call the sync _apply_token()'s create_egeria_bearer_token() fallback
+    (it internally does asyncio.get_event_loop().run_until_complete(), which
+    raises inside an already-running loop). set_bearer_token() is a plain
+    attribute set and is safe either way, so only the no-token fallback path
+    needs the async variant."""
+    from pyegeria import AutomatedCuration
+    u, s, uid, pwd = _creds(url, server, user_id, user_pwd)
+    ac = AutomatedCuration(view_server=s, platform_url=u, user_id=uid, user_pwd=pwd)
+    if token:
+        ac.set_bearer_token(token)
+    else:
+        await ac._async_create_egeria_bearer_token()
     return ac
 
 
@@ -807,7 +852,7 @@ def _serialize_governance_process_list_item(el: dict) -> dict:
 
 
 def _serialize_governance_process_detail(raw: dict) -> dict:
-    """Serialise a GovernanceOfficer.get_governance_process_graph() response.
+    """Serialise a GovernanceOfficer.get_governance_action_process_graph() response.
 
     That call returns {governanceActionProcess, firstProcessStep, nextProcessSteps,
     processStepLinks, governanceActionProcessMermaidGraph} — a shape specific to
@@ -958,10 +1003,12 @@ def _serialize_tech_type_detail(el: dict) -> dict:
             continue
         rel_el    = (ref.get("relatedElement") or {})
         rel_props = rel_el.get("properties") or {}
+        rel_hdr   = rel_el.get("elementHeader") or {}
         ext_refs.append({
             "displayName": ref.get("displayName") or rel_props.get("displayName") or "",
             "description": ref.get("description") or rel_props.get("description") or "",
             "url":         ref.get("url") or rel_props.get("url") or "",
+            "guid":        rel_hdr.get("guid") or rel_el.get("guid") or "",
         })
     base["externalReferences"] = ext_refs
 
@@ -1456,14 +1503,14 @@ def get_governance_process_detail(
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
 ):
     """Full step/flow/target detail for one GovernanceActionProcess, via
-    GovernanceOfficer.get_governance_process_graph — the 0462 structural API,
+    GovernanceOfficer.get_governance_action_process_graph — the 0462 structural API,
     not the generic Asset graph (which has no concept of process steps)."""
     try:
         mgr = _governance_officer(url, server, user_id, user_pwd, token=_token_from_request(request))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
     try:
-        raw = mgr.get_governance_process_graph(guid, output_format="JSON")
+        raw = mgr.get_governance_action_process_graph(guid, output_format="JSON")
         if not raw or not isinstance(raw, dict) or not raw.get("governanceActionProcess"):
             raise HTTPException(status_code=404, detail=f"Governance action process {guid!r} not found")
         return JSONResponse(_serialize_governance_process_detail(raw))
@@ -1880,6 +1927,7 @@ def list_tech_types(
         ac = _automated_curation(url, server, user_id, user_pwd, token=_token_from_request(request))
         raw = ac.find_technology_types(
             search_string=q or "*",
+            graph_query_depth=0,  # PY-6/PY-14 perf lesson — _serialize_tech_type only reads flat fields
             start_from=start_from,
             page_size=page_size,
             output_format="JSON",
@@ -1973,8 +2021,38 @@ _SURVEY_TYPES_CACHE: dict = {}   # key → {"ts": float, "data": list}
 _SURVEY_TYPES_TTL = 300          # 5 minutes
 
 
+def _process_survey_entry(by_guid: dict, entry: dict, tech_display: str, tech_qn: str, source: str):
+    if not isinstance(entry, dict):
+        return
+    resource_use = entry.get("resourceUse") or ""
+    if "survey" not in resource_use.lower():
+        return
+    rel_el    = (entry.get("relatedElement") or {})
+    rel_props = rel_el.get("properties") or {}
+    rel_hdr   = rel_el.get("elementHeader") or {}
+    guid = rel_hdr.get("guid") or rel_el.get("guid") or ""
+    if not guid:
+        return
+    spec = entry.get("specification") or {}
+    survey_spec = _extract_survey_spec(spec)
+    if guid not in by_guid:
+        by_guid[guid] = {
+            "guid":          guid,
+            "displayName":   rel_props.get("displayName") or entry.get("displayName") or "",
+            "qualifiedName": rel_props.get("qualifiedName") or "",
+            "description":   entry.get("description") or rel_props.get("description") or "",
+            "typeName":      (rel_hdr.get("type") or {}).get("typeName") or "",
+            "resourceUse":   resource_use,
+            "usedByTechTypes": [],
+            **survey_spec,
+        }
+    ref = {"displayName": tech_display, "qualifiedName": tech_qn}
+    if ref not in by_guid[guid]["usedByTechTypes"]:
+        by_guid[guid]["usedByTechTypes"].append(ref)
+
+
 @router.get("/api/tech-catalog/survey-types")
-def list_survey_types(
+async def list_survey_types(
     request: Request,
     url: Optional[str] = Query(None), server: Optional[str] = Query(None),
     user_id: Optional[str] = Query(None), user_pwd: Optional[str] = Query(None),
@@ -1992,65 +2070,53 @@ def list_survey_types(
 
     token = _token_from_request(request)
     try:
-        ac = _automated_curation(url, server, user_id, user_pwd, token=token)
-        raw_list = ac.find_technology_types(search_string="*", page_size=500, output_format="JSON")
+        ac = await _automated_curation_async(url, server, user_id, user_pwd, token=token)
+        raw_list = await ac._async_find_technology_types(
+            search_string="*",
+            graph_query_depth=0,  # PY-6/PY-14 perf lesson — _serialize_tech_type only reads flat fields
+            page_size=500,
+            output_format="JSON",
+        )
     except Exception as exc:
         logger.exception("list_survey_types: find_technology_types failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
+    tech_bases = [_serialize_tech_type(tr) for tr in _safe_list(raw_list)]
+
+    # One get_tech_type_detail per tech type is an N+1 fan-out -- serial, this took
+    # ~56s cold against a few hundred tech types (masked the rest of the time by
+    # _SURVEY_TYPES_TTL, but every cache-cold hit paid it). Fetch concurrently
+    # (bounded), same pattern as audit_handler.py's user-account fan-out.
+    sem = asyncio.Semaphore(16)
+
+    async def _fetch_detail(tb: dict):
+        filter_string = tb.get("deployedImplementationType") or tb.get("displayName") or tb.get("qualifiedName") or ""
+        async with sem:
+            try:
+                detail_raw = await ac._async_get_tech_type_detail(
+                    filter_string=filter_string,
+                    output_format="JSON",
+                )
+                el = detail_raw[0] if isinstance(detail_raw, list) else detail_raw
+                return el if isinstance(el, dict) else None
+            except Exception:
+                logger.warning("list_survey_types: could not fetch detail for %s", tb.get("qualifiedName"))
+                return None
+
+    details = await asyncio.gather(*[_fetch_detail(tb) for tb in tech_bases])
+
     # guid → survey type entry (aggregated across TechTypes)
     by_guid: dict = {}
 
-    for tech_raw in _safe_list(raw_list):
-        tech_base = _serialize_tech_type(tech_raw)
+    for tech_base, el in zip(tech_bases, details):
+        if not el:
+            continue
         tech_display = tech_base.get("displayName") or tech_base.get("qualifiedName") or ""
         tech_qn = tech_base.get("qualifiedName") or ""
-
-        try:
-            detail_raw = ac.get_tech_type_detail(
-                filter_string=tech_base.get("deployedImplementationType") or tech_base.get("displayName") or tech_qn,
-                output_format="JSON",
-            )
-            el = detail_raw[0] if isinstance(detail_raw, list) else detail_raw
-            if not isinstance(el, dict):
-                continue
-        except Exception:
-            logger.warning("list_survey_types: could not fetch detail for %s", tech_qn)
-            continue
-
-        def _process_survey_entry(entry: dict, source: str):
-            if not isinstance(entry, dict):
-                return
-            resource_use = entry.get("resourceUse") or ""
-            if "survey" not in resource_use.lower():
-                return
-            rel_el    = (entry.get("relatedElement") or {})
-            rel_props = rel_el.get("properties") or {}
-            rel_hdr   = rel_el.get("elementHeader") or {}
-            guid = rel_hdr.get("guid") or rel_el.get("guid") or ""
-            if not guid:
-                return
-            spec = entry.get("specification") or {}
-            survey_spec = _extract_survey_spec(spec)
-            if guid not in by_guid:
-                by_guid[guid] = {
-                    "guid":          guid,
-                    "displayName":   rel_props.get("displayName") or entry.get("displayName") or "",
-                    "qualifiedName": rel_props.get("qualifiedName") or "",
-                    "description":   entry.get("description") or rel_props.get("description") or "",
-                    "typeName":      (rel_hdr.get("type") or {}).get("typeName") or "",
-                    "resourceUse":   resource_use,
-                    "usedByTechTypes": [],
-                    **survey_spec,
-                }
-            ref = {"displayName": tech_display, "qualifiedName": tech_qn}
-            if ref not in by_guid[guid]["usedByTechTypes"]:
-                by_guid[guid]["usedByTechTypes"].append(ref)
-
         for gp in _safe_list(el.get("governanceActionProcesses")):
-            _process_survey_entry(gp, "governanceActionProcesses")
+            _process_survey_entry(by_guid, gp, tech_display, tech_qn, "governanceActionProcesses")
         for r in _safe_list(el.get("resourceList")):
-            _process_survey_entry(r, "resourceList")
+            _process_survey_entry(by_guid, r, tech_display, tech_qn, "resourceList")
 
     items = sorted(by_guid.values(), key=lambda x: x.get("displayName", "").lower())
     _SURVEY_TYPES_CACHE[cache_key] = {"ts": time.time(), "data": items}

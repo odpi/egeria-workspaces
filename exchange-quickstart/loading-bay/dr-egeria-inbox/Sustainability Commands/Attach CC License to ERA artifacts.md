@@ -1,13 +1,13 @@
-# Link License
+## Link License
 >	A license relationship between a license type and a Referencable element.
 
-## License Type
+### License Type
 >	**Input Required**: True
 
 >	**Description**: The license type being used for the license.
 
 LicenseType::CC-BY-licence::4.0
-## Referenceable
+### Referenceable
 >	**Input Required**: True
 
 >	**Description**: The object being licensed.
@@ -15,103 +15,103 @@ LicenseType::CC-BY-licence::4.0
 >	**Alternative Labels**: element
 
 
-## License GUID
+### License GUID
 >	**Input Required**: False
 
 >	**Description**: Unique identifier of the license.
 
 
-## Start Date
+### Start Date
 >	**Input Required**: False
 
 >	**Description**: Date at which the license takes effect.
 
 
-## End Date
+### End Date
 >	**Input Required**: False
 
 >	**Description**: Date at which the license expires.
 
 
-## Conditions
+### Conditions
 >	**Input Required**: False
 
 >	**Description**: License conditions.
 
 
-## Licensed By
+### Licensed By
 >	**Input Required**: False
 
 >	**Description**: 
 
 
-## Licensed By Type Name
+### Licensed By Type Name
 >	**Input Required**: False
 
 >	**Description**: 
 
 
-## Licensed By Property Name
+### Licensed By Property Name
 >	**Input Required**: False
 
 >	**Description**: 
 
 
-## Custodian
+### Custodian
 >	**Input Required**: False
 
 >	**Description**: Custodian of the license.
 
 
-## Custodian Type Name
+### Custodian Type Name
 >	**Input Required**: False
 
 >	**Description**: 
 
 
-## Custodian Property Name
+### Custodian Property Name
 >	**Input Required**: False
 
 >	**Description**: 
 
 
-## Licensee
+### Licensee
 >	**Input Required**: False
 
 >	**Description**: The licensee.
 
 
-## Licensee Type Name
+### Licensee Type Name
 >	**Input Required**: False
 
 >	**Description**: 
 
 
-## Licensee Property Name
+### Licensee Property Name
 >	**Input Required**: False
 
 >	**Description**: 
 
 
-## Entitlements
+### Entitlements
 >	**Input Required**: False
 
 >	**Description**: What the license grants to the licensee.
 
 
-## Restrictions
+### Restrictions
 >	**Input Required**: False
 
 >	**Description**: Restrictions imposed by the license.
 
 
-## Obligations
+### Obligations
 >	**Input Required**: False
 
 >	**Description**: Obligations defined by the license.
 
 
-## Notes
+### Notes
 >	**Input Required**: False
 
 >	**Description**: Notes about the license.

@@ -15,7 +15,7 @@
 ## Critical workflows
 - Preferred startup paths: local scripts for single-machine dev, multi-host scripts for real DNS/FQDN routing.
 - Startup scripts always call `compose-configs/shared-infra/ensure-shared-infra.sh` first; do not duplicate shared Kafka/Postgres startup logic elsewhere.
-- Rebuild behavior is intentional: scripts use `docker compose build --pull` and `up -d --pull always`; `NO_CACHE=1` adds `--no-cache` via `compose-configs/shared-infra/compose-build-flags.sh`; `--refresh-platform` on `*-start-local` forces platform image refresh.
+- Rebuild behavior is intentional: scripts use `docker compose build --pull` and `up -d --pull always`; `NO_CACHE=1` adds `--no-cache` via `compose-configs/shared-infra/compose-build-flags.sh`; `--refresh-platform` on `*-start-local` forces platform image refresh; `--refresh-pyegeria` on `*-start-local` busts the cached pyegeria pip-install layer for pyegeria-web + jupyter (see `compose-configs/shared-infra/pin-latest-digest.sh` and each Dockerfile's `PYEGERIA_BUST` ARG for why a plain rebuild alone doesn't pick up a newer pyegeria release).
 - **Synchronization workflow:** `user-sync` and `quick-start-local --sync-*` automate exporting/importing demo DB schemas (`demo_auth`, `demo`) via SSH/SCP. They use `REMOTE_USER` and `REMOTE_PASSWORD` env vars or flags, and rely on `sshpass` if passwords are provided.
 
 ## Project-specific conventions
@@ -27,7 +27,7 @@
 
 ## PyegeriaWebHandler and MCP integration
 - Main backend entrypoint: `compose-configs/egeria-quickstart/PyegeriaWebHandler/pyegeria_handler.py` (FastAPI + router modules by domain).
-- MCP server entrypoint: `compose-configs/egeria-quickstart/PyegeriaWebHandler/mcp_server.py`; Obsidian MCP plugin is in `obsidian-plugins/calling-the-dr/`.
+- MCP server entrypoint: `compose-configs/egeria-quickstart/PyegeriaWebHandler/mcp_server.py`; Obsidian MCP plugin is in `obsidian-plugins/call-dr-egeria/`.
 - Token-gated SSE/messages endpoints rely on `MCP_ACCESS_TOKEN` (see middleware in `pyegeria_handler.py`).
 - `pyegeria-web` is mounted read-write to workspace folders (`/app`, `/config`, `/work`, templates, demo data), so path changes must preserve container mount assumptions.
 - **Async invariant:** `async def` FastAPI routes must use `*_async` client factories (e.g. `_runtime_manager_async`, `_security_officer_async`) that call `await async_apply_token(mgr)` from `egeria_auth.py`. Never call sync `apply_token()` or `create_egeria_bearer_token()` from an async route — they call `run_until_complete()` internally and raise `RuntimeError` on Python 3.10+. See CLAUDE.md for the full pattern and `operations_handler.py` / `audit_handler.py` for reference implementations.

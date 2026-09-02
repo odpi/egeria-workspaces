@@ -87,6 +87,13 @@ services:
     # Restart automatically after a crash/OOM-kill (exit 137) instead of
     # staying dead silently. See MEMORY egeria-oom-kill-docker-desktop-vm-limit.
     restart: unless-stopped
+    labels:
+      # Opts in to shared-infra's autoheal service, which covers the case the
+      # restart policy above cannot see: the container still running while the
+      # platform inside it is wedged. Safe here because the healthcheck below
+      # tolerates ~8.5 min (60s start_period + 15 retries x 30s) against a
+      # 2-5 min JVM boot, so a slow start is never mistaken for a failure.
+      egeria.autoheal: "true"
     # Docker Desktop's VM has a single shared memory pool across all containers
     # (check Settings -> Resources -> Memory) — this JVM is normally the
     # heaviest consumer and the kernel OOM-killer's first target when the VM
@@ -95,6 +102,15 @@ services:
     # more headroom. Configurable via EGERIA_MEM_LIMIT (see gen-env.sh) —
     # ./quick-start-local --egeria-memory <SIZE> sets it for you; 6g if unset.
     mem_limit: ${EGERIA_MEM_LIMIT:-6g}
+    # CPU cap, same rationale as mem_limit above but for a different failure
+    # mode: an unbounded egeria-main can peg every core the VM has, starving
+    # sibling containers (and the Docker Desktop VM's own kernel threads) on
+    # scheduling alone — confirmed 2026-08-23, when egeria-main sustained
+    # ~480% CPU and a Postgres checkpoint went unscheduled long enough that a
+    # backend died and Postgres had to crash-recover. Configurable via
+    # EGERIA_CPU_LIMIT (see gen-env.sh) — ./quick-start-local --egeria-cpus
+    # <N> sets it for you; 4 (of the host's cores) if unset.
+    cpus: ${EGERIA_CPU_LIMIT:-4}
     logging:
       driver: "json-file"
       options:
@@ -111,7 +127,22 @@ services:
       - "${HOST_FQDN}:${HOST_GATEWAY_IP:-host-gateway}"
       - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
     healthcheck:
-      test: curl -k -X GET "https://localhost:9443/open-metadata/platform-services/users/garygeeke/server-platform/origin" || exit 1
+      # Assert the status code instead of just running curl. Egeria v6 wants a
+      # bearer token on every endpoint (the 401 carries `WWW-Authenticate:
+      # Bearer`), so an unauthenticated probe legitimately gets 401 -- which
+      # still proves the JVM, TLS and the Spring security filter chain are
+      # live. What the old `curl ... || exit 1` could never do is FAIL: curl
+      # exits 0 on any HTTP response it receives, so a platform answering 500
+      # to every request still reported healthy. Only a connection failure
+      # (curl writes 000 and exits non-zero) was ever caught.
+      #
+      # Deliberately NOT an authenticated 200 check: this healthcheck drives
+      # the autoheal label above, and a probe that required a working token --
+      # i.e. required the view server to have finished its content-pack load --
+      # would mark a normal cold start unhealthy and restart-loop it.
+      test:
+        - CMD-SHELL
+        - curl -k -s -o /dev/null -w "%{http_code}" --max-time 10 "https://localhost:9443/open-metadata/platform-services/users/garygeeke/server-platform/origin" | grep -qE "^(200|401)$$"
       interval: 30s
       timeout: 15s
       retries: 15
@@ -227,6 +258,7 @@ services:
       - ../../exchange-quickstart/config:/config
       - ../../work:/work
       - ../../coco-workbooks:/coco-workbooks
+      - ../../design-patterns:/design-patterns
       - ../../templates:/app/templates
       - ../../runtime-volumes/quickstart-demo-data:/app/demo-data
       # Dr.Egeria's local (not-yet-Egeria-native) Dashboard Sheet store --
@@ -266,6 +298,10 @@ services:
         - "pypi.org:151.101.128.223"
         - "deb.debian.org:151.101.114.132"
     container_name: quickstart-web-server
+    # It had no restart policy at all, so a crash (see the httpd.conf PidFile
+    # comment above) left the public site's front door down with nothing
+    # bringing it back — discovered 2026-08-10.
+    restart: unless-stopped
     ports:
       - "8885:8085"
       # SSL (port 443) — disabled by default. See demo-mode.md § SSL / HTTPS.

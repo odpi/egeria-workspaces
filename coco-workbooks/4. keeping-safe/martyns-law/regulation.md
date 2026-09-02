@@ -14,7 +14,7 @@ Terrorism (Protection of Premises) Act 2025 (UK)
 
 ### Domain Identifier  
   
-SECURITY
+Security
 ### Implications  
 
 - Any event held in the UK may need to take additional precautions to prevent or minimise the impact of a terrorist attack.
@@ -55,7 +55,7 @@ The Terrorism (Protection of Premises) Act 2025, commonly referred to as **Marty
 
 The new Act requires certain premises and events to ensure steps have been taken to prepare for potential terrorist attacks and get ready to help keep people safe in the event of an attack.  In addition, certain larger premises and events will be required to consider and, where appropriate, take steps to reduce their vulnerability to acts of terrorism.
 
-There are three levels of requirements based on these classification of premises size and event size:
+There are three levels of requirements based on the classification of premises size and event size:
 
 1. **Standard duty premises**
 2. **Enhanced duty premises**
@@ -200,6 +200,71 @@ Related Information
 ### Collection Id  
 
 CollectionFolder::MartynsLawUK::ExternalSources
+
+___
+
+---
+
+---
+
+## Add Member to Collection
+
+### Collection Id
+CocoPharma::Folio::ChiefInformationSecurityOfficer
+
+### Element Id
+Regulation::MartynsLawUK
+
+### Membership Rationale
+Martyn's Law is a security regulation. The CISO is the domain lead for security compliance including this act.
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+CollectionFolder::Coco::Security Regulations
+
+### Element Id
+
+Regulation::MartynsLawUK
+
+### Membership Rationale
+Martyn's Law is a security regulation requiring Coco Pharmaceuticals to implement appropriate protective security measures for its events.
+
+### Membership Status
+VALIDATED
+
+___
+
+---
+
+___
+
+## Add Member to Collection
+
+### Collection Id
+CocoPharma::Folio::ChiefInformationSecurityOfficer
+
+### Element Id
+Regulation::MartynsLawUK
+
+### Membership Rationale
+Martyn's Law is a security regulation. The CISO is the domain lead for security compliance including this act.
+
+### Membership Status
+VALIDATED
+
+___
+
+---
 
 ____
 License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/),

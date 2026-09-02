@@ -5,11 +5,11 @@ This folder follows [Gary Geeke](https://egeria-project.org/practices/coco-pharm
 * The Austin systems:
     * `coco_austin_subsystems.csv` - subsystems that organize the Austin systems
     * `coco_austin_systems.csv` - descriptions of the Austin systems themselves
-    * `coco_austin_systems_interactions.csv` - descriptions of the data exchange between the austin systems
+    * `coco_austin_system_interactions.csv` - descriptions of the data exchange between the austin systems
 * The Bucharest systems:
     * `ekg_subsystems.csv` - subsystems that organize the Bucharest systems
     * `ekg_systems.csv` - descriptions of the Bucharest systems themselves
-    * `ekg_systems_interactions.csv` - descriptions of the data exchange between the Bucharest systems
+    * `ekg_system_interactions.csv` - descriptions of the data exchange between the Bucharest systems
 
 ----
 
@@ -33,7 +33,7 @@ You can load the definitions into Egeria in one of two ways:
 2. From the command line in JupyterLab. Make sure you are in this directory and issue the command:
 
     ```
-    dr_egeria --directive process naming-conventions.md
+    dr_egeria --directive process --userid garygeeke --user_pass secret naming-conventions.md
      
     ```
 

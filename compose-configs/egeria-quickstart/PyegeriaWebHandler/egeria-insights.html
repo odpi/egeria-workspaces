@@ -586,7 +586,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 <!-- Bump ?v= whenever egeria-shared-ui.js changes — /static is served with
      Cache-Control: no-cache, but a fresh URL guarantees revalidation for
      browsers that cached the file before that header existed. -->
-<script src="/static/egeria-shared-ui.js?v=2026-08-18c"></script>
+<script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
+<script src="/static/egeria-shared-ui.js?v=2026-09-01b"></script>
 
 <script>
 'use strict';
@@ -651,6 +652,7 @@ function Dashboard({ creds, onOpenSearch, onOpenQueryInBuilder }) {
   // use, without wading through the full Saved Queries list every time.
   var _fq = useState([]), favQueries = _fq[0], setFavQueries = _fq[1];
   var _fqst = useState('loading'), favState = _fqst[0], setFavState = _fqst[1];
+  var _attempt = useState(0), attempt = _attempt[0], setAttempt = _attempt[1];
 
   useEffect(function() {
     setState('loading');
@@ -659,7 +661,7 @@ function Dashboard({ creds, onOpenSearch, onOpenQueryInBuilder }) {
       return r.json();
     }).then(function(d) { setSummary(d); setState('ready'); })
       .catch(function() { setState('error'); });
-  }, [creds && creds.userId]);
+  }, [creds && creds.userId, attempt]);
 
   useEffect(function() {
     setRelState('loading');
@@ -668,7 +670,7 @@ function Dashboard({ creds, onOpenSearch, onOpenQueryInBuilder }) {
       return r.json();
     }).then(function(d) { setRelSummary(d); setRelState('ready'); })
       .catch(function() { setRelState('error'); });
-  }, [creds && creds.userId]);
+  }, [creds && creds.userId, attempt]);
 
   useEffect(function() {
     setFavState('loading');
@@ -677,17 +679,20 @@ function Dashboard({ creds, onOpenSearch, onOpenQueryInBuilder }) {
       return r.json();
     }).then(function(d) { setFavQueries((d.queries || []).filter(function(q){ return q.favorite; })); setFavState('ready'); })
       .catch(function() { setFavState('error'); });
-  }, [creds && creds.userId]);
+  }, [creds && creds.userId, attempt]);
 
   var countLabel = state === 'loading' ? '…' : state === 'error' ? '—'
     : (summary.classifiedCount + (summary.capped ? '+' : ''));
   var topRel = relState === 'ready' && relSummary && relSummary.relationships && relSummary.relationships[0];
 
   return el('div', { style: { padding: 24, overflowY: 'auto', height: '100%' } },
-    el('div', { style: { fontSize: 13, color: 'var(--muted)', marginBottom: 18, maxWidth: 640 } },
-      'Cross-cutting discovery over the governance metadata every other section browses one type ' +
-      'at a time. Cards below run live, capped queries against Egeria — counts marked "+" are a ' +
-      'floor, not a ceiling.'),
+    el('div', { style: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 18, maxWidth: 900 } },
+      el('div', { style: { fontSize: 13, color: 'var(--muted)', maxWidth: 640 } },
+        'Cross-cutting discovery over the governance metadata every other section browses one type ' +
+        'at a time. Cards below run live, capped queries against Egeria — counts marked "+" are a ' +
+        'floor, not a ceiling.'),
+      el('button', { className: 'btn-sm', title: 'Refresh dashboard', onClick: function() { setAttempt(function(a) { return a + 1; }); } }, '↻')
+    ),
     // Favorite Queries — only shown once there's at least one; keeps the
     // dashboard uncluttered until someone actually stars something.
     favState === 'ready' && favQueries.length > 0 &&
@@ -760,6 +765,7 @@ function ZoneTree({ creds, selectedZone, onSelectZone, width }) {
   var _z = useState([]), zones = _z[0], setZones = _z[1];
   var _st = useState('loading'), state = _st[0], setState = _st[1];
   var _capped = useState(false), capped = _capped[0], setCapped = _capped[1];
+  var _attempt = useState(0), attempt = _attempt[0], setAttempt = _attempt[1];
 
   useEffect(function() {
     setState('loading');
@@ -768,11 +774,14 @@ function ZoneTree({ creds, selectedZone, onSelectZone, width }) {
       return r.json();
     }).then(function(d) { setZones(d.zones || []); setCapped(!!d.countsCapped); setState('ready'); })
       .catch(function() { setState('error'); });
-  }, [creds && creds.userId]);
+  }, [creds && creds.userId, attempt]);
 
   return el('div', { className: 'sidebar', style: { width: width || 240, minWidth: 160, borderRight: 'none', flexShrink: 0, overflow: 'hidden' } },
     el('div', { className: 'search-wrap' },
-      el('div', { style: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--muted)' } }, 'Governance Zones'),
+      el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 } },
+        el('span', { style: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--muted)' } }, 'Governance Zones'),
+        el('button', { className: 'btn-sm', title: 'Reload zone counts', onClick: function() { setAttempt(function(a) { return a + 1; }); } }, '↻')
+      ),
       capped && el('div', { style: { fontSize: 10.5, color: 'var(--dim)', marginTop: 4 } }, 'usage counts capped at 500')
     ),
     el('div', { className: 'tree-scroll' },
@@ -817,6 +826,7 @@ function RelationshipTree({ creds, relConditions, onToggleType, width }) {
   var _lookup = useState(''), lookupType = _lookup[0], setLookupType = _lookup[1];
   var _lookupRes = useState(null), lookupResult = _lookupRes[0], setLookupResult = _lookupRes[1];
   var _lookupSt = useState('idle'), lookupState = _lookupSt[0], setLookupState = _lookupSt[1]; // idle|loading|ready|error
+  var _attempt = useState(0), attempt = _attempt[0], setAttempt = _attempt[1];
 
   useEffect(function() {
     setState('loading');
@@ -825,7 +835,7 @@ function RelationshipTree({ creds, relConditions, onToggleType, width }) {
       return r.json();
     }).then(function(d) { setRels(d.relationships || []); setCapped(!!d.anyCapped); setState('ready'); })
       .catch(function() { setState('error'); });
-  }, [creds && creds.userId]);
+  }, [creds && creds.userId, attempt]);
 
   function runLookup() {
     var t = lookupType.trim();
@@ -842,7 +852,10 @@ function RelationshipTree({ creds, relConditions, onToggleType, width }) {
 
   return el('div', { className: 'sidebar', style: { width: width || 240, minWidth: 160, borderRight: 'none', flexShrink: 0, overflow: 'hidden' } },
     el('div', { className: 'search-wrap' },
-      el('div', { style: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--muted)' } }, 'Relationships'),
+      el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 } },
+        el('span', { style: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--muted)' } }, 'Relationships'),
+        el('button', { className: 'btn-sm', title: 'Reload relationship usage', onClick: function() { setAttempt(function(a) { return a + 1; }); } }, '↻')
+      ),
       el('div', { style: { fontSize: 10.5, color: 'var(--dim)', marginTop: 4 } }, 'click to toggle · combine with Match below'),
       capped && el('div', { style: { fontSize: 10.5, color: 'var(--dim)', marginTop: 2 } }, 'some counts capped at 500'),
       el('div', { style: { display: 'flex', gap: 4, marginTop: 8 } },
@@ -1637,6 +1650,7 @@ function SavedQueries({ creds, onOpenInBuilder }) {
   var _busy = useState(null),    busyGuid = _busy[0], setBusyGuid = _busy[1];
   var _exp  = useState(null),    expandedGuid = _exp[0], setExpandedGuid = _exp[1];
   var _cache = useState({}),     cached = _cache[0], setCached = _cache[1]; // guid -> {results, total}
+  var _attempt = useState(0),    attempt = _attempt[0], setAttempt = _attempt[1];
 
   function load() {
     setState('loading');
@@ -1646,7 +1660,7 @@ function SavedQueries({ creds, onOpenInBuilder }) {
     }).then(function(d) { setQueries(d.queries || []); setState('ready'); })
       .catch(function() { setState('error'); });
   }
-  useEffect(load, [creds && creds.userId]);
+  useEffect(load, [creds && creds.userId, attempt]);
 
   function doRefresh(q) {
     setBusyGuid(q.guid);
@@ -1688,10 +1702,13 @@ function SavedQueries({ creds, onOpenInBuilder }) {
   }
 
   return el('div', { style: { padding: 24, overflowY: 'auto', height: '100%' } },
-    el('div', { style: { fontSize: 13, color: 'var(--muted)', marginBottom: 18, maxWidth: 640 } },
-      'Queries saved from Query — each is a ResultsSet whose last-materialized ' +
-      'results are shown here as-of the time it was last refreshed. Refresh re-runs the query ' +
-      'and updates its membership; nothing re-runs automatically just by viewing it.'),
+    el('div', { style: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 18, maxWidth: 900 } },
+      el('div', { style: { fontSize: 13, color: 'var(--muted)', maxWidth: 640 } },
+        'Queries saved from Query — each is a ResultsSet whose last-materialized ' +
+        'results are shown here as-of the time it was last refreshed. Refresh re-runs the query ' +
+        'and updates its membership; nothing re-runs automatically just by viewing it.'),
+      el('button', { className: 'btn-sm', title: 'Reload saved queries list', onClick: function() { setAttempt(function(a) { return a + 1; }); } }, '↻')
+    ),
     state === 'loading' && el('div', { className: 'center', style: { height: 160 } }, el('div', { className: 'spinner' })),
     state === 'error'   && el('div', { style: { fontSize: 13, color: '#f87171' } }, 'Failed to load saved queries.'),
     state === 'ready' && queries.length === 0 &&

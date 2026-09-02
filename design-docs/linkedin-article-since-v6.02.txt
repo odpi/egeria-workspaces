@@ -1,0 +1,129 @@
+[HOW TO USE THIS — delete before posting]
+This is written for LinkedIn's "Write article" long-form editor, not a
+regular post (a regular post caps around 3,000 characters; this is longer).
+Paste it in, then manually apply LinkedIn's own formatting where marked:
+- Lines in ALL CAPS below are section headers — select each and click
+  LinkedIn's "Heading" style.
+  Bold the phrases wrapped in *asterisks* below, then delete the asterisks
+  — LinkedIn doesn't render markdown, so typing **word** will just show
+  the asterisks if you leave them in.
+  Add the two "SUGGESTED IMAGE" spots as an image/screenshot if you have one.
+[END NOTE]
+
+
+EGERIA WORKSPACES 6.1: WHAT WE BUILT THIS SPRING AND SUMMER
+
+Four and a half months ago, egeria-workspaces was one working demo. Since
+the v6.02 tag on April 2nd, it's grown into a small constellation of
+purpose-built apps over Egeria's metadata — plus the time-travel, bulk
+governance actions, and declarative dashboards that make them trustworthy.
+This is the 6.1 release.
+
+985 commits. 228 features. 227 fixes. Five new apps. Here's the shape of it.
+
+[SUGGESTED IMAGE: portal screenshot / demo homepage]
+
+TRY IT YOURSELF
+
+The live demo is open to anyone: *egeria.pdr-associates.com* — register
+free, pick a persona from our fictional Coco Pharmaceuticals, and explore
+a fully pre-loaded Egeria environment in your browser. No install.
+
+If you'd rather run it locally, Getting Started is on the repo:
+github.com/odpi/egeria-workspaces
+
+And if you like video better than reading, three quick ones:
+- Quickstart — Egeria up and running in under 2 minutes: youtube.com/watch?v=1Sfu5mHA1u8
+- Accessing Egeria's Demo Environment: youtube.com/watch?v=JV2UdEo1k8A
+- Egeria Workspaces: youtube.com/watch?v=igIVACD4b_g
+
+
+APRIL – MAY: A FRONT DOOR, AND A TOOL WORTH LIVING IN
+
+We opened the period with QuickStart already running and Freshstart — the
+clean-slate, bring-your-own-metadata sibling environment — still mostly
+scaffolding. So the first two months went into giving both environments a
+real front door, and turning Egeria Explorer from a type browser into the
+app people actually reached for.
+
+The type hierarchy stopped being a hand-maintained tree and started
+building *dynamically from Egeria's own live type system*. Favorites
+(later renamed Bookmarks) rolled out across a dozen-plus element types,
+persisted in Egeria itself rather than a side database. Native Likes,
+Ratings, and Comments landed on every detail pane, alongside a separate
+user-feedback widget that persists to Postgres.
+
+Obsidian joined the portal, running Dr.Egeria markdown against a live Coco
+Pharmaceuticals vault. And my-egeria — a Textual TUI served straight into
+the browser — became the portal's first tile that wasn't React at all.
+
+
+MAY – JUNE: FOUR NEW ROOMS, AND A WORKING CLOCK
+
+Egeria Explorer stopped being the only tool in the building. Four
+purpose-built apps shipped in quick succession:
+
+- *The Catalog* — a dedicated technical asset catalog: infrastructure,
+  data assets, APIs, processes, with tabular data preview.
+- *Egeria Operations* — governance engines, engine actions, integration
+  connectors, in one place.
+- *Egeria Audit* — users, accounts, and a shared relationship viewer every
+  later app reused.
+- *Lineage Explorer* — data lineage centred on a focus asset, birthplace
+  of the time-slider every other app later borrowed.
+
+That time-slider is the real story. as_of_time — genuine time travel, not
+a UI trick — shipped for Data Assets, Digital Products, Collections,
+Locations, Communities, Perspectives, Glossary, Projects, and Actors. Each
+one verified against real before/after data. We also stopped passing
+passwords in URLs, and cut Jupyter loose from a public, multi-tenant Kroki
+service by self-hosting it.
+
+
+JULY: SEARCH THAT MEANS IT, DASHBOARDS BUILT TO LAST
+
+July had two headline efforts. Egeria Insights shipped as a proper
+cross-cutting governance search app (later renamed Query — because that's
+what it actually does). And Egeria Overview arrived as a KPI dashboard for
+the whole demo, built on a real architecture instead of a page of
+hand-coded numbers: every tile is a declarative pyegeria FormatSet object,
+one source of truth instead of six hand-synced places.
+
+Maybe the sleeper feature of the whole quarter: you can now run a
+Dr.Egeria markdown document straight from the browser. No terminal access
+needed. Just paste, validate, process.
+
+[SUGGESTED IMAGE: Egeria Overview dashboard screenshot]
+
+AUGUST: DASHBOARDS FOR EVERYONE, AND CLOSING THE GAP
+
+August was two things happening at once. The reporting model from July
+went out to actual users — Local Dashboards, where anyone can build a
+dashboard from a markdown file, with sparkline KPI tiles and drill-down
+navigation. Bulk governance actions grew from "add to collection" into
+zone membership and then classify/declassify across thirty-plus views.
+HTTPS went on by default everywhere.
+
+And in parallel, a much less glamorous but arguably more important thread
+went back through Freshstart line by line, closing the gap that four
+months of quickstart-first development had quietly opened. Real drift, not
+cosmetic gaps — including one bug that reintroduced the exact class of
+error our own engineering conventions exist to prevent.
+
+
+UNDERNEATH ALL OF IT
+
+227 fixes shipped alongside the 228 features — real production concerns,
+not polish. A Postgres connection leak that periodically took Operations
+offline. A recurring pattern of methods that silently ignored the
+time-travel parameter we'd just built. And a shared component library that
+grew from an idea into the thing five-plus apps in both environments
+actually import from now, closing years of copy-paste drift.
+
+Thanks to everyone who contributed this season, especially Mandy Chessell
+for the steady stream of Egeria core fixes that made a lot of this
+possible.
+
+Come see it running: egeria.pdr-associates.com
+
+#Egeria #EgeriaWorkspaces61 #OpenSource #DataGovernance #Metadata #OpenMetadata

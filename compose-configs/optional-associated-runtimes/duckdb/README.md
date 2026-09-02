@@ -10,7 +10,7 @@ It is designed to act as a **federation server**, allowing you to query multiple
 ## Features
 - **Postgres Compatibility**: Connect using any Postgres client (psql, DBeaver, Superset, etc.) on port `5433`.
 - **Pre-installed Extensions**: Includes `postgres`, `mysql`, `sqlite`, `httpfs`, `iceberg`, `delta`, `spatial`, and `excel`.
-- **Local File Access**: Automatically mounts `exchange-quickstart` and `runtime-volumes` for easy access to local Parquet, CSV, or JSON files.
+- **Local File Access**: Automatically mounts `exchange-quickstart`, `exchange-freshstart`, and `runtime-volumes` for easy access to local Parquet, CSV, or JSON files.
 
 ## Getting Started
 

@@ -6,7 +6,7 @@
 
 # The published image tag is taken from the numerical version of
 # our base image, and appended with the contents of .tag-append (file)
-FROM quay.io/jupyter/scipy-notebook:latest
+FROM quay.io/jupyter/scipy-notebook:latest@sha256:50c6d1d7b39674e2d7d77a80759906aff54a1a472de63ba7ed1125ae43ed6ab4
 ARG env_name=python313
 #ARG py_ver=3.12
 ENV JUPYTER_ENABLE_LAB=yes
@@ -76,9 +76,23 @@ RUN python -m pip install --no-cache-dir --retries 10 --timeout 60 \
 
 # pyegeria in its own layer. Docker caches this layer, so a plain rebuild keeps
 # the previously-installed version. To pull a fresh build, bump the cache key or
-# pin a version at build time:
+# pin a version at build time (or just use quick-start-local/fresh-start-local's
+# --refresh-pyegeria flag, which does this for you):
 #   docker compose build --build-arg PYEGERIA_BUST=$(date +%s) jupyter            # latest
 #   docker compose build --build-arg PYEGERIA_VERSION=pyegeria==6.0.15.1 jupyter  # pinned
+#
+# pyegeria ends up installed TWICE here, for two different purposes: this pip
+# install (into the conda env — what a notebook cell's `import pyegeria` under
+# the conda kernel actually loads, and what creates /opt/conda/bin/dr_egeria),
+# and the pipx install right below (an isolated venv symlinked into
+# ~/.local/bin, which PATH puts first, so a plain `dr_egeria` in a terminal
+# resolves there instead). Busting THIS layer via PYEGERIA_BUST also busts the
+# pipx layer below it (Docker's cache invalidation cascades to every later
+# layer), so a rebuild keeps both in sync automatically. A RUNTIME-ONLY
+# upgrade (no rebuild, e.g. `pipx upgrade pyegeria` in a running container)
+# does NOT: it only touches the pipx copy and leaves this one stale with no
+# error to signal it — confirmed live 2026-08-31. See the
+# live-patch-pyegeria-container skill for the two-command fix.
 ARG PYEGERIA_VERSION=pyegeria
 ARG PYEGERIA_BUST=0
 RUN echo "pyegeria layer ${PYEGERIA_BUST}" \

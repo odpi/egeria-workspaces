@@ -1,9 +1,9 @@
 BeeAI - Agentic Workflow
 
-# Create Solution Component
+## Create Solution Component
 >	A reusable solution component.
 
-## Display Name
+### Display Name
 >	**Input Required**: True
 
 >	**Description**: Name of the solution component.
@@ -11,25 +11,25 @@ BeeAI - Agentic Workflow
 >	**Alternative Labels**: Name; Display Name; Solution Component Name; Component Name
 
 
-## Qualified Name
+### Qualified Name
 >	**Input Required**: False
 
 >	**Description**: A unique qualified name for the element. Generated using the qualified name pattern  if not user specified.
 
 
-## Category
+### Category
 >	**Input Required**: False
 
 >	**Description**: A user specified category name that can be used for example, to define product types or agreement types.
 
 
-## Description
+### Description
 >	**Input Required**: False
 
 >	**Description**: A description of the data structure.
 
 
-## Status
+### Status
 >	**Input Required**: False
 
 >	**Description**: The status of the solution component. There is a list of valid values that this conforms to.
@@ -39,7 +39,7 @@ BeeAI - Agentic Workflow
 >	**Default Value**: ACTIVE
 
 
-## Solution Component Type
+### Solution Component Type
 >	**Input Required**: False
 
 >	**Description**: Type of solution component.
@@ -47,7 +47,7 @@ BeeAI - Agentic Workflow
 >	**Alternative Labels**: Soln Component Type
 
 
-## Planned Deployed Implementation Type
+### Planned Deployed Implementation Type
 >	**Input Required**: False
 
 >	**Description**: The planned implementation type for deployment.
@@ -55,7 +55,7 @@ BeeAI - Agentic Workflow
 >	**Alternative Labels**: Planned Deployed Impl Type
 
 
-## User Defined Status
+### User Defined Status
 >	**Input Required**: False
 
 >	**Description**: Supporting user managed lifecycle statuses. Only used if the Initial Status is set to OTHER.
@@ -63,7 +63,7 @@ BeeAI - Agentic Workflow
 >	**Default Value**: DRAFT
 
 
-## Initial Status
+### Initial Status
 >	**Input Required**: False
 
 >	**Description**: Optional lifecycle status. If not specified, set to ACTIVE. If set to Other then the value in User Defined Status will be used.
@@ -73,7 +73,7 @@ BeeAI - Agentic Workflow
 >	**Default Value**: ACTIVE
 
 
-## In Solution Components
+### In Solution Components
 >	**Input Required**: False
 
 >	**Description**: Solution components that include this one.
@@ -81,7 +81,7 @@ BeeAI - Agentic Workflow
 >	**Alternative Labels**: In Solution Component; In Component
 
 
-## In Solution Blueprints
+### In Solution Blueprints
 >	**Input Required**: False
 
 >	**Description**: Solution Blueprints that contain this component.
@@ -89,7 +89,7 @@ BeeAI - Agentic Workflow
 >	**Alternative Labels**: In Solution Blueprints
 
 
-## In Information Supply Chains
+### In Information Supply Chains
 >	**Input Required**: False
 
 >	**Description**: The Information Supply Chains that this component is a member of.
@@ -97,13 +97,13 @@ BeeAI - Agentic Workflow
 >	**Alternative Labels**: In Supply Chains; In Supply Chain; In Information Supply Chain
 
 
-## Actors
+### Actors
 >	**Input Required**: False
 
 >	**Description**: Actors associated with this component.
 
 
-## GUID
+### GUID
 >	**Input Required**: False
 
 >	**Description**: A system generated unique identifier.
@@ -111,25 +111,25 @@ BeeAI - Agentic Workflow
 >	**Alternative Labels**: Guid; guid
 
 
-## Effective Time
+### Effective Time
 >	**Input Required**: False
 
 >	**Description**: An ISO-8601 string representing the time to use for evaluating effectivity of the elements related to this one.
 
 
-## Effective From
+### Effective From
 >	**Input Required**: False
 
 >	**Description**: A string in ISO-8601 format that defines the when an element becomes effective (visible).
 
 
-## Effective To
+### Effective To
 >	**Input Required**: False
 
 >	**Description**: A string in ISO-8601 format that defines the when an element is no longer effective (visible).
 
 
-## Merge Update
+### Merge Update
 >	**Input Required**: False
 
 >	**Description**: If true, only those attributes specified in the update will be updated; If false, any attributes not provided during the update will be set to None.
@@ -139,25 +139,25 @@ BeeAI - Agentic Workflow
 >	**Default Value**: True
 
 
-## Additional Properties
+### Additional Properties
 >	**Input Required**: False
 
 >	**Description**: Additional user defined values organized as name value pairs in a dictionary.
 
 
-## Glossary Term
+### Glossary Term
 >	**Input Required**: False
 
 >	**Description**: Term that provides meaning to this field.
 
 
-## External Source GUID
+### External Source GUID
 >	**Input Required**: False
 
 >	**Description**: Identifier of an external source that is associated with this element.
 
 
-## External Source Name
+### External Source Name
 >	**Input Required**: False
 
 >	**Description**: Name of an external element that is associated with this element.

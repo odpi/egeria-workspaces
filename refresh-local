@@ -136,10 +136,17 @@ fi
 # ── 4. Restart ────────────────────────────────────────────────────────────────
 
 echo "[refresh-local] Restarting quickstart stack..."
+# --refresh-platform: egeria-platform's Dockerfile FROM line is pinned to a
+# digest (OpenSSF Scorecard's Pinned-Dependencies check), so a plain rebuild
+# would just re-confirm that same old pinned digest -- it needs this flag to
+# actually re-resolve and pick up whatever's newest, which is the entire
+# point of a script whose job is "pull the latest and rebuild everything."
+# See quick-start-local's own --refresh-platform handling / pin-latest-
+# digest.sh for the mechanics.
 if [[ "$DEMO_FLAG" -eq 1 ]]; then
-  ./quick-start-local --demo
+  ./quick-start-local --demo --refresh-platform
 else
-  ./quick-start-local
+  ./quick-start-local --refresh-platform
 fi
 
 if [[ "$SKIP_FRESHSTART" -eq 0 ]]; then
@@ -147,7 +154,7 @@ if [[ "$SKIP_FRESHSTART" -eq 0 ]]; then
   # indicates it was previously configured. A brand-new clone has no secrets.
   if [[ -d "runtime-volumes/freshstart-platform-data/secrets" ]]; then
     echo "[refresh-local] Restarting freshstart stack..."
-    ./fresh-start-local
+    ./fresh-start-local --refresh-platform
   else
     echo "[refresh-local] Skipping freshstart restart (no prior setup found)."
     echo "[refresh-local]   Run ./fresh-start-local manually to set it up."

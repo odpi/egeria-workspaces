@@ -10,6 +10,7 @@ services:
     image: egeria-freshstart-jupyter:local
     pull_policy: never
     container_name: freshstart-jupyter-work-full
+    restart: unless-stopped
     user: root
     networks:
       - egeria_network
@@ -61,12 +62,21 @@ services:
     ports:
       - '8443:8443'
       - '5006:5005'
+    # Mirrors quickstart's egeria-main: come back automatically after a crash or
+    # OOM-kill (exit 137) instead of staying dead silently. autoheal covers the
+    # complementary case — container up, platform wedged — which no restart
+    # policy can see.
+    restart: unless-stopped
     # Mirrors quickstart's egeria-main memory cap (see egeria-quickstart.yaml)
     # — same rationale: the JVM is normally the heaviest consumer in a shared
     # Docker Desktop VM memory pool. Configurable via EGERIA_MEM_LIMIT (see
     # gen-env.sh) — ./fresh-start-local --egeria-memory <SIZE> sets it; 6g if
     # unset.
     mem_limit: ${EGERIA_MEM_LIMIT:-6g}
+    labels:
+      # Opts in to shared-infra's autoheal service — see the healthcheck below,
+      # whose timings had to be corrected first for this to be safe.
+      egeria.autoheal: "true"
     logging:
       driver: "json-file"
       options:
@@ -80,12 +90,33 @@ services:
     extra_hosts:
       - "${HOST_FQDN}:${HOST_GATEWAY_IP:-host-gateway}"
       - "host.docker.internal:${HOST_GATEWAY_IP:-host-gateway}"
+    # Matches quickstart's egeria-main timings. The previous values (10s
+    # start_period, 3 retries x 20s) gave up ~70s after start, but this JVM
+    # takes 2-5 minutes to boot, so the container was reported unhealthy during
+    # every normal startup. That was merely cosmetic until autoheal existed;
+    # with the label below it would have caused a restart loop, since autoheal
+    # would keep restarting a platform that was still booting.
     healthcheck:
-      test: curl -k -X GET "https://localhost:8443/open-metadata/platform-services/users/garygeeke/server-platform/origin" || exit 1
-      interval: 20s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+      # Assert the status code instead of just running curl. Egeria v6 wants a
+      # bearer token on every endpoint (the 401 carries `WWW-Authenticate:
+      # Bearer`), so an unauthenticated probe legitimately gets 401 -- which
+      # still proves the JVM, TLS and the Spring security filter chain are
+      # live. What the old `curl ... || exit 1` could never do is FAIL: curl
+      # exits 0 on any HTTP response it receives, so a platform answering 500
+      # to every request still reported healthy. Only a connection failure
+      # (curl writes 000 and exits non-zero) was ever caught.
+      #
+      # Deliberately NOT an authenticated 200 check: this healthcheck drives
+      # the autoheal label above, and a probe that required a working token --
+      # i.e. required the view server to have finished its content-pack load --
+      # would mark a normal cold start unhealthy and restart-loop it.
+      test:
+        - CMD-SHELL
+        - curl -k -s -o /dev/null -w "%{http_code}" --max-time 10 "https://localhost:8443/open-metadata/platform-services/users/garygeeke/server-platform/origin" | grep -qE "^(200|401)$$"
+      interval: 30s
+      timeout: 15s
+      retries: 15
+      start_period: 60s
     volumes:
       - ../../exchange-freshstart/landing-area:/deployments/landing-area
       - ../../exchange-freshstart/distribution-hub:/deployments/distribution-hub
@@ -101,6 +132,7 @@ services:
     image: egeria-freshstart-pyegeria-web:latest
     pull_policy: never
     container_name: freshstart-pyegeria-web
+    restart: unless-stopped
     build:
       context: ./PyegeriaWebHandler
       dockerfile: ./Dockerfile-fast-api
@@ -156,6 +188,7 @@ services:
       - ../../exchange-freshstart/distribution-hub/dr-egeria-outbox:/dr-egeria-outbox
       - ../../exchange-freshstart/loading-bay/dr-egeria-inbox:/dr-egeria-inbox
       - ../../exchange-freshstart/config:/config
+      - ../../design-patterns:/design-patterns
       - ../../templates:/app/templates
       - ../../runtime-volumes/freshstart-demo-data:/app/demo-data
       - ../../runtime-volumes/freshstart-platform-data/secrets/egeria-user-directory.omsecrets:/secrets/user-directory.omsecrets
@@ -185,6 +218,7 @@ services:
         - "pypi.org:151.101.128.223"
         - "deb.debian.org:151.101.114.132"
     container_name: freshstart-web-server
+    restart: unless-stopped
     ports:
       - "7885:8085"
     logging:

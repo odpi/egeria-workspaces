@@ -12,6 +12,7 @@ Access it from the portal tile or directly at `/catalog`.
 |---|---|---|
 | **Search** | Cross-catalog keyword search — every element type in one call, with results headed by real type and toggleable type facets computed from what's actually found. See [Searching](#searching) below | — |
 | **IT Infrastructure** | Servers, hosts, applications, and their software capabilities | IT Infrastructure, Software Capabilities, Endpoints |
+| **Capability Hierarchy** | Software capability types (e.g. `SoftwareService`, `SoftwareServer`) and their deployed instances, browsed as a type tree with per-type instance counts and point-in-time (`asOfTime`) views | — |
 | **Data Assets** | Data stores, feeds, and sets | Data Stores, Data Feeds, Data Sets |
 | **APIs** | Deployed API definitions | APIs |
 | **Processes** | Running software components, actions, and governance action process definitions | Software Components, Actions, Governance Processes |
@@ -84,7 +85,7 @@ The button shows **✓ Copied** (green) on success or **✕ Failed** (red) on fa
 
 Two different kinds of search, worth telling apart:
 
-- **Per-section filter box** — each section (IT Infrastructure, Data Assets, etc.) has its own search box that filters *within that section's already-loaded list* by display name, qualified name, and description. Leaving it empty returns all elements in that section.
+- **Per-section filter box** — each section (IT Infrastructure, Data Assets, etc.) has its own search box that filters *within that section's already-loaded list* by display name, qualified name, and description. Leaving it empty returns all elements in that section. A **↻ Refresh** button next to the filter box reloads that section's list on demand, without a full page reload.
 - **Search section** (top of the section list, 🔎) — a global keyword search across *every* element type at once, not limited to one section. After it runs, a row of type chips ("Types in these results") shows the real types actually found, each with a count; clicking one re-searches scoped to that exact type and headings switch to the real type name (so a less-common type like `PersonRole` gets its own clear heading instead of a generic "Other" bucket). There's no pre-search category picker — Egeria has several hundred entity types, more than any fixed list could usefully cover.
 
 ---

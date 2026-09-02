@@ -86,6 +86,8 @@ PERSP_KPIS: Dict[str, List[str]] = {
     "owner":      ["products", "governed", "certs", "exceptions", "people", "grounding"],
     "consumer":   ["products", "terms", "grounding", "isc", "blueprints", "people"],
     "engineer":   ["assets", "isc", "blueprints", "grounding", "exceptions", "governed"],
+    "architecture": ["isc", "blueprints", "assets", "grounding", "governed", "exceptions"],
+    "security":   ["governed", "exceptions", "ai-ready", "certs", "assets", "grounding"],
     "builder":    ["assets", "grounding", "isc", "blueprints", "governed", "products"],
     "privacy":    ["governed", "certs", "exceptions", "assets", "grounding", "products"],
     "community":  ["people", "communities", "products", "terms", "governed", "assets"],

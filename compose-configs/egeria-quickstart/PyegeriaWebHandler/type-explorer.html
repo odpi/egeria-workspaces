@@ -587,7 +587,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 })();
 </script>
   <!-- Bump ?v= whenever egeria-shared-ui.js changes — see tech-catalog.html for why. -->
-  <script src="/static/egeria-shared-ui.js?v=2026-08-18c"></script>
+  <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
+  <script src="/static/egeria-shared-ui.js?v=2026-09-01b"></script>
   <script>"use strict";
 
 const {
@@ -1396,7 +1397,7 @@ function ClassifDetail({
 function _relCategoryInfo(cat) {
   if (cat === 'MULTI_LINK') return { label: 'Multi-link', color: '#fbbf24',
     desc: 'More than one relationship of this type can exist between the same pair of elements.' };
-  if (cat === 'UNI_LINK') return { label: 'Single-link', color: '#64748b',
+  if (cat === 'UNI_LINK') return { label: 'Uni-link', color: '#64748b',
     desc: 'At most one relationship of this type can exist between the same pair of elements.' };
   if (cat === 'REVERSIBLE') return { label: 'Reversible', color: '#93c5fd',
     desc: 'Symmetric relationship — means the same thing regardless of which end you start from.' };
@@ -2631,7 +2632,11 @@ function ReportSpecView() {
         },
           React.createElement('option', { value: '' }, 'All perspectives'),
           allPerspectives.map(p => React.createElement('option', { key: p, value: p.toLowerCase() }, p))
-        )
+        ),
+        React.createElement('button', {
+          className: 'btn-sm', style: { marginTop: 6 },
+          onClick: () => setAttempt(a => a + 1)
+        }, '↻ Refresh')
       ),
       React.createElement('div', { className: 'stats' },
         React.createElement('span', null,
@@ -2820,7 +2825,11 @@ function AnalyticsView() {
           placeholder: 'Search name, description, path…',
           value: search,
           onChange: e => setSearch(e.target.value)
-        })
+        }),
+        React.createElement('button', {
+          className: 'btn-sm', style: { marginTop: 6 },
+          onClick: () => setAttempt(a => a + 1)
+        }, '↻ Refresh')
       ),
       React.createElement('div', { className: 'stats' },
         React.createElement('span', null,
@@ -3150,7 +3159,10 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
       React.createElement("div", { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)' } },
         React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' })
       ),
-      React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } }, "Glossaries (" + glossaries.length + ")"),
+      React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
+        React.createElement("span", null, "Glossaries (" + glossaries.length + ")"),
+        React.createElement("button", { className: "btn-sm", style: { textTransform: 'none', fontWeight: 400 }, onClick: () => setGlossaryAttempt(a => a + 1) }, "↻ Refresh")
+      ),
       React.createElement("div", { className: "tree-scroll" },
         React.createElement("div", {
           className: "tree-item" + (isSearchMode ? " sel" : ""),
@@ -3398,7 +3410,10 @@ function SubjectAreasTab({ onNavigateToElement }) {
   return React.createElement("div", { className: "body" },
     React.createElement("div", { style: { width: sideW, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid var(--border)' } },
       React.createElement("div", { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
-        React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } }, "Subject Area Hierarchy"),
+        React.createElement("div", { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
+          React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } }, "Subject Area Hierarchy"),
+          React.createElement("button", { className: "btn-sm", onClick: () => setHierAttempt(a => a + 1) }, "↻ Refresh")
+        ),
         React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
           React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
           "Include templates"
@@ -3654,8 +3669,11 @@ function ReferenceDataView({ navGuid, onNavigateToElement }) {
   return React.createElement("div", { className: "body" },
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
       React.createElement("div", { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
-        React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } },
-          items.length + ' items · ' + rootNodes.length + ' sets'
+        React.createElement("div", { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
+          React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } },
+            items.length + ' items · ' + rootNodes.length + ' sets'
+          ),
+          React.createElement("button", { className: "btn-sm", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "↻ Refresh")
         ),
         React.createElement("input", {
           type: "search", placeholder: "Filter…", value: search,
@@ -3835,7 +3853,11 @@ function ExternalReferencesView({ navGuid, onNavigateToElement }) {
     ),
     React.createElement("div", { className: "search-wrap" },
       React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
-        onChange: function(e) { setFilter(e.target.value); } })
+        onChange: function(e) { setFilter(e.target.value); } }),
+      React.createElement("button", {
+        className: "btn-sm", style: { marginTop: 4 },
+        onClick: function() { setAttempt(function(a) { return a + 1; }); }
+      }, "↻ Refresh"),
     ),
     state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     state === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -4010,7 +4032,11 @@ function ExternalIdentifiersView({ navGuid, onNavigateToElement }) {
     ),
     React.createElement("div", { className: "search-wrap" },
       React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
-        onChange: function(e) { setFilter(e.target.value); } })
+        onChange: function(e) { setFilter(e.target.value); } }),
+      React.createElement("button", {
+        className: "btn-sm", style: { marginTop: 4 },
+        onClick: function() { setAttempt(function(a) { return a + 1; }); }
+      }, "↻ Refresh"),
     ),
     state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     state === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -4204,7 +4230,11 @@ function AgreementsView({ navGuid, onNavigateToElement }) {
     ),
     React.createElement("div", { className: "search-wrap" },
       React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
-        onChange: function(e) { setFilter(e.target.value); } })
+        onChange: function(e) { setFilter(e.target.value); } }),
+      React.createElement("button", {
+        className: "btn-sm", style: { marginTop: 4 },
+        onClick: function() { setAttempt(function(a) { return a + 1; }); }
+      }, "↻ Refresh"),
     ),
     state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     state === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -4651,7 +4681,10 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
     // Catalog list (left)
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
       React.createElement("div", { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
-        React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } }, "Catalogs (" + catalogs.length + ")"),
+        React.createElement("div", { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
+          React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } }, "Catalogs (" + catalogs.length + ")"),
+          React.createElement("button", { className: "btn-sm", onClick: () => setCatAttempt(a => a + 1) }, "↻ Refresh")
+        ),
         React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
           React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
           "Include templates"
@@ -4855,8 +4888,11 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
     // Root collections (left)
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
       React.createElement("div", { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
-        React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } },
-          (onlyRootType ? "Root Collections (" : "Collections Without a Parent (") + roots.length + ")"),
+        React.createElement("div", { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
+          React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } },
+            (onlyRootType ? "Root Collections (" : "Collections Without a Parent (") + roots.length + ")"),
+          React.createElement("button", { className: "btn-sm", onClick: () => setRootAttempt(a => a + 1) }, "↻ Refresh")
+        ),
         React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
           React.createElement("input", { type: "checkbox", checked: onlyRootType, onChange: function(e) { setOnlyRootType(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
           "Root Collections only"
@@ -6140,6 +6176,7 @@ function ValidMetadataValuesTab({ navProp, onNavigateToElement }) {
   // Right: selected value's full detail (relationships/classifications) — see
   // ValidValueDetailPane, fetched from GET /api/valid-values/{guid}
   const [selectedGuid, setSelectedGuid] = useState(null);
+  const [vmvAttempt, setVmvAttempt] = useState(0);
 
   // Fetch list of properties that have registered valid values
   useEffect(() => {
@@ -6157,7 +6194,7 @@ function ValidMetadataValuesTab({ navProp, onNavigateToElement }) {
         }
       })
       .catch(err => { setPropsError(err.message); setPropsState('error'); });
-  }, [creds]);
+  }, [creds, vmvAttempt]);
 
   const lookup = useCallback((prop) => {
     const p = (prop || '').trim();
@@ -6202,7 +6239,13 @@ function ValidMetadataValuesTab({ navProp, onNavigateToElement }) {
   return React.createElement("div", { className: "body" },
     // Column 1: property selector
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
-      React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } }, "Property Name"),
+      React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
+        React.createElement("span", null, "Property Name"),
+        React.createElement("button", {
+          className: "btn-sm", style: { textTransform: 'none', fontWeight: 400 },
+          onClick: () => { setVmvAttempt(a => a + 1); if (submittedProp) lookup(submittedProp); }
+        }, "↻ Refresh")
+      ),
       React.createElement("form", { onSubmit: e => { e.preventDefault(); lookup(e.target.elements.pn.value); }, style: { padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 4 } },
         React.createElement("input", { name: "pn", type: "text", placeholder: "e.g. contentStatus", value: propertyName, onChange: e => setPropertyName(e.target.value), style: { flex: 1, fontSize: 13, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' } }),
         React.createElement("button", { type: "submit", style: { padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', cursor: 'pointer', fontSize: 12 } }, "Go")
@@ -6282,6 +6325,7 @@ function SpecificationPropertyValuesTab({ onNavigateToElement }) {
   const [filterText, setFilterText] = useState('');
   // Right: selected value's full detail — see ValidValueDetailPane
   const [selectedGuid, setSelectedGuid] = useState(null);
+  const [spvAttempt, setSpvAttempt] = useState(0);
 
   // Fetch list of specification property types
   useEffect(() => {
@@ -6299,7 +6343,7 @@ function SpecificationPropertyValuesTab({ onNavigateToElement }) {
         }
       })
       .catch(err => { setTypesError(err.message); setTypesState('error'); });
-  }, [creds]);
+  }, [creds, spvAttempt]);
 
   const lookup = useCallback((type) => {
     const t = (type || '').trim();
@@ -6339,7 +6383,13 @@ function SpecificationPropertyValuesTab({ onNavigateToElement }) {
   return React.createElement("div", { className: "body" },
     // Column 1: type selector
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
-      React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } }, "Specification Property Type"),
+      React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
+        React.createElement("span", null, "Specification Property Type"),
+        React.createElement("button", {
+          className: "btn-sm", style: { textTransform: 'none', fontWeight: 400 },
+          onClick: () => { setSpvAttempt(a => a + 1); if (submittedType) lookup(submittedType); }
+        }, "↻ Refresh")
+      ),
       React.createElement("form", { onSubmit: e => { e.preventDefault(); lookup(e.target.elements.spt.value); }, style: { padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 4 } },
         React.createElement("input", { name: "spt", type: "text", placeholder: "e.g. TemplateSubstitute", value: typeName, onChange: e => setTypeName(e.target.value), style: { flex: 1, fontSize: 13, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' } }),
         React.createElement("button", { type: "submit", style: { padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', cursor: 'pointer', fontSize: 12 } }, "Go")
@@ -7087,7 +7137,11 @@ function DataDesignView({ navGuid, navType, onNavigateToGlossary, onNavigateToDi
           React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', padding: '4px 0 2px' } },
             React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
             "Include templates"
-          )
+          ),
+          React.createElement("button", {
+            className: "btn-sm", style: { marginTop: 4 },
+            onClick: function() { loadItems(subNav); }
+          }, "↻ Refresh")
         ),
         React.createElement("div", { style: { overflowY: 'auto', flex: 1 } },
           curList.st === 'loading'
@@ -7330,6 +7384,96 @@ function SolutionComponentDetail({ component, onNavigateToBlueprint, onNavigateT
   );
 }
 
+function DesignPatternDetail({ pattern, onNavigateToPattern, onNavigateToElement }) {
+  const creds = React.useContext(CredContext);
+  var _saPersonaId = React.useContext(PersonaContext);
+  if (!pattern) return null;
+
+  function relSection(title, items) {
+    if (!items || items.length === 0) return null;
+    return React.createElement("div", { style: { marginBottom: 16 } },
+      React.createElement("div", { style: { fontWeight: 600, fontSize: 13, marginBottom: 6, color: 'var(--accent)' } }, title + " (" + items.length + ")"),
+      items.map(function(item) {
+        return React.createElement("div", { key: item.guid, style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '4px 0', borderTop: '1px solid var(--border)' } },
+          React.createElement("span", { style: { flex: 1 } }, item.displayName || item.qualifiedName),
+          item.typeName && React.createElement("span", { className: "badge", style: { fontSize: 10, background: 'rgba(99,102,241,.1)', color: '#818cf8', border: '0.5px solid rgba(99,102,241,.25)' } }, item.typeName),
+          onNavigateToPattern && React.createElement("button", {
+            onClick: function() { onNavigateToPattern(item.guid); },
+            style: { padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(167,139,250,.4)', background: 'rgba(167,139,250,.1)', color: '#c4b5fd', cursor: 'pointer', fontSize: 11 }
+          }, "View →")
+        );
+      })
+    );
+  }
+
+  // Forces/Benefits/Liabilities are lists of prose fragments (DesignPatternProperties'
+  // own shape — each entry can be a full sentence or a sub-clause depending on how
+  // the source book punctuated its bullets) — a bulleted list reads far better than
+  // GenericPropertiesTable's default ", "-joined single cell for an array field.
+  function bulletSection(title, items) {
+    if (!items || items.length === 0) return null;
+    return React.createElement("div", { style: { marginBottom: 16 } },
+      React.createElement("div", { style: { fontWeight: 600, fontSize: 13, marginBottom: 6, color: 'var(--accent)' } }, title),
+      React.createElement("ul", { style: { margin: 0, paddingLeft: 20, fontSize: 13, lineHeight: 1.5 } },
+        items.map(function(t, i) { return React.createElement("li", { key: i, style: { marginBottom: 4 } }, t); })
+      )
+    );
+  }
+
+  function proseSection(title, text) {
+    if (!text) return null;
+    return React.createElement("div", { style: { marginBottom: 16 } },
+      React.createElement("div", { style: { fontWeight: 600, fontSize: 13, marginBottom: 6, color: 'var(--accent)' } }, title),
+      React.createElement("div", { style: { fontSize: 13, lineHeight: 1.5 } }, renderMd(text))
+    );
+  }
+
+  return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
+    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, pattern.displayName || pattern.qualifiedName),
+      React.createElement("span", { className: "badge", style: { background: 'rgba(52,211,153,.1)', color: '#6ee7b7', border: '0.5px solid rgba(52,211,153,.3)' } }, pattern.typeName || 'DesignPattern'),
+      React.createElement("div", { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 } },
+        _saPersonaId && React.createElement(FavoriteButton, { app: 'type-explorer', section: 'solution-architect', label: pattern.displayName || pattern.qualifiedName, icon: '◫', url: '/egeria-explorer?guid=' + encodeURIComponent(pattern.guid) + '#solution-architect', personaId: _saPersonaId }),
+        React.createElement(EgeriaFeedbackWidget, { guid: pattern.guid })
+      ),
+      React.createElement(HeaderInfoButton, { header: pattern._header }),
+      React.createElement(CopyJsonButton, { data: pattern })
+    ),
+    React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, pattern.guid),
+    pattern.category && React.createElement("div", { style: { fontSize: 12, color: 'var(--dim)', marginBottom: 12 } }, pattern.category),
+    pattern.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(pattern.description)),
+    React.createElement("div", { style: { marginBottom: 8 } },
+      React.createElement(AvailableMermaidDiagrams, { data: pattern }),
+      React.createElement(MermaidSection, { guid: pattern.guid })
+    ),
+    React.createElement("div", { style: { marginBottom: 20 } },
+      React.createElement(GenericPropertiesTable, {
+        item: pattern, priority: ['versionIdentifier', 'lifecycleStatus', 'userDefinedStatus', 'contentStatus', 'status'],
+        skip: ['context', 'problemStatement', 'problemExample', 'solutionDescription', 'solutionExample', 'usage', 'forces', 'benefits', 'liabilities', 'legal', 'category'],
+        renderValue: function(key, val) { return renderMd(val); },
+      })
+    ),
+    proseSection("Context", pattern.context),
+    proseSection("Problem Statement", pattern.problemStatement),
+    proseSection("Problem Example", pattern.problemExample),
+    bulletSection("Forces", pattern.forces),
+    proseSection("Solution Description", pattern.solutionDescription),
+    proseSection("Solution Example", pattern.solutionExample),
+    bulletSection("Benefits", pattern.benefits),
+    bulletSection("Liabilities", pattern.liabilities),
+    proseSection("Usage", pattern.usage),
+    relSection("General Patterns", pattern.generalPatterns),
+    relSection("Specialized Patterns", pattern.specializedPatterns),
+    relSection("Consumed Patterns", pattern.consumedPatterns),
+    relSection("Consuming Patterns", pattern.consumingPatterns),
+    relSection("Related Patterns", pattern.relatedPatterns),
+    React.createElement(GenericRelationshipsSection, { relationships: pattern.relationships, onNavigateToElement: onNavigateToElement }),
+    pattern.legal && React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', fontStyle: 'italic', marginTop: 8, marginBottom: 16, borderTop: '1px solid var(--border)', paddingTop: 8 } }, pattern.legal),
+    React.createElement(ClassificationsAndRawJson, { item: pattern }),
+    React.createElement(EgeriaCommentsSection, { guid: pattern.guid })
+  );
+}
+
 // ── Perspectives & Questions ───────────────────────────────────────────────────
 
 function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }) {
@@ -7339,6 +7483,7 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
   const [filter, setFilter]   = useState('');
   const [asOfTime, setAsOfTime] = useState(null);  // LE-3 point-in-time
   const [inclTempl, setInclTempl] = useState(false);
+  const [refreshAttempt, setRefreshAttempt] = useState(0);
 
   const [perspList, setPerspList]   = useState([]);
   const [perspState, setPerspState] = useState('loading');
@@ -7377,8 +7522,10 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
     egeriaFetch('/api/perspectives' + (p.length ? '?' + p.join('&') : ''), creds)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(data => { setPerspList(data.perspectives || []); setPerspState('ready'); })
+      // (deps below include refreshAttempt so a Refresh click reloads even when
+      // asOfTime/inclTempl haven't changed)
       .catch(() => setPerspState('error'));
-  }, [asOfTime, inclTempl]);
+  }, [asOfTime, inclTempl, refreshAttempt]);
 
   // Cross-tab arrival: another tab called onNavigateToPerspective(guid) — select it.
   useEffect(() => {
@@ -7523,7 +7670,11 @@ function PerspectivesView({ navGuid, onNavigateToGlossary, onNavigateToElement }
         )
       ),
       React.createElement("div", { className: "search-wrap", style: { padding: '6px 10px', borderBottom: '1px solid var(--border)' } },
-        React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter, onChange: function(e) { setFilter(e.target.value); } })
+        React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter, onChange: function(e) { setFilter(e.target.value); } }),
+        React.createElement("button", {
+          className: "btn-sm", style: { marginTop: 4 },
+          onClick: function() { setQState('idle'); setRefreshAttempt(function(a) { return a + 1; }); }
+        }, "↻ Refresh")
       ),
       React.createElement("div", { style: { padding: '4px 10px 4px', fontSize: 11, color: 'var(--dim)', borderBottom: '1px solid var(--border)' } },
         activeState === 'loading' ? 'Loading…' : activeState === 'error' ? 'Error loading' : filteredList.length + ' item' + (filteredList.length !== 1 ? 's' : '')
@@ -7606,6 +7757,7 @@ function DrEgeriaCommandsView() {
   const [directive, setDirective]     = useState('display');
   const [execState, setExecState]     = useState('idle'); // 'idle' | 'running' | 'done' | 'error'
   const [execResult, setExecResult]   = useState(null);
+  const [attempt, setAttempt]         = useState(0);
   const creds = React.useContext(CredContext);
 
   useEffect(function() {
@@ -7614,7 +7766,7 @@ function DrEgeriaCommandsView() {
       .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function(data) { setCmdData(data); setLoadState('ready'); })
       .catch(function() { setLoadState('error'); });
-  }, []);
+  }, [attempt]);
 
   useEffect(function() {
     if (!cmdData) return;
@@ -7991,7 +8143,11 @@ function DrEgeriaCommandsView() {
         ),
       React.createElement("div", { className: "search-wrap", style: { padding: '6px 10px', borderBottom: '1px solid var(--border)' } },
         React.createElement("input", { className: "search-input", placeholder: "Filter commands…", value: filter,
-          onChange: function(e) { setFilter(e.target.value); if (e.target.value) setSelectedCmd(null); } })
+          onChange: function(e) { setFilter(e.target.value); if (e.target.value) setSelectedCmd(null); } }),
+        React.createElement("button", {
+          className: "btn-sm", style: { marginTop: 4 },
+          onClick: function() { setAttempt(function(a) { return a + 1; }); }
+        }, "↻ Refresh")
       ),
       React.createElement("div", { style: { padding: '4px 10px', fontSize: 11, color: 'var(--dim)', borderBottom: '1px solid var(--border)' } },
         loadState === 'loading' ? 'Loading…' :
@@ -8136,7 +8292,11 @@ function InformationSupplyChainView({ navGuid, onNavigateToElement }) {
       React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', marginTop: 4 } },
         React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
         "Include templates"
-      )
+      ),
+      React.createElement("button", {
+        className: "btn-sm", style: { marginTop: 4 },
+        onClick: function() { setAttempt(function(a) { return a + 1; }); }
+      }, "↻ Refresh"),
     ),
     state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     state === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -8263,17 +8423,28 @@ function _elementIsLinkable(item) {
   if (item.typeName === 'InformationSupplyChain') return true;
   if (item.typeName === 'SolutionComponent' || superTypes.indexOf('SolutionComponent') !== -1) return true;
   if (item.typeName === 'SolutionBlueprint' || superTypes.indexOf('SolutionBlueprint') !== -1) return true;
+  if (item.typeName === 'DesignPattern' || superTypes.indexOf('DesignPattern') !== -1) return true;
   if (item.typeName === 'Perspective') return true;
   if (item.typeName === 'Project') return true;
+  if (item.typeName === 'InformalTag') return true;
+  if (item.typeName === 'ContextEvent') return true;
   // Egeria's internal type-system registry — every entity/relationship/
   // classification typeName also exists as a ValidMetadataValue, which is why
   // a search for e.g. "SmartQuery" can legitimately match one. Routes to the
   // Valid Values viewer via validValueProperty (see catalog_search_handler.py).
   if (item.typeName === 'ValidMetadataValue') return true;
+  // ValidMetadataValue's abstract root and its other concrete subtypes
+  // (ReferenceDataSet, ValidValueSet, …) all resolve through the same
+  // generic /api/reference-data/{guid} endpoint.
+  if (item.typeName === 'ValidValueDefinition' || superTypes.indexOf('ValidValueDefinition') !== -1) return true;
   // Explicit subtype checks so linkability does not depend on superTypeNames being
   // present on the relationship item (some serializers omit them).
   if (item.typeName === 'CollectionFolder') return true;
   if (item.typeName === 'GovernanceActionProcess') return true;
+  // Endpoint is a Referenceable, not an Asset, so the Asset superType check
+  // below doesn't catch it — Tech Catalog has a dedicated fetch path for it
+  // (ConnectionMaker.get_endpoint_by_guid) and its own Infrastructure tab.
+  if (item.typeName === 'Endpoint') return true;
   if (EXT_REF_TYPES.indexOf(item.typeName) !== -1) return true;
   if (item.typeName === 'ExternalId') return true;
   if (AGREEMENT_TYPES.indexOf(item.typeName) !== -1) return true;
@@ -8281,6 +8452,14 @@ function _elementIsLinkable(item) {
   if (_actorKindForType(item.typeName, superTypes)) return true;
   if (superTypes.indexOf('GovernanceDefinition') !== -1) return true;
   if (superTypes.indexOf('Asset') !== -1) return true;
+  // SoftwareCapability subtypes (SourceControlLibrary, IntegrationGroup,
+  // APIManager, …) aren't Assets — they showed up in a Folio's member list
+  // (Project → Folio → members) with no way to navigate to them at all.
+  // Tech Catalog's Capabilities tab already has a working detail view for
+  // these (AssetDetail via the generic /api/tech-catalog/assets/{guid}
+  // lookup, same as the Asset fallback below) — this was purely a missing
+  // case here, not a missing view.
+  if (item.typeName === 'SoftwareCapability' || superTypes.indexOf('SoftwareCapability') !== -1) return true;
   // Generic Collection fallback (e.g. Folio) — opens via the Digital Products
   // tab's by-guid lookup, which works for any Collection subtype.
   if (superTypes.indexOf('Collection') !== -1) return true;
@@ -8300,7 +8479,12 @@ var _ACTION_CENTER_ROW_TYPES = { Notification: 1, Meeting: 1, ToDo: 1, Review: 1
 
 function RelatedElementRow({ item, onNavigateToElement }) {
   var isActionCenterType = !!_ACTION_CENTER_ROW_TYPES[item.typeName || ''];
-  var isAsset = !isActionCenterType && (item.superTypeNames || []).indexOf('Asset') !== -1;
+  var superTypes = item.superTypeNames || [];
+  // SoftwareCapability subtypes (SourceControlLibrary, etc.) and Endpoint
+  // route to Tech Catalog the same way Assets do — see _elementIsLinkable's comment.
+  var isAsset = !isActionCenterType && (superTypes.indexOf('Asset') !== -1 ||
+    item.typeName === 'SoftwareCapability' || superTypes.indexOf('SoftwareCapability') !== -1 ||
+    item.typeName === 'Endpoint');
   var clickable = !isAsset && !!onNavigateToElement && _elementIsLinkable(item);
 
   return React.createElement("div", {
@@ -8597,7 +8781,11 @@ function LocationsView({ navGuid, onNavigateToElement }) {
       React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', marginTop: 4 } },
         React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
         "Include templates"
-      )
+      ),
+      React.createElement("button", {
+        className: "btn-sm", style: { marginTop: 4 },
+        onClick: function() { setAttempt(function(a) { return a + 1; }); }
+      }, "↻ Refresh"),
     ),
     state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     state === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -8866,6 +9054,10 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
   }, [subNav, curSelected, asOfTime]);
 
   function retryCurrent() {
+    // Also used by the always-visible Refresh button below (not just the
+    // error-state Retry button) -- state[subNav] must be reset off 'ready'
+    // too, or the load effect's own idle/loading guard would just no-op.
+    setState(function(s) { return Object.assign({}, s, { [subNav]: 'idle' }); });
     setAttempt(function(a) { return Object.assign({}, a, { [subNav]: a[subNav] + 1 }); });
   }
 
@@ -8893,7 +9085,11 @@ function ActorsView({ navKind, navGuid, onNavigateToElement }) {
       React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', marginTop: 4 } },
         React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
         "Include templates"
-      )
+      ),
+      React.createElement("button", {
+        className: "btn-sm", style: { marginTop: 4 },
+        onClick: retryCurrent
+      }, "↻ Refresh")
     ),
     curState === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     curState === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -9092,7 +9288,8 @@ function NamingVocabularyView() {
 
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
-      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, 'Naming Vocabulary')
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, 'Naming Vocabulary'),
+      React.createElement("button", { className: "btn-sm", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "↻ Refresh")
     ),
     React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)', marginBottom: 16 } },
       'The word vocabulary used to compose standard names — see the Naming Standard Rules under Governance Definitions for the rules that reference these words.'),
@@ -9195,7 +9392,10 @@ function PolicyEnforcementView() {
   };
 
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
-    React.createElement("div", { style: { fontSize: 18, fontWeight: 700, marginBottom: 4 } }, 'Policy Enforcement Architecture'),
+    React.createElement("div", { style: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 } },
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 700, marginBottom: 4 } }, 'Policy Enforcement Architecture'),
+      React.createElement("button", { className: "btn-sm", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "↻ Refresh")
+    ),
     React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)', marginBottom: 16 } },
       'Elements classified with a Policy*Point classification (XACML-style policy architecture). ' +
       'Policy Management Point is the parent classification — any element carrying one of the five ' +
@@ -9334,6 +9534,7 @@ function ActionCenterView({ onNavigateToElement, navGuid }) {
   const [modalAction, setModalAction] = useState(null);
   // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
   const [zoneModalAction, setZoneModalAction] = useState(null);
+  const [actionAttempt, setActionAttempt] = useState(0);
 
   useEffect(function() {
     setState('loading'); setError('');
@@ -9344,7 +9545,7 @@ function ActionCenterView({ onNavigateToElement, navGuid }) {
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setItems(data.actions || []); setState('ready'); })
       .catch(function(e) { setError(e.message); setState('error'); });
-  }, [actionType, startFrom]);
+  }, [actionType, startFrom, actionAttempt]);
 
   useEffect(function() {
     if (!selected) { setDetail(null); return; }
@@ -9368,7 +9569,7 @@ function ActionCenterView({ onNavigateToElement, navGuid }) {
   ];
 
   var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
-    React.createElement("div", { style: { padding: '8px 10px', display: 'flex', gap: 4, flexWrap: 'wrap' } },
+    React.createElement("div", { style: { padding: '8px 10px', display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' } },
       TYPE_CHIPS.map(function(c) {
         return React.createElement("button", {
           key: c.id,
@@ -9381,7 +9582,11 @@ function ActionCenterView({ onNavigateToElement, navGuid }) {
             color: actionType === c.id ? 'var(--accent)' : 'var(--dim)',
           }
         }, c.label);
-      })
+      }),
+      React.createElement("button", {
+        className: "btn-sm",
+        onClick: function() { setActionAttempt(function(a) { return a + 1; }); }
+      }, "↻ Refresh")
     ),
     state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     state === 'error' && React.createElement("div", { style: { padding: 16, color: '#f87171', fontSize: 13 } }, "Error: " + error),
@@ -9487,7 +9692,10 @@ function DuplicateReviewView({ onNavigateToElement }) {
   }
 
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
-    React.createElement("div", { style: { fontSize: 18, fontWeight: 700, marginBottom: 4 } }, 'Duplicate Resolution Review'),
+    React.createElement("div", { style: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 } },
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 700, marginBottom: 4 } }, 'Duplicate Resolution Review'),
+      React.createElement("button", { className: "btn-sm", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "↻ Refresh")
+    ),
     React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)', marginBottom: 16 } },
       'Elements classified KnownDuplicate, paired via PeerDuplicateLink, awaiting steward review; ' +
       'and elements already classified ConsolidatedDuplicate showing the sources they absorbed. Read-only for now.'),
@@ -9586,7 +9794,11 @@ function InformalTagsView({ navGuid, onNavigateToElement }) {
   var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { className: "search-wrap" },
       React.createElement("input", { className: "search-input", placeholder: "Filter…", value: filter,
-        onChange: function(e) { setFilter(e.target.value); } })
+        onChange: function(e) { setFilter(e.target.value); } }),
+      React.createElement("button", {
+        className: "btn-sm", style: { marginTop: 4 },
+        onClick: function() { setAttempt(function(a) { return a + 1; }); }
+      }, "↻ Refresh"),
     ),
     React.createElement("div", { style: { padding: '4px 12px 8px', display: 'flex', alignItems: 'center', gap: 6 } },
       React.createElement("label", { style: { fontSize: 12, color: 'var(--dim)', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' } },
@@ -9718,7 +9930,11 @@ function CommunityView({ navGuid, onNavigateToElement }) {
       React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', padding: '4px 0 2px' } },
         React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
         "Include templates"
-      )
+      ),
+      React.createElement("button", {
+        className: "btn-sm", style: { marginTop: 4 },
+        onClick: function() { setAttempt(function(a) { return a + 1; }); }
+      }, "↻ Refresh"),
     ),
     state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     state === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -9807,6 +10023,10 @@ function BusinessCapabilityDetail({ data, detail, onNavigateToElement }) {
     ),
     React.createElement("code", { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 16 } }, src.guid),
     src.description && React.createElement("div", { style: { fontSize: 13, marginBottom: 16 } }, renderMd(src.description)),
+    React.createElement("div", { style: { marginBottom: 8 } },
+      React.createElement(AvailableMermaidDiagrams, { data: src }),
+      React.createElement(MermaidSection, { guid: src.guid })
+    ),
     React.createElement("div", { style: { marginBottom: 20 } },
       React.createElement(GenericPropertiesTable, { item: src, priority: ['businessCapabilityType', 'businessImplementationType', 'status'] })
     ),
@@ -9873,7 +10093,11 @@ function BusinessCapabilityView({ navGuid, onNavigateToElement }) {
       React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', padding: '4px 0 2px' } },
         React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
         "Include templates"
-      )
+      ),
+      React.createElement("button", {
+        className: "btn-sm", style: { marginTop: 4 },
+        onClick: function() { setAttempt(function(a) { return a + 1; }); }
+      }, "↻ Refresh"),
     ),
     state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     state === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -10161,7 +10385,11 @@ function NoteLogView({ navGuid, onNavigateToElement }) {
       React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', padding: '4px 0 2px' } },
         React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
         "Include templates"
-      )
+      ),
+      React.createElement("button", {
+        className: "btn-sm", style: { marginTop: 4 },
+        onClick: function() { setAttempt(function(a) { return a + 1; }); }
+      }, "↻ Refresh"),
     ),
     state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     state === 'error' && React.createElement("div", { style: { padding: 16 } },
@@ -10235,8 +10463,9 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   // here (e.g. from Tech Catalog's "↗ Egeria Explorer" link on a SolutionComponent).
   const [subNav, setSubNav] = useState(function() {
     var params = new URLSearchParams(window.location.search);
-    return params.get('kind') === 'components' ? 'components' : 'blueprints';
-  }); // 'blueprints' | 'components'
+    var k = params.get('kind');
+    return (k === 'components' || k === 'patterns') ? k : 'blueprints';
+  }); // 'blueprints' | 'components' | 'patterns'
 
   const [bpState, setBpState]   = useState('loading');
   const [bpAttempt, setBpAttempt] = useState(0);
@@ -10246,6 +10475,20 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
     var params = new URLSearchParams(window.location.search);
     return (params.get('kind') || 'blueprints') === 'blueprints' ? (params.get('guid') || null) : null;
   });
+  const [patState, setPatState]   = useState('idle');
+  const [patAttempt, setPatAttempt] = useState(0);
+  const [patterns, setPatterns] = useState([]);
+  const [patError, setPatError]   = useState('');
+  const [selectedPat, setSelectedPat] = useState(function() {
+    var params = new URLSearchParams(window.location.search);
+    return params.get('kind') === 'patterns' ? (params.get('guid') || null) : null;
+  });
+  const [patDetail, setPatDetail] = useState(null);
+  const [patDetailState, setPatDetailState] = useState('idle');
+  const [expandedPatCats, setExpandedPatCats] = useState(new Set());
+  const togglePatCat = useCallback(function(cat) {
+    setExpandedPatCats(function(prev) { var n = new Set(prev); if (n.has(cat)) n.delete(cat); else n.add(cat); return n; });
+  }, []);
   const [bpDetail, setBpDetail] = useState(null);
   const [bpDetailState, setBpDetailState] = useState('idle');
 
@@ -10284,6 +10527,7 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   useEffect(function() {
     setBpState('loading'); setBlueprints([]);
     setCompState('idle'); setComponents([]);
+    setPatState('idle'); setPatterns([]);
     selection.clear();
   }, [inclTempl]);
 
@@ -10332,6 +10576,16 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
     setExpandedComps(function(prev) { var n = new Set(prev); if (n.has(guid)) n.delete(guid); else n.add(guid); return n; });
   }, []);
 
+  // Load patterns when sub-nav switches to patterns (lazy)
+  useEffect(function() {
+    if (subNav !== 'patterns' || patState !== 'idle') return;
+    setPatState('loading'); setPatError('');
+    egeriaFetch('/api/solution/patterns' + (inclTempl ? '?include_templates=true' : ''), creds)
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { setPatterns(data.patterns || []); setPatState('ready'); })
+      .catch(function(e) { setPatError(e.message); setPatState('error'); });
+  }, [subNav, patAttempt, inclTempl]);
+
   // Fetch blueprint detail when selection changes. `cancelled` discards a
   // response that arrives after a newer selection superseded this fetch —
   // same race-condition class found in Collections/Digital Products
@@ -10360,6 +10614,24 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
     return function() { cancelled = true; };
   }, [selectedComp]);
 
+  // Fetch pattern detail when selection changes (same race guard as above).
+  useEffect(function() {
+    if (!selectedPat) { setPatDetail(null); return; }
+    var cancelled = false;
+    setPatDetailState('loading');
+    egeriaFetch('/api/solution/patterns/' + selectedPat, creds)
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) { if (!cancelled) { setPatDetail(data); setPatDetailState('ready'); } })
+      .catch(function() { if (!cancelled) setPatDetailState('error'); });
+    return function() { cancelled = true; };
+  }, [selectedPat]);
+
+  function onNavigateToPattern(guid) {
+    setSubNav('patterns');
+    if (patState === 'idle') setPatAttempt(function(a) { return a + 1; });
+    setSelectedPat(guid);
+  }
+
   function onNavigateToBlueprint(guid) {
     setSubNav('blueprints');
     setSelectedBp(guid);
@@ -10375,6 +10647,7 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
   useEffect(function() {
     if (!navProp || !navProp.guid) return;
     if (navProp.kind === 'components') onNavigateToComponent(navProp.guid);
+    else if (navProp.kind === 'patterns') onNavigateToPattern(navProp.guid);
     else onNavigateToBlueprint(navProp.guid);
   }, [navProp]);
 
@@ -10382,7 +10655,8 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
     // Sub-nav toggle
     React.createElement("div", { style: { display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 } },
       React.createElement("button", { onClick: function() { setSubNav('blueprints'); setFilter(''); selection.clear(); }, style: { flex: 1, padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer', fontWeight: subNav === 'blueprints' ? 700 : 400, color: subNav === 'blueprints' ? 'var(--accent)' : 'var(--fg)', borderBottom: subNav === 'blueprints' ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 13 } }, "Blueprints"),
-      React.createElement("button", { onClick: function() { setSubNav('components'); setFilter(''); selection.clear(); }, style: { flex: 1, padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer', fontWeight: subNav === 'components' ? 700 : 400, color: subNav === 'components' ? 'var(--accent)' : 'var(--fg)', borderBottom: subNav === 'components' ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 13 } }, "Components")
+      React.createElement("button", { onClick: function() { setSubNav('components'); setFilter(''); selection.clear(); }, style: { flex: 1, padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer', fontWeight: subNav === 'components' ? 700 : 400, color: subNav === 'components' ? 'var(--accent)' : 'var(--fg)', borderBottom: subNav === 'components' ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 13 } }, "Components"),
+      React.createElement("button", { onClick: function() { setSubNav('patterns'); setFilter(''); selection.clear(); }, style: { flex: 1, padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer', fontWeight: subNav === 'patterns' ? 700 : 400, color: subNav === 'patterns' ? 'var(--accent)' : 'var(--fg)', borderBottom: subNav === 'patterns' ? '2px solid var(--accent)' : '2px solid transparent', fontSize: 13 } }, "Patterns")
     ),
     // Search bar (shared — resets on sub-nav change)
     React.createElement("div", { className: "search-wrap" },
@@ -10397,6 +10671,7 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
         onClick: function() {
           setBpAttempt(function(a) { return a + 1; });
           setCompAttempt(function(a) { return a + 1; });
+          setPatAttempt(function(a) { return a + 1; });
         }
       }, "↻ Refresh")
     ),
@@ -10502,6 +10777,63 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
         });
       })()
     ),
+    // Patterns list — grouped by `category` (the pattern group each book
+    // organizes its patterns into, e.g. "People and Organization Patterns"),
+    // computed client-side from the flat list rather than a dedicated backend
+    // endpoint (unlike Blueprints' Folio grouping, which needs its own /folios
+    // call to read memberOfCollections) since `category` is already a plain
+    // scalar property on every pattern summary — no extra query needed.
+    subNav === 'patterns' && React.createElement("div", { style: { overflowY: 'auto', flex: 1 } },
+      (patState === 'idle' || patState === 'loading') && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading patterns…"),
+      patState === 'error' && React.createElement("div", { style: { padding: 16 } },
+        React.createElement("div", { style: { color: '#f87171', fontSize: 13, marginBottom: 8 } }, "Error: " + patError),
+        React.createElement("button", { className: "view-tab on", onClick: function() { setPatAttempt(function(a) { return a + 1; }); } }, "Retry")
+      ),
+      patState === 'ready' && (function() {
+        var q = filter.toLowerCase();
+        function patRow(p) {
+          return React.createElement("div", {
+            key: p.guid, className: "tree-item" + (selectedPat === p.guid ? " sel" : ""),
+            style: { paddingLeft: 26 },
+            onClick: function() { setSelectedPat(p.guid); }, title: p.qualifiedName || p.guid,
+          },
+            p.guid && React.createElement("input", {
+              type: "checkbox", checked: selection.isSelected(p.guid), style: { flexShrink: 0, cursor: 'pointer' },
+              onClick: function(e) { e.stopPropagation(); },
+              onChange: function() { selection.toggle({ guid: p.guid, displayName: p.displayName, typeName: p.typeName || 'DesignPattern' }); },
+            }),
+            React.createElement("span", { className: "type-name" }, p.displayName || p.qualifiedName)
+          );
+        }
+        if (q) {
+          var vis = patterns.filter(function(p) { return (p.displayName || p.qualifiedName || '').toLowerCase().includes(q); });
+          if (!vis.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "No matches");
+          return vis.map(function(p) { return patRow(p); });
+        }
+        if (!patterns.length) return React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "No design patterns found");
+        var byCat = {};
+        patterns.forEach(function(p) {
+          var cat = p.category || 'Uncategorized';
+          (byCat[cat] = byCat[cat] || []).push(p);
+        });
+        var cats = Object.keys(byCat).sort();
+        var out = [];
+        cats.forEach(function(cat) {
+          var isExp = expandedPatCats.has(cat);
+          out.push(React.createElement("div", {
+            key: 'cat-' + cat, onClick: function() { togglePatCat(cat); },
+            style: { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: 'var(--text)', background: 'var(--panel)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' },
+            title: cat,
+          },
+            React.createElement(FoldTriangle, { open: isExp, size: 9, style: { width: 10 } }),
+            React.createElement("span", { style: { flex: 1 } }, cat),
+            React.createElement("span", { style: { color: 'var(--muted)', fontWeight: 400 } }, byCat[cat].length)
+          ));
+          if (isExp) byCat[cat].forEach(function(p) { out.push(patRow(p)); });
+        });
+        return out;
+      })()
+    ),
     React.createElement(BulkActionBar, {
       count: selection.count, onClear: selection.clear,
       actions: [
@@ -10530,6 +10862,18 @@ function SolutionArchitectView({ navProp, onNavigateToElement }) {
         component: compDetail,
         onNavigateToBlueprint: onNavigateToBlueprint,
         onNavigateToComponent: onNavigateToComponent,
+        onNavigateToElement: onNavigateToElement
+      })
+    ),
+    subNav === 'patterns' && React.createElement(React.Fragment, null,
+      !selectedPat && React.createElement("div", { className: "center" },
+        React.createElement("span", { style: { color: 'var(--muted)' } }, "Select a design pattern from the sidebar")
+      ),
+      selectedPat && patDetailState === 'loading' && React.createElement("div", { style: { padding: 24, color: 'var(--dim)' } }, "Loading…"),
+      selectedPat && patDetailState === 'error' && React.createElement("div", { style: { padding: 24, color: '#f87171' } }, "Failed to load design pattern detail"),
+      selectedPat && patDetailState === 'ready' && patDetail && React.createElement(DesignPatternDetail, {
+        pattern: patDetail,
+        onNavigateToPattern: onNavigateToPattern,
         onNavigateToElement: onNavigateToElement
       })
     )
@@ -10658,6 +11002,9 @@ const _PROJECT_KIND_STYLE = {
   PersonalProject: { bg: 'rgba(251,191,36,.12)',  fg: '#fbbf24',  border: 'rgba(251,191,36,.3)'  },
   Task:            { bg: 'rgba(248,113,113,.12)', fg: '#f87171',  border: 'rgba(248,113,113,.3)' },
   GlossaryProject: { bg: 'rgba(129,140,248,.12)', fg: '#818cf8',  border: 'rgba(129,140,248,.3)' },
+  // Added 2026-08-24 alongside the projectKinds fix (project_handler.py) —
+  // 6 of 30 live demo projects carry this kind, previously invisible entirely.
+  GovernanceProject: { bg: 'rgba(20,184,166,.12)',  fg: '#2dd4bf',  border: 'rgba(20,184,166,.3)'  },
 };
 const _PROJECT_KIND_DEFAULT = { bg: 'rgba(168,85,247,.1)', fg: '#c084fc', border: 'rgba(168,85,247,.25)' };
 
@@ -10727,6 +11074,7 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
   const [modalAction, setModalAction] = React.useState(null);
   // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
   const [zoneModalAction, setZoneModalAction] = React.useState(null);
+  const [projAttempt, setProjAttempt] = React.useState(0);
 
   var atParam = asOfTime ? '&as_of_time=' + encodeURIComponent(asOfTime) : '';
   var inclTemplParam = inclTempl ? '&include_templates=true' : '';
@@ -10742,7 +11090,7 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
         setState('ready');
       })
       .catch(function(e) { setError(String(e)); setState('error'); });
-  }, [asOfTime, inclTempl]);
+  }, [asOfTime, inclTempl, projAttempt]);
 
   React.useEffect(function() {
     setProjTreeState('loading');
@@ -10750,7 +11098,7 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
       .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function(data) { setProjTree(data.roots || []); setProjTreeState('ready'); })
       .catch(function() { setProjTreeState('error'); });
-  }, [asOfTime]);
+  }, [asOfTime, projAttempt]);
 
   React.useEffect(function() {
     setDepTreeState('loading');
@@ -10758,7 +11106,7 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
       .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function(data) { setDepTree(data.roots || []); setDepTreeState('ready'); })
       .catch(function() { setDepTreeState('error'); });
-  }, [asOfTime]);
+  }, [asOfTime, projAttempt]);
 
   const toggleProj = React.useCallback(function(guid) {
     setExpandedProjs(function(prev) { var n = new Set(prev); if (n.has(guid)) n.delete(guid); else n.add(guid); return n; });
@@ -10835,7 +11183,11 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
         React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', marginTop: 6 } },
           React.createElement('input', { type: 'checkbox', checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
           'Include templates'
-        )
+        ),
+        React.createElement('button', {
+          className: 'btn-sm', style: { marginTop: 6 },
+          onClick: function() { setProjAttempt(function(a) { return a + 1; }); }
+        }, '↻ Refresh')
       ),
       React.createElement('div', { style: listStyle },
         search
@@ -11005,6 +11357,111 @@ const _GOV_DOMAIN_NAMES = {
   '7':   'Domain 7 — Asset Management',
 };
 
+// A GovernanceActionProcess's own generic detail (via get_governance_definition_by_guid)
+// only ever sees its *first* step (GovernanceActionProcessFlow relationship) —
+// the full step chain, joined by NextGovernanceActionProcessStep links, comes
+// from the dedicated /api/governance/process-graph/{guid} endpoint. This renders
+// that chain as a drill-down list (click a step to expand its detail) plus the
+// full-chain mermaid diagram, in place of the generic shallow mermaid block.
+function GovProcessStructure({ guid }) {
+  const creds = React.useContext(CredContext);
+  const [status, setStatus] = useState('idle'); // idle | loading | ready | error
+  const [data, setData]     = useState(null);
+  const [errMsg, setErrMsg] = useState('');
+  const [openStep, setOpenStep] = useState(null);
+
+  useEffect(function() {
+    if (!guid || !creds) return;
+    setStatus('loading'); setData(null); setOpenStep(null); setErrMsg('');
+    egeriaFetch('/api/governance/process-graph/' + encodeURIComponent(guid), creds)
+      .then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
+      .then(function(d) { setData(d); setStatus('ready'); })
+      .catch(function(e) { setErrMsg(String(e && e.message || e)); setStatus('error'); });
+  }, [guid, creds]);
+
+  if (status === 'idle' || status === 'loading') {
+    return React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '8px 0 16px' } }, 'Loading process structure…');
+  }
+  if (status === 'error') {
+    return React.createElement('div', { style: { fontSize: 12, color: '#f87171', padding: '8px 0 16px' } }, 'Could not load process structure: ' + errMsg);
+  }
+  if (!data || !data.steps || !data.steps.length) {
+    return React.createElement('div', { style: { fontSize: 12, color: 'var(--dim)', padding: '8px 0 16px' } }, 'No steps are defined for this process.');
+  }
+
+  var byGuid = {};
+  data.steps.forEach(function(s) { byGuid[s.guid] = s; });
+  var outLinks = {};
+  (data.links || []).forEach(function(l) { (outLinks[l.from] = outLinks[l.from] || []).push(l); });
+
+  // Walk the chain from the first step so the list reads as an ordered sequence;
+  // branches (multiple outgoing guards) are noted under the step that fans out.
+  // Any step unreachable from firstStepGuid (shouldn't normally happen) is
+  // appended at the end rather than silently dropped.
+  var visited = {};
+  var order = [];
+  (function walk(g) {
+    if (!g || visited[g] || !byGuid[g]) return;
+    visited[g] = true;
+    order.push(g);
+    (outLinks[g] || []).forEach(function(l) { walk(l.to); });
+  })(data.firstStepGuid);
+  data.steps.forEach(function(s) { if (!visited[s.guid]) order.push(s.guid); });
+
+  function toggle(g) { setOpenStep(function(cur) { return cur === g ? null : g; }); }
+
+  return React.createElement('div', { style: { marginBottom: 20 } },
+    React.createElement('div', { style: { display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10, paddingBottom: 6, borderBottom: '1px solid var(--border)' } },
+      React.createElement('span', { style: { fontWeight: 700, fontSize: 13, color: 'var(--accent)' } }, 'Process Structure'),
+      React.createElement('span', { style: { fontSize: 11, color: 'var(--dim)' } }, order.length + (order.length === 1 ? ' step' : ' steps'))
+    ),
+    data.mermaidGraph && React.createElement('div', { style: { marginBottom: 12 } },
+      React.createElement(MermaidDiagram, { code: data.mermaidGraph })
+    ),
+    order.map(function(g, i) {
+      var step = byGuid[g];
+      var isOpen = openStep === g;
+      var outs = outLinks[g] || [];
+      return React.createElement('div', { key: g, style: { border: '1px solid var(--border)', borderRadius: 6, marginBottom: 8, overflow: 'hidden' } },
+        React.createElement('div', {
+          style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', cursor: 'pointer', background: isOpen ? 'rgba(96,165,250,.06)' : 'transparent' },
+          onClick: function() { toggle(g); }
+        },
+          React.createElement('span', { style: { width: 20, height: 20, borderRadius: 10, background: 'var(--accent)', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 } }, i + 1),
+          React.createElement('span', { style: { flex: 1, fontSize: 13, fontWeight: 600 } }, step.displayName || step.qualifiedName),
+          step.isFirst && React.createElement('span', { className: 'badge', style: { fontSize: 10 } }, 'First step'),
+          React.createElement(FoldTriangle, { open: isOpen, size: 10 })
+        ),
+        isOpen && React.createElement('div', { style: { padding: '0 10px 10px 38px' } },
+          step.description && React.createElement('div', { style: { fontSize: 12, marginBottom: 8 } }, renderMd(step.description)),
+          React.createElement('code', { style: { fontSize: 10, color: 'var(--dim)', display: 'block', marginBottom: 8 } }, step.qualifiedName),
+          React.createElement(GenericPropertiesTable, {
+            item: step,
+            priority: ['waitTime', 'ignoreMultipleTriggers', 'domainIdentifier', 'status'],
+            renderValue: function(key, val) { return renderMd(val); },
+          }),
+          step.additionalProperties && Object.keys(step.additionalProperties).length > 0 && React.createElement('div', { style: { marginTop: 10 } },
+            React.createElement('div', { style: { fontSize: 11, color: 'var(--muted)', fontWeight: 600, marginBottom: 4 } }, 'Additional Properties'),
+            Object.entries(step.additionalProperties).map(function(pair) {
+              return React.createElement('div', { key: pair[0], style: { display: 'flex', gap: 8, fontSize: 12, padding: '2px 0', borderTop: '1px solid var(--border)' } },
+                React.createElement('span', { style: { color: 'var(--dim)', minWidth: 160, flexShrink: 0 } }, pair[0]),
+                React.createElement('span', null, String(pair[1]))
+              );
+            })
+          )
+        ),
+        outs.length > 0 && React.createElement('div', { style: { padding: '4px 10px 8px 38px', fontSize: 11, color: 'var(--dim)' } },
+          outs.map(function(l, idx) {
+            var toStep = byGuid[l.to];
+            return React.createElement('div', { key: idx },
+              '↳ on guard "' + l.guard + '"' + (l.mandatoryGuard ? ' (mandatory)' : '') + ' → ' + (toStep ? (toStep.displayName || toStep.qualifiedName) : l.to));
+          })
+        )
+      );
+    })
+  );
+}
+
 function GovDefDetail({ definition, onNavigateToElement }) {
   var _govPersonaId = React.useContext(PersonaContext);
   if (!definition) return null;
@@ -11022,10 +11479,12 @@ function GovDefDetail({ definition, onNavigateToElement }) {
     ),
     React.createElement('code', { style: { fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 12 } }, definition.guid),
     definition.description && React.createElement('div', { style: { fontSize: 13, marginBottom: 16 } }, renderMd(definition.description)),
-    definition.mermaidGraph && React.createElement('div', { style: { marginBottom: 8 } },
-      React.createElement(AvailableMermaidDiagrams, { data: definition }),
-      React.createElement(MermaidSection, { guid: definition.guid })
-    ),
+    definition.isGovernanceActionProcess
+      ? React.createElement(GovProcessStructure, { key: definition.guid, guid: definition.guid })
+      : definition.mermaidGraph && React.createElement('div', { style: { marginBottom: 8 } },
+          React.createElement(AvailableMermaidDiagrams, { data: definition }),
+          React.createElement(MermaidSection, { guid: definition.guid })
+        ),
     React.createElement('div', { style: { marginBottom: 20 } },
       React.createElement(GenericPropertiesTable, {
         item: definition,
@@ -11552,6 +12011,10 @@ function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
           return React.createElement('option', { key: opt.value, value: opt.value }, opt.label);
         })
       ),
+      React.createElement('button', {
+        className: 'btn-sm',
+        onClick: function() { setListAttempt(function(a) { return a + 1; }); }
+      }, '↻ Refresh'),
       React.createElement('div', { style: { flex: 1 } }),
       listState === 'ready' && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } },
         visibleDefs.length === definitions.length
@@ -11923,6 +12386,12 @@ function App() {
     setSection('informal-tags');
   }, []);
 
+  const [contextEventsNavGuid, setContextEventsNavGuid] = useState(null);
+  const onNavigateToContextEvent = useCallback(function(guid) {
+    setContextEventsNavGuid(guid || null);
+    setSection('context-events');
+  }, []);
+
   const [noteLogsNavGuid, setNoteLogsNavGuid] = useState(null);
   const onNavigateToNoteLog = useCallback(function(guid) {
     setNoteLogsNavGuid(guid || null);
@@ -11942,6 +12411,10 @@ function App() {
   }, []);
   const onNavigateToSolutionBlueprint = useCallback(function(guid) {
     setSolutionNav({ kind: 'blueprints', guid: guid });
+    setSection('solution-architect');
+  }, []);
+  const onNavigateToDesignPattern = useCallback(function(guid) {
+    setSolutionNav({ kind: 'patterns', guid: guid });
     setSection('solution-architect');
   }, []);
 
@@ -11992,10 +12465,18 @@ function App() {
     if (typeName === 'InformationSupplyChain') { onNavigateToISC(guid); return; }
     if (typeName === 'SolutionBlueprint' || superTypes.indexOf('SolutionBlueprint') !== -1) { onNavigateToSolutionBlueprint(guid); return; }
     if (typeName === 'SolutionComponent' || superTypes.indexOf('SolutionComponent') !== -1) { onNavigateToSolutionComponent(guid); return; }
+    if (typeName === 'DesignPattern' || superTypes.indexOf('DesignPattern') !== -1) { onNavigateToDesignPattern(guid); return; }
     if (DD_TYPES_SET[typeName]) { onNavigateToDataDesign(typeName, guid); return; }
     if (typeName === 'DigitalProduct') { onNavigateToDigitalProduct(guid); return; }
     if (typeName === 'Perspective') { onNavigateToPerspective(guid); return; }
     if (typeName === 'Project') { onNavigateToProject(guid); return; }
+    if (typeName === 'InformalTag') { onNavigateToInformalTag(guid); return; }
+    if (typeName === 'ContextEvent') { onNavigateToContextEvent(guid); return; }
+    // ValidValueDefinition's other concrete subtypes (ReferenceDataSet,
+    // ValidValueSet, …) resolve through the same generic by-guid endpoint as
+    // ReferenceDataValue — unlike ValidMetadataValue below, these don't need
+    // a property-name lookup.
+    if (typeName === 'ValidValueDefinition' || superTypes.indexOf('ValidValueDefinition') !== -1) { onNavigateToReferenceData(guid); return; }
     if (typeName === 'ValidMetadataValue') {
       // validValueProperty comes from catalog_search_handler.py's
       // _serialize_search_result (guid alone doesn't identify a property
@@ -12027,7 +12508,13 @@ function App() {
     // "↗ Tech Catalog" link, for callers that route everything through this
     // single dispatcher instead of rendering that link separately).
     if (superTypes.indexOf('Asset') !== -1) { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
-  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToCollection, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToAction, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToExternalReference, onNavigateToExternalIdentifier, onNavigateToAgreement, onNavigateToProject, onNavigateToValidValues]);
+    // SoftwareCapability subtypes (SourceControlLibrary, etc.) — same Tech
+    // Catalog route as Assets, see _elementIsLinkable's comment.
+    if (typeName === 'SoftwareCapability' || superTypes.indexOf('SoftwareCapability') !== -1) { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
+    // Endpoint — Referenceable, not Asset, so it needs its own branch;
+    // Tech Catalog's Infrastructure tab already has a dedicated fetch path.
+    if (typeName === 'Endpoint') { window.open('/tech-catalog?guid=' + encodeURIComponent(guid), '_blank'); return; }
+  }, [onNavigateToLocation, onNavigateToReferenceData, onNavigateToGlossary, onNavigateToDigitalProduct, onNavigateToCollection, onNavigateToActor, onNavigateToGovernance, onNavigateToCommunity, onNavigateToBusinessCapability, onNavigateToAction, onNavigateToNoteLog, onNavigateToISC, onNavigateToSolutionComponent, onNavigateToSolutionBlueprint, onNavigateToDesignPattern, onNavigateToDataDesign, onNavigateToPerspective, onNavigateToExternalReference, onNavigateToExternalIdentifier, onNavigateToAgreement, onNavigateToProject, onNavigateToValidValues, onNavigateToInformalTag, onNavigateToContextEvent]);
 
   const [typeSideW, onTypeDivDown] = useResizable(254);
 
@@ -12261,6 +12748,10 @@ function App() {
         "Hide deprecated"
       ),
       /*#__PURE__*/React.createElement("button", { className: "view-tab" + (view === 'attrs' ? " on" : ""), onClick: () => setView('attrs') }, "Attribute Index"),
+      /*#__PURE__*/React.createElement("button", {
+        className: "btn-sm",
+        onClick: () => setTypeAttempt(a => a + 1)
+      }, "↻ Refresh"),
       /*#__PURE__*/React.createElement("div", { style: { flex: 1 } }),
       view === 'types' && /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', display: 'flex', gap: 12 } },
         /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", { style: { color: 'var(--accent)' } }, Object.keys(entities).length), " Entities"),
@@ -12322,7 +12813,7 @@ function App() {
       : section === 'projects'
       ? React.createElement(ProjectsView, { key: credsKey, navGuid: projectNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'context-events'
-      ? React.createElement(ContextEventsView, { key: credsKey, onNavigateToElement: onNavigateToElement })
+      ? React.createElement(ContextEventsView, { key: credsKey, navGuid: contextEventsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'informal-tags'
       ? React.createElement(InformalTagsView, { key: credsKey, navGuid: informalTagsNavGuid, onNavigateToElement: onNavigateToElement })
       : section === 'external-references'

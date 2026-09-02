@@ -16,7 +16,7 @@ You can load the definitions into Egeria on one of two ways:
 2. From the command line in JupyterLab. Make sure you are in this directory and issue the command:
 
     ```
-    dr_egeria --directive process solution-design.md
+    dr_egeria --directive process --userid erinoverview --user_pass secret solution-design.md
      
     ```
 
@@ -43,7 +43,7 @@ Again you can load the definitions into Egeria on one of two ways:
 2. From the command line in JupyterLab. Make sure you are in this directory and issue the command:
 
     ```
-    dr_egeria --directive process software-development-governance-program.md
+    dr_egeria --directive process --userid pollytasker --user_pass secret software-development-governance-program.md
      
     ```
 
@@ -52,6 +52,23 @@ Again you can load the definitions into Egeria on one of two ways:
 ## Setting up the Data Hub
 
 The file [setting-up-the-data-hub.ipynb](setting-up-the-data-hub.ipynb) is a Jupyter Notebook that performs the steps the [Peter Profile](https://egeria-project.org/practices/coco-pharmaceuticals/personas/peter-profile/) goes though to set up the data hub.  You need to open the file in JupyterHub and then run each cell in turn.  There are descriptions of each command he uses throughout the file.  Once you have run the file, go to Egeria's web portal and you can see the data hub in Egeria Explorer under the "Strategic Data Hubs" collection displayed from the **Collections** card.
+
+----
+
+## Naming the data fields
+
+The [data-field-naming](data-field-naming/README.md) directory builds the **Data Field Naming** glossary: the
+vocabulary of prime words, modifiers and class words used to construct consistent data field names across the
+data hub, following the `prime word + modifier(s) + class word` convention - for example `PatientAdmittingDate`
+= `Patient` (prime word) + `Admitting` (modifier) + `Date` (class word).
+
+The glossary is organized into a folder per subject area, mirroring `CocoSubjectAreaDefinition`, and each folder
+is linked to the matching `SubjectArea::` collection loaded from `CocoComboArchive.omarchive`. The final three
+files classify every term as a `PrimeWord`, `Modifier` or `ClassWord`
+(see [0438 Naming Standards](https://egeria-project.org/types/4/0438-Naming-Standards/)).
+
+There are around thirty files to process and the order matters, so follow the load order given in
+[data-field-naming/README.md](data-field-naming/README.md) rather than processing them ad hoc.
 
 ----
 License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/),

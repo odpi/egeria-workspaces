@@ -1,26 +1,26 @@
-# Create Folder   
-## Name  
+## Create Folder   
+### Name  
   
 Sentinel 2 Raw Imagery  
   
-## Category  
+### Category  
 GeoSpatial  
   
-## Anchor ID  
+### Anchor ID  
 Geospatial Data Catalog  
   
-## Is Own Anchor  
+### Is Own Anchor  
   
 False  
   
-## Parent ID  
+### Parent ID  
 Geospatial Data Catalog  
   
-## Parent Relationship Type Name  
+### Parent Relationship Type Name  
 CollectionMembership  
   
-## Anchor Scope Name  
+### Anchor Scope Name  
 Geospatial Data Catalog  
   
-## Merge Update   
+### Merge Update   
 False

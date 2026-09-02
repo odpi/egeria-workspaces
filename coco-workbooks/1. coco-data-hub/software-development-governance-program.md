@@ -30,7 +30,7 @@ The AI did it wrong is no excuse!
 CocoPharma::GovernancePrinciple::AIDidItWrongIsNoExcuse
 
 ### Domain Identifier
-SOFTWARE_DEVELOPMENT
+Software Development
 
 ### Description
 The IT project team retains ownership of the resulting software, and responsibility for its quality, evolvability and security.
@@ -63,7 +63,7 @@ All software should be built with observability in mind.
 CocoPharma::GovernancePrinciple::ObservabilityByDesign
 
 ### Domain Identifier
-SOFTWARE_DEVELOPMENT
+Software Development
 
 ### Description
 This observability supports verification of progress and throughput; alerting when errors occur or something fails to happen (much harder!) and diagnosis of the cause of any issues. It includes multiple perspectives - an engineer level view, a system level view and a business level view, and a business owner view.
@@ -96,7 +96,7 @@ All software should be built with verification in mind.
 CocoPharma::GovernancePrinciple::VerificationByDesign
 
 ### Domain Identifier
-SOFTWARE_DEVELOPMENT
+Software Development
 
 ### Description
 This includes testability during development and first-failure data capture in operation.
@@ -129,7 +129,7 @@ All software should be built with resilience in mind.
 CocoPharma::GovernancePrinciple::ResilienceByDesign
 
 ### Domain Identifier
-SOFTWARE_DEVELOPMENT
+Software Development
 
 ### Description
 Resilience ensures these business-critical processes do not fail - or in extreme circumstances, degrade gracefully alerting the relevant people.
@@ -164,7 +164,7 @@ Use AI wisely.
 CocoPharma::GovernanceObligation::UseAIWisely
 
 ### Domain Identifier
-SOFTWARE_DEVELOPMENT
+Software Development
 
 ### Description
 AI uses a lot of resources (energy, water) and so should not be used for routine, repeatable tasks, but instead to generate artifacts such as programs, data models, and documentation that will efficiently support the business.
@@ -217,7 +217,7 @@ AI-Assisted Data Integration Development
 CocoPharma::GovernanceApproach::AIAssistedDataIntegrationDevelopment
 
 ### Domain Identifier
-SOFTWARE_DEVELOPMENT
+Software Development
 
 ### Scope
 Coco Data Hub integration project
@@ -267,7 +267,7 @@ AI-Assisted Data Integration Development Process
 CocoPharma::GovernanceActionProcess::AIAssistedDataIntegrationDevelopmentProcess
 
 ### Domain Identifier
-SOFTWARE_DEVELOPMENT
+Software Development
 
 ### Scope
 Coco Data Hub integration project
@@ -328,7 +328,7 @@ Business View First, Modelled as Solution Architecture
 CocoPharma::GovernanceActionProcessStep::BusinessViewFirstSolutionArchitecture
 
 ### Domain Identifier
-SOFTWARE_DEVELOPMENT
+Software Development
 
 ### Scope
 Coco Data Hub integration project
@@ -375,7 +375,7 @@ Survey and Classify Source and Destination Systems
 CocoPharma::GovernanceActionProcessStep::SurveyAndClassifySourceAndDestinationSystems
 
 ### Domain Identifier
-SOFTWARE_DEVELOPMENT
+Software Development
 
 ### Scope
 Coco Data Hub integration project
@@ -425,7 +425,7 @@ Map Source Data to the Data Hub
 CocoPharma::GovernanceActionProcessStep::MapSourceDataToDataHub
 
 ### Domain Identifier
-SOFTWARE_DEVELOPMENT
+Software Development
 
 ### Scope
 Coco Data Hub integration project
@@ -472,7 +472,7 @@ Build and Test Source-to-Hub Pipelines
 CocoPharma::GovernanceActionProcessStep::BuildAndTestSourceToHubPipelines
 
 ### Domain Identifier
-SOFTWARE_DEVELOPMENT
+Software Development
 
 ### Scope
 Coco Data Hub integration project
@@ -517,7 +517,7 @@ Map Data Hub Data to Destinations
 CocoPharma::GovernanceActionProcessStep::MapDataHubDataToDestinations
 
 ### Domain Identifier
-SOFTWARE_DEVELOPMENT
+Software Development
 
 ### Scope
 Coco Data Hub integration project
@@ -564,7 +564,7 @@ Build and Test Hub-to-Destination Pipelines
 CocoPharma::GovernanceActionProcessStep::BuildAndTestHubToDestinationPipelines
 
 ### Domain Identifier
-SOFTWARE_DEVELOPMENT
+Software Development
 
 ### Scope
 Coco Data Hub integration project
@@ -609,7 +609,7 @@ Instrument Pipelines with Open Lineage
 CocoPharma::GovernanceActionProcessStep::InstrumentPipelinesWithOpenLineage
 
 ### Domain Identifier
-SOFTWARE_DEVELOPMENT
+Software Development
 
 ### Scope
 Coco Data Hub integration project
@@ -657,7 +657,7 @@ Review the Iteration and Feed Learnings Back
 CocoPharma::GovernanceActionProcessStep::ReviewIterationAndFeedLearningsBack
 
 ### Domain Identifier
-SOFTWARE_DEVELOPMENT
+Software Development
 
 ### Scope
 Coco Data Hub integration project
@@ -844,7 +844,7 @@ AI-Generated Artifact Review Rate
 CocoPharma::GovernanceMetric::AIGeneratedArtifactReviewRate
 
 ### Domain Identifier
-SOFTWARE_DEVELOPMENT
+Software Development
 
 ### Scope
 Coco Data Hub integration project
@@ -891,7 +891,7 @@ Pipeline Lineage Coverage
 CocoPharma::GovernanceMetric::PipelineLineageCoverage
 
 ### Domain Identifier
-SOFTWARE_DEVELOPMENT
+Software Development
 
 ### Scope
 Coco Data Hub integration project
@@ -938,7 +938,7 @@ Routine-Task AI Usage Rate
 CocoPharma::GovernanceMetric::RoutineTaskAIUsageRate
 
 ### Domain Identifier
-SOFTWARE_DEVELOPMENT
+Software Development
 
 ### Scope
 Coco Data Hub integration project
@@ -1013,7 +1013,7 @@ Review and Approve AI-Generated Artifacts
 CocoPharma::GovernanceResponsibility::ReviewAndApproveAIGeneratedArtifacts
 
 ### Domain Identifier
-SOFTWARE_DEVELOPMENT
+Software Development
 
 ### Scope
 Coco Data Hub integration project

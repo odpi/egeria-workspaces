@@ -54,6 +54,12 @@ If you want to refresh just the freshstart platform base image (even when `egeri
 ./fresh-start-local --refresh-platform
 ```
 
+If you want to force freshstart-pyegeria-web and jupyter to re-resolve the latest pyegeria release from PyPI (a plain rebuild reuses the cached `pip install --upgrade` layer and otherwise keeps whatever version was last resolved), run:
+
+```bash
+./fresh-start-local --refresh-pyegeria
+```
+
 If you prefer to run Docker Compose manually from this directory, use:
 
 ```bash
@@ -157,7 +163,7 @@ For the full reference — config variables, REST API, user lifecycle, admin pan
 
 The freshstart environment supports Dr. Egeria processing on port `7800` (MCP/REST).
 
-- **Obsidian Plugins**: See the [Obsidian Plugins README](../../obsidian-plugins/call-dr-egeria/README.md) for details on the `Calling the Dr. (MCP)` and legacy plugins.
+- **Obsidian Plugins**: See the [Obsidian Plugins README](../../obsidian-plugins/call-dr-egeria/README.md) for details on the **Call Dr. Egeria** plugin (MCP-based, over SSE).
 - **MCP Server**: The backend (port 7800/sse) exposes Dr. Egeria commands as MCP tools.
 - **Configuring Profiles**: Use `fs-view-server` and `https://localhost:8443` in your plugin settings.
 

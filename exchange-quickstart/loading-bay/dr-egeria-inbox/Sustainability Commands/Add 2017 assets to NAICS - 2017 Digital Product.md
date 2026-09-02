@@ -5,10 +5,10 @@
 
 
 ____
-# Add Member->Collection
+## Add Member->Collection
 >	Add/Remove a member to/from a collection.
 
-## Element Id
+### Element Id
 >	**Input Required**: True
 
 >	**Description**: The name of the element to add to the collection.
@@ -16,7 +16,7 @@ ____
 >	**Alternative Labels**: Member; Member Id
 
 CSV Data File::~{fileSystemName}~:/loading-bay/Sustainability Files/NAICS-6-digit_2017_Codes.csv
-## Collection Id
+### Collection Id
 >	**Input Required**: True
 
 >	**Description**: The name of the collection to link to. There are many collection types, including Digital Products, Agreements and Subscriptions.
@@ -24,7 +24,7 @@ CSV Data File::~{fileSystemName}~:/loading-bay/Sustainability Files/NAICS-6-digi
 >	**Alternative Labels**: Parent; Parent Id; Collection Id; Agreement Id; Subscription Id; Digital Product Id; Folder; Folder Id
 
 DigitalProduct::NAICS-Codes-2017::2017
-## Membership Rationale
+### Membership Rationale
 >	**Input Required**: False
 
 >	**Description**: Rationale for membership.
@@ -32,19 +32,19 @@ DigitalProduct::NAICS-Codes-2017::2017
 >	**Alternative Labels**: Rationale
 
 Product Asset
-## Expression
+### Expression
 >	**Input Required**: False
 
 >	**Description**: Expression that describes why the element is part of this collection.
 
 
-## Confidence
+### Confidence
 >	**Input Required**: False
 
 >	**Description**: A percent confidence in the proposed adding of the member.
 
 
-## Membership Status
+### Membership Status
 >	**Input Required**: False
 
 >	**Description**: The status of adding a member to a collection.
@@ -52,67 +52,67 @@ Product Asset
 >	
 
 VALIDATED
-## User Defined Status
+### User Defined Status
 >	**Input Required**: False
 
 >	**Description**: If the Member Status is Other, the user can specify their own status values.
 
 
-## Steward
+### Steward
 >	**Input Required**: False
 
 >	**Description**: Name of the steward reviewing the proposed membership. Initially, just a string.
 
 
-## Steward Type Name
+### Steward Type Name
 >	**Input Required**: False
 
 >	**Description**: Type of steward.
 
 
-## Steward Property Name
+### Steward Property Name
 >	**Input Required**: False
 
 >	**Description**: Property name to discern the type of the steward.
 
 
-## Source
+### Source
 >	**Input Required**: False
 
 >	**Description**: Source of the member.
 
 
-## Notes
+### Notes
 >	**Input Required**: False
 
 >	**Description**: Notes about the membership addition.
 
 
-## Effective Time
+### Effective Time
 >	**Input Required**: False
 
 >	**Description**: An ISO-8601 string representing the time to use for evaluating effectivity of the elements related to this one.
 
 
-## Effective From
+### Effective From
 >	**Input Required**: False
 
 >	**Description**: A string in ISO-8601 format that defines the when an element becomes effective (visible).
 
 
-## Effective To
+### Effective To
 >	**Input Required**: False
 
 >	**Description**: A string in ISO-8601 format that defines the when an element is no longer effective (visible).
 
 
-## Additional Properties
+### Additional Properties
 >	**Input Required**: False
 
 >	**Description**: Additional user defined values organized as name value pairs in a dictionary.
 
 
-## Glossary Term
+### Glossary Term
 >	**Input Required**: False
 
 >	**Description**: Term that provides meaning to this field.
@@ -121,10 +121,10 @@ VALIDATED
 
 
 ____
-# Add Member->Collection
+## Add Member->Collection
 >	Add/Remove a member to/from a collection.
 
-## Element Id
+### Element Id
 >	**Input Required**: True
 
 >	**Description**: The name of the element to add to the collection.
@@ -132,7 +132,7 @@ ____
 >	**Alternative Labels**: Member; Member Id
 
 CSV Data File::~{fileSystemName}~:/loading-bay/Sustainability Files/NAICS-6-digit_2017_Codes.csv
-## Collection Id
+### Collection Id
 >	**Input Required**: True
 
 >	**Description**: The name of the collection to link to. There are many collection types, including Digital Products, Agreements and Subscriptions.
@@ -140,7 +140,7 @@ CSV Data File::~{fileSystemName}~:/loading-bay/Sustainability Files/NAICS-6-digi
 >	**Alternative Labels**: Parent; Parent Id; Collection Id; Agreement Id; Subscription Id; Digital Product Id; Folder; Folder Id
 
 DigitalProduct::NAICS-Codes::2022
-## Membership Rationale
+### Membership Rationale
 >	**Input Required**: False
 
 >	**Description**: Rationale for membership.
@@ -148,19 +148,19 @@ DigitalProduct::NAICS-Codes::2022
 >	**Alternative Labels**: Rationale
 
 Product Asset
-## Expression
+### Expression
 >	**Input Required**: False
 
 >	**Description**: Expression that describes why the element is part of this collection.
 
 
-## Confidence
+### Confidence
 >	**Input Required**: False
 
 >	**Description**: A percent confidence in the proposed adding of the member.
 
 
-## Membership Status
+### Membership Status
 >	**Input Required**: False
 
 >	**Description**: The status of adding a member to a collection.
@@ -168,67 +168,67 @@ Product Asset
 >	
 
 VALIDATED
-## User Defined Status
+### User Defined Status
 >	**Input Required**: False
 
 >	**Description**: If the Member Status is Other, the user can specify their own status values.
 
 
-## Steward
+### Steward
 >	**Input Required**: False
 
 >	**Description**: Name of the steward reviewing the proposed membership. Initially, just a string.
 
 
-## Steward Type Name
+### Steward Type Name
 >	**Input Required**: False
 
 >	**Description**: Type of steward.
 
 
-## Steward Property Name
+### Steward Property Name
 >	**Input Required**: False
 
 >	**Description**: Property name to discern the type of the steward.
 
 
-## Source
+### Source
 >	**Input Required**: False
 
 >	**Description**: Source of the member.
 
 
-## Notes
+### Notes
 >	**Input Required**: False
 
 >	**Description**: Notes about the membership addition.
 
 
-## Effective Time
+### Effective Time
 >	**Input Required**: False
 
 >	**Description**: An ISO-8601 string representing the time to use for evaluating effectivity of the elements related to this one.
 
 
-## Effective From
+### Effective From
 >	**Input Required**: False
 
 >	**Description**: A string in ISO-8601 format that defines the when an element becomes effective (visible).
 
 
-## Effective To
+### Effective To
 >	**Input Required**: False
 
 >	**Description**: A string in ISO-8601 format that defines the when an element is no longer effective (visible).
 
 
-## Additional Properties
+### Additional Properties
 >	**Input Required**: False
 
 >	**Description**: Additional user defined values organized as name value pairs in a dictionary.
 
 
-## Glossary Term
+### Glossary Term
 >	**Input Required**: False
 
 >	**Description**: Term that provides meaning to this field.

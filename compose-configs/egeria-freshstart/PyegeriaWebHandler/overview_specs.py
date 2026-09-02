@@ -86,6 +86,8 @@ PERSP_KPIS: Dict[str, List[str]] = {
     "owner":      ["products", "governed", "certs", "exceptions", "people", "grounding"],
     "consumer":   ["products", "terms", "grounding", "isc", "blueprints", "people"],
     "engineer":   ["assets", "isc", "blueprints", "grounding", "exceptions", "governed"],
+    "architecture": ["isc", "blueprints", "assets", "grounding", "governed", "exceptions"],
+    "security":   ["governed", "exceptions", "ai-ready", "certs", "assets", "grounding"],
     "builder":    ["assets", "grounding", "isc", "blueprints", "governed", "products"],
     "privacy":    ["governed", "certs", "exceptions", "assets", "grounding", "products"],
     "community":  ["people", "communities", "products", "terms", "governed", "assets"],
@@ -139,32 +141,29 @@ def topics_for(kpi_key: str) -> List[str]:
 _TILES = [
     {
         "key": "assets", "label": "Cataloged Assets", "icon": "🗂️", "color": "var(--c2)",
-        "description": "Sum of counts of the key asset/infrastructure types in the catalog.",
-        "target_type": None, "endpoint": "summary", "value_field": "assetTotal",
+        "description": "Native count of the Asset supertype — everything cataloged.",
+        "target_type": "Asset", "endpoint": "summary", "value_field": "assetTotal",
         "detail_spec": "assets", "series": "assets", "unit": None, "provenance": "live",
-        # BACKLOG.md NEXT-18: this used to be "overview.sum_type_counts", a
-        # dotted path that didn't exist anywhere -- now a real registered
-        # analytic function (pyegeria.view.overview_metrics.sum_type_counts).
-        # type_map mirrors overview_handler.py's own _ASSET_TYPES exactly
-        # (6 entries) -- NOT the 7 type names this tile's own `usage` text
-        # below describes (that pre-existing mismatch predates this fix and
-        # is a separate, unresolved data-correctness question, not addressed
-        # here; see the usage note).
-        "compute": ("pyegeria.view.overview_metrics.sum_type_counts",
-                    {"type_map": [("Data Stores", "DataStore"), ("Data Sets", "DataSet"),
-                                   ("Software Components", "DeployedSoftwareComponent"),
-                                   ("Infrastructure", "ITInfrastructure"), ("APIs", "DeployedAPI"),
-                                   ("Processes", "Process")]}),
+        # OVERVIEW_NEXT_STEPS.md "Asset definition" open decision, resolved
+        # 2026-08-16: this used to sum 6 curated type names (via
+        # sum_type_counts/sum_counts, BACKLOG.md NEXT-18), which disagreed
+        # with growth_series' own "assets" series (raw `Asset` supertype
+        # count) and with context_readiness_funnel's 'cataloged' stage (same
+        # supertype) -- live example: 2,668 curated-sum vs 2,523
+        # Asset-supertype. Now a single native count_metadata_elements call
+        # against "Asset" directly, matching both of those. The "assets by
+        # type" breakdown chart (Data Stores/Data Sets/.../Processes) still
+        # shows the curated 6-type composition -- it's a breakdown view now,
+        # not required to sum to this headline.
+        "compute": ("MetadataExpert.count_metadata_elements", {"type_name": "Asset"}),
         "questions": ["How much is cataloged?", "How is the catalog growing?"],
-        "summary": "Sum of active elements across 7 named asset/infrastructure types.",
-        "usage": "Fixed to a hand-picked list of 7 type names (DataStore, DataSet, "
-                 "DeployedSoftwareComponent, ITInfrastructure, DeployedAPI, Process, DataFeed) "
-                 "-- NOT every Asset subtype in the type system, and NOT the same population "
-                 "context_readiness_funnel's 'cataloged' stage uses (that one counts the broad "
-                 "Asset supertype directly, a different, usually larger number). Treat this as "
-                 "\"the types we've chosen to headline\", not a canonical total asset count -- "
-                 "see OVERVIEW_NEXT_STEPS.md's \"Asset definition\" open decision for the "
-                 "unresolved discrepancy between this and the growth-chart's own asset series.",
+        "summary": "Native count of active elements of the Asset supertype (and all its subtypes).",
+        "usage": "Broadest possible definition of \"cataloged\" -- every Asset subtype counts, "
+                 "including e.g. DigitalProduct (which also has its own \"Data Products\" tile, "
+                 "so the two headline numbers overlap by design, not a double-count bug: Data "
+                 "Products is a callout of one Asset subtype, Cataloged Assets is the whole "
+                 "population). Same population as the growth chart's own \"assets\" series and "
+                 "context_readiness_funnel's 'cataloged' stage -- all three now agree.",
     },
     {
         "key": "terms", "label": "Glossary Terms", "icon": "📖", "color": "var(--c1)",
