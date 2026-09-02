@@ -587,7 +587,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 })();
 </script>
   <!-- Bump ?v= whenever egeria-shared-ui.js changes — see tech-catalog.html for why. -->
-  <script src="/static/egeria-shared-ui.js?v=2026-08-18c"></script>
+  <script src="/static/type-nav-resolve.js?v=2026-09-01b"></script>
+  <script src="/static/egeria-shared-ui.js?v=2026-09-01b"></script>
   <script>"use strict";
 
 const {
@@ -3158,7 +3159,10 @@ function GlossaryTermsTab({ navGuid, onNavigateToDataDesign, onNavigateToElement
       React.createElement("div", { style: { padding: '8px 10px', borderBottom: '1px solid var(--border)' } },
         React.createElement(TimeSlider, { onChange: setAsOfTime, label: 'As of' })
       ),
-      React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } }, "Glossaries (" + glossaries.length + ")"),
+      React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
+        React.createElement("span", null, "Glossaries (" + glossaries.length + ")"),
+        React.createElement("button", { className: "btn-sm", style: { textTransform: 'none', fontWeight: 400 }, onClick: () => setGlossaryAttempt(a => a + 1) }, "↻ Refresh")
+      ),
       React.createElement("div", { className: "tree-scroll" },
         React.createElement("div", {
           className: "tree-item" + (isSearchMode ? " sel" : ""),
@@ -3406,7 +3410,10 @@ function SubjectAreasTab({ onNavigateToElement }) {
   return React.createElement("div", { className: "body" },
     React.createElement("div", { style: { width: sideW, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid var(--border)' } },
       React.createElement("div", { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
-        React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } }, "Subject Area Hierarchy"),
+        React.createElement("div", { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
+          React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } }, "Subject Area Hierarchy"),
+          React.createElement("button", { className: "btn-sm", onClick: () => setHierAttempt(a => a + 1) }, "↻ Refresh")
+        ),
         React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
           React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
           "Include templates"
@@ -3662,8 +3669,11 @@ function ReferenceDataView({ navGuid, onNavigateToElement }) {
   return React.createElement("div", { className: "body" },
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
       React.createElement("div", { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
-        React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } },
-          items.length + ' items · ' + rootNodes.length + ' sets'
+        React.createElement("div", { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
+          React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } },
+            items.length + ' items · ' + rootNodes.length + ' sets'
+          ),
+          React.createElement("button", { className: "btn-sm", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "↻ Refresh")
         ),
         React.createElement("input", {
           type: "search", placeholder: "Filter…", value: search,
@@ -4671,7 +4681,10 @@ function DigitalProductsView({ navGuid, onNavigateToElement }) {
     // Catalog list (left)
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
       React.createElement("div", { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
-        React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } }, "Catalogs (" + catalogs.length + ")"),
+        React.createElement("div", { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
+          React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } }, "Catalogs (" + catalogs.length + ")"),
+          React.createElement("button", { className: "btn-sm", onClick: () => setCatAttempt(a => a + 1) }, "↻ Refresh")
+        ),
         React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
           React.createElement("input", { type: "checkbox", checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
           "Include templates"
@@ -4875,8 +4888,11 @@ function CollectionsView({ navGuid, onNavigateToElement }) {
     // Root collections (left)
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
       React.createElement("div", { style: { padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 } },
-        React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } },
-          (onlyRootType ? "Root Collections (" : "Collections Without a Parent (") + roots.length + ")"),
+        React.createElement("div", { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
+          React.createElement("div", { style: { fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em' } },
+            (onlyRootType ? "Root Collections (" : "Collections Without a Parent (") + roots.length + ")"),
+          React.createElement("button", { className: "btn-sm", onClick: () => setRootAttempt(a => a + 1) }, "↻ Refresh")
+        ),
         React.createElement("label", { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' } },
           React.createElement("input", { type: "checkbox", checked: onlyRootType, onChange: function(e) { setOnlyRootType(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
           "Root Collections only"
@@ -6160,6 +6176,7 @@ function ValidMetadataValuesTab({ navProp, onNavigateToElement }) {
   // Right: selected value's full detail (relationships/classifications) — see
   // ValidValueDetailPane, fetched from GET /api/valid-values/{guid}
   const [selectedGuid, setSelectedGuid] = useState(null);
+  const [vmvAttempt, setVmvAttempt] = useState(0);
 
   // Fetch list of properties that have registered valid values
   useEffect(() => {
@@ -6177,7 +6194,7 @@ function ValidMetadataValuesTab({ navProp, onNavigateToElement }) {
         }
       })
       .catch(err => { setPropsError(err.message); setPropsState('error'); });
-  }, [creds]);
+  }, [creds, vmvAttempt]);
 
   const lookup = useCallback((prop) => {
     const p = (prop || '').trim();
@@ -6222,7 +6239,13 @@ function ValidMetadataValuesTab({ navProp, onNavigateToElement }) {
   return React.createElement("div", { className: "body" },
     // Column 1: property selector
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
-      React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } }, "Property Name"),
+      React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
+        React.createElement("span", null, "Property Name"),
+        React.createElement("button", {
+          className: "btn-sm", style: { textTransform: 'none', fontWeight: 400 },
+          onClick: () => { setVmvAttempt(a => a + 1); if (submittedProp) lookup(submittedProp); }
+        }, "↻ Refresh")
+      ),
       React.createElement("form", { onSubmit: e => { e.preventDefault(); lookup(e.target.elements.pn.value); }, style: { padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 4 } },
         React.createElement("input", { name: "pn", type: "text", placeholder: "e.g. contentStatus", value: propertyName, onChange: e => setPropertyName(e.target.value), style: { flex: 1, fontSize: 13, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' } }),
         React.createElement("button", { type: "submit", style: { padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', cursor: 'pointer', fontSize: 12 } }, "Go")
@@ -6302,6 +6325,7 @@ function SpecificationPropertyValuesTab({ onNavigateToElement }) {
   const [filterText, setFilterText] = useState('');
   // Right: selected value's full detail — see ValidValueDetailPane
   const [selectedGuid, setSelectedGuid] = useState(null);
+  const [spvAttempt, setSpvAttempt] = useState(0);
 
   // Fetch list of specification property types
   useEffect(() => {
@@ -6319,7 +6343,7 @@ function SpecificationPropertyValuesTab({ onNavigateToElement }) {
         }
       })
       .catch(err => { setTypesError(err.message); setTypesState('error'); });
-  }, [creds]);
+  }, [creds, spvAttempt]);
 
   const lookup = useCallback((type) => {
     const t = (type || '').trim();
@@ -6359,7 +6383,13 @@ function SpecificationPropertyValuesTab({ onNavigateToElement }) {
   return React.createElement("div", { className: "body" },
     // Column 1: type selector
     React.createElement("div", { className: "sidebar", style: { width: sideW } },
-      React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)' } }, "Specification Property Type"),
+      React.createElement("div", { style: { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
+        React.createElement("span", null, "Specification Property Type"),
+        React.createElement("button", {
+          className: "btn-sm", style: { textTransform: 'none', fontWeight: 400 },
+          onClick: () => { setSpvAttempt(a => a + 1); if (submittedType) lookup(submittedType); }
+        }, "↻ Refresh")
+      ),
       React.createElement("form", { onSubmit: e => { e.preventDefault(); lookup(e.target.elements.spt.value); }, style: { padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 4 } },
         React.createElement("input", { name: "spt", type: "text", placeholder: "e.g. TemplateSubstitute", value: typeName, onChange: e => setTypeName(e.target.value), style: { flex: 1, fontSize: 13, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit' } }),
         React.createElement("button", { type: "submit", style: { padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'inherit', cursor: 'pointer', fontSize: 12 } }, "Go")
@@ -9258,7 +9288,8 @@ function NamingVocabularyView() {
 
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' } },
-      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, 'Naming Vocabulary')
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, 'Naming Vocabulary'),
+      React.createElement("button", { className: "btn-sm", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "↻ Refresh")
     ),
     React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)', marginBottom: 16 } },
       'The word vocabulary used to compose standard names — see the Naming Standard Rules under Governance Definitions for the rules that reference these words.'),
@@ -9361,7 +9392,10 @@ function PolicyEnforcementView() {
   };
 
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
-    React.createElement("div", { style: { fontSize: 18, fontWeight: 700, marginBottom: 4 } }, 'Policy Enforcement Architecture'),
+    React.createElement("div", { style: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 } },
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 700, marginBottom: 4 } }, 'Policy Enforcement Architecture'),
+      React.createElement("button", { className: "btn-sm", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "↻ Refresh")
+    ),
     React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)', marginBottom: 16 } },
       'Elements classified with a Policy*Point classification (XACML-style policy architecture). ' +
       'Policy Management Point is the parent classification — any element carrying one of the five ' +
@@ -9500,6 +9534,7 @@ function ActionCenterView({ onNavigateToElement, navGuid }) {
   const [modalAction, setModalAction] = useState(null);
   // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
   const [zoneModalAction, setZoneModalAction] = useState(null);
+  const [actionAttempt, setActionAttempt] = useState(0);
 
   useEffect(function() {
     setState('loading'); setError('');
@@ -9510,7 +9545,7 @@ function ActionCenterView({ onNavigateToElement, navGuid }) {
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) { setItems(data.actions || []); setState('ready'); })
       .catch(function(e) { setError(e.message); setState('error'); });
-  }, [actionType, startFrom]);
+  }, [actionType, startFrom, actionAttempt]);
 
   useEffect(function() {
     if (!selected) { setDetail(null); return; }
@@ -9534,7 +9569,7 @@ function ActionCenterView({ onNavigateToElement, navGuid }) {
   ];
 
   var sidebar = React.createElement("div", { style: { width: sideW, minWidth: sideW, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflowY: 'auto', height: '100%' } },
-    React.createElement("div", { style: { padding: '8px 10px', display: 'flex', gap: 4, flexWrap: 'wrap' } },
+    React.createElement("div", { style: { padding: '8px 10px', display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' } },
       TYPE_CHIPS.map(function(c) {
         return React.createElement("button", {
           key: c.id,
@@ -9547,7 +9582,11 @@ function ActionCenterView({ onNavigateToElement, navGuid }) {
             color: actionType === c.id ? 'var(--accent)' : 'var(--dim)',
           }
         }, c.label);
-      })
+      }),
+      React.createElement("button", {
+        className: "btn-sm",
+        onClick: function() { setActionAttempt(function(a) { return a + 1; }); }
+      }, "↻ Refresh")
     ),
     state === 'loading' && React.createElement("div", { style: { padding: 16, color: 'var(--dim)', fontSize: 13 } }, "Loading…"),
     state === 'error' && React.createElement("div", { style: { padding: 16, color: '#f87171', fontSize: 13 } }, "Error: " + error),
@@ -9653,7 +9692,10 @@ function DuplicateReviewView({ onNavigateToElement }) {
   }
 
   return React.createElement("div", { style: { padding: '20px 24px', overflowY: 'auto', height: '100%' } },
-    React.createElement("div", { style: { fontSize: 18, fontWeight: 700, marginBottom: 4 } }, 'Duplicate Resolution Review'),
+    React.createElement("div", { style: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 } },
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 700, marginBottom: 4 } }, 'Duplicate Resolution Review'),
+      React.createElement("button", { className: "btn-sm", onClick: function() { setAttempt(function(a) { return a + 1; }); } }, "↻ Refresh")
+    ),
     React.createElement("div", { style: { fontSize: 13, color: 'var(--dim)', marginBottom: 16 } },
       'Elements classified KnownDuplicate, paired via PeerDuplicateLink, awaiting steward review; ' +
       'and elements already classified ConsolidatedDuplicate showing the sources they absorbed. Read-only for now.'),
@@ -11032,6 +11074,7 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
   const [modalAction, setModalAction] = React.useState(null);
   // null | 'add' | 'remove' — which ZoneMembershipModal action, if any, is open.
   const [zoneModalAction, setZoneModalAction] = React.useState(null);
+  const [projAttempt, setProjAttempt] = React.useState(0);
 
   var atParam = asOfTime ? '&as_of_time=' + encodeURIComponent(asOfTime) : '';
   var inclTemplParam = inclTempl ? '&include_templates=true' : '';
@@ -11047,7 +11090,7 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
         setState('ready');
       })
       .catch(function(e) { setError(String(e)); setState('error'); });
-  }, [asOfTime, inclTempl]);
+  }, [asOfTime, inclTempl, projAttempt]);
 
   React.useEffect(function() {
     setProjTreeState('loading');
@@ -11055,7 +11098,7 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
       .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function(data) { setProjTree(data.roots || []); setProjTreeState('ready'); })
       .catch(function() { setProjTreeState('error'); });
-  }, [asOfTime]);
+  }, [asOfTime, projAttempt]);
 
   React.useEffect(function() {
     setDepTreeState('loading');
@@ -11063,7 +11106,7 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
       .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function(data) { setDepTree(data.roots || []); setDepTreeState('ready'); })
       .catch(function() { setDepTreeState('error'); });
-  }, [asOfTime]);
+  }, [asOfTime, projAttempt]);
 
   const toggleProj = React.useCallback(function(guid) {
     setExpandedProjs(function(prev) { var n = new Set(prev); if (n.has(guid)) n.delete(guid); else n.add(guid); return n; });
@@ -11140,7 +11183,11 @@ function ProjectsView({ navGuid, onNavigateToElement }) {
         React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none', marginTop: 6 } },
           React.createElement('input', { type: 'checkbox', checked: inclTempl, onChange: function(e) { setInclTempl(e.target.checked); }, style: { cursor: 'pointer', accentColor: 'var(--accent)' } }),
           'Include templates'
-        )
+        ),
+        React.createElement('button', {
+          className: 'btn-sm', style: { marginTop: 6 },
+          onClick: function() { setProjAttempt(function(a) { return a + 1; }); }
+        }, '↻ Refresh')
       ),
       React.createElement('div', { style: listStyle },
         search
@@ -11964,6 +12011,10 @@ function GovernanceView({ navTypeName, navGuid, onNavigateToElement }) {
           return React.createElement('option', { key: opt.value, value: opt.value }, opt.label);
         })
       ),
+      React.createElement('button', {
+        className: 'btn-sm',
+        onClick: function() { setListAttempt(function(a) { return a + 1; }); }
+      }, '↻ Refresh'),
       React.createElement('div', { style: { flex: 1 } }),
       listState === 'ready' && React.createElement('div', { style: { fontSize: 11, color: 'var(--dim)' } },
         visibleDefs.length === definitions.length
@@ -12697,6 +12748,10 @@ function App() {
         "Hide deprecated"
       ),
       /*#__PURE__*/React.createElement("button", { className: "view-tab" + (view === 'attrs' ? " on" : ""), onClick: () => setView('attrs') }, "Attribute Index"),
+      /*#__PURE__*/React.createElement("button", {
+        className: "btn-sm",
+        onClick: () => setTypeAttempt(a => a + 1)
+      }, "↻ Refresh"),
       /*#__PURE__*/React.createElement("div", { style: { flex: 1 } }),
       view === 'types' && /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: 'var(--dim)', display: 'flex', gap: 12 } },
         /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("span", { style: { color: 'var(--accent)' } }, Object.keys(entities).length), " Entities"),
