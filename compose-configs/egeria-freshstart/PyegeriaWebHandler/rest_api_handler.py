@@ -421,6 +421,54 @@ class RebuildRequest(BaseModel):
     http_collections_path: str | None = None
 
 
+def _validate_http_collections_dir(raw_path: str) -> Path:
+    """Reject path-traversal-risky targets before reading files from disk.
+
+    `raw_path` can reach here from the unauthenticated `http_collections_path`
+    field on `POST /api/request-bodies/rebuild` (CodeQL High: py/path-injection),
+    so it must be treated as attacker-controlled -- an unrestricted value would
+    let a caller point this at any readable directory in the container and have
+    its *.http files parsed and echoed back via the public `GET
+    /api/request-bodies` endpoint.
+
+    Restrict to an explicit allowlist of roots: the HTTP_COLLECTIONS_ALLOWED_ROOTS
+    env var (colon-separated absolute paths) if set, otherwise just the directory
+    named by HTTP_COLLECTIONS_PATH itself -- i.e. by default, the request body's
+    override is only honored when it resolves to the same, admin-configured
+    directory an unauthenticated caller couldn't otherwise redirect. A deployment
+    that genuinely wants the flexible "point anywhere" workflow can opt back in
+    by setting HTTP_COLLECTIONS_ALLOWED_ROOTS explicitly.
+    """
+    http_dir = Path(raw_path).resolve()
+    if not http_dir.is_dir():
+        raise HTTPException(status_code=422, detail=f"Directory not found: {http_dir}")
+
+    env_roots = os.environ.get("HTTP_COLLECTIONS_ALLOWED_ROOTS")
+    if env_roots:
+        allowed_roots = [Path(p).resolve() for p in env_roots.split(":") if p]
+    else:
+        env_default = os.environ.get("HTTP_COLLECTIONS_PATH")
+        allowed_roots = [Path(env_default).resolve()] if env_default else []
+
+    if not allowed_roots:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Refusing to read an arbitrary directory: neither HTTP_COLLECTIONS_PATH "
+                "nor HTTP_COLLECTIONS_ALLOWED_ROOTS is configured on this deployment. "
+                "Set one of these environment variables to the http-client-collections "
+                "location before calling this endpoint."
+            ),
+        )
+    if not any(http_dir == root or http_dir.is_relative_to(root) for root in allowed_roots):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Directory not permitted: {http_dir}. Set HTTP_COLLECTIONS_ALLOWED_ROOTS "
+                   "to allow additional locations.",
+        )
+    return http_dir
+
+
 @router.post(
     "/api/request-bodies/rebuild",
     summary="Regenerate the request body catalog",
@@ -445,12 +493,7 @@ def rebuild_request_bodies(body: RebuildRequest = RebuildRequest()):
                 "or set the HTTP_COLLECTIONS_PATH environment variable."
             ),
         )
-    http_dir = Path(raw_path)
-    if not http_dir.is_dir():
-        raise HTTPException(
-            status_code=422,
-            detail=f"Directory not found: {http_dir}",
-        )
+    http_dir = _validate_http_collections_dir(raw_path)
     try:
         catalog = _rebuild_catalog(http_dir)
         return {
