@@ -19,6 +19,7 @@ from egeria_auth import apply_token
 from pyegeria.omvs.classification_explorer import ClassificationExplorer
 from valid_values_handler import _extract_name_from_element as _vv_property_name
 from pyegeria_docs_handler import search_pyegeria_docs
+from rest_api_handler import search_rest_apis
 
 router = APIRouter(tags=["catalog-search"])
 
@@ -111,7 +112,7 @@ _TYPE_CATEGORY: dict[str, dict] = {
 
 _CATEGORY_ORDER = [
     "glossary", "tech-types", "data-assets", "infrastructure", "apis", "processes", "projects", "surveys",
-    "valid-values", "other", "python-api",
+    "valid-values", "other", "python-api", "rest-apis",
 ]
 
 _CATEGORY_LABELS = {
@@ -126,6 +127,7 @@ _CATEGORY_LABELS = {
     "valid-values": "Valid Values",
     "other":        "Other",
     "python-api":   "Python API",
+    "rest-apis":    "REST APIs",
 }
 
 # Cap on pyegeria class/method hits merged into a search response -- these
@@ -133,6 +135,11 @@ _CATEGORY_LABELS = {
 # introspected once and cached), just kept modest so one very common word
 # (e.g. "get") doesn't swamp the panel.
 _PYEGERIA_HIT_LIMIT = 15
+
+# Same idea for REST API endpoint hits -- search_rest_apis() reads from an
+# already-cached, already-processed OpenAPI spec (no live query), just capped
+# so one common word doesn't swamp the panel.
+_REST_API_HIT_LIMIT = 15
 
 
 def _creds(url, server, user_id, user_pwd):
@@ -230,6 +237,25 @@ def _serialize_pyegeria_hit(hit: dict) -> dict:
     if is_method:
         result["pyMethod"] = hit["methodName"]
     return result
+
+
+def _serialize_rest_api_hit(hit: dict) -> dict:
+    """Shape a search_rest_apis() hit into the same result-item shape the
+    frontend already renders, plus the restMethod/restPath fields
+    RestApiView's deep link needs -- there's no guid since this isn't an
+    Egeria element."""
+    return {
+        "guid":          "",
+        "typeName":      hit["tag"],
+        "superTypeNames": [],
+        "displayName":   f"{hit['method']} {hit['path']}",
+        "qualifiedName": "",
+        "description":   hit.get("summary") or "",
+        "categoryId":    "rest-apis",
+        "categoryLabel": "REST APIs",
+        "restMethod":    hit["method"],
+        "restPath":      hit["path"],
+    }
 
 
 @router.get("/api/catalog/search")
@@ -339,6 +365,16 @@ def catalog_search(
     except Exception:
         logger.exception("catalog_search: pyegeria docs search failed for q=%r", q)
 
+    # REST API endpoint hits (REST APIs page) -- same reasoning as python-api
+    # above: no guid, kept out of the dedup pass, reads an already-cached
+    # spec (warm_openapi_cache() at startup) rather than fetching live.
+    try:
+        by_cat["rest-apis"] = [
+            _serialize_rest_api_hit(h) for h in search_rest_apis(q, limit=_REST_API_HIT_LIMIT)
+        ]
+    except Exception:
+        logger.exception("catalog_search: REST API search failed for q=%r", q)
+
     groups = [
         {
             "categoryId":    cid,
@@ -362,7 +398,7 @@ def catalog_search(
     return JSONResponse({
         "query":  q,
         "typeFacets": type_facets,
-        "total":  len(unique) + len(by_cat["python-api"]),
+        "total":  len(unique) + len(by_cat["python-api"]) + len(by_cat["rest-apis"]),
         "groups": groups,
         "typeFilterDropped": type_filter_dropped,
     })

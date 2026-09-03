@@ -1009,6 +1009,8 @@ function portalResolveNav(item) {
   // Python API hits (pyegeria classes/methods, not Egeria elements) -- no
   // guid, navigate by pyClass/pyMethod instead; see portalOpenResult.
   if (item.categoryId === 'python-api') return { app: 'egeria-explorer', hash: 'python-api', isPyDoc: true };
+  // REST API endpoint hits -- same idea, no guid, navigate by restMethod/restPath.
+  if (item.categoryId === 'rest-apis') return { app: 'egeria-explorer', hash: 'rest-apis', isRestApi: true };
   if (tn === 'EngineAction') return { app: 'egeria-operations' };
   var supers = item.superTypeNames || [];
   var ex = (typeof resolveTypeNav === 'function') ? resolveTypeNav(tn, supers) : null;
@@ -1025,6 +1027,12 @@ function portalOpenResult(item) {
     window.open(pyUrl, '_blank');
     return;
   }
+  if (nav.isRestApi) {
+    var restUrl = '/egeria-explorer?restmethod=' + encodeURIComponent(item.restMethod)
+      + '&restpath=' + encodeURIComponent(item.restPath) + '#rest-apis';
+    window.open(restUrl, '_blank');
+    return;
+  }
   if (!item.guid) return;
   if (nav.app === 'tech-catalog') { window.open('/tech-catalog?guid=' + encodeURIComponent(item.guid), '_blank'); return; }
   if (nav.app === 'egeria-operations') { window.open('/egeria-operations?tab=actions#actions', '_blank'); return; }
@@ -1035,7 +1043,7 @@ function portalOpenResult(item) {
 var PORTAL_SEARCH_CATEGORY_ICONS = {
   glossary:'📖', 'tech-types':'🔧', 'data-assets':'🗄️', infrastructure:'🖧',
   apis:'🔗', processes:'⚙️', projects:'◉', surveys:'🔍', 'valid-values':'✅', other:'📦',
-  'python-api':'🐍',
+  'python-api':'🐍', 'rest-apis':'🌐',
 };
 
 var _portalSearchTimer = null;
