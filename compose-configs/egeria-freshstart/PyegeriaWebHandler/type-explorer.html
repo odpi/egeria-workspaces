@@ -3979,9 +3979,26 @@ function PyegeriaDocsView() {
       .then(function(r) { return r.json(); })
       .then(function(d) {
         setData(d);
-        // Start all domains collapsed — user expands what they want
-        const first = d.classes.find(function(c) { return !c.abstract; }) || d.classes[0];
-        if (first) setSelectedClass(first);
+        // Cross-app deep link from the portal omni-search (catalog_search_handler.py's
+        // "python-api" hits) — e.g. /egeria-explorer?pyclass=CollectionManager&pymethod=find_collections#python-api.
+        var params = new URLSearchParams(window.location.search);
+        var pyClass = params.get('pyclass');
+        var pyMethod = params.get('pymethod');
+        var target = pyClass
+          ? d.classes.find(function(c) { return c.name.toLowerCase() === pyClass.toLowerCase(); })
+          : null;
+        if (!target) {
+          // Start all domains collapsed — user expands what they want
+          target = d.classes.find(function(c) { return !c.abstract; }) || d.classes[0];
+        } else {
+          setExpandedDomains(new Set([target.domain]));
+          if (pyMethod) {
+            setMethodMode('all');  // the linked method may be inherited, not "own"
+            setMethodSearch(pyMethod);
+            setExpandedMethods(new Set([pyMethod]));
+          }
+        }
+        if (target) setSelectedClass(target);
       })
       .catch(function(e) { setError(String(e)); });
   }, []);
