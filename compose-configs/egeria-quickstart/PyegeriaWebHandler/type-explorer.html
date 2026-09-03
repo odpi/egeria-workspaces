@@ -5092,9 +5092,26 @@ function PyegeriaDocsView() {
       .then(function(r) { return r.json(); })
       .then(function(d) {
         setData(d);
-        // Start all domains collapsed — user expands what they want
-        const first = d.classes.find(function(c) { return !c.abstract; }) || d.classes[0];
-        if (first) setSelectedClass(first);
+        // Cross-app deep link from the portal omni-search (catalog_search_handler.py's
+        // "python-api" hits) — e.g. /egeria-explorer?pyclass=CollectionManager&pymethod=find_collections#python-api.
+        var params = new URLSearchParams(window.location.search);
+        var pyClass = params.get('pyclass');
+        var pyMethod = params.get('pymethod');
+        var target = pyClass
+          ? d.classes.find(function(c) { return c.name.toLowerCase() === pyClass.toLowerCase(); })
+          : null;
+        if (!target) {
+          // Start all domains collapsed — user expands what they want
+          target = d.classes.find(function(c) { return !c.abstract; }) || d.classes[0];
+        } else {
+          setExpandedDomains(new Set([target.domain]));
+          if (pyMethod) {
+            setMethodMode('all');  // the linked method may be inherited, not "own"
+            setMethodSearch(pyMethod);
+            setExpandedMethods(new Set([pyMethod]));
+          }
+        }
+        if (target) setSelectedClass(target);
       })
       .catch(function(e) { setError(String(e)); });
   }, []);
@@ -6528,6 +6545,31 @@ function RestApiView() {
     egeriaFetch('/api/rest-apis/refresh', creds, { method: 'POST' })
       .then(function() { loadOpenApi(); });
   }
+
+  // Cross-app deep link from the portal omni-search (catalog_search_handler.py's
+  // "rest-apis" hits) — e.g. /egeria-explorer?restmethod=GET&restpath=/api/...#rest-apis.
+  // REST APIs needs a live Egeria connection (needsConnect), so unlike the other
+  // views' plain ?guid= read, this has to trigger loadOpenApi() itself rather
+  // than assume the data is already there, then wait for it via a second effect.
+  const [pendingRestTarget] = S(function() {
+    var params = new URLSearchParams(window.location.search);
+    var restMethod = params.get('restmethod');
+    var restPath = params.get('restpath');
+    return (restMethod && restPath) ? { method: restMethod, path: restPath } : null;
+  });
+  E(function() {
+    if (pendingRestTarget) loadOpenApi();
+  }, []);
+  E(function() {
+    if (!pendingRestTarget || !openapi || !Array.isArray(openapi.services)) return;
+    for (var i = 0; i < openapi.services.length; i++) {
+      var svc = openapi.services[i];
+      var ep = svc.endpoints.find(function(e) {
+        return e.path === pendingRestTarget.path && e.method === pendingRestTarget.method;
+      });
+      if (ep) { selectService(svc); setSelEp(ep); break; }
+    }
+  }, [openapi]);
 
   // Filtered service list
   const services = M(function() {

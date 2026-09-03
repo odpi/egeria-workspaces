@@ -88,6 +88,17 @@ async def _lifespan(app: FastAPI):
     if DEMO_MODE:
         from demo_reset_handler import start_scheduler, stop_scheduler
         await start_scheduler()
+    # Fire-and-forget: warm the REST APIs OpenAPI-spec cache in the background
+    # so the REST APIs tab and portal search (catalog_search_handler.py) both
+    # have data ready without waiting on the first ~20s cold fetch. Not
+    # awaited -- must not delay the app coming up to serve other traffic.
+    # (The 2026-09-03 startup-hang incident was a *different*, pre-existing
+    # bug -- bootstrap_monitor_handler.py's canary check, now fixed/bounded
+    # above via boot_start() -- this task was never the cause, but it's
+    # additionally self-timeout-bounded now too; see warm_openapi_cache().)
+    # Keep a reference on app.state so the task isn't GC'd mid-flight.
+    from rest_api_handler import warm_openapi_cache
+    app.state.openapi_warmup_task = asyncio.create_task(warm_openapi_cache())
     yield
     if DEMO_MODE:
         from demo_reset_handler import stop_scheduler
