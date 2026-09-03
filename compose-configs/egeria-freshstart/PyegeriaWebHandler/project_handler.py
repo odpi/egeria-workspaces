@@ -25,28 +25,26 @@ router = APIRouter(tags=["projects"])
 
 # ProjectManager.get_linked_projects routes through ServerClient._async_get_
 # guid_request, whose dict-body branch validates against the base
-# GetRequestBody Pydantic model -- and its `class` field is now a hardcoded
-# Literal['GetRequestBody'] under pyegeria>=6.1.0, rejecting any real subclass
-# name including RelationshipRequestBody (pyegeria's own method signature
-# implies this is the expected class here). Found 2026-08-23 alongside the
-# identical bug in solution_architect_handler.py (see its comment for the
-# full writeup) -- filed as odpi/egeria-python#298, fixed in PR #299
-# (class_ loosened from Literal to str) -- not yet released as of
-# 2026-08-23 (BACKLOG.md PY-24). REVERT this workaround to a plain dict
-# once that lands in a pyegeria release. Same interim workaround: build
-# an already-constructed
-# GetRequestBody *instance* via model_construct (skips validation entirely,
-# unlike model_validate) with class_ overridden to the real subclass name.
+# GetRequestBody Pydantic model. Historical note (PY-24, BACKLOG.md): under
+# pyegeria 6.1.0/6.1.1, `class` was a hardcoded Literal['GetRequestBody'],
+# rejecting any real subclass name including RelationshipRequestBody
+# (pyegeria's own method signature implies this is the expected class here).
+# Fixed upstream in odpi/egeria-python#299 (class_ loosened Literal -> str),
+# released in pyegeria 6.1.5+ and confirmed live on quickstart-pyegeria-web
+# (6.1.8) 2026-09-02 -- reverted to a plain dict body, the model_construct
+# bypass is no longer needed.
 def _relationship_request_body(as_of_time: Optional[str] = None):
     from datetime import datetime
-    from pyegeria.models.models import GetRequestBody
     parsed_as_of = None
     if as_of_time:
         try:
-            parsed_as_of = datetime.fromisoformat(as_of_time)
+            parsed_as_of = datetime.fromisoformat(as_of_time).isoformat()
         except ValueError:
             parsed_as_of = as_of_time  # let it through as-is; a harmless serializer warning beats crashing
-    return GetRequestBody.model_construct(class_="RelationshipRequestBody", as_of_time=parsed_as_of)
+    body = {"class": "RelationshipRequestBody"}
+    if parsed_as_of:
+        body["asOfTime"] = parsed_as_of
+    return body
 
 
 def _get_manager(url=None, server=None, user_id=None, user_pwd=None):
