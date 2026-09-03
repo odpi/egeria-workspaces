@@ -168,6 +168,45 @@ def _build_docs() -> dict:
     return {"version": version, "classes": classes}
 
 
+# ── search (used by catalog_search_handler.py's portal-wide omni-search) ──────
+
+def search_pyegeria_docs(query: str, limit: int = 40) -> list[dict]:
+    """Case-insensitive substring search over class/method names and summaries.
+
+    Returns lightweight result dicts, name matches ranked ahead of summary-text
+    matches, each shaped either:
+      {kind: "class",  className, module, domain, summary}
+      {kind: "method", className, methodName, module, domain, summary}
+    No guid/qualifiedName -- these aren't Egeria elements, so the portal
+    omni-search's usual click-through (a `?guid=` deep link) doesn't apply;
+    callers navigate by className/methodName instead (PyegeriaDocsView's own
+    `?pyclass=&pymethod=` deep link).
+    """
+    q = query.lower().strip()
+    if not q:
+        return []
+    docs = _build_docs()
+    name_hits: list[dict] = []
+    text_hits: list[dict] = []
+
+    for c in docs["classes"]:
+        bucket = name_hits if q in c["name"].lower() else (text_hits if q in c["summary"].lower() else None)
+        if bucket is not None:
+            bucket.append({
+                "kind": "class", "className": c["name"], "module": c["module"],
+                "domain": c["domain"], "summary": c["summary"],
+            })
+        for m in c["methods"]:
+            bucket = name_hits if q in m["name"].lower() else (text_hits if q in m["summary"].lower() else None)
+            if bucket is not None:
+                bucket.append({
+                    "kind": "method", "className": c["name"], "methodName": m["name"],
+                    "module": c["module"], "domain": c["domain"], "summary": m["summary"],
+                })
+
+    return (name_hits + text_hits)[:limit]
+
+
 # ── route ─────────────────────────────────────────────────────────────────────
 
 @router.get("/api/pyegeria-docs", summary="pyegeria class and method documentation")

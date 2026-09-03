@@ -375,7 +375,7 @@ def execute_command(req: ExecuteRequest):
     except Exception as exc:
         logger.exception("Dr. Egeria execute failed")
         return JSONResponse(
-            {"success": False, "partial": False, "output": f"❌ Execution failed: {exc}",
+            {"success": False, "partial": False, "output": "❌ Execution failed unexpectedly -- see server logs for details.",
              "directive": req.directive, "validation_errors": [], "execution_errors": [],
              "warnings": [], "commands_total": 0, "commands_succeeded": 0,
              "commands_warned": 0, "commands_failed": 0},
@@ -423,7 +423,7 @@ def execute_document(req: ExecuteDocumentRequest):
     except Exception as exc:
         logger.exception("Dr. Egeria execute-document failed")
         return JSONResponse(
-            {"success": False, "partial": False, "output": f"❌ Execution failed: {exc}",
+            {"success": False, "partial": False, "output": "❌ Execution failed unexpectedly -- see server logs for details.",
              "directive": req.directive, "validation_errors": [], "execution_errors": [],
              "warnings": [], "commands_total": 0, "commands_succeeded": 0,
              "commands_warned": 0, "commands_failed": 0},

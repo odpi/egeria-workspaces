@@ -13,12 +13,15 @@ To regenerate the catalog after an Egeria upgrade:
   or POST /api/request-bodies/rebuild with {"http_collections_path": "..."}
 """
 
+import ipaddress
 import json
 import os
 import re
+import socket
 import time
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 
 import requests
 import urllib3
@@ -92,6 +95,53 @@ def _bearer_token_for_spec_fetch(user_id: str, user_pwd: str, url: str, server: 
         return None
 
 
+def _validate_platform_url(platform_url: str) -> None:
+    """Reject SSRF-risky targets before we ever issue an outbound request.
+
+    `platform_url` reaches here from the unauthenticated `url` query param on
+    `GET /api/rest-apis` (see `get_rest_apis`), so it must be treated as
+    attacker-controlled. The frontend never actually sends a custom `url`
+    override for this endpoint (confirmed via grep on type-explorer.html --
+    the param exists only for consistency with the app's broader url/server/
+    user_id/user_pwd convention), so the only address that legitimately needs
+    to work here is the deployment's own configured default.
+
+    We resolve the hostname and reject it if it lands on a private/loopback/
+    link-local/reserved/multicast address -- UNLESS the hostname matches the
+    deployment's own default platform host, since that intentionally resolves
+    to a Docker-internal address (compose service name / host.docker.internal)
+    and is the one legitimate target.
+    """
+    default_host = urlparse(_env_defaults()["url"]).hostname
+    parsed = urlparse(platform_url if "://" in platform_url else f"//{platform_url}")
+    host = parsed.hostname
+    if not host:
+        raise HTTPException(status_code=400, detail="Invalid platform URL.")
+
+    if default_host and host.lower() == default_host.lower():
+        return  # the deployment's own platform -- intentionally internal
+
+    try:
+        addrinfo = socket.getaddrinfo(host, None)
+    except socket.gaierror as exc:
+        raise HTTPException(status_code=400, detail=f"Could not resolve host: {host}") from exc
+
+    for family, _, _, _, sockaddr in addrinfo:
+        ip = ipaddress.ip_address(sockaddr[0])
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+            or ip.is_unspecified
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Refusing to fetch from a private/internal address: {host}",
+            )
+
+
 def _fetch_openapi(platform_url: str, server: str, user_id: str, user_pwd: str) -> dict:
     """Fetch the OpenAPI spec from a live Egeria platform (with caching).
 
@@ -103,7 +153,13 @@ def _fetch_openapi(platform_url: str, server: str, user_id: str, user_pwd: str) 
     token). Timeout bumped 30s -> 60s to give that ~21s real fetch headroom
     under load -- it was already close to the old timeout even when auth
     wasn't the blocker.
+
+    SSRF guard added 2026-09-03 (CodeQL Critical alert): `platform_url` can
+    be attacker-controlled via the unauthenticated `url` query param on the
+    calling endpoint, so we validate it before issuing any outbound request.
     """
+    _validate_platform_url(platform_url)
+
     cached = _openapi_cache.get(platform_url)
     if cached and (time.time() - cached[0]) < _OPENAPI_TTL:
         logger.debug(f"OpenAPI cache hit for {platform_url}")
@@ -365,6 +421,54 @@ class RebuildRequest(BaseModel):
     http_collections_path: str | None = None
 
 
+def _validate_http_collections_dir(raw_path: str) -> Path:
+    """Reject path-traversal-risky targets before reading files from disk.
+
+    `raw_path` can reach here from the unauthenticated `http_collections_path`
+    field on `POST /api/request-bodies/rebuild` (CodeQL High: py/path-injection),
+    so it must be treated as attacker-controlled -- an unrestricted value would
+    let a caller point this at any readable directory in the container and have
+    its *.http files parsed and echoed back via the public `GET
+    /api/request-bodies` endpoint.
+
+    Restrict to an explicit allowlist of roots: the HTTP_COLLECTIONS_ALLOWED_ROOTS
+    env var (colon-separated absolute paths) if set, otherwise just the directory
+    named by HTTP_COLLECTIONS_PATH itself -- i.e. by default, the request body's
+    override is only honored when it resolves to the same, admin-configured
+    directory an unauthenticated caller couldn't otherwise redirect. A deployment
+    that genuinely wants the flexible "point anywhere" workflow can opt back in
+    by setting HTTP_COLLECTIONS_ALLOWED_ROOTS explicitly.
+    """
+    http_dir = Path(raw_path).resolve()
+    if not http_dir.is_dir():
+        raise HTTPException(status_code=422, detail=f"Directory not found: {http_dir}")
+
+    env_roots = os.environ.get("HTTP_COLLECTIONS_ALLOWED_ROOTS")
+    if env_roots:
+        allowed_roots = [Path(p).resolve() for p in env_roots.split(":") if p]
+    else:
+        env_default = os.environ.get("HTTP_COLLECTIONS_PATH")
+        allowed_roots = [Path(env_default).resolve()] if env_default else []
+
+    if not allowed_roots:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Refusing to read an arbitrary directory: neither HTTP_COLLECTIONS_PATH "
+                "nor HTTP_COLLECTIONS_ALLOWED_ROOTS is configured on this deployment. "
+                "Set one of these environment variables to the http-client-collections "
+                "location before calling this endpoint."
+            ),
+        )
+    if not any(http_dir == root or http_dir.is_relative_to(root) for root in allowed_roots):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Directory not permitted: {http_dir}. Set HTTP_COLLECTIONS_ALLOWED_ROOTS "
+                   "to allow additional locations.",
+        )
+    return http_dir
+
+
 @router.post(
     "/api/request-bodies/rebuild",
     summary="Regenerate the request body catalog",
@@ -389,12 +493,7 @@ def rebuild_request_bodies(body: RebuildRequest = RebuildRequest()):
                 "or set the HTTP_COLLECTIONS_PATH environment variable."
             ),
         )
-    http_dir = Path(raw_path)
-    if not http_dir.is_dir():
-        raise HTTPException(
-            status_code=422,
-            detail=f"Directory not found: {http_dir}",
-        )
+    http_dir = _validate_http_collections_dir(raw_path)
     try:
         catalog = _rebuild_catalog(http_dir)
         return {
